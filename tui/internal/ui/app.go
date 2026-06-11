@@ -9262,8 +9262,12 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 		rawSummary = strings.TrimSpace(stringValue(nested["summary"]))
 		summary = rawSummary
 	}
+	outputSummary := semanticNestedOutputSummary(payload, nested)
 	summary = stripSemanticControlContracts(summary)
 	intent := semanticControlIntentSummary(payload, eventType, rawSummary)
+	if outputSummary != "" && (summary == "" || semanticSummaryIsPlumbing(summary, eventType)) {
+		return appendSemanticControlIntent(outputSummary, intent)
+	}
 	if failure := semanticFailureSummary(payload, eventType); failure != "" {
 		if summary == "" || semanticSummaryIsPlumbing(summary, eventType) || semanticSummaryIsGenericFailure(summary) {
 			return appendSemanticControlIntent(failure, intent)
@@ -9279,6 +9283,24 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 		summary = humanizeSemanticEventType(eventType)
 	}
 	return appendSemanticControlIntent(summary, intent)
+}
+
+func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) string {
+	summary := firstNonEmpty(
+		stringValue(nested["output_summary"]),
+		stringValue(payload["output_summary"]),
+		stringValue(nested["result_summary"]),
+		stringValue(payload["result_summary"]),
+		stringValue(nested["return_summary"]),
+		stringValue(payload["return_summary"]),
+		stringValue(nested["observation_summary"]),
+		stringValue(payload["observation_summary"]),
+	)
+	summary = stripSemanticControlContracts(summary)
+	if summary == "" {
+		return ""
+	}
+	return summarizeExpertHandoffOutput(summary)
 }
 
 func semanticFailureSummary(payload map[string]any, eventType string) string {

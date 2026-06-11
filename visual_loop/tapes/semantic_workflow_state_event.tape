@@ -13,6 +13,10 @@ Show
 Wait+Screen /main selected data/
 Wait+Screen /Seismic dataset lookup/
 Screenshot "visual_loop/screenshots/semantic_workflow_state_event_route.png"
+Wait+Screen /NDP resource 00d66104 was too large/
+Wait+Screen /next: analysis/
+Wait+Screen /run SAC fallback/
+Screenshot "visual_loop/screenshots/semantic_workflow_state_event_contract.png"
 Wait+Screen /analysis returned/
 Wait+Screen /next: visualization/
 Wait+Screen /acquisition staged/

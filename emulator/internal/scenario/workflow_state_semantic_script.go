@@ -55,6 +55,36 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 		return
 	}
 
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
+		Payload: map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_workflow_data_contract",
+			"event_type":     "blueprint.delegation.completed",
+			"status":         "completed",
+			"summary":        "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback preserving the user's requested region/recent window; otherwise IU.ANMO.00.BHZ 2010-02-27T06:30:00 duration=60s DO_NOT_DELEGATE_DATA_AGAIN: true",
+			"session_id":     sessionID,
+			"trace_id":       "trace_workflow_state",
+			"turn_id":        "turn_workflow_state",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "data", "role": "child_expert"},
+			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"blueprint":      map[string]any{"pack_id": "seismic-waveform-review", "pack_version": "0.1.0"},
+			"payload": map[string]any{
+				"stage":          "delegate.completed",
+				"parent_id":      "main",
+				"agent_id":       "data",
+				"duration_ms":    4200.0,
+				"output_summary": "NDP resource 00d66104 was too large to stage; using EarthScope fallback for the requested San Diego window.",
+			},
+		},
+	})
+	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
+		return
+	}
+
 	workflowPayload := func(eventID string) map[string]any {
 		return map[string]any{
 			"schema_version": "clio.semantic_event.v1",

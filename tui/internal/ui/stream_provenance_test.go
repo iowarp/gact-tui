@@ -915,6 +915,51 @@ func TestApplySemanticEventRendersWorkflowStateSummaryInline(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventPrefersDelegationOutputSummaryOverCompactContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "delegate_contract_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.completed",
+			"status":     "completed",
+			"summary": "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback preserving the user's requested region/recent window; " +
+				"otherwise IU.ANMO.00.BHZ 2010-02-27T06:30:00 duration=60s DO_NOT_DELEGATE_DATA_AGAIN: true",
+			"actor":   map[string]any{"agent_id": "data", "role": "child_expert"},
+			"subject": map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":          "delegate.completed",
+				"parent_id":      "main",
+				"agent_id":       "data",
+				"output_summary": "NDP resource 00d66104 was too large to stage; using EarthScope fallback for the requested San Diego window.",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("delegation output summary message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{
+		"NDP resource 00d66104 was too large to stage",
+		"next: analysis - run SAC fallback preserving the user's requested region/recent window",
+	} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("delegation output summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_DELEGATE", "IU.ANMO"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("delegation output summary leaked compact contract %q: %#v", unwanted, part)
+		}
+	}
+}
+
 func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

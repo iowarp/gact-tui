@@ -416,6 +416,7 @@ func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
 	}
 	sawWorkflowEvent := false
 	sawRoutingEvent := false
+	sawContractOutputEvent := false
 	for _, event := range got {
 		if event.Type != "semantic.event" {
 			continue
@@ -431,12 +432,20 @@ func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
 			nested["route_reason"] == "Seismic dataset lookup routes to the data expert." {
 			sawRoutingEvent = true
 		}
+		if payload["event_type"] == "blueprint.delegation.completed" &&
+			nested["agent_id"] == "data" &&
+			nested["output_summary"] == "NDP resource 00d66104 was too large to stage; using EarthScope fallback for the requested San Diego window." {
+			sawContractOutputEvent = true
+		}
 	}
 	if !sawWorkflowEvent {
 		t.Fatalf("semantic workflow fixture did not emit delegation workflow_state event: %#v", got)
 	}
 	if !sawRoutingEvent {
 		t.Fatalf("semantic workflow fixture did not emit route selection event: %#v", got)
+	}
+	if !sawContractOutputEvent {
+		t.Fatalf("semantic workflow fixture did not emit contract output summary event: %#v", got)
 	}
 }
 
