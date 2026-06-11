@@ -115,8 +115,11 @@ func TestWorkflowStateMetadataPromotesEvidencePart(t *testing.T) {
 	if len(msg.Parts) < 2 || msg.Parts[0].Type != gact.PartTypeExpertHandoff {
 		t.Fatalf("workflow evidence not inserted before text: %#v", msg.Parts)
 	}
-	if !strings.Contains(msg.Parts[0].Text, "workflow state:") || !strings.Contains(msg.Parts[0].Text, "dataset_id=") {
+	if !strings.Contains(msg.Parts[0].Text, "workflow state:") || !strings.Contains(msg.Parts[0].Text, "dataset 00d66104") {
 		t.Fatalf("workflow state summary = %q", msg.Parts[0].Text)
+	}
+	if strings.Contains(msg.Parts[0].Text, "dataset_id=") {
+		t.Fatalf("workflow state summary should use operator labels, got %q", msg.Parts[0].Text)
 	}
 	if msg.Parts[0].Metadata["synthetic_from"] != "workflow_state_metadata" {
 		t.Fatalf("workflow metadata = %#v", msg.Parts[0].Metadata)
@@ -142,17 +145,20 @@ func TestWorkflowStateSummaryNamesNestedStatusAndEvidence(t *testing.T) {
 	})
 	for _, want := range []string{
 		"acquisition staged",
-		"dataset_id=00d66104-dcb0-4381-86b4-fc62f08b3434",
+		"dataset 00d66104-dcb0-4381-86b4-fc62f08b3434",
+		"file earthscope_CI_BAR.sac",
 		"artifact ready",
-		"artifact_path=sac_traces_earthscope",
+		"artifact sac_traces_earthscope",
 		"geospatial resolved",
 	} {
 		if !strings.Contains(summary, want) {
 			t.Fatalf("workflow summary missing %q:\n%s", want, summary)
 		}
 	}
-	if strings.Contains(summary, "field") {
-		t.Fatalf("workflow summary should not collapse meaningful sections to field counts:\n%s", summary)
+	for _, unwanted := range []string{"field", "dataset_id=", "local_path=", "artifact_path="} {
+		if strings.Contains(summary, unwanted) {
+			t.Fatalf("workflow summary should not leak %q:\n%s", unwanted, summary)
+		}
 	}
 }
 

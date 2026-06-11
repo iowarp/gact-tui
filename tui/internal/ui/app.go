@@ -7313,7 +7313,7 @@ func workflowStateValueSummary(key string, value any) string {
 		if text == "" || text == "<nil>" {
 			return ""
 		}
-		return key + "=" + truncate(compactCatalogText(text), 48)
+		return workflowStateFieldSummary(key, text)
 	}
 }
 
@@ -7330,22 +7330,74 @@ func workflowStateMapSummary(key string, values map[string]any) string {
 		parts = append(parts, status)
 	}
 	for _, field := range []string{
-		"dataset_id", "resource_id", "station", "network", "record_count",
-		"feature_count", "warning_count", "trace_count", "artifact",
 		"artifact_path", "plot_path", "local_path", "staged_path", "filepath",
-		"file", "path",
+		"file", "path", "dataset_id", "resource_id", "station", "network",
+		"record_count", "feature_count", "warning_count", "trace_count",
+		"artifact",
 	} {
 		if len(parts) >= 3 {
 			break
 		}
 		if text := workflowStateLeafText(values[field]); text != "" {
-			parts = append(parts, field+"="+truncate(compactCatalogText(text), 40))
+			parts = append(parts, workflowStateFieldSummary(field, text))
 		}
 	}
 	if len(parts) == 0 {
 		return key + "=" + pluralizeCount(len(values), "field")
 	}
 	return key + " " + strings.Join(parts, ", ")
+}
+
+func workflowStateFieldSummary(field, text string) string {
+	field = strings.TrimSpace(field)
+	text = strings.TrimSpace(text)
+	if field == "" || text == "" {
+		return ""
+	}
+	label := workflowStateFieldLabel(field)
+	value := compactCatalogText(text)
+	if workflowStateFieldIsPath(field) {
+		value = shortenKnownPaths(value)
+		if strings.Contains(value, "/") {
+			value = filepath.Base(value)
+		}
+	}
+	if value == "" || value == "." {
+		return ""
+	}
+	return label + " " + truncate(value, 44)
+}
+
+func workflowStateFieldLabel(field string) string {
+	switch strings.ToLower(strings.TrimSpace(field)) {
+	case "dataset_id", "dataset_identifier":
+		return "dataset"
+	case "resource_id":
+		return "resource"
+	case "record_count":
+		return "records"
+	case "feature_count":
+		return "features"
+	case "warning_count":
+		return "warnings"
+	case "trace_count":
+		return "traces"
+	case "artifact", "artifact_path", "plot_path":
+		return "artifact"
+	case "local_path", "staged_path", "filepath", "file", "path":
+		return "file"
+	default:
+		return humanizeAgentLabel(field)
+	}
+}
+
+func workflowStateFieldIsPath(field string) bool {
+	switch strings.ToLower(strings.TrimSpace(field)) {
+	case "artifact", "artifact_path", "plot_path", "local_path", "staged_path", "filepath", "file", "path":
+		return true
+	default:
+		return false
+	}
 }
 
 func workflowStateLeafText(value any) string {

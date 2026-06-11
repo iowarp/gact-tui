@@ -703,7 +703,7 @@ func TestApplySemanticEventRendersWorkflowStateSummaryInline(t *testing.T) {
 			t.Fatalf("semantic workflow render missing %q:\n%s", want, plain)
 		}
 	}
-	if strings.Contains(plain, "field") || strings.Contains(plain, "workflow_state") {
+	if strings.Contains(plain, "field") || strings.Contains(plain, "workflow_state") || strings.Contains(plain, "dataset_id=") || strings.Contains(plain, "artifact_path=") {
 		t.Fatalf("semantic workflow render leaked raw state shape:\n%s", plain)
 	}
 	ref := partDetailRef(a.messages[0].ID, part)
