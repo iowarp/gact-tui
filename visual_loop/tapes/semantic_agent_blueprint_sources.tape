@@ -30,9 +30,13 @@ Wait+Screen /Add marketplace source/
 Wait+Screen /CLIO stores the source/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_sources_add_source.png"
-Escape
+Type "https://github.com/iowarp/ndp-demo-agents.git"
+Enter
+Wait+Screen /marketplace source added: ndp-demo-agents/
 Wait+Screen /Marketplace sources/
+Wait+Screen /ndp-demo-agents/
 Sleep 300ms
+Screenshot "visual_loop/screenshots/semantic_agent_blueprint_sources_added.png"
 
 Type "d"
 Wait+Screen /confirm remove/

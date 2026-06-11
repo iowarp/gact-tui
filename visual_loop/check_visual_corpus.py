@@ -568,6 +568,7 @@ CORPUS_GROUPS: tuple[CorpusGroup, ...] = (
             "visual_loop/screenshots/semantic_agent_blueprint_sources_catalog.png",
             "visual_loop/screenshots/semantic_agent_blueprint_sources_registry.png",
             "visual_loop/screenshots/semantic_agent_blueprint_sources_add_source.png",
+            "visual_loop/screenshots/semantic_agent_blueprint_sources_added.png",
             "visual_loop/screenshots/semantic_agent_blueprint_sources_remove_confirm.png",
             "visual_loop/screenshots/semantic_agent_blueprint_sources_install_row.png",
             "visual_loop/screenshots/semantic_agent_blueprint_sources_installed.png",
