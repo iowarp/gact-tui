@@ -1675,8 +1675,40 @@ func TestCatalogBrowser_AgentBlueprintSourceDeleteConfirmationCancelsOnChildSele
 	if a.catalogBrowser.pendingDeleteSourceID != "" {
 		t.Fatalf("pending source delete should clear after selecting child row, got %q", a.catalogBrowser.pendingDeleteSourceID)
 	}
+	if a.transientHint != "" {
+		t.Fatalf("source delete confirmation hint should clear after selecting child row, got %q", a.transientHint)
+	}
 	if hint := catalogBrowserHintText(a.catalogBrowser); strings.Contains(hint, "confirm remove") || strings.Contains(hint, "d remove") {
 		t.Fatalf("child blueprint row should not expose source removal after cancel, got %q", hint)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceDeleteConfirmationCancelsOnWheelSelection(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(keyMsg("d"))
+	if a.catalogBrowser.pendingDeleteSourceID != "src1" || a.transientHint == "" {
+		t.Fatalf("source delete should be armed before wheel selection, pending=%q hint=%q", a.catalogBrowser.pendingDeleteSourceID, a.transientHint)
+	}
+
+	cmd := a.handleCatalogBrowserWheel(tea.MouseWheelDown)
+	if cmd != nil {
+		t.Fatalf("wheel should only move selection/cancel confirmation, got command %#v", cmd)
+	}
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel should select child blueprint row, sel=%d", a.catalogBrowser.sel)
+	}
+	if a.catalogBrowser.pendingDeleteSourceID != "" || a.transientHint != "" {
+		t.Fatalf("wheel selection should clear stale source confirmation, pending=%q hint=%q", a.catalogBrowser.pendingDeleteSourceID, a.transientHint)
 	}
 }
 
@@ -1769,10 +1801,16 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t 
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source flow:", "select a provided blueprint to install", "Source actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
+	for _, want := range []string{"Source flow:", "select a provided blueprint to install", "Blueprint actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source blueprint browser missing %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "Source actions") {
+		t.Fatalf("selected blueprint row should not label install controls as source actions:\n%s", out)
+	}
+	if got := catalogBrowserHintText(a.catalogBrowser); !strings.Contains(got, "Enter install selected blueprint") || strings.Contains(got, "source details") {
+		t.Fatalf("selected blueprint row hint = %q", got)
 	}
 	buttons := a.agentBlueprintSourceActionButtons()
 	if len(buttons) != 2 || buttons[0].label != "install blueprint" || buttons[1].label != "refresh source" {

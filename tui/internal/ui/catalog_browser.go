@@ -980,9 +980,11 @@ func (a *App) handleCatalogBrowserWheel(button tea.MouseButton) tea.Cmd {
 	if delta == 0 {
 		cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), button)
 		cb.offset = catalogBrowserClampOffsetForKind(cb.kind, cb.sel, cb.offset, len(cb.items))
+		a.cancelCatalogPendingDeletesOutsideSelection()
 		return nil
 	}
 	catalogBrowserMoveSelection(cb, delta)
+	a.cancelCatalogPendingDeletesOutsideSelection()
 	return nil
 }
 
@@ -999,15 +1001,19 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	if cb.pendingDeleteAgentID != "" && !catalogBrowserKeyConfirmsAgentDelete(cb, key) {
 		cb.pendingDeleteAgentID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteBlueprintID != "" && !catalogBrowserKeyConfirmsBlueprintDelete(cb, key) {
 		cb.pendingDeleteBlueprintID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteExpertPackID != "" && !catalogBrowserKeyConfirmsExpertPackDelete(cb, key) {
 		cb.pendingDeleteExpertPackID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteSourceID != "" && !catalogBrowserKeyConfirmsSourceDelete(cb, key) {
 		cb.pendingDeleteSourceID = ""
+		a.transientHint = ""
 	}
 	switch key {
 	case "esc", "escape", "ctrl+c":
@@ -1936,6 +1942,41 @@ func catalogBrowserMoveSelection(cb *catalogBrowserState, delta int) {
 	cb.offset = catalogBrowserClampOffsetForKind(cb.kind, pos, cb.offset, len(indexes))
 }
 
+func (a *App) cancelCatalogPendingDeletesOutsideSelection() {
+	cb := a.catalogBrowser
+	if cb == nil {
+		return
+	}
+	cleared := false
+	if cb.pendingDeleteAgentID != "" && !catalogBrowserKeyConfirmsAgentDelete(cb, "enter") {
+		cb.pendingDeleteAgentID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteBlueprintID != "" && !catalogBrowserKeyConfirmsBlueprintDelete(cb, "enter") {
+		cb.pendingDeleteBlueprintID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteExpertPackID != "" && !catalogBrowserKeyConfirmsExpertPackDelete(cb, "enter") {
+		cb.pendingDeleteExpertPackID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteSourceID != "" && !catalogBrowserKeyConfirmsSourceDelete(cb, "d") {
+		cb.pendingDeleteSourceID = ""
+		cleared = true
+	}
+	if cleared {
+		a.transientHint = ""
+	}
+}
+
+func agentBlueprintSourceActionSectionTitle(cb *catalogBrowserState) string {
+	if cb != nil && cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) &&
+		strings.HasPrefix(cb.items[cb.sel].id, "source-blueprint/") {
+		return "Blueprint actions"
+	}
+	return "Source actions"
+}
+
 func catalogBrowserHasItem(cb *catalogBrowserState, itemID string) bool {
 	if cb == nil {
 		return false
@@ -2283,7 +2324,7 @@ func (a *App) viewCatalogBrowser() string {
 		if len(actionButtons) > 0 {
 			actionRow = len(rows) + 1
 			rows = append(rows,
-				t.HintLabel.Render("Source actions"),
+				t.HintLabel.Render(agentBlueprintSourceActionSectionTitle(a.catalogBrowser)),
 				renderActionButtons(actionButtons),
 				"",
 				t.HintLabel.Render("Marketplace source tree"),
@@ -2359,6 +2400,7 @@ func (a *App) viewCatalogBrowser() string {
 				}
 				app.catalogBrowser.sel = idx
 				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+				app.cancelCatalogPendingDeletesOutsideSelection()
 				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
 				return cmd
 			}
@@ -2413,6 +2455,7 @@ func (a *App) viewCatalogBrowser() string {
 					app.catalogBrowser.sel = indexes[index]
 				}
 				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, index, app.catalogBrowser.offset, len(indexes))
+				app.cancelCatalogPendingDeletesOutsideSelection()
 			}
 			return nil
 		},
