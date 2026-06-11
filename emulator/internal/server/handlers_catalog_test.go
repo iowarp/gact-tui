@@ -319,6 +319,45 @@ func TestAgentBlueprintFailureFixture(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintMarketplaceSourceLifecycle(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/agent-blueprints/sources", gact.AgentBlueprintSourceRequest{
+		Name:    "NDP Demo Agents",
+		Source:  "https://github.com/iowarp/ndp-demo-agents.git",
+		Ref:     "main",
+		Refresh: true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("add source: %d body %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Source gact.AgentBlueprintSource `json:"source"`
+	}
+	mustDecode(t, rec, &created)
+	if created.Source.ID != "ndp-demo-agents-main" || created.Source.Name != "NDP Demo Agents" || created.Source.SourceKind != "git" {
+		t.Fatalf("created source = %+v", created.Source)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/sources", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list sources: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "NDP Demo Agents") || !strings.Contains(rec.Body.String(), "https://github.com/iowarp/ndp-demo-agents.git") {
+		t.Fatalf("created source missing from list: %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodDelete, "/v1/agent-blueprints/sources/ndp-demo-agents-main", nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete created source: %d body %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/sources", nil)
+	if strings.Contains(rec.Body.String(), "NDP Demo Agents") {
+		t.Fatalf("created source survived delete: %s", rec.Body.String())
+	}
+}
+
 func TestPromptStressAndSaveFailureFixtures(t *testing.T) {
 	st := store.New()
 	if _, err := st.CreateWorkspace(gact.Workspace{ID: "ws_test", RootPath: "/tmp/test"}); err != nil {

@@ -2426,6 +2426,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
 	case agentBlueprintSourceManagedMsg:
+		if a.agentBlueprintManageOpen && a.agentBlueprintManageMode == agentBlueprintManageSource {
+			a.agentBlueprintManageSaving = false
+			if m.err != nil {
+				a.agentBlueprintManageErr = operatorErrorMessage(m.err)
+				return a, nil
+			}
+			a.closeAgentBlueprintManage()
+		}
 		if m.err != nil {
 			a.transientHint = operatorFailureHint("marketplace source", m.action, m.err)
 			return a, scheduleHintExpire(a.transientHint)

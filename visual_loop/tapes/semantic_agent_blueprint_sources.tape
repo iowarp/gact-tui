@@ -25,6 +25,15 @@ Wait+Screen /Enter source details/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_sources_registry.png"
 
+Type "a"
+Wait+Screen /Add marketplace source/
+Wait+Screen /CLIO stores the source/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_agent_blueprint_sources_add_source.png"
+Escape
+Wait+Screen /Marketplace sources/
+Sleep 300ms
+
 Type "d"
 Wait+Screen /confirm remove/
 Sleep 500ms

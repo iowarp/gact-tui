@@ -968,6 +968,14 @@ func (c *Client) ListAgentBlueprintSources(ctx context.Context) ([]gact.AgentBlu
 	return out.Sources, err
 }
 
+func (c *Client) AddAgentBlueprintSource(ctx context.Context, req gact.AgentBlueprintSourceRequest) (gact.AgentBlueprintSource, error) {
+	var out struct {
+		Source gact.AgentBlueprintSource `json:"source"`
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/agent-blueprints/sources", req, &out)
+	return out.Source, err
+}
+
 func (c *Client) RefreshAgentBlueprintSource(ctx context.Context, sourceID string) (gact.AgentBlueprintSource, error) {
 	var out struct {
 		Source gact.AgentBlueprintSource `json:"source"`

@@ -16,6 +16,7 @@ import (
 const (
 	agentBlueprintManageInstall  = "install"
 	agentBlueprintManageValidate = "validate"
+	agentBlueprintManageSource   = "source"
 )
 
 type agentBlueprintManageDoneMsg struct {
@@ -63,10 +64,14 @@ func (a *App) handleAgentBlueprintManageKey(k tea.KeyPressMsg) (tea.Model, tea.C
 			return a, nil
 		}
 		a.agentBlueprintManageSaving = true
-		if a.agentBlueprintManageMode == agentBlueprintManageValidate {
+		switch a.agentBlueprintManageMode {
+		case agentBlueprintManageValidate:
 			return a, validateAgentBlueprintCmd(a.c, a.runtimeScope(), source)
+		case agentBlueprintManageSource:
+			return a, addAgentBlueprintSourceCmd(a.c, source)
+		default:
+			return a, installAgentBlueprintCmd(a.c, a.runtimeScope(), source)
 		}
-		return a, installAgentBlueprintCmd(a.c, a.runtimeScope(), source)
 	case "backspace":
 		if a.agentBlueprintManageCursor == 0 {
 			return a, nil
@@ -159,12 +164,22 @@ func validateAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, path
 	}
 }
 
+func addAgentBlueprintSourceCmd(c *client.Client, source string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		row, err := c.AddAgentBlueprintSource(ctx, gact.AgentBlueprintSourceRequest{Source: source, Refresh: true})
+		return agentBlueprintSourceManagedMsg{sourceID: firstNonEmpty(row.ID, source), action: "added", source: row, err: err}
+	}
+}
+
 func (a *App) viewAgentBlueprintManage() string {
 	t := a.Theme
 	w := a.modalWidth()
 	mode := a.agentBlueprintManageMode
 	title := "Install agent blueprint"
 	verb := "install"
+	actionID := "install"
 	intro := []string{
 		"Enter a local directory, AGENT.md path, git URL, or marketplace source.",
 		"Installs into the current workspace and reloads the blueprint catalog.",
@@ -175,13 +190,22 @@ func (a *App) viewAgentBlueprintManage() string {
 	if mode == agentBlueprintManageValidate {
 		title = "Validate agent blueprint"
 		verb = "validate"
+		actionID = "validate"
 		intro = []string{
 			"Enter a local directory or AGENT.md path.",
 			"Validation previews the parsed blueprint, agents, MCP descriptors, and errors without installing it.",
 		}
+	} else if mode == agentBlueprintManageSource {
+		title = "Add marketplace source"
+		verb = "add source"
+		actionID = "add-source"
+		intro = []string{
+			"Enter a git URL or local marketplace directory.",
+			"CLIO stores the source, refreshes it, and lists available blueprints in this browser.",
+		}
 	}
 	buttons := []menuButton{{
-		id:    "agent-blueprint-manage:" + verb,
+		id:    "agent-blueprint-manage:" + actionID,
 		label: verb,
 		action: func(app *App) tea.Cmd {
 			_, cmd := app.handleAgentBlueprintManageKey(keyMsg("enter"))

@@ -704,9 +704,17 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 		}
 	}
 
+	a.openAgentBlueprintManage(agentBlueprintManageSource)
+	sourceView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Add marketplace source", "add source", "git URL", "CLIO stores", "refreshes"} {
+		if !strings.Contains(sourceView, want) {
+			t.Fatalf("source modal missing %q:\n%s", want, sourceView)
+		}
+	}
+
 	_, _ = a.handleAgentBlueprintManageKey(keyMsg("enter"))
 	if !strings.Contains(a.agentBlueprintManageErr, "required") {
-		t.Fatalf("empty validate submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
+		t.Fatalf("empty source submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
 	}
 }
 

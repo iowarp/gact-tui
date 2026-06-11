@@ -1002,6 +1002,49 @@ func (s *Server) handleListAgentBlueprintSources(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{"sources": s.agentBlueprintSources()})
 }
 
+func (s *Server) handleAddAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintSourceRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	source := strings.TrimSpace(firstNonEmptyString(req.Source, req.URL))
+	if source == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "source or url is required")
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = sourceDisplayName(source)
+	}
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		id = sourceRegistryID(source, req.Ref)
+	}
+	now := "2026-06-11T12:00:00Z"
+	row := gact.AgentBlueprintSource{
+		ID:           id,
+		Name:         name,
+		Source:       source,
+		Ref:          strings.TrimSpace(req.Ref),
+		PinnedCommit: strings.TrimSpace(req.PinnedCommit),
+		SourceKind:   sourceKind(source),
+		Status:       "ready",
+		Commit:       "1234567890abcdef",
+		AddedAt:      now,
+		UpdatedAt:    now,
+	}
+	s.blueprintMu.Lock()
+	defer s.blueprintMu.Unlock()
+	filtered := s.blueprintSources[:0]
+	for _, existing := range s.blueprintSources {
+		if existing.ID != id {
+			filtered = append(filtered, existing)
+		}
+	}
+	s.blueprintSources = append(filtered, row)
+	writeJSON(w, http.StatusCreated, map[string]any{"source": row})
+}
+
 func (s *Server) handleRefreshAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if s.cfg.AgentBlueprintFailures && id == "data-semantics-agents" {
@@ -1021,6 +1064,16 @@ func (s *Server) handleRefreshAgentBlueprintSource(w http.ResponseWriter, r *htt
 
 func (s *Server) handleDeleteAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	s.blueprintMu.Lock()
+	for i, source := range s.blueprintSources {
+		if source.ID == id {
+			s.blueprintSources = append(s.blueprintSources[:i], s.blueprintSources[i+1:]...)
+			s.blueprintMu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	s.blueprintMu.Unlock()
 	for _, source := range s.agentBlueprintSources() {
 		if source.ID == id {
 			w.WriteHeader(http.StatusNoContent)
@@ -1520,7 +1573,62 @@ func (s *Server) agentBlueprintSources() []gact.AgentBlueprintSource {
 	if s != nil && s.cfg.LongAgentBlueprints {
 		rows = append(rows, staticLongAgentBlueprintSources()...)
 	}
+	if s != nil {
+		s.blueprintMu.Lock()
+		rows = append(rows, s.blueprintSources...)
+		s.blueprintMu.Unlock()
+	}
 	return rows
+}
+
+func sourceRegistryID(source string, ref string) string {
+	base := sourceDisplayName(source)
+	base = strings.ToLower(base)
+	base = strings.TrimSuffix(base, ".git")
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= '0' && r <= '9':
+			return r
+		case r == '-' || r == '_':
+			return '-'
+		default:
+			return '-'
+		}
+	}, base)
+	base = strings.Trim(base, "-")
+	if base == "" {
+		base = "source"
+	}
+	if ref = strings.TrimSpace(ref); ref != "" {
+		base += "-" + strings.ToLower(strings.ReplaceAll(ref, "/", "-"))
+	}
+	return base
+}
+
+func sourceKind(source string) string {
+	switch {
+	case strings.HasPrefix(source, "git@"), strings.HasPrefix(source, "http://"), strings.HasPrefix(source, "https://"):
+		return "git"
+	case strings.HasPrefix(source, "/"), strings.HasPrefix(source, "."):
+		return "path"
+	default:
+		return "source"
+	}
+}
+
+func sourceDisplayName(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "Marketplace source"
+	}
+	source = strings.TrimSuffix(source, "/")
+	source = strings.TrimSuffix(source, ".git")
+	if idx := strings.LastIndexAny(source, "/:"); idx >= 0 && idx < len(source)-1 {
+		return source[idx+1:]
+	}
+	return source
 }
 
 func staticLongAgentBlueprintSources() []gact.AgentBlueprintSource {

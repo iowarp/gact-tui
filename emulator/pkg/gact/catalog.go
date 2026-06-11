@@ -311,6 +311,16 @@ type AgentBlueprintSource struct {
 	AvailableBlueprints []AgentBlueprintDefinition `json:"available_blueprints,omitempty"`
 }
 
+type AgentBlueprintSourceRequest struct {
+	ID           string `json:"id,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Source       string `json:"source,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Ref          string `json:"ref,omitempty"`
+	PinnedCommit string `json:"pinned_commit,omitempty"`
+	Refresh      bool   `json:"refresh,omitempty"`
+}
+
 type AgentBlueprintUpdateRequest struct {
 	Scope       string `json:"scope,omitempty"`
 	WorkspaceID string `json:"workspace_id,omitempty"`

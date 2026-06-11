@@ -1740,34 +1740,89 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedSource(t *te
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source flow:", "select a source to refresh/remove", "select a provided blueprint to install", "Source actions", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
+	for _, want := range []string{"Source flow:", "add/refresh/remove sources", "select a provided blueprint to install", "Source actions", "add source", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source browser missing %q:\n%s", want, out)
 		}
 	}
 
 	buttons := a.agentBlueprintSourceActionButtons()
-	if len(buttons) != 2 || buttons[0].label != "refresh source" || buttons[1].label != "remove source" {
+	if len(buttons) != 3 || buttons[0].label != "add source" || buttons[1].label != "refresh source" || buttons[2].label != "remove source" {
 		t.Fatalf("source action buttons = %#v", buttons)
 	}
-	msg := buttons[0].action(a)()
+	if cmd := buttons[0].action(a); cmd != nil || !a.agentBlueprintManageOpen || a.agentBlueprintManageMode != agentBlueprintManageSource {
+		t.Fatalf("add source action should open source modal, open=%v mode=%q cmd=%v", a.agentBlueprintManageOpen, a.agentBlueprintManageMode, cmd)
+	}
+	a.closeAgentBlueprintManage()
+	msg := buttons[1].action(a)()
 	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "refreshed" || got.err != nil {
 		t.Fatalf("refresh action msg = %#v", msg)
 	}
-	cmd := buttons[1].action(a)
+	cmd := buttons[2].action(a)
 	if cmd == nil || a.catalogBrowser.pendingDeleteSourceID != "src1" || !strings.Contains(a.transientHint, "confirm removing source src1") {
 		t.Fatalf("remove should arm source confirmation, pending=%q hint=%q cmd=%v", a.catalogBrowser.pendingDeleteSourceID, a.transientHint, cmd)
 	}
 	buttons = a.agentBlueprintSourceActionButtons()
-	if len(buttons) != 2 || buttons[1].label != "confirm remove" {
+	if len(buttons) != 3 || buttons[2].label != "confirm remove" {
 		t.Fatalf("armed source action buttons = %#v", buttons)
 	}
-	msg = buttons[1].action(a)()
+	msg = buttons[2].action(a)()
 	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "deleted" || got.err != nil {
 		t.Fatalf("delete action msg = %#v", msg)
 	}
 	if !slices.Contains(paths, "POST /v1/agent-blueprints/sources/src1/refresh") || !slices.Contains(paths, "DELETE /v1/agent-blueprints/sources/src1") {
 		t.Fatalf("source action requests = %#v", paths)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceAddKeySubmitsSource(t *testing.T) {
+	var sourceBody gact.AgentBlueprintSourceRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/sources":
+			if err := json.NewDecoder(r.Body).Decode(&sourceBody); err != nil {
+				t.Fatalf("decode source body: %v", err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			writeJSONForTest(t, w, map[string]any{"source": map[string]any{
+				"id":          "ndp-demo-agents",
+				"name":        "NDP Demo Agents",
+				"source":      sourceBody.Source,
+				"source_kind": "git",
+				"status":      "ready",
+			}})
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{{id: "source/src1", title: "Data Semantics Agents"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(keyMsg("a"))
+	if cmd != nil || !a.agentBlueprintManageOpen || a.agentBlueprintManageMode != agentBlueprintManageSource {
+		t.Fatalf("a key should open add source modal, open=%v mode=%q cmd=%v", a.agentBlueprintManageOpen, a.agentBlueprintManageMode, cmd)
+	}
+	a.agentBlueprintManageInput = "https://github.com/iowarp/ndp-demo-agents.git"
+	a.agentBlueprintManageCursor = len([]rune(a.agentBlueprintManageInput))
+	_, cmd = a.handleAgentBlueprintManageKey(keyMsg("enter"))
+	if cmd == nil || !a.agentBlueprintManageSaving {
+		t.Fatalf("enter should submit source add, saving=%v cmd=%v", a.agentBlueprintManageSaving, cmd)
+	}
+	msg := cmd()
+	got, ok := msg.(agentBlueprintSourceManagedMsg)
+	if !ok || got.err != nil || got.action != "added" || got.sourceID != "ndp-demo-agents" {
+		t.Fatalf("source add msg = %#v", msg)
+	}
+	if sourceBody.Source != "https://github.com/iowarp/ndp-demo-agents.git" || !sourceBody.Refresh {
+		t.Fatalf("source add body = %#v", sourceBody)
 	}
 }
 
@@ -1813,10 +1868,10 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t 
 		t.Fatalf("selected blueprint row hint = %q", got)
 	}
 	buttons := a.agentBlueprintSourceActionButtons()
-	if len(buttons) != 2 || buttons[0].label != "install blueprint" || buttons[1].label != "refresh source" {
+	if len(buttons) != 3 || buttons[0].label != "add source" || buttons[1].label != "install blueprint" || buttons[2].label != "refresh source" {
 		t.Fatalf("source blueprint action buttons = %#v", buttons)
 	}
-	msg := buttons[0].action(a)()
+	msg := buttons[1].action(a)()
 	if got, ok := msg.(agentBlueprintManagedMsg); !ok || got.blueprintID != "seismic-waveform-review" || got.action != "installed" || got.err != nil {
 		t.Fatalf("install action msg = %#v", msg)
 	}

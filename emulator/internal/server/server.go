@@ -102,21 +102,23 @@ type Config struct {
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg            Config
-	started        time.Time
-	mux            *http.ServeMux
-	store          *store.Store
-	bus            *events.Bus
-	perms          *store.Permissions
-	contextFiles   *contextFileSet
-	latency        *latencyTracker
-	hooks          *hooksStore // §6.17 — MMM3
-	tasks          *tasksStore // §6.18 — MMM5
-	prompts        map[string]gact.PromptDefinition
-	agents         map[string]gact.AgentDef
-	agentsMu       sync.Mutex
-	userQuestions  map[string]gact.UserQuestion
-	providerAuthed map[string]bool
+	cfg              Config
+	started          time.Time
+	mux              *http.ServeMux
+	store            *store.Store
+	bus              *events.Bus
+	perms            *store.Permissions
+	contextFiles     *contextFileSet
+	latency          *latencyTracker
+	hooks            *hooksStore // §6.17 — MMM3
+	tasks            *tasksStore // §6.18 — MMM5
+	prompts          map[string]gact.PromptDefinition
+	agents           map[string]gact.AgentDef
+	agentsMu         sync.Mutex
+	blueprintMu      sync.Mutex
+	blueprintSources []gact.AgentBlueprintSource
+	userQuestions    map[string]gact.UserQuestion
+	providerAuthed   map[string]bool
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -339,6 +341,7 @@ func (s *Server) routes() {
 	// CLIO agent-blueprint extension
 	s.mux.HandleFunc("GET /v1/agent-blueprints", s.handleListAgentBlueprints)
 	s.mux.HandleFunc("GET /v1/agent-blueprints/sources", s.handleListAgentBlueprintSources)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/sources", s.handleAddAgentBlueprintSource)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/sources/{id}/refresh", s.handleRefreshAgentBlueprintSource)
 	s.mux.HandleFunc("DELETE /v1/agent-blueprints/sources/{id}", s.handleDeleteAgentBlueprintSource)
 	s.mux.HandleFunc("GET /v1/agent-blueprints/{id}", s.handleGetAgentBlueprint)

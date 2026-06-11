@@ -1417,6 +1417,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "a":
+		if cb.kind == catalogKindAgentBlueprintSources {
+			a.openAgentBlueprintManage(agentBlueprintManageSource)
+			return a, nil
+		}
 		if cb.kind == catalogKindAgentBlueprintDetail {
 			if catalogItemStatusTag(cb.items, "activate") == "active" {
 				a.transientHint = "Blueprint already active for this session"
@@ -1699,6 +1703,14 @@ func (a *App) agentBlueprintSourceActionButtons() []menuButton {
 	if cb == nil || cb.kind != catalogKindAgentBlueprintSources || cb.sel < 0 || cb.sel >= len(cb.items) {
 		return nil
 	}
+	addButton := menuButton{
+		id:    "agent-blueprint-source:add",
+		label: "add source",
+		action: func(app *App) tea.Cmd {
+			app.openAgentBlueprintManage(agentBlueprintManageSource)
+			return nil
+		},
+	}
 	item := cb.items[cb.sel]
 	switch {
 	case strings.HasPrefix(item.id, "source-blueprint/"):
@@ -1707,6 +1719,7 @@ func (a *App) agentBlueprintSourceActionButtons() []menuButton {
 			return nil
 		}
 		return []menuButton{
+			addButton,
 			{
 				id:    "agent-blueprint-source:install",
 				label: "install blueprint",
@@ -1729,6 +1742,7 @@ func (a *App) agentBlueprintSourceActionButtons() []menuButton {
 			deleteLabel = "confirm remove"
 		}
 		return []menuButton{
+			addButton,
 			{
 				id:    "agent-blueprint-source:refresh",
 				label: "refresh source",
@@ -1745,7 +1759,7 @@ func (a *App) agentBlueprintSourceActionButtons() []menuButton {
 			},
 		}
 	default:
-		return nil
+		return []menuButton{addButton}
 	}
 }
 
@@ -2488,7 +2502,7 @@ func catalogBrowserWorkflowGuide(kind catalogBrowserKind) string {
 	case catalogKindAgentBlueprints:
 		return "Setup flow: browse sources -> select blueprint -> install -> open detail -> activate for session."
 	case catalogKindAgentBlueprintSources:
-		return "Source flow: select a source to refresh/remove; select a provided blueprint to install into this workspace."
+		return "Source flow: add/refresh/remove sources; select a provided blueprint to install into this workspace."
 	default:
 		return ""
 	}
@@ -2589,12 +2603,12 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ structure", "Enter details/enable", "a activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprintSources:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "source-blueprint/") {
-			return modalKeyHint("↑/↓ navigate", "Enter install selected blueprint", "Esc back")
+			return modalKeyHint("↑/↓ navigate", "Enter install selected blueprint", "a add source", "Esc back")
 		}
 		if cb.pendingDeleteSourceID != "" && cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "source/"+cb.pendingDeleteSourceID {
-			return modalKeyHint("confirm remove armed", "d confirm remove source", "any other key cancels", "Esc back")
+			return modalKeyHint("confirm remove armed", "d confirm remove source", "a add source", "any other key cancels", "Esc back")
 		}
-		return modalKeyHint("↑/↓ navigate", "Enter source details", "r refresh", "d remove", "Esc back")
+		return modalKeyHint("↑/↓ navigate", "Enter source details", "a add source", "r refresh", "d remove", "Esc back")
 	default:
 		return modalKeyHint("↑/↓ navigate", "Esc close")
 	}
