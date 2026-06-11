@@ -28,8 +28,9 @@ stay out of Help. Run `python3 visual_loop/check_slash_command_coverage.py
 --root .` only when you want the smaller command-specific report.
 The report also includes the four-case NDP demo readiness summary when the CLIO
 evidence report is available. By default that section is informational so normal
-visual corpus checks can pass while any NDP case lacks manifest-backed streaming
-proof; add `--require-ndp-demo-ready` for the final demo gate.
+visual corpus checks can pass while any NDP case lacks its short GIF plus
+live-run streaming proof manifest; add `--require-ndp-demo-ready` for the final
+demo gate.
 
 When copy or terminal-selection behavior changes, refresh the maintained
 diagnostic report:
@@ -569,7 +570,10 @@ python3 visual_loop/check_ndp_demo_readiness.py --root . \
 Use `--strict` only when all four real TUI recordings are expected to exist. The
 checker reports CLIO artifact proof, deterministic TUI proof, and valid real TUI
 recordings independently so deterministic fixtures or placeholder files cannot
-be mistaken for the actual demo video/GIF evidence.
+be mistaken for the actual demo video/GIF evidence. "Streaming proof manifest"
+means the JSON receipt written by the capture helper after it inspects the owned
+backend session for live semantic events, observed assistant output, and the
+expected artifact.
 
 Current preserved real TUI screenshots cover all four NDP cases and are useful
 operator evidence. They are not yet release-ready video/GIF or streaming proof
@@ -701,7 +705,7 @@ Windows issue to avoid:
    warnings and Fresno CIMIS until their manifests no longer record provider
    streaming limitations. Use
    `python3 visual_loop/check_ndp_demo_readiness.py --root .` to verify the
-   exact missing or invalid manifest-backed streaming proof.
+   exact missing or invalid live-run streaming proof manifest.
 2. Continue the slash-command/operator-surface audit from `COVERAGE.md`, filling
    targeted missing states instead of regenerating broad suites.
 3. Add true range-selection semantics for transcript/detail/text-entry surfaces

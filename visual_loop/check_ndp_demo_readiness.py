@@ -175,7 +175,7 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
     if not path.exists():
         return {
             "ok": False,
-            "state": "manifest missing; streaming proof not verified",
+            "state": "streaming proof manifest missing",
             "path": rel,
             "required": True,
         }
@@ -355,7 +355,7 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append(f"- report exists: `{str(report['exists']).lower()}`")
     lines.append(f"- ready for real demo: `{str(result['ok']).lower()}`")
     lines.append("")
-    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI stills | Short GIF | Streaming proof | Ready |")
+    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI stills | Short GIF | Live-run manifest | Ready |")
     lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         lines.append(
@@ -370,19 +370,20 @@ def render_markdown(result: dict[str, object]) -> str:
             )
         )
     lines.append("")
-    lines.append("## Streaming Manifest Contract")
+    lines.append("## Streaming Proof Contract")
     lines.append("")
     lines.append(
-        "A short GIF is not enough by itself. Each real run must also write a "
-        "manifest proving the recording came from a live TUI session attached "
-        "to an owned CLIO backend."
+        "A short GIF proves that the terminal view moved over time, but it does "
+        "not prove that the run was a live CLIO stream. Each real run must also "
+        "write a streaming proof manifest: a small JSON receipt produced by the "
+        "capture helper after inspecting the owned backend session."
     )
     lines.append("")
     lines.append("Required manifest fields:")
     lines.extend(f"- `{field}`" for field in REQUIRED_MANIFEST_FIELDS)
     lines.append("")
     lines.append(
-        "A manifest only counts as streaming proof when the case/artifact match, "
+        "A manifest only counts as live-run proof when the case/artifact match, "
         "an assistant message and expected artifact were observed, at least one "
         "`semantic_event_count` and one `live_observed_event_count` were recorded, "
         "`streaming_event_types` is non-empty, and the run did not request user "
@@ -392,7 +393,7 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append("")
     lines.append("## Real Capture Inventory")
     lines.append("")
-    lines.append("| Case | Still captures | Short GIF | Manifest | Artifact observed | Streaming proof | Session status |")
+    lines.append("| Case | Still captures | Short GIF | Live-run manifest | Artifact observed | Streaming events | Session status |")
     lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         artifacts = case["real_tui_recording"]["artifacts"]
@@ -400,7 +401,7 @@ def render_markdown(result: dict[str, object]) -> str:
         data = manifest.get("data", {}) if isinstance(manifest, dict) else {}
         still_ok = case["real_tui_recording"]["still_visual_ok"]
         recording_ok = case["real_tui_recording"]["short_recording_ok"]
-        manifest_exists = bool(manifest) and manifest.get("state") != "manifest missing; streaming proof not verified"
+        manifest_exists = bool(manifest) and manifest.get("state") != "streaming proof manifest missing"
         artifact_observed = bool_field(data, "verified_artifact") if data else "legacy"
         streaming_limitation = bool_field(data, "provider_streaming_limitation") if data else None
         live_streaming_disabled = bool_field(data, "live_streaming_false") if data else None
@@ -440,7 +441,7 @@ def render_markdown(result: dict[str, object]) -> str:
             lines.extend(f"  - `{rel}` ({state})" for rel, state in missing)
         manifest = case["real_tui_recording"].get("manifest", {})
         if manifest and not manifest["ok"]:
-            lines.append("- Real TUI recording manifest does not prove streaming-ready live demo:")
+            lines.append("- Live-run manifest does not prove streaming-ready demo semantics:")
             lines.append(f"  - `{manifest['path']}` ({manifest['state']})")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

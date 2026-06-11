@@ -191,7 +191,7 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertEqual(result["summary"]["short_recordings"], 4)
         self.assertEqual(result["summary"]["streaming_proof_ready"], 3)
         self.assertIn("| Fresno CIMIS weather profile and visualization | yes | yes | yes | yes | no | no |", rendered)
-        self.assertIn("manifest does not prove streaming-ready live demo", rendered)
+        self.assertIn("Live-run manifest does not prove streaming-ready demo semantics", rendered)
 
     def test_markdown_lists_missing_real_tui_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -240,7 +240,7 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertTrue(legacy["real_tui_recording"]["visual_ok"])
         self.assertFalse(legacy["real_tui_recording"]["streaming_ok"])
         self.assertFalse(legacy["ready_for_real_demo"])
-        self.assertIn("manifest missing; streaming proof not verified", rendered)
+        self.assertIn("streaming proof manifest missing", rendered)
 
     def test_manifest_without_live_semantic_events_is_not_streaming_proof(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
