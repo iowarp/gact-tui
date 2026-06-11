@@ -638,6 +638,33 @@ class VisualCorpusCheckTest(unittest.TestCase):
         ):
             self.assertIn(rel, settings.required)
 
+    def test_manifest_requires_provider_settings_edge_and_narrow_visual_proof(self) -> None:
+        settings = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "settings_provider"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_settings_agent_long.tape",
+            "visual_loop/screenshots/semantic_settings_agent_long_top.png",
+            "visual_loop/screenshots/semantic_settings_agent_long_scrolled.png",
+            "visual_loop/screenshots/semantic_settings_agent_long_detail.png",
+            "visual_loop/tapes/semantic_provider_edge_states.tape",
+            "visual_loop/screenshots/semantic_provider_edge_catalog.png",
+            "visual_loop/screenshots/semantic_provider_edge_auth_required.png",
+            "visual_loop/screenshots/semantic_provider_edge_auth_failure.png",
+            "visual_loop/tapes/semantic_provider_auth_success.tape",
+            "visual_loop/screenshots/semantic_provider_auth_success_before.png",
+            "visual_loop/screenshots/semantic_provider_auth_success_after.png",
+            "visual_loop/tapes/semantic_theme_cycle.tape",
+            "visual_loop/screenshots/semantic_theme_cycle_before.png",
+            "visual_loop/screenshots/semantic_theme_cycle_next.png",
+            "visual_loop/screenshots/semantic_theme_cycle_prev.png",
+            "visual_loop/tapes/semantic_narrow_deep_modals.tape",
+            "visual_loop/screenshots/semantic_narrow_settings.png",
+            "visual_loop/screenshots/semantic_narrow_provider_setup.png",
+        ):
+            self.assertIn(rel, settings.required)
+
     def test_manifest_requires_text_entry_and_footer_action_visual_proof(self) -> None:
         modals = next(
             group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "questions_retry_permissions"
@@ -672,6 +699,20 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/screenshots/semantic_header_actions_base.png",
             "visual_loop/screenshots/semantic_header_actions_help.png",
             "visual_loop/screenshots/semantic_header_actions_settings.png",
+        ):
+            self.assertIn(rel, menus.required)
+
+    def test_manifest_requires_diagnostics_gap_and_report_proof(self) -> None:
+        menus = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "shared_menu_surfaces"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_doctor_gaps.tape",
+            "visual_loop/screenshots/semantic_doctor_gaps.png",
+            "visual_loop/screenshots/semantic_narrow_metrics.png",
+            "visual_loop/screenshots/gact_diag_clipboard_terminal.report.md",
+            "visual_loop/screenshots/diagnostics_readiness.report.md",
         ):
             self.assertIn(rel, menus.required)
 
@@ -719,6 +760,58 @@ class VisualCorpusCheckTest(unittest.TestCase):
             "visual_loop/screenshots/semantic_sidebar_filter.png",
             "visual_loop/tapes/semantic_quit_confirm.tape",
             "visual_loop/screenshots/semantic_quit_confirm.png",
+        ):
+            self.assertIn(rel, interactions.required)
+
+    def test_manifest_requires_runtime_catalog_prompt_and_expert_pack_visual_proof(self) -> None:
+        interactions = next(
+            group for group in check_visual_corpus.CORPUS_GROUPS if group.name == "semantic_interactions"
+        )
+
+        for rel in (
+            "visual_loop/tapes/semantic_tools_mcp_catalog.tape",
+            "visual_loop/screenshots/semantic_tools_mcp_catalog.png",
+            "visual_loop/screenshots/semantic_tools_mcp_tool_selected.png",
+            "visual_loop/tapes/semantic_tools_action_detail.tape",
+            "visual_loop/screenshots/semantic_tools_action_detail_catalog.png",
+            "visual_loop/screenshots/semantic_tools_action_detail_builtin.png",
+            "visual_loop/tapes/semantic_tools_mcp_disconnected.tape",
+            "visual_loop/screenshots/semantic_tools_mcp_disconnected_catalog.png",
+            "visual_loop/screenshots/semantic_tools_mcp_disconnected_selected.png",
+            "visual_loop/tapes/semantic_tools_mcp_reconnect_failure.tape",
+            "visual_loop/screenshots/semantic_tools_mcp_reconnect_failure.png",
+            "visual_loop/tapes/semantic_tools_unavailable_tool.tape",
+            "visual_loop/screenshots/semantic_tools_unavailable_tool.png",
+            "visual_loop/tapes/semantic_tools_empty.tape",
+            "visual_loop/screenshots/semantic_tools_empty.png",
+            "visual_loop/screenshots/semantic_narrow_tools_mcp.png",
+            "visual_loop/tapes/semantic_prompt_empty.tape",
+            "visual_loop/screenshots/semantic_prompt_empty.png",
+            "visual_loop/tapes/semantic_prompt_catalog_stress.tape",
+            "visual_loop/screenshots/semantic_prompt_stress_catalog.png",
+            "visual_loop/screenshots/semantic_prompt_stress_invalid_detail.png",
+            "visual_loop/screenshots/semantic_prompt_stress_validation_render.png",
+            "visual_loop/screenshots/semantic_prompt_stress_save_editor.png",
+            "visual_loop/screenshots/semantic_prompt_stress_save_failure.png",
+            "visual_loop/screenshots/semantic_narrow_prompts.png",
+            "visual_loop/screenshots/semantic_narrow_prompt_detail.png",
+            "visual_loop/tapes/semantic_expert_packs.tape",
+            "visual_loop/screenshots/semantic_expert_packs_catalog.png",
+            "visual_loop/screenshots/semantic_expert_packs_detail.png",
+            "visual_loop/tapes/semantic_expert_packs_empty.tape",
+            "visual_loop/screenshots/semantic_expert_packs_empty.png",
+            "visual_loop/tapes/semantic_expert_packs_stress.tape",
+            "visual_loop/screenshots/semantic_expert_packs_stress_catalog.png",
+            "visual_loop/screenshots/semantic_expert_packs_stress_detail.png",
+            "visual_loop/screenshots/semantic_expert_packs_source_provenance.png",
+            "visual_loop/screenshots/semantic_expert_packs_update_failure.png",
+            "visual_loop/screenshots/semantic_expert_packs_delete_confirm.png",
+            "visual_loop/screenshots/semantic_expert_packs_delete_failure.png",
+            "visual_loop/tapes/semantic_expert_packs_install_failure.tape",
+            "visual_loop/screenshots/semantic_expert_packs_install_source.png",
+            "visual_loop/screenshots/semantic_expert_packs_install_failure.png",
+            "visual_loop/screenshots/semantic_narrow_expert_packs.png",
+            "visual_loop/screenshots/semantic_narrow_expert_pack_detail.png",
         ):
             self.assertIn(rel, interactions.required)
 
