@@ -146,15 +146,74 @@ python3 - "$backend" "$session_id" "${out_dir}/${doctor_name}" "${out_dir}/${met
 import json
 import pathlib
 import sys
+import urllib.error
+import urllib.request
 
 backend, session_id, doctor, metrics, manifest = sys.argv[1:6]
+
+def get_json(path):
+    try:
+        req = urllib.request.Request(
+            backend.rstrip("/") + path,
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+        return json.loads(raw) if raw else {}
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return {}
+
+health = get_json("/v1/health")
+capabilities = get_json("/v1/capabilities")
+metrics_payload = get_json("/v1/metrics")
+session_payload = get_json(f"/v1/sessions/{session_id}") if session_id else {}
+
+flags = capabilities.get("capabilities")
+if not isinstance(flags, dict):
+    flags = {}
+explicit_gaps = flags.get("x_clio_capability_gaps")
+explicit_gap_count = len(explicit_gaps) if isinstance(explicit_gaps, dict) else 0
+false_capability_count = sum(1 for value in flags.values() if value is False)
+capabilities_gap_count = explicit_gap_count or false_capability_count
+
+sessions = metrics_payload.get("sessions")
+if not isinstance(sessions, dict):
+    sessions = {}
+active_sessions = int(sessions.get("active") or 0)
+latencies = metrics_payload.get("latencies")
+if not isinstance(latencies, dict):
+    latencies = {}
+sample_count = 0
+for row in latencies.values():
+    if isinstance(row, dict):
+        try:
+            sample_count += int(row.get("count") or 0)
+        except (TypeError, ValueError):
+            pass
+
+session_status = str(session_payload.get("status") or "").lower()
+active_stream_metrics = bool(
+    session_id
+    and active_sessions > 0
+    and session_status in {"running", "pending", "waiting_permission"}
+)
+
 pathlib.Path(manifest).write_text(
     json.dumps(
         {
             "backend": backend,
+            "captured_from_owned_backend": True,
             "session_id": session_id,
+            "session_status": session_payload.get("status", ""),
             "doctor_screenshot": doctor,
             "metrics_screenshot": metrics,
+            "health_status": health.get("status") or health.get("overall_status") or "unknown",
+            "doctor_partial_gaps": capabilities_gap_count > 0,
+            "capabilities_gap_count": capabilities_gap_count,
+            "metrics_active_sessions": active_sessions,
+            "metrics_sample_count": sample_count,
+            "active_stream_metrics": active_stream_metrics,
             "note": (
                 "Captured against caller-affirmed isolated CLIO backend; "
                 "active-stream proof requires the passed session to be running "

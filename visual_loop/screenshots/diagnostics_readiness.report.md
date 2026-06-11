@@ -17,8 +17,25 @@
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_doctor_partial_gaps.png` (missing)
   - `visual_loop/screenshots/live_clio_diagnostics_manifest.json` (missing)
+- Manifest status: `missing`
+- Missing or false manifest keys:
+  - `backend`
+  - `captured_from_owned_backend`
+  - `doctor_screenshot`
+  - `doctor_partial_gaps`
+  - `capabilities_gap_count`
+  - `health_status`
 
 ## Missing: Metrics - live long-running benchmark metrics during active stream
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_metrics_active_stream.png` (missing)
   - `visual_loop/screenshots/live_clio_diagnostics_manifest.json` (missing)
+- Manifest status: `missing`
+- Missing or false manifest keys:
+  - `backend`
+  - `captured_from_owned_backend`
+  - `session_id`
+  - `metrics_screenshot`
+  - `active_stream_metrics`
+  - `metrics_active_sessions`
+  - `metrics_sample_count`

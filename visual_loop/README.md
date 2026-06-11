@@ -89,6 +89,17 @@ The script writes `live_clio_doctor_partial_gaps.png`,
 `visual_loop/screenshots/`. The metrics proof is only valid when the supplied
 session is actively streaming during capture.
 
+After a real owned-backend capture, verify the live diagnostics contract with:
+
+```bash
+python3 visual_loop/check_diagnostics_readiness.py --root . --strict-live
+```
+
+The manifest must prove an owned backend, a non-empty session, partial Doctor
+capability gaps, non-zero metrics samples, and active-stream metrics for the
+supplied running session. Placeholder manifests such as `{}` are intentionally
+rejected.
+
 For the live runtime catalog backlog (#152), capture `/tools`, `/mcp`, and
 Agent Blueprint marketplace-source breadth from an owned CLIO backend:
 

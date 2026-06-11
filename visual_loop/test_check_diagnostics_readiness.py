@@ -1,7 +1,10 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
+import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_diagnostics_readiness
 
 
@@ -9,6 +12,29 @@ def write_artifact(root: Path, rel: str, text: str = "artifact") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def write_live_manifest(root: Path, **overrides: object) -> None:
+    body: dict[str, object] = {
+        "backend": "http://127.0.0.1:17990",
+        "captured_from_owned_backend": True,
+        "session_id": "sess_running",
+        "session_status": "running",
+        "doctor_screenshot": "visual_loop/screenshots/live_clio_doctor_partial_gaps.png",
+        "metrics_screenshot": "visual_loop/screenshots/live_clio_metrics_active_stream.png",
+        "health_status": "degraded",
+        "doctor_partial_gaps": True,
+        "capabilities_gap_count": 2,
+        "metrics_active_sessions": 1,
+        "metrics_sample_count": 8,
+        "active_stream_metrics": True,
+    }
+    body.update(overrides)
+    write_artifact(
+        root,
+        "visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        json.dumps(body),
+    )
 
 
 class DiagnosticsReadinessTest(unittest.TestCase):
@@ -43,7 +69,7 @@ class DiagnosticsReadinessTest(unittest.TestCase):
         self.assertIn("deferred live evidence: `0/2`", report)
         self.assertIn("live long-running benchmark metrics", report)
 
-    def test_deferred_live_diagnostics_require_shared_manifest(self) -> None:
+    def test_deferred_live_diagnostics_require_valid_shared_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.seed_required(root)
@@ -68,7 +94,51 @@ class DiagnosticsReadinessTest(unittest.TestCase):
             report = check_diagnostics_readiness.render_markdown(result)
 
         self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("deferred live evidence: `0/2`", report)
+        self.assertIn("Missing or false manifest keys", report)
+        self.assertIn("doctor_partial_gaps", report)
+        self.assertIn("active_stream_metrics", report)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(root, "visual_loop/screenshots/live_clio_doctor_partial_gaps.png")
+            write_artifact(root, "visual_loop/screenshots/live_clio_metrics_active_stream.png")
+            write_live_manifest(root)
+
+            result = check_diagnostics_readiness.check_readiness(root)
+            report = check_diagnostics_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["live_ok"])
         self.assertIn("deferred live evidence: `2/2`", report)
+
+    def test_live_manifest_requires_partial_gaps_and_active_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(root, "visual_loop/screenshots/live_clio_doctor_partial_gaps.png")
+            write_artifact(root, "visual_loop/screenshots/live_clio_metrics_active_stream.png")
+            write_live_manifest(
+                root,
+                doctor_partial_gaps=False,
+                capabilities_gap_count=0,
+                active_stream_metrics=False,
+                metrics_active_sessions=0,
+                metrics_sample_count=0,
+            )
+
+            result = check_diagnostics_readiness.check_readiness(root)
+            report = check_diagnostics_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("doctor_partial_gaps", report)
+        self.assertIn("capabilities_gap_count", report)
+        self.assertIn("active_stream_metrics", report)
+        self.assertIn("metrics_active_sessions", report)
+        self.assertIn("metrics_sample_count", report)
 
     def test_diag_report_requires_clipboard_and_terminal_markers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
