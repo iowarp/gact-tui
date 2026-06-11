@@ -833,7 +833,8 @@ def print_text_report(result: dict[str, object], *, include_deferred: bool = Fal
         if isinstance(summary, dict):
             print(f"- CLIO artifact proof: {summary.get('clio_report_ready')}/{summary.get('case_count')}")
             print(f"- deterministic TUI proof: {summary.get('deterministic_tui_ready')}/{summary.get('case_count')}")
-            print(f"- real TUI visuals: {summary.get('real_tui_recordings')}/{summary.get('case_count')}")
+            print(f"- real TUI still captures: {summary.get('real_tui_stills')}/{summary.get('case_count')}")
+            print(f"- short GIF recordings: {summary.get('short_recordings')}/{summary.get('case_count')}")
             print(f"- streaming proof: {summary.get('streaming_proof_ready')}/{summary.get('case_count')}")
             print(f"- ready cases: {summary.get('ready_for_real_demo')}/{summary.get('case_count')}")
         cases = ndp.get("cases", [])

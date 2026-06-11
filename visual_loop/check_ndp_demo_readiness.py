@@ -83,7 +83,9 @@ CASES: tuple[DemoCase, ...] = (
 )
 
 
-REAL_CAPTURE_SUFFIXES: tuple[str, ...] = ("prompt.png", "early.png", "live.png", "short.gif")
+REAL_STILL_CAPTURE_SUFFIXES: tuple[str, ...] = ("prompt.png", "early.png", "live.png")
+REAL_RECORDING_SUFFIX = "short.gif"
+REAL_CAPTURE_SUFFIXES: tuple[str, ...] = (*REAL_STILL_CAPTURE_SUFFIXES, REAL_RECORDING_SUFFIX)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
 
@@ -133,6 +135,17 @@ def real_capture_artifact_statuses(root: Path, rels: tuple[str, ...]) -> dict[st
 
 def real_capture_paths(case: DemoCase) -> tuple[str, ...]:
     return tuple(f"visual_loop/screenshots/{case.real_capture_stem}_{suffix}" for suffix in REAL_CAPTURE_SUFFIXES)
+
+
+def real_still_capture_paths(case: DemoCase) -> tuple[str, ...]:
+    return tuple(
+        f"visual_loop/screenshots/{case.real_capture_stem}_{suffix}"
+        for suffix in REAL_STILL_CAPTURE_SUFFIXES
+    )
+
+
+def real_recording_path(case: DemoCase) -> str:
+    return f"visual_loop/screenshots/{case.real_capture_stem}_{REAL_RECORDING_SUFFIX}"
 
 
 def real_capture_manifest_path(case: DemoCase) -> str:
@@ -192,8 +205,9 @@ def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, objec
     deterministic = existing_paths(root, case.deterministic_artifacts)
     real_captures = real_capture_artifact_statuses(root, real_capture_paths(case))
     manifest = real_capture_manifest_status(root, case)
-    visual_ok = all(artifact["ok"] for artifact in real_captures.values())
-    streaming_ok = visual_ok and bool(manifest["ok"])
+    still_visual_ok = all(real_captures[rel]["ok"] for rel in real_still_capture_paths(case))
+    short_recording_ok = bool(real_captures[real_recording_path(case)]["ok"])
+    streaming_ok = short_recording_ok and bool(manifest["ok"])
     return {
         "id": case.case_id,
         "title": case.title,
@@ -206,7 +220,9 @@ def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, objec
         "real_tui_recording": {
             "artifacts": real_captures,
             "manifest": manifest,
-            "visual_ok": visual_ok,
+            "visual_ok": still_visual_ok,
+            "still_visual_ok": still_visual_ok,
+            "short_recording_ok": short_recording_ok,
             "streaming_ok": streaming_ok,
             "ok": streaming_ok,
         },
@@ -229,7 +245,8 @@ def check_readiness(root: Path, report_path: Path = DEFAULT_REPORT) -> dict[str,
             "case_count": len(cases),
             "clio_report_ready": sum(1 for case in cases if case["clio_report"]["ok"]),
             "deterministic_tui_ready": sum(1 for case in cases if case["deterministic_tui"]["ok"]),
-            "real_tui_recordings": sum(1 for case in cases if case["real_tui_recording"]["visual_ok"]),
+            "real_tui_stills": sum(1 for case in cases if case["real_tui_recording"]["still_visual_ok"]),
+            "short_recordings": sum(1 for case in cases if case["real_tui_recording"]["short_recording_ok"]),
             "streaming_proof_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
             "real_tui_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
             "ready_for_real_demo": sum(1 for case in cases if case["ready_for_real_demo"]),
@@ -244,15 +261,16 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append(f"- report exists: `{str(report['exists']).lower()}`")
     lines.append(f"- ready for real demo: `{str(result['ok']).lower()}`")
     lines.append("")
-    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI visuals | Streaming proof | Ready |")
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI stills | Short GIF | Streaming proof | Ready |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         lines.append(
-            "| {title} | {clio} | {det} | {visual} | {streaming} | {ready} |".format(
+            "| {title} | {clio} | {det} | {visual} | {recording} | {streaming} | {ready} |".format(
                 title=case["title"],
                 clio="yes" if case["clio_report"]["ok"] else "no",
                 det="yes" if case["deterministic_tui"]["ok"] else "no",
-                visual="yes" if case["real_tui_recording"]["visual_ok"] else "no",
+                visual="yes" if case["real_tui_recording"]["still_visual_ok"] else "no",
+                recording="yes" if case["real_tui_recording"]["short_recording_ok"] else "no",
                 streaming="yes" if case["real_tui_recording"]["streaming_ok"] else "no",
                 ready="yes" if case["ready_for_real_demo"] else "no",
             )
@@ -260,13 +278,14 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append("")
     lines.append("## Real Capture Inventory")
     lines.append("")
-    lines.append("| Case | Visual artifacts | Manifest | Artifact observed | Streaming proof | Session status |")
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Case | Still captures | Short GIF | Manifest | Artifact observed | Streaming proof | Session status |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         artifacts = case["real_tui_recording"]["artifacts"]
         manifest = case["real_tui_recording"].get("manifest", {})
         data = manifest.get("data", {}) if isinstance(manifest, dict) else {}
-        visual_ok = all(artifact["ok"] for artifact in artifacts.values())
+        still_ok = case["real_tui_recording"]["still_visual_ok"]
+        recording_ok = case["real_tui_recording"]["short_recording_ok"]
         manifest_exists = bool(manifest) and manifest.get("state") != "manifest missing; streaming proof not verified"
         artifact_observed = bool(data.get("verified_artifact")) if data else "legacy"
         streaming_proof = (
@@ -278,9 +297,10 @@ def render_markdown(result: dict[str, object]) -> str:
         )
         session_status = str(data.get("session_status", "legacy")) if data else "legacy"
         lines.append(
-            "| {title} | {visual} | {manifest} | {artifact} | {streaming} | {status} |".format(
+            "| {title} | {stills} | {recording} | {manifest} | {artifact} | {streaming} | {status} |".format(
                 title=case["title"],
-                visual="yes" if visual_ok else "no",
+                stills="yes" if still_ok else "no",
+                recording="yes" if recording_ok else "no",
                 manifest="yes" if manifest_exists else "no",
                 artifact=artifact_observed if isinstance(artifact_observed, str) else "yes" if artifact_observed else "no",
                 streaming=streaming_proof,

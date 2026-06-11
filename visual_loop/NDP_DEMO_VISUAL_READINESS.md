@@ -4,21 +4,21 @@
 - report exists: `true`
 - ready for real demo: `false`
 
-| Case | CLIO artifact proof | Deterministic TUI | Real TUI visuals | Streaming proof | Ready |
-| --- | --- | --- | --- | --- | --- |
-| San Diego / EarthScope seismic waveform review | yes | yes | no | no | no |
-| California current wildfire features | yes | yes | no | no | no |
-| California NWS warnings | yes | yes | no | no | no |
-| Fresno CIMIS weather profile and visualization | yes | yes | no | no | no |
+| Case | CLIO artifact proof | Deterministic TUI | Real TUI stills | Short GIF | Streaming proof | Ready |
+| --- | --- | --- | --- | --- | --- | --- |
+| San Diego / EarthScope seismic waveform review | yes | yes | yes | no | no | no |
+| California current wildfire features | yes | yes | yes | no | no | no |
+| California NWS warnings | yes | yes | yes | no | no | no |
+| Fresno CIMIS weather profile and visualization | yes | yes | yes | no | no | no |
 
 ## Real Capture Inventory
 
-| Case | Visual artifacts | Manifest | Artifact observed | Streaming proof | Session status |
-| --- | --- | --- | --- | --- | --- |
-| San Diego / EarthScope seismic waveform review | no | no | legacy | no | legacy |
-| California current wildfire features | no | no | legacy | no | legacy |
-| California NWS warnings | no | yes | yes | no | idle |
-| Fresno CIMIS weather profile and visualization | no | yes | yes | no | idle |
+| Case | Still captures | Short GIF | Manifest | Artifact observed | Streaming proof | Session status |
+| --- | --- | --- | --- | --- | --- | --- |
+| San Diego / EarthScope seismic waveform review | yes | no | no | legacy | no | legacy |
+| California current wildfire features | yes | no | no | legacy | no | legacy |
+| California NWS warnings | yes | no | yes | yes | no | idle |
+| Fresno CIMIS weather profile and visualization | yes | no | yes | yes | no | idle |
 
 ## Missing: San Diego / EarthScope seismic waveform review
 - Real TUI recording artifacts missing or invalid:

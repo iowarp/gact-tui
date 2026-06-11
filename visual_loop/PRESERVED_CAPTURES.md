@@ -86,6 +86,14 @@ strict report when the release gate depends on streaming semantics.
 - `ndp_tui_real_san_diego_earthscope_early.png`
 - `ndp_tui_real_san_diego_earthscope_live.png`
 - `ndp_tui_real_san_diego_earthscope_prompt.png`
+- `ndp_tui_real_california_nws_warnings_early.png`
+- `ndp_tui_real_california_nws_warnings_live.png`
+- `ndp_tui_real_california_nws_warnings_prompt.png`
+- `ndp_tui_real_california_nws_warnings_manifest.json`
+- `ndp_tui_real_fresno_cimis_early.png`
+- `ndp_tui_real_fresno_cimis_live.png`
+- `ndp_tui_real_fresno_cimis_prompt.png`
+- `ndp_tui_real_fresno_cimis_manifest.json`
 - `ndp_tui_real_wildfire_early.png`
 - `ndp_tui_real_wildfire_live.png`
 - `ndp_tui_real_wildfire_prompt.png`
@@ -93,18 +101,19 @@ strict report when the release gate depends on streaming semantics.
 ## Missing Real NDP Demo Captures
 
 These are intentionally listed even though the files do not exist yet. They are
-the remaining real-TUI recordings needed to prove all four NDP demo cases under
-live agent execution. Deterministic fixture captures already cover the
-rendering semantics for these workflows.
+the remaining real-TUI recordings and streaming-clean manifests needed to prove
+all four NDP demo cases under live agent execution. Deterministic fixture
+captures already cover the rendering semantics for these workflows, and
+prompt/early/live screenshots exist for all four cases.
 
-- ndp_tui_real_california_nws_warnings_prompt.png
-- ndp_tui_real_california_nws_warnings_early.png
-- ndp_tui_real_california_nws_warnings_live.png
+- ndp_tui_real_san_diego_earthscope_manifest.json
+- ndp_tui_real_san_diego_earthscope_short.gif
+- ndp_tui_real_wildfire_manifest.json
+- ndp_tui_real_wildfire_short.gif
 - ndp_tui_real_california_nws_warnings_short.gif
-- ndp_tui_real_fresno_cimis_prompt.png
-- ndp_tui_real_fresno_cimis_early.png
-- ndp_tui_real_fresno_cimis_live.png
+- ndp_tui_real_california_nws_warnings_manifest.json without provider streaming limitation
 - ndp_tui_real_fresno_cimis_short.gif
+- ndp_tui_real_fresno_cimis_manifest.json without provider streaming limitation
 
 ## Semantic Fixture Companions And Extra States
 
