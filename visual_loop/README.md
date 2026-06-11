@@ -328,10 +328,13 @@ python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_ass
 
 This fast check verifies that the maintained tapes, screenshots, live benchmark
 replay artifacts, and temporal-observability reports are present and non-empty.
-The tracked-artifact mode also fails required artifacts that only exist as local
-untracked files, so a clean checkout cannot accidentally lose release evidence.
-It does not replace screenshot inspection or strict live benchmark assertions;
-it catches missing acceptance artifacts before the visual review starts.
+The tracked-artifact mode also fails required non-GIF artifacts that only exist
+as local untracked files, so a clean checkout cannot accidentally lose release
+evidence. GIF recordings are generated media ignored by default; keep useful
+GIFs indexed in `PRESERVED_CAPTURES.md`, and promote only release-critical
+recordings with an explicit tracking decision. This does not replace screenshot
+inspection or strict live benchmark assertions; it catches missing acceptance
+artifacts before the visual review starts.
 
 When a fresh live benchmark capture is intended to close the temporal
 observability work, run the stricter corpus gate too:

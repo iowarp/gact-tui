@@ -46,6 +46,11 @@ ARTIFACT_INDEX_FILES: tuple[str, ...] = (
     "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md",
 )
 
+TRACKED_ARTIFACT_INDEX_FILES: tuple[str, ...] = (
+    "visual_loop/COVERAGE.md",
+    "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md",
+)
+
 
 ARTIFACT_EXTENSIONS: tuple[str, ...] = (
     ".tape",
@@ -571,6 +576,10 @@ def tracked_paths(root: Path) -> set[str]:
     return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
 
 
+def requires_git_tracking(rel: str) -> bool:
+    return not rel.endswith(".gif")
+
+
 def check_group(root: Path, group: CorpusGroup, *, tracked: set[str] | None = None) -> list[str]:
     missing: list[str] = []
     for rel in group.required:
@@ -579,7 +588,7 @@ def check_group(root: Path, group: CorpusGroup, *, tracked: set[str] | None = No
             missing.append(rel + " (missing)")
         elif path.is_file() and path.stat().st_size == 0:
             missing.append(rel + " (empty)")
-        elif tracked is not None and rel not in tracked:
+        elif tracked is not None and requires_git_tracking(rel) and rel not in tracked:
             missing.append(rel + " (untracked)")
     return missing
 
@@ -619,7 +628,7 @@ def check_artifact_index(root: Path, rel: str, *, tracked: set[str] | None = Non
             missing.append(artifact + " (missing)")
         elif artifact_path.is_file() and artifact_path.stat().st_size == 0:
             missing.append(artifact + " (empty)")
-        elif tracked is not None and artifact not in tracked:
+        elif tracked is not None and requires_git_tracking(artifact) and artifact not in tracked:
             missing.append(artifact + " (untracked)")
     return {
         "ok": not missing,
@@ -630,7 +639,11 @@ def check_artifact_index(root: Path, rel: str, *, tracked: set[str] | None = Non
 
 
 def check_artifact_indices(root: Path, *, tracked: set[str] | None = None) -> list[dict[str, object]]:
-    return [check_artifact_index(root, rel, tracked=tracked) for rel in ARTIFACT_INDEX_FILES]
+    indices: list[dict[str, object]] = []
+    for rel in ARTIFACT_INDEX_FILES:
+        index_tracked = tracked if rel in TRACKED_ARTIFACT_INDEX_FILES else None
+        indices.append(check_artifact_index(root, rel, tracked=index_tracked))
+    return indices
 
 
 def check_coverage_index(root: Path, *, tracked: set[str] | None = None) -> dict[str, object]:

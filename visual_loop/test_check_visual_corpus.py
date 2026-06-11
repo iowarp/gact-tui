@@ -345,6 +345,41 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertFalse(preserved_index["ok"])
         self.assertIn("visual_loop/screenshots/operator_gap.png (missing)", preserved_index["missing"])
 
+    def test_require_tracked_enforces_primary_non_gif_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            coverage = root / "visual_loop/COVERAGE.md"
+            coverage.parent.mkdir(parents=True, exist_ok=True)
+            coverage.write_text("`operator_gap.png` `operator_motion.gif`\n", encoding="utf-8")
+            screenshots = root / "visual_loop/screenshots"
+            screenshots.mkdir(parents=True, exist_ok=True)
+            (screenshots / "operator_gap.png").write_text("artifact\n", encoding="utf-8")
+            (screenshots / "operator_motion.gif").write_text("gif\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_artifact_index(root, "visual_loop/COVERAGE.md", tracked=set())
+
+        self.assertFalse(result["ok"])
+        self.assertIn("visual_loop/screenshots/operator_gap.png (untracked)", result["missing"])
+        self.assertNotIn("visual_loop/screenshots/operator_motion.gif (untracked)", result["missing"])
+
+    def test_preserved_capture_index_is_not_git_tracking_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            preserved = root / "visual_loop/PRESERVED_CAPTURES.md"
+            preserved.parent.mkdir(parents=True, exist_ok=True)
+            preserved.write_text("`operator_gap.png`\n", encoding="utf-8")
+            screenshot = root / "visual_loop/screenshots/operator_gap.png"
+            screenshot.parent.mkdir(parents=True, exist_ok=True)
+            screenshot.write_text("artifact\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_artifact_indices(root, tracked=set())
+
+        preserved_index = next(
+            index for index in result if index["path"] == "visual_loop/PRESERVED_CAPTURES.md"
+        )
+        self.assertTrue(preserved_index["ok"])
+        self.assertEqual(preserved_index["missing"], [])
+
     def test_require_indexed_turns_unindexed_report_into_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
