@@ -2841,3 +2841,42 @@ func TestCatalogBrowserUsesSharedScrollRailInsteadOfRangeRows(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentBlueprintCatalogScrollsSelectionIntoViewWithRail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := make([]catalogItem, 32)
+	for i := range items {
+		items[i] = catalogItem{
+			id:        "blueprint-" + itoa2(i),
+			title:     "Blueprint " + itoa2(i),
+			desc:      "source grouped blueprint used to prove long blueprint libraries scroll cleanly",
+			statusTag: "source",
+		}
+	}
+	a.width = 120
+	a.height = 36
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: items,
+		sel:   18,
+	}
+	a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(a.catalogBrowser.kind, a.catalogBrowser.sel, a.catalogBrowser.offset, len(items))
+
+	out := stripANSI(a.viewCatalogBrowser())
+	if !strings.Contains(out, "Blueprint 18") {
+		t.Fatalf("selected blueprint should remain visible after scrolling:\n%s", out)
+	}
+	if strings.Contains(out, "Blueprint 0") {
+		t.Fatalf("top blueprint should be clipped after scrolling:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("long blueprint catalog should render a shared side scroll rail:\n%s", out)
+	}
+	for _, notWant := range []string{"above", "and ", " more"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("blueprint catalog should not render textual scroll count %q:\n%s", notWant, out)
+		}
+	}
+}
