@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -81,6 +82,87 @@ func TestFileViewerFollowsActiveWorkspaceRoot(t *testing.T) {
 	out := ansi.Strip(a.renderFileViewerModuleRows(42, 0, 8)[1])
 	if !strings.Contains(out, "workspace:") {
 		t.Fatalf("root label should indicate workspace mode, got %q", out)
+	}
+}
+
+func TestFileViewerUsesPathLikeWorkspaceNameWhenClioReportsScratchRoot(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	realRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(realRoot, "agent-demo-marker.txt"), []byte("demo"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	scratchRoot := filepath.Join(os.TempDir(), "grind-es-"+filepath.Base(t.TempDir()))
+	if err := os.MkdirAll(scratchRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(scratchRoot) })
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: realRoot, RootPath: scratchRoot}}
+	a.wsID = "ws_demo"
+
+	a.syncFileViewerRootToWorkspace()
+
+	if a.fileViewerRoot != realRoot {
+		t.Fatalf("file viewer root = %q, want path-like workspace name %q", a.fileViewerRoot, realRoot)
+	}
+	if len(a.fileTreeEntries) != 1 || a.fileTreeEntries[0].Name != "agent-demo-marker.txt" {
+		t.Fatalf("file tree entries = %#v, want named workspace contents", a.fileTreeEntries)
+	}
+}
+
+func TestFileViewerRefreshDetectsNewWorkspaceFiles(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "initial.txt"), []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+	a.syncFileViewerRootToWorkspace()
+
+	if err := os.WriteFile(filepath.Join(root, "created-by-agent.txt"), []byte("artifact"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.refreshFileViewerFromWorkspace()
+
+	var names []string
+	for _, entry := range a.fileTreeEntries {
+		names = append(names, entry.Name)
+	}
+	if !slices.Contains(names, "created-by-agent.txt") {
+		t.Fatalf("file tree entries = %#v, want newly created file", a.fileTreeEntries)
+	}
+}
+
+func TestFileViewerRefreshPreservesExpandedFoldersAndSelection(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "outputs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "outputs", "first.txt"), []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.wsID = "ws_demo"
+	a.syncFileViewerRootToWorkspace()
+	a.fileTreeExpanded["outputs"] = true
+	a.reloadFileViewer()
+	a.fileTreeSel = 1 // outputs/first.txt
+
+	if err := os.WriteFile(filepath.Join(root, "outputs", "second.txt"), []byte("second"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.refreshFileViewerFromWorkspace()
+
+	visible := a.visibleFileTreeEntries()
+	if len(visible) != 3 {
+		t.Fatalf("visible entries = %#v, want folder plus two files", visible)
+	}
+	if !slices.ContainsFunc(visible, func(entry fileTreeEntry) bool { return entry.Path == "outputs/second.txt" }) {
+		t.Fatalf("visible entries = %#v, want newly created child file", visible)
+	}
+	if a.fileTreeSel < 0 || a.fileTreeSel >= len(visible) || visible[a.fileTreeSel].Path != "outputs/first.txt" {
+		t.Fatalf("selection moved unexpectedly: sel=%d visible=%#v", a.fileTreeSel, visible)
 	}
 }
 

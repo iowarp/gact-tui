@@ -170,6 +170,7 @@ type App struct {
 	fileTreeSel      int
 	fileTreeErr      string
 	fileTreeRootMode string
+	fileTreeRefresh  bool
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -1397,6 +1398,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// rescheduling on anySessionRunning(), so this fires exactly
 		// once per connect even if nothing is currently active.
 		cmds := []tea.Cmd{spinnerCmd()}
+		if !a.fileTreeRefresh {
+			a.fileTreeRefresh = true
+			cmds = append(cmds, fileViewerRefreshCmd())
+		}
 		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): if the backend advertises
 		// memory, pull an initial snapshot so the footer chip paints
 		// right away. Session-scoped refresh happens on status_changed.
@@ -1828,6 +1833,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, spinnerCmd()
 		}
 		return a, nil
+
+	case fileViewerRefreshTickMsg:
+		if a.stage != StageReady {
+			a.fileTreeRefresh = false
+			return a, nil
+		}
+		a.refreshFileViewerFromWorkspace()
+		return a, fileViewerRefreshCmd()
 
 	case searchResultsMsg:
 		a.searching = false
