@@ -3992,8 +3992,8 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 	if len(blueprint.ValidationWarnings) > 0 {
 		parts = append(parts, "warnings: "+strings.Join(blueprint.ValidationWarnings, "; "))
 	}
-	if blueprint.Description != "" {
-		parts = append(parts, compactCatalogText(blueprint.Description))
+	if desc := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID); desc != "" {
+		parts = append(parts, desc)
 	}
 	return strings.Join(parts, " · ")
 }
@@ -4545,8 +4545,12 @@ func agentBlueprintHookFieldLabel(key string) string {
 }
 
 func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string {
+	workflow := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID)
+	if workflow == "" {
+		workflow = firstNonEmpty(blueprint.Title, blueprint.ID)
+	}
 	rows := appendDetailSection(nil, "Operator summary",
-		detailField{"workflow", firstNonEmpty(blueprint.Description, firstNonEmpty(blueprint.Title, blueprint.ID))},
+		detailField{"workflow", workflow},
 		detailField{"status", agentBlueprintStatusText(blueprint)},
 		detailField{"activation", "select Activate to use this blueprint for the current session"},
 		detailField{"session scope", sessionDefaultDescription()},
@@ -4578,8 +4582,8 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
 		}
 	}
-	if blueprint.Description != "" {
-		rows = appendDetailSection(rows, "Description", detailField{"", blueprint.Description})
+	if desc := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID); desc != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", desc})
 	}
 	return strings.Join(rows, "\n")
 }
@@ -5756,9 +5760,24 @@ func limitStrings(values []string, limit int) []string {
 }
 
 func toolDescriptionRepeatsName(desc string, tool gact.Tool) bool {
+	return catalogDescriptionRepeatsAny(desc, tool.ID, tool.Name, tool.Title)
+}
+
+func nonRepeatingCatalogDescription(desc string, candidates ...string) string {
+	desc = compactCatalogText(desc)
+	if desc == "" || catalogDescriptionRepeatsAny(desc, candidates...) {
+		return ""
+	}
+	return desc
+}
+
+func catalogDescriptionRepeatsAny(desc string, candidates ...string) bool {
 	normalizedDesc := normalizeCatalogComparable(desc)
-	for _, candidate := range []string{tool.ID, tool.Name, tool.Title} {
-		if normalizedDesc != "" && normalizedDesc == normalizeCatalogComparable(candidate) {
+	if normalizedDesc == "" {
+		return false
+	}
+	for _, candidate := range candidates {
+		if normalizedDesc == normalizeCatalogComparable(candidate) {
 			return true
 		}
 	}

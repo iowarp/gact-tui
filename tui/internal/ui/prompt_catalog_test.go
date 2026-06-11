@@ -1525,6 +1525,44 @@ func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
 	}
 }
 
+func TestAgentBlueprintCatalogRowsOmitRepeatedTitleDescriptions(t *testing.T) {
+	blueprint := gact.AgentBlueprintDefinition{
+		ID: "data-semantics-agents", Title: "Data Semantics Agents.", Description: "Data Semantics Agents",
+		Version: "0.9.0", Scope: "workspace", RootExpert: "main", Enabled: true,
+	}
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{blueprint})
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want provider and blueprint row: %#v", len(items), items)
+	}
+	row := items[1]
+	if strings.Contains(row.desc, "Data Semantics Agents") {
+		t.Fatalf("blueprint list row should not repeat the title as description:\n%#v", row)
+	}
+	for _, want := range []string{"version: 0.9.0", "root expert: main"} {
+		if !strings.Contains(row.desc, want) {
+			t.Fatalf("blueprint row should keep useful metadata %q:\n%s", want, row.desc)
+		}
+	}
+
+	detailItems := agentBlueprintDetailItems(gact.AgentBlueprintDetail{AgentBlueprint: blueprint})
+	var summary catalogItem
+	for _, item := range detailItems {
+		if item.id == "blueprint/data-semantics-agents" {
+			summary = item
+			break
+		}
+	}
+	if summary.id == "" {
+		t.Fatalf("detail items missing blueprint summary: %#v", detailItems)
+	}
+	if strings.Contains(summary.desc, "\nDescription\n") {
+		t.Fatalf("blueprint detail should omit redundant Description section:\n%s", summary.desc)
+	}
+	if !strings.Contains(summary.desc, "workflow: Data Semantics Agents.") {
+		t.Fatalf("blueprint detail should still identify the workflow by title:\n%s", summary.desc)
+	}
+}
+
 func TestAgentBlueprintCatalogItemsSurfaceSourceProvenance(t *testing.T) {
 	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{{
 		ID: "seismic-market", Title: "Seismic Marketplace", Version: "1.2.0", Scope: "workspace",
