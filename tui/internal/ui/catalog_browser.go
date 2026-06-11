@@ -209,6 +209,8 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
+			handshake, _ := c.McpHandshake(ctx, scope)
+			servers = annotateMcpServersWithHandshake(servers, handshake)
 			items := make([]catalogItem, 0, len(servers))
 			for _, s := range servers {
 				items = append(items, catalogItem{
@@ -226,6 +228,8 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
 			servers, _ := c.ListMcpServers(ctx)
+			handshake, _ := c.McpHandshake(ctx, scope)
+			servers = annotateMcpServersWithHandshake(servers, handshake)
 			items := toolCatalogItems(tools, servers)
 			if len(items) == 0 {
 				items = append(items, catalogItem{
@@ -410,6 +414,8 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 		var errs []string
 		agents, _ := c.ListAgentsScoped(ctx, scope)
 		servers, _ := c.ListMcpServers(ctx)
+		handshake, _ := c.McpHandshake(ctx, scope)
+		servers = annotateMcpServersWithHandshake(servers, handshake)
 		for _, server := range servers {
 			if server.ID == serverID {
 				items = append(items, catalogItem{
@@ -3144,6 +3150,7 @@ func formatMcpServerSummary(server gact.McpServer) string {
 	rows := appendDetailSection(nil, "Operator summary",
 		detailField{"connection", displayName},
 		detailField{"status", status},
+		detailField{"live health", mcpLiveHealthSummary(server)},
 		detailField{"provides", strings.Join(capabilities, ", ")},
 		detailField{"manage", "open /mcp to add, reconnect, or remove this connection"},
 		detailField{"tool access", "open /tools to see callable actions from eligible connections and workflows"},
@@ -3161,6 +3168,8 @@ func formatMcpServerSummary(server gact.McpServer) string {
 		detailField{"transport", server.Transport},
 		detailField{"MCP protocol", server.ProtocolVersion},
 		detailField{"version", server.Version},
+		detailField{"live tools", stringValue(server.ServerInfo["live_tools_count"])},
+		detailField{"live latency", stringValue(server.ServerInfo["live_latency_ms"])},
 	)
 	if len(server.ServerInfo) > 0 {
 		if summary := contextMapSummary(server.ServerInfo, "name", "version", "title"); summary != "" {
@@ -3168,6 +3177,20 @@ func formatMcpServerSummary(server gact.McpServer) string {
 		}
 	}
 	return strings.Join(rows, "\n")
+}
+
+func mcpLiveHealthSummary(server gact.McpServer) string {
+	live, ok := server.ServerInfo["live_reachable"].(bool)
+	if !ok {
+		return ""
+	}
+	if live {
+		return "reachable"
+	}
+	if server.LastError != "" {
+		return "unreachable: " + compactCatalogText(server.LastError)
+	}
+	return "unreachable"
 }
 
 func mcpServerDetailInlineSummary(server gact.McpServer) string {
@@ -3230,6 +3253,13 @@ func mcpServerCatalogDescription(server gact.McpServer) string {
 	}
 	if server.ProtocolVersion != "" {
 		parts = append(parts, "MCP "+server.ProtocolVersion)
+	}
+	if live, ok := server.ServerInfo["live_reachable"].(bool); ok {
+		if live {
+			parts = append(parts, "live reachable")
+		} else {
+			parts = append(parts, "live unreachable")
+		}
 	}
 	caps := compactMcpCapabilityLabels(server.DeclaredCapabilities)
 	if len(caps) > 0 {
@@ -5256,6 +5286,56 @@ func mcpConnectionStatusTag(server gact.McpServer) string {
 	return "mcp"
 }
 
+func annotateMcpServersWithHandshake(servers []gact.McpServer, handshake client.McpHandshakeResponse) []gact.McpServer {
+	if len(servers) == 0 || len(handshake.Servers) == 0 {
+		return servers
+	}
+	byName := map[string]client.McpHandshakeServer{}
+	for _, live := range handshake.Servers {
+		for _, key := range []string{live.Name, strings.ToLower(live.Name)} {
+			key = strings.TrimSpace(key)
+			if key != "" {
+				byName[key] = live
+			}
+		}
+	}
+	out := append([]gact.McpServer(nil), servers...)
+	for i := range out {
+		live, ok := byName[out[i].ID]
+		if !ok {
+			live, ok = byName[out[i].Name]
+		}
+		if !ok {
+			live, ok = byName[strings.ToLower(out[i].ID)]
+		}
+		if !ok {
+			live, ok = byName[strings.ToLower(out[i].Name)]
+		}
+		if !ok {
+			continue
+		}
+		if live.State != "" {
+			out[i].Status = live.State
+		} else if live.Reachable {
+			out[i].Status = "ready"
+		} else {
+			out[i].Status = "error"
+		}
+		if !live.Reachable && strings.TrimSpace(live.Error) != "" {
+			out[i].LastError = strings.TrimSpace(live.Error)
+		}
+		if out[i].ServerInfo == nil {
+			out[i].ServerInfo = map[string]any{}
+		}
+		out[i].ServerInfo["live_reachable"] = live.Reachable
+		out[i].ServerInfo["live_tools_count"] = live.ToolsCount
+		if live.LatencyMS > 0 {
+			out[i].ServerInfo["live_latency_ms"] = live.LatencyMS
+		}
+	}
+	return out
+}
+
 func mcpSourceInlineSummary(server gact.McpServer, toolCount int) string {
 	parts := make([]string, 0, 5)
 	if server.Status != "" {
@@ -5264,6 +5344,13 @@ func mcpSourceInlineSummary(server gact.McpServer, toolCount int) string {
 			status = "disconnected"
 		}
 		parts = append(parts, status)
+	}
+	if live, ok := server.ServerInfo["live_reachable"].(bool); ok {
+		if live {
+			parts = append(parts, "live")
+		} else {
+			parts = append(parts, "unreachable")
+		}
 	}
 	parts = append(parts, mcpCapabilityCountLabels(server.DeclaredCapabilities, toolCount)...)
 	if server.LastError != "" {

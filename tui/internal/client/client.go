@@ -542,6 +542,7 @@ type LMProviderPreset struct {
 	Status              string `json:"status,omitempty"`
 	StatusMessage       string `json:"status_message,omitempty"`
 	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
+	SupportsVision      bool   `json:"supports_vision,omitempty"`
 }
 
 // LMProviderInfo is the GET /v1/providers/lm body — current LM
@@ -556,7 +557,12 @@ type LMProviderInfo struct {
 	Temperature    float64            `json:"temperature,omitempty"`
 	MaxTokens      int                `json:"max_tokens,omitempty"`
 	ContextLength  int                `json:"context_length,omitempty"`
+	ChosenContext  int                `json:"chosen_context,omitempty"`
+	ContextWindow  int                `json:"context_window,omitempty"`
+	IsReasoning    bool               `json:"is_reasoning,omitempty"`
+	NativeToolCall bool               `json:"native_tool_calling,omitempty"`
 	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	Transport      string             `json:"transport,omitempty"`
 	State          string             `json:"state,omitempty"`
 	StatusMessage  string             `json:"status_message,omitempty"`
 	Error          string             `json:"error,omitempty"`
@@ -571,8 +577,9 @@ type LMProviderInfo struct {
 //
 // Temperature + MaxTokens are forwarded to the upstream LM. Sending
 // 0/0 means "use server defaults" — the JSON omitempty drops the
-// fields so the Python side falls back to LMProviderRequest's
-// defaults (temperature=1.0, max_tokens=32000).
+// fields so CLIO falls back to LMProviderRequest defaults
+// (temperature=0.0, max_tokens=0 so the server picks a context-aware
+// default).
 //
 // ThinkingBudget controls reasoning effort/budget (0 = disabled). On
 // Anthropic it maps to thinking.budget_tokens; on OpenAI/Codex it's
@@ -586,6 +593,7 @@ type LMProviderRequest struct {
 	MaxTokens      int     `json:"max_tokens,omitempty"`
 	ContextLength  int     `json:"context_length,omitempty"`
 	ThinkingBudget int     `json:"thinking_budget,omitempty"`
+	Parallel       int     `json:"parallel,omitempty"`
 }
 
 // GetLMProvider fetches /v1/providers/lm. Returns nil + nil error
@@ -615,6 +623,25 @@ func (c *Client) PutLMProvider(ctx context.Context, req LMProviderRequest) (*LMP
 	return &out, nil
 }
 
+// WaitLMProvider long-polls CLIO until an async provider reconfiguration
+// reaches a terminal state. Older backends return 404/501; callers should
+// treat that as "wait unsupported" and use the PUT response they already have.
+func (c *Client) WaitLMProvider(ctx context.Context, timeoutSeconds float64) (*LMProviderInfo, error) {
+	var out LMProviderInfo
+	q := url.Values{}
+	if timeoutSeconds > 0 {
+		q.Set("timeout", strconv.FormatFloat(timeoutSeconds, 'f', -1, 64))
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/providers/lm/wait"+queryString(q), nil, &out)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "501") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) ListProviderModels(ctx context.Context, providerID string) ([]gact.Model, error) {
 	var out struct {
 		Models []gact.Model `json:"models"`
@@ -634,6 +661,21 @@ type ProviderModelsResponse struct {
 	Error  string       `json:"error,omitempty"`
 }
 
+// ProviderHandshakeResponse is CLIO's report-only provider probe. It does not
+// mutate the active LM config; it reports connectivity/auth/catalog health and
+// per-model runtime metadata such as chosen context.
+type ProviderHandshakeResponse struct {
+	Models       []gact.Model `json:"models"`
+	Source       string       `json:"source,omitempty"`
+	Error        string       `json:"error,omitempty"`
+	Connectivity string       `json:"connectivity,omitempty"`
+	Auth         string       `json:"auth,omitempty"`
+	LatencyMS    float64      `json:"latency_ms,omitempty"`
+	GeneratedAt  string       `json:"generated_at,omitempty"`
+	ProviderID   string       `json:"provider_id,omitempty"`
+	ProviderKind string       `json:"provider_kind,omitempty"`
+}
+
 // ListProviderModelsDetailed returns the full response so callers
 // can surface fallback warnings. Newer call sites should prefer this
 // over ListProviderModels (which discards the source/error fields
@@ -650,6 +692,26 @@ func (c *Client) ListProviderModelsDetailed(
 		q.Set("api_base", apiBaseOverride)
 		path += "?" + q.Encode()
 	}
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
+func (c *Client) ProviderHandshake(
+	ctx context.Context,
+	providerID string,
+	apiBaseOverride string,
+	refresh bool,
+) (ProviderHandshakeResponse, error) {
+	var out ProviderHandshakeResponse
+	path := "/v1/providers/" + url.PathEscape(providerID) + "/handshake"
+	q := url.Values{}
+	if strings.TrimSpace(apiBaseOverride) != "" {
+		q.Set("api_base", apiBaseOverride)
+	}
+	if refresh {
+		q.Set("refresh", "true")
+	}
+	path += queryString(q)
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out, err
 }
@@ -1058,6 +1120,38 @@ func (c *Client) ListMcpServers(ctx context.Context) ([]gact.McpServer, error) {
 	}
 	err := c.do(ctx, http.MethodGet, "/v1/mcp/servers", nil, &out)
 	return out.Servers, err
+}
+
+type McpHandshakeServer struct {
+	Name       string   `json:"name"`
+	Reachable  bool     `json:"reachable"`
+	State      string   `json:"state,omitempty"`
+	Transport  string   `json:"transport,omitempty"`
+	Tools      []string `json:"tools,omitempty"`
+	ToolsCount int      `json:"tools_count,omitempty"`
+	Error      string   `json:"error,omitempty"`
+	LatencyMS  float64  `json:"latency_ms,omitempty"`
+}
+
+type McpHandshakeResponse struct {
+	Servers []McpHandshakeServer `json:"servers"`
+}
+
+// McpHandshake reports live server health from CLIO's MCP runtime. It is
+// intentionally separate from /v1/mcp/servers because stdio servers are
+// mounted per active workspace/session on newer CLIO builds.
+func (c *Client) McpHandshake(ctx context.Context, scope RuntimeScope) (McpHandshakeResponse, error) {
+	var out McpHandshakeResponse
+	q := url.Values{}
+	scope.appendTo(q)
+	err := c.do(ctx, http.MethodGet, "/v1/mcp/handshake"+queryString(q), nil, &out)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "501") {
+			return McpHandshakeResponse{}, nil
+		}
+		return McpHandshakeResponse{}, err
+	}
+	return out, nil
 }
 
 // ListWorkspaceFiles returns the workspace-rooted file tree. The server

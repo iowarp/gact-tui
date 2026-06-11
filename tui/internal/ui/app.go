@@ -7065,6 +7065,8 @@ func statusForTerminalStopReason(stopReason string) string {
 func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageCompactionSummaries(m)
 	normalizeMessageExpertHandoffs(m)
+	normalizeMessageWorkflowState(m)
+	normalizeMessageReasoningLog(m)
 	normalizeMessageErrorInfo(m)
 	normalizeMessagePartialAnswerLabels(m)
 	normalizeMessageToolEvidence(m)
@@ -7164,6 +7166,157 @@ func messageHasPartType(m *gact.Message, partType string) bool {
 	return false
 }
 
+func normalizeMessageWorkflowState(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_workflow_state") {
+		return
+	}
+	state := mapValue(m.Metadata["workflow_state"])
+	if len(state) == 0 {
+		return
+	}
+	summary := workflowStateSummary(state)
+	if summary == "" {
+		return
+	}
+	metadata := map[string]any{
+		"synthetic_from": "workflow_state_metadata",
+		"workflow_state": state,
+		"state_keys":     sortedWorkflowStateKeys(state),
+		"output_summary": summary,
+		"summary":        summary,
+	}
+	part := gact.Part{
+		ID:       "synthetic_workflow_state",
+		Type:     gact.PartTypeExpertHandoff,
+		Text:     "workflow state: " + summary,
+		Metadata: metadata,
+	}
+	insertAt := len(m.Parts)
+	for i, existing := range m.Parts {
+		if existing.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+1)
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, part)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func normalizeMessageReasoningLog(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_reasoning_log") {
+		return
+	}
+	rows, ok := m.Metadata["reasoning_log"].([]any)
+	if !ok || len(rows) == 0 {
+		return
+	}
+	totalChars := 0
+	models := []string{}
+	for _, raw := range rows {
+		row := mapValue(raw)
+		if len(row) == 0 {
+			continue
+		}
+		if n, ok := intValue(row["reasoning_chars"]); ok {
+			totalChars += n
+		} else {
+			totalChars += len(stringValue(row["reasoning"]))
+		}
+		if model := stringValue(row["model"]); model != "" && !stringInSlice(models, model) {
+			models = append(models, model)
+		}
+	}
+	if totalChars == 0 && len(models) == 0 {
+		return
+	}
+	summary := fmt.Sprintf("reasoning captured: %d entr%s", len(rows), map[bool]string{true: "y", false: "ies"}[len(rows) == 1])
+	if totalChars > 0 {
+		summary += fmt.Sprintf(" · %d chars", totalChars)
+	}
+	if len(models) > 0 {
+		summary += " · " + strings.Join(models, ", ")
+	}
+	part := gact.Part{
+		ID:       "synthetic_reasoning_log",
+		Type:     gact.PartTypeThinking,
+		Thinking: summary,
+		Metadata: map[string]any{
+			"synthetic_from":    "reasoning_log_metadata",
+			"reasoning_entries": len(rows),
+			"reasoning_chars":   totalChars,
+			"models":            models,
+			"note":              "full reasoning_log is kept on message metadata; the transcript shows this compact marker only",
+		},
+	}
+	insertAt := len(m.Parts)
+	for i, existing := range m.Parts {
+		if existing.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+1)
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, part)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func workflowStateSummary(state map[string]any) string {
+	keys := sortedWorkflowStateKeys(state)
+	parts := make([]string, 0, minInt(4, len(keys)))
+	for _, key := range keys {
+		value := state[key]
+		text := strings.TrimSpace(stringValue(value))
+		if text == "" {
+			switch v := value.(type) {
+			case []any:
+				text = pluralizeCount(len(v), "item")
+			case map[string]any:
+				text = pluralizeCount(len(v), "field")
+			default:
+				text = strings.TrimSpace(fmt.Sprint(v))
+			}
+		}
+		if text == "" || text == "<nil>" {
+			continue
+		}
+		parts = append(parts, key+"="+truncate(compactCatalogText(text), 48))
+		if len(parts) == 4 {
+			break
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+func sortedWorkflowStateKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func intValue(value any) (int, bool) {
+	switch v := value.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case json.Number:
+		n, err := v.Int64()
+		return int(n), err == nil
+	default:
+		return 0, false
+	}
+}
+
 func shouldRenderConversationMessage(m gact.Message) bool {
 	if len(m.Parts) > 0 || isModelSwapMarker(m) || m.ErrorInfo != nil {
 		return true
@@ -7172,6 +7325,12 @@ func shouldRenderConversationMessage(m gact.Message) bool {
 		return true
 	}
 	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
+		return true
+	}
+	if len(mapValue(m.Metadata["workflow_state"])) > 0 {
+		return true
+	}
+	if rows, ok := m.Metadata["reasoning_log"].([]any); ok && len(rows) > 0 {
 		return true
 	}
 	if hasRuntimeProvenance(m) {
@@ -8615,6 +8774,13 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 		md["duration_ms"] = duration
 	} else if duration, ok := floatValue(payload["duration_ms"]); ok {
 		md["duration_ms"] = duration
+	}
+	if workflowState := mapValue(nested["workflow_state"]); len(workflowState) > 0 {
+		md["workflow_state"] = workflowState
+		md["workflow_summary"] = workflowStateSummary(workflowState)
+	} else if workflowState := mapValue(payload["workflow_state"]); len(workflowState) > 0 {
+		md["workflow_state"] = workflowState
+		md["workflow_summary"] = workflowStateSummary(workflowState)
 	}
 	if agent == "" {
 		md["agent_id"] = firstNonEmpty(eventType, "workflow")

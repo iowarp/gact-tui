@@ -70,6 +70,59 @@ func sampleRuntimeProvenance() map[string]any {
 	}
 }
 
+func TestReasoningLogMetadataPromotesCompactThinkingMarker(t *testing.T) {
+	msg := gact.Message{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Metadata: map[string]any{
+			"reasoning_log": []any{
+				map[string]any{
+					"model":           "openai/gpt-oss-120b",
+					"question":        "plan",
+					"reasoning":       strings.Repeat("x", 80),
+					"reasoning_chars": 80,
+				},
+			},
+		},
+		Parts: []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "Visible answer."}},
+	}
+	normalizeMessagePresentation(&msg)
+	if len(msg.Parts) < 2 || msg.Parts[0].Type != gact.PartTypeThinking {
+		t.Fatalf("reasoning marker not inserted before text: %#v", msg.Parts)
+	}
+	if !strings.Contains(msg.Parts[0].Thinking, "reasoning captured: 1 entry") {
+		t.Fatalf("reasoning marker summary = %q", msg.Parts[0].Thinking)
+	}
+	if strings.Contains(msg.Parts[0].Thinking, strings.Repeat("x", 20)) {
+		t.Fatalf("reasoning marker should not inline reasoning content: %q", msg.Parts[0].Thinking)
+	}
+}
+
+func TestWorkflowStateMetadataPromotesEvidencePart(t *testing.T) {
+	msg := gact.Message{
+		ID:   "m1",
+		Role: gact.RoleAssistant,
+		Metadata: map[string]any{
+			"workflow_state": map[string]any{
+				"dataset_id": "00d66104-dcb0-4381-86b4-fc62f08b3434",
+				"stage":      "visualization",
+				"artifacts":  []any{"plot.png"},
+			},
+		},
+		Parts: []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "Done."}},
+	}
+	normalizeMessagePresentation(&msg)
+	if len(msg.Parts) < 2 || msg.Parts[0].Type != gact.PartTypeExpertHandoff {
+		t.Fatalf("workflow evidence not inserted before text: %#v", msg.Parts)
+	}
+	if !strings.Contains(msg.Parts[0].Text, "workflow state:") || !strings.Contains(msg.Parts[0].Text, "dataset_id=") {
+		t.Fatalf("workflow state summary = %q", msg.Parts[0].Text)
+	}
+	if msg.Parts[0].Metadata["synthetic_from"] != "workflow_state_metadata" {
+		t.Fatalf("workflow metadata = %#v", msg.Parts[0].Metadata)
+	}
+}
+
 func TestRuntimeProvenanceMetadataPromotesToReadablePart(t *testing.T) {
 	msg := gact.Message{
 		ID:   "m1",

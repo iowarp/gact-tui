@@ -1776,6 +1776,8 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 			_, _ = w.Write([]byte(`{"servers":[
 					{"id":"mcp_adios","name":"ADIOS","status":"connected","transport":"stdio","capabilities":{"tools":["adios_inspect_file"]}}
 				]}`))
+		case "/v1/mcp/handshake":
+			_, _ = w.Write([]byte(`{"servers":[]}`))
 		case "/v1/mcp/servers/mcp_adios/tools":
 			_, _ = w.Write([]byte(`{"tools":[
 				{

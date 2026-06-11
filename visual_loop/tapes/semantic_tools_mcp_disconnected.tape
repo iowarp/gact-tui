@@ -18,10 +18,12 @@ Enter
 Wait+Screen /Actions and MCP/
 Wait+Screen /docs-mcp/
 Wait+Screen /disconnected/
-Wait+Screen /needs attent/
+Wait+Screen /repair/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_tools_mcp_disconnected_catalog.png"
 
+Down
+Down
 Down
 Down
 Down

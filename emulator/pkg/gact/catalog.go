@@ -91,6 +91,10 @@ type Model struct {
 	Description     string         `json:"description,omitempty"`
 	ContextWindow   int            `json:"context_window"`
 	MaxOutputTokens int            `json:"max_output_tokens"`
+	ChosenContext   int            `json:"chosen_context,omitempty"`
+	ContextSource   string         `json:"context_source,omitempty"`
+	IsReasoning     bool           `json:"is_reasoning,omitempty"`
+	NativeToolCalls bool           `json:"native_tool_calling,omitempty"`
 	Supports        ModelSupports  `json:"supports"`
 	Pricing         *ModelPricing  `json:"pricing,omitempty"`
 	Metadata        map[string]any `json:"metadata,omitempty"`

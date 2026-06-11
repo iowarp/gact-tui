@@ -270,6 +270,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tools/{id}", s.handleGetTool)
 
 	// §6.7 — MCP
+	s.mux.HandleFunc("GET /v1/mcp/handshake", s.handleMcpHandshake)
 	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcpServers)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcpServer)
 	s.mux.HandleFunc("DELETE /v1/mcp/servers/{id}", s.handleDeleteMcpServer)
@@ -306,8 +307,10 @@ func (s *Server) routes() {
 	// §6.12 — Providers + Models
 	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)
 	s.mux.HandleFunc("GET /v1/providers/lm", s.handleGetLMProvider)
+	s.mux.HandleFunc("GET /v1/providers/lm/wait", s.handleWaitLMProvider)
 	s.mux.HandleFunc("PUT /v1/providers/lm", s.handlePutLMProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
+	s.mux.HandleFunc("GET /v1/providers/{id}/handshake", s.handleProviderHandshake)
 	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
 	s.mux.HandleFunc("POST /v1/providers/{id}/auth", s.handleProviderAuth)
 
