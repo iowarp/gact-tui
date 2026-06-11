@@ -65,6 +65,21 @@ python3 visual_loop/check_diagnostics_readiness.py --root . \
   --strict
 ```
 
+For the deferred live diagnostics backlog (#151), capture Doctor and Metrics
+screenshots from an owned CLIO backend without starting or stopping CLIO:
+
+```bash
+CLIO_DIAGNOSTICS_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_diagnostics_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <RUNNING_SESSION_ID>
+```
+
+The script writes `live_clio_doctor_partial_gaps.png`,
+`live_clio_metrics_active_stream.png`, and a manifest under
+`visual_loop/screenshots/`. The metrics proof is only valid when the supplied
+session is actively streaming during capture.
+
 ## Current State
 
 - Repository: `https://github.com/iowarp/gact-tui`
