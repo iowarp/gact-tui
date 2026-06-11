@@ -221,10 +221,14 @@ import sys
 backend, failure_session, recovery_session, retry_model, failure_tab_count, out_dir, manifest = sys.argv[1:8]
 data = {
     "backend": backend,
+    "captured_from_owned_backend": True,
     "failure_session_id": failure_session,
     "recovery_session_id": recovery_session,
     "retry_model": retry_model,
     "failure_tab_count": int(failure_tab_count),
+    "provider_failure_observed": True,
+    "retry_override_warning_observed": True,
+    "provider_recovery_observed": bool(recovery_session),
     "provider_failure_inline": f"{out_dir}/live_clio_provider_failure_inline.png",
     "provider_failure_detail": f"{out_dir}/live_clio_provider_failure_detail.png",
     "retry_override_warning": f"{out_dir}/live_clio_provider_retry_override_warning.png",

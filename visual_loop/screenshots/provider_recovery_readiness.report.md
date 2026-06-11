@@ -19,11 +19,15 @@
   - `visual_loop/screenshots/live_clio_provider_recovery_setup.png` (missing)
   - `visual_loop/screenshots/live_clio_provider_recovery_manifest.json` (missing)
 - Manifest status: `missing`
-- Missing manifest keys:
+- Missing or false manifest keys:
   - `backend`
+  - `captured_from_owned_backend`
   - `failure_session_id`
   - `recovery_session_id`
   - `retry_model`
+  - `provider_failure_observed`
+  - `retry_override_warning_observed`
+  - `provider_recovery_observed`
   - `provider_failure_inline`
   - `provider_failure_detail`
   - `retry_override_warning`

@@ -616,7 +616,10 @@ CLIO_PROVIDER_RECOVERY_CAPTURE_OWN_BACKEND=1 \
 
 The helper records the provider failure inline view, operator detail view, retry
 override warning, and optional recovery/provider-setup screenshots. It does not
-start, stop, authenticate, or reconfigure CLIO.
+start, stop, authenticate, or reconfigure CLIO. The readiness checker requires
+real PNG captures plus `captured_from_owned_backend: true`,
+`provider_failure_observed: true`, `retry_override_warning_observed: true`, and
+`provider_recovery_observed: true` in the manifest.
 
 Refresh the provider recovery readiness report after changing provider setup,
 provider failure, retry-warning, or live provider recovery evidence:
