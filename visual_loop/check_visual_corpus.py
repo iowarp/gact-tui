@@ -51,6 +51,8 @@ TRACKED_ARTIFACT_INDEX_FILES: tuple[str, ...] = (
     "visual_loop/SLASH_COMMAND_VISUAL_COVERAGE.md",
 )
 
+MISSING_CAPTURE_REPORT = "visual_loop/MISSING_CAPTURES.md"
+
 
 ARTIFACT_EXTENSIONS: tuple[str, ...] = (
     ".tape",
@@ -235,6 +237,36 @@ def render_missing_capture_report(result: dict[str, object]) -> str:
 def write_missing_capture_report(result: dict[str, object], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(render_missing_capture_report(result), encoding="utf-8")
+
+
+def check_missing_capture_report_sync(root: Path, result: dict[str, object]) -> dict[str, object]:
+    path = root / MISSING_CAPTURE_REPORT
+    if not path.exists():
+        return {
+            "ok": False,
+            "path": MISSING_CAPTURE_REPORT,
+            "state": "missing",
+        }
+    if not path.is_file():
+        return {
+            "ok": False,
+            "path": MISSING_CAPTURE_REPORT,
+            "state": "not a file",
+        }
+    expected = render_missing_capture_report(result)
+    try:
+        actual = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {
+            "ok": False,
+            "path": MISSING_CAPTURE_REPORT,
+            "state": f"read failed: {exc}",
+        }
+    return {
+        "ok": actual == expected,
+        "path": MISSING_CAPTURE_REPORT,
+        "state": "current" if actual == expected else "stale",
+    }
 
 
 def manifest_artifacts() -> tuple[str, ...]:
@@ -732,6 +764,10 @@ def check_corpus(
         "ndp_demo_readiness": ndp_demo,
         "missing_capture_ledger": missing_capture_ledger_result,
     }
+    missing_capture_report = check_missing_capture_report_sync(root, result)
+    result["missing_capture_report"] = missing_capture_report
+    if not missing_capture_report["ok"]:
+        result["ok"] = False
     if require_strict_live_pass:
         strict = check_strict_live_reports(root)
         result["strict_live_pass"] = strict
@@ -922,6 +958,13 @@ def print_text_report(result: dict[str, object], *, include_deferred: bool = Fal
                         f"{row.get('missing_capture')}"
                     )
         print()
+    missing_report = result.get("missing_capture_report")
+    if isinstance(missing_report, dict):
+        print("## missing_capture_report")
+        print()
+        print(f"- path: {missing_report.get('path')}")
+        print(f"- status: {missing_report.get('state')}")
+        print()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -974,6 +1017,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.write_deferred_report:
         write_missing_capture_report(result, Path(args.write_deferred_report))
+        result = check_corpus(
+            Path(args.root),
+            require_tracked=args.require_git_tracked,
+            require_strict_live_pass=args.require_strict_live_pass,
+            require_indexed=args.require_indexed,
+            require_ndp_demo_ready=args.require_ndp_demo_ready,
+            ndp_report_path=Path(args.ndp_demo_report),
+        )
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:

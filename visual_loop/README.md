@@ -19,7 +19,8 @@ use `--require-indexed` to ensure every tape/screenshot is listed in one of the
 visual-loop index files. Use `--include-deferred` when you want the report to
 print the Missing Or Deferred capture ledger without requiring those planned
 captures to exist yet. Use `--write-deferred-report
-visual_loop/MISSING_CAPTURES.md` to refresh the standalone backlog.
+visual_loop/MISSING_CAPTURES.md` to refresh the standalone backlog. The corpus
+check fails if that generated backlog is stale relative to `COVERAGE.md`.
 The same corpus command also audits slash-command discoverability: built-in
 palette commands must be documented in `SLASH_COMMAND_VISUAL_COVERAGE.md`,
 canonical commands must appear in the Help Commands tab, and folded aliases must
