@@ -543,6 +543,186 @@ func TestApplySemanticEventRendersDelegationAsReadableHandoff(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventSummarizesContractOnlyDelegation(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_contract_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.started",
+			"status":       "running",
+			"summary":      "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback DO_NOT_DELEGATE_DATA_AGAIN: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":      map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Text != "main delegated to analysis." {
+		t.Fatalf("contract-only delegation summary = %#v", part)
+	}
+	if strings.Contains(part.Text, "NEXT_EXPERT") || strings.Contains(part.Text, "DO_NOT_DELEGATE") {
+		t.Fatalf("delegation leaked control contract: %#v", part)
+	}
+}
+
+func TestApplySemanticEventHumanizesPlumbingDelegationSummary(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_sync_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.started",
+			"status":       "running",
+			"summary":      "main delegated sync work to visualization.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":      map[string]any{"agent_id": "visualization", "role": "child_expert"},
+			"payload":      map[string]any{"stage": "delegate.started"},
+		}},
+	})
+
+	part := a.messages[0].Parts[0]
+	if part.Text != "main delegated to visualization." || part.Metadata["parent_id"] != "main" || part.Metadata["agent_id"] != "visualization" {
+		t.Fatalf("plumbing delegation summary = %#v", part)
+	}
+}
+
+func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "invoke_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.started",
+			"status":     "running",
+			"summary":    "Invoking main.",
+			"actor":      map[string]any{"agent_id": "main"},
+		}},
+	})
+
+	part := a.messages[0].Parts[0]
+	if part.Text != "main started." || part.Metadata["agent_id"] != "main" {
+		t.Fatalf("agent invocation fallback = %#v", part)
+	}
+}
+
+func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "s1", Status: gact.StatusRunning},
+		{ID: "s2", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+		t.Fatalf("live semantic trace not seeded: %#v", a.messages)
+	}
+
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 0 {
+		t.Fatalf("switching to idle session should not restore s1 trace: %#v", a.messages)
+	}
+	a.selected = 0
+	_ = a.selectSession(0)
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+		t.Fatalf("running session should restore cached semantic trace: %#v", a.messages)
+	}
+}
+
+func TestMessagesLoadedMergesSemanticLiveTraceOnlyWhileRunning(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "invoke_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.started",
+			"status":     "running",
+			"summary":    "Invoking main.",
+			"actor":      map[string]any{"agent_id": "main"},
+		}},
+	})
+
+	model, _ := a.Update(messagesLoadedMsg{
+		sessionID: "s1",
+		messages: []gact.Message{{
+			ID:        "backend_user",
+			SessionID: "s1",
+			Role:      gact.RoleUser,
+			Parts:     []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "hello"}},
+		}},
+	})
+	a = model.(*App)
+	if len(a.messages) != 2 || a.messages[1].ID != "semantic_live_"+stableIDFragment("turn_1") {
+		t.Fatalf("running backend reload should keep live semantic trace: %#v", a.messages)
+	}
+
+	a.sessions[0].Status = gact.StatusIdle
+	model, _ = a.Update(messagesLoadedMsg{
+		sessionID: "s1",
+		messages: []gact.Message{{
+			ID:        "backend_final",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+			Parts:     []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "done"}},
+		}},
+	})
+	a = model.(*App)
+	if len(a.messages) != 1 || a.messages[0].ID != "backend_final" {
+		t.Fatalf("idle backend reload should drop transient semantic trace: %#v", a.messages)
+	}
+	if _, ok := a.semanticLiveMessagesBySession["s1"]; ok {
+		t.Fatalf("idle reload should clear semantic live cache: %#v", a.semanticLiveMessagesBySession)
+	}
+}
+
 func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

@@ -205,6 +205,13 @@ type App struct {
 	// session reset to 0 and asked the server to replay the whole ring.
 	lastSeenSeqIDBySession map[string]uint64
 
+	// semanticLiveMessagesBySession preserves TUI-synthesized live
+	// semantic timeline rows while a session is still running. Backend
+	// message reloads remain authoritative; this only keeps a revisit
+	// from blinking to a different transient trace before CLIO persists
+	// equivalent runtime provenance.
+	semanticLiveMessagesBySession map[string][]gact.Message
+
 	// connectRetryAttempts is the count of consecutive failed
 	// connectCmd dispatches. Same backoff schedule as the SSE
 	// reconnect; reset on connectedMsg.
@@ -718,22 +725,23 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	)
 	ta.Focus()
 	app := &App{
-		BackendURL:             backendURL,
-		Theme:                  theme,
-		localizer:              newLocalizer(os.Getenv("GACT_LOCALE")),
-		c:                      client.New(backendURL),
-		stage:                  StageConnecting,
-		focus:                  FocusInput,
-		MouseEnabled:           true,
-		selected:               -1,
-		stickyToBottom:         true,
-		input:                  ta,
-		inputHistoryBySession:  map[string][]string{},
-		historyCursor:          -1,
-		bodySelMsgIdx:          -1,
-		bodySelPartIdx:         -1,
-		previouslyDetached:     map[string]bool{},
-		lastSeenSeqIDBySession: map[string]uint64{},
+		BackendURL:                    backendURL,
+		Theme:                         theme,
+		localizer:                     newLocalizer(os.Getenv("GACT_LOCALE")),
+		c:                             client.New(backendURL),
+		stage:                         StageConnecting,
+		focus:                         FocusInput,
+		MouseEnabled:                  true,
+		selected:                      -1,
+		stickyToBottom:                true,
+		input:                         ta,
+		inputHistoryBySession:         map[string][]string{},
+		historyCursor:                 -1,
+		bodySelMsgIdx:                 -1,
+		bodySelPartIdx:                -1,
+		previouslyDetached:            map[string]bool{},
+		lastSeenSeqIDBySession:        map[string]uint64{},
+		semanticLiveMessagesBySession: map[string][]gact.Message{},
 	}
 	app.initFileViewerFromCwd()
 	app.refreshLocalizedPlaceholders()
@@ -1848,7 +1856,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messagesLoadedMsg:
 		// Only apply if it's for the currently selected session.
 		if a.currentSessionID() == m.sessionID {
-			a.messages = m.messages
+			a.messages = a.mergeLoadedMessagesWithSemanticLiveCache(m.sessionID, m.messages)
 			a.stickyToBottom = true
 		}
 		return a, nil
@@ -6688,6 +6696,9 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.swapInputDraftFor(sid)
 
 	a.messages = nil
+	if a.sessionAllowsSemanticLiveCache(sid) {
+		a.messages = cloneMessages(a.semanticLiveMessagesBySession[sid])
+	}
 	a.contextFiles = nil
 	a.contextFileSel = 0
 	a.scrollOffset = 0
@@ -8417,6 +8428,7 @@ func (a *App) applySemanticEvent(e client.SSEEvent) {
 	part.Metadata["stream_source"] = "semantic_event"
 	part.Metadata["raw_event"] = pl
 	msg.Parts = append(msg.Parts, part)
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func (a *App) applyToolCallStarted(e client.SSEEvent) {
@@ -8461,6 +8473,7 @@ func (a *App) applyToolCallStarted(e client.SSEEvent) {
 			"raw_event":        pl,
 		},
 	})
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func (a *App) applyToolCallCompleted(e client.SSEEvent) {
@@ -8522,6 +8535,7 @@ func (a *App) applyToolCallCompleted(e client.SSEEvent) {
 		result.Cached = cached
 	}
 	msg.Parts = append(msg.Parts, result)
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func semanticToolCompletionSummary(toolName string, summaryText string, toolPayload map[string]any, eventPayload map[string]any, duration float64, hasDuration bool, cached bool, hasCached bool) string {
@@ -8647,6 +8661,122 @@ func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message 
 	return &a.messages[len(a.messages)-1]
 }
 
+func (a *App) cacheSemanticLiveMessagesForSession(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || !a.sessionAllowsSemanticLiveCache(sessionID) {
+		return
+	}
+	var live []gact.Message
+	for _, msg := range a.messages {
+		if msg.SessionID == sessionID && msg.Metadata != nil && msg.Metadata["semantic_live_message"] == true {
+			live = append(live, cloneMessage(msg))
+		}
+	}
+	if len(live) == 0 {
+		return
+	}
+	if a.semanticLiveMessagesBySession == nil {
+		a.semanticLiveMessagesBySession = map[string][]gact.Message{}
+	}
+	a.semanticLiveMessagesBySession[sessionID] = live
+}
+
+func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded []gact.Message) []gact.Message {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || !a.sessionAllowsSemanticLiveCache(sessionID) {
+		delete(a.semanticLiveMessagesBySession, sessionID)
+		return loaded
+	}
+	cached := a.semanticLiveMessagesBySession[sessionID]
+	if len(cached) == 0 {
+		return loaded
+	}
+	merged := cloneMessages(loaded)
+	seen := make(map[string]bool, len(merged))
+	for _, msg := range merged {
+		if msg.ID != "" {
+			seen[msg.ID] = true
+		}
+	}
+	for _, msg := range cached {
+		if msg.ID != "" && seen[msg.ID] {
+			continue
+		}
+		merged = append(merged, cloneMessage(msg))
+	}
+	return merged
+}
+
+func (a *App) sessionAllowsSemanticLiveCache(sessionID string) bool {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false
+	}
+	for _, session := range a.sessions {
+		if session.ID != sessionID {
+			continue
+		}
+		switch session.Status {
+		case gact.StatusRunning, gact.StatusWaitingPermission, "pending", "queued":
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func cloneMessages(messages []gact.Message) []gact.Message {
+	if len(messages) == 0 {
+		return nil
+	}
+	out := make([]gact.Message, len(messages))
+	for i, msg := range messages {
+		out[i] = cloneMessage(msg)
+	}
+	return out
+}
+
+func cloneMessage(msg gact.Message) gact.Message {
+	msg.Parts = cloneParts(msg.Parts)
+	msg.Metadata = cloneAnyMap(msg.Metadata)
+	if msg.Model != nil {
+		model := *msg.Model
+		msg.Model = &model
+	}
+	if msg.ErrorInfo != nil {
+		errInfo := *msg.ErrorInfo
+		errInfo.Details = cloneAnyMap(msg.ErrorInfo.Details)
+		msg.ErrorInfo = &errInfo
+	}
+	return msg
+}
+
+func cloneParts(parts []gact.Part) []gact.Part {
+	if len(parts) == 0 {
+		return nil
+	}
+	out := make([]gact.Part, len(parts))
+	for i, part := range parts {
+		part.Metadata = cloneAnyMap(part.Metadata)
+		part.Input = cloneAnyMap(part.Input)
+		part.Content = cloneParts(part.Content)
+		out[i] = part
+	}
+	return out
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
 func (a *App) hasToolPart(callID, partType string) bool {
 	callID = strings.TrimSpace(callID)
 	if callID == "" {
@@ -8735,38 +8865,12 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 
 func semanticWorkflowMetadata(payload map[string]any, eventType string) map[string]any {
 	nested := mapValue(payload["payload"])
-	actor := mapValue(payload["actor"])
-	subject := mapValue(payload["subject"])
-	blueprint := mapValue(payload["blueprint"])
-	status := firstNonEmpty(stringValue(payload["status"]), "observed")
-	agent := firstNonEmpty(
-		stringValue(nested["agent_id"]),
-		stringValue(nested["child_expert"]),
-		stringValue(actor["agent_id"]),
-		stringValue(actor["agent"]),
-		stringValue(actor["tool"]),
-		stringValue(blueprint["child_expert"]),
-		stringValue(subject["agent_id"]),
-		stringValue(subject["agent"]),
-	)
-	parent := firstNonEmpty(
-		stringValue(nested["parent_id"]),
-		stringValue(nested["parent_expert"]),
-		stringValue(blueprint["parent_expert"]),
-		stringValue(subject["parent_id"]),
-	)
-	if parent == agent {
-		parent = ""
-	}
+	refs := semanticWorkflowRefs(payload, eventType)
 	md := map[string]any{
-		"agent_id":  agent,
-		"parent_id": parent,
-		"status":    status,
-		"stage": firstNonEmpty(
-			stringValue(nested["stage"]),
-			strings.TrimPrefix(eventType, "blueprint.delegation."),
-			eventType,
-		),
+		"agent_id":       refs.agent,
+		"parent_id":      refs.parent,
+		"status":         refs.status,
+		"stage":          refs.stage,
 		"summary":        semanticUserSummary(payload, eventType),
 		"output_summary": semanticUserSummary(payload, eventType),
 	}
@@ -8782,10 +8886,70 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 		md["workflow_state"] = workflowState
 		md["workflow_summary"] = workflowStateSummary(workflowState)
 	}
-	if agent == "" {
+	if refs.agent == "" {
 		md["agent_id"] = firstNonEmpty(eventType, "workflow")
 	}
 	return md
+}
+
+type semanticWorkflowRef struct {
+	agent  string
+	parent string
+	stage  string
+	status string
+}
+
+func semanticWorkflowRefs(payload map[string]any, eventType string) semanticWorkflowRef {
+	nested := mapValue(payload["payload"])
+	actor := mapValue(payload["actor"])
+	subject := mapValue(payload["subject"])
+	blueprint := mapValue(payload["blueprint"])
+	stage := firstNonEmpty(
+		stringValue(nested["stage"]),
+		strings.TrimPrefix(eventType, "blueprint.delegation."),
+		eventType,
+	)
+	status := firstNonEmpty(stringValue(payload["status"]), "observed")
+	agent := firstNonEmpty(
+		stringValue(nested["agent_id"]),
+		stringValue(nested["child_expert"]),
+		stringValue(blueprint["child_expert"]),
+		workflowParticipantByRole(actor, "child"),
+		workflowParticipantByRole(subject, "child"),
+	)
+	parent := firstNonEmpty(
+		stringValue(nested["parent_id"]),
+		stringValue(nested["parent_expert"]),
+		stringValue(blueprint["parent_expert"]),
+		workflowParticipantByRole(actor, "parent"),
+		workflowParticipantByRole(subject, "parent"),
+		stringValue(subject["parent_id"]),
+	)
+	if agent == "" {
+		agent = firstNonEmpty(
+			stringValue(actor["agent_id"]),
+			stringValue(actor["agent"]),
+			stringValue(actor["tool"]),
+			stringValue(subject["agent_id"]),
+			stringValue(subject["agent"]),
+		)
+	}
+	if parent == agent {
+		parent = ""
+	}
+	return semanticWorkflowRef{agent: agent, parent: parent, stage: stage, status: status}
+}
+
+func workflowParticipantByRole(values map[string]any, want string) string {
+	role := strings.ToLower(strings.TrimSpace(stringValue(values["role"])))
+	if !strings.Contains(role, want) {
+		return ""
+	}
+	return firstNonEmpty(
+		stringValue(values["agent_id"]),
+		stringValue(values["agent"]),
+		stringValue(values["tool"]),
+	)
 }
 
 func semanticUserSummary(payload map[string]any, eventType string) string {
@@ -8794,14 +8958,99 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 	if summary == "" {
 		summary = strings.TrimSpace(stringValue(nested["summary"]))
 	}
-	if summary == "" {
-		summary = humanizeSemanticEventType(eventType)
-	}
 	summary = stripSemanticControlContracts(summary)
+	fallback := semanticWorkflowFallbackSummary(payload, eventType)
+	if summary == "" || semanticSummaryIsPlumbing(summary, eventType) {
+		if fallback != "" {
+			return fallback
+		}
+	}
 	if summary == "" {
 		summary = humanizeSemanticEventType(eventType)
 	}
 	return summary
+}
+
+func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) string {
+	refs := semanticWorkflowRefs(payload, eventType)
+	agent := strings.TrimSpace(refs.agent)
+	parent := strings.TrimSpace(refs.parent)
+	switch {
+	case strings.HasPrefix(eventType, "blueprint.delegation."):
+		stage := strings.ToLower(strings.TrimSpace(refs.stage))
+		switch {
+		case strings.Contains(stage, "started"):
+			if parent != "" && agent != "" {
+				return parent + " delegated to " + agent + "."
+			}
+			if agent != "" {
+				return agent + " started."
+			}
+		case strings.Contains(stage, "completed"):
+			if agent != "" && parent != "" {
+				return agent + " returned to " + parent + "."
+			}
+			if agent != "" {
+				return agent + " returned."
+			}
+		case strings.Contains(stage, "failed") || refs.status == "failed" || refs.status == "error":
+			if agent != "" && parent != "" {
+				return agent + " failed while returning to " + parent + "."
+			}
+			if agent != "" {
+				return agent + " failed."
+			}
+		}
+	case strings.HasPrefix(eventType, "agent.invocation."):
+		if agent == "" {
+			return ""
+		}
+		switch {
+		case strings.Contains(eventType, ".started"):
+			return agent + " started."
+		case strings.Contains(eventType, ".completed"):
+			return agent + " completed."
+		case strings.Contains(eventType, ".failed") || refs.status == "failed" || refs.status == "error":
+			return agent + " failed."
+		}
+	}
+	return ""
+}
+
+func semanticSummaryIsPlumbing(summary, eventType string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(summary), " ")))
+	normalized = strings.Trim(normalized, " .")
+	if normalized == "" {
+		return true
+	}
+	humanized := strings.ToLower(strings.TrimSpace(humanizeSemanticEventType(eventType)))
+	humanized = strings.Trim(humanized, " .")
+	switch normalized {
+	case humanized,
+		"started",
+		"running",
+		"completed",
+		"failed",
+		"delegation started",
+		"delegation completed",
+		"delegation failed",
+		"invocation started",
+		"invocation completed",
+		"invocation failed",
+		"agent invocation started",
+		"agent invocation completed",
+		"blueprint delegation started",
+		"blueprint delegation completed",
+		"delegate.started",
+		"delegate.completed",
+		"parent.resumed":
+		return true
+	}
+	return strings.HasPrefix(normalized, "invoking ") ||
+		strings.Contains(normalized, " delegated sync work to ") ||
+		strings.Contains(normalized, "delegate.started") ||
+		strings.Contains(normalized, "delegate.completed") ||
+		strings.Contains(normalized, "parent.resumed")
 }
 
 func humanizeSemanticEventType(eventType string) string {
