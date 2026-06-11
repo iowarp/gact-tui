@@ -93,6 +93,8 @@ REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
     "session_id",
     "backend",
     "artifact_name",
+    "recording_path",
+    "still_capture_paths",
     "session_status",
     "assistant_message_count",
     "verified_artifact",
@@ -188,6 +190,8 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
     missing_fields = [field for field in REQUIRED_MANIFEST_FIELDS if field not in data]
     case_id_ok = data.get("case_id") == case.case_id
     artifact_name_ok = data.get("artifact_name") == case.artifact_name
+    recording_path_ok = data.get("recording_path") == real_recording_path(case)
+    still_capture_paths_ok = data.get("still_capture_paths") == list(real_still_capture_paths(case))
     session_id_ok = bool(str(data.get("session_id", "")).strip())
     backend_ok = bool(str(data.get("backend", "")).strip())
     assistant_message_count = int_value(data.get("assistant_message_count"))
@@ -207,6 +211,8 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         not missing_fields
         and case_id_ok
         and artifact_name_ok
+        and recording_path_ok
+        and still_capture_paths_ok
         and session_id_ok
         and backend_ok
         and assistant_message_count > 0
@@ -227,6 +233,10 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         problems.append("manifest case_id does not match case")
     if not artifact_name_ok:
         problems.append("manifest artifact_name does not match case")
+    if not recording_path_ok:
+        problems.append("manifest recording_path does not match expected short GIF")
+    if not still_capture_paths_ok:
+        problems.append("manifest still_capture_paths do not match expected still captures")
     if not session_id_ok:
         problems.append("manifest session_id is empty")
     if not backend_ok:
@@ -384,11 +394,12 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append("")
     lines.append(
         "A manifest only counts as live-run proof when the case/artifact match, "
-        "an assistant message and expected artifact were observed, at least one "
-        "`semantic_event_count` and one `live_observed_event_count` were recorded, "
-        "`streaming_event_types` is non-empty, and the run did not request user "
-        "input, time out, cancel, or report `provider_streaming_limitation` / "
-        "`live_streaming_false`."
+        "the referenced short GIF and still captures match the expected case "
+        "artifacts, an assistant message and expected artifact were observed, "
+        "at least one `semantic_event_count` and one "
+        "`live_observed_event_count` were recorded, `streaming_event_types` is "
+        "non-empty, and the run did not request user input, time out, cancel, "
+        "or report `provider_streaming_limitation` / `live_streaming_false`."
     )
     lines.append("")
     lines.append("## Real Capture Inventory")

@@ -266,13 +266,24 @@ validate_capture_artifact "${out_dir}/${stem}_prompt.png"
 validate_capture_artifact "${out_dir}/${stem}_early.png"
 validate_capture_artifact "${out_dir}/${stem}_live.png"
 validate_capture_artifact "${out_dir}/${stem}_short.gif"
-python3 - "$backend" "$session_id" "$case_id" "$artifact_name" "${out_dir}/${stem}_manifest.json" "$completion_timeout" <<'PY'
+python3 - "$backend" "$session_id" "$case_id" "$artifact_name" "${out_dir}/${stem}_manifest.json" "$completion_timeout" "${out_dir}/${stem}_short.gif" "${out_dir}/${stem}_prompt.png" "${out_dir}/${stem}_early.png" "${out_dir}/${stem}_live.png" <<'PY'
 import json
 import sys
 import time
 import urllib.request
 
-backend, session_id, case_id, artifact_name, manifest_path, timeout_raw = sys.argv[1:7]
+(
+    backend,
+    session_id,
+    case_id,
+    artifact_name,
+    manifest_path,
+    timeout_raw,
+    recording_path,
+    prompt_capture_path,
+    early_capture_path,
+    live_capture_path,
+) = sys.argv[1:11]
 completion_timeout = float(timeout_raw)
 
 def get_json(path):
@@ -351,6 +362,8 @@ manifest = {
     "session_id": session_id,
     "backend": backend,
     "artifact_name": artifact_name,
+    "recording_path": recording_path,
+    "still_capture_paths": [prompt_capture_path, early_capture_path, live_capture_path],
     "session_status": session.get("status", ""),
     "assistant_message_count": sum(1 for message in messages if message.get("role") == "assistant"),
     "semantic_event_count": semantic_event_count,

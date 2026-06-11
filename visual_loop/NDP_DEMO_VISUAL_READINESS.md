@@ -20,6 +20,8 @@ Required manifest fields:
 - `session_id`
 - `backend`
 - `artifact_name`
+- `recording_path`
+- `still_capture_paths`
 - `session_status`
 - `assistant_message_count`
 - `verified_artifact`
@@ -32,7 +34,7 @@ Required manifest fields:
 - `live_observed_event_count`
 - `streaming_event_types`
 
-A manifest only counts as live-run proof when the case/artifact match, an assistant message and expected artifact were observed, at least one `semantic_event_count` and one `live_observed_event_count` were recorded, `streaming_event_types` is non-empty, and the run did not request user input, time out, cancel, or report `provider_streaming_limitation` / `live_streaming_false`.
+A manifest only counts as live-run proof when the case/artifact match, the referenced short GIF and still captures match the expected case artifacts, an assistant message and expected artifact were observed, at least one `semantic_event_count` and one `live_observed_event_count` were recorded, `streaming_event_types` is non-empty, and the run did not request user input, time out, cancel, or report `provider_streaming_limitation` / `live_streaming_false`.
 
 ## Real Capture Inventory
 
@@ -59,10 +61,10 @@ A manifest only counts as live-run proof when the case/artifact match, an assist
 - Real TUI recording artifacts missing or invalid:
   - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_short.gif` (missing)
 - Live-run manifest does not prove streaming-ready demo semantics:
-  - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_manifest.json` (manifest missing required fields: semantic_event_count, live_observed_event_count, streaming_event_types; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)
+  - `visual_loop/screenshots/ndp_tui_real_california_nws_warnings_manifest.json` (manifest missing required fields: recording_path, still_capture_paths, semantic_event_count, live_observed_event_count, streaming_event_types; manifest recording_path does not match expected short GIF; manifest still_capture_paths do not match expected still captures; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)
 
 ## Missing: Fresno CIMIS weather profile and visualization
 - Real TUI recording artifacts missing or invalid:
   - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_short.gif` (missing)
 - Live-run manifest does not prove streaming-ready demo semantics:
-  - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_manifest.json` (manifest missing required fields: semantic_event_count, live_observed_event_count, streaming_event_types; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)
+  - `visual_loop/screenshots/ndp_tui_real_fresno_cimis_manifest.json` (manifest missing required fields: recording_path, still_capture_paths, semantic_event_count, live_observed_event_count, streaming_event_types; manifest recording_path does not match expected short GIF; manifest still_capture_paths do not match expected still captures; no semantic events observed; no live-observed semantic events observed; streaming_event_types is empty; provider did not expose live streaming; manifest records live_streaming=false)

@@ -52,6 +52,8 @@ def write_manifest(root: Path, case: check_ndp_demo_readiness.DemoCase, **overri
         "session_id": "sess_demo",
         "backend": "http://127.0.0.1:17973",
         "artifact_name": case.artifact_name,
+        "recording_path": check_ndp_demo_readiness.real_recording_path(case),
+        "still_capture_paths": list(check_ndp_demo_readiness.real_still_capture_paths(case)),
         "session_status": "idle",
         "assistant_message_count": 1,
         "semantic_event_count": 6,
@@ -267,6 +269,34 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertIn("no semantic events observed", rendered)
         self.assertIn("no live-observed semantic events observed", rendered)
         self.assertIn("streaming_event_types is empty", rendered)
+
+    def test_manifest_must_reference_case_recording_and_still_captures(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "ndp_demo_four_cases.md"
+            seed_report(report)
+            case = check_ndp_demo_readiness.CASES[0]
+            for rel in case.deterministic_artifacts:
+                touch(root, rel)
+            for rel in check_ndp_demo_readiness.real_capture_paths(case):
+                write_real_capture(root, rel)
+            write_manifest(
+                root,
+                case,
+                recording_path="visual_loop/screenshots/old_ndp_short.gif",
+                still_capture_paths=[
+                    "visual_loop/screenshots/old_ndp_prompt.png",
+                    "visual_loop/screenshots/old_ndp_early.png",
+                    "visual_loop/screenshots/old_ndp_live.png",
+                ],
+            )
+
+            result = check_ndp_demo_readiness.check_readiness(root, report)
+            rendered = check_ndp_demo_readiness.render_markdown(result)
+
+        self.assertFalse(result["cases"][0]["real_tui_recording"]["streaming_ok"])
+        self.assertIn("manifest recording_path does not match expected short GIF", rendered)
+        self.assertIn("manifest still_capture_paths do not match expected still captures", rendered)
 
     def test_manifest_requires_typed_boolean_outcome_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
