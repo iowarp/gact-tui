@@ -927,6 +927,68 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 	}
 }
 
+func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.wsID = "ws_demo"
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "DemoBench"}}
+	a.sessions = []gact.Session{{
+		ID:    "s1",
+		Title: "San Diego review",
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "seismic-waveform-review",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindPrompts,
+		title: "Prompts",
+		items: promptCatalogItems([]gact.PromptDefinition{{
+			ID: "clio.main.planner", Title: "Main planner", Scope: "agent_blueprint",
+		}}, a.runtimeScope()),
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{
+		"Context:",
+		"workspace DemoBench",
+		"session San Diego review",
+		"workflow seismic-waveform-review",
+		"(session)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prompt catalog context missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCatalogBrowserContextLineExplainsMissingSessionAndWorkflow(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.wsID = "ws_demo"
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "DemoBench"}}
+	a.selected = -1
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindExpertPacks,
+		title: "Expert Packs",
+		items: expertPackCatalogItems(nil),
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{
+		"Context:",
+		"workspace DemoBench",
+		"session no session selected",
+		"workflow no active workflow",
+		"blueprint",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expert-pack catalog context missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestPromptCatalogEmptyStateExplainsMissingSession(t *testing.T) {
 	items := promptCatalogItems(nil, client.RuntimeScope{WorkspaceID: "ws1"})
 	if len(items) != 3 {

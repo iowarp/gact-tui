@@ -2179,6 +2179,9 @@ func (a *App) viewCatalogBrowser() string {
 	if intro := catalogBrowserIntro(a.catalogBrowser.kind); intro != "" {
 		rows = append(rows, t.HintLabel.Render(intro), "")
 	}
+	if context := a.catalogBrowserContextLine(a.catalogBrowser.kind); context != "" {
+		rows = append(rows, t.HintLabel.Render(context), "")
+	}
 	actionRow := -1
 	actionCol := 0
 	actionButtons := []menuButton(nil)
@@ -2389,6 +2392,28 @@ func catalogBrowserIntro(kind catalogBrowserKind) string {
 	default:
 		return ""
 	}
+}
+
+func (a *App) catalogBrowserContextLine(kind catalogBrowserKind) string {
+	switch kind {
+	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+	default:
+		return ""
+	}
+	workspace := firstNonEmpty(a.headerWorkspaceLabel(), strings.TrimSpace(a.wsID), "default workspace")
+	session := "no session selected"
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		s := a.sessions[a.selected]
+		session = firstNonEmpty(strings.TrimSpace(s.Title), strings.TrimSpace(s.ID), "selected session")
+	}
+	workflow := "no active workflow blueprint"
+	if id := a.activeAgentBlueprintID(); id != "" {
+		workflow = id
+		if scope := a.activeAgentBlueprintScope(); scope != "" {
+			workflow += " (" + scope + ")"
+		}
+	}
+	return "Context: workspace " + workspace + " · session " + session + " · workflow " + workflow
 }
 
 func catalogBrowserHintText(cb *catalogBrowserState) string {
