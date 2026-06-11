@@ -43,6 +43,19 @@ The generated `visual_loop/screenshots/gact_diag_clipboard_terminal.report.md`
 must include `mouse_capture`, `clipboard_native`, `clipboard_missing`,
 `clipboard_osc52`, `terminal_selection`, `TERM`, and `TERM_PROGRAM`.
 
+For the live terminal permutation backlog (#150), capture the actual terminal
+environment from the terminal emulator being verified:
+
+```bash
+visual_loop/capture_live_terminal_copy_env.sh
+```
+
+This writes `visual_loop/screenshots/live_terminal_copy_env.report.md` with the
+real terminal variables, clipboard diagnostics, and a manual verification
+checklist. The helper refuses `TERM=dumb` captures unless
+`GACT_ALLOW_DUMB_TERMINAL_CAPTURE=1` is set for a non-interactive smoke test; do
+not use forced captures as proof that native selection works.
+
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:
 
