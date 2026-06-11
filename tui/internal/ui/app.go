@@ -283,6 +283,12 @@ type App struct {
 	hits               *uiHitRegistry
 	baseHitTargetCount int
 
+	// conversationRenderCache keeps expensive per-message render output
+	// across frames. Scrolling, mouse movement, and footer updates should
+	// not re-render hundreds of unchanged CLIO semantic events.
+	conversationRenderCache    map[string]conversationRenderCacheEntry
+	conversationRenderRevision uint64
+
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
 	// from the input pane via Ctrl+G or Ctrl+Shift+P.
@@ -1871,6 +1877,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Only apply if it's for the currently selected session.
 		if a.currentSessionID() == m.sessionID {
 			a.messages = a.mergeLoadedMessagesWithSemanticLiveCache(m.sessionID, m.messages)
+			a.invalidateConversationRenderCache()
 			a.stickyToBottom = true
 		}
 		return a, nil
@@ -2102,6 +2109,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			a.contextFiles = nil
 			a.currentStatus = ""
 			return a, nil
@@ -2712,6 +2720,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		a.invalidateConversationRenderCache()
 		// Surface write_errors as a transient hint. Was previously
 		// dropped silently — user pressed 'a' on a diff, backend
 		// recorded a write_error (e.g. workspace-scope refusal), and
@@ -2746,6 +2755,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		a.invalidateConversationRenderCache()
 		return a, nil
 
 	case sessionsRefreshedMsg:
@@ -2758,6 +2768,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			a.currentStatus = ""
 			return a, nil
 		}
@@ -2800,6 +2811,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 		a.selected = 0
@@ -3863,6 +3875,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.pendingClearSessionID = ""
 				n := len(a.messages)
 				a.messages = nil
+				a.invalidateConversationRenderCache()
 				a.scrollOffset = 0
 				a.stickyToBottom = true
 				if n > 0 {
@@ -6395,6 +6408,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		target := a.messages[idx]
 		a.messages = append(a.messages[:idx], a.messages[idx+1:]...)
+		a.invalidateConversationRenderCache()
 		// Cursor shifts back to previous message (clamped) so the
 		// selection stays on-screen after a delete.
 		if a.bodySelMsgIdx >= 0 {
@@ -6662,6 +6676,7 @@ func (a *App) appendModelSwapMarker(info *client.LMProviderInfo) {
 			"model":         info.Model,
 		},
 	})
+	a.invalidateConversationRenderCache()
 	a.stickyToBottom = true
 }
 
@@ -6729,6 +6744,7 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	if a.sessionAllowsSemanticLiveCache(sid) {
 		a.messages = cloneMessages(a.semanticLiveMessagesBySession[sid])
 	}
+	a.invalidateConversationRenderCache()
 	a.contextFiles = nil
 	a.contextFileSel = 0
 	a.scrollOffset = 0
@@ -6931,6 +6947,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 			sid, _ := pl["session_id"].(string)
 			if sid != "" && sid == a.currentSessionID() {
 				a.messages = nil
+				a.invalidateConversationRenderCache()
 				a.scrollOffset = 0
 				a.stickyToBottom = true
 				// Reload to be safe — the SSE ring may have stale
@@ -7053,6 +7070,7 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 			a.messages[i].Metadata[k] = v
 		}
 		normalizeMessagePresentation(&a.messages[i])
+		a.invalidateConversationRenderCache()
 		return
 	}
 }
@@ -8493,10 +8511,12 @@ func (a *App) applyMessageCreated(e client.SSEEvent) {
 	for i, existing := range a.messages {
 		if existing.ID == m.ID {
 			a.messages[i] = m
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
 	a.messages = append(a.messages, m)
+	a.invalidateConversationRenderCache()
 }
 
 func (a *App) applyPartAdded(e client.SSEEvent) {
@@ -8530,11 +8550,13 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
 					a.messages[i].Parts[j] = part
 					normalizeMessagePresentation(&a.messages[i])
+					a.invalidateConversationRenderCache()
 					return
 				}
 			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -8897,6 +8919,7 @@ func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message 
 			"turn_id":               turnID,
 		},
 	})
+	a.invalidateConversationRenderCache()
 	return &a.messages[len(a.messages)-1]
 }
 
@@ -9046,6 +9069,7 @@ func (a *App) removeSyntheticSemanticToolParts(callID string) {
 		}
 		a.messages[mi].Parts = parts
 	}
+	a.invalidateConversationRenderCache()
 }
 
 func messageHasPartID(msg gact.Message, partID string) bool {
@@ -9784,6 +9808,7 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 				}
 				a.messages[i].Parts[j].Metadata["raw_input"] = v
 			}
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -9832,6 +9857,7 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					p.Text = final
 				}
 			}
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -12033,6 +12059,77 @@ func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
 	}
 }
 
+const maxConversationRenderCacheEntries = 1024
+
+type conversationRenderCacheEntry struct {
+	row       string
+	blocks    []conversationPartHitBlock
+	lineCount int
+}
+
+func (a *App) cachedConversationMessageRender(t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) conversationRenderCacheEntry {
+	key := conversationRenderCacheKey(a.conversationRenderRevision, t, m, prev, width, inlineResults, selectedPartID)
+	if a.conversationRenderCache == nil {
+		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+	} else if cached, ok := a.conversationRenderCache[key]; ok {
+		return cached
+	} else if len(a.conversationRenderCache) > maxConversationRenderCacheEntries {
+		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+	}
+	row := t.renderMessageInContextWithResultsSelected(m, prev, width, inlineResults, selectedPartID)
+	blocks := t.conversationPartHitBlocks(m, prev, width, inlineResults)
+	entry := conversationRenderCacheEntry{
+		row:       row,
+		blocks:    append([]conversationPartHitBlock(nil), blocks...),
+		lineCount: renderedStringLineCount(row),
+	}
+	a.conversationRenderCache[key] = entry
+	return entry
+}
+
+func (a *App) invalidateConversationRenderCache() {
+	a.conversationRenderCache = nil
+	a.conversationRenderRevision++
+}
+
+func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
+	h := fnv.New64a()
+	writeHashString := func(s string) {
+		_, _ = h.Write([]byte(s))
+		_, _ = h.Write([]byte{0})
+	}
+	writeHashString(strconv.FormatUint(revision, 10))
+	writeHashString(strconv.Itoa(width))
+	writeHashString(strconv.FormatBool(t.ShowTimestamps))
+	writeHashString(strconv.Itoa(t.CollapseThreshold))
+	writeHashString(hexOf(t.Fg))
+	writeHashString(hexOf(t.FgMuted))
+	writeHashString(hexOf(t.Primary))
+	writeHashString(hexOf(t.Secondary))
+	writeHashString(hexOf(t.RoleTool))
+	writeHashString(selectedPartID)
+	writeHashString(m.ID)
+	writeHashString(m.SessionID)
+	writeHashString(m.Role)
+	writeHashString(m.StopReason)
+	writeHashString(strconv.Itoa(len(m.Parts)))
+	if prev == nil {
+		writeHashString("<nil-prev>")
+	} else {
+		writeHashString("prev")
+		writeHashString(prev.ID)
+		writeHashString(prev.Role)
+		writeHashString(strconv.FormatBool(assistantCarriedToolCall(prev)))
+	}
+	if len(inlineResults) > 0 {
+		writeHashString("inline-results")
+		if payload, err := json.Marshal(inlineResults); err == nil {
+			_, _ = h.Write(payload)
+		}
+	}
+	return fmt.Sprintf("%016x", h.Sum64())
+}
+
 func (a *App) renderBody(width, height int) string {
 	t := a.Theme
 	// Input pane grows with multi-line content up to a cap so users
@@ -12207,8 +12304,9 @@ func (a *App) renderBody(width, height int) string {
 			if len(rows) > 0 {
 				fullLine++
 			}
-			row := t.renderMessageInContextWithResultsSelected(m, prevRendered, width-4, inlineResults[i], selPartID)
-			for _, block := range t.conversationPartHitBlocks(m, prevRendered, width-4, inlineResults[i]) {
+			rendered := a.cachedConversationMessageRender(t, m, prevRendered, width-4, inlineResults[i], selPartID)
+			row := rendered.row
+			for _, block := range rendered.blocks {
 				block.msgIdx = i
 				block.fullStart += fullLine
 				hitBlocks = append(hitBlocks, block)
@@ -12225,7 +12323,7 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
-			fullLine += renderedStringLineCount(row)
+			fullLine += rendered.lineCount
 			prevRendered = &a.messages[i]
 		}
 		// Pending-turn indicator: when the session is running but the latest
