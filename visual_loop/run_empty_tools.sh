@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-port="${GACT_EMPTY_TOOLS_PORT:-41930}"
+port="${GACT_EMPTY_TOOLS_PORT:-41927}"
 backend="http://127.0.0.1:${port}"
 log="${TMPDIR:-/tmp}/gact-empty-tools.log"
 

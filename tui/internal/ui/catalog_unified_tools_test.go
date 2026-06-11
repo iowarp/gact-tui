@@ -287,7 +287,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 	}
 
 	hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindTools, items: msg.items, sel: 0})
-	for _, want := range []string{"no callable actions yet", "i add connection", "/agent-blueprints activate workflow"} {
+	for _, want := range []string{"no callable actions yet", "i add connection", "open /agent-blueprints", "activate workflow"} {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("empty tools hint missing %q: %q", want, hint)
 		}

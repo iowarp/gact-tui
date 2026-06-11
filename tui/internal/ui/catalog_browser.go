@@ -2630,7 +2630,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 	switch cb.kind {
 	case catalogKindTools:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "none" {
-			return modalKeyHint("no callable actions yet", "i add connection", "/agent-blueprints activate workflow", "Esc close")
+			return modalKeyHint("no callable actions yet", "i add connection", "open /agent-blueprints", "activate workflow", "Esc close")
 		}
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "mcpserver/") {
 			return modalKeyHint("↑/↓ navigate", "Enter connection detail", "r reconnect", "i add connection", "d remove connection", "Esc close")
@@ -2643,7 +2643,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ navigate", "Enter detail", "i add connection", "d remove connection", "Esc close")
 	case catalogKindSkills:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "none" {
-			return modalKeyHint("no skills yet", "/agent-blueprints add skills", "Esc close")
+			return modalKeyHint("no skills yet", "open /agent-blueprints", "install workflow with skills", "Esc close")
 		}
 		return modalKeyHint("↑/↓ navigate", "Enter details", "Esc close")
 	case catalogKindAgents:
@@ -2663,7 +2663,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint(parts...)
 	case catalogKindPrompts:
 		if catalogBrowserItemsAreEmptyState(cb.items) {
-			return modalKeyHint("/agent-blueprints activate workflow", "reopen /prompts", "Esc close")
+			return modalKeyHint("open /agent-blueprints", "activate workflow", "reopen /prompts", "Esc close")
 		}
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "provider/") {
 			return modalKeyHint("↑/↓ navigate", "Enter provider summary", "Esc close")
@@ -2673,7 +2673,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ nav", "Enter details", "r render", "v validate", "u reload", "e edit", "s save->codex", "Esc back")
 	case catalogKindExpertPacks:
 		if catalogBrowserItemsAreEmptyState(cb.items) {
-			return modalKeyHint("/agent-blueprints install workflow packs", "then reopen /expert-packs", "Esc close")
+			return modalKeyHint("open /agent-blueprints", "install workflow pack", "reopen /expert-packs", "Esc close")
 		}
 		return modalKeyHint("↑/↓ navigate", "Enter details", "Esc close")
 	case catalogKindExpertPackDetail:

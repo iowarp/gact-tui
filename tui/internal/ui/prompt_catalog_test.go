@@ -921,7 +921,12 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 		items: items,
 	}
 	hint := catalogBrowserHintText(a.catalogBrowser)
-	if !strings.Contains(hint, "/agent-blueprints activate workflow") || strings.Contains(hint, "Enter prompt profiles") {
+	for _, want := range []string{"open /agent-blueprints", "activate workflow", "reopen /prompts"} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("empty prompt hint missing %q, got %q", want, hint)
+		}
+	}
+	if strings.Contains(hint, "/agent-blueprints activate workflow") || strings.Contains(hint, "Enter prompt profiles") {
 		t.Fatalf("empty prompt hint should route operators to activation path, got %q", hint)
 	}
 	_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
@@ -1127,7 +1132,12 @@ func TestSkillsCatalogEmptyStateExplainsInstallPath(t *testing.T) {
 		t.Fatalf("skills intro should point to install path, got %q", intro)
 	}
 	emptyHint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindSkills, items: msg.items})
-	if !strings.Contains(emptyHint, "/agent-blueprints add skills") || strings.Contains(emptyHint, "Enter details") {
+	for _, want := range []string{"open /agent-blueprints", "install workflow with skills"} {
+		if !strings.Contains(emptyHint, want) {
+			t.Fatalf("empty skills hint missing %q, got %q", want, emptyHint)
+		}
+	}
+	if strings.Contains(emptyHint, "/agent-blueprints add skills") || strings.Contains(emptyHint, "Enter details") {
 		t.Fatalf("empty skills hint should route operators to blueprint install path, got %q", emptyHint)
 	}
 	if hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindSkills, items: []catalogItem{{id: "skill", title: "Skill"}}}); !strings.Contains(hint, "Enter details") {
@@ -1334,7 +1344,12 @@ func TestExpertPackCatalogEmptyStateExplainsPurpose(t *testing.T) {
 		items: items,
 	}
 	hint := catalogBrowserHintText(a.catalogBrowser)
-	if !strings.Contains(hint, "/agent-blueprints") || !strings.Contains(hint, "install workflow packs") {
+	for _, want := range []string{"open /agent-blueprints", "install workflow pack", "reopen /expert-packs"} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("empty expert-pack hint missing %q, got %q", want, hint)
+		}
+	}
+	if strings.Contains(hint, "/agent-blueprints install workflow packs") {
 		t.Fatalf("empty expert-pack hint should route operators to installation path, got %q", hint)
 	}
 	_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
