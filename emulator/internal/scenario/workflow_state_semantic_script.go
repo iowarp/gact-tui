@@ -29,12 +29,10 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 		return
 	}
 
-	e.bus.Publish(events.Event{
-		Type:      "semantic.event",
-		SessionID: sessionID,
-		Payload: map[string]any{
+	workflowPayload := func(eventID string) map[string]any {
+		return map[string]any{
 			"schema_version": "clio.semantic_event.v1",
-			"event_id":       "sem_workflow_state_1",
+			"event_id":       eventID,
 			"event_type":     "blueprint.delegation.completed",
 			"status":         "completed",
 			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
@@ -63,7 +61,20 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 					},
 				},
 			},
-		},
+		}
+	}
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
+		Payload:   workflowPayload("sem_workflow_state_1"),
+	})
+	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
+		return
+	}
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
+		Payload:   workflowPayload("sem_workflow_state_duplicate"),
 	})
 	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
 		return

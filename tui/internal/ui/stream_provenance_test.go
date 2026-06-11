@@ -628,6 +628,56 @@ func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventDropsAdjacentDuplicateWorkflowRows(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	event := func(eventID, summary string) client.SSEEvent {
+		return client.SSEEvent{
+			Type: "semantic.event",
+			Payload: map[string]any{"payload": map[string]any{
+				"event_id":     eventID,
+				"session_id":   "s1",
+				"turn_id":      "turn_1",
+				"event_type":   "blueprint.delegation.completed",
+				"status":       "completed",
+				"summary":      summary,
+				"detail_level": "semantic",
+				"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+				"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+				"payload": map[string]any{
+					"stage":       "delegate.completed",
+					"parent_id":   "main",
+					"agent_id":    "analysis",
+					"duration_ms": 20353,
+				},
+			}},
+		}
+	}
+
+	a.applySSE(event("delegate_done_1", "analysis returned a compact result to main."))
+	a.applySSE(event("delegate_done_2", "analysis returned a compact result to main."))
+	a.applySSE(event("delegate_next_1", "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces"))
+
+	if len(a.messages) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	parts := a.messages[0].Parts
+	if len(parts) != 2 {
+		t.Fatalf("duplicate semantic workflow row should be collapsed, got %d parts: %#v", len(parts), parts)
+	}
+	if parts[0].Text != "analysis returned to main." {
+		t.Fatalf("first workflow row = %#v", parts[0])
+	}
+	if !strings.Contains(parts[1].Text, "next: visualization - plot SAC traces") {
+		t.Fatalf("distinct workflow step should still render: %#v", parts[1])
+	}
+	if parts[0].Metadata["semantic_duplicate_key"] == "" || parts[1].Metadata["semantic_duplicate_key"] == "" {
+		t.Fatalf("semantic duplicate keys should be recorded for workflow rows: %#v", parts)
+	}
+}
+
 func TestApplySemanticEventPrioritizesReadableBlockerFromContract(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

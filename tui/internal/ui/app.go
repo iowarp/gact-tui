@@ -8573,6 +8573,12 @@ func (a *App) applySemanticEvent(e client.SSEEvent) {
 	part.Metadata["detail_level"] = stringValue(pl["detail_level"])
 	part.Metadata["stream_source"] = "semantic_event"
 	part.Metadata["raw_event"] = pl
+	if duplicateKey := semanticEventDuplicateKey(pl, eventType, part); duplicateKey != "" {
+		if messageLastSemanticDuplicate(*msg, duplicateKey) {
+			return
+		}
+		part.Metadata["semantic_duplicate_key"] = duplicateKey
+	}
 	msg.Parts = append(msg.Parts, part)
 	a.cacheSemanticLiveMessagesForSession(sid)
 }
@@ -8980,6 +8986,44 @@ func messageHasPartID(msg gact.Message, partID string) bool {
 		}
 	}
 	return false
+}
+
+func messageLastSemanticDuplicate(msg gact.Message, duplicateKey string) bool {
+	duplicateKey = strings.TrimSpace(duplicateKey)
+	if duplicateKey == "" || len(msg.Parts) == 0 {
+		return false
+	}
+	last := msg.Parts[len(msg.Parts)-1]
+	if last.Metadata == nil || last.Metadata["semantic_event"] != true {
+		return false
+	}
+	return stringValue(last.Metadata["semantic_duplicate_key"]) == duplicateKey
+}
+
+func semanticEventDuplicateKey(payload map[string]any, eventType string, part gact.Part) string {
+	if part.Type != gact.PartTypeExpertHandoff {
+		return ""
+	}
+	if !strings.HasPrefix(eventType, "blueprint.delegation.") && !strings.HasPrefix(eventType, "agent.invocation.") {
+		return ""
+	}
+	refs := semanticWorkflowRefs(payload, eventType)
+	summary := strings.TrimSpace(strings.Join(strings.Fields(part.Text), " "))
+	if summary == "" {
+		return ""
+	}
+	values := []string{
+		eventType,
+		refs.status,
+		refs.stage,
+		refs.parent,
+		refs.agent,
+		summary,
+	}
+	for i := range values {
+		values[i] = strings.ToLower(strings.TrimSpace(values[i]))
+	}
+	return strings.Join(values, "\x1f")
 }
 
 func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType string) (gact.Part, bool) {
