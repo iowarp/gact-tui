@@ -1,14 +1,19 @@
 import tempfile
 import unittest
 from pathlib import Path
+import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_copy_selection_readiness
 
 
 def write_artifact(root: Path, rel: str, text: str = "artifact") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    if rel.endswith(".png") and text == "artifact":
+        path.write_bytes(check_copy_selection_readiness.PNG_SIGNATURE + b"fixture png")
+    else:
+        path.write_text(text, encoding="utf-8")
 
 
 def live_report(capture_mode: str = "live-terminal", checked: bool = True) -> str:
@@ -102,6 +107,22 @@ class CopySelectionReadinessTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertFalse(result["live_ok"])
         self.assertIn("forced-noninteractive", report)
+
+    def test_placeholder_copy_screenshots_do_not_satisfy_deterministic_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(
+                root,
+                "visual_loop/screenshots/semantic_detail_copy.png",
+                "not a png",
+            )
+
+            result = check_copy_selection_readiness.check_readiness(root)
+            report = check_copy_selection_readiness.render_markdown(result)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("invalid png", report)
 
     def test_completed_live_terminal_report_counts_as_deferred_live_proof(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
