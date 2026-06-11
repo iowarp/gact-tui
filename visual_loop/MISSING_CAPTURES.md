@@ -30,7 +30,7 @@ changing capture priorities or missing-state rows.
 ### Medium - Agent and blueprint hierarchy
 
 - Missing capture: Real marketplace-source lifecycle against current CLIO registry semantics, including successful source install/update/remove and backend registry refresh outcomes (#128/#143)
-- Why it matters: Deterministic tapes now cover large blueprint/agent trees with long names, active markers, nested children, invalid sources, and disabled activation states; real lifecycle proof is still needed for demo operator confidence
+- Why it matters: Deterministic tapes now cover large blueprint/agent trees with long names, active markers, nested children, invalid sources, and disabled activation states; `check_agent_blueprint_marketplace_readiness.py` now keeps that proof separate from real marketplace-source lifecycle proof, which still needs owned-backend evidence for demo operator confidence
 
 ### Medium - Prompts and expert packs
 

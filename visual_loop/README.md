@@ -117,6 +117,21 @@ Use `--strict-live` only when the real owned-backend captures for runtime
 catalog breadth, registry-backed MCP/source lifecycle, and prompt/expert-pack
 lifecycle are all expected to exist.
 
+Refresh the Agent Blueprint marketplace/source readiness report after changing
+the blueprint catalog, source management, validation, or install/update/delete
+surfaces:
+
+```bash
+python3 visual_loop/check_agent_blueprint_marketplace_readiness.py --root . \
+  --write-report visual_loop/screenshots/agent_blueprint_marketplace_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only when
+`live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` exists from an
+owned CLIO backend and proves source add/refresh/remove plus blueprint
+install/update/activation with source ref and commit provenance.
+
 For the live prompt and expert-pack lifecycle backlog (#153), capture successful
 prompt save plus expert-pack install/update/delete from an owned disposable CLIO
 backend:
