@@ -123,6 +123,39 @@ func TestWorkflowStateMetadataPromotesEvidencePart(t *testing.T) {
 	}
 }
 
+func TestWorkflowStateSummaryNamesNestedStatusAndEvidence(t *testing.T) {
+	summary := workflowStateSummary(map[string]any{
+		"geospatial": map[string]any{
+			"status": "resolved",
+			"region": "San Diego",
+		},
+		"acquisition": map[string]any{
+			"status":      "staged",
+			"dataset_id":  "00d66104-dcb0-4381-86b4-fc62f08b3434",
+			"local_path":  "/workspace/tmp/earthscope_CI_BAR.sac",
+			"trace_count": 1,
+		},
+		"artifact": map[string]any{
+			"status":        "ready",
+			"artifact_path": "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+		},
+	})
+	for _, want := range []string{
+		"acquisition staged",
+		"dataset_id=00d66104-dcb0-4381-86b4-fc62f08b3434",
+		"artifact ready",
+		"artifact_path=sac_traces_earthscope",
+		"geospatial resolved",
+	} {
+		if !strings.Contains(summary, want) {
+			t.Fatalf("workflow summary missing %q:\n%s", want, summary)
+		}
+	}
+	if strings.Contains(summary, "field") {
+		t.Fatalf("workflow summary should not collapse meaningful sections to field counts:\n%s", summary)
+	}
+}
+
 func TestRuntimeProvenanceMetadataPromotesToReadablePart(t *testing.T) {
 	msg := gact.Message{
 		ID:   "m1",

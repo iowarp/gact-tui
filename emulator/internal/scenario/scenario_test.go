@@ -73,6 +73,30 @@ func collectStatusEvents(sub *events.Subscription, maxCount int, timeout time.Du
 	return out
 }
 
+func collectEventsUntilStatus(sub *events.Subscription, maxCount int, timeout time.Duration, wantStatus string) []events.Event {
+	out := make([]events.Event, 0, 64)
+	deadline := time.After(timeout)
+	for len(out) < maxCount {
+		select {
+		case e, ok := <-sub.C:
+			if !ok {
+				return out
+			}
+			out = append(out, e)
+			if e.Type != "session.status_changed" {
+				continue
+			}
+			payload, _ := e.Payload.(map[string]any)
+			if payload != nil && payload["status"] == wantStatus {
+				return out
+			}
+		case <-deadline:
+			return out
+		}
+	}
+	return out
+}
+
 func TestDefaultScriptHappyPath(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
@@ -371,6 +395,40 @@ func TestRedactedSemanticToolScriptProducesLifecycleOnlyToolEvents(t *testing.T)
 				t.Fatalf("redacted semantic fixture should not mirror lifecycle events into stored tool parts: %#v", p)
 			}
 		}
+	}
+}
+
+func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("workflow state semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, gact.StatusIdle) {
+		got = append(got, event)
+	}
+	sawWorkflowEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		nested, _ := payload["payload"].(map[string]any)
+		workflowState, _ := nested["workflow_state"].(map[string]any)
+		if payload["event_type"] == "blueprint.delegation.completed" && len(workflowState) > 0 {
+			sawWorkflowEvent = true
+			break
+		}
+	}
+	if !sawWorkflowEvent {
+		t.Fatalf("semantic workflow fixture did not emit delegation workflow_state event: %#v", got)
 	}
 }
 

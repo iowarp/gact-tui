@@ -57,6 +57,7 @@ var defaultFinalVariants = []string{
 //   - "nws warning demo" / "california warnings" → NWS warning feature summary fixture
 //   - "cimis weather demo" / "fresno cimis" → CIMIS weather profile and plot fixture
 //   - "redacted semantic demo"                 → semantic-only tool lifecycle with redacted args
+//   - "workflow state semantic demo"            → semantic delegation event with typed workflow_state
 func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) {
 	userMsg, err := e.store.GetMessage(userMsgID)
 	if err != nil {
@@ -74,6 +75,7 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	wantsNWSWarnings := containsAny(userText, "nws warning demo", "california warnings", "weather warning")
 	wantsCIMISWeather := containsAny(userText, "cimis weather demo", "fresno cimis", "station 80")
 	wantsRedactedSemantic := containsAny(userText, "redacted semantic demo")
+	wantsWorkflowStateSemantic := containsAny(userText, "workflow state semantic demo")
 	// CLIO-BBBBBBBBBB3: v0.2 routing demo — triggers the script that
 	// emits a routing_decision part + session.agent_routed event.
 	wantsRouting := containsAny(userText,
@@ -121,6 +123,10 @@ func DefaultScript(ctx context.Context, e *Engine, sessionID, userMsgID string) 
 	}
 	if wantsRedactedSemantic {
 		runRedactedSemanticToolScript(ctx, e, sessionID, userMsg)
+		return
+	}
+	if wantsWorkflowStateSemantic {
+		runWorkflowStateSemanticScript(ctx, e, sessionID, userMsg)
 		return
 	}
 	if wantsRouting {

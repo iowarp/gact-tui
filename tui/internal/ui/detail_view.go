@@ -912,16 +912,30 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		duration = fmt.Sprintf("%.0fms", ms)
 	}
 	argsPreview := semanticArgsPreview(payload, event)
+	workflowSummary := workflowStateSummary(firstNonEmptyMap(
+		mapValue(payload["workflow_state"]),
+		mapValue(event["workflow_state"]),
+	))
 	return appendDetailSection(rows, "Operator view",
 		detailField{"result", runtimeScalar(event["summary"])},
 		detailField{"status", status},
 		detailField{"agent", humanizeSemanticOperatorValue(agent)},
 		detailField{"tool", toolDisplayName(tool)},
 		detailField{"workflow", workflow},
+		detailField{"workflow state", workflowSummary},
 		detailField{"duration", duration},
 		detailField{"input", argsPreview},
 		detailField{"model", model},
 	)
+}
+
+func firstNonEmptyMap(values ...map[string]any) map[string]any {
+	for _, value := range values {
+		if len(value) > 0 {
+			return value
+		}
+	}
+	return nil
 }
 
 func humanizeSemanticOperatorValue(value string) string {

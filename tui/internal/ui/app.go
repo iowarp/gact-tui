@@ -7280,27 +7280,103 @@ func workflowStateSummary(state map[string]any) string {
 	keys := sortedWorkflowStateKeys(state)
 	parts := make([]string, 0, minInt(4, len(keys)))
 	for _, key := range keys {
-		value := state[key]
-		text := strings.TrimSpace(stringValue(value))
+		text := workflowStateValueSummary(key, state[key])
 		if text == "" {
-			switch v := value.(type) {
-			case []any:
-				text = pluralizeCount(len(v), "item")
-			case map[string]any:
-				text = pluralizeCount(len(v), "field")
-			default:
-				text = strings.TrimSpace(fmt.Sprint(v))
-			}
-		}
-		if text == "" || text == "<nil>" {
 			continue
 		}
-		parts = append(parts, key+"="+truncate(compactCatalogText(text), 48))
+		parts = append(parts, text)
 		if len(parts) == 4 {
 			break
 		}
 	}
 	return strings.Join(parts, " · ")
+}
+
+func workflowStateValueSummary(key string, value any) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		return workflowStateMapSummary(key, v)
+	case []any:
+		if len(v) == 0 {
+			return ""
+		}
+		return key + "=" + pluralizeCount(len(v), "item")
+	default:
+		text := strings.TrimSpace(stringValue(value))
+		if text == "" {
+			text = strings.TrimSpace(fmt.Sprint(value))
+		}
+		if text == "" || text == "<nil>" {
+			return ""
+		}
+		return key + "=" + truncate(compactCatalogText(text), 48)
+	}
+}
+
+func workflowStateMapSummary(key string, values map[string]any) string {
+	if len(values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, 3)
+	if status := firstNonEmpty(
+		stringValue(values["status"]),
+		stringValue(values["state"]),
+		stringValue(values["stage"]),
+	); status != "" {
+		parts = append(parts, status)
+	}
+	for _, field := range []string{
+		"dataset_id", "resource_id", "station", "network", "record_count",
+		"feature_count", "warning_count", "trace_count", "artifact",
+		"artifact_path", "plot_path", "local_path", "staged_path", "filepath",
+		"file", "path",
+	} {
+		if len(parts) >= 3 {
+			break
+		}
+		if text := workflowStateLeafText(values[field]); text != "" {
+			parts = append(parts, field+"="+truncate(compactCatalogText(text), 40))
+		}
+	}
+	if len(parts) == 0 {
+		return key + "=" + pluralizeCount(len(values), "field")
+	}
+	return key + " " + strings.Join(parts, ", ")
+}
+
+func workflowStateLeafText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case map[string]any:
+		if name := firstNonEmpty(
+			stringValue(v["name"]),
+			stringValue(v["path"]),
+			stringValue(v["id"]),
+			stringValue(v["status"]),
+		); name != "" {
+			return name
+		}
+		return ""
+	case []any:
+		if len(v) == 0 {
+			return ""
+		}
+		return pluralizeCount(len(v), "item")
+	default:
+		text := strings.TrimSpace(stringValue(value))
+		if text == "" {
+			text = strings.TrimSpace(fmt.Sprint(value))
+		}
+		if text == "" || text == "<nil>" {
+			return ""
+		}
+		return text
+	}
 }
 
 func sortedWorkflowStateKeys(values map[string]any) []string {

@@ -613,6 +613,65 @@ func TestApplySemanticEventHumanizesPlumbingDelegationSummary(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventRendersWorkflowStateSummaryInline(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "delegate_state_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.completed",
+			"status":     "completed",
+			"summary":    "analysis returned a compact result to main.",
+			"actor":      map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":    map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200,
+				"workflow_state": map[string]any{
+					"acquisition": map[string]any{
+						"status":     "staged",
+						"dataset_id": "00d66104-dcb0-4381-86b4-fc62f08b3434",
+					},
+					"artifact": map[string]any{
+						"status":        "ready",
+						"artifact_path": "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if got := stringValue(part.Metadata["workflow_summary"]); !strings.Contains(got, "acquisition staged") || !strings.Contains(got, "artifact ready") {
+		t.Fatalf("workflow summary metadata = %q", got)
+	}
+	plain := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 120))
+	for _, want := range []string{"analysis returned", "state:", "acquisition staged", "artifact ready"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("semantic workflow render missing %q:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "field") || strings.Contains(plain, "workflow_state") {
+		t.Fatalf("semantic workflow render leaked raw state shape:\n%s", plain)
+	}
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{"workflow state:", "acquisition staged", "artifact ready"} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic workflow detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
 func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

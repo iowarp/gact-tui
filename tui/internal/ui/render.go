@@ -1479,12 +1479,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		}
 		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
 			lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
-		output := firstNonEmpty(
-			stringValue(p.Metadata["output_summary"]),
-			stringValue(p.Metadata["summary"]),
-			expertHandoffErrorSummary(p.Metadata["error"]),
-			p.Text,
-		)
+		output := expertHandoffOutputSummary(p)
 		if output == "" {
 			return head
 		}
@@ -2271,6 +2266,29 @@ func summarizeExpertHandoffOutput(output string) string {
 	}
 	limit := min(len(segments), 2)
 	return truncateString(strings.Join(segments[:limit], "\n"), 320)
+}
+
+func expertHandoffOutputSummary(p gact.Part) string {
+	output := firstNonEmpty(
+		stringValue(p.Metadata["output_summary"]),
+		stringValue(p.Metadata["summary"]),
+		expertHandoffErrorSummary(p.Metadata["error"]),
+		p.Text,
+	)
+	workflowSummary := strings.TrimSpace(stringValue(p.Metadata["workflow_summary"]))
+	if workflowSummary == "" {
+		workflowSummary = workflowStateSummary(mapValue(p.Metadata["workflow_state"]))
+	}
+	if workflowSummary == "" {
+		return output
+	}
+	if output == "" {
+		return "state: " + workflowSummary
+	}
+	if strings.Contains(output, workflowSummary) {
+		return output
+	}
+	return output + " · state: " + workflowSummary
 }
 
 func summarizeStructuredHandoffOutput(output string) string {
