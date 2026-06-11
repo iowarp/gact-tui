@@ -22,13 +22,23 @@ def live_report(capture_mode: str = "live-terminal", checked: bool = True) -> st
         [
             "# Live Terminal Copy Environment Report",
             "",
+            "- captured_at: 2026-06-11T20:00:00+00:00",
             f"- capture_mode: {capture_mode}",
+            "- cwd: /home/jcernuda/gact-tui",
+            "",
+            "## Terminal",
+            "",
             "- TERM: xterm-256color",
             "- TERM_PROGRAM: Windows Terminal",
             "- clipboard_native: clip.exe",
             "- clipboard_missing: wl-copy",
             "- clipboard_osc52: terminal-dependent",
             "- terminal_selection: use /mouse to toggle TUI mouse capture",
+            "",
+            "## GACT Diagnostics",
+            "",
+            "path_gact_status: matches running binary",
+            "clio_gact_status: matches running binary",
             "",
             "## Manual Copy/Selection Checklist",
             "",
@@ -107,6 +117,29 @@ class CopySelectionReadinessTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertFalse(result["live_ok"])
         self.assertIn("forced-noninteractive", report)
+
+    def test_live_terminal_report_requires_binary_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            stale_report = live_report().replace(
+                "\npath_gact_status: matches running binary\nclio_gact_status: matches running binary\n",
+                "\n",
+            )
+            write_artifact(
+                root,
+                "visual_loop/screenshots/live_terminal_copy_env.report.md",
+                stale_report,
+            )
+
+            result = check_copy_selection_readiness.check_readiness(root)
+            report = check_copy_selection_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("Missing diagnostic markers", report)
+        self.assertIn("path_gact_status: matches running binary", report)
+        self.assertIn("clio_gact_status: matches running binary", report)
 
     def test_placeholder_copy_screenshots_do_not_satisfy_deterministic_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

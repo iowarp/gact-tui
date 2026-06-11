@@ -15,12 +15,17 @@
   - `visual_loop/screenshots/live_terminal_copy_env.report.md` (missing)
 - Missing diagnostic markers:
   - `capture_mode: live-terminal`
+  - `captured_at:`
+  - `cwd:`
   - `TERM:`
   - `TERM_PROGRAM:`
+  - `GACT Diagnostics`
   - `clipboard_native:`
   - `clipboard_missing:`
   - `clipboard_osc52:`
   - `terminal_selection:`
+  - `path_gact_status: matches running binary`
+  - `clio_gact_status: matches running binary`
   - `Manual Copy/Selection Checklist`
 - Live report must contain `capture_mode: live-terminal`.
 - Incomplete live checklist items:

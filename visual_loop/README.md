@@ -62,7 +62,10 @@ visual_loop/capture_live_terminal_copy_env.sh
 
 This writes `visual_loop/screenshots/live_terminal_copy_env.report.md` with the
 real terminal variables, clipboard diagnostics, and a manual verification
-checklist. The helper refuses `TERM=dumb` captures unless
+checklist. The report must also include `captured_at`, `cwd`,
+`path_gact_status: matches running binary`, and
+`clio_gact_status: matches running binary` so stale or mismatched binary
+captures cannot satisfy the live proof. The helper refuses `TERM=dumb` captures unless
 `GACT_ALLOW_DUMB_TERMINAL_CAPTURE=1` is set for a non-interactive smoke test; do
 not use forced captures as proof that native selection works.
 
