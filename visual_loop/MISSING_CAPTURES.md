@@ -24,25 +24,25 @@ changing capture priorities or missing-state rows.
 
 ### High - Scientific demos
 
-- Missing capture: Remaining real NDP demo gap: all four cases have preserved real TUI screenshots, but none has the required short GIF plus manifest-backed streaming proof under the current standard
+- Missing capture: Remaining real NDP demo gap: all four cases have preserved real TUI screenshots, but none has the required short GIF plus manifest-backed streaming proof under the current standard (#149)
 - Why it matters: Deterministic fixtures prove rendering, and real runs prove artifact-producing operability for all four cases; all four cases need short GIF recordings, San Diego/EarthScope and wildfire need capture manifests, and California NWS plus Fresno CIMIS need manifests without the streaming limitation flag
 
 ### Medium - Agent and blueprint hierarchy
 
-- Missing capture: Real marketplace-source lifecycle against current CLIO registry semantics, including successful source install/update/remove and backend registry refresh outcomes
+- Missing capture: Real marketplace-source lifecycle against current CLIO registry semantics, including successful source install/update/remove and backend registry refresh outcomes (#128/#143)
 - Why it matters: Deterministic tapes now cover large blueprint/agent trees with long names, active markers, nested children, invalid sources, and disabled activation states; real lifecycle proof is still needed for demo operator confidence
 
 ### Medium - Prompts and expert packs
 
-- Missing capture: Successful provider-specific prompt save against a live backend, empty active-blueprint state with a non-empty prompt registry, and successful expert-pack install/update/delete against a real source
+- Missing capture: Successful provider-specific prompt save against a live backend, empty active-blueprint state with a non-empty prompt registry, and successful expert-pack install/update/delete against a real source (#153)
 - Why it matters: These surfaces decide what CLIO will run; deterministic tapes now cover packaged blueprint prompt variants, scoped session overrides, provider-specific edit failure, validation errors, empty prompt registry, and expert-pack failure/lifecycle structure; real success paths still need proof
 
 ### Medium - Runtime catalogs
 
-- Missing capture: Large live mixed tools/MCP/source catalog, registry-backed MCP install/remove, and successful lifecycle outcomes across source types
+- Missing capture: Large live mixed tools/MCP/source catalog, registry-backed MCP install/remove, and successful lifecycle outcomes across source types (#152)
 - Why it matters: Representative unified catalog states now cover built-in, recipe, MCP, disconnected/repair-needed, unavailable, empty, reconnect-failure, and detail variants; operators still need live registry-backed breadth and success-path proof
 
 ### Medium - Settings and provider setup
 
-- Missing capture: Real ALCF provider failure/recovery and retry override warning
+- Missing capture: Real ALCF provider failure/recovery and retry override warning (#154)
 - Why it matters: Deterministic provider tapes prove unavailable model/auth failure, warning-cleared-after-auth, and narrow layout; the Theme tab now exposes import/export in-view with visual proof
