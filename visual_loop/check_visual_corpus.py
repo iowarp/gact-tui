@@ -61,6 +61,8 @@ ARTIFACT_EXTENSIONS: tuple[str, ...] = (
     ".strict.report.md",
 )
 
+ISSUE_REFERENCE_RE = re.compile(r"(?:^|[^\w])#\d+(?:$|[^\w])")
+
 
 def looks_like_visual_artifact(text: str) -> bool:
     return any(text.endswith(ext) for ext in ARTIFACT_EXTENSIONS)
@@ -132,10 +134,21 @@ def missing_capture_ledger(path: Path) -> tuple[MissingCapture, ...]:
 def check_missing_capture_ledger(root: Path) -> dict[str, object]:
     rows = missing_capture_ledger(root / "visual_loop/COVERAGE.md")
     priorities: dict[str, int] = {}
+    missing_issue_refs: list[dict[str, str]] = []
     for row in rows:
         priorities[row.priority] = priorities.get(row.priority, 0) + 1
+        combined = " ".join((row.area, row.missing_capture, row.why_it_matters))
+        if not ISSUE_REFERENCE_RE.search(combined):
+            missing_issue_refs.append(
+                {
+                    "area": row.area,
+                    "missing_capture": row.missing_capture,
+                    "priority": row.priority,
+                }
+            )
     priority_order = {"High": 0, "Medium": 1, "Low": 2}
     return {
+        "ok": not missing_issue_refs,
         "path": "visual_loop/COVERAGE.md",
         "count": len(rows),
         "priorities": dict(
@@ -153,6 +166,7 @@ def check_missing_capture_ledger(root: Path) -> dict[str, object]:
             }
             for row in rows
         ],
+        "missing_issue_refs": missing_issue_refs,
     }
 
 
@@ -704,6 +718,9 @@ def check_corpus(
     )
     if require_ndp_demo_ready and not ndp_demo["ok"]:
         ok = False
+    missing_capture_ledger_result = check_missing_capture_ledger(root)
+    if not missing_capture_ledger_result["ok"]:
+        ok = False
     result: dict[str, object] = {
         "ok": ok,
         "ndp_demo_required": require_ndp_demo_ready,
@@ -713,7 +730,7 @@ def check_corpus(
         "unindexed_artifacts": unindexed,
         "slash_command_coverage": slash_commands,
         "ndp_demo_readiness": ndp_demo,
-        "missing_capture_ledger": check_missing_capture_ledger(root),
+        "missing_capture_ledger": missing_capture_ledger_result,
     }
     if require_strict_live_pass:
         strict = check_strict_live_reports(root)
@@ -875,6 +892,17 @@ def print_text_report(result: dict[str, object], *, include_deferred: bool = Fal
         print()
         print(f"- path: {ledger.get('path')}")
         print(f"- deferred captures: {ledger.get('count')}")
+        print(f"- issue refs: {'present' if ledger.get('ok') else 'missing'}")
+        missing_issue_refs = ledger.get("missing_issue_refs", [])
+        if isinstance(missing_issue_refs, list) and missing_issue_refs:
+            print("- missing issue refs:")
+            for row in missing_issue_refs:
+                if not isinstance(row, dict):
+                    continue
+                print(
+                    f"  - {row.get('priority')} · {row.get('area')}: "
+                    f"{row.get('missing_capture')}"
+                )
         priorities = ledger.get("priorities", {})
         if isinstance(priorities, dict) and priorities:
             print("- priorities:")
