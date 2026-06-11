@@ -897,6 +897,8 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		runtimeScalar(provider["model_id"]),
 		runtimeScalar(provider["model"]),
 	)
+	providerLabel := semanticProviderLabel(provider)
+	apiBase := firstNonEmpty(runtimeScalar(provider["api_base"]), runtimeScalar(provider["base_url"]))
 	status := runtimeScalar(event["status"])
 	if status == "" {
 		status = runtimeScalar(payload["status"])
@@ -918,9 +920,13 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		mapValue(event["workflow_state"]),
 	))
 	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	failureSummary := semanticFailureSummary(event, runtimeScalar(event["event_type"]))
+	fallbackSummary := semanticStreamFallbackSummary(event)
 	fields := []detailField{
 		detailField{"result", userSummary},
 		detailField{"status", status},
+		detailField{"failure", failureSummary},
+		detailField{"fallback", fallbackSummary},
 		detailField{"agent", humanizeSemanticOperatorValue(agent)},
 		detailField{"workflow state", workflowSummary},
 		detailField{"duration", duration},
@@ -932,8 +938,14 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 	if workflow != "" {
 		fields = append(fields, detailField{"workflow", workflow})
 	}
+	if providerLabel != "" {
+		fields = append(fields, detailField{"provider", providerLabel})
+	}
 	if model != "" {
 		fields = append(fields, detailField{"model", model})
+	}
+	if apiBase != "" {
+		fields = append(fields, detailField{"endpoint", apiBase})
 	}
 	return appendDetailSection(rows, "Operator view", fields...)
 }

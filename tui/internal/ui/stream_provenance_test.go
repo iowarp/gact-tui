@@ -1021,6 +1021,85 @@ func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
 	}
 }
 
+func TestSemanticProviderFailureEventIsOperatorReadable(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_provider_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "turn.failed",
+			"status":         "failed",
+			"summary":        "CLIO turn failed: provider_error.",
+			"provider": map[string]any{
+				"provider_id": "argonne_sophia",
+				"model_id":    "openai/gpt-oss-120b",
+				"api_base":    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			},
+			"payload": map[string]any{
+				"error_info": map[string]any{
+					"error":   "provider_error",
+					"message": "live streaming failed before emitting output: unhandled errors in a TaskGroup (1 sub-exception)",
+					"metadata": map[string]any{
+						"live_streaming": false,
+						"stream_fallback": map[string]any{
+							"category":    "provider_streaming_error",
+							"description": "The live provider stream failed before emitting user-visible output.",
+						},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic provider failure = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError {
+		t.Fatalf("provider failure should render as error: %#v", part)
+	}
+	for _, want := range []string{
+		"Provider error:",
+		"before visible output",
+		"argonne_sophia",
+		"openai/gpt-oss-120b",
+	} {
+		if !strings.Contains(part.Message, want) {
+			t.Fatalf("provider failure message missing %q:\n%s", want, part.Message)
+		}
+	}
+	if strings.Contains(part.Message, "CLIO turn failed: provider_error") {
+		t.Fatalf("provider failure message kept generic summary:\n%s", part.Message)
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"Operator view",
+		"failure: Provider error:",
+		"fallback: provider_streaming_error: The live provider stream failed before emitting user-visible output.",
+		"provider: argonne_sophia · openai/gpt-oss-120b",
+		"endpoint: https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		"Event summary",
+		"what happened: Provider error:",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("provider failure detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"error_info:", "stream_fallback:", "api_base:", "provider_id:", "model_id:"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("provider failure detail leaked raw metadata label %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+}
+
 func TestSemanticEventDetailRedactedToolInputStaysOperatorReadable(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

@@ -9007,6 +9007,7 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 
 func semanticWorkflowMetadata(payload map[string]any, eventType string) map[string]any {
 	nested := mapValue(payload["payload"])
+	provider := mapValue(payload["provider"])
 	refs := semanticWorkflowRefs(payload, eventType)
 	md := map[string]any{
 		"agent_id":       refs.agent,
@@ -9027,6 +9028,18 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 	} else if workflowState := mapValue(payload["workflow_state"]); len(workflowState) > 0 {
 		md["workflow_state"] = workflowState
 		md["workflow_summary"] = workflowStateSummary(workflowState)
+	}
+	if failure := semanticFailureSummary(payload, eventType); failure != "" {
+		md["error"] = failure
+	}
+	if fallback := semanticStreamFallbackSummary(payload); fallback != "" {
+		md["stream_fallback"] = fallback
+	}
+	if providerLabel := semanticProviderLabel(provider); providerLabel != "" {
+		md["provider"] = providerLabel
+	}
+	if apiBase := firstNonEmpty(stringValue(provider["api_base"]), stringValue(provider["base_url"])); apiBase != "" {
+		md["api_base"] = apiBase
 	}
 	if refs.agent == "" {
 		md["agent_id"] = firstNonEmpty(eventType, "workflow")
@@ -9104,6 +9117,11 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 	}
 	summary = stripSemanticControlContracts(summary)
 	intent := semanticControlIntentSummary(payload, eventType, rawSummary)
+	if failure := semanticFailureSummary(payload, eventType); failure != "" {
+		if summary == "" || semanticSummaryIsPlumbing(summary, eventType) || semanticSummaryIsGenericFailure(summary) {
+			return appendSemanticControlIntent(failure, intent)
+		}
+	}
 	fallback := semanticWorkflowFallbackSummary(payload, eventType)
 	if summary == "" || semanticSummaryIsPlumbing(summary, eventType) {
 		if fallback != "" {
@@ -9114,6 +9132,101 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 		summary = humanizeSemanticEventType(eventType)
 	}
 	return appendSemanticControlIntent(summary, intent)
+}
+
+func semanticFailureSummary(payload map[string]any, eventType string) string {
+	status := strings.ToLower(strings.TrimSpace(stringValue(payload["status"])))
+	if status != "failed" && status != "error" && !strings.Contains(eventType, ".failed") && !strings.Contains(eventType, ".degraded") {
+		return ""
+	}
+	nested := mapValue(payload["payload"])
+	errorInfo := firstNonEmptyMap(mapValue(payload["error_info"]), mapValue(nested["error_info"]))
+	details := mapValue(errorInfo["details"])
+	code := firstNonEmpty(
+		stringValue(errorInfo["error"]),
+		stringValue(nested["error"]),
+		stringValue(payload["error"]),
+		stringValue(details["error"]),
+	)
+	message := firstNonEmpty(
+		stringValue(errorInfo["message"]),
+		stringValue(nested["message"]),
+		stringValue(payload["message"]),
+		stringValue(details["message"]),
+		semanticStreamFallbackSummary(payload),
+	)
+	if message == "" {
+		return ""
+	}
+	message = strings.TrimSpace(strings.Join(strings.Fields(message), " "))
+	message = strings.ReplaceAll(message, "before emitting output", "before visible output")
+	message = strings.TrimSuffix(message, ".")
+	label := "Failure"
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "provider_error":
+		label = "Provider error"
+	case "tool_error":
+		label = "Tool error"
+	case "permission_error":
+		label = "Permission error"
+	case "":
+		if strings.HasPrefix(eventType, "turn.") {
+			label = "Turn failed"
+		}
+	default:
+		label = humanizeSemanticEventType(code)
+	}
+	if provider := semanticProviderLabel(mapValue(payload["provider"])); provider != "" {
+		message += " (" + provider + ")"
+	}
+	return truncateString(label+": "+message+".", 320)
+}
+
+func semanticSummaryIsGenericFailure(summary string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(summary), " ")))
+	normalized = strings.Trim(normalized, " .")
+	return normalized == "turn failed" ||
+		strings.HasPrefix(normalized, "turn failed:") ||
+		strings.HasPrefix(normalized, "clio turn failed:") ||
+		strings.HasPrefix(normalized, "provider error")
+}
+
+func semanticStreamFallbackSummary(payload map[string]any) string {
+	nested := mapValue(payload["payload"])
+	errorInfo := firstNonEmptyMap(mapValue(payload["error_info"]), mapValue(nested["error_info"]))
+	metadata := mapValue(errorInfo["metadata"])
+	fallback := firstNonEmptyMap(
+		mapValue(payload["stream_fallback"]),
+		mapValue(nested["stream_fallback"]),
+		mapValue(errorInfo["stream_fallback"]),
+		mapValue(metadata["stream_fallback"]),
+	)
+	if len(fallback) == 0 {
+		return ""
+	}
+	category := strings.TrimSpace(stringValue(fallback["category"]))
+	description := strings.TrimSpace(stringValue(fallback["description"]))
+	switch {
+	case category != "" && description != "":
+		return category + ": " + description
+	case description != "":
+		return description
+	default:
+		return category
+	}
+}
+
+func semanticProviderLabel(provider map[string]any) string {
+	providerID := firstNonEmpty(stringValue(provider["provider_id"]), stringValue(provider["provider"]))
+	model := firstNonEmpty(stringValue(provider["model_id"]), stringValue(provider["model"]))
+	switch {
+	case providerID != "" && model != "":
+		return providerID + " · " + model
+	case providerID != "":
+		return providerID
+	default:
+		return model
+	}
 }
 
 func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) string {
