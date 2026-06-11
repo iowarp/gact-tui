@@ -75,7 +75,8 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertEqual(result["summary"]["clio_report_ready"], 4)
         self.assertEqual(result["summary"]["deterministic_tui_ready"], 4)
         self.assertEqual(result["summary"]["real_tui_ready"], 0)
-        self.assertEqual(result["summary"]["real_tui_recordings"], 0)
+        self.assertEqual(result["summary"]["real_tui_stills"], 0)
+        self.assertEqual(result["summary"]["short_recordings"], 0)
         self.assertEqual(result["summary"]["streaming_proof_ready"], 0)
 
     def test_real_recordings_for_every_case_make_demo_ready(self) -> None:
@@ -94,7 +95,8 @@ class NDPDemoReadinessTest(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["summary"]["ready_for_real_demo"], 4)
-        self.assertEqual(result["summary"]["real_tui_recordings"], 4)
+        self.assertEqual(result["summary"]["real_tui_stills"], 4)
+        self.assertEqual(result["summary"]["short_recordings"], 4)
         self.assertEqual(result["summary"]["streaming_proof_ready"], 4)
 
     def test_real_recording_manifest_can_reject_failed_live_capture(self) -> None:
@@ -122,14 +124,15 @@ class NDPDemoReadinessTest(unittest.TestCase):
             rendered = check_ndp_demo_readiness.render_markdown(result)
 
         self.assertFalse(result["ok"])
-        self.assertEqual(result["summary"]["real_tui_recordings"], 4)
+        self.assertEqual(result["summary"]["real_tui_stills"], 4)
+        self.assertEqual(result["summary"]["short_recordings"], 4)
         self.assertEqual(result["summary"]["streaming_proof_ready"], 3)
         self.assertEqual(result["summary"]["real_tui_ready"], 3)
         self.assertIn("expected artifact not observed", rendered)
         self.assertIn("assistant requested user input", rendered)
         self.assertIn("provider did not expose live streaming", rendered)
         self.assertIn("turn was cancelled", rendered)
-        self.assertIn("| California NWS warnings | yes | yes | yes | no | no |", rendered)
+        self.assertIn("| California NWS warnings | yes | yes | yes | yes | no | no |", rendered)
 
     def test_placeholder_real_recordings_do_not_make_demo_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -147,7 +150,8 @@ class NDPDemoReadinessTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["summary"]["real_tui_ready"], 0)
-        self.assertEqual(result["summary"]["real_tui_recordings"], 0)
+        self.assertEqual(result["summary"]["real_tui_stills"], 0)
+        self.assertEqual(result["summary"]["short_recordings"], 0)
         self.assertIn("invalid png", rendered)
         self.assertIn("invalid gif", rendered)
 
@@ -169,9 +173,10 @@ class NDPDemoReadinessTest(unittest.TestCase):
             rendered = check_ndp_demo_readiness.render_markdown(result)
 
         self.assertFalse(result["ok"])
-        self.assertEqual(result["summary"]["real_tui_recordings"], 4)
+        self.assertEqual(result["summary"]["real_tui_stills"], 4)
+        self.assertEqual(result["summary"]["short_recordings"], 4)
         self.assertEqual(result["summary"]["streaming_proof_ready"], 3)
-        self.assertIn("| Fresno CIMIS weather profile and visualization | yes | yes | yes | no | no |", rendered)
+        self.assertIn("| Fresno CIMIS weather profile and visualization | yes | yes | yes | yes | no | no |", rendered)
         self.assertIn("manifest does not prove streaming-ready live demo", rendered)
 
     def test_markdown_lists_missing_real_tui_artifacts(self) -> None:

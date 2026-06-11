@@ -7,6 +7,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_visual_corpus
 
 
+def refresh_missing_capture_report(root: Path) -> None:
+    result = {
+        "missing_capture_ledger": check_visual_corpus.check_missing_capture_ledger(root),
+    }
+    report = root / check_visual_corpus.MISSING_CAPTURE_REPORT
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text(check_visual_corpus.render_missing_capture_report(result), encoding="utf-8")
+
+
 def seed_complete_corpus(root: Path) -> None:
     for group in check_visual_corpus.CORPUS_GROUPS:
         for rel in group.required:
@@ -57,6 +66,7 @@ var helpTabs = []struct { title string; keys []helpKey }{
 ''',
         encoding="utf-8",
     )
+    refresh_missing_capture_report(root)
 
 
 class VisualCorpusCheckTest(unittest.TestCase):
@@ -213,12 +223,13 @@ class VisualCorpusCheckTest(unittest.TestCase):
                 "### Capture Ledger\n\n"
                 "| Area | Missing capture | Why it matters | Priority |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Copy and selection | Native mouse selection over conversation content | "
+                "| Copy and selection | Native mouse selection over conversation content (#150) | "
                 "Highest-friction daily UX path | High |\n"
-                "| Scientific demos | Four real NDP demo cases under live TUI execution | "
+                "| Scientific demos | Four real NDP demo cases under live TUI execution (#149) | "
                 "Real runs prove demo operability | High |\n",
                 encoding="utf-8",
             )
+            refresh_missing_capture_report(root)
 
             result = check_visual_corpus.check_corpus(root, require_indexed=True)
 
@@ -258,6 +269,45 @@ class VisualCorpusCheckTest(unittest.TestCase):
         self.assertIn("source: `visual_loop/COVERAGE.md`", report)
         self.assertLess(report.index("### High - Scientific demos"), report.index("### Low - Narrow modals"))
         self.assertIn("Fresno CIMIS real TUI capture", report)
+
+    def test_missing_capture_report_sync_fails_stale_generated_backlog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+            stale_report = root / check_visual_corpus.MISSING_CAPTURE_REPORT
+            stale_report.write_text("# stale\n", encoding="utf-8")
+
+            result = check_visual_corpus.check_corpus(root)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["missing_capture_report"]["state"], "stale")
+
+    def test_missing_capture_report_sync_passes_current_generated_backlog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+
+            result = check_visual_corpus.check_corpus(root)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["missing_capture_report"]["state"], "current")
+
+    def test_visual_report_includes_missing_capture_report_sync_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_complete_corpus(root)
+
+            result = check_visual_corpus.check_corpus(root)
+
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            check_visual_corpus.print_text_report(result)
+        report = buf.getvalue()
+        self.assertIn("## missing_capture_report", report)
+        self.assertIn("- status: current", report)
 
     def test_unindexed_artifacts_report_existing_files_outside_manifest_and_coverage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
