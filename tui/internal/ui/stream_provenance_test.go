@@ -980,6 +980,73 @@ func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
 	}
 }
 
+func TestSemanticLiveTraceCacheIsNamespacedAcrossRunningSessions(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "s1", Status: gact.StatusRunning},
+		{ID: "s2", Status: gact.StatusRunning},
+	}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_s1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_s1",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+	if len(a.semanticLiveMessagesBySession["s1"]) != 1 {
+		t.Fatalf("s1 live cache not seeded: %#v", a.semanticLiveMessagesBySession)
+	}
+
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 0 {
+		t.Fatalf("switching to unrelated running session should not restore s1 trace: %#v", a.messages)
+	}
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_s2",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s2",
+			"turn_id":    "turn_s2",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "visualization", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "visualization",
+			},
+		}},
+	})
+	if len(a.semanticLiveMessagesBySession["s2"]) != 1 {
+		t.Fatalf("s2 live cache not seeded independently: %#v", a.semanticLiveMessagesBySession)
+	}
+
+	a.selected = 0
+	_ = a.selectSession(0)
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+		t.Fatalf("s1 revisit should restore only s1 trace: %#v", a.messages)
+	}
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s2" || a.messages[0].Parts[0].Text != "main delegated to visualization." {
+		t.Fatalf("s2 revisit should restore only s2 trace: %#v", a.messages)
+	}
+}
+
 func TestMessagesLoadedMergesSemanticLiveTraceOnlyWhileRunning(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
