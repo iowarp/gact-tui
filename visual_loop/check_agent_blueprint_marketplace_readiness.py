@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -86,6 +88,7 @@ LIVE_EVIDENCE = Evidence(
     manifest="visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
     required_manifest_keys=(
         "backend",
+        "captured_from_owned_backend",
         "source_url",
         "source_add_success",
         "source_refresh_success",
@@ -109,6 +112,11 @@ def artifact_status(root: Path, rel: str) -> dict[str, object]:
     size = path.stat().st_size
     if size == 0:
         return {"ok": False, "state": "empty"}
+    if path.suffix.lower() == ".png":
+        with path.open("rb") as handle:
+            header = handle.read(8)
+        if not header.startswith(PNG_SIGNATURE):
+            return {"ok": False, "state": "invalid png"}
     return {"ok": True, "state": "present", "bytes": size}
 
 
@@ -125,13 +133,27 @@ def manifest_status(root: Path, evidence: Evidence) -> dict[str, object]:
         return {"ok": False, "state": f"invalid json: {exc}", "missing_keys": list(evidence.required_manifest_keys)}
     if not isinstance(data, dict):
         return {"ok": False, "state": "manifest is not an object", "missing_keys": list(evidence.required_manifest_keys)}
-    missing = [key for key in evidence.required_manifest_keys if key not in data or data[key] in ("", None, False)]
+    missing = [key for key in evidence.required_manifest_keys if not manifest_value_ok(key, data.get(key))]
     return {
         "ok": not missing,
         "state": "present",
         "missing_keys": missing,
         "keys": sorted(data.keys()),
     }
+
+
+def manifest_value_ok(key: str, value: object) -> bool:
+    if key in {
+        "captured_from_owned_backend",
+        "source_add_success",
+        "source_refresh_success",
+        "source_remove_success",
+        "blueprint_install_success",
+        "blueprint_update_success",
+        "blueprint_activation_success",
+    }:
+        return value is True
+    return bool(str(value).strip()) if value is not None else False
 
 
 def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
@@ -195,7 +217,7 @@ def render_markdown(result: dict[str, Any]) -> str:
             lines.append(f"- Manifest status: `{manifest['state']}`")
             missing_keys = manifest.get("missing_keys", [])
             if missing_keys:
-                lines.append("- Missing manifest keys:")
+                lines.append("- Missing or false manifest keys:")
                 for key in missing_keys:
                     lines.append(f"  - `{key}`")
         lines.append("")

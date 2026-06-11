@@ -15,8 +15,9 @@
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` (missing)
 - Manifest status: `missing`
-- Missing manifest keys:
+- Missing or false manifest keys:
   - `backend`
+  - `captured_from_owned_backend`
   - `source_url`
   - `source_add_success`
   - `source_refresh_success`

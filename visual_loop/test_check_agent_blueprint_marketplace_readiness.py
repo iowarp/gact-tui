@@ -2,14 +2,19 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_agent_blueprint_marketplace_readiness
 
 
 def write_artifact(root: Path, rel: str, text: str = "artifact") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    if rel.endswith(".png") and text == "artifact":
+        path.write_bytes(check_agent_blueprint_marketplace_readiness.PNG_SIGNATURE + b"fixture png")
+    else:
+        path.write_text(text, encoding="utf-8")
 
 
 def write_manifest(root: Path, rel: str, data: dict[str, object]) -> None:
@@ -28,6 +33,7 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
             "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
             {
                 "backend": "http://127.0.0.1:4444",
+                "captured_from_owned_backend": True,
                 "source_url": "https://github.com/example/blueprints.git",
                 "source_add_success": True,
                 "source_refresh_success": True,
@@ -64,6 +70,7 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
                 "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
                 {
                     "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
                     "source_url": "https://github.com/example/blueprints.git",
                     "source_add_success": True,
                     "blueprint_id": "example-blueprint",
@@ -75,10 +82,59 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertFalse(result["live_ok"])
-        self.assertIn("Missing manifest keys", report)
+        self.assertIn("Missing or false manifest keys", report)
         self.assertIn("source_refresh_success", report)
         self.assertIn("blueprint_activation_success", report)
         self.assertIn("source_commit", report)
+
+    def test_live_marketplace_manifest_requires_owned_backend_and_true_lifecycle_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": False,
+                    "source_url": "https://github.com/example/blueprints.git",
+                    "source_add_success": True,
+                    "source_refresh_success": False,
+                    "source_remove_success": True,
+                    "blueprint_id": "example-blueprint",
+                    "blueprint_install_success": True,
+                    "blueprint_update_success": "true",
+                    "blueprint_activation_success": False,
+                    "source_ref": "main",
+                    "source_commit": "0123456789abcdef",
+                },
+            )
+
+            result = check_agent_blueprint_marketplace_readiness.check_readiness(root)
+            report = check_agent_blueprint_marketplace_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("captured_from_owned_backend", report)
+        self.assertIn("source_refresh_success", report)
+        self.assertIn("blueprint_update_success", report)
+        self.assertIn("blueprint_activation_success", report)
+
+    def test_placeholder_blueprint_screenshots_do_not_satisfy_deterministic_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            write_artifact(
+                root,
+                "visual_loop/screenshots/semantic_agent_blueprint_management_catalog.png",
+                "not a png",
+            )
+
+            result = check_agent_blueprint_marketplace_readiness.check_readiness(root)
+            report = check_agent_blueprint_marketplace_readiness.render_markdown(result)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("invalid png", report)
 
     def test_all_live_marketplace_evidence_can_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
