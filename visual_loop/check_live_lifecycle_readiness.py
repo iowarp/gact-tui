@@ -116,7 +116,12 @@ LIVE_EVIDENCE: tuple[Evidence, ...] = (
     Evidence(
         area="Runtime registry lifecycle",
         title="real registry-backed MCP install/remove and source refresh lifecycle",
-        artifacts=("visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",),
+        artifacts=(
+            "visual_loop/screenshots/live_clio_runtime_mcp_install_success.png",
+            "visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png",
+            "visual_loop/screenshots/live_clio_runtime_source_refresh_success.png",
+            "visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
+        ),
         required_for_demo=False,
         manifest="visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
         required_manifest_keys=(
@@ -125,6 +130,14 @@ LIVE_EVIDENCE: tuple[Evidence, ...] = (
             "mcp_install_success",
             "mcp_remove_success",
             "source_refresh_success",
+            "mcp_install_screenshot",
+            "mcp_remove_screenshot",
+            "source_refresh_screenshot",
+        ),
+        manifest_artifacts=(
+            ("mcp_install_screenshot", "visual_loop/screenshots/live_clio_runtime_mcp_install_success.png"),
+            ("mcp_remove_screenshot", "visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png"),
+            ("source_refresh_screenshot", "visual_loop/screenshots/live_clio_runtime_source_refresh_success.png"),
         ),
     ),
     Evidence(

@@ -32,6 +32,9 @@
 
 ## Missing: Runtime registry lifecycle - real registry-backed MCP install/remove and source refresh lifecycle
 - Missing or invalid artifacts:
+  - `visual_loop/screenshots/live_clio_runtime_mcp_install_success.png` (missing)
+  - `visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png` (missing)
+  - `visual_loop/screenshots/live_clio_runtime_source_refresh_success.png` (missing)
   - `visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json` (missing)
 - Manifest status: `missing`
 - Missing or false manifest keys:
@@ -40,6 +43,9 @@
   - `mcp_install_success`
   - `mcp_remove_success`
   - `source_refresh_success`
+  - `mcp_install_screenshot`
+  - `mcp_remove_screenshot`
+  - `source_refresh_screenshot`
 
 ## Missing: Prompts and expert packs - live owned-backend prompt save and expert-pack install/update/delete lifecycle
 - Missing or invalid artifacts:

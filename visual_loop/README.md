@@ -117,9 +117,14 @@ CLIO_RUNTIME_CATALOG_CAPTURE_OWN_BACKEND=1 \
 The script writes live runtime catalog screenshots plus
 `live_clio_runtime_catalogs_manifest.json`. It does not perform install/remove
 operations; use it after running registry-backed lifecycle operations on the
-owned backend when those success paths are being preserved. The manifest must
-include `captured_from_owned_backend: true`, and the referenced screenshots
-must be real PNG captures, not placeholder text files.
+owned backend when those success paths are being preserved. Registry lifecycle
+proof must include live screenshots for MCP install success, MCP remove success,
+and source refresh success, and
+`live_clio_runtime_registry_lifecycle_manifest.json` must reference those exact
+paths through `mcp_install_screenshot`, `mcp_remove_screenshot`, and
+`source_refresh_screenshot`. The manifests must include
+`captured_from_owned_backend: true`, and the referenced screenshots must be real
+PNG captures, not placeholder text files.
 
 Refresh the runtime catalog and prompt/expert-pack lifecycle readiness report
 after changing those deterministic surfaces or live owned-backend evidence:

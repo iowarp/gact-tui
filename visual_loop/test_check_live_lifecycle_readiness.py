@@ -48,6 +48,11 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
         )
 
     def seed_registry_lifecycle(self, root: Path) -> None:
+        evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[1]
+        for rel in evidence.artifacts:
+            if rel.endswith(".json"):
+                continue
+            write_artifact(root, rel)
         write_manifest(
             root,
             "visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
@@ -57,6 +62,9 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
                 "mcp_install_success": True,
                 "mcp_remove_success": True,
                 "source_refresh_success": True,
+                "mcp_install_screenshot": "visual_loop/screenshots/live_clio_runtime_mcp_install_success.png",
+                "mcp_remove_screenshot": "visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png",
+                "source_refresh_screenshot": "visual_loop/screenshots/live_clio_runtime_source_refresh_success.png",
             },
         )
 
@@ -152,6 +160,11 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[1]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
             write_manifest(
                 root,
                 "visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
@@ -161,6 +174,9 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
                     "mcp_install_success": False,
                     "mcp_remove_success": True,
                     "source_refresh_success": False,
+                    "mcp_install_screenshot": "visual_loop/screenshots/live_clio_runtime_mcp_install_success.png",
+                    "mcp_remove_screenshot": "visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png",
+                    "source_refresh_screenshot": "visual_loop/screenshots/live_clio_runtime_source_refresh_success.png",
                 },
             )
 
@@ -170,6 +186,39 @@ class LiveLifecycleReadinessTest(unittest.TestCase):
         self.assertFalse(result["live"][1]["ok"])
         self.assertIn("mcp_install_success", report)
         self.assertIn("source_refresh_success", report)
+
+    def test_registry_lifecycle_manifest_must_reference_tracked_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            evidence = check_live_lifecycle_readiness.LIVE_EVIDENCE[1]
+            for rel in evidence.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "mcp_install_success": True,
+                    "mcp_remove_success": True,
+                    "source_refresh_success": True,
+                    "mcp_install_screenshot": "visual_loop/screenshots/old_mcp_install.png",
+                    "mcp_remove_screenshot": "visual_loop/screenshots/live_clio_runtime_mcp_remove_success.png",
+                    "source_refresh_screenshot": "visual_loop/screenshots/live_clio_runtime_source_refresh_success.png",
+                },
+            )
+
+            result = check_live_lifecycle_readiness.check_readiness(root)
+            report = check_live_lifecycle_readiness.render_markdown(result)
+
+        self.assertFalse(result["live"][1]["ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("mcp_install_screenshot", report)
+        self.assertIn("visual_loop/screenshots/live_clio_runtime_mcp_install_success.png", report)
+        self.assertIn("visual_loop/screenshots/old_mcp_install.png", report)
 
     def test_runtime_catalog_manifest_must_reference_tracked_screenshots(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
