@@ -281,15 +281,16 @@ func TestCatalogBrowser_AgentCatalogRendersHierarchyFirst(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailCloneActionOpensWriteModal(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:    catalogKindAgentDetail,
 		title:   "Agent · Data",
 		agentID: "data",
-		items:   []catalogItem{{id: "agent-action/clone", title: "Clone expert"}},
+		items:   []catalogItem{{id: "agent/data", title: "Expert · Data expert", statusTag: "expert_pack"}},
 	}
 
-	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	_ = a.runCatalogBrowserItemAction("agent-action/clone")
 
 	if !a.agentWriteOpen || a.agentWriteMode != agentWriteModeClone || a.agentWriteSourceID != "data" {
 		t.Fatalf("clone action should open clone modal, open=%v mode=%q source=%q", a.agentWriteOpen, a.agentWriteMode, a.agentWriteSourceID)
@@ -298,14 +299,14 @@ func TestCatalogBrowser_AgentDetailCloneActionOpensWriteModal(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailCloneShortcutOpensWriteModal(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:    catalogKindAgentDetail,
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "expert_pack"},
 		},
 	}
 
@@ -318,6 +319,7 @@ func TestCatalogBrowser_AgentDetailCloneShortcutOpensWriteModal(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -326,10 +328,7 @@ func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert", desc: "orchestrates data work"},
+			{id: "agent/data", title: "Expert · Data expert", desc: "orchestrates data work", statusTag: "user"},
 			{id: "tool/earthscope", title: "Tool · earthscope"},
 		},
 	}
@@ -349,6 +348,7 @@ func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.
 
 func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -357,10 +357,7 @@ func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "user"},
 		},
 	}
 
@@ -393,6 +390,7 @@ func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 
 func TestCatalogBrowser_AgentDeleteConfirmationCancelsOnOtherKey(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -401,10 +399,7 @@ func TestCatalogBrowser_AgentDeleteConfirmationCancelsOnOtherKey(t *testing.T) {
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "user"},
 		},
 	}
 
@@ -697,9 +692,9 @@ func TestLoadAgentDetailIncludesPlannerVisibleCommands(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/agents/clio.expert.data":
-			writeJSONForTest(t, w, gact.AgentDef{ID: "clio.expert.data", Title: "Data Expert", Enabled: true})
+			writeJSONForTest(t, w, gact.AgentDef{ID: "clio.expert.data", Title: "Data Expert", Source: "user", Enabled: true})
 		case "/v1/agents":
-			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{{ID: "clio.expert.data", Title: "Data Expert", Enabled: true}}})
+			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{{ID: "clio.expert.data", Title: "Data Expert", Source: "user", Enabled: true}}})
 		case "/v1/tools":
 			writeJSONForTest(t, w, map[string]any{"tools": []gact.Tool{}})
 		case "/v1/commands":
@@ -723,6 +718,9 @@ func TestLoadAgentDetailIncludesPlannerVisibleCommands(t *testing.T) {
 	}
 	found := false
 	for _, item := range loaded.items {
+		if strings.HasPrefix(item.id, "agent-action/") {
+			t.Fatalf("agent action %q should not be mixed into expert structure rows: %#v", item.id, loaded.items)
+		}
 		if item.id == "command//summarize" {
 			found = strings.Contains(item.title, "Summarize dataset") && strings.Contains(item.desc, "planner") && strings.Contains(item.desc, "dataset_id required")
 		}

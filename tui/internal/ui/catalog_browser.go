@@ -522,26 +522,6 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			desc:      agent.Description,
 			statusTag: agent.Source,
 		}}
-		items = append(items, catalogItem{
-			id:        "agent-action/clone",
-			title:     "Clone expert",
-			desc:      "create an editable copy without changing the source definition",
-			statusTag: "write",
-		})
-		if agent.Source == "user" {
-			items = append(items, catalogItem{
-				id:        "agent-action/edit",
-				title:     "Edit expert",
-				desc:      "update title, description, prompt, tools, keywords, and enabled state",
-				statusTag: "write",
-			})
-			items = append(items, catalogItem{
-				id:        "agent-action/delete",
-				title:     "Delete expert",
-				desc:      "remove this user-owned agent through CLIO's permission-guarded delete path",
-				statusTag: "delete",
-			})
-		}
 		if parent := agentParentID(agent); parent != "" {
 			items = append(items, catalogItem{
 				id: "agent/" + parent, title: "Reports to · " + agentTitleByID(allAgents, parent),
@@ -1296,7 +1276,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, a.openAgentCreateFromCatalog()
 		}
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/clone")
+			return a, a.runAgentDetailAction("agent-action/clone")
 		}
 	case "s":
 		if cb.kind == catalogKindAgentBlueprints {
@@ -1337,7 +1317,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "e":
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/edit")
+			return a, a.runAgentDetailAction("agent-action/edit")
 		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
@@ -1378,7 +1358,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "d":
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/delete")
+			return a, a.runAgentDetailAction("agent-action/delete")
 		}
 		if cb.kind == catalogKindExpertPackDetail {
 			return a, a.runCatalogBrowserItemAction("expert-pack-action/delete")
@@ -1634,18 +1614,42 @@ func (a *App) promptDetailActionButtons() []menuButton {
 }
 
 func (a *App) agentDetailActionButtons() []menuButton {
-	if a.catalogBrowser == nil {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
 		return nil
 	}
+	disabled := !a.caps.Capabilities.AgentWrite
 	deleteLabel := "delete"
 	if a.catalogBrowserAgentDeleteArmed() {
 		deleteLabel = "confirm delete"
 	}
-	return a.catalogActionButtonsFromItems("agent-detail", []catalogActionButtonSpec{
-		{id: "agent-action/clone", label: "clone"},
-		{id: "agent-action/edit", label: "edit"},
-		{id: "agent-action/delete", label: deleteLabel},
-	})
+	buttons := []menuButton{{
+		id:       "agent-detail:clone",
+		label:    "clone",
+		disabled: disabled,
+		action: func(app *App) tea.Cmd {
+			return app.runAgentDetailAction("agent-action/clone")
+		},
+	}}
+	if catalogBrowserAgentIsUserOwned(cb) {
+		buttons = append(buttons, menuButton{
+			id:       "agent-detail:edit",
+			label:    "edit",
+			disabled: disabled,
+			action: func(app *App) tea.Cmd {
+				return app.runAgentDetailAction("agent-action/edit")
+			},
+		})
+		buttons = append(buttons, menuButton{
+			id:       "agent-detail:delete",
+			label:    deleteLabel,
+			disabled: disabled,
+			action: func(app *App) tea.Cmd {
+				return app.runAgentDetailAction("agent-action/delete")
+			},
+		})
+	}
+	return buttons
 }
 
 func (a *App) expertPackDetailActionButtons() []menuButton {
@@ -1872,6 +1876,18 @@ func catalogBrowserItemIsInlineAction(kind catalogBrowserKind, item catalogItem)
 	}
 }
 
+func catalogBrowserAgentIsUserOwned(cb *catalogBrowserState) bool {
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
+		return false
+	}
+	for _, item := range cb.items {
+		if item.id == "agent/"+cb.agentID {
+			return item.statusTag == "user"
+		}
+	}
+	return false
+}
+
 func catalogBrowserSelectionPosition(indexes []int, sel int) int {
 	for pos, idx := range indexes {
 		if idx == sel {
@@ -1937,6 +1953,9 @@ func (a *App) runCatalogBrowserItemAction(itemID string) tea.Cmd {
 	if a.catalogBrowser == nil {
 		return nil
 	}
+	if a.catalogBrowser.kind == catalogKindAgentDetail && strings.HasPrefix(itemID, "agent-action/") {
+		return a.runAgentDetailAction(itemID)
+	}
 	for i, item := range a.catalogBrowser.items {
 		if item.id == itemID {
 			a.catalogBrowser.sel = i
@@ -1945,6 +1964,37 @@ func (a *App) runCatalogBrowserItemAction(itemID string) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (a *App) runAgentDetailAction(itemID string) tea.Cmd {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
+		return nil
+	}
+	if !a.caps.Capabilities.AgentWrite {
+		a.transientHint = "expert action unavailable: backend does not advertise agent_write"
+		return scheduleHintExpire(a.transientHint)
+	}
+	switch itemID {
+	case "agent-action/clone":
+		seed := cb.agentID + "-copy"
+		a.openAgentWrite(agentWriteModeClone, cb.agentID, seed)
+		return nil
+	case "agent-action/edit":
+		if !catalogBrowserAgentIsUserOwned(cb) {
+			a.transientHint = "edit is available for user-owned experts"
+			return scheduleHintExpire(a.transientHint)
+		}
+		return loadAgentForEditCmd(a.c, a.runtimeScope(), cb.agentID)
+	case "agent-action/delete":
+		if !catalogBrowserAgentIsUserOwned(cb) {
+			a.transientHint = "delete is available for user-owned experts"
+			return scheduleHintExpire(a.transientHint)
+		}
+		return a.confirmOrDeleteAgent()
+	default:
+		return nil
+	}
 }
 
 func (a *App) catalogBrowserAgentDeleteArmed() bool {
@@ -1975,13 +2025,7 @@ func catalogBrowserKeyConfirmsAgentDelete(cb *catalogBrowserState, key string) b
 	if cb == nil || cb.kind != catalogKindAgentDetail || cb.pendingDeleteAgentID == "" {
 		return false
 	}
-	if key == "d" {
-		return true
-	}
-	return key == "enter" &&
-		cb.sel >= 0 &&
-		cb.sel < len(cb.items) &&
-		cb.items[cb.sel].id == "agent-action/delete"
+	return key == "d" || key == "enter"
 }
 
 func catalogBrowserKeyConfirmsExpertPackDelete(cb *catalogBrowserState, key string) bool {
@@ -2461,14 +2505,9 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		if cb.pendingDeleteAgentID == cb.agentID && cb.agentID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc/Backspace back")
 		}
-		parts := []string{"↑/↓ navigate structure", "Enter details"}
-		if catalogBrowserHasItem(cb, "agent-action/clone") {
-			parts = append(parts, "c clone")
-		}
-		if catalogBrowserHasItem(cb, "agent-action/edit") {
+		parts := []string{"↑/↓ navigate structure", "Enter details", "c clone"}
+		if catalogBrowserAgentIsUserOwned(cb) {
 			parts = append(parts, "e edit")
-		}
-		if catalogBrowserHasItem(cb, "agent-action/delete") {
 			parts = append(parts, "d delete")
 		}
 		parts = append(parts, "o set next turn", "Esc/Backspace back")
