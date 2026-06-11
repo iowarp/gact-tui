@@ -993,6 +993,9 @@ func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 			t.Fatalf("semantic detail leaked control contract %q:\n%s", unwanted, ref.fullText)
 		}
 	}
+	if strings.Contains(ref.fullText, "tool: Tool") {
+		t.Fatalf("semantic delegation detail should not invent a generic tool row:\n%s", ref.fullText)
+	}
 }
 
 func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {

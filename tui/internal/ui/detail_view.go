@@ -918,17 +918,24 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		mapValue(event["workflow_state"]),
 	))
 	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
-	return appendDetailSection(rows, "Operator view",
+	fields := []detailField{
 		detailField{"result", userSummary},
 		detailField{"status", status},
 		detailField{"agent", humanizeSemanticOperatorValue(agent)},
-		detailField{"tool", toolDisplayName(tool)},
-		detailField{"workflow", workflow},
 		detailField{"workflow state", workflowSummary},
 		detailField{"duration", duration},
 		detailField{"input", argsPreview},
-		detailField{"model", model},
-	)
+	}
+	if strings.TrimSpace(tool) != "" {
+		fields = append(fields, detailField{"tool", toolDisplayName(tool)})
+	}
+	if workflow != "" {
+		fields = append(fields, detailField{"workflow", workflow})
+	}
+	if model != "" {
+		fields = append(fields, detailField{"model", model})
+	}
+	return appendDetailSection(rows, "Operator view", fields...)
 }
 
 func firstNonEmptyMap(values ...map[string]any) map[string]any {
