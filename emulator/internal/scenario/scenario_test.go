@@ -432,6 +432,41 @@ func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
 	}
 }
 
+func TestWorkflowBlockerSemanticScriptProducesDelegationBlocker(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("workflow blocker semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, gact.StatusIdle) {
+		got = append(got, event)
+	}
+	sawBlockerEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		if payload["event_type"] != "blueprint.delegation.completed" {
+			continue
+		}
+		if summary, _ := payload["summary"].(string); strings.Contains(summary, "Blocker: resource_too_large") {
+			sawBlockerEvent = true
+			break
+		}
+	}
+	if !sawBlockerEvent {
+		t.Fatalf("semantic workflow fixture did not emit delegation blocker event: %#v", got)
+	}
+}
+
 func TestCancelStopsScript(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	// Use a slow timing so we can interrupt.

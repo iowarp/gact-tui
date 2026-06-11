@@ -9328,12 +9328,13 @@ func stripSemanticControlContracts(text string) string {
 	contractMarkers := []string{
 		"NEXT_EXPERT:",
 		"NEXT_ACTION:",
+		"BLOCKER:",
 		"DO_NOT_DELEGATE",
 		"DO_NOT_FINALIZE",
 		"continuation_contract=",
 	}
 	for _, marker := range contractMarkers {
-		if idx := strings.Index(text, marker); idx >= 0 {
+		if idx := strings.Index(strings.ToUpper(text), strings.ToUpper(marker)); idx >= 0 {
 			text = strings.TrimSpace(text[:idx])
 		}
 	}
@@ -9434,6 +9435,7 @@ func semanticControlField(text, marker string) string {
 	for _, nextMarker := range []string{
 		" NEXT_EXPERT:",
 		" NEXT_ACTION:",
+		" BLOCKER:",
 		" DO_NOT_",
 		" CONTINUATION_CONTRACT=",
 		" RESOURCE URL:",

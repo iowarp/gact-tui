@@ -628,6 +628,55 @@ func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
 	}
 }
 
+func TestApplySemanticEventPrioritizesReadableBlockerFromContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_blocker_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback preserving the user's requested region/recent window Blocker: resource_too_large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434, resource size 1503238553 bytes",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "data", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.completed",
+				"parent_id": "main",
+				"agent_id":  "data",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{"data returned to main", "blocked: resource too large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434"} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("blocker delegation summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "Blocker:", "resource_too_large"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("blocker delegation leaked raw contract %q: %#v", unwanted, part)
+		}
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	if !strings.Contains(ref.fullText, "what happened: data returned to main · blocked: resource too large") {
+		t.Fatalf("blocker detail missing readable summary:\n%s", ref.fullText)
+	}
+	if strings.Contains(ref.fullText, "NEXT_ACTION") || strings.Contains(ref.fullText, "Blocker:") {
+		t.Fatalf("blocker detail leaked raw contract:\n%s", ref.fullText)
+	}
+}
+
 func TestApplySemanticEventHumanizesPlumbingDelegationSummary(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
