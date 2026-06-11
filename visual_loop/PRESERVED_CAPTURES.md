@@ -162,6 +162,77 @@ rendering semantics for these workflows.
 - `semantic_workspace_startup_selected.png`
 - `semantic_workspace_switch.gif`
 
+## Strict Index Catch-Up
+
+These artifacts are existing secondary captures that are intentionally preserved
+so `check_visual_corpus.py --require-indexed` can be used as a real hygiene gate.
+They remain secondary evidence unless promoted into `COVERAGE.md`.
+
+- `agents_files_sidebar.gif`
+- `clio_semantic_live_events.gif`
+- `codex_blueprint_catalog_uiux.gif`
+- `issue56_file_mentions.gif`
+- `issue57_ask_user_retry.png`
+- `live_alcf_20260525_catalogs.gif`
+- `live_alcf_20260525_compaction.gif`
+- `live_alcf_20260525_csv_failure.gif`
+- `live_alcf_20260525_errors.gif`
+- `live_alcf_20260525_failures.gif`
+- `live_alcf_20260525_memory.gif`
+- `live_alcf_20260525_nanoagents.gif`
+- `live_alcf_20260525_ndp_scroll.gif`
+- `live_alcf_20260525_provider_swap.gif`
+- `live_alcf_20260525_scatter.gif`
+- `live_alcf_20260525_sidebar_sections.gif`
+- `live_alcf_20260525_state_markers.gif`
+- `live_clio_artifacts.gif`
+- `live_clio_catalogs.gif`
+- `live_clio_catalogs_narrow.gif`
+- `live_clio_compaction.gif`
+- `live_clio_memory.gif`
+- `live_clio_memory_pressure.gif`
+- `live_clio_nanoagents.gif`
+- `live_clio_ndp.gif`
+- `live_clio_ndp_top.gif`
+- `live_clio_provenance_detail.gif`
+- `live_clio_sidebar_errors.gif`
+- `live_clio_state_markers.gif`
+- `live_observability_timeline.gif`
+- `provider_modal_current.gif`
+- `rewind_before_after.gif`
+- `right_sidebar_full_height_regression.gif`
+- `semantic_agent_blueprint_tree_stress.gif`
+- `semantic_agent_management_stress.gif`
+- `semantic_agent_one_turn.gif`
+- `semantic_compose_modal.gif`
+- `semantic_context_detail.gif`
+- `semantic_conversation_block_copy.gif`
+- `semantic_diff_actions.gif`
+- `semantic_expert_packs_empty.gif`
+- `semantic_expert_packs_stress.gif`
+- `semantic_file_picker.gif`
+- `semantic_file_viewer_module.gif`
+- `semantic_narrow_deep_modals.gif`
+- `semantic_prompt_catalog_stress.gif`
+- `semantic_prompt_empty.gif`
+- `semantic_quit_confirm.gif`
+- `semantic_redacted_tool_args.gif`
+- `semantic_right_sidebar_layout.gif`
+- `semantic_sidebar_filter.gif`
+- `semantic_sidebar_footer_actions.gif`
+- `semantic_sidebar_layout_editor.gif`
+- `semantic_sidebar_layout_settings.gif`
+- `semantic_startup_connecting.gif`
+- `semantic_startup_error.gif`
+- `semantic_text_entry_modals.gif`
+- `semantic_tools_empty.gif`
+- `semantic_workflow_state_event.gif`
+- `semantic_workflow_state_event_final.png`
+- `semantic_workspace_startup_selected.gif`
+- `connection_error_buttons.tape`
+- `live_observability_timeline.tape`
+- `right_sidebar_full_height_regression.tape`
+
 ## Release And Legacy Captures
 
 - `release_07_tui_live_turn.tape`
