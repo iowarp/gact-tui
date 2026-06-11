@@ -184,6 +184,7 @@ pathlib.Path(manifest).write_text(
     json.dumps(
         {
             "backend": backend,
+            "captured_from_owned_backend": True,
             "session_id": session_id,
             "tools_catalog": f"{out_dir}/{tools_catalog}",
             "tools_detail": f"{out_dir}/{tools_detail}",

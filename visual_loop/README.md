@@ -113,7 +113,9 @@ CLIO_RUNTIME_CATALOG_CAPTURE_OWN_BACKEND=1 \
 The script writes live runtime catalog screenshots plus
 `live_clio_runtime_catalogs_manifest.json`. It does not perform install/remove
 operations; use it after running registry-backed lifecycle operations on the
-owned backend when those success paths are being preserved.
+owned backend when those success paths are being preserved. The manifest must
+include `captured_from_owned_backend: true`, and the referenced screenshots
+must be real PNG captures, not placeholder text files.
 
 Refresh the runtime catalog and prompt/expert-pack lifecycle readiness report
 after changing those deterministic surfaces or live owned-backend evidence:
@@ -159,7 +161,9 @@ CLIO_PROMPT_EXPERT_PACK_CAPTURE_MUTATE=1 \
 The script writes `live_clio_prompt_expert_pack_lifecycle_manifest.json` plus
 prompt and expert-pack lifecycle screenshots. It performs real prompt and
 expert-pack writes, including delete, so only run it against an isolated backend
-and workspace prepared for this proof.
+and workspace prepared for this proof. The readiness checker requires
+`mutation_consent: true` in the manifest and rejects false lifecycle success
+flags or invalid PNG placeholders.
 
 ## Current State
 

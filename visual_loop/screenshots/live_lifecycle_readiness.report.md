@@ -21,8 +21,9 @@
   - `visual_loop/screenshots/live_clio_runtime_blueprint_sources.png` (missing)
   - `visual_loop/screenshots/live_clio_runtime_catalogs_manifest.json` (missing)
 - Manifest status: `missing`
-- Missing manifest keys:
+- Missing or false manifest keys:
   - `backend`
+  - `captured_from_owned_backend`
   - `tools_catalog`
   - `tools_detail`
   - `mcp_catalog`
@@ -33,8 +34,9 @@
 - Missing or invalid artifacts:
   - `visual_loop/screenshots/live_clio_runtime_registry_lifecycle_manifest.json` (missing)
 - Manifest status: `missing`
-- Missing manifest keys:
+- Missing or false manifest keys:
   - `backend`
+  - `captured_from_owned_backend`
   - `mcp_install_success`
   - `mcp_remove_success`
   - `source_refresh_success`
@@ -49,10 +51,14 @@
   - `visual_loop/screenshots/live_clio_expert_pack_delete_success.png` (missing)
   - `visual_loop/screenshots/live_clio_prompt_expert_pack_lifecycle_manifest.json` (missing)
 - Manifest status: `missing`
-- Missing manifest keys:
+- Missing or false manifest keys:
   - `backend`
+  - `captured_from_owned_backend`
+  - `mutation_consent`
   - `expert_pack_source`
+  - `prompt_catalog`
   - `prompt_save_success`
+  - `expert_pack_catalog`
   - `expert_pack_install_success`
   - `expert_pack_update_success`
   - `expert_pack_delete_success`

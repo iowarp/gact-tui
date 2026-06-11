@@ -254,11 +254,14 @@ pathlib.Path(manifest).write_text(
     json.dumps(
         {
             "backend": backend,
+            "captured_from_owned_backend": True,
+            "mutation_consent": True,
             "session_id": session_id,
             "expert_pack_source": source,
             "expert_pack_down_count": int(down_count),
             "prompt_catalog": f"{out_dir}/live_clio_prompt_catalog.png",
             "prompt_save_success": f"{out_dir}/live_clio_prompt_save_success.png",
+            "expert_pack_catalog": f"{out_dir}/live_clio_expert_pack_catalog.png",
             "expert_pack_install_success": f"{out_dir}/live_clio_expert_pack_install_success.png",
             "expert_pack_update_success": f"{out_dir}/live_clio_expert_pack_update_success.png",
             "expert_pack_delete_success": f"{out_dir}/live_clio_expert_pack_delete_success.png",
