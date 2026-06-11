@@ -2107,8 +2107,8 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[6].statusTag != "agent blueprint" {
 		t.Fatalf("agent row should humanize backend source status: %#v", items[6])
 	}
-	if !strings.HasPrefix(items[6].title, "Expert · Data Root") {
-		t.Fatalf("agent row should be visibly grouped as an expert: %#v", items[6])
+	if !strings.HasPrefix(items[6].title, "Root expert · Data Root") {
+		t.Fatalf("agent row should identify the blueprint root expert: %#v", items[6])
 	}
 	if !strings.Contains(items[6].inlineDesc, "1 tool") || !strings.Contains(items[6].inlineDesc, "1 command") {
 		t.Fatalf("agent row should expose compact hierarchy summary: %#v", items[6])

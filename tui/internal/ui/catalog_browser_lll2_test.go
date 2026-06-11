@@ -1567,7 +1567,7 @@ func TestAgentBlueprintDetailStressItemsPreserveNestedExperts(t *testing.T) {
 
 	joined := catalogItemsTextForTest(items)
 	for _, want := range []string{
-		"Expert · Orchestrator",
+		"Root expert · Orchestrator",
 		"└─ Expert · Data Resolver",
 		"└─ Expert · Catalog Specialist",
 		"└─ Expert · Visualization Publisher",

@@ -4037,6 +4037,9 @@ func agentBlueprintExpertTitle(title string) string {
 	prefixLen := len(title) - len(strings.TrimLeft(title, " "))
 	prefix := title[:prefixLen]
 	trimmed := strings.TrimLeft(title, " ")
+	if strings.HasPrefix(trimmed, "Root expert · ") {
+		return "Root expert · " + stripAgentHierarchyRolePrefix(strings.TrimSpace(trimmed))
+	}
 	if strings.HasPrefix(trimmed, "└─ ") {
 		label := strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
 		label = stripAgentHierarchyRolePrefix(label)
