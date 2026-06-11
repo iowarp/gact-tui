@@ -2075,7 +2075,11 @@ func jsonOneLine(m map[string]any) string {
 func toolCallSummary(p gact.Part) string {
 	if len(p.Input) == 0 {
 		if p.Metadata != nil {
-			return strings.TrimSpace(stringValue(p.Metadata["args_preview"]))
+			preview := strings.TrimSpace(stringValue(p.Metadata["args_preview"]))
+			if semanticPreviewIsInlineRedaction(preview) {
+				return ""
+			}
+			return preview
 		}
 		return ""
 	}

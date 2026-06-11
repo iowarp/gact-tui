@@ -8567,10 +8567,18 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 	if hasCached && cached {
 		parts = append(parts, "cached")
 	}
-	if args := semanticArgsPreview(toolPayload, eventPayload); args != "" {
+	if args := semanticInlineArgsPreview(toolPayload, eventPayload); args != "" {
 		parts = append(parts, truncateString("args: "+args, 120))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func semanticInlineArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
+	text := semanticArgsPreview(toolPayload, eventPayload)
+	if semanticPreviewIsInlineRedaction(text) {
+		return ""
+	}
+	return text
 }
 
 func semanticArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
@@ -8588,6 +8596,12 @@ func semanticArgsPreview(toolPayload map[string]any, eventPayload map[string]any
 		return "input redacted by runtime"
 	}
 	return text
+}
+
+func semanticPreviewIsInlineRedaction(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	normalized = strings.Trim(normalized, ". ")
+	return normalized == "input redacted by runtime" || semanticPreviewIsRedacted(text)
 }
 
 func semanticPreviewIsRedacted(text string) bool {

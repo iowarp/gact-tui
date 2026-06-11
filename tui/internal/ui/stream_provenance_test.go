@@ -334,7 +334,7 @@ func TestApplySemanticToolCompletionUsesOperationalFallback(t *testing.T) {
 	}
 }
 
-func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
+func TestApplySemanticToolStartedHidesRedactedArgsInline(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
@@ -364,8 +364,8 @@ func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
 	if part.Type != gact.PartTypeToolCall || part.ToolName != "sac_plot_traces" {
 		t.Fatalf("semantic tool call = %#v", part)
 	}
-	if got := DefaultTheme().renderPart(part, 80); !strings.Contains(got, "input redacted by runtime") {
-		t.Fatalf("redacted tool call should explain absent args inline: %q", got)
+	if got := ansi.Strip(DefaultTheme().renderPart(part, 80)); strings.Contains(got, "input redacted by runtime") || strings.Contains(got, "[redacted]") {
+		t.Fatalf("redacted tool call should keep absent args out of the inline row: %q", got)
 	}
 	if got := ansi.Strip(DefaultTheme().renderPart(part, 80)); !strings.Contains(got, "running") {
 		t.Fatalf("running semantic tool call should show progress state inline: %q", got)
@@ -375,7 +375,7 @@ func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
 	}
 }
 
-func TestApplySemanticToolCompletionExplainsRedactedArgsInline(t *testing.T) {
+func TestApplySemanticToolCompletionHidesRedactedArgsInline(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
@@ -403,10 +403,13 @@ func TestApplySemanticToolCompletionExplainsRedactedArgsInline(t *testing.T) {
 		t.Fatalf("semantic tool result message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac_plot_traces completed", "5ms", "args: input redacted by runtime"} {
+	for _, want := range []string{"sac_plot_traces completed", "5ms"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("redacted completion missing %q: %q", want, text)
 		}
+	}
+	if strings.Contains(text, "input redacted by runtime") || strings.Contains(text, "[redacted]") {
+		t.Fatalf("redacted completion should keep absent args out of the inline row: %q", text)
 	}
 }
 
@@ -433,7 +436,10 @@ func TestSemanticLiveMessageLabelsToolProgressNotAssistant(t *testing.T) {
 	if strings.Contains(out, "● ASSISTANT") {
 		t.Fatalf("semantic live transcript should not look like assistant prose:\n%s", out)
 	}
-	if !strings.Contains(out, "SAC waveform visualization(input redacted by runtime)") {
+	if strings.Contains(out, "input redacted by runtime") {
+		t.Fatalf("semantic live transcript should not advertise redacted input:\n%s", out)
+	}
+	if !strings.Contains(out, "SAC waveform visualization()") {
 		t.Fatalf("semantic live transcript lost tool call summary:\n%s", out)
 	}
 }
@@ -909,6 +915,14 @@ func TestSemanticEventDetailRedactedToolInputStaysOperatorReadable(t *testing.T)
 		if strings.Contains(ref.fullText, unwanted) {
 			t.Fatalf("redacted semantic detail leaked backend/redaction copy %q:\n%s", unwanted, ref.fullText)
 		}
+	}
+
+	plain := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 96))
+	if strings.Contains(plain, "input redacted by runtime") || strings.Contains(plain, "[redacted]") {
+		t.Fatalf("inline transcript should not advertise redacted tool input:\n%s", plain)
+	}
+	if !strings.Contains(plain, "SAC waveform visualization()") {
+		t.Fatalf("inline transcript should keep the tool progress row without redacted args:\n%s", plain)
 	}
 }
 
