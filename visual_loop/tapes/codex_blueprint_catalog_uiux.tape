@@ -16,8 +16,8 @@ Sleep 800ms
 Type "/agent-blueprints"
 Enter
 Wait+Screen /Blueprint library/
-Wait+Screen /Setup flow/
-Wait+Screen /s browse sources/
+Wait+Screen /Setup:/
+Wait+Screen /s sources/
 Wait+Screen /i manual install/
 Wait+Screen /v validate file/
 Sleep 500ms

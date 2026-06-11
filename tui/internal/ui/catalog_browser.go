@@ -2593,7 +2593,7 @@ func catalogBrowserIntro(kind catalogBrowserKind) string {
 func catalogBrowserWorkflowGuide(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindAgentBlueprints:
-		return "Setup flow: browse sources -> select blueprint -> install -> open detail -> activate for session."
+		return "Setup: sources -> blueprint -> install -> detail -> activate."
 	case catalogKindAgentBlueprintSources:
 		return "Source flow: add/refresh/remove sources; select a provided blueprint to install into this workspace."
 	default:
@@ -2682,7 +2682,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		}
 		return modalKeyHint("↑/↓ structure", "Enter details/activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprints:
-		return modalKeyHint("↑/↓ move", "Enter detail", "s browse sources", "i manual install", "v validate file", "Esc close")
+		return modalKeyHint("↑/↓ nav", "Enter", "s sources", "i manual install", "v validate file", "Esc close")
 	case catalogKindAgentBlueprintDetail:
 		if cb.pendingDeleteBlueprintID == cb.blueprintID && cb.blueprintID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc back")
