@@ -677,6 +677,32 @@ type expertPackManagedMsg struct {
 	err    error
 }
 
+func expertPackManagedLabel(m expertPackManagedMsg) string {
+	if label := strings.TrimSpace(m.packID); label != "" {
+		return label
+	}
+	for _, key := range []string{"installed", "updated", "deleted", "pack"} {
+		row, _ := m.result[key].(map[string]any)
+		if label := firstNonEmpty(
+			stringValue(row["id"]),
+			stringValue(row["pack_id"]),
+			stringValue(row["source"]),
+			stringValue(row["path"]),
+			stringValue(row["url"]),
+		); label != "" {
+			return label
+		}
+	}
+	return firstNonEmpty(
+		stringValue(m.result["id"]),
+		stringValue(m.result["pack_id"]),
+		stringValue(m.result["source"]),
+		stringValue(m.result["path"]),
+		stringValue(m.result["url"]),
+		"source",
+	)
+}
+
 func activateExpertPackCmd(c *client.Client, sessionID, packID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -2282,6 +2308,9 @@ func (a *App) viewCatalogBrowser() string {
 	}
 	if guide := catalogBrowserWorkflowGuide(a.catalogBrowser.kind); guide != "" {
 		rows = append(rows, t.HintLabel.Render(guide), "")
+	}
+	if status := strings.TrimSpace(a.transientHint); status != "" {
+		rows = append(rows, t.HintLabel.Render("Status: "+status), "")
 	}
 	actionRow := -1
 	actionCol := 0

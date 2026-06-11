@@ -95,6 +95,24 @@ The script writes live runtime catalog screenshots plus
 operations; use it after running registry-backed lifecycle operations on the
 owned backend when those success paths are being preserved.
 
+For the live prompt and expert-pack lifecycle backlog (#153), capture successful
+prompt save plus expert-pack install/update/delete from an owned disposable CLIO
+backend:
+
+```bash
+CLIO_PROMPT_EXPERT_PACK_CAPTURE_OWN_BACKEND=1 \
+CLIO_PROMPT_EXPERT_PACK_CAPTURE_MUTATE=1 \
+  visual_loop/capture_live_prompt_expert_packs_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <SESSION_ID> \
+  --expert-pack-source <DISPOSABLE_PACK_SOURCE>
+```
+
+The script writes `live_clio_prompt_expert_pack_lifecycle_manifest.json` plus
+prompt and expert-pack lifecycle screenshots. It performs real prompt and
+expert-pack writes, including delete, so only run it against an isolated backend
+and workspace prepared for this proof.
+
 ## Current State
 
 - Repository: `https://github.com/iowarp/gact-tui`

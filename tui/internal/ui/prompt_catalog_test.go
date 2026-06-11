@@ -1357,6 +1357,49 @@ func TestExpertPackInstallFailureStaysInModalWithOperatorMessage(t *testing.T) {
 	}
 }
 
+func TestExpertPackManagedLabelUsesLifecycleResultID(t *testing.T) {
+	got := expertPackManagedLabel(expertPackManagedMsg{
+		action: "install",
+		result: map[string]any{
+			"installed": map[string]any{
+				"id":     "data-semantics",
+				"source": "git@example.org:data-semantics.git",
+			},
+		},
+	})
+	if got != "data-semantics" {
+		t.Fatalf("managed label = %q, want installed pack id", got)
+	}
+
+	got = expertPackManagedLabel(expertPackManagedMsg{
+		action: "install",
+		result: map[string]any{
+			"installed": map[string]any{"source": "git@example.org:data-semantics.git"},
+		},
+	})
+	if got != "git@example.org:data-semantics.git" {
+		t.Fatalf("managed label = %q, want installed source fallback", got)
+	}
+}
+
+func TestCatalogBrowserShowsTransientOperationStatus(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.transientHint = "expert pack installed: data-semantics"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindExpertPacks,
+		title: "Expert Packs",
+		items: []catalogItem{{id: "pack/data-semantics", title: "Data Semantics", statusTag: "workspace"}},
+	}
+
+	out := a.viewCatalogBrowser()
+	if !strings.Contains(out, "Status: expert pack installed: data-semantics") {
+		t.Fatalf("catalog browser should surface transient operation status:\n%s", out)
+	}
+}
+
 func TestSkillsCatalogRowsLeadWithSkillPurpose(t *testing.T) {
 	items := agentCatalogItems([]gact.AgentDef{{
 		ID:          "test_writer",

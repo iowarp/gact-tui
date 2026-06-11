@@ -2334,7 +2334,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.action == "install" && a.expertPackInstallOpen {
 			a.closeExpertPackInstall()
 		}
-		label := firstNonEmpty(m.packID, "source")
+		label := expertPackManagedLabel(m)
 		a.transientHint = "expert pack " + operatorActionVerb(m.action) + ": " + label
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil {
