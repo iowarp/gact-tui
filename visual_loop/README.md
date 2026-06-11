@@ -141,10 +141,11 @@ python3 visual_loop/check_agent_blueprint_marketplace_readiness.py --root . \
   --strict
 ```
 
-Use `--strict-live` only when
-`live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` exists from an
-owned CLIO backend and proves source add/refresh/remove plus blueprint
-install/update/activation with source ref and commit provenance.
+Use `--strict-live` only when the live marketplace screenshots and
+`live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` exist from an
+owned CLIO backend. The manifest must prove source add/refresh/remove plus
+blueprint install/update/activation with source ref and commit provenance, and
+must reference the exact live sources, installed, and activated screenshots.
 
 For the live prompt and expert-pack lifecycle backlog (#153), capture successful
 prompt save plus expert-pack install/update/delete from an owned disposable CLIO

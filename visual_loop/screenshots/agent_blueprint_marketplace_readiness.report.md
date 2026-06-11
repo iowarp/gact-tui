@@ -13,6 +13,9 @@
 
 ## Missing: Live marketplace source lifecycle - real source add/refresh/remove plus blueprint install/update/activation provenance
 - Missing or invalid artifacts:
+  - `visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png` (missing)
+  - `visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png` (missing)
+  - `visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png` (missing)
   - `visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` (missing)
 - Manifest status: `missing`
 - Missing or false manifest keys:
@@ -28,3 +31,6 @@
   - `blueprint_activation_success`
   - `source_ref`
   - `source_commit`
+  - `sources_screenshot`
+  - `installed_screenshot`
+  - `activated_screenshot`

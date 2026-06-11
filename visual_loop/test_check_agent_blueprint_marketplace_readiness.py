@@ -28,6 +28,10 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
                 write_artifact(root, rel)
 
     def seed_live_marketplace_lifecycle(self, root: Path) -> None:
+        for rel in check_agent_blueprint_marketplace_readiness.LIVE_EVIDENCE.artifacts:
+            if rel.endswith(".json"):
+                continue
+            write_artifact(root, rel)
         write_manifest(
             root,
             "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
@@ -44,6 +48,9 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
                 "blueprint_activation_success": True,
                 "source_ref": "main",
                 "source_commit": "0123456789abcdef",
+                "sources_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png",
+                "installed_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png",
+                "activated_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png",
             },
         )
 
@@ -86,11 +93,16 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
         self.assertIn("source_refresh_success", report)
         self.assertIn("blueprint_activation_success", report)
         self.assertIn("source_commit", report)
+        self.assertIn("sources_screenshot", report)
 
     def test_live_marketplace_manifest_requires_owned_backend_and_true_lifecycle_flags(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.seed_required(root)
+            for rel in check_agent_blueprint_marketplace_readiness.LIVE_EVIDENCE.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
             write_manifest(
                 root,
                 "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
@@ -107,6 +119,9 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
                     "blueprint_activation_success": False,
                     "source_ref": "main",
                     "source_commit": "0123456789abcdef",
+                    "sources_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png",
+                    "installed_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png",
+                    "activated_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png",
                 },
             )
 
@@ -119,6 +134,46 @@ class AgentBlueprintMarketplaceReadinessTest(unittest.TestCase):
         self.assertIn("source_refresh_success", report)
         self.assertIn("blueprint_update_success", report)
         self.assertIn("blueprint_activation_success", report)
+
+    def test_live_marketplace_manifest_must_reference_tracked_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_required(root)
+            for rel in check_agent_blueprint_marketplace_readiness.LIVE_EVIDENCE.artifacts:
+                if rel.endswith(".json"):
+                    continue
+                write_artifact(root, rel)
+            write_manifest(
+                root,
+                "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
+                {
+                    "backend": "http://127.0.0.1:4444",
+                    "captured_from_owned_backend": True,
+                    "source_url": "https://github.com/example/blueprints.git",
+                    "source_add_success": True,
+                    "source_refresh_success": True,
+                    "source_remove_success": True,
+                    "blueprint_id": "example-blueprint",
+                    "blueprint_install_success": True,
+                    "blueprint_update_success": True,
+                    "blueprint_activation_success": True,
+                    "source_ref": "main",
+                    "source_commit": "0123456789abcdef",
+                    "sources_screenshot": "visual_loop/screenshots/old_blueprint_sources.png",
+                    "installed_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png",
+                    "activated_screenshot": "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png",
+                },
+            )
+
+            result = check_agent_blueprint_marketplace_readiness.check_readiness(root)
+            report = check_agent_blueprint_marketplace_readiness.render_markdown(result)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["live_ok"])
+        self.assertIn("Invalid manifest artifact references", report)
+        self.assertIn("sources_screenshot", report)
+        self.assertIn("visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png", report)
+        self.assertIn("visual_loop/screenshots/old_blueprint_sources.png", report)
 
     def test_placeholder_blueprint_screenshots_do_not_satisfy_deterministic_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

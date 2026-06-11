@@ -26,6 +26,7 @@ class Evidence:
     required_for_demo: bool = True
     manifest: str | None = None
     required_manifest_keys: tuple[str, ...] = ()
+    manifest_artifacts: tuple[tuple[str, str], ...] = ()
 
 
 DETERMINISTIC_EVIDENCE: tuple[Evidence, ...] = (
@@ -83,7 +84,12 @@ DETERMINISTIC_EVIDENCE: tuple[Evidence, ...] = (
 LIVE_EVIDENCE = Evidence(
     area="Live marketplace source lifecycle",
     title="real source add/refresh/remove plus blueprint install/update/activation provenance",
-    artifacts=("visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",),
+    artifacts=(
+        "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png",
+        "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png",
+        "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png",
+        "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
+    ),
     required_for_demo=False,
     manifest="visual_loop/screenshots/live_clio_agent_blueprint_marketplace_lifecycle_manifest.json",
     required_manifest_keys=(
@@ -99,6 +105,14 @@ LIVE_EVIDENCE = Evidence(
         "blueprint_activation_success",
         "source_ref",
         "source_commit",
+        "sources_screenshot",
+        "installed_screenshot",
+        "activated_screenshot",
+    ),
+    manifest_artifacts=(
+        ("sources_screenshot", "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_sources.png"),
+        ("installed_screenshot", "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_installed.png"),
+        ("activated_screenshot", "visual_loop/screenshots/live_clio_agent_blueprint_marketplace_activated.png"),
     ),
 )
 
@@ -134,10 +148,20 @@ def manifest_status(root: Path, evidence: Evidence) -> dict[str, object]:
     if not isinstance(data, dict):
         return {"ok": False, "state": "manifest is not an object", "missing_keys": list(evidence.required_manifest_keys)}
     missing = [key for key in evidence.required_manifest_keys if not manifest_value_ok(key, data.get(key))]
+    invalid_artifacts = [
+        {
+            "key": key,
+            "expected": expected,
+            "actual": str(data.get(key, "")).strip(),
+        }
+        for key, expected in evidence.manifest_artifacts
+        if key not in missing and str(data.get(key, "")).strip() != expected
+    ]
     return {
-        "ok": not missing,
+        "ok": not missing and not invalid_artifacts,
         "state": "present",
         "missing_keys": missing,
+        "invalid_artifacts": invalid_artifacts,
         "keys": sorted(data.keys()),
     }
 
@@ -220,6 +244,13 @@ def render_markdown(result: dict[str, Any]) -> str:
                 lines.append("- Missing or false manifest keys:")
                 for key in missing_keys:
                     lines.append(f"  - `{key}`")
+            invalid_artifacts = manifest.get("invalid_artifacts", [])
+            if invalid_artifacts:
+                lines.append("- Invalid manifest artifact references:")
+                for item in invalid_artifacts:
+                    lines.append(
+                        f"  - `{item['key']}` expected `{item['expected']}` got `{item['actual']}`"
+                    )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
