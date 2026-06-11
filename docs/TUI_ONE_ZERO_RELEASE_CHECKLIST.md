@@ -39,7 +39,7 @@ branch under review. The following open issues must be closed, merged by PR
 - #142: tree/table views for agents and Agent Blueprints.
 - #143: Agent Blueprint marketplace/source install and validate workflow.
 - #145: ensure `clio` launcher uses the freshly built/installed TUI binary.
-- #149: four NDP demo cases need real TUI short GIFs and streaming manifests.
+- #149: four NDP demo cases need real TUI short GIFs plus live-run streaming proof manifests.
 - #150: live terminal copy and selection permutations.
 - #151: real CLIO doctor gaps and active-stream metrics.
 - #152: large live runtime catalogs and registry-backed MCP/source lifecycle.
@@ -100,8 +100,9 @@ Acceptance:
   drift between the palette, Help Commands, and
   `SLASH_COMMAND_VISUAL_COVERAGE.md`.
 - The NDP demo gate is run separately when validating the four-case demo. It is
-  expected to fail until all four cases have real TUI visuals and streaming
-  proof, not merely deterministic screenshots or artifact-producing manifests.
+  expected to fail until all four cases have real TUI visuals, short GIFs, and
+  live-run streaming proof manifests, not merely deterministic screenshots or
+  artifact-producing manifests.
 - The readiness scripts with `--strict` prove maintained deterministic evidence
   for copy/selection, diagnostics, lifecycle, provider, and Agent Blueprint
   marketplace surfaces. Their `--strict-live` modes are only for the final
@@ -140,8 +141,9 @@ Acceptance:
 - The `slash_command_coverage` section reports every canonical operator command
   documented and visible in Help Commands, with folded aliases absent from Help.
 - The `ndp_demo_readiness` section reports CLIO artifact proof, deterministic
-  TUI proof, real TUI visuals, streaming proof, and ready case counts; use
-  `--require-ndp-demo-ready` only for the final four-case NDP demo gate.
+  TUI proof, real TUI visuals, short GIF recordings, live-run streaming proof
+  manifests, and ready case counts; use `--require-ndp-demo-ready` only for the
+  final four-case NDP demo gate.
 - Temporal assertions prove route/delegation/tool-start/tool-complete/parent
   resume evidence appears before final completion for the benchmark hierarchy
   path tracked in #113.

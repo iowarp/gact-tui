@@ -185,7 +185,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
         report = buf.getvalue()
         self.assertIn("## ndp_demo_readiness", report)
         self.assertIn("- status: informational; not required by this gate", report)
-        self.assertIn("- streaming proof: 0/4", report)
+        self.assertIn("- live-run streaming proof manifests: 0/4", report)
 
     def test_ndp_demo_readiness_can_be_required_for_demo_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1050,7 +1050,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
 
         self.assertGreaterEqual(checklist.count("--require-ndp-demo-ready"), 2)
         self.assertIn("ndp_demo_readiness", checklist)
-        self.assertIn("streaming proof", checklist)
+        self.assertIn("live-run streaming proof manifest", checklist)
 
     def test_release_checklist_requires_terminal_selection_diag_evidence(self) -> None:
         checklist = (
