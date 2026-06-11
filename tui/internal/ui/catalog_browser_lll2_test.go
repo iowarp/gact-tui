@@ -128,7 +128,7 @@ func TestCatalogBrowser_EscapeClosesTopLevelToolsCatalog(t *testing.T) {
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:  catalogKindTools,
-		title: "Actions and MCP",
+		title: "Tools & MCP",
 		items: []catalogItem{{id: "mcpserver/fake-mcp", title: "MCP · fake-mcp"}},
 	}
 
@@ -145,7 +145,7 @@ func TestCatalogBrowser_SlashClosesCatalogAndStartsCommandInput(t *testing.T) {
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:  catalogKindTools,
-		title: "Actions and MCP",
+		title: "Tools & MCP",
 		items: []catalogItem{{id: "mcpserver/fake-mcp", title: "MCP · fake-mcp"}},
 	}
 
@@ -166,7 +166,7 @@ func TestCatalogBrowser_SlashClosesCatalogAndStartsCommandInput(t *testing.T) {
 func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
 	cases := map[catalogBrowserKind]string{
 		catalogKindMcp:         "MCP Connections",
-		catalogKindTools:       "Actions and MCP",
+		catalogKindTools:       "Tools & MCP",
 		catalogKindSkills:      "Skills",
 		catalogKindMcpDetail:   "MCP detail",
 		catalogKindAgentDetail: "Agent detail",
@@ -2738,7 +2738,7 @@ func TestCatalogBrowserToolsSourceRowsExposeMcpManagement(t *testing.T) {
 	model, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	a = model.(*App)
 	if cmd == nil {
-		t.Fatal("r on a Actions and MCP source row should dispatch reconnect")
+		t.Fatal("r on a Tools & MCP source row should dispatch reconnect")
 	}
 	done, ok := cmd().(mcpReconnectDoneMsg)
 	if !ok || done.err != nil || done.serverID != "fake-mcp" || reconnects != 1 {

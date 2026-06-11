@@ -68,7 +68,7 @@ Use this order when deciding which missing tapes to add next:
 
 | Surface | Tape(s) | Representative evidence | Status |
 | --- | --- | --- | --- |
-| Tools and MCP unified catalog | `semantic_tools_mcp_catalog.tape`, `semantic_tools_action_detail.tape`, `semantic_tools_mcp_disconnected.tape`, `semantic_tools_mcp_reconnect_failure.tape`, `semantic_tools_unavailable_tool.tape`, `semantic_tools_empty.tape`, `semantic_menu_smoke.tape`, `semantic_narrow_operator_surfaces.tape` | `semantic_tools_mcp_catalog.png`, `semantic_tools_mcp_tool_selected.png`, `semantic_tools_action_detail_catalog.png`, `semantic_tools_action_detail_builtin.png`, `semantic_tools_mcp_disconnected_catalog.png`, `semantic_tools_mcp_disconnected_selected.png`, `semantic_tools_mcp_disconnected.gif`, `semantic_tools_mcp_reconnect_failure.png`, `semantic_tools_unavailable_tool.png`, `semantic_tools_empty.png`, `semantic_menu_tools_catalog.png`, `semantic_narrow_tools_mcp.png`, `live_lifecycle_readiness.report.md` | Covered |
+| Tools and MCP unified catalog | `semantic_tools_mcp_catalog.tape`, `semantic_tools_action_detail.tape`, `semantic_tools_mcp_disconnected.tape`, `semantic_tools_mcp_reconnect_failure.tape`, `semantic_tools_unavailable_tool.tape`, `semantic_tools_empty.tape`, `semantic_menu_smoke.tape`, `semantic_narrow_operator_surfaces.tape` | `semantic_tools_mcp_catalog.png`, `semantic_tools_mcp_tool_selected.png`, `semantic_tools_action_detail_catalog.png`, `semantic_tools_action_detail_builtin.png`, `semantic_tools_mcp_disconnected_catalog.png`, `semantic_tools_mcp_disconnected_selected.png`, `semantic_tools_mcp_disconnected.gif`, `semantic_tools_mcp_reconnect_failure.png`, `semantic_tools_unavailable_tool.png`, `semantic_tools_empty.png`, `semantic_menu_tools_catalog.png`, `semantic_narrow_tools_mcp.png`, `semantic_narrow_operator_surfaces.gif`, `live_lifecycle_readiness.report.md` | Covered |
 | MCP connection detail/install/remove/reconnect | `semantic_mcp_connection_overview_detail.tape`, `semantic_mcp_install.tape`, `semantic_mcp_remove.tape`, `semantic_mcp_remove_failure.tape`, `semantic_mcp_reconnect.tape` | `semantic_mcp_connection_overview_detail.png`, `semantic_mcp_install.png`, `semantic_mcp_remove.png`, `semantic_mcp_remove_confirm.png`, `semantic_mcp_remove_failure.png` | Covered |
 | Skills catalog | `semantic_skills_catalog.tape`, `semantic_skills_empty.tape` | `semantic_skills_catalog.png`, `semantic_skills_empty.png`, `semantic_skills_empty.gif` | Covered |
 | Prompts catalog/detail/editor/empty/stress | `semantic_prompt_catalog.tape`, `semantic_prompt_empty.tape`, `semantic_prompt_catalog_stress.tape`, `semantic_narrow_deep_modals.tape` | `semantic_prompt_catalog.png`, `semantic_prompt_detail.png`, `semantic_prompt_editor.png`, `semantic_prompt_empty.png`, `semantic_prompt_stress_catalog.png`, `semantic_prompt_stress_invalid_detail.png`, `semantic_prompt_stress_validation_render.png`, `semantic_prompt_stress_save_editor.png`, `semantic_prompt_stress_save_failure.png`, `semantic_narrow_prompts.png`, `semantic_narrow_prompt_detail.png` | Covered |
@@ -139,11 +139,6 @@ required files.
 - Agent blueprint real lifecycle variants against current CLIO registry
   semantics: source install, source update, source remove, backend registry
   refresh, and successful installed-blueprint activation from a real source.
-- Deep catalog/modal quality pass for MCP, permissions, metrics, memory,
-  prompts, expert packs, settings, keybindings, and command help at the same
-  standard as the blueprint and workspace passes: full-height use where useful,
-  fixed-height compact windows where appropriate, centered management actions,
-  readable hierarchy, and scrollable detail panes.
 - Prompt detail variants for validation errors, packaged blueprint prompts,
   provider-specific prompts, edited prompt failure, and empty prompt registry
   are covered by deterministic tapes; successful live prompt save and non-empty

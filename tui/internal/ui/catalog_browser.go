@@ -964,7 +964,7 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 	case catalogKindMcp:
 		return "MCP Connections"
 	case catalogKindTools:
-		return "Actions and MCP"
+		return "Tools & MCP"
 	case catalogKindSkills:
 		return "Skills"
 	case catalogKindMcpDetail:
@@ -2576,7 +2576,7 @@ func catalogEmptyGuidanceStepLabel(title string) string {
 func catalogBrowserIntro(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindTools:
-		return "Actions and MCP in one operator view. Connection rows show health; indented tool rows show call policy and required inputs. Use /mcp to add or repair connections."
+		return "Tools and MCP in one operator view. Connection rows show health; indented tool rows show call policy and required inputs. Use /mcp to add or repair connections."
 	case catalogKindMcp:
 		return "Manage connections that supply tools, resources, and prompts. Use /tools when you want the unified action inventory."
 	case catalogKindSkills:

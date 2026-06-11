@@ -16,7 +16,7 @@ Sleep 1000ms
 # MCP source list: verifies source health is distinct from callable tools.
 Type "/mcp"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_menu_mcp_connections.png"
 Down

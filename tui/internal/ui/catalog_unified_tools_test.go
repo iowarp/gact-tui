@@ -302,7 +302,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t *testing.T) {
 	toolsIntro := catalogBrowserIntro(catalogKindTools)
 	for _, want := range []string{
-		"Actions and MCP in one operator view",
+		"Tools and MCP in one operator view",
 		"Connection rows show health",
 		"indented tool rows show call policy and required inputs",
 		"Use /mcp to add or repair connections",
@@ -314,7 +314,7 @@ func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t 
 	if strings.Contains(toolsIntro, "MCP rows") {
 		t.Fatalf("tools intro should describe operator rows, not backend MCP rows: %q", toolsIntro)
 	}
-	if got := catalogBrowserTitle(catalogKindTools); got != "Actions and MCP" {
+	if got := catalogBrowserTitle(catalogKindTools); got != "Tools & MCP" {
 		t.Fatalf("tools catalog title = %q, want unified tools/MCP wording", got)
 	}
 	if got := catalogBrowserTitle(catalogKindMcp); got != "MCP Connections" {

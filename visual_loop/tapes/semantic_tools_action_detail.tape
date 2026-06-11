@@ -15,7 +15,7 @@ Sleep 800ms
 
 Type "/tools"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Wait+Screen /Built-in tools/
 Wait+Screen /MCP connection/
 Sleep 400ms

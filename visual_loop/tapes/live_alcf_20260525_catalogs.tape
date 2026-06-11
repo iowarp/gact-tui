@@ -54,7 +54,7 @@ Sleep 300ms
 
 Type "/mcp"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_alcf_20260525_mcp_catalog.png"
 Escape

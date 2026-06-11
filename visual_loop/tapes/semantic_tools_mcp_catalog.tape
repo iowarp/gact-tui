@@ -15,7 +15,7 @@ Sleep 800ms
 
 Type "/tools"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_tools_mcp_catalog.png"
 

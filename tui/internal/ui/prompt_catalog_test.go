@@ -464,7 +464,7 @@ func TestPaletteCategoryDrilldownUsesCommandTiles(t *testing.T) {
 		"Runtime area - tools, MCP, prompts",
 		"┌─ ▌ /tools",
 		"Browse actions and MCP",
-		"Enter open Actions and MCP",
+		"Enter open Tools & MCP",
 		"┌─ /prompts",
 		"Browse prompt profiles",
 		"Enter open Prompts",
@@ -597,7 +597,7 @@ func TestPaletteOverviewUsesBrowseHint(t *testing.T) {
 
 	a.paletteGroup = "Runtime"
 	out = ansi.Strip(a.viewPalette())
-	if !strings.Contains(out, "Enter open Actions and MCP") {
+	if !strings.Contains(out, "Enter open Tools & MCP") {
 		t.Fatalf("catalog command should describe opening the catalog:\n%s", out)
 	}
 	if strings.Contains(out, "Enter run  Esc close") {
@@ -617,7 +617,7 @@ func TestPaletteFooterDescribesSelectedCommandAction(t *testing.T) {
 	a.paletteFilter = "tools"
 
 	out := ansi.Strip(a.viewPalette())
-	if !strings.Contains(out, "Enter open Actions and MCP") {
+	if !strings.Contains(out, "Enter open Tools & MCP") {
 		t.Fatalf("/tools footer should describe catalog open:\n%s", out)
 	}
 
