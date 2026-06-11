@@ -3597,7 +3597,7 @@ func agentBlueprintSourceRegistryItems(sources []gact.AgentBlueprintSource) []ca
 		return []catalogItem{{
 			id:        "source/none",
 			title:     "No marketplace sources configured",
-			desc:      "Use install to add blueprints directly, or add sources through CLIO when a source URL is available.",
+			desc:      "Use Add marketplace source to register a source URL, then install a provided blueprint from this source tree. Manual install remains available for one-off files.",
 			statusTag: "empty",
 			disabled:  true,
 		}}

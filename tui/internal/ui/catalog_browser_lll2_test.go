@@ -1502,6 +1502,27 @@ func TestCatalogBrowser_AgentBlueprintSourceRegistryItemsExposeActions(t *testin
 	}
 }
 
+func TestAgentBlueprintSourceRegistryEmptyStatePointsToAddSourceFlow(t *testing.T) {
+	items := agentBlueprintSourceRegistryItems(nil)
+	if len(items) != 1 {
+		t.Fatalf("empty source registry items = %#v, want one guidance row", items)
+	}
+	row := items[0]
+	if row.id != "source/none" || row.statusTag != "empty" || !row.disabled {
+		t.Fatalf("empty source registry row = %#v", row)
+	}
+	for _, want := range []string{"Add marketplace source", "register a source URL", "install a provided blueprint"} {
+		if !strings.Contains(row.desc, want) {
+			t.Fatalf("empty source guidance missing %q:\n%s", want, row.desc)
+		}
+	}
+	for _, unwanted := range []string{"through CLIO", "source registry unsupported", "unsupported"} {
+		if strings.Contains(row.desc, unwanted) {
+			t.Fatalf("empty source guidance leaked stale wording %q:\n%s", unwanted, row.desc)
+		}
+	}
+}
+
 func TestAgentBlueprintCatalogStressItemsPreserveHierarchyAndActiveMarker(t *testing.T) {
 	blueprints := []gact.AgentBlueprintDefinition{{
 		ID:         "active-long",
