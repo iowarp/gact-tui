@@ -197,12 +197,12 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
     streaming_event_types_ok = isinstance(streaming_event_types, list) and any(
         isinstance(item, str) and item.strip() for item in streaming_event_types
     )
-    verified_artifact = bool(data.get("verified_artifact"))
-    requested_user_input = bool(data.get("requested_user_input"))
-    provider_streaming_limitation = bool(data.get("provider_streaming_limitation"))
-    live_streaming_false = bool(data.get("live_streaming_false"))
-    turn_cancelled = bool(data.get("turn_cancelled"))
-    completion_timeout = bool(data.get("completion_timeout"))
+    verified_artifact = bool_field(data, "verified_artifact")
+    requested_user_input = bool_field(data, "requested_user_input")
+    provider_streaming_limitation = bool_field(data, "provider_streaming_limitation")
+    live_streaming_false = bool_field(data, "live_streaming_false")
+    turn_cancelled = bool_field(data, "turn_cancelled")
+    completion_timeout = bool_field(data, "completion_timeout")
     ok = (
         not missing_fields
         and case_id_ok
@@ -213,12 +213,12 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         and semantic_event_count > 0
         and live_observed_event_count > 0
         and streaming_event_types_ok
-        and verified_artifact
-        and not requested_user_input
-        and not provider_streaming_limitation
-        and not live_streaming_false
-        and not turn_cancelled
-        and not completion_timeout
+        and verified_artifact is True
+        and requested_user_input is False
+        and provider_streaming_limitation is False
+        and live_streaming_false is False
+        and turn_cancelled is False
+        and completion_timeout is False
     )
     problems: list[str] = []
     if missing_fields:
@@ -239,17 +239,29 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         problems.append("no live-observed semantic events observed")
     if not streaming_event_types_ok:
         problems.append("streaming_event_types is empty")
-    if not verified_artifact:
+    if verified_artifact is None:
+        problems.append("manifest verified_artifact must be boolean true")
+    elif not verified_artifact:
         problems.append("expected artifact not observed in assistant output")
-    if requested_user_input:
+    if requested_user_input is None:
+        problems.append("manifest requested_user_input must be boolean false")
+    elif requested_user_input:
         problems.append("assistant requested user input instead of completing the case")
-    if provider_streaming_limitation:
+    if provider_streaming_limitation is None:
+        problems.append("manifest provider_streaming_limitation must be boolean false")
+    elif provider_streaming_limitation:
         problems.append("provider did not expose live streaming")
-    if live_streaming_false:
+    if live_streaming_false is None:
+        problems.append("manifest live_streaming_false must be boolean false")
+    elif live_streaming_false:
         problems.append("manifest records live_streaming=false")
-    if turn_cancelled:
+    if turn_cancelled is None:
+        problems.append("manifest turn_cancelled must be boolean false")
+    elif turn_cancelled:
         problems.append("turn was cancelled before completing the case")
-    if completion_timeout:
+    if completion_timeout is None:
+        problems.append("manifest completion_timeout must be boolean false")
+    elif completion_timeout:
         problems.append("turn did not complete before manifest timeout")
     return {
         "ok": ok,
@@ -273,6 +285,13 @@ def int_value(value: object) -> int:
         except ValueError:
             return 0
     return 0
+
+
+def bool_field(data: dict[str, object], key: str) -> bool | None:
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    return None
 
 
 def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, object]:
@@ -382,10 +401,12 @@ def render_markdown(result: dict[str, object]) -> str:
         still_ok = case["real_tui_recording"]["still_visual_ok"]
         recording_ok = case["real_tui_recording"]["short_recording_ok"]
         manifest_exists = bool(manifest) and manifest.get("state") != "manifest missing; streaming proof not verified"
-        artifact_observed = bool(data.get("verified_artifact")) if data else "legacy"
+        artifact_observed = bool_field(data, "verified_artifact") if data else "legacy"
+        streaming_limitation = bool_field(data, "provider_streaming_limitation") if data else None
+        live_streaming_disabled = bool_field(data, "live_streaming_false") if data else None
         streaming_proof = (
             "yes"
-            if data and not data.get("provider_streaming_limitation") and not data.get("live_streaming_false")
+            if data and streaming_limitation is False and live_streaming_disabled is False
             else "no"
             if data or manifest_exists
             else "no"

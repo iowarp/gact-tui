@@ -268,6 +268,39 @@ class NDPDemoReadinessTest(unittest.TestCase):
         self.assertIn("no live-observed semantic events observed", rendered)
         self.assertIn("streaming_event_types is empty", rendered)
 
+    def test_manifest_requires_typed_boolean_outcome_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "ndp_demo_four_cases.md"
+            seed_report(report)
+            case = check_ndp_demo_readiness.CASES[0]
+            for rel in case.deterministic_artifacts:
+                touch(root, rel)
+            for rel in check_ndp_demo_readiness.real_capture_paths(case):
+                write_real_capture(root, rel)
+            write_manifest(
+                root,
+                case,
+                verified_artifact="true",
+                requested_user_input="false",
+                provider_streaming_limitation="false",
+                live_streaming_false="false",
+                turn_cancelled="false",
+                completion_timeout="false",
+            )
+
+            result = check_ndp_demo_readiness.check_readiness(root, report)
+            rendered = check_ndp_demo_readiness.render_markdown(result)
+
+        self.assertFalse(result["cases"][0]["real_tui_recording"]["streaming_ok"])
+        self.assertIn("manifest verified_artifact must be boolean true", rendered)
+        self.assertIn("manifest requested_user_input must be boolean false", rendered)
+        self.assertIn("manifest provider_streaming_limitation must be boolean false", rendered)
+        self.assertIn("manifest live_streaming_false must be boolean false", rendered)
+        self.assertIn("manifest turn_cancelled must be boolean false", rendered)
+        self.assertIn("manifest completion_timeout must be boolean false", rendered)
+        self.assertIn("| San Diego / EarthScope seismic waveform review | yes | yes | yes | no | no |", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
