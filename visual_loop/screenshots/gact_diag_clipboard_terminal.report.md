@@ -2,8 +2,8 @@ gact 0.2.1
   contract:   0.2
   runtime:    go1.26.2
   platform:   linux/amd64
-  revision:   80e4c0ef9a4f (dirty)
-  built:      2026-06-11T04:10:23Z
+  revision:   9eac27e48348 (dirty)
+  built:      2026-06-11T05:51:52Z
   binary_path: /home/jcernuda/gact-tui/tui/gact
   path_gact: /home/jcernuda/gact-tui/tui/gact
   path_gact_status: matches running binary
@@ -18,6 +18,7 @@ gact 0.2.1
   collapse_threshold: 5
   cost_warn_tokens:   100000
   cost_danger_tokens: 150000
+  mouse_capture: disabled (config); native terminal selection available; TUI mouse clicks disabled
   clipboard_native: clip.exe, powershell.exe
   clipboard_missing: wl-copy, xclip, xsel, pbcopy, termux-clipboard-set
   clipboard_osc52: terminal-dependent; TERM=xterm-256color TERM_PROGRAM=visual-loop COLORTERM=truecolor
