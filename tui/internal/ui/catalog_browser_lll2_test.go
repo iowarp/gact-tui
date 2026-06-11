@@ -1710,7 +1710,7 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedSource(t *te
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source actions", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
+	for _, want := range []string{"Source flow:", "select a source to refresh/remove", "select a provided blueprint to install", "Source actions", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source browser missing %q:\n%s", want, out)
 		}
@@ -1771,7 +1771,7 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t 
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
+	for _, want := range []string{"Source flow:", "select a provided blueprint to install", "Source actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source blueprint browser missing %q:\n%s", want, out)
 		}
@@ -1818,7 +1818,7 @@ func TestCatalogBrowser_AgentBlueprintActionsAreNotListRows(t *testing.T) {
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter detail", "i install", "v validate", "s sources"} {
+	for _, want := range []string{"Setup flow:", "browse sources -> select blueprint -> install", "Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter detail", "i install path", "v validate path", "s browse sources"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("blueprint browser missing %q:\n%s", want, out)
 		}

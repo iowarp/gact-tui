@@ -16,9 +16,10 @@ Sleep 800ms
 Type "/agent-blueprints"
 Enter
 Wait+Screen /Blueprint library/
-Wait+Screen /i install path.URL/
+Wait+Screen /Setup flow/
+Wait+Screen /i install path/
 Wait+Screen /v validate path/
-Wait+Screen /s sources/
+Wait+Screen /s browse sources/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/codex_blueprint_catalog_uiux.png"
 

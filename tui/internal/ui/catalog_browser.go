@@ -1583,7 +1583,7 @@ func agentBlueprintCatalogActionButtons() []menuButton {
 	return []menuButton{
 		{
 			id:    "agent-blueprints:install",
-			label: "install source",
+			label: "install from path",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageInstall)
 				return nil
@@ -1591,7 +1591,7 @@ func agentBlueprintCatalogActionButtons() []menuButton {
 		},
 		{
 			id:    "agent-blueprints:validate",
-			label: "validate source",
+			label: "validate path",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return nil
@@ -2182,6 +2182,9 @@ func (a *App) viewCatalogBrowser() string {
 	if context := a.catalogBrowserContextLine(a.catalogBrowser.kind); context != "" {
 		rows = append(rows, t.HintLabel.Render(context), "")
 	}
+	if guide := catalogBrowserWorkflowGuide(a.catalogBrowser.kind); guide != "" {
+		rows = append(rows, t.HintLabel.Render(guide), "")
+	}
 	actionRow := -1
 	actionCol := 0
 	actionButtons := []menuButton(nil)
@@ -2394,6 +2397,17 @@ func catalogBrowserIntro(kind catalogBrowserKind) string {
 	}
 }
 
+func catalogBrowserWorkflowGuide(kind catalogBrowserKind) string {
+	switch kind {
+	case catalogKindAgentBlueprints:
+		return "Setup flow: browse sources -> select blueprint -> install -> open detail -> activate for session."
+	case catalogKindAgentBlueprintSources:
+		return "Source flow: select a source to refresh/remove; select a provided blueprint to install into this workspace."
+	default:
+		return ""
+	}
+}
+
 func (a *App) catalogBrowserContextLine(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
@@ -2480,7 +2494,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		}
 		return modalKeyHint("↑/↓ structure", "Enter details/activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprints:
-		return modalKeyHint("↑/↓ move", "Enter detail", "i install", "v validate", "s sources", "Esc close")
+		return modalKeyHint("↑/↓ move", "Enter detail", "i install path", "v validate path", "s browse sources", "Esc close")
 	case catalogKindAgentBlueprintDetail:
 		if cb.pendingDeleteBlueprintID == cb.blueprintID && cb.blueprintID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc back")
