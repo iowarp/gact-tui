@@ -273,10 +273,18 @@ func writeVersionReport(w io.Writer, includePlatform bool) {
 	}
 }
 
-// readVCSInfo extracts (short revision, build time, dirty?) from
+// readVCSInfo extracts (short revision, build time, dirty?) from an
+// explicit release/dev-build override when present, otherwise from
 // runtime/debug.ReadBuildInfo. Used by both `gact version` and
 // `gact diag` so the output stays consistent across both surfaces.
 func readVCSInfo() (rev, when string, dirty bool) {
+	if strings.TrimSpace(buildRevision) != "" {
+		rev = strings.TrimSpace(buildRevision)
+		if len(rev) > 12 {
+			rev = rev[:12]
+		}
+		return rev, strings.TrimSpace(buildTime), strings.EqualFold(strings.TrimSpace(buildDirty), "true")
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "", "", false
@@ -347,6 +355,12 @@ const (
 	// could thread version info from the build via -ldflags.
 	binaryVersion   = "0.2.1"
 	contractVersion = "0.2"
+)
+
+var (
+	buildRevision string
+	buildTime     string
+	buildDirty    string
 )
 
 func printUsage() {

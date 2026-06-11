@@ -328,6 +328,28 @@ func TestCLI_VersionReportsBuildMetadata(t *testing.T) {
 	}
 }
 
+func TestReadVCSInfoUsesBuildMetadataOverride(t *testing.T) {
+	oldRevision, oldTime, oldDirty := buildRevision, buildTime, buildDirty
+	t.Cleanup(func() {
+		buildRevision, buildTime, buildDirty = oldRevision, oldTime, oldDirty
+	})
+
+	buildRevision = "1234567890abcdef"
+	buildTime = "2026-06-11T10:13:32Z"
+	buildDirty = "false"
+
+	rev, when, dirty := readVCSInfo()
+	if rev != "1234567890ab" || when != buildTime || dirty {
+		t.Fatalf("readVCSInfo override = rev %q when %q dirty %v", rev, when, dirty)
+	}
+
+	buildDirty = "true"
+	_, _, dirty = readVCSInfo()
+	if !dirty {
+		t.Fatal("readVCSInfo should respect explicit dirty override")
+	}
+}
+
 func TestCLI_ExportToStdout(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
