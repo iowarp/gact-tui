@@ -2,8 +2,8 @@ gact 0.2.1
   contract:   0.2
   runtime:    go1.26.2
   platform:   linux/amd64
-  revision:   c2e885adf787 (dirty)
-  built:      2026-06-11T06:44:20Z
+  revision:   bba9ce59156f
+  built:      2026-06-11T06:25:50-05:00
   binary_path: /home/jcernuda/gact-tui/tui/gact
   path_gact: /home/jcernuda/gact-tui/tui/gact
   path_gact_status: matches running binary
