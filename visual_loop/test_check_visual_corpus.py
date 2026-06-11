@@ -816,6 +816,7 @@ class VisualCorpusCheckTest(unittest.TestCase):
 
         for expected in (
             "gact diag",
+            "mouse_capture",
             "clipboard_native",
             "clipboard_missing",
             "clipboard_osc52",

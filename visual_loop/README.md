@@ -39,8 +39,8 @@ visual_loop/capture_gact_diag.sh
 ```
 
 The generated `visual_loop/screenshots/gact_diag_clipboard_terminal.report.md`
-must include `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
-`terminal_selection`, `TERM`, and `TERM_PROGRAM`.
+must include `mouse_capture`, `clipboard_native`, `clipboard_missing`,
+`clipboard_osc52`, `terminal_selection`, `TERM`, and `TERM_PROGRAM`.
 
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:

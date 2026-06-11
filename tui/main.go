@@ -6342,6 +6342,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	if cfg.CostDangerTokens != nil {
 		fmt.Fprintf(w, "  cost_danger_tokens: %d\n", *cfg.CostDangerTokens)
 	}
+	diagWriteMouseCaptureProbe(w, cfg.MouseEnabled)
 	diagWriteClipboardProbe(w)
 	if verbose {
 		themePath, _ := ui.CustomThemeDefaultPath()
@@ -6474,6 +6475,22 @@ func sameInstallPath(a, b string) bool {
 		return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+func diagWriteMouseCaptureProbe(w io.Writer, mouseEnabled *bool) {
+	state := "enabled"
+	source := "default"
+	if mouseEnabled != nil {
+		source = "config"
+		if !*mouseEnabled {
+			state = "disabled"
+		}
+	}
+	selection := "terminal selection needs /mouse off or config mouse_enabled=false"
+	if state == "disabled" {
+		selection = "native terminal selection available; TUI mouse clicks disabled"
+	}
+	fmt.Fprintf(w, "  mouse_capture: %s (%s); %s\n", state, source, selection)
 }
 
 func diagWriteClipboardProbe(w io.Writer) {

@@ -126,7 +126,7 @@ Required workflows:
 - Copy from conversation footer actions, selected conversation blocks,
   detail/raw views, and clipboard failure messaging.
 - Capture `gact diag` clipboard and terminal-selection rows:
-  `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
+  `mouse_capture`, `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
   `terminal_selection`, `TERM`, and `TERM_PROGRAM`; use `/mouse` while
   comparing mouse-capture and native terminal text selection behavior.
 - Paste into main input, compose, ask/retry, rename, context-add, prompt edit,

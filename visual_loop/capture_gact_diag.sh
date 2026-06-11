@@ -11,6 +11,7 @@ env \
   ./tui/gact diag >"$out"
 
 required=(
+  "mouse_capture:"
   "clipboard_native:"
   "clipboard_missing:"
   "clipboard_osc52:"

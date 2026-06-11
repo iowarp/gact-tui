@@ -21,6 +21,7 @@ class DiagnosticsReadinessTest(unittest.TestCase):
                 if rel.endswith("gact_diag_clipboard_terminal.report.md"):
                     text = "\n".join(
                         [
+                            "mouse_capture: enabled (default)",
                             "clipboard_native: clip.exe",
                             "clipboard_missing: wl-copy",
                             "clipboard_osc52: TERM=xterm-256color TERM_PROGRAM=visual-loop",
@@ -57,6 +58,7 @@ class DiagnosticsReadinessTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertIn("Missing diagnostic markers", report)
+        self.assertIn("mouse_capture:", report)
         self.assertIn("clipboard_missing:", report)
         self.assertIn("terminal_selection:", report)
 

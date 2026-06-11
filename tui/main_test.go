@@ -38,6 +38,10 @@ func testBinaryPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
+func testBoolPtr(value bool) *bool {
+	return &value
+}
+
 func stableTestBinaryPath(t *testing.T, repoRoot, name string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -85,6 +89,49 @@ func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("diag clipboard probe missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestDiagMouseCaptureProbeReportsSelectionState(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		mouseEnabled *bool
+		want         []string
+	}{
+		{
+			name: "default",
+			want: []string{
+				"mouse_capture: enabled (default)",
+				"terminal selection needs /mouse off or config mouse_enabled=false",
+			},
+		},
+		{
+			name:         "configured enabled",
+			mouseEnabled: testBoolPtr(true),
+			want: []string{
+				"mouse_capture: enabled (config)",
+				"terminal selection needs /mouse off or config mouse_enabled=false",
+			},
+		},
+		{
+			name:         "configured disabled",
+			mouseEnabled: testBoolPtr(false),
+			want: []string{
+				"mouse_capture: disabled (config)",
+				"native terminal selection available; TUI mouse clicks disabled",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			diagWriteMouseCaptureProbe(&out, tc.mouseEnabled)
+			got := out.String()
+			for _, want := range tc.want {
+				if !strings.Contains(got, want) {
+					t.Fatalf("mouse capture probe missing %q:\n%s", want, got)
+				}
+			}
+		})
 	}
 }
 

@@ -29,6 +29,7 @@ EVIDENCE: tuple[Evidence, ...] = (
         title="clipboard and terminal-selection report",
         artifacts=("visual_loop/screenshots/gact_diag_clipboard_terminal.report.md",),
         required_markers=(
+            "mouse_capture:",
             "clipboard_native:",
             "clipboard_missing:",
             "clipboard_osc52:",
