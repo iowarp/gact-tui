@@ -40,6 +40,11 @@ branch under review. The following open issues must be closed, merged by PR
 - #143: Agent Blueprint marketplace/source install and validate workflow.
 - #145: ensure `clio` launcher uses the freshly built/installed TUI binary.
 - #149: four NDP demo cases need real TUI short GIFs and streaming manifests.
+- #150: live terminal copy and selection permutations.
+- #151: real CLIO doctor gaps and active-stream metrics.
+- #152: large live runtime catalogs and registry-backed MCP/source lifecycle.
+- #153: live prompt save and expert-pack lifecycle success paths.
+- #154: real ALCF provider failure, recovery, and retry override warning.
 
 ## Release-Candidate Identity
 
@@ -72,6 +77,11 @@ go test -p 1 ./tui -run 'TestCLI_(VersionReportsBuildMetadata|DumpBundle|Env|Cap
 python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_check_slash_command_coverage.py visual_loop/test_assert_live_observability.py
 python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-indexed --require-strict-live-pass
 python3 visual_loop/check_visual_corpus.py --root . --require-indexed --require-ndp-demo-ready
+python3 visual_loop/check_copy_selection_readiness.py --root . --strict
+python3 visual_loop/check_diagnostics_readiness.py --root . --strict
+python3 visual_loop/check_live_lifecycle_readiness.py --root . --strict
+python3 visual_loop/check_provider_recovery_readiness.py --root . --strict
+python3 visual_loop/check_agent_blueprint_marketplace_readiness.py --root . --strict
 ```
 
 Run broader workspace gates before marking the release PR ready:
@@ -92,6 +102,11 @@ Acceptance:
 - The NDP demo gate is run separately when validating the four-case demo. It is
   expected to fail until all four cases have real TUI visuals and streaming
   proof, not merely deterministic screenshots or artifact-producing manifests.
+- The readiness scripts with `--strict` prove maintained deterministic evidence
+  for copy/selection, diagnostics, lifecycle, provider, and Agent Blueprint
+  marketplace surfaces. Their `--strict-live` modes are only for the final
+  owned-backend evidence pass and are expected to fail until #150-#154 and the
+  live part of #128/#143 have corresponding manifests/screenshots.
 - The maintained 1.0
   [capability matrix](TUI_ONE_ZERO_CAPABILITY_MATRIX.md) and Doctor rows agree
   with every decoded capability field.
@@ -104,6 +119,11 @@ tests:
 ```bash
 python3 visual_loop/check_visual_corpus.py --root . --require-git-tracked --require-indexed --require-strict-live-pass
 python3 visual_loop/check_visual_corpus.py --root . --require-indexed --require-ndp-demo-ready
+python3 visual_loop/check_copy_selection_readiness.py --root . --strict
+python3 visual_loop/check_diagnostics_readiness.py --root . --strict
+python3 visual_loop/check_live_lifecycle_readiness.py --root . --strict
+python3 visual_loop/check_provider_recovery_readiness.py --root . --strict
+python3 visual_loop/check_agent_blueprint_marketplace_readiness.py --root . --strict
 python3 visual_loop/assert_live_observability.py \
   visual_loop/screenshots/<capture>.jsonl \
   --mode benchmark-hierarchy \
@@ -130,6 +150,9 @@ Acceptance:
 
 Manual evidence must be captured in PR #148, in the specific issue being closed,
 or in the current live-demo proof issue (#149 for the four-case NDP recordings).
+Use #150-#154 for their corresponding terminal, diagnostics, runtime lifecycle,
+prompt/expert-pack lifecycle, and provider recovery proof instead of burying
+those artifacts in unrelated comments.
 At minimum verify:
 
 - Current Linux/WSL terminal path.
