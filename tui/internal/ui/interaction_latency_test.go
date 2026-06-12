@@ -121,18 +121,49 @@ func TestTUIInteractionLatencyLabelsUntargetedSurfaceClicks(t *testing.T) {
 	}
 }
 
+func TestTUIInteractionLatencyClassifiesConversationCopyKeys(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.stage = StageReady
+	a.focus = FocusBody
+
+	trace := a.beginTUIInteractionTrace(tea.KeyPressMsg{Code: 'Y'})
+	if trace == nil {
+		t.Fatal("expected full conversation copy trace")
+	}
+	if trace.surface != "conversation" || trace.kind != "copy" {
+		t.Fatalf("trace classified as %s/%s, want conversation/copy", trace.surface, trace.kind)
+	}
+	if trace.targetID != "conversation:copy:full-conversation" {
+		t.Fatalf("trace target = %q, want full conversation copy target", trace.targetID)
+	}
+	if trace.targetLabel != "full conversation copy" {
+		t.Fatalf("trace target label = %q, want full conversation copy", trace.targetLabel)
+	}
+
+	trace = a.beginTUIInteractionTrace(tea.KeyPressMsg{Code: 'y'})
+	if trace == nil {
+		t.Fatal("expected selected block copy trace")
+	}
+	if trace.targetID != "conversation:copy:selected-block" || trace.targetLabel != "selected block copy" {
+		t.Fatalf("selected-block trace = target %q label %q", trace.targetID, trace.targetLabel)
+	}
+}
+
 func TestTUILatencyTargetClassificationUsesOperatorSurfaces(t *testing.T) {
 	cases := map[string]string{
-		"conversation:body:wheel":         "conversation",
-		"sidebar:session:s1":              "left sidebar",
-		"right-sidebar:files:item:0":      "right sidebar",
-		"button:metrics:refresh":          "metrics",
-		"metrics:body:wheel":              "metrics",
-		"button:detail:copy":              "detail",
-		"catalog:item:0":                  "catalog",
-		"workspace-switch:item:ws_a":      "workspace switcher",
-		"lm-config:provider:0":            "provider setup",
-		"agent-blueprints:sources:source": "agent blueprints",
+		"conversation:body:wheel":          "conversation",
+		"conversation:copy:selected-block": "conversation",
+		"sidebar:session:s1":               "left sidebar",
+		"sidebar:copy:session-id":          "left sidebar",
+		"right-sidebar:files:item:0":       "right sidebar",
+		"button:metrics:refresh":           "metrics",
+		"metrics:body:wheel":               "metrics",
+		"button:detail:copy":               "detail",
+		"detail:copy":                      "detail",
+		"catalog:item:0":                   "catalog",
+		"workspace-switch:item:ws_a":       "workspace switcher",
+		"lm-config:provider:0":             "provider setup",
+		"agent-blueprints:sources:source":  "agent blueprints",
 	}
 	for id, want := range cases {
 		if got := tuiLatencySurfaceForTarget(id); got != want {
@@ -168,6 +199,17 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 		render: 3 * time.Millisecond,
 		total:  8 * time.Millisecond,
 	})
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:         tuiLatencyInteractionKey("conversation", "copy", "conversation:copy:full-conversation"),
+		surface:     "conversation",
+		kind:        "copy",
+		targetID:    "conversation:copy:full-conversation",
+		targetLabel: "full conversation copy",
+	}, tuiInteractionSample{
+		update: 5 * time.Millisecond,
+		render: 2 * time.Millisecond,
+		total:  12 * time.Millisecond,
+	})
 
 	reportPath := filepath.Join(t.TempDir(), "nested", "latency.json")
 	if err := a.WriteTUIInteractionLatencyReport(reportPath); err != nil {
@@ -185,12 +227,14 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 		SupportedBy  struct {
 			Clicks bool `json:"clicks"`
 			Wheels bool `json:"wheels"`
+			Copies bool `json:"copies"`
 		} `json:"supported_by"`
 		Sections []struct {
 			Surface      string   `json:"surface"`
 			SampleCount  int      `json:"sample_count"`
 			ClickCount   int      `json:"click_count"`
 			WheelCount   int      `json:"wheel_count"`
+			CopyCount    int      `json:"copy_count"`
 			TargetLabels []string `json:"target_labels"`
 			SlowestP95   float64  `json:"slowest_p95_ms"`
 		} `json:"sections"`
@@ -209,11 +253,11 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 	if report.Backend != "http://127.0.0.1:18777" || !report.MouseEnabled {
 		t.Fatalf("unexpected report header: %+v", report)
 	}
-	if report.SampleCount != 2 || report.SurfaceCount != 2 {
-		t.Fatalf("sample/surface counts = %d/%d, want 2/2", report.SampleCount, report.SurfaceCount)
+	if report.SampleCount != 3 || report.SurfaceCount != 3 {
+		t.Fatalf("sample/surface counts = %d/%d, want 3/3", report.SampleCount, report.SurfaceCount)
 	}
-	if !report.SupportedBy.Clicks || !report.SupportedBy.Wheels {
-		t.Fatalf("report should mark click and wheel coverage: %+v", report.SupportedBy)
+	if !report.SupportedBy.Clicks || !report.SupportedBy.Wheels || !report.SupportedBy.Copies {
+		t.Fatalf("report should mark click, wheel, and copy coverage: %+v", report.SupportedBy)
 	}
 	sectionSeen := map[string]bool{}
 	for _, section := range report.Sections {
@@ -227,8 +271,8 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 				t.Fatalf("input section should preserve click target context: %+v", section)
 			}
 		case "conversation":
-			if section.WheelCount != 1 {
-				t.Fatalf("conversation section should preserve wheel count: %+v", section)
+			if section.WheelCount != 1 || section.CopyCount != 1 {
+				t.Fatalf("conversation section should preserve wheel and copy counts: %+v", section)
 			}
 		}
 	}
@@ -247,7 +291,7 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 			t.Fatalf("click row missing target label: %+v", row)
 		}
 	}
-	for _, want := range []string{"input click", "conversation wheel down"} {
+	for _, want := range []string{"input click", "conversation wheel down", "conversation copy"} {
 		if !seen[want] {
 			t.Fatalf("missing interaction %q in report: %+v", want, report.Interactions)
 		}
