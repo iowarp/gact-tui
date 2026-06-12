@@ -79,6 +79,7 @@ type tuiInteractionLatencyCoverage struct {
 	Keys   bool `json:"keys"`
 	Clicks bool `json:"clicks"`
 	Wheels bool `json:"wheels"`
+	Copies bool `json:"copies"`
 }
 
 type tuiInteractionLatencyRow struct {
@@ -103,6 +104,7 @@ type tuiInteractionLatencySection struct {
 	ClickCount    int      `json:"click_count,omitempty"`
 	WheelCount    int      `json:"wheel_count,omitempty"`
 	KeyCount      int      `json:"key_count,omitempty"`
+	CopyCount     int      `json:"copy_count,omitempty"`
 	TargetLabels  []string `json:"target_labels,omitempty"`
 	SlowestP95MS  float64  `json:"slowest_p95_ms"`
 	SlowestMaxMS  float64  `json:"slowest_max_ms"`
@@ -236,9 +238,30 @@ func (a *App) classifyTUIInteraction(msg tea.Msg) (kind, targetID string, ok boo
 		if m.String() == "" {
 			return "", "", false
 		}
+		if target := a.copyLatencyTargetForKey(m.String()); target != "" {
+			return "copy", target, true
+		}
 		return "key", "", true
 	default:
 		return "", "", false
+	}
+}
+
+func (a *App) copyLatencyTargetForKey(key string) string {
+	if a == nil {
+		return ""
+	}
+	switch {
+	case a.detailViewOpen && key == "y":
+		return "detail:copy"
+	case a.focus == FocusBody && key == "y":
+		return "conversation:copy:selected-block"
+	case a.focus == FocusBody && key == "Y":
+		return "conversation:copy:full-conversation"
+	case a.focus == FocusSidebar && key == "y":
+		return "sidebar:copy:session-id"
+	default:
+		return ""
 	}
 }
 
@@ -257,8 +280,16 @@ func tuiLatencyTargetLabel(id string) string {
 		return "conversation scroll area"
 	case strings.HasPrefix(id, "conversation:detail:"):
 		return "message detail affordance"
+	case id == "conversation:copy:selected-block":
+		return "selected block copy"
+	case id == "conversation:copy:full-conversation":
+		return "full conversation copy"
 	case strings.HasPrefix(id, "conversation:part:"):
 		return "message block"
+	case id == "detail:copy":
+		return "detail copy"
+	case id == "sidebar:copy:session-id":
+		return "session id copy"
 	case strings.HasPrefix(id, "sidebar:session:"):
 		return "session row"
 	case strings.HasPrefix(id, "sidebar:context:file:"):
@@ -336,6 +367,8 @@ func (a *App) currentTUISurface() string {
 		return "doctor"
 	case a.detailViewOpen:
 		return "detail"
+	case a.composeOpen:
+		return "compose"
 	case a.catalogBrowserOpen:
 		return "catalog"
 	case a.workspaceSwitchOpen:
@@ -372,6 +405,8 @@ func tuiLatencySurfaceForTarget(id string) string {
 		return "conversation"
 	case strings.HasPrefix(id, "input:"), strings.HasPrefix(id, "text-entry:"):
 		return "input"
+	case strings.HasPrefix(id, "compose:"):
+		return "compose"
 	case strings.HasPrefix(id, "sidebar:"):
 		return "left sidebar"
 	case strings.HasPrefix(id, "right-sidebar:"):
@@ -539,6 +574,9 @@ func tuiInteractionSectionOperatorText(st tuiInteractionLatencySection) string {
 	if st.KeyCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d keys", st.KeyCount))
 	}
+	if st.CopyCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d copies", st.CopyCount))
+	}
 	return fmt.Sprintf("usually %s · render %s · worst %s · %s",
 		formatTUIDuration(time.Duration(st.SlowestP95MS*float64(time.Millisecond))),
 		formatTUIDuration(time.Duration(st.SlowestRender*float64(time.Millisecond))),
@@ -598,6 +636,8 @@ func (a *App) tuiInteractionLatencyReport() tuiInteractionLatencyReport {
 		report.SampleCount += row.Count
 		report.Interactions = append(report.Interactions, row)
 		switch {
+		case summary.Kind == "copy":
+			report.SupportedBy.Copies = true
 		case summary.Kind == "key":
 			report.SupportedBy.Keys = true
 		case strings.Contains(summary.Kind, "click"):
@@ -633,6 +673,8 @@ func tuiInteractionLatencySections(summaries []tuiInteractionSummary) []tuiInter
 		}
 		acc.row.SampleCount += summary.Count
 		switch {
+		case summary.Kind == "copy":
+			acc.row.CopyCount += summary.Count
 		case summary.Kind == "key":
 			acc.row.KeyCount += summary.Count
 		case strings.Contains(summary.Kind, "click"):

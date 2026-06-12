@@ -63,6 +63,11 @@ EVIDENCE: tuple[Evidence, ...] = (
         required_manifest_positive_ints=("sample_count", "surface_count", "click_section_count", "click_target_count"),
     ),
     Evidence(
+        area="Copy latency",
+        title="copy action latency is reported separately from navigation keys",
+        artifacts=("visual_loop/screenshots/copy_latency_telemetry.report.md",),
+    ),
+    Evidence(
         area="Owned CLIO",
         title="partial owned-backend live latency capture",
         artifacts=(
