@@ -95,6 +95,32 @@ func TestTUIInteractionLatencySeparatesClicksByHitTarget(t *testing.T) {
 	}
 }
 
+func TestTUIInteractionLatencyLabelsUntargetedSurfaceClicks(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusInput
+
+	trace := a.beginTUIInteractionTrace(tea.MouseClickMsg(tea.Mouse{
+		X:      119,
+		Y:      35,
+		Button: tea.MouseLeft,
+	}))
+	if trace == nil {
+		t.Fatal("expected click trace")
+	}
+	if trace.surface != "input" {
+		t.Fatalf("trace surface = %q, want input", trace.surface)
+	}
+	if trace.targetID != "" {
+		t.Fatalf("trace target = %q, want empty untargeted surface click", trace.targetID)
+	}
+	if trace.targetLabel != "input surface" {
+		t.Fatalf("trace target label = %q, want input surface", trace.targetLabel)
+	}
+}
+
 func TestTUILatencyTargetClassificationUsesOperatorSurfaces(t *testing.T) {
 	cases := map[string]string{
 		"conversation:body:wheel":         "conversation",
@@ -160,6 +186,14 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 			Clicks bool `json:"clicks"`
 			Wheels bool `json:"wheels"`
 		} `json:"supported_by"`
+		Sections []struct {
+			Surface      string   `json:"surface"`
+			SampleCount  int      `json:"sample_count"`
+			ClickCount   int      `json:"click_count"`
+			WheelCount   int      `json:"wheel_count"`
+			TargetLabels []string `json:"target_labels"`
+			SlowestP95   float64  `json:"slowest_p95_ms"`
+		} `json:"sections"`
 		Interactions []struct {
 			Surface     string  `json:"surface"`
 			Kind        string  `json:"kind"`
@@ -180,6 +214,28 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 	}
 	if !report.SupportedBy.Clicks || !report.SupportedBy.Wheels {
 		t.Fatalf("report should mark click and wheel coverage: %+v", report.SupportedBy)
+	}
+	sectionSeen := map[string]bool{}
+	for _, section := range report.Sections {
+		sectionSeen[section.Surface] = true
+		if section.SampleCount <= 0 || section.SlowestP95 <= 0 {
+			t.Fatalf("section missing latency evidence: %+v", section)
+		}
+		switch section.Surface {
+		case "input":
+			if section.ClickCount != 1 || len(section.TargetLabels) == 0 || section.TargetLabels[0] != "command chip" {
+				t.Fatalf("input section should preserve click target context: %+v", section)
+			}
+		case "conversation":
+			if section.WheelCount != 1 {
+				t.Fatalf("conversation section should preserve wheel count: %+v", section)
+			}
+		}
+	}
+	for _, want := range []string{"input", "conversation"} {
+		if !sectionSeen[want] {
+			t.Fatalf("missing section summary %q in report: %+v", want, report.Sections)
+		}
 	}
 	seen := map[string]bool{}
 	for _, row := range report.Interactions {
