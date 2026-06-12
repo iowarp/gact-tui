@@ -109,6 +109,48 @@ EVIDENCE: tuple[Evidence, ...] = (
         required_for_maintained=False,
         required_for_strict_live=True,
     ),
+    Evidence(
+        area="Active CLIO mouse",
+        title="active live-stream click/wheel latency capture",
+        artifacts=(
+            "visual_loop/screenshots/live_clio_tui_mouse_latency_manifest.json",
+            "visual_loop/screenshots/live_clio_tui_mouse_latency_report.json",
+        ),
+        manifest="visual_loop/screenshots/live_clio_tui_mouse_latency_manifest.json",
+        required_manifest_keys=(
+            "backend",
+            "captured_from_owned_backend",
+            "session_id",
+            "session_status",
+            "active_stream_evidence",
+            "active_stream_blockers",
+            "backend_metrics_sample_count",
+            "tui_latency_sample_count",
+            "mouse_event_source",
+            "click_sections",
+            "wheel_sections",
+            "section_latency_summary",
+            "click_targets",
+            "click_target_labels",
+            "live_click_section_evidence",
+            "provider_streaming_limitation",
+            "live_streaming_false",
+        ),
+        required_manifest_truthy=(
+            "captured_from_owned_backend",
+            "active_stream_evidence",
+            "live_click_section_evidence",
+        ),
+        required_manifest_positive_ints=(
+            "session_message_count",
+            "backend_metrics_sample_count",
+            "tui_latency_sample_count",
+            "click_section_count",
+            "click_target_count",
+        ),
+        required_for_maintained=False,
+        required_for_strict_live=True,
+    ),
 )
 
 

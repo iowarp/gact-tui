@@ -31,7 +31,17 @@ Covered assertions:
 - Untargeted surface clicks keep a human label instead of a blank detail row.
 - Exported latency JSON includes target labels for click rows.
 - PTY mouse proof sends terminal SGR mouse events and fails unless it captures header, left sidebar, conversation, and input click sections plus conversation wheel latency.
+- Live PTY mode can attach to an owned real CLIO backend and writes separate `live_clio_tui_mouse_latency_*` artifacts with active-stream blockers, backend latency sample count, and the same click-section proof.
 
 ## Remaining #160 gap
 
-The current VHS version used by the visual loop does not provide scripted mouse primitives, so live owned-backend VHS capture still proves `/metrics` and report export with keyboard interactions only. True terminal click-latency evidence is covered by `capture_tui_mouse_latency_pty.py`; the remaining #160 gap is active provider-backed owned CLIO proof during a still-running live stream.
+The current VHS version used by the visual loop does not provide scripted mouse primitives, so live owned-backend VHS capture still proves `/metrics` and report export with keyboard interactions only. True terminal click-latency evidence is covered by `capture_tui_mouse_latency_pty.py`. The remaining #160 gap is to run its live mode against an owned provider-backed CLIO session while that session is still streaming:
+
+```sh
+GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1 \
+  visual_loop/capture_tui_mouse_latency_pty.py \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <RUNNING_SESSION_ID> \
+  --live-clio \
+  --require-active-stream
+```
