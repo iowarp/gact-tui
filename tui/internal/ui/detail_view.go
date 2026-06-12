@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -831,7 +832,7 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 	if len(event) == 0 {
 		return rows
 	}
-	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	userSummary := semanticEventReadableResult(event)
 	rows = appendSemanticEventOperatorView(rows, event)
 	rows = appendDetailSection(rows, "Event summary",
 		detailField{"what happened", userSummary},
@@ -863,7 +864,19 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 		"provider_id", "model_id", "model", "source")
 	rows = appendSemanticEventMapSection(rows, "Tool evidence", mapValue(event["payload"]),
 		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "args_preview", "args", "input_preview", "input", "error", "message", "path", "artifact_type")
+	if semanticRawEventDetailEnabled() {
+		rows = appendAnyJSONSection(rows, "Raw semantic event", event)
+	}
 	return rows
+}
+
+func semanticRawEventDetailEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GACT_SEMANTIC_RAW_EVENT_DETAIL"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func appendSemanticEventOperatorView(rows []string, event map[string]any) []string {
@@ -919,7 +932,7 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		mapValue(payload["workflow_state"]),
 		mapValue(event["workflow_state"]),
 	))
-	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	userSummary := semanticEventReadableResult(event)
 	failureSummary := semanticFailureSummary(event, runtimeScalar(event["event_type"]))
 	fallbackSummary := semanticStreamFallbackSummary(event)
 	fields := []detailField{
@@ -948,6 +961,61 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		fields = append(fields, detailField{"endpoint", apiBase})
 	}
 	return appendDetailSection(rows, "Operator view", fields...)
+}
+
+func semanticEventReadableResult(event map[string]any) string {
+	eventType := runtimeScalar(event["event_type"])
+	if strings.HasPrefix(eventType, "tool.call.") {
+		payload := semanticToolPayload(event)
+		tool := firstNonEmpty(
+			runtimeScalar(payload["tool"]),
+			runtimeScalar(payload["tool_name"]),
+			runtimeScalar(mapValue(event["actor"])["tool"]),
+			runtimeScalar(mapValue(event["actor"])["tool_name"]),
+			runtimeScalar(mapValue(event["subject"])["tool"]),
+			runtimeScalar(mapValue(event["subject"])["tool_name"]),
+			"tool",
+		)
+		if strings.HasSuffix(eventType, ".completed") {
+			duration, hasDuration := floatValue(firstNonNil(payload["duration_ms"], event["duration_ms"]))
+			cached, hasCached := firstNonNil(payload["cached"], event["cached"]).(bool)
+			summary := semanticToolCompletionSummary(
+				tool,
+				runtimeScalar(event["summary"]),
+				payload,
+				event,
+				duration,
+				hasDuration,
+				cached,
+				hasCached,
+			)
+			if strings.TrimSpace(summary) != "" {
+				return compactSemanticDetailResult(summary)
+			}
+		}
+		if strings.HasSuffix(eventType, ".started") {
+			if args := semanticInlineArgsPreview(payload, event); args != "" {
+				return toolDisplayName(tool) + " started with " + args
+			}
+			return toolDisplayName(tool) + " started."
+		}
+	}
+	return compactSemanticDetailResult(semanticUserSummary(event, eventType))
+}
+
+func compactSemanticDetailResult(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if looksLikeMarkdownBlock(text) {
+		return truncateMarkdownBlock(text, 650, 10)
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > 8 {
+		return strings.TrimSpace(strings.Join(lines[:8], "\n")) + "\n\n_full result available below_"
+	}
+	return truncateString(text, 720)
 }
 
 func firstNonEmptyMap(values ...map[string]any) map[string]any {
