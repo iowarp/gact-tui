@@ -324,7 +324,7 @@ func TestApplySemanticToolCompletionUsesOperationalFallback(t *testing.T) {
 		t.Fatalf("semantic tool message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac_compute_trace_statistics completed", "18ms", "args: filepath=earthscope_CI_BAR.sac"} {
+	for _, want := range []string{"SAC trace statistics completed", "18ms", "args: filepath=earthscope_CI_BAR.sac"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("semantic fallback missing %q: %q", want, text)
 		}
@@ -486,7 +486,7 @@ func TestApplySemanticToolCompletionHidesRedactedArgsInline(t *testing.T) {
 		t.Fatalf("semantic tool result message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac_plot_traces completed", "5ms"} {
+	for _, want := range []string{"SAC waveform visualization completed", "5ms"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("redacted completion missing %q: %q", want, text)
 		}
@@ -963,6 +963,54 @@ func TestApplySemanticEventPrefersDelegationOutputSummaryOverCompactContract(t *
 	}
 }
 
+func TestApplySemanticEventSummarizesStructuredDelegationOutput(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "delegate_structured_output",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.completed",
+			"status":     "completed",
+			"summary":    "analysis returned a compact result to main.",
+			"actor":      map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":    map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.completed",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+				"result": map[string]any{
+					"artifact_path":  "/home/jcernuda/DemoBench/sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+					"traces_plotted": 3,
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("structured delegation output message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{
+		"sac result:",
+		"sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+		"traces_plotted: 3",
+	} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("structured delegation output missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "artifact_path"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("structured delegation output leaked raw/plumbing %q: %#v", unwanted, part)
+		}
+	}
+}
+
 func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
@@ -1233,7 +1281,7 @@ func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Operator view",
-		"result: NDP catalog search completed.",
+		"result: NDP catalog search completed",
 		"agent: ndp catalog",
 		"tool: NDP catalog search",
 		"workflow: seismic",
@@ -1241,7 +1289,7 @@ func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 		"input: search_terms=seismic",
 		"model: sophia",
 		"Event summary",
-		"what happened: NDP catalog search completed.",
+		"what happened: NDP catalog search completed",
 		"status: completed",
 		"event: tool.call.completed",
 		"stream: live",
@@ -1346,6 +1394,47 @@ func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 	}
 	if strings.Contains(ref.fullText, "tool: Tool") {
 		t.Fatalf("semantic delegation detail should not invent a generic tool row:\n%s", ref.fullText)
+	}
+}
+
+func TestSemanticEventDetailCanExposeRawEventBehindDebugFlag(t *testing.T) {
+	t.Setenv("GACT_SEMANTIC_RAW_EVENT_DETAIL", "1")
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_delegate_raw",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "blueprint.delegation.completed",
+			"status":         "completed",
+			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /workspace/tmp/earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"actor":          map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200.0,
+			},
+		}},
+	})
+
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"result: analysis returned evidence to main · next: visualization - plot SAC traces",
+		"Raw semantic event:",
+		`"event_type": "blueprint.delegation.completed"`,
+		"NEXT_EXPERT: visualization",
+		"DO_NOT_FINALIZE_BEFORE_VISUALIZATION",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("debug semantic detail missing %q:\n%s", want, ref.fullText)
+		}
 	}
 }
 
@@ -1834,7 +1923,7 @@ func TestApplyToolCallCompletedWithoutOkDoesNotAssumeError(t *testing.T) {
 	}
 	if part := a.messages[0].Parts[0]; part.IsError {
 		t.Fatalf("missing ok should not imply error unless an error field is present: %#v", part)
-	} else if text := flattenToolResult(part); text != "read_file completed" {
+	} else if text := flattenToolResult(part); text != "ReadFile completed" {
 		t.Fatalf("missing ok fallback text = %q, want tool-specific completion", text)
 	}
 }

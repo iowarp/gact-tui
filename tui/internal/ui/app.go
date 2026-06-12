@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"image/color"
 	"math/rand"
@@ -7070,7 +7071,6 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 			a.messages[i].Metadata[k] = v
 		}
 		normalizeMessagePresentation(&a.messages[i])
-		a.invalidateConversationRenderCache()
 		return
 	}
 }
@@ -8603,12 +8603,10 @@ func (a *App) applyMessageCreated(e client.SSEEvent) {
 	for i, existing := range a.messages {
 		if existing.ID == m.ID {
 			a.messages[i] = m
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
 	a.messages = append(a.messages, m)
-	a.invalidateConversationRenderCache()
 }
 
 func (a *App) applyPartAdded(e client.SSEEvent) {
@@ -8642,13 +8640,11 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
 					a.messages[i].Parts[j] = part
 					normalizeMessagePresentation(&a.messages[i])
-					a.invalidateConversationRenderCache()
 					return
 				}
 			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -8844,6 +8840,9 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 	if name == "" {
 		name = "tool"
 	}
+	if display := strings.TrimSpace(toolDisplayName(name)); display != "" {
+		name = display
+	}
 	parts := []string{name + " completed"}
 	if hasDuration && duration > 0 {
 		parts = append(parts, fmt.Sprintf("%.0fms", duration))
@@ -9011,7 +9010,6 @@ func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message 
 			"turn_id":               turnID,
 		},
 	})
-	a.invalidateConversationRenderCache()
 	return &a.messages[len(a.messages)-1]
 }
 
@@ -9161,7 +9159,6 @@ func (a *App) removeSyntheticSemanticToolParts(callID string) {
 		}
 		a.messages[mi].Parts = parts
 	}
-	a.invalidateConversationRenderCache()
 }
 
 func messageHasPartID(msg gact.Message, partID string) bool {
@@ -9431,12 +9428,69 @@ func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) 
 	}
 	summary = stripSemanticControlContracts(summary)
 	if summary == "" {
-		return ""
+		return semanticStructuredOutputSummary(payload, nested)
 	}
 	if workflowSummary := summarizeEmbeddedWorkflowStateText(summary); workflowSummary != "" {
 		return workflowSummary
 	}
 	return summarizeExpertHandoffOutput(summary)
+}
+
+func semanticStructuredOutputSummary(payload map[string]any, nested map[string]any) string {
+	if state := firstNonEmptyMap(mapValue(nested["workflow_state"]), mapValue(payload["workflow_state"])); len(state) > 0 {
+		if summary := workflowStateSummary(state); summary != "" {
+			return "state: " + summary
+		}
+	}
+	for _, candidate := range []any{
+		nested["result"],
+		nested["output"],
+		nested["evidence"],
+		nested["artifact"],
+		payload["result"],
+		payload["output"],
+		payload["evidence"],
+		payload["artifact"],
+	} {
+		if summary := semanticStructuredValueSummary(candidate); summary != "" {
+			return summary
+		}
+	}
+	for _, key := range []string{"artifact_path", "output_path", "plot_path", "path", "file", "filepath"} {
+		if value := firstNonEmpty(stringValue(nested[key]), stringValue(payload[key])); value != "" {
+			return "artifact: " + shortenPathForInline(value)
+		}
+	}
+	return ""
+}
+
+func semanticStructuredValueSummary(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		text := stripSemanticControlContracts(typed)
+		if text == "" || semanticSummaryIsPlumbing(text, "") {
+			return ""
+		}
+		return summarizeExpertHandoffOutput(text)
+	case map[string]any:
+		if summary := summarizeStructuredHandoffObject(typed); summary != "" {
+			return summary
+		}
+		if summary := summarizeToolResult("", typed); summary != "" {
+			return summary
+		}
+		if artifact := firstStringValue(typed, "artifact_path", "output_path", "plot_path", "artifact", "path", "file", "filepath"); artifact != "" {
+			return "artifact: " + shortenPathForInline(artifact)
+		}
+		return summarizeGenericStructuredObject(typed)
+	case []any:
+		if text := summarizeAnyItems(typed); text != "" {
+			return "items: " + text
+		}
+	}
+	return ""
 }
 
 func semanticLifecycleMarkerSummary(text string) string {
@@ -9957,7 +10011,6 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 				}
 				a.messages[i].Parts[j].Metadata["raw_input"] = v
 			}
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -10006,7 +10059,6 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					p.Text = final
 				}
 			}
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -12229,6 +12281,7 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 	writeHashString(m.Role)
 	writeHashString(m.StopReason)
 	writeHashString(strconv.Itoa(len(m.Parts)))
+	writeHashString(conversationMessageRenderFingerprint(m))
 	if prev == nil {
 		writeHashString("<nil-prev>")
 	} else {
@@ -12244,6 +12297,122 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 		}
 	}
 	return fmt.Sprintf("%016x", h.Sum64())
+}
+
+func conversationMessageRenderFingerprint(m gact.Message) string {
+	h := fnv.New64a()
+	write := func(s string) {
+		_, _ = h.Write([]byte(s))
+		_, _ = h.Write([]byte{0})
+	}
+	write(m.ID)
+	write(m.SessionID)
+	write(m.Role)
+	write(m.StopReason)
+	if !m.CreatedAt.IsZero() {
+		write(m.CreatedAt.UTC().Format(time.RFC3339Nano))
+	}
+	if !m.UpdatedAt.IsZero() {
+		write(m.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	}
+	conversationHashAny(h, conversationVisibleMetadata(m.Metadata))
+	if m.Model != nil {
+		conversationHashAny(h, *m.Model)
+	}
+	if m.ErrorInfo != nil {
+		conversationHashAny(h, *m.ErrorInfo)
+	}
+	write(strconv.Itoa(len(m.Parts)))
+	for _, part := range m.Parts {
+		conversationHashPart(h, part)
+	}
+	return fmt.Sprintf("%016x", h.Sum64())
+}
+
+func conversationHashPart(h hash.Hash64, p gact.Part) {
+	write := func(s string) {
+		_, _ = h.Write([]byte(s))
+		_, _ = h.Write([]byte{0})
+	}
+	write(p.ID)
+	write(p.Type)
+	write(p.Text)
+	write(p.Thinking)
+	write(p.Data)
+	write(p.Signature)
+	write(p.ToolName)
+	write(p.CallID)
+	write(p.ServerID)
+	write(strconv.FormatBool(p.IsError))
+	write(strconv.FormatBool(p.Cached))
+	write(formatCompactFloat(p.DurationMS))
+	write(p.SelectedAgent)
+	write(p.Rationale)
+	write(formatCompactFloat(p.Confidence))
+	write(p.AgentID)
+	write(p.SubsessionID)
+	write(p.FinalMessageID)
+	write(p.Summary)
+	write(p.Code)
+	write(p.Message)
+	write(strconv.FormatBool(p.Recoverable))
+	write(strconv.FormatBool(p.Auto))
+	write(p.URI)
+	write(p.MimeType)
+	write(p.Name)
+	write(p.Description)
+	write(p.Title)
+	write(p.Context)
+	conversationHashAny(h, p.Input)
+	conversationHashAny(h, p.Annotations)
+	conversationHashAny(h, conversationVisibleMetadata(p.Metadata))
+	conversationHashAny(h, p.Source)
+	conversationHashAny(h, p.Citations)
+	if p.Question != nil {
+		conversationHashAny(h, *p.Question)
+	}
+	if p.RetryAttempt != nil {
+		conversationHashAny(h, *p.RetryAttempt)
+	}
+	write(strconv.Itoa(len(p.CompactedMessageIDs)))
+	for _, id := range p.CompactedMessageIDs {
+		write(id)
+	}
+	write(strconv.Itoa(len(p.Content)))
+	for _, child := range p.Content {
+		conversationHashPart(h, child)
+	}
+}
+
+func conversationVisibleMetadata(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(metadata))
+	for key, value := range metadata {
+		switch key {
+		case "raw_event", "raw_result":
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func conversationHashAny(h hash.Hash64, value any) {
+	if value == nil {
+		return
+	}
+	if payload, err := json.Marshal(value); err == nil {
+		_, _ = h.Write(payload)
+		_, _ = h.Write([]byte{0})
+		return
+	}
+	_, _ = h.Write([]byte(fmt.Sprint(value)))
+	_, _ = h.Write([]byte{0})
 }
 
 func (a *App) renderBody(width, height int) string {

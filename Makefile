@@ -21,7 +21,8 @@ TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildT
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
-        screenshots clean fmt vet install dev-install verify-dev-install uninstall
+        screenshots clean fmt vet install dev-install verify-dev-install \
+        install-for-clio verify-clio-install uninstall
 
 help: ## Print this help message.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -126,6 +127,8 @@ dev-install: build-tui ## Rebuild TUI and link both shell gact + CLIO's gact to 
 	@printf "  CLIO gact:  %s -> %s\n" "$(CLIO_GACT_BIN)" "$$(readlink -f $(CLIO_GACT_BIN))"
 	@stat -c "  binary mtime: %y %n" $(TUI_BIN)
 
+install-for-clio: dev-install ## Alias: rebuild and point the clio launcher at this checkout's TUI.
+
 verify-dev-install: ## Fail unless shell gact + CLIO gact resolve to this checkout and current HEAD.
 	@expected="$(CURDIR)/$(TUI_BIN)"; \
 	head="$$(git rev-parse --short=12 HEAD)"; \
@@ -152,6 +155,8 @@ verify-dev-install: ## Fail unless shell gact + CLIO gact resolve to this checko
 	fi; \
 	printf '%s\n' "$$version"; \
 	printf "Verified shell and CLIO gact both resolve to %s at HEAD %s\n" "$$expected" "$$head"
+
+verify-clio-install: verify-dev-install ## Alias: verify the clio launcher is using this checkout's current TUI.
 
 uninstall: ## Remove the installed binaries.
 	rm -f $(BINDIR)/gact $(BINDIR)/emulator-server
