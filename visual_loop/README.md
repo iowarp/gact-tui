@@ -83,8 +83,10 @@ existing backend, pass `--own-backend` or set
 `GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1`; the helper refuses ambiguous shared
 backends. It writes `tui_mouse_latency_pty_manifest.json` and
 `tui_mouse_latency_pty_report.json`, and fails unless the report contains
-target-labeled click rows plus wheel latency rows generated from terminal SGR
-mouse escape sequences.
+section-level click latency for the header, left sidebar, conversation, and
+input surfaces, plus wheel latency for the conversation surface. The manifest
+also preserves target labels and per-section p95/max latency summaries generated
+from terminal SGR mouse escape sequences.
 
 Refresh the TUI latency readiness report after changing latency instrumentation
 or evidence:

@@ -102,7 +102,9 @@ func TestMetricsViewShowsTUIInteractionLatency(t *testing.T) {
 	out := stripANSI(a.viewMetrics())
 	for _, want := range []string{
 		"slowest TUI surface: conversation click",
-		"TUI interaction latency",
+		"TUI latency by section",
+		"conversation: usually 22.0ms · render 5.0ms · worst 22.0ms · 2 samples · 2 clicks",
+		"TUI interaction details",
 		"conversation click: usually 22.0ms · render 5.0ms · worst 22.0ms · 2 samples",
 	} {
 		if !strings.Contains(out, want) {
@@ -157,6 +159,57 @@ func TestMetricsTUILatencyRowsOpenSharedDetail(t *testing.T) {
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("TUI latency detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:         "input:click",
+		surface:     "input",
+		kind:        "click",
+		targetLabel: "input surface",
+	}, tuiInteractionSample{
+		update: time.Millisecond,
+		render: 5 * time.Millisecond,
+		total:  13 * time.Millisecond,
+	})
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:tui-section-latency:input")
+	if !ok {
+		t.Fatal("missing TUI section latency detail hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("TUI section latency click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("TUI section latency row should open shared detail")
+	}
+	for _, want := range []string{
+		"TUI section latency · input",
+		"TUI latency by section",
+		"surface: input",
+		"samples: 1",
+		"clicks: 1",
+		"slowest p95: 13.0ms",
+		"slowest render: 5.0ms",
+		"labels: input surface",
+	} {
+		if !strings.Contains(a.detailView.title+"\n"+a.detailView.fullText, want) {
+			t.Fatalf("TUI section latency detail missing %q:\n%s\n%s", want, a.detailView.title, a.detailView.fullText)
 		}
 	}
 }

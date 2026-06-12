@@ -234,6 +234,20 @@ target_labels = [
     for row in interactions
     if isinstance(row, dict) and (row.get("target_label") or row.get("last_hit_target"))
 ]
+section_summaries = [
+    {
+        "surface": row.get("surface", ""),
+        "sample_count": row.get("sample_count", 0),
+        "click_count": row.get("click_count", 0),
+        "wheel_count": row.get("wheel_count", 0),
+        "key_count": row.get("key_count", 0),
+        "slowest_p95_ms": row.get("slowest_p95_ms", 0),
+        "slowest_max_ms": row.get("slowest_max_ms", 0),
+        "target_labels": row.get("target_labels", []),
+    }
+    for row in report.get("sections", [])
+    if isinstance(row, dict)
+]
 sample_count_reported = int(report.get("sample_count") or 0)
 if sample_count_reported <= 0:
     raise SystemExit("TUI latency report contains no interaction samples")
@@ -271,6 +285,7 @@ manifest_path.write_text(
             "tui_latency_sample_count": sample_count_reported,
             "tui_latency_surface_kinds": surface_kinds,
             "tui_latency_targets": target_labels,
+            "tui_latency_sections": section_summaries,
             "tui_latency_click_samples": bool(report.get("supported_by", {}).get("clicks")) if isinstance(report.get("supported_by"), dict) else False,
             "tui_latency_wheel_samples": bool(report.get("supported_by", {}).get("wheels")) if isinstance(report.get("supported_by"), dict) else False,
             "interaction_surfaces_driven": [
