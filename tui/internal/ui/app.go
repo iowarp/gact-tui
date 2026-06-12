@@ -289,6 +289,7 @@ type App struct {
 	// not re-render hundreds of unchanged CLIO semantic events.
 	conversationRenderCache    map[string]conversationRenderCacheEntry
 	conversationRenderRevision uint64
+	fullConversationCopyCache  fullConversationCopyCache
 
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
@@ -6352,7 +6353,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// markdown so the user can paste an entire turn into a bug
 		// report, another LLM, or a teammate. Complements `y` which
 		// takes a single message.
-		text, ok := fullConversationText(a.messages)
+		text, ok := a.fullConversationTextCached()
 		if !ok {
 			a.transientHint = "nothing to copy — conversation has no text yet"
 			return a, nil
