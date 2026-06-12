@@ -45,6 +45,20 @@ func BenchmarkFullConversationCopyLargeSemanticTranscript(b *testing.B) {
 	}
 }
 
+func BenchmarkFullConversationCopyCachedLargeSemanticTranscript(b *testing.B) {
+	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
+	if _, ok := app.fullConversationTextCached(); !ok {
+		b.Fatal("large transcript should be copyable")
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, ok := app.fullConversationTextCached(); !ok {
+			b.Fatal("large transcript should be copyable")
+		}
+	}
+}
+
 func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
 	app.bodySelMsgIdx = len(app.messages) - 1
