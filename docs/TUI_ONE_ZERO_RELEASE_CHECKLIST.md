@@ -53,6 +53,7 @@ Run these from the release-candidate branch before visual or manual testing:
 ```bash
 git status --short
 git rev-parse --short=12 HEAD
+which clio
 make install-for-clio
 make verify-clio-install
 gact version
@@ -63,6 +64,8 @@ Acceptance:
 
 - `make verify-clio-install` proves both shell `gact` and CLIO-launched `gact`
   resolve to this checkout's `tui/gact`.
+- `which clio` identifies the launcher being used for the demo so stale PATH
+  assumptions are explicit in the release notes.
 - `gact version` reports the current short revision, contract version, Go
   runtime, and dirty state.
 - `gact diag` reports `path_gact_status: matches running binary` and
