@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func BenchmarkRenderLargeSemanticTranscript(b *testing.B) {
@@ -99,7 +100,7 @@ func TestWorkflowStateJSONSummaryDoesNotLeakInline(t *testing.T) {
 	}
 }
 
-func TestConversationRenderCacheInvalidatesChangedPartText(t *testing.T) {
+func TestConversationRenderCacheTracksChangedPartTextWithoutGlobalInvalidation(t *testing.T) {
 	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
 	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: first version."
 	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
@@ -108,13 +109,61 @@ func TestConversationRenderCacheInvalidatesChangedPartText(t *testing.T) {
 	}
 
 	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: changed version."
-	app.invalidateConversationRenderCache()
 	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
 	if !strings.Contains(second, "changed version") {
 		t.Fatalf("cached render did not reflect changed text:\n%s", second)
 	}
 	if strings.Contains(second, "first version") {
 		t.Fatalf("cached render leaked stale text:\n%s", second)
+	}
+}
+
+func TestConversationRenderCacheTracksPartAddedWithoutGlobalInvalidation(t *testing.T) {
+	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
+	app.messages[1].Parts = app.messages[1].Parts[:1]
+	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
+	if strings.Contains(first, "late evidence") {
+		t.Fatalf("initial render unexpectedly had late part:\n%s", first)
+	}
+
+	app.messages[1].Parts = append(app.messages[1].Parts, gact.Part{
+		ID:   "late_part",
+		Type: gact.PartTypeText,
+		Text: "late evidence arrived while streaming",
+	})
+	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
+	if !strings.Contains(second, "late evidence arrived while streaming") {
+		t.Fatalf("cached render did not reflect appended part:\n%s", second)
+	}
+}
+
+func TestConversationRenderCacheTracksPartDeltaWithoutGlobalInvalidation(t *testing.T) {
+	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	app.messages = []gact.Message{{
+		ID:   "msg_1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "part_1",
+			Type: gact.PartTypeText,
+			Text: "streaming",
+		}},
+	}}
+	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
+	if !strings.Contains(first, "streaming") {
+		t.Fatalf("initial render missing streamed text:\n%s", first)
+	}
+
+	app.applyPartDelta(client.SSEEvent{
+		Type: "message.part.delta",
+		Payload: map[string]any{"payload": map[string]any{
+			"message_id": "msg_1",
+			"part_id":    "part_1",
+			"delta":      map[string]any{"text_append": " update"},
+		}},
+	})
+	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
+	if !strings.Contains(second, "streaming update") {
+		t.Fatalf("cached render did not reflect text delta:\n%s", second)
 	}
 }
 
