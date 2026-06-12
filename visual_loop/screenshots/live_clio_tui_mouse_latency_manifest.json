@@ -1,0 +1,122 @@
+{
+  "captured_at": "2026-06-12T15:41:32Z",
+  "captured_from_owned_backend": true,
+  "backend": "http://127.0.0.1:17964",
+  "session_id": "sess_7386041cd6b0",
+  "terminal_cols": 140,
+  "terminal_rows": 40,
+  "tui_latency_report": "visual_loop/screenshots/live_clio_tui_mouse_latency_report.json",
+  "ansi_output": "",
+  "mouse_event_source": "pty_sgr_mouse_sequences",
+  "vhs_mouse_limitation": "VHS command set cannot script mouse primitives; this harness sends terminal mouse escape sequences directly.",
+  "live_clio_capture": true,
+  "require_active_stream": true,
+  "tui_latency_sample_count": 10,
+  "live_click_section_evidence": true,
+  "sample_count": 10,
+  "surface_count": 9,
+  "click_section_count": 4,
+  "click_sections": [
+    "conversation",
+    "header",
+    "input",
+    "left sidebar"
+  ],
+  "wheel_sections": [
+    "conversation"
+  ],
+  "section_latency_summary": [
+    {
+      "surface": "header",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 13.3618,
+      "slowest_max_ms": 13.3618,
+      "target_labels": [
+        "header chip status"
+      ]
+    },
+    {
+      "surface": "input",
+      "sample_count": 2,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 4.347165,
+      "slowest_max_ms": 4.347165,
+      "target_labels": [
+        "input surface"
+      ]
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 4.252007,
+      "slowest_max_ms": 4.252007,
+      "target_labels": [
+        "session row"
+      ]
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 5,
+      "click_count": 2,
+      "wheel_count": 1,
+      "key_count": 2,
+      "slowest_p95_ms": 4.147222,
+      "slowest_max_ms": 4.147222,
+      "target_labels": [
+        "conversation surface",
+        "message block"
+      ]
+    },
+    {
+      "surface": "doctor",
+      "sample_count": 1,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 2.910991,
+      "slowest_max_ms": 2.910991,
+      "target_labels": []
+    }
+  ],
+  "click_target_count": 3,
+  "click_targets": [
+    "conversation:part:0:0",
+    "header:chip:status",
+    "sidebar:session:sess_7386041cd6b0"
+  ],
+  "click_target_labels": [
+    "conversation surface",
+    "header chip status",
+    "input surface",
+    "message block",
+    "session row"
+  ],
+  "wheel_rows": [
+    {
+      "surface": "conversation",
+      "kind": "wheel down",
+      "target_label": "message block",
+      "last_hit_target": "conversation:part:0:0"
+    }
+  ],
+  "session_status": "idle",
+  "session_message_count": 2,
+  "backend_metrics_sample_count": 0,
+  "active_stream_evidence": false,
+  "active_stream_blockers": [
+    "session_status_idle",
+    "backend_metrics_sample_count_zero",
+    "provider_streaming_limitation",
+    "live_streaming_false"
+  ],
+  "provider_streaming_limitation": true,
+  "live_streaming_false": true
+}

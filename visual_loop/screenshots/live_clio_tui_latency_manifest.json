@@ -1,12 +1,87 @@
 {
-  "backend": "http://127.0.0.1:17962",
+  "backend": "http://127.0.0.1:17964",
   "captured_from_owned_backend": true,
-  "session_id": "sess_db78fece7285",
+  "session_id": "sess_7386041cd6b0",
   "session_status": "idle",
   "session_message_count": 2,
   "metrics_screenshot": "visual_loop/screenshots/live_clio_tui_latency_metrics.png",
   "recording_path": "visual_loop/screenshots/live_clio_tui_latency_capture.gif",
+  "tui_latency_report": "visual_loop/screenshots/live_clio_tui_latency_report.json",
   "tui_latency_section_expected": true,
+  "tui_latency_sample_count": 17,
+  "tui_latency_surface_kinds": [
+    "right sidebar key",
+    "command palette key",
+    "metrics key",
+    "conversation key",
+    "left sidebar key",
+    "input key"
+  ],
+  "tui_latency_targets": [],
+  "tui_latency_sections": [
+    {
+      "surface": "right sidebar",
+      "sample_count": 3,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 3,
+      "slowest_p95_ms": 108.77062,
+      "slowest_max_ms": 108.77062,
+      "target_labels": []
+    },
+    {
+      "surface": "command palette",
+      "sample_count": 8,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 8,
+      "slowest_p95_ms": 102.537995,
+      "slowest_max_ms": 102.537995,
+      "target_labels": []
+    },
+    {
+      "surface": "metrics",
+      "sample_count": 1,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 20.642276,
+      "slowest_max_ms": 20.642276,
+      "target_labels": []
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 2,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 2,
+      "slowest_p95_ms": 19.627976,
+      "slowest_max_ms": 19.627976,
+      "target_labels": []
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 2,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 2,
+      "slowest_p95_ms": 4.638355,
+      "slowest_max_ms": 4.638355,
+      "target_labels": []
+    },
+    {
+      "surface": "input",
+      "sample_count": 1,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 4.431785,
+      "slowest_max_ms": 4.431785,
+      "target_labels": []
+    }
+  ],
+  "tui_latency_click_samples": false,
+  "tui_latency_wheel_samples": false,
   "interaction_surfaces_driven": [
     "left sidebar keys",
     "conversation keys",
@@ -14,9 +89,17 @@
     "command palette/input keys"
   ],
   "mouse_click_wheel_covered_by_tests": true,
-  "backend_metrics_active_sessions": 2,
+  "backend_metrics_active_sessions": 1,
   "backend_metrics_sample_count": 0,
+  "active_stream_evidence": false,
+  "active_stream_blockers": [
+    "session_status_idle",
+    "backend_metrics_sample_count_zero",
+    "provider_streaming_limitation",
+    "live_streaming_false"
+  ],
   "provider_streaming_limitation": true,
   "live_streaming_false": true,
+  "require_active_stream": true,
   "note": "TUI interaction latency samples are process-local and visible in the referenced /metrics screenshot. Backend metrics are recorded only to prove the capture used a live owned CLIO endpoint."
 }
