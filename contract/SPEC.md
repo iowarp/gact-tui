@@ -419,6 +419,13 @@ While streaming, a message's `parts` array grows; clients MUST accept partial me
 
 **v0.2 `error_info`**: when `stop_reason` is `"error"` or a degraded success with trailing failure context, backends with `capabilities.structured_errors = true` MUST set `error_info` to a typed error envelope per §14. v0.1 backends leave the field null and emit `error` parts in the content stream instead — both paths remain valid.
 
+**clio metadata extensions (June 2026)**: assistant messages MAY carry
+`metadata.reasoning_log[]` entries `{model, question, reasoning, response,
+reasoning_chars}` and `metadata.workflow_state` as a typed dictionary
+returned by expert workflows. Clients SHOULD summarize these as evidence
+or detail-panel affordances and SHOULD NOT inline-dump full reasoning text
+into the main transcript.
+
 ### 4.5 Part (Content Block)
 
 The content of a message is an ordered list of typed parts. The discriminator is `type`. Every part has an `id` (stable for the lifetime of the message), `type`, and optional `metadata`.
@@ -721,11 +728,12 @@ The extraction endpoint analyzes a completed session and synthesizes a reusable 
 
 If `capabilities.mcp = true`:
 
-Implemented in clio f647db1:
+Implemented in clio:
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/mcp/servers` | query: `workspace_id?` | `{servers: McpServer[]}` |
+| GET | `/v1/mcp/handshake` | query: `workspace_id?, session_id?` | `{servers: [{name, reachable, state, transport, tools_count, tools, error?, latency_ms?}]}` |
 | POST | `/v1/mcp/servers` | install descriptor | `McpServer`, `201` (clio: install third-party server) |
 | GET | `/v1/mcp/servers/{id}` | — | `McpServer` |
 | DELETE | `/v1/mcp/servers/{id}` | — | `204` (clio: uninstall) |
@@ -734,11 +742,10 @@ Implemented in clio f647db1:
 | GET | `/v1/mcp/servers/{id}/prompts` | — | `{prompts: McpPrompt[]}` |
 | POST | `/v1/mcp/servers/{id}/call` | `{tool, arguments}` | tool result (clio: direct external-tool call) |
 
-Specified in v0.1 but **[NOT IMPLEMENTED in clio f647db1]**:
-`POST /v1/mcp/servers/{id}/reconnect`, `GET .../resource_templates`,
-`POST .../resources/read`, `POST/DELETE .../resources/subscribe`,
-`POST .../prompts/get`. These remain valid spec surface for other
-backends; clio just doesn't serve them yet.
+The `/v1/mcp/handshake` response is live health, not a durable registry:
+stdio MCP servers are mounted per active workspace and `cwd` is the
+workspace root. One unreachable server is reported independently and does
+not imply that other servers or their tools are unavailable.
 
 `McpServer` includes lifecycle metadata (status, declared capabilities, instructions). `McpResource`/`McpPrompt` mirror the MCP spec shapes.
 
@@ -829,20 +836,32 @@ Backends MAY implement policies as simple per-tool toggles, or as rich rule engi
 | GET | `/v1/providers` | `{providers: Provider[]}` |
 | GET | `/v1/providers/{id}` | `Provider` |
 | GET | `/v1/providers/{id}/models` | `{models: Model[]}` (query: `api_base?`) |
+| GET | `/v1/providers/{id}/handshake` | provider probe (query: `api_base?, refresh?`) |
 | POST | `/v1/providers/{id}/auth` | provider-specific OAuth/API-key flow init |
 | GET | `/v1/providers/lm` | `LMProviderInfo` (clio: current LM config + picker presets) |
+| GET | `/v1/providers/lm/wait` | `LMProviderInfo` (long-poll readiness after async PUT; query `timeout?`) |
 | PUT | `/v1/providers/lm` | `LMProviderInfo` (clio: set provider/model/api_base/api_key/...; builds the agent at runtime) |
 
 > **Implemented (clio).** The TUI configures the model through the
-> singleton **`/v1/providers/lm`** pair, not the per-provider `/auth`
-> flow. `GET` returns `LMProviderInfo`
+> singleton **`/v1/providers/lm`** surface. `PUT` may configure the LM
+> asynchronously; clients SHOULD follow with
+> `GET /v1/providers/lm/wait?timeout=<seconds>` until `state` is
+> `ready` or `error`. `GET` returns `LMProviderInfo`
 > `{configured, provider, api_base, model, temperature, max_tokens,
-> context_length, thinking_budget, transport?, state, status_message,
-> error, operation_id, presets[]}` — `api_key` is never echoed back.
+> context_length, chosen_context?, context_window?, is_reasoning?,
+> native_tool_calling?, thinking_budget, transport?, state,
+> status_message, error, operation_id, presets[]}` — `api_key` is never
+> echoed back.
 > `PUT` body is `LMProviderRequest`
 > `{provider, api_base, model, api_key, temperature?, max_tokens?,
-> context_length?, transport?, thinking_budget?}`. Each preset row
+> context_length?, parallel?, transport?, thinking_budget?}`. Defaults:
+> `temperature=0.0`; `max_tokens=0`, `context_length=0`, and
+> `parallel=0` mean "let the server choose/default." Each preset row
 > carries `supports_vision` (model multimodal capability for the picker).
+> `GET /v1/providers/{id}/handshake` is report-only: it checks
+> connectivity/auth/catalog metadata and returns `models[]`, `source`,
+> `error?`, `connectivity`, `auth`, `latency_ms`, `generated_at`,
+> `provider_id`, and `provider_kind` without changing the active LM.
 
 ```json
 // Provider
@@ -861,6 +880,10 @@ Backends MAY implement policies as simple per-tool toggles, or as rich rule engi
   "name": "Claude Opus 4.7",
   "context_window": 200000,
   "max_output_tokens": 8192,
+  "chosen_context": 200000,
+  "context_source": "server_default",
+  "is_reasoning": true,
+  "native_tool_calling": true,
   "supports": {
     "tools": true,
     "vision": true,

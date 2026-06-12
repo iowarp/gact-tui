@@ -266,13 +266,24 @@ validate_capture_artifact "${out_dir}/${stem}_prompt.png"
 validate_capture_artifact "${out_dir}/${stem}_early.png"
 validate_capture_artifact "${out_dir}/${stem}_live.png"
 validate_capture_artifact "${out_dir}/${stem}_short.gif"
-python3 - "$backend" "$session_id" "$case_id" "$artifact_name" "${out_dir}/${stem}_manifest.json" "$completion_timeout" <<'PY'
+python3 - "$backend" "$session_id" "$case_id" "$artifact_name" "${out_dir}/${stem}_manifest.json" "$completion_timeout" "${out_dir}/${stem}_short.gif" "${out_dir}/${stem}_prompt.png" "${out_dir}/${stem}_early.png" "${out_dir}/${stem}_live.png" <<'PY'
 import json
 import sys
 import time
 import urllib.request
 
-backend, session_id, case_id, artifact_name, manifest_path, timeout_raw = sys.argv[1:7]
+(
+    backend,
+    session_id,
+    case_id,
+    artifact_name,
+    manifest_path,
+    timeout_raw,
+    recording_path,
+    prompt_capture_path,
+    early_capture_path,
+    live_capture_path,
+) = sys.argv[1:11]
 completion_timeout = float(timeout_raw)
 
 def get_json(path):
@@ -302,6 +313,28 @@ while True:
 assistant_text = []
 all_metadata = []
 assistant_errors = []
+semantic_event_types = set()
+semantic_event_count = 0
+live_observed_event_count = 0
+
+def inspect_metadata(metadata):
+    global semantic_event_count, live_observed_event_count
+    if not isinstance(metadata, dict):
+        return
+    raw_event = metadata.get("raw_event")
+    if isinstance(raw_event, dict):
+        event_type = raw_event.get("event_type")
+        if isinstance(event_type, str) and event_type:
+            semantic_event_types.add(event_type)
+        semantic_event_count += 1
+        if raw_event.get("live_observed") is True:
+            live_observed_event_count += 1
+    elif metadata.get("semantic_event") is True:
+        event_type = metadata.get("event_type")
+        if isinstance(event_type, str) and event_type:
+            semantic_event_types.add(event_type)
+        semantic_event_count += 1
+
 for message in messages:
     if message.get("role") == "assistant":
         error_info = message.get("error_info")
@@ -314,9 +347,11 @@ for message in messages:
             metadata = part.get("metadata")
             if isinstance(metadata, dict):
                 all_metadata.append(metadata)
+                inspect_metadata(metadata)
         metadata = message.get("metadata")
         if isinstance(metadata, dict):
             all_metadata.append(metadata)
+            inspect_metadata(metadata)
 
 assistant_blob = "\n".join(assistant_text)
 metadata_blob = json.dumps(all_metadata, sort_keys=True)
@@ -327,8 +362,13 @@ manifest = {
     "session_id": session_id,
     "backend": backend,
     "artifact_name": artifact_name,
+    "recording_path": recording_path,
+    "still_capture_paths": [prompt_capture_path, early_capture_path, live_capture_path],
     "session_status": session.get("status", ""),
     "assistant_message_count": sum(1 for message in messages if message.get("role") == "assistant"),
+    "semantic_event_count": semantic_event_count,
+    "live_observed_event_count": live_observed_event_count,
+    "streaming_event_types": sorted(semantic_event_types),
     "verified_artifact": artifact_name in assistant_blob,
     "requested_user_input": "request_user_input" in assistant_blob,
     "provider_streaming_limitation": "provider_streaming_limitation" in metadata_blob,

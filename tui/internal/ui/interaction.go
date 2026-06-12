@@ -860,6 +860,14 @@ func (a *App) registerFocusSurfaceHit(id string, rect mouseRect, focus FocusZone
 
 func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFrameRender {
 	frame := opts.frame
+	registerButtons := !frame.suppressButtonHits
+	registerTabs := !frame.suppressTabHits
+	buttons := frame.buttons
+	tabs := frame.tabs
+	tabPadding := frame.tabPadding
+	tabSpacing := frame.tabSpacing
+	frame.suppressButtonHits = true
+	frame.suppressTabHits = true
 	body := lipgloss.JoinVertical(lipgloss.Left, opts.rows...)
 	if opts.bodyRows > 0 {
 		body = a.renderScrollableModalBody(body, opts.bodyRows, frame.width, opts.window)
@@ -867,7 +875,7 @@ func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFr
 	frame.body = body
 	rendered := a.renderModalFrameWithLayout(frame)
 	if opts.surfaceWheelID != "" {
-		a.registerModalSurfaceWheel(rendered, opts.surfaceWheelID)
+		a.registerModalSurfaceAndBodyWheel(rendered, opts.surfaceWheelID, 0, nil)
 	}
 	if opts.wheelID != "" && opts.wheelAction != nil && rendered.bodyRow >= 0 && opts.bodyRows > 0 {
 		bodyWidth := modalScrollableBodyWidth(lipgloss.Width(rendered.modal))
@@ -878,6 +886,12 @@ func (a *App) renderSelectableListModal(opts selectableListModalOptions) modalFr
 	}
 	if opts.railAction != nil && opts.wheelID != "" {
 		a.registerSelectableListRailHits(rendered, opts.wheelID, opts.window, opts.bodyRows, opts.railAction)
+	}
+	if rendered.tabRow >= 0 && registerTabs {
+		a.registerModalTabsWithLayout(rendered.modal, rendered.tabRow, tabs, tabPadding, tabSpacing)
+	}
+	if registerButtons {
+		a.registerModalButtons(rendered.modal, 0, rendered.buttonCol, buttons)
 	}
 	return rendered
 }

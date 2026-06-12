@@ -42,7 +42,7 @@ Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_management_stress_scrolled.png"
 
 Enter
-Wait+Screen /Agent · Root expert · Invalid Disabled Demo Expert/
+Wait+Screen /Expert · Invalid Disabled Demo Expert/
 Wait+Screen /Validation errors/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_management_invalid_detail.png"
@@ -51,8 +51,8 @@ Escape
 Wait+Screen /Expert hierarchy/
 Up
 Enter
-Wait+Screen /Agent · Fragile User Expert/
-Wait+Screen /Agent actions/
+Wait+Screen /Expert · Fragile User Expert/
+Wait+Screen /Expert actions/
 Wait+Screen /edit/
 Wait+Screen /delete/
 Sleep 500ms

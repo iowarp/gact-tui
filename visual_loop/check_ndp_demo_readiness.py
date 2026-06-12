@@ -83,9 +83,30 @@ CASES: tuple[DemoCase, ...] = (
 )
 
 
-REAL_CAPTURE_SUFFIXES: tuple[str, ...] = ("prompt.png", "early.png", "live.png", "short.gif")
+REAL_STILL_CAPTURE_SUFFIXES: tuple[str, ...] = ("prompt.png", "early.png", "live.png")
+REAL_RECORDING_SUFFIX = "short.gif"
+REAL_CAPTURE_SUFFIXES: tuple[str, ...] = (*REAL_STILL_CAPTURE_SUFFIXES, REAL_RECORDING_SUFFIX)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
+REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
+    "case_id",
+    "session_id",
+    "backend",
+    "artifact_name",
+    "recording_path",
+    "still_capture_paths",
+    "session_status",
+    "assistant_message_count",
+    "verified_artifact",
+    "requested_user_input",
+    "provider_streaming_limitation",
+    "live_streaming_false",
+    "turn_cancelled",
+    "completion_timeout",
+    "semantic_event_count",
+    "live_observed_event_count",
+    "streaming_event_types",
+)
 
 
 def artifact_ok_pattern(artifact_name: str) -> re.Pattern[str]:
@@ -135,6 +156,17 @@ def real_capture_paths(case: DemoCase) -> tuple[str, ...]:
     return tuple(f"visual_loop/screenshots/{case.real_capture_stem}_{suffix}" for suffix in REAL_CAPTURE_SUFFIXES)
 
 
+def real_still_capture_paths(case: DemoCase) -> tuple[str, ...]:
+    return tuple(
+        f"visual_loop/screenshots/{case.real_capture_stem}_{suffix}"
+        for suffix in REAL_STILL_CAPTURE_SUFFIXES
+    )
+
+
+def real_recording_path(case: DemoCase) -> str:
+    return f"visual_loop/screenshots/{case.real_capture_stem}_{REAL_RECORDING_SUFFIX}"
+
+
 def real_capture_manifest_path(case: DemoCase) -> str:
     return f"visual_loop/screenshots/{case.real_capture_stem}_manifest.json"
 
@@ -145,7 +177,7 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
     if not path.exists():
         return {
             "ok": False,
-            "state": "manifest missing; streaming proof not verified",
+            "state": "streaming proof manifest missing",
             "path": rel,
             "required": True,
         }
@@ -155,28 +187,91 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         return {"ok": False, "state": f"invalid json: {exc}", "path": rel, "required": True}
-    verified_artifact = bool(data.get("verified_artifact"))
-    requested_user_input = bool(data.get("requested_user_input"))
-    provider_streaming_limitation = bool(data.get("provider_streaming_limitation"))
-    turn_cancelled = bool(data.get("turn_cancelled"))
-    completion_timeout = bool(data.get("completion_timeout"))
+    missing_fields = [field for field in REQUIRED_MANIFEST_FIELDS if field not in data]
+    case_id_ok = data.get("case_id") == case.case_id
+    artifact_name_ok = data.get("artifact_name") == case.artifact_name
+    recording_path_ok = data.get("recording_path") == real_recording_path(case)
+    still_capture_paths_ok = data.get("still_capture_paths") == list(real_still_capture_paths(case))
+    session_id_ok = bool(str(data.get("session_id", "")).strip())
+    backend_ok = bool(str(data.get("backend", "")).strip())
+    assistant_message_count = int_value(data.get("assistant_message_count"))
+    semantic_event_count = int_value(data.get("semantic_event_count"))
+    live_observed_event_count = int_value(data.get("live_observed_event_count"))
+    streaming_event_types = data.get("streaming_event_types")
+    streaming_event_types_ok = isinstance(streaming_event_types, list) and any(
+        isinstance(item, str) and item.strip() for item in streaming_event_types
+    )
+    verified_artifact = bool_field(data, "verified_artifact")
+    requested_user_input = bool_field(data, "requested_user_input")
+    provider_streaming_limitation = bool_field(data, "provider_streaming_limitation")
+    live_streaming_false = bool_field(data, "live_streaming_false")
+    turn_cancelled = bool_field(data, "turn_cancelled")
+    completion_timeout = bool_field(data, "completion_timeout")
     ok = (
-        verified_artifact
-        and not requested_user_input
-        and not provider_streaming_limitation
-        and not turn_cancelled
-        and not completion_timeout
+        not missing_fields
+        and case_id_ok
+        and artifact_name_ok
+        and recording_path_ok
+        and still_capture_paths_ok
+        and session_id_ok
+        and backend_ok
+        and assistant_message_count > 0
+        and semantic_event_count > 0
+        and live_observed_event_count > 0
+        and streaming_event_types_ok
+        and verified_artifact is True
+        and requested_user_input is False
+        and provider_streaming_limitation is False
+        and live_streaming_false is False
+        and turn_cancelled is False
+        and completion_timeout is False
     )
     problems: list[str] = []
-    if not verified_artifact:
+    if missing_fields:
+        problems.append("manifest missing required fields: " + ", ".join(missing_fields))
+    if not case_id_ok:
+        problems.append("manifest case_id does not match case")
+    if not artifact_name_ok:
+        problems.append("manifest artifact_name does not match case")
+    if not recording_path_ok:
+        problems.append("manifest recording_path does not match expected short GIF")
+    if not still_capture_paths_ok:
+        problems.append("manifest still_capture_paths do not match expected still captures")
+    if not session_id_ok:
+        problems.append("manifest session_id is empty")
+    if not backend_ok:
+        problems.append("manifest backend is empty")
+    if assistant_message_count <= 0:
+        problems.append("no assistant message observed")
+    if semantic_event_count <= 0:
+        problems.append("no semantic events observed")
+    if live_observed_event_count <= 0:
+        problems.append("no live-observed semantic events observed")
+    if not streaming_event_types_ok:
+        problems.append("streaming_event_types is empty")
+    if verified_artifact is None:
+        problems.append("manifest verified_artifact must be boolean true")
+    elif not verified_artifact:
         problems.append("expected artifact not observed in assistant output")
-    if requested_user_input:
+    if requested_user_input is None:
+        problems.append("manifest requested_user_input must be boolean false")
+    elif requested_user_input:
         problems.append("assistant requested user input instead of completing the case")
-    if provider_streaming_limitation:
+    if provider_streaming_limitation is None:
+        problems.append("manifest provider_streaming_limitation must be boolean false")
+    elif provider_streaming_limitation:
         problems.append("provider did not expose live streaming")
-    if turn_cancelled:
+    if live_streaming_false is None:
+        problems.append("manifest live_streaming_false must be boolean false")
+    elif live_streaming_false:
+        problems.append("manifest records live_streaming=false")
+    if turn_cancelled is None:
+        problems.append("manifest turn_cancelled must be boolean false")
+    elif turn_cancelled:
         problems.append("turn was cancelled before completing the case")
-    if completion_timeout:
+    if completion_timeout is None:
+        problems.append("manifest completion_timeout must be boolean false")
+    elif completion_timeout:
         problems.append("turn did not complete before manifest timeout")
     return {
         "ok": ok,
@@ -187,13 +282,36 @@ def real_capture_manifest_status(root: Path, case: DemoCase) -> dict[str, object
     }
 
 
+def int_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return 0
+    return 0
+
+
+def bool_field(data: dict[str, object], key: str) -> bool | None:
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    return None
+
+
 def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, object]:
     report = report_case_evidence(case, report_text)
     deterministic = existing_paths(root, case.deterministic_artifacts)
     real_captures = real_capture_artifact_statuses(root, real_capture_paths(case))
     manifest = real_capture_manifest_status(root, case)
-    visual_ok = all(artifact["ok"] for artifact in real_captures.values())
-    streaming_ok = visual_ok and bool(manifest["ok"])
+    still_visual_ok = all(real_captures[rel]["ok"] for rel in real_still_capture_paths(case))
+    short_recording_ok = bool(real_captures[real_recording_path(case)]["ok"])
+    streaming_ok = short_recording_ok and bool(manifest["ok"])
     return {
         "id": case.case_id,
         "title": case.title,
@@ -206,7 +324,9 @@ def case_status(root: Path, report_text: str, case: DemoCase) -> dict[str, objec
         "real_tui_recording": {
             "artifacts": real_captures,
             "manifest": manifest,
-            "visual_ok": visual_ok,
+            "visual_ok": still_visual_ok,
+            "still_visual_ok": still_visual_ok,
+            "short_recording_ok": short_recording_ok,
             "streaming_ok": streaming_ok,
             "ok": streaming_ok,
         },
@@ -229,7 +349,8 @@ def check_readiness(root: Path, report_path: Path = DEFAULT_REPORT) -> dict[str,
             "case_count": len(cases),
             "clio_report_ready": sum(1 for case in cases if case["clio_report"]["ok"]),
             "deterministic_tui_ready": sum(1 for case in cases if case["deterministic_tui"]["ok"]),
-            "real_tui_recordings": sum(1 for case in cases if case["real_tui_recording"]["visual_ok"]),
+            "real_tui_stills": sum(1 for case in cases if case["real_tui_recording"]["still_visual_ok"]),
+            "short_recordings": sum(1 for case in cases if case["real_tui_recording"]["short_recording_ok"]),
             "streaming_proof_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
             "real_tui_ready": sum(1 for case in cases if case["real_tui_recording"]["streaming_ok"]),
             "ready_for_real_demo": sum(1 for case in cases if case["ready_for_real_demo"]),
@@ -244,43 +365,70 @@ def render_markdown(result: dict[str, object]) -> str:
     lines.append(f"- report exists: `{str(report['exists']).lower()}`")
     lines.append(f"- ready for real demo: `{str(result['ok']).lower()}`")
     lines.append("")
-    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI visuals | Streaming proof | Ready |")
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Case | CLIO artifact proof | Deterministic TUI | Real TUI stills | Short GIF | Live-run manifest | Ready |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         lines.append(
-            "| {title} | {clio} | {det} | {visual} | {streaming} | {ready} |".format(
+            "| {title} | {clio} | {det} | {visual} | {recording} | {streaming} | {ready} |".format(
                 title=case["title"],
                 clio="yes" if case["clio_report"]["ok"] else "no",
                 det="yes" if case["deterministic_tui"]["ok"] else "no",
-                visual="yes" if case["real_tui_recording"]["visual_ok"] else "no",
+                visual="yes" if case["real_tui_recording"]["still_visual_ok"] else "no",
+                recording="yes" if case["real_tui_recording"]["short_recording_ok"] else "no",
                 streaming="yes" if case["real_tui_recording"]["streaming_ok"] else "no",
                 ready="yes" if case["ready_for_real_demo"] else "no",
             )
         )
     lines.append("")
+    lines.append("## Streaming Proof Contract")
+    lines.append("")
+    lines.append(
+        "A short GIF proves that the terminal view moved over time, but it does "
+        "not prove that the run was a live CLIO stream. Each real run must also "
+        "write a streaming proof manifest: a small JSON receipt produced by the "
+        "capture helper after inspecting the owned backend session."
+    )
+    lines.append("")
+    lines.append("Required manifest fields:")
+    lines.extend(f"- `{field}`" for field in REQUIRED_MANIFEST_FIELDS)
+    lines.append("")
+    lines.append(
+        "A manifest only counts as live-run proof when the case/artifact match, "
+        "the referenced short GIF and still captures match the expected case "
+        "artifacts, an assistant message and expected artifact were observed, "
+        "at least one `semantic_event_count` and one "
+        "`live_observed_event_count` were recorded, `streaming_event_types` is "
+        "non-empty, and the run did not request user input, time out, cancel, "
+        "or report `provider_streaming_limitation` / `live_streaming_false`."
+    )
+    lines.append("")
     lines.append("## Real Capture Inventory")
     lines.append("")
-    lines.append("| Case | Visual artifacts | Manifest | Artifact observed | Streaming proof | Session status |")
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Case | Still captures | Short GIF | Live-run manifest | Artifact observed | Streaming events | Session status |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for case in result["cases"]:
         artifacts = case["real_tui_recording"]["artifacts"]
         manifest = case["real_tui_recording"].get("manifest", {})
         data = manifest.get("data", {}) if isinstance(manifest, dict) else {}
-        visual_ok = all(artifact["ok"] for artifact in artifacts.values())
-        manifest_exists = bool(manifest) and manifest.get("state") != "manifest missing; streaming proof not verified"
-        artifact_observed = bool(data.get("verified_artifact")) if data else "legacy"
+        still_ok = case["real_tui_recording"]["still_visual_ok"]
+        recording_ok = case["real_tui_recording"]["short_recording_ok"]
+        manifest_exists = bool(manifest) and manifest.get("state") != "streaming proof manifest missing"
+        artifact_observed = bool_field(data, "verified_artifact") if data else "legacy"
+        streaming_limitation = bool_field(data, "provider_streaming_limitation") if data else None
+        live_streaming_disabled = bool_field(data, "live_streaming_false") if data else None
         streaming_proof = (
             "yes"
-            if data and not data.get("provider_streaming_limitation") and not data.get("live_streaming_false")
+            if data and streaming_limitation is False and live_streaming_disabled is False
             else "no"
             if data or manifest_exists
             else "no"
         )
         session_status = str(data.get("session_status", "legacy")) if data else "legacy"
         lines.append(
-            "| {title} | {visual} | {manifest} | {artifact} | {streaming} | {status} |".format(
+            "| {title} | {stills} | {recording} | {manifest} | {artifact} | {streaming} | {status} |".format(
                 title=case["title"],
-                visual="yes" if visual_ok else "no",
+                stills="yes" if still_ok else "no",
+                recording="yes" if recording_ok else "no",
                 manifest="yes" if manifest_exists else "no",
                 artifact=artifact_observed if isinstance(artifact_observed, str) else "yes" if artifact_observed else "no",
                 streaming=streaming_proof,
@@ -304,7 +452,7 @@ def render_markdown(result: dict[str, object]) -> str:
             lines.extend(f"  - `{rel}` ({state})" for rel, state in missing)
         manifest = case["real_tui_recording"].get("manifest", {})
         if manifest and not manifest["ok"]:
-            lines.append("- Real TUI recording manifest does not prove streaming-ready live demo:")
+            lines.append("- Live-run manifest does not prove streaming-ready demo semantics:")
             lines.append(f"  - `{manifest['path']}` ({manifest['state']})")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

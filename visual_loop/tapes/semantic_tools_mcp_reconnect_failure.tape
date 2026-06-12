@@ -15,7 +15,7 @@ Sleep 800ms
 
 Type "/tools"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Wait+Screen /docs-mcp/
 Wait+Screen /needs attent/
 

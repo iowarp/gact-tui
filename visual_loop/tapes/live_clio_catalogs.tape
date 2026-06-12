@@ -46,7 +46,7 @@ Sleep 300ms
 # MCP catalog and server detail.
 Type "/mcp"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Sleep 700ms
 Screenshot "visual_loop/screenshots/live_clio_mcp_catalog.png"
 Escape

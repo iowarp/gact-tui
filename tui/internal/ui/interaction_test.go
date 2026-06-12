@@ -3919,6 +3919,57 @@ func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 }
 
+func TestCatalogModalRegistersOpaqueSurface(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{
+			{id: "seismic-waveform-review", title: "Seismic Waveform Review", desc: "workspace blueprint"},
+			{id: "ndp-environmental-hazards", title: "NDP Environmental Hazards", desc: "marketplace blueprint"},
+		},
+	}
+
+	view := a.View().Content
+	headerLine := ""
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "Agent Blueprints") {
+			headerLine = line
+			break
+		}
+	}
+	if headerLine == "" {
+		t.Fatalf("catalog header not found in view:\n%s", stripANSI(view))
+	}
+	if bg := "48;2;25;25;35"; strings.Count(headerLine, bg) < 2 {
+		t.Fatalf("catalog header gaps should carry modal background escapes, got %d in %q", strings.Count(headerLine, bg), headerLine)
+	}
+	surface, ok := findHitTargetForTest(a, "catalog:surface")
+	if !ok {
+		t.Fatal("catalog browser should register an opaque modal surface target")
+	}
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	if surface.rect.x != rect.x || surface.rect.y != rect.y || surface.rect.w != rect.w || surface.rect.h != rect.h {
+		t.Fatalf("catalog surface rect = %+v, want modal rect %+v", surface.rect, rect)
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 1,
+		Y:      rect.y + 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("opaque catalog surface should absorb non-control clicks without dispatching commands")
+	}
+	if !a.catalogBrowserOpen {
+		t.Fatal("opaque catalog surface click should not close the catalog browser")
+	}
+}
+
 func TestCatalogShortListsUseCompactSharedBodyHeight(t *testing.T) {
 	short := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	short.width = 150

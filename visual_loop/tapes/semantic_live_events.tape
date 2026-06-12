@@ -12,7 +12,7 @@ Show
 
 Wait+Screen /planning/
 Screenshot "visual_loop/screenshots/semantic_live_events_thinking.png"
-Wait+Screen /ReadFile\(\)/
+Wait+Screen /ReadFile\(main.go\)/
 Screenshot "visual_loop/screenshots/semantic_live_events_tool_started.png"
 Wait+Screen /package main/
 Screenshot "visual_loop/screenshots/semantic_live_events_tool_result.png"

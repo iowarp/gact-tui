@@ -5,10 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -126,7 +128,7 @@ func TestCatalogBrowser_EscapeClosesTopLevelToolsCatalog(t *testing.T) {
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:  catalogKindTools,
-		title: "Actions and MCP",
+		title: "Tools & MCP",
 		items: []catalogItem{{id: "mcpserver/fake-mcp", title: "MCP · fake-mcp"}},
 	}
 
@@ -143,7 +145,7 @@ func TestCatalogBrowser_SlashClosesCatalogAndStartsCommandInput(t *testing.T) {
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:  catalogKindTools,
-		title: "Actions and MCP",
+		title: "Tools & MCP",
 		items: []catalogItem{{id: "mcpserver/fake-mcp", title: "MCP · fake-mcp"}},
 	}
 
@@ -164,7 +166,7 @@ func TestCatalogBrowser_SlashClosesCatalogAndStartsCommandInput(t *testing.T) {
 func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
 	cases := map[catalogBrowserKind]string{
 		catalogKindMcp:         "MCP Connections",
-		catalogKindTools:       "Actions and MCP",
+		catalogKindTools:       "Tools & MCP",
 		catalogKindSkills:      "Skills",
 		catalogKindMcpDetail:   "MCP detail",
 		catalogKindAgentDetail: "Agent detail",
@@ -279,15 +281,16 @@ func TestCatalogBrowser_AgentCatalogRendersHierarchyFirst(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailCloneActionOpensWriteModal(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:    catalogKindAgentDetail,
 		title:   "Agent · Data",
 		agentID: "data",
-		items:   []catalogItem{{id: "agent-action/clone", title: "Clone expert"}},
+		items:   []catalogItem{{id: "agent/data", title: "Expert · Data expert", statusTag: "expert_pack"}},
 	}
 
-	_, _ = a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	_ = a.runCatalogBrowserItemAction("agent-action/clone")
 
 	if !a.agentWriteOpen || a.agentWriteMode != agentWriteModeClone || a.agentWriteSourceID != "data" {
 		t.Fatalf("clone action should open clone modal, open=%v mode=%q source=%q", a.agentWriteOpen, a.agentWriteMode, a.agentWriteSourceID)
@@ -296,14 +299,14 @@ func TestCatalogBrowser_AgentDetailCloneActionOpensWriteModal(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailCloneShortcutOpensWriteModal(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.catalogBrowserOpen = true
 	a.catalogBrowser = &catalogBrowserState{
 		kind:    catalogKindAgentDetail,
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "expert_pack"},
 		},
 	}
 
@@ -316,6 +319,7 @@ func TestCatalogBrowser_AgentDetailCloneShortcutOpensWriteModal(t *testing.T) {
 
 func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -324,10 +328,7 @@ func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert", desc: "orchestrates data work"},
+			{id: "agent/data", title: "Expert · Data expert", desc: "orchestrates data work", statusTag: "user"},
 			{id: "tool/earthscope", title: "Tool · earthscope"},
 		},
 	}
@@ -347,6 +348,7 @@ func TestCatalogBrowser_AgentDetailActionsRenderOutsideStructureRows(t *testing.
 
 func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -355,10 +357,7 @@ func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "user"},
 		},
 	}
 
@@ -391,6 +390,7 @@ func TestCatalogBrowser_AgentDeleteRequiresConfirmation(t *testing.T) {
 
 func TestCatalogBrowser_AgentDeleteConfirmationCancelsOnOtherKey(t *testing.T) {
 	a := newReadyApp(nil, nil)
+	a.caps.Capabilities.AgentWrite = true
 	a.width = 120
 	a.height = 40
 	a.catalogBrowserOpen = true
@@ -399,10 +399,7 @@ func TestCatalogBrowser_AgentDeleteConfirmationCancelsOnOtherKey(t *testing.T) {
 		title:   "Agent · Data",
 		agentID: "data",
 		items: []catalogItem{
-			{id: "agent-action/clone", title: "Clone expert"},
-			{id: "agent-action/edit", title: "Edit expert"},
-			{id: "agent-action/delete", title: "Delete expert"},
-			{id: "agent/data", title: "Expert · Data expert"},
+			{id: "agent/data", title: "Expert · Data expert", statusTag: "user"},
 		},
 	}
 
@@ -695,9 +692,9 @@ func TestLoadAgentDetailIncludesPlannerVisibleCommands(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/agents/clio.expert.data":
-			writeJSONForTest(t, w, gact.AgentDef{ID: "clio.expert.data", Title: "Data Expert", Enabled: true})
+			writeJSONForTest(t, w, gact.AgentDef{ID: "clio.expert.data", Title: "Data Expert", Source: "user", Enabled: true})
 		case "/v1/agents":
-			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{{ID: "clio.expert.data", Title: "Data Expert", Enabled: true}}})
+			writeJSONForTest(t, w, map[string]any{"agents": []gact.AgentDef{{ID: "clio.expert.data", Title: "Data Expert", Source: "user", Enabled: true}}})
 		case "/v1/tools":
 			writeJSONForTest(t, w, map[string]any{"tools": []gact.Tool{}})
 		case "/v1/commands":
@@ -721,6 +718,9 @@ func TestLoadAgentDetailIncludesPlannerVisibleCommands(t *testing.T) {
 	}
 	found := false
 	for _, item := range loaded.items {
+		if strings.HasPrefix(item.id, "agent-action/") {
+			t.Fatalf("agent action %q should not be mixed into expert structure rows: %#v", item.id, loaded.items)
+		}
 		if item.id == "command//summarize" {
 			found = strings.Contains(item.title, "Summarize dataset") && strings.Contains(item.desc, "planner") && strings.Contains(item.desc, "dataset_id required")
 		}
@@ -1502,6 +1502,27 @@ func TestCatalogBrowser_AgentBlueprintSourceRegistryItemsExposeActions(t *testin
 	}
 }
 
+func TestAgentBlueprintSourceRegistryEmptyStatePointsToAddSourceFlow(t *testing.T) {
+	items := agentBlueprintSourceRegistryItems(nil)
+	if len(items) != 1 {
+		t.Fatalf("empty source registry items = %#v, want one guidance row", items)
+	}
+	row := items[0]
+	if row.id != "source/none" || row.statusTag != "empty" || !row.disabled {
+		t.Fatalf("empty source registry row = %#v", row)
+	}
+	for _, want := range []string{"Add marketplace source", "register a source URL", "install a provided blueprint"} {
+		if !strings.Contains(row.desc, want) {
+			t.Fatalf("empty source guidance missing %q:\n%s", want, row.desc)
+		}
+	}
+	for _, unwanted := range []string{"through CLIO", "source registry unsupported", "unsupported"} {
+		if strings.Contains(row.desc, unwanted) {
+			t.Fatalf("empty source guidance leaked stale wording %q:\n%s", unwanted, row.desc)
+		}
+	}
+}
+
 func TestAgentBlueprintCatalogStressItemsPreserveHierarchyAndActiveMarker(t *testing.T) {
 	blueprints := []gact.AgentBlueprintDefinition{{
 		ID:         "active-long",
@@ -1567,7 +1588,7 @@ func TestAgentBlueprintDetailStressItemsPreserveNestedExperts(t *testing.T) {
 
 	joined := catalogItemsTextForTest(items)
 	for _, want := range []string{
-		"Expert · Orchestrator",
+		"Root expert · Orchestrator",
 		"└─ Expert · Data Resolver",
 		"└─ Expert · Catalog Specialist",
 		"└─ Expert · Visualization Publisher",
@@ -1675,8 +1696,215 @@ func TestCatalogBrowser_AgentBlueprintSourceDeleteConfirmationCancelsOnChildSele
 	if a.catalogBrowser.pendingDeleteSourceID != "" {
 		t.Fatalf("pending source delete should clear after selecting child row, got %q", a.catalogBrowser.pendingDeleteSourceID)
 	}
+	if a.transientHint != "" {
+		t.Fatalf("source delete confirmation hint should clear after selecting child row, got %q", a.transientHint)
+	}
 	if hint := catalogBrowserHintText(a.catalogBrowser); strings.Contains(hint, "confirm remove") || strings.Contains(hint, "d remove") {
 		t.Fatalf("child blueprint row should not expose source removal after cancel, got %q", hint)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceDeleteConfirmationCancelsOnWheelSelection(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	_, _ = a.handleCatalogBrowserKey(keyMsg("d"))
+	if a.catalogBrowser.pendingDeleteSourceID != "src1" || a.transientHint == "" {
+		t.Fatalf("source delete should be armed before wheel selection, pending=%q hint=%q", a.catalogBrowser.pendingDeleteSourceID, a.transientHint)
+	}
+
+	cmd := a.handleCatalogBrowserWheel(tea.MouseWheelDown)
+	if cmd != nil {
+		t.Fatalf("wheel should only move selection/cancel confirmation, got command %#v", cmd)
+	}
+	if a.catalogBrowser.sel != 1 {
+		t.Fatalf("wheel should select child blueprint row, sel=%d", a.catalogBrowser.sel)
+	}
+	if a.catalogBrowser.pendingDeleteSourceID != "" || a.transientHint != "" {
+		t.Fatalf("wheel selection should clear stale source confirmation, pending=%q hint=%q", a.catalogBrowser.pendingDeleteSourceID, a.transientHint)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedSource(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.EscapedPath())
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/sources/src1/refresh":
+			writeJSONForTest(t, w, map[string]any{"source": map[string]any{"id": "src1", "name": "Data Semantics Agents"}})
+		case r.Method == http.MethodDelete && r.URL.EscapedPath() == "/v1/agent-blueprints/sources/src1":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{"Source flow:", "add/refresh/remove sources", "select a provided blueprint to install", "Source actions", "add source", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("source browser missing %q:\n%s", want, out)
+		}
+	}
+
+	buttons := a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 3 || buttons[0].label != "add source" || buttons[1].label != "refresh source" || buttons[2].label != "remove source" {
+		t.Fatalf("source action buttons = %#v", buttons)
+	}
+	if cmd := buttons[0].action(a); cmd != nil || !a.agentBlueprintManageOpen || a.agentBlueprintManageMode != agentBlueprintManageSource {
+		t.Fatalf("add source action should open source modal, open=%v mode=%q cmd=%v", a.agentBlueprintManageOpen, a.agentBlueprintManageMode, cmd)
+	}
+	a.closeAgentBlueprintManage()
+	msg := buttons[1].action(a)()
+	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "refreshed" || got.err != nil {
+		t.Fatalf("refresh action msg = %#v", msg)
+	}
+	cmd := buttons[2].action(a)
+	if cmd == nil || a.catalogBrowser.pendingDeleteSourceID != "src1" || !strings.Contains(a.transientHint, "confirm removing source src1") {
+		t.Fatalf("remove should arm source confirmation, pending=%q hint=%q cmd=%v", a.catalogBrowser.pendingDeleteSourceID, a.transientHint, cmd)
+	}
+	buttons = a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 3 || buttons[2].label != "confirm remove" {
+		t.Fatalf("armed source action buttons = %#v", buttons)
+	}
+	msg = buttons[2].action(a)()
+	if got, ok := msg.(agentBlueprintSourceManagedMsg); !ok || got.sourceID != "src1" || got.action != "deleted" || got.err != nil {
+		t.Fatalf("delete action msg = %#v", msg)
+	}
+	if !slices.Contains(paths, "POST /v1/agent-blueprints/sources/src1/refresh") || !slices.Contains(paths, "DELETE /v1/agent-blueprints/sources/src1") {
+		t.Fatalf("source action requests = %#v", paths)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceAddKeySubmitsSource(t *testing.T) {
+	var sourceBody gact.AgentBlueprintSourceRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/sources":
+			if err := json.NewDecoder(r.Body).Decode(&sourceBody); err != nil {
+				t.Fatalf("decode source body: %v", err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			writeJSONForTest(t, w, map[string]any{"source": map[string]any{
+				"id":          "ndp-demo-agents",
+				"name":        "NDP Demo Agents",
+				"source":      sourceBody.Source,
+				"source_kind": "git",
+				"status":      "ready",
+			}})
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		items: []catalogItem{{id: "source/src1", title: "Data Semantics Agents"}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(keyMsg("a"))
+	if cmd != nil || !a.agentBlueprintManageOpen || a.agentBlueprintManageMode != agentBlueprintManageSource {
+		t.Fatalf("a key should open add source modal, open=%v mode=%q cmd=%v", a.agentBlueprintManageOpen, a.agentBlueprintManageMode, cmd)
+	}
+	a.agentBlueprintManageInput = "https://github.com/iowarp/ndp-demo-agents.git"
+	a.agentBlueprintManageCursor = len([]rune(a.agentBlueprintManageInput))
+	_, cmd = a.handleAgentBlueprintManageKey(keyMsg("enter"))
+	if cmd == nil || !a.agentBlueprintManageSaving {
+		t.Fatalf("enter should submit source add, saving=%v cmd=%v", a.agentBlueprintManageSaving, cmd)
+	}
+	msg := cmd()
+	got, ok := msg.(agentBlueprintSourceManagedMsg)
+	if !ok || got.err != nil || got.action != "added" || got.sourceID != "ndp-demo-agents" {
+		t.Fatalf("source add msg = %#v", msg)
+	}
+	if sourceBody.Source != "https://github.com/iowarp/ndp-demo-agents.git" || !sourceBody.Refresh {
+		t.Fatalf("source add body = %#v", sourceBody)
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t *testing.T) {
+	var installBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.EscapedPath() == "/v1/agent-blueprints/install":
+			if err := json.NewDecoder(r.Body).Decode(&installBody); err != nil {
+				t.Fatalf("decode install body: %v", err)
+			}
+			writeJSONForTest(t, w, map[string]any{"status": "installed"})
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.EscapedPath())
+		}
+	}))
+	defer server.Close()
+
+	a := newReadyApp(nil, nil)
+	a.c = client.New(server.URL)
+	a.wsID = "ws1"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprintSources,
+		title: "Marketplace sources",
+		sel:   1,
+		items: []catalogItem{
+			{id: "source/src1", title: "▾ Data Semantics Agents"},
+			{id: "source-blueprint/src1/seismic-waveform-review", title: "  Seismic Waveform Review"},
+		},
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{"Source flow:", "select a provided blueprint to install", "Blueprint actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("source blueprint browser missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Source actions") {
+		t.Fatalf("selected blueprint row should not label install controls as source actions:\n%s", out)
+	}
+	if got := catalogBrowserHintText(a.catalogBrowser); !strings.Contains(got, "Enter install selected blueprint") || strings.Contains(got, "source details") {
+		t.Fatalf("selected blueprint row hint = %q", got)
+	}
+	buttons := a.agentBlueprintSourceActionButtons()
+	if len(buttons) != 3 || buttons[0].label != "add source" || buttons[1].label != "install blueprint" || buttons[2].label != "refresh source" {
+		t.Fatalf("source blueprint action buttons = %#v", buttons)
+	}
+	msg := buttons[1].action(a)()
+	if got, ok := msg.(agentBlueprintManagedMsg); !ok || got.blueprintID != "seismic-waveform-review" || got.action != "installed" || got.err != nil {
+		t.Fatalf("install action msg = %#v", msg)
+	}
+	for key, want := range map[string]string{
+		"source_id":    "src1",
+		"blueprint_id": "seismic-waveform-review",
+		"scope":        "workspace",
+		"workspace_id": "ws1",
+	} {
+		if got := stringValue(installBody[key]); got != want {
+			t.Fatalf("install body %s = %q, want %q; body=%#v", key, got, want, installBody)
+		}
 	}
 }
 
@@ -1702,7 +1930,7 @@ func TestCatalogBrowser_AgentBlueprintActionsAreNotListRows(t *testing.T) {
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter detail", "i install", "v validate", "s sources"} {
+	for _, want := range []string{"Setup:", "sources -> blueprint -> install -> detail -> activate", "Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter", "s sources", "i manual install", "v validate file"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("blueprint browser missing %q:\n%s", want, out)
 		}
@@ -1776,6 +2004,8 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 			_, _ = w.Write([]byte(`{"servers":[
 					{"id":"mcp_adios","name":"ADIOS","status":"connected","transport":"stdio","capabilities":{"tools":["adios_inspect_file"]}}
 				]}`))
+		case "/v1/mcp/handshake":
+			_, _ = w.Write([]byte(`{"servers":[]}`))
 		case "/v1/mcp/servers/mcp_adios/tools":
 			_, _ = w.Write([]byte(`{"tools":[
 				{
@@ -2529,7 +2759,7 @@ func TestCatalogBrowserToolsSourceRowsExposeMcpManagement(t *testing.T) {
 	model, cmd := a.handleCatalogBrowserKey(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	a = model.(*App)
 	if cmd == nil {
-		t.Fatal("r on a Actions and MCP source row should dispatch reconnect")
+		t.Fatal("r on a Tools & MCP source row should dispatch reconnect")
 	}
 	done, ok := cmd().(mcpReconnectDoneMsg)
 	if !ok || done.err != nil || done.serverID != "fake-mcp" || reconnects != 1 {
@@ -2722,6 +2952,45 @@ func TestCatalogBrowserUsesSharedScrollRailInsteadOfRangeRows(t *testing.T) {
 	for _, notWant := range []string{"above", "and ", " more"} {
 		if strings.Contains(out, notWant) {
 			t.Fatalf("catalog should not render textual scroll count %q:\n%s", notWant, out)
+		}
+	}
+}
+
+func TestAgentBlueprintCatalogScrollsSelectionIntoViewWithRail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	items := make([]catalogItem, 32)
+	for i := range items {
+		items[i] = catalogItem{
+			id:        "blueprint-" + itoa2(i),
+			title:     "Blueprint " + itoa2(i),
+			desc:      "source grouped blueprint used to prove long blueprint libraries scroll cleanly",
+			statusTag: "source",
+		}
+	}
+	a.width = 120
+	a.height = 36
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: items,
+		sel:   18,
+	}
+	a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(a.catalogBrowser.kind, a.catalogBrowser.sel, a.catalogBrowser.offset, len(items))
+
+	out := stripANSI(a.viewCatalogBrowser())
+	if !strings.Contains(out, "Blueprint 18") {
+		t.Fatalf("selected blueprint should remain visible after scrolling:\n%s", out)
+	}
+	if strings.Contains(out, "Blueprint 0") {
+		t.Fatalf("top blueprint should be clipped after scrolling:\n%s", out)
+	}
+	if !strings.Contains(out, "┃") {
+		t.Fatalf("long blueprint catalog should render a shared side scroll rail:\n%s", out)
+	}
+	for _, notWant := range []string{"above", "and ", " more"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("blueprint catalog should not render textual scroll count %q:\n%s", notWant, out)
 		}
 	}
 }

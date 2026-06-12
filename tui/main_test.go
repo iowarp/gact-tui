@@ -38,6 +38,10 @@ func testBinaryPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
+func testBoolPtr(value bool) *bool {
+	return &value
+}
+
 func stableTestBinaryPath(t *testing.T, repoRoot, name string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -84,6 +88,90 @@ func TestDiagClipboardProbeReportsNativeAndTerminalHints(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("diag clipboard probe missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestDiagMouseCaptureProbeReportsSelectionState(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		mouseEnabled *bool
+		want         []string
+	}{
+		{
+			name: "default",
+			want: []string{
+				"mouse_capture: enabled (default)",
+				"terminal selection needs /mouse off or config mouse_enabled=false",
+			},
+		},
+		{
+			name:         "configured enabled",
+			mouseEnabled: testBoolPtr(true),
+			want: []string{
+				"mouse_capture: enabled (config)",
+				"terminal selection needs /mouse off or config mouse_enabled=false",
+			},
+		},
+		{
+			name:         "configured disabled",
+			mouseEnabled: testBoolPtr(false),
+			want: []string{
+				"mouse_capture: disabled (config)",
+				"native terminal selection available; TUI mouse clicks disabled",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			diagWriteMouseCaptureProbe(&out, tc.mouseEnabled)
+			got := out.String()
+			for _, want := range tc.want {
+				if !strings.Contains(got, want) {
+					t.Fatalf("mouse capture probe missing %q:\n%s", want, got)
+				}
+			}
+		})
+	}
+}
+
+func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	t.Setenv("GACT_CLIO_GACT_BIN", exe)
+
+	var out bytes.Buffer
+	diagWriteInstallProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"binary_path:",
+		"clio_gact: " + exe,
+		"clio_gact_status: matches running binary",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("install probe missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestDiagInstallProbeReportsStaleClioBinary(t *testing.T) {
+	stale := filepath.Join(t.TempDir(), "gact")
+	if err := os.WriteFile(stale, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write stale binary: %v", err)
+	}
+	t.Setenv("GACT_CLIO_GACT_BIN", stale)
+
+	var out bytes.Buffer
+	diagWriteInstallProbe(&out)
+	got := out.String()
+	for _, want := range []string{
+		"clio_gact: " + stale,
+		"clio_gact_status: stale (does not match running binary)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("install probe missing %q:\n%s", want, got)
 		}
 	}
 }
@@ -237,6 +325,28 @@ func TestCLI_VersionReportsBuildMetadata(t *testing.T) {
 		if !strings.Contains(stdout, want) {
 			t.Fatalf("version output missing %q:\n%s", want, stdout)
 		}
+	}
+}
+
+func TestReadVCSInfoUsesBuildMetadataOverride(t *testing.T) {
+	oldRevision, oldTime, oldDirty := buildRevision, buildTime, buildDirty
+	t.Cleanup(func() {
+		buildRevision, buildTime, buildDirty = oldRevision, oldTime, oldDirty
+	})
+
+	buildRevision = "1234567890abcdef"
+	buildTime = "2026-06-11T10:13:32Z"
+	buildDirty = "false"
+
+	rev, when, dirty := readVCSInfo()
+	if rev != "1234567890ab" || when != buildTime || dirty {
+		t.Fatalf("readVCSInfo override = rev %q when %q dirty %v", rev, when, dirty)
+	}
+
+	buildDirty = "true"
+	_, _, dirty = readVCSInfo()
+	if !dirty {
+		t.Fatal("readVCSInfo should respect explicit dirty override")
 	}
 }
 
@@ -1777,29 +1887,48 @@ func TestCLI_LogSince(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()
 	bin := buildGact(t)
-	sid := createSession(t, url, "log-since-target")
-
-	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"send", sid, "AAA"); code != 0 {
-		t.Fatalf("send AAA: exit %d", code)
+	now := time.Now().UTC()
+	imported := map[string]any{
+		"format":      "gact-v1",
+		"exported_at": now,
+		"session": map[string]any{
+			"workspace_id": "ws_default",
+			"title":        "log-since-target",
+			"status":       gact.StatusIdle,
+		},
+		"messages": []gact.Message{
+			{
+				Role:      gact.RoleUser,
+				CreatedAt: now.Add(-10 * time.Minute),
+				Parts:     []gact.Part{gact.NewTextPart("AAA")},
+			},
+			{
+				Role:      gact.RoleUser,
+				CreatedAt: now.Add(-30 * time.Second),
+				Parts:     []gact.Part{gact.NewTextPart("BBB")},
+			},
+		},
 	}
-	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"wait", "--timeout", "30s", sid); code != 0 {
-		t.Fatalf("wait AAA: exit %d", code)
+	body, err := json.Marshal(imported)
+	if err != nil {
+		t.Fatalf("marshal import fixture: %v", err)
 	}
-	// Sleep long enough that AAA's user msg falls outside a moderate
-	// --since window even under slow-CI/parallel-test load. Window
-	// math: if we sleep 5s and use --since 4s, AAA is ≥5s old (out)
-	// while BBB has a generous 4s grace period to be queried before
-	// it ages out (well above the worst-case wait+log RTT we've seen).
-	time.Sleep(5 * time.Second)
-	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"send", sid, "BBB"); code != 0 {
-		t.Fatalf("send BBB: exit %d", code)
+	resp, err := http.Post(url+"/v1/sessions/import", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("import fixture: %v", err)
 	}
-	if _, _, code := runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"wait", "--timeout", "30s", sid); code != 0 {
-		t.Fatalf("wait BBB: exit %d", code)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		raw, _ := io.ReadAll(resp.Body)
+		t.Fatalf("import fixture status %d: %s", resp.StatusCode, raw)
+	}
+	var sess gact.Session
+	if err := json.NewDecoder(resp.Body).Decode(&sess); err != nil {
+		t.Fatalf("decode imported session: %v", err)
+	}
+	sid := sess.ID
+	if sid == "" {
+		t.Fatal("imported session has no id")
 	}
 
 	// Wide window keeps both.
@@ -1812,17 +1941,17 @@ func TestCLI_LogSince(t *testing.T) {
 		t.Errorf("--since 1h should keep both: %q", stdout)
 	}
 
-	// Narrow window keeps only BBB (AAA was sent ≥5s ago).
+	// Narrow window keeps only BBB.
 	stdout, _, code = runGact(t, bin, map[string]string{"GACT_BACKEND": url},
-		"log", sid, "--since", "4s", "--limit", "50")
+		"log", sid, "--since", "2m", "--limit", "50")
 	if code != 0 {
-		t.Fatalf("log --since 4s: exit %d", code)
+		t.Fatalf("log --since 2m: exit %d", code)
 	}
 	if strings.Contains(stdout, "AAA") {
-		t.Errorf("--since 4s should drop AAA: %q", stdout)
+		t.Errorf("--since 2m should drop AAA: %q", stdout)
 	}
 	if !strings.Contains(stdout, "BBB") {
-		t.Errorf("--since 4s should keep BBB: %q", stdout)
+		t.Errorf("--since 2m should keep BBB: %q", stdout)
 	}
 }
 

@@ -23,7 +23,7 @@ import (
 // "absent from file" from "explicitly set to zero" — important for
 // layering with env vars and flags.
 type Config struct {
-	BackendURL        *string `json:"backend_url,omitempty"`
+	BackendURL *string `json:"backend_url,omitempty"`
 	// Name overrides the product/brand name for white-labeling: it drives the
 	// OS window title and the generated splash wordmark, so a downstream brand
 	// no longer needs a fork for the name. Empty = built-in default. A custom

@@ -10,10 +10,10 @@ Type "bash visual_loop/run_redacted_semantic_tool.sh"
 Enter
 Show
 
-Wait+Screen /input redacted by runtime/
+Wait+Screen /SAC waveform visualization\(\)/
 Screenshot "visual_loop/screenshots/semantic_redacted_tool_args_started.png"
 Wait+Screen /sac_plot_traces completed/
-Wait+Screen /args: input redacted by runtime/
+Wait+Screen /SAC waveform visualization\(\)/
 Screenshot "visual_loop/screenshots/semantic_redacted_tool_args_completed.png"
 Tab
 Sleep 200ms

@@ -9,9 +9,12 @@ does not prove real CLIO health data under demo load.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 @dataclass(frozen=True)
@@ -21,6 +24,9 @@ class Evidence:
     artifacts: tuple[str, ...]
     required_markers: tuple[str, ...] = ()
     required_for_demo: bool = True
+    manifest: str | None = None
+    required_manifest_keys: tuple[str, ...] = ()
+    manifest_artifacts: tuple[tuple[str, str], ...] = ()
 
 
 EVIDENCE: tuple[Evidence, ...] = (
@@ -29,6 +35,7 @@ EVIDENCE: tuple[Evidence, ...] = (
         title="clipboard and terminal-selection report",
         artifacts=("visual_loop/screenshots/gact_diag_clipboard_terminal.report.md",),
         required_markers=(
+            "mouse_capture:",
             "clipboard_native:",
             "clipboard_missing:",
             "clipboard_osc52:",
@@ -63,14 +70,45 @@ EVIDENCE: tuple[Evidence, ...] = (
     Evidence(
         area="Doctor",
         title="real CLIO doctor partial-capability output",
-        artifacts=("visual_loop/screenshots/live_clio_doctor_partial_gaps.png",),
+        artifacts=(
+            "visual_loop/screenshots/live_clio_doctor_partial_gaps.png",
+            "visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        ),
         required_for_demo=False,
+        manifest="visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        required_manifest_keys=(
+            "backend",
+            "captured_from_owned_backend",
+            "doctor_screenshot",
+            "doctor_partial_gaps",
+            "capabilities_gap_count",
+            "health_status",
+        ),
+        manifest_artifacts=(
+            ("doctor_screenshot", "visual_loop/screenshots/live_clio_doctor_partial_gaps.png"),
+        ),
     ),
     Evidence(
         area="Metrics",
         title="live long-running benchmark metrics during active stream",
-        artifacts=("visual_loop/screenshots/live_clio_metrics_active_stream.png",),
+        artifacts=(
+            "visual_loop/screenshots/live_clio_metrics_active_stream.png",
+            "visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        ),
         required_for_demo=False,
+        manifest="visual_loop/screenshots/live_clio_diagnostics_manifest.json",
+        required_manifest_keys=(
+            "backend",
+            "captured_from_owned_backend",
+            "session_id",
+            "metrics_screenshot",
+            "active_stream_metrics",
+            "metrics_active_sessions",
+            "metrics_sample_count",
+        ),
+        manifest_artifacts=(
+            ("metrics_screenshot", "visual_loop/screenshots/live_clio_metrics_active_stream.png"),
+        ),
     ),
 )
 
@@ -84,11 +122,17 @@ def artifact_status(root: Path, rel: str) -> dict[str, object]:
     size = path.stat().st_size
     if size == 0:
         return {"ok": False, "state": "empty"}
+    if path.suffix.lower() == ".png":
+        with path.open("rb") as handle:
+            header = handle.read(8)
+        if not header.startswith(PNG_SIGNATURE):
+            return {"ok": False, "state": "invalid png"}
     return {"ok": True, "state": "present", "bytes": size}
 
 
 def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
     artifacts = {rel: artifact_status(root, rel) for rel in evidence.artifacts}
+    manifest = manifest_status(root, evidence)
     markers: dict[str, bool] = {}
     marker_ok = True
     if evidence.required_markers:
@@ -101,8 +145,64 @@ def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
         "required_for_demo": evidence.required_for_demo,
         "artifacts": artifacts,
         "markers": markers,
-        "ok": all(status["ok"] for status in artifacts.values()) and marker_ok,
+        "manifest": manifest,
+        "ok": all(status["ok"] for status in artifacts.values()) and marker_ok and bool(manifest["ok"]),
     }
+
+
+def manifest_status(root: Path, evidence: Evidence) -> dict[str, object]:
+    if evidence.manifest is None:
+        return {"ok": True, "state": "not required", "missing_keys": []}
+    path = root / evidence.manifest
+    status = artifact_status(root, evidence.manifest)
+    if not status["ok"]:
+        return {"ok": False, "state": status["state"], "missing_keys": list(evidence.required_manifest_keys)}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "state": f"invalid json: {exc}", "missing_keys": list(evidence.required_manifest_keys)}
+    if not isinstance(data, dict):
+        return {"ok": False, "state": "manifest is not an object", "missing_keys": list(evidence.required_manifest_keys)}
+    missing = [key for key in evidence.required_manifest_keys if not manifest_value_ok(key, data.get(key))]
+    invalid_artifacts = [
+        {
+            "key": key,
+            "expected": expected,
+            "actual": str(data.get(key, "")).strip(),
+        }
+        for key, expected in evidence.manifest_artifacts
+        if key not in missing and str(data.get(key, "")).strip() != expected
+    ]
+    return {
+        "ok": not missing and not invalid_artifacts,
+        "state": "present",
+        "missing_keys": missing,
+        "invalid_artifacts": invalid_artifacts,
+        "keys": sorted(data.keys()),
+    }
+
+
+def manifest_value_ok(key: str, value: object) -> bool:
+    if key in {"captured_from_owned_backend", "doctor_partial_gaps", "active_stream_metrics"}:
+        return value is True
+    if key.endswith("_count") or key in {"capabilities_gap_count", "metrics_active_sessions", "metrics_sample_count"}:
+        return int_value(value) > 0
+    return bool(str(value).strip()) if value is not None else False
+
+
+def int_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return 0
+    return 0
 
 
 def check_readiness(root: Path) -> dict[str, object]:
@@ -111,6 +211,7 @@ def check_readiness(root: Path) -> dict[str, object]:
     deferred = [item for item in items if not item["required_for_demo"]]
     return {
         "ok": all(item["ok"] for item in required),
+        "live_ok": all(item["ok"] for item in deferred),
         "items": items,
         "summary": {
             "required_count": len(required),
@@ -156,6 +257,21 @@ def render_markdown(result: dict[str, object]) -> str:
             lines.append("- Missing diagnostic markers:")
             for marker in missing_markers:
                 lines.append(f"  - `{marker}`")
+        manifest = item["manifest"]
+        if not manifest["ok"]:
+            lines.append(f"- Manifest status: `{manifest['state']}`")
+            missing_keys = manifest.get("missing_keys", [])
+            if missing_keys:
+                lines.append("- Missing or false manifest keys:")
+                for key in missing_keys:
+                    lines.append(f"  - `{key}`")
+            invalid_artifacts = manifest.get("invalid_artifacts", [])
+            if invalid_artifacts:
+                lines.append("- Invalid manifest artifact references:")
+                for item in invalid_artifacts:
+                    lines.append(
+                        f"  - `{item['key']}` expected `{item['expected']}` got `{item['actual']}`"
+                    )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -170,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=".", help="repository root")
     parser.add_argument("--write-report", help="write Markdown report")
     parser.add_argument("--strict", action="store_true", help="fail if required diagnostics evidence is incomplete")
+    parser.add_argument("--strict-live", action="store_true", help="fail unless deferred live diagnostics proof is complete")
     args = parser.parse_args(argv)
 
     result = check_readiness(Path(args.root))
@@ -177,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
         write_report(result, Path(args.write_report))
     print(render_markdown(result), end="")
     if args.strict and not result["ok"]:
+        return 1
+    if args.strict_live and not result["live_ok"]:
         return 1
     return 0
 

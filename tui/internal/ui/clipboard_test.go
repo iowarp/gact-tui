@@ -29,6 +29,7 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 	prevRunCommand := clipboardRunCommand
 	prevAtotto := clipboardAtottoWrite
 	prevForcedFailure := clipboardForcedFailure
+	prevPreferred := clipboardPreferredCommand
 	clipboardWrite = func(s string) error {
 		mu.Lock()
 		defer mu.Unlock()
@@ -45,6 +46,7 @@ func withClipboardSpy(t *testing.T) (*sync.Mutex, *string, *error) {
 		clipboardRunCommand = prevRunCommand
 		clipboardAtottoWrite = prevAtotto
 		clipboardForcedFailure = prevForcedFailure
+		clipboardPreferredCommand = prevPreferred
 	})
 	return &mu, &got, &err
 }
@@ -54,7 +56,9 @@ func withNativeClipboardSpy(t *testing.T, available map[string]bool, failures ma
 	prevLookPath := clipboardLookPath
 	prevRunCommand := clipboardRunCommand
 	prevAtotto := clipboardAtottoWrite
+	prevPreferred := clipboardPreferredCommand
 	attempts := []string{}
+	clipboardPreferredCommand = nil
 	clipboardLookPath = func(name string) (string, error) {
 		if available[name] {
 			return "/fake/bin/" + name, nil
@@ -77,6 +81,7 @@ func withNativeClipboardSpy(t *testing.T, available map[string]bool, failures ma
 		clipboardLookPath = prevLookPath
 		clipboardRunCommand = prevRunCommand
 		clipboardAtottoWrite = prevAtotto
+		clipboardPreferredCommand = prevPreferred
 	})
 	return &attempts
 }
@@ -184,6 +189,23 @@ func TestWriteNativeClipboardFallsThroughInstalledUtilities(t *testing.T) {
 	}
 	if got := strings.Join(*attempts, ","); got != "wl-copy:payload,xclip:payload" {
 		t.Fatalf("attempts = %q, want wl-copy then xclip", got)
+	}
+}
+
+func TestWriteNativeClipboardReusesSuccessfulUtility(t *testing.T) {
+	attempts := withNativeClipboardSpy(t, map[string]bool{
+		"wl-copy": true,
+		"xclip":   true,
+	}, nil)
+
+	if err := writeNativeClipboard("first"); err != nil {
+		t.Fatalf("first writeNativeClipboard: %v", err)
+	}
+	if err := writeNativeClipboard("second"); err != nil {
+		t.Fatalf("second writeNativeClipboard: %v", err)
+	}
+	if got := strings.Join(*attempts, ","); got != "wl-copy:first,wl-copy:second" {
+		t.Fatalf("attempts = %q, want cached wl-copy path without probing fallback utilities", got)
 	}
 }
 

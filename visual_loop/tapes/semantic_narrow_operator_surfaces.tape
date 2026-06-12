@@ -30,7 +30,7 @@ Wait+Screen /CONVERSATION/
 Sleep 800ms
 Type "/tools"
 Enter
-Wait+Screen /Actions and MCP/
+Wait+Screen /Tools & MCP/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_narrow_tools_mcp.png"
 Escape
@@ -47,7 +47,7 @@ Sleep 1000ms
 Type "/permissions"
 Enter
 Wait+Screen /approval requests/
-Wait+Screen /shell needs approval/
+Wait+Screen /needs approval/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_narrow_permissions.png"
 Escape
