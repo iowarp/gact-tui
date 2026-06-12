@@ -33,9 +33,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", default="", help="existing owned backend URL")
     parser.add_argument("--session", default="", help="session id to attach")
     parser.add_argument("--out-dir", default="visual_loop/screenshots")
+    parser.add_argument("--report-name", default="", help="latency JSON filename")
+    parser.add_argument("--manifest-name", default="", help="manifest JSON filename")
     parser.add_argument("--port", type=int, default=41932, help="ephemeral emulator port")
     parser.add_argument("--cols", type=int, default=140)
     parser.add_argument("--rows", type=int, default=40)
+    parser.add_argument(
+        "--live-clio",
+        action="store_true",
+        help="write live CLIO artifact names and include active-stream manifest fields",
+    )
+    parser.add_argument(
+        "--require-active-stream",
+        action="store_true",
+        help="fail unless the owned session is still active and backend metrics are non-empty",
+    )
     parser.add_argument(
         "--own-backend",
         action="store_true",
@@ -65,6 +77,81 @@ def wait_http(url: str, timeout_s: float = 10) -> None:
 
 def read_json(path: pathlib.Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def get_backend_json(backend: str, path: str) -> dict:
+    if not backend:
+        return {}
+    try:
+        req = urllib.request.Request(
+            backend.rstrip("/") + path,
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+        data = json.loads(raw) if raw else {}
+        return data if isinstance(data, dict) else {}
+    except Exception:  # noqa: BLE001 - diagnostic helper
+        return {}
+
+
+def count_backend_latency_samples(metrics: dict) -> int:
+    latencies = metrics.get("latencies") if isinstance(metrics, dict) else {}
+    if not isinstance(latencies, dict):
+        return 0
+    sample_count = 0
+    for row in latencies.values():
+        if not isinstance(row, dict):
+            continue
+        try:
+            sample_count += int(row.get("count") or 0)
+        except (TypeError, ValueError):
+            pass
+    return sample_count
+
+
+def message_rows_from_response(messages: dict) -> list:
+    if not isinstance(messages, dict):
+        return []
+    rows = messages.get("messages")
+    return rows if isinstance(rows, list) else []
+
+
+def active_stream_manifest_fields(backend: str, session_id: str) -> dict:
+    metrics = get_backend_json(backend, "/v1/metrics")
+    session = get_backend_json(backend, f"/v1/sessions/{session_id}") if session_id else {}
+    messages = get_backend_json(backend, f"/v1/sessions/{session_id}/messages") if session_id else {}
+    rows = message_rows_from_response(messages)
+    metadata_blob = json.dumps(rows, sort_keys=True)
+    provider_streaming_limitation = "provider_streaming_limitation" in metadata_blob
+    live_streaming_false = '"live_streaming": false' in metadata_blob
+    session_status = str(session.get("status", "")).strip()
+
+    blockers = []
+    if not session_id:
+        blockers.append("missing_session_id")
+    if session_status not in {"running", "waiting_permission"}:
+        blockers.append(f"session_status_{session_status or 'unknown'}")
+    if not rows:
+        blockers.append("no_session_messages")
+    backend_sample_count = count_backend_latency_samples(metrics)
+    if backend_sample_count <= 0:
+        blockers.append("backend_metrics_sample_count_zero")
+    if provider_streaming_limitation:
+        blockers.append("provider_streaming_limitation")
+    if live_streaming_false:
+        blockers.append("live_streaming_false")
+
+    return {
+        "session_status": session_status,
+        "session_message_count": len(rows),
+        "backend_metrics_sample_count": backend_sample_count,
+        "active_stream_evidence": not blockers,
+        "active_stream_blockers": blockers,
+        "provider_streaming_limitation": provider_streaming_limitation,
+        "live_streaming_false": live_streaming_false,
+    }
 
 
 def start_emulator(port: int, session_id: str, log_path: pathlib.Path) -> tuple[subprocess.Popen, str, str]:
@@ -310,8 +397,13 @@ def main() -> int:
     args = parse_args()
     out_dir = (ROOT / args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / "tui_mouse_latency_pty_report.json"
-    manifest_path = out_dir / "tui_mouse_latency_pty_manifest.json"
+    live_mode = args.live_clio or args.require_active_stream
+    if live_mode and not args.backend.strip():
+        raise SystemExit("--live-clio/--require-active-stream requires --backend pointing at an owned CLIO instance")
+    report_name = args.report_name or ("live_clio_tui_mouse_latency_report.json" if live_mode else "tui_mouse_latency_pty_report.json")
+    manifest_name = args.manifest_name or ("live_clio_tui_mouse_latency_manifest.json" if live_mode else "tui_mouse_latency_pty_manifest.json")
+    report_path = out_dir / report_name
+    manifest_path = out_dir / manifest_name
     ansi_path = out_dir / "tui_mouse_latency_pty_output.ansi"
     emulator_log = pathlib.Path(tempfile.gettempdir()) / "gact-tui-mouse-latency-emulator.log"
 
@@ -363,6 +455,7 @@ def main() -> int:
                 emulator_proc.kill()
 
     summary = validate_report(report_path)
+    live_fields = active_stream_manifest_fields(backend, session_id) if live_mode else {}
     manifest = {
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "captured_from_owned_backend": bool(args.backend),
@@ -374,9 +467,22 @@ def main() -> int:
         "ansi_output": str(ansi_path.relative_to(ROOT)) if args.keep_ansi else "",
         "mouse_event_source": "pty_sgr_mouse_sequences",
         "vhs_mouse_limitation": "VHS command set cannot script mouse primitives; this harness sends terminal mouse escape sequences directly.",
+        "live_clio_capture": live_mode,
+        "require_active_stream": args.require_active_stream,
+        "tui_latency_sample_count": int(summary.get("sample_count") or 0),
+        "live_click_section_evidence": True,
         **summary,
+        **live_fields,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if args.require_active_stream and not manifest.get("active_stream_evidence"):
+        blockers = manifest.get("active_stream_blockers")
+        if not isinstance(blockers, list):
+            blockers = ["unknown_active_stream_blocker"]
+        raise SystemExit(
+            "active live CLIO mouse latency capture did not satisfy strict evidence: "
+            + ", ".join(str(blocker) for blocker in blockers)
+        )
     print(json.dumps(manifest, indent=2))
     return 0
 

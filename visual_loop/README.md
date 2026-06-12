@@ -88,6 +88,23 @@ input surfaces, plus wheel latency for the conversation surface. The manifest
 also preserves target labels and per-section p95/max latency summaries generated
 from terminal SGR mouse escape sequences.
 
+For the strict live #160 gate, run the same PTY path against an owned real CLIO
+backend while the target session is still running:
+
+```bash
+GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1 \
+  visual_loop/capture_tui_mouse_latency_pty.py \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <RUNNING_SESSION_ID> \
+  --live-clio \
+  --require-active-stream
+```
+
+Live mode writes `live_clio_tui_mouse_latency_manifest.json` and
+`live_clio_tui_mouse_latency_report.json`. The command fails if the session is
+idle, backend latency metrics have no samples, provider streaming has fallen
+back to non-live mode, or the TUI report lacks named click sections.
+
 Refresh the TUI latency readiness report after changing latency instrumentation
 or evidence:
 
