@@ -18,12 +18,12 @@
 ## Missing: Active CLIO - active long live-stream latency capture
 - False manifest keys: `active_stream_evidence`
 - Non-positive counters: `backend_metrics_sample_count`
-- Active-stream blockers: `session_status_idle`, `backend_metrics_sample_count_zero`, `provider_streaming_limitation`, `live_streaming_false`
+- Active-stream blockers: `session_status_idle`, `backend_metrics_sample_count_zero`
 
 ## Missing: Active CLIO mouse - active live-stream click/wheel latency capture
 - False manifest keys: `active_stream_evidence`
 - Non-positive counters: `backend_metrics_sample_count`
-- Active-stream blockers: `session_status_idle`, `backend_metrics_sample_count_zero`, `provider_streaming_limitation`, `live_streaming_false`
+- Active-stream blockers: `session_status_idle`, `backend_metrics_sample_count_zero`
 
 ## Maintained Latency Budgets
 
