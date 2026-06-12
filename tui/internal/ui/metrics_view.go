@@ -118,6 +118,7 @@ func (a *App) viewMetrics() string {
 			detailField{"messages", fmt.Sprintf("%d total", m.Messages.Total)},
 			detailField{"tokens", fmt.Sprintf("%d input · %d output", m.Tokens.InputTotal, m.Tokens.OutputTotal)},
 			detailField{"cost", fmt.Sprintf("$%.4f", m.Cost.TotalUSD)},
+			detailField{"slowest TUI surface", a.metricsSlowestTUIInteractionText()},
 			detailField{"slowest operation", metricsSlowestRouteText(m.Latencies)},
 		)
 		rows = appendDetailSection(rows, "Activity",
@@ -150,6 +151,28 @@ func (a *App) viewMetrics() string {
 			costFields = append(costFields, detailField{name, fmt.Sprintf("$%.4f", m.Cost.ByProvider[name])})
 		}
 		rows = appendDetailSection(rows, "Spend by provider", costFields...)
+
+		if summaries := a.tuiInteractionSummaries(6); len(summaries) > 0 {
+			tuiFields := make([]detailField, 0, len(summaries))
+			tuiSectionStart := len(rows)
+			for i, summary := range summaries {
+				st := summary
+				rowHits = append(rowHits, modalRowHit{
+					id:     "metrics:tui-latency:" + st.Key,
+					start:  metricsFieldRowStart(tuiSectionStart) + i,
+					height: 1,
+					action: func(app *App) tea.Cmd {
+						app.openMetricsTUILatencyDetail(st)
+						return nil
+					},
+				})
+				tuiFields = append(tuiFields, detailField{
+					truncate(st.Surface+" "+st.Kind, 32),
+					tuiInteractionOperatorText(st),
+				})
+			}
+			rows = appendDetailSection(rows, "TUI interaction latency", tuiFields...)
+		}
 
 		// Latencies — show top 6 routes by p95 so the modal stays compact.
 		// Backends running an older contract might omit this field; render
@@ -277,6 +300,43 @@ func (a *App) openMetricsLatencyDetail(route string, stat gact.MetricsLatencySta
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+}
+
+func (a *App) openMetricsTUILatencyDetail(stat tuiInteractionSummary) {
+	rows := appendDetailSection(nil, "TUI interaction latency",
+		detailField{"surface", stat.Surface},
+		detailField{"input", stat.Kind},
+		detailField{"samples", fmt.Sprintf("%d", stat.Count)},
+		detailField{"total p50", formatTUIDuration(stat.TotalP50)},
+		detailField{"total p95", formatTUIDuration(stat.TotalP95)},
+		detailField{"total max", formatTUIDuration(stat.TotalMax)},
+		detailField{"update p50", formatTUIDuration(stat.UpdateP50)},
+		detailField{"update p95", formatTUIDuration(stat.UpdateP95)},
+		detailField{"render p50", formatTUIDuration(stat.RenderP50)},
+		detailField{"render p95", formatTUIDuration(stat.RenderP95)},
+	)
+	if stat.Target != "" {
+		rows = appendDetailSection(rows, "Evidence",
+			detailField{"last hit target", stat.Target},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "metrics",
+		partID:    "tui-latency:" + stat.Key,
+		title:     "TUI latency · " + stat.Surface,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) metricsSlowestTUIInteractionText() string {
+	summaries := a.tuiInteractionSummaries(1)
+	if len(summaries) == 0 {
+		return "no TUI interaction samples"
+	}
+	st := summaries[0]
+	return st.Surface + " " + st.Kind + " · " + tuiInteractionOperatorText(st)
 }
 
 func sortedKeys(m map[string]int) []string {
