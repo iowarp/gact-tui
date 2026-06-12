@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-12T14:08:12.004579238Z",
+  "generated_at": "2026-06-12T14:40:04.313358643Z",
   "backend": "http://127.0.0.1:41932",
   "session_id": "ses_seed_ws_default_1",
   "window_width": 140,
@@ -9,21 +9,90 @@
   "sample_count": 10,
   "surface_count": 9,
   "slowest": {
-    "key": "header:click:header:chip:status",
-    "surface": "header",
-    "kind": "click",
-    "target_label": "header chip status",
-    "last_hit_target": "header:chip:status",
-    "count": 1,
-    "update_p50_ms": 0.009573,
-    "update_p95_ms": 0.009573,
-    "render_p50_ms": 4.519794,
-    "render_p95_ms": 4.519794,
-    "total_p50_ms": 4.53072,
-    "total_p95_ms": 4.53072,
-    "total_max_ms": 4.53072
+    "key": "conversation:key",
+    "surface": "conversation",
+    "kind": "key",
+    "count": 2,
+    "update_p50_ms": 0.003149,
+    "update_p95_ms": 0.010584,
+    "render_p50_ms": 3.757458,
+    "render_p95_ms": 5.225777,
+    "total_p50_ms": 3.770314,
+    "total_p95_ms": 5.231151,
+    "total_max_ms": 5.231151
   },
+  "sections": [
+    {
+      "surface": "conversation",
+      "sample_count": 5,
+      "click_count": 2,
+      "wheel_count": 1,
+      "key_count": 2,
+      "target_labels": [
+        "conversation scroll area",
+        "conversation surface"
+      ],
+      "slowest_p95_ms": 5.231151,
+      "slowest_max_ms": 5.231151,
+      "slowest_render_p95_ms": 5.225777
+    },
+    {
+      "surface": "header",
+      "sample_count": 1,
+      "click_count": 1,
+      "target_labels": [
+        "header chip status"
+      ],
+      "slowest_p95_ms": 4.911385,
+      "slowest_max_ms": 4.911385,
+      "slowest_render_p95_ms": 4.888302
+    },
+    {
+      "surface": "input",
+      "sample_count": 2,
+      "click_count": 1,
+      "key_count": 1,
+      "target_labels": [
+        "input surface"
+      ],
+      "slowest_p95_ms": 3.033803,
+      "slowest_max_ms": 3.033803,
+      "slowest_render_p95_ms": 3.017655
+    },
+    {
+      "surface": "doctor",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 2.880398,
+      "slowest_max_ms": 2.880398,
+      "slowest_render_p95_ms": 2.874552
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 1,
+      "click_count": 1,
+      "target_labels": [
+        "session row"
+      ],
+      "slowest_p95_ms": 2.532844,
+      "slowest_max_ms": 2.532844,
+      "slowest_render_p95_ms": 2.502663
+    }
+  ],
   "interactions": [
+    {
+      "key": "conversation:key",
+      "surface": "conversation",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.003149,
+      "update_p95_ms": 0.010584,
+      "render_p50_ms": 3.757458,
+      "render_p95_ms": 5.225777,
+      "total_p50_ms": 3.770314,
+      "total_p95_ms": 5.231151,
+      "total_max_ms": 5.231151
+    },
     {
       "key": "header:click:header:chip:status",
       "surface": "header",
@@ -31,26 +100,27 @@
       "target_label": "header chip status",
       "last_hit_target": "header:chip:status",
       "count": 1,
-      "update_p50_ms": 0.009573,
-      "update_p95_ms": 0.009573,
-      "render_p50_ms": 4.519794,
-      "render_p95_ms": 4.519794,
-      "total_p50_ms": 4.53072,
-      "total_p95_ms": 4.53072,
-      "total_max_ms": 4.53072
+      "update_p50_ms": 0.020638,
+      "update_p95_ms": 0.020638,
+      "render_p50_ms": 4.888302,
+      "render_p95_ms": 4.888302,
+      "total_p50_ms": 4.911385,
+      "total_p95_ms": 4.911385,
+      "total_max_ms": 4.911385
     },
     {
-      "key": "doctor:key",
-      "surface": "doctor",
-      "kind": "key",
+      "key": "conversation:click",
+      "surface": "conversation",
+      "kind": "click",
+      "target_label": "conversation surface",
       "count": 1,
-      "update_p50_ms": 0.00376,
-      "update_p95_ms": 0.00376,
-      "render_p50_ms": 3.764414,
-      "render_p95_ms": 3.764414,
-      "total_p50_ms": 3.770573,
-      "total_p95_ms": 3.770573,
-      "total_max_ms": 3.770573
+      "update_p50_ms": 0.021879,
+      "update_p95_ms": 0.021879,
+      "render_p50_ms": 3.348741,
+      "render_p95_ms": 3.348741,
+      "total_p50_ms": 3.374174,
+      "total_p95_ms": 3.374174,
+      "total_max_ms": 3.374174
     },
     {
       "key": "conversation:wheel down:conversation:body:wheel",
@@ -59,80 +129,53 @@
       "target_label": "conversation scroll area",
       "last_hit_target": "conversation:body:wheel",
       "count": 1,
-      "update_p50_ms": 0.012998,
-      "update_p95_ms": 0.012998,
-      "render_p50_ms": 3.374572,
-      "render_p95_ms": 3.374572,
-      "total_p50_ms": 3.389491,
-      "total_p95_ms": 3.389491,
-      "total_max_ms": 3.389491
-    },
-    {
-      "key": "conversation:click",
-      "surface": "conversation",
-      "kind": "click",
-      "count": 1,
-      "update_p50_ms": 0.00585,
-      "update_p95_ms": 0.00585,
-      "render_p50_ms": 3.148801,
-      "render_p95_ms": 3.148801,
-      "total_p50_ms": 3.157198,
-      "total_p95_ms": 3.157198,
-      "total_max_ms": 3.157198
-    },
-    {
-      "key": "conversation:key",
-      "surface": "conversation",
-      "kind": "key",
-      "count": 2,
-      "update_p50_ms": 0.002351,
-      "update_p95_ms": 0.02956,
-      "render_p50_ms": 2.438573,
-      "render_p95_ms": 2.901461,
-      "total_p50_ms": 2.47054,
-      "total_p95_ms": 2.905595,
-      "total_max_ms": 2.905595
+      "update_p50_ms": 0.012221,
+      "update_p95_ms": 0.012221,
+      "render_p50_ms": 3.166785,
+      "render_p95_ms": 3.166785,
+      "total_p50_ms": 3.209668,
+      "total_p95_ms": 3.209668,
+      "total_max_ms": 3.209668
     },
     {
       "key": "input:click",
       "surface": "input",
       "kind": "click",
+      "target_label": "input surface",
       "count": 1,
-      "update_p50_ms": 0.006196,
-      "update_p95_ms": 0.006196,
-      "render_p50_ms": 2.528435,
-      "render_p95_ms": 2.528435,
-      "total_p50_ms": 2.55819,
-      "total_p95_ms": 2.55819,
-      "total_max_ms": 2.55819
+      "update_p50_ms": 0.006875,
+      "update_p95_ms": 0.006875,
+      "render_p50_ms": 3.017655,
+      "render_p95_ms": 3.017655,
+      "total_p50_ms": 3.033803,
+      "total_p95_ms": 3.033803,
+      "total_max_ms": 3.033803
+    },
+    {
+      "key": "doctor:key",
+      "surface": "doctor",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.003014,
+      "update_p95_ms": 0.003014,
+      "render_p50_ms": 2.874552,
+      "render_p95_ms": 2.874552,
+      "total_p50_ms": 2.880398,
+      "total_p95_ms": 2.880398,
+      "total_max_ms": 2.880398
     },
     {
       "key": "input:key",
       "surface": "input",
       "kind": "key",
       "count": 1,
-      "update_p50_ms": 0.104195,
-      "update_p95_ms": 0.104195,
-      "render_p50_ms": 2.209815,
-      "render_p95_ms": 2.209815,
-      "total_p50_ms": 2.348403,
-      "total_p95_ms": 2.348403,
-      "total_max_ms": 2.348403
-    },
-    {
-      "key": "left sidebar:click:sidebar:session:ses_seed_ws_default_1",
-      "surface": "left sidebar",
-      "kind": "click",
-      "target_label": "session row",
-      "last_hit_target": "sidebar:session:ses_seed_ws_default_1",
-      "count": 1,
-      "update_p50_ms": 0.007399,
-      "update_p95_ms": 0.007399,
-      "render_p50_ms": 2.261851,
-      "render_p95_ms": 2.261851,
-      "total_p50_ms": 2.271471,
-      "total_p95_ms": 2.271471,
-      "total_max_ms": 2.271471
+      "update_p50_ms": 0.115368,
+      "update_p95_ms": 0.115368,
+      "render_p50_ms": 2.704928,
+      "render_p95_ms": 2.704928,
+      "total_p50_ms": 2.848743,
+      "total_p95_ms": 2.848743,
+      "total_max_ms": 2.848743
     },
     {
       "key": "conversation:click:conversation:body:wheel",
@@ -141,13 +184,28 @@
       "target_label": "conversation scroll area",
       "last_hit_target": "conversation:body:wheel",
       "count": 1,
-      "update_p50_ms": 0.004833,
-      "update_p95_ms": 0.004833,
-      "render_p50_ms": 2.110873,
-      "render_p95_ms": 2.110873,
-      "total_p50_ms": 2.117572,
-      "total_p95_ms": 2.117572,
-      "total_max_ms": 2.117572
+      "update_p50_ms": 0.008098,
+      "update_p95_ms": 0.008098,
+      "render_p50_ms": 2.619443,
+      "render_p95_ms": 2.619443,
+      "total_p50_ms": 2.651683,
+      "total_p95_ms": 2.651683,
+      "total_max_ms": 2.651683
+    },
+    {
+      "key": "left sidebar:click:sidebar:session:ses_seed_ws_default_1",
+      "surface": "left sidebar",
+      "kind": "click",
+      "target_label": "session row",
+      "last_hit_target": "sidebar:session:ses_seed_ws_default_1",
+      "count": 1,
+      "update_p50_ms": 0.006982,
+      "update_p95_ms": 0.006982,
+      "render_p50_ms": 2.502663,
+      "render_p95_ms": 2.502663,
+      "total_p50_ms": 2.532844,
+      "total_p95_ms": 2.532844,
+      "total_max_ms": 2.532844
     }
   ],
   "supported_by": {

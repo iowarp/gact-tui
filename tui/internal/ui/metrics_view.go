@@ -152,10 +152,35 @@ func (a *App) viewMetrics() string {
 		}
 		rows = appendDetailSection(rows, "Spend by provider", costFields...)
 
-		if summaries := a.tuiInteractionSummaries(6); len(summaries) > 0 {
-			tuiFields := make([]detailField, 0, len(summaries))
+		if summaries := a.tuiInteractionSummaries(0); len(summaries) > 0 {
+			sections := tuiInteractionLatencySections(summaries)
+			sectionFields := make([]detailField, 0, len(sections))
+			sectionStart := len(rows)
+			for i, section := range sections {
+				st := section
+				rowHits = append(rowHits, modalRowHit{
+					id:     "metrics:tui-section-latency:" + st.Surface,
+					start:  metricsFieldRowStart(sectionStart) + i,
+					height: 1,
+					action: func(app *App) tea.Cmd {
+						app.openMetricsTUILatencySectionDetail(st)
+						return nil
+					},
+				})
+				sectionFields = append(sectionFields, detailField{
+					truncate(tuiInteractionSectionDisplayTitle(st), 32),
+					tuiInteractionSectionOperatorText(st),
+				})
+			}
+			rows = appendDetailSection(rows, "TUI latency by section", sectionFields...)
+
+			detailSummaries := summaries
+			if len(detailSummaries) > 6 {
+				detailSummaries = detailSummaries[:6]
+			}
+			tuiFields := make([]detailField, 0, len(detailSummaries))
 			tuiSectionStart := len(rows)
-			for i, summary := range summaries {
+			for i, summary := range detailSummaries {
 				st := summary
 				rowHits = append(rowHits, modalRowHit{
 					id:     "metrics:tui-latency:" + st.Key,
@@ -171,7 +196,7 @@ func (a *App) viewMetrics() string {
 					tuiInteractionOperatorText(st),
 				})
 			}
-			rows = appendDetailSection(rows, "TUI interaction latency", tuiFields...)
+			rows = appendDetailSection(rows, "TUI interaction details", tuiFields...)
 		}
 
 		// Latencies — show top 6 routes by p95 so the modal stays compact.
@@ -329,6 +354,32 @@ func (a *App) openMetricsTUILatencyDetail(stat tuiInteractionSummary) {
 		messageID: "metrics",
 		partID:    "tui-latency:" + stat.Key,
 		title:     "TUI latency · " + stat.Surface,
+		fullText:  strings.Join(rows, "\n"),
+	}
+	a.detailViewOpen = true
+	a.detailScroll = 0
+}
+
+func (a *App) openMetricsTUILatencySectionDetail(stat tuiInteractionLatencySection) {
+	rows := appendDetailSection(nil, "TUI latency by section",
+		detailField{"surface", stat.Surface},
+		detailField{"samples", fmt.Sprintf("%d", stat.SampleCount)},
+		detailField{"clicks", fmt.Sprintf("%d", stat.ClickCount)},
+		detailField{"wheels", fmt.Sprintf("%d", stat.WheelCount)},
+		detailField{"keys", fmt.Sprintf("%d", stat.KeyCount)},
+		detailField{"slowest p95", formatTUIDuration(time.Duration(stat.SlowestP95MS * float64(time.Millisecond)))},
+		detailField{"slowest max", formatTUIDuration(time.Duration(stat.SlowestMaxMS * float64(time.Millisecond)))},
+		detailField{"slowest render", formatTUIDuration(time.Duration(stat.SlowestRender * float64(time.Millisecond)))},
+	)
+	if len(stat.TargetLabels) > 0 {
+		rows = appendDetailSection(rows, "Targets",
+			detailField{"labels", strings.Join(stat.TargetLabels, ", ")},
+		)
+	}
+	a.detailView = &bulkyPartRef{
+		messageID: "metrics",
+		partID:    "tui-section-latency:" + stat.Surface,
+		title:     "TUI section latency · " + stat.Surface,
 		fullText:  strings.Join(rows, "\n"),
 	}
 	a.detailViewOpen = true

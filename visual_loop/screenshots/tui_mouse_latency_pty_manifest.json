@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-06-12T14:08:12Z",
+  "captured_at": "2026-06-12T14:40:04Z",
   "captured_from_owned_backend": false,
   "backend": "http://127.0.0.1:41932",
   "session_id": "ses_seed_ws_default_1",
@@ -11,6 +11,77 @@
   "vhs_mouse_limitation": "VHS command set cannot script mouse primitives; this harness sends terminal mouse escape sequences directly.",
   "sample_count": 10,
   "surface_count": 9,
+  "click_section_count": 4,
+  "click_sections": [
+    "conversation",
+    "header",
+    "input",
+    "left sidebar"
+  ],
+  "wheel_sections": [
+    "conversation"
+  ],
+  "section_latency_summary": [
+    {
+      "surface": "conversation",
+      "sample_count": 5,
+      "click_count": 2,
+      "wheel_count": 1,
+      "key_count": 2,
+      "slowest_p95_ms": 5.231151,
+      "slowest_max_ms": 5.231151,
+      "target_labels": [
+        "conversation scroll area",
+        "conversation surface"
+      ]
+    },
+    {
+      "surface": "header",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 4.911385,
+      "slowest_max_ms": 4.911385,
+      "target_labels": [
+        "header chip status"
+      ]
+    },
+    {
+      "surface": "input",
+      "sample_count": 2,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 3.033803,
+      "slowest_max_ms": 3.033803,
+      "target_labels": [
+        "input surface"
+      ]
+    },
+    {
+      "surface": "doctor",
+      "sample_count": 1,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 2.880398,
+      "slowest_max_ms": 2.880398,
+      "target_labels": []
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 2.532844,
+      "slowest_max_ms": 2.532844,
+      "target_labels": [
+        "session row"
+      ]
+    }
+  ],
   "click_target_count": 3,
   "click_targets": [
     "conversation:body:wheel",
@@ -19,7 +90,9 @@
   ],
   "click_target_labels": [
     "conversation scroll area",
+    "conversation surface",
     "header chip status",
+    "input surface",
     "session row"
   ],
   "wheel_rows": [

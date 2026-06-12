@@ -53,11 +53,14 @@ EVIDENCE: tuple[Evidence, ...] = (
         required_manifest_keys=(
             "mouse_event_source",
             "tui_latency_report",
+            "click_sections",
+            "wheel_sections",
+            "section_latency_summary",
             "click_targets",
             "click_target_labels",
             "wheel_rows",
         ),
-        required_manifest_positive_ints=("sample_count", "surface_count", "click_target_count"),
+        required_manifest_positive_ints=("sample_count", "surface_count", "click_section_count", "click_target_count"),
     ),
     Evidence(
         area="Owned CLIO",
