@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -863,7 +864,19 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 		"provider_id", "model_id", "model", "source")
 	rows = appendSemanticEventMapSection(rows, "Tool evidence", mapValue(event["payload"]),
 		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "args_preview", "args", "input_preview", "input", "error", "message", "path", "artifact_type")
+	if semanticRawEventDetailEnabled() {
+		rows = appendAnyJSONSection(rows, "Raw semantic event", event)
+	}
 	return rows
+}
+
+func semanticRawEventDetailEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GACT_SEMANTIC_RAW_EVENT_DETAIL"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func appendSemanticEventOperatorView(rows []string, event map[string]any) []string {

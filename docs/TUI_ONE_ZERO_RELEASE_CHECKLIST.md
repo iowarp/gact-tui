@@ -71,6 +71,10 @@ Acceptance:
 - `gact diag` reports `path_gact_status: matches running binary` and
   `clio_gact_status: matches running binary`; any stale path blocks the demo
   candidate.
+- Raw semantic event JSON stays hidden in normal transcript/detail views. For
+  developer debugging, set `GACT_SEMANTIC_RAW_EVENT_DETAIL=1` before launching
+  `gact` to append the full raw event JSON at the bottom of semantic detail
+  panes.
 - Any dirty state is explained in the verification notes. Untracked or modified
   visual artifacts must not be mistaken for release-candidate source changes.
 

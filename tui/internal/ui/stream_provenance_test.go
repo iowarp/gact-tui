@@ -1397,6 +1397,47 @@ func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 	}
 }
 
+func TestSemanticEventDetailCanExposeRawEventBehindDebugFlag(t *testing.T) {
+	t.Setenv("GACT_SEMANTIC_RAW_EVENT_DETAIL", "1")
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_delegate_raw",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "blueprint.delegation.completed",
+			"status":         "completed",
+			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /workspace/tmp/earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"actor":          map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200.0,
+			},
+		}},
+	})
+
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"result: analysis returned evidence to main · next: visualization - plot SAC traces",
+		"Raw semantic event:",
+		`"event_type": "blueprint.delegation.completed"`,
+		"NEXT_EXPERT: visualization",
+		"DO_NOT_FINALIZE_BEFORE_VISUALIZATION",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("debug semantic detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
 func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
