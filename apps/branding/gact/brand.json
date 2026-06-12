@@ -1,0 +1,11 @@
+{
+  "name": "GACT",
+  "wordmark": "GACT",
+  "tagline": "Generic agentic-coder desktop",
+  "markGlyph": "G",
+  "logoSvg": "logo.svg",
+  "accent": "#5b8def",
+  "themeTokens": {
+    "--color-accent": "#5b8def"
+  }
+}

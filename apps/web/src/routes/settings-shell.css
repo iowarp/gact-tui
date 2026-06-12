@@ -58,7 +58,8 @@
 
 .settings-shell__nav {
   border-right: 1px solid var(--color-border-30);
-  background: var(--color-bg);
+  /* Surface token (not page bg) so the nav follows the light palette. */
+  background: var(--color-surface);
   padding: 20px 12px;
   overflow-y: auto;
   display: flex;
@@ -97,10 +98,27 @@
   color: var(--color-heading);
 }
 
+/* A clicked-but-no-longer-hovered nav item used to keep the gray hover fill
+   via the retained :focus state, reading like a second active item. Drop the
+   fill on keyboard focus and show only a focus ring; pointer focus shows
+   nothing (the active cyan state is the single source of "selected"). */
+.settings-shell__nav-btn:focus {
+  outline: none;
+}
+.settings-shell__nav-btn:focus:not(:hover):not(.is-active) {
+  background: transparent;
+  color: var(--color-text);
+}
+.settings-shell__nav-btn:focus-visible {
+  outline: 2px solid var(--color-accent-cyan-30);
+  outline-offset: -1px;
+}
+
+/* Selected nav item → the single warm accent. */
 .settings-shell__nav-btn.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent);
-  color: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan-30);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
+  border-color: var(--color-select-border);
 }
 
 .settings-shell__content {
@@ -174,12 +192,13 @@
 }
 
 .settings-shell__choice:hover {
-  border-color: var(--color-accent-cyan);
+  border-color: var(--color-border-60);
 }
 
+/* Selected segmented choice → the single warm accent. */
 .settings-shell__choice.is-active {
-  border-color: var(--color-accent-cyan);
-  background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+  border-color: var(--color-select-border);
+  background: var(--color-select-bg);
 }
 
 .settings-shell__choice-label {
@@ -231,7 +250,7 @@
   margin-top: 2px;
   width: 16px;
   height: 16px;
-  accent-color: var(--color-accent-cyan);
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 

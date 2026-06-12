@@ -228,14 +228,17 @@ func TestRenderPart_ToolResultErrorTag(t *testing.T) {
 func TestRenderPart_ThinkingUsesContinuationGlyph(t *testing.T) {
 	theme := DefaultTheme()
 	p := gact.Part{
-		Type: gact.PartTypeThinking, Thinking: "considering options",
+		Type: gact.PartTypeThinking, Thinking: "considering options\nchecking evidence",
 	}
 	got := theme.renderPart(p, 40)
 	plain := ansi.Strip(got)
-	if !strings.Contains(plain, "⎿ planning") {
-		t.Errorf("planning header missing continuation glyph: %q", plain)
+	if !strings.Contains(plain, "⎿ thinking available") {
+		t.Errorf("thinking marker missing continuation glyph: %q", plain)
 	}
-	if !strings.Contains(plain, "considering options") {
-		t.Errorf("thinking body lost: %q", plain)
+	if !strings.Contains(plain, "2 lines") || !strings.Contains(plain, "Ctrl+E") {
+		t.Errorf("thinking marker should advertise expandable detail: %q", plain)
+	}
+	if strings.Contains(plain, "considering options") || strings.Contains(plain, "checking evidence") {
+		t.Errorf("thinking body should be hidden inline: %q", plain)
 	}
 }

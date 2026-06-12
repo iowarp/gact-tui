@@ -19,7 +19,7 @@
   border-radius: 12px;
   padding: 10px 12px;
   color: var(--color-heading);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   animation: toast-in 180ms ease-out both;
   pointer-events: auto;
 }
@@ -70,8 +70,8 @@
   margin-top: 6px;
   align-self: flex-start;
   background: transparent;
-  border: 1px solid var(--color-accent-cyan);
-  color: var(--color-accent-cyan);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
   border-radius: 8px;
   padding: 4px 10px;
   font-family: var(--font-mono);
@@ -84,7 +84,7 @@
 }
 
 .toast__action:hover {
-  background: var(--color-accent-cyan-10);
+  background: var(--color-accent-warm-12);
 }
 
 .toast--error .toast__action {

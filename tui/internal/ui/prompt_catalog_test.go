@@ -464,7 +464,7 @@ func TestPaletteCategoryDrilldownUsesCommandTiles(t *testing.T) {
 		"Runtime area - tools, MCP, prompts",
 		"┌─ ▌ /tools",
 		"Browse actions and MCP",
-		"Enter open Actions and MCP",
+		"Enter open Tools & MCP",
 		"┌─ /prompts",
 		"Browse prompt profiles",
 		"Enter open Prompts",
@@ -597,7 +597,7 @@ func TestPaletteOverviewUsesBrowseHint(t *testing.T) {
 
 	a.paletteGroup = "Runtime"
 	out = ansi.Strip(a.viewPalette())
-	if !strings.Contains(out, "Enter open Actions and MCP") {
+	if !strings.Contains(out, "Enter open Tools & MCP") {
 		t.Fatalf("catalog command should describe opening the catalog:\n%s", out)
 	}
 	if strings.Contains(out, "Enter run  Esc close") {
@@ -617,7 +617,7 @@ func TestPaletteFooterDescribesSelectedCommandAction(t *testing.T) {
 	a.paletteFilter = "tools"
 
 	out := ansi.Strip(a.viewPalette())
-	if !strings.Contains(out, "Enter open Actions and MCP") {
+	if !strings.Contains(out, "Enter open Tools & MCP") {
 		t.Fatalf("/tools footer should describe catalog open:\n%s", out)
 	}
 
@@ -704,9 +704,17 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 		}
 	}
 
+	a.openAgentBlueprintManage(agentBlueprintManageSource)
+	sourceView := ansi.Strip(a.viewAgentBlueprintManage())
+	for _, want := range []string{"Add marketplace source", "add source", "git URL", "CLIO stores", "refreshes"} {
+		if !strings.Contains(sourceView, want) {
+			t.Fatalf("source modal missing %q:\n%s", want, sourceView)
+		}
+	}
+
 	_, _ = a.handleAgentBlueprintManageKey(keyMsg("enter"))
 	if !strings.Contains(a.agentBlueprintManageErr, "required") {
-		t.Fatalf("empty validate submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
+		t.Fatalf("empty source submit should surface a truthful error, got %q", a.agentBlueprintManageErr)
 	}
 }
 
@@ -913,7 +921,12 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 		items: items,
 	}
 	hint := catalogBrowserHintText(a.catalogBrowser)
-	if !strings.Contains(hint, "/agent-blueprints activate workflow") || strings.Contains(hint, "Enter prompt profiles") {
+	for _, want := range []string{"open /agent-blueprints", "activate workflow", "reopen /prompts"} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("empty prompt hint missing %q, got %q", want, hint)
+		}
+	}
+	if strings.Contains(hint, "/agent-blueprints activate workflow") || strings.Contains(hint, "Enter prompt profiles") {
 		t.Fatalf("empty prompt hint should route operators to activation path, got %q", hint)
 	}
 	_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
@@ -924,6 +937,126 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 	_, cmd = a.handleCatalogBrowserKey(keyMsg("enter"))
 	if cmd != nil {
 		t.Fatal("enter on prompt empty-state checklist row should not dispatch detail load")
+	}
+}
+
+func TestCatalogEmptyStatesRenderAsGuidanceBlocks(t *testing.T) {
+	tests := []struct {
+		name string
+		kind catalogBrowserKind
+		rows []catalogItem
+		want string
+	}{
+		{
+			name: "prompts",
+			kind: catalogKindPrompts,
+			rows: promptCatalogItems(nil, client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"}),
+			want: "Activate workflow",
+		},
+		{
+			name: "skills",
+			kind: catalogKindSkills,
+			rows: []catalogItem{{
+				id:         "none",
+				title:      "No skills available",
+				desc:       "Install or activate an agent blueprint that includes skills, then reopen this view.",
+				inlineDesc: "install or activate workflow skills",
+				statusTag:  "empty",
+			}},
+			want: "No skills available",
+		},
+		{
+			name: "expert packs",
+			kind: catalogKindExpertPacks,
+			rows: expertPackCatalogItems(nil),
+			want: "Next: Install workflow pack",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newReadyApp(nil, nil)
+			a.width = 120
+			a.height = 36
+			a.catalogBrowserOpen = true
+			a.catalogBrowser = &catalogBrowserState{
+				kind:  tc.kind,
+				title: catalogBrowserTitle(tc.kind),
+				items: tc.rows,
+			}
+
+			out := ansi.Strip(a.viewCatalogBrowser())
+			if !strings.Contains(out, tc.want) {
+				t.Fatalf("empty guidance missing %q:\n%s", tc.want, out)
+			}
+			if strings.Contains(out, "▌") {
+				t.Fatalf("empty guidance should not render selected-list cursor:\n%s", out)
+			}
+			if !strings.Contains(out, "Esc close") {
+				t.Fatalf("empty guidance footer should remain actionable:\n%s", out)
+			}
+		})
+	}
+}
+
+func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.wsID = "ws_demo"
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "DemoBench"}}
+	a.sessions = []gact.Session{{
+		ID:    "s1",
+		Title: "San Diego review",
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "seismic-waveform-review",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindPrompts,
+		title: "Prompts",
+		items: promptCatalogItems([]gact.PromptDefinition{{
+			ID: "clio.main.planner", Title: "Main planner", Scope: "agent_blueprint",
+		}}, a.runtimeScope()),
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{
+		"Context:",
+		"workspace DemoBench",
+		"session San Diego review",
+		"workflow seismic-waveform-review",
+		"(session)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prompt catalog context missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCatalogBrowserContextLineExplainsMissingSessionAndWorkflow(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.wsID = "ws_demo"
+	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "DemoBench"}}
+	a.selected = -1
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindExpertPacks,
+		title: "Expert Packs",
+		items: expertPackCatalogItems(nil),
+	}
+
+	out := ansi.Strip(a.viewCatalogBrowser())
+	for _, want := range []string{
+		"Context:",
+		"workspace DemoBench",
+		"session no session selected",
+		"workflow no active workflow",
+		"blueprint",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expert-pack catalog context missing %q:\n%s", want, out)
+		}
 	}
 }
 
@@ -999,7 +1132,12 @@ func TestSkillsCatalogEmptyStateExplainsInstallPath(t *testing.T) {
 		t.Fatalf("skills intro should point to install path, got %q", intro)
 	}
 	emptyHint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindSkills, items: msg.items})
-	if !strings.Contains(emptyHint, "/agent-blueprints add skills") || strings.Contains(emptyHint, "Enter details") {
+	for _, want := range []string{"open /agent-blueprints", "install workflow with skills"} {
+		if !strings.Contains(emptyHint, want) {
+			t.Fatalf("empty skills hint missing %q, got %q", want, emptyHint)
+		}
+	}
+	if strings.Contains(emptyHint, "/agent-blueprints add skills") || strings.Contains(emptyHint, "Enter details") {
 		t.Fatalf("empty skills hint should route operators to blueprint install path, got %q", emptyHint)
 	}
 	if hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindSkills, items: []catalogItem{{id: "skill", title: "Skill"}}}); !strings.Contains(hint, "Enter details") {
@@ -1206,7 +1344,12 @@ func TestExpertPackCatalogEmptyStateExplainsPurpose(t *testing.T) {
 		items: items,
 	}
 	hint := catalogBrowserHintText(a.catalogBrowser)
-	if !strings.Contains(hint, "/agent-blueprints") || !strings.Contains(hint, "install workflow packs") {
+	for _, want := range []string{"open /agent-blueprints", "install workflow pack", "reopen /expert-packs"} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("empty expert-pack hint missing %q, got %q", want, hint)
+		}
+	}
+	if strings.Contains(hint, "/agent-blueprints install workflow packs") {
 		t.Fatalf("empty expert-pack hint should route operators to installation path, got %q", hint)
 	}
 	_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
@@ -1287,6 +1430,49 @@ func TestExpertPackInstallFailureStaysInModalWithOperatorMessage(t *testing.T) {
 	}
 }
 
+func TestExpertPackManagedLabelUsesLifecycleResultID(t *testing.T) {
+	got := expertPackManagedLabel(expertPackManagedMsg{
+		action: "install",
+		result: map[string]any{
+			"installed": map[string]any{
+				"id":     "data-semantics",
+				"source": "git@example.org:data-semantics.git",
+			},
+		},
+	})
+	if got != "data-semantics" {
+		t.Fatalf("managed label = %q, want installed pack id", got)
+	}
+
+	got = expertPackManagedLabel(expertPackManagedMsg{
+		action: "install",
+		result: map[string]any{
+			"installed": map[string]any{"source": "git@example.org:data-semantics.git"},
+		},
+	})
+	if got != "git@example.org:data-semantics.git" {
+		t.Fatalf("managed label = %q, want installed source fallback", got)
+	}
+}
+
+func TestCatalogBrowserShowsTransientOperationStatus(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.transientHint = "expert pack installed: data-semantics"
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindExpertPacks,
+		title: "Expert Packs",
+		items: []catalogItem{{id: "pack/data-semantics", title: "Data Semantics", statusTag: "workspace"}},
+	}
+
+	out := a.viewCatalogBrowser()
+	if !strings.Contains(out, "Status: expert pack installed: data-semantics") {
+		t.Fatalf("catalog browser should surface transient operation status:\n%s", out)
+	}
+}
+
 func TestSkillsCatalogRowsLeadWithSkillPurpose(t *testing.T) {
 	items := agentCatalogItems([]gact.AgentDef{{
 		ID:          "test_writer",
@@ -1336,6 +1522,44 @@ func TestAgentBlueprintCatalogItemsSurfaceRuntimeMetadata(t *testing.T) {
 		if !strings.Contains(items[1].desc, want) {
 			t.Fatalf("blueprint desc missing %q: %q", want, items[1].desc)
 		}
+	}
+}
+
+func TestAgentBlueprintCatalogRowsOmitRepeatedTitleDescriptions(t *testing.T) {
+	blueprint := gact.AgentBlueprintDefinition{
+		ID: "data-semantics-agents", Title: "Data Semantics Agents.", Description: "Data Semantics Agents",
+		Version: "0.9.0", Scope: "workspace", RootExpert: "main", Enabled: true,
+	}
+	items := agentBlueprintCatalogItems([]gact.AgentBlueprintDefinition{blueprint})
+	if len(items) != 2 {
+		t.Fatalf("items len = %d, want provider and blueprint row: %#v", len(items), items)
+	}
+	row := items[1]
+	if strings.Contains(row.desc, "Data Semantics Agents") {
+		t.Fatalf("blueprint list row should not repeat the title as description:\n%#v", row)
+	}
+	for _, want := range []string{"version: 0.9.0", "root expert: main"} {
+		if !strings.Contains(row.desc, want) {
+			t.Fatalf("blueprint row should keep useful metadata %q:\n%s", want, row.desc)
+		}
+	}
+
+	detailItems := agentBlueprintDetailItems(gact.AgentBlueprintDetail{AgentBlueprint: blueprint})
+	var summary catalogItem
+	for _, item := range detailItems {
+		if item.id == "blueprint/data-semantics-agents" {
+			summary = item
+			break
+		}
+	}
+	if summary.id == "" {
+		t.Fatalf("detail items missing blueprint summary: %#v", detailItems)
+	}
+	if strings.Contains(summary.desc, "\nDescription\n") {
+		t.Fatalf("blueprint detail should omit redundant Description section:\n%s", summary.desc)
+	}
+	if !strings.Contains(summary.desc, "workflow: Data Semantics Agents.") {
+		t.Fatalf("blueprint detail should still identify the workflow by title:\n%s", summary.desc)
 	}
 }
 
@@ -1731,12 +1955,13 @@ func TestExpertPackDetailActionsRenderOutsideStructureRows(t *testing.T) {
 			{id: "expert-pack-action/update", title: "Update pack"},
 			{id: "expert-pack-action/delete", title: "Delete pack"},
 			{id: "pack/data-semantics", title: "Workflow pack · Data Semantics", desc: "Operator summary"},
-			{id: "agent/main", title: "Agent · Main Expert"},
+			{id: "agent/main", title: "Root expert · Main Expert"},
+			{id: "agent/analysis", title: "  └─ Expert · Analysis Expert"},
 		},
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Pack structure", "Workflow pack · Data Semantics", "Agent · Main Expert"} {
+	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Pack structure", "Workflow pack · Data Semantics", "Root expert · Main Expert", "└─ Expert · Analysis Expert"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expert-pack detail missing %q:\n%s", want, out)
 		}
@@ -1744,6 +1969,28 @@ func TestExpertPackDetailActionsRenderOutsideStructureRows(t *testing.T) {
 	for _, unwanted := range []string{"Update pack", "Delete pack"} {
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("expert-pack action leaked into structure rows as %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestExpertPackDetailItemsUseExpertHierarchy(t *testing.T) {
+	items := expertPackDetailItems(gact.ExpertPackDetail{
+		ExpertPack: gact.ExpertPackDefinition{ID: "data-semantics", Title: "Data Semantics", Scope: "workspace", Enabled: true},
+		Agents: []gact.AgentDef{{
+			ID: "main", Title: "Main Expert", Source: "expert_pack", Enabled: true,
+		}, {
+			ID: "analysis", Title: "Analysis Expert", Source: "expert_pack", Enabled: true, ParentID: "main",
+		}},
+	})
+
+	joined := catalogItemsTextForTest(items)
+	for _, want := range []string{
+		"Root expert · Main Expert",
+		"└─ Expert · Analysis Expert",
+		"reports to Main Expert",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expert-pack hierarchy missing %q:\n%s", want, joined)
 		}
 	}
 }
@@ -2022,8 +2269,8 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[6].statusTag != "agent blueprint" {
 		t.Fatalf("agent row should humanize backend source status: %#v", items[6])
 	}
-	if !strings.HasPrefix(items[6].title, "Expert · Data Root") {
-		t.Fatalf("agent row should be visibly grouped as an expert: %#v", items[6])
+	if !strings.HasPrefix(items[6].title, "Root expert · Data Root") {
+		t.Fatalf("agent row should identify the blueprint root expert: %#v", items[6])
 	}
 	if !strings.Contains(items[6].inlineDesc, "1 tool") || !strings.Contains(items[6].inlineDesc, "1 command") {
 		t.Fatalf("agent row should expose compact hierarchy summary: %#v", items[6])

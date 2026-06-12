@@ -11,10 +11,13 @@ env \
   ./tui/gact diag >"$out"
 
 required=(
+  "mouse_capture:"
   "clipboard_native:"
   "clipboard_missing:"
   "clipboard_osc52:"
   "terminal_selection:"
+  "path_gact_status: matches running binary"
+  "clio_gact_status: matches running binary"
   "TERM="
   "TERM_PROGRAM="
 )
@@ -25,5 +28,10 @@ for marker in "${required[@]}"; do
     exit 1
   fi
 done
+
+if grep -Eq '^  revision:.*\(dirty\)' "$out"; then
+  echo "diagnostic report was captured from a dirty build; run make dev-install from a clean tracked tree first" >&2
+  exit 1
+fi
 
 printf 'wrote %s\n' "$out"

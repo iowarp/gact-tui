@@ -51,7 +51,7 @@
   border: 1px solid var(--color-border-60);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   max-height: 260px;
   overflow-y: auto;
 }
@@ -74,9 +74,10 @@
 }
 
 .sx__ws-item:hover { background: var(--color-surface-alt); }
+/* Selected workspace = selection state → the single warm accent. */
 .sx__ws-item.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
-  color: var(--color-accent-cyan);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
 }
 
 .sx__ws-item-name { font-weight: 600; }
@@ -229,9 +230,11 @@
   border-color: var(--color-border-30);
 }
 
+/* Selected session row = selection state → the single warm accent, with a
+   warm left accent bar so it reads as "current" at a glance. */
 .sx__row.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
-  border-color: var(--color-accent-cyan-30);
+  background: var(--color-select-bg);
+  border-color: var(--color-select-border);
 }
 
 .sx__row-hit {
@@ -300,7 +303,7 @@
   border: 1px solid var(--color-border-60);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   min-width: 140px;
 }
 

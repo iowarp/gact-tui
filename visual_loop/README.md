@@ -19,7 +19,8 @@ use `--require-indexed` to ensure every tape/screenshot is listed in one of the
 visual-loop index files. Use `--include-deferred` when you want the report to
 print the Missing Or Deferred capture ledger without requiring those planned
 captures to exist yet. Use `--write-deferred-report
-visual_loop/MISSING_CAPTURES.md` to refresh the standalone backlog.
+visual_loop/MISSING_CAPTURES.md` to refresh the standalone backlog. The corpus
+check fails if that generated backlog is stale relative to `COVERAGE.md`.
 The same corpus command also audits slash-command discoverability: built-in
 palette commands must be documented in `SLASH_COMMAND_VISUAL_COVERAGE.md`,
 canonical commands must appear in the Help Commands tab, and folded aliases must
@@ -27,8 +28,9 @@ stay out of Help. Run `python3 visual_loop/check_slash_command_coverage.py
 --root .` only when you want the smaller command-specific report.
 The report also includes the four-case NDP demo readiness summary when the CLIO
 evidence report is available. By default that section is informational so normal
-visual corpus checks can pass while any NDP case lacks manifest-backed streaming
-proof; add `--require-ndp-demo-ready` for the final demo gate.
+visual corpus checks can pass while any NDP case lacks its short GIF plus
+live-run streaming proof manifest; add `--require-ndp-demo-ready` for the final
+demo gate.
 
 When copy or terminal-selection behavior changes, refresh the maintained
 diagnostic report:
@@ -39,8 +41,33 @@ visual_loop/capture_gact_diag.sh
 ```
 
 The generated `visual_loop/screenshots/gact_diag_clipboard_terminal.report.md`
-must include `clipboard_native`, `clipboard_missing`, `clipboard_osc52`,
-`terminal_selection`, `TERM`, and `TERM_PROGRAM`.
+must include `mouse_capture`, `clipboard_native`, `clipboard_missing`,
+`clipboard_osc52`, `terminal_selection`, `TERM`, and `TERM_PROGRAM`.
+
+Refresh the copy/selection readiness report after changing copy behavior or
+terminal-selection evidence:
+
+```bash
+python3 visual_loop/check_copy_selection_readiness.py --root . \
+  --write-report visual_loop/screenshots/copy_selection_readiness.report.md \
+  --strict
+```
+
+For the live terminal permutation backlog (#150), capture the actual terminal
+environment from the terminal emulator being verified:
+
+```bash
+visual_loop/capture_live_terminal_copy_env.sh
+```
+
+This writes `visual_loop/screenshots/live_terminal_copy_env.report.md` with the
+real terminal variables, clipboard diagnostics, and a manual verification
+checklist. The report must also include `captured_at`, `cwd`,
+`path_gact_status: matches running binary`, and
+`clio_gact_status: matches running binary` so stale or mismatched binary
+captures cannot satisfy the live proof. The helper refuses `TERM=dumb` captures unless
+`GACT_ALLOW_DUMB_TERMINAL_CAPTURE=1` is set for a non-interactive smoke test; do
+not use forced captures as proof that native selection works.
 
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:
@@ -50,6 +77,109 @@ python3 visual_loop/check_diagnostics_readiness.py --root . \
   --write-report visual_loop/screenshots/diagnostics_readiness.report.md \
   --strict
 ```
+
+For the deferred live diagnostics backlog (#151), capture Doctor and Metrics
+screenshots from an owned CLIO backend without starting or stopping CLIO:
+
+```bash
+CLIO_DIAGNOSTICS_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_diagnostics_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <RUNNING_SESSION_ID>
+```
+
+The script writes `live_clio_doctor_partial_gaps.png`,
+`live_clio_metrics_active_stream.png`, and a manifest under
+`visual_loop/screenshots/`. The metrics proof is only valid when the supplied
+session is actively streaming during capture.
+
+After a real owned-backend capture, verify the live diagnostics contract with:
+
+```bash
+python3 visual_loop/check_diagnostics_readiness.py --root . --strict-live
+```
+
+The manifest must prove an owned backend, a non-empty session, partial Doctor
+capability gaps, non-zero metrics samples, and active-stream metrics for the
+supplied running session. Placeholder manifests such as `{}` are intentionally
+rejected.
+
+For the live runtime catalog backlog (#152), capture `/tools`, `/mcp`, and
+Agent Blueprint marketplace-source breadth from an owned CLIO backend:
+
+```bash
+CLIO_RUNTIME_CATALOG_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_runtime_catalogs_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <SESSION_ID>
+```
+
+The script writes live runtime catalog screenshots plus
+`live_clio_runtime_catalogs_manifest.json`. It does not perform install/remove
+operations; use it after running registry-backed lifecycle operations on the
+owned backend when those success paths are being preserved. Registry lifecycle
+proof must include live screenshots for MCP install success, MCP remove success,
+and source refresh success, and
+`live_clio_runtime_registry_lifecycle_manifest.json` must reference those exact
+paths through `mcp_install_screenshot`, `mcp_remove_screenshot`, and
+`source_refresh_screenshot`. The manifests must include
+`captured_from_owned_backend: true`, and the referenced screenshots must be real
+PNG captures, not placeholder text files.
+
+Refresh the runtime catalog and prompt/expert-pack lifecycle readiness report
+after changing those deterministic surfaces or live owned-backend evidence:
+
+```bash
+python3 visual_loop/check_live_lifecycle_readiness.py --root . \
+  --write-report visual_loop/screenshots/live_lifecycle_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only when the real owned-backend captures for runtime
+catalog breadth, registry-backed MCP/source lifecycle, and prompt/expert-pack
+lifecycle are all expected to exist.
+
+Refresh the Agent Blueprint marketplace/source readiness report after changing
+the blueprint catalog, source management, validation, or install/update/delete
+surfaces:
+
+```bash
+python3 visual_loop/check_agent_blueprint_marketplace_readiness.py --root . \
+  --write-report visual_loop/screenshots/agent_blueprint_marketplace_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only when the live marketplace screenshots and
+`live_clio_agent_blueprint_marketplace_lifecycle_manifest.json` exist from an
+owned CLIO backend. The manifest must prove source add/refresh/remove plus
+blueprint install/update/activation with source ref and commit provenance, and
+must reference the exact live sources, installed, and activated screenshots.
+
+For the live prompt and expert-pack lifecycle backlog (#153), capture successful
+prompt save plus expert-pack install/update/delete from an owned disposable CLIO
+backend:
+
+```bash
+CLIO_PROMPT_EXPERT_PACK_CAPTURE_OWN_BACKEND=1 \
+CLIO_PROMPT_EXPERT_PACK_CAPTURE_MUTATE=1 \
+  visual_loop/capture_live_prompt_expert_packs_tui.sh \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <SESSION_ID> \
+  --expert-pack-source <DISPOSABLE_PACK_SOURCE>
+```
+
+The script writes `live_clio_prompt_expert_pack_lifecycle_manifest.json` plus
+prompt and expert-pack lifecycle screenshots. It performs real prompt and
+expert-pack writes, including delete, so only run it against an isolated backend
+and workspace prepared for this proof. The readiness checker requires
+`mutation_consent: true`, boolean lifecycle success flags, and valid PNG
+screenshots. Screenshot paths are tracked by artifact name; success manifest
+fields such as `prompt_save_success` and `expert_pack_delete_success` must be
+actual JSON `true` values, not placeholder strings. The manifest must also
+reference the exact prompt save, expert-pack install, update, and delete success
+screenshots through `prompt_save_screenshot`,
+`expert_pack_install_screenshot`, `expert_pack_update_screenshot`, and
+`expert_pack_delete_screenshot`.
 
 ## Current State
 
@@ -328,10 +458,13 @@ python3 -m unittest visual_loop/test_check_visual_corpus.py visual_loop/test_ass
 
 This fast check verifies that the maintained tapes, screenshots, live benchmark
 replay artifacts, and temporal-observability reports are present and non-empty.
-The tracked-artifact mode also fails required artifacts that only exist as local
-untracked files, so a clean checkout cannot accidentally lose release evidence.
-It does not replace screenshot inspection or strict live benchmark assertions;
-it catches missing acceptance artifacts before the visual review starts.
+The tracked-artifact mode also fails required non-GIF artifacts that only exist
+as local untracked files, so a clean checkout cannot accidentally lose release
+evidence. GIF recordings are generated media ignored by default; keep useful
+GIFs indexed in `PRESERVED_CAPTURES.md`, and promote only release-critical
+recordings with an explicit tracking decision. This does not replace screenshot
+inspection or strict live benchmark assertions; it catches missing acceptance
+artifacts before the visual review starts.
 
 When a fresh live benchmark capture is intended to close the temporal
 observability work, run the stricter corpus gate too:
@@ -450,13 +583,17 @@ python3 visual_loop/check_ndp_demo_readiness.py --root . \
 Use `--strict` only when all four real TUI recordings are expected to exist. The
 checker reports CLIO artifact proof, deterministic TUI proof, and valid real TUI
 recordings independently so deterministic fixtures or placeholder files cannot
-be mistaken for the actual demo video/GIF evidence.
+be mistaken for the actual demo video/GIF evidence. "Streaming proof manifest"
+means the JSON receipt written by the capture helper after it inspects the owned
+backend session for live semantic events, observed assistant output, and the
+expected artifact.
 
-Current preserved real TUI recordings cover all four NDP cases and are useful
-operator evidence. They are not yet release-ready streaming proof under the
-current manifest standard: San Diego/EarthScope and wildfire have recordings
-without manifests, while California NWS warnings and Fresno CIMIS have
-artifact-producing manifests that still record provider streaming limitations.
+Current preserved real TUI screenshots cover all four NDP cases and are useful
+operator evidence. They are not yet release-ready video/GIF or streaming proof
+under the current manifest standard: all four cases need short GIF recordings,
+San Diego/EarthScope and wildfire need manifests, while California NWS warnings
+and Fresno CIMIS have artifact-producing manifests that still record provider
+streaming limitations.
 
 Use the guarded capture helper for the remaining live recordings. It never
 starts, stops, or reconfigures CLIO; point it only at an isolated backend that
@@ -482,6 +619,38 @@ CLIO_NDP_CAPTURE_OWN_BACKEND=1 visual_loop/capture_ndp_demo_tui.sh \
 
 After both runs, verify readiness with
 `python3 visual_loop/check_ndp_demo_readiness.py --root . --strict`.
+
+Provider failure/recovery evidence uses the same owned-backend rule as the
+diagnostics and lifecycle helpers. Prepare an isolated CLIO backend with a real
+failed provider session and, when available, a recovered/successful session.
+Then run:
+
+```bash
+CLIO_PROVIDER_RECOVERY_CAPTURE_OWN_BACKEND=1 \
+  visual_loop/capture_live_provider_recovery_tui.sh \
+    --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+    --failure-session <FAILED_SESSION_ID> \
+    --recovery-session <RECOVERED_SESSION_ID>
+```
+
+The helper records the provider failure inline view, operator detail view, retry
+override warning, and optional recovery/provider-setup screenshots. It does not
+start, stop, authenticate, or reconfigure CLIO. The readiness checker requires
+real PNG captures plus `captured_from_owned_backend: true`,
+`provider_failure_observed: true`, `retry_override_warning_observed: true`, and
+`provider_recovery_observed: true` in the manifest.
+
+Refresh the provider recovery readiness report after changing provider setup,
+provider failure, retry-warning, or live provider recovery evidence:
+
+```bash
+python3 visual_loop/check_provider_recovery_readiness.py --root . \
+  --write-report visual_loop/screenshots/provider_recovery_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only after the real owned-backend provider failure/recovery
+capture has been preserved.
 
 Note: `provider_swap_memory_followup` proves retained context visually through
 the follow-up prompt, Parquet tool evidence, and final answer. The persisted
@@ -544,11 +713,12 @@ Windows issue to avoid:
 ## Suggested Next Tasks
 
 1. Close the remaining four-case NDP demo proof gaps under live TUI execution:
-   add manifests for the preserved San Diego/EarthScope and wildfire recordings,
-   and rerun California NWS warnings and Fresno CIMIS until their manifests no
-   longer record provider streaming limitations. Use
+   capture the required short GIFs for all four cases, add manifests for the
+   preserved San Diego/EarthScope and wildfire runs, and rerun California NWS
+   warnings and Fresno CIMIS until their manifests no longer record provider
+   streaming limitations. Use
    `python3 visual_loop/check_ndp_demo_readiness.py --root .` to verify the
-   exact missing or invalid manifest-backed streaming proof.
+   exact missing or invalid live-run streaming proof manifest.
 2. Continue the slash-command/operator-surface audit from `COVERAGE.md`, filling
    targeted missing states instead of regenerating broad suites.
 3. Add true range-selection semantics for transcript/detail/text-entry surfaces

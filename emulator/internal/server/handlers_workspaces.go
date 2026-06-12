@@ -113,7 +113,11 @@ func (s *Server) handlePatchWorkspace(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if ws, err := s.store.GetWorkspace(id); err == nil && filepath.Clean(ws.RootPath) == "/tmp/gact-analysis" {
+	// The benchmark-profile workspace is protected from deletion. Key on the
+	// basename ("gact-analysis") rather than a hardcoded POSIX path so the
+	// fixture works regardless of the OS-native absolute root (a Windows root
+	// like C:\…\gact-analysis is just as valid as /tmp/gact-analysis).
+	if ws, err := s.store.GetWorkspace(id); err == nil && filepath.Base(filepath.Clean(ws.RootPath)) == "gact-analysis" {
 		writeError(w, http.StatusConflict, "workspace_remove_failed", "workspace is pinned by an active benchmark profile")
 		return
 	}

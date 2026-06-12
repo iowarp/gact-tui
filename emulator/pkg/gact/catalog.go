@@ -91,6 +91,10 @@ type Model struct {
 	Description     string         `json:"description,omitempty"`
 	ContextWindow   int            `json:"context_window"`
 	MaxOutputTokens int            `json:"max_output_tokens"`
+	ChosenContext   int            `json:"chosen_context,omitempty"`
+	ContextSource   string         `json:"context_source,omitempty"`
+	IsReasoning     bool           `json:"is_reasoning,omitempty"`
+	NativeToolCalls bool           `json:"native_tool_calling,omitempty"`
 	Supports        ModelSupports  `json:"supports"`
 	Pricing         *ModelPricing  `json:"pricing,omitempty"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
@@ -305,6 +309,16 @@ type AgentBlueprintSource struct {
 	AddedAt             string                     `json:"added_at,omitempty"`
 	UpdatedAt           string                     `json:"updated_at,omitempty"`
 	AvailableBlueprints []AgentBlueprintDefinition `json:"available_blueprints,omitempty"`
+}
+
+type AgentBlueprintSourceRequest struct {
+	ID           string `json:"id,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Source       string `json:"source,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Ref          string `json:"ref,omitempty"`
+	PinnedCommit string `json:"pinned_commit,omitempty"`
+	Refresh      bool   `json:"refresh,omitempty"`
 }
 
 type AgentBlueprintUpdateRequest struct {

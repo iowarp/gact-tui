@@ -536,24 +536,23 @@ test.describe('CLIO audit-batch verification', () => {
       '',
     );
     const kebab = page.getByTestId(`session-row-kebab-${id}`);
-    await kebab.click();
+    const pinMarker = page.getByTestId(`session-row-pinned-${id}`);
     const pinAction = page.getByTestId(`session-row-pin-${id}`);
-    // If the row was already pinned, this would say "Unpin" — still
-    // toggles the state, just inverted. Either way the marker should
-    // be present afterwards if we click Pin (or absent if Unpin).
-    const wasPinned = await page
-      .getByTestId(`session-row-pinned-${id}`)
-      .isVisible()
-      .catch(() => false);
-    if (wasPinned) {
-      // Close menu, re-open, and use pin-to-pin again so we end up pinned.
-      await page.keyboard.press('Escape');
+    const targetRow = page.getByTestId(`session-row-${id}`);
+
+    // Pin state persists on the backend (metadata.pinned mirrors the TUI), so
+    // this row may already be pinned from a prior run. Either way, the goal of
+    // #119 is: a pinned session shows the pin marker in its row. If it is not
+    // already pinned, exercise the pin action; then assert the marker.
+    if (!(await pinMarker.isVisible().catch(() => false))) {
+      // The kebab is hover-revealed; hover the row so it is interactive and
+      // the pointer stays inside the menu's mouse-leave region.
+      await targetRow.hover();
       await kebab.click();
+      await expect(pinAction).toBeVisible({ timeout: 4_000 });
+      await pinAction.click();
     }
-    await pinAction.click();
-    await expect(page.getByTestId(`session-row-pinned-${id}`)).toBeVisible({
-      timeout: 4_000,
-    });
+    await expect(pinMarker).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('119-pinned-session'), fullPage: false });
     await close();
   });
@@ -658,7 +657,13 @@ test.describe('CLIO audit-batch verification', () => {
 
     // Step through every page — titles change, spotlight follows.
     const next = page.getByTestId('onboarding-next');
-    await next.click(); // → composer
+    await next.click(); // welcome → provider-setup (B5: only present with a live client)
+    // The provider-setup step renders the model picker instead of a titled
+    // body + Next button; advance past it with its "skip for now" affordance.
+    const providerSkip = page.getByTestId('provider-setup-skip');
+    await expect(providerSkip).toBeVisible({ timeout: 6_000 });
+    await page.screenshot({ path: shot('w3-onboarding-provider'), fullPage: false });
+    await providerSkip.click(); // → composer
     await expect(page.getByTestId('onboarding-title')).toContainText('Ask anything');
     await page.screenshot({ path: shot('w3-onboarding-composer'), fullPage: false });
     await next.click(); // → sessions
@@ -857,9 +862,13 @@ test.describe('CLIO audit-batch verification', () => {
     await ta.click();
     await ta.fill('this send is intercepted and must fail');
     await ta.press('Enter');
-    // The error toast must carry a clickable next action (Retry).
-    await expect(page.locator('.toast--error')).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('.toast__action')).toBeVisible();
+    // The error toast must carry a clickable next action (Retry). Scope to
+    // the send-failure toast specifically: an aborted POST also drops the SSE
+    // stream, which raises its own (distinct) "SSE disconnected" error toast,
+    // so a bare `.toast--error` matches more than one element.
+    const sendToast = page.locator('.toast--error', { hasText: 'Send failed' });
+    await expect(sendToast).toBeVisible({ timeout: 8_000 });
+    await expect(sendToast.locator('.toast__action')).toBeVisible();
     await page.screenshot({ path: shot('w3-error-toast-action'), fullPage: false });
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await close();
@@ -882,7 +891,11 @@ test.describe('CLIO audit-batch verification', () => {
     await ta.click();
     await ta.fill('this send is intercepted to seed a notification');
     await ta.press('Enter');
-    await expect(page.locator('.toast--error')).toBeVisible({ timeout: 8_000 });
+    // Scope to the send-failure toast: the aborted POST also trips an
+    // "SSE disconnected" error toast, so a bare `.toast--error` is not unique.
+    await expect(
+      page.locator('.toast--error', { hasText: 'Send failed' }),
+    ).toBeVisible({ timeout: 8_000 });
     await page.unrouteAll({ behavior: 'ignoreErrors' });
 
     // The real notification is searchable + filterable in the bell.
@@ -902,65 +915,99 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  test('context-file content preview round-trips real bytes (1.0 item 2)', async ({ browser }) => {
-    // Needs a backend with clio PR #533 (x_clio_files_content). Skip honestly
-    // on older backends — the capability gate means the desktop never shows
-    // the preview affordance there.
+  test('workspace-file content preview round-trips real bytes (1.0 item 2)', async ({ browser }) => {
+    // Preview bytes come from the workspace-scoped read endpoint
+    // (GET /v1/workspaces/{wid}/files/read) — the session-scoped
+    // context-file-content route + x_clio_files_content flag were removed on
+    // clio develop ~2026-06. The PreviewRail (B3) browses the workspace tree
+    // and reads a selected file through `Client.readWorkspaceFile`, which is
+    // exactly that endpoint; the Inspector context-file preview button shares
+    // the same read path. We prove the round-trip end-to-end: pick a real
+    // workspace file, preview it, and assert the rendered bytes match the
+    // bytes the API returns. Gate on `files` (universally advertised).
     const caps = (await (
       await fetch(`${REAL_BACKEND}/v1/capabilities`)
     ).json()) as { capabilities?: Record<string, unknown> };
     test.skip(
-      !caps.capabilities?.['x_clio_files_content'],
-      `backend ${REAL_BACKEND} does not advertise x_clio_files_content`,
+      caps.capabilities?.['files'] === false,
+      `backend ${REAL_BACKEND} does not advertise the files capability`,
     );
 
-    // Seed: create a session + upload a tiny PNG attachment via the API.
-    const TINY_PNG =
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-    const sid = (
-      (await (
-        await fetch(`${REAL_BACKEND}/v1/sessions`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ title: 'item2-preview-test' }),
-        })
-      ).json()) as { id: string }
-    ).id;
-    const uploadRes = await fetch(`${REAL_BACKEND}/v1/sessions/${sid}/attachments`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        file: TINY_PNG,
-        filename: 'pixel.png',
-        mime_type: 'image/png',
-        mode: 'read',
-      }),
-    });
-    expect(uploadRes.ok).toBe(true);
+    // Discover a real, root-level text file to preview (and capture the bytes
+    // the API serves so we can assert the UI renders the SAME bytes). Prefer a
+    // shallow text file so the tree row is reachable without expanding dirs.
+    const wsList = (await (
+      await fetch(`${REAL_BACKEND}/v1/workspaces`)
+    ).json()) as { workspaces: { id: string }[] };
+    const wid = wsList.workspaces[0]?.id;
+    expect(wid, 'backend must expose at least one workspace').toBeTruthy();
+    const tree = (await (
+      await fetch(`${REAL_BACKEND}/v1/workspaces/${wid}/files`)
+    ).json()) as { entries: { path: string; type: string; size?: number }[] };
+    const TEXT_EXT = /\.(xml|md|txt|json|js|ts|css|html|yml|yaml|toml|ini|cfg)$/i;
+    const target = tree.entries.find(
+      (e) =>
+        e.type === 'file' &&
+        !e.path.includes('\\') &&
+        !e.path.includes('/') &&
+        TEXT_EXT.test(e.path) &&
+        (e.size ?? 0) > 0 &&
+        (e.size ?? Infinity) < 200_000,
+    );
+    test.skip(
+      !target,
+      `workspace ${wid} exposes no shallow text file to preview`,
+    );
+    const targetPath = target!.path;
+    const rawBytes = await (
+      await fetch(
+        `${REAL_BACKEND}/v1/workspaces/${wid}/files/read?path=${encodeURIComponent(targetPath)}`,
+      )
+    ).text();
+    expect(rawBytes.length).toBeGreaterThan(0);
+    // A distinctive slice the UI must reproduce verbatim (skip leading
+    // whitespace, take a printable run from the body).
+    const needle = rawBytes.trim().slice(0, 40);
 
-    // Drive the UI: select the session → Inspector Context tab → preview.
-    const { page, close } = await connect(browser);
-    await page.getByTestId('sessions-refresh').click();
-    await page.getByTestId(`session-row-${sid}`).click();
-    await page.waitForTimeout(1_500);
-    const drawer = page.getByTestId('inspector-drawer');
-    if (!(await drawer.isVisible())) {
-      await page.getByTestId('topbar-inspector').click();
-    }
-    await page.getByTestId('inspector-tab-context').click();
-    // The uploaded attachment is a registered context file with a preview button.
-    const previewBtn = page.locator('[data-testid^="inspector-file-preview-"]').first();
-    await expect(previewBtn).toBeVisible({ timeout: 8_000 });
-    await previewBtn.click();
-    // Real bytes come back through GET context/files/content and render as an image.
-    await expect(page.getByTestId('inspector-preview-image')).toBeVisible({
-      timeout: 8_000,
+    // Drive the UI: connect, select a session (PreviewRail mounts on the chat
+    // route), open the preview rail with the inspector closed so it has room.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+      window.localStorage.setItem('clio.preview-rail-open.v1', 'true');
+      window.localStorage.setItem('clio.inspector-open.v1', 'false');
     });
+    await page.route('**/v1/**', async (route) => {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    });
+    await page.goto('/?route=connect');
+    await page.getByTestId('connect-url').fill(REAL_BACKEND);
+    await page.getByTestId('connect-submit').click();
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await pickFirstSession(page);
+
+    const rail = page.getByTestId('preview-rail');
+    await expect(rail).toBeVisible({ timeout: 8_000 });
+    // Filter to the target so its tree row is the only match, then select it.
+    await page.getByTestId('preview-rail-filter').fill(targetPath);
+    const row = page.getByTestId(`preview-rail-row-${targetPath}`);
+    await expect(row).toBeVisible({ timeout: 6_000 });
+    await row.click();
+
+    // The text preview must render — and its content must be the real bytes
+    // the workspace read endpoint served (proving the round-trip, not a stub).
+    const textPane = page.getByTestId('preview-rail-text');
+    await expect(textPane).toBeVisible({ timeout: 8_000 });
+    await expect(textPane).toContainText(needle, { timeout: 6_000 });
     await page.screenshot({ path: shot('item2-context-preview'), fullPage: false });
-
-    // Clean up the test session.
-    await fetch(`${REAL_BACKEND}/v1/sessions/${sid}`, { method: 'DELETE' });
-    await close();
+    await ctx.close();
   });
 
   test('MCP Reconnect button behaves honestly on the live backend (1.0 item E3)', async ({ browser }) => {

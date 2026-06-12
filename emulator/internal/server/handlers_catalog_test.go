@@ -63,20 +63,36 @@ func TestLMProviderConfig(t *testing.T) {
 		t.Fatalf("get lm provider: %d", rec.Code)
 	}
 	var got struct {
-		Configured bool `json:"configured"`
-		Presets    []struct {
+		Configured     bool    `json:"configured"`
+		Temperature    float64 `json:"temperature"`
+		MaxTokens      int     `json:"max_tokens"`
+		ChosenContext  int     `json:"chosen_context"`
+		IsReasoning    bool    `json:"is_reasoning"`
+		NativeToolCall bool    `json:"native_tool_calling"`
+		Presets        []struct {
 			ID             string `json:"id"`
 			SuggestedModel string `json:"suggested_model"`
 		} `json:"presets"`
 	}
 	mustDecode(t, rec, &got)
-	if !got.Configured || len(got.Presets) < 3 || got.Presets[0].ID != "anthropic" {
+	if !got.Configured || got.Temperature != 0 || got.MaxTokens != 0 || got.ChosenContext == 0 || !got.IsReasoning || !got.NativeToolCall || len(got.Presets) < 3 || got.Presets[0].ID != "anthropic" {
 		t.Fatalf("unexpected lm provider info: %+v", got)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/providers/lm/wait?timeout=1", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("wait lm provider: %d", rec.Code)
+	}
+	var waited lmProviderInfo
+	mustDecode(t, rec, &waited)
+	if waited.State != "ready" || waited.ChosenContext == 0 {
+		t.Fatalf("waited provider info = %+v", waited)
 	}
 
 	rec = do(t, h, http.MethodPut, "/v1/providers/lm", lmProviderRequest{
 		Provider: "local",
 		Model:    "llama3.3",
+		Parallel: 2,
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("put lm provider: %d", rec.Code)
@@ -93,6 +109,29 @@ func TestLMProviderConfig(t *testing.T) {
 	})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("bad model should surface error, got %d", rec.Code)
+	}
+}
+
+func TestProviderHandshake(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodGet, "/v1/providers/anthropic/handshake", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("provider handshake: %d", rec.Code)
+	}
+	var got struct {
+		Source       string       `json:"source"`
+		Connectivity string       `json:"connectivity"`
+		Auth         string       `json:"auth"`
+		Models       []gact.Model `json:"models"`
+	}
+	mustDecode(t, rec, &got)
+	if got.Source != "live" || got.Connectivity != "ok" || got.Auth != "ok" || len(got.Models) == 0 {
+		t.Fatalf("handshake = %+v", got)
+	}
+	if got.Models[0].ChosenContext == 0 || !got.Models[0].NativeToolCalls {
+		t.Fatalf("handshake model missing runtime metadata: %+v", got.Models[0])
 	}
 }
 
@@ -277,6 +316,45 @@ func TestAgentBlueprintFailureFixture(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "unable to fetch remote refs") {
 		t.Fatalf("source refresh failure body = %s", rec.Body.String())
+	}
+}
+
+func TestAgentBlueprintMarketplaceSourceLifecycle(t *testing.T) {
+	srv, _ := newServerWithSeededWorkspace(t)
+	h := srv.Handler()
+
+	rec := do(t, h, http.MethodPost, "/v1/agent-blueprints/sources", gact.AgentBlueprintSourceRequest{
+		Name:    "NDP Demo Agents",
+		Source:  "https://github.com/iowarp/ndp-demo-agents.git",
+		Ref:     "main",
+		Refresh: true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("add source: %d body %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Source gact.AgentBlueprintSource `json:"source"`
+	}
+	mustDecode(t, rec, &created)
+	if created.Source.ID != "ndp-demo-agents-main" || created.Source.Name != "NDP Demo Agents" || created.Source.SourceKind != "git" {
+		t.Fatalf("created source = %+v", created.Source)
+	}
+
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/sources", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list sources: %d body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "NDP Demo Agents") || !strings.Contains(rec.Body.String(), "https://github.com/iowarp/ndp-demo-agents.git") {
+		t.Fatalf("created source missing from list: %s", rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodDelete, "/v1/agent-blueprints/sources/ndp-demo-agents-main", nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete created source: %d body %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, h, http.MethodGet, "/v1/agent-blueprints/sources", nil)
+	if strings.Contains(rec.Body.String(), "NDP Demo Agents") {
+		t.Fatalf("created source survived delete: %s", rec.Body.String())
 	}
 }
 
@@ -544,6 +622,39 @@ func TestMcpEndpoints(t *testing.T) {
 		rec := do(t, h, http.MethodGet, "/v1/mcp/servers", nil)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("list: %d", rec.Code)
+		}
+	}
+	{
+		rec := do(t, h, http.MethodGet, "/v1/mcp/handshake", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("handshake: %d", rec.Code)
+		}
+		var got struct {
+			Servers []struct {
+				Name       string   `json:"name"`
+				Reachable  bool     `json:"reachable"`
+				State      string   `json:"state"`
+				ToolsCount int      `json:"tools_count"`
+				Tools      []string `json:"tools"`
+				Error      string   `json:"error"`
+			} `json:"servers"`
+		}
+		mustDecode(t, rec, &got)
+		if len(got.Servers) < 2 {
+			t.Fatalf("handshake servers = %+v", got.Servers)
+		}
+		foundReady := false
+		foundDown := false
+		for _, server := range got.Servers {
+			if server.Name == "mcp_fake" && server.Reachable && server.State == "ready" && server.ToolsCount > 0 {
+				foundReady = true
+			}
+			if server.Name == "mcp_docs" && !server.Reachable && server.Error != "" {
+				foundDown = true
+			}
+		}
+		if !foundReady || !foundDown {
+			t.Fatalf("handshake did not expose independent ready/down states: %+v", got.Servers)
 		}
 	}
 	{

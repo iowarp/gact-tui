@@ -13,7 +13,7 @@
 }
 
 .mcp__detail-toggle:hover {
-  color: var(--color-accent-cyan);
+  color: var(--color-accent);
 }
 
 .mcp__detail-chev {

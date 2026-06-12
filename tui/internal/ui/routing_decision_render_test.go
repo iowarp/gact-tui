@@ -60,6 +60,15 @@ func TestRender_RoutingDecision_NoRationale(t *testing.T) {
 	}
 }
 
+func TestRender_RoutingDecision_HidesInternalCleanupRows(t *testing.T) {
+	p := gact.NewRoutingDecisionPart("main",
+		"removed retained evidence scaffolding from final dynamic answer", 0, false)
+	out := DefaultTheme().renderPart(p, 80)
+	if strings.TrimSpace(stripANSI(out)) != "" {
+		t.Fatalf("internal cleanup routing row should be hidden:\n%s", stripANSI(out))
+	}
+}
+
 // CLIO-BBBBBBBBBB4: when a routing_decision part is present in an
 // assistant message, the full-message render places it at the top
 // (before the answer text).

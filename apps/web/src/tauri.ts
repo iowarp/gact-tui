@@ -217,6 +217,39 @@ export async function installClio(): Promise<void> {
   await invoke('install_clio');
 }
 
+/**
+ * Repair / reinstall the clio-agent runtime — the boot-failure card's
+ * "Repair install" action. Distinct from Retry (re-probe/re-spawn the
+ * existing install): this re-runs the upstream installer with a force flag
+ * so a broken venv/runtime is rebuilt from scratch.
+ *
+ * Streams over the SAME `clio:install-*` events as {@link installClio}, so
+ * callers reuse {@link onInstallProgress} — subscribe BEFORE invoking.
+ *
+ * Pure-web build: no Tauri, so this is a no-op.
+ */
+export async function repairClio(): Promise<void> {
+  if (!inTauri()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('repair_clio');
+}
+
+/**
+ * Reveal the persisted boot log in the OS file manager — the boot-failure
+ * card's "Open logs" action. Resolves to the revealed path (for display) or
+ * rejects with the Rust-side error string. The log is rewritten at the
+ * start of every boot/install/repair attempt, so it always reflects the
+ * most recent failure.
+ *
+ * Pure-web build: no Tauri / no on-disk log, so this is a no-op that
+ * resolves to null.
+ */
+export async function openLogs(): Promise<string | null> {
+  if (!inTauri()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('open_logs');
+}
+
 /** Payload of `clio:install-failed`. `code` is the installer's exit code, or
  * null when it could not be launched at all. `tail` is the last ~30 lines of
  * combined stdout/stderr. */

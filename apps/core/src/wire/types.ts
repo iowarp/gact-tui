@@ -285,11 +285,16 @@ export interface CapabilityFlags {
   /** Upload file bytes as session attachments (clio PR #527). */
   attachments_upload?: boolean;
   /**
-   * Retrieve registered context-file/attachment bytes back from the
-   * backend as base64-JSON (clio PR iowarp/clio-agent#533). Gates the
-   * desktop's inline file/image previews (1.0 item 2).
+   * POST /messages accepts and preserves image parts; the backend can
+   * route them to a vision-capable model (clio develop ≥ 2026-06). Gates
+   * the desktop's image-attachment send + inline image rendering.
+   *
+   * NOTE: this replaces the removed `x_clio_files_content` flag. Context-
+   * file *content* is no longer a session-scoped base64 endpoint; bytes
+   * now come from the workspace-scoped `GET /v1/workspaces/{wid}/files/read`
+   * (see Client.readWorkspaceFile). Previews gate on `files`/this flag.
    */
-  x_clio_files_content?: boolean;
+  multimodal_image_parts?: boolean;
   /**
    * The backend publishes per-session `semantic.event` SSE frames (a
    * read-only execution trace). Gates the Inspector timeline's semantic
@@ -317,7 +322,11 @@ export interface CapabilityFlags {
   [k: string]: boolean | string | number | Record<string, unknown> | undefined;
 }
 
-/** Response of GET /v1/sessions/{id}/context/files/content (clio #533). */
+/** Normalized file bytes for previews. Historically the response of the
+ * removed `GET /v1/sessions/{id}/context/files/content`; now produced
+ * client-side by `Client.readWorkspaceFile` from the raw bytes of
+ * `GET /v1/workspaces/{wid}/files/read` (base64-encoded here so image and
+ * text previews share one shape). */
 export interface ContextFileContent {
   path: string;
   display_path?: string;
@@ -325,6 +334,15 @@ export interface ContextFileContent {
   media_type: string;
   encoding: 'base64';
   data: string;
+}
+
+/** One entry from `GET /v1/workspaces/{wid}/files` (workspace file tree).
+ * Backs the file browser + the side-by-side preview rail. */
+export interface WorkspaceFileEntry {
+  path: string;
+  type: 'file' | 'dir';
+  size?: number;
+  modified?: string;
 }
 
 export interface Transports {
@@ -382,7 +400,26 @@ export interface ProviderDef {
   api_base?: string;
   env_keys?: string[];
   description?: string;
+  /** The provider/model can accept image parts in a turn (clio LM preset
+   * `supports_vision`, develop ≥ 2026-06). Pairs with the
+   * `multimodal_image_parts` capability to gate image-attachment send. */
+  supports_vision?: boolean;
   metadata?: Record<string, unknown>;
+}
+
+/** A registered Agent Blueprint *source* (git/local registry clio scans for
+ * installable blueprints). `GET/POST/DELETE /v1/agent-blueprints/sources`
+ * + `/refresh` (clio develop ≥ 2026-06). */
+export interface BlueprintSource {
+  id: string;
+  name: string;
+  source: string;
+  ref?: string;
+  pinned_commit?: string;
+  status: 'ok' | 'error' | 'unknown' | string;
+  status_message?: string;
+  added_at?: string;
+  updated_at?: string;
 }
 
 export interface McpServerInfo {
@@ -546,13 +583,33 @@ export interface LmConfigSnapshot {
   temperature?: number;
   max_tokens?: number;
   thinking_budget?: number;
-  presets?: Array<{
-    id: string;
-    label: string;
-    provider: string;
-    api_base?: string;
-    suggested_model?: string;
-    requires_api_key?: boolean;
-    description?: string;
-  }>;
+  presets?: LmPreset[];
+}
+
+/**
+ * A configurable LM preset surfaced by GET /v1/providers/lm. These are the
+ * validated choices the desktop turns into provider/model dropdowns — a
+ * novice picks one of these rather than typing a backend URL. Shape verified
+ * against the live clio build on :17807 (`presets[]`).
+ */
+export interface LmPreset {
+  id: string;
+  label: string;
+  provider: string;
+  api_base?: string;
+  suggested_model?: string;
+  requires_api_key?: boolean;
+  /** Env var clio reads the key from (e.g. CLIO_LM_API_KEY) when required. */
+  api_key_env?: string;
+  /** none | api_key | oauth — drives the "needs key / needs login" hint. */
+  auth_method?: string;
+  /** Whether clio already has working credentials for this preset. */
+  is_authenticated?: boolean;
+  description?: string;
+  /** ready | needs_auth | error | … — the human-facing readiness state. */
+  status?: string;
+  status_message?: string;
+  /** True if GET /v1/providers/{id}/models returns a live model catalog. */
+  supports_live_catalog?: boolean;
+  supports_vision?: boolean;
 }

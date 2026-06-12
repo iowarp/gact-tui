@@ -334,7 +334,90 @@ func TestApplySemanticToolCompletionUsesOperationalFallback(t *testing.T) {
 	}
 }
 
-func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
+func TestApplySemanticToolCompletionSummarizesDirectPayloadEvidence(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_stats",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "Tool sac_compute_trace_statistics completed.",
+			"payload": map[string]any{
+				"tool":        "sac_compute_trace_statistics",
+				"call_id":     "call_stats",
+				"ok":          true,
+				"duration_ms": 18.0,
+				"filepath":    "/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_CI_BAR.sac",
+				"npts":        12000,
+				"min":         -0.14,
+				"max":         0.19,
+				"mean":        0.003,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic tool message = %#v", a.messages)
+	}
+	text := flattenToolResult(a.messages[0].Parts[0])
+	for _, want := range []string{"sac result:", "npts: 12000", "min: -0.14", "max: 0.19", "mean: 0.003", "earthscope_CI_BAR.sac"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("direct semantic payload summary missing %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"Tool sac_compute_trace_statistics completed", "args:"} {
+		if strings.Contains(text, unwanted) {
+			t.Fatalf("direct semantic payload summary kept generic/noisy text %q:\n%s", unwanted, text)
+		}
+	}
+}
+
+func TestApplySemanticToolCompletionSummarizesDirectArtifactEvidence(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_plot",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "sac_plot_traces completed",
+			"payload": map[string]any{
+				"tool":           "sac_plot_traces",
+				"call_id":        "call_plot",
+				"ok":             true,
+				"duration_ms":    5.0,
+				"artifact_path":  "/home/jcernuda/DemoBench/sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+				"traces_plotted": 3,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic tool message = %#v", a.messages)
+	}
+	text := flattenToolResult(a.messages[0].Parts[0])
+	for _, want := range []string{"sac result:", "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png", "traces_plotted: 3"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("direct artifact payload summary missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "sac_plot_traces completed") {
+		t.Fatalf("direct artifact payload summary kept generic completion:\n%s", text)
+	}
+}
+
+func TestApplySemanticToolStartedHidesRedactedArgsInline(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
@@ -364,8 +447,8 @@ func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
 	if part.Type != gact.PartTypeToolCall || part.ToolName != "sac_plot_traces" {
 		t.Fatalf("semantic tool call = %#v", part)
 	}
-	if got := DefaultTheme().renderPart(part, 80); !strings.Contains(got, "input redacted by runtime") {
-		t.Fatalf("redacted tool call should explain absent args inline: %q", got)
+	if got := ansi.Strip(DefaultTheme().renderPart(part, 80)); strings.Contains(got, "input redacted by runtime") || strings.Contains(got, "[redacted]") {
+		t.Fatalf("redacted tool call should keep absent args out of the inline row: %q", got)
 	}
 	if got := ansi.Strip(DefaultTheme().renderPart(part, 80)); !strings.Contains(got, "running") {
 		t.Fatalf("running semantic tool call should show progress state inline: %q", got)
@@ -375,7 +458,7 @@ func TestApplySemanticToolStartedExplainsRedactedArgsInline(t *testing.T) {
 	}
 }
 
-func TestApplySemanticToolCompletionExplainsRedactedArgsInline(t *testing.T) {
+func TestApplySemanticToolCompletionHidesRedactedArgsInline(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
 	a.selected = 0
@@ -403,14 +486,17 @@ func TestApplySemanticToolCompletionExplainsRedactedArgsInline(t *testing.T) {
 		t.Fatalf("semantic tool result message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac_plot_traces completed", "5ms", "args: input redacted by runtime"} {
+	for _, want := range []string{"sac_plot_traces completed", "5ms"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("redacted completion missing %q: %q", want, text)
 		}
 	}
+	if strings.Contains(text, "input redacted by runtime") || strings.Contains(text, "[redacted]") {
+		t.Fatalf("redacted completion should keep absent args out of the inline row: %q", text)
+	}
 }
 
-func TestSemanticLiveMessageLabelsToolProgressNotAssistant(t *testing.T) {
+func TestSemanticLiveMessageLabelsToolProgressAsAssistantTurn(t *testing.T) {
 	msg := gact.Message{
 		ID:   "semantic_live_turn",
 		Role: gact.RoleAssistant,
@@ -427,13 +513,16 @@ func TestSemanticLiveMessageLabelsToolProgressNotAssistant(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "◆ TOOL ACTIVITY") {
-		t.Fatalf("semantic live transcript should label tool progress:\n%s", out)
+	if !strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("semantic live transcript should stay inside the assistant turn:\n%s", out)
 	}
-	if strings.Contains(out, "● ASSISTANT") {
-		t.Fatalf("semantic live transcript should not look like assistant prose:\n%s", out)
+	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
+		t.Fatalf("semantic live transcript should not create a separate pseudo-role:\n%s", out)
 	}
-	if !strings.Contains(out, "SAC waveform visualization(input redacted by runtime)") {
+	if strings.Contains(out, "input redacted by runtime") {
+		t.Fatalf("semantic live transcript should not advertise redacted input:\n%s", out)
+	}
+	if !strings.Contains(out, "SAC waveform visualization()") {
 		t.Fatalf("semantic live transcript lost tool call summary:\n%s", out)
 	}
 }
@@ -457,8 +546,11 @@ func TestSemanticLiveMessageLabelsMixedWorkflowProgress(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "◆ TOOL ACTIVITY + WORKFLOW") {
-		t.Fatalf("mixed semantic live transcript should label tool and workflow progress:\n%s", out)
+	if !strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("mixed semantic live transcript should stay inside the assistant turn:\n%s", out)
+	}
+	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
+		t.Fatalf("mixed semantic live transcript should not create a separate pseudo-role:\n%s", out)
 	}
 }
 
@@ -540,6 +632,552 @@ func TestApplySemanticEventRendersDelegationAsReadableHandoff(t *testing.T) {
 	}
 	if strings.Contains(part.Text, "NEXT_EXPERT") || !strings.Contains(part.Text, "analysis returned") {
 		t.Fatalf("delegation text should be user-facing: %#v", part)
+	}
+}
+
+func TestApplySemanticEventSummarizesContractOnlyDelegation(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_contract_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.started",
+			"status":       "running",
+			"summary":      "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback DO_NOT_DELEGATE_DATA_AGAIN: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":      map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Text != "main handed work to analysis · next: analysis - run SAC fallback" {
+		t.Fatalf("contract-only delegation summary = %#v", part)
+	}
+	if strings.Contains(part.Text, "NEXT_EXPERT") || strings.Contains(part.Text, "DO_NOT_DELEGATE") {
+		t.Fatalf("delegation leaked control contract: %#v", part)
+	}
+}
+
+func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_next_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_AZ_LVA2_--_BHZ_2026-06-03T203524.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 20353,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{"analysis returned evidence to main", "next: visualization - plot SAC traces"} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("next-action delegation summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE", "clio-seismic-staging"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("delegation leaked control contract %q: %#v", unwanted, part)
+		}
+	}
+}
+
+func TestApplySemanticEventDropsDuplicateWorkflowRowsAcrossToolUpdates(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	event := func(eventID, summary string) client.SSEEvent {
+		return client.SSEEvent{
+			Type: "semantic.event",
+			Payload: map[string]any{"payload": map[string]any{
+				"event_id":     eventID,
+				"session_id":   "s1",
+				"turn_id":      "turn_1",
+				"event_type":   "blueprint.delegation.completed",
+				"status":       "completed",
+				"summary":      summary,
+				"detail_level": "semantic",
+				"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+				"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+				"payload": map[string]any{
+					"stage":       "delegate.completed",
+					"parent_id":   "main",
+					"agent_id":    "analysis",
+					"duration_ms": 20353,
+				},
+			}},
+		}
+	}
+
+	a.applySSE(event("delegate_done_1", "analysis returned a compact result to main."))
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "sem_stats",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "tool.call.completed",
+			"status":     "completed",
+			"summary":    "Tool sac_compute_trace_statistics completed.",
+			"payload": map[string]any{
+				"tool":    "sac_compute_trace_statistics",
+				"call_id": "call_stats",
+				"npts":    12000,
+			},
+		}},
+	})
+	a.applySSE(event("delegate_done_2", "analysis returned a compact result to main."))
+	a.applySSE(event("delegate_next_1", "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces"))
+
+	if len(a.messages) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	parts := a.messages[0].Parts
+	if len(parts) != 3 {
+		t.Fatalf("duplicate semantic workflow row should be collapsed, got %d parts: %#v", len(parts), parts)
+	}
+	if parts[0].Text != "analysis returned evidence to main." {
+		t.Fatalf("first workflow row = %#v", parts[0])
+	}
+	if parts[1].Type != gact.PartTypeToolResult || !strings.Contains(flattenToolResult(parts[1]), "npts: 12000") {
+		t.Fatalf("interleaved tool result should still render: %#v", parts[1])
+	}
+	if !strings.Contains(parts[2].Text, "next: visualization - plot SAC traces") {
+		t.Fatalf("distinct workflow step should still render: %#v", parts[2])
+	}
+	if parts[0].Metadata["semantic_duplicate_key"] == "" || parts[2].Metadata["semantic_duplicate_key"] == "" {
+		t.Fatalf("semantic duplicate keys should be recorded for workflow rows: %#v", parts)
+	}
+}
+
+func TestApplySemanticEventPrioritizesReadableBlockerFromContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_blocker_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback preserving the user's requested region/recent window Blocker: resource_too_large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434, resource size 1503238553 bytes",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "data", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.completed",
+				"parent_id": "main",
+				"agent_id":  "data",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{"data returned evidence to main", "blocked: resource too large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434"} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("blocker delegation summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "Blocker:", "resource_too_large"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("blocker delegation leaked raw contract %q: %#v", unwanted, part)
+		}
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	if !strings.Contains(ref.fullText, "what happened: data returned evidence to main · blocked: resource too large") {
+		t.Fatalf("blocker detail missing readable summary:\n%s", ref.fullText)
+	}
+	if strings.Contains(ref.fullText, "NEXT_ACTION") || strings.Contains(ref.fullText, "Blocker:") {
+		t.Fatalf("blocker detail leaked raw contract:\n%s", ref.fullText)
+	}
+}
+
+func TestApplySemanticEventHumanizesPlumbingDelegationSummary(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_sync_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.started",
+			"status":       "running",
+			"summary":      "main delegated sync work to visualization.",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":      map[string]any{"agent_id": "visualization", "role": "child_expert"},
+			"payload":      map[string]any{"stage": "delegate.started"},
+		}},
+	})
+
+	part := a.messages[0].Parts[0]
+	if part.Text != "main handed work to visualization." || part.Metadata["parent_id"] != "main" || part.Metadata["agent_id"] != "visualization" {
+		t.Fatalf("plumbing delegation summary = %#v", part)
+	}
+}
+
+func TestApplySemanticEventRendersWorkflowStateSummaryInline(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "delegate_state_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.completed",
+			"status":     "completed",
+			"summary":    "analysis returned a compact result to main.",
+			"actor":      map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":    map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200,
+				"workflow_state": map[string]any{
+					"acquisition": map[string]any{
+						"status":     "staged",
+						"dataset_id": "00d66104-dcb0-4381-86b4-fc62f08b3434",
+					},
+					"artifact": map[string]any{
+						"status":        "ready",
+						"artifact_path": "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic messages = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if got := stringValue(part.Metadata["workflow_summary"]); !strings.Contains(got, "acquisition staged") || !strings.Contains(got, "artifact ready") {
+		t.Fatalf("workflow summary metadata = %q", got)
+	}
+	plain := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 120))
+	for _, want := range []string{"analysis returned", "state:", "acquisition staged", "artifact ready"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("semantic workflow render missing %q:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "field") || strings.Contains(plain, "workflow_state") || strings.Contains(plain, "dataset_id=") || strings.Contains(plain, "artifact_path=") {
+		t.Fatalf("semantic workflow render leaked raw state shape:\n%s", plain)
+	}
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{"workflow state:", "acquisition staged", "artifact ready"} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic workflow detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
+func TestApplySemanticEventPrefersDelegationOutputSummaryOverCompactContract(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "delegate_contract_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.completed",
+			"status":     "completed",
+			"summary": "NEXT_EXPERT: analysis NEXT_ACTION: run_sac_fallback preserving the user's requested region/recent window; " +
+				"otherwise IU.ANMO.00.BHZ 2010-02-27T06:30:00 duration=60s DO_NOT_DELEGATE_DATA_AGAIN: true",
+			"actor":   map[string]any{"agent_id": "data", "role": "child_expert"},
+			"subject": map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":          "delegate.completed",
+				"parent_id":      "main",
+				"agent_id":       "data",
+				"output_summary": "NDP resource 00d66104 was too large to stage; using EarthScope fallback for the requested San Diego window.",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("delegation output summary message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	for _, want := range []string{
+		"NDP resource 00d66104 was too large to stage",
+		"next: analysis - run SAC fallback preserving the user's requested region/recent window",
+	} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("delegation output summary missing %q: %#v", want, part)
+		}
+	}
+	for _, unwanted := range []string{"NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_DELEGATE", "IU.ANMO"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("delegation output summary leaked compact contract %q: %#v", unwanted, part)
+		}
+	}
+}
+
+func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "invoke_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.started",
+			"status":     "running",
+			"summary":    "Invoking main.",
+			"actor":      map[string]any{"agent_id": "main"},
+		}},
+	})
+
+	part := a.messages[0].Parts[0]
+	if part.Text != "main started." || part.Metadata["agent_id"] != "main" {
+		t.Fatalf("agent invocation fallback = %#v", part)
+	}
+}
+
+func TestApplySemanticEventPrefersAgentRoutingSummaryOverGenericCompletion(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":   "invoke_done_1",
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.completed",
+			"status":     "completed",
+			"summary":    "main returned a prediction.",
+			"actor":      map[string]any{"agent_id": "main"},
+			"payload": map[string]any{
+				"selected_expert": "data",
+				"route_reason":    "Seismic dataset lookup routes to the data expert.",
+				"has_answer":      true,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("agent routing semantic event message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Text != "main selected data - Seismic dataset lookup routes to the data expert." {
+		t.Fatalf("agent routing summary = %#v", part)
+	}
+	if strings.Contains(part.Text, "returned a prediction") || strings.Contains(part.Text, "completed") {
+		t.Fatalf("agent routing summary kept generic completion: %#v", part)
+	}
+}
+
+func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "s1", Status: gact.StatusRunning},
+		{ID: "s2", Status: gact.StatusIdle},
+	}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main handed work to analysis." {
+		t.Fatalf("live semantic trace not seeded: %#v", a.messages)
+	}
+
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 0 {
+		t.Fatalf("switching to idle session should not restore s1 trace: %#v", a.messages)
+	}
+	a.selected = 0
+	_ = a.selectSession(0)
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main handed work to analysis." {
+		t.Fatalf("running session should restore cached semantic trace: %#v", a.messages)
+	}
+}
+
+func TestSemanticLiveTraceCacheIsNamespacedAcrossRunningSessions(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{
+		{ID: "s1", Status: gact.StatusRunning},
+		{ID: "s2", Status: gact.StatusRunning},
+	}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_s1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_s1",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "analysis",
+			},
+		}},
+	})
+	if len(a.semanticLiveMessagesBySession["s1"]) != 1 {
+		t.Fatalf("s1 live cache not seeded: %#v", a.semanticLiveMessagesBySession)
+	}
+
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 0 {
+		t.Fatalf("switching to unrelated running session should not restore s1 trace: %#v", a.messages)
+	}
+	a.applySSE(client.SSEEvent{
+		ID:   "delegate_s2",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s2",
+			"turn_id":    "turn_s2",
+			"event_type": "blueprint.delegation.started",
+			"status":     "running",
+			"actor":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":    map[string]any{"agent_id": "visualization", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":     "delegate.started",
+				"parent_id": "main",
+				"agent_id":  "visualization",
+			},
+		}},
+	})
+	if len(a.semanticLiveMessagesBySession["s2"]) != 1 {
+		t.Fatalf("s2 live cache not seeded independently: %#v", a.semanticLiveMessagesBySession)
+	}
+
+	a.selected = 0
+	_ = a.selectSession(0)
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || a.messages[0].Parts[0].Text != "main handed work to analysis." {
+		t.Fatalf("s1 revisit should restore only s1 trace: %#v", a.messages)
+	}
+	a.selected = 1
+	_ = a.selectSession(1)
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s2" || a.messages[0].Parts[0].Text != "main handed work to visualization." {
+		t.Fatalf("s2 revisit should restore only s2 trace: %#v", a.messages)
+	}
+}
+
+func TestMessagesLoadedMergesSemanticLiveTraceOnlyWhileRunning(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		ID:   "invoke_1",
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id": "s1",
+			"turn_id":    "turn_1",
+			"event_type": "agent.invocation.started",
+			"status":     "running",
+			"summary":    "Invoking main.",
+			"actor":      map[string]any{"agent_id": "main"},
+		}},
+	})
+
+	model, _ := a.Update(messagesLoadedMsg{
+		sessionID: "s1",
+		messages: []gact.Message{{
+			ID:        "backend_user",
+			SessionID: "s1",
+			Role:      gact.RoleUser,
+			Parts:     []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "hello"}},
+		}},
+	})
+	a = model.(*App)
+	if len(a.messages) != 2 || a.messages[1].ID != "semantic_live_"+stableIDFragment("turn_1") {
+		t.Fatalf("running backend reload should keep live semantic trace: %#v", a.messages)
+	}
+
+	a.sessions[0].Status = gact.StatusIdle
+	model, _ = a.Update(messagesLoadedMsg{
+		sessionID: "s1",
+		messages: []gact.Message{{
+			ID:        "backend_final",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+			Parts:     []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "done"}},
+		}},
+	})
+	a = model.(*App)
+	if len(a.messages) != 1 || a.messages[0].ID != "backend_final" {
+		t.Fatalf("idle backend reload should drop transient semantic trace: %#v", a.messages)
+	}
+	if _, ok := a.semanticLiveMessagesBySession["s1"]; ok {
+		t.Fatalf("idle reload should clear semantic live cache: %#v", a.semanticLiveMessagesBySession)
 	}
 }
 
@@ -659,6 +1297,114 @@ func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	}
 }
 
+func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_delegate_detail",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "blueprint.delegation.completed",
+			"status":         "completed",
+			"summary":        "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /workspace/tmp/earthscope_CI_BAR.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"blueprint":      map[string]any{"pack_id": "seismic-waveform-review"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 1200.0,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic event message = %#v", a.messages)
+	}
+	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
+	for _, want := range []string{
+		"Operator view",
+		"result: analysis returned evidence to main · next: visualization - plot SAC traces",
+		"Event summary",
+		"what happened: analysis returned evidence to main · next: visualization - plot SAC traces",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("semantic detail missing readable intent %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "NEXT_ACTION", "DO_NOT_FINALIZE", "/workspace/tmp/earthscope_CI_BAR.sac"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("semantic detail leaked control contract %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+	if strings.Contains(ref.fullText, "tool: Tool") {
+		t.Fatalf("semantic delegation detail should not invent a generic tool row:\n%s", ref.fullText)
+	}
+}
+
+func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"event_id":     "delegate_completed_1",
+			"session_id":   "s1",
+			"turn_id":      "turn_1",
+			"event_type":   "blueprint.delegation.completed",
+			"status":       "completed",
+			"summary":      "analysis returned a compact result to main. NEXT_EXPERT: visualization NEXT_ACTION: plot_sac_traces /tmp/clio-seismic-staging/trace.sac DO_NOT_FINALIZE_BEFORE_VISUALIZATION: true",
+			"detail_level": "semantic",
+			"actor":        map[string]any{"agent_id": "analysis", "role": "child_expert"},
+			"subject":      map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"payload": map[string]any{
+				"stage":       "delegate.completed",
+				"parent_id":   "main",
+				"agent_id":    "analysis",
+				"duration_ms": 20353,
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic delegation message = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeExpertHandoff {
+		t.Fatalf("delegation should render as expert handoff: %#v", part)
+	}
+	for _, want := range []string{
+		"analysis returned evidence to main",
+		"next: visualization - plot SAC traces",
+	} {
+		if !strings.Contains(part.Text, want) {
+			t.Fatalf("operator summary missing %q:\n%s", want, part.Text)
+		}
+	}
+	for _, unwanted := range []string{"compact result", "NEXT_EXPERT", "DO_NOT_FINALIZE", "/tmp/clio-seismic-staging"} {
+		if strings.Contains(part.Text, unwanted) {
+			t.Fatalf("operator summary leaked plumbing %q:\n%s", unwanted, part.Text)
+		}
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalizedOut := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{"analysis returned evidence to main", "returned", "20353ms", "next: visualization", "plot SAC traces"} {
+		if !strings.Contains(normalizedOut, want) {
+			t.Fatalf("rendered timeline missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
@@ -679,6 +1425,259 @@ func TestApplySemanticEventAcceptsDirectPayloadEnvelope(t *testing.T) {
 
 	if len(a.messages) != 1 || a.messages[0].Parts[0].Type != gact.PartTypeError || !strings.Contains(a.messages[0].Parts[0].Message, "Turn failed") {
 		t.Fatalf("direct semantic payload not reduced: %#v", a.messages)
+	}
+}
+
+func TestSemanticProviderFailureEventIsOperatorReadable(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_provider_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "turn.failed",
+			"status":         "failed",
+			"summary":        "CLIO turn failed: provider_error.",
+			"provider": map[string]any{
+				"provider_id": "argonne_sophia",
+				"model_id":    "openai/gpt-oss-120b",
+				"api_base":    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			},
+			"payload": map[string]any{
+				"error_info": map[string]any{
+					"error":   "provider_error",
+					"message": "live streaming failed before emitting output: unhandled errors in a TaskGroup (1 sub-exception)",
+					"metadata": map[string]any{
+						"live_streaming": false,
+						"stream_fallback": map[string]any{
+							"category":    "provider_streaming_error",
+							"description": "The live provider stream failed before emitting user-visible output.",
+						},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic provider failure = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError {
+		t.Fatalf("provider failure should render as error: %#v", part)
+	}
+	for _, want := range []string{
+		"Provider error:",
+		"before visible output",
+		"argonne_sophia",
+		"openai/gpt-oss-120b",
+	} {
+		if !strings.Contains(part.Message, want) {
+			t.Fatalf("provider failure message missing %q:\n%s", want, part.Message)
+		}
+	}
+	if strings.Contains(part.Message, "CLIO turn failed: provider_error") {
+		t.Fatalf("provider failure message kept generic summary:\n%s", part.Message)
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"Operator view",
+		"failure: Provider error:",
+		"fallback: provider_streaming_error: The live provider stream failed before emitting user-visible output.",
+		"provider: argonne_sophia · openai/gpt-oss-120b",
+		"endpoint: https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+		"Event summary",
+		"what happened: Provider error:",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("provider failure detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+	for _, unwanted := range []string{"error_info:", "stream_fallback:", "api_base:", "provider_id:", "model_id:"} {
+		if strings.Contains(ref.fullText, unwanted) {
+			t.Fatalf("provider failure detail leaked raw metadata label %q:\n%s", unwanted, ref.fullText)
+		}
+	}
+}
+
+func TestSemanticFailedLLMRequestIsOperatorReadable(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_llm_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "llm.request.failed",
+			"status":         "failed",
+			"summary":        "LLM request failed for main.",
+			"provider": map[string]any{
+				"provider_id": "argonne_sophia",
+				"model_id":    "openai/gpt-oss-120b",
+				"api_base":    "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+			},
+			"payload": map[string]any{
+				"error_info": map[string]any{
+					"error":   "provider_error",
+					"message": "live streaming failed before emitting output: unhandled errors in a TaskGroup (1 sub-exception)",
+					"metadata": map[string]any{
+						"live_streaming": false,
+						"stream_fallback": map[string]any{
+							"category":    "provider_streaming_error",
+							"description": "The live provider stream failed before emitting user-visible output.",
+						},
+					},
+				},
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("semantic LLM failure = %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError || part.Code != "llm.request.failed" {
+		t.Fatalf("LLM failure should render as error: %#v", part)
+	}
+	for _, want := range []string{
+		"Provider error:",
+		"before visible output",
+		"argonne_sophia",
+		"openai/gpt-oss-120b",
+	} {
+		if !strings.Contains(part.Message, want) {
+			t.Fatalf("LLM failure message missing %q:\n%s", want, part.Message)
+		}
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"event: llm.request.failed",
+		"failure: Provider error:",
+		"fallback: provider_streaming_error: The live provider stream failed before emitting user-visible output.",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("LLM failure detail missing %q:\n%s", want, ref.fullText)
+		}
+	}
+}
+
+func TestSemanticLLMRequestProgressStaysOutOfDefaultTimeline(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_llm_started",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "llm.request.started",
+			"status":         "running",
+			"summary":        "LLM request started for main.",
+			"provider":       map[string]any{"provider_id": "argonne_sophia", "model_id": "openai/gpt-oss-120b"},
+		}},
+	})
+
+	if len(a.messages) != 0 {
+		t.Fatalf("non-failed LLM request should remain detail/debug noise, got %#v", a.messages)
+	}
+}
+
+func TestSemanticHookProgressHiddenButFailuresSurface(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_started",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "hook.invocation.started",
+			"status":         "running",
+			"summary":        "pre_message hook dispatch started.",
+			"actor":          map[string]any{"hook": "pre_message"},
+		}},
+	})
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_completed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"event_type":     "hook.invocation.completed",
+			"status":         "completed",
+			"summary":        "pre_message hook dispatch completed.",
+			"actor":          map[string]any{"hook": "pre_message"},
+		}},
+	})
+	if len(a.messages) != 0 {
+		t.Fatalf("successful hook lifecycle should remain debug noise, got %#v", a.messages)
+	}
+
+	a.applySSE(client.SSEEvent{
+		Type: "semantic.event",
+		Payload: map[string]any{"payload": map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_hook_failed",
+			"session_id":     "s1",
+			"turn_id":        "turn_1",
+			"trace_id":       "trace_1",
+			"event_type":     "hook.invocation.failed",
+			"status":         "failed",
+			"summary":        "pre_message hook dispatch failed.",
+			"actor":          map[string]any{"hook": "pre_message"},
+			"error_info": map[string]any{
+				"error":   "hook_error",
+				"message": "pre_message hook timed out after 30s",
+			},
+		}},
+	})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 1 {
+		t.Fatalf("failed hook event should surface as one timeline error, got %#v", a.messages)
+	}
+	part := a.messages[0].Parts[0]
+	if part.Type != gact.PartTypeError || part.Code != "hook.invocation.failed" {
+		t.Fatalf("failed hook should render as semantic error: %#v", part)
+	}
+	if !strings.Contains(part.Message, "pre_message hook timed out after 30s") {
+		t.Fatalf("hook failure message should keep actionable error text:\n%s", part.Message)
+	}
+	if strings.Contains(part.Message, "hook dispatch started") || strings.Contains(part.Message, "hook dispatch completed") {
+		t.Fatalf("hook failure should not include successful lifecycle noise:\n%s", part.Message)
+	}
+
+	ref := partDetailRef(a.messages[0].ID, part)
+	for _, want := range []string{
+		"Operator view",
+		"failure: Hook error: pre_message hook timed out after 30s.",
+		"Event summary",
+		"event: hook.invocation.failed",
+		"trace: trace_1",
+	} {
+		if !strings.Contains(ref.fullText, want) {
+			t.Fatalf("hook failure detail missing %q:\n%s", want, ref.fullText)
+		}
 	}
 }
 
@@ -729,6 +1728,14 @@ func TestSemanticEventDetailRedactedToolInputStaysOperatorReadable(t *testing.T)
 		if strings.Contains(ref.fullText, unwanted) {
 			t.Fatalf("redacted semantic detail leaked backend/redaction copy %q:\n%s", unwanted, ref.fullText)
 		}
+	}
+
+	plain := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 96))
+	if strings.Contains(plain, "input redacted by runtime") || strings.Contains(plain, "[redacted]") {
+		t.Fatalf("inline transcript should not advertise redacted tool input:\n%s", plain)
+	}
+	if !strings.Contains(plain, "SAC waveform visualization()") {
+		t.Fatalf("inline transcript should keep the tool progress row without redacted args:\n%s", plain)
 	}
 }
 

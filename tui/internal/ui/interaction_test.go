@@ -1765,6 +1765,73 @@ func TestHelpCommandsHideUnsupportedOptionalSurfaces(t *testing.T) {
 	}
 }
 
+// TestCapabilityGatedCommandsHiddenWhenUnsupported is the single-source-of-
+// truth proof for the hide-when-unsupported contract: every command whose
+// optional capability flag is absent must NOT appear in either the slash
+// palette or the help/cheatsheet command list, and MUST appear once the
+// flag is set. helpCommandSupported is the shared gate both surfaces filter
+// through. Commands without a clear capability flag (core surfaces) are not
+// table entries here — they always show regardless of flags.
+func TestCapabilityGatedCommandsHiddenWhenUnsupported(t *testing.T) {
+	cases := []struct {
+		id     string
+		enable func(c *gact.CapabilityFlags)
+	}{
+		{"/prompts", func(c *gact.CapabilityFlags) { c.XClioPromptRegistry = true }},
+		{"/expert-packs", func(c *gact.CapabilityFlags) { c.XClioExpertPacks = true }},
+		{"/agent-blueprints", func(c *gact.CapabilityFlags) { c.XClioAgentBlueprints = true }},
+		{"/doctor", func(c *gact.CapabilityFlags) { c.IntegrationHealth = true }},
+		{"/memory", func(c *gact.CapabilityFlags) { c.Memory = true }},
+		{"/skills", func(c *gact.CapabilityFlags) { c.SkillsExtraction = true }},
+	}
+
+	inPalette := func(a *App, id string) bool {
+		for _, c := range a.paletteMatches() {
+			if strings.EqualFold(c.ID, id) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.id, func(t *testing.T) {
+			// Unsupported: hidden from palette, help gate, and cheatsheet.
+			off := newReadyApp(nil, nil)
+			off.width = 150
+			off.height = 50
+			if inPalette(off, tc.id) {
+				t.Fatalf("%s should be hidden from the palette when its capability is absent", tc.id)
+			}
+			if off.helpCommandSupported(tc.id) {
+				t.Fatalf("helpCommandSupported(%s) should be false when its capability is absent", tc.id)
+			}
+			off.helpOpen = true
+			off.helpTab = helpTabIndex("Commands")
+			if strings.Contains(ansi.Strip(off.viewHelp()), tc.id) {
+				t.Fatalf("%s should not appear in the Commands cheatsheet when unsupported", tc.id)
+			}
+
+			// Supported: surfaced in palette, help gate, and cheatsheet.
+			on := newReadyApp(nil, nil)
+			on.width = 150
+			on.height = 50
+			tc.enable(&on.caps.Capabilities)
+			if !inPalette(on, tc.id) {
+				t.Fatalf("%s should appear in the palette when its capability is present", tc.id)
+			}
+			if !on.helpCommandSupported(tc.id) {
+				t.Fatalf("helpCommandSupported(%s) should be true when its capability is present", tc.id)
+			}
+			on.helpOpen = true
+			on.helpTab = helpTabIndex("Commands")
+			if !strings.Contains(ansi.Strip(on.viewHelp()), tc.id) {
+				t.Fatalf("%s should appear in the Commands cheatsheet when supported", tc.id)
+			}
+		})
+	}
+}
+
 func TestModalListColumnsPreserveColumnHitGeometry(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	list := a.renderModalList([]modalListItem{
@@ -3849,6 +3916,57 @@ func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 	if wantY := rect.y + 2 + 2 + introRows; target.rect.y != wantY {
 		t.Fatalf("first catalog row y = %d, want shared frame body row %d", target.rect.y, wantY)
+	}
+}
+
+func TestCatalogModalRegistersOpaqueSurface(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:  catalogKindAgentBlueprints,
+		title: "Agent Blueprints",
+		items: []catalogItem{
+			{id: "seismic-waveform-review", title: "Seismic Waveform Review", desc: "workspace blueprint"},
+			{id: "ndp-environmental-hazards", title: "NDP Environmental Hazards", desc: "marketplace blueprint"},
+		},
+	}
+
+	view := a.View().Content
+	headerLine := ""
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "Agent Blueprints") {
+			headerLine = line
+			break
+		}
+	}
+	if headerLine == "" {
+		t.Fatalf("catalog header not found in view:\n%s", stripANSI(view))
+	}
+	if bg := "48;2;25;25;35"; strings.Count(headerLine, bg) < 2 {
+		t.Fatalf("catalog header gaps should carry modal background escapes, got %d in %q", strings.Count(headerLine, bg), headerLine)
+	}
+	surface, ok := findHitTargetForTest(a, "catalog:surface")
+	if !ok {
+		t.Fatal("catalog browser should register an opaque modal surface target")
+	}
+	rect := overlayMouseRect(a.viewCatalogBrowser(), a.width, a.height)
+	if surface.rect.x != rect.x || surface.rect.y != rect.y || surface.rect.w != rect.w || surface.rect.h != rect.h {
+		t.Fatalf("catalog surface rect = %+v, want modal rect %+v", surface.rect, rect)
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 1,
+		Y:      rect.y + 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("opaque catalog surface should absorb non-control clicks without dispatching commands")
+	}
+	if !a.catalogBrowserOpen {
+		t.Fatal("opaque catalog surface click should not close the catalog browser")
 	}
 }
 

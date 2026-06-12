@@ -26,7 +26,8 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
-    io::{self, BufRead, BufReader},
+    fs::{self, File, OpenOptions},
+    io::{self, BufRead, BufReader, Write},
     net::TcpListener,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -69,6 +70,121 @@ const ATTACH_DEFAULT_PORT: u16 = 17800;
 const ATTACH_PORT_ENV: &str = "CLIO_PORT";
 /// Fast probe used during the attach-first check.
 const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Filename of the persisted boot log under the app log dir. The
+/// boot-failure card's "Open logs" button reveals THIS file. It is
+/// truncated at the start of every boot/install/repair so it always
+/// reflects the most recent attempt (not an ever-growing transcript).
+const BOOT_LOG_FILENAME: &str = "clio-boot.log";
+
+/// Process-wide path of the persisted boot log. Set once at startup by
+/// [`init_boot_log`] (which has the `AppHandle` needed to resolve the OS
+/// log dir) and read by the streaming/spawn paths — which run on worker
+/// threads with no `AppHandle` in scope. `None` until init runs (e.g. in
+/// unit tests that never call `init_boot_log`), in which case logging is a
+/// silent no-op rather than a panic.
+static BOOT_LOG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// Resolve + remember the persisted boot-log path from the Tauri app log
+/// dir, creating the directory if needed. Called once during `setup` so the
+/// supervisor's worker threads (which hold no `AppHandle`) can append to it
+/// via [`boot_log_line`] / [`open_boot_log`]. Returns the resolved path so
+/// the caller can log it. Best-effort: a failure to create the dir leaves
+/// the path unset (logging no-ops) rather than blocking boot.
+pub fn init_boot_log<R: tauri::Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    use tauri::Manager;
+    let dir = app.path().app_log_dir().ok()?;
+    if fs::create_dir_all(&dir).is_err() {
+        return None;
+    }
+    let path = dir.join(BOOT_LOG_FILENAME);
+    if let Ok(mut g) = BOOT_LOG_PATH.lock() {
+        *g = Some(path.clone());
+    }
+    Some(path)
+}
+
+/// The persisted boot-log path, if [`init_boot_log`] has run.
+pub fn boot_log_path() -> Option<PathBuf> {
+    BOOT_LOG_PATH.lock().ok().and_then(|g| g.clone())
+}
+
+/// Truncate the boot log so the next attempt starts a fresh transcript.
+/// Writes a single header line with the supplied phase label. No-op when
+/// the path is unset (tests) or the file can't be opened.
+fn reset_boot_log(phase: &str) {
+    let Some(path) = boot_log_path() else { return };
+    if let Ok(mut f) = File::create(&path) {
+        let _ = writeln!(f, "=== clio {phase} log ===");
+    }
+}
+
+/// Append one line to the persisted boot log (best-effort; never panics,
+/// never blocks boot on an I/O error). Used by the spawn path and the
+/// install/repair streamers so a failed boot leaves a re-openable log.
+fn boot_log_line(line: &str) {
+    let Some(path) = boot_log_path() else { return };
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
+/// Reveal the persisted boot log in the OS file manager (selecting the
+/// file where supported) so the user can open it with their default
+/// viewer. Falls back to opening the containing directory. Returns the
+/// path that was revealed, or an error string the frontend surfaces.
+///
+/// Uses native OS commands directly (explorer / open / xdg-open) rather
+/// than a Tauri opener plugin so no extra capability surface is exposed —
+/// matching the existing `taskkill` / `ssh` direct-spawn pattern.
+pub fn open_boot_log() -> Result<PathBuf, String> {
+    let path = boot_log_path()
+        .ok_or_else(|| "boot log path is not initialized".to_string())?;
+    if !path.is_file() {
+        return Err(format!("boot log not found at {}", path.display()));
+    }
+    reveal_in_os(&path).map(|()| path)
+}
+
+/// Best-effort "reveal this file in the OS file manager" across the three
+/// desktop platforms. On Windows `explorer /select,` highlights the file;
+/// on macOS `open -R` does the same; on Linux there is no portable select,
+/// so we open the containing directory with `xdg-open`.
+fn reveal_in_os(path: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        // explorer.exe returns exit code 1 even on success, so we don't
+        // gate on the status — spawn failure is the only real error.
+        Command::new("explorer")
+            .arg(format!("/select,{}", path.display()))
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("explorer: {e}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("open -R: {e}"))
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let dir = path.parent().unwrap_or(path);
+        Command::new("xdg-open")
+            .arg(dir)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("xdg-open: {e}"))
+    }
+    #[cfg(not(any(windows, target_os = "macos", all(unix, not(target_os = "macos")))))]
+    {
+        let _ = path;
+        Err("reveal-in-OS is unsupported on this platform".to_string())
+    }
+}
 
 /// Snapshot of the sidecar handle returned to the frontend.
 ///
@@ -146,8 +262,12 @@ impl Supervisor {
     pub fn start(&self, launcher: PathBuf) {
         let state = self.inner.clone();
         thread::spawn(move || {
+            // Fresh transcript for this boot attempt so a later failure's
+            // "Open logs" shows only the relevant run.
+            reset_boot_log("boot");
             // 1. Attach to an existing local server if reachable.
             if let Some(handle) = try_attach_existing() {
+                boot_log_line("attached to an existing clio-agent on the conventional port");
                 let mut guard = state.lock().expect("supervisor poisoned");
                 guard.handle = handle;
                 return;
@@ -165,9 +285,11 @@ impl Supervisor {
                 // frontend auto-runs install_clio (one swoop) instead of the
                 // manual error card.
                 Err(SpawnError::NeedsInstall) => {
+                    boot_log_line("launcher reported clio-agent-gact is not installed (exit 2)");
                     guard.handle.status = BackendStatus::NeedsInstall;
                 }
                 Err(SpawnError::Other(e)) => {
+                    boot_log_line(&format!("boot failed: {e}"));
                     guard.handle.status = BackendStatus::Error(e);
                 }
             }
@@ -312,6 +434,7 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError
     let token = generate_token();
     let url = format!("http://127.0.0.1:{port}");
 
+    boot_log_line(&format!("spawning launcher {launcher:?} on 127.0.0.1:{port}"));
     let mut child = Command::new(launcher)
         .arg("--host")
         .arg("127.0.0.1")
@@ -320,20 +443,35 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError
         .arg("--token")
         .arg(&token)
         .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        // Capture the launcher's (and its clio child's) output so a boot
+        // failure leaves a re-openable transcript. Reader threads below
+        // tee each line into the persisted boot log.
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("spawn launcher {launcher:?}: {e}"))?;
 
+    // Tee child stdout/stderr to the boot log on background threads so a
+    // full pipe buffer can't deadlock the probe below.
+    if let Some(out) = child.stdout.take() {
+        thread::spawn(move || tee_to_boot_log(BufReader::new(out)));
+    }
+    if let Some(err) = child.stderr.take() {
+        thread::spawn(move || tee_to_boot_log(BufReader::new(err)));
+    }
+
     match probe_capabilities(&url, &token) {
-        Ok(()) => Ok((
-            BackendHandle {
-                url,
-                bearer_token: token,
-                status: BackendStatus::Ready,
-            },
-            child,
-        )),
+        Ok(()) => {
+            boot_log_line("clio-agent answered /v1/capabilities — backend ready");
+            Ok((
+                BackendHandle {
+                    url,
+                    bearer_token: token,
+                    status: BackendStatus::Ready,
+                },
+                child,
+            ))
+        }
         Err(probe_err) => {
             // The probe failed. Distinguish "the launcher already exited 2
             // because clio isn't installed" (→ NeedsInstall, one-swoop) from
@@ -452,13 +590,19 @@ pub fn locate_launcher() -> Result<PathBuf, String> {
 /// Extracted as a pure function (no spawn, no I/O) so the exact command line
 /// is unit-testable per-OS. `install_clio` is the thin spawn wrapper.
 ///
+/// `force` drives the Repair / reinstall flow: it sets `CLIO_FORCE=1` so the
+/// upstream installer rebuilds a broken venv/runtime from scratch instead of
+/// short-circuiting when it sees an existing (but broken) install. A normal
+/// first-run install passes `force = false`.
+///
 /// - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -Command
-///   "$env:CLIO_REF='develop'; irm <install.ps1 url> | iex"`
-/// - macOS/Linux: `bash -c "CLIO_REF=develop curl -fsSL <install.sh url> | bash"`
-pub fn install_command() -> (String, Vec<String>) {
+///   "$env:CLIO_REF='develop'; [$env:CLIO_FORCE='1';] irm <install.ps1 url> | iex"`
+/// - macOS/Linux: `bash -c "CLIO_REF=develop [CLIO_FORCE=1] curl -fsSL <install.sh url> | bash"`
+pub fn install_command(force: bool) -> (String, Vec<String>) {
     if cfg!(windows) {
+        let force_prefix = if force { "$env:CLIO_FORCE='1'; " } else { "" };
         let script = format!(
-            "$env:CLIO_REF='{CLIO_INSTALL_REF}'; \
+            "$env:CLIO_REF='{CLIO_INSTALL_REF}'; {force_prefix}\
              irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex"
         );
         (
@@ -472,8 +616,9 @@ pub fn install_command() -> (String, Vec<String>) {
             ],
         )
     } else {
+        let force_prefix = if force { "CLIO_FORCE=1 " } else { "" };
         let script = format!(
-            "CLIO_REF={CLIO_INSTALL_REF} \
+            "CLIO_REF={CLIO_INSTALL_REF} {force_prefix}\
              curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash"
         );
         ("bash".to_string(), vec!["-c".to_string(), script])
@@ -491,12 +636,14 @@ pub fn install_command() -> (String, Vec<String>) {
 /// `on_success` runs before the done event so that by the time the frontend
 /// re-polls `get_backend`, the supervisor is already back in `Starting` and
 /// will flip to `Ready` (not loop back to `NeedsInstall`).
-pub fn install_clio<R, F>(app: AppHandle<R>, on_success: F)
+pub fn install_clio<R, F>(app: AppHandle<R>, force: bool, on_success: F)
 where
     R: tauri::Runtime,
     F: FnOnce(),
 {
-    let (program, args) = install_command();
+    // Fresh transcript for this install/repair attempt.
+    reset_boot_log(if force { "repair" } else { "install" });
+    let (program, args) = install_command(force);
 
     let spawn = Command::new(&program)
         .args(&args)
@@ -573,6 +720,16 @@ where
     }
 }
 
+/// Read a child stream line-by-line and append each to the persisted boot
+/// log. Used for the launcher's stdout/stderr during the spawn path (no
+/// frontend events — that stream is the install flow's job).
+fn tee_to_boot_log<B: BufRead>(reader: B) {
+    for line in reader.lines() {
+        let Ok(line) = line else { break };
+        boot_log_line(&line);
+    }
+}
+
 /// Read a child stream line-by-line, emitting each as a progress event and
 /// recording it in the shared ring buffer for the failure tail.
 fn stream_lines<R: tauri::Runtime, B: BufRead>(
@@ -582,6 +739,9 @@ fn stream_lines<R: tauri::Runtime, B: BufRead>(
 ) {
     for line in reader.lines() {
         let Ok(line) = line else { break };
+        // Persist to the on-disk boot log so "Open logs" works after an
+        // install/repair failure, not just the streamed-to-UI tail.
+        boot_log_line(&line);
         if let Ok(mut buf) = recent.lock() {
             buf.push(line.clone());
             // Keep only what a failure tail could need.
@@ -741,7 +901,7 @@ mod tests {
     /// the upstream URL — the SAME one-liner the manual error card shows.
     #[test]
     fn install_command_targets_upstream_installer() {
-        let (program, args) = install_command();
+        let (program, args) = install_command(false);
         let joined = args.join(" ");
 
         assert!(
@@ -773,6 +933,95 @@ mod tests {
                 "unix installer must curl install.sh into bash, got: {joined}"
             );
         }
+    }
+
+    /// A normal first-run install (force = false) must NOT set CLIO_FORCE,
+    /// while a Repair (force = true) MUST — that env var is what makes the
+    /// upstream installer rebuild a broken venv instead of short-circuiting.
+    #[test]
+    fn install_command_force_flag_toggles_clio_force() {
+        let (_p, normal) = install_command(false);
+        let normal = normal.join(" ");
+        assert!(
+            !normal.contains("CLIO_FORCE"),
+            "first-run install must not force a reinstall, got: {normal}"
+        );
+
+        let (_p, repair) = install_command(true);
+        let repair = repair.join(" ");
+        assert!(
+            repair.contains("CLIO_FORCE"),
+            "repair must set CLIO_FORCE to rebuild a broken runtime, got: {repair}"
+        );
+        // Repair still targets the SAME upstream installer + ref as a normal
+        // install — it only adds the force env, nothing else changes.
+        assert!(
+            repair.contains(CLIO_INSTALL_REF)
+                && repair.contains("raw.githubusercontent.com/iowarp/clio-agent"),
+            "repair must reuse the upstream installer, got: {repair}"
+        );
+        if cfg!(windows) {
+            assert!(
+                repair.contains("$env:CLIO_FORCE='1'"),
+                "windows repair must set the force env via $env:, got: {repair}"
+            );
+        } else {
+            assert!(
+                repair.contains("CLIO_FORCE=1"),
+                "unix repair must set CLIO_FORCE=1, got: {repair}"
+            );
+        }
+    }
+
+    /// The boot-log helpers are a silent no-op until `init_boot_log` wires a
+    /// path (e.g. in unit tests that never construct an AppHandle). They must
+    /// never panic in that state — boot must not depend on logging.
+    #[test]
+    fn boot_log_helpers_no_op_without_init() {
+        // BOOT_LOG_PATH starts unset in a fresh test process; these must not
+        // panic regardless of ordering with other tests.
+        reset_boot_log("test");
+        boot_log_line("a line with no sink should be dropped silently");
+        // open_boot_log surfaces a friendly error string, never a panic.
+        if boot_log_path().is_none() {
+            let err = open_boot_log().expect_err("no path → Err, not Ok/panic");
+            assert!(
+                err.contains("not initialized"),
+                "expected an uninitialized-path error, got: {err}"
+            );
+        }
+    }
+
+    /// When a path IS set, reset truncates with a header and append adds
+    /// lines — the on-disk shape the "Open logs" button reveals. Uses a temp
+    /// path and restores the global afterward so it doesn't leak into other
+    /// tests in the same process.
+    #[test]
+    fn boot_log_writes_header_then_lines() {
+        let dir = env::temp_dir().join(format!("clio-boot-log-test-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("clio-boot.log");
+
+        let saved = BOOT_LOG_PATH.lock().unwrap().clone();
+        *BOOT_LOG_PATH.lock().unwrap() = Some(path.clone());
+
+        reset_boot_log("boot");
+        boot_log_line("line one");
+        boot_log_line("line two");
+
+        let body = fs::read_to_string(&path).expect("boot log written");
+        assert!(body.starts_with("=== clio boot log ==="), "got: {body}");
+        assert!(body.contains("line one") && body.contains("line two"), "got: {body}");
+
+        // reset again truncates the prior content.
+        reset_boot_log("repair");
+        let body2 = fs::read_to_string(&path).expect("boot log re-written");
+        assert!(body2.starts_with("=== clio repair log ==="), "got: {body2}");
+        assert!(!body2.contains("line one"), "reset must truncate, got: {body2}");
+
+        // restore + cleanup.
+        *BOOT_LOG_PATH.lock().unwrap() = saved;
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// The progress + failure payloads serialize to the exact JSON shape the

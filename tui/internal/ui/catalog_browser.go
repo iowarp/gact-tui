@@ -209,6 +209,8 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
+			handshake, _ := c.McpHandshake(ctx, scope)
+			servers = annotateMcpServersWithHandshake(servers, handshake)
 			items := make([]catalogItem, 0, len(servers))
 			for _, s := range servers {
 				items = append(items, catalogItem{
@@ -226,6 +228,8 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
 			servers, _ := c.ListMcpServers(ctx)
+			handshake, _ := c.McpHandshake(ctx, scope)
+			servers = annotateMcpServersWithHandshake(servers, handshake)
 			items := toolCatalogItems(tools, servers)
 			if len(items) == 0 {
 				items = append(items, catalogItem{
@@ -234,7 +238,6 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 					desc:       "Add an MCP connection, enable a workflow blueprint, or check integration health if actions were expected.",
 					inlineDesc: "add connection or blueprint",
 					statusTag:  "empty",
-					disabled:   true,
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
@@ -410,6 +413,8 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 		var errs []string
 		agents, _ := c.ListAgentsScoped(ctx, scope)
 		servers, _ := c.ListMcpServers(ctx)
+		handshake, _ := c.McpHandshake(ctx, scope)
+		servers = annotateMcpServersWithHandshake(servers, handshake)
 		for _, server := range servers {
 			if server.ID == serverID {
 				items = append(items, catalogItem{
@@ -516,26 +521,6 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			desc:      agent.Description,
 			statusTag: agent.Source,
 		}}
-		items = append(items, catalogItem{
-			id:        "agent-action/clone",
-			title:     "Clone expert",
-			desc:      "create an editable copy without changing the source definition",
-			statusTag: "write",
-		})
-		if agent.Source == "user" {
-			items = append(items, catalogItem{
-				id:        "agent-action/edit",
-				title:     "Edit expert",
-				desc:      "update title, description, prompt, tools, keywords, and enabled state",
-				statusTag: "write",
-			})
-			items = append(items, catalogItem{
-				id:        "agent-action/delete",
-				title:     "Delete expert",
-				desc:      "remove this user-owned agent through CLIO's permission-guarded delete path",
-				statusTag: "delete",
-			})
-		}
 		if parent := agentParentID(agent); parent != "" {
 			items = append(items, catalogItem{
 				id: "agent/" + parent, title: "Reports to · " + agentTitleByID(allAgents, parent),
@@ -690,6 +675,32 @@ type expertPackManagedMsg struct {
 	action string
 	result map[string]any
 	err    error
+}
+
+func expertPackManagedLabel(m expertPackManagedMsg) string {
+	if label := strings.TrimSpace(m.packID); label != "" {
+		return label
+	}
+	for _, key := range []string{"installed", "updated", "deleted", "pack"} {
+		row, _ := m.result[key].(map[string]any)
+		if label := firstNonEmpty(
+			stringValue(row["id"]),
+			stringValue(row["pack_id"]),
+			stringValue(row["source"]),
+			stringValue(row["path"]),
+			stringValue(row["url"]),
+		); label != "" {
+			return label
+		}
+	}
+	return firstNonEmpty(
+		stringValue(m.result["id"]),
+		stringValue(m.result["pack_id"]),
+		stringValue(m.result["source"]),
+		stringValue(m.result["path"]),
+		stringValue(m.result["url"]),
+		"source",
+	)
 }
 
 func activateExpertPackCmd(c *client.Client, sessionID, packID string) tea.Cmd {
@@ -953,7 +964,7 @@ func catalogBrowserTitle(kind catalogBrowserKind) string {
 	case catalogKindMcp:
 		return "MCP Connections"
 	case catalogKindTools:
-		return "Actions and MCP"
+		return "Tools & MCP"
 	case catalogKindSkills:
 		return "Skills"
 	case catalogKindMcpDetail:
@@ -995,9 +1006,11 @@ func (a *App) handleCatalogBrowserWheel(button tea.MouseButton) tea.Cmd {
 	if delta == 0 {
 		cb.sel = moveSelectionByWheel(cb.sel, len(cb.items), button)
 		cb.offset = catalogBrowserClampOffsetForKind(cb.kind, cb.sel, cb.offset, len(cb.items))
+		a.cancelCatalogPendingDeletesOutsideSelection()
 		return nil
 	}
 	catalogBrowserMoveSelection(cb, delta)
+	a.cancelCatalogPendingDeletesOutsideSelection()
 	return nil
 }
 
@@ -1014,15 +1027,19 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	if cb.pendingDeleteAgentID != "" && !catalogBrowserKeyConfirmsAgentDelete(cb, key) {
 		cb.pendingDeleteAgentID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteBlueprintID != "" && !catalogBrowserKeyConfirmsBlueprintDelete(cb, key) {
 		cb.pendingDeleteBlueprintID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteExpertPackID != "" && !catalogBrowserKeyConfirmsExpertPackDelete(cb, key) {
 		cb.pendingDeleteExpertPackID = ""
+		a.transientHint = ""
 	}
 	if cb.pendingDeleteSourceID != "" && !catalogBrowserKeyConfirmsSourceDelete(cb, key) {
 		cb.pendingDeleteSourceID = ""
+		a.transientHint = ""
 	}
 	switch key {
 	case "esc", "escape", "ctrl+c":
@@ -1290,7 +1307,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, a.openAgentCreateFromCatalog()
 		}
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/clone")
+			return a, a.runAgentDetailAction("agent-action/clone")
 		}
 	case "s":
 		if cb.kind == catalogKindAgentBlueprints {
@@ -1331,7 +1348,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "e":
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/edit")
+			return a, a.runAgentDetailAction("agent-action/edit")
 		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
@@ -1372,7 +1389,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "d":
 		if cb.kind == catalogKindAgentDetail {
-			return a, a.runCatalogBrowserItemAction("agent-action/delete")
+			return a, a.runAgentDetailAction("agent-action/delete")
 		}
 		if cb.kind == catalogKindExpertPackDetail {
 			return a, a.runCatalogBrowserItemAction("expert-pack-action/delete")
@@ -1426,6 +1443,10 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "a":
+		if cb.kind == catalogKindAgentBlueprintSources {
+			a.openAgentBlueprintManage(agentBlueprintManageSource)
+			return a, nil
+		}
 		if cb.kind == catalogKindAgentBlueprintDetail {
 			if catalogItemStatusTag(cb.items, "activate") == "active" {
 				a.transientHint = "Blueprint already active for this session"
@@ -1576,8 +1597,15 @@ func (a *App) catalogBrowserHeaderButtons() []menuButton {
 func agentBlueprintCatalogActionButtons() []menuButton {
 	return []menuButton{
 		{
+			id:    "agent-blueprints:sources",
+			label: "browse sources",
+			action: func(app *App) tea.Cmd {
+				return app.openAgentBlueprintSourceBrowser()
+			},
+		},
+		{
 			id:    "agent-blueprints:install",
-			label: "install source",
+			label: "manual install",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageInstall)
 				return nil
@@ -1585,17 +1613,10 @@ func agentBlueprintCatalogActionButtons() []menuButton {
 		},
 		{
 			id:    "agent-blueprints:validate",
-			label: "validate source",
+			label: "validate file",
 			action: func(app *App) tea.Cmd {
 				app.openAgentBlueprintManage(agentBlueprintManageValidate)
 				return nil
-			},
-		},
-		{
-			id:    "agent-blueprints:sources",
-			label: "browse sources",
-			action: func(app *App) tea.Cmd {
-				return app.openAgentBlueprintSourceBrowser()
 			},
 		},
 	}
@@ -1628,18 +1649,42 @@ func (a *App) promptDetailActionButtons() []menuButton {
 }
 
 func (a *App) agentDetailActionButtons() []menuButton {
-	if a.catalogBrowser == nil {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
 		return nil
 	}
+	disabled := !a.caps.Capabilities.AgentWrite
 	deleteLabel := "delete"
 	if a.catalogBrowserAgentDeleteArmed() {
 		deleteLabel = "confirm delete"
 	}
-	return a.catalogActionButtonsFromItems("agent-detail", []catalogActionButtonSpec{
-		{id: "agent-action/clone", label: "clone"},
-		{id: "agent-action/edit", label: "edit"},
-		{id: "agent-action/delete", label: deleteLabel},
-	})
+	buttons := []menuButton{{
+		id:       "agent-detail:clone",
+		label:    "clone",
+		disabled: disabled,
+		action: func(app *App) tea.Cmd {
+			return app.runAgentDetailAction("agent-action/clone")
+		},
+	}}
+	if catalogBrowserAgentIsUserOwned(cb) {
+		buttons = append(buttons, menuButton{
+			id:       "agent-detail:edit",
+			label:    "edit",
+			disabled: disabled,
+			action: func(app *App) tea.Cmd {
+				return app.runAgentDetailAction("agent-action/edit")
+			},
+		})
+		buttons = append(buttons, menuButton{
+			id:       "agent-detail:delete",
+			label:    deleteLabel,
+			disabled: disabled,
+			action: func(app *App) tea.Cmd {
+				return app.runAgentDetailAction("agent-action/delete")
+			},
+		})
+	}
+	return buttons
 }
 
 func (a *App) expertPackDetailActionButtons() []menuButton {
@@ -1677,6 +1722,71 @@ func (a *App) agentBlueprintDetailActionButtons() []menuButton {
 		specs = append([]catalogActionButtonSpec{{id: "activate", label: "activate", disabledLabel: "activation blocked"}}, specs...)
 	}
 	return a.catalogActionButtonsFromItems("blueprint-detail", specs)
+}
+
+func (a *App) agentBlueprintSourceActionButtons() []menuButton {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentBlueprintSources || cb.sel < 0 || cb.sel >= len(cb.items) {
+		return nil
+	}
+	addButton := menuButton{
+		id:    "agent-blueprint-source:add",
+		label: "add source",
+		action: func(app *App) tea.Cmd {
+			app.openAgentBlueprintManage(agentBlueprintManageSource)
+			return nil
+		},
+	}
+	item := cb.items[cb.sel]
+	switch {
+	case strings.HasPrefix(item.id, "source-blueprint/"):
+		sourceID, blueprintID, ok := parseSourceBlueprintItemID(item.id)
+		if !ok {
+			return nil
+		}
+		return []menuButton{
+			addButton,
+			{
+				id:    "agent-blueprint-source:install",
+				label: "install blueprint",
+				action: func(app *App) tea.Cmd {
+					return installAgentBlueprintFromSourceCmd(app.c, app.runtimeScope(), sourceID, blueprintID)
+				},
+			},
+			{
+				id:    "agent-blueprint-source:refresh",
+				label: "refresh source",
+				action: func(app *App) tea.Cmd {
+					return refreshAgentBlueprintSourceCmd(app.c, sourceID)
+				},
+			},
+		}
+	case strings.HasPrefix(item.id, "source/"):
+		sourceID := strings.TrimPrefix(item.id, "source/")
+		deleteLabel := "remove source"
+		if cb.pendingDeleteSourceID == sourceID {
+			deleteLabel = "confirm remove"
+		}
+		return []menuButton{
+			addButton,
+			{
+				id:    "agent-blueprint-source:refresh",
+				label: "refresh source",
+				action: func(app *App) tea.Cmd {
+					return refreshAgentBlueprintSourceCmd(app.c, sourceID)
+				},
+			},
+			{
+				id:    "agent-blueprint-source:remove",
+				label: deleteLabel,
+				action: func(app *App) tea.Cmd {
+					return app.confirmOrDeleteAgentBlueprintSource(sourceID)
+				},
+			},
+		}
+	default:
+		return []menuButton{addButton}
+	}
 }
 
 type catalogActionButtonSpec struct {
@@ -1811,6 +1921,18 @@ func catalogBrowserItemIsInlineAction(kind catalogBrowserKind, item catalogItem)
 	}
 }
 
+func catalogBrowserAgentIsUserOwned(cb *catalogBrowserState) bool {
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
+		return false
+	}
+	for _, item := range cb.items {
+		if item.id == "agent/"+cb.agentID {
+			return item.statusTag == "user"
+		}
+	}
+	return false
+}
+
 func catalogBrowserSelectionPosition(indexes []int, sel int) int {
 	for pos, idx := range indexes {
 		if idx == sel {
@@ -1860,6 +1982,41 @@ func catalogBrowserMoveSelection(cb *catalogBrowserState, delta int) {
 	cb.offset = catalogBrowserClampOffsetForKind(cb.kind, pos, cb.offset, len(indexes))
 }
 
+func (a *App) cancelCatalogPendingDeletesOutsideSelection() {
+	cb := a.catalogBrowser
+	if cb == nil {
+		return
+	}
+	cleared := false
+	if cb.pendingDeleteAgentID != "" && !catalogBrowserKeyConfirmsAgentDelete(cb, "enter") {
+		cb.pendingDeleteAgentID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteBlueprintID != "" && !catalogBrowserKeyConfirmsBlueprintDelete(cb, "enter") {
+		cb.pendingDeleteBlueprintID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteExpertPackID != "" && !catalogBrowserKeyConfirmsExpertPackDelete(cb, "enter") {
+		cb.pendingDeleteExpertPackID = ""
+		cleared = true
+	}
+	if cb.pendingDeleteSourceID != "" && !catalogBrowserKeyConfirmsSourceDelete(cb, "d") {
+		cb.pendingDeleteSourceID = ""
+		cleared = true
+	}
+	if cleared {
+		a.transientHint = ""
+	}
+}
+
+func agentBlueprintSourceActionSectionTitle(cb *catalogBrowserState) string {
+	if cb != nil && cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) &&
+		strings.HasPrefix(cb.items[cb.sel].id, "source-blueprint/") {
+		return "Blueprint actions"
+	}
+	return "Source actions"
+}
+
 func catalogBrowserHasItem(cb *catalogBrowserState, itemID string) bool {
 	if cb == nil {
 		return false
@@ -1876,6 +2033,9 @@ func (a *App) runCatalogBrowserItemAction(itemID string) tea.Cmd {
 	if a.catalogBrowser == nil {
 		return nil
 	}
+	if a.catalogBrowser.kind == catalogKindAgentDetail && strings.HasPrefix(itemID, "agent-action/") {
+		return a.runAgentDetailAction(itemID)
+	}
 	for i, item := range a.catalogBrowser.items {
 		if item.id == itemID {
 			a.catalogBrowser.sel = i
@@ -1884,6 +2044,37 @@ func (a *App) runCatalogBrowserItemAction(itemID string) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (a *App) runAgentDetailAction(itemID string) tea.Cmd {
+	cb := a.catalogBrowser
+	if cb == nil || cb.kind != catalogKindAgentDetail || cb.agentID == "" {
+		return nil
+	}
+	if !a.caps.Capabilities.AgentWrite {
+		a.transientHint = "expert action unavailable: backend does not advertise agent_write"
+		return scheduleHintExpire(a.transientHint)
+	}
+	switch itemID {
+	case "agent-action/clone":
+		seed := cb.agentID + "-copy"
+		a.openAgentWrite(agentWriteModeClone, cb.agentID, seed)
+		return nil
+	case "agent-action/edit":
+		if !catalogBrowserAgentIsUserOwned(cb) {
+			a.transientHint = "edit is available for user-owned experts"
+			return scheduleHintExpire(a.transientHint)
+		}
+		return loadAgentForEditCmd(a.c, a.runtimeScope(), cb.agentID)
+	case "agent-action/delete":
+		if !catalogBrowserAgentIsUserOwned(cb) {
+			a.transientHint = "delete is available for user-owned experts"
+			return scheduleHintExpire(a.transientHint)
+		}
+		return a.confirmOrDeleteAgent()
+	default:
+		return nil
+	}
 }
 
 func (a *App) catalogBrowserAgentDeleteArmed() bool {
@@ -1914,13 +2105,7 @@ func catalogBrowserKeyConfirmsAgentDelete(cb *catalogBrowserState, key string) b
 	if cb == nil || cb.kind != catalogKindAgentDetail || cb.pendingDeleteAgentID == "" {
 		return false
 	}
-	if key == "d" {
-		return true
-	}
-	return key == "enter" &&
-		cb.sel >= 0 &&
-		cb.sel < len(cb.items) &&
-		cb.items[cb.sel].id == "agent-action/delete"
+	return key == "d" || key == "enter"
 }
 
 func catalogBrowserKeyConfirmsExpertPackDelete(cb *catalogBrowserState, key string) bool {
@@ -2118,6 +2303,15 @@ func (a *App) viewCatalogBrowser() string {
 	if intro := catalogBrowserIntro(a.catalogBrowser.kind); intro != "" {
 		rows = append(rows, t.HintLabel.Render(intro), "")
 	}
+	if context := a.catalogBrowserContextLine(a.catalogBrowser.kind); context != "" {
+		rows = append(rows, t.HintLabel.Render(context), "")
+	}
+	if guide := catalogBrowserWorkflowGuide(a.catalogBrowser.kind); guide != "" {
+		rows = append(rows, t.HintLabel.Render(guide), "")
+	}
+	if status := strings.TrimSpace(a.transientHint); status != "" {
+		rows = append(rows, t.HintLabel.Render("Status: "+status), "")
+	}
 	actionRow := -1
 	actionCol := 0
 	actionButtons := []menuButton(nil)
@@ -2168,6 +2362,18 @@ func (a *App) viewCatalogBrowser() string {
 			t.HintLabel.Render("Blueprint structure"),
 		)
 	}
+	if a.catalogBrowser.kind == catalogKindAgentBlueprintSources {
+		actionButtons = a.agentBlueprintSourceActionButtons()
+		if len(actionButtons) > 0 {
+			actionRow = len(rows) + 1
+			rows = append(rows,
+				t.HintLabel.Render(agentBlueprintSourceActionSectionTitle(a.catalogBrowser)),
+				renderActionButtons(actionButtons),
+				"",
+				t.HintLabel.Render("Marketplace source tree"),
+			)
+		}
+	}
 	if a.catalogBrowser.kind == catalogKindPromptDetail {
 		actionButtons = a.promptDetailActionButtons()
 		actionRow = len(rows) + 1
@@ -2191,7 +2397,12 @@ func (a *App) viewCatalogBrowser() string {
 		}
 	}
 	catalogBrowserNormalizeSelection(a.catalogBrowser)
+	emptyGuidance := catalogBrowserUsesGuidanceEmptyState(a.catalogBrowser.kind, a.catalogBrowser.items)
 	contentIndexes := catalogBrowserContentIndexes(a.catalogBrowser.kind, a.catalogBrowser.items)
+	if emptyGuidance {
+		contentIndexes = nil
+		rows = append(rows, a.renderCatalogEmptyGuidanceRows(a.catalogBrowser.items, listW)...)
+	}
 	selectionPosition := catalogBrowserSelectionPosition(contentIndexes, a.catalogBrowser.sel)
 	a.catalogBrowser.offset = catalogBrowserClampOffsetForKind(
 		a.catalogBrowser.kind,
@@ -2203,42 +2414,45 @@ func (a *App) viewCatalogBrowser() string {
 	itemBudget := catalogBrowserVisibleItemBudget(a.catalogBrowser.kind)
 	end := min(len(contentIndexes), start+itemBudget)
 	listItems := make([]modalListItem, 0, end-start)
-	for pos := start; pos < end; pos++ {
-		i := contentIndexes[pos]
-		item := a.catalogBrowser.items[i]
-		// LLL2: dim disabled tools so the user can scan what's off
-		// at a glance. Selected highlight still wins so the cursor
-		// never disappears on a disabled row.
-		isDisabled := item.disabled || (a.catalogBrowser.kind == catalogKindTools &&
-			a.disabledTools != nil && a.disabledTools[item.id])
-		idx := i
-		description := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
-		inlineMeta := ""
-		if a.catalogBrowser.kind == catalogKindTools ||
-			a.catalogBrowser.kind == catalogKindPrompts ||
-			a.catalogBrowser.kind == catalogKindExpertPacks {
-			inlineMeta = description
-			description = ""
-		}
-		listItems = append(listItems, modalListItem{
-			id:          fmt.Sprintf("catalog:item:%d", idx),
-			title:       item.title,
-			meta:        inlineMeta,
-			description: description,
-			status:      catalogStatusTagLabel(item.statusTag),
-			selected:    i == a.catalogBrowser.sel,
-			disabled:    isDisabled,
-			action:      nil,
-		})
-		if !isDisabled {
-			listItems[len(listItems)-1].action = func(app *App) tea.Cmd {
-				if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
-					return nil
+	if !emptyGuidance {
+		for pos := start; pos < end; pos++ {
+			i := contentIndexes[pos]
+			item := a.catalogBrowser.items[i]
+			// LLL2: dim disabled tools so the user can scan what's off
+			// at a glance. Selected highlight still wins so the cursor
+			// never disappears on a disabled row.
+			isDisabled := item.disabled || (a.catalogBrowser.kind == catalogKindTools &&
+				a.disabledTools != nil && a.disabledTools[item.id])
+			idx := i
+			description := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+			inlineMeta := ""
+			if a.catalogBrowser.kind == catalogKindTools ||
+				a.catalogBrowser.kind == catalogKindPrompts ||
+				a.catalogBrowser.kind == catalogKindExpertPacks {
+				inlineMeta = description
+				description = ""
+			}
+			listItems = append(listItems, modalListItem{
+				id:          fmt.Sprintf("catalog:item:%d", idx),
+				title:       item.title,
+				meta:        inlineMeta,
+				description: description,
+				status:      catalogStatusTagLabel(item.statusTag),
+				selected:    i == a.catalogBrowser.sel,
+				disabled:    isDisabled,
+				action:      nil,
+			})
+			if !isDisabled {
+				listItems[len(listItems)-1].action = func(app *App) tea.Cmd {
+					if app.catalogBrowser == nil || idx < 0 || idx >= len(app.catalogBrowser.items) {
+						return nil
+					}
+					app.catalogBrowser.sel = idx
+					app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
+					app.cancelCatalogPendingDeletesOutsideSelection()
+					_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
+					return cmd
 				}
-				app.catalogBrowser.sel = idx
-				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, idx, app.catalogBrowser.offset, len(app.catalogBrowser.items))
-				_, cmd := app.handleCatalogBrowserKey(keyMsg("enter"))
-				return cmd
 			}
 		}
 	}
@@ -2291,6 +2505,7 @@ func (a *App) viewCatalogBrowser() string {
 					app.catalogBrowser.sel = indexes[index]
 				}
 				app.catalogBrowser.offset = catalogBrowserClampOffsetForKind(app.catalogBrowser.kind, index, app.catalogBrowser.offset, len(indexes))
+				app.cancelCatalogPendingDeletesOutsideSelection()
 			}
 			return nil
 		},
@@ -2301,10 +2516,67 @@ func (a *App) viewCatalogBrowser() string {
 	return rendered.modal
 }
 
+func catalogBrowserUsesGuidanceEmptyState(kind catalogBrowserKind, items []catalogItem) bool {
+	switch kind {
+	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+		return catalogBrowserItemsAreEmptyState(items)
+	default:
+		return false
+	}
+}
+
+func (a *App) renderCatalogEmptyGuidanceRows(items []catalogItem, width int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	if width < 1 {
+		width = 1
+	}
+	t := a.Theme
+	rows := make([]string, 0, len(items)*3)
+	for i, item := range items {
+		title := strings.TrimSpace(item.title)
+		if title == "" {
+			continue
+		}
+		label := title
+		if i > 0 {
+			label = catalogEmptyGuidanceStepLabel(label)
+		}
+		line := "  " + lipgloss.NewStyle().Foreground(t.Fg).Bold(true).Render(label)
+		if i == 0 {
+			if status := catalogStatusTagLabel(item.statusTag); status != "" {
+				line += "  " + lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("["+status+"]")
+			}
+		}
+		rows = append(rows, truncate(line, width))
+		guidance := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+		for _, wrapped := range wrapPlainRows(guidance, width-4, "") {
+			if strings.TrimSpace(wrapped) == "" {
+				continue
+			}
+			rows = append(rows, "    "+t.HintLabel.Italic(true).Render(wrapped))
+		}
+	}
+	return rows
+}
+
+func catalogEmptyGuidanceStepLabel(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return ""
+	}
+	lower := strings.ToLower(title)
+	if strings.HasPrefix(lower, "then ") || strings.HasPrefix(lower, "next ") {
+		return title
+	}
+	return "Next: " + title
+}
+
 func catalogBrowserIntro(kind catalogBrowserKind) string {
 	switch kind {
 	case catalogKindTools:
-		return "Actions and MCP in one operator view. Connection rows show health; indented tool rows show call policy and required inputs. Use /mcp to add or repair connections."
+		return "Tools and MCP in one operator view. Connection rows show health; indented tool rows show call policy and required inputs. Use /mcp to add or repair connections."
 	case catalogKindMcp:
 		return "Manage connections that supply tools, resources, and prompts. Use /tools when you want the unified action inventory."
 	case catalogKindSkills:
@@ -2318,6 +2590,39 @@ func catalogBrowserIntro(kind catalogBrowserKind) string {
 	}
 }
 
+func catalogBrowserWorkflowGuide(kind catalogBrowserKind) string {
+	switch kind {
+	case catalogKindAgentBlueprints:
+		return "Setup: sources -> blueprint -> install -> detail -> activate."
+	case catalogKindAgentBlueprintSources:
+		return "Source flow: add/refresh/remove sources; select a provided blueprint to install into this workspace."
+	default:
+		return ""
+	}
+}
+
+func (a *App) catalogBrowserContextLine(kind catalogBrowserKind) string {
+	switch kind {
+	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+	default:
+		return ""
+	}
+	workspace := firstNonEmpty(a.headerWorkspaceLabel(), strings.TrimSpace(a.wsID), "default workspace")
+	session := "no session selected"
+	if a.selected >= 0 && a.selected < len(a.sessions) {
+		s := a.sessions[a.selected]
+		session = firstNonEmpty(strings.TrimSpace(s.Title), strings.TrimSpace(s.ID), "selected session")
+	}
+	workflow := "no active workflow blueprint"
+	if id := a.activeAgentBlueprintID(); id != "" {
+		workflow = id
+		if scope := a.activeAgentBlueprintScope(); scope != "" {
+			workflow += " (" + scope + ")"
+		}
+	}
+	return "Context: workspace " + workspace + " · session " + session + " · workflow " + workflow
+}
+
 func catalogBrowserHintText(cb *catalogBrowserState) string {
 	if cb == nil {
 		return "↑/↓ navigate · Esc close"
@@ -2325,7 +2630,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 	switch cb.kind {
 	case catalogKindTools:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "none" {
-			return modalKeyHint("no callable actions yet", "i add connection", "/agent-blueprints activate workflow", "Esc close")
+			return modalKeyHint("no callable actions yet", "i add connection", "open /agent-blueprints", "activate workflow", "Esc close")
 		}
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "mcpserver/") {
 			return modalKeyHint("↑/↓ navigate", "Enter connection detail", "r reconnect", "i add connection", "d remove connection", "Esc close")
@@ -2338,7 +2643,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ navigate", "Enter detail", "i add connection", "d remove connection", "Esc close")
 	case catalogKindSkills:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "none" {
-			return modalKeyHint("no skills yet", "/agent-blueprints add skills", "Esc close")
+			return modalKeyHint("no skills yet", "open /agent-blueprints", "install workflow with skills", "Esc close")
 		}
 		return modalKeyHint("↑/↓ navigate", "Enter details", "Esc close")
 	case catalogKindAgents:
@@ -2349,21 +2654,16 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		if cb.pendingDeleteAgentID == cb.agentID && cb.agentID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc/Backspace back")
 		}
-		parts := []string{"↑/↓ navigate structure", "Enter details"}
-		if catalogBrowserHasItem(cb, "agent-action/clone") {
-			parts = append(parts, "c clone")
-		}
-		if catalogBrowserHasItem(cb, "agent-action/edit") {
+		parts := []string{"↑/↓ navigate structure", "Enter details", "c clone"}
+		if catalogBrowserAgentIsUserOwned(cb) {
 			parts = append(parts, "e edit")
-		}
-		if catalogBrowserHasItem(cb, "agent-action/delete") {
 			parts = append(parts, "d delete")
 		}
 		parts = append(parts, "o set next turn", "Esc/Backspace back")
 		return modalKeyHint(parts...)
 	case catalogKindPrompts:
 		if catalogBrowserItemsAreEmptyState(cb.items) {
-			return modalKeyHint("/agent-blueprints activate workflow", "reopen /prompts", "Esc close")
+			return modalKeyHint("open /agent-blueprints", "activate workflow", "reopen /prompts", "Esc close")
 		}
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "provider/") {
 			return modalKeyHint("↑/↓ navigate", "Enter provider summary", "Esc close")
@@ -2373,7 +2673,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ nav", "Enter details", "r render", "v validate", "u reload", "e edit", "s save->codex", "Esc back")
 	case catalogKindExpertPacks:
 		if catalogBrowserItemsAreEmptyState(cb.items) {
-			return modalKeyHint("/agent-blueprints install workflow packs", "then reopen /expert-packs", "Esc close")
+			return modalKeyHint("open /agent-blueprints", "install workflow pack", "reopen /expert-packs", "Esc close")
 		}
 		return modalKeyHint("↑/↓ navigate", "Enter details", "Esc close")
 	case catalogKindExpertPackDetail:
@@ -2382,7 +2682,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		}
 		return modalKeyHint("↑/↓ structure", "Enter details/activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprints:
-		return modalKeyHint("↑/↓ move", "Enter detail", "i install", "v validate", "s sources", "Esc close")
+		return modalKeyHint("↑/↓ nav", "Enter", "s sources", "i manual install", "v validate file", "Esc close")
 	case catalogKindAgentBlueprintDetail:
 		if cb.pendingDeleteBlueprintID == cb.blueprintID && cb.blueprintID != "" {
 			return modalKeyHint("confirm delete armed", "d/Enter confirm delete", "any other key cancels", "Esc back")
@@ -2396,12 +2696,12 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 		return modalKeyHint("↑/↓ structure", "Enter details/enable", "a activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprintSources:
 		if cb.sel >= 0 && cb.sel < len(cb.items) && strings.HasPrefix(cb.items[cb.sel].id, "source-blueprint/") {
-			return modalKeyHint("↑/↓ navigate", "Enter install selected blueprint", "Esc back")
+			return modalKeyHint("↑/↓ navigate", "Enter install selected blueprint", "a add source", "Esc back")
 		}
 		if cb.pendingDeleteSourceID != "" && cb.sel >= 0 && cb.sel < len(cb.items) && cb.items[cb.sel].id == "source/"+cb.pendingDeleteSourceID {
-			return modalKeyHint("confirm remove armed", "d confirm remove source", "any other key cancels", "Esc back")
+			return modalKeyHint("confirm remove armed", "d confirm remove source", "a add source", "any other key cancels", "Esc back")
 		}
-		return modalKeyHint("↑/↓ navigate", "Enter source details", "r refresh", "d remove", "Esc back")
+		return modalKeyHint("↑/↓ navigate", "Enter source details", "a add source", "r refresh", "d remove", "Esc back")
 	default:
 		return modalKeyHint("↑/↓ navigate", "Esc close")
 	}
@@ -3144,6 +3444,7 @@ func formatMcpServerSummary(server gact.McpServer) string {
 	rows := appendDetailSection(nil, "Operator summary",
 		detailField{"connection", displayName},
 		detailField{"status", status},
+		detailField{"live health", mcpLiveHealthSummary(server)},
 		detailField{"provides", strings.Join(capabilities, ", ")},
 		detailField{"manage", "open /mcp to add, reconnect, or remove this connection"},
 		detailField{"tool access", "open /tools to see callable actions from eligible connections and workflows"},
@@ -3161,6 +3462,8 @@ func formatMcpServerSummary(server gact.McpServer) string {
 		detailField{"transport", server.Transport},
 		detailField{"MCP protocol", server.ProtocolVersion},
 		detailField{"version", server.Version},
+		detailField{"live tools", stringValue(server.ServerInfo["live_tools_count"])},
+		detailField{"live latency", stringValue(server.ServerInfo["live_latency_ms"])},
 	)
 	if len(server.ServerInfo) > 0 {
 		if summary := contextMapSummary(server.ServerInfo, "name", "version", "title"); summary != "" {
@@ -3168,6 +3471,20 @@ func formatMcpServerSummary(server gact.McpServer) string {
 		}
 	}
 	return strings.Join(rows, "\n")
+}
+
+func mcpLiveHealthSummary(server gact.McpServer) string {
+	live, ok := server.ServerInfo["live_reachable"].(bool)
+	if !ok {
+		return ""
+	}
+	if live {
+		return "reachable"
+	}
+	if server.LastError != "" {
+		return "unreachable: " + compactCatalogText(server.LastError)
+	}
+	return "unreachable"
 }
 
 func mcpServerDetailInlineSummary(server gact.McpServer) string {
@@ -3231,6 +3548,13 @@ func mcpServerCatalogDescription(server gact.McpServer) string {
 	if server.ProtocolVersion != "" {
 		parts = append(parts, "MCP "+server.ProtocolVersion)
 	}
+	if live, ok := server.ServerInfo["live_reachable"].(bool); ok {
+		if live {
+			parts = append(parts, "live reachable")
+		} else {
+			parts = append(parts, "live unreachable")
+		}
+	}
 	caps := compactMcpCapabilityLabels(server.DeclaredCapabilities)
 	if len(caps) > 0 {
 		parts = append(parts, "offers "+strings.Join(caps, ", "))
@@ -3273,7 +3597,7 @@ func agentBlueprintSourceRegistryItems(sources []gact.AgentBlueprintSource) []ca
 		return []catalogItem{{
 			id:        "source/none",
 			title:     "No marketplace sources configured",
-			desc:      "Use install to add blueprints directly, or add sources through CLIO when a source URL is available.",
+			desc:      "Use Add marketplace source to register a source URL, then install a provided blueprint from this source tree. Manual install remains available for one-off files.",
 			statusTag: "empty",
 			disabled:  true,
 		}}
@@ -3668,8 +3992,8 @@ func agentBlueprintDescription(blueprint gact.AgentBlueprintDefinition) string {
 	if len(blueprint.ValidationWarnings) > 0 {
 		parts = append(parts, "warnings: "+strings.Join(blueprint.ValidationWarnings, "; "))
 	}
-	if blueprint.Description != "" {
-		parts = append(parts, compactCatalogText(blueprint.Description))
+	if desc := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID); desc != "" {
+		parts = append(parts, desc)
 	}
 	return strings.Join(parts, " · ")
 }
@@ -3726,23 +4050,10 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 			id: "validation", title: "Validation errors", desc: strings.Join(pack.ValidationErrors, "; "), statusTag: "error",
 		})
 	}
-	sortAgentsForCatalog(detail.Agents)
-	for _, agent := range detail.Agents {
-		status := firstNonEmpty(agent.Source, "expert")
-		if !agent.Enabled || len(agent.ValidationErrors) > 0 {
-			status = "invalid"
-		} else if len(agent.ValidationWarnings) > 0 {
-			status = "warning"
-		} else {
-			status = operatorSourceValueLabel(status)
-		}
-		items = append(items, catalogItem{
-			id:         "agent/" + agent.ID,
-			title:      "Expert · " + operatorAgentTitle(agent),
-			desc:       agentCatalogDescription(agent, detail.Agents),
-			inlineDesc: agentCatalogInlineSummary(agent, detail.Agents),
-			statusTag:  status,
-		})
+	for _, agentItem := range hierarchicalAgentCatalogItems(detail.Agents, detail.Agents) {
+		agentID := strings.TrimPrefix(agentItem.id, "agent/")
+		agentItem.id = "agent/" + agentID
+		items = append(items, agentItem)
 	}
 	return items
 }
@@ -3833,6 +4144,9 @@ func agentBlueprintExpertTitle(title string) string {
 	prefixLen := len(title) - len(strings.TrimLeft(title, " "))
 	prefix := title[:prefixLen]
 	trimmed := strings.TrimLeft(title, " ")
+	if strings.HasPrefix(trimmed, "Root expert · ") {
+		return "Root expert · " + stripAgentHierarchyRolePrefix(strings.TrimSpace(trimmed))
+	}
 	if strings.HasPrefix(trimmed, "└─ ") {
 		label := strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
 		label = stripAgentHierarchyRolePrefix(label)
@@ -4231,8 +4545,12 @@ func agentBlueprintHookFieldLabel(key string) string {
 }
 
 func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string {
+	workflow := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID)
+	if workflow == "" {
+		workflow = firstNonEmpty(blueprint.Title, blueprint.ID)
+	}
 	rows := appendDetailSection(nil, "Operator summary",
-		detailField{"workflow", firstNonEmpty(blueprint.Description, firstNonEmpty(blueprint.Title, blueprint.ID))},
+		detailField{"workflow", workflow},
 		detailField{"status", agentBlueprintStatusText(blueprint)},
 		detailField{"activation", "select Activate to use this blueprint for the current session"},
 		detailField{"session scope", sessionDefaultDescription()},
@@ -4264,8 +4582,8 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 			rows = appendDetailSection(rows, "Metadata", detailField{"", string(payload)})
 		}
 	}
-	if blueprint.Description != "" {
-		rows = appendDetailSection(rows, "Description", detailField{"", blueprint.Description})
+	if desc := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID); desc != "" {
+		rows = appendDetailSection(rows, "Description", detailField{"", desc})
 	}
 	return strings.Join(rows, "\n")
 }
@@ -4736,6 +5054,10 @@ func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalo
 		return items
 	}
 
+	return hierarchicalAgentCatalogItems(filtered, agents)
+}
+
+func hierarchicalAgentCatalogItems(filtered []gact.AgentDef, allAgents []gact.AgentDef) []catalogItem {
 	byParent := map[string][]gact.AgentDef{}
 	topLevel := make([]gact.AgentDef, 0)
 	for _, agent := range filtered {
@@ -4759,7 +5081,7 @@ func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalo
 			return
 		}
 		seen[agent.ID] = true
-		items = append(items, agentCatalogHierarchyItem(agent, agents, depth))
+		items = append(items, agentCatalogHierarchyItem(agent, allAgents, depth))
 		for _, child := range byParent[agent.ID] {
 			appendAgent(child, depth+1)
 		}
@@ -5256,6 +5578,56 @@ func mcpConnectionStatusTag(server gact.McpServer) string {
 	return "mcp"
 }
 
+func annotateMcpServersWithHandshake(servers []gact.McpServer, handshake client.McpHandshakeResponse) []gact.McpServer {
+	if len(servers) == 0 || len(handshake.Servers) == 0 {
+		return servers
+	}
+	byName := map[string]client.McpHandshakeServer{}
+	for _, live := range handshake.Servers {
+		for _, key := range []string{live.Name, strings.ToLower(live.Name)} {
+			key = strings.TrimSpace(key)
+			if key != "" {
+				byName[key] = live
+			}
+		}
+	}
+	out := append([]gact.McpServer(nil), servers...)
+	for i := range out {
+		live, ok := byName[out[i].ID]
+		if !ok {
+			live, ok = byName[out[i].Name]
+		}
+		if !ok {
+			live, ok = byName[strings.ToLower(out[i].ID)]
+		}
+		if !ok {
+			live, ok = byName[strings.ToLower(out[i].Name)]
+		}
+		if !ok {
+			continue
+		}
+		if live.State != "" {
+			out[i].Status = live.State
+		} else if live.Reachable {
+			out[i].Status = "ready"
+		} else {
+			out[i].Status = "error"
+		}
+		if !live.Reachable && strings.TrimSpace(live.Error) != "" {
+			out[i].LastError = strings.TrimSpace(live.Error)
+		}
+		if out[i].ServerInfo == nil {
+			out[i].ServerInfo = map[string]any{}
+		}
+		out[i].ServerInfo["live_reachable"] = live.Reachable
+		out[i].ServerInfo["live_tools_count"] = live.ToolsCount
+		if live.LatencyMS > 0 {
+			out[i].ServerInfo["live_latency_ms"] = live.LatencyMS
+		}
+	}
+	return out
+}
+
 func mcpSourceInlineSummary(server gact.McpServer, toolCount int) string {
 	parts := make([]string, 0, 5)
 	if server.Status != "" {
@@ -5264,6 +5636,13 @@ func mcpSourceInlineSummary(server gact.McpServer, toolCount int) string {
 			status = "disconnected"
 		}
 		parts = append(parts, status)
+	}
+	if live, ok := server.ServerInfo["live_reachable"].(bool); ok {
+		if live {
+			parts = append(parts, "live")
+		} else {
+			parts = append(parts, "unreachable")
+		}
 	}
 	parts = append(parts, mcpCapabilityCountLabels(server.DeclaredCapabilities, toolCount)...)
 	if server.LastError != "" {
@@ -5381,9 +5760,24 @@ func limitStrings(values []string, limit int) []string {
 }
 
 func toolDescriptionRepeatsName(desc string, tool gact.Tool) bool {
+	return catalogDescriptionRepeatsAny(desc, tool.ID, tool.Name, tool.Title)
+}
+
+func nonRepeatingCatalogDescription(desc string, candidates ...string) string {
+	desc = compactCatalogText(desc)
+	if desc == "" || catalogDescriptionRepeatsAny(desc, candidates...) {
+		return ""
+	}
+	return desc
+}
+
+func catalogDescriptionRepeatsAny(desc string, candidates ...string) bool {
 	normalizedDesc := normalizeCatalogComparable(desc)
-	for _, candidate := range []string{tool.ID, tool.Name, tool.Title} {
-		if normalizedDesc != "" && normalizedDesc == normalizeCatalogComparable(candidate) {
+	if normalizedDesc == "" {
+		return false
+	}
+	for _, candidate := range candidates {
+		if normalizedDesc == normalizeCatalogComparable(candidate) {
 			return true
 		}
 	}

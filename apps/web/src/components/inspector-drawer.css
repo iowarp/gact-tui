@@ -46,9 +46,10 @@
   color: var(--color-text);
 }
 
+/* Selected inspector tab = selection state → the single warm accent. */
 .inspector__tab.is-active {
-  background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
-  color: var(--color-accent-cyan);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
 }
 
 .inspector__call-row {
@@ -700,8 +701,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
   border: none;
   border-radius: 6px;
   padding: 6px 12px;
@@ -790,15 +791,43 @@
   color: var(--color-accent-cyan);
 }
 
+/* A7 — packaged-component provenance rows. */
+.inspector__binding-prov-row--install dd {
+  color: var(--color-accent-cyan);
+}
+
+.inspector__binding-prov-row--bootstrap dd {
+  color: var(--color-muted);
+}
+
+.inspector__binding-prov-row--errors {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.inspector__packaged-errors {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  text-align: left;
+  color: var(--color-error);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.inspector__packaged-errors li {
+  word-break: break-word;
+}
+
 .inspector__bulk-actions {
   display: flex;
   gap: 6px;
   margin-bottom: 8px;
 }
 
+/* Primary bulk action (approve) = the single warm accent. */
 .inspector__bulk-btn {
-  background: var(--color-accent-cyan);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0a0f1a;
   border: none;
   border-radius: 6px;
   padding: 5px 12px;

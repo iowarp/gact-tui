@@ -1,8 +1,10 @@
 import { createEffect, createMemo, createSignal, For, Show, untrack, type JSX } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 import type { Client } from '@clio/core';
 import { AtMentionPicker, DEFAULT_ITEMS, type MentionItem } from './AtMentionPicker.js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
+import { Spinner } from './ui/Spinner.js';
 import './composer.css';
 
 export type PermissionMode = 'ask' | 'auto-edits' | 'plan' | 'auto' | 'bypass';
@@ -57,6 +59,14 @@ export interface ComposerProps {
   onUploadFile?: (file: File) => Promise<{ path?: string } | void>;
   /** Backend advertises capabilities.attachments_upload. */
   attachmentsCapable?: boolean;
+  /**
+   * A2 — backend advertises capabilities.multimodal_image_parts (or a
+   * vision-capable provider). When false the dedicated "Attach image…"
+   * affordance is disabled with an explanatory tooltip; generic file
+   * upload and text are unaffected. Defaults to true (capability absent
+   * is treated as "allowed" — only an explicit `false` gates).
+   */
+  imageAttachCapable?: boolean;
 
   /** Live model options pulled from /v1/providers. */
   models?: ModelOption[];
@@ -421,11 +431,37 @@ export function Composer(props: ComposerProps = {}) {
     }
   }
   let fileInputRef: HTMLInputElement | undefined;
+  let imageInputRef: HTMLInputElement | undefined;
+  let inputTextareaRef: HTMLTextAreaElement | undefined;
   const [attachMenuOpen, setAttachMenuOpen] = createSignal(false);
+
+  // Auto-grow the composer to fit its content even when `text()` is set
+  // programmatically (fixtures, history walk, paste-expand) — the onInput
+  // handler only fires for keystrokes, so a pre-filled multiline draft would
+  // otherwise stay clamped to one row and clip.
+  createEffect(() => {
+    const value = text();
+    const ta = inputTextareaRef;
+    if (!ta) return;
+    queueMicrotask(() => {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+      void value;
+    });
+  });
+
+  // A2: only an explicit `false` gates image attachment; absent → allowed.
+  const imageAttachAllowed = () => props.imageAttachCapable !== false;
 
   function openUpload() {
     setAttachMenuOpen(false);
     fileInputRef?.click();
+  }
+
+  function openImageUpload() {
+    if (!imageAttachAllowed()) return;
+    setAttachMenuOpen(false);
+    imageInputRef?.click();
   }
 
   function mentionWorkspaceFile() {
@@ -600,7 +636,7 @@ export function Composer(props: ComposerProps = {}) {
                     when={a.pending}
                     fallback={<Icon name={a.error ? 'close' : 'attach'} size={11} />}
                   >
-                    <span class="composer__chip-spin" aria-label="uploading" />
+                    <Spinner class="composer__chip-spin" label="uploading" />
                   </Show>
                   <span class="composer__chip-name">{a.name}</span>
                   <Show
@@ -643,6 +679,16 @@ export function Composer(props: ComposerProps = {}) {
           hidden
           onChange={onFilesPicked}
           data-testid="composer-file-input"
+        />
+
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={onFilesPicked}
+          data-testid="composer-image-input"
         />
 
         <input
@@ -697,6 +743,42 @@ export function Composer(props: ComposerProps = {}) {
                     <Icon name="attach" size={13} />
                     <span class="composer__attach-menuitem-label">Upload from computer…</span>
                     <span class="composer__attach-menuitem-sub">sends file bytes</span>
+                  </button>
+                </Show>
+                {/* A2: image attach is gated on multimodal_image_parts. When
+                    the backend/model can't accept images we still render the
+                    row, but disabled with an explanatory tooltip — generic
+                    file upload above and text are unaffected. */}
+                <Show
+                  when={
+                    props.attachmentsCapable &&
+                    props.onUploadFile &&
+                    imageAttachAllowed()
+                  }
+                  fallback={
+                    <Show when={props.attachmentsCapable && props.onUploadFile}>
+                      <div
+                        class="composer__attach-menuitem is-disabled"
+                        data-testid="composer-attach-image-disabled"
+                        title="This model/backend doesn't accept images"
+                      >
+                        <Icon name="attach" size={13} />
+                        <span class="composer__attach-menuitem-label">Attach image…</span>
+                        <span class="composer__attach-menuitem-sub">no image support</span>
+                      </div>
+                    </Show>
+                  }
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="composer__attach-menuitem"
+                    data-testid="composer-attach-image"
+                    onClick={openImageUpload}
+                  >
+                    <Icon name="attach" size={13} />
+                    <span class="composer__attach-menuitem-label">Attach image…</span>
+                    <span class="composer__attach-menuitem-sub">sends image bytes</span>
                   </button>
                 </Show>
                 <div class="composer__attach-menu-group">In this workspace</div>
@@ -756,10 +838,13 @@ export function Composer(props: ComposerProps = {}) {
           </div>
           <div class="composer__input-wrap">
             <textarea
+              ref={(el) => {
+                inputTextareaRef = el;
+              }}
               class="composer__input"
               placeholder={
                 props.placeholder ??
-                'Ask CLIO anything — type @ for files, agents, tools'
+                `Ask ${brand.name} anything — type @ for files, agents, tools`
               }
               rows={1}
               value={text()}
