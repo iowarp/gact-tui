@@ -19,8 +19,8 @@ changing capture priorities or missing-state rows.
 
 ### High - Diagnostics
 
-- Missing capture: Real CLIO doctor output with partial capability gaps and long-running benchmark metrics during active stream (#151)
-- Why it matters: Deterministic fixtures, maintained `gact diag` clipboard/terminal report, and preserved live memory-pressure evidence are covered; operators still need real CLIO doctor partial-gap and active-stream metrics captures
+- Missing capture: Real CLIO doctor output with partial capability gaps and long-running benchmark metrics during active stream (#151/#160)
+- Why it matters: Deterministic fixtures, maintained `gact diag` clipboard/terminal report, preserved live memory-pressure evidence, and PTY mouse-latency proof are covered; operators still need real CLIO doctor partial-gap and active-stream metrics captures during a long owned CLIO stream
 
 ### High - Scientific demos
 

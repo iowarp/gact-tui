@@ -69,6 +69,23 @@ captures cannot satisfy the live proof. The helper refuses `TERM=dumb` captures 
 `GACT_ALLOW_DUMB_TERMINAL_CAPTURE=1` is set for a non-interactive smoke test; do
 not use forced captures as proof that native selection works.
 
+For TUI mouse-event latency proof (#160), use the PTY harness because the
+current VHS command set cannot script mouse primitives:
+
+```bash
+go build -p 1 -o tui/gact ./tui
+go build -p 1 -o .tools/emulator-server ./emulator/cmd/emulator-server
+visual_loop/capture_tui_mouse_latency_pty.py
+```
+
+This starts a disposable emulator unless `--backend` is supplied. When using an
+existing backend, pass `--own-backend` or set
+`GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1`; the helper refuses ambiguous shared
+backends. It writes `tui_mouse_latency_pty_manifest.json` and
+`tui_mouse_latency_pty_report.json`, and fails unless the report contains
+target-labeled click rows plus wheel latency rows generated from terminal SGR
+mouse escape sequences.
+
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:
 
