@@ -39,6 +39,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# clio-agent's marketplace submodule may be declared with a GitHub SSH URL.
+# CI/container builds do not carry an SSH agent, so rewrite those public GitHub
+# submodule URLs to HTTPS before the VCS pip install initializes submodules.
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:"
+
 # Self-contained venv so we can copy it wholesale into the slim runtime stage.
 RUN python -m venv "$VIRTUAL_ENV"
 
