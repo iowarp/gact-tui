@@ -203,6 +203,21 @@ func TestConversationRenderCacheTracksPartDeltaWithoutGlobalInvalidation(t *test
 	}
 }
 
+func TestConversationRenderFingerprintTracksVisibleMetadataOnly(t *testing.T) {
+	msg := benchmarkAssistantSemanticMessage(0, time.Date(2026, 6, 11, 9, 0, 0, 0, time.UTC))
+	original := conversationMessageRenderFingerprint(msg)
+
+	msg.Metadata["raw_event"] = map[string]any{"debug": "different raw payload"}
+	if got := conversationMessageRenderFingerprint(msg); got != original {
+		t.Fatalf("raw_event metadata should not affect render fingerprint: got %x want %x", got, original)
+	}
+
+	msg.Metadata["workflow_state"] = map[string]any{"status": "changed"}
+	if got := conversationMessageRenderFingerprint(msg); got == original {
+		t.Fatalf("visible metadata change should affect render fingerprint")
+	}
+}
+
 func benchmarkLargeSemanticTranscriptApp(width, height, turns int) *App {
 	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	app.width = width
