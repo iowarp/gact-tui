@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -51,6 +54,42 @@ type tuiInteractionSummary struct {
 	TotalP50  time.Duration
 	TotalP95  time.Duration
 	TotalMax  time.Duration
+}
+
+type tuiInteractionLatencyReport struct {
+	GeneratedAt  string                        `json:"generated_at"`
+	Backend      string                        `json:"backend"`
+	SessionID    string                        `json:"session_id,omitempty"`
+	WindowWidth  int                           `json:"window_width"`
+	WindowHeight int                           `json:"window_height"`
+	FocusSurface string                        `json:"focus_surface"`
+	MouseEnabled bool                          `json:"mouse_enabled"`
+	SampleCount  int                           `json:"sample_count"`
+	SurfaceCount int                           `json:"surface_count"`
+	Slowest      *tuiInteractionLatencyRow     `json:"slowest,omitempty"`
+	Interactions []tuiInteractionLatencyRow    `json:"interactions"`
+	SupportedBy  tuiInteractionLatencyCoverage `json:"supported_by"`
+}
+
+type tuiInteractionLatencyCoverage struct {
+	Keys   bool `json:"keys"`
+	Clicks bool `json:"clicks"`
+	Wheels bool `json:"wheels"`
+}
+
+type tuiInteractionLatencyRow struct {
+	Key       string  `json:"key"`
+	Surface   string  `json:"surface"`
+	Kind      string  `json:"kind"`
+	Target    string  `json:"last_hit_target,omitempty"`
+	Count     int     `json:"count"`
+	UpdateP50 float64 `json:"update_p50_ms"`
+	UpdateP95 float64 `json:"update_p95_ms"`
+	RenderP50 float64 `json:"render_p50_ms"`
+	RenderP95 float64 `json:"render_p95_ms"`
+	TotalP50  float64 `json:"total_p50_ms"`
+	TotalP95  float64 `json:"total_p95_ms"`
+	TotalMax  float64 `json:"total_max_ms"`
 }
 
 func (a *App) beginTUIInteractionTrace(msg tea.Msg) *tuiInteractionTrace {
@@ -367,4 +406,86 @@ func tuiInteractionOperatorText(st tuiInteractionSummary) string {
 		formatTUIDuration(st.TotalMax),
 		samples,
 	)
+}
+
+// WriteTUIInteractionLatencyReport preserves the process-local latency table
+// for live-capture and profiling runs. Normal TUI sessions do not write this;
+// runTUI calls it only when GACT_TUI_LATENCY_REPORT is set.
+func (a *App) WriteTUIInteractionLatencyReport(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	report := a.tuiInteractionLatencyReport()
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0o644)
+}
+
+func (a *App) tuiInteractionLatencyReport() tuiInteractionLatencyReport {
+	report := tuiInteractionLatencyReport{
+		GeneratedAt:  time.Now().UTC().Format(time.RFC3339Nano),
+		MouseEnabled: true,
+		SupportedBy:  tuiInteractionLatencyCoverage{},
+	}
+	if a == nil {
+		return report
+	}
+	report.Backend = a.BackendURL
+	report.SessionID = a.currentSessionID()
+	report.WindowWidth = a.width
+	report.WindowHeight = a.height
+	report.FocusSurface = a.currentTUISurface()
+	report.MouseEnabled = a.MouseEnabled
+
+	summaries := a.tuiInteractionSummaries(0)
+	report.SurfaceCount = len(summaries)
+	report.Interactions = make([]tuiInteractionLatencyRow, 0, len(summaries))
+	for i, summary := range summaries {
+		row := tuiInteractionLatencyReportRow(summary)
+		if i == 0 {
+			slowest := row
+			report.Slowest = &slowest
+		}
+		report.SampleCount += row.Count
+		report.Interactions = append(report.Interactions, row)
+		switch {
+		case summary.Kind == "key":
+			report.SupportedBy.Keys = true
+		case strings.Contains(summary.Kind, "click"):
+			report.SupportedBy.Clicks = true
+		case strings.Contains(summary.Kind, "wheel"):
+			report.SupportedBy.Wheels = true
+		}
+	}
+	return report
+}
+
+func tuiInteractionLatencyReportRow(st tuiInteractionSummary) tuiInteractionLatencyRow {
+	return tuiInteractionLatencyRow{
+		Key:       st.Key,
+		Surface:   st.Surface,
+		Kind:      st.Kind,
+		Target:    st.Target,
+		Count:     st.Count,
+		UpdateP50: durationMilliseconds(st.UpdateP50),
+		UpdateP95: durationMilliseconds(st.UpdateP95),
+		RenderP50: durationMilliseconds(st.RenderP50),
+		RenderP95: durationMilliseconds(st.RenderP95),
+		TotalP50:  durationMilliseconds(st.TotalP50),
+		TotalP95:  durationMilliseconds(st.TotalP95),
+		TotalMax:  durationMilliseconds(st.TotalMax),
+	}
+}
+
+func durationMilliseconds(d time.Duration) float64 {
+	return float64(d) / float64(time.Millisecond)
 }
