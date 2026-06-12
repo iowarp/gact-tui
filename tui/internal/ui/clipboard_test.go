@@ -627,6 +627,66 @@ func TestCopyCommandPrefersSelectedConversationBlock(t *testing.T) {
 	}
 }
 
+func TestSelectedHandoffCopyUsesPlainSemanticText(t *testing.T) {
+	msgs := []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "data returned evidence to main.",
+			Metadata: map[string]any{
+				"agent_id":       "data",
+				"parent_id":      "main",
+				"stage":          "delegate.completed",
+				"status":         "completed",
+				"duration_ms":    1778.0,
+				"output_summary": "Resolved Region (Los Angeles)\n\n- Center: 34.0522, -118.2437",
+			},
+		}},
+	}}
+
+	got, ok := selectedConversationBlockText(msgs, 0, 0)
+	if !ok {
+		t.Fatal("handoff block should be copyable")
+	}
+	for _, want := range []string{"data returned evidence to main", "completed - returned - 1778ms", "Resolved Region"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("handoff copy missing %q:\n%s", want, got)
+		}
+	}
+	for _, bad := range []string{"↳", "│", "·", "┬╖", "Γå", "ΓÇ"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("handoff copy should not include terminal UI glyph/mojibake %q:\n%s", bad, got)
+		}
+	}
+}
+
+func TestSelectedScientificToolResultCopyUsesSemanticSummary(t *testing.T) {
+	msgs := []gact.Message{{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type:     gact.PartTypeToolResult,
+			ToolName: "shell_bash",
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: `{"exit_code":0,"stdout":"Site,Latitude,(deg)\nMTA1,34.0522,-118.2437\nPKRD,34.0500,-118.2600\nELSC,34.0300,-118.2400"}`,
+			}},
+		}},
+	}}
+
+	got, ok := selectedConversationBlockText(msgs, 0, 0)
+	if !ok {
+		t.Fatal("tool result should be copyable")
+	}
+	for _, want := range []string{"exit_code: 0", "stdout: Site,Latitude,(deg) MTA1"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("tool result copy missing semantic summary %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, `{"exit_code"`) || strings.Contains(got, `\n`) {
+		t.Fatalf("tool result copy should not paste raw JSON/newline escapes:\n%s", got)
+	}
+}
+
 func TestCopyCommandFallsBackToSelectedMessageThenLatestAssistant(t *testing.T) {
 	mu, got, _ := withClipboardSpy(t)
 
@@ -727,8 +787,9 @@ func TestFullConversationCopyIncludesToolEvidence(t *testing.T) {
 		"Inspect San Diego waveforms.",
 		"## assistant:",
 		"Tool call",
+		"EarthScope waveform discovery",
 		"tool: sac_discover_earthscope_region_waveform",
-		`"location": "San Diego, CA"`,
+		"Args: location: San Diego, CA · window: last 7 days",
 		"I am querying EarthScope.",
 		"## tool:",
 		"earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac",
