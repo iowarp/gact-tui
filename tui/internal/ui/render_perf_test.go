@@ -58,6 +58,28 @@ func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
 	}
 }
 
+func BenchmarkDetailModalLargeMarkdownInitialRender(b *testing.B) {
+	app := benchmarkLargeDetailApp()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app.detailWrap = detailWrapCache{}
+		app.detailScroll = 0
+		_ = app.viewDetailView()
+	}
+}
+
+func BenchmarkDetailModalLargeMarkdownCachedScroll(b *testing.B) {
+	app := benchmarkLargeDetailApp()
+	_ = app.viewDetailView()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app.detailScroll = i % 250
+		_ = app.viewDetailView()
+	}
+}
+
 func TestLargeSemanticTranscriptDefaultViewIsReadable(t *testing.T) {
 	app := benchmarkLargeSemanticTranscriptApp(140, 42, 20)
 	out := ansi.Strip(app.renderBody(app.width-40, app.height-3))
@@ -187,6 +209,45 @@ func benchmarkLargeSemanticTranscriptApp(width, height, turns int) *App {
 	app.bodySelPartIdx = 0
 	app.messages = benchmarkSemanticMessages(turns)
 	return app
+}
+
+func benchmarkLargeDetailApp() *App {
+	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	app.width = 160
+	app.height = 48
+	app.stage = StageReady
+	app.focus = FocusBody
+	app.MouseEnabled = true
+	app.detailViewOpen = true
+	app.detailView = &bulkyPartRef{
+		messageID: "msg_perf",
+		partID:    "part_large_markdown",
+		title:     "Tool evidence · large Markdown output",
+		fullText:  benchmarkLargeMarkdownDetail(420),
+	}
+	return app
+}
+
+func benchmarkLargeMarkdownDetail(rows int) string {
+	var b strings.Builder
+	b.WriteString("# EarthScope GNSS Station Candidates\n\n")
+	b.WriteString("Ranked stations around Los Angeles with confidence notes and artifact provenance.\n\n")
+	b.WriteString("| Rank | Station ID | Distance (km) | Trust | Notes |\n")
+	b.WriteString("| ---: | --- | ---: | --- | --- |\n")
+	for i := 0; i < rows; i++ {
+		fmt.Fprintf(&b, "| %d | MTA%03d | %.4f | %s | staged CSV `/tmp/grind-es/MTA%03d.CI.LY_.30.csv`; scan-limited profile retained |\n",
+			i+1,
+			i,
+			float64(i)*0.3749,
+			[]string{"high", "medium", "review"}[i%3],
+			i,
+		)
+	}
+	b.WriteString("\n## Workflow State\n\n")
+	for i := 0; i < rows/12; i++ {
+		fmt.Fprintf(&b, "- acquisition step %03d completed with metadata provenance and no blocker\n", i)
+	}
+	return b.String()
 }
 
 func benchmarkSemanticMessages(turns int) []gact.Message {

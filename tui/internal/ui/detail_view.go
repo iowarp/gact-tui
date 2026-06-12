@@ -46,10 +46,17 @@ type scrollableDetailRender struct {
 	window scrollWindow
 }
 
+type detailWrapCache struct {
+	content string
+	width   int
+	wrapped string
+}
+
 func (a *App) closeDetailView() {
 	a.detailViewOpen = false
 	a.detailView = nil
 	a.detailScroll = 0
+	a.detailWrap = detailWrapCache{}
 }
 
 func (a *App) copyDetailViewToClipboard() tea.Cmd {
@@ -230,7 +237,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 		page = 1
 	}
 
-	wrapped := wrap(opts.content, innerW)
+	wrapped := a.cachedDetailWrappedContent(opts.content, innerW)
 	page = compactModalBodyRows(wrapped, page, minInt(8, page))
 	lines := strings.Split(wrapped, "\n")
 	title := opts.title
@@ -315,6 +322,22 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	a.setDetailCopySnapshot(visibleLines, rendered.modal, rendered.bodyRow)
 	rendered.modal = a.renderDetailCopyDragHighlight(rendered.modal)
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
+}
+
+func (a *App) cachedDetailWrappedContent(content string, width int) string {
+	if a == nil {
+		return wrap(content, width)
+	}
+	if a.detailWrap.width == width && a.detailWrap.content == content {
+		return a.detailWrap.wrapped
+	}
+	wrapped := wrap(content, width)
+	a.detailWrap = detailWrapCache{
+		content: content,
+		width:   width,
+		wrapped: wrapped,
+	}
+	return wrapped
 }
 
 func (a *App) permissionInspectorDecisionButtons(title string) []menuButton {

@@ -611,6 +611,7 @@ type App struct {
 	detailViewOpen bool
 	detailView     *bulkyPartRef
 	detailScroll   int
+	detailWrap     detailWrapCache
 
 	// spinnerFrame drives the running-session animation — advanced by
 	// spinnerTickMsg as long as any session is non-idle. Cheap (single
