@@ -7185,6 +7185,7 @@ func normalizeMessageExpertHandoffs(m *gact.Message) {
 	}
 	rows := normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])
 	rows = filterRedundantDirectToolHandoffRows(rows, tools)
+	rows = filterNoisyExpertHandoffRows(rows)
 	if len(rows) == 0 {
 		return
 	}
@@ -7444,7 +7445,7 @@ func workflowStateValueSummary(key string, value any) string {
 		if len(v) == 0 {
 			return ""
 		}
-		return key + "=" + pluralizeCount(len(v), "item")
+		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(v), "item")
 	default:
 		text := strings.TrimSpace(stringValue(value))
 		if text == "" {
@@ -7483,9 +7484,9 @@ func workflowStateMapSummary(key string, values map[string]any) string {
 		}
 	}
 	if len(parts) == 0 {
-		return key + "=" + pluralizeCount(len(values), "field")
+		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(values), "field")
 	}
-	return key + " " + strings.Join(parts, ", ")
+	return humanizeAgentLabel(key) + " " + strings.Join(parts, ", ")
 }
 
 func workflowStateFieldSummary(field, text string) string {
@@ -7682,12 +7683,12 @@ func normalizeMessagePartialAnswerLabels(m *gact.Message) {
 }
 
 func filterExistingExpertHandoffParts(m *gact.Message, tools []toolEvidenceRow) {
-	if m == nil || len(tools) == 0 {
+	if m == nil {
 		return
 	}
 	filtered := m.Parts[:0]
 	for _, part := range m.Parts {
-		if part.Type == gact.PartTypeExpertHandoff && isRedundantDirectToolHandoff(part.Metadata) {
+		if part.Type == gact.PartTypeExpertHandoff && (isNoisyExpertHandoff(part.Metadata) || (len(tools) > 0 && isRedundantDirectToolHandoff(part.Metadata))) {
 			continue
 		}
 		filtered = append(filtered, part)
@@ -7721,6 +7722,45 @@ func filterRedundantDirectToolHandoffRows(rows []map[string]any, tools []toolEvi
 		filtered = append(filtered, row)
 	}
 	return filtered
+}
+
+func filterNoisyExpertHandoffRows(rows []map[string]any) []map[string]any {
+	if len(rows) == 0 {
+		return rows
+	}
+	filtered := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		if isNoisyExpertHandoff(row) {
+			continue
+		}
+		filtered = append(filtered, row)
+	}
+	return filtered
+}
+
+func isNoisyExpertHandoff(row map[string]any) bool {
+	if len(row) == 0 {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(row["status"]), "observed")))
+	if status == "failed" || status == "failure" || status == "error" {
+		return false
+	}
+	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["dispatch_target"]),
+		stringValue(row["event_type"]),
+	)))
+	switch stage {
+	case "parent.resumed", "parent_resumed", "blueprint.delegation.parent_resumed":
+		return true
+	}
+	summary := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(row["output_summary"]),
+		stringValue(row["summary"]),
+		stringValue(row["text"]),
+	)))
+	return strings.Contains(summary, " resumed after ") && !strings.Contains(summary, "error")
 }
 
 func isRedundantDirectToolHandoff(row map[string]any) bool {
@@ -9045,6 +9085,7 @@ func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded 
 	}
 	merged := cloneMessages(loaded)
 	seen := make(map[string]bool, len(merged))
+	seenHandoffs := semanticHandoffKeysInMessages(merged)
 	for _, msg := range merged {
 		if msg.ID != "" {
 			seen[msg.ID] = true
@@ -9054,9 +9095,72 @@ func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded 
 		if msg.ID != "" && seen[msg.ID] {
 			continue
 		}
-		merged = append(merged, cloneMessage(msg))
+		filtered := cloneMessage(msg)
+		filtered.Parts = filterCachedSemanticParts(filtered.Parts, seenHandoffs)
+		if len(filtered.Parts) == 0 {
+			continue
+		}
+		merged = append(merged, filtered)
 	}
 	return merged
+}
+
+func semanticHandoffKeysInMessages(messages []gact.Message) map[string]bool {
+	keys := map[string]bool{}
+	for _, msg := range messages {
+		for _, part := range msg.Parts {
+			if key := semanticHandoffComparableKey(part); key != "" {
+				keys[key] = true
+			}
+		}
+	}
+	return keys
+}
+
+func filterCachedSemanticParts(parts []gact.Part, seen map[string]bool) []gact.Part {
+	if len(parts) == 0 || len(seen) == 0 {
+		return parts
+	}
+	filtered := make([]gact.Part, 0, len(parts))
+	for _, part := range parts {
+		if part.Metadata != nil && part.Metadata["semantic_event"] == true {
+			if key := semanticHandoffComparableKey(part); key != "" && seen[key] {
+				continue
+			}
+		}
+		filtered = append(filtered, part)
+	}
+	return filtered
+}
+
+func semanticHandoffComparableKey(part gact.Part) string {
+	if part.Type != gact.PartTypeExpertHandoff {
+		return ""
+	}
+	md := part.Metadata
+	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["stage"]),
+		stringValue(md["dispatch_target"]),
+		stringValue(md["event_type"]),
+	)))
+	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(md["status"]), "observed")))
+	agent := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["agent_id"]),
+		stringValue(md["expert"]),
+	)))
+	parent := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["parent_id"]),
+		stringValue(md["parent"]),
+	)))
+	summary := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(firstNonEmpty(
+		stringValue(md["output_summary"]),
+		stringValue(md["summary"]),
+		part.Text,
+	)), " ")))
+	if agent == "" || summary == "" {
+		return ""
+	}
+	return strings.Join([]string{stage, status, parent, agent, summary}, "\x1f")
 }
 
 func (a *App) sessionAllowsSemanticLiveCache(sessionID string) bool {
@@ -9825,7 +9929,7 @@ func appendSemanticControlIntent(summary, intent string) string {
 	if strings.Contains(strings.ToLower(summary), strings.ToLower(intent)) {
 		return summary
 	}
-	if looksLikeMarkdownBlock(summary) {
+	if looksLikeMarkdownBlock(expandInlineMarkdownTables(summary)) {
 		return summary + "\n\n_" + intent + "_"
 	}
 	return strings.TrimRight(summary, ".") + " · " + intent

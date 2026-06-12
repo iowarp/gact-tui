@@ -84,6 +84,33 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
 		return
 	}
+	e.bus.Publish(events.Event{
+		Type:      "semantic.event",
+		SessionID: sessionID,
+		Payload: map[string]any{
+			"schema_version": "clio.semantic_event.v1",
+			"event_id":       "sem_workflow_parent_resumed_noise",
+			"event_type":     "blueprint.delegation.parent_resumed",
+			"status":         "completed",
+			"summary":        "main resumed after data.",
+			"session_id":     sessionID,
+			"trace_id":       "trace_workflow_state",
+			"turn_id":        "turn_workflow_state",
+			"detail_level":   "semantic",
+			"live_observed":  true,
+			"actor":          map[string]any{"agent_id": "main", "role": "parent_expert"},
+			"subject":        map[string]any{"agent_id": "data", "role": "child_expert"},
+			"payload": map[string]any{
+				"stage":        "parent.resumed",
+				"parent_id":    "main",
+				"agent_id":     "data",
+				"resumed_from": "data",
+			},
+		},
+	})
+	if err := sleep(ctx, e.cfg.Timing.BetweenParts); err != nil {
+		return
+	}
 
 	workflowPayload := func(eventID string) map[string]any {
 		return map[string]any{
@@ -105,7 +132,7 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 				"parent_id":      "main",
 				"agent_id":       "analysis",
 				"duration_ms":    1200.0,
-				"output_summary": "## Trace quality\n\n| Evidence | Value | Trust |\n| --- | ---: | --- |\n| CI.BAR BHZ | npts 12000 | high |\n| Artifact | ready | high |\n\nAcquisition staged and ready for visualization.",
+				"output_summary": "Ranked EarthScope evidence for the staged trace | Evidence | Value | Trust | | --- | ---: | --- | | CI.BAR BHZ | npts 12000 | high | | Artifact | ready | high | Acquisition staged and ready for visualization.",
 				"workflow_state": map[string]any{
 					"acquisition": map[string]any{
 						"status":     "staged",
@@ -115,6 +142,10 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 					"artifact": map[string]any{
 						"status":        "ready",
 						"artifact_path": "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
+					},
+					"station_catalog": map[string]any{
+						"status":          "ranked",
+						"candidate_count": 72,
 					},
 				},
 			},

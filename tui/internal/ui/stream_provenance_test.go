@@ -918,6 +918,60 @@ func TestApplySemanticEventRendersWorkflowStateSummaryInline(t *testing.T) {
 	}
 }
 
+func TestLoadedMessagesSuppressCachedDuplicateSemanticHandoff(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
+	a.semanticLiveMessagesBySession = map[string][]gact.Message{
+		"s1": {{
+			ID:        "semantic_live_turn_1",
+			SessionID: "s1",
+			Role:      gact.RoleAssistant,
+			Metadata:  map[string]any{"semantic_live_message": true},
+			Parts: []gact.Part{{
+				ID:   "semantic_delegate_1",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "data returned evidence to main.",
+				Metadata: map[string]any{
+					"semantic_event":  true,
+					"agent_id":        "data",
+					"parent_id":       "main",
+					"stage":           "delegate.completed",
+					"status":          "completed",
+					"output_summary":  "Resolved Region (Los Angeles)",
+					"stream_source":   "semantic_event",
+					"semantic_detail": "live",
+				},
+			}},
+		}},
+	}
+	loaded := []gact.Message{{
+		ID:        "msg_final",
+		SessionID: "s1",
+		Role:      gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "final_handoff",
+			Type: gact.PartTypeExpertHandoff,
+			Text: "data returned evidence to main.",
+			Metadata: map[string]any{
+				"agent_id":       "data",
+				"parent_id":      "main",
+				"stage":          "delegate.completed",
+				"status":         "completed",
+				"output_summary": "Resolved Region (Los Angeles)",
+			},
+		}},
+	}}
+
+	merged := a.mergeLoadedMessagesWithSemanticLiveCache("s1", loaded)
+	if len(merged) != 1 {
+		t.Fatalf("duplicate cached semantic handoff should be suppressed, got %d messages: %#v", len(merged), merged)
+	}
+	out := ansi.Strip(DefaultTheme().renderMessage(merged[0], 120))
+	if strings.Count(out, "data returned evidence to main") != 1 {
+		t.Fatalf("merged transcript should show the handoff once:\n%s", out)
+	}
+}
+
 func TestApplySemanticEventPrefersDelegationOutputSummaryOverCompactContract(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}
