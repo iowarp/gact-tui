@@ -10,6 +10,7 @@ import {
   Show,
   Switch,
 } from 'solid-js';
+import { brand } from '@brand';
 import type {
   FileDiff,
   Message,
@@ -30,6 +31,7 @@ import { Composer } from '../components/Composer.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { Icon } from '../components/Icon.js';
 import { InspectorDrawer, summarizeToolCalls } from '../components/InspectorDrawer.js';
+import { PreviewRail } from '../components/PreviewRail.js';
 import {
   addDetached,
   detachedAgo,
@@ -137,7 +139,7 @@ function FixtureDriven(props: {
   const fixtureToast = useToast();
   onMount(() => {
     const seed: Array<{ title: string; body: string; tone: 'info' | 'success' | 'warn' | 'error' }> = [
-      { title: 'CLIO responded', body: 'refactor logger — turn completed in 12.4s', tone: 'success' },
+      { title: `${brand.name} responded`, body: 'refactor logger — turn completed in 12.4s', tone: 'success' },
       { title: 'Send failed', body: 'network unreachable — retry available', tone: 'error' },
       { title: 'Permission requested', body: 'WriteFile wants access to src/handlers.go', tone: 'warn' },
       { title: 'SSE reconnected', body: 'stream re-established after a drop', tone: 'info' },
@@ -487,7 +489,7 @@ function LiveDriven(props: {
     if (!isError && !notifPrefs().turnCompletions) return;
     toast.push({
       tone: isError ? 'error' : 'success',
-      title: isError ? 'Turn ended in error' : 'CLIO responded',
+      title: isError ? 'Turn ended in error' : `${brand.name} responded`,
       body: isError
         ? 'See the message error pill for detail.'
         : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
@@ -975,6 +977,42 @@ function LiveDriven(props: {
                 Object.keys(bp.value.activation).length > 0
                   ? { activation: bp.value.activation }
                   : {}),
+                // A7 (clio #536–#546 / #539): packaged-component provenance
+                // + trust drawn from the bound blueprint's own descriptor
+                // (`agent_blueprint` body). Read-only; omitted entirely on
+                // older backends that don't send the body.
+                ...(() => {
+                  const ab = (bp.value as { agent_blueprint?: Record<string, unknown> })
+                    .agent_blueprint;
+                  if (!ab || typeof ab !== 'object') return {};
+                  const meta = (ab['metadata'] as Record<string, unknown> | undefined) ?? {};
+                  const install = meta['install'] as Record<string, unknown> | undefined;
+                  const bootstrap = meta['bootstrap'] as Record<string, unknown> | undefined;
+                  const errs = ab['validation_errors'];
+                  const packaged = {
+                    ...(typeof ab['id'] === 'string' ? { id: ab['id'] as string } : {}),
+                    ...(typeof ab['title'] === 'string' ? { title: ab['title'] as string } : {}),
+                    ...(typeof ab['version'] === 'string' && ab['version']
+                      ? { version: ab['version'] as string }
+                      : {}),
+                    ...(typeof ab['scope'] === 'string' && ab['scope']
+                      ? { scope: ab['scope'] as string }
+                      : {}),
+                    ...(typeof ab['enabled'] === 'boolean'
+                      ? { enabled: ab['enabled'] as boolean }
+                      : {}),
+                    ...(Array.isArray(errs) && errs.length > 0
+                      ? { validation_errors: errs as string[] }
+                      : {}),
+                    ...(install && Object.keys(install).length > 0
+                      ? { install }
+                      : {}),
+                    ...(bootstrap && Object.keys(bootstrap).length > 0
+                      ? { bootstrap }
+                      : {}),
+                  };
+                  return { packaged };
+                })(),
               }
             : {};
         const availableBlueprints =
@@ -1292,15 +1330,21 @@ function LiveDriven(props: {
       }}
       contextFiles={contextFiles()}
       attempts={attemptsData() ?? []}
-      // Context-file preview (1.0 item 2) — only wired when the backend
-      // advertises x_clio_files_content (clio PR #533); older backends
-      // never see a preview button (no 404-able UI).
+      // Context-file preview (1.0 item 2). The session-scoped
+      // context-file-content endpoint + `x_clio_files_content` flag were
+      // removed on clio develop ~2026-06; bytes now come from the
+      // workspace-scoped read endpoint, gated on the `files` capability
+      // (universally advertised by clio-agent-gact). Resolve the active
+      // session's workspace id and read by path.
       onPreviewContextFile={
-        props.backend.capabilities?.capabilities?.['x_clio_files_content']
+        props.backend.capabilities?.capabilities?.['files'] !== false
           ? (path) => {
-              const sid = activeId();
-              if (!sid) return Promise.reject(new Error('no active session'));
-              return live.client.getContextFileContent(sid, path);
+              const wid = rows().find((s) => s.id === activeId())?.workspace;
+              if (!wid)
+                return Promise.reject(
+                  new Error('no workspace for active session'),
+                );
+              return live.client.readWorkspaceFile(wid, path);
             }
           : undefined
       }
@@ -1647,7 +1691,7 @@ function sessionToMarkdown(payload: unknown): string {
   const sess = root.session ?? {};
   const messages = root.messages ?? [];
   const lines: string[] = [];
-  lines.push(`# ${sess.title ?? 'CLIO session'}`);
+  lines.push(`# ${sess.title ?? `${brand.name} session`}`);
   if (sess.id) lines.push(`*Session* \`${sess.id}\``);
   if (sess.created_at) lines.push(`*Started* ${sess.created_at}`);
   lines.push('');
@@ -1734,22 +1778,37 @@ function ChatLayout(props: ChatLayoutProps) {
   const [overflowOpen, setOverflowOpen] = createSignal(false);
   let topbarRef: HTMLElement | undefined;
   let metaRef: HTMLDivElement | undefined;
-  // Topbar width the chips needed when we last collapsed — only try
-  // expanding again once the topbar grows past it (prevents flapping).
-  let expandAtWidth = 0;
+  let crumbsRef: HTMLDivElement | undefined;
+  let actionsRef: HTMLDivElement | undefined;
+  // The inline secondary-chip strip stays mounted in both modes (when narrow
+  // it is visually hidden via CSS but kept in the flow for measurement), so
+  // its intrinsic width is always readable. We compare that intrinsic width
+  // against the space the topbar can actually give it, which makes the
+  // collapse/expand decision stateless and immune to transient layouts.
+  let secondaryRef: HTMLDivElement | undefined;
   const evaluateOverflow = () => {
-    if (!topbarRef) return;
+    if (!topbarRef || !secondaryRef) return;
     const topbarW = topbarRef.clientWidth;
-    if (!topbarNarrow()) {
-      const meta = metaRef;
-      if (meta && meta.scrollWidth > meta.clientWidth + 2) {
-        expandAtWidth = topbarW + (meta.scrollWidth - meta.clientWidth) + 48;
-        setTopbarNarrow(true);
-      }
-    } else if (topbarW >= expandAtWidth) {
-      // Wide enough again — try inline; re-collapses if still too tight.
-      setTopbarNarrow(false);
-      setOverflowOpen(false);
+    const crumbsW = crumbsRef?.getBoundingClientRect().width ?? 0;
+    const actionsW = actionsRef?.getBoundingClientRect().width ?? 0;
+    // Status chips (sse/session-status/running) live in the meta row beside
+    // the secondary strip. When collapsed the strip is position:absolute (zero
+    // flow width) so metaW is status + the ⋯ button; when inline metaW is
+    // status + the strip. Either way, subtract the strip's measured width to
+    // isolate the status chips. Then reserve a fixed slot for the ⋯ button so
+    // the decision is symmetric across both modes (no flapping).
+    const metaW = metaRef?.getBoundingClientRect().width ?? 0;
+    const secondaryW = secondaryRef.scrollWidth;
+    const stripFlowW = secondaryRef.getBoundingClientRect().width;
+    const statusW = Math.max(0, metaW - (topbarNarrow() ? 0 : stripFlowW));
+    const OVERFLOW_BTN_RESERVE = 36;
+    // 24px slack covers the meta border/padding and inter-section gaps.
+    const available =
+      topbarW - crumbsW - actionsW - statusW - OVERFLOW_BTN_RESERVE - 24;
+    const shouldCollapse = secondaryW > available;
+    if (shouldCollapse !== topbarNarrow()) {
+      setTopbarNarrow(shouldCollapse);
+      if (!shouldCollapse) setOverflowOpen(false);
     }
   };
   onMount(() => {
@@ -1836,6 +1895,18 @@ function ChatLayout(props: ChatLayoutProps) {
     'clio.inspector-open.v1',
     true,
   );
+  // Side-by-side preview rail (B3). Coexists with the inspector — both can be
+  // open at once (each is its own trailing grid column). Open state persists.
+  const [previewOpen, setPreviewOpen] = createPersistedBoolean(
+    'clio.preview-rail-open.v1',
+    false,
+  );
+  // When set, the rail adopts this path as its selection (e.g. an Inspector
+  // context-file click). Cleared back to undefined after consumption is not
+  // needed — the rail only reacts to non-empty changes.
+  const [previewPath, setPreviewPath] = createSignal<string | undefined>(
+    undefined,
+  );
   const [sessionsOpen, setSessionsOpen] = createPersistedBoolean(
     'clio.sessions-open.v1',
     true,
@@ -1894,7 +1965,10 @@ function ChatLayout(props: ChatLayoutProps) {
   createEffect(() => {
     void props.activeId; // dependency
     queueMicrotask(() => {
-      if (paneEl) {
+      // A pending permission card lives at the top of the pane and is the
+      // priority surface — don't bury it by jumping to the bottom. The
+      // dedicated permission effect scrolls it into view instead.
+      if (paneEl && !props.pendingPermission) {
         paneEl.scrollTop = paneEl.scrollHeight;
         setScrolledUp(false);
         setNewSinceScroll(0);
@@ -1910,6 +1984,21 @@ function ChatLayout(props: ChatLayoutProps) {
         ae === document.body ||
         (ae as HTMLElement).dataset?.testid === 'composer-input';
       if (ta && focusable) ta.focus();
+    });
+  });
+
+  // A pending permission is a blocking decision the user MUST see. The card
+  // renders at the top of the pane (above the transcript), so the
+  // scroll-to-bottom-on-load/new-message logic would push it off-screen,
+  // leaving only the sticky action bar with no context. When a permission
+  // becomes pending, scroll its card into view so the request is readable.
+  createEffect(() => {
+    if (!props.pendingPermission) return;
+    queueMicrotask(() => {
+      const card = paneEl?.querySelector(
+        '[data-testid="permission-card"]',
+      ) as HTMLElement | null;
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
 
@@ -2414,7 +2503,8 @@ function ChatLayout(props: ChatLayoutProps) {
     const settingsJumps: Array<{ id: SettingsSection; label: string }> = [
       { id: 'backends', label: 'Backends' },
       { id: 'workspaces', label: 'Workspaces' },
-      { id: 'providers', label: 'Models & providers' },
+      { id: 'models', label: 'Models' },
+      { id: 'providers', label: 'Providers (advanced)' },
       { id: 'agents', label: 'Agents' },
       { id: 'mcp', label: 'MCP servers' },
       { id: 'memory', label: 'Memory' },
@@ -2737,6 +2827,7 @@ function ChatLayout(props: ChatLayoutProps) {
         'chat ' +
         (onChat() ? '' : 'chat--discovery') +
         (onChat() && inspectorOpen() ? ' chat--inspector-open' : '') +
+        (onChat() && previewOpen() ? ' chat--preview-open' : '') +
         (onChat() && !sessionsOpen() ? ' chat--no-sessions' : '')
       }
       data-testid="chat-screen"
@@ -2758,6 +2849,7 @@ function ChatLayout(props: ChatLayoutProps) {
           setRailRoute(id);
         }}
         onOpenPalette={() => setPaletteOpen(true)}
+        onOpenCatalog={() => setCatalogOpen(true)}
       />
 
       <Show when={onChat() && sessionsOpen()}>
@@ -2797,7 +2889,7 @@ function ChatLayout(props: ChatLayoutProps) {
           }
         >
         <header class="chat__topbar" ref={topbarRef}>
-          <div class="chat__crumbs">
+          <div class="chat__crumbs" ref={crumbsRef}>
             <span
               class="chat__crumb chat__crumb-head"
               title={
@@ -2884,10 +2976,20 @@ function ChatLayout(props: ChatLayoutProps) {
               })()}
             </Show>
             {/* Wide topbar: secondary chips render inline. Narrow: they
-                collapse into the ⋯ overflow menu (W3 Tier-1). */}
-            <Show when={!topbarNarrow()}>
+                collapse into the ⋯ overflow menu (W3 Tier-1). The inline
+                strip stays mounted in both modes so its intrinsic width is
+                always measurable; when narrow it is visually hidden via the
+                --collapsed modifier (kept in the flow, not display:none). */}
+            <div
+              ref={secondaryRef}
+              class={
+                'chat__secondary' +
+                (topbarNarrow() ? ' chat__secondary--collapsed' : '')
+              }
+              aria-hidden={topbarNarrow()}
+            >
               <SecondaryChips />
-            </Show>
+            </div>
             <Show when={topbarNarrow()}>
               <div class="chat__overflow-anchor">
                 <button
@@ -2915,7 +3017,7 @@ function ChatLayout(props: ChatLayoutProps) {
               </div>
             </Show>
           </div>
-          <div class="chat__topbar-actions">
+          <div class="chat__topbar-actions" ref={actionsRef}>
             <NotificationCenter />
             <button
               type="button"
@@ -2934,6 +3036,15 @@ function ChatLayout(props: ChatLayoutProps) {
               data-testid="topbar-palette"
             >
               <Icon name="palette" size={14} />
+            </button>
+            <button
+              type="button"
+              class={'chat__iconbtn ' + (previewOpen() ? 'is-active' : '')}
+              title="Toggle file preview rail"
+              onClick={() => setPreviewOpen((v) => !v)}
+              data-testid="topbar-preview"
+            >
+              <Icon name="folder" size={14} />
             </button>
             <button
               type="button"
@@ -3015,6 +3126,9 @@ function ChatLayout(props: ChatLayoutProps) {
               currentMatchKey={currentMatchKey()}
               streaming={props.streaming}
               scrollEl={paneSignal()}
+              imagePartsSupported={
+                props.caps?.capabilities?.['multimodal_image_parts'] !== false
+              }
             />
             <Show when={scrolledUp()}>
               <button
@@ -3034,7 +3148,7 @@ function ChatLayout(props: ChatLayoutProps) {
                 <span class="chat__typing-avatar" aria-hidden>
                   <Icon name="bot" size={14} />
                 </span>
-                <span class="chat__typing-label">CLIO is responding</span>
+                <span class="chat__typing-label">{brand.name} is responding</span>
                 <span class="chat__typing-dots" aria-hidden>
                   <span class="chat__typing-dot" />
                   <span class="chat__typing-dot" />
@@ -3068,6 +3182,9 @@ function ChatLayout(props: ChatLayoutProps) {
               : undefined
           }
           attachmentsCapable={!!props.caps?.capabilities?.attachments_upload}
+          imageAttachCapable={
+            props.caps?.capabilities?.['multimodal_image_parts'] !== false
+          }
           onUploadFile={
             props.caps?.capabilities?.attachments_upload
               ? async (file) => {
@@ -3119,7 +3236,18 @@ function ChatLayout(props: ChatLayoutProps) {
           tasks={props.sessionTasks}
           contextFiles={props.contextFiles}
           attempts={props.attempts}
-          onPreviewContextFile={props.onPreviewContextFile}
+          onPreviewContextFile={
+            props.onPreviewContextFile
+              ? (path) => {
+                  // Mirror the click into the side-by-side rail (B3 bonus):
+                  // open it and select the path, while still returning the
+                  // bytes for the Inspector's own inline preview.
+                  setPreviewPath(path);
+                  setPreviewOpen(true);
+                  return props.onPreviewContextFile!(path);
+                }
+              : undefined
+          }
           frames={props.contextFrames ?? []}
           onLoadFrameDetail={props.onLoadFrameDetail}
           onCycleTaskStatus={props.onCycleTaskStatus}
@@ -3141,6 +3269,20 @@ function ChatLayout(props: ChatLayoutProps) {
         />
       </Show>
 
+      <Show when={onChat() && previewOpen()}>
+        <PreviewRail
+          client={discoveryClient}
+          workspaceId={
+            props.sessions.find((s) => s.id === props.activeId)?.workspace ??
+            (props.selectedWorkspaceId === '__all'
+              ? undefined
+              : props.selectedWorkspaceId)
+          }
+          externalPath={previewPath}
+          onClose={() => setPreviewOpen(false)}
+        />
+      </Show>
+
       <Show when={activeDiff()}>
         <DiffPane diff={activeDiff()!} onClose={() => setActiveDiff(null)} />
       </Show>
@@ -3159,7 +3301,7 @@ function ChatLayout(props: ChatLayoutProps) {
         onClose={() => setCheatsheetOpen(false)}
       />
 
-      <OnboardingTour open={tourOpen()} onFinish={finishTour} />
+      <OnboardingTour open={tourOpen()} onFinish={finishTour} client={discoveryClient} />
 
       <SharedSessionModal
         open={sharedSessionOpen()}
@@ -3303,8 +3445,8 @@ function EmptyState(props: {
         {props.hasSession ? 'Start the conversation' : 'Pick a session or start fresh'}
       </h2>
       <p class="chat__empty-body">
-        CLIO is wired into your workspace — ask about your data, propose a
-        change, kick off a tool. Anything you'd type into the terminal,
+        {brand.name} is wired into your workspace — ask about your data, propose
+        a change, kick off a tool. Anything you'd type into the terminal,
         you can drop here.
       </p>
       <div class="chat__empty-prompts">

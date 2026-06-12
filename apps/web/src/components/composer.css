@@ -20,11 +20,12 @@
 }
 
 .composer__shell {
+  /* Flat: an always-on inline surface earns no drop shadow (DESIGN.md
+     flat-not-boxed) — the hairline + the bg contrast carry it. */
   background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
+  border: var(--stroke-hairline);
   border-radius: 16px;
   padding: 10px 12px 10px 14px;
-  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.4);
   transition: border-color var(--dur-fast);
 }
 
@@ -132,18 +133,24 @@
   50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 0%, transparent); }
 }
 
+/* Primary action (Send) = the single warm accent (no cyan gradient). */
 .composer__send {
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-cyan) 100%);
+  background: var(--color-accent);
   border: none;
-  color: var(--color-bg);
+  color: #0a0f1a;
   width: 36px;
   height: 36px;
   border-radius: 12px;
   cursor: pointer;
   display: grid;
   place-items: center;
-  box-shadow: var(--glow-cyan-sm);
-  transition: transform var(--dur-fast), opacity var(--dur-fast);
+  box-shadow: var(--glow-warm-sm);
+  transition: transform var(--dur-fast), opacity var(--dur-fast),
+    background var(--dur-fast);
+}
+
+.composer__send:not(:disabled):hover {
+  background: color-mix(in srgb, var(--color-accent) 88%, white);
 }
 
 .composer__send:not(:disabled):hover {
@@ -305,9 +312,9 @@
   min-width: 230px;
   padding: 5px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
+  border: var(--stroke-hairline);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--shadow-overlay);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -358,16 +365,16 @@
   opacity: 0.7;
 }
 .composer__chip--error {
-  border-color: var(--color-danger, #e5484d);
+  border-color: var(--color-error);
 }
 .composer__chip-size--error {
-  color: var(--color-danger, #e5484d);
+  color: var(--color-error);
 }
 /* Per-chip retry for a failed upload (actionable error states). */
 .composer__chip-retry {
   background: transparent;
-  border: 1px solid var(--color-danger, #e5484d);
-  color: var(--color-danger, #e5484d);
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
   border-radius: 5px;
   padding: 0 6px;
   font-family: var(--font-mono);
@@ -378,16 +385,10 @@
   line-height: 16px;
 }
 .composer__chip-retry:hover {
-  background: color-mix(in srgb, var(--color-danger, #e5484d) 10%, transparent);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
 }
+/* Shared Spinner primitive, sized + tinted for the attachment chip. */
 .composer__chip-spin {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-border-30);
-  border-top-color: var(--color-accent, #6e9bff);
-  animation: composer-chip-spin 0.7s linear infinite;
-}
-@keyframes composer-chip-spin {
-  to { transform: rotate(360deg); }
+  font-size: 11px;
+  color: var(--color-accent-cyan);
 }

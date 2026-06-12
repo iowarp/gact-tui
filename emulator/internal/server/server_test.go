@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -79,6 +80,10 @@ func TestWorkspaceLifecycle(t *testing.T) {
 	s := New(Config{})
 	h := s.Handler()
 
+	// An OS-absolute root (basename "foo"): filepath.IsAbs requires a drive
+	// letter on Windows, so a hardcoded "/tmp/foo" is not absolute there.
+	wsRoot := filepath.Join(t.TempDir(), "foo")
+
 	// List empty
 	{
 		rec := do(t, h, http.MethodGet, "/v1/workspaces", nil)
@@ -96,7 +101,7 @@ func TestWorkspaceLifecycle(t *testing.T) {
 	var created gact.Workspace
 	{
 		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{
-			RootPath: "/tmp/foo",
+			RootPath: wsRoot,
 		})
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("create: status %d body %s", rec.Code, rec.Body.String())
@@ -129,7 +134,7 @@ func TestWorkspaceLifecycle(t *testing.T) {
 	}
 	// Create with a root already registered to another workspace
 	{
-		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: "/tmp/foo"})
+		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: wsRoot})
 		if rec.Code != http.StatusConflict {
 			t.Errorf("create duplicate root_path: status = %d", rec.Code)
 		}
@@ -141,7 +146,7 @@ func TestWorkspaceLifecycle(t *testing.T) {
 	// operator-readable remove failure instead of disappearing silently.
 	var protected gact.Workspace
 	{
-		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: "/tmp/gact-analysis"})
+		rec := do(t, h, http.MethodPost, "/v1/workspaces", CreateWorkspaceRequest{RootPath: filepath.Join(t.TempDir(), "gact-analysis")})
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("create protected fixture: status %d body %s", rec.Code, rec.Body.String())
 		}

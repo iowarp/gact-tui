@@ -44,6 +44,7 @@ const (
 	lmFieldMaxTokens
 	lmFieldContextLength
 	lmFieldThinkingBudget
+	lmFieldParallel
 	lmFieldSave
 	lmFieldCount
 )
@@ -65,6 +66,7 @@ type lmConfigState struct {
 	maxTokens      string // empty = backend default (per-provider)
 	contextLength  string // empty = not recorded; provider/model load setting
 	thinkingBudget string // empty = disabled
+	parallel       string // empty = CLIO default (0)
 	field          lmConfigField
 
 	// Model catalog cache, keyed by PRESET ID (not provider kind):
@@ -194,7 +196,7 @@ func (s *lmConfigState) lmConfigAdvancedFields() []lmConfigField {
 	case "codex", "claude_code":
 		return nil
 	case "lm_studio":
-		return []lmConfigField{lmFieldTemperature, lmFieldMaxTokens, lmFieldContextLength}
+		return []lmConfigField{lmFieldTemperature, lmFieldMaxTokens, lmFieldContextLength, lmFieldParallel}
 	case "anthropic", "openai":
 		return []lmConfigField{lmFieldTemperature, lmFieldMaxTokens, lmFieldThinkingBudget}
 	default:
@@ -336,6 +338,17 @@ func lmConfigSaveCmd(c *client.Client, req client.LMProviderRequest) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 		defer cancel()
 		info, err := c.PutLMProvider(ctx, req)
+		if err == nil && info != nil && strings.EqualFold(strings.TrimSpace(info.State), "configuring") {
+			waited, waitErr := c.WaitLMProvider(ctx, 150)
+			if waitErr != nil {
+				err = waitErr
+			} else if waited != nil {
+				info = waited
+			}
+		}
+		if err == nil && info != nil && strings.EqualFold(strings.TrimSpace(info.State), "error") {
+			err = fmt.Errorf("provider configuration failed: %s", firstNonEmpty(info.Error, info.StatusMessage, "unknown error"))
+		}
 		lmConfigNormalizeInfo(info)
 		return lmConfigSavedMsg{info: info, err: err}
 	}
@@ -473,6 +486,23 @@ func (a *App) handleLMConfigKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.lmConfig.thinkingBudget = ""
 			} else {
 				a.lmConfig.thinkingBudget = fmt.Sprintf("%d", cur)
+			}
+		case lmFieldParallel:
+			cur := 0
+			if v, err := strconv.Atoi(a.lmConfig.parallel); err == nil {
+				cur = v
+			}
+			cur += delta
+			if cur < 0 {
+				cur = 0
+			}
+			if cur > 16 {
+				cur = 16
+			}
+			if cur == 0 {
+				a.lmConfig.parallel = ""
+			} else {
+				a.lmConfig.parallel = fmt.Sprintf("%d", cur)
 			}
 		}
 		return a, nil
@@ -620,7 +650,7 @@ func (a *App) handleLMConfigVertical(delta int) (tea.Model, tea.Cmd) {
 		}
 		a.lmConfig.modelIndex = indexes[((pos+delta)%n+n)%n]
 		a.lmConfig.model = catalog[a.lmConfig.modelIndex].ID
-	case lmFieldTemperature, lmFieldMaxTokens, lmFieldContextLength, lmFieldThinkingBudget:
+	case lmFieldTemperature, lmFieldMaxTokens, lmFieldContextLength, lmFieldThinkingBudget, lmFieldParallel:
 		fields := a.lmConfig.lmConfigAdvancedFields()
 		if len(fields) == 0 {
 			return a, nil
@@ -836,9 +866,9 @@ func isNumericInput(s string, allowFloat bool) bool {
 // the model catalog for the new preset's provider kind, OR nil if
 // the catalog is already cached.
 //
-// Temperature / Max tokens / Thinking budget are intentionally LEFT
-// BLANK so the backend resolves per-provider defaults (argonne caps
-// max_tokens at 4096, others 32000; temperature 1.0; thinking off).
+// Temperature / Max tokens / Thinking budget / parallel are intentionally
+// LEFT BLANK so CLIO resolves its current defaults (temperature 0.0,
+// max_tokens=0 context-aware default, thinking off, parallel=0).
 func (a *App) lmConfigSyncFromPreset() tea.Cmd {
 	if a.lmConfig == nil || a.lmConfig.info == nil {
 		return nil
@@ -861,6 +891,7 @@ func (a *App) lmConfigSyncFromPreset() tea.Cmd {
 	a.lmConfig.maxTokens = ""
 	a.lmConfig.contextLength = ""
 	a.lmConfig.thinkingBudget = ""
+	a.lmConfig.parallel = ""
 	currentAPIBase := strings.TrimRight(strings.TrimSpace(a.lmConfig.info.APIBase), "/")
 	presetAPIBase := strings.TrimRight(strings.TrimSpace(p.APIBase), "/")
 	samePreset := a.lmConfig.info.Provider == p.Provider &&
@@ -1133,7 +1164,7 @@ func lmConfigFetchModelsCmd(c *client.Client, presetID string, apiBaseOverride s
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		resp, err := c.ListProviderModelsDetailed(ctx, presetID, apiBaseOverride)
+		resp, err := lmConfigFetchProviderCatalog(ctx, c, presetID, apiBaseOverride)
 		return lmConfigModelsLoadedMsg{
 			presetID: presetID,
 			models:   resp.Models,
@@ -1157,7 +1188,7 @@ func lmConfigRetryFetchModelsCmd(
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		resp, err := c.ListProviderModelsDetailed(ctx, presetID, apiBaseOverride)
+		resp, err := lmConfigFetchProviderCatalog(ctx, c, presetID, apiBaseOverride)
 		return lmConfigModelsLoadedMsg{
 			presetID: presetID,
 			models:   resp.Models,
@@ -1166,6 +1197,36 @@ func lmConfigRetryFetchModelsCmd(
 			err:      err,
 		}
 	})
+}
+
+func lmConfigFetchProviderCatalog(
+	ctx context.Context,
+	c *client.Client,
+	presetID string,
+	apiBaseOverride string,
+) (client.ProviderModelsResponse, error) {
+	handshake, err := c.ProviderHandshake(ctx, presetID, apiBaseOverride, false)
+	if err == nil && (handshake.Source != "" || len(handshake.Models) > 0 || handshake.Error != "") {
+		return client.ProviderModelsResponse{
+			Models: handshake.Models,
+			Source: handshake.Source,
+			Error:  handshake.Error,
+		}, nil
+	}
+	resp, fallbackErr := c.ListProviderModelsDetailed(ctx, presetID, apiBaseOverride)
+	if fallbackErr != nil {
+		return resp, firstError(err, fallbackErr)
+	}
+	return resp, nil
+}
+
+func firstError(values ...error) error {
+	for _, err := range values {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) lmConfigDispatch() tea.Cmd {
@@ -1234,6 +1295,11 @@ func (a *App) lmConfigDispatch() tea.Cmd {
 	if a.lmConfig.thinkingBudget != "" {
 		if v, err := strconv.Atoi(a.lmConfig.thinkingBudget); err == nil {
 			req.ThinkingBudget = v
+		}
+	}
+	if a.lmConfig.parallel != "" {
+		if v, err := strconv.Atoi(a.lmConfig.parallel); err == nil {
+			req.Parallel = v
 		}
 	}
 	return lmConfigSaveCmd(a.c, req)
@@ -2006,6 +2072,19 @@ func (a *App) renderLMConfigProviderDetailsRowsAndHits(innerW int, visibleRows i
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(a.localizer.t(msgLMConfigLocalCLI, nil)))
 	}
 	appendLines(statusLines, lipgloss.NewStyle().Foreground(statusColor), visibleRows)
+	if a.lmConfig.info != nil && strings.EqualFold(strings.TrimSpace(a.lmConfig.info.Provider), strings.TrimSpace(p.Provider)) {
+		infoRows := []string{}
+		if a.lmConfig.info.ChosenContext > 0 {
+			infoRows = append(infoRows, a.localizer.tf(msgLMConfigChosenContext, map[string]any{"tokens": a.lmConfig.info.ChosenContext}))
+		}
+		if a.lmConfig.info.IsReasoning {
+			infoRows = append(infoRows, a.localizer.t(msgLMConfigReasoningModel, nil))
+		}
+		if a.lmConfig.info.NativeToolCall {
+			infoRows = append(infoRows, a.localizer.t(msgLMConfigNativeTools, nil))
+		}
+		appendLines(infoRows, lipgloss.NewStyle().Foreground(t.FgMuted), visibleRows)
+	}
 	if desc := strings.TrimSpace(a.localizedProviderDescription(*p)); desc != "" {
 		remaining := visibleRows - len(rows)
 		if remaining > 0 {
@@ -2448,6 +2527,13 @@ func (a *App) lmConfigAdvancedRows() []lmConfigAdvancedRow {
 				value:       a.lmConfig.thinkingBudget,
 				defaultText: a.localizer.t(msgLMConfigDefaultDisabled, nil),
 			})
+		case lmFieldParallel:
+			rows = append(rows, lmConfigAdvancedRow{
+				field:       lmFieldParallel,
+				label:       a.localizer.t(msgLMConfigParallel, nil),
+				value:       a.lmConfig.parallel,
+				defaultText: a.localizer.t(msgLMConfigBackendDefault, nil),
+			})
 		}
 	}
 	return rows
@@ -2522,7 +2608,8 @@ func (a *App) renderLMConfigAdvancedBox(innerW int, visibleRows int) string {
 	if a.lmConfig.field == lmFieldTemperature ||
 		a.lmConfig.field == lmFieldMaxTokens ||
 		a.lmConfig.field == lmFieldContextLength ||
-		a.lmConfig.field == lmFieldThinkingBudget {
+		a.lmConfig.field == lmFieldThinkingBudget ||
+		a.lmConfig.field == lmFieldParallel {
 		title = lipgloss.NewStyle().Foreground(t.Secondary).Render(title)
 	}
 	rows := a.renderLMConfigAdvanced(innerW)
@@ -2562,6 +2649,11 @@ func (a *App) renderLMConfigModelDetails(bodyW int) []string {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
 			a.localizer.tf(msgLMConfigMaxContext, map[string]any{"tokens": m.ContextWindow}),
 		))
+		if m.ChosenContext > 0 {
+			rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
+				a.localizer.tf(msgLMConfigChosenContext, map[string]any{"tokens": m.ChosenContext}),
+			))
+		}
 		if strings.TrimSpace(a.lmConfig.contextLength) != "" {
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
 				a.localizer.t(msgLMConfigRequestedContext, map[string]string{"tokens": strings.TrimSpace(a.lmConfig.contextLength)}),
@@ -2580,6 +2672,12 @@ func (a *App) renderLMConfigModelDetails(bodyW int) []string {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(
 			a.localizer.tf(msgLMConfigMaxOutputDetail, map[string]any{"tokens": m.MaxOutputTokens}),
 		))
+	}
+	if m.IsReasoning || m.Supports.Thinking {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(a.localizer.t(msgLMConfigReasoningModel, nil)))
+	}
+	if m.NativeToolCalls {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Fg).Render(a.localizer.t(msgLMConfigNativeTools, nil)))
 	}
 	if desc := strings.TrimSpace(m.Description); desc != "" {
 		for _, line := range wrapPlainRows(desc, bodyW, "  ") {

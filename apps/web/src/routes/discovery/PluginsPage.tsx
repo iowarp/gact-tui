@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js';
+import { brand } from '@brand';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
 import {
@@ -126,7 +127,7 @@ export function PluginsPage() {
       subtitle={
         inTauri()
           ? 'Local executables the desktop shell can run on demand. Mirrors the TUI ~/.config/gact/plugins/ model.'
-          : 'Registry view — execution needs the CLIO Desktop shell, not the pure-web build.'
+          : `Registry view — execution needs the ${brand.name} Desktop shell, not the pure-web build.`
       }
       actions={
         <button
@@ -189,7 +190,7 @@ export function PluginsPage() {
             rows={3}
             value={argsText()}
             onInput={(e) => setArgsText(e.currentTarget.value)}
-            placeholder="--fix\n--format=json"
+            placeholder={'--fix\n--format=json'}
             data-testid="plugin-args"
           />
         </div>
@@ -289,7 +290,7 @@ export function PluginsPage() {
                     class="dp__card-btn"
                     onClick={() => void runPlugin(def)}
                     disabled={!inTauri()}
-                    title={inTauri() ? 'Execute now' : 'Pure-web build can\'t exec — open in CLIO Desktop'}
+                    title={inTauri() ? 'Execute now' : `Pure-web build can't exec — open in ${brand.name} Desktop`}
                     data-testid={`plugin-run-${def.id}`}
                   >
                     Run

@@ -1971,7 +1971,7 @@ func TestCatalogBrowser_OpenAndClose(t *testing.T) {
 	if !a.catalogBrowserOpen {
 		t.Fatalf("openCatalogBrowser didn't flip the flag")
 	}
-	if a.catalogBrowser.title != "Actions and MCP" {
+	if a.catalogBrowser.title != "Tools & MCP" {
 		t.Fatalf("wrong title: %q", a.catalogBrowser.title)
 	}
 	if cmd == nil {

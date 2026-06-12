@@ -31,7 +31,7 @@ const LIVE_CAPS: CapabilityFlags = {
   x_clio_semantic_trace_detail: 'semantic',
   // boolean x_ flags
   x_clio_semantic_events: true,
-  x_clio_files_content: true,
+  multimodal_image_parts: true,
   x_clio_retry_attempts: true,
   // nested-object flags
   x_clio_hook_events: {

@@ -2,6 +2,7 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client, SlashCommandDef } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
+import { useToast } from '../../components/Toast.js';
 
 export interface ToolsPageProps {
   client: Client;
@@ -64,6 +65,29 @@ export function ToolsPage(props: ToolsPageProps) {
 }
 
 function CommandCard(props: { c: SlashCommandDef }) {
+  const toast = useToast();
+  // The slash trigger the user types in the composer to run this command.
+  const trigger = () =>
+    props.c.id.startsWith('/') ? props.c.id : `/${props.c.id}`;
+
+  async function copyTrigger() {
+    try {
+      await navigator.clipboard.writeText(trigger());
+      toast.push({
+        tone: 'success',
+        title: 'Copied',
+        body: `Paste ${trigger()} into the composer to run it.`,
+        duration: 2400,
+      });
+    } catch {
+      toast.push({
+        tone: 'warn',
+        title: 'Copy failed',
+        body: `Type ${trigger()} into the composer to run it.`,
+      });
+    }
+  }
+
   return (
     <article class="dp__card" data-testid={`command-card-${props.c.id}`}>
       <header class="dp__card-head">
@@ -83,6 +107,19 @@ function CommandCard(props: { c: SlashCommandDef }) {
       <Show when={props.c.description}>
         <p class="dp__card-body">{props.c.description}</p>
       </Show>
+      {/* Visible "run" affordance — the card otherwise looks inert despite
+          inviting copy. Copies the slash trigger ready to paste/run. */}
+      <div class="dp__card-actions">
+        <button
+          type="button"
+          class="dp__card-btn dp__card-btn--primary"
+          onClick={() => void copyTrigger()}
+          data-testid={`command-copy-${props.c.id}`}
+        >
+          <Icon name="copy" size={13} />
+          Copy {trigger()}
+        </button>
+      </div>
     </article>
   );
 }

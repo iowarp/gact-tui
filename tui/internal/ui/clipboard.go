@@ -68,8 +68,11 @@ func clipboardFailureHint() string {
 
 type clipboardCommand struct {
 	name string
+	path string
 	args []string
 }
+
+var clipboardPreferredCommand *clipboardCommand
 
 func nativeClipboardCommands() []clipboardCommand {
 	return []clipboardCommand{
@@ -87,7 +90,21 @@ func writeNativeClipboard(text string) error {
 	var tried []string
 	var failures []string
 	fallbackNames := "wl-copy, xclip, xsel, pbcopy, clip.exe, powershell.exe, termux-clipboard-set, atotto/clipboard"
+	if clipboardPreferredCommand != nil {
+		cmd := *clipboardPreferredCommand
+		path := firstNonEmpty(cmd.path, cmd.name)
+		tried = append(tried, cmd.name)
+		if err := clipboardRunCommand(path, cmd.args, text); err == nil {
+			return nil
+		} else {
+			failures = append(failures, cmd.name+": "+err.Error())
+			clipboardPreferredCommand = nil
+		}
+	}
 	for _, cmd := range nativeClipboardCommands() {
+		if clipboardPreferredCommand != nil && cmd.name == clipboardPreferredCommand.name {
+			continue
+		}
 		path, err := clipboardLookPath(cmd.name)
 		if err != nil {
 			continue
@@ -97,6 +114,7 @@ func writeNativeClipboard(text string) error {
 			failures = append(failures, cmd.name+": "+err.Error())
 			continue
 		}
+		clipboardPreferredCommand = &clipboardCommand{name: cmd.name, path: path, args: cmd.args}
 		return nil
 	}
 	if err := clipboardAtottoWrite(text); err != nil {

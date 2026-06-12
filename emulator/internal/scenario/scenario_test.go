@@ -73,6 +73,30 @@ func collectStatusEvents(sub *events.Subscription, maxCount int, timeout time.Du
 	return out
 }
 
+func collectEventsUntilStatus(sub *events.Subscription, maxCount int, timeout time.Duration, wantStatus string) []events.Event {
+	out := make([]events.Event, 0, 64)
+	deadline := time.After(timeout)
+	for len(out) < maxCount {
+		select {
+		case e, ok := <-sub.C:
+			if !ok {
+				return out
+			}
+			out = append(out, e)
+			if e.Type != "session.status_changed" {
+				continue
+			}
+			payload, _ := e.Payload.(map[string]any)
+			if payload != nil && payload["status"] == wantStatus {
+				return out
+			}
+		case <-deadline:
+			return out
+		}
+	}
+	return out
+}
+
 func TestDefaultScriptHappyPath(t *testing.T) {
 	eng, st, bus, sid := newRig(t)
 	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
@@ -371,6 +395,128 @@ func TestRedactedSemanticToolScriptProducesLifecycleOnlyToolEvents(t *testing.T)
 				t.Fatalf("redacted semantic fixture should not mirror lifecycle events into stored tool parts: %#v", p)
 			}
 		}
+	}
+}
+
+func TestWorkflowStateSemanticScriptProducesDelegationEvent(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("workflow state semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, gact.StatusIdle) {
+		got = append(got, event)
+	}
+	sawWorkflowEvent := false
+	sawRoutingEvent := false
+	sawContractOutputEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		nested, _ := payload["payload"].(map[string]any)
+		workflowState, _ := nested["workflow_state"].(map[string]any)
+		if payload["event_type"] == "blueprint.delegation.completed" && len(workflowState) > 0 {
+			sawWorkflowEvent = true
+		}
+		if payload["event_type"] == "agent.invocation.completed" &&
+			nested["selected_expert"] == "data" &&
+			nested["route_reason"] == "Seismic dataset lookup routes to the data expert." {
+			sawRoutingEvent = true
+		}
+		if payload["event_type"] == "blueprint.delegation.completed" &&
+			nested["agent_id"] == "data" &&
+			nested["output_summary"] == "NDP resource 00d66104 was too large to stage; using EarthScope fallback for the requested San Diego window." {
+			sawContractOutputEvent = true
+		}
+	}
+	if !sawWorkflowEvent {
+		t.Fatalf("semantic workflow fixture did not emit delegation workflow_state event: %#v", got)
+	}
+	if !sawRoutingEvent {
+		t.Fatalf("semantic workflow fixture did not emit route selection event: %#v", got)
+	}
+	if !sawContractOutputEvent {
+		t.Fatalf("semantic workflow fixture did not emit contract output summary event: %#v", got)
+	}
+}
+
+func TestWorkflowBlockerSemanticScriptProducesDelegationBlocker(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("workflow blocker semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, gact.StatusIdle) {
+		got = append(got, event)
+	}
+	sawBlockerEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		if payload["event_type"] != "blueprint.delegation.completed" {
+			continue
+		}
+		if summary, _ := payload["summary"].(string); strings.Contains(summary, "Blocker: resource_too_large") {
+			sawBlockerEvent = true
+			break
+		}
+	}
+	if !sawBlockerEvent {
+		t.Fatalf("semantic workflow fixture did not emit delegation blocker event: %#v", got)
+	}
+}
+
+func TestProviderFailureSemanticScriptProducesLLMRequestFailure(t *testing.T) {
+	eng, st, bus, sid := newRig(t)
+	sub := bus.Subscribe(events.Filter{SessionID: sid}, 256)
+	defer sub.Cancel()
+
+	user, _ := st.AppendMessage(gact.Message{
+		SessionID: sid,
+		Role:      gact.RoleUser,
+		Parts:     []gact.Part{gact.NewTextPart("provider failure semantic demo")},
+	})
+
+	eng.OnUserMessage(sid, user.ID)
+	var got []events.Event
+	for _, event := range collectEventsUntilStatus(sub, 500, 30*time.Second, "failed") {
+		got = append(got, event)
+	}
+	sawFailureEvent := false
+	for _, event := range got {
+		if event.Type != "semantic.event" {
+			continue
+		}
+		payload, _ := event.Payload.(map[string]any)
+		if payload["event_type"] != "llm.request.failed" {
+			continue
+		}
+		provider, _ := payload["provider"].(map[string]any)
+		if provider["provider_id"] == "argonne_sophia" {
+			sawFailureEvent = true
+			break
+		}
+	}
+	if !sawFailureEvent {
+		t.Fatalf("semantic provider failure fixture did not emit LLM request failure event: %#v", got)
 	}
 }
 

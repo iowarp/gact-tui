@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -242,7 +244,9 @@ func TestWorkspaceCreateGitURLDerivesNameAndClonePath(t *testing.T) {
 	if a.workspaceCreateName != "clio-agent" {
 		t.Fatalf("derived name = %q, want clio-agent", a.workspaceCreateName)
 	}
-	if !strings.HasSuffix(a.workspaceCreateRoot, "/clio-agent") {
+	// Compare OS-agnostically: the derived root is an OS-native path
+	// (backslashes on Windows), so normalize before the suffix check.
+	if !strings.HasSuffix(filepath.ToSlash(a.workspaceCreateRoot), "/clio-agent") {
 		t.Fatalf("derived root = %q, want suffix /clio-agent", a.workspaceCreateRoot)
 	}
 }
@@ -260,7 +264,7 @@ func TestWorkspaceCreateGitURLDerivesAcrossCharacterTyping(t *testing.T) {
 	if a.workspaceCreateName != "clio-agent" {
 		t.Fatalf("character-typed derived name = %q, want clio-agent", a.workspaceCreateName)
 	}
-	if !strings.HasSuffix(a.workspaceCreateRoot, "/clio-agent") {
+	if !strings.HasSuffix(filepath.ToSlash(a.workspaceCreateRoot), "/clio-agent") {
 		t.Fatalf("character-typed derived root = %q, want suffix /clio-agent", a.workspaceCreateRoot)
 	}
 }
@@ -438,6 +442,46 @@ func TestWorkspaceSwitcher_EnterSwitchesWorkspace(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitcher_EnterRefreshesFileViewerAndClearsWorkspaceScopedPanels(t *testing.T) {
+	a := makeSwitcherApp(t)
+	oldRoot := t.TempDir()
+	newRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(oldRoot, "old-only.txt"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(newRoot, "clean-only.txt"), []byte("clean"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.workspaces[0].RootPath = oldRoot
+	a.workspaces[1].RootPath = newRoot
+	a.wsID = "ws_a"
+	a.SetFileViewerRoot(oldRoot)
+	a.contextFiles = []gact.ContextFile{{Path: "old-context.txt"}}
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{messageID: "files", partID: "old-only.txt", localPath: filepath.Join(oldRoot, "old-only.txt")}
+	a.detailScroll = 4
+
+	a.workspaceSwitchOpen = true
+	a.workspaceSwitchSel = 1 // ws_b
+	_, cmd := a.handleWorkspaceSwitchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter on a different workspace should dispatch a reload")
+	}
+
+	if a.fileViewerRoot != mustAbsPath(t, newRoot) {
+		t.Fatalf("fileViewerRoot = %q, want %q", a.fileViewerRoot, mustAbsPath(t, newRoot))
+	}
+	if len(a.contextFiles) != 0 || a.contextFileSel != 0 {
+		t.Fatalf("context files not cleared: files=%d sel=%d", len(a.contextFiles), a.contextFileSel)
+	}
+	if a.detailViewOpen || a.detailView != nil || a.detailScroll != 0 {
+		t.Fatalf("stale workspace detail remained open: open=%v detail=%#v scroll=%d", a.detailViewOpen, a.detailView, a.detailScroll)
+	}
+	if len(a.fileTreeEntries) != 1 || a.fileTreeEntries[0].Name != "clean-only.txt" {
+		t.Fatalf("file tree entries = %#v, want only clean workspace file", a.fileTreeEntries)
+	}
+}
+
 func TestWorkspaceSwitcher_StaleSwitchedMsgIgnored(t *testing.T) {
 	// If the user switches ws_a → ws_b → ws_a before ws_b's response
 	// lands, the ws_b response must not clobber ws_a state.
@@ -452,6 +496,15 @@ func TestWorkspaceSwitcher_StaleSwitchedMsgIgnored(t *testing.T) {
 	if len(a.sessions) != 1 || a.sessions[0].ID != "still_here" {
 		t.Errorf("stale switch overwrote current state: %+v", a.sessions)
 	}
+}
+
+func mustAbsPath(t *testing.T, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
 }
 
 func TestWorkspaceSwitcher_EmptyWorkspacesOpensCreateCapableModal(t *testing.T) {
@@ -826,8 +879,10 @@ func TestWorkspaceCreateSuccessSwitchesAndClearsScopedState(t *testing.T) {
 	if len(a.sessions) != 0 || len(a.messages) != 0 || len(a.contextFiles) != 0 || a.selected != -1 {
 		t.Fatalf("scoped state not cleared: sessions=%d messages=%d context=%d selected=%d", len(a.sessions), len(a.messages), len(a.contextFiles), a.selected)
 	}
-	if a.fileViewerRoot != "/tmp/new" {
-		t.Fatalf("fileViewerRoot = %q, want /tmp/new", a.fileViewerRoot)
+	// fileViewerRoot is localized to an OS-native absolute path (a drive
+	// letter is prefixed on Windows), so match the trailing segment.
+	if !strings.HasSuffix(filepath.ToSlash(a.fileViewerRoot), "/tmp/new") {
+		t.Fatalf("fileViewerRoot = %q, want suffix /tmp/new", a.fileViewerRoot)
 	}
 	if cmd == nil {
 		t.Fatal("create success should reload sessions for new workspace")

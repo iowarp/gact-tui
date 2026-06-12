@@ -140,6 +140,7 @@ func TestLMConfigAdvancedRowsUseVerticalNavigation(t *testing.T) {
 	a.lmConfig.temperature = "1.0"
 	a.lmConfig.maxTokens = "4096"
 	a.lmConfig.contextLength = "32768"
+	a.lmConfig.parallel = "2"
 
 	_, _ = a.handleLMConfigKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	if a.lmConfig.field != lmFieldMaxTokens {
@@ -254,6 +255,25 @@ func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:       "parallel requests",
+			selected:   0,
+			field:      lmFieldParallel,
+			fieldLabel: "parallel requests",
+			start:      func(a *App) { a.lmConfig.parallel = "2" },
+			afterInc: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.parallel != "3" {
+					t.Fatalf("increment parallel = %q, want 3", a.lmConfig.parallel)
+				}
+			},
+			afterDec: func(t *testing.T, a *App) {
+				t.Helper()
+				if a.lmConfig.parallel != "2" {
+					t.Fatalf("decrement parallel = %q, want 2", a.lmConfig.parallel)
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -266,6 +286,7 @@ func TestLMConfigAdvancedArrowTargetsAdjustValues(t *testing.T) {
 			a.lmConfig.maxTokens = "4096"
 			a.lmConfig.contextLength = "32768"
 			a.lmConfig.thinkingBudget = "2048"
+			a.lmConfig.parallel = "2"
 			tc.start(a)
 
 			targetID := "lm-config:advanced:" + strconv.Itoa(int(tc.field))
@@ -325,10 +346,11 @@ func TestLMConfigAdvancedRowsAndHitsShareOrdering(t *testing.T) {
 	a.lmConfig.temperature = "1.0"
 	a.lmConfig.maxTokens = "4096"
 	a.lmConfig.contextLength = "32768"
+	a.lmConfig.parallel = "2"
 
 	rows, hits := a.renderLMConfigAdvancedRowsAndHits(60)
-	if len(rows) != 3 {
-		t.Fatalf("advanced rows = %d, want 3", len(rows))
+	if len(rows) != 4 {
+		t.Fatalf("advanced rows = %d, want 4", len(rows))
 	}
 	if len(hits) != len(rows)*3 {
 		t.Fatalf("advanced hits = %d, want %d", len(hits), len(rows)*3)

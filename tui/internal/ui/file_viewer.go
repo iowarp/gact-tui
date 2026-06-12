@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -23,6 +24,16 @@ type fileTreeEntry struct {
 	Dir   bool
 	Depth int
 	Size  int64
+}
+
+const fileViewerRefreshInterval = 2 * time.Second
+
+type fileViewerRefreshTickMsg struct{}
+
+func fileViewerRefreshCmd() tea.Cmd {
+	return tea.Tick(fileViewerRefreshInterval, func(time.Time) tea.Msg {
+		return fileViewerRefreshTickMsg{}
+	})
 }
 
 func (a *App) initFileViewerFromCwd() {
@@ -72,20 +83,75 @@ func (a *App) syncFileViewerRootToWorkspace() {
 func (a *App) currentWorkspaceRootPath() string {
 	for _, ws := range a.workspaces {
 		if ws.ID == a.wsID {
-			return ws.RootPath
+			return workspaceFileRootPath(ws)
 		}
 	}
 	return ""
 }
 
+func workspaceFileRootPath(ws gact.Workspace) string {
+	root := strings.TrimSpace(ws.RootPath)
+	name := strings.TrimSpace(ws.Name)
+	if workspaceNamePathShouldOverrideRoot(name, root) {
+		return name
+	}
+	return root
+}
+
+func workspaceNamePathShouldOverrideRoot(name, root string) bool {
+	if name == "" || !filepath.IsAbs(name) {
+		return false
+	}
+	name = filepath.Clean(name)
+	root = filepath.Clean(strings.TrimSpace(root))
+	if root != "" && root == name {
+		return false
+	}
+	if info, err := os.Stat(name); err != nil || !info.IsDir() {
+		return false
+	}
+	if root == "." || root == "" {
+		return true
+	}
+	tmp := filepath.Clean(os.TempDir())
+	if root == tmp || !strings.HasPrefix(root, tmp+string(filepath.Separator)) {
+		return false
+	}
+	return strings.HasPrefix(filepath.Base(root), "grind-")
+}
+
 func (a *App) reloadFileViewer() {
-	entries, err := scanFileTreeDir(a.fileViewerRoot, "", 0)
+	selectedPath := a.selectedFileTreePath()
+	entries, err := scanFileTreeExpanded(a.fileViewerRoot, "", 0, a.fileTreeExpanded)
 	a.fileTreeEntries = entries
 	a.fileTreeErr = ""
+	a.fileTreeUpdated = time.Now()
 	if err != nil {
 		a.fileTreeErr = err.Error()
 	}
+	a.restoreFileTreeSelection(selectedPath)
 	a.clampFileTreeSelection()
+}
+
+func (a *App) refreshFileViewerFromWorkspace() {
+	root := strings.TrimSpace(a.currentWorkspaceRootPath())
+	if root == "" {
+		if a.fileTreeRootMode == "workspace" && a.fileViewerRoot != "" {
+			a.reloadFileViewer()
+		}
+		return
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		abs = root
+	}
+	if a.fileViewerRoot != abs {
+		a.SetFileViewerRoot(root)
+		a.fileTreeRootMode = "workspace"
+		return
+	}
+	a.reloadFileViewer()
+	a.fileTreeRootMode = "workspace"
 }
 
 func scanFileTreeDir(root string, rel string, depth int) ([]fileTreeEntry, error) {
@@ -129,6 +195,47 @@ func scanFileTreeDir(root string, rel string, depth int) ([]fileTreeEntry, error
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+func scanFileTreeExpanded(root string, rel string, depth int, expanded map[string]bool) ([]fileTreeEntry, error) {
+	entries, err := scanFileTreeDir(root, rel, depth)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]fileTreeEntry, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, entry)
+		if !entry.Dir || !expanded[entry.Path] {
+			continue
+		}
+		children, err := scanFileTreeExpanded(root, entry.Path, entry.Depth+1, expanded)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, children...)
+	}
+	return out, nil
+}
+
+func (a *App) selectedFileTreePath() string {
+	visible := a.visibleFileTreeEntries()
+	if a.fileTreeSel < 0 || a.fileTreeSel >= len(visible) {
+		return ""
+	}
+	return visible[a.fileTreeSel].Path
+}
+
+func (a *App) restoreFileTreeSelection(path string) {
+	if path == "" {
+		return
+	}
+	visible := a.visibleFileTreeEntries()
+	for i, entry := range visible {
+		if entry.Path == path {
+			a.fileTreeSel = i
+			return
+		}
+	}
 }
 
 func (a *App) visibleFileTreeEntries() []fileTreeEntry {
@@ -350,6 +457,9 @@ func (a *App) renderFileViewerModuleRows(width int, startRow int, rowBudget int)
 			label = "workspace: " + rootLabel
 		}
 		rows = append(rows, t.HintLabel.Italic(true).Render(truncate(label, width-6)))
+		if !a.fileTreeUpdated.IsZero() && rowBudget > 2 {
+			rows = append(rows, t.HintLabel.Render(truncate("updated "+humanAgeShort(time.Since(a.fileTreeUpdated)), width-6)))
+		}
 	}
 	if a.fileTreeErr != "" {
 		errorRow := startRow + len(rows)
@@ -400,6 +510,9 @@ func (a *App) sidebarFileViewerRowCount(rowBudget int) int {
 		return rows
 	}
 	rows++
+	if !a.fileTreeUpdated.IsZero() && rowBudget > 2 {
+		rows++
+	}
 	if a.fileTreeErr != "" || len(a.visibleFileTreeEntries()) == 0 {
 		return rows + 1
 	}

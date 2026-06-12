@@ -42,6 +42,10 @@ type Config struct {
 	// EmptyPrompts suppresses the static prompt registry fixtures. This is
 	// used by visual-loop tests to exercise the operator empty state.
 	EmptyPrompts bool
+	// EmptySkills suppresses static skill-source agents while leaving normal
+	// experts available. This is used by visual-loop tests to exercise the
+	// skills catalog empty state without removing the whole agent catalog.
+	EmptySkills bool
 	// PromptStress appends workspace/session/provider/invalid prompt registry
 	// fixtures for visual-loop prompt catalog stress states.
 	PromptStress bool
@@ -102,21 +106,23 @@ type Config struct {
 
 // Server is the GACT emulator HTTP server.
 type Server struct {
-	cfg            Config
-	started        time.Time
-	mux            *http.ServeMux
-	store          *store.Store
-	bus            *events.Bus
-	perms          *store.Permissions
-	contextFiles   *contextFileSet
-	latency        *latencyTracker
-	hooks          *hooksStore // §6.17 — MMM3
-	tasks          *tasksStore // §6.18 — MMM5
-	prompts        map[string]gact.PromptDefinition
-	agents         map[string]gact.AgentDef
-	agentsMu       sync.Mutex
-	userQuestions  map[string]gact.UserQuestion
-	providerAuthed map[string]bool
+	cfg              Config
+	started          time.Time
+	mux              *http.ServeMux
+	store            *store.Store
+	bus              *events.Bus
+	perms            *store.Permissions
+	contextFiles     *contextFileSet
+	latency          *latencyTracker
+	hooks            *hooksStore // §6.17 — MMM3
+	tasks            *tasksStore // §6.18 — MMM5
+	prompts          map[string]gact.PromptDefinition
+	agents           map[string]gact.AgentDef
+	agentsMu         sync.Mutex
+	blueprintMu      sync.Mutex
+	blueprintSources []gact.AgentBlueprintSource
+	userQuestions    map[string]gact.UserQuestion
+	providerAuthed   map[string]bool
 
 	// v0.2 — synthetic memory cache counters (CLIO-BBBBBBBBBB3).
 	// The emulator has no real cache; these are bumped by scenario
@@ -270,6 +276,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tools/{id}", s.handleGetTool)
 
 	// §6.7 — MCP
+	s.mux.HandleFunc("GET /v1/mcp/handshake", s.handleMcpHandshake)
 	s.mux.HandleFunc("GET /v1/mcp/servers", s.handleListMcpServers)
 	s.mux.HandleFunc("GET /v1/mcp/servers/{id}", s.handleGetMcpServer)
 	s.mux.HandleFunc("DELETE /v1/mcp/servers/{id}", s.handleDeleteMcpServer)
@@ -306,8 +313,10 @@ func (s *Server) routes() {
 	// §6.12 — Providers + Models
 	s.mux.HandleFunc("GET /v1/providers", s.handleListProviders)
 	s.mux.HandleFunc("GET /v1/providers/lm", s.handleGetLMProvider)
+	s.mux.HandleFunc("GET /v1/providers/lm/wait", s.handleWaitLMProvider)
 	s.mux.HandleFunc("PUT /v1/providers/lm", s.handlePutLMProvider)
 	s.mux.HandleFunc("GET /v1/providers/{id}", s.handleGetProvider)
+	s.mux.HandleFunc("GET /v1/providers/{id}/handshake", s.handleProviderHandshake)
 	s.mux.HandleFunc("GET /v1/providers/{id}/models", s.handleListProviderModels)
 	s.mux.HandleFunc("POST /v1/providers/{id}/auth", s.handleProviderAuth)
 
@@ -336,6 +345,7 @@ func (s *Server) routes() {
 	// CLIO agent-blueprint extension
 	s.mux.HandleFunc("GET /v1/agent-blueprints", s.handleListAgentBlueprints)
 	s.mux.HandleFunc("GET /v1/agent-blueprints/sources", s.handleListAgentBlueprintSources)
+	s.mux.HandleFunc("POST /v1/agent-blueprints/sources", s.handleAddAgentBlueprintSource)
 	s.mux.HandleFunc("POST /v1/agent-blueprints/sources/{id}/refresh", s.handleRefreshAgentBlueprintSource)
 	s.mux.HandleFunc("DELETE /v1/agent-blueprints/sources/{id}", s.handleDeleteAgentBlueprintSource)
 	s.mux.HandleFunc("GET /v1/agent-blueprints/{id}", s.handleGetAgentBlueprint)

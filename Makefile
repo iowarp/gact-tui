@@ -14,6 +14,10 @@ TIMING    ?= realistic
 PREFIX    ?= $(HOME)/.local
 BINDIR    ?= $(PREFIX)/bin
 CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
+TUI_BUILD_REVISION := $(shell git rev-parse HEAD 2>/dev/null)
+TUI_BUILD_TIME     := $(shell git show -s --format=%cI HEAD 2>/dev/null)
+TUI_BUILD_DIRTY    := $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo true || echo false)
+TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildTime=$(TUI_BUILD_TIME) -X main.buildDirty=$(TUI_BUILD_DIRTY)
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
@@ -28,7 +32,7 @@ build-emulator: ## Build $(EMULATOR_BIN).
 	cd emulator && $(GO) build -o $(notdir $(EMULATOR_BIN)) ./cmd/emulator-server
 
 build-tui: ## Build $(TUI_BIN).
-	cd tui && $(GO) build -o $(notdir $(TUI_BIN)) .
+	cd tui && $(GO) build -ldflags '$(TUI_LDFLAGS)' -o $(notdir $(TUI_BIN)) .
 
 test: ## Run unit + integration tests for every module.
 	cd emulator && $(GO) test ./...

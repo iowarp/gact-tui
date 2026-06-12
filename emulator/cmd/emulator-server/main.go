@@ -59,6 +59,8 @@ func main() {
 			"enable deterministic expert-pack lifecycle failures for visual-loop demos")
 		emptyPrompts = flag.Bool("empty-prompts", false,
 			"return an empty prompt catalog for visual-loop empty-state demos")
+		emptySkills = flag.Bool("empty-skills", false,
+			"return an empty skills catalog for visual-loop empty-state demos")
 		promptStress = flag.Bool("prompt-stress", false,
 			"append prompt registry stress fixtures for visual-loop demos")
 		promptSaveFailures = flag.Bool("prompt-save-failures", false,
@@ -181,6 +183,7 @@ func main() {
 		EmptyExpertPacks:       *emptyExpertPacks,
 		ExpertPackFailures:     *expertPackFailures,
 		EmptyPrompts:           *emptyPrompts,
+		EmptySkills:            *emptySkills,
 		PromptStress:           *promptStress,
 		PromptSaveFailures:     *promptSaveFailures,
 		EmptyTools:             *emptyTools,
