@@ -16,12 +16,13 @@ import (
 const tuiLatencySampleLimit = 96
 
 type tuiInteractionTrace struct {
-	key      string
-	surface  string
-	kind     string
-	targetID string
-	started  time.Time
-	update   time.Duration
+	key         string
+	surface     string
+	kind        string
+	targetID    string
+	targetLabel string
+	started     time.Time
+	update      time.Duration
 }
 
 type tuiInteractionSample struct {
@@ -31,10 +32,11 @@ type tuiInteractionSample struct {
 }
 
 type tuiInteractionStat struct {
-	Surface string
-	Kind    string
-	Target  string
-	Samples []tuiInteractionSample
+	Surface     string
+	Kind        string
+	Target      string
+	TargetLabel string
+	Samples     []tuiInteractionSample
 }
 
 type tuiInteractionTelemetry struct {
@@ -42,18 +44,19 @@ type tuiInteractionTelemetry struct {
 }
 
 type tuiInteractionSummary struct {
-	Key       string
-	Surface   string
-	Kind      string
-	Target    string
-	Count     int
-	UpdateP50 time.Duration
-	UpdateP95 time.Duration
-	RenderP50 time.Duration
-	RenderP95 time.Duration
-	TotalP50  time.Duration
-	TotalP95  time.Duration
-	TotalMax  time.Duration
+	Key         string
+	Surface     string
+	Kind        string
+	Target      string
+	TargetLabel string
+	Count       int
+	UpdateP50   time.Duration
+	UpdateP95   time.Duration
+	RenderP50   time.Duration
+	RenderP95   time.Duration
+	TotalP50    time.Duration
+	TotalP95    time.Duration
+	TotalMax    time.Duration
 }
 
 type tuiInteractionLatencyReport struct {
@@ -78,18 +81,19 @@ type tuiInteractionLatencyCoverage struct {
 }
 
 type tuiInteractionLatencyRow struct {
-	Key       string  `json:"key"`
-	Surface   string  `json:"surface"`
-	Kind      string  `json:"kind"`
-	Target    string  `json:"last_hit_target,omitempty"`
-	Count     int     `json:"count"`
-	UpdateP50 float64 `json:"update_p50_ms"`
-	UpdateP95 float64 `json:"update_p95_ms"`
-	RenderP50 float64 `json:"render_p50_ms"`
-	RenderP95 float64 `json:"render_p95_ms"`
-	TotalP50  float64 `json:"total_p50_ms"`
-	TotalP95  float64 `json:"total_p95_ms"`
-	TotalMax  float64 `json:"total_max_ms"`
+	Key         string  `json:"key"`
+	Surface     string  `json:"surface"`
+	Kind        string  `json:"kind"`
+	TargetLabel string  `json:"target_label,omitempty"`
+	Target      string  `json:"last_hit_target,omitempty"`
+	Count       int     `json:"count"`
+	UpdateP50   float64 `json:"update_p50_ms"`
+	UpdateP95   float64 `json:"update_p95_ms"`
+	RenderP50   float64 `json:"render_p50_ms"`
+	RenderP95   float64 `json:"render_p95_ms"`
+	TotalP50    float64 `json:"total_p50_ms"`
+	TotalP95    float64 `json:"total_p95_ms"`
+	TotalMax    float64 `json:"total_max_ms"`
 }
 
 func (a *App) beginTUIInteractionTrace(msg tea.Msg) *tuiInteractionTrace {
@@ -107,13 +111,15 @@ func (a *App) beginTUIInteractionTrace(msg tea.Msg) *tuiInteractionTrace {
 	if surface == "" {
 		surface = "workspace"
 	}
-	key := surface + ":" + kind
+	targetLabel := tuiLatencyTargetLabel(targetID)
+	key := tuiLatencyInteractionKey(surface, kind, targetID)
 	return &tuiInteractionTrace{
-		key:      key,
-		surface:  surface,
-		kind:     kind,
-		targetID: targetID,
-		started:  time.Now(),
+		key:         key,
+		surface:     surface,
+		kind:        kind,
+		targetID:    targetID,
+		targetLabel: targetLabel,
+		started:     time.Now(),
 	}
 }
 
@@ -152,20 +158,32 @@ func (a *App) recordTUIInteractionSample(trace *tuiInteractionTrace, sample tuiI
 	stat := a.tuiLatency.stats[trace.key]
 	if stat == nil {
 		stat = &tuiInteractionStat{
-			Surface: trace.surface,
-			Kind:    trace.kind,
-			Target:  trace.targetID,
+			Surface:     trace.surface,
+			Kind:        trace.kind,
+			Target:      trace.targetID,
+			TargetLabel: trace.targetLabel,
 		}
 		a.tuiLatency.stats[trace.key] = stat
 	}
 	if trace.targetID != "" {
 		stat.Target = trace.targetID
 	}
+	if trace.targetLabel != "" {
+		stat.TargetLabel = trace.targetLabel
+	}
 	stat.Samples = append(stat.Samples, sample)
 	if len(stat.Samples) > tuiLatencySampleLimit {
 		copy(stat.Samples, stat.Samples[len(stat.Samples)-tuiLatencySampleLimit:])
 		stat.Samples = stat.Samples[:tuiLatencySampleLimit]
 	}
+}
+
+func tuiLatencyInteractionKey(surface, kind, targetID string) string {
+	key := surface + ":" + kind
+	if targetID != "" && kind != "key" {
+		key += ":" + targetID
+	}
+	return key
 }
 
 func (a *App) classifyTUIInteraction(msg tea.Msg) (kind, targetID string, ok bool) {
@@ -205,6 +223,76 @@ func (a *App) classifyTUIInteraction(msg tea.Msg) (kind, targetID string, ok boo
 		return "key", "", true
 	default:
 		return "", "", false
+	}
+}
+
+func tuiLatencyTargetLabel(id string) string {
+	if id == "" {
+		return ""
+	}
+	switch {
+	case id == "input:command":
+		return "command chip"
+	case id == "input:focus":
+		return "message composer"
+	case id == "conversation:body:focus":
+		return "conversation body"
+	case id == "conversation:body:wheel":
+		return "conversation scroll area"
+	case strings.HasPrefix(id, "conversation:detail:"):
+		return "message detail affordance"
+	case strings.HasPrefix(id, "conversation:part:"):
+		return "message block"
+	case strings.HasPrefix(id, "sidebar:session:"):
+		return "session row"
+	case strings.HasPrefix(id, "sidebar:context:file:"):
+		return "context file"
+	case strings.HasPrefix(id, "right-sidebar:files:item:"):
+		return "file tree row"
+	case strings.HasPrefix(id, "right-sidebar:context:file:"):
+		return "context file"
+	case strings.HasPrefix(id, "right-sidebar:agents:item:"):
+		return "agent row"
+	case strings.HasPrefix(id, "metrics:tui-latency:"):
+		return "TUI latency row"
+	case strings.HasPrefix(id, "metrics:latency:"):
+		return "API latency row"
+	case strings.HasPrefix(id, "metrics:body:wheel"):
+		return "metrics scroll area"
+	case strings.HasPrefix(id, "button:"):
+		return tuiLatencyButtonLabel(id)
+	default:
+		parts := strings.Split(id, ":")
+		if len(parts) == 0 {
+			return ""
+		}
+		labelParts := parts
+		if len(labelParts) > 3 {
+			labelParts = labelParts[:3]
+		}
+		for i, part := range labelParts {
+			labelParts[i] = strings.ReplaceAll(part, "-", " ")
+		}
+		return strings.Join(labelParts, " ")
+	}
+}
+
+func tuiLatencyButtonLabel(id string) string {
+	parts := strings.Split(id, ":")
+	if len(parts) < 3 {
+		return "button"
+	}
+	scope := strings.ReplaceAll(parts[1], "-", " ")
+	action := strings.ReplaceAll(parts[2], "-", " ")
+	switch {
+	case scope == "" && action == "":
+		return "button"
+	case scope == "":
+		return action + " button"
+	case action == "":
+		return scope + " button"
+	default:
+		return scope + " " + action + " button"
 	}
 }
 
@@ -340,18 +428,19 @@ func summarizeTUIInteraction(key string, stat *tuiInteractionStat) tuiInteractio
 		}
 	}
 	return tuiInteractionSummary{
-		Key:       key,
-		Surface:   stat.Surface,
-		Kind:      stat.Kind,
-		Target:    stat.Target,
-		Count:     len(stat.Samples),
-		UpdateP50: percentileDuration(updates, 0.50),
-		UpdateP95: percentileDuration(updates, 0.95),
-		RenderP50: percentileDuration(renders, 0.50),
-		RenderP95: percentileDuration(renders, 0.95),
-		TotalP50:  percentileDuration(totals, 0.50),
-		TotalP95:  percentileDuration(totals, 0.95),
-		TotalMax:  maxTotal,
+		Key:         key,
+		Surface:     stat.Surface,
+		Kind:        stat.Kind,
+		Target:      stat.Target,
+		TargetLabel: stat.TargetLabel,
+		Count:       len(stat.Samples),
+		UpdateP50:   percentileDuration(updates, 0.50),
+		UpdateP95:   percentileDuration(updates, 0.95),
+		RenderP50:   percentileDuration(renders, 0.50),
+		RenderP95:   percentileDuration(renders, 0.95),
+		TotalP50:    percentileDuration(totals, 0.50),
+		TotalP95:    percentileDuration(totals, 0.95),
+		TotalMax:    maxTotal,
 	}
 }
 
@@ -406,6 +495,14 @@ func tuiInteractionOperatorText(st tuiInteractionSummary) string {
 		formatTUIDuration(st.TotalMax),
 		samples,
 	)
+}
+
+func tuiInteractionDisplayTitle(st tuiInteractionSummary) string {
+	title := st.Surface + " " + st.Kind
+	if st.TargetLabel != "" {
+		title += " · " + st.TargetLabel
+	}
+	return title
 }
 
 // WriteTUIInteractionLatencyReport preserves the process-local latency table
@@ -471,18 +568,19 @@ func (a *App) tuiInteractionLatencyReport() tuiInteractionLatencyReport {
 
 func tuiInteractionLatencyReportRow(st tuiInteractionSummary) tuiInteractionLatencyRow {
 	return tuiInteractionLatencyRow{
-		Key:       st.Key,
-		Surface:   st.Surface,
-		Kind:      st.Kind,
-		Target:    st.Target,
-		Count:     st.Count,
-		UpdateP50: durationMilliseconds(st.UpdateP50),
-		UpdateP95: durationMilliseconds(st.UpdateP95),
-		RenderP50: durationMilliseconds(st.RenderP50),
-		RenderP95: durationMilliseconds(st.RenderP95),
-		TotalP50:  durationMilliseconds(st.TotalP50),
-		TotalP95:  durationMilliseconds(st.TotalP95),
-		TotalMax:  durationMilliseconds(st.TotalMax),
+		Key:         st.Key,
+		Surface:     st.Surface,
+		Kind:        st.Kind,
+		TargetLabel: st.TargetLabel,
+		Target:      st.Target,
+		Count:       st.Count,
+		UpdateP50:   durationMilliseconds(st.UpdateP50),
+		UpdateP95:   durationMilliseconds(st.UpdateP95),
+		RenderP50:   durationMilliseconds(st.RenderP50),
+		RenderP95:   durationMilliseconds(st.RenderP95),
+		TotalP50:    durationMilliseconds(st.TotalP50),
+		TotalP95:    durationMilliseconds(st.TotalP95),
+		TotalMax:    durationMilliseconds(st.TotalMax),
 	}
 }
 
