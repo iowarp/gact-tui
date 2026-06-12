@@ -445,8 +445,10 @@ type App struct {
 	sidebarLayoutSel  [3]int
 
 	// Metrics overlay
-	metricsOpen bool
-	metrics     *metricsState
+	metricsOpen           bool
+	metrics               *metricsState
+	tuiLatency            tuiInteractionTelemetry
+	pendingTUIInteraction *tuiInteractionTrace
 
 	// Doctor overlay (v0.2 §3.4 — CLIO-BBBBBBBBBB4). Shows the
 	// backend's integrations[] array + overall_status in a per-
@@ -1250,6 +1252,8 @@ func stringDetail(details map[string]any, key string) string {
 // --- Update ---------------------------------------------------------------
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tuiTrace := a.beginTUIInteractionTrace(msg)
+	updateStarted := time.Now()
 	// LLLLLLLL1: snapshot the hint going INTO this Update cycle.
 	// If a branch below assigns a different non-empty value we
 	// stamp transientHintAt after switch returns. This means the
@@ -1257,6 +1261,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// hint — not an arbitrary later Update that only read it.
 	preHint := a.transientHint
 	defer func() {
+		a.finishTUIInteractionUpdate(tuiTrace, time.Since(updateStarted))
 		if a.transientHint != "" && a.transientHint != preHint {
 			a.transientHintAt = time.Now()
 		}
@@ -10223,9 +10228,11 @@ func permissionActionLabel(action gact.PermissionAction) string {
 // --- View -----------------------------------------------------------------
 
 func (a *App) View() tea.View {
+	renderStarted := time.Now()
 	if a.width == 0 || a.height == 0 {
 		v := tea.NewView("…")
 		v.AltScreen = true
+		a.finishTUIInteractionRender(time.Since(renderStarted))
 		return v
 	}
 	a.beginHitFrame()
@@ -10252,6 +10259,7 @@ func (a *App) View() tea.View {
 	// user is looking at. Fallback is the bare "GACT" brand when no
 	// session is selected.
 	v.WindowTitle = a.windowTitle()
+	a.finishTUIInteractionRender(time.Since(renderStarted))
 	return v
 }
 
