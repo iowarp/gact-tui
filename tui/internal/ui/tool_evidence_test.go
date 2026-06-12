@@ -886,6 +886,93 @@ func TestExpertHandoffRendersMarkdownTableSummary(t *testing.T) {
 	}
 }
 
+func TestExpertHandoffRecoversCompressedMarkdownTable(t *testing.T) {
+	summary := `Ranked EarthScope GNSS stations within 50 km of Los Angeles (nearest -> farthest) | Rank | Station ID | Distance (km) | |------|------------|---------------| | 1 | MTA1 | 0.3749 | | 2 | PKRD | 2.3714 | | 3 | ELSC | 4.0982 |`
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: summary,
+		Metadata: map[string]any{
+			"agent_id":       "earthscope_station_catalog",
+			"parent_id":      "data",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": summary,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	for _, want := range []string{"Ranked EarthScope GNSS stations", "Rank", "Station ID", "Distance", "MTA1", "PKRD", "ELSC"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("compressed markdown table render missing %q:\n%s", want, out)
+		}
+	}
+	for _, bad := range []string{"| |------|", "| 1 | MTA1 | 0.3749 | | 2 |"} {
+		if strings.Contains(out, bad) {
+			t.Fatalf("compressed table should not remain flattened inline %q:\n%s", bad, out)
+		}
+	}
+}
+
+func TestExpertHandoffSummarizesTypedWorkflowStateJSONOnly(t *testing.T) {
+	summary := `CLIO typed workflow state:
+{"workflow_state":{"acquisition":{"analysis_ready":true,"local_path":"/tmp/grind-es-1uvay5fx/MTA1.CI.LY_.30.csv","status":"staged"},"artifact":{"kind":"gnss_timeseries_plot","path":"/tmp/grind-es-1uvay5fx/MTA1.CI.LY_.30_plot.png","status":"ready"},"station_catalog":{"candidate_count":72,"status":"ranked"}}}`
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: summary,
+		Metadata: map[string]any{
+			"agent_id":       "data",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": summary,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	normalized := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{"data returned evidence to main", "state:", "acquisition staged", "artifact ready", "station catalog ranked"} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("typed workflow state render missing %q:\n%s", want, out)
+		}
+	}
+	for _, raw := range []string{"workflow_state", `"local_path"`, `"station_catalog"`, "/tmp/grind-es-1uvay5fx"} {
+		if strings.Contains(out, raw) {
+			t.Fatalf("typed workflow state leaked raw payload %q:\n%s", raw, out)
+		}
+	}
+}
+
+func TestNormalizeExpertHandoffsDropsParentResumedNoise(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Metadata: map[string]any{"expert_handoffs": []any{
+			map[string]any{
+				"agent_id": "data", "parent_id": "main", "stage": "delegate.started", "status": "running",
+				"summary": "main delegated sync work to data.",
+			},
+			map[string]any{
+				"agent_id": "main", "parent_id": "data", "stage": "parent.resumed", "status": "completed",
+				"summary": "main resumed after data.",
+			},
+			map[string]any{
+				"agent_id": "data", "parent_id": "main", "stage": "delegate.completed", "status": "completed",
+				"output_summary": "Resolved Region (Los Angeles)\n\n- Center: 34.0522, -118.2437",
+			},
+		}},
+	}
+
+	normalizeMessagePresentation(&msg)
+	out := ansi.Strip(DefaultTheme().renderMessage(msg, 120))
+	if strings.Contains(out, "resumed after data") || strings.Contains(out, "parent resumed") {
+		t.Fatalf("parent resumed lifecycle noise should not render:\n%s", out)
+	}
+	for _, want := range []string{"main handed work to data", "data returned evidence to main", "Resolved Region"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("filtered handoff render missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestScientificToolCallSummaryUsesPrimaryArgs(t *testing.T) {
 	part := gact.Part{
 		Type:     gact.PartTypeToolCall,
