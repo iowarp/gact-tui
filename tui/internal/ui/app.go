@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"hash/fnv"
+	"hash/maphash"
 	"image/color"
 	"math/rand"
 	"os"
@@ -287,7 +287,7 @@ type App struct {
 	// conversationRenderCache keeps expensive per-message render output
 	// across frames. Scrolling, mouse movement, and footer updates should
 	// not re-render hundreds of unchanged CLIO semantic events.
-	conversationRenderCache    map[string]conversationRenderCacheEntry
+	conversationRenderCache    map[uint64]conversationRenderCacheEntry
 	conversationRenderRevision uint64
 	fullConversationCopyCache  fullConversationCopyCache
 
@@ -12343,6 +12343,8 @@ func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
 
 const maxConversationRenderCacheEntries = 1024
 
+var conversationRenderHashSeed = maphash.MakeSeed()
+
 type conversationRenderCacheEntry struct {
 	row       string
 	blocks    []conversationPartHitBlock
@@ -12352,11 +12354,11 @@ type conversationRenderCacheEntry struct {
 func (a *App) cachedConversationMessageRender(t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) conversationRenderCacheEntry {
 	key := conversationRenderCacheKey(a.conversationRenderRevision, t, m, prev, width, inlineResults, selectedPartID)
 	if a.conversationRenderCache == nil {
-		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+		a.conversationRenderCache = make(map[uint64]conversationRenderCacheEntry)
 	} else if cached, ok := a.conversationRenderCache[key]; ok {
 		return cached
 	} else if len(a.conversationRenderCache) > maxConversationRenderCacheEntries {
-		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+		a.conversationRenderCache = make(map[uint64]conversationRenderCacheEntry)
 	}
 	row := t.renderMessageInContextWithResultsSelected(m, prev, width, inlineResults, selectedPartID)
 	blocks := t.conversationPartHitBlocks(m, prev, width, inlineResults)
@@ -12374,16 +12376,28 @@ func (a *App) invalidateConversationRenderCache() {
 	a.conversationRenderRevision++
 }
 
-func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
-	h := fnv.New64a()
+func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) uint64 {
+	var h maphash.Hash
+	h.SetSeed(conversationRenderHashSeed)
 	writeHashString := func(s string) {
-		_, _ = h.Write([]byte(s))
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeHashInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	writeHashUint := func(value uint64) {
+		buf := strconv.AppendUint(scratch[:0], value, 10)
+		_, _ = h.Write(buf)
 		_, _ = h.Write([]byte{0})
 	}
 	writeHashString(strconv.FormatUint(revision, 10))
-	writeHashString(strconv.Itoa(width))
+	writeHashInt(width)
 	writeHashString(strconv.FormatBool(t.ShowTimestamps))
-	writeHashString(strconv.Itoa(t.CollapseThreshold))
+	writeHashInt(t.CollapseThreshold)
 	writeHashString(hexOf(t.Fg))
 	writeHashString(hexOf(t.FgMuted))
 	writeHashString(hexOf(t.Primary))
@@ -12394,8 +12408,8 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 	writeHashString(m.SessionID)
 	writeHashString(m.Role)
 	writeHashString(m.StopReason)
-	writeHashString(strconv.Itoa(len(m.Parts)))
-	writeHashString(conversationMessageRenderFingerprint(m))
+	writeHashInt(len(m.Parts))
+	writeHashUint(conversationMessageRenderFingerprint(m))
 	if prev == nil {
 		writeHashString("<nil-prev>")
 	} else {
@@ -12408,15 +12422,23 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 		writeHashString("inline-results")
 		if payload, err := json.Marshal(inlineResults); err == nil {
 			_, _ = h.Write(payload)
+			_, _ = h.Write([]byte{0})
 		}
 	}
-	return fmt.Sprintf("%016x", h.Sum64())
+	return h.Sum64()
 }
 
-func conversationMessageRenderFingerprint(m gact.Message) string {
-	h := fnv.New64a()
+func conversationMessageRenderFingerprint(m gact.Message) uint64 {
+	var h maphash.Hash
+	h.SetSeed(conversationRenderHashSeed)
 	write := func(s string) {
-		_, _ = h.Write([]byte(s))
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
 		_, _ = h.Write([]byte{0})
 	}
 	write(m.ID)
@@ -12429,23 +12451,41 @@ func conversationMessageRenderFingerprint(m gact.Message) string {
 	if !m.UpdatedAt.IsZero() {
 		write(m.UpdatedAt.UTC().Format(time.RFC3339Nano))
 	}
-	conversationHashAny(h, conversationVisibleMetadata(m.Metadata))
+	conversationHashVisibleMetadata(&h, m.Metadata)
 	if m.Model != nil {
-		conversationHashAny(h, *m.Model)
+		conversationHashAny(&h, *m.Model)
 	}
 	if m.ErrorInfo != nil {
-		conversationHashAny(h, *m.ErrorInfo)
+		conversationHashAny(&h, *m.ErrorInfo)
 	}
-	write(strconv.Itoa(len(m.Parts)))
+	writeInt(len(m.Parts))
 	for _, part := range m.Parts {
-		conversationHashPart(h, part)
+		conversationHashPart(&h, part)
 	}
-	return fmt.Sprintf("%016x", h.Sum64())
+	return h.Sum64()
 }
 
-func conversationHashPart(h hash.Hash64, p gact.Part) {
+func conversationHashPart(h *maphash.Hash, p gact.Part) {
 	write := func(s string) {
-		_, _ = h.Write([]byte(s))
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeBool := func(value bool) {
+		if value {
+			_, _ = h.Write([]byte{'1', 0})
+			return
+		}
+		_, _ = h.Write([]byte{'0', 0})
+	}
+	writeFloat := func(value float64) {
+		buf := strconv.AppendFloat(scratch[:0], value, 'g', -1, 64)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	writeInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
 		_, _ = h.Write([]byte{0})
 	}
 	write(p.ID)
@@ -12457,20 +12497,20 @@ func conversationHashPart(h hash.Hash64, p gact.Part) {
 	write(p.ToolName)
 	write(p.CallID)
 	write(p.ServerID)
-	write(strconv.FormatBool(p.IsError))
-	write(strconv.FormatBool(p.Cached))
-	write(formatCompactFloat(p.DurationMS))
+	writeBool(p.IsError)
+	writeBool(p.Cached)
+	writeFloat(p.DurationMS)
 	write(p.SelectedAgent)
 	write(p.Rationale)
-	write(formatCompactFloat(p.Confidence))
+	writeFloat(p.Confidence)
 	write(p.AgentID)
 	write(p.SubsessionID)
 	write(p.FinalMessageID)
 	write(p.Summary)
 	write(p.Code)
 	write(p.Message)
-	write(strconv.FormatBool(p.Recoverable))
-	write(strconv.FormatBool(p.Auto))
+	writeBool(p.Recoverable)
+	writeBool(p.Auto)
 	write(p.URI)
 	write(p.MimeType)
 	write(p.Name)
@@ -12479,7 +12519,7 @@ func conversationHashPart(h hash.Hash64, p gact.Part) {
 	write(p.Context)
 	conversationHashAny(h, p.Input)
 	conversationHashAny(h, p.Annotations)
-	conversationHashAny(h, conversationVisibleMetadata(p.Metadata))
+	conversationHashVisibleMetadata(h, p.Metadata)
 	conversationHashAny(h, p.Source)
 	conversationHashAny(h, p.Citations)
 	if p.Question != nil {
@@ -12488,35 +12528,40 @@ func conversationHashPart(h hash.Hash64, p gact.Part) {
 	if p.RetryAttempt != nil {
 		conversationHashAny(h, *p.RetryAttempt)
 	}
-	write(strconv.Itoa(len(p.CompactedMessageIDs)))
+	writeInt(len(p.CompactedMessageIDs))
 	for _, id := range p.CompactedMessageIDs {
 		write(id)
 	}
-	write(strconv.Itoa(len(p.Content)))
+	writeInt(len(p.Content))
 	for _, child := range p.Content {
 		conversationHashPart(h, child)
 	}
 }
 
-func conversationVisibleMetadata(metadata map[string]any) map[string]any {
+func conversationHashVisibleMetadata(h *maphash.Hash, metadata map[string]any) {
 	if len(metadata) == 0 {
-		return nil
+		return
 	}
-	out := make(map[string]any, len(metadata))
-	for key, value := range metadata {
+	keys := make([]string, 0, len(metadata))
+	for key := range metadata {
 		switch key {
 		case "raw_event", "raw_result":
 			continue
 		}
-		out[key] = value
+		keys = append(keys, key)
 	}
-	if len(out) == 0 {
-		return nil
+	if len(keys) == 0 {
+		return
 	}
-	return out
+	sort.Strings(keys)
+	for _, key := range keys {
+		_, _ = h.WriteString(key)
+		_, _ = h.Write([]byte{0})
+		conversationHashAny(h, metadata[key])
+	}
 }
 
-func conversationHashAny(h hash.Hash64, value any) {
+func conversationHashAny(h *maphash.Hash, value any) {
 	if value == nil {
 		return
 	}
@@ -12525,7 +12570,7 @@ func conversationHashAny(h hash.Hash64, value any) {
 		_, _ = h.Write([]byte{0})
 		return
 	}
-	_, _ = h.Write([]byte(fmt.Sprint(value)))
+	_, _ = h.WriteString(fmt.Sprint(value))
 	_, _ = h.Write([]byte{0})
 }
 
