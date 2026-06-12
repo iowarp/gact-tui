@@ -1,0 +1,159 @@
+{
+  "generated_at": "2026-06-12T15:46:01.808895747Z",
+  "backend": "http://127.0.0.1:17964",
+  "session_id": "sess_7386041cd6b0",
+  "window_width": 150,
+  "window_height": 48,
+  "focus_surface": "right sidebar",
+  "mouse_enabled": true,
+  "sample_count": 17,
+  "surface_count": 6,
+  "slowest": {
+    "key": "right sidebar:key",
+    "surface": "right sidebar",
+    "kind": "key",
+    "count": 3,
+    "update_p50_ms": 0.005433,
+    "update_p95_ms": 0.012766,
+    "render_p50_ms": 30.144545,
+    "render_p95_ms": 108.753346,
+    "total_p50_ms": 30.153967,
+    "total_p95_ms": 108.77062,
+    "total_max_ms": 108.77062
+  },
+  "sections": [
+    {
+      "surface": "right sidebar",
+      "sample_count": 3,
+      "key_count": 3,
+      "slowest_p95_ms": 108.77062,
+      "slowest_max_ms": 108.77062,
+      "slowest_render_p95_ms": 108.753346
+    },
+    {
+      "surface": "command palette",
+      "sample_count": 8,
+      "key_count": 8,
+      "slowest_p95_ms": 102.537995,
+      "slowest_max_ms": 102.537995,
+      "slowest_render_p95_ms": 102.421661
+    },
+    {
+      "surface": "metrics",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 20.642276,
+      "slowest_max_ms": 20.642276,
+      "slowest_render_p95_ms": 20.632993
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 2,
+      "key_count": 2,
+      "slowest_p95_ms": 19.627976,
+      "slowest_max_ms": 19.627976,
+      "slowest_render_p95_ms": 19.614225
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 2,
+      "key_count": 2,
+      "slowest_p95_ms": 4.638355,
+      "slowest_max_ms": 4.638355,
+      "slowest_render_p95_ms": 4.620545
+    },
+    {
+      "surface": "input",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 4.431785,
+      "slowest_max_ms": 4.431785,
+      "slowest_render_p95_ms": 4.392363
+    }
+  ],
+  "interactions": [
+    {
+      "key": "right sidebar:key",
+      "surface": "right sidebar",
+      "kind": "key",
+      "count": 3,
+      "update_p50_ms": 0.005433,
+      "update_p95_ms": 0.012766,
+      "render_p50_ms": 30.144545,
+      "render_p95_ms": 108.753346,
+      "total_p50_ms": 30.153967,
+      "total_p95_ms": 108.77062,
+      "total_max_ms": 108.77062
+    },
+    {
+      "key": "command palette:key",
+      "surface": "command palette",
+      "kind": "key",
+      "count": 8,
+      "update_p50_ms": 0.115559,
+      "update_p95_ms": 0.247376,
+      "render_p50_ms": 46.473989,
+      "render_p95_ms": 102.421661,
+      "total_p50_ms": 46.698859,
+      "total_p95_ms": 102.537995,
+      "total_max_ms": 102.537995
+    },
+    {
+      "key": "metrics:key",
+      "surface": "metrics",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.005234,
+      "update_p95_ms": 0.005234,
+      "render_p50_ms": 20.632993,
+      "render_p95_ms": 20.632993,
+      "total_p50_ms": 20.642276,
+      "total_p95_ms": 20.642276,
+      "total_max_ms": 20.642276
+    },
+    {
+      "key": "conversation:key",
+      "surface": "conversation",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.005442,
+      "update_p95_ms": 0.009433,
+      "render_p50_ms": 4.19392,
+      "render_p95_ms": 19.614225,
+      "total_p50_ms": 4.226098,
+      "total_p95_ms": 19.627976,
+      "total_max_ms": 19.627976
+    },
+    {
+      "key": "left sidebar:key",
+      "surface": "left sidebar",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.008836,
+      "update_p95_ms": 0.014627,
+      "render_p50_ms": 3.656402,
+      "render_p95_ms": 4.620545,
+      "total_p50_ms": 3.691824,
+      "total_p95_ms": 4.638355,
+      "total_max_ms": 4.638355
+    },
+    {
+      "key": "input:key",
+      "surface": "input",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.03582,
+      "update_p95_ms": 0.03582,
+      "render_p50_ms": 4.392363,
+      "render_p95_ms": 4.392363,
+      "total_p50_ms": 4.431785,
+      "total_p95_ms": 4.431785,
+      "total_max_ms": 4.431785
+    }
+  ],
+  "supported_by": {
+    "keys": true,
+    "clicks": false,
+    "wheels": false
+  }
+}

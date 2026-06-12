@@ -146,7 +146,7 @@ Sleep 180ms
 Type "/metrics"
 Enter
 Wait+Screen /Operations Metrics/
-Wait+Screen /TUI interaction latency/
+Wait+Screen /TUI latency by section/
 Sleep 700ms
 Screenshot "${out_dir}/${metrics_name}"
 
