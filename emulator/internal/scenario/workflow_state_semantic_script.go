@@ -101,10 +101,10 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 			"subject":        map[string]any{"agent_id": "main", "role": "parent_expert"},
 			"blueprint":      map[string]any{"pack_id": "seismic-waveform-review", "pack_version": "0.1.0"},
 			"payload": map[string]any{
-				"stage":       "delegate.completed",
-				"parent_id":   "main",
-				"agent_id":    "analysis",
-				"duration_ms": 1200.0,
+				"stage":          "delegate.completed",
+				"parent_id":      "main",
+				"agent_id":       "analysis",
+				"duration_ms":    1200.0,
 				"output_summary": "## Trace quality\n\n| Evidence | Value | Trust |\n| --- | ---: | --- |\n| CI.BAR BHZ | npts 12000 | high |\n| Artifact | ready | high |\n\nAcquisition staged and ready for visualization.",
 				"workflow_state": map[string]any{
 					"acquisition": map[string]any{
