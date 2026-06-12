@@ -167,7 +167,7 @@ func (a *App) viewMetrics() string {
 					},
 				})
 				tuiFields = append(tuiFields, detailField{
-					truncate(st.Surface+" "+st.Kind, 32),
+					truncate(tuiInteractionDisplayTitle(st), 32),
 					tuiInteractionOperatorText(st),
 				})
 			}
@@ -315,6 +315,11 @@ func (a *App) openMetricsTUILatencyDetail(stat tuiInteractionSummary) {
 		detailField{"render p50", formatTUIDuration(stat.RenderP50)},
 		detailField{"render p95", formatTUIDuration(stat.RenderP95)},
 	)
+	if stat.TargetLabel != "" {
+		rows = appendDetailSection(rows, "Target",
+			detailField{"label", stat.TargetLabel},
+		)
+	}
 	if stat.Target != "" {
 		rows = appendDetailSection(rows, "Evidence",
 			detailField{"last hit target", stat.Target},
@@ -336,7 +341,7 @@ func (a *App) metricsSlowestTUIInteractionText() string {
 		return "no TUI interaction samples"
 	}
 	st := summaries[0]
-	return st.Surface + " " + st.Kind + " · " + tuiInteractionOperatorText(st)
+	return tuiInteractionDisplayTitle(st) + " · " + tuiInteractionOperatorText(st)
 }
 
 func sortedKeys(m map[string]int) []string {
