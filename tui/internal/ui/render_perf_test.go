@@ -87,7 +87,7 @@ func TestWorkflowStateJSONSummaryDoesNotLeakInline(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
-	for _, want := range []string{"main -> analysis", "state:", "acquisition", "geospatial", "visualization"} {
+	for _, want := range []string{"analysis returned evidence to main", "state:", "acquisition", "geospatial", "visualization"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("workflow summary missing %q:\n%s", want, out)
 		}

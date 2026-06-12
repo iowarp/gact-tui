@@ -496,7 +496,7 @@ func TestApplySemanticToolCompletionHidesRedactedArgsInline(t *testing.T) {
 	}
 }
 
-func TestSemanticLiveMessageLabelsToolProgressNotAssistant(t *testing.T) {
+func TestSemanticLiveMessageLabelsToolProgressAsAssistantTurn(t *testing.T) {
 	msg := gact.Message{
 		ID:   "semantic_live_turn",
 		Role: gact.RoleAssistant,
@@ -513,11 +513,11 @@ func TestSemanticLiveMessageLabelsToolProgressNotAssistant(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "◆ TOOL ACTIVITY") {
-		t.Fatalf("semantic live transcript should label tool progress:\n%s", out)
+	if !strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("semantic live transcript should stay inside the assistant turn:\n%s", out)
 	}
-	if strings.Contains(out, "● ASSISTANT") {
-		t.Fatalf("semantic live transcript should not look like assistant prose:\n%s", out)
+	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
+		t.Fatalf("semantic live transcript should not create a separate pseudo-role:\n%s", out)
 	}
 	if strings.Contains(out, "input redacted by runtime") {
 		t.Fatalf("semantic live transcript should not advertise redacted input:\n%s", out)
@@ -546,8 +546,11 @@ func TestSemanticLiveMessageLabelsMixedWorkflowProgress(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "◆ TOOL ACTIVITY + WORKFLOW") {
-		t.Fatalf("mixed semantic live transcript should label tool and workflow progress:\n%s", out)
+	if !strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("mixed semantic live transcript should stay inside the assistant turn:\n%s", out)
+	}
+	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
+		t.Fatalf("mixed semantic live transcript should not create a separate pseudo-role:\n%s", out)
 	}
 }
 
@@ -661,7 +664,7 @@ func TestApplySemanticEventSummarizesContractOnlyDelegation(t *testing.T) {
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	if part.Text != "main delegated to analysis · next: analysis - run SAC fallback" {
+	if part.Text != "main handed work to analysis · next: analysis - run SAC fallback" {
 		t.Fatalf("contract-only delegation summary = %#v", part)
 	}
 	if strings.Contains(part.Text, "NEXT_EXPERT") || strings.Contains(part.Text, "DO_NOT_DELEGATE") {
@@ -699,7 +702,7 @@ func TestApplySemanticEventKeepsNextActionFromStrippedContract(t *testing.T) {
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	for _, want := range []string{"analysis returned to main", "next: visualization - plot SAC traces"} {
+	for _, want := range []string{"analysis returned evidence to main", "next: visualization - plot SAC traces"} {
 		if !strings.Contains(part.Text, want) {
 			t.Fatalf("next-action delegation summary missing %q: %#v", want, part)
 		}
@@ -766,7 +769,7 @@ func TestApplySemanticEventDropsDuplicateWorkflowRowsAcrossToolUpdates(t *testin
 	if len(parts) != 3 {
 		t.Fatalf("duplicate semantic workflow row should be collapsed, got %d parts: %#v", len(parts), parts)
 	}
-	if parts[0].Text != "analysis returned to main." {
+	if parts[0].Text != "analysis returned evidence to main." {
 		t.Fatalf("first workflow row = %#v", parts[0])
 	}
 	if parts[1].Type != gact.PartTypeToolResult || !strings.Contains(flattenToolResult(parts[1]), "npts: 12000") {
@@ -809,7 +812,7 @@ func TestApplySemanticEventPrioritizesReadableBlockerFromContract(t *testing.T) 
 		t.Fatalf("semantic messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	for _, want := range []string{"data returned to main", "blocked: resource too large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434"} {
+	for _, want := range []string{"data returned evidence to main", "blocked: resource too large - dataset ID 00d66104-dcb0-4381-86b4-fc62f08b3434"} {
 		if !strings.Contains(part.Text, want) {
 			t.Fatalf("blocker delegation summary missing %q: %#v", want, part)
 		}
@@ -821,7 +824,7 @@ func TestApplySemanticEventPrioritizesReadableBlockerFromContract(t *testing.T) 
 	}
 
 	ref := partDetailRef(a.messages[0].ID, part)
-	if !strings.Contains(ref.fullText, "what happened: data returned to main · blocked: resource too large") {
+	if !strings.Contains(ref.fullText, "what happened: data returned evidence to main · blocked: resource too large") {
 		t.Fatalf("blocker detail missing readable summary:\n%s", ref.fullText)
 	}
 	if strings.Contains(ref.fullText, "NEXT_ACTION") || strings.Contains(ref.fullText, "Blocker:") {
@@ -851,7 +854,7 @@ func TestApplySemanticEventHumanizesPlumbingDelegationSummary(t *testing.T) {
 	})
 
 	part := a.messages[0].Parts[0]
-	if part.Text != "main delegated to visualization." || part.Metadata["parent_id"] != "main" || part.Metadata["agent_id"] != "visualization" {
+	if part.Text != "main handed work to visualization." || part.Metadata["parent_id"] != "main" || part.Metadata["agent_id"] != "visualization" {
 		t.Fatalf("plumbing delegation summary = %#v", part)
 	}
 }
@@ -1044,7 +1047,7 @@ func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
 			},
 		}},
 	})
-	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main handed work to analysis." {
 		t.Fatalf("live semantic trace not seeded: %#v", a.messages)
 	}
 
@@ -1055,7 +1058,7 @@ func TestSemanticLiveTraceRestoresWhenRunningSessionIsRevisited(t *testing.T) {
 	}
 	a.selected = 0
 	_ = a.selectSession(0)
-	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+	if len(a.messages) != 1 || a.messages[0].Parts[0].Text != "main handed work to analysis." {
 		t.Fatalf("running session should restore cached semantic trace: %#v", a.messages)
 	}
 }
@@ -1117,12 +1120,12 @@ func TestSemanticLiveTraceCacheIsNamespacedAcrossRunningSessions(t *testing.T) {
 
 	a.selected = 0
 	_ = a.selectSession(0)
-	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || a.messages[0].Parts[0].Text != "main delegated to analysis." {
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s1" || a.messages[0].Parts[0].Text != "main handed work to analysis." {
 		t.Fatalf("s1 revisit should restore only s1 trace: %#v", a.messages)
 	}
 	a.selected = 1
 	_ = a.selectSession(1)
-	if len(a.messages) != 1 || a.messages[0].SessionID != "s2" || a.messages[0].Parts[0].Text != "main delegated to visualization." {
+	if len(a.messages) != 1 || a.messages[0].SessionID != "s2" || a.messages[0].Parts[0].Text != "main handed work to visualization." {
 		t.Fatalf("s2 revisit should restore only s2 trace: %#v", a.messages)
 	}
 }
@@ -1328,9 +1331,9 @@ func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 	ref := partDetailRef(a.messages[0].ID, a.messages[0].Parts[0])
 	for _, want := range []string{
 		"Operator view",
-		"result: analysis returned to main · next: visualization - plot SAC traces",
+		"result: analysis returned evidence to main · next: visualization - plot SAC traces",
 		"Event summary",
-		"what happened: analysis returned to main · next: visualization - plot SAC traces",
+		"what happened: analysis returned evidence to main · next: visualization - plot SAC traces",
 	} {
 		if !strings.Contains(ref.fullText, want) {
 			t.Fatalf("semantic detail missing readable intent %q:\n%s", want, ref.fullText)
@@ -1380,7 +1383,7 @@ func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testin
 		t.Fatalf("delegation should render as expert handoff: %#v", part)
 	}
 	for _, want := range []string{
-		"analysis returned to main",
+		"analysis returned evidence to main",
 		"next: visualization - plot SAC traces",
 	} {
 		if !strings.Contains(part.Text, want) {
@@ -1395,7 +1398,7 @@ func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testin
 
 	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
 	normalizedOut := strings.Join(strings.Fields(out), " ")
-	for _, want := range []string{"main -> analysis", "returned", "20353ms", "next: visualization", "plot SAC traces"} {
+	for _, want := range []string{"analysis returned evidence to main", "returned", "20353ms", "next: visualization", "plot SAC traces"} {
 		if !strings.Contains(normalizedOut, want) {
 			t.Fatalf("rendered timeline missing %q:\n%s", want, out)
 		}

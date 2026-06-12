@@ -9285,6 +9285,14 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 	} else if duration, ok := floatValue(payload["duration_ms"]); ok {
 		md["duration_ms"] = duration
 	}
+	if selected := firstNonEmpty(
+		stringValue(nested["selected_expert"]),
+		stringValue(payload["selected_expert"]),
+		stringValue(nested["selected_agent"]),
+		stringValue(payload["selected_agent"]),
+	); selected != "" {
+		md["selected_agent"] = selected
+	}
 	if workflowState := mapValue(nested["workflow_state"]); len(workflowState) > 0 {
 		md["workflow_state"] = workflowState
 		md["workflow_summary"] = workflowStateSummary(workflowState)
@@ -9378,6 +9386,9 @@ func semanticUserSummary(payload map[string]any, eventType string) string {
 		rawSummary = strings.TrimSpace(stringValue(nested["summary"]))
 		summary = rawSummary
 	}
+	if markerSummary := semanticLifecycleMarkerSummary(rawSummary); markerSummary != "" {
+		summary = markerSummary
+	}
 	outputSummary := semanticNestedOutputSummary(payload, nested)
 	summary = stripSemanticControlContracts(summary)
 	if workflowSummary := summarizeEmbeddedWorkflowStateText(summary); workflowSummary != "" {
@@ -9415,6 +9426,9 @@ func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) 
 		stringValue(nested["observation_summary"]),
 		stringValue(payload["observation_summary"]),
 	)
+	if markerSummary := semanticLifecycleMarkerSummary(summary); markerSummary != "" {
+		summary = markerSummary
+	}
 	summary = stripSemanticControlContracts(summary)
 	if summary == "" {
 		return ""
@@ -9423,6 +9437,36 @@ func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) 
 		return workflowSummary
 	}
 	return summarizeExpertHandoffOutput(summary)
+}
+
+func semanticLifecycleMarkerSummary(text string) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	markers := []struct {
+		token string
+		label string
+	}{
+		{token: "ISSUE_RESOLVED", label: "Issue resolved"},
+		{token: "ISSUE_CLOSED", label: "Issue closed"},
+		{token: "BLOCKER_RESOLVED", label: "Blocker resolved"},
+		{token: "TASK_COMPLETED", label: "Task completed"},
+	}
+	upper := strings.ToUpper(text)
+	for _, marker := range markers {
+		idx := strings.Index(upper, marker.token)
+		if idx < 0 {
+			continue
+		}
+		after := strings.TrimSpace(text[idx+len(marker.token):])
+		after = strings.TrimLeft(after, ":=- ")
+		if after == "" {
+			return marker.label + "."
+		}
+		return marker.label + ": " + truncateString(after, 240)
+	}
+	return ""
 }
 
 func semanticFailureSummary(payload map[string]any, eventType string) string {
@@ -9535,17 +9579,17 @@ func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) s
 		switch {
 		case strings.Contains(stage, "started"):
 			if parent != "" && agent != "" {
-				return parent + " delegated to " + agent + "."
+				return parent + " handed work to " + agent + "."
 			}
 			if agent != "" {
 				return agent + " started."
 			}
 		case strings.Contains(stage, "completed"):
 			if agent != "" && parent != "" {
-				return agent + " returned to " + parent + "."
+				return agent + " returned evidence to " + parent + "."
 			}
 			if agent != "" {
-				return agent + " returned."
+				return agent + " returned evidence."
 			}
 		case strings.Contains(stage, "failed") || refs.status == "failed" || refs.status == "error":
 			if agent != "" && parent != "" {
@@ -9639,7 +9683,7 @@ func humanizeSemanticEventType(eventType string) string {
 }
 
 func stripSemanticControlContracts(text string) string {
-	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
 	}
@@ -9656,6 +9700,10 @@ func stripSemanticControlContracts(text string) string {
 			text = strings.TrimSpace(text[:idx])
 		}
 	}
+	if looksLikeMarkdownBlock(text) {
+		return truncateMarkdownBlock(text, 1200, 18)
+	}
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
 	return truncateString(text, 320)
 }
 
@@ -9722,6 +9770,9 @@ func appendSemanticControlIntent(summary, intent string) string {
 	}
 	if strings.Contains(strings.ToLower(summary), strings.ToLower(intent)) {
 		return summary
+	}
+	if looksLikeMarkdownBlock(summary) {
+		return summary + "\n\n_" + intent + "_"
 	}
 	return strings.TrimRight(summary, ".") + " · " + intent
 }
@@ -11036,39 +11087,6 @@ func (a *App) renderFooter() string {
 		}
 	}
 
-	if a.selected >= 0 && a.selected < len(a.sessions) {
-		s := a.sessions[a.selected]
-		if s.CostUSD > 0 || s.Tokens.Input > 0 {
-			// Color-code input tokens by how close we are to typical
-			// context window limits. Warning at 100K (getting into
-			// "summarize soon" territory for most frontier models),
-			// danger at 150K (Sonnet/GPT-4 Turbo window limits). Raw
-			// counts stay muted.
-			tokenColor := t.FgMuted
-			switch {
-			case s.Tokens.Input >= t.CostDangerTokens:
-				tokenColor = t.Danger
-			case s.Tokens.Input >= t.CostWarnTokens:
-				tokenColor = t.Warning
-			}
-			// LLL6: render cost as a chip — bg-tinted pill with the
-			// $ amount and the in/out counts inside, so it pops away
-			// from the dim hint row instead of floating as plain text.
-			chipBg := t.Bg
-			chip := lipgloss.NewStyle().Background(chipBg).
-				Foreground(t.Secondary).Bold(true).Padding(0, 1).
-				Render(fmt.Sprintf("$%.4f", s.CostUSD))
-			tokens := lipgloss.NewStyle().Background(chipBg).
-				Foreground(tokenColor).Padding(0, 1).
-				Render(fmt.Sprintf("%s in / %s out",
-					humanTokens(s.Tokens.Input),
-					humanTokens(s.Tokens.Output)))
-			// CLIO-BBBBBBBBBB4: concatenate onto any existing right-
-			// side chip (e.g. the v0.2 memory chip) instead of
-			// clobbering it.
-			right += chip + tokens
-		}
-	}
 	available := a.width - lipgloss.Width(left) - lipgloss.Width(right) - 8
 	if available < 1 {
 		available = 1

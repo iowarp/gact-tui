@@ -105,6 +105,7 @@ func runWorkflowStateSemanticScript(ctx context.Context, e *Engine, sessionID st
 				"parent_id":   "main",
 				"agent_id":    "analysis",
 				"duration_ms": 1200.0,
+				"output_summary": "## Trace quality\n\n| Evidence | Value | Trust |\n| --- | ---: | --- |\n| CI.BAR BHZ | npts 12000 | high |\n| Artifact | ready | high |\n\nAcquisition staged and ready for visualization.",
 				"workflow_state": map[string]any{
 					"acquisition": map[string]any{
 						"status":     "staged",

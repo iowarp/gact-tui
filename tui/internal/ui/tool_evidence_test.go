@@ -771,7 +771,7 @@ func TestExpertHandoffInlineHumanizesWorkflowLifecycleStage(t *testing.T) {
 	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
 	normalized := strings.Join(strings.Fields(out), " ")
 	for _, want := range []string{
-		"main -> analysis",
+		"analysis returned evidence to main",
 		"completed",
 		"returned",
 		"20353ms",
@@ -783,6 +783,106 @@ func TestExpertHandoffInlineHumanizesWorkflowLifecycleStage(t *testing.T) {
 	}
 	if strings.Contains(out, "delegate.completed") {
 		t.Fatalf("inline handoff should humanize backend lifecycle tokens:\n%s", out)
+	}
+}
+
+func TestExpertHandoffSummarizesEmbeddedRegionJSON(t *testing.T) {
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: `{"REGION_LABEL":"Los Angeles, CA, USA","CENTER_LAT":34.0522,"CENTER_LON":-118.2437,"RADIUS_KM":50,"CONFIDENCE":"high","PROVENANCE":"model_geographic_prior","WARNINGS":[]} CLIO durable typed workflow state: Retained typed workflow state: {"workflow_state":{"geospatial":{"center_lat":34.0522,"center_lon":-118.2437,"radius_km":50}}}`,
+		Metadata: map[string]any{
+			"agent_id":       "geospatial",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": `{"REGION_LABEL":"Los Angeles, CA, USA","CENTER_LAT":34.0522,"CENTER_LON":-118.2437,"RADIUS_KM":50,"CONFIDENCE":"high","PROVENANCE":"model_geographic_prior","WARNINGS":[]} CLIO durable typed workflow state: Retained typed workflow state: {"workflow_state":{"geospatial":{"center_lat":34.0522,"center_lon":-118.2437,"radius_km":50}}}`,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 132))
+	normalized := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{"geospatial returned evidence to main", "resolved region: Los Angeles, CA, USA", "center 34.05", "radius 50 km", "confidence high"} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("region handoff summary missing %q:\n%s", want, out)
+		}
+	}
+	for _, raw := range []string{"REGION_LABEL", "CENTER_LAT", "workflow_state", "CLIO durable typed workflow state", `"PROVENANCE"`} {
+		if strings.Contains(out, raw) {
+			t.Fatalf("region handoff leaked raw JSON/control text %q:\n%s", raw, out)
+		}
+	}
+}
+
+func TestExpertHandoffStripsRealCLIOWorkflowStateBlock(t *testing.T) {
+	summary := `**Resolved geography**: San Diego, CA (bbox=[31.8157, -118.2311, 33.6157, -116.0911]) - status **resolved**.
+**Dataset discovery**: No EarthScope GNSS station CSV resources intersect this bbox - catalog status **no_candidates**.
+**Resource selection**: No candidate could be selected - resource_candidate status **missing**.
+
+CLIO durable typed workflow state:
+
+Retained typed workflow state:
+{"workflow_state":{"catalog":{"candidate_count":0,"status":"no_candidates"},"geospatial":{"bbox":[31.8157,-118.2311,33.6157,-116.0911],"label":"San Diego, CA","status":"resolved"},"resource_candidate":{"status":"missing"}}}`
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: summary,
+		Metadata: map[string]any{
+			"agent_id":       "data",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": summary,
+			"workflow_state": map[string]any{
+				"catalog":            map[string]any{"candidate_count": 0.0, "status": "no_candidates"},
+				"geospatial":         map[string]any{"label": "San Diego, CA", "status": "resolved"},
+				"resource_candidate": map[string]any{"status": "missing"},
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 132))
+	normalized := strings.Join(strings.Fields(out), " ")
+	for _, want := range []string{"data returned evidence to main", "Resolved geography", "San Diego, CA", "Dataset discovery", "Resource selection"} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("real CLIO handoff summary missing %q:\n%s", want, out)
+		}
+	}
+	for _, raw := range []string{"workflow_state", "CLIO durable typed workflow state", "Retained typed workflow state", `"catalog"`, `"bbox"`} {
+		if strings.Contains(out, raw) {
+			t.Fatalf("real CLIO handoff leaked typed-state dump %q:\n%s", raw, out)
+		}
+	}
+}
+
+func TestExpertHandoffRendersMarkdownTableSummary(t *testing.T) {
+	summary := `## EarthScope GNSS check
+
+| Station | Motion | Trust |
+| --- | ---: | --- |
+| P472 | 2.4 mm east | medium |
+| P467 | 0.8 mm north | high |
+
+- Recent window: 7 days
+- Caveat: check maintenance flags before treating the signal as tectonic.`
+	part := gact.Part{
+		Type: gact.PartTypeExpertHandoff,
+		Text: summary,
+		Metadata: map[string]any{
+			"agent_id":       "earthscope_catalog",
+			"parent_id":      "main",
+			"stage":          "delegate.completed",
+			"status":         "completed",
+			"output_summary": summary,
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
+	for _, want := range []string{"EarthScope GNSS check", "Station", "Motion", "Trust", "P472", "Recent window"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("markdown handoff render missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "| Station | Motion | Trust |") || strings.Count(out, "\n") < 6 {
+		t.Fatalf("markdown table should render as structured rows, not flattened pipe text:\n%s", out)
 	}
 }
 
@@ -1169,7 +1269,28 @@ func TestAssistantInlineTextShortensLongScientificPaths(t *testing.T) {
 			t.Fatalf("assistant inline text should not expose long path %q:\n%s", notWant, out)
 		}
 	}
-	if !strings.Contains(out, "data.tar.") || !strings.Contains(out, "\n  AS01 SCP") {
+	lines := strings.Split(out, "\n")
+	paragraphBreak := false
+	for i, line := range lines {
+		if strings.Contains(line, "data.tar.") {
+			seenBlank := false
+			for j := i + 1; j < len(lines); j++ {
+				switch {
+				case strings.TrimSpace(lines[j]) == "":
+					seenBlank = true
+				case strings.Contains(lines[j], "AS01 SCP") && paragraphBreak:
+					goto checkedParagraph
+				case strings.Contains(lines[j], "AS01 SCP") && seenBlank:
+					paragraphBreak = true
+					goto checkedParagraph
+				case strings.Contains(lines[j], "AS01 SCP"):
+					goto checkedParagraph
+				}
+			}
+		}
+	}
+checkedParagraph:
+	if !paragraphBreak {
 		t.Fatalf("assistant inline text should preserve paragraph breaks:\n%s", out)
 	}
 }
