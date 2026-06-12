@@ -1,0 +1,22 @@
+{
+  "backend": "http://127.0.0.1:17962",
+  "captured_from_owned_backend": true,
+  "session_id": "sess_db78fece7285",
+  "session_status": "idle",
+  "session_message_count": 2,
+  "metrics_screenshot": "visual_loop/screenshots/live_clio_tui_latency_metrics.png",
+  "recording_path": "visual_loop/screenshots/live_clio_tui_latency_capture.gif",
+  "tui_latency_section_expected": true,
+  "interaction_surfaces_driven": [
+    "left sidebar keys",
+    "conversation keys",
+    "input keys",
+    "command palette/input keys"
+  ],
+  "mouse_click_wheel_covered_by_tests": true,
+  "backend_metrics_active_sessions": 2,
+  "backend_metrics_sample_count": 0,
+  "provider_streaming_limitation": true,
+  "live_streaming_false": true,
+  "note": "TUI interaction latency samples are process-local and visible in the referenced /metrics screenshot. Backend metrics are recorded only to prove the capture used a live owned CLIO endpoint."
+}
