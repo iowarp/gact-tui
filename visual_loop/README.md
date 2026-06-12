@@ -88,6 +88,12 @@ input surfaces, plus wheel latency for the conversation surface. The manifest
 also preserves target labels and per-section p95/max latency summaries generated
 from terminal SGR mouse escape sequences.
 
+The maintained readiness check also treats the checked-in PTY report as the
+latency baseline for those primary mouse sections. `check_tui_latency_readiness.py`
+fails maintained readiness if any gated section regresses past 125% of that
+baseline, so performance drift is caught before release while the strict live
+CLIO streaming proof remains separately gated.
+
 For the strict live #160 gate, run the same PTY path against an owned real CLIO
 backend while the target session is still running:
 
