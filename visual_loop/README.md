@@ -86,6 +86,18 @@ backends. It writes `tui_mouse_latency_pty_manifest.json` and
 target-labeled click rows plus wheel latency rows generated from terminal SGR
 mouse escape sequences.
 
+Refresh the TUI latency readiness report after changing latency instrumentation
+or evidence:
+
+```bash
+python3 visual_loop/check_tui_latency_readiness.py --root . \
+  --write-report visual_loop/screenshots/tui_latency_readiness.report.md
+```
+
+Use `--strict-live` only for the final #160 gate after running
+`capture_live_tui_latency.sh --require-active-stream` against an owned CLIO
+backend with a still-running provider-backed session.
+
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:
 
