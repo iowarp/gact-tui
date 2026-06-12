@@ -17,6 +17,15 @@ from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
+LATENCY_BUDGET_TOLERANCE = 1.25
+PTY_MOUSE_LATENCY_REPORT = "visual_loop/screenshots/tui_mouse_latency_pty_report.json"
+PTY_MOUSE_SECTION_BASELINES_MS: dict[str, float] = {
+    "header": 4.772969,
+    "conversation": 3.643146,
+    "input": 3.116144,
+    "left sidebar": 2.431315,
+}
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -190,6 +199,19 @@ def load_manifest(root: Path, rel: str | None) -> tuple[dict[str, object], dict[
     return data, {"ok": True, "state": "present", "keys": sorted(data.keys())}
 
 
+def load_json_object(root: Path, rel: str) -> tuple[dict[str, object], dict[str, object]]:
+    status = artifact_status(root, rel)
+    if not status["ok"]:
+        return {}, {"ok": False, "state": status["state"]}
+    try:
+        data = json.loads((root / rel).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {}, {"ok": False, "state": f"invalid json: {exc}"}
+    if not isinstance(data, dict):
+        return {}, {"ok": False, "state": "json is not an object"}
+    return data, {"ok": True, "state": "present", "keys": sorted(data.keys())}
+
+
 def int_value(value: object) -> int:
     if isinstance(value, bool):
         return 0
@@ -205,6 +227,82 @@ def int_value(value: object) -> int:
     return 0
 
 
+def float_value(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def pty_mouse_latency_budget_status(root: Path) -> dict[str, object]:
+    report, report_status = load_json_object(root, PTY_MOUSE_LATENCY_REPORT)
+    baselines = {
+        surface: {
+            "baseline_ms": baseline,
+            "budget_ms": round(baseline * LATENCY_BUDGET_TOLERANCE, 6),
+        }
+        for surface, baseline in PTY_MOUSE_SECTION_BASELINES_MS.items()
+    }
+    status: dict[str, object] = {
+        "ok": False,
+        "report": PTY_MOUSE_LATENCY_REPORT,
+        "report_status": report_status,
+        "tolerance": LATENCY_BUDGET_TOLERANCE,
+        "baselines": baselines,
+        "observed": {},
+        "missing_sections": [],
+        "over_budget": [],
+    }
+    if not report_status["ok"]:
+        return status
+
+    sections = report.get("sections")
+    if not isinstance(sections, list):
+        status["report_status"] = {"ok": False, "state": "sections is not a list"}
+        return status
+
+    observed: dict[str, float] = {}
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        surface = section.get("surface")
+        if not isinstance(surface, str):
+            continue
+        p95_ms = float_value(section.get("slowest_p95_ms"))
+        if p95_ms is None:
+            continue
+        observed[surface] = p95_ms
+
+    missing = [surface for surface in PTY_MOUSE_SECTION_BASELINES_MS if surface not in observed]
+    failures: list[dict[str, object]] = []
+    for surface, baseline in PTY_MOUSE_SECTION_BASELINES_MS.items():
+        if surface not in observed:
+            continue
+        budget_ms = baseline * LATENCY_BUDGET_TOLERANCE
+        actual_ms = observed[surface]
+        if actual_ms > budget_ms:
+            failures.append(
+                {
+                    "surface": surface,
+                    "actual_ms": round(actual_ms, 6),
+                    "budget_ms": round(budget_ms, 6),
+                    "baseline_ms": baseline,
+                }
+            )
+
+    status["observed"] = {surface: round(value, 6) for surface, value in observed.items()}
+    status["missing_sections"] = missing
+    status["over_budget"] = failures
+    status["ok"] = not missing and not failures
+    return status
+
+
 def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
     artifacts = {rel: artifact_status(root, rel) for rel in evidence.artifacts}
     manifest_data, manifest = load_manifest(root, evidence.manifest)
@@ -214,12 +312,16 @@ def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
     active_blockers = manifest_data.get("active_stream_blockers")
     if not isinstance(active_blockers, list):
         active_blockers = []
+    latency_budget = None
+    if evidence.manifest == "visual_loop/screenshots/tui_mouse_latency_pty_manifest.json":
+        latency_budget = pty_mouse_latency_budget_status(root)
     ok = (
         all(status["ok"] for status in artifacts.values())
         and bool(manifest["ok"])
         and not missing_keys
         and not false_keys
         and not non_positive
+        and (latency_budget is None or bool(latency_budget["ok"]))
     )
     return {
         "area": evidence.area,
@@ -232,6 +334,7 @@ def evidence_status(root: Path, evidence: Evidence) -> dict[str, object]:
         "false_keys": false_keys,
         "non_positive": non_positive,
         "active_stream_blockers": active_blockers,
+        "latency_budget": latency_budget,
         "ok": ok,
     }
 
@@ -292,7 +395,61 @@ def render_markdown(result: dict[str, object]) -> str:
             lines.append("- Non-positive counters: " + ", ".join(f"`{key}`" for key in item["non_positive"]))
         if item["active_stream_blockers"]:
             lines.append("- Active-stream blockers: " + ", ".join(f"`{key}`" for key in item["active_stream_blockers"]))
+        latency_budget = item.get("latency_budget")
+        if isinstance(latency_budget, dict) and not latency_budget["ok"]:
+            lines.append(
+                "- Latency budget failure: "
+                f"`{latency_budget['report']}` must stay within "
+                f"`{latency_budget['tolerance']}x` checked-in PTY baselines"
+            )
+            missing_sections = latency_budget.get("missing_sections")
+            if missing_sections:
+                lines.append(
+                    "- Missing latency sections: "
+                    + ", ".join(f"`{section}`" for section in missing_sections)
+                )
+            over_budget = latency_budget.get("over_budget")
+            if isinstance(over_budget, list):
+                for failure in over_budget:
+                    if not isinstance(failure, dict):
+                        continue
+                    lines.append(
+                        "- Over budget: `{surface}` p95 `{actual_ms}ms` > `{budget_ms}ms` "
+                        "(baseline `{baseline_ms}ms`)".format(**failure)
+                    )
         lines.append("")
+    ready_budget_items = [
+        item.get("latency_budget")
+        for item in result["items"]
+        if isinstance(item.get("latency_budget"), dict) and item.get("ok")
+    ]
+    if ready_budget_items:
+        lines.extend(["## Maintained Latency Budgets", ""])
+        for budget in ready_budget_items:
+            if not isinstance(budget, dict):
+                continue
+            baselines = budget.get("baselines", {})
+            observed = budget.get("observed", {})
+            if not isinstance(baselines, dict) or not isinstance(observed, dict):
+                continue
+            lines.append(
+                f"- `{budget['report']}`: p95 must stay within "
+                f"`{budget['tolerance']}x` of checked-in baselines"
+            )
+            for surface in PTY_MOUSE_SECTION_BASELINES_MS:
+                baseline = baselines.get(surface, {})
+                if not isinstance(baseline, dict):
+                    continue
+                actual = observed.get(surface)
+                lines.append(
+                    "- `{surface}`: observed `{actual}ms`, budget `{budget_ms}ms`, baseline `{baseline_ms}ms`".format(
+                        surface=surface,
+                        actual=actual,
+                        budget_ms=baseline["budget_ms"],
+                        baseline_ms=baseline["baseline_ms"],
+                    )
+                )
+            lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 

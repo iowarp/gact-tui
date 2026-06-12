@@ -24,3 +24,11 @@
 - False manifest keys: `active_stream_evidence`
 - Non-positive counters: `backend_metrics_sample_count`
 - Active-stream blockers: `session_status_idle`, `backend_metrics_sample_count_zero`, `provider_streaming_limitation`, `live_streaming_false`
+
+## Maintained Latency Budgets
+
+- `visual_loop/screenshots/tui_mouse_latency_pty_report.json`: p95 must stay within `1.25x` of checked-in baselines
+- `header`: observed `4.772969ms`, budget `5.966211ms`, baseline `4.772969ms`
+- `conversation`: observed `3.643146ms`, budget `4.553933ms`, baseline `3.643146ms`
+- `input`: observed `3.116144ms`, budget `3.89518ms`, baseline `3.116144ms`
+- `left sidebar`: observed `2.431315ms`, budget `3.039144ms`, baseline `2.431315ms`
