@@ -6,12 +6,16 @@ usage() {
 Usage:
   CLIO_TUI_LATENCY_CAPTURE_OWN_BACKEND=1 visual_loop/capture_live_tui_latency.sh \
     --backend http://127.0.0.1:<PORT> \
-    [--session <session-id>] [--out-dir visual_loop/screenshots]
+    [--session <session-id>] [--out-dir visual_loop/screenshots] [--require-active-stream]
 
 Capture live TUI-side interaction latency proof from an owned CLIO backend.
 The script does not start or stop CLIO. It drives the real TUI through several
 operator surfaces, opens /metrics, and preserves a screenshot/GIF plus a small
 manifest. It refuses to run unless the caller affirms the backend is isolated.
+
+Use --require-active-stream for the final #160 gate. In that mode the capture
+fails unless the supplied session is still running, backend metrics have samples,
+the TUI report has samples, and no provider streaming fallback is observed.
 EOF
 }
 
@@ -24,6 +28,7 @@ metrics_name="live_clio_tui_latency_metrics.png"
 gif_name="live_clio_tui_latency_capture.gif"
 manifest_name="live_clio_tui_latency_manifest.json"
 report_name="live_clio_tui_latency_report.json"
+require_active_stream="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     --height)
       height="${2:-}"
       shift 2
+      ;;
+    --require-active-stream)
+      require_active_stream="1"
+      shift
       ;;
     -h|--help)
       usage
@@ -151,14 +160,15 @@ EOF
 vhs "$tape"
 validate_png "${out_dir}/${metrics_name}"
 
-python3 - "$backend" "$session_id" "${out_dir}/${metrics_name}" "${out_dir}/${gif_name}" "${out_dir}/${manifest_name}" "${out_dir}/${report_name}" <<'PY'
+python3 - "$backend" "$session_id" "${out_dir}/${metrics_name}" "${out_dir}/${gif_name}" "${out_dir}/${manifest_name}" "${out_dir}/${report_name}" "$require_active_stream" <<'PY'
 import json
 import pathlib
 import sys
 import urllib.error
 import urllib.request
 
-backend, session_id, metrics_png, gif_path, manifest, report_path = sys.argv[1:7]
+backend, session_id, metrics_png, gif_path, manifest, report_path, require_active_stream = sys.argv[1:8]
+require_active_stream = require_active_stream == "1"
 
 def get_json(path):
     try:
@@ -195,6 +205,8 @@ message_rows = messages.get("messages") if isinstance(messages, dict) else []
 if not isinstance(message_rows, list):
     message_rows = []
 metadata_blob = json.dumps(message_rows, sort_keys=True)
+provider_streaming_limitation = "provider_streaming_limitation" in metadata_blob
+live_streaming_false = '"live_streaming": false' in metadata_blob
 
 report = {}
 report_file = pathlib.Path(report_path)
@@ -226,6 +238,23 @@ sample_count_reported = int(report.get("sample_count") or 0)
 if sample_count_reported <= 0:
     raise SystemExit("TUI latency report contains no interaction samples")
 
+session_status = str(session.get("status", "")).strip()
+active_statuses = {"running", "waiting_permission"}
+active_stream_blockers = []
+if not session_id:
+    active_stream_blockers.append("missing_session_id")
+if session_status not in active_statuses:
+    active_stream_blockers.append(f"session_status_{session_status or 'unknown'}")
+if len(message_rows) <= 0:
+    active_stream_blockers.append("no_session_messages")
+if sample_count <= 0:
+    active_stream_blockers.append("backend_metrics_sample_count_zero")
+if provider_streaming_limitation:
+    active_stream_blockers.append("provider_streaming_limitation")
+if live_streaming_false:
+    active_stream_blockers.append("live_streaming_false")
+active_stream_evidence = not active_stream_blockers
+
 manifest_path = pathlib.Path(manifest)
 manifest_path.write_text(
     json.dumps(
@@ -233,7 +262,7 @@ manifest_path.write_text(
             "backend": backend,
             "captured_from_owned_backend": True,
             "session_id": session_id,
-            "session_status": session.get("status", ""),
+            "session_status": session_status,
             "session_message_count": len(message_rows),
             "metrics_screenshot": metrics_png,
             "recording_path": gif_path,
@@ -253,8 +282,11 @@ manifest_path.write_text(
             "mouse_click_wheel_covered_by_tests": True,
             "backend_metrics_active_sessions": int(sessions.get("active") or 0),
             "backend_metrics_sample_count": sample_count,
-            "provider_streaming_limitation": "provider_streaming_limitation" in metadata_blob,
-            "live_streaming_false": '"live_streaming": false' in metadata_blob,
+            "active_stream_evidence": active_stream_evidence,
+            "active_stream_blockers": active_stream_blockers,
+            "provider_streaming_limitation": provider_streaming_limitation,
+            "live_streaming_false": live_streaming_false,
+            "require_active_stream": require_active_stream,
             "note": (
                 "TUI interaction latency samples are process-local and visible in "
                 "the referenced /metrics screenshot. Backend metrics are recorded "
@@ -266,6 +298,11 @@ manifest_path.write_text(
     + "\n",
     encoding="utf-8",
 )
+if require_active_stream and not active_stream_evidence:
+    raise SystemExit(
+        "active stream latency capture did not satisfy strict evidence: "
+        + ", ".join(active_stream_blockers)
+    )
 PY
 
 printf 'wrote %s, %s, %s, and %s\n' \
