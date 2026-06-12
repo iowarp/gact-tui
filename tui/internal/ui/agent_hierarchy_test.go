@@ -274,6 +274,39 @@ func TestAgentHierarchySidebarShowsActiveBlueprintOwner(t *testing.T) {
 	}
 }
 
+func TestAgentHierarchySidebarCompactsLongActiveBlueprintOwner(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarHitFocus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionAgents
+	a.SetSidebarLayout([]string{"agents"}, nil)
+	a.sessions = []gact.Session{{
+		ID:     "s1",
+		Title:  "Blueprint session",
+		Status: gact.StatusIdle,
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "seismic-waveform-review",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+	a.agentHierarchyAgents = []gact.AgentDef{
+		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
+		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
+	}
+
+	out := ansi.Strip(a.renderSidebar(28, 20))
+	if !strings.Contains(out, "◆ seismic-waveform") {
+		t.Fatalf("long active blueprint should keep meaningful compact identity:\n%s", out)
+	}
+	if strings.Contains(out, "◆ seismic-waveform-review") || strings.Contains(out, "◆ seismic-w...") {
+		t.Fatalf("long active blueprint should not render raw or generic truncated id:\n%s", out)
+	}
+}
+
 func TestAgentHierarchyFinalRuntimeProvenanceDoesNotKeepStartedRowsLive(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 120
@@ -477,6 +510,35 @@ func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
 	}
 	if !strings.Contains(narrowOut, "◆ seismic") {
 		t.Fatalf("narrow active blueprint marker should preserve useful blueprint identity:\n%s", narrowOut)
+	}
+}
+
+func TestSessionSidebarCompactsLongActiveAgentBlueprint(t *testing.T) {
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.width = 130
+	a.height = 36
+	a.stage = StageReady
+	a.focus = FocusSidebar
+	a.sidebarSectionFocus = sidebarSectionSessions
+	a.sidebarSectionCursor = false
+	a.SetSidebarLayout([]string{"sessions"}, nil)
+	a.sessions = []gact.Session{{
+		ID:     "s1",
+		Title:  "Blueprint session",
+		Status: gact.StatusIdle,
+		Metadata: map[string]any{
+			"active_agent_blueprint_id":    "san-diego-earthscope-ndp-live-benchmark-review",
+			"active_agent_blueprint_scope": "session",
+		},
+	}}
+	a.selected = 0
+
+	out := ansi.Strip(a.renderSidebar(30, 20))
+	if !strings.Contains(out, "◆ san-diego") {
+		t.Fatalf("session sidebar should compact long blueprint IDs to readable prefixes:\n%s", out)
+	}
+	if strings.Contains(out, "san-diego-earthscope-ndp-live") || strings.Contains(out, "san-die...") {
+		t.Fatalf("session sidebar should avoid unreadable raw/truncated blueprint IDs:\n%s", out)
 	}
 }
 

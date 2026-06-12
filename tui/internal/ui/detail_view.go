@@ -831,9 +831,10 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 	if len(event) == 0 {
 		return rows
 	}
+	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
 	rows = appendSemanticEventOperatorView(rows, event)
 	rows = appendDetailSection(rows, "Event summary",
-		detailField{"what happened", runtimeScalar(event["summary"])},
+		detailField{"what happened", userSummary},
 		detailField{"status", runtimeScalar(event["status"])},
 		detailField{"event", runtimeScalar(event["event_type"])},
 		detailField{"stream", semanticEventStreamLabel(event["live_observed"])},
@@ -896,6 +897,8 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		runtimeScalar(provider["model_id"]),
 		runtimeScalar(provider["model"]),
 	)
+	providerLabel := semanticProviderLabel(provider)
+	apiBase := firstNonEmpty(runtimeScalar(provider["api_base"]), runtimeScalar(provider["base_url"]))
 	status := runtimeScalar(event["status"])
 	if status == "" {
 		status = runtimeScalar(payload["status"])
@@ -912,16 +915,48 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		duration = fmt.Sprintf("%.0fms", ms)
 	}
 	argsPreview := semanticArgsPreview(payload, event)
-	return appendDetailSection(rows, "Operator view",
-		detailField{"result", runtimeScalar(event["summary"])},
+	workflowSummary := workflowStateSummary(firstNonEmptyMap(
+		mapValue(payload["workflow_state"]),
+		mapValue(event["workflow_state"]),
+	))
+	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	failureSummary := semanticFailureSummary(event, runtimeScalar(event["event_type"]))
+	fallbackSummary := semanticStreamFallbackSummary(event)
+	fields := []detailField{
+		detailField{"result", userSummary},
 		detailField{"status", status},
+		detailField{"failure", failureSummary},
+		detailField{"fallback", fallbackSummary},
 		detailField{"agent", humanizeSemanticOperatorValue(agent)},
-		detailField{"tool", toolDisplayName(tool)},
-		detailField{"workflow", workflow},
+		detailField{"workflow state", workflowSummary},
 		detailField{"duration", duration},
 		detailField{"input", argsPreview},
-		detailField{"model", model},
-	)
+	}
+	if strings.TrimSpace(tool) != "" {
+		fields = append(fields, detailField{"tool", toolDisplayName(tool)})
+	}
+	if workflow != "" {
+		fields = append(fields, detailField{"workflow", workflow})
+	}
+	if providerLabel != "" {
+		fields = append(fields, detailField{"provider", providerLabel})
+	}
+	if model != "" {
+		fields = append(fields, detailField{"model", model})
+	}
+	if apiBase != "" {
+		fields = append(fields, detailField{"endpoint", apiBase})
+	}
+	return appendDetailSection(rows, "Operator view", fields...)
+}
+
+func firstNonEmptyMap(values ...map[string]any) map[string]any {
+	for _, value := range values {
+		if len(value) > 0 {
+			return value
+		}
+	}
+	return nil
 }
 
 func humanizeSemanticOperatorValue(value string) string {

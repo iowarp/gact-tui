@@ -170,6 +170,8 @@ type App struct {
 	fileTreeSel      int
 	fileTreeErr      string
 	fileTreeRootMode string
+	fileTreeRefresh  bool
+	fileTreeUpdated  time.Time
 
 	// SSE state
 	sseEvents <-chan client.SSEEvent
@@ -204,6 +206,13 @@ type App struct {
 	// counter made session revisits unstable because selecting an old
 	// session reset to 0 and asked the server to replay the whole ring.
 	lastSeenSeqIDBySession map[string]uint64
+
+	// semanticLiveMessagesBySession preserves TUI-synthesized live
+	// semantic timeline rows while a session is still running. Backend
+	// message reloads remain authoritative; this only keeps a revisit
+	// from blinking to a different transient trace before CLIO persists
+	// equivalent runtime provenance.
+	semanticLiveMessagesBySession map[string][]gact.Message
 
 	// connectRetryAttempts is the count of consecutive failed
 	// connectCmd dispatches. Same backoff schedule as the SSE
@@ -273,6 +282,12 @@ type App struct {
 	// scattering view-specific coordinate math through mouse.go.
 	hits               *uiHitRegistry
 	baseHitTargetCount int
+
+	// conversationRenderCache keeps expensive per-message render output
+	// across frames. Scrolling, mouse movement, and footer updates should
+	// not re-render hundreds of unchanged CLIO semantic events.
+	conversationRenderCache    map[string]conversationRenderCacheEntry
+	conversationRenderRevision uint64
 
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
@@ -718,22 +733,23 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 	)
 	ta.Focus()
 	app := &App{
-		BackendURL:             backendURL,
-		Theme:                  theme,
-		localizer:              newLocalizer(os.Getenv("GACT_LOCALE")),
-		c:                      client.New(backendURL),
-		stage:                  StageConnecting,
-		focus:                  FocusInput,
-		MouseEnabled:           true,
-		selected:               -1,
-		stickyToBottom:         true,
-		input:                  ta,
-		inputHistoryBySession:  map[string][]string{},
-		historyCursor:          -1,
-		bodySelMsgIdx:          -1,
-		bodySelPartIdx:         -1,
-		previouslyDetached:     map[string]bool{},
-		lastSeenSeqIDBySession: map[string]uint64{},
+		BackendURL:                    backendURL,
+		Theme:                         theme,
+		localizer:                     newLocalizer(os.Getenv("GACT_LOCALE")),
+		c:                             client.New(backendURL),
+		stage:                         StageConnecting,
+		focus:                         FocusInput,
+		MouseEnabled:                  true,
+		selected:                      -1,
+		stickyToBottom:                true,
+		input:                         ta,
+		inputHistoryBySession:         map[string][]string{},
+		historyCursor:                 -1,
+		bodySelMsgIdx:                 -1,
+		bodySelPartIdx:                -1,
+		previouslyDetached:            map[string]bool{},
+		lastSeenSeqIDBySession:        map[string]uint64{},
+		semanticLiveMessagesBySession: map[string][]gact.Message{},
 	}
 	app.initFileViewerFromCwd()
 	app.refreshLocalizedPlaceholders()
@@ -1389,6 +1405,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// rescheduling on anySessionRunning(), so this fires exactly
 		// once per connect even if nothing is currently active.
 		cmds := []tea.Cmd{spinnerCmd()}
+		if !a.fileTreeRefresh {
+			a.fileTreeRefresh = true
+			cmds = append(cmds, fileViewerRefreshCmd())
+		}
 		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): if the backend advertises
 		// memory, pull an initial snapshot so the footer chip paints
 		// right away. Session-scoped refresh happens on status_changed.
@@ -1821,6 +1841,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case fileViewerRefreshTickMsg:
+		if a.stage != StageReady {
+			a.fileTreeRefresh = false
+			return a, nil
+		}
+		a.refreshFileViewerFromWorkspace()
+		return a, fileViewerRefreshCmd()
+
 	case searchResultsMsg:
 		a.searching = false
 		a.searchMatches = m.matches
@@ -1848,7 +1876,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messagesLoadedMsg:
 		// Only apply if it's for the currently selected session.
 		if a.currentSessionID() == m.sessionID {
-			a.messages = m.messages
+			a.messages = a.mergeLoadedMessagesWithSemanticLiveCache(m.sessionID, m.messages)
+			a.invalidateConversationRenderCache()
 			a.stickyToBottom = true
 		}
 		return a, nil
@@ -2080,6 +2109,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			a.contextFiles = nil
 			a.currentStatus = ""
 			return a, nil
@@ -2132,6 +2162,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		prevRunning := a.anySessionRunning()
 		prevStatus := a.currentStatus
 		a.applySSE(m.Event)
+		if a.sidebarHasEnabledModule(sidebarModuleFiles) {
+			a.refreshFileViewerFromWorkspace()
+		}
 		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
 		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled
 		// back to idle AND the backend has memory, refresh the cache
@@ -2326,7 +2359,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.action == "install" && a.expertPackInstallOpen {
 			a.closeExpertPackInstall()
 		}
-		label := firstNonEmpty(m.packID, "source")
+		label := expertPackManagedLabel(m)
 		a.transientHint = "expert pack " + operatorActionVerb(m.action) + ": " + label
 		var cmd tea.Cmd
 		if a.catalogBrowserOpen && a.catalogBrowser != nil {
@@ -2418,6 +2451,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)
 
 	case agentBlueprintSourceManagedMsg:
+		if a.agentBlueprintManageOpen && a.agentBlueprintManageMode == agentBlueprintManageSource {
+			a.agentBlueprintManageSaving = false
+			if m.err != nil {
+				a.agentBlueprintManageErr = operatorErrorMessage(m.err)
+				return a, nil
+			}
+			a.closeAgentBlueprintManage()
+		}
 		if m.err != nil {
 			a.transientHint = operatorFailureHint("marketplace source", m.action, m.err)
 			return a, scheduleHintExpire(a.transientHint)
@@ -2679,6 +2720,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		a.invalidateConversationRenderCache()
 		// Surface write_errors as a transient hint. Was previously
 		// dropped silently — user pressed 'a' on a diff, backend
 		// recorded a write_error (e.g. workspace-scope refusal), and
@@ -2713,6 +2755,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		a.invalidateConversationRenderCache()
 		return a, nil
 
 	case sessionsRefreshedMsg:
@@ -2725,6 +2768,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			a.currentStatus = ""
 			return a, nil
 		}
@@ -2767,6 +2811,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.sessions) == 0 {
 			a.selected = -1
 			a.messages = nil
+			a.invalidateConversationRenderCache()
 			return a, loadAgentHierarchyCmd(a.c, a.runtimeScope())
 		}
 		a.selected = 0
@@ -2798,12 +2843,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.sseCancel = nil
 		}
 		a.wsID = created.ID
-		a.sessions = nil
-		a.selected = -1
-		a.messages = nil
-		a.contextFiles = nil
-		a.pendingPermissions = nil
-		a.syncFileViewerRootToWorkspace()
+		a.resetWorkspaceScopedUIState()
 		a.transientHint = "created workspace " + workspaceLabel(created)
 		return a, listSessionsCmd(a.c, created.ID)
 
@@ -3835,6 +3875,7 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.pendingClearSessionID = ""
 				n := len(a.messages)
 				a.messages = nil
+				a.invalidateConversationRenderCache()
 				a.scrollOffset = 0
 				a.stickyToBottom = true
 				if n > 0 {
@@ -5516,7 +5557,7 @@ func (a *App) sidebarSessionRowCount(sessionIndex int) int {
 	if a.sessionSidebarSummaryText(sessionIndex) != "" {
 		rows++
 	}
-	if a.sessionSidebarActivationText(sessionIndex) != "" {
+	if a.sessionSidebarActiveBlueprintID(sessionIndex) != "" {
 		rows++
 	}
 	if !a.showChildSessions && a.childSessionCount(s.ID) > 0 {
@@ -5536,7 +5577,7 @@ func (a *App) sessionSidebarSummaryText(sessionIndex int) string {
 	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
 }
 
-func (a *App) sessionSidebarActivationText(sessionIndex int) string {
+func (a *App) sessionSidebarActiveBlueprintID(sessionIndex int) string {
 	if sessionIndex < 0 || sessionIndex >= len(a.sessions) || sessionIndex != a.selected {
 		return ""
 	}
@@ -5552,7 +5593,17 @@ func (a *App) sessionSidebarActivationText(sessionIndex int) string {
 	if blueprintID == "" {
 		return ""
 	}
-	return "◆ " + blueprintID
+	return blueprintID
+}
+
+func (a *App) sessionSidebarActivationText(sessionIndex int, budget int) string {
+	blueprintID := a.sessionSidebarActiveBlueprintID(sessionIndex)
+	if blueprintID == "" {
+		return ""
+	}
+	meta := mapValue(a.sessions[sessionIndex].Metadata)
+	scope := stringValue(meta["active_agent_blueprint_scope"])
+	return activeAgentBlueprintIndicator(blueprintID, scope, budget)
 }
 
 func (a *App) activeAgentBlueprintID() string {
@@ -6357,6 +6408,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		target := a.messages[idx]
 		a.messages = append(a.messages[:idx], a.messages[idx+1:]...)
+		a.invalidateConversationRenderCache()
 		// Cursor shifts back to previous message (clamped) so the
 		// selection stays on-screen after a delete.
 		if a.bodySelMsgIdx >= 0 {
@@ -6624,6 +6676,7 @@ func (a *App) appendModelSwapMarker(info *client.LMProviderInfo) {
 			"model":         info.Model,
 		},
 	})
+	a.invalidateConversationRenderCache()
 	a.stickyToBottom = true
 }
 
@@ -6688,6 +6741,10 @@ func (a *App) selectSession(idx int) tea.Cmd {
 	a.swapInputDraftFor(sid)
 
 	a.messages = nil
+	if a.sessionAllowsSemanticLiveCache(sid) {
+		a.messages = cloneMessages(a.semanticLiveMessagesBySession[sid])
+	}
+	a.invalidateConversationRenderCache()
 	a.contextFiles = nil
 	a.contextFileSel = 0
 	a.scrollOffset = 0
@@ -6890,6 +6947,7 @@ func (a *App) applySSE(e client.SSEEvent) {
 			sid, _ := pl["session_id"].(string)
 			if sid != "" && sid == a.currentSessionID() {
 				a.messages = nil
+				a.invalidateConversationRenderCache()
 				a.scrollOffset = 0
 				a.stickyToBottom = true
 				// Reload to be safe — the SSE ring may have stale
@@ -7012,6 +7070,7 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 			a.messages[i].Metadata[k] = v
 		}
 		normalizeMessagePresentation(&a.messages[i])
+		a.invalidateConversationRenderCache()
 		return
 	}
 }
@@ -7065,6 +7124,8 @@ func statusForTerminalStopReason(stopReason string) string {
 func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageCompactionSummaries(m)
 	normalizeMessageExpertHandoffs(m)
+	normalizeMessageWorkflowState(m)
+	normalizeMessageReasoningLog(m)
 	normalizeMessageErrorInfo(m)
 	normalizeMessagePartialAnswerLabels(m)
 	normalizeMessageToolEvidence(m)
@@ -7164,6 +7225,377 @@ func messageHasPartType(m *gact.Message, partType string) bool {
 	return false
 }
 
+func normalizeMessageWorkflowState(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_workflow_state") {
+		return
+	}
+	state := mapValue(m.Metadata["workflow_state"])
+	if len(state) == 0 {
+		return
+	}
+	summary := workflowStateSummary(state)
+	if summary == "" {
+		return
+	}
+	metadata := map[string]any{
+		"synthetic_from": "workflow_state_metadata",
+		"workflow_state": state,
+		"state_keys":     sortedWorkflowStateKeys(state),
+		"output_summary": summary,
+		"summary":        summary,
+	}
+	part := gact.Part{
+		ID:       "synthetic_workflow_state",
+		Type:     gact.PartTypeExpertHandoff,
+		Text:     "workflow state: " + summary,
+		Metadata: metadata,
+	}
+	insertAt := len(m.Parts)
+	for i, existing := range m.Parts {
+		if existing.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+1)
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, part)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func normalizeMessageReasoningLog(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_reasoning_log") {
+		return
+	}
+	rows, ok := m.Metadata["reasoning_log"].([]any)
+	if !ok || len(rows) == 0 {
+		return
+	}
+	totalChars := 0
+	models := []string{}
+	for _, raw := range rows {
+		row := mapValue(raw)
+		if len(row) == 0 {
+			continue
+		}
+		if n, ok := intValue(row["reasoning_chars"]); ok {
+			totalChars += n
+		} else {
+			totalChars += len(stringValue(row["reasoning"]))
+		}
+		if model := stringValue(row["model"]); model != "" && !stringInSlice(models, model) {
+			models = append(models, model)
+		}
+	}
+	if totalChars == 0 && len(models) == 0 {
+		return
+	}
+	summary := fmt.Sprintf("reasoning captured: %d entr%s", len(rows), map[bool]string{true: "y", false: "ies"}[len(rows) == 1])
+	if totalChars > 0 {
+		summary += fmt.Sprintf(" · %d chars", totalChars)
+	}
+	if len(models) > 0 {
+		summary += " · " + strings.Join(models, ", ")
+	}
+	part := gact.Part{
+		ID:       "synthetic_reasoning_log",
+		Type:     gact.PartTypeThinking,
+		Thinking: summary,
+		Metadata: map[string]any{
+			"synthetic_from":    "reasoning_log_metadata",
+			"reasoning_entries": len(rows),
+			"reasoning_chars":   totalChars,
+			"models":            models,
+			"note":              "full reasoning_log is kept on message metadata; the transcript shows this compact marker only",
+		},
+	}
+	insertAt := len(m.Parts)
+	for i, existing := range m.Parts {
+		if existing.Type == gact.PartTypeText {
+			insertAt = i
+			break
+		}
+	}
+	parts := make([]gact.Part, 0, len(m.Parts)+1)
+	parts = append(parts, m.Parts[:insertAt]...)
+	parts = append(parts, part)
+	parts = append(parts, m.Parts[insertAt:]...)
+	m.Parts = parts
+}
+
+func workflowStateSummary(state map[string]any) string {
+	keys := sortedWorkflowStateKeys(state)
+	parts := make([]string, 0, minInt(4, len(keys)))
+	for _, key := range keys {
+		text := workflowStateValueSummary(key, state[key])
+		if text == "" {
+			continue
+		}
+		parts = append(parts, text)
+		if len(parts) == 4 {
+			break
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+func summarizeEmbeddedWorkflowStateText(text string) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	labels := []string{
+		"Retained typed workflow state:",
+		"CLIO durable typed workflow state:",
+		"workflow state:",
+	}
+	for _, label := range labels {
+		idx := indexFold(text, label)
+		if idx < 0 {
+			continue
+		}
+		before := strings.TrimSpace(text[:idx])
+		raw := strings.TrimSpace(text[idx+len(label):])
+		state, ok := parseWorkflowStateJSON(raw)
+		if !ok {
+			continue
+		}
+		summary := workflowStateSummary(state)
+		if summary == "" {
+			continue
+		}
+		stateSummary := "state: " + summary
+		if before == "" {
+			return stateSummary
+		}
+		return strings.TrimRight(before, ".") + " · " + stateSummary
+	}
+	return ""
+}
+
+func parseWorkflowStateJSON(text string) (map[string]any, bool) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, false
+	}
+	start := strings.IndexByte(text, '{')
+	if start < 0 {
+		return nil, false
+	}
+	end := matchingJSONObjectEnd(text[start:])
+	if end < 0 {
+		return nil, false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(text[start:start+end]), &payload); err != nil {
+		return nil, false
+	}
+	if state := mapValue(payload["workflow_state"]); len(state) > 0 {
+		return state, true
+	}
+	return payload, len(payload) > 0
+}
+
+func matchingJSONObjectEnd(text string) int {
+	depth := 0
+	inString := false
+	escaped := false
+	for i, r := range text {
+		if inString {
+			switch {
+			case escaped:
+				escaped = false
+			case r == '\\':
+				escaped = true
+			case r == '"':
+				inString = false
+			}
+			continue
+		}
+		switch r {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		}
+	}
+	return -1
+}
+
+func indexFold(text, needle string) int {
+	return strings.Index(strings.ToLower(text), strings.ToLower(needle))
+}
+
+func workflowStateValueSummary(key string, value any) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		return workflowStateMapSummary(key, v)
+	case []any:
+		if len(v) == 0 {
+			return ""
+		}
+		return key + "=" + pluralizeCount(len(v), "item")
+	default:
+		text := strings.TrimSpace(stringValue(value))
+		if text == "" {
+			text = strings.TrimSpace(fmt.Sprint(value))
+		}
+		if text == "" || text == "<nil>" {
+			return ""
+		}
+		return workflowStateFieldSummary(key, text)
+	}
+}
+
+func workflowStateMapSummary(key string, values map[string]any) string {
+	if len(values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, 3)
+	if status := firstNonEmpty(
+		stringValue(values["status"]),
+		stringValue(values["state"]),
+		stringValue(values["stage"]),
+	); status != "" {
+		parts = append(parts, status)
+	}
+	for _, field := range []string{
+		"artifact_path", "plot_path", "local_path", "staged_path", "filepath",
+		"file", "path", "dataset_id", "resource_id", "station", "network",
+		"record_count", "feature_count", "warning_count", "trace_count",
+		"artifact",
+	} {
+		if len(parts) >= 3 {
+			break
+		}
+		if text := workflowStateLeafText(values[field]); text != "" {
+			parts = append(parts, workflowStateFieldSummary(field, text))
+		}
+	}
+	if len(parts) == 0 {
+		return key + "=" + pluralizeCount(len(values), "field")
+	}
+	return key + " " + strings.Join(parts, ", ")
+}
+
+func workflowStateFieldSummary(field, text string) string {
+	field = strings.TrimSpace(field)
+	text = strings.TrimSpace(text)
+	if field == "" || text == "" {
+		return ""
+	}
+	label := workflowStateFieldLabel(field)
+	value := compactCatalogText(text)
+	if workflowStateFieldIsPath(field) {
+		value = shortenKnownPaths(value)
+		if strings.Contains(value, "/") {
+			value = filepath.Base(value)
+		}
+	}
+	if value == "" || value == "." {
+		return ""
+	}
+	return label + " " + truncate(value, 44)
+}
+
+func workflowStateFieldLabel(field string) string {
+	switch strings.ToLower(strings.TrimSpace(field)) {
+	case "dataset_id", "dataset_identifier":
+		return "dataset"
+	case "resource_id":
+		return "resource"
+	case "record_count":
+		return "records"
+	case "feature_count":
+		return "features"
+	case "warning_count":
+		return "warnings"
+	case "trace_count":
+		return "traces"
+	case "artifact", "artifact_path", "plot_path":
+		return "artifact"
+	case "local_path", "staged_path", "filepath", "file", "path":
+		return "file"
+	default:
+		return humanizeAgentLabel(field)
+	}
+}
+
+func workflowStateFieldIsPath(field string) bool {
+	switch strings.ToLower(strings.TrimSpace(field)) {
+	case "artifact", "artifact_path", "plot_path", "local_path", "staged_path", "filepath", "file", "path":
+		return true
+	default:
+		return false
+	}
+}
+
+func workflowStateLeafText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case map[string]any:
+		if name := firstNonEmpty(
+			stringValue(v["name"]),
+			stringValue(v["path"]),
+			stringValue(v["id"]),
+			stringValue(v["status"]),
+		); name != "" {
+			return name
+		}
+		return ""
+	case []any:
+		if len(v) == 0 {
+			return ""
+		}
+		return pluralizeCount(len(v), "item")
+	default:
+		text := strings.TrimSpace(stringValue(value))
+		if text == "" {
+			text = strings.TrimSpace(fmt.Sprint(value))
+		}
+		if text == "" || text == "<nil>" {
+			return ""
+		}
+		return text
+	}
+}
+
+func sortedWorkflowStateKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func intValue(value any) (int, bool) {
+	switch v := value.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case json.Number:
+		n, err := v.Int64()
+		return int(n), err == nil
+	default:
+		return 0, false
+	}
+}
+
 func shouldRenderConversationMessage(m gact.Message) bool {
 	if len(m.Parts) > 0 || isModelSwapMarker(m) || m.ErrorInfo != nil {
 		return true
@@ -7172,6 +7604,12 @@ func shouldRenderConversationMessage(m gact.Message) bool {
 		return true
 	}
 	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
+		return true
+	}
+	if len(mapValue(m.Metadata["workflow_state"])) > 0 {
+		return true
+	}
+	if rows, ok := m.Metadata["reasoning_log"].([]any); ok && len(rows) > 0 {
 		return true
 	}
 	if hasRuntimeProvenance(m) {
@@ -8165,10 +8603,12 @@ func (a *App) applyMessageCreated(e client.SSEEvent) {
 	for i, existing := range a.messages {
 		if existing.ID == m.ID {
 			a.messages[i] = m
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
 	a.messages = append(a.messages, m)
+	a.invalidateConversationRenderCache()
 }
 
 func (a *App) applyPartAdded(e client.SSEEvent) {
@@ -8202,11 +8642,13 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
 					a.messages[i].Parts[j] = part
 					normalizeMessagePresentation(&a.messages[i])
+					a.invalidateConversationRenderCache()
 					return
 				}
 			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -8257,7 +8699,14 @@ func (a *App) applySemanticEvent(e client.SSEEvent) {
 	part.Metadata["detail_level"] = stringValue(pl["detail_level"])
 	part.Metadata["stream_source"] = "semantic_event"
 	part.Metadata["raw_event"] = pl
+	if duplicateKey := semanticEventDuplicateKey(pl, eventType, part); duplicateKey != "" {
+		if messageHasSemanticDuplicate(*msg, duplicateKey) {
+			return
+		}
+		part.Metadata["semantic_duplicate_key"] = duplicateKey
+	}
 	msg.Parts = append(msg.Parts, part)
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func (a *App) applyToolCallStarted(e client.SSEEvent) {
@@ -8302,6 +8751,7 @@ func (a *App) applyToolCallStarted(e client.SSEEvent) {
 			"raw_event":        pl,
 		},
 	})
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func (a *App) applyToolCallCompleted(e client.SSEEvent) {
@@ -8363,11 +8813,12 @@ func (a *App) applyToolCallCompleted(e client.SSEEvent) {
 		result.Cached = cached
 	}
 	msg.Parts = append(msg.Parts, result)
+	a.cacheSemanticLiveMessagesForSession(sid)
 }
 
 func semanticToolCompletionSummary(toolName string, summaryText string, toolPayload map[string]any, eventPayload map[string]any, duration float64, hasDuration bool, cached bool, hasCached bool) string {
 	summary := stripSemanticControlContracts(summaryText)
-	if !isGenericToolCompletionSummary(summary) {
+	if !isGenericToolCompletionSummary(summary, toolName) {
 		return summary
 	}
 	resultPayload := firstNonNil(
@@ -8383,6 +8834,12 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 	if text := toolEvidenceResultText(toolName, resultPayload); text != "" {
 		return text
 	}
+	if text := summarizeToolResult(toolName, semanticToolEvidencePayload(toolPayload)); text != "" {
+		return text
+	}
+	if text := summarizeToolResult(toolName, semanticToolEvidencePayload(eventPayload)); text != "" {
+		return text
+	}
 	name := strings.TrimSpace(toolName)
 	if name == "" {
 		name = "tool"
@@ -8394,10 +8851,56 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 	if hasCached && cached {
 		parts = append(parts, "cached")
 	}
-	if args := semanticArgsPreview(toolPayload, eventPayload); args != "" {
+	if args := semanticInlineArgsPreview(toolPayload, eventPayload); args != "" {
 		parts = append(parts, truncateString("args: "+args, 120))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func semanticToolEvidencePayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return nil
+	}
+	bookkeeping := map[string]bool{
+		"tool": true, "tool_name": true, "name": true,
+		"call_id": true, "id": true,
+		"ok": true, "cached": true,
+		"duration_ms": true, "telemetry_source": true,
+		"args": true, "args_preview": true,
+		"payload":  true,
+		"event_id": true, "session_id": true, "workspace_id": true,
+		"trace_id": true, "turn_id": true, "span_id": true, "parent_span_id": true,
+		"event_type": true, "detail_level": true, "live_observed": true, "occurred_at": true,
+		"actor": true, "subject": true, "blueprint": true, "provider": true,
+		"schema_version": true, "summary": true,
+	}
+	out := make(map[string]any)
+	for key, value := range payload {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if bookkeeping[normalized] {
+			continue
+		}
+		if normalized == "status" || normalized == "state" {
+			status := strings.ToLower(strings.TrimSpace(stringValue(value)))
+			switch status {
+			case "", "completed", "complete", "success", "ok", "done", "running", "started":
+				continue
+			}
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func semanticInlineArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
+	text := semanticArgsPreview(toolPayload, eventPayload)
+	if semanticPreviewIsInlineRedaction(text) {
+		return ""
+	}
+	return text
 }
 
 func semanticArgsPreview(toolPayload map[string]any, eventPayload map[string]any) string {
@@ -8417,6 +8920,12 @@ func semanticArgsPreview(toolPayload map[string]any, eventPayload map[string]any
 	return text
 }
 
+func semanticPreviewIsInlineRedaction(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	normalized = strings.Trim(normalized, ". ")
+	return normalized == "input redacted by runtime" || semanticPreviewIsRedacted(text)
+}
+
 func semanticPreviewIsRedacted(text string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(text))
 	normalized = strings.Trim(normalized, ". ")
@@ -8428,14 +8937,31 @@ func semanticPreviewIsRedacted(text string) bool {
 	}
 }
 
-func isGenericToolCompletionSummary(summary string) bool {
-	summary = strings.ToLower(strings.TrimSpace(summary))
-	switch summary {
+func isGenericToolCompletionSummary(summary string, toolName string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(summary))
+	normalized = strings.Trim(normalized, " .")
+	switch normalized {
 	case "", "completed", "complete", "done", "success", "ok", "tool completed", "tool call completed":
 		return true
-	default:
-		return false
 	}
+	tool := strings.ToLower(strings.TrimSpace(toolName))
+	tool = strings.Trim(tool, " .")
+	if tool != "" {
+		display := strings.ToLower(strings.TrimSpace(toolDisplayName(toolName)))
+		display = strings.Trim(display, " .")
+		for _, candidate := range []string{
+			tool + " completed",
+			"tool " + tool + " completed",
+			display + " completed",
+			"tool " + display + " completed",
+		} {
+			candidate = strings.TrimSpace(candidate)
+			if candidate != "" && normalized == candidate {
+				return true
+			}
+		}
+	}
+	return strings.HasPrefix(normalized, "tool ") && strings.HasSuffix(normalized, " completed")
 }
 
 func semanticToolPayload(payload map[string]any) map[string]any {
@@ -8485,7 +9011,124 @@ func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message 
 			"turn_id":               turnID,
 		},
 	})
+	a.invalidateConversationRenderCache()
 	return &a.messages[len(a.messages)-1]
+}
+
+func (a *App) cacheSemanticLiveMessagesForSession(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || !a.sessionAllowsSemanticLiveCache(sessionID) {
+		return
+	}
+	var live []gact.Message
+	for _, msg := range a.messages {
+		if msg.SessionID == sessionID && msg.Metadata != nil && msg.Metadata["semantic_live_message"] == true {
+			live = append(live, cloneMessage(msg))
+		}
+	}
+	if len(live) == 0 {
+		return
+	}
+	if a.semanticLiveMessagesBySession == nil {
+		a.semanticLiveMessagesBySession = map[string][]gact.Message{}
+	}
+	a.semanticLiveMessagesBySession[sessionID] = live
+}
+
+func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded []gact.Message) []gact.Message {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || !a.sessionAllowsSemanticLiveCache(sessionID) {
+		delete(a.semanticLiveMessagesBySession, sessionID)
+		return loaded
+	}
+	cached := a.semanticLiveMessagesBySession[sessionID]
+	if len(cached) == 0 {
+		return loaded
+	}
+	merged := cloneMessages(loaded)
+	seen := make(map[string]bool, len(merged))
+	for _, msg := range merged {
+		if msg.ID != "" {
+			seen[msg.ID] = true
+		}
+	}
+	for _, msg := range cached {
+		if msg.ID != "" && seen[msg.ID] {
+			continue
+		}
+		merged = append(merged, cloneMessage(msg))
+	}
+	return merged
+}
+
+func (a *App) sessionAllowsSemanticLiveCache(sessionID string) bool {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false
+	}
+	for _, session := range a.sessions {
+		if session.ID != sessionID {
+			continue
+		}
+		switch session.Status {
+		case gact.StatusRunning, gact.StatusWaitingPermission, "pending", "queued":
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func cloneMessages(messages []gact.Message) []gact.Message {
+	if len(messages) == 0 {
+		return nil
+	}
+	out := make([]gact.Message, len(messages))
+	for i, msg := range messages {
+		out[i] = cloneMessage(msg)
+	}
+	return out
+}
+
+func cloneMessage(msg gact.Message) gact.Message {
+	msg.Parts = cloneParts(msg.Parts)
+	msg.Metadata = cloneAnyMap(msg.Metadata)
+	if msg.Model != nil {
+		model := *msg.Model
+		msg.Model = &model
+	}
+	if msg.ErrorInfo != nil {
+		errInfo := *msg.ErrorInfo
+		errInfo.Details = cloneAnyMap(msg.ErrorInfo.Details)
+		msg.ErrorInfo = &errInfo
+	}
+	return msg
+}
+
+func cloneParts(parts []gact.Part) []gact.Part {
+	if len(parts) == 0 {
+		return nil
+	}
+	out := make([]gact.Part, len(parts))
+	for i, part := range parts {
+		part.Metadata = cloneAnyMap(part.Metadata)
+		part.Input = cloneAnyMap(part.Input)
+		part.Content = cloneParts(part.Content)
+		out[i] = part
+	}
+	return out
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func (a *App) hasToolPart(callID, partType string) bool {
@@ -8518,6 +9161,7 @@ func (a *App) removeSyntheticSemanticToolParts(callID string) {
 		}
 		a.messages[mi].Parts = parts
 	}
+	a.invalidateConversationRenderCache()
 }
 
 func messageHasPartID(msg gact.Message, partID string) bool {
@@ -8533,6 +9177,48 @@ func messageHasPartID(msg gact.Message, partID string) bool {
 	return false
 }
 
+func messageHasSemanticDuplicate(msg gact.Message, duplicateKey string) bool {
+	duplicateKey = strings.TrimSpace(duplicateKey)
+	if duplicateKey == "" {
+		return false
+	}
+	for _, part := range msg.Parts {
+		if part.Metadata == nil || part.Metadata["semantic_event"] != true {
+			continue
+		}
+		if stringValue(part.Metadata["semantic_duplicate_key"]) == duplicateKey {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticEventDuplicateKey(payload map[string]any, eventType string, part gact.Part) string {
+	if part.Type != gact.PartTypeExpertHandoff {
+		return ""
+	}
+	if !strings.HasPrefix(eventType, "blueprint.delegation.") && !strings.HasPrefix(eventType, "agent.invocation.") {
+		return ""
+	}
+	refs := semanticWorkflowRefs(payload, eventType)
+	summary := strings.TrimSpace(strings.Join(strings.Fields(part.Text), " "))
+	if summary == "" {
+		return ""
+	}
+	values := []string{
+		eventType,
+		refs.status,
+		refs.stage,
+		refs.parent,
+		refs.agent,
+		summary,
+	}
+	for i := range values {
+		values[i] = strings.ToLower(strings.TrimSpace(values[i]))
+	}
+	return strings.Join(values, "\x1f")
+}
+
 func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType string) (gact.Part, bool) {
 	status := firstNonEmpty(stringValue(payload["status"]), "observed")
 	summary := semanticUserSummary(payload, eventType)
@@ -8541,11 +9227,11 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 		return gact.Part{}, false
 	}
 	switch {
-	case strings.HasPrefix(eventType, "hook.invocation."):
+	case strings.HasPrefix(eventType, "hook.invocation.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
-	case strings.HasPrefix(eventType, "llm.request."):
+	case strings.HasPrefix(eventType, "llm.request.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
-	case strings.HasPrefix(eventType, "turn.") && status != "failed":
+	case strings.HasPrefix(eventType, "turn.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
 	case eventType == "blueprint.delegation.parent_resumed":
 		return gact.Part{}, false
@@ -8561,7 +9247,7 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 			Text:     summary,
 			Metadata: metadata,
 		}, true
-	case status == "failed" || status == "error" || strings.Contains(eventType, ".failed") || strings.Contains(eventType, ".degraded"):
+	case semanticEventIsFailure(eventType, status):
 		return gact.Part{
 			Type:        gact.PartTypeError,
 			Code:        eventType,
@@ -8574,40 +9260,23 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 	}
 }
 
+func semanticEventIsFailure(eventType, status string) bool {
+	status = strings.ToLower(strings.TrimSpace(status))
+	return status == "failed" ||
+		status == "error" ||
+		strings.Contains(eventType, ".failed") ||
+		strings.Contains(eventType, ".degraded")
+}
+
 func semanticWorkflowMetadata(payload map[string]any, eventType string) map[string]any {
 	nested := mapValue(payload["payload"])
-	actor := mapValue(payload["actor"])
-	subject := mapValue(payload["subject"])
-	blueprint := mapValue(payload["blueprint"])
-	status := firstNonEmpty(stringValue(payload["status"]), "observed")
-	agent := firstNonEmpty(
-		stringValue(nested["agent_id"]),
-		stringValue(nested["child_expert"]),
-		stringValue(actor["agent_id"]),
-		stringValue(actor["agent"]),
-		stringValue(actor["tool"]),
-		stringValue(blueprint["child_expert"]),
-		stringValue(subject["agent_id"]),
-		stringValue(subject["agent"]),
-	)
-	parent := firstNonEmpty(
-		stringValue(nested["parent_id"]),
-		stringValue(nested["parent_expert"]),
-		stringValue(blueprint["parent_expert"]),
-		stringValue(subject["parent_id"]),
-	)
-	if parent == agent {
-		parent = ""
-	}
+	provider := mapValue(payload["provider"])
+	refs := semanticWorkflowRefs(payload, eventType)
 	md := map[string]any{
-		"agent_id":  agent,
-		"parent_id": parent,
-		"status":    status,
-		"stage": firstNonEmpty(
-			stringValue(nested["stage"]),
-			strings.TrimPrefix(eventType, "blueprint.delegation."),
-			eventType,
-		),
+		"agent_id":       refs.agent,
+		"parent_id":      refs.parent,
+		"status":         refs.status,
+		"stage":          refs.stage,
 		"summary":        semanticUserSummary(payload, eventType),
 		"output_summary": semanticUserSummary(payload, eventType),
 	}
@@ -8616,26 +9285,392 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 	} else if duration, ok := floatValue(payload["duration_ms"]); ok {
 		md["duration_ms"] = duration
 	}
-	if agent == "" {
+	if selected := firstNonEmpty(
+		stringValue(nested["selected_expert"]),
+		stringValue(payload["selected_expert"]),
+		stringValue(nested["selected_agent"]),
+		stringValue(payload["selected_agent"]),
+	); selected != "" {
+		md["selected_agent"] = selected
+	}
+	if workflowState := mapValue(nested["workflow_state"]); len(workflowState) > 0 {
+		md["workflow_state"] = workflowState
+		md["workflow_summary"] = workflowStateSummary(workflowState)
+	} else if workflowState := mapValue(payload["workflow_state"]); len(workflowState) > 0 {
+		md["workflow_state"] = workflowState
+		md["workflow_summary"] = workflowStateSummary(workflowState)
+	}
+	if failure := semanticFailureSummary(payload, eventType); failure != "" {
+		md["error"] = failure
+	}
+	if fallback := semanticStreamFallbackSummary(payload); fallback != "" {
+		md["stream_fallback"] = fallback
+	}
+	if providerLabel := semanticProviderLabel(provider); providerLabel != "" {
+		md["provider"] = providerLabel
+	}
+	if apiBase := firstNonEmpty(stringValue(provider["api_base"]), stringValue(provider["base_url"])); apiBase != "" {
+		md["api_base"] = apiBase
+	}
+	if refs.agent == "" {
 		md["agent_id"] = firstNonEmpty(eventType, "workflow")
 	}
 	return md
 }
 
+type semanticWorkflowRef struct {
+	agent  string
+	parent string
+	stage  string
+	status string
+}
+
+func semanticWorkflowRefs(payload map[string]any, eventType string) semanticWorkflowRef {
+	nested := mapValue(payload["payload"])
+	actor := mapValue(payload["actor"])
+	subject := mapValue(payload["subject"])
+	blueprint := mapValue(payload["blueprint"])
+	stage := firstNonEmpty(
+		stringValue(nested["stage"]),
+		strings.TrimPrefix(eventType, "blueprint.delegation."),
+		eventType,
+	)
+	status := firstNonEmpty(stringValue(payload["status"]), "observed")
+	agent := firstNonEmpty(
+		stringValue(nested["agent_id"]),
+		stringValue(nested["child_expert"]),
+		stringValue(blueprint["child_expert"]),
+		workflowParticipantByRole(actor, "child"),
+		workflowParticipantByRole(subject, "child"),
+	)
+	parent := firstNonEmpty(
+		stringValue(nested["parent_id"]),
+		stringValue(nested["parent_expert"]),
+		stringValue(blueprint["parent_expert"]),
+		workflowParticipantByRole(actor, "parent"),
+		workflowParticipantByRole(subject, "parent"),
+		stringValue(subject["parent_id"]),
+	)
+	if agent == "" {
+		agent = firstNonEmpty(
+			stringValue(actor["agent_id"]),
+			stringValue(actor["agent"]),
+			stringValue(actor["tool"]),
+			stringValue(subject["agent_id"]),
+			stringValue(subject["agent"]),
+		)
+	}
+	if parent == agent {
+		parent = ""
+	}
+	return semanticWorkflowRef{agent: agent, parent: parent, stage: stage, status: status}
+}
+
+func workflowParticipantByRole(values map[string]any, want string) string {
+	role := strings.ToLower(strings.TrimSpace(stringValue(values["role"])))
+	if !strings.Contains(role, want) {
+		return ""
+	}
+	return firstNonEmpty(
+		stringValue(values["agent_id"]),
+		stringValue(values["agent"]),
+		stringValue(values["tool"]),
+	)
+}
+
 func semanticUserSummary(payload map[string]any, eventType string) string {
-	summary := strings.TrimSpace(stringValue(payload["summary"]))
+	rawSummary := strings.TrimSpace(stringValue(payload["summary"]))
+	summary := rawSummary
 	nested := mapValue(payload["payload"])
 	if summary == "" {
-		summary = strings.TrimSpace(stringValue(nested["summary"]))
+		rawSummary = strings.TrimSpace(stringValue(nested["summary"]))
+		summary = rawSummary
+	}
+	if markerSummary := semanticLifecycleMarkerSummary(rawSummary); markerSummary != "" {
+		summary = markerSummary
+	}
+	outputSummary := semanticNestedOutputSummary(payload, nested)
+	summary = stripSemanticControlContracts(summary)
+	if workflowSummary := summarizeEmbeddedWorkflowStateText(summary); workflowSummary != "" {
+		summary = workflowSummary
+	}
+	intent := semanticControlIntentSummary(payload, eventType, rawSummary)
+	if outputSummary != "" && (summary == "" || semanticSummaryIsPlumbing(summary, eventType)) {
+		return appendSemanticControlIntent(outputSummary, intent)
+	}
+	if failure := semanticFailureSummary(payload, eventType); failure != "" {
+		if summary == "" || semanticSummaryIsPlumbing(summary, eventType) || semanticSummaryIsGenericFailure(summary) {
+			return appendSemanticControlIntent(failure, intent)
+		}
+	}
+	fallback := semanticWorkflowFallbackSummary(payload, eventType)
+	if summary == "" || semanticSummaryIsPlumbing(summary, eventType) {
+		if fallback != "" {
+			return appendSemanticControlIntent(fallback, intent)
+		}
 	}
 	if summary == "" {
 		summary = humanizeSemanticEventType(eventType)
+	}
+	return appendSemanticControlIntent(summary, intent)
+}
+
+func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) string {
+	summary := firstNonEmpty(
+		stringValue(nested["output_summary"]),
+		stringValue(payload["output_summary"]),
+		stringValue(nested["result_summary"]),
+		stringValue(payload["result_summary"]),
+		stringValue(nested["return_summary"]),
+		stringValue(payload["return_summary"]),
+		stringValue(nested["observation_summary"]),
+		stringValue(payload["observation_summary"]),
+	)
+	if markerSummary := semanticLifecycleMarkerSummary(summary); markerSummary != "" {
+		summary = markerSummary
 	}
 	summary = stripSemanticControlContracts(summary)
 	if summary == "" {
-		summary = humanizeSemanticEventType(eventType)
+		return ""
 	}
-	return summary
+	if workflowSummary := summarizeEmbeddedWorkflowStateText(summary); workflowSummary != "" {
+		return workflowSummary
+	}
+	return summarizeExpertHandoffOutput(summary)
+}
+
+func semanticLifecycleMarkerSummary(text string) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	markers := []struct {
+		token string
+		label string
+	}{
+		{token: "ISSUE_RESOLVED", label: "Issue resolved"},
+		{token: "ISSUE_CLOSED", label: "Issue closed"},
+		{token: "BLOCKER_RESOLVED", label: "Blocker resolved"},
+		{token: "TASK_COMPLETED", label: "Task completed"},
+	}
+	upper := strings.ToUpper(text)
+	for _, marker := range markers {
+		idx := strings.Index(upper, marker.token)
+		if idx < 0 {
+			continue
+		}
+		after := strings.TrimSpace(text[idx+len(marker.token):])
+		after = strings.TrimLeft(after, ":=- ")
+		if after == "" {
+			return marker.label + "."
+		}
+		return marker.label + ": " + truncateString(after, 240)
+	}
+	return ""
+}
+
+func semanticFailureSummary(payload map[string]any, eventType string) string {
+	status := strings.ToLower(strings.TrimSpace(stringValue(payload["status"])))
+	if status != "failed" && status != "error" && !strings.Contains(eventType, ".failed") && !strings.Contains(eventType, ".degraded") {
+		return ""
+	}
+	nested := mapValue(payload["payload"])
+	errorInfo := firstNonEmptyMap(mapValue(payload["error_info"]), mapValue(nested["error_info"]))
+	details := mapValue(errorInfo["details"])
+	code := firstNonEmpty(
+		stringValue(errorInfo["error"]),
+		stringValue(nested["error"]),
+		stringValue(payload["error"]),
+		stringValue(details["error"]),
+	)
+	message := firstNonEmpty(
+		stringValue(errorInfo["message"]),
+		stringValue(nested["message"]),
+		stringValue(payload["message"]),
+		stringValue(details["message"]),
+		semanticStreamFallbackSummary(payload),
+	)
+	if message == "" {
+		return ""
+	}
+	message = strings.TrimSpace(strings.Join(strings.Fields(message), " "))
+	message = strings.ReplaceAll(message, "before emitting output", "before visible output")
+	message = strings.TrimSuffix(message, ".")
+	label := "Failure"
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "provider_error":
+		label = "Provider error"
+	case "tool_error":
+		label = "Tool error"
+	case "permission_error":
+		label = "Permission error"
+	case "hook_error":
+		label = "Hook error"
+	case "":
+		if strings.HasPrefix(eventType, "turn.") {
+			label = "Turn failed"
+		}
+	default:
+		label = humanizeSemanticEventType(code)
+	}
+	if provider := semanticProviderLabel(mapValue(payload["provider"])); provider != "" {
+		message += " (" + provider + ")"
+	}
+	return truncateString(label+": "+message+".", 320)
+}
+
+func semanticSummaryIsGenericFailure(summary string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(summary), " ")))
+	normalized = strings.Trim(normalized, " .")
+	return normalized == "turn failed" ||
+		strings.HasPrefix(normalized, "turn failed:") ||
+		strings.HasPrefix(normalized, "llm request failed") ||
+		strings.Contains(normalized, "hook dispatch failed") ||
+		strings.HasPrefix(normalized, "clio turn failed:") ||
+		strings.HasPrefix(normalized, "provider error")
+}
+
+func semanticStreamFallbackSummary(payload map[string]any) string {
+	nested := mapValue(payload["payload"])
+	errorInfo := firstNonEmptyMap(mapValue(payload["error_info"]), mapValue(nested["error_info"]))
+	metadata := mapValue(errorInfo["metadata"])
+	fallback := firstNonEmptyMap(
+		mapValue(payload["stream_fallback"]),
+		mapValue(nested["stream_fallback"]),
+		mapValue(errorInfo["stream_fallback"]),
+		mapValue(metadata["stream_fallback"]),
+	)
+	if len(fallback) == 0 {
+		return ""
+	}
+	category := strings.TrimSpace(stringValue(fallback["category"]))
+	description := strings.TrimSpace(stringValue(fallback["description"]))
+	switch {
+	case category != "" && description != "":
+		return category + ": " + description
+	case description != "":
+		return description
+	default:
+		return category
+	}
+}
+
+func semanticProviderLabel(provider map[string]any) string {
+	providerID := firstNonEmpty(stringValue(provider["provider_id"]), stringValue(provider["provider"]))
+	model := firstNonEmpty(stringValue(provider["model_id"]), stringValue(provider["model"]))
+	switch {
+	case providerID != "" && model != "":
+		return providerID + " · " + model
+	case providerID != "":
+		return providerID
+	default:
+		return model
+	}
+}
+
+func semanticWorkflowFallbackSummary(payload map[string]any, eventType string) string {
+	refs := semanticWorkflowRefs(payload, eventType)
+	nested := mapValue(payload["payload"])
+	agent := strings.TrimSpace(refs.agent)
+	parent := strings.TrimSpace(refs.parent)
+	switch {
+	case strings.HasPrefix(eventType, "blueprint.delegation."):
+		stage := strings.ToLower(strings.TrimSpace(refs.stage))
+		switch {
+		case strings.Contains(stage, "started"):
+			if parent != "" && agent != "" {
+				return parent + " handed work to " + agent + "."
+			}
+			if agent != "" {
+				return agent + " started."
+			}
+		case strings.Contains(stage, "completed"):
+			if agent != "" && parent != "" {
+				return agent + " returned evidence to " + parent + "."
+			}
+			if agent != "" {
+				return agent + " returned evidence."
+			}
+		case strings.Contains(stage, "failed") || refs.status == "failed" || refs.status == "error":
+			if agent != "" && parent != "" {
+				return agent + " failed while returning to " + parent + "."
+			}
+			if agent != "" {
+				return agent + " failed."
+			}
+		}
+	case strings.HasPrefix(eventType, "agent.invocation."):
+		if agent == "" {
+			return ""
+		}
+		switch {
+		case strings.Contains(eventType, ".started"):
+			return agent + " started."
+		case strings.Contains(eventType, ".completed"):
+			selected := firstNonEmpty(
+				stringValue(nested["selected_expert"]),
+				stringValue(payload["selected_expert"]),
+				stringValue(nested["selected_agent"]),
+				stringValue(payload["selected_agent"]),
+			)
+			routeReason := firstNonEmpty(
+				stringValue(nested["route_reason"]),
+				stringValue(payload["route_reason"]),
+				stringValue(nested["reason"]),
+				stringValue(payload["reason"]),
+			)
+			if selected != "" && routeReason != "" {
+				return agent + " selected " + selected + " - " + truncateString(routeReason, 180)
+			}
+			if selected != "" {
+				return agent + " selected " + selected + "."
+			}
+			return agent + " completed."
+		case strings.Contains(eventType, ".failed") || refs.status == "failed" || refs.status == "error":
+			return agent + " failed."
+		}
+	}
+	return ""
+}
+
+func semanticSummaryIsPlumbing(summary, eventType string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(summary), " ")))
+	normalized = strings.Trim(normalized, " .")
+	if normalized == "" {
+		return true
+	}
+	humanized := strings.ToLower(strings.TrimSpace(humanizeSemanticEventType(eventType)))
+	humanized = strings.Trim(humanized, " .")
+	switch normalized {
+	case humanized,
+		"started",
+		"running",
+		"completed",
+		"failed",
+		"delegation started",
+		"delegation completed",
+		"delegation failed",
+		"invocation started",
+		"invocation completed",
+		"invocation failed",
+		"agent invocation started",
+		"agent invocation completed",
+		"blueprint delegation started",
+		"blueprint delegation completed",
+		"delegate.started",
+		"delegate.completed",
+		"parent.resumed":
+		return true
+	}
+	return strings.HasPrefix(normalized, "invoking ") ||
+		strings.Contains(normalized, " returned a prediction") ||
+		strings.Contains(normalized, " returned prediction") ||
+		strings.Contains(normalized, " delegated sync work to ") ||
+		strings.Contains(normalized, " returned a compact result to ") ||
+		strings.Contains(normalized, " returned compact result to ") ||
+		strings.Contains(normalized, "delegate.started") ||
+		strings.Contains(normalized, "delegate.completed") ||
+		strings.Contains(normalized, "parent.resumed")
 }
 
 func humanizeSemanticEventType(eventType string) string {
@@ -8648,23 +9683,191 @@ func humanizeSemanticEventType(eventType string) string {
 }
 
 func stripSemanticControlContracts(text string) string {
-	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
 	}
 	contractMarkers := []string{
 		"NEXT_EXPERT:",
 		"NEXT_ACTION:",
+		"BLOCKER:",
 		"DO_NOT_DELEGATE",
 		"DO_NOT_FINALIZE",
 		"continuation_contract=",
 	}
 	for _, marker := range contractMarkers {
-		if idx := strings.Index(text, marker); idx >= 0 {
+		if idx := strings.Index(strings.ToUpper(text), strings.ToUpper(marker)); idx >= 0 {
 			text = strings.TrimSpace(text[:idx])
 		}
 	}
+	if looksLikeMarkdownBlock(text) {
+		return truncateMarkdownBlock(text, 1200, 18)
+	}
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
 	return truncateString(text, 320)
+}
+
+type semanticControlIntent struct {
+	nextExpert string
+	nextAction string
+	blocker    string
+}
+
+func semanticControlIntentSummary(payload map[string]any, eventType string, rawSummary string) string {
+	if !strings.HasPrefix(eventType, "blueprint.delegation.") && !strings.HasPrefix(eventType, "agent.invocation.") {
+		return ""
+	}
+	nested := mapValue(payload["payload"])
+	intent := parseSemanticControlIntent(rawSummary)
+	intent.nextExpert = firstNonEmpty(
+		intent.nextExpert,
+		stringValue(nested["next_expert"]),
+		stringValue(payload["next_expert"]),
+	)
+	intent.nextAction = firstNonEmpty(
+		intent.nextAction,
+		stringValue(nested["next_action"]),
+		stringValue(payload["next_action"]),
+	)
+	intent.blocker = firstNonEmpty(
+		intent.blocker,
+		stringValue(nested["blocker"]),
+		stringValue(payload["blocker"]),
+	)
+	if contract := mapValue(nested["continuation_contract"]); len(contract) > 0 {
+		intent.nextExpert = firstNonEmpty(intent.nextExpert, stringValue(contract["next_expert"]))
+		intent.nextAction = firstNonEmpty(intent.nextAction, stringValue(contract["next_action"]))
+	}
+	if contract := mapValue(payload["continuation_contract"]); len(contract) > 0 {
+		intent.nextExpert = firstNonEmpty(intent.nextExpert, stringValue(contract["next_expert"]))
+		intent.nextAction = firstNonEmpty(intent.nextAction, stringValue(contract["next_action"]))
+	}
+	if blocker := normalizeSemanticControlValue(intent.blocker, 140); blocker != "" {
+		return "blocked: " + blocker
+	}
+	action := normalizeSemanticControlValue(intent.nextAction, 120)
+	expert := strings.TrimSpace(intent.nextExpert)
+	if action == "" && expert == "" {
+		return ""
+	}
+	if action != "" && expert != "" {
+		return "next: " + expert + " - " + action
+	}
+	if action != "" {
+		return "next: " + action
+	}
+	return "next: " + expert
+}
+
+func appendSemanticControlIntent(summary, intent string) string {
+	summary = strings.TrimSpace(summary)
+	intent = strings.TrimSpace(intent)
+	if intent == "" {
+		return summary
+	}
+	if summary == "" {
+		return intent
+	}
+	if strings.Contains(strings.ToLower(summary), strings.ToLower(intent)) {
+		return summary
+	}
+	if looksLikeMarkdownBlock(summary) {
+		return summary + "\n\n_" + intent + "_"
+	}
+	return strings.TrimRight(summary, ".") + " · " + intent
+}
+
+func parseSemanticControlIntent(text string) semanticControlIntent {
+	return semanticControlIntent{
+		nextExpert: semanticControlField(text, "NEXT_EXPERT:"),
+		nextAction: semanticControlField(text, "NEXT_ACTION:"),
+		blocker:    semanticControlField(text, "BLOCKER:"),
+	}
+}
+
+func semanticControlField(text, marker string) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	upper := strings.ToUpper(text)
+	idx := strings.Index(upper, marker)
+	if idx < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(text[idx+len(marker):])
+	if rest == "" {
+		return ""
+	}
+	upperRest := strings.ToUpper(rest)
+	end := len(rest)
+	for _, nextMarker := range []string{
+		" NEXT_EXPERT:",
+		" NEXT_ACTION:",
+		" BLOCKER:",
+		" DO_NOT_",
+		" CONTINUATION_CONTRACT=",
+		" RESOURCE URL:",
+		" RESOURCE ...",
+	} {
+		if strings.TrimSpace(nextMarker) == marker {
+			continue
+		}
+		if nextIdx := strings.Index(upperRest, nextMarker); nextIdx >= 0 && nextIdx < end {
+			end = nextIdx
+		}
+	}
+	return strings.TrimSpace(rest[:end])
+}
+
+func normalizeSemanticControlValue(text string, limit int) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if text == "" {
+		return ""
+	}
+	for _, cut := range []string{"; otherwise ", " otherwise ", " DO_NOT_", " continuation_contract="} {
+		if idx := strings.Index(strings.ToLower(text), strings.ToLower(cut)); idx >= 0 {
+			text = strings.TrimSpace(text[:idx])
+		}
+	}
+	parts := strings.Fields(text)
+	if len(parts) > 1 && strings.Contains(parts[0], "_") && semanticControlArgIsPath(parts[1]) {
+		parts = parts[:1]
+		text = strings.Join(parts, " ")
+	}
+	if len(parts) > 0 && strings.Contains(parts[0], "_") && !strings.Contains(parts[0], "/") {
+		parts[0] = strings.ReplaceAll(parts[0], "_", " ")
+		text = strings.Join(parts, " ")
+	}
+	text = shortenKnownPaths(text)
+	replacements := map[string]string{
+		"sac":   "SAC",
+		"ndp":   "NDP",
+		"nws":   "NWS",
+		"cimis": "CIMIS",
+		"id":    "ID",
+	}
+	words := strings.Fields(text)
+	for i, word := range words {
+		key := strings.ToLower(strings.Trim(word, ".,;:"))
+		if repl, ok := replacements[key]; ok {
+			words[i] = strings.Replace(word, strings.Trim(word, ".,;:"), repl, 1)
+		}
+	}
+	text = strings.Join(words, " ")
+	if limit <= 0 {
+		limit = 120
+	}
+	return truncateString(text, limit)
+}
+
+func semanticControlArgIsPath(text string) bool {
+	text = strings.TrimSpace(text)
+	return strings.HasPrefix(text, "/") ||
+		strings.HasPrefix(text, "~/") ||
+		strings.HasPrefix(text, "./") ||
+		strings.HasPrefix(text, "../") ||
+		strings.Contains(text, "://")
 }
 
 func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
@@ -8754,6 +9957,7 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 				}
 				a.messages[i].Parts[j].Metadata["raw_input"] = v
 			}
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -8802,6 +10006,7 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					p.Text = final
 				}
 			}
+			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -9882,39 +11087,6 @@ func (a *App) renderFooter() string {
 		}
 	}
 
-	if a.selected >= 0 && a.selected < len(a.sessions) {
-		s := a.sessions[a.selected]
-		if s.CostUSD > 0 || s.Tokens.Input > 0 {
-			// Color-code input tokens by how close we are to typical
-			// context window limits. Warning at 100K (getting into
-			// "summarize soon" territory for most frontier models),
-			// danger at 150K (Sonnet/GPT-4 Turbo window limits). Raw
-			// counts stay muted.
-			tokenColor := t.FgMuted
-			switch {
-			case s.Tokens.Input >= t.CostDangerTokens:
-				tokenColor = t.Danger
-			case s.Tokens.Input >= t.CostWarnTokens:
-				tokenColor = t.Warning
-			}
-			// LLL6: render cost as a chip — bg-tinted pill with the
-			// $ amount and the in/out counts inside, so it pops away
-			// from the dim hint row instead of floating as plain text.
-			chipBg := t.Bg
-			chip := lipgloss.NewStyle().Background(chipBg).
-				Foreground(t.Secondary).Bold(true).Padding(0, 1).
-				Render(fmt.Sprintf("$%.4f", s.CostUSD))
-			tokens := lipgloss.NewStyle().Background(chipBg).
-				Foreground(tokenColor).Padding(0, 1).
-				Render(fmt.Sprintf("%s in / %s out",
-					humanTokens(s.Tokens.Input),
-					humanTokens(s.Tokens.Output)))
-			// CLIO-BBBBBBBBBB4: concatenate onto any existing right-
-			// side chip (e.g. the v0.2 memory chip) instead of
-			// clobbering it.
-			right += chip + tokens
-		}
-	}
 	available := a.width - lipgloss.Width(left) - lipgloss.Width(right) - 8
 	if available < 1 {
 		available = 1
@@ -10622,7 +11794,7 @@ func (a *App) renderSidebar(width, height int) string {
 				a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(summaryText, statusBudget)))
 			}
-			if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+			if activation := a.sessionSidebarActivationText(sIdx, statusBudget); activation != "" {
 				rows = append(rows, statusIndent+statusStyle.Render(truncate(activation, statusBudget)))
 			}
 			if !a.showChildSessions {
@@ -10882,7 +12054,7 @@ func (a *App) renderRightSessionsModuleRows(width int) []string {
 			a.registerSidebarSessionSummaryHit(row+2, width, sIdx)
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate("summary: "+summary, width-8)))
 		}
-		if activation := a.sessionSidebarActivationText(sIdx); activation != "" {
+		if activation := a.sessionSidebarActivationText(sIdx, width-8); activation != "" {
 			rows = append(rows, "  "+lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(truncate(activation, width-8)))
 		}
 	}
@@ -11001,6 +12173,77 @@ func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
 	default:
 		return mode, t.FgMuted
 	}
+}
+
+const maxConversationRenderCacheEntries = 1024
+
+type conversationRenderCacheEntry struct {
+	row       string
+	blocks    []conversationPartHitBlock
+	lineCount int
+}
+
+func (a *App) cachedConversationMessageRender(t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) conversationRenderCacheEntry {
+	key := conversationRenderCacheKey(a.conversationRenderRevision, t, m, prev, width, inlineResults, selectedPartID)
+	if a.conversationRenderCache == nil {
+		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+	} else if cached, ok := a.conversationRenderCache[key]; ok {
+		return cached
+	} else if len(a.conversationRenderCache) > maxConversationRenderCacheEntries {
+		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+	}
+	row := t.renderMessageInContextWithResultsSelected(m, prev, width, inlineResults, selectedPartID)
+	blocks := t.conversationPartHitBlocks(m, prev, width, inlineResults)
+	entry := conversationRenderCacheEntry{
+		row:       row,
+		blocks:    append([]conversationPartHitBlock(nil), blocks...),
+		lineCount: renderedStringLineCount(row),
+	}
+	a.conversationRenderCache[key] = entry
+	return entry
+}
+
+func (a *App) invalidateConversationRenderCache() {
+	a.conversationRenderCache = nil
+	a.conversationRenderRevision++
+}
+
+func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
+	h := fnv.New64a()
+	writeHashString := func(s string) {
+		_, _ = h.Write([]byte(s))
+		_, _ = h.Write([]byte{0})
+	}
+	writeHashString(strconv.FormatUint(revision, 10))
+	writeHashString(strconv.Itoa(width))
+	writeHashString(strconv.FormatBool(t.ShowTimestamps))
+	writeHashString(strconv.Itoa(t.CollapseThreshold))
+	writeHashString(hexOf(t.Fg))
+	writeHashString(hexOf(t.FgMuted))
+	writeHashString(hexOf(t.Primary))
+	writeHashString(hexOf(t.Secondary))
+	writeHashString(hexOf(t.RoleTool))
+	writeHashString(selectedPartID)
+	writeHashString(m.ID)
+	writeHashString(m.SessionID)
+	writeHashString(m.Role)
+	writeHashString(m.StopReason)
+	writeHashString(strconv.Itoa(len(m.Parts)))
+	if prev == nil {
+		writeHashString("<nil-prev>")
+	} else {
+		writeHashString("prev")
+		writeHashString(prev.ID)
+		writeHashString(prev.Role)
+		writeHashString(strconv.FormatBool(assistantCarriedToolCall(prev)))
+	}
+	if len(inlineResults) > 0 {
+		writeHashString("inline-results")
+		if payload, err := json.Marshal(inlineResults); err == nil {
+			_, _ = h.Write(payload)
+		}
+	}
+	return fmt.Sprintf("%016x", h.Sum64())
 }
 
 func (a *App) renderBody(width, height int) string {
@@ -11177,8 +12420,9 @@ func (a *App) renderBody(width, height int) string {
 			if len(rows) > 0 {
 				fullLine++
 			}
-			row := t.renderMessageInContextWithResultsSelected(m, prevRendered, width-4, inlineResults[i], selPartID)
-			for _, block := range t.conversationPartHitBlocks(m, prevRendered, width-4, inlineResults[i]) {
+			rendered := a.cachedConversationMessageRender(t, m, prevRendered, width-4, inlineResults[i], selPartID)
+			row := rendered.row
+			for _, block := range rendered.blocks {
 				block.msgIdx = i
 				block.fullStart += fullLine
 				hitBlocks = append(hitBlocks, block)
@@ -11195,7 +12439,7 @@ func (a *App) renderBody(width, height int) string {
 				row = prependGutter(row, marker)
 			}
 			rows = append(rows, row)
-			fullLine += renderedStringLineCount(row)
+			fullLine += rendered.lineCount
 			prevRendered = &a.messages[i]
 		}
 		// Pending-turn indicator: when the session is running but the latest

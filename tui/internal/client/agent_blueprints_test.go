@@ -17,6 +17,18 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 		case "/v1/agent-blueprints":
 			_ = json.NewEncoder(w).Encode(map[string]any{"agent_blueprints": []gact.AgentBlueprintDefinition{{ID: "bp1", Enabled: true}}})
 		case "/v1/agent-blueprints/sources":
+			if r.Method == http.MethodPost {
+				var req gact.AgentBlueprintSourceRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Fatalf("decode source request: %v", err)
+				}
+				if req.Source != "https://github.com/iowarp/data-semantics-agents.git" || !req.Refresh {
+					t.Fatalf("source request = %#v", req)
+				}
+				w.WriteHeader(http.StatusCreated)
+				_ = json.NewEncoder(w).Encode(map[string]any{"source": gact.AgentBlueprintSource{ID: "data-semantics-agents", Name: "Data Semantics Agents", Source: req.Source}})
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"sources": []gact.AgentBlueprintSource{{ID: "src1", Name: "Data Semantics Agents"}}})
 		case "/v1/agent-blueprints/sources/src1/refresh":
 			_ = json.NewEncoder(w).Encode(map[string]any{"source": gact.AgentBlueprintSource{ID: "src1", Name: "Data Semantics Agents", Status: "ready"}})
@@ -64,6 +76,9 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 	if _, err := c.ListAgentBlueprintSources(t.Context()); err != nil {
 		t.Fatalf("ListAgentBlueprintSources: %v", err)
 	}
+	if got, err := c.AddAgentBlueprintSource(t.Context(), gact.AgentBlueprintSourceRequest{Source: "https://github.com/iowarp/data-semantics-agents.git", Refresh: true}); err != nil || got.ID != "data-semantics-agents" {
+		t.Fatalf("AddAgentBlueprintSource: got=%#v err=%v", got, err)
+	}
 	if _, err := c.RefreshAgentBlueprintSource(t.Context(), "src1"); err != nil {
 		t.Fatalf("RefreshAgentBlueprintSource: %v", err)
 	}
@@ -104,6 +119,7 @@ func TestAgentBlueprintClientMethodsUseCLIOEndpoints(t *testing.T) {
 	want := []string{
 		"GET /v1/agent-blueprints",
 		"GET /v1/agent-blueprints/sources",
+		"POST /v1/agent-blueprints/sources",
 		"POST /v1/agent-blueprints/sources/src1/refresh",
 		"DELETE /v1/agent-blueprints/sources/src1",
 		"GET /v1/agent-blueprints/bp1",

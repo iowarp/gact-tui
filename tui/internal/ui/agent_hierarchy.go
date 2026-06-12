@@ -190,13 +190,7 @@ func (a *App) agentHierarchyActiveBlueprintSummary(rows []agentHierarchyRow, wid
 		return ""
 	}
 	budget := maxInt(1, width-8)
-	summary := "◆ " + a.activeAgentBlueprintID()
-	if scope := a.activeAgentBlueprintScope(); scope != "" {
-		withScope := summary + " · " + scope
-		if lipgloss.Width(withScope) <= budget {
-			summary = withScope
-		}
-	}
+	summary := activeAgentBlueprintIndicator(a.activeAgentBlueprintID(), a.activeAgentBlueprintScope(), budget)
 	return lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Italic(true).Render(truncate(summary, budget))
 }
 

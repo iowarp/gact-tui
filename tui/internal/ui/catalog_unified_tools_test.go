@@ -272,6 +272,9 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 		t.Fatalf("empty tools catalog items = %#v", msg.items)
 	}
 	item := msg.items[0]
+	if item.disabled || item.statusTag != "empty" {
+		t.Fatalf("empty tools row should be a neutral empty state without disabled chrome: %#v", item)
+	}
 	for _, want := range []string{"No callable actions available", "Add an MCP connection", "enable a workflow blueprint", "add connection or blueprint"} {
 		if !strings.Contains(item.title+" "+item.desc+" "+item.inlineDesc, want) {
 			t.Fatalf("empty tools row missing %q: %#v", want, item)
@@ -284,7 +287,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 	}
 
 	hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindTools, items: msg.items, sel: 0})
-	for _, want := range []string{"no callable actions yet", "i add connection", "/agent-blueprints activate workflow"} {
+	for _, want := range []string{"no callable actions yet", "i add connection", "open /agent-blueprints", "activate workflow"} {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("empty tools hint missing %q: %q", want, hint)
 		}
@@ -299,7 +302,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t *testing.T) {
 	toolsIntro := catalogBrowserIntro(catalogKindTools)
 	for _, want := range []string{
-		"Actions and MCP in one operator view",
+		"Tools and MCP in one operator view",
 		"Connection rows show health",
 		"indented tool rows show call policy and required inputs",
 		"Use /mcp to add or repair connections",
@@ -311,7 +314,7 @@ func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t 
 	if strings.Contains(toolsIntro, "MCP rows") {
 		t.Fatalf("tools intro should describe operator rows, not backend MCP rows: %q", toolsIntro)
 	}
-	if got := catalogBrowserTitle(catalogKindTools); got != "Actions and MCP" {
+	if got := catalogBrowserTitle(catalogKindTools); got != "Tools & MCP" {
 		t.Fatalf("tools catalog title = %q, want unified tools/MCP wording", got)
 	}
 	if got := catalogBrowserTitle(catalogKindMcp); got != "MCP Connections" {

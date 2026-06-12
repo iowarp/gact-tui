@@ -97,6 +97,7 @@ type lmProviderPreset struct {
 	Status              string `json:"status,omitempty"`
 	StatusMessage       string `json:"status_message,omitempty"`
 	SupportsLiveCatalog bool   `json:"supports_live_catalog,omitempty"`
+	SupportsVision      bool   `json:"supports_vision,omitempty"`
 }
 
 type lmProviderInfo struct {
@@ -107,9 +108,16 @@ type lmProviderInfo struct {
 	Temperature    float64            `json:"temperature,omitempty"`
 	MaxTokens      int                `json:"max_tokens,omitempty"`
 	ContextLength  int                `json:"context_length,omitempty"`
+	ChosenContext  int                `json:"chosen_context,omitempty"`
+	ContextWindow  int                `json:"context_window,omitempty"`
+	IsReasoning    bool               `json:"is_reasoning,omitempty"`
+	NativeToolCall bool               `json:"native_tool_calling,omitempty"`
 	ThinkingBudget int                `json:"thinking_budget,omitempty"`
+	Transport      string             `json:"transport,omitempty"`
 	State          string             `json:"state,omitempty"`
 	StatusMessage  string             `json:"status_message,omitempty"`
+	Error          string             `json:"error,omitempty"`
+	OperationID    string             `json:"operation_id,omitempty"`
 	Presets        []lmProviderPreset `json:"presets,omitempty"`
 }
 
@@ -121,6 +129,7 @@ type lmProviderRequest struct {
 	MaxTokens      int     `json:"max_tokens,omitempty"`
 	ContextLength  int     `json:"context_length,omitempty"`
 	ThinkingBudget int     `json:"thinking_budget,omitempty"`
+	Parallel       int     `json:"parallel,omitempty"`
 }
 
 func (s *Server) handleGetLMProvider(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +174,63 @@ func (s *Server) handlePutLMProvider(w http.ResponseWriter, r *http.Request) {
 	info.ContextLength = req.ContextLength
 	info.ThinkingBudget = req.ThinkingBudget
 	writeJSON(w, http.StatusOK, info)
+}
+
+func (s *Server) handleWaitLMProvider(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ProviderEdgeStates {
+		writeJSON(w, http.StatusOK, edgeLMProviderInfo())
+		return
+	}
+	writeJSON(w, http.StatusOK, staticLMProviderInfo("anthropic", "claude-opus-4-7"))
+}
+
+func (s *Server) handleProviderHandshake(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "provider_required", "provider id required")
+		return
+	}
+	source := "live"
+	connectivity := "ok"
+	auth := "ok"
+	errText := ""
+	models, ok := staticModels()[id]
+	if !ok && id == "argonne_sophia" {
+		models = []gact.Model{{
+			ID:              "openai/gpt-oss-120b",
+			Name:            "GPT OSS 120B",
+			ContextWindow:   131072,
+			MaxOutputTokens: 32768,
+			ChosenContext:   131072,
+			ContextSource:   "provider_handshake",
+			IsReasoning:     true,
+			NativeToolCalls: true,
+			Supports:        gact.ModelSupports{Tools: true, Thinking: true},
+		}}
+		ok = true
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, "provider_not_found", "no provider with id "+id)
+		return
+	}
+	if s.cfg.ProviderEdgeStates && id == "local" {
+		source = "unavailable"
+		connectivity = "error"
+		auth = "unknown"
+		errText = "local model catalog unavailable: connection refused on 127.0.0.1:11434"
+		models = nil
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"models":        models,
+		"source":        source,
+		"error":         errText,
+		"connectivity":  connectivity,
+		"auth":          auth,
+		"latency_ms":    12.4,
+		"generated_at":  time.Now().UTC().Format(time.RFC3339Nano),
+		"provider_id":   id,
+		"provider_kind": id,
+	})
 }
 
 func (s *Server) handleProviderAuth(w http.ResponseWriter, r *http.Request) {
@@ -226,14 +292,19 @@ func edgeLMProviderInfo() lmProviderInfo {
 
 func staticLMProviderInfo(provider, model string) lmProviderInfo {
 	return lmProviderInfo{
-		Configured:    true,
-		Provider:      provider,
-		Model:         model,
-		Temperature:   1.0,
-		MaxTokens:     32000,
-		ContextLength: 200000,
-		State:         "ready",
-		StatusMessage: "emulator provider catalog ready",
+		Configured:     true,
+		Provider:       provider,
+		Model:          model,
+		Temperature:    0.0,
+		MaxTokens:      0,
+		ContextLength:  0,
+		ChosenContext:  200000,
+		ContextWindow:  200000,
+		IsReasoning:    true,
+		NativeToolCall: true,
+		Transport:      "http",
+		State:          "ready",
+		StatusMessage:  "emulator provider catalog ready",
 		Presets: []lmProviderPreset{
 			{
 				ID:                  "anthropic",
@@ -248,6 +319,7 @@ func staticLMProviderInfo(provider, model string) lmProviderInfo {
 				Status:              "ready",
 				StatusMessage:       "authenticated",
 				SupportsLiveCatalog: true,
+				SupportsVision:      true,
 			},
 			{
 				ID:                  "openai",
@@ -262,6 +334,7 @@ func staticLMProviderInfo(provider, model string) lmProviderInfo {
 				Status:              "needs_api_key",
 				StatusMessage:       "paste an API key before saving",
 				SupportsLiveCatalog: true,
+				SupportsVision:      true,
 			},
 			{
 				ID:                  "local",
@@ -298,9 +371,11 @@ func staticModels() map[string][]gact.Model {
 	return map[string][]gact.Model{
 		"anthropic": {
 			{ID: "claude-opus-4-7", Name: "Claude Opus 4.7", ContextWindow: 1_000_000, MaxOutputTokens: 8192,
+				ChosenContext: 200_000, ContextSource: "server_default", IsReasoning: true, NativeToolCalls: true,
 				Supports: support(true, true, true, true, true),
 				Pricing:  &gact.ModelPricing{InputPerMTok: 15, OutputPerMTok: 75, CacheReadPerMTok: 1.5, CacheWritePerMTok: 18.75}},
 			{ID: "claude-sonnet-4-6", Name: "Claude Sonnet 4.6", ContextWindow: 200_000, MaxOutputTokens: 8192,
+				ChosenContext: 200_000, ContextSource: "model_limit", IsReasoning: true, NativeToolCalls: true,
 				Supports: support(true, true, true, false, true),
 				Pricing:  &gact.ModelPricing{InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3, CacheWritePerMTok: 3.75}},
 			{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5", ContextWindow: 200_000, MaxOutputTokens: 8192,
@@ -308,12 +383,20 @@ func staticModels() map[string][]gact.Model {
 				Pricing:  &gact.ModelPricing{InputPerMTok: 0.8, OutputPerMTok: 4}},
 		},
 		"openai": {
-			{ID: "gpt-5", Name: "GPT-5", ContextWindow: 256_000, MaxOutputTokens: 16384, Supports: support(true, true, false, false, false)},
-			{ID: "gpt-5-mini", Name: "GPT-5 Mini", ContextWindow: 128_000, MaxOutputTokens: 8192, Supports: support(true, true, false, false, false)},
+			{ID: "gpt-5", Name: "GPT-5", ContextWindow: 256_000, MaxOutputTokens: 16384,
+				ChosenContext: 256_000, ContextSource: "model_limit", NativeToolCalls: true,
+				Supports: support(true, true, false, false, false)},
+			{ID: "gpt-5-mini", Name: "GPT-5 Mini", ContextWindow: 128_000, MaxOutputTokens: 8192,
+				ChosenContext: 128_000, ContextSource: "model_limit", NativeToolCalls: true,
+				Supports: support(true, true, false, false, false)},
 		},
 		"local": {
-			{ID: "llama3.3", Name: "Llama 3.3 70B", ContextWindow: 32_000, MaxOutputTokens: 4096, Supports: support(true, false, false, false, false)},
-			{ID: "qwen3-coder", Name: "Qwen 3 Coder 32B", ContextWindow: 64_000, MaxOutputTokens: 8192, Supports: support(true, false, false, false, false)},
+			{ID: "llama3.3", Name: "Llama 3.3 70B", ContextWindow: 32_000, MaxOutputTokens: 4096,
+				ChosenContext: 32_000, ContextSource: "local_model_limit",
+				Supports: support(true, false, false, false, false)},
+			{ID: "qwen3-coder", Name: "Qwen 3 Coder 32B", ContextWindow: 64_000, MaxOutputTokens: 8192,
+				ChosenContext: 64_000, ContextSource: "local_model_limit", IsReasoning: true,
+				Supports: support(true, false, true, false, false)},
 		},
 	}
 }
@@ -919,6 +1002,49 @@ func (s *Server) handleListAgentBlueprintSources(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{"sources": s.agentBlueprintSources()})
 }
 
+func (s *Server) handleAddAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
+	var req gact.AgentBlueprintSourceRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	source := strings.TrimSpace(firstNonEmptyString(req.Source, req.URL))
+	if source == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "source or url is required")
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = sourceDisplayName(source)
+	}
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		id = sourceRegistryID(source, req.Ref)
+	}
+	now := "2026-06-11T12:00:00Z"
+	row := gact.AgentBlueprintSource{
+		ID:           id,
+		Name:         name,
+		Source:       source,
+		Ref:          strings.TrimSpace(req.Ref),
+		PinnedCommit: strings.TrimSpace(req.PinnedCommit),
+		SourceKind:   sourceKind(source),
+		Status:       "ready",
+		Commit:       "1234567890abcdef",
+		AddedAt:      now,
+		UpdatedAt:    now,
+	}
+	s.blueprintMu.Lock()
+	defer s.blueprintMu.Unlock()
+	filtered := s.blueprintSources[:0]
+	for _, existing := range s.blueprintSources {
+		if existing.ID != id {
+			filtered = append(filtered, existing)
+		}
+	}
+	s.blueprintSources = append(filtered, row)
+	writeJSON(w, http.StatusCreated, map[string]any{"source": row})
+}
+
 func (s *Server) handleRefreshAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if s.cfg.AgentBlueprintFailures && id == "data-semantics-agents" {
@@ -938,6 +1064,16 @@ func (s *Server) handleRefreshAgentBlueprintSource(w http.ResponseWriter, r *htt
 
 func (s *Server) handleDeleteAgentBlueprintSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	s.blueprintMu.Lock()
+	for i, source := range s.blueprintSources {
+		if source.ID == id {
+			s.blueprintSources = append(s.blueprintSources[:i], s.blueprintSources[i+1:]...)
+			s.blueprintMu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	s.blueprintMu.Unlock()
 	for _, source := range s.agentBlueprintSources() {
 		if source.ID == id {
 			w.WriteHeader(http.StatusNoContent)
@@ -1437,7 +1573,62 @@ func (s *Server) agentBlueprintSources() []gact.AgentBlueprintSource {
 	if s != nil && s.cfg.LongAgentBlueprints {
 		rows = append(rows, staticLongAgentBlueprintSources()...)
 	}
+	if s != nil {
+		s.blueprintMu.Lock()
+		rows = append(rows, s.blueprintSources...)
+		s.blueprintMu.Unlock()
+	}
 	return rows
+}
+
+func sourceRegistryID(source string, ref string) string {
+	base := sourceDisplayName(source)
+	base = strings.ToLower(base)
+	base = strings.TrimSuffix(base, ".git")
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= '0' && r <= '9':
+			return r
+		case r == '-' || r == '_':
+			return '-'
+		default:
+			return '-'
+		}
+	}, base)
+	base = strings.Trim(base, "-")
+	if base == "" {
+		base = "source"
+	}
+	if ref = strings.TrimSpace(ref); ref != "" {
+		base += "-" + strings.ToLower(strings.ReplaceAll(ref, "/", "-"))
+	}
+	return base
+}
+
+func sourceKind(source string) string {
+	switch {
+	case strings.HasPrefix(source, "git@"), strings.HasPrefix(source, "http://"), strings.HasPrefix(source, "https://"):
+		return "git"
+	case strings.HasPrefix(source, "/"), strings.HasPrefix(source, "."):
+		return "path"
+	default:
+		return "source"
+	}
+}
+
+func sourceDisplayName(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "Marketplace source"
+	}
+	source = strings.TrimSuffix(source, "/")
+	source = strings.TrimSuffix(source, ".git")
+	if idx := strings.LastIndexAny(source, "/:"); idx >= 0 && idx < len(source)-1 {
+		return source[idx+1:]
+	}
+	return source
 }
 
 func staticLongAgentBlueprintSources() []gact.AgentBlueprintSource {
@@ -1918,7 +2109,7 @@ func (s *Server) handleExtractAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) allAgents() []gact.AgentDef {
-	agents := staticAgents()
+	agents := staticAgents(s.cfg.EmptySkills)
 	s.agentsMu.Lock()
 	for _, agent := range s.agents {
 		agents = append(agents, agent)
@@ -1927,8 +2118,8 @@ func (s *Server) allAgents() []gact.AgentDef {
 	return agents
 }
 
-func staticAgents() []gact.AgentDef {
-	return []gact.AgentDef{
+func staticAgents(emptySkills bool) []gact.AgentDef {
+	agents := []gact.AgentDef{
 		{
 			ID: "default", Source: "builtin", Title: "Default Agent",
 			Description:  "General-purpose coding agent with full tool access.",
@@ -1944,24 +2135,6 @@ func staticAgents() []gact.AgentDef {
 			ParentID:     "code_expert",
 			Enabled:      true,
 		},
-		// Two skill-source agents so the /skills catalog browser has
-		// real data to render (LLL3). Per SPEC §6.5 line 807, skills
-		// are agents with source="skill" — no separate namespace.
-		{
-			ID: "test_writer", Source: "skill", Title: "Test Writer",
-			Description:  "Writes table-driven Go tests for a target package.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
-			Tools:        []string{"read_file", "edit_file"},
-			Enabled:      true,
-		},
-		{
-			ID: "release_notes", Source: "skill", Title: "Release Notes",
-			Description:  "Summarizes git diffs since a tag into changelog entries.",
-			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
-			Tools:        []string{"bash", "read_file"},
-			Enabled:      true,
-		},
-
 		// v0.2 — SPEC §4.3.1: three tier-2 specialists wired with
 		// tier/specialization/keywords so clients can exercise the
 		// multi-tier agent catalog without a CLIO backend handy.
@@ -2001,6 +2174,28 @@ func staticAgents() []gact.AgentDef {
 			Enabled:        true,
 		},
 	}
+	if emptySkills {
+		return agents
+	}
+	// Two skill-source agents so the /skills catalog browser has real data to
+	// render (LLL3). Per SPEC §6.5 line 807, skills are agents with
+	// source="skill"; --empty-skills suppresses only this operator catalog.
+	return append(agents,
+		gact.AgentDef{
+			ID: "test_writer", Source: "skill", Title: "Test Writer",
+			Description:  "Writes table-driven Go tests for a target package.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-sonnet-4-6"},
+			Tools:        []string{"read_file", "edit_file"},
+			Enabled:      true,
+		},
+		gact.AgentDef{
+			ID: "release_notes", Source: "skill", Title: "Release Notes",
+			Description:  "Summarizes git diffs since a tag into changelog entries.",
+			DefaultModel: &gact.ModelRef{ProviderID: "anthropic", ModelID: "claude-haiku-4-5"},
+			Tools:        []string{"bash", "read_file"},
+			Enabled:      true,
+		},
+	)
 }
 
 func staticAgentStressDefinitions() []gact.AgentDef {
@@ -2150,6 +2345,37 @@ func staticAgentStressDefinitions() []gact.AgentDef {
 }
 
 // --- §6.7 MCP --------------------------------------------------------------
+
+func (s *Server) handleMcpHandshake(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.EmptyMcpConnections {
+		writeJSON(w, http.StatusOK, map[string]any{"servers": []map[string]any{}})
+		return
+	}
+	servers := []map[string]any{}
+	for _, server := range staticMcpServers() {
+		reachable := server.Status == "ready"
+		tools := []string{}
+		for _, tool := range staticTools() {
+			if tool.Source == "mcp" && tool.ServerID == server.ID {
+				tools = append(tools, tool.Name)
+			}
+		}
+		row := map[string]any{
+			"name":        server.ID,
+			"reachable":   reachable,
+			"state":       server.Status,
+			"transport":   server.Transport,
+			"tools_count": len(tools),
+			"tools":       tools,
+			"latency_ms":  6.2,
+		}
+		if !reachable {
+			row["error"] = firstNonEmptyString(server.LastError, "MCP server is not reachable")
+		}
+		servers = append(servers, row)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"servers": servers})
+}
 
 func (s *Server) handleListMcpServers(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.EmptyMcpConnections {

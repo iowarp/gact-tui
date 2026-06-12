@@ -73,15 +73,32 @@ func (a *App) handleWorkspaceSwitchKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			a.sseCancel = nil
 		}
 		a.wsID = next.ID
-		a.sessions = nil
-		a.selected = -1
-		a.messages = nil
-		a.contextFiles = nil
-		a.pendingPermissions = nil
+		a.resetWorkspaceScopedUIState()
 		a.transientHint = "switched to " + workspaceLabel(next)
 		return a, listSessionsCmd(a.c, next.ID)
 	}
 	return a, nil
+}
+
+func (a *App) resetWorkspaceScopedUIState() {
+	a.sessions = nil
+	a.selected = -1
+	a.messages = nil
+	a.contextFiles = nil
+	a.contextFileSel = 0
+	a.pendingPermissions = nil
+	a.currentStatus = ""
+	a.scrollOffset = 0
+	a.stickyToBottom = true
+	a.bodySelMsgIdx = -1
+	a.bodySelPartIdx = -1
+	if a.detailViewOpen && a.detailView != nil {
+		switch a.detailView.messageID {
+		case "context", "files":
+			a.closeDetailView()
+		}
+	}
+	a.syncFileViewerRootToWorkspace()
 }
 
 // listSessionsCmd fetches sessions for the given workspace. Separate
