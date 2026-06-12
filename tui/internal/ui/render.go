@@ -1528,13 +1528,9 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			stringValue(p.Metadata["source_agent"]),
 			"orchestrator",
 		)
-		route := p.SelectedAgent
-		if parent != "" && p.SelectedAgent != "" {
-			route = parent + " -> " + p.SelectedAgent
-		}
-		agentName := lipgloss.NewStyle().Foreground(agentColor(t, p.SelectedAgent)).
-			Bold(true).Render(route)
-		parts := []string{glyph + agentName}
+		headText := renderAgentName(t, firstNonEmpty(parent, "orchestrator")) + " selected " +
+			renderAgentName(t, firstNonEmpty(p.SelectedAgent, "agent"))
+		parts := []string{glyph + headText}
 		if p.Heuristic {
 			parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("heuristic"))
 		} else {

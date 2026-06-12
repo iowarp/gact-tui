@@ -7,8 +7,8 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: routing_decision part renders as a compact badge
-// row with selected_agent, heuristic/LM indicator, and confidence,
+// CLIO-BBBBBBBBBB4: routing_decision part renders as an action row
+// with selected_agent, heuristic/LM indicator, and confidence,
 // followed by a dimmed rationale line.
 func TestRender_RoutingDecision_ShapedCorrectly(t *testing.T) {
 	p := gact.NewRoutingDecisionPart("data_expert",
@@ -16,8 +16,8 @@ func TestRender_RoutingDecision_ShapedCorrectly(t *testing.T) {
 	out := DefaultTheme().renderPart(p, 80)
 	plain := stripANSI(out)
 
-	if !strings.Contains(plain, "▸ orchestrator -> data_expert") {
-		t.Errorf("expected route-chain badge; got:\n%s", plain)
+	if !strings.Contains(plain, "▸ orchestrator selected data_expert") {
+		t.Errorf("expected routing action sentence; got:\n%s", plain)
 	}
 	if !strings.Contains(plain, "heuristic") {
 		t.Errorf("heuristic=true should render the 'heuristic' tag; got:\n%s", plain)
