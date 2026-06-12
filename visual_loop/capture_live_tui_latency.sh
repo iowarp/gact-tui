@@ -23,6 +23,7 @@ height="900"
 metrics_name="live_clio_tui_latency_metrics.png"
 gif_name="live_clio_tui_latency_capture.gif"
 manifest_name="live_clio_tui_latency_manifest.json"
+report_name="live_clio_tui_latency_report.json"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -94,6 +95,8 @@ if [[ -n "$session_id" ]]; then
   session_q="$(printf '%q' "$session_id")"
   launch="GACT_ATTACH_SESSION_ID=${session_q} ${launch}"
 fi
+report_q="$(printf '%q' "${out_dir}/${report_name}")"
+launch="GACT_TUI_LATENCY_REPORT=${report_q} ${launch}"
 
 tape="$(mktemp "${TMPDIR:-/tmp}/gact-live-tui-latency.XXXXXX.tape")"
 cleanup() {
@@ -140,20 +143,22 @@ Screenshot "${out_dir}/${metrics_name}"
 
 Escape
 Sleep 200ms
-Type "q"
+Ctrl+C
+Sleep 200ms
+Ctrl+C
 EOF
 
 vhs "$tape"
 validate_png "${out_dir}/${metrics_name}"
 
-python3 - "$backend" "$session_id" "${out_dir}/${metrics_name}" "${out_dir}/${gif_name}" "${out_dir}/${manifest_name}" <<'PY'
+python3 - "$backend" "$session_id" "${out_dir}/${metrics_name}" "${out_dir}/${gif_name}" "${out_dir}/${manifest_name}" "${out_dir}/${report_name}" <<'PY'
 import json
 import pathlib
 import sys
 import urllib.error
 import urllib.request
 
-backend, session_id, metrics_png, gif_path, manifest = sys.argv[1:6]
+backend, session_id, metrics_png, gif_path, manifest, report_path = sys.argv[1:7]
 
 def get_json(path):
     try:
@@ -191,6 +196,26 @@ if not isinstance(message_rows, list):
     message_rows = []
 metadata_blob = json.dumps(message_rows, sort_keys=True)
 
+report = {}
+report_file = pathlib.Path(report_path)
+if not report_file.is_file():
+    raise SystemExit(f"TUI latency report was not written: {report_file}")
+try:
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+except json.JSONDecodeError as exc:
+    raise SystemExit(f"invalid TUI latency report JSON: {exc}") from exc
+interactions = report.get("interactions")
+if not isinstance(interactions, list):
+    raise SystemExit("TUI latency report missing interactions list")
+surface_kinds = [
+    f"{row.get('surface', '')} {row.get('kind', '')}".strip()
+    for row in interactions
+    if isinstance(row, dict)
+]
+sample_count_reported = int(report.get("sample_count") or 0)
+if sample_count_reported <= 0:
+    raise SystemExit("TUI latency report contains no interaction samples")
+
 manifest_path = pathlib.Path(manifest)
 manifest_path.write_text(
     json.dumps(
@@ -202,7 +227,12 @@ manifest_path.write_text(
             "session_message_count": len(message_rows),
             "metrics_screenshot": metrics_png,
             "recording_path": gif_path,
+            "tui_latency_report": report_path,
             "tui_latency_section_expected": True,
+            "tui_latency_sample_count": sample_count_reported,
+            "tui_latency_surface_kinds": surface_kinds,
+            "tui_latency_click_samples": bool(report.get("supported_by", {}).get("clicks")) if isinstance(report.get("supported_by"), dict) else False,
+            "tui_latency_wheel_samples": bool(report.get("supported_by", {}).get("wheels")) if isinstance(report.get("supported_by"), dict) else False,
             "interaction_surfaces_driven": [
                 "left sidebar keys",
                 "conversation keys",
@@ -227,7 +257,8 @@ manifest_path.write_text(
 )
 PY
 
-printf 'wrote %s, %s, and %s\n' \
+printf 'wrote %s, %s, %s, and %s\n' \
   "${out_dir}/${metrics_name}" \
   "${out_dir}/${gif_name}" \
-  "${out_dir}/${manifest_name}"
+  "${out_dir}/${manifest_name}" \
+  "${out_dir}/${report_name}"
