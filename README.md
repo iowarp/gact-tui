@@ -86,6 +86,11 @@ cd gact-tui
 make build && make install        # → ~/.local/bin/{gact,emulator-server}
 ```
 
+Optional local file previews for images, PDFs, HTML, and scientific formats use
+external renderers when available. Check or install them with
+`make file-renderers-check`, `make install-file-renderers`, or see
+[`docs/FILE_RENDERERS.md`](docs/FILE_RENDERERS.md).
+
 ## Drive a real backend
 
 Adapters translate **GACT v0.1 ↔ a vendor-specific protocol.** Each one
