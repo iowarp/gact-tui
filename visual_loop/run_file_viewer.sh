@@ -21,9 +21,25 @@ JSON
 
 rm -rf "$fixture_dir"
 mkdir -p "${fixture_dir}/docs/api" "${fixture_dir}/src/ui"
-printf '# Visual fixture\n' >"${fixture_dir}/README.md"
-printf 'usage notes\n' >"${fixture_dir}/docs/guide.md"
+cat >"${fixture_dir}/README.md" <<'EOF'
+# Visual fixture
+
+This workspace has representative files for the local file viewer.
+EOF
+cat >"${fixture_dir}/docs/guide.md" <<'EOF'
+# File Preview Guide
+
+The detail viewer should render Markdown tables instead of showing raw pipes.
+
+| Artifact | Status | Notes |
+| --- | --- | --- |
+| Markdown | ready | rendered and raw modes |
+| JSON | ready | pretty and raw modes |
+| CSV | ready | compact table preview |
+EOF
 printf 'openapi: 3.1.0\n' >"${fixture_dir}/docs/api/spec.yaml"
+printf '{"artifact":{"kind":"timeseries","status":"ready"},"count":2}\n' >"${fixture_dir}/docs/result.json"
+printf 'station,value\nMTA1,1.2\nPKRD,0.9\n' >"${fixture_dir}/docs/stations.csv"
 printf 'package main\n\nfunc main() {}\n' >"${fixture_dir}/src/main.go"
 printf 'module gact-fixture\n' >"${fixture_dir}/go.mod"
 

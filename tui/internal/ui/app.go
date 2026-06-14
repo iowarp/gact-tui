@@ -2046,6 +2046,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.transientHint = "uploaded " + label + " to context"
 		return a, nil
 
+	case localFileExternalOpenMsg:
+		if m.err != nil {
+			a.transientHint = "open failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "opened " + filepath.Base(m.path) + " externally"
+		return a, scheduleHintExpire(a.transientHint)
+
 	case contextFileRemovedMsg:
 		if m.err != nil {
 			a.transientHint = "remove failed: " + m.err.Error()
