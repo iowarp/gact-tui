@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func BenchmarkRenderLargeSemanticTranscript(b *testing.B) {
@@ -44,6 +45,20 @@ func BenchmarkFullConversationCopyLargeSemanticTranscript(b *testing.B) {
 	}
 }
 
+func BenchmarkFullConversationCopyCachedLargeSemanticTranscript(b *testing.B) {
+	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
+	if _, ok := app.fullConversationTextCached(); !ok {
+		b.Fatal("large transcript should be copyable")
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, ok := app.fullConversationTextCached(); !ok {
+			b.Fatal("large transcript should be copyable")
+		}
+	}
+}
+
 func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
 	app.bodySelMsgIdx = len(app.messages) - 1
@@ -54,6 +69,28 @@ func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
 		if _, ok := selectedConversationBlockText(app.messages, app.bodySelMsgIdx, app.bodySelPartIdx); !ok {
 			b.Fatal("selected block should be copyable")
 		}
+	}
+}
+
+func BenchmarkDetailModalLargeMarkdownInitialRender(b *testing.B) {
+	app := benchmarkLargeDetailApp()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app.detailWrap = detailWrapCache{}
+		app.detailScroll = 0
+		_ = app.viewDetailView()
+	}
+}
+
+func BenchmarkDetailModalLargeMarkdownCachedScroll(b *testing.B) {
+	app := benchmarkLargeDetailApp()
+	_ = app.viewDetailView()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app.detailScroll = i % 250
+		_ = app.viewDetailView()
 	}
 }
 
@@ -99,7 +136,7 @@ func TestWorkflowStateJSONSummaryDoesNotLeakInline(t *testing.T) {
 	}
 }
 
-func TestConversationRenderCacheInvalidatesChangedPartText(t *testing.T) {
+func TestConversationRenderCacheTracksChangedPartTextWithoutGlobalInvalidation(t *testing.T) {
 	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
 	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: first version."
 	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
@@ -108,13 +145,76 @@ func TestConversationRenderCacheInvalidatesChangedPartText(t *testing.T) {
 	}
 
 	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: changed version."
-	app.invalidateConversationRenderCache()
 	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
 	if !strings.Contains(second, "changed version") {
 		t.Fatalf("cached render did not reflect changed text:\n%s", second)
 	}
 	if strings.Contains(second, "first version") {
 		t.Fatalf("cached render leaked stale text:\n%s", second)
+	}
+}
+
+func TestConversationRenderCacheTracksPartAddedWithoutGlobalInvalidation(t *testing.T) {
+	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
+	app.messages[1].Parts = app.messages[1].Parts[:1]
+	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
+	if strings.Contains(first, "late evidence") {
+		t.Fatalf("initial render unexpectedly had late part:\n%s", first)
+	}
+
+	app.messages[1].Parts = append(app.messages[1].Parts, gact.Part{
+		ID:   "late_part",
+		Type: gact.PartTypeText,
+		Text: "late evidence arrived while streaming",
+	})
+	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
+	if !strings.Contains(second, "late evidence arrived while streaming") {
+		t.Fatalf("cached render did not reflect appended part:\n%s", second)
+	}
+}
+
+func TestConversationRenderCacheTracksPartDeltaWithoutGlobalInvalidation(t *testing.T) {
+	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	app.messages = []gact.Message{{
+		ID:   "msg_1",
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "part_1",
+			Type: gact.PartTypeText,
+			Text: "streaming",
+		}},
+	}}
+	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
+	if !strings.Contains(first, "streaming") {
+		t.Fatalf("initial render missing streamed text:\n%s", first)
+	}
+
+	app.applyPartDelta(client.SSEEvent{
+		Type: "message.part.delta",
+		Payload: map[string]any{"payload": map[string]any{
+			"message_id": "msg_1",
+			"part_id":    "part_1",
+			"delta":      map[string]any{"text_append": " update"},
+		}},
+	})
+	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
+	if !strings.Contains(second, "streaming update") {
+		t.Fatalf("cached render did not reflect text delta:\n%s", second)
+	}
+}
+
+func TestConversationRenderFingerprintTracksVisibleMetadataOnly(t *testing.T) {
+	msg := benchmarkAssistantSemanticMessage(0, time.Date(2026, 6, 11, 9, 0, 0, 0, time.UTC))
+	original := conversationMessageRenderFingerprint(msg)
+
+	msg.Metadata["raw_event"] = map[string]any{"debug": "different raw payload"}
+	if got := conversationMessageRenderFingerprint(msg); got != original {
+		t.Fatalf("raw_event metadata should not affect render fingerprint: got %x want %x", got, original)
+	}
+
+	msg.Metadata["workflow_state"] = map[string]any{"status": "changed"}
+	if got := conversationMessageRenderFingerprint(msg); got == original {
+		t.Fatalf("visible metadata change should affect render fingerprint")
 	}
 }
 
@@ -138,6 +238,45 @@ func benchmarkLargeSemanticTranscriptApp(width, height, turns int) *App {
 	app.bodySelPartIdx = 0
 	app.messages = benchmarkSemanticMessages(turns)
 	return app
+}
+
+func benchmarkLargeDetailApp() *App {
+	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	app.width = 160
+	app.height = 48
+	app.stage = StageReady
+	app.focus = FocusBody
+	app.MouseEnabled = true
+	app.detailViewOpen = true
+	app.detailView = &bulkyPartRef{
+		messageID: "msg_perf",
+		partID:    "part_large_markdown",
+		title:     "Tool evidence · large Markdown output",
+		fullText:  benchmarkLargeMarkdownDetail(420),
+	}
+	return app
+}
+
+func benchmarkLargeMarkdownDetail(rows int) string {
+	var b strings.Builder
+	b.WriteString("# EarthScope GNSS Station Candidates\n\n")
+	b.WriteString("Ranked stations around Los Angeles with confidence notes and artifact provenance.\n\n")
+	b.WriteString("| Rank | Station ID | Distance (km) | Trust | Notes |\n")
+	b.WriteString("| ---: | --- | ---: | --- | --- |\n")
+	for i := 0; i < rows; i++ {
+		fmt.Fprintf(&b, "| %d | MTA%03d | %.4f | %s | staged CSV `/tmp/grind-es/MTA%03d.CI.LY_.30.csv`; scan-limited profile retained |\n",
+			i+1,
+			i,
+			float64(i)*0.3749,
+			[]string{"high", "medium", "review"}[i%3],
+			i,
+		)
+	}
+	b.WriteString("\n## Workflow State\n\n")
+	for i := 0; i < rows/12; i++ {
+		fmt.Fprintf(&b, "- acquisition step %03d completed with metadata provenance and no blocker\n", i)
+	}
+	return b.String()
 }
 
 func benchmarkSemanticMessages(turns int) []gact.Message {

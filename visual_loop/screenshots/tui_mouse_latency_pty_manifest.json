@@ -1,0 +1,110 @@
+{
+  "captured_at": "2026-06-12T15:29:18Z",
+  "captured_from_owned_backend": false,
+  "backend": "http://127.0.0.1:41932",
+  "session_id": "ses_seed_ws_default_1",
+  "terminal_cols": 140,
+  "terminal_rows": 40,
+  "tui_latency_report": "visual_loop/screenshots/tui_mouse_latency_pty_report.json",
+  "ansi_output": "",
+  "mouse_event_source": "pty_sgr_mouse_sequences",
+  "vhs_mouse_limitation": "VHS command set cannot script mouse primitives; this harness sends terminal mouse escape sequences directly.",
+  "live_clio_capture": false,
+  "require_active_stream": false,
+  "tui_latency_sample_count": 10,
+  "live_click_section_evidence": true,
+  "sample_count": 10,
+  "surface_count": 9,
+  "click_section_count": 4,
+  "click_sections": [
+    "conversation",
+    "header",
+    "input",
+    "left sidebar"
+  ],
+  "wheel_sections": [
+    "conversation"
+  ],
+  "section_latency_summary": [
+    {
+      "surface": "header",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 4.772969,
+      "slowest_max_ms": 4.772969,
+      "target_labels": [
+        "header chip status"
+      ]
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 5,
+      "click_count": 2,
+      "wheel_count": 1,
+      "key_count": 2,
+      "slowest_p95_ms": 3.643146,
+      "slowest_max_ms": 3.643146,
+      "target_labels": [
+        "conversation scroll area",
+        "conversation surface"
+      ]
+    },
+    {
+      "surface": "input",
+      "sample_count": 2,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 3.116144,
+      "slowest_max_ms": 3.116144,
+      "target_labels": [
+        "input surface"
+      ]
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 1,
+      "click_count": 1,
+      "wheel_count": 0,
+      "key_count": 0,
+      "slowest_p95_ms": 2.431315,
+      "slowest_max_ms": 2.431315,
+      "target_labels": [
+        "session row"
+      ]
+    },
+    {
+      "surface": "doctor",
+      "sample_count": 1,
+      "click_count": 0,
+      "wheel_count": 0,
+      "key_count": 1,
+      "slowest_p95_ms": 2.232152,
+      "slowest_max_ms": 2.232152,
+      "target_labels": []
+    }
+  ],
+  "click_target_count": 3,
+  "click_targets": [
+    "conversation:body:wheel",
+    "header:chip:status",
+    "sidebar:session:ses_seed_ws_default_1"
+  ],
+  "click_target_labels": [
+    "conversation scroll area",
+    "conversation surface",
+    "header chip status",
+    "input surface",
+    "session row"
+  ],
+  "wheel_rows": [
+    {
+      "surface": "conversation",
+      "kind": "wheel down",
+      "target_label": "conversation scroll area",
+      "last_hit_target": "conversation:body:wheel"
+    }
+  ]
+}

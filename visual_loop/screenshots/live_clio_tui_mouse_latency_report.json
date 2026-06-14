@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-06-12T18:59:25.266123777Z",
+  "backend": "http://127.0.0.1:19060",
+  "session_id": "sess_5c67925c0c19",
+  "window_width": 140,
+  "window_height": 40,
+  "focus_surface": "conversation",
+  "mouse_enabled": true,
+  "sample_count": 10,
+  "surface_count": 9,
+  "slowest": {
+    "key": "header:click:header:chip:status",
+    "surface": "header",
+    "kind": "click",
+    "target_label": "header chip status",
+    "last_hit_target": "header:chip:status",
+    "count": 1,
+    "update_p50_ms": 0.027634,
+    "update_p95_ms": 0.027634,
+    "render_p50_ms": 5.429098,
+    "render_p95_ms": 5.429098,
+    "total_p50_ms": 5.459817,
+    "total_p95_ms": 5.459817,
+    "total_max_ms": 5.459817
+  },
+  "sections": [
+    {
+      "surface": "header",
+      "sample_count": 1,
+      "click_count": 1,
+      "target_labels": [
+        "header chip status"
+      ],
+      "slowest_p95_ms": 5.459817,
+      "slowest_max_ms": 5.459817,
+      "slowest_render_p95_ms": 5.429098
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 5,
+      "click_count": 2,
+      "wheel_count": 1,
+      "key_count": 2,
+      "target_labels": [
+        "conversation scroll area",
+        "conversation surface"
+      ],
+      "slowest_p95_ms": 3.966472,
+      "slowest_max_ms": 3.966472,
+      "slowest_render_p95_ms": 3.953201
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 1,
+      "click_count": 1,
+      "target_labels": [
+        "session row"
+      ],
+      "slowest_p95_ms": 3.900008,
+      "slowest_max_ms": 3.900008,
+      "slowest_render_p95_ms": 3.888179
+    },
+    {
+      "surface": "doctor",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 3.810229,
+      "slowest_max_ms": 3.810229,
+      "slowest_render_p95_ms": 3.8056
+    },
+    {
+      "surface": "input",
+      "sample_count": 2,
+      "click_count": 1,
+      "key_count": 1,
+      "target_labels": [
+        "input surface"
+      ],
+      "slowest_p95_ms": 3.015363,
+      "slowest_max_ms": 3.015363,
+      "slowest_render_p95_ms": 3.008622
+    }
+  ],
+  "interactions": [
+    {
+      "key": "header:click:header:chip:status",
+      "surface": "header",
+      "kind": "click",
+      "target_label": "header chip status",
+      "last_hit_target": "header:chip:status",
+      "count": 1,
+      "update_p50_ms": 0.027634,
+      "update_p95_ms": 0.027634,
+      "render_p50_ms": 5.429098,
+      "render_p95_ms": 5.429098,
+      "total_p50_ms": 5.459817,
+      "total_p95_ms": 5.459817,
+      "total_max_ms": 5.459817
+    },
+    {
+      "key": "conversation:wheel down:conversation:body:wheel",
+      "surface": "conversation",
+      "kind": "wheel down",
+      "target_label": "conversation scroll area",
+      "last_hit_target": "conversation:body:wheel",
+      "count": 1,
+      "update_p50_ms": 0.011057,
+      "update_p95_ms": 0.011057,
+      "render_p50_ms": 3.953201,
+      "render_p95_ms": 3.953201,
+      "total_p50_ms": 3.966472,
+      "total_p95_ms": 3.966472,
+      "total_max_ms": 3.966472
+    },
+    {
+      "key": "left sidebar:click:sidebar:session:sess_5c67925c0c19",
+      "surface": "left sidebar",
+      "kind": "click",
+      "target_label": "session row",
+      "last_hit_target": "sidebar:session:sess_5c67925c0c19",
+      "count": 1,
+      "update_p50_ms": 0.008311,
+      "update_p95_ms": 0.008311,
+      "render_p50_ms": 3.888179,
+      "render_p95_ms": 3.888179,
+      "total_p50_ms": 3.900008,
+      "total_p95_ms": 3.900008,
+      "total_max_ms": 3.900008
+    },
+    {
+      "key": "doctor:key",
+      "surface": "doctor",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.002581,
+      "update_p95_ms": 0.002581,
+      "render_p50_ms": 3.8056,
+      "render_p95_ms": 3.8056,
+      "total_p50_ms": 3.810229,
+      "total_p95_ms": 3.810229,
+      "total_max_ms": 3.810229
+    },
+    {
+      "key": "conversation:key",
+      "surface": "conversation",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.003288,
+      "update_p95_ms": 0.009524,
+      "render_p50_ms": 2.95735,
+      "render_p95_ms": 3.484038,
+      "total_p50_ms": 2.968802,
+      "total_p95_ms": 3.489521,
+      "total_max_ms": 3.489521
+    },
+    {
+      "key": "input:click",
+      "surface": "input",
+      "kind": "click",
+      "target_label": "input surface",
+      "count": 1,
+      "update_p50_ms": 0.004132,
+      "update_p95_ms": 0.004132,
+      "render_p50_ms": 3.008622,
+      "render_p95_ms": 3.008622,
+      "total_p50_ms": 3.015363,
+      "total_p95_ms": 3.015363,
+      "total_max_ms": 3.015363
+    },
+    {
+      "key": "conversation:click",
+      "surface": "conversation",
+      "kind": "click",
+      "target_label": "conversation surface",
+      "count": 1,
+      "update_p50_ms": 0.011039,
+      "update_p95_ms": 0.011039,
+      "render_p50_ms": 2.920596,
+      "render_p95_ms": 2.920596,
+      "total_p50_ms": 2.959655,
+      "total_p95_ms": 2.959655,
+      "total_max_ms": 2.959655
+    },
+    {
+      "key": "input:key",
+      "surface": "input",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.028359,
+      "update_p95_ms": 0.028359,
+      "render_p50_ms": 2.592414,
+      "render_p95_ms": 2.592414,
+      "total_p50_ms": 2.646157,
+      "total_p95_ms": 2.646157,
+      "total_max_ms": 2.646157
+    },
+    {
+      "key": "conversation:click:conversation:body:wheel",
+      "surface": "conversation",
+      "kind": "click",
+      "target_label": "conversation scroll area",
+      "last_hit_target": "conversation:body:wheel",
+      "count": 1,
+      "update_p50_ms": 0.005345,
+      "update_p95_ms": 0.005345,
+      "render_p50_ms": 2.59527,
+      "render_p95_ms": 2.59527,
+      "total_p50_ms": 2.603057,
+      "total_p95_ms": 2.603057,
+      "total_max_ms": 2.603057
+    }
+  ],
+  "supported_by": {
+    "keys": true,
+    "clicks": true,
+    "wheels": true,
+    "copies": false
+  }
+}

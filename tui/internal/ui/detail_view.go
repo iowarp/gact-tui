@@ -3,6 +3,10 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,6 +24,19 @@ type bulkyPartRef struct {
 	title     string // rendered header ("ReadFile(main.go) → output")
 	fullText  string
 	localPath string
+	fileModes []fileDetailMode
+	fileMode  string
+}
+
+type fileDetailMode struct {
+	id    string
+	label string
+	text  string
+}
+
+type localFileExternalOpenMsg struct {
+	path string
+	err  error
 }
 
 type detailField struct {
@@ -33,6 +50,7 @@ type scrollableDetailOptions struct {
 	content    string
 	scroll     int
 	page       int
+	tabs       []menuTab
 	hint       string
 	closeID    string
 	closeLabel string
@@ -45,10 +63,17 @@ type scrollableDetailRender struct {
 	window scrollWindow
 }
 
+type detailWrapCache struct {
+	content string
+	width   int
+	wrapped string
+}
+
 func (a *App) closeDetailView() {
 	a.detailViewOpen = false
 	a.detailView = nil
 	a.detailScroll = 0
+	a.detailWrap = detailWrapCache{}
 }
 
 func (a *App) copyDetailViewToClipboard() tea.Cmd {
@@ -58,6 +83,18 @@ func (a *App) copyDetailViewToClipboard() tea.Cmd {
 	}
 	a.transientHint = copyTextToClipboard("detail", a.detailView.fullText)
 	return nil
+}
+
+func (a *App) openDetailFileExternally() tea.Cmd {
+	if a.detailView == nil || strings.TrimSpace(a.detailView.localPath) == "" {
+		a.transientHint = "no local file to open"
+		return scheduleHintExpire(a.transientHint)
+	}
+	path := a.detailView.localPath
+	a.transientHint = "opening " + filepath.Base(path) + " externally"
+	return tea.Batch(scheduleHintExpire(a.transientHint), func() tea.Msg {
+		return localFileExternalOpenMsg{path: path, err: openLocalFileExternally(path)}
+	})
 }
 
 func appendDetailSection(rows []string, title string, fields ...detailField) []string {
@@ -147,8 +184,18 @@ func (a *App) handleDetailViewKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "y":
 		return a, a.copyDetailViewToClipboard()
+	case "o":
+		return a, a.openDetailFileExternally()
 	case "u":
 		return a, a.uploadCurrentFileDetail()
+	case "tab", "right", "l":
+		if a.cycleFileDetailMode(1) {
+			return a, nil
+		}
+	case "shift+tab", "left", "h":
+		if a.cycleFileDetailMode(-1) {
+			return a, nil
+		}
 	case "up", "k":
 		if a.detailScroll > 0 {
 			a.detailScroll--
@@ -229,7 +276,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 		page = 1
 	}
 
-	wrapped := wrap(opts.content, innerW)
+	wrapped := a.cachedDetailWrappedContent(opts.content, innerW)
 	page = compactModalBodyRows(wrapped, page, minInt(8, page))
 	lines := strings.Split(wrapped, "\n")
 	title := opts.title
@@ -274,6 +321,15 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 			},
 		}}, buttons...)
 	}
+	if a.fileDetailExternalAvailable() {
+		buttons = append([]menuButton{{
+			id:    "detail:open-external",
+			label: "open",
+			action: func(app *App) tea.Cmd {
+				return app.openDetailFileExternally()
+			},
+		}}, buttons...)
+	}
 
 	hint := opts.hint
 	if hint == "" {
@@ -286,13 +342,22 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	if a.fileDetailUploadAvailable() {
 		hint = "u upload  " + hint
 	}
+	if a.fileDetailExternalAvailable() {
+		hint = "o open  " + hint
+	}
+	if a.fileDetailHasModes() {
+		hint = "Tab mode  " + hint
+	}
 	hintStyle := t.HintLabel
 	bodyContent := strings.Join(lines, "\n")
 	rendered := a.renderScrollableModalFrame(scrollableModalFrameOptions{
 		frame: modalFrameOptions{
-			width:   w,
-			title:   title,
-			buttons: buttons,
+			width:      w,
+			title:      title,
+			buttons:    buttons,
+			tabs:       opts.tabs,
+			tabPadding: 1,
+			tabSpacing: 1,
 		},
 		content:     bodyContent,
 		pageSize:    page,
@@ -314,6 +379,22 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	a.setDetailCopySnapshot(visibleLines, rendered.modal, rendered.bodyRow)
 	rendered.modal = a.renderDetailCopyDragHighlight(rendered.modal)
 	return scrollableDetailRender{modal: rendered.modal, scroll: rendered.window.scroll, window: rendered.window}
+}
+
+func (a *App) cachedDetailWrappedContent(content string, width int) string {
+	if a == nil {
+		return wrap(content, width)
+	}
+	if a.detailWrap.width == width && a.detailWrap.content == content {
+		return a.detailWrap.wrapped
+	}
+	wrapped := wrap(content, width)
+	a.detailWrap = detailWrapCache{
+		content: content,
+		width:   width,
+		wrapped: wrapped,
+	}
+	return wrapped
 }
 
 func (a *App) permissionInspectorDecisionButtons(title string) []menuButton {
@@ -343,8 +424,91 @@ func (a *App) permissionInspectorDecisionButtons(title string) []menuButton {
 func (a *App) fileDetailUploadAvailable() bool {
 	return a.detailView != nil &&
 		a.detailView.messageID == "files" &&
+		a.detailView.partID != "root" &&
 		strings.TrimSpace(a.detailView.localPath) != "" &&
 		a.caps.Capabilities.AttachmentsUpload
+}
+
+func (a *App) fileDetailExternalAvailable() bool {
+	return a.detailView != nil &&
+		a.detailView.messageID == "files" &&
+		strings.TrimSpace(a.detailView.localPath) != ""
+}
+
+func (a *App) fileDetailHasModes() bool {
+	return a.detailView != nil && len(a.detailView.fileModes) > 1
+}
+
+func (a *App) cycleFileDetailMode(delta int) bool {
+	if a.detailView == nil || len(a.detailView.fileModes) <= 1 {
+		return false
+	}
+	idx := a.fileDetailModeIndex()
+	next := (idx + delta) % len(a.detailView.fileModes)
+	if next < 0 {
+		next += len(a.detailView.fileModes)
+	}
+	a.setFileDetailMode(a.detailView.fileModes[next].id)
+	return true
+}
+
+func (a *App) fileDetailModeIndex() int {
+	if a.detailView == nil || len(a.detailView.fileModes) == 0 {
+		return 0
+	}
+	for i, mode := range a.detailView.fileModes {
+		if mode.id == a.detailView.fileMode {
+			return i
+		}
+	}
+	return 0
+}
+
+func (a *App) setFileDetailMode(id string) {
+	if a.detailView == nil {
+		return
+	}
+	for _, mode := range a.detailView.fileModes {
+		if mode.id != id {
+			continue
+		}
+		a.detailView.fileMode = mode.id
+		a.detailView.fullText = mode.text
+		a.detailScroll = 0
+		a.detailWrap = detailWrapCache{}
+		return
+	}
+}
+
+func (a *App) fileDetailTabs() []menuTab {
+	if a.detailView == nil || len(a.detailView.fileModes) <= 1 {
+		return nil
+	}
+	tabs := make([]menuTab, 0, len(a.detailView.fileModes))
+	for _, mode := range a.detailView.fileModes {
+		mode := mode
+		tabs = append(tabs, menuTab{
+			id:     "file-detail:" + mode.id,
+			label:  mode.label,
+			active: mode.id == a.detailView.fileMode,
+			action: func(app *App) tea.Cmd {
+				app.setFileDetailMode(mode.id)
+				return nil
+			},
+		})
+	}
+	return tabs
+}
+
+func openLocalFileExternally(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("cmd", "/c", "start", "", path).Start()
+	default:
+		return exec.Command("xdg-open", path).Start()
+	}
 }
 
 // TTTTTTTTT1: findBulkyPartForSelected builds a bulkyPartRef for the
@@ -831,7 +995,7 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 	if len(event) == 0 {
 		return rows
 	}
-	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	userSummary := semanticEventReadableResult(event)
 	rows = appendSemanticEventOperatorView(rows, event)
 	rows = appendDetailSection(rows, "Event summary",
 		detailField{"what happened", userSummary},
@@ -863,7 +1027,19 @@ func appendSemanticEventDetail(rows []string, event map[string]any) []string {
 		"provider_id", "model_id", "model", "source")
 	rows = appendSemanticEventMapSection(rows, "Tool evidence", mapValue(event["payload"]),
 		"stage", "status", "parent_id", "agent_id", "return_to", "resumed_from", "tool", "tool_name", "call_id", "ok", "duration_ms", "cached", "telemetry_source", "args_preview", "args", "input_preview", "input", "error", "message", "path", "artifact_type")
+	if semanticRawEventDetailEnabled() {
+		rows = appendAnyJSONSection(rows, "Raw semantic event", event)
+	}
 	return rows
+}
+
+func semanticRawEventDetailEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GACT_SEMANTIC_RAW_EVENT_DETAIL"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func appendSemanticEventOperatorView(rows []string, event map[string]any) []string {
@@ -919,7 +1095,7 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		mapValue(payload["workflow_state"]),
 		mapValue(event["workflow_state"]),
 	))
-	userSummary := semanticUserSummary(event, runtimeScalar(event["event_type"]))
+	userSummary := semanticEventReadableResult(event)
 	failureSummary := semanticFailureSummary(event, runtimeScalar(event["event_type"]))
 	fallbackSummary := semanticStreamFallbackSummary(event)
 	fields := []detailField{
@@ -948,6 +1124,61 @@ func appendSemanticEventOperatorView(rows []string, event map[string]any) []stri
 		fields = append(fields, detailField{"endpoint", apiBase})
 	}
 	return appendDetailSection(rows, "Operator view", fields...)
+}
+
+func semanticEventReadableResult(event map[string]any) string {
+	eventType := runtimeScalar(event["event_type"])
+	if strings.HasPrefix(eventType, "tool.call.") {
+		payload := semanticToolPayload(event)
+		tool := firstNonEmpty(
+			runtimeScalar(payload["tool"]),
+			runtimeScalar(payload["tool_name"]),
+			runtimeScalar(mapValue(event["actor"])["tool"]),
+			runtimeScalar(mapValue(event["actor"])["tool_name"]),
+			runtimeScalar(mapValue(event["subject"])["tool"]),
+			runtimeScalar(mapValue(event["subject"])["tool_name"]),
+			"tool",
+		)
+		if strings.HasSuffix(eventType, ".completed") {
+			duration, hasDuration := floatValue(firstNonNil(payload["duration_ms"], event["duration_ms"]))
+			cached, hasCached := firstNonNil(payload["cached"], event["cached"]).(bool)
+			summary := semanticToolCompletionSummary(
+				tool,
+				runtimeScalar(event["summary"]),
+				payload,
+				event,
+				duration,
+				hasDuration,
+				cached,
+				hasCached,
+			)
+			if strings.TrimSpace(summary) != "" {
+				return compactSemanticDetailResult(summary)
+			}
+		}
+		if strings.HasSuffix(eventType, ".started") {
+			if args := semanticInlineArgsPreview(payload, event); args != "" {
+				return toolDisplayName(tool) + " started with " + args
+			}
+			return toolDisplayName(tool) + " started."
+		}
+	}
+	return compactSemanticDetailResult(semanticUserSummary(event, eventType))
+}
+
+func compactSemanticDetailResult(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if looksLikeMarkdownBlock(text) {
+		return truncateMarkdownBlock(text, 650, 10)
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > 8 {
+		return strings.TrimSpace(strings.Join(lines[:8], "\n")) + "\n\n_full result available below_"
+	}
+	return truncateString(text, 720)
 }
 
 func firstNonEmptyMap(values ...map[string]any) map[string]any {
@@ -1223,6 +1454,7 @@ func (a *App) viewDetailView() string {
 		content:    ref.fullText,
 		scroll:     a.detailScroll,
 		page:       a.detailPageSize(),
+		tabs:       a.fileDetailTabs(),
 		hint:       hint,
 		closeID:    "detail:close",
 		closeLabel: closeLabel,

@@ -69,6 +69,60 @@ captures cannot satisfy the live proof. The helper refuses `TERM=dumb` captures 
 `GACT_ALLOW_DUMB_TERMINAL_CAPTURE=1` is set for a non-interactive smoke test; do
 not use forced captures as proof that native selection works.
 
+For TUI mouse-event latency proof (#160), use the PTY harness because the
+current VHS command set cannot script mouse primitives:
+
+```bash
+go build -p 1 -o tui/gact ./tui
+go build -p 1 -o .tools/emulator-server ./emulator/cmd/emulator-server
+visual_loop/capture_tui_mouse_latency_pty.py
+```
+
+This starts a disposable emulator unless `--backend` is supplied. When using an
+existing backend, pass `--own-backend` or set
+`GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1`; the helper refuses ambiguous shared
+backends. It writes `tui_mouse_latency_pty_manifest.json` and
+`tui_mouse_latency_pty_report.json`, and fails unless the report contains
+section-level click latency for the header, left sidebar, conversation, and
+input surfaces, plus wheel latency for the conversation surface. The manifest
+also preserves target labels and per-section p95/max latency summaries generated
+from terminal SGR mouse escape sequences.
+
+The maintained readiness check also treats the checked-in PTY report as the
+latency baseline for those primary mouse sections. `check_tui_latency_readiness.py`
+fails maintained readiness if any gated section regresses past 125% of that
+baseline, so performance drift is caught before release while the strict live
+CLIO streaming proof remains separately gated.
+
+For the strict live #160 gate, run the same PTY path against an owned real CLIO
+backend while the target session is still running:
+
+```bash
+GACT_TUI_MOUSE_LATENCY_OWN_BACKEND=1 \
+  visual_loop/capture_tui_mouse_latency_pty.py \
+  --backend http://127.0.0.1:<OWN_CLIO_PORT> \
+  --session <RUNNING_SESSION_ID> \
+  --live-clio \
+  --require-active-stream
+```
+
+Live mode writes `live_clio_tui_mouse_latency_manifest.json` and
+`live_clio_tui_mouse_latency_report.json`. The command fails if the session is
+idle, backend latency metrics have no samples, provider streaming has fallen
+back to non-live mode, or the TUI report lacks named click sections.
+
+Refresh the TUI latency readiness report after changing latency instrumentation
+or evidence:
+
+```bash
+python3 visual_loop/check_tui_latency_readiness.py --root . \
+  --write-report visual_loop/screenshots/tui_latency_readiness.report.md
+```
+
+Use `--strict-live` only for the final #160 gate after running
+`capture_live_tui_latency.sh --require-active-stream` against an owned CLIO
+backend with a still-running provider-backed session.
+
 Refresh the diagnostics readiness report after changing doctor, metrics, memory,
 or CLI diagnostic evidence:
 

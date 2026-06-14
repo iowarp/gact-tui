@@ -1,15 +1,20 @@
 package ui
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -325,32 +330,316 @@ func (a *App) fileTreeChildrenLoaded(path string) bool {
 
 func (a *App) openFileViewerDetail(entry fileTreeEntry) {
 	fullPath := filepath.Join(a.fileViewerRoot, filepath.FromSlash(entry.Path))
-	data, err := os.ReadFile(fullPath)
-	rows := []string{
-		"path: " + entry.Path,
-		"root: " + a.fileViewerRoot,
-	}
-	if entry.Size > 0 {
-		rows = append(rows, "size: "+humanBytes(entry.Size))
-	}
-	if err != nil {
-		rows = append(rows, "error: "+err.Error())
-	} else {
-		text := string(data)
-		if len(text) > 12000 {
-			text = text[:12000] + "\n[truncated]"
-		}
-		rows = append(rows, "", text)
+	modes := a.localFileDetailModes(entry, fullPath)
+	active := ""
+	fullText := ""
+	if len(modes) > 0 {
+		active = modes[0].id
+		fullText = modes[0].text
 	}
 	a.detailView = &bulkyPartRef{
 		messageID: "files",
 		partID:    entry.Path,
 		title:     "File · " + entry.Path,
-		fullText:  strings.Join(rows, "\n"),
+		fullText:  fullText,
 		localPath: fullPath,
+		fileModes: modes,
+		fileMode:  active,
 	}
 	a.detailViewOpen = true
 	a.detailScroll = 0
+}
+
+const maxLocalFilePreviewBytes = 2 * 1024 * 1024
+
+func (a *App) localFileDetailModes(entry fileTreeEntry, fullPath string) []fileDetailMode {
+	info := localFileInfoText(entry, a.fileViewerRoot)
+	ext := localFileExtension(entry.Path)
+	if isKnownExternalOnlyFile(ext) {
+		return []fileDetailMode{{
+			id:    "info",
+			label: "Info",
+			text:  localFileUnsupportedText(info, entry.Path, ext, "This file type is not rendered inside the TUI yet."),
+		}}
+	}
+	if entry.Size > maxLocalFilePreviewBytes {
+		return []fileDetailMode{{
+			id:    "info",
+			label: "Info",
+			text: localFileUnsupportedText(info, entry.Path, ext,
+				fmt.Sprintf("This file is %s, which is above the %s inline preview limit.",
+					humanBytes(entry.Size), humanBytes(maxLocalFilePreviewBytes))),
+		}}
+	}
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return []fileDetailMode{{
+			id:    "info",
+			label: "Info",
+			text:  info + "\n\nerror: " + err.Error(),
+		}}
+	}
+	if !looksLikeTextBytes(data) {
+		return []fileDetailMode{{
+			id:    "info",
+			label: "Info",
+			text:  localFileUnsupportedText(info, entry.Path, ext, "This appears to be a binary file."),
+		}}
+	}
+	raw := truncateLocalPreview(string(data))
+	switch ext {
+	case ".md", ".markdown":
+		rendered := info + "\n\n" + renderMarkdown(raw, a.Theme, maxInt(40, modalBodyContentWidth(a.detailModalWidth())-4))
+		return []fileDetailMode{
+			{id: "rendered", label: "Rendered", text: rendered},
+			{id: "raw", label: "Raw", text: info + "\n\n" + raw},
+		}
+	case ".json":
+		pretty, err := prettyJSON(data)
+		if err == nil {
+			return []fileDetailMode{
+				{id: "pretty", label: "Pretty", text: info + "\n\n" + pretty},
+				{id: "raw", label: "Raw", text: info + "\n\n" + raw},
+			}
+		}
+		return []fileDetailMode{
+			{id: "raw", label: "Raw", text: info + "\n\n" + raw + "\n\njson parse error: " + err.Error()},
+		}
+	case ".jsonl", ".ndjson":
+		return []fileDetailMode{
+			{id: "preview", label: "Preview", text: info + "\n\n" + previewJSONLines(data, 40)},
+			{id: "raw", label: "Raw", text: info + "\n\n" + raw},
+		}
+	case ".csv", ".tsv":
+		table, err := previewDelimitedFile(data, ext, 40)
+		if err == nil {
+			return []fileDetailMode{
+				{id: "table", label: "Table", text: info + "\n\n" + table},
+				{id: "raw", label: "Raw", text: info + "\n\n" + raw},
+			}
+		}
+		return []fileDetailMode{
+			{id: "raw", label: "Raw", text: info + "\n\n" + raw + "\n\nparse error: " + err.Error()},
+		}
+	case ".html", ".htm":
+		return []fileDetailMode{
+			{id: "info", label: "Info", text: localFileUnsupportedText(info, entry.Path, ext,
+				"HTML visual rendering is optional and not wired into this build yet.")},
+			{id: "raw", label: "Raw", text: info + "\n\n" + raw},
+		}
+	default:
+		return []fileDetailMode{{id: "raw", label: "Raw", text: info + "\n\n" + raw}}
+	}
+}
+
+func localFileInfoText(entry fileTreeEntry, root string) string {
+	rows := []string{
+		"path: " + entry.Path,
+		"root: " + root,
+	}
+	if entry.Size > 0 {
+		rows = append(rows, "size: "+humanBytes(entry.Size))
+	}
+	if ext := strings.TrimPrefix(localFileExtension(entry.Path), "."); ext != "" {
+		rows = append(rows, "type: "+ext)
+	}
+	return strings.Join(rows, "\n")
+}
+
+func localFileExtension(path string) string {
+	base := strings.ToLower(filepath.Base(path))
+	for _, ext := range []string{".vcf.gz"} {
+		if strings.HasSuffix(base, ext) {
+			return ext
+		}
+	}
+	return strings.ToLower(filepath.Ext(base))
+}
+
+func localFileUnsupportedText(info, path, ext, reason string) string {
+	rows := []string{
+		info,
+		"",
+		"preview: unsupported",
+		"reason: " + reason,
+	}
+	if guidance := localFileRendererGuidance(ext); guidance != "" {
+		rows = append(rows, "optional renderer: "+guidance)
+	}
+	rows = append(rows,
+		"",
+		"Open externally with o or the open button.",
+		"If this file type matters to your workflow, please open an issue on the repository and include this extension: "+firstNonEmpty(ext, filepath.Ext(path), "unknown")+".",
+	)
+	return strings.Join(rows, "\n")
+}
+
+func isKnownExternalOnlyFile(ext string) bool {
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+		".pdf", ".parquet", ".arrow", ".feather", ".h5", ".hdf5",
+		".nc", ".nc4", ".cdf", ".netcdf", ".npy", ".npz", ".bam", ".cram",
+		".vcf.gz", ".bcf":
+		return true
+	default:
+		return false
+	}
+}
+
+func localFileRendererGuidance(ext string) string {
+	present := func(name string) bool {
+		_, err := exec.LookPath(name)
+		return err == nil
+	}
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp":
+		if present("chafa") {
+			return "chafa is installed; inline image rendering can be enabled in a follow-up."
+		}
+		return "install chafa for reliable terminal image previews."
+	case ".html", ".htm":
+		for _, tool := range []string{"w3m", "elinks", "lynx", "links"} {
+			if present(tool) {
+				return tool + " is installed; text-browser rendering can be enabled in a follow-up."
+			}
+		}
+		return "install w3m, elinks, lynx, or links for terminal HTML rendering."
+	case ".pdf":
+		for _, tool := range []string{"pdftotext", "mutool", "pandoc"} {
+			if present(tool) {
+				return tool + " is installed; PDF text extraction can be enabled in a follow-up."
+			}
+		}
+		return "install pdftotext, mutool, or pandoc for PDF text previews."
+	case ".parquet", ".arrow", ".feather":
+		return "install Python pyarrow for schema and row previews."
+	case ".h5", ".hdf5":
+		return "install h5ls or Python h5py for HDF5 tree previews."
+	case ".nc", ".nc4", ".cdf", ".netcdf":
+		return "install ncdump, Python netCDF4, or xarray for NetCDF previews."
+	case ".npy", ".npz":
+		return "install Python numpy for array metadata and value previews."
+	case ".bam", ".cram":
+		return "install samtools for genomics header previews."
+	case ".vcf.gz", ".bcf":
+		return "install bcftools for genomics summary/header previews."
+	case ".svg":
+		return "SVG is best opened with the OS viewer until rasterization is wired in."
+	default:
+		return ""
+	}
+}
+
+func looksLikeTextBytes(data []byte) bool {
+	if len(data) == 0 {
+		return true
+	}
+	if bytes.IndexByte(data, 0) >= 0 {
+		return false
+	}
+	if !utf8.Valid(data) {
+		return false
+	}
+	control := 0
+	for _, b := range data {
+		if b == '\t' || b == '\n' || b == '\r' || b == '\f' || b == '\v' {
+			continue
+		}
+		if b < 0x20 {
+			control++
+		}
+	}
+	return control == 0
+}
+
+func truncateLocalPreview(s string) string {
+	const limit = 12000
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "\n[truncated]"
+}
+
+func prettyJSON(data []byte) (string, error) {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return "", err
+	}
+	out, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func previewJSONLines(data []byte, limit int) string {
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	var out strings.Builder
+	fmt.Fprintf(&out, "jsonl: %d records (showing first %d)\n\n", len(lines), minInt(limit, len(lines)))
+	for i, line := range lines {
+		if i >= limit {
+			break
+		}
+		var v any
+		if err := json.Unmarshal([]byte(line), &v); err != nil {
+			fmt.Fprintf(&out, "[%d] <invalid json: %v>\n", i, err)
+			continue
+		}
+		pretty, _ := json.Marshal(v)
+		fmt.Fprintf(&out, "[%d] %s\n", i, pretty)
+	}
+	return strings.TrimRight(out.String(), "\n")
+}
+
+func previewDelimitedFile(data []byte, ext string, limit int) (string, error) {
+	r := csv.NewReader(strings.NewReader(string(data)))
+	if ext == ".tsv" {
+		r.Comma = '\t'
+	}
+	r.FieldsPerRecord = -1
+	records, err := r.ReadAll()
+	if err != nil {
+		return "", err
+	}
+	if len(records) == 0 {
+		return "(empty file)", nil
+	}
+	header := records[0]
+	rows := records[1:]
+	widths := make([]int, len(header))
+	for i, h := range header {
+		widths[i] = len(h)
+	}
+	for _, row := range rows[:minInt(limit, len(rows))] {
+		for i := range header {
+			if i < len(row) && len(row[i]) > widths[i] {
+				widths[i] = len(row[i])
+			}
+		}
+	}
+	var out strings.Builder
+	writePreviewRow(&out, header, widths)
+	sep := make([]string, len(header))
+	for i, w := range widths {
+		sep[i] = strings.Repeat("-", w)
+	}
+	writePreviewRow(&out, sep, widths)
+	for _, row := range rows[:minInt(limit, len(rows))] {
+		writePreviewRow(&out, row, widths)
+	}
+	fmt.Fprintf(&out, "\n%d data rows total (showing %d), %d columns", len(rows), minInt(limit, len(rows)), len(header))
+	return out.String(), nil
+}
+
+func writePreviewRow(out *strings.Builder, cells []string, widths []int) {
+	for i, w := range widths {
+		cell := ""
+		if i < len(cells) {
+			cell = cells[i]
+		}
+		fmt.Fprintf(out, "%-*s  ", w, cell)
+	}
+	out.WriteString("\n")
 }
 
 func (a *App) openFileViewerRootDetail() {

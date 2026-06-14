@@ -1227,6 +1227,11 @@ func runTUI() {
 		fmt.Fprintln(os.Stderr, "gact:", err)
 		log.Fatal(err)
 	}
+	if reportPath := os.Getenv("GACT_TUI_LATENCY_REPORT"); reportPath != "" {
+		if err := app.WriteTUIInteractionLatencyReport(reportPath); err != nil {
+			fmt.Fprintf(os.Stderr, "gact: warning — failed to write TUI latency report %s: %v\n", reportPath, err)
+		}
+	}
 	// IIIII1: Ctrl+Z sets DetachedSessionID before tea.Quit. After
 	// the TUI exits cleanly, surface the reattach command — the
 	// session is still running on the backend, but the user has
@@ -6374,7 +6379,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	for _, name := range []string{
 		"GACT_BACKEND", "GACT_THEME", "GACT_LOCALE", "GACT_VOICE_CMD",
 		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
-		"GACT_CLIO_GACT_BIN",
+		"GACT_CLIO_GACT_BIN", "GACT_TUI_LATENCY_REPORT",
 	} {
 		if v := os.Getenv(name); v != "" {
 			fmt.Fprintf(w, "  env %s: %s\n", name, v)

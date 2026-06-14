@@ -13,9 +13,20 @@ Show
 Wait+Screen /CONVERSATION/
 Sleep 1000ms
 
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+Type "Y"
+Wait+Screen /copied full conversation/
+Sleep 300ms
+Tab
+Sleep 150ms
+
 Type "/metrics"
 Enter
 Wait+Screen /Operations Metrics/
+Wait+Screen /full conversation copy/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_menu_metrics.png"
 

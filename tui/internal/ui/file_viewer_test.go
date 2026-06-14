@@ -316,6 +316,118 @@ func TestFileViewerEnterTogglesFoldersAndOpensFiles(t *testing.T) {
 	}
 }
 
+func TestFileViewerMarkdownDetailOffersRenderedAndRawModes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("# Demo\n\n**bold** text\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 0
+
+	a.activateFileTreeSelection()
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("markdown file should open detail")
+	}
+	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "rendered" {
+		t.Fatalf("markdown modes = %#v active=%q, want rendered/raw", a.detailView.fileModes, a.detailView.fileMode)
+	}
+	if !strings.Contains(stripANSI(a.detailView.fullText), "Demo") {
+		t.Fatalf("rendered markdown detail missing content:\n%s", a.detailView.fullText)
+	}
+	model, _ := a.handleDetailViewKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	a = model.(*App)
+	if a.detailView.fileMode != "raw" || !strings.Contains(a.detailView.fullText, "**bold**") {
+		t.Fatalf("tab should switch to raw markdown, mode=%q text:\n%s", a.detailView.fileMode, a.detailView.fullText)
+	}
+}
+
+func TestFileViewerJSONDetailOffersPrettyAndRawModes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "data.json"), []byte(`{"ok":true,"n":2}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 0
+
+	a.activateFileTreeSelection()
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("json file should open detail")
+	}
+	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "pretty" {
+		t.Fatalf("json modes = %#v active=%q, want pretty/raw", a.detailView.fileModes, a.detailView.fileMode)
+	}
+	if !strings.Contains(a.detailView.fullText, "\"ok\": true") {
+		t.Fatalf("pretty json missing formatted body:\n%s", a.detailView.fullText)
+	}
+}
+
+func TestFileViewerCSVDetailOffersTableAndRawModes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "stations.csv"), []byte("station,value\nMTA1,1.2\nPKRD,0.9\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 0
+
+	a.activateFileTreeSelection()
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("csv file should open detail")
+	}
+	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "table" {
+		t.Fatalf("csv modes = %#v active=%q, want table/raw", a.detailView.fileModes, a.detailView.fileMode)
+	}
+	if !strings.Contains(a.detailView.fullText, "station") || !strings.Contains(a.detailView.fullText, "2 data rows total") {
+		t.Fatalf("table preview missing expected summary:\n%s", a.detailView.fullText)
+	}
+}
+
+func TestFileViewerLargeFileShowsInfoWithoutReadingInline(t *testing.T) {
+	root := t.TempDir()
+	name := filepath.Join(root, "large.log")
+	if err := os.WriteFile(name, []byte("too large for preview"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	entry := fileTreeEntry{Path: "large.log", Size: maxLocalFilePreviewBytes + 1}
+
+	modes := a.localFileDetailModes(entry, name)
+
+	if len(modes) != 1 || modes[0].id != "info" {
+		t.Fatalf("large file modes = %#v, want single info mode", modes)
+	}
+	if !strings.Contains(modes[0].text, "inline preview limit") || strings.Contains(modes[0].text, "too large for preview") {
+		t.Fatalf("large file info should explain the limit without reading body:\n%s", modes[0].text)
+	}
+}
+
+func TestFileViewerBinaryDetailShowsUnsupportedState(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "blob.bin"), []byte{0x00, 0x01, 0xff, 0x02}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+	a.fileTreeSel = 0
+
+	a.activateFileTreeSelection()
+
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("binary file should open an info detail")
+	}
+	if a.detailView.fileMode != "info" || !strings.Contains(a.detailView.fullText, "preview: unsupported") {
+		t.Fatalf("binary detail should show unsupported state, mode=%q text:\n%s", a.detailView.fileMode, a.detailView.fullText)
+	}
+	if strings.Contains(a.detailView.fullText, "\x00") {
+		t.Fatalf("binary detail leaked raw NUL bytes:\n%s", a.detailView.fullText)
+	}
+}
+
 func TestFileViewerMouseClickUsesSemanticHitTarget(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 100
@@ -432,5 +544,74 @@ func TestFileViewerDetailUploadRequiresCapability(t *testing.T) {
 	}
 	if a.transientHint != "attachment upload unsupported by this backend" {
 		t.Fatalf("hint = %q", a.transientHint)
+	}
+}
+
+func BenchmarkLocalFileMarkdownDetailModes(b *testing.B) {
+	root := b.TempDir()
+	var body strings.Builder
+	body.WriteString("# Preview\n\n| station | value | note |\n| --- | --- | --- |\n")
+	for i := 0; i < 200; i++ {
+		body.WriteString("| MTA1 | 1.2 | representative row |\n")
+	}
+	path := filepath.Join(root, "guide.md")
+	if err := os.WriteFile(path, []byte(body.String()), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	entry := fileTreeEntry{Path: "guide.md", Size: int64(len(body.String()))}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+	a.width = 140
+	a.height = 40
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		modes := a.localFileDetailModes(entry, path)
+		if len(modes) != 2 {
+			b.Fatalf("modes = %#v, want rendered/raw", modes)
+		}
+	}
+}
+
+func BenchmarkLocalFileCSVDetailModes(b *testing.B) {
+	root := b.TempDir()
+	var body strings.Builder
+	body.WriteString("station,value,note\n")
+	for i := 0; i < 500; i++ {
+		body.WriteString("MTA1,1.2,representative row\n")
+	}
+	path := filepath.Join(root, "stations.csv")
+	if err := os.WriteFile(path, []byte(body.String()), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	entry := fileTreeEntry{Path: "stations.csv", Size: int64(len(body.String()))}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		modes := a.localFileDetailModes(entry, path)
+		if len(modes) != 2 {
+			b.Fatalf("modes = %#v, want table/raw", modes)
+		}
+	}
+}
+
+func BenchmarkLocalFileLargeDetailGuard(b *testing.B) {
+	root := b.TempDir()
+	path := filepath.Join(root, "large.log")
+	if err := os.WriteFile(path, []byte("small body should not be read when size metadata exceeds limit"), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	entry := fileTreeEntry{Path: "large.log", Size: maxLocalFilePreviewBytes + 1}
+	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
+	a.SetFileViewerRoot(root)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		modes := a.localFileDetailModes(entry, path)
+		if len(modes) != 1 || modes[0].id != "info" {
+			b.Fatalf("modes = %#v, want single info mode", modes)
+		}
 	}
 }

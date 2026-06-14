@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"hash/maphash"
 	"image/color"
 	"math/rand"
 	"os"
@@ -286,8 +287,9 @@ type App struct {
 	// conversationRenderCache keeps expensive per-message render output
 	// across frames. Scrolling, mouse movement, and footer updates should
 	// not re-render hundreds of unchanged CLIO semantic events.
-	conversationRenderCache    map[string]conversationRenderCacheEntry
+	conversationRenderCache    map[uint64]conversationRenderCacheEntry
 	conversationRenderRevision uint64
+	fullConversationCopyCache  fullConversationCopyCache
 
 	// Compose modal (M5): a full-screen-ish textarea seeded with the
 	// current input, for long prompts / expanded paste review. Opened
@@ -444,8 +446,10 @@ type App struct {
 	sidebarLayoutSel  [3]int
 
 	// Metrics overlay
-	metricsOpen bool
-	metrics     *metricsState
+	metricsOpen           bool
+	metrics               *metricsState
+	tuiLatency            tuiInteractionTelemetry
+	pendingTUIInteraction *tuiInteractionTrace
 
 	// Doctor overlay (v0.2 §3.4 — CLIO-BBBBBBBBBB4). Shows the
 	// backend's integrations[] array + overall_status in a per-
@@ -608,6 +612,7 @@ type App struct {
 	detailViewOpen bool
 	detailView     *bulkyPartRef
 	detailScroll   int
+	detailWrap     detailWrapCache
 
 	// spinnerFrame drives the running-session animation — advanced by
 	// spinnerTickMsg as long as any session is non-idle. Cheap (single
@@ -1249,6 +1254,8 @@ func stringDetail(details map[string]any, key string) string {
 // --- Update ---------------------------------------------------------------
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tuiTrace := a.beginTUIInteractionTrace(msg)
+	updateStarted := time.Now()
 	// LLLLLLLL1: snapshot the hint going INTO this Update cycle.
 	// If a branch below assigns a different non-empty value we
 	// stamp transientHintAt after switch returns. This means the
@@ -1256,6 +1263,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// hint — not an arbitrary later Update that only read it.
 	preHint := a.transientHint
 	defer func() {
+		a.finishTUIInteractionUpdate(tuiTrace, time.Since(updateStarted))
 		if a.transientHint != "" && a.transientHint != preHint {
 			a.transientHintAt = time.Now()
 		}
@@ -2037,6 +2045,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		label := firstNonEmpty(m.file.Path, filepath.Base(m.localPath))
 		a.transientHint = "uploaded " + label + " to context"
 		return a, nil
+
+	case localFileExternalOpenMsg:
+		if m.err != nil {
+			a.transientHint = "open failed: " + m.err.Error()
+			return a, scheduleHintExpire(a.transientHint)
+		}
+		a.transientHint = "opened " + filepath.Base(m.path) + " externally"
+		return a, scheduleHintExpire(a.transientHint)
 
 	case contextFileRemovedMsg:
 		if m.err != nil {
@@ -6345,7 +6361,7 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// markdown so the user can paste an entire turn into a bug
 		// report, another LLM, or a teammate. Complements `y` which
 		// takes a single message.
-		text, ok := fullConversationText(a.messages)
+		text, ok := a.fullConversationTextCached()
 		if !ok {
 			a.transientHint = "nothing to copy — conversation has no text yet"
 			return a, nil
@@ -7070,7 +7086,6 @@ func (a *App) applyMessageCompleted(e client.SSEEvent) {
 			a.messages[i].Metadata[k] = v
 		}
 		normalizeMessagePresentation(&a.messages[i])
-		a.invalidateConversationRenderCache()
 		return
 	}
 }
@@ -7185,6 +7200,7 @@ func normalizeMessageExpertHandoffs(m *gact.Message) {
 	}
 	rows := normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])
 	rows = filterRedundantDirectToolHandoffRows(rows, tools)
+	rows = filterNoisyExpertHandoffRows(rows)
 	if len(rows) == 0 {
 		return
 	}
@@ -7444,7 +7460,7 @@ func workflowStateValueSummary(key string, value any) string {
 		if len(v) == 0 {
 			return ""
 		}
-		return key + "=" + pluralizeCount(len(v), "item")
+		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(v), "item")
 	default:
 		text := strings.TrimSpace(stringValue(value))
 		if text == "" {
@@ -7483,9 +7499,9 @@ func workflowStateMapSummary(key string, values map[string]any) string {
 		}
 	}
 	if len(parts) == 0 {
-		return key + "=" + pluralizeCount(len(values), "field")
+		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(values), "field")
 	}
-	return key + " " + strings.Join(parts, ", ")
+	return humanizeAgentLabel(key) + " " + strings.Join(parts, ", ")
 }
 
 func workflowStateFieldSummary(field, text string) string {
@@ -7682,12 +7698,12 @@ func normalizeMessagePartialAnswerLabels(m *gact.Message) {
 }
 
 func filterExistingExpertHandoffParts(m *gact.Message, tools []toolEvidenceRow) {
-	if m == nil || len(tools) == 0 {
+	if m == nil {
 		return
 	}
 	filtered := m.Parts[:0]
 	for _, part := range m.Parts {
-		if part.Type == gact.PartTypeExpertHandoff && isRedundantDirectToolHandoff(part.Metadata) {
+		if part.Type == gact.PartTypeExpertHandoff && (isNoisyExpertHandoff(part.Metadata) || (len(tools) > 0 && isRedundantDirectToolHandoff(part.Metadata))) {
 			continue
 		}
 		filtered = append(filtered, part)
@@ -7721,6 +7737,45 @@ func filterRedundantDirectToolHandoffRows(rows []map[string]any, tools []toolEvi
 		filtered = append(filtered, row)
 	}
 	return filtered
+}
+
+func filterNoisyExpertHandoffRows(rows []map[string]any) []map[string]any {
+	if len(rows) == 0 {
+		return rows
+	}
+	filtered := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		if isNoisyExpertHandoff(row) {
+			continue
+		}
+		filtered = append(filtered, row)
+	}
+	return filtered
+}
+
+func isNoisyExpertHandoff(row map[string]any) bool {
+	if len(row) == 0 {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(row["status"]), "observed")))
+	if status == "failed" || status == "failure" || status == "error" {
+		return false
+	}
+	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(row["stage"]),
+		stringValue(row["dispatch_target"]),
+		stringValue(row["event_type"]),
+	)))
+	switch stage {
+	case "parent.resumed", "parent_resumed", "blueprint.delegation.parent_resumed":
+		return true
+	}
+	summary := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(row["output_summary"]),
+		stringValue(row["summary"]),
+		stringValue(row["text"]),
+	)))
+	return strings.Contains(summary, " resumed after ") && !strings.Contains(summary, "error")
 }
 
 func isRedundantDirectToolHandoff(row map[string]any) bool {
@@ -8603,12 +8658,10 @@ func (a *App) applyMessageCreated(e client.SSEEvent) {
 	for i, existing := range a.messages {
 		if existing.ID == m.ID {
 			a.messages[i] = m
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
 	a.messages = append(a.messages, m)
-	a.invalidateConversationRenderCache()
 }
 
 func (a *App) applyPartAdded(e client.SSEEvent) {
@@ -8642,13 +8695,11 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 				if part.ID != "" && a.messages[i].Parts[j].ID == part.ID {
 					a.messages[i].Parts[j] = part
 					normalizeMessagePresentation(&a.messages[i])
-					a.invalidateConversationRenderCache()
 					return
 				}
 			}
 			a.messages[i].Parts = append(a.messages[i].Parts, part)
 			normalizeMessagePresentation(&a.messages[i])
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -8844,6 +8895,9 @@ func semanticToolCompletionSummary(toolName string, summaryText string, toolPayl
 	if name == "" {
 		name = "tool"
 	}
+	if display := strings.TrimSpace(toolDisplayName(name)); display != "" {
+		name = display
+	}
 	parts := []string{name + " completed"}
 	if hasDuration && duration > 0 {
 		parts = append(parts, fmt.Sprintf("%.0fms", duration))
@@ -9011,7 +9065,6 @@ func (a *App) ensureSemanticLiveMessage(sessionID, turnID string) *gact.Message 
 			"turn_id":               turnID,
 		},
 	})
-	a.invalidateConversationRenderCache()
 	return &a.messages[len(a.messages)-1]
 }
 
@@ -9047,6 +9100,7 @@ func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded 
 	}
 	merged := cloneMessages(loaded)
 	seen := make(map[string]bool, len(merged))
+	seenHandoffs := semanticHandoffKeysInMessages(merged)
 	for _, msg := range merged {
 		if msg.ID != "" {
 			seen[msg.ID] = true
@@ -9056,9 +9110,72 @@ func (a *App) mergeLoadedMessagesWithSemanticLiveCache(sessionID string, loaded 
 		if msg.ID != "" && seen[msg.ID] {
 			continue
 		}
-		merged = append(merged, cloneMessage(msg))
+		filtered := cloneMessage(msg)
+		filtered.Parts = filterCachedSemanticParts(filtered.Parts, seenHandoffs)
+		if len(filtered.Parts) == 0 {
+			continue
+		}
+		merged = append(merged, filtered)
 	}
 	return merged
+}
+
+func semanticHandoffKeysInMessages(messages []gact.Message) map[string]bool {
+	keys := map[string]bool{}
+	for _, msg := range messages {
+		for _, part := range msg.Parts {
+			if key := semanticHandoffComparableKey(part); key != "" {
+				keys[key] = true
+			}
+		}
+	}
+	return keys
+}
+
+func filterCachedSemanticParts(parts []gact.Part, seen map[string]bool) []gact.Part {
+	if len(parts) == 0 || len(seen) == 0 {
+		return parts
+	}
+	filtered := make([]gact.Part, 0, len(parts))
+	for _, part := range parts {
+		if part.Metadata != nil && part.Metadata["semantic_event"] == true {
+			if key := semanticHandoffComparableKey(part); key != "" && seen[key] {
+				continue
+			}
+		}
+		filtered = append(filtered, part)
+	}
+	return filtered
+}
+
+func semanticHandoffComparableKey(part gact.Part) string {
+	if part.Type != gact.PartTypeExpertHandoff {
+		return ""
+	}
+	md := part.Metadata
+	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["stage"]),
+		stringValue(md["dispatch_target"]),
+		stringValue(md["event_type"]),
+	)))
+	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(md["status"]), "observed")))
+	agent := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["agent_id"]),
+		stringValue(md["expert"]),
+	)))
+	parent := strings.ToLower(strings.TrimSpace(firstNonEmpty(
+		stringValue(md["parent_id"]),
+		stringValue(md["parent"]),
+	)))
+	summary := strings.ToLower(strings.TrimSpace(strings.Join(strings.Fields(firstNonEmpty(
+		stringValue(md["output_summary"]),
+		stringValue(md["summary"]),
+		part.Text,
+	)), " ")))
+	if agent == "" || summary == "" {
+		return ""
+	}
+	return strings.Join([]string{stage, status, parent, agent, summary}, "\x1f")
 }
 
 func (a *App) sessionAllowsSemanticLiveCache(sessionID string) bool {
@@ -9161,7 +9278,6 @@ func (a *App) removeSyntheticSemanticToolParts(callID string) {
 		}
 		a.messages[mi].Parts = parts
 	}
-	a.invalidateConversationRenderCache()
 }
 
 func messageHasPartID(msg gact.Message, partID string) bool {
@@ -9431,12 +9547,69 @@ func semanticNestedOutputSummary(payload map[string]any, nested map[string]any) 
 	}
 	summary = stripSemanticControlContracts(summary)
 	if summary == "" {
-		return ""
+		return semanticStructuredOutputSummary(payload, nested)
 	}
 	if workflowSummary := summarizeEmbeddedWorkflowStateText(summary); workflowSummary != "" {
 		return workflowSummary
 	}
 	return summarizeExpertHandoffOutput(summary)
+}
+
+func semanticStructuredOutputSummary(payload map[string]any, nested map[string]any) string {
+	if state := firstNonEmptyMap(mapValue(nested["workflow_state"]), mapValue(payload["workflow_state"])); len(state) > 0 {
+		if summary := workflowStateSummary(state); summary != "" {
+			return "state: " + summary
+		}
+	}
+	for _, candidate := range []any{
+		nested["result"],
+		nested["output"],
+		nested["evidence"],
+		nested["artifact"],
+		payload["result"],
+		payload["output"],
+		payload["evidence"],
+		payload["artifact"],
+	} {
+		if summary := semanticStructuredValueSummary(candidate); summary != "" {
+			return summary
+		}
+	}
+	for _, key := range []string{"artifact_path", "output_path", "plot_path", "path", "file", "filepath"} {
+		if value := firstNonEmpty(stringValue(nested[key]), stringValue(payload[key])); value != "" {
+			return "artifact: " + shortenPathForInline(value)
+		}
+	}
+	return ""
+}
+
+func semanticStructuredValueSummary(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		text := stripSemanticControlContracts(typed)
+		if text == "" || semanticSummaryIsPlumbing(text, "") {
+			return ""
+		}
+		return summarizeExpertHandoffOutput(text)
+	case map[string]any:
+		if summary := summarizeStructuredHandoffObject(typed); summary != "" {
+			return summary
+		}
+		if summary := summarizeToolResult("", typed); summary != "" {
+			return summary
+		}
+		if artifact := firstStringValue(typed, "artifact_path", "output_path", "plot_path", "artifact", "path", "file", "filepath"); artifact != "" {
+			return "artifact: " + shortenPathForInline(artifact)
+		}
+		return summarizeGenericStructuredObject(typed)
+	case []any:
+		if text := summarizeAnyItems(typed); text != "" {
+			return "items: " + text
+		}
+	}
+	return ""
 }
 
 func semanticLifecycleMarkerSummary(text string) string {
@@ -9771,7 +9944,7 @@ func appendSemanticControlIntent(summary, intent string) string {
 	if strings.Contains(strings.ToLower(summary), strings.ToLower(intent)) {
 		return summary
 	}
-	if looksLikeMarkdownBlock(summary) {
+	if looksLikeMarkdownBlock(expandInlineMarkdownTables(summary)) {
 		return summary + "\n\n_" + intent + "_"
 	}
 	return strings.TrimRight(summary, ".") + " · " + intent
@@ -9957,7 +10130,6 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 				}
 				a.messages[i].Parts[j].Metadata["raw_input"] = v
 			}
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -10006,7 +10178,6 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 					p.Text = final
 				}
 			}
-			a.invalidateConversationRenderCache()
 			return
 		}
 	}
@@ -10067,9 +10238,11 @@ func permissionActionLabel(action gact.PermissionAction) string {
 // --- View -----------------------------------------------------------------
 
 func (a *App) View() tea.View {
+	renderStarted := time.Now()
 	if a.width == 0 || a.height == 0 {
 		v := tea.NewView("…")
 		v.AltScreen = true
+		a.finishTUIInteractionRender(time.Since(renderStarted))
 		return v
 	}
 	a.beginHitFrame()
@@ -10096,6 +10269,7 @@ func (a *App) View() tea.View {
 	// user is looking at. Fallback is the bare "GACT" brand when no
 	// session is selected.
 	v.WindowTitle = a.windowTitle()
+	a.finishTUIInteractionRender(time.Since(renderStarted))
 	return v
 }
 
@@ -12177,6 +12351,8 @@ func contextModeLabelAndColor(mode string, t Theme) (string, color.Color) {
 
 const maxConversationRenderCacheEntries = 1024
 
+var conversationRenderHashSeed = maphash.MakeSeed()
+
 type conversationRenderCacheEntry struct {
 	row       string
 	blocks    []conversationPartHitBlock
@@ -12186,11 +12362,11 @@ type conversationRenderCacheEntry struct {
 func (a *App) cachedConversationMessageRender(t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) conversationRenderCacheEntry {
 	key := conversationRenderCacheKey(a.conversationRenderRevision, t, m, prev, width, inlineResults, selectedPartID)
 	if a.conversationRenderCache == nil {
-		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+		a.conversationRenderCache = make(map[uint64]conversationRenderCacheEntry)
 	} else if cached, ok := a.conversationRenderCache[key]; ok {
 		return cached
 	} else if len(a.conversationRenderCache) > maxConversationRenderCacheEntries {
-		a.conversationRenderCache = make(map[string]conversationRenderCacheEntry)
+		a.conversationRenderCache = make(map[uint64]conversationRenderCacheEntry)
 	}
 	row := t.renderMessageInContextWithResultsSelected(m, prev, width, inlineResults, selectedPartID)
 	blocks := t.conversationPartHitBlocks(m, prev, width, inlineResults)
@@ -12208,16 +12384,28 @@ func (a *App) invalidateConversationRenderCache() {
 	a.conversationRenderRevision++
 }
 
-func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) string {
-	h := fnv.New64a()
+func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *gact.Message, width int, inlineResults map[string]gact.Part, selectedPartID string) uint64 {
+	var h maphash.Hash
+	h.SetSeed(conversationRenderHashSeed)
 	writeHashString := func(s string) {
-		_, _ = h.Write([]byte(s))
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeHashInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	writeHashUint := func(value uint64) {
+		buf := strconv.AppendUint(scratch[:0], value, 10)
+		_, _ = h.Write(buf)
 		_, _ = h.Write([]byte{0})
 	}
 	writeHashString(strconv.FormatUint(revision, 10))
-	writeHashString(strconv.Itoa(width))
+	writeHashInt(width)
 	writeHashString(strconv.FormatBool(t.ShowTimestamps))
-	writeHashString(strconv.Itoa(t.CollapseThreshold))
+	writeHashInt(t.CollapseThreshold)
 	writeHashString(hexOf(t.Fg))
 	writeHashString(hexOf(t.FgMuted))
 	writeHashString(hexOf(t.Primary))
@@ -12228,7 +12416,8 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 	writeHashString(m.SessionID)
 	writeHashString(m.Role)
 	writeHashString(m.StopReason)
-	writeHashString(strconv.Itoa(len(m.Parts)))
+	writeHashInt(len(m.Parts))
+	writeHashUint(conversationMessageRenderFingerprint(m))
 	if prev == nil {
 		writeHashString("<nil-prev>")
 	} else {
@@ -12241,9 +12430,156 @@ func conversationRenderCacheKey(revision uint64, t Theme, m gact.Message, prev *
 		writeHashString("inline-results")
 		if payload, err := json.Marshal(inlineResults); err == nil {
 			_, _ = h.Write(payload)
+			_, _ = h.Write([]byte{0})
 		}
 	}
-	return fmt.Sprintf("%016x", h.Sum64())
+	return h.Sum64()
+}
+
+func conversationMessageRenderFingerprint(m gact.Message) uint64 {
+	var h maphash.Hash
+	h.SetSeed(conversationRenderHashSeed)
+	write := func(s string) {
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	write(m.ID)
+	write(m.SessionID)
+	write(m.Role)
+	write(m.StopReason)
+	if !m.CreatedAt.IsZero() {
+		write(m.CreatedAt.UTC().Format(time.RFC3339Nano))
+	}
+	if !m.UpdatedAt.IsZero() {
+		write(m.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	}
+	conversationHashVisibleMetadata(&h, m.Metadata)
+	if m.Model != nil {
+		conversationHashAny(&h, *m.Model)
+	}
+	if m.ErrorInfo != nil {
+		conversationHashAny(&h, *m.ErrorInfo)
+	}
+	writeInt(len(m.Parts))
+	for _, part := range m.Parts {
+		conversationHashPart(&h, part)
+	}
+	return h.Sum64()
+}
+
+func conversationHashPart(h *maphash.Hash, p gact.Part) {
+	write := func(s string) {
+		_, _ = h.WriteString(s)
+		_, _ = h.Write([]byte{0})
+	}
+	var scratch [64]byte
+	writeBool := func(value bool) {
+		if value {
+			_, _ = h.Write([]byte{'1', 0})
+			return
+		}
+		_, _ = h.Write([]byte{'0', 0})
+	}
+	writeFloat := func(value float64) {
+		buf := strconv.AppendFloat(scratch[:0], value, 'g', -1, 64)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	writeInt := func(value int) {
+		buf := strconv.AppendInt(scratch[:0], int64(value), 10)
+		_, _ = h.Write(buf)
+		_, _ = h.Write([]byte{0})
+	}
+	write(p.ID)
+	write(p.Type)
+	write(p.Text)
+	write(p.Thinking)
+	write(p.Data)
+	write(p.Signature)
+	write(p.ToolName)
+	write(p.CallID)
+	write(p.ServerID)
+	writeBool(p.IsError)
+	writeBool(p.Cached)
+	writeFloat(p.DurationMS)
+	write(p.SelectedAgent)
+	write(p.Rationale)
+	writeFloat(p.Confidence)
+	write(p.AgentID)
+	write(p.SubsessionID)
+	write(p.FinalMessageID)
+	write(p.Summary)
+	write(p.Code)
+	write(p.Message)
+	writeBool(p.Recoverable)
+	writeBool(p.Auto)
+	write(p.URI)
+	write(p.MimeType)
+	write(p.Name)
+	write(p.Description)
+	write(p.Title)
+	write(p.Context)
+	conversationHashAny(h, p.Input)
+	conversationHashAny(h, p.Annotations)
+	conversationHashVisibleMetadata(h, p.Metadata)
+	conversationHashAny(h, p.Source)
+	conversationHashAny(h, p.Citations)
+	if p.Question != nil {
+		conversationHashAny(h, *p.Question)
+	}
+	if p.RetryAttempt != nil {
+		conversationHashAny(h, *p.RetryAttempt)
+	}
+	writeInt(len(p.CompactedMessageIDs))
+	for _, id := range p.CompactedMessageIDs {
+		write(id)
+	}
+	writeInt(len(p.Content))
+	for _, child := range p.Content {
+		conversationHashPart(h, child)
+	}
+}
+
+func conversationHashVisibleMetadata(h *maphash.Hash, metadata map[string]any) {
+	if len(metadata) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(metadata))
+	for key := range metadata {
+		switch key {
+		case "raw_event", "raw_result":
+			continue
+		}
+		keys = append(keys, key)
+	}
+	if len(keys) == 0 {
+		return
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		_, _ = h.WriteString(key)
+		_, _ = h.Write([]byte{0})
+		conversationHashAny(h, metadata[key])
+	}
+}
+
+func conversationHashAny(h *maphash.Hash, value any) {
+	if value == nil {
+		return
+	}
+	if payload, err := json.Marshal(value); err == nil {
+		_, _ = h.Write(payload)
+		_, _ = h.Write([]byte{0})
+		return
+	}
+	_, _ = h.WriteString(fmt.Sprint(value))
+	_, _ = h.Write([]byte{0})
 }
 
 func (a *App) renderBody(width, height int) string {

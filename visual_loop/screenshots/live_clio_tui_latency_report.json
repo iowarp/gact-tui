@@ -1,0 +1,160 @@
+{
+  "generated_at": "2026-06-12T19:00:02.514003934Z",
+  "backend": "http://127.0.0.1:19060",
+  "session_id": "sess_f1a56acd9a68",
+  "window_width": 150,
+  "window_height": 48,
+  "focus_surface": "right sidebar",
+  "mouse_enabled": true,
+  "sample_count": 17,
+  "surface_count": 6,
+  "slowest": {
+    "key": "command palette:key",
+    "surface": "command palette",
+    "kind": "key",
+    "count": 8,
+    "update_p50_ms": 0.10249,
+    "update_p95_ms": 0.251425,
+    "render_p50_ms": 4.81535,
+    "render_p95_ms": 10.456587,
+    "total_p50_ms": 4.917069,
+    "total_p95_ms": 10.724726,
+    "total_max_ms": 10.724726
+  },
+  "sections": [
+    {
+      "surface": "command palette",
+      "sample_count": 8,
+      "key_count": 8,
+      "slowest_p95_ms": 10.724726,
+      "slowest_max_ms": 10.724726,
+      "slowest_render_p95_ms": 10.456587
+    },
+    {
+      "surface": "right sidebar",
+      "sample_count": 3,
+      "key_count": 3,
+      "slowest_p95_ms": 6.444132,
+      "slowest_max_ms": 6.444132,
+      "slowest_render_p95_ms": 6.434884
+    },
+    {
+      "surface": "left sidebar",
+      "sample_count": 2,
+      "key_count": 2,
+      "slowest_p95_ms": 4.523554,
+      "slowest_max_ms": 4.523554,
+      "slowest_render_p95_ms": 4.518164
+    },
+    {
+      "surface": "metrics",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 4.454728,
+      "slowest_max_ms": 4.454728,
+      "slowest_render_p95_ms": 4.420932
+    },
+    {
+      "surface": "input",
+      "sample_count": 1,
+      "key_count": 1,
+      "slowest_p95_ms": 3.721402,
+      "slowest_max_ms": 3.721402,
+      "slowest_render_p95_ms": 3.690939
+    },
+    {
+      "surface": "conversation",
+      "sample_count": 2,
+      "key_count": 2,
+      "slowest_p95_ms": 3.668383,
+      "slowest_max_ms": 3.668383,
+      "slowest_render_p95_ms": 3.66269
+    }
+  ],
+  "interactions": [
+    {
+      "key": "command palette:key",
+      "surface": "command palette",
+      "kind": "key",
+      "count": 8,
+      "update_p50_ms": 0.10249,
+      "update_p95_ms": 0.251425,
+      "render_p50_ms": 4.81535,
+      "render_p95_ms": 10.456587,
+      "total_p50_ms": 4.917069,
+      "total_p95_ms": 10.724726,
+      "total_max_ms": 10.724726
+    },
+    {
+      "key": "right sidebar:key",
+      "surface": "right sidebar",
+      "kind": "key",
+      "count": 3,
+      "update_p50_ms": 0.005547,
+      "update_p95_ms": 0.009634,
+      "render_p50_ms": 3.768433,
+      "render_p95_ms": 6.434884,
+      "total_p50_ms": 3.780573,
+      "total_p95_ms": 6.444132,
+      "total_max_ms": 6.444132
+    },
+    {
+      "key": "left sidebar:key",
+      "surface": "left sidebar",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.003848,
+      "update_p95_ms": 0.077365,
+      "render_p50_ms": 4.330425,
+      "render_p95_ms": 4.518164,
+      "total_p50_ms": 4.411756,
+      "total_p95_ms": 4.523554,
+      "total_max_ms": 4.523554
+    },
+    {
+      "key": "metrics:key",
+      "surface": "metrics",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.00393,
+      "update_p95_ms": 0.00393,
+      "render_p50_ms": 4.420932,
+      "render_p95_ms": 4.420932,
+      "total_p50_ms": 4.454728,
+      "total_p95_ms": 4.454728,
+      "total_max_ms": 4.454728
+    },
+    {
+      "key": "input:key",
+      "surface": "input",
+      "kind": "key",
+      "count": 1,
+      "update_p50_ms": 0.008633,
+      "update_p95_ms": 0.008633,
+      "render_p50_ms": 3.690939,
+      "render_p95_ms": 3.690939,
+      "total_p50_ms": 3.721402,
+      "total_p95_ms": 3.721402,
+      "total_max_ms": 3.721402
+    },
+    {
+      "key": "conversation:key",
+      "surface": "conversation",
+      "kind": "key",
+      "count": 2,
+      "update_p50_ms": 0.003591,
+      "update_p95_ms": 0.006879,
+      "render_p50_ms": 2.872647,
+      "render_p95_ms": 3.66269,
+      "total_p50_ms": 2.900272,
+      "total_p95_ms": 3.668383,
+      "total_max_ms": 3.668383
+    }
+  ],
+  "supported_by": {
+    "keys": true,
+    "clicks": false,
+    "wheels": false,
+    "copies": false
+  }
+}
