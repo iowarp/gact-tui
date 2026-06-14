@@ -53,17 +53,28 @@ Run these from the release-candidate branch before visual or manual testing:
 ```bash
 git status --short
 git rev-parse --short=12 HEAD
-make dev-install
-make verify-dev-install
+which clio
+make install-for-clio
+make verify-clio-install
 gact version
+gact diag
 ```
 
 Acceptance:
 
-- `make verify-dev-install` proves both shell `gact` and CLIO-launched `gact`
+- `make verify-clio-install` proves both shell `gact` and CLIO-launched `gact`
   resolve to this checkout's `tui/gact`.
+- `which clio` identifies the launcher being used for the demo so stale PATH
+  assumptions are explicit in the release notes.
 - `gact version` reports the current short revision, contract version, Go
   runtime, and dirty state.
+- `gact diag` reports `path_gact_status: matches running binary` and
+  `clio_gact_status: matches running binary`; any stale path blocks the demo
+  candidate.
+- Raw semantic event JSON stays hidden in normal transcript/detail views. For
+  developer debugging, set `GACT_SEMANTIC_RAW_EVENT_DETAIL=1` before launching
+  `gact` to append the full raw event JSON at the bottom of semantic detail
+  panes.
 - Any dirty state is explained in the verification notes. Untracked or modified
   visual artifacts must not be mistaken for release-candidate source changes.
 

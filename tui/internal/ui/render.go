@@ -76,6 +76,7 @@ func renderMarkdown(s string, t Theme, width int) string {
 }
 
 func renderMarkdownOrWrap(s string, t Theme, width int) string {
+	s = expandInlineMarkdownTables(s)
 	if looksLikeMarkdownBlock(s) {
 		return renderMarkdown(s, t, width)
 	}
@@ -1527,13 +1528,9 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			stringValue(p.Metadata["source_agent"]),
 			"orchestrator",
 		)
-		route := p.SelectedAgent
-		if parent != "" && p.SelectedAgent != "" {
-			route = parent + " -> " + p.SelectedAgent
-		}
-		agentName := lipgloss.NewStyle().Foreground(agentColor(t, p.SelectedAgent)).
-			Bold(true).Render(route)
-		parts := []string{glyph + agentName}
+		headText := renderAgentName(t, firstNonEmpty(parent, "orchestrator")) + " selected " +
+			renderAgentName(t, firstNonEmpty(p.SelectedAgent, "agent"))
+		parts := []string{glyph + headText}
 		if p.Heuristic {
 			parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("heuristic"))
 		} else {
@@ -2399,6 +2396,7 @@ func summarizeExpertHandoffOutput(output string) string {
 	if summary := summarizeStructuredHandoffOutput(compact); summary != "" {
 		return summary
 	}
+	output = expandInlineMarkdownTables(output)
 	if looksLikeMarkdownBlock(output) {
 		return truncateMarkdownBlock(output, 1200, 18)
 	}
@@ -2413,6 +2411,114 @@ func summarizeExpertHandoffOutput(output string) string {
 	}
 	limit := min(len(segments), 3)
 	return truncateString(strings.Join(segments[:limit], "\n"), 320)
+}
+
+func expandInlineMarkdownTables(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" || strings.Contains(text, "\n|") || !strings.Contains(text, "|") {
+		return text
+	}
+	if !strings.Contains(text, "|---") && !strings.Contains(text, "| ---") && !strings.Contains(text, "|------") {
+		return text
+	}
+	fields := strings.Split(text, "|")
+	if len(fields) < 8 {
+		return text
+	}
+	separatorStart := -1
+	for i := 1; i < len(fields); i++ {
+		cell := strings.TrimSpace(fields[i])
+		if cell == "" && i+1 < len(fields) && markdownSeparatorCell(fields[i+1]) {
+			separatorStart = i + 1
+			break
+		}
+		if markdownSeparatorCell(cell) {
+			separatorStart = i
+			break
+		}
+	}
+	if separatorStart <= 1 {
+		return text
+	}
+	headerEnd := separatorStart
+	if headerEnd > 0 && strings.TrimSpace(fields[headerEnd-1]) == "" {
+		headerEnd--
+	}
+	headerStart := headerEnd - 1
+	for headerStart > 0 && strings.TrimSpace(fields[headerStart]) != "" {
+		headerStart--
+	}
+	headerStart++
+	if headerStart >= headerEnd {
+		return text
+	}
+	columnCount := headerEnd - headerStart
+	if columnCount < 2 {
+		return text
+	}
+	prefix := strings.TrimSpace(strings.Join(fields[:headerStart], "|"))
+	cells := make([]string, 0, len(fields)-headerStart)
+	for _, raw := range fields[headerStart:headerEnd] {
+		cell := strings.TrimSpace(raw)
+		if cell == "" {
+			continue
+		}
+		cells = append(cells, cell)
+	}
+	for _, raw := range fields[separatorStart:] {
+		cell := strings.TrimSpace(raw)
+		if cell == "" {
+			continue
+		}
+		cells = append(cells, cell)
+	}
+	if len(cells) < 6 {
+		return text
+	}
+	remainder := []string{}
+	if len(cells)%columnCount != 0 {
+		fullCells := (len(cells) / columnCount) * columnCount
+		if fullCells < columnCount*3 {
+			return text
+		}
+		remainder = cells[fullCells:]
+		cells = cells[:fullCells]
+	}
+	if len(cells)%columnCount != 0 {
+		return text
+	}
+	var rows []string
+	var prefixParts []string
+	if prefix != "" {
+		prefixParts = append(prefixParts, prefix)
+	}
+	for i := 0; i+columnCount <= len(cells); i += columnCount {
+		rows = append(rows, "| "+strings.Join(cells[i:i+columnCount], " | ")+" |")
+	}
+	if len(rows) < 2 {
+		return text
+	}
+	if len(prefixParts) > 0 {
+		out := strings.Join(prefixParts, "\n\n") + "\n\n" + strings.Join(rows, "\n")
+		if len(remainder) > 0 {
+			out += "\n\n" + strings.Join(remainder, " ")
+		}
+		return out
+	}
+	out := strings.Join(rows, "\n")
+	if len(remainder) > 0 {
+		out += "\n\n" + strings.Join(remainder, " ")
+	}
+	return out
+}
+
+func markdownSeparatorCell(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	text = strings.Trim(text, ":- ")
+	return text == ""
 }
 
 func truncateMarkdownBlock(text string, maxChars, maxLines int) string {
@@ -2696,6 +2802,9 @@ func expertHandoffOutputSummary(p gact.Part) string {
 	}
 	if strings.Contains(output, workflowSummary) {
 		return output
+	}
+	if looksLikeMarkdownBlock(expandInlineMarkdownTables(output)) {
+		return output + "\n\nState: " + workflowSummary
 	}
 	return output + " · state: " + workflowSummary
 }

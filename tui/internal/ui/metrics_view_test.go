@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -67,6 +68,148 @@ func TestMetricsViewUsesSharedDetailSections(t *testing.T) {
 	for _, unwanted := range []string{"Overview", "\nSessions\n", "\nMessages\n", "\nTokens\n", "Slow operations", "slowest_route", "cache_read", "cache_write", "cost_usd", "p95_ms", "p50 ", "p95 ", "(n="} {
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("metrics view leaked backend label %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestMetricsViewShowsTUIInteractionLatency(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:      "conversation:click",
+		surface:  "conversation",
+		kind:     "click",
+		targetID: "conversation:part:0:0",
+	}, tuiInteractionSample{
+		update: 2 * time.Millisecond,
+		render: 4 * time.Millisecond,
+		total:  15 * time.Millisecond,
+	})
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:      "conversation:click",
+		surface:  "conversation",
+		kind:     "click",
+		targetID: "conversation:part:0:0",
+	}, tuiInteractionSample{
+		update: 3 * time.Millisecond,
+		render: 5 * time.Millisecond,
+		total:  22 * time.Millisecond,
+	})
+
+	out := stripANSI(a.viewMetrics())
+	for _, want := range []string{
+		"slowest TUI surface: conversation click",
+		"TUI latency by section",
+		"conversation: usually 22.0ms · render 5.0ms · worst 22.0ms · 2 samples · 2 clicks",
+		"TUI interaction details",
+		"conversation click: usually 22.0ms · render 5.0ms · worst 22.0ms · 2 samples",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("metrics view missing TUI latency text %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestMetricsTUILatencyRowsOpenSharedDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:      "metrics:wheel down",
+		surface:  "metrics",
+		kind:     "wheel down",
+		targetID: "metrics:body:wheel",
+	}, tuiInteractionSample{
+		update: time.Millisecond,
+		render: 6 * time.Millisecond,
+		total:  11 * time.Millisecond,
+	})
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:tui-latency:metrics:wheel down")
+	if !ok {
+		t.Fatal("missing TUI latency detail hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("TUI latency detail click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("TUI latency row should open shared detail")
+	}
+	for _, want := range []string{
+		"TUI interaction latency",
+		"surface: metrics",
+		"input: wheel down",
+		"samples: 1",
+		"total p95: 11.0ms",
+		"render p95: 6.0ms",
+		"last hit target: metrics:body:wheel",
+	} {
+		if !strings.Contains(a.detailView.fullText, want) {
+			t.Fatalf("TUI latency detail missing %q:\n%s", want, a.detailView.fullText)
+		}
+	}
+}
+
+func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.metricsOpen = true
+	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.recordTUIInteractionSample(&tuiInteractionTrace{
+		key:         "input:click",
+		surface:     "input",
+		kind:        "click",
+		targetLabel: "input surface",
+	}, tuiInteractionSample{
+		update: time.Millisecond,
+		render: 5 * time.Millisecond,
+		total:  13 * time.Millisecond,
+	})
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "metrics:tui-section-latency:input")
+	if !ok {
+		t.Fatal("missing TUI section latency detail hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("TUI section latency click should not dispatch a command")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("TUI section latency row should open shared detail")
+	}
+	for _, want := range []string{
+		"TUI section latency · input",
+		"TUI latency by section",
+		"surface: input",
+		"samples: 1",
+		"clicks: 1",
+		"slowest p95: 13.0ms",
+		"slowest render: 5.0ms",
+		"labels: input surface",
+	} {
+		if !strings.Contains(a.detailView.title+"\n"+a.detailView.fullText, want) {
+			t.Fatalf("TUI section latency detail missing %q:\n%s\n%s", want, a.detailView.title, a.detailView.fullText)
 		}
 	}
 }

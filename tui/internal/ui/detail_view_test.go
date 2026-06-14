@@ -694,6 +694,39 @@ func TestDetailShortPayloadUsesCompactSharedBodyHeight(t *testing.T) {
 	}
 }
 
+func TestDetailWrappedContentCacheInvalidatesByWidthAndContent(t *testing.T) {
+	a := New("http://unused")
+	first := a.cachedDetailWrappedContent("alpha beta gamma", 8)
+	if first == "" {
+		t.Fatal("expected wrapped content")
+	}
+	if got := a.cachedDetailWrappedContent("alpha beta gamma", 8); got != first {
+		t.Fatalf("same content/width should reuse equivalent wrapped content, got %q want %q", got, first)
+	}
+	wider := a.cachedDetailWrappedContent("alpha beta gamma", 40)
+	if wider == first {
+		t.Fatalf("width change should recalculate wrapping, still got %q", wider)
+	}
+	changed := a.cachedDetailWrappedContent("alpha beta gamma delta", 40)
+	if changed == wider {
+		t.Fatalf("content change should recalculate wrapping, still got %q", changed)
+	}
+}
+
+func TestDetailWrappedContentCacheClearsOnClose(t *testing.T) {
+	a := New("http://unused")
+	a.detailViewOpen = true
+	a.detailView = &bulkyPartRef{title: "Evidence", fullText: "alpha beta gamma"}
+	_ = a.cachedDetailWrappedContent(a.detailView.fullText, 8)
+	if a.detailWrap.wrapped == "" {
+		t.Fatal("expected populated detail wrap cache")
+	}
+	a.closeDetailView()
+	if a.detailWrap != (detailWrapCache{}) {
+		t.Fatalf("detail wrap cache should clear on close: %+v", a.detailWrap)
+	}
+}
+
 func TestDetailViewCopyButtonCopiesFullContent(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120
