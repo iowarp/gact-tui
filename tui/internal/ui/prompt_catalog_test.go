@@ -909,8 +909,8 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 			t.Fatalf("empty prompt checklist missing %q:\n%s", want, combined)
 		}
 	}
-	if intro := catalogBrowserIntro(catalogKindPrompts); !strings.Contains(intro, "active workspace/session") || !strings.Contains(intro, "session override prompts") {
-		t.Fatalf("prompt intro should explain prompt scope, got %q", intro)
+	if intro := catalogBrowserIntro(catalogKindPrompts); intro != "" {
+		t.Fatalf("prompt catalog should keep scope guidance in empty rows, not intro chrome, got %q", intro)
 	}
 
 	a := newReadyApp(nil, nil)
@@ -1128,8 +1128,8 @@ func TestSkillsCatalogEmptyStateExplainsInstallPath(t *testing.T) {
 			t.Fatalf("skills empty row leaked backend wording %q: %#v", notWant, row)
 		}
 	}
-	if intro := catalogBrowserIntro(catalogKindSkills); !strings.Contains(intro, "installed experts") || !strings.Contains(intro, "active workflow blueprints") || !strings.Contains(intro, "/agent-blueprints") {
-		t.Fatalf("skills intro should point to install path, got %q", intro)
+	if intro := catalogBrowserIntro(catalogKindSkills); intro != "" {
+		t.Fatalf("skills catalog should keep install guidance in empty rows, not intro chrome, got %q", intro)
 	}
 	emptyHint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindSkills, items: msg.items})
 	for _, want := range []string{"open /agent-blueprints", "install workflow with skills"} {
@@ -1327,10 +1327,8 @@ func TestExpertPackCatalogEmptyStateExplainsPurpose(t *testing.T) {
 			t.Fatalf("empty expert-pack checklist missing %q:\n%s", want, combined)
 		}
 	}
-	if intro := catalogBrowserIntro(catalogKindExpertPacks); !strings.Contains(intro, "workflow-ready experts") {
-		t.Fatalf("expert-pack intro should explain the concept, got %q", intro)
-	} else if strings.Contains(intro, "runtimes") || strings.Contains(intro, "specialist agents") {
-		t.Fatalf("expert-pack intro should avoid backend/runtime agent wording, got %q", intro)
+	if intro := catalogBrowserIntro(catalogKindExpertPacks); intro != "" {
+		t.Fatalf("expert-pack catalog should keep install guidance in empty rows, not intro chrome, got %q", intro)
 	}
 	if hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindExpertPacks, items: []catalogItem{{id: "pack", title: "Pack"}}}); !strings.Contains(hint, "Enter details") || strings.Contains(hint, "Enter inspect") {
 		t.Fatalf("expert-pack catalog hint should use operator detail wording, got %q", hint)
@@ -1659,8 +1657,8 @@ func TestAgentBlueprintCatalogItemsMarkActiveBlueprintInTree(t *testing.T) {
 	if strings.Contains(row.title, "Active ·") {
 		t.Fatalf("active blueprint title should use a compact marker, not repeat active text: %#v", row)
 	}
-	if row.statusTag != "active" || !strings.Contains(row.inlineDesc, "active in selected session") {
-		t.Fatalf("active blueprint row should surface active state inline: %#v", row)
+	if row.statusTag != "active" || strings.Contains(row.inlineDesc, "active in selected session") {
+		t.Fatalf("active blueprint row should use the status tag without repeated prose: %#v", row)
 	}
 }
 
@@ -1955,13 +1953,13 @@ func TestExpertPackDetailActionsRenderOutsideStructureRows(t *testing.T) {
 			{id: "expert-pack-action/update", title: "Update pack"},
 			{id: "expert-pack-action/delete", title: "Delete pack"},
 			{id: "pack/data-semantics", title: "Workflow pack · Data Semantics", desc: "Operator summary"},
-			{id: "agent/main", title: "Root expert · Main Expert"},
-			{id: "agent/analysis", title: "  └─ Expert · Analysis Expert"},
+			{id: "agent/main", title: "Main Expert"},
+			{id: "agent/analysis", title: "  └─ Analysis Expert"},
 		},
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Pack structure", "Workflow pack · Data Semantics", "Root expert · Main Expert", "└─ Expert · Analysis Expert"} {
+	for _, want := range []string{"Pack actions", "activate", "update", "delete", "Workflow", "Workflow pack · Data Semantics", "Main Expert", "└─ Analysis Expert"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expert-pack detail missing %q:\n%s", want, out)
 		}
@@ -1985,8 +1983,9 @@ func TestExpertPackDetailItemsUseExpertHierarchy(t *testing.T) {
 
 	joined := catalogItemsTextForTest(items)
 	for _, want := range []string{
-		"Root expert · Main Expert",
-		"└─ Expert · Analysis Expert",
+		"Main Expert",
+		"└─ Analysis Expert",
+		"tier 2",
 		"reports to Main Expert",
 	} {
 		if !strings.Contains(joined, want) {
@@ -2117,8 +2116,8 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		}},
 	})
 
-	if len(items) < 6 {
-		t.Fatalf("detail items len = %d, want activation, blueprint, management actions, mcp, and agent", len(items))
+	if len(items) < 7 {
+		t.Fatalf("detail items len = %d, want activation, overview, management actions, expert, mcp, and hook", len(items))
 	}
 	if items[0].id != "activate" {
 		t.Fatalf("first detail row = %q, want activate", items[0].id)
@@ -2131,8 +2130,8 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if !strings.Contains(items[1].desc, "prompt_profile") {
 		t.Fatalf("blueprint summary should surface defaults:\n%s", items[1].desc)
 	}
-	if !strings.HasPrefix(items[1].title, "Blueprint · Data Exploration") {
-		t.Fatalf("blueprint summary should use operator blueprint label: %#v", items[1])
+	if items[1].title != "Overview" {
+		t.Fatalf("blueprint summary should use a compact overview row: %#v", items[1])
 	}
 	for _, want := range []string{
 		"Operator summary",
@@ -2193,10 +2192,25 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 	if items[3].id != "blueprint-action/delete" || !items[3].disabled {
 		t.Fatalf("builtin blueprint delete action should be visible but disabled: %#v", items[3])
 	}
+	if items[4].id != "agent/data" || !strings.Contains(items[4].desc, "mcp.parquet.read") {
+		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[4])
+	}
+	if items[4].statusTag != "root" {
+		t.Fatalf("agent row should mark the root expert without backend source noise: %#v", items[4])
+	}
+	if items[4].title != "Data Root" {
+		t.Fatalf("agent row should put the expert name first: %#v", items[4])
+	}
+	if !strings.Contains(items[4].inlineDesc, "tier 1") || !strings.Contains(items[4].inlineDesc, "1 tool") || !strings.Contains(items[4].inlineDesc, "1 command") {
+		t.Fatalf("agent row should expose compact hierarchy summary: %#v", items[4])
+	}
+	if !strings.Contains(items[4].desc, "commands exposed: /validate-dataset") {
+		t.Fatalf("agent row should show declared packaged commands: %#v", items[4])
+	}
 	for _, want := range []string{
-		"Connection setup",
+		"MCP access",
 		"earthscope-mcp",
-		"command args: serve",
+		"server arguments: serve",
 		"activation: disabled",
 		"trust policy: explicit",
 		"trusted: false",
@@ -2212,71 +2226,53 @@ func TestAgentBlueprintDetailItemsExposeActivationMCPAndAgents(t *testing.T) {
 		"Warnings",
 		"descriptor requires explicit trust before enabling",
 	} {
-		if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, want) {
-			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[4])
+		if items[5].id != "mcp/earthscope" || !strings.Contains(items[5].desc, want) {
+			t.Fatalf("mcp descriptor row missing %q: %#v", want, items[5])
 		}
 	}
-	if !strings.HasPrefix(items[4].title, "Integration · MCP · EarthScope MCP") {
-		t.Fatalf("mcp descriptor should be visibly grouped as an integration: %#v", items[4])
+	if items[5].title != "EarthScope MCP access" {
+		t.Fatalf("mcp descriptor should identify the access being granted: %#v", items[5])
 	}
-	for _, want := range []string{"earthscope-mcp", "disabled", "stdio", "mcp_earthscope", "warnings"} {
-		if !strings.Contains(items[4].inlineDesc, want) {
-			t.Fatalf("mcp descriptor inline summary missing %q: %#v", want, items[4])
+	for _, want := range []string{"calls earthscope-mcp", "disabled", "needs approval", "stdio", "mcp_earthscope", "warnings"} {
+		if !strings.Contains(items[5].inlineDesc, want) {
+			t.Fatalf("mcp descriptor inline summary missing %q: %#v", want, items[5])
 		}
 	}
-	if strings.Contains(items[4].inlineDesc, "Connection setup") || strings.Contains(items[4].inlineDesc, "command args") {
-		t.Fatalf("mcp descriptor inline summary should stay compact: %#v", items[4])
+	if strings.Contains(items[5].inlineDesc, "MCP access") || strings.Contains(items[5].inlineDesc, "server arguments") {
+		t.Fatalf("mcp descriptor inline summary should stay compact: %#v", items[5])
 	}
-	if strings.Contains(items[4].desc, `"trust"`) || strings.Contains(items[4].desc, `"install"`) {
-		t.Fatalf("mcp descriptor should be structured, not raw JSON: %#v", items[4])
+	if strings.Contains(items[5].desc, `"trust"`) || strings.Contains(items[5].desc, `"install"`) {
+		t.Fatalf("mcp descriptor should be structured, not raw JSON: %#v", items[5])
 	}
 	for _, notWant := range []string{"\n  args: serve", "enabled: false"} {
-		if strings.Contains(items[4].desc, notWant) {
-			t.Fatalf("mcp descriptor leaked schema-style copy %q: %#v", notWant, items[4])
+		if strings.Contains(items[5].desc, notWant) {
+			t.Fatalf("mcp descriptor leaked schema-style copy %q: %#v", notWant, items[5])
 		}
 	}
-	if items[4].id != "mcp/earthscope" || !strings.Contains(items[4].desc, "earthscope-mcp") {
-		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[4])
+	if items[5].id != "mcp/earthscope" || !strings.Contains(items[5].desc, "earthscope-mcp") {
+		t.Fatalf("mcp descriptor row missing enable target/command: %#v", items[5])
 	}
-	for _, want := range []string{"Automation setup", "runs on: pre_message", "activation: disabled", "trust policy: explicit", "trusted: false", "hook file: /tmp/community-blueprints/hooks/pre_message.py", "checksum: 0123456789abcdef"} {
-		if items[5].id != "hook/pre_message" || !strings.Contains(items[5].desc, want) {
-			t.Fatalf("hook descriptor row missing %q: %#v", want, items[5])
+	for _, want := range []string{"Message automation", "when: Before each user message", "activation: disabled", "trust policy: explicit", "trusted: false", "hook file: /tmp/community-blueprints/hooks/pre_message.py", "checksum: 0123456789abcdef"} {
+		if items[6].id != "hook/pre_message" || !strings.Contains(items[6].desc, want) {
+			t.Fatalf("hook descriptor row missing %q: %#v", want, items[6])
 		}
 	}
-	if strings.Contains(items[5].desc, "enabled: false") {
-		t.Fatalf("hook descriptor leaked schema-style enabled label: %#v", items[5])
+	if strings.Contains(items[6].desc, "enabled: false") {
+		t.Fatalf("hook descriptor leaked schema-style enabled label: %#v", items[6])
 	}
-	if !strings.HasPrefix(items[5].title, "Automation · Hook · Pre Message") {
-		t.Fatalf("hook descriptor should be visibly grouped as automation: %#v", items[5])
+	if items[6].title != "Before each user message" {
+		t.Fatalf("hook descriptor should explain when it runs: %#v", items[6])
 	}
-	for _, want := range []string{"runs on pre_message", "disabled", "workspace", "provided by agent blueprint", "warnings"} {
-		if !strings.Contains(items[5].inlineDesc, want) {
-			t.Fatalf("hook descriptor inline summary missing %q: %#v", want, items[5])
+	for _, want := range []string{"Before each user message", "disabled", "needs approval", "workspace", "provided by agent blueprint", "warnings"} {
+		if !strings.Contains(items[6].inlineDesc, want) {
+			t.Fatalf("hook descriptor inline summary missing %q: %#v", want, items[6])
 		}
 	}
-	if strings.Contains(items[5].inlineDesc, "Automation setup") || strings.Contains(items[5].inlineDesc, "hook file") || strings.Contains(items[5].inlineDesc, "agent_blueprint") {
-		t.Fatalf("hook descriptor inline summary should stay compact: %#v", items[5])
+	if strings.Contains(items[6].inlineDesc, "Message automation") || strings.Contains(items[6].inlineDesc, "hook file") || strings.Contains(items[6].inlineDesc, "agent_blueprint") {
+		t.Fatalf("hook descriptor inline summary should stay compact: %#v", items[6])
 	}
-	if strings.Contains(items[5].desc, "agent_blueprint") {
-		t.Fatalf("hook descriptor should not leak raw backend source enums: %#v", items[5])
-	}
-	if strings.Contains(items[5].desc, `"trust"`) {
-		t.Fatalf("hook descriptor should be structured, not raw JSON: %#v", items[5])
-	}
-	if items[6].id != "agent/data" || !strings.Contains(items[6].desc, "mcp.parquet.read") {
-		t.Fatalf("agent row missing drilldown/tool metadata: %#v", items[6])
-	}
-	if items[6].statusTag != "agent blueprint" {
-		t.Fatalf("agent row should humanize backend source status: %#v", items[6])
-	}
-	if !strings.HasPrefix(items[6].title, "Root expert · Data Root") {
-		t.Fatalf("agent row should identify the blueprint root expert: %#v", items[6])
-	}
-	if !strings.Contains(items[6].inlineDesc, "1 tool") || !strings.Contains(items[6].inlineDesc, "1 command") {
-		t.Fatalf("agent row should expose compact hierarchy summary: %#v", items[6])
-	}
-	if !strings.Contains(items[6].desc, "commands exposed: /validate-dataset") {
-		t.Fatalf("agent row should show declared packaged commands: %#v", items[6])
+	if strings.Contains(items[6].desc, "agent_blueprint") || strings.Contains(items[6].desc, `"trust"`) {
+		t.Fatalf("hook descriptor should not leak raw backend enums or JSON: %#v", items[6])
 	}
 }
 
@@ -2331,7 +2327,7 @@ func TestAgentBlueprintValidationFormatsPackagedHooks(t *testing.T) {
 			"validation_warnings": []any{"disabled until trusted"},
 		}},
 	})
-	for _, want := range []string{"status: warning", "warnings: descriptor requires explicit trust before install", "MCP descriptors", "EarthScope MCP", "Warnings", "descriptor requires explicit trust", "Packaged hooks", "Pre Message", "runs on: pre_message", "trust policy: explicit", "trusted: false", "disabled until trusted"} {
+	for _, want := range []string{"status: warning", "warnings: descriptor requires explicit trust before install", "MCP descriptors", "EarthScope MCP", "Warnings", "descriptor requires explicit trust", "Packaged hooks", "Pre Message", "when: Before each user message", "trust policy: explicit", "trusted: false", "disabled until trusted"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("validation output missing %q:\n%s", want, out)
 		}
@@ -2409,17 +2405,17 @@ func TestAgentBlueprintDetailItemsMarkActiveActivationState(t *testing.T) {
 	if len(items) < 2 {
 		t.Fatalf("detail items len = %d, want activation and summary", len(items))
 	}
-	if items[0].id != "activate" || items[0].title != "Active for current session" || items[0].statusTag != "active" {
+	if items[0].id != "activate" || items[0].title != "Active" || items[0].statusTag != "active" {
 		t.Fatalf("active activation row not marked clearly: %#v", items[0])
 	}
-	if !strings.Contains(items[0].desc, "already active") || !strings.Contains(items[0].desc, "keeps the session pinned") {
-		t.Fatalf("active activation row should explain current state: %#v", items[0])
+	if items[0].desc != "" {
+		t.Fatalf("session-scoped active row should not repeat active prose: %#v", items[0])
 	}
 	if strings.Contains(items[0].desc, "Press Enter") {
 		t.Fatalf("active activation row should keep keypress prose out of the body: %#v", items[0])
 	}
-	if items[1].id != "blueprint/seismic-market" || items[1].statusTag != "active" {
-		t.Fatalf("active blueprint summary row should be marked active: %#v", items[1])
+	if items[1].id != "blueprint/seismic-market" || items[1].statusTag == "active" {
+		t.Fatalf("overview row should not repeat active state already shown above: %#v", items[1])
 	}
 }
 

@@ -1008,7 +1008,7 @@ func TestCatalogBrowser_AgentBlueprintDetailActionsRenderOutsideStructureRows(t 
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Blueprint actions", "activate", "update", "delete", "Blueprint structure", "Blueprint · Seismic", "Agent · Main", "MCP · EarthScope"} {
+	for _, want := range []string{"Blueprint actions", "activate", "update", "delete", "Workflow", "Blueprint · Seismic", "Agent · Main", "MCP · EarthScope"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("blueprint detail missing %q:\n%s", want, out)
 		}
@@ -1017,6 +1017,37 @@ func TestCatalogBrowser_AgentBlueprintDetailActionsRenderOutsideStructureRows(t 
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("blueprint action leaked into structure rows as %q:\n%s", unwanted, out)
 		}
+	}
+}
+
+func TestCatalogBrowser_AgentBlueprintExpertEnterOpensEmbeddedDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	a.width = 120
+	a.height = 40
+	a.catalogBrowserOpen = true
+	a.catalogBrowser = &catalogBrowserState{
+		kind:        catalogKindAgentBlueprintDetail,
+		title:       "Agent Blueprint · Seismic",
+		blueprintID: "seismic",
+		items: []catalogItem{{
+			id:         "agent/analysis",
+			title:      "└─ Analysis Expert",
+			desc:       "reports to Main Expert · runs waveform statistics",
+			inlineDesc: "tier 2 · 2 tools",
+			statusTag:  "expert",
+		}},
+	}
+
+	_, cmd := a.handleCatalogBrowserKey(keyMsg("enter"))
+	if cmd != nil {
+		t.Fatal("blueprint-scoped expert detail should not dispatch backend agent lookup")
+	}
+	if !a.detailViewOpen || a.detailView == nil {
+		t.Fatal("blueprint-scoped expert should open embedded detail")
+	}
+	if a.detailView.title != "Analysis Expert" ||
+		!strings.Contains(a.detailView.fullText, "runs waveform statistics") {
+		t.Fatalf("embedded expert detail = %#v", a.detailView)
 	}
 }
 
@@ -1184,8 +1215,8 @@ func TestCatalogBrowser_ActiveAgentBlueprintActionReadsAsState(t *testing.T) {
 		title:       "Agent Blueprint · Seismic",
 		blueprintID: "seismic",
 		items: []catalogItem{
-			{id: "activate", title: "Active for current session", desc: "already active", statusTag: "active"},
-			{id: "blueprint/seismic", title: "Blueprint · Seismic", statusTag: "active"},
+			{id: "activate", title: "Active", statusTag: "active"},
+			{id: "blueprint/seismic", title: "Blueprint · Seismic"},
 			{id: "blueprint-action/update", title: "Update installed blueprint"},
 			{id: "blueprint-action/delete", title: "Delete installed blueprint"},
 			{id: "agent/main", title: "Agent · Main"},
@@ -1193,9 +1224,14 @@ func TestCatalogBrowser_ActiveAgentBlueprintActionReadsAsState(t *testing.T) {
 	}
 
 	out := stripANSI(a.viewCatalogBrowser())
-	for _, want := range []string{"Blueprint actions", "update", "delete", "Blueprint status", "active in selected session", "already active"} {
+	for _, want := range []string{"Blueprint actions", "update", "delete", "Blueprint status: Active"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("active blueprint detail missing %q:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{"active in selected session", "already active"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("active blueprint detail should not repeat active prose %q:\n%s", notWant, out)
 		}
 	}
 	for _, button := range a.agentBlueprintDetailActionButtons() {
@@ -1216,7 +1252,7 @@ func TestCatalogBrowser_ActiveAgentBlueprintShortcutDoesNotReactivate(t *testing
 		title:       "Agent Blueprint · Seismic",
 		blueprintID: "seismic",
 		items: []catalogItem{
-			{id: "activate", title: "Active for current session", desc: "already active", statusTag: "active"},
+			{id: "activate", title: "Active", statusTag: "active"},
 			{id: "blueprint/seismic", title: "Blueprint · Seismic", statusTag: "active"},
 			{id: "blueprint-action/update", title: "Update installed blueprint"},
 			{id: "blueprint-action/delete", title: "Delete installed blueprint"},
@@ -1243,8 +1279,8 @@ func TestCatalogBrowser_AgentBlueprintDetailHumanizesRenderedBackendEnums(t *tes
 		blueprintID: "demo",
 		items: []catalogItem{
 			{id: "activate", title: "Activate for current session"},
-			{id: "hook/pre_message", title: "Automation · Hook · Pre Message", inlineDesc: "runs on pre_message · disabled · provided by agent blueprint", statusTag: "agent_blueprint"},
-			{id: "agent/data", title: "Expert · Data Root", inlineDesc: "1 tool", statusTag: "agent_blueprint"},
+			{id: "hook/pre_message", title: "Before each user message", inlineDesc: "Before each user message · disabled · provided by agent blueprint", statusTag: "hook"},
+			{id: "agent/data", title: "Data Root", inlineDesc: "tier 1 · 1 tool", statusTag: "root"},
 		},
 	}
 
@@ -1252,8 +1288,8 @@ func TestCatalogBrowser_AgentBlueprintDetailHumanizesRenderedBackendEnums(t *tes
 	if strings.Contains(out, "agent_blueprint") {
 		t.Fatalf("blueprint detail should not render raw backend source enums:\n%s", out)
 	}
-	if got := strings.Count(out, "[agent blueprint]"); got != 2 {
-		t.Fatalf("blueprint detail should humanize raw status tags twice, got %d:\n%s", got, out)
+	if strings.Contains(out, "[agent blueprint]") {
+		t.Fatalf("blueprint detail should not repeat backend source tags:\n%s", out)
 	}
 }
 
@@ -1555,7 +1591,6 @@ func TestAgentBlueprintCatalogStressItemsPreserveHierarchyAndActiveMarker(t *tes
 	for _, want := range []string{
 		"Source · very-long-source",
 		"└─ ◆ San Diego EarthScope and NDP Live Benchmark Review With Very Long Name",
-		"active in selected session",
 		"Source · disabled-source",
 		"Disabled Benchmark Blueprint With Long Title",
 		"disabled",
@@ -1588,10 +1623,11 @@ func TestAgentBlueprintDetailStressItemsPreserveNestedExperts(t *testing.T) {
 
 	joined := catalogItemsTextForTest(items)
 	for _, want := range []string{
-		"Root expert · Orchestrator",
-		"└─ Expert · Data Resolver",
-		"└─ Expert · Catalog Specialist",
-		"└─ Expert · Visualization Publisher",
+		"Orchestrator",
+		"└─ Data Resolver",
+		"└─ Catalog Specialist",
+		"└─ Visualization Publisher",
+		"tier 3",
 		"reports to Catalog Specialist",
 	} {
 		if !strings.Contains(joined, want) {
@@ -1619,11 +1655,12 @@ func TestAgentCatalogStressItemsPreserveDeepHierarchy(t *testing.T) {
 	items := agentCatalogItems(agents, catalogKindAgents)
 	joined := catalogItemsTextForTest(items)
 	for _, want := range []string{
-		"Root expert · Demo Orchestrator",
-		"└─ Expert · Geographic Resolver",
-		"└─ Expert · EarthScope Catalog",
-		"└─ Expert · SAC Trace Reviewer",
-		"└─ Expert · Waveform Plot Publisher",
+		"Demo Orchestrator",
+		"└─ Geographic Resolver",
+		"└─ EarthScope Catalog",
+		"└─ SAC Trace Reviewer",
+		"└─ Waveform Plot Publisher",
+		"tier 5",
 		"reports to SAC Trace Reviewer",
 		"Invalid Disabled Expert",
 		"missing required tool",
@@ -1761,7 +1798,7 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedSource(t *te
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source flow:", "add/refresh/remove sources", "select a provided blueprint to install", "Source actions", "add source", "refresh source", "remove source", "Marketplace source tree", "Data Semantics Agents"} {
+	for _, want := range []string{"Source actions", "add source", "refresh source", "remove source", "Sources", "Data Semantics Agents"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source browser missing %q:\n%s", want, out)
 		}
@@ -1877,7 +1914,7 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t 
 	}
 
 	out := ansi.Strip(a.viewCatalogBrowser())
-	for _, want := range []string{"Source flow:", "select a provided blueprint to install", "Blueprint actions", "install blueprint", "refresh source", "Marketplace source tree", "Seismic Waveform Review"} {
+	for _, want := range []string{"Blueprint actions", "install blueprint", "refresh source", "Sources", "Seismic Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("source blueprint browser missing %q:\n%s", want, out)
 		}
@@ -1930,7 +1967,7 @@ func TestCatalogBrowser_AgentBlueprintActionsAreNotListRows(t *testing.T) {
 	}
 
 	out := a.viewCatalogBrowser()
-	for _, want := range []string{"Setup:", "sources -> blueprint -> install -> detail -> activate", "Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter", "s sources", "i manual install", "v validate file"} {
+	for _, want := range []string{"Blueprint library", "Marketplace", "Seismic Waveform Review", "Enter", "s sources", "i manual install", "v validate file"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("blueprint browser missing %q:\n%s", want, out)
 		}
@@ -2301,7 +2338,7 @@ func TestAgentCatalogDescriptionSurfacesSkillsAndValidation(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("items = %#v", items)
 	}
-	if items[0].title != "Root expert · Data" {
+	if items[0].title != "Data" {
 		t.Fatalf("top-level agent should render as a root expert: %#v", items[0])
 	}
 	if items[0].statusTag != "invalid" {
@@ -2324,10 +2361,10 @@ func TestAgentCatalogHierarchyLabelsRootAndChildExperts(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("items = %#v", items)
 	}
-	if items[0].title != "Root expert · Default Expert" {
+	if items[0].title != "Default Expert" {
 		t.Fatalf("root title = %q", items[0].title)
 	}
-	if items[1].title != "  └─ Expert · Data" {
+	if items[1].title != "└─ Data" {
 		t.Fatalf("child title = %q", items[1].title)
 	}
 	if !strings.Contains(items[1].inlineDesc, "reports to Default Expert") {

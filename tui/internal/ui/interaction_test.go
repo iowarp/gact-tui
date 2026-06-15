@@ -668,6 +668,27 @@ func TestModalListDescriptionContinuationDoesNotDoubleIndent(t *testing.T) {
 	}
 }
 
+func TestModalListTreeDescriptionAlignsWithNestedTitle(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	rendered := a.renderModalList([]modalListItem{{
+		id:          "row:child",
+		title:       "│   └─ EarthScope Catalog",
+		description: "reports to Geospatial Resolver · catalog metadata_found · 2 tools",
+		action:      func(*App) tea.Cmd { return nil },
+	}}, modalListOptions{width: 84, rowBudget: 3, descriptionLines: 1})
+
+	if len(rendered.rows) < 2 {
+		t.Fatalf("rows = %d, want title and description: %#v", len(rendered.rows), rendered.rows)
+	}
+	desc := ansi.Strip(rendered.rows[1])
+	if !strings.HasPrefix(desc, "         reports to") {
+		t.Fatalf("nested description should align under child row, got %q", desc)
+	}
+	if strings.Contains(desc, "1.1.1") {
+		t.Fatalf("nested description should not repeat hierarchy index: %q", desc)
+	}
+}
+
 func TestModalListSupportsCustomSelectedMarker(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	rendered := a.renderModalList([]modalListItem{{

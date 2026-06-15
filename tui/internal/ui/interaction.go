@@ -1220,18 +1220,25 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 		startRow := len(rows)
 		rows = append(rows, a.renderModalListItemLine(item, width))
 
-		if item.description != "" && descriptionLines > 0 {
-			descRows := wrapPlainRows(item.description, width-2, "")
+		description := modalListVisibleDescription(item)
+		if description != "" && descriptionLines > 0 {
+			descIndent := modalListDescriptionIndent(item.title, width)
+			descWidth := width - descIndent
+			if descWidth < 8 {
+				descWidth = max(1, width-2)
+				descIndent = width - descWidth
+			}
+			descRows := wrapPlainRows(description, descWidth, "")
 			if len(descRows) > descriptionLines {
 				descRows = descRows[:descriptionLines]
 				last := descRows[len(descRows)-1]
-				descRows[len(descRows)-1] = truncate(last+" ...", width-2)
+				descRows[len(descRows)-1] = truncate(last+" ...", descWidth)
 			}
 			for _, desc := range descRows {
 				if len(rows) >= rowBudget {
 					break
 				}
-				descLine := "  " + t.HintLabel.Italic(true).Render(desc)
+				descLine := strings.Repeat(" ", descIndent) + t.HintLabel.Italic(true).Render(desc)
 				if item.selected {
 					descLine = lipgloss.NewStyle().Background(t.Bg).Width(width).Render(descLine)
 				}
@@ -1249,6 +1256,57 @@ func (a *App) renderModalList(items []modalListItem, opts modalListOptions) moda
 		}
 	}
 	return modalListRender{rows: rows, hits: hits, renderedItems: len(hits)}
+}
+
+func modalListVisibleDescription(item modalListItem) string {
+	desc := strings.TrimSpace(item.description)
+	if desc == "" {
+		return ""
+	}
+	descKey := modalListComparisonText(desc)
+	for _, value := range []string{item.title, item.status, item.meta} {
+		key := modalListComparisonText(value)
+		if key != "" && descKey == key {
+			return ""
+		}
+	}
+	return desc
+}
+
+func modalListComparisonText(text string) string {
+	text = strings.ToLower(strings.TrimSpace(text))
+	text = strings.Trim(text, "[](){}:;,. ")
+	text = strings.Join(strings.Fields(text), " ")
+	return text
+}
+
+func modalListDescriptionIndent(title string, width int) int {
+	const baseIndent = 2
+	if width <= baseIndent {
+		return 0
+	}
+	_, tierIndent, withoutTier := splitAgentHierarchyComputedPrefix(title)
+	indent := baseIndent + lipgloss.Width(tierIndent)
+	trimmed := strings.TrimLeft(withoutTier, " ")
+	leading := len(withoutTier) - len(trimmed)
+	indent += leading
+	if treePrefix := modalListTreePrefixWidth(trimmed); treePrefix > 0 {
+		indent += treePrefix
+	}
+	if indent < baseIndent {
+		indent = baseIndent
+	}
+	if indent > width-8 {
+		indent = baseIndent
+	}
+	return indent
+}
+
+func modalListTreePrefixWidth(title string) int {
+	if idx := strings.LastIndex(title, "└─ "); idx >= 0 {
+		return lipgloss.Width(title[:idx]) + lipgloss.Width("└─ ")
+	}
+	return 0
 }
 
 func (a *App) renderModalListColumns(items []modalListItem, opts modalListOptions) modalListRender {
