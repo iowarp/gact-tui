@@ -29,6 +29,17 @@ Wait+Screen /Visualization/
 Sleep 500ms
 Screenshot "visual_loop/screenshots/semantic_agent_blueprint_tree_stress_detail.png"
 
+Down
+Down
+Down
+Down
+Enter
+Wait+Screen /seismic analysis/
+Sleep 500ms
+Screenshot "visual_loop/screenshots/semantic_agent_blueprint_tree_stress_expert_detail.png"
+Escape
+Wait+Screen /Agent Blueprint/
+
 Escape
 Wait+Screen /Agent Blueprints/
 Type "s"

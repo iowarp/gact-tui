@@ -36,6 +36,8 @@ Down
 Down
 Down
 Down
+Down
+Down
 Wait+Screen /Fragile User Expert/
 Wait+Screen /Invalid Disabled Demo Expert/
 Sleep 500ms

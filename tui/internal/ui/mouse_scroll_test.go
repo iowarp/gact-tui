@@ -474,6 +474,9 @@ func TestRightSidebarOwnsFullAllocatedColumn(t *testing.T) {
 	if rightTarget.rect.x != rightBorderX {
 		t.Fatalf("right sidebar focus x = %d, want rendered border x %d from row %q", rightTarget.rect.x, rightBorderX, lines[1])
 	}
+	if rightTarget.rect.x+rightTarget.rect.w != a.width {
+		t.Fatalf("right sidebar should consume trailing width: rect=%+v terminal width=%d", rightTarget.rect, a.width)
+	}
 	for _, x := range []int{rightTarget.rect.x, rightTarget.rect.x + 1, rightTarget.rect.x + rightTarget.rect.w/2} {
 		a.focus = FocusBody
 		model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
