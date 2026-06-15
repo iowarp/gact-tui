@@ -21,6 +21,7 @@ type agentHierarchyLoadedMsg struct {
 type agentHierarchyRow struct {
 	agent gact.AgentDef
 	depth int
+	path  string
 }
 
 type agentHierarchyRuntimeState string
@@ -82,22 +83,27 @@ func (a *App) visibleAgentHierarchyRows() []agentHierarchyRow {
 	}
 	rows := make([]agentHierarchyRow, 0, len(agents))
 	seen := map[string]bool{}
-	var appendAgent func(gact.AgentDef, int)
-	appendAgent = func(agent gact.AgentDef, depth int) {
+	var appendAgent func(gact.AgentDef, int, string)
+	appendAgent = func(agent gact.AgentDef, depth int, path string) {
 		if seen[agent.ID] {
 			return
 		}
 		seen[agent.ID] = true
-		rows = append(rows, agentHierarchyRow{agent: agent, depth: depth})
-		for _, child := range byParent[agent.ID] {
-			appendAgent(child, depth+1)
+		rows = append(rows, agentHierarchyRow{agent: agent, depth: depth, path: path})
+		children := byParent[agent.ID]
+		for idx, child := range children {
+			childPath := itoa2(idx + 1)
+			if path != "" {
+				childPath = path + "." + childPath
+			}
+			appendAgent(child, depth+1, childPath)
 		}
 	}
-	for _, agent := range topLevel {
-		appendAgent(agent, 0)
+	for idx, agent := range topLevel {
+		appendAgent(agent, 0, itoa2(idx+1))
 	}
-	for _, agent := range agents {
-		appendAgent(agent, 0)
+	for idx, agent := range agents {
+		appendAgent(agent, 0, "u"+itoa2(idx+1))
 	}
 	return rows
 }
@@ -227,14 +233,32 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 	if row.depth > 0 {
 		branch = "└─ "
 	}
-	meta := agentHierarchyRowMeta(agent, runtimeState)
 	contentW := width - 6
 	if contentW < 8 {
 		contentW = 8
 	}
-	prefixW := lipgloss.Width(marker + indent + branch)
+	title := firstNonEmpty(agent.Title, agent.ID)
+	basePrefixW := lipgloss.Width(marker + indent + branch)
+	indexLabel := agentHierarchyIndexLabel(row)
+	if indexLabel != "" {
+		indexW := lipgloss.Width(indexLabel + " ")
+		titleW := lipgloss.Width(title)
+		if contentW-basePrefixW-indexW < titleW+1 {
+			indexLabel = agentHierarchyTierLabel(row)
+			indexW = lipgloss.Width(indexLabel + " ")
+			if contentW-basePrefixW-indexW < titleW+1 {
+				indexLabel = ""
+			}
+		}
+	}
+	indexText := ""
+	if indexLabel != "" {
+		indexText = lipgloss.NewStyle().Foreground(t.FgMuted).Render(indexLabel + " ")
+	}
+	meta := agentHierarchyRowMeta(row, runtimeState)
+	prefixW := lipgloss.Width(marker + indent + branch + indexLabel + " ")
 	if meta != "" {
-		titleW := lipgloss.Width(firstNonEmpty(agent.Title, agent.ID))
+		titleW := lipgloss.Width(title)
 		metaBudget := contentW - prefixW - titleW - 1
 		if metaBudget < 8 {
 			meta = ""
@@ -244,26 +268,26 @@ func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected
 	}
 	metaStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
 	metaW := lipgloss.Width(meta)
-	title := firstNonEmpty(agent.Title, agent.ID)
 	nameBudget := contentW - prefixW - metaW - 1
 	if nameBudget < 4 {
 		nameBudget = 4
 	}
-	line := marker + indent + branch + nameStyle.Render(truncate(title, nameBudget))
+	line := marker + indent + branch + indexText + nameStyle.Render(truncate(title, nameBudget))
 	if meta != "" {
 		line += " " + metaStyle.Render(meta)
 	}
 	return truncate(line, contentW)
 }
 
-func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRuntimeState) string {
+func agentHierarchyRowMeta(row agentHierarchyRow, runtimeState agentHierarchyRuntimeState) string {
+	agent := row.agent
 	parts := make([]string, 0, 4)
 	state := firstNonEmpty(string(runtimeState), humanizeAgentLabel(agent.Specialization), agentHierarchySourceLabel(agent.Source))
 	if runtimeState == agentHierarchyStateNone && state != "" {
 		parts = append(parts, state)
 	}
-	if agent.Tier > 0 {
-		parts = append(parts, fmt.Sprintf("t%d", agent.Tier))
+	if strings.TrimSpace(row.path) == "" && agent.Tier > 0 {
+		parts = append(parts, fmt.Sprintf("T%d", agent.Tier))
 	}
 	if runtimeState != agentHierarchyStateNone && state != "" {
 		parts = append(parts, state)
@@ -278,6 +302,22 @@ func agentHierarchyRowMeta(agent gact.AgentDef, runtimeState agentHierarchyRunti
 		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
 	}
 	return strings.Join(parts, " · ")
+}
+
+func agentHierarchyIndexLabel(row agentHierarchyRow) string {
+	path := strings.TrimSpace(row.path)
+	if path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s %s", agentHierarchyTierLabel(row), path)
+}
+
+func agentHierarchyTierLabel(row agentHierarchyRow) string {
+	tier := row.depth + 1
+	if row.agent.Tier > tier {
+		tier = row.agent.Tier
+	}
+	return fmt.Sprintf("T%d", tier)
 }
 
 func agentHierarchySourceLabel(source string) string {
