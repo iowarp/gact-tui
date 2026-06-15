@@ -300,19 +300,8 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 }
 
 func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t *testing.T) {
-	toolsIntro := catalogBrowserIntro(catalogKindTools)
-	for _, want := range []string{
-		"Tools and MCP in one operator view",
-		"Connection rows show health",
-		"indented tool rows show call policy and required inputs",
-		"Use /mcp to add or repair connections",
-	} {
-		if !strings.Contains(toolsIntro, want) {
-			t.Fatalf("tools intro missing %q: %q", want, toolsIntro)
-		}
-	}
-	if strings.Contains(toolsIntro, "MCP rows") {
-		t.Fatalf("tools intro should describe operator rows, not backend MCP rows: %q", toolsIntro)
+	if intro := catalogBrowserIntro(catalogKindTools); intro != "" {
+		t.Fatalf("tools catalog should rely on title/actions instead of explainer intro, got %q", intro)
 	}
 	if got := catalogBrowserTitle(catalogKindTools); got != "Tools & MCP" {
 		t.Fatalf("tools catalog title = %q, want unified tools/MCP wording", got)
@@ -320,14 +309,8 @@ func TestCatalogMcpConnections_CopyDistinguishesConnectionManagementFromTools(t 
 	if got := catalogBrowserTitle(catalogKindMcp); got != "MCP Connections" {
 		t.Fatalf("MCP catalog title = %q, want connection-management wording", got)
 	}
-	intro := catalogBrowserIntro(catalogKindMcp)
-	for _, want := range []string{
-		"Manage connections that supply tools, resources, and prompts",
-		"Use /tools when you want the unified action inventory",
-	} {
-		if !strings.Contains(intro, want) {
-			t.Fatalf("MCP intro missing %q: %q", want, intro)
-		}
+	if intro := catalogBrowserIntro(catalogKindMcp); intro != "" {
+		t.Fatalf("MCP catalog should rely on title/actions instead of explainer intro, got %q", intro)
 	}
 	hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindMcp})
 	for _, want := range []string{
