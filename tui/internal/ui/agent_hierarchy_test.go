@@ -30,7 +30,7 @@ func TestAgentHierarchySidebarModuleRendersParentChildAgents(t *testing.T) {
 	}
 
 	out := ansi.Strip(a.renderSidebar(42, 20))
-	for _, want := range []string{"AGENTS", "• Orchestrator", "└─ Data expert", "└─ NDP catalog"} {
+	for _, want := range []string{"AGENTS", "• T1 1 Orchestrator", "└─ T2 1.1 Data expert", "└─ T3 1.1.1 NDP catalog"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
 		}
@@ -96,7 +96,7 @@ func TestAgentHierarchySidebarSurfacesRuntimeProvenanceState(t *testing.T) {
 	}}
 
 	out := ansi.Strip(a.renderSidebar(42, 20))
-	for _, want := range []string{"Data expert", "t2 · observed", "NDP catalog", "t3 · active"} {
+	for _, want := range []string{"T2 1 Data expert observed", "T3 1.1 NDP catalog active"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent runtime state missing %q:\n%s", want, out)
 		}
@@ -147,7 +147,7 @@ func TestAgentHierarchySidebarMatchesNestedSemanticAgentReferences(t *testing.T)
 	}}
 
 	out := ansi.Strip(a.renderSidebar(58, 20))
-	if !strings.Contains(out, "NDP catalog") || !strings.Contains(out, "t3 · live") {
+	if !strings.Contains(out, "T3 1.1 NDP catalog live") {
 		t.Fatalf("nested semantic event should mark child agent live:\n%s", out)
 	}
 }
@@ -172,7 +172,7 @@ func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 	}}
 
 	out := ansi.Strip(a.renderSidebar(150, 20))
-	for _, want := range []string{"Data expert", "workflow · t2", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
+	for _, want := range []string{"T2 1 Data expert workflow", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
 		}
@@ -340,7 +340,7 @@ func TestAgentHierarchyFinalRuntimeProvenanceDoesNotKeepStartedRowsLive(t *testi
 	if strings.Contains(out, "Default Agent live") {
 		t.Fatalf("final runtime provenance should not leave parent live:\n%s", out)
 	}
-	for _, want := range []string{"Default Agent observed", "Data Expert", "t2 · active"} {
+	for _, want := range []string{"T1 2 Default Agent observed", "T2 1 Data Expert active"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("final runtime provenance state missing %q:\n%s", want, out)
 		}
@@ -381,7 +381,7 @@ func TestAgentHierarchySidebarSurfacesLiveSemanticDelegation(t *testing.T) {
 	})
 
 	out := ansi.Strip(a.renderSidebar(42, 20))
-	for _, want := range []string{"Data expert", "t2 · live", "NDP catalog", "t3 · live"} {
+	for _, want := range []string{"T2 1 Data expert live", "T3 1.1 NDP catalog live"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent live state missing %q:\n%s", want, out)
 		}
@@ -424,7 +424,7 @@ func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(
 	})
 
 	liveOut := ansi.Strip(a.renderSidebar(58, 20))
-	for _, want := range []string{"Data expert", "t2 · live", "NDP catalog", "t3 · live"} {
+	for _, want := range []string{"T2 1 Data expert live", "T3 1.1 NDP catalog live"} {
 		if !strings.Contains(liveOut, want) {
 			t.Fatalf("live semantic delegation missing %q:\n%s", want, liveOut)
 		}
@@ -459,12 +459,12 @@ func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(
 	})
 
 	settledOut := ansi.Strip(a.renderSidebar(58, 20))
-	for _, want := range []string{"Data expert", "t2 · observed", "NDP catalog", "t3 · active"} {
+	for _, want := range []string{"T2 1 Data expert observed", "T3 1.1 NDP catalog active"} {
 		if !strings.Contains(settledOut, want) {
 			t.Fatalf("final runtime provenance should settle live semantic state, missing %q:\n%s", want, settledOut)
 		}
 	}
-	if strings.Contains(settledOut, "t2 · live") || strings.Contains(settledOut, "t3 · live") {
+	if strings.Contains(settledOut, "T2 1 Data expert live") || strings.Contains(settledOut, "T3 1.1 NDP catalog live") {
 		t.Fatalf("older live semantic state should not outrank newer final provenance:\n%s", settledOut)
 	}
 

@@ -10765,7 +10765,12 @@ func (a *App) viewMainBase() string {
 
 	rightSidebar := ""
 	if rightSidebarW > 0 {
-		rightOffsetX := renderedBlockWidth(sidebar) + renderedBlockWidth(body)
+		sidebarRenderedW := renderedBlockWidth(sidebar)
+		bodyRenderedW := renderedBlockWidth(body)
+		if remaining := a.width - sidebarRenderedW - bodyRenderedW; remaining > rightSidebarW {
+			rightSidebarW = remaining + 2
+		}
+		rightOffsetX := sidebarRenderedW + bodyRenderedW
 		rightSidebar = a.renderRightSidebar(rightSidebarW, bodyH, rightOffsetX)
 		rightSidebar = fitLinesWithBackground(rightSidebar, bodyH, a.Theme.Bg)
 	}

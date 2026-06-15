@@ -2,7 +2,7 @@ Output "visual_loop/screenshots/semantic_agent_workflow_sidebar.gif"
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 1500
+Set Width 1900
 Set Height 900
 
 Hide

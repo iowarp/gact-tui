@@ -1210,7 +1210,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				}
 				return a, activateAgentBlueprintCmd(a.c, sid, cb.blueprintID)
 			case strings.HasPrefix(it.id, "agent/"):
-				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+				a.openCatalogDetail(catalogItemDetailTitle(it), catalogItemDetailText(it))
+				return a, nil
 			case strings.HasPrefix(it.id, "mcp/"):
 				return a, enableAgentBlueprintMCPCmd(a.c, a.runtimeScope(), cb.blueprintID, strings.TrimPrefix(it.id, "mcp/"))
 			case strings.HasPrefix(it.id, "hook/"):
@@ -1260,7 +1261,8 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			case it.id == "expert-pack-action/delete":
 				return a, a.confirmOrDeleteExpertPack()
 			case strings.HasPrefix(it.id, "agent/"):
-				return a, a.openAgentDetail(strings.TrimPrefix(it.id, "agent/"), it.title)
+				a.openCatalogDetail(catalogItemDetailTitle(it), catalogItemDetailText(it))
+				return a, nil
 			default:
 				text := strings.TrimSpace(it.desc)
 				if text == "" {
@@ -2306,9 +2308,6 @@ func (a *App) viewCatalogBrowser() string {
 	if context := a.catalogBrowserContextLine(a.catalogBrowser.kind); context != "" {
 		rows = append(rows, t.HintLabel.Render(context), "")
 	}
-	if guide := catalogBrowserWorkflowGuide(a.catalogBrowser.kind); guide != "" {
-		rows = append(rows, t.HintLabel.Render(guide), "")
-	}
 	if status := strings.TrimSpace(a.transientHint); status != "" {
 		rows = append(rows, t.HintLabel.Render("Status: "+status), "")
 	}
@@ -2353,13 +2352,12 @@ func (a *App) viewCatalogBrowser() string {
 		}
 		if status := activeAgentBlueprintDetailStatus(a.catalogBrowser.items); status != "" {
 			rows = append(rows,
-				t.HintLabel.Render("Blueprint status"),
-				status,
+				t.HintLabel.Render("Blueprint status: ")+status,
 			)
 		}
 		rows = append(rows,
 			"",
-			t.HintLabel.Render("Blueprint structure"),
+			t.HintLabel.Render("Workflow"),
 		)
 	}
 	if a.catalogBrowser.kind == catalogKindAgentBlueprintSources {
@@ -2370,7 +2368,7 @@ func (a *App) viewCatalogBrowser() string {
 				t.HintLabel.Render(agentBlueprintSourceActionSectionTitle(a.catalogBrowser)),
 				renderActionButtons(actionButtons),
 				"",
-				t.HintLabel.Render("Marketplace source tree"),
+				t.HintLabel.Render("Sources"),
 			)
 		}
 	}
@@ -2392,7 +2390,7 @@ func (a *App) viewCatalogBrowser() string {
 				t.HintLabel.Render("Pack actions"),
 				renderActionButtons(actionButtons),
 				"",
-				t.HintLabel.Render("Pack structure"),
+				t.HintLabel.Render("Workflow"),
 			)
 		}
 	}
@@ -2459,7 +2457,12 @@ func (a *App) viewCatalogBrowser() string {
 	descriptionLines := 2
 	if a.catalogBrowser.kind == catalogKindTools ||
 		a.catalogBrowser.kind == catalogKindPrompts ||
-		a.catalogBrowser.kind == catalogKindExpertPacks {
+		a.catalogBrowser.kind == catalogKindExpertPacks ||
+		a.catalogBrowser.kind == catalogKindAgents ||
+		a.catalogBrowser.kind == catalogKindAgentDetail ||
+		a.catalogBrowser.kind == catalogKindAgentBlueprintDetail ||
+		a.catalogBrowser.kind == catalogKindAgentBlueprintSources ||
+		a.catalogBrowser.kind == catalogKindExpertPackDetail {
 		descriptionLines = 1
 	}
 	list := a.renderModalList(listItems, modalListOptions{
@@ -2575,27 +2578,6 @@ func catalogEmptyGuidanceStepLabel(title string) string {
 
 func catalogBrowserIntro(kind catalogBrowserKind) string {
 	switch kind {
-	case catalogKindTools:
-		return "Tools and MCP in one operator view. Connection rows show health; indented tool rows show call policy and required inputs. Use /mcp to add or repair connections."
-	case catalogKindMcp:
-		return "Manage connections that supply tools, resources, and prompts. Use /tools when you want the unified action inventory."
-	case catalogKindSkills:
-		return "Skills supplied by installed experts or active workflow blueprints. Use /agent-blueprints to add more."
-	case catalogKindExpertPacks:
-		return "Expert packs bundle workflow-ready experts, prompts, tools, and routing defaults. Install them from Agent Blueprints, then activate one for a session."
-	case catalogKindPrompts:
-		return "Prompt library for the active workspace/session. Provider groups show built-in, workspace, blueprint, and session override prompts when they apply."
-	default:
-		return ""
-	}
-}
-
-func catalogBrowserWorkflowGuide(kind catalogBrowserKind) string {
-	switch kind {
-	case catalogKindAgentBlueprints:
-		return "Setup: sources -> blueprint -> install -> detail -> activate."
-	case catalogKindAgentBlueprintSources:
-		return "Source flow: add/refresh/remove sources; select a provided blueprint to install into this workspace."
 	default:
 		return ""
 	}
@@ -2691,7 +2673,7 @@ func catalogBrowserHintText(cb *catalogBrowserState) string {
 			return modalKeyHint("↑/↓ structure", "Enter details/enable", "activation blocked", "u update", "d delete", "Esc back")
 		}
 		if catalogItemStatusTag(cb.items, "activate") == "active" {
-			return modalKeyHint("↑/↓ structure", "Enter details", "already active", "u update", "d delete", "Esc back")
+			return modalKeyHint("↑/↓ structure", "Enter details", "u update", "d delete", "Esc back")
 		}
 		return modalKeyHint("↑/↓ structure", "Enter details/enable", "a activate", "u update", "d delete", "Esc back")
 	case catalogKindAgentBlueprintSources:
@@ -2723,6 +2705,32 @@ func catalogItemStatusTag(items []catalogItem, id string) string {
 		}
 	}
 	return ""
+}
+
+func catalogItemDetailText(item catalogItem) string {
+	text := strings.TrimSpace(item.desc)
+	if text == "" {
+		text = strings.TrimSpace(item.inlineDesc)
+	}
+	if text == "" {
+		text = strings.TrimSpace(item.title)
+	}
+	return text
+}
+
+func catalogItemDetailTitle(item catalogItem) string {
+	title := strings.TrimSpace(item.title)
+	for {
+		trimmed := strings.TrimLeft(title, " │")
+		if strings.HasPrefix(trimmed, "└─ ") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
+		}
+		if trimmed == title {
+			break
+		}
+		title = trimmed
+	}
+	return strings.TrimSpace(strings.TrimPrefix(title, "└─ "))
 }
 
 func catalogBrowserItemsAreEmptyState(items []catalogItem) bool {
@@ -3168,7 +3176,6 @@ func markActiveAgentBlueprintCatalogItems(items []catalogItem, activeID, activeS
 			continue
 		}
 		out[i].title = activeAgentBlueprintTitle(out[i].title)
-		out[i].inlineDesc = prependCatalogInline(out[i].inlineDesc, "active in selected session")
 		if scope != "session" {
 			out[i].inlineDesc = appendCatalogInline(out[i].inlineDesc, scope+" blueprint")
 		}
@@ -3186,15 +3193,14 @@ func markActiveAgentBlueprintDetailItems(items []catalogItem, blueprintID, activ
 	for i := range out {
 		switch out[i].id {
 		case "activate":
-			out[i].title = "Active for current session"
-			out[i].desc = "This blueprint is already active for the selected session. Reapplying keeps the session pinned to this blueprint."
+			out[i].title = "Active"
+			out[i].desc = ""
 			if scope != "session" {
-				out[i].desc += " Blueprint source scope: " + scope + "."
+				out[i].desc = scope + " source"
 			}
 			out[i].statusTag = "active"
 			out[i].disabled = false
 		case "blueprint/" + blueprintID:
-			out[i].statusTag = "active"
 		}
 	}
 	return out
@@ -3207,9 +3213,9 @@ func activeAgentBlueprintDetailStatus(items []catalogItem) string {
 		}
 		detail := compactCatalogText(item.desc)
 		if detail == "" {
-			return "active in selected session"
+			return "Active"
 		}
-		return "active in selected session - " + detail
+		return "Active · " + detail
 	}
 	return ""
 }
@@ -4029,10 +4035,10 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 		activation.disabled = true
 	}
 	items := []catalogItem{activation, {
-		id:        "pack/" + pack.ID,
-		title:     "Workflow pack · " + firstNonEmpty(pack.Title, pack.ID),
-		desc:      formatExpertPackSummary(pack, detail.Agents),
-		statusTag: firstNonEmpty(pack.Scope, "pack"),
+		id:         "pack/" + pack.ID,
+		title:      "Workflow pack · " + firstNonEmpty(pack.Title, pack.ID),
+		desc:       formatExpertPackSummary(pack, detail.Agents),
+		inlineDesc: expertPackInlineSummary(pack),
 	}}
 	items = append(items, catalogItem{
 		id:        "expert-pack-action/update",
@@ -4073,10 +4079,9 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	}
 	summary := catalogItem{
 		id:         "blueprint/" + blueprint.ID,
-		title:      "Blueprint · " + firstNonEmpty(blueprint.Title, blueprint.ID),
+		title:      "Overview",
 		desc:       formatAgentBlueprintSummary(blueprint),
 		inlineDesc: agentBlueprintDetailInlineSummary(blueprint),
-		statusTag:  firstNonEmpty(blueprint.Scope, "blueprint"),
 	}
 	items := []catalogItem{}
 	if len(blueprint.ValidationErrors) > 0 {
@@ -4100,6 +4105,19 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		statusTag: "delete",
 		disabled:  !manageable,
 	})
+	for _, agentItem := range agentCatalogItems(detail.Agents, catalogKindAgents) {
+		agentID := strings.TrimPrefix(agentItem.id, "agent/")
+		agentItem.id = "agent/" + agentID
+		agentItem.title = agentBlueprintExpertTitle(agentItem.title)
+		if agentItem.statusTag != "invalid" && agentItem.statusTag != "warning" {
+			if strings.Contains(agentItem.inlineDesc, "tier 1") {
+				agentItem.statusTag = "root"
+			} else {
+				agentItem.statusTag = "expert"
+			}
+		}
+		items = append(items, agentItem)
+	}
 	for _, descriptor := range detail.MCPDescriptors {
 		id := stringValue(descriptor["id"])
 		title := firstNonEmpty(stringValue(descriptor["name"]), id)
@@ -4109,7 +4127,7 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		}
 		items = append(items, catalogItem{
 			id:         "mcp/" + id,
-			title:      "Integration · MCP · " + title,
+			title:      title + " access",
 			desc:       agentBlueprintMCPDescription(descriptor),
 			inlineDesc: agentBlueprintMCPInlineSummary(descriptor),
 			statusTag:  status,
@@ -4117,24 +4135,18 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 	}
 	for _, descriptor := range detail.HookDescriptors {
 		id := stringValue(descriptor["id"])
-		title := firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), id)
+		title := agentBlueprintHookTitle(descriptor)
 		status := firstNonEmpty(stringValue(descriptor["status"]), "hook")
 		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 			status = "invalid"
 		}
 		items = append(items, catalogItem{
 			id:         "hook/" + id,
-			title:      "Automation · Hook · " + title,
+			title:      title,
 			desc:       agentBlueprintHookDescription(descriptor),
 			inlineDesc: agentBlueprintHookInlineSummary(descriptor),
 			statusTag:  status,
 		})
-	}
-	for _, agentItem := range agentCatalogItems(detail.Agents, catalogKindAgents) {
-		agentID := strings.TrimPrefix(agentItem.id, "agent/")
-		agentItem.id = "agent/" + agentID
-		agentItem.title = agentBlueprintExpertTitle(agentItem.title)
-		items = append(items, agentItem)
 	}
 	return items
 }
@@ -4144,22 +4156,61 @@ func agentBlueprintExpertTitle(title string) string {
 	prefixLen := len(title) - len(strings.TrimLeft(title, " "))
 	prefix := title[:prefixLen]
 	trimmed := strings.TrimLeft(title, " ")
+	tierPrefix, tierIndent, withoutTier := splitAgentHierarchyComputedPrefix(trimmed)
+	if withoutTier != "" {
+		trimmed = withoutTier
+		prefix = tierIndent
+	}
 	if strings.HasPrefix(trimmed, "Root expert · ") {
-		return "Root expert · " + stripAgentHierarchyRolePrefix(strings.TrimSpace(trimmed))
+		return tierPrefix + stripAgentHierarchyRolePrefix(strings.TrimSpace(trimmed))
 	}
 	if strings.HasPrefix(trimmed, "└─ ") {
 		label := strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
 		label = stripAgentHierarchyRolePrefix(label)
-		return prefix + "└─ Expert · " + label
+		return tierPrefix + prefix + "└─ " + label
 	}
-	return "Expert · " + stripAgentHierarchyRolePrefix(strings.TrimSpace(title))
+	return tierPrefix + stripAgentHierarchyRolePrefix(strings.TrimSpace(trimmed))
 }
 
 func stripAgentHierarchyRolePrefix(title string) string {
+	_, _, title = splitAgentHierarchyComputedPrefix(strings.TrimSpace(title))
 	for _, prefix := range []string{"Root expert · ", "Expert · "} {
 		title = strings.TrimPrefix(title, prefix)
 	}
+	title = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(title), "└─"))
 	return strings.TrimSpace(title)
+}
+
+func splitAgentHierarchyComputedPrefix(title string) (string, string, string) {
+	original := title
+	title = strings.TrimLeft(title, " ")
+	if !strings.HasPrefix(title, "T") {
+		return "", "", original
+	}
+	firstSpace := strings.IndexByte(title, ' ')
+	if firstSpace <= 1 {
+		return "", "", title
+	}
+	tier := title[:firstSpace]
+	for _, r := range tier[1:] {
+		if r < '0' || r > '9' {
+			return "", "", title
+		}
+	}
+	rest := strings.TrimLeft(title[firstSpace+1:], " ")
+	secondSpace := strings.IndexByte(rest, ' ')
+	if secondSpace <= 0 {
+		return "", "", title
+	}
+	index := rest[:secondSpace]
+	for _, r := range index {
+		if (r < '0' || r > '9') && r != '.' && r != 'u' {
+			return "", "", title
+		}
+	}
+	remainder := rest[secondSpace+1:]
+	indentLen := len(remainder) - len(strings.TrimLeft(remainder, " "))
+	return tier + " " + index + " ", remainder[:indentLen], strings.TrimLeft(remainder, " ")
 }
 
 func agentBlueprintActivationBlockReason(blueprint gact.AgentBlueprintDefinition) string {
@@ -4282,10 +4333,10 @@ func sessionDefaultDescription() string {
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	fields := make([]detailField, 0, 16)
 	if command := stringValue(descriptor["command"]); command != "" {
-		fields = append(fields, detailField{"command", command})
+		fields = append(fields, detailField{"server command", command})
 	}
 	if args := stringListFromAny(descriptor["args"]); len(args) > 0 {
-		fields = append(fields, detailField{"command args", strings.Join(args, " ")})
+		fields = append(fields, detailField{"server arguments", strings.Join(args, " ")})
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		fields = append(fields, detailField{"activation", enabledStateLabel(enabled)})
@@ -4296,7 +4347,7 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	for _, key := range []string{"runtime", "install", "trust", "env_policy", "verification"} {
 		fields = appendDescriptorMetadataFields(fields, key, descriptor[key])
 	}
-	rows := appendDetailSection(nil, "Connection setup", fields...)
+	rows := appendDetailSection(nil, "MCP access", fields...)
 	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
 		rows = appendDetailSection(rows, "Warnings", detailField{"", strings.Join(warnings, "\n")})
 	}
@@ -4309,10 +4360,15 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 func agentBlueprintMCPInlineSummary(descriptor map[string]any) string {
 	parts := make([]string, 0, 6)
 	if command := stringValue(descriptor["command"]); command != "" {
-		parts = append(parts, command)
+		parts = append(parts, "calls "+command)
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, enabledStateLabel(enabled))
+	}
+	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+		if trusted := scalarText(trust["trusted"]); strings.EqualFold(trusted, "false") {
+			parts = append(parts, "needs approval")
+		}
 	}
 	if transport := firstNonEmpty(stringValue(descriptor["transport"]), stringValue(mapValue(descriptor["runtime"])["transport"])); transport != "" {
 		parts = append(parts, transport)
@@ -4460,7 +4516,9 @@ func agentBlueprintHookDescription(descriptor map[string]any) string {
 	fields := make([]detailField, 0, 12)
 	for _, key := range []string{"event", "source", "scope", "agent_blueprint_id", "definition_path", "installed_path", "checksum"} {
 		if value := stringValue(descriptor[key]); value != "" {
-			if key == "source" {
+			if key == "event" {
+				value = agentBlueprintHookEventLabel(value)
+			} else if key == "source" {
 				value = operatorSourceValueLabel(value)
 			}
 			fields = append(fields, detailField{agentBlueprintHookFieldLabel(key), value})
@@ -4482,7 +4540,7 @@ func agentBlueprintHookDescription(descriptor map[string]any) string {
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		fields = append(fields, detailField{"activation", enabledStateLabel(enabled)})
 	}
-	rows := appendDetailSection(nil, "Automation setup", fields...)
+	rows := appendDetailSection(nil, "Message automation", fields...)
 	if warnings := stringListFromAny(descriptor["validation_warnings"]); len(warnings) > 0 {
 		rows = appendDetailSection(rows, "Warnings", detailField{"", strings.Join(warnings, "\n")})
 	}
@@ -4495,10 +4553,15 @@ func agentBlueprintHookDescription(descriptor map[string]any) string {
 func agentBlueprintHookInlineSummary(descriptor map[string]any) string {
 	parts := make([]string, 0, 6)
 	if event := stringValue(descriptor["event"]); event != "" {
-		parts = append(parts, "runs on "+event)
+		parts = append(parts, agentBlueprintHookEventLabel(event))
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, enabledStateLabel(enabled))
+	}
+	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+		if trusted := scalarText(trust["trusted"]); strings.EqualFold(trusted, "false") {
+			parts = append(parts, "needs approval")
+		}
 	}
 	if scope := stringValue(descriptor["scope"]); scope != "" {
 		parts = append(parts, scope)
@@ -4512,6 +4575,28 @@ func agentBlueprintHookInlineSummary(descriptor map[string]any) string {
 		parts = append(parts, "warnings")
 	}
 	return strings.Join(parts, " · ")
+}
+
+func agentBlueprintHookTitle(descriptor map[string]any) string {
+	if event := stringValue(descriptor["event"]); event != "" {
+		return agentBlueprintHookEventLabel(event)
+	}
+	title := firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))
+	if title == "" {
+		return "Message automation"
+	}
+	return title
+}
+
+func agentBlueprintHookEventLabel(event string) string {
+	switch strings.ToLower(strings.TrimSpace(event)) {
+	case "pre_message":
+		return "Before each user message"
+	case "post_message":
+		return "After each assistant response"
+	default:
+		return humanizeAgentLabel(event)
+	}
 }
 
 func operatorSourceValueLabel(source string) string {
@@ -4530,7 +4615,7 @@ func operatorSourceValueLabel(source string) string {
 func agentBlueprintHookFieldLabel(key string) string {
 	switch key {
 	case "event":
-		return "runs on"
+		return "when"
 	case "source":
 		return "provided by"
 	case "agent_blueprint_id":
@@ -5075,49 +5160,90 @@ func hierarchicalAgentCatalogItems(filtered []gact.AgentDef, allAgents []gact.Ag
 
 	items := make([]catalogItem, 0, len(filtered))
 	seen := map[string]bool{}
-	var appendAgent func(gact.AgentDef, int)
-	appendAgent = func(agent gact.AgentDef, depth int) {
+	var appendAgent func(gact.AgentDef, int, string)
+	appendAgent = func(agent gact.AgentDef, depth int, path string) {
 		if seen[agent.ID] {
 			return
 		}
 		seen[agent.ID] = true
-		items = append(items, agentCatalogHierarchyItem(agent, allAgents, depth))
-		for _, child := range byParent[agent.ID] {
-			appendAgent(child, depth+1)
+		items = append(items, agentCatalogHierarchyItem(agent, allAgents, depth, path))
+		children := byParent[agent.ID]
+		for idx, child := range children {
+			childPath := itoa2(idx + 1)
+			if path != "" {
+				childPath = path + "." + childPath
+			}
+			appendAgent(child, depth+1, childPath)
 		}
 	}
-	for _, agent := range topLevel {
-		appendAgent(agent, 0)
+	for idx, agent := range topLevel {
+		appendAgent(agent, 0, itoa2(idx+1))
 	}
-	for _, agent := range filtered {
-		appendAgent(agent, 0)
+	for idx, agent := range filtered {
+		appendAgent(agent, 0, "u"+itoa2(idx+1))
 	}
 	return items
 }
 
-func agentCatalogHierarchyItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int) catalogItem {
+func agentCatalogHierarchyItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int, path string) catalogItem {
 	item := agentCatalogItem(agent, allAgents, depth)
-	item.title = agentHierarchyTitle(item.title, depth)
+	item.title = agentHierarchyTitle(item.title, depth, path)
+	item.desc = prependCatalogDetailSummary(agentHierarchyInlineSummary(depth, path), stripLeadingAgentTierSummary(item.desc))
+	item.inlineDesc = prependCatalogInlineSummary(agentHierarchyInlineSummary(depth, path), item.inlineDesc)
 	return item
 }
 
-func agentHierarchyTitle(title string, depth int) string {
+func agentHierarchyTitle(title string, depth int, path string) string {
 	prefixLen := len(title) - len(strings.TrimLeft(title, " "))
 	prefix := title[:prefixLen]
 	trimmed := strings.TrimLeft(title, " ")
 	if strings.HasPrefix(trimmed, "└─ ") {
-		return prefix + "└─ Expert · " + strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
+		return prefix + "└─ " + strings.TrimSpace(strings.TrimPrefix(trimmed, "└─ "))
 	}
 	if depth <= 0 {
-		return "Root expert · " + strings.TrimSpace(title)
+		return strings.TrimSpace(title)
 	}
-	return prefix + "Expert · " + strings.TrimSpace(trimmed)
+	return prefix + strings.TrimSpace(trimmed)
+}
+
+func agentHierarchyInlineSummary(depth int, path string) string {
+	return "tier " + itoa2(depth+1)
+}
+
+func prependCatalogInlineSummary(prefix, text string) string {
+	prefix = strings.TrimSpace(prefix)
+	text = strings.TrimSpace(text)
+	if prefix == "" {
+		return text
+	}
+	if text == "" {
+		return prefix
+	}
+	if strings.Contains(text, prefix) {
+		return text
+	}
+	return truncate(prefix+" · "+text, 96)
+}
+
+func prependCatalogDetailSummary(prefix, text string) string {
+	prefix = strings.TrimSpace(prefix)
+	text = strings.TrimSpace(text)
+	if prefix == "" {
+		return text
+	}
+	if text == "" {
+		return prefix
+	}
+	if strings.Contains(text, prefix) {
+		return text
+	}
+	return prefix + " · " + text
 }
 
 func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int) catalogItem {
 	title := operatorAgentTitle(agent)
 	if depth > 0 {
-		title = strings.Repeat("  ", min(depth, 3)) + "└─ " + title
+		title = agentTreePrefix(depth) + title
 	}
 	status := firstNonEmpty(agent.Source, "agent")
 	if !agent.Enabled || len(agent.ValidationErrors) > 0 {
@@ -5138,6 +5264,16 @@ func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int)
 	}
 }
 
+func agentTreePrefix(depth int) string {
+	if depth <= 0 {
+		return ""
+	}
+	if depth == 1 {
+		return "└─ "
+	}
+	return strings.Repeat("│   ", depth-1) + "└─ "
+}
+
 func agentCatalogInlineSummary(agent gact.AgentDef, allAgents []gact.AgentDef) string {
 	parts := make([]string, 0, 5)
 	if agent.Source == "skill" {
@@ -5147,8 +5283,6 @@ func agentCatalogInlineSummary(agent gact.AgentDef, allAgents []gact.AgentDef) s
 	}
 	if agent.Specialization != "" {
 		parts = append(parts, humanizeAgentLabel(agent.Specialization))
-	} else if agent.Tier > 0 {
-		parts = append(parts, "level "+itoa2(agent.Tier))
 	}
 	if parent := agentParentID(agent); parent != "" {
 		parts = append(parts, "reports to "+agentTitleByID(allAgents, parent))
@@ -5173,6 +5307,17 @@ func agentCatalogInlineSummary(agent gact.AgentDef, allAgents []gact.AgentDef) s
 		}
 	}
 	return truncate(strings.Join(parts, " · "), 96)
+}
+
+func stripLeadingAgentTierSummary(text string) string {
+	parts := strings.Split(compactCatalogText(text), " · ")
+	if len(parts) == 0 {
+		return ""
+	}
+	if strings.HasPrefix(parts[0], "tier ") {
+		parts = parts[1:]
+	}
+	return strings.Join(parts, " · ")
 }
 
 func humanizeAgentLabel(label string) string {
@@ -5201,10 +5346,10 @@ func operatorAgentTitle(agent gact.AgentDef) string {
 func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) string {
 	parts := make([]string, 0, 6)
 	if agent.Tier > 0 {
-		parts = append(parts, "level "+itoa2(agent.Tier))
+		parts = append(parts, "tier "+itoa2(agent.Tier))
 	}
 	if agent.Specialization != "" {
-		parts = append(parts, "role "+agent.Specialization)
+		parts = append(parts, "role "+humanizeAgentLabel(agent.Specialization))
 	}
 	if parent := agentParentID(agent); parent != "" {
 		parts = append(parts, "reports to "+agentTitleByID(allAgents, parent))
@@ -5220,7 +5365,7 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		if len(agent.Tools) > 3 {
 			toolSummary = strings.Join(agent.Tools[:3], ", ") + fmt.Sprintf(", +%d", len(agent.Tools)-3)
 		}
-		parts = append(parts, "can use: "+toolSummary)
+		parts = append(parts, "tools: "+toolSummary)
 	}
 	if len(agent.Skills) > 0 {
 		skillSummary := strings.Join(agent.Skills, ", ")
