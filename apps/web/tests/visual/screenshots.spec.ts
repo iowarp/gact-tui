@@ -97,6 +97,15 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('settings-backends'), fullPage: false });
   });
 
+  test('settings-about summarizes app and backend capabilities', async ({ page }) => {
+    await page.goto('/?route=settings&section=about');
+    await expect(page.getByTestId('settings-about')).toBeVisible();
+    await expect(page.getByTestId('settings-cap-summary')).toBeVisible();
+    await expect(page.getByTestId('settings-cap-enabled')).toContainText('enabled');
+    await expect(page.getByText(/polish wave/i)).toHaveCount(0);
+    await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
+  });
+
   test('add-remote-ssh-wizard captures the tunnel form', async ({ page }) => {
     await page.goto('/?route=add-remote');
     await page.getByTestId('add-remote-mode-ssh').click();

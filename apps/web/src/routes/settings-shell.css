@@ -254,8 +254,58 @@
   cursor: pointer;
 }
 
+.settings-shell__cap-summary {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.settings-shell__cap-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-shell__cap-disabled {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--color-warning) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 22%, transparent);
+  border-radius: 10px;
+}
+
+.settings-shell__cap-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-warning);
+}
+
+.settings-shell__cap-details {
+  max-width: 760px;
+}
+
+.settings-shell__cap-details summary {
+  width: max-content;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings-shell__cap-details summary:hover {
+  color: var(--color-heading);
+}
+
+.settings-shell__cap-details[open] {
+  display: grid;
+  gap: 10px;
+}
+
 .settings-shell__caps {
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .settings-shell__links {

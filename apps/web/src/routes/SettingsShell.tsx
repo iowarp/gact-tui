@@ -778,6 +778,12 @@ function AboutSection() {
   const reg = useBackendRegistry();
   const cur = () => reg.current();
   const appName = () => (inTauri() ? `${brand.name} Desktop` : `${brand.name} Web`);
+  const capabilityEntries = () =>
+    Object.entries(cur()?.capabilities?.capabilities ?? {})
+      .filter(([, v]) => typeof v === 'boolean')
+      .sort(([a], [b]) => a.localeCompare(b)) as Array<[string, boolean]>;
+  const enabledCapabilities = () => capabilityEntries().filter(([, v]) => v);
+  const disabledCapabilities = () => capabilityEntries().filter(([, v]) => !v);
   return (
     <section class="dp" data-testid="settings-about">
       <header class="dp__head">
@@ -823,15 +829,37 @@ function AboutSection() {
         </div>
 
         <Show when={cur()?.capabilities?.capabilities}>
-          <SectionHeading title="Capability flags" />
-          <div class="dp__card-tags settings-shell__caps">
-            <For
-              each={Object.entries(cur()!.capabilities!.capabilities)
-                .filter(([, v]) => typeof v === 'boolean')
-                .sort()}
-            >
-              {([k, v]) => <Pill tone={v ? 'ok' : 'err'}>{k}</Pill>}
-            </For>
+          <SectionHeading title="Capabilities" />
+          <div class="settings-shell__cap-summary" data-testid="settings-cap-summary">
+            <div class="settings-shell__cap-counts">
+              <Pill tone="ok" testid="settings-cap-enabled">
+                {enabledCapabilities().length} enabled
+              </Pill>
+              <Pill
+                tone={disabledCapabilities().length > 0 ? 'warn' : 'neutral'}
+                testid="settings-cap-disabled"
+              >
+                {disabledCapabilities().length} disabled
+              </Pill>
+            </div>
+            <Show when={disabledCapabilities().length > 0}>
+              <div class="settings-shell__cap-disabled">
+                <span class="settings-shell__cap-label">Needs backend support</span>
+                <div class="dp__card-tags settings-shell__caps">
+                  <For each={disabledCapabilities()}>
+                    {([k]) => <Pill tone="warn">{k}</Pill>}
+                  </For>
+                </div>
+              </div>
+            </Show>
+            <details class="settings-shell__cap-details">
+              <summary>Show all capability flags</summary>
+              <div class="dp__card-tags settings-shell__caps">
+                <For each={capabilityEntries()}>
+                  {([k, v]) => <Pill tone={v ? 'ok' : 'err'}>{k}</Pill>}
+                </For>
+              </div>
+            </details>
           </div>
         </Show>
 
