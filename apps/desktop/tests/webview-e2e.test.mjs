@@ -4,17 +4,22 @@
 // real gact_http / SSE-bridge / supervisor stack.
 //
 // Gated on TAURI_E2E=1 because it needs:
-//   - a production-debug build at src-tauri/target/debug/clio-desktop.exe
+//   - a production-debug build at src-tauri/target/debug/clio-desktop{.exe}
 //     (pnpm --filter @clio/desktop tauri:build:debug)
-//   - msedgedriver.exe matching the installed WebView2 runtime
-//     (apps/desktop/msedgedriver.exe or $MSEDGEDRIVER)
+//   - a native WebDriver matching the platform WebView
+//     ($TAURI_NATIVE_DRIVER or apps/desktop/msedgedriver.exe on Windows)
 //   - tauri-driver on PATH (cargo install tauri-driver)
 //   - a live clio on :17800 (the app attaches first)
 //
-// Run: TAURI_E2E=1 node --test tests/webview-e2e.test.mjs
+// Optional overrides:
+//   CLIO_DESKTOP_APP=/path/to/clio-desktop{.exe}
+//   TAURI_DRIVER=/path/to/tauri-driver{.exe}
+//   CLIO_DESKTOP_SCREENSHOT_DIR=/path/to/screenshots
+//
+// Run: TAURI_E2E=1 pnpm --filter @clio/desktop test:webview
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -23,18 +28,30 @@ import assert from 'node:assert/strict';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-const APP = resolve(root, 'src-tauri', 'target', 'debug', 'clio-desktop.exe');
+const defaultApp =
+  process.platform === 'win32'
+    ? resolve(root, 'src-tauri', 'target', 'debug', 'clio-desktop.exe')
+    : resolve(root, 'src-tauri', 'target', 'debug', 'clio-desktop');
+const APP = process.env['CLIO_DESKTOP_APP'] ?? defaultApp;
 const DRIVER =
-  process.env['MSEDGEDRIVER'] ?? resolve(root, 'msedgedriver.exe');
+  process.env['TAURI_NATIVE_DRIVER'] ??
+  process.env['MSEDGEDRIVER'] ??
+  resolve(root, 'msedgedriver.exe');
 const TAURI_DRIVER =
   process.env['TAURI_DRIVER'] ??
   resolve(process.env['USERPROFILE'] ?? process.env['HOME'] ?? '', '.cargo', 'bin', 'tauri-driver.exe');
+const SCREENSHOT_DIR =
+  process.env['CLIO_DESKTOP_SCREENSHOT_DIR'] ??
+  resolve(root, '..', 'web', 'screenshots', 'audit');
 const PORT = 4444;
 const BASE = `http://127.0.0.1:${PORT}`;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 
 const enabled =
-  process.env['TAURI_E2E'] === '1' && existsSync(APP) && existsSync(DRIVER);
+  process.env['TAURI_E2E'] === '1' &&
+  existsSync(APP) &&
+  existsSync(DRIVER) &&
+  existsSync(TAURI_DRIVER);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -104,6 +121,12 @@ async function typeInto(sid, el, text) {
   });
 }
 
+async function screenshot(sid, name) {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const png = await wd('GET', `/session/${sid}/screenshot`);
+  writeFileSync(resolve(SCREENSHOT_DIR, `${name}.png`), Buffer.from(png.value, 'base64'));
+}
+
 test('real WebView: permission card renders + clears through the Tauri stack', { skip: !enabled ? 'TAURI_E2E!=1 or build/driver missing' : false }, async () => {
   const driver = spawn(TAURI_DRIVER, ['--native-driver', DRIVER, '--port', String(PORT)], {
     stdio: 'inherit',
@@ -134,6 +157,7 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
       await click(sid, skipTour);
       await sleep(400);
     }
+    await screenshot(sid, 'desktop-webview-chat');
 
     // Fresh session, then a tool-using prompt → clio emits
     // permission.requested, delivered over the SSE bridge.
@@ -154,17 +178,7 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     // Rust SSE bridge delivers permission.requested end-to-end.
     const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000);
     assert.ok(card, 'permission card should render');
-    // Capture the proof screenshot while the card is up.
-    try {
-      const png = await wd('GET', `/session/${sid}/screenshot`);
-      const fs = await import('node:fs');
-      fs.writeFileSync(
-        resolve(root, '..', 'web', 'screenshots', 'audit', 'w1-webview-permission.png'),
-        Buffer.from(png.value, 'base64'),
-      );
-    } catch {
-      /* screenshot is best-effort proof */
-    }
+    await screenshot(sid, 'desktop-webview-permission');
 
     // A decision must clear it.
     const deny = await waitFor(sid, '[data-testid="permcard-deny"]', 5_000);
