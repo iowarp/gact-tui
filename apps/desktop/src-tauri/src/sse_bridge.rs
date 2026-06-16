@@ -23,6 +23,13 @@ use std::thread;
 use tauri::ipc::Channel;
 use tauri::Manager;
 
+fn redact_url(url: &str) -> String {
+    match url.split_once('?') {
+        Some((base, _)) => format!("{base}?<redacted>"),
+        None => url.to_string(),
+    }
+}
+
 /// One message pushed to the frontend channel. `kind` discriminates:
 /// `open` (stream connected), `event` (a parsed SSE event — `data`
 /// carries the JSON envelope the reducer expects), `error` (transport
@@ -39,16 +46,32 @@ pub struct SseMessage {
 
 impl SseMessage {
     fn open() -> Self {
-        Self { kind: "open".into(), data: None, message: None }
+        Self {
+            kind: "open".into(),
+            data: None,
+            message: None,
+        }
     }
     fn event(data: String) -> Self {
-        Self { kind: "event".into(), data: Some(data), message: None }
+        Self {
+            kind: "event".into(),
+            data: Some(data),
+            message: None,
+        }
     }
     fn error(msg: String) -> Self {
-        Self { kind: "error".into(), data: None, message: Some(msg) }
+        Self {
+            kind: "error".into(),
+            data: None,
+            message: Some(msg),
+        }
     }
     fn closed() -> Self {
-        Self { kind: "closed".into(), data: None, message: None }
+        Self {
+            kind: "closed".into(),
+            data: None,
+            message: None,
+        }
     }
 }
 
@@ -117,14 +140,18 @@ pub fn gact_sse_open(
     on_event: Channel<SseMessage>,
 ) -> Result<u64, String> {
     let (id, stop) = app.state::<SseRegistry>().register();
+    eprintln!("[gact_sse] open requested id={id} url={}", redact_url(&url));
     let app2 = app.clone();
     thread::Builder::new()
         .name(format!("gact-sse-{id}"))
         .spawn(move || {
+            eprintln!("[gact_sse] thread started id={id}");
             run_stream(&url, &headers, &stop, |m| {
+                eprintln!("[gact_sse] emit id={id} kind={}", m.kind);
                 let _ = on_event.send(m);
             });
             app2.state::<SseRegistry>().forget(id);
+            eprintln!("[gact_sse] thread stopped id={id}");
         })
         .map_err(|e| format!("sse thread spawn: {e}"))?;
     Ok(id)
@@ -135,6 +162,7 @@ pub fn gact_sse_open(
 /// cadence to a few seconds) and exits.
 #[tauri::command]
 pub fn gact_sse_close(app: tauri::AppHandle, id: u64) {
+    eprintln!("[gact_sse] close requested id={id}");
     app.state::<SseRegistry>().stop(id);
 }
 
@@ -148,6 +176,7 @@ fn run_stream<F: FnMut(SseMessage)>(
     stop: &AtomicBool,
     mut emit: F,
 ) {
+    eprintln!("[gact_sse] connecting url={}", redact_url(url));
     let mut req = ureq::get(url).set("Accept", "text/event-stream");
     for (k, v) in headers {
         req = req.set(k, v);
@@ -155,14 +184,17 @@ fn run_stream<F: FnMut(SseMessage)>(
     let resp = match req.call() {
         Ok(r) => r,
         Err(ureq::Error::Status(code, _)) => {
+            eprintln!("[gact_sse] status error code={code}");
             emit(SseMessage::error(format!("sse status {code}")));
             return;
         }
         Err(e) => {
+            eprintln!("[gact_sse] connect error {e}");
             emit(SseMessage::error(format!("sse connect: {e}")));
             return;
         }
     };
+    eprintln!("[gact_sse] connected status={}", resp.status());
     emit(SseMessage::open());
 
     let mut reader = BufReader::new(resp.into_reader());
@@ -214,8 +246,8 @@ mod tests {
     use std::time::Duration;
 
     fn backend() -> Option<String> {
-        let url = std::env::var("CLIO_GACT_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
+        let url =
+            std::env::var("CLIO_GACT_URL").unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
         match ureq::get(&format!("{url}/v1/capabilities"))
             .timeout(Duration::from_millis(800))
             .call()
@@ -243,8 +275,7 @@ mod tests {
             .and_then(|j| j.get("id").and_then(|v| v.as_str()).map(String::from))
             .expect("session id in response");
 
-        let events: Arc<Mutex<Vec<(String, Option<String>)>>> =
-            Arc::new(Mutex::new(Vec::new()));
+        let events: Arc<Mutex<Vec<(String, Option<String>)>>> = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let url = format!("{base}/v1/sessions/{sid}/events");
         let ev2 = events.clone();
@@ -271,7 +302,10 @@ mod tests {
                 let g = events.lock().unwrap();
                 got_open = g.iter().any(|(k, _)| k == "open");
                 got_event = g.iter().any(|(k, d)| {
-                    k == "event" && d.as_deref().map(|s| s.contains("\"type\"")).unwrap_or(false)
+                    k == "event"
+                        && d.as_deref()
+                            .map(|s| s.contains("\"type\""))
+                            .unwrap_or(false)
                 });
             }
             if got_open && got_event {
@@ -335,8 +369,14 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(500));
         }
-        assert!(joined, "reader thread did not stop within ~20s of stop flag");
+        assert!(
+            joined,
+            "reader thread did not stop within ~20s of stop flag"
+        );
         let _ = reader.join();
-        assert!(closed.load(Ordering::Relaxed), "reader should emit 'closed' on stop");
+        assert!(
+            closed.load(Ordering::Relaxed),
+            "reader should emit 'closed' on stop"
+        );
     }
 }

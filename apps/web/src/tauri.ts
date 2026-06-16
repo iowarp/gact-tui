@@ -323,6 +323,40 @@ export interface SseBridgeHandle {
   close: () => void;
 }
 
+export interface SseBridgeDebugState {
+  url: string;
+  state:
+    | 'idle'
+    | 'importing'
+    | 'invoking'
+    | 'handle-ready'
+    | 'open'
+    | 'event'
+    | 'error'
+    | 'closed'
+    | 'close-requested';
+  lastMessage?: string;
+  eventCount: number;
+  openedAt?: number;
+  updatedAt: number;
+}
+
+function recordSseDebug(update: Partial<SseBridgeDebugState> & { url: string }) {
+  if (typeof window === 'undefined') return;
+  const debugWindow = window as typeof window & {
+    __gactSseDebug?: SseBridgeDebugState;
+  };
+  const prev = debugWindow.__gactSseDebug;
+  debugWindow.__gactSseDebug = {
+    url: update.url,
+    state: update.state ?? prev?.state ?? 'idle',
+    lastMessage: update.lastMessage ?? prev?.lastMessage,
+    eventCount: update.eventCount ?? prev?.eventCount ?? 0,
+    openedAt: update.openedAt ?? prev?.openedAt,
+    updatedAt: Date.now(),
+  };
+}
+
 export interface SseBridgeHandlers {
   onOpen: () => void;
   /** Raw SSE `data:` payload (a JSON envelope) for one event. */
@@ -350,27 +384,44 @@ export async function openTauriSse(
   if (!inTauri()) {
     throw new Error('openTauriSse() called outside Tauri shell');
   }
+  recordSseDebug({ url, state: 'importing', eventCount: 0 });
   const { invoke, Channel } = await import('@tauri-apps/api/core');
+  recordSseDebug({ url, state: 'invoking', eventCount: 0 });
   const ch = new Channel<SseBridgeMessage>();
   ch.onmessage = (m) => {
     switch (m.kind) {
       case 'open':
+        recordSseDebug({ url, state: 'open', openedAt: Date.now() });
         handlers.onOpen();
         break;
       case 'event':
-        if (typeof m.data === 'string') handlers.onData(m.data);
+        if (typeof m.data === 'string') {
+          const prev = (window as typeof window & { __gactSseDebug?: SseBridgeDebugState })
+            .__gactSseDebug;
+          recordSseDebug({
+            url,
+            state: 'event',
+            eventCount: (prev?.eventCount ?? 0) + 1,
+            lastMessage: m.data.slice(0, 240),
+          });
+          handlers.onData(m.data);
+        }
         break;
       case 'error':
+        recordSseDebug({ url, state: 'error', lastMessage: m.message ?? 'sse bridge error' });
         handlers.onError(m.message);
         break;
       case 'closed':
+        recordSseDebug({ url, state: 'closed' });
         handlers.onClosed();
         break;
     }
   };
   const id = await invoke<number>('gact_sse_open', { url, headers: {}, onEvent: ch });
+  recordSseDebug({ url, state: 'handle-ready' });
   return {
     close: () => {
+      recordSseDebug({ url, state: 'close-requested' });
       void invoke('gact_sse_close', { id });
     },
   };

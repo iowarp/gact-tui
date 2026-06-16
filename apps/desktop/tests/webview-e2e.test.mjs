@@ -228,6 +228,7 @@ async function sendDiagnostics(sid) {
       "  hasTauriGlobal: typeof window.__TAURI__ !== 'undefined'," +
       "  hasTauriInternals: typeof window.__TAURI_INTERNALS__ !== 'undefined'," +
       "  locationOrigin: window.location.origin," +
+      "  sseDebug: window.__gactSseDebug || null," +
       "  tauriGlobals: Object.keys(window).filter((k) => k.toLowerCase().includes('tauri')).slice(0, 20)," +
       "  permissionCard: !!document.querySelector('[data-testid=\"permission-card\"]')" +
       "};"

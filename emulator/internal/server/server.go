@@ -3,7 +3,9 @@ package server
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -189,7 +191,16 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 // Handler returns the HTTP handler for the server. The mux is wrapped
 // with timingMiddleware so per-route latency reservoirs feed into the
 // /v1/metrics endpoint (SPEC §6.16).
-func (s *Server) Handler() http.Handler { return timingMiddleware(s.latency, s.mux) }
+func (s *Server) Handler() http.Handler {
+	h := timingMiddleware(s.latency, s.mux)
+	if os.Getenv("GACT_EMULATOR_LOG_REQUESTS") != "1" {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("request %s %s", r.Method, r.URL.RequestURI())
+		h.ServeHTTP(w, r)
+	})
+}
 
 // Store returns the underlying store. Useful for callers that want to seed
 // state before serving requests.
