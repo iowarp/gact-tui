@@ -42,6 +42,7 @@ import {
   MemoryPage,
   MetricsPage,
   PoliciesPage,
+  PluginsPage,
   PromptsPage,
   ProvidersPage,
   ToolsPage,
@@ -67,6 +68,7 @@ export type SettingsSection =
   | 'memory'
   | 'metrics'
   | 'doctor'
+  | 'plugins'
   | 'appearance'
   | 'data'
   | 'about';
@@ -94,6 +96,7 @@ const SECTIONS: SectionDef[] = [
   { id: 'memory', label: 'Memory', icon: 'memory', group: 'Telemetry' },
   { id: 'metrics', label: 'Metrics', icon: 'metrics', group: 'Telemetry' },
   { id: 'doctor', label: 'Doctor', icon: 'doctor', group: 'Telemetry' },
+  { id: 'plugins', label: 'Plugins', icon: 'tool', group: 'App' },
   { id: 'appearance', label: 'Appearance', icon: 'palette', group: 'App' },
   { id: 'data', label: 'Data & backups', icon: 'share', group: 'App' },
   { id: 'about', label: 'About', icon: 'help', group: 'App' },
@@ -263,6 +266,9 @@ export function SettingsShell(props: SettingsShellProps) {
             </Match>
             <Match when={client() && section() === 'doctor'}>
               <DoctorPage client={client()!} />
+            </Match>
+            <Match when={section() === 'plugins'}>
+              <PluginsPage />
             </Match>
             <Match when={section() === 'appearance'}>
               <AppearanceSection />

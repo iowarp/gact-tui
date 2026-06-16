@@ -61,6 +61,11 @@ async function connect(
   };
 }
 
+async function openSettingsSection(page: Page, section: string) {
+  await page.getByTestId('rail-settings').click();
+  await page.getByTestId(`settings-nav-${section}`).click();
+}
+
 /** Select the first available session — many tests need an active
  * session for the Inspector tabs to render. */
 async function pickFirstSession(page: Page) {
@@ -169,21 +174,19 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- Plugins discovery page (#147) ----
-  test('Plugins rail entry opens the registry form (#147)', async ({ browser }) => {
+  // ---- Plugins settings page (#147) ----
+  test('Settings → Plugins opens the registry form (#147)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    const railPlugins = page.getByTestId('rail-plugins');
-    await expect(railPlugins).toBeVisible({ timeout: 4_000 });
-    await railPlugins.click();
+    await openSettingsSection(page, 'plugins');
     await expect(page.getByTestId('plugin-form')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('147-plugins-form'), fullPage: false });
     await close();
   });
 
   // ---- Memory page with cross-session search (#108) ----
-  test('Memory rail entry shows cross-session search input (#108)', async ({ browser }) => {
+  test('Settings → Memory shows cross-session search input (#108)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-memory').click();
+    await openSettingsSection(page, 'memory');
     await expect(page.getByTestId('memory-search-input')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('108-memory-search'), fullPage: false });
     await close();
@@ -220,10 +223,10 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- Discovery: agents, mcp, prompts, doctor (#132 #125 #128 #141) ----
-  test('Discovery → Agents renders cards (#132)', async ({ browser }) => {
+  // ---- Settings: agents, mcp, prompts, doctor (#132 #125 #128 #141) ----
+  test('Settings → Agents renders cards (#132)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(
       page.locator('[data-testid^="agent-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -231,9 +234,9 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  test('Discovery → MCP renders cards (#125)', async ({ browser }) => {
+  test('Settings → MCP renders cards (#125)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(
       page.locator('[data-testid^="mcp-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -241,9 +244,9 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  test('Discovery → Doctor renders LSP clients section if backend has any (#141)', async ({ browser }) => {
+  test('Settings → Doctor renders LSP clients section if backend has any (#141)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-doctor').click();
+    await openSettingsSection(page, 'doctor');
     await expect(page.getByTestId('doctor-integrations')).toBeVisible({ timeout: 8_000 });
     // LSP section is optional; just capture whatever Doctor renders.
     await page.screenshot({ path: shot('141-doctor-page'), fullPage: false });
@@ -251,9 +254,9 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- MCP install modal (#95) ----
-  test('MCP page exposes install modal (#95)', async ({ browser }) => {
+  test('Settings → MCP exposes install modal (#95)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await page.getByTestId('mcp-install-open').click();
     await expect(page.getByTestId('mcp-install-modal')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('95-mcp-install-modal'), fullPage: false });
@@ -319,7 +322,7 @@ test.describe('CLIO audit-batch verification', () => {
   test('Memory page exposes session-scoped events list (#100)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await pickFirstSession(page);
-    await page.getByTestId('rail-memory').click();
+    await openSettingsSection(page, 'memory');
     const toggle = page.getByTestId('memory-events-toggle');
     await expect(toggle).toBeVisible({ timeout: 6_000 });
     await toggle.click();
@@ -452,13 +455,13 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- LeftRail capability-gated rails exist for the live backend (#120) ----
-  test('LeftRail surfaces rail entries for advertised capabilities (#120)', async ({ browser }) => {
+  // ---- LeftRail keeps configuration out of the primary shell (#120) ----
+  test('LeftRail stays conversation-first while Settings exposes capabilities (#120)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    // Every backend in our test fleet advertises these — they should
-    // all be present in the rail.
+    await expect(page.getByTestId('rail-sessions')).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByTestId('rail-settings')).toBeVisible({ timeout: 4_000 });
     for (const rail of ['agents', 'mcp', 'memory', 'metrics', 'doctor', 'plugins', 'tools']) {
-      await expect(page.getByTestId(`rail-${rail}`)).toBeVisible({ timeout: 4_000 });
+      await expect(page.getByTestId(`rail-${rail}`)).toHaveCount(0);
     }
     await page.screenshot({ path: shot('120-leftrail-rails'), fullPage: false });
     await close();
@@ -558,9 +561,9 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- Workspaces page (#28 + workspace card features) ----
-  test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
+  test('Settings → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-workspaces').click();
+    await openSettingsSection(page, 'workspaces');
     await expect(
       page.locator('[data-testid^="workspace-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -586,7 +589,7 @@ test.describe('CLIO audit-batch verification', () => {
       // Defer to the CORS-shim route installed by connect().
       await route.fallback();
     });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-error')).toBeVisible({ timeout: 8_000 });
     const retry = page.getByTestId('dp-error-retry');
     await expect(retry).toBeVisible();
@@ -835,7 +838,7 @@ test.describe('CLIO audit-batch verification', () => {
       await gate;
       await route.fallback();
     });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-loading')).toBeVisible({ timeout: 6_000 });
     await expect(page.locator('.dp__skeleton-card').first()).toBeVisible();
     await page.screenshot({ path: shot('w3-skeleton-discovery'), fullPage: false });
@@ -1012,7 +1015,7 @@ test.describe('CLIO audit-batch verification', () => {
 
   test('MCP Reconnect button behaves honestly on the live backend (1.0 item E3)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
     const btn = page.locator('[data-testid^="mcp-reconnect-"]').first();
     await expect(btn).toBeVisible({ timeout: 8_000 });

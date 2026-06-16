@@ -128,7 +128,7 @@ export function ChatScreen(props: ChatScreenProps) {
 function FixtureDriven(props: {
   backend: BackendHandle;
   fixture: string;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (section?: SettingsSection) => void;
   onAddRemote?: () => void;
 }) {
   const fixtures = fixturesForDemo();
@@ -2306,7 +2306,11 @@ function ChatLayout(props: ChatLayoutProps) {
     }
     if (cmd.id.startsWith('rail:')) {
       const route = cmd.id.slice('rail:'.length) as RailRoute;
-      setRailRoute(route);
+      if (route === 'sessions') {
+        setRailRoute('sessions');
+        return;
+      }
+      props.onOpenSettings?.(routeSettingsSection(route) ?? undefined);
       return;
     }
     if (cmd.id.startsWith('settings:')) {
@@ -2426,13 +2430,13 @@ function ChatLayout(props: ChatLayoutProps) {
         setRailRoute('sessions');
         return;
       case '/agents':
-        setRailRoute('agents');
+        props.onOpenSettings?.('agents');
         return;
       case '/tools':
-        setRailRoute('tools');
+        props.onOpenSettings?.('tools');
         return;
       case '/doctor':
-        setRailRoute('doctor');
+        props.onOpenSettings?.('doctor');
         return;
       case '/help':
       default:
@@ -2483,7 +2487,9 @@ function ChatLayout(props: ChatLayoutProps) {
         category: 'perm',
       });
     }
-    // Rail jumps for capabilities we know exist.
+    // Settings jumps for the operational surfaces that used to be rail
+    // destinations. The rail stays focused on sessions; the palette remains
+    // the fast path for people who know exactly where they want to go.
     const railJumps: Array<{ id: RailRoute; label: string }> = [
       { id: 'workspaces', label: 'Workspaces' },
       { id: 'agents', label: 'Agents' },
@@ -2498,7 +2504,7 @@ function ChatLayout(props: ChatLayoutProps) {
       items.push({
         id: `rail:${r.id}`,
         trigger: `go · ${r.label.toLowerCase()}`,
-        description: `Open ${r.label}`,
+        description: `Open Settings → ${r.label}`,
         category: 'navigation',
       });
     }
@@ -3334,19 +3340,19 @@ function ChatLayout(props: ChatLayoutProps) {
         onPick={(t) => {
           switch (t.kind) {
             case 'agent':
-              setRailRoute('agents');
+              props.onOpenSettings?.('agents');
               return;
             case 'tool':
-              setRailRoute('tools');
+              props.onOpenSettings?.('tools');
               return;
             case 'mcp':
-              setRailRoute('mcp');
+              props.onOpenSettings?.('mcp');
               return;
             case 'prompt':
-              setRailRoute('prompts');
+              props.onOpenSettings?.('prompts');
               return;
             case 'workspace':
-              setRailRoute('workspaces');
+              props.onOpenSettings?.('workspaces');
               return;
           }
         }}
@@ -3519,6 +3525,34 @@ function hostFromUrl(u: string): string {
     return new URL(u).host;
   } catch {
     return u;
+  }
+}
+
+function routeSettingsSection(route: RailRoute): SettingsSection | null {
+  switch (route) {
+    case 'workspaces':
+      return 'workspaces';
+    case 'agents':
+      return 'agents';
+    case 'tools':
+      return 'tools';
+    case 'prompts':
+      return 'prompts';
+    case 'mcp':
+      return 'mcp';
+    case 'memory':
+      return 'memory';
+    case 'metrics':
+      return 'metrics';
+    case 'doctor':
+      return 'doctor';
+    case 'settings':
+      return 'backends';
+    case 'plugins':
+      return 'plugins';
+    case 'sessions':
+    default:
+      return null;
   }
 }
 

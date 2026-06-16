@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -7,6 +7,11 @@ mkdirSync(screenshotDir, { recursive: true });
 
 function shot(name: string) {
   return resolve(screenshotDir, `${name}.png`);
+}
+
+async function openSettingsSection(page: Page, section: string) {
+  await page.getByTestId('rail-settings').click();
+  await page.getByTestId(`settings-nav-${section}`).click();
 }
 
 const REAL_BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17800';
@@ -286,8 +291,7 @@ test.describe('CLIO harness — visual proofs', () => {
         }),
       });
     });
-    await page.goto('/?route=chat&fixture=normal');
-    await page.getByTestId('rail-agents').click();
+    await page.goto('/?route=settings&section=agents');
     await expect(page.getByTestId('agent-card-main')).toBeVisible();
     await page.getByTestId('agent-detail-toggle-main').click();
     await expect(page.getByTestId('agent-detail-main')).toContainText('Routing');
@@ -475,7 +479,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-agents')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-agents'), fullPage: false });
@@ -507,7 +511,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-mcp'), fullPage: false });
@@ -541,7 +545,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-doctor').click();
+    await openSettingsSection(page, 'doctor');
     await expect(page.getByTestId('dp-doctor')).toBeVisible();
     await expect(page.getByTestId('doctor-integrations')).toBeVisible();
     await page.waitForTimeout(400);
@@ -757,7 +761,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-metrics').click();
+    await openSettingsSection(page, 'metrics');
     await expect(page.getByTestId('dp-metrics')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-metrics'), fullPage: false });
