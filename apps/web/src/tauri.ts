@@ -334,7 +334,11 @@ export interface SseBridgeDebugState {
     | 'event'
     | 'error'
     | 'closed'
-    | 'close-requested';
+    | 'close-requested'
+    | 'channel-open'
+    | 'channel-event'
+    | 'channel-error'
+    | 'channel-closed';
   lastMessage?: string;
   eventCount: number;
   openedAt?: number;
@@ -365,6 +369,45 @@ export interface SseBridgeHandlers {
   onClosed: () => void;
 }
 
+interface SseBridgeEventPayload {
+  client_id: string;
+  message: SseBridgeMessage;
+}
+
+function dispatchSseBridgeMessage(
+  url: string,
+  handlers: SseBridgeHandlers,
+  m: SseBridgeMessage,
+) {
+  switch (m.kind) {
+    case 'open':
+      recordSseDebug({ url, state: 'open', openedAt: Date.now() });
+      handlers.onOpen();
+      break;
+    case 'event':
+      if (typeof m.data === 'string') {
+        const prev = (window as typeof window & { __gactSseDebug?: SseBridgeDebugState })
+          .__gactSseDebug;
+        recordSseDebug({
+          url,
+          state: 'event',
+          eventCount: (prev?.eventCount ?? 0) + 1,
+          lastMessage: m.data.slice(0, 240),
+        });
+        handlers.onData(m.data);
+      }
+      break;
+    case 'error':
+      recordSseDebug({ url, state: 'error', lastMessage: m.message ?? 'sse bridge error' });
+      handlers.onError(m.message);
+      break;
+    case 'closed':
+      recordSseDebug({ url, state: 'closed' });
+      handlers.onClosed();
+      break;
+  }
+}
+
 /**
  * Open an SSE stream through the Rust `gact_sse_open` bridge instead of
  * a raw browser `EventSource`. Rust reads the stream (no WebView CORS
@@ -386,42 +429,31 @@ export async function openTauriSse(
   }
   recordSseDebug({ url, state: 'importing', eventCount: 0 });
   const { invoke, Channel } = await import('@tauri-apps/api/core');
+  const { listen } = await import('@tauri-apps/api/event');
   recordSseDebug({ url, state: 'invoking', eventCount: 0 });
+  const clientId = `sse-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const unlisten = await listen<SseBridgeEventPayload>('gact:sse', (event) => {
+    if (event.payload.client_id !== clientId) return;
+    dispatchSseBridgeMessage(url, handlers, event.payload.message);
+  });
   const ch = new Channel<SseBridgeMessage>();
+  // Linux WebKit CI proved Rust can send over Channel while the frontend
+  // callback never fires. Keep the Channel for command compatibility, but
+  // consume the keyed Tauri event above as the live transcript transport.
   ch.onmessage = (m) => {
-    switch (m.kind) {
-      case 'open':
-        recordSseDebug({ url, state: 'open', openedAt: Date.now() });
-        handlers.onOpen();
-        break;
-      case 'event':
-        if (typeof m.data === 'string') {
-          const prev = (window as typeof window & { __gactSseDebug?: SseBridgeDebugState })
-            .__gactSseDebug;
-          recordSseDebug({
-            url,
-            state: 'event',
-            eventCount: (prev?.eventCount ?? 0) + 1,
-            lastMessage: m.data.slice(0, 240),
-          });
-          handlers.onData(m.data);
-        }
-        break;
-      case 'error':
-        recordSseDebug({ url, state: 'error', lastMessage: m.message ?? 'sse bridge error' });
-        handlers.onError(m.message);
-        break;
-      case 'closed':
-        recordSseDebug({ url, state: 'closed' });
-        handlers.onClosed();
-        break;
-    }
+    recordSseDebug({ url, state: `channel-${m.kind}` });
   };
-  const id = await invoke<number>('gact_sse_open', { url, headers: {}, onEvent: ch });
+  const id = await invoke<number>('gact_sse_open', {
+    url,
+    headers: {},
+    onEvent: ch,
+    clientId,
+  });
   recordSseDebug({ url, state: 'handle-ready' });
   return {
     close: () => {
       recordSseDebug({ url, state: 'close-requested' });
+      unlisten();
       void invoke('gact_sse_close', { id });
     },
   };

@@ -21,7 +21,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::ipc::Channel;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+const SSE_EVENT: &str = "gact:sse";
 
 fn redact_url(url: &str) -> String {
     match url.split_once('?') {
@@ -42,6 +44,12 @@ pub struct SseMessage {
     data: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+struct SseEventPayload {
+    client_id: String,
+    message: SseMessage,
 }
 
 impl SseMessage {
@@ -138,8 +146,10 @@ pub fn gact_sse_open(
     url: String,
     headers: HashMap<String, String>,
     on_event: Channel<SseMessage>,
+    client_id: Option<String>,
 ) -> Result<u64, String> {
     let (id, stop) = app.state::<SseRegistry>().register();
+    let event_client_id = client_id.unwrap_or_else(|| id.to_string());
     eprintln!("[gact_sse] open requested id={id} url={}", redact_url(&url));
     let app2 = app.clone();
     thread::Builder::new()
@@ -148,7 +158,14 @@ pub fn gact_sse_open(
             eprintln!("[gact_sse] thread started id={id}");
             run_stream(&url, &headers, &stop, |m| {
                 eprintln!("[gact_sse] emit id={id} kind={}", m.kind);
-                let _ = on_event.send(m);
+                let _ = on_event.send(m.clone());
+                let _ = app2.emit(
+                    SSE_EVENT,
+                    SseEventPayload {
+                        client_id: event_client_id.clone(),
+                        message: m,
+                    },
+                );
             });
             app2.state::<SseRegistry>().forget(id);
             eprintln!("[gact_sse] thread stopped id={id}");
