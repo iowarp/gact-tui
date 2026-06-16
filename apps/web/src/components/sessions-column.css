@@ -230,11 +230,11 @@
   border-color: var(--color-border-30);
 }
 
-/* Selected session row = selection state → the single warm accent, with a
-   warm left accent bar so it reads as "current" at a glance. */
+/* Selected session row: keep the active conversation visible without making
+   the session rail compete with the transcript. */
 .sx__row.is-active {
-  background: var(--color-select-bg);
-  border-color: var(--color-select-border);
+  background: color-mix(in srgb, var(--color-surface-alt) 86%, var(--color-accent-cyan) 14%);
+  border-color: var(--color-accent-cyan-30);
 }
 
 .sx__row-hit {
