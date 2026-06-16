@@ -225,6 +225,57 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('mobile-diff-pane'), fullPage: false });
   });
 
+  test('agents detail expands into structured routing evidence', async ({ page }) => {
+    await page.route('**/v1/agents', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          agents: [
+            {
+              id: 'main',
+              title: 'Data Semantics Orchestrator',
+              source: 'builtin',
+              tier: 1,
+              tools: ['delegate'],
+              keywords: ['main'],
+            },
+          ],
+        }),
+      });
+    });
+    await page.route('**/v1/agents/main', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'main',
+          title: 'Data Semantics Orchestrator',
+          source: 'builtin',
+          tier: 1,
+          specialization: 'workflow routing',
+          default_model: 'gpt-oss-120b',
+          tools: ['delegate', 'summarize_evidence'],
+          keywords: ['main', 'routing'],
+          routing_rules: {
+            data: 'delegate dataset discovery',
+            analysis: 'delegate scientific review',
+          },
+          metadata: {
+            owner: 'bench',
+            expert_pack: 'ndp-demo',
+            nested: { retained: true },
+          },
+        }),
+      });
+    });
+    await page.goto('/?route=chat&fixture=normal');
+    await page.getByTestId('rail-agents').click();
+    await expect(page.getByTestId('agent-card-main')).toBeVisible();
+    await page.getByTestId('agent-detail-toggle-main').click();
+    await expect(page.getByTestId('agent-detail-main')).toContainText('Routing');
+    await expect(page.getByTestId('agent-detail-main')).not.toContainText('routing_rules');
+    await page.screenshot({ path: shot('agents-detail-structured'), fullPage: false });
+  });
+
   test('slash-palette opens with the default command list', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal&open=palette');
     await expect(page.getByTestId('slash-palette')).toBeVisible();
