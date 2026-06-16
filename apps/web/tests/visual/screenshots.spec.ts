@@ -106,6 +106,15 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
   });
 
+  test('settings-appearance keeps theme controls compact', async ({ page }) => {
+    await page.goto('/?route=settings&section=appearance');
+    await expect(page.getByTestId('settings-appearance')).toBeVisible();
+    await expect(page.getByTestId('settings-theme-dark')).toBeVisible();
+    await expect(page.getByTestId('settings-theme-presets')).toBeVisible();
+    await expect(page.getByText(/High contrast maximizes/i)).toHaveCount(0);
+    await page.screenshot({ path: shot('settings-shell-appearance'), fullPage: false });
+  });
+
   test('add-remote-ssh-wizard captures the tunnel form', async ({ page }) => {
     await page.goto('/?route=add-remote');
     await page.getByTestId('add-remote-mode-ssh').click();

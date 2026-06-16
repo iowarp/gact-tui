@@ -393,13 +393,7 @@ function AppearanceSection() {
       <div class="dp__body">
         <SectionHeading
           title="Theme"
-          hint={
-            <>
-              <strong>Dark</strong> is the {brand.name} default. <strong>Light</strong>{' '}
-              applies the full light palette. <strong>Auto</strong> follows your
-              OS appearance setting and switches live.
-            </>
-          }
+          hint="Choose a fixed palette or follow the operating system."
         />
         <div class="settings-shell__choices">
           <For each={['dark', 'light', 'auto'] as const}>
@@ -422,15 +416,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Presets"
-          hint={
-            <>
-              One-click token sets. <strong>High contrast</strong> maximizes
-              text/background separation for low-vision use; <strong>Dim</strong>{' '}
-              softens the palette for late-night sessions. Presets write the same
-              overrides as the per-color editor below, so you can fine-tune after
-              applying one.
-            </>
-          }
+          hint="Apply a full palette, then fine-tune individual colors below."
         />
         <div class="settings-shell__choices" data-testid="settings-theme-presets">
           <For each={Object.entries(THEME_PRESETS)}>
@@ -459,7 +445,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Notifications"
-          hint="Which events surface as toasts. Errors always show — they carry recovery actions."
+          hint="Choose which non-error events surface as toasts."
         />
         <div class="settings-shell__toggles" data-testid="settings-notif-prefs">
           <label class="settings-shell__toggle">
@@ -484,13 +470,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Accent palette"
-          hint={
-            <>
-              Overrides the design system's accent tokens at the web layer. Saved
-              to <code>localStorage.{THEME_TOKENS_KEY}</code> and applied on every
-              reload.
-            </>
-          }
+          hint="Local color overrides applied on every reload."
         />
         <div class="theme-tokens">
           <For each={ACCENT_TOKENS}>
@@ -536,13 +516,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Locale"
-          hint={
-            <>
-              Forwarded to clio as <code>Accept-Language</code> so backend copy
-              (errors, hints, slash command titles) can answer in your preferred
-              language. UI chrome strings stay English until frontend i18n lands.
-            </>
-          }
+          hint="Forwarded to the backend as Accept-Language."
         />
         <div class="settings-shell__choices" data-testid="settings-locale-choices">
           <For each={LOCALES}>
@@ -599,13 +573,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Custom intro splash"
-          hint={
-            <>
-              Mirrors the TUI's <code>intro_file</code> config — drop a short
-              banner here and it'll render on the Splash/Connect screen while
-              {' '}{brand.name} boots. Plain text only (no ANSI escapes).
-            </>
-          }
+          hint={`Plain text shown while ${brand.name} boots.`}
         />
         <textarea
           class="settings-shell__intro"
@@ -629,13 +597,7 @@ function AppearanceSection() {
 
         <SectionHeading
           title="Reset"
-          hint={
-            <>
-              Clears all <code>clio.*</code> keys from localStorage — drafts, pins,
-              inspector tab, density, active session. Backend credentials live in
-              the registry and are not affected.
-            </>
-          }
+          hint={`Clears local ${brand.name} preferences. Backend credentials stay in the registry.`}
         />
         <button
           type="button"
