@@ -6,13 +6,6 @@
 
 /* ---------- Webfonts (self-hosted, from the website repo) ---------- */
 @font-face {
-  font-family: "Oxanium";
-  src: url("./fonts/Oxanium/Oxanium-VariableFont_wght.ttf") format("truetype");
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
   font-family: "JetBrains Mono";
   src: url("./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf") format("truetype");
   font-weight: 100 800;
@@ -64,9 +57,9 @@
   --color-border-60:      rgba(45, 99, 139, 0.60);
 
   /* ============ TYPE ============ */
-  --font-sans:    "Oxanium", system-ui, sans-serif;          /* default */
+  --font-sans:    system-ui, -apple-system, "Segoe UI", sans-serif; /* default */
   --font-mono:    "JetBrains Mono", ui-monospace, monospace; /* code, terminal, tags */
-  --font-display: "Oxanium", system-ui, sans-serif;          /* wordmarks / compact brand marks */
+  --font-display: system-ui, -apple-system, "Segoe UI", sans-serif; /* wordmarks / compact brand marks */
 
   /* Type scale (matches Tailwind v4 site config) */
   --text-xs:   0.75rem;  /* 12 — micro tags */

@@ -3,13 +3,12 @@
 
 /* User preference: Inter for body sans. Override the design-system
    token so every var(--font-sans) consumer (chrome, transcript,
-   composer, inspector, settings) picks it up. Keep Oxanium as a
-   fallback in case Inter fails to load. The design system at
-   apps/design/ is read-only — this override layers on top in the
-   web app only. */
+   composer, inspector, settings) picks it up without shipping the
+   decorative display font in the web bundle. */
 :root {
-  --font-sans: 'Inter', 'Inter var', 'Oxanium', system-ui, -apple-system,
-    'Segoe UI', sans-serif;
+  --font-sans: 'Inter', 'Inter var', system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-display: var(--font-sans);
 
   /* === Elevation (DESIGN.md: one overlay shadow + one hairline) ===
      Every floating surface — dialog, popover, menu, toast, drawer — rides
