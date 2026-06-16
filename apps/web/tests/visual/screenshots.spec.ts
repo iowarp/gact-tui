@@ -123,6 +123,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('add-remote-ssh-host').fill('polaris.alcf.anl.gov');
     await page.getByTestId('add-remote-ssh-user').fill('jaime');
     await page.getByTestId('add-remote-ssh-key').fill('~/.ssh/id_ed25519');
+    await expect(page.getByTestId('add-remote-save')).toBeVisible();
     await page.screenshot({ path: shot('add-remote-ssh-wizard'), fullPage: false });
   });
 

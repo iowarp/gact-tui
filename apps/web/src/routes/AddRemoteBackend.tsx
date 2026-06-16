@@ -123,8 +123,8 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
         <div />
       </header>
 
-      <main class="settings__body">
-        <div class="card settings__form">
+      <main class="settings__body settings__body--remote">
+        <div class="card settings__form settings__form--remote">
           <div class="settings__seg">
             <button
               type="button"
@@ -229,9 +229,8 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
               />
             </div>
             <div class="settings__hint">
-              The desktop shell will spawn <code>ssh -L</code> when this
-              backend is selected and store the key passphrase in the OS
-              keychain. (Wave 3 lands the actual spawn.)
+              Desktop builds can manage the <code>ssh -L</code> tunnel for this
+              backend and keep key access in the OS keychain.
             </div>
           </Show>
 
