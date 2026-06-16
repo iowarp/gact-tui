@@ -110,20 +110,55 @@ async function execute(sid, script, args = []) {
 }
 
 async function typeInto(sid, el, text) {
-  // WebDriver's element/value sets the textarea value but does NOT reliably
-  // fire the 'input' event SolidJS's controlled composer listens on, so the
-  // signal never updates and the send dispatches empty. Set the value via
-  // the native setter and dispatch a real InputEvent so the framework sees it.
+  await wd('POST', `/session/${sid}/element/${el}/value`, {
+    text,
+    value: Array.from(text),
+  }).catch(() => undefined);
+
+  const typed = await waitForComposerText(sid, text, 2_500).catch(() => false);
+  if (typed) return;
+
+  // WebKit WebDriver can focus the textarea while failing to deliver
+  // element/value as user input. Fall back to a DOM edit that explicitly
+  // dispatches the events Solid's controlled composer listens for.
   await execute(sid,
     (
-      'const el = arguments[0], v = arguments[1]; el.focus();' +
-      "const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');" +
+      'const el = arguments[0], v = arguments[1];' +
+      'el.focus();' +
+      "const d = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');" +
       'if (d && d.set) { d.set.call(el, v); } else { el.value = v; }' +
-      "el.dispatchEvent(new InputEvent('input', { bubbles: true, data: v, inputType: 'insertText' }));" +
-      "el.dispatchEvent(new Event('change', { bubbles: true }));"
+      "el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));" +
+      "el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: v, inputType: 'insertText' }));" +
+      "el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));" +
+      'return el.value;'
     ),
     [{ [EL]: el }, text],
   );
+  await waitForComposerText(sid, text, 5_000);
+}
+
+async function waitForComposerText(sid, expected, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const j = await execute(
+      sid,
+      (
+        "const ta = document.querySelector('[data-testid=\"composer-input\"]');" +
+        "const send = document.querySelector('[data-testid=\"composer-send\"]');" +
+        "return {" +
+        "  value: ta?.value || ''," +
+        "  sendDisabled: !!send?.disabled," +
+        "  active: document.activeElement?.getAttribute('data-testid') || document.activeElement?.tagName || null" +
+        "};"
+      ),
+    );
+    const state = j.value ?? {};
+    if (state.value === expected && !state.sendDisabled) return state;
+    if (Date.now() > deadline) {
+      throw new Error(`composer did not accept text: ${JSON.stringify(state)}`);
+    }
+    await sleep(200);
+  }
 }
 
 async function markReturningUser(sid) {
