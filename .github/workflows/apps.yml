@@ -198,7 +198,7 @@ jobs:
       - name: Start emulator on :17800
         working-directory: ${{ github.workspace }}
         run: |
-          .tools/emulator-server -port 17800 -timing fast > /tmp/gact-emulator.log 2>&1 &
+          .tools/emulator-server -port 17800 -timing fast -seed-sessions ws_default=1 > /tmp/gact-emulator.log 2>&1 &
           echo $! > /tmp/gact-emulator.pid
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:17800/v1/capabilities >/dev/null; then

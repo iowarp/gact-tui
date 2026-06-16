@@ -143,6 +143,55 @@ async function screenshot(sid, name) {
   writeFileSync(resolve(SCREENSHOT_DIR, `${name}.png`), Buffer.from(png.value, 'base64'));
 }
 
+async function waitForPaintedShell(sid) {
+  const deadline = Date.now() + 20_000;
+  for (;;) {
+    const j = await execute(
+      sid,
+      (
+        "return new Promise((resolve) => {" +
+        "  requestAnimationFrame(() => requestAnimationFrame(() => {" +
+        "    const body = document.body?.innerText || '';" +
+        "    resolve({" +
+        "      hasRail: !!document.querySelector('[data-testid=\"left-rail\"]')," +
+        "      hasComposer: !!document.querySelector('[data-testid=\"composer-input\"]')," +
+        "      hasSessionRow: !!document.querySelector('[data-testid^=\"session-row-\"]')," +
+        "      hasTour: !!document.querySelector('[data-testid=\"onboarding-tour\"]')," +
+        "      text: body.slice(0, 500)" +
+        "    });" +
+        "  }));" +
+        "});"
+      ),
+    );
+    const state = j.value ?? {};
+    if (state.hasRail && state.hasComposer && !state.hasTour && /GACT|CLIO|session/i.test(state.text ?? '')) {
+      return state;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`timeout waiting for painted shell: ${JSON.stringify(state)}`);
+    }
+    await sleep(500);
+  }
+}
+
+async function sendDiagnostics(sid) {
+  const j = await execute(
+    sid,
+    (
+      "const ta = document.querySelector('[data-testid=\"composer-input\"]');" +
+      "const send = document.querySelector('[data-testid=\"composer-send\"]');" +
+      "return {" +
+      "  text: document.body?.innerText?.slice(0, 1200) || ''," +
+      "  composerValue: ta?.value || ''," +
+      "  sendDisabled: !!send?.disabled," +
+      "  active: document.activeElement?.getAttribute('data-testid') || document.activeElement?.tagName || null," +
+      "  permissionCard: !!document.querySelector('[data-testid=\"permission-card\"]')" +
+      "};"
+    ),
+  );
+  return j.value;
+}
+
 test('real WebView: permission card renders + clears through the Tauri stack', { skip: !enabled ? 'TAURI_E2E!=1 or build/driver missing' : false }, async () => {
   const driver = spawn(TAURI_DRIVER, ['--native-driver', DRIVER, '--port', String(PORT)], {
     stdio: 'inherit',
@@ -169,7 +218,13 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     // the tour. Mark the profile as returning-user and close any visible tour
     // before capturing screenshots.
     await markReturningUser(sid);
-    await sleep(400);
+    const tour = await findMaybe(sid, '[data-testid="onboarding-tour"]');
+    if (tour) {
+      await execute(sid, 'window.location.reload(); return true;');
+      await waitFor(sid, '[data-testid="chat-screen"], [data-testid="sessions-column"]', 30_000);
+    }
+    await waitForPaintedShell(sid);
+    await sleep(1_000);
     await screenshot(sid, 'desktop-webview-chat');
 
     // A permission-triggering prompt → clio/emulator emits
@@ -178,7 +233,11 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     // when a sessions inventory is visible, creating/selecting a row is only
     // a convenience and must not be required for the proof.
     const newBtn = await findMaybe(sid, '[data-testid="sessions-new"]');
-    if (newBtn) {
+    const existingRow = await findMaybe(sid, '[data-testid^="session-row-"]');
+    if (existingRow) {
+      await click(sid, existingRow);
+      await sleep(800);
+    } else if (newBtn) {
       await click(sid, newBtn);
       await sleep(1_200);
       const row = await findMaybe(sid, '[data-testid^="session-row-"]');
@@ -192,11 +251,27 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     await click(sid, composer);
     await typeInto(sid, composer, 'Run the shell command: rm -rf /tmp/scratch');
     const send = await waitFor(sid, '[data-testid="composer-send"]', 4_000);
-    await click(sid, send);
+    await execute(
+      sid,
+      (
+        "const send = document.querySelector('[data-testid=\"composer-send\"]');" +
+        "if (!send) throw new Error('missing composer-send');" +
+        "if (send.disabled) throw new Error('composer-send disabled: ' + JSON.stringify({" +
+        "  value: document.querySelector('[data-testid=\"composer-input\"]')?.value || ''," +
+        "  text: document.body?.innerText?.slice(0, 300) || ''" +
+        "}));" +
+        "send.click();" +
+        "return true;"
+      ),
+    );
 
     // The permission card must render in the REAL WebView — proving the
     // Rust SSE bridge delivers permission.requested end-to-end.
-    const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000);
+    const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000).catch(async (err) => {
+      const diag = await sendDiagnostics(sid);
+      await screenshot(sid, 'desktop-webview-after-send');
+      throw new Error(`${err.message}; diagnostics=${JSON.stringify(diag)}`);
+    });
     assert.ok(card, 'permission card should render');
     await screenshot(sid, 'desktop-webview-permission');
 
