@@ -224,6 +224,10 @@ async function sendDiagnostics(sid) {
       "  sendDisabled: !!send?.disabled," +
       "  active: document.activeElement?.getAttribute('data-testid') || document.activeElement?.tagName || null," +
       "  toasts," +
+      "  isTauri: window.isTauri === true," +
+      "  hasTauriGlobal: typeof window.__TAURI__ !== 'undefined'," +
+      "  hasTauriInternals: typeof window.__TAURI_INTERNALS__ !== 'undefined'," +
+      "  locationOrigin: window.location.origin," +
       "  tauriGlobals: Object.keys(window).filter((k) => k.toLowerCase().includes('tauri')).slice(0, 20)," +
       "  permissionCard: !!document.querySelector('[data-testid=\"permission-card\"]')" +
       "};"
