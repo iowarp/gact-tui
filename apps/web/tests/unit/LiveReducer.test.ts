@@ -10,7 +10,11 @@
  *     but never create transcript messages/parts.
  */
 import { describe, expect, it } from 'vitest';
-import { reduce, type ReduceHooks } from '../../src/live.js';
+import {
+  reduce,
+  shouldReconcileTranscriptAfterEvent,
+  type ReduceHooks,
+} from '../../src/live.js';
 import type { Message, SemanticEventPayload } from '@clio/core';
 
 /** A minimal mutable harness over the subset of hooks a test cares about.
@@ -176,5 +180,55 @@ describe('reduce: semantic.event feed (GAP 3)', () => {
       h.hooks,
     );
     expect(h.semantic).toHaveLength(0);
+  });
+});
+
+describe('live transcript reconciliation gate', () => {
+  it('reconciles after turn boundaries that can leave partial local state', () => {
+    expect(
+      shouldReconcileTranscriptAfterEvent(
+        { type: 'message.completed', payload: { message_id: 'a1' } },
+        's1',
+      ),
+    ).toBe(true);
+    expect(
+      shouldReconcileTranscriptAfterEvent(
+        { type: 'message.error', payload: { session_id: 's1' } },
+        's1',
+      ),
+    ).toBe(true);
+  });
+
+  it('reconciles when the active session stops running', () => {
+    expect(
+      shouldReconcileTranscriptAfterEvent(
+        {
+          type: 'session.status_changed',
+          payload: { session_id: 's1', status: 'idle' },
+        },
+        's1',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not reconcile in-flight or unrelated-session events', () => {
+    expect(
+      shouldReconcileTranscriptAfterEvent(
+        {
+          type: 'session.status_changed',
+          payload: { session_id: 's1', status: 'running' },
+        },
+        's1',
+      ),
+    ).toBe(false);
+    expect(
+      shouldReconcileTranscriptAfterEvent(
+        {
+          type: 'message.completed',
+          payload: { session_id: 'other', message_id: 'a1' },
+        },
+        's1',
+      ),
+    ).toBe(false);
   });
 });

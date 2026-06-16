@@ -306,7 +306,10 @@ export function SplashScreen(props: SplashScreenProps) {
     <div class="splash" data-testid="splash-screen">
       <main class="splash__main">
         <BrandMark class="splash__mark" />
-        <h1 class="splash__wordmark">{brand.name} Desktop</h1>
+        <h1 class="splash__wordmark">
+          {brand.name}
+          <Show when={inTauri()}> Desktop</Show>
+        </h1>
         <p class="splash__sub">Starting your local agent…</p>
         <Show when={loadIntro()}>
           <pre class="splash__intro" data-testid="splash-intro">

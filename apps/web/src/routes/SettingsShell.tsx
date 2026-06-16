@@ -777,6 +777,7 @@ function DataSection() {
 function AboutSection() {
   const reg = useBackendRegistry();
   const cur = () => reg.current();
+  const appName = () => (inTauri() ? `${brand.name} Desktop` : `${brand.name} Web`);
   return (
     <section class="dp" data-testid="settings-about">
       <header class="dp__head">
@@ -785,7 +786,7 @@ function AboutSection() {
             <Icon name="help" size={20} />
           </div>
           <div>
-            <h1 class="dp__title">About {brand.name} Desktop</h1>
+            <h1 class="dp__title">About {appName()}</h1>
             <p class="dp__subtitle">Build identity and connected backend.</p>
           </div>
         </div>
@@ -794,7 +795,7 @@ function AboutSection() {
         <div class="dp__stats">
           <div class="dp__stat">
             <div class="dp__stat-label">app</div>
-            <div class="dp__stat-value" style="font-size:18px">{brand.name} Desktop</div>
+            <div class="dp__stat-value" style="font-size:18px">{appName()}</div>
             <div class="dp__stat-sub">v0.9.1 polish wave</div>
           </div>
           <div class="dp__stat">

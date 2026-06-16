@@ -1893,7 +1893,7 @@ function ChatLayout(props: ChatLayoutProps) {
   }
   const [inspectorOpen, setInspectorOpen] = createPersistedBoolean(
     'clio.inspector-open.v1',
-    true,
+    false,
   );
   // Side-by-side preview rail (B3). Coexists with the inspector — both can be
   // open at once (each is its own trailing grid column). Open state persists.
@@ -2708,6 +2708,10 @@ function ChatLayout(props: ChatLayoutProps) {
   };
 
   const onChat = () => railRoute() === 'sessions';
+  const hasSessionsInventory = () =>
+    props.sessionsLoading || props.sessions.length > 0 || !!props.activeId;
+  const showSessionsColumn = () =>
+    onChat() && sessionsOpen() && hasSessionsInventory();
 
   // Lower-priority topbar chips. Rendered inline when the topbar is wide;
   // collapsed into the "⋯" overflow menu when narrow (W3 Tier-1). Defined
@@ -2828,7 +2832,7 @@ function ChatLayout(props: ChatLayoutProps) {
         (onChat() ? '' : 'chat--discovery') +
         (onChat() && inspectorOpen() ? ' chat--inspector-open' : '') +
         (onChat() && previewOpen() ? ' chat--preview-open' : '') +
-        (onChat() && !sessionsOpen() ? ' chat--no-sessions' : '')
+        (onChat() && !showSessionsColumn() ? ' chat--no-sessions' : '')
       }
       data-testid="chat-screen"
     >
@@ -2852,7 +2856,7 @@ function ChatLayout(props: ChatLayoutProps) {
         onOpenCatalog={() => setCatalogOpen(true)}
       />
 
-      <Show when={onChat() && sessionsOpen()}>
+      <Show when={showSessionsColumn()}>
         <SessionsColumn
           rows={props.sessions}
           loading={props.sessionsLoading}

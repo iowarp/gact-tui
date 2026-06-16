@@ -33,10 +33,12 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('connect-screen'), fullPage: false });
   });
 
-  test('empty-sidebar fixture shows zero-session affordance', async ({ page }) => {
+  test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
-    await page.screenshot({ path: shot('empty-sidebar'), fullPage: false });
+    await expect(page.getByTestId('chat-screen')).toHaveClass(/chat--no-sessions/);
+    await expect(page.getByTestId('sidebar-empty')).toHaveCount(0);
+    await expect(page.getByTestId('transcript-pane')).toBeVisible();
+    await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
   });
 
   test('chat-streaming fixture shows assistant mid-response', async ({ page }) => {
@@ -288,7 +290,7 @@ test.describe('CLIO harness — visual proofs', () => {
   });
 
   test('inspector execution timeline renders turn events (1.0 item 5)', async ({ page }) => {
-    await page.goto('/?route=chat&fixture=normal');
+    await page.goto('/?route=chat&fixture=normal&open=inspector');
     await expect(page.getByTestId('inspector-drawer')).toBeVisible();
     await page.getByTestId('inspector-tab-timeline').click();
     await expect(page.getByTestId('inspector-timeline')).toBeVisible();
@@ -333,12 +335,12 @@ test.describe('CLIO harness — visual proofs', () => {
     const panel = page.getByTestId('notification-panel');
     await expect(panel).toBeVisible();
     await expect(panel.getByText('Send failed')).toBeVisible();
-    await expect(panel.getByText('CLIO responded')).toBeVisible();
+    await expect(panel.getByText(/responded/)).toBeVisible();
     await page.screenshot({ path: shot('notification-center'), fullPage: false });
     // Search narrows to the matching entry.
     await page.getByTestId('notification-search').fill('fail');
     await expect(panel.getByText('Send failed')).toBeVisible();
-    await expect(panel.getByText('CLIO responded')).toHaveCount(0);
+    await expect(panel.getByText(/responded/)).toHaveCount(0);
     await page.screenshot({ path: shot('notification-center-search'), fullPage: false });
     // Tone chip filters by kind (clear search first).
     await page.getByTestId('notification-search').fill('');

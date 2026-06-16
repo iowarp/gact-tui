@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid
 import { brand } from '@brand';
 import type { Client } from '@clio/core';
 import { trapFocusRef } from '../focus-trap.js';
+import { inTauri } from '../tauri.js';
 import { ProviderSetup, type LmPreset } from './ProviderSetup.js';
 import './onboarding-tour.css';
 
@@ -53,7 +54,7 @@ const STEPS: TourStep[] = [
     id: 'welcome',
     target: null,
     placement: 'center',
-    title: `Welcome to ${brand.name} Desktop`,
+    title: `Welcome to ${brand.name}${inTauri() ? ' Desktop' : ''}`,
     body: `${brand.name} is your agentic-coding companion — it reads your workspace, runs tools under your control, and keeps every conversation as a session on the backend. This 30-second tour shows you around.`,
   },
   {

@@ -26,13 +26,6 @@
   font-style: italic;
   font-display: swap;
 }
-@font-face {
-  font-family: "Bungee Spice";
-  src: url("./fonts/Bungee_Spice/BungeeSpice-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 
 :root {
   /* ============ BASE PALETTE ============ */
@@ -73,7 +66,7 @@
   /* ============ TYPE ============ */
   --font-sans:    "Oxanium", system-ui, sans-serif;          /* default */
   --font-mono:    "JetBrains Mono", ui-monospace, monospace; /* code, terminal, tags */
-  --font-display: "Bungee Spice", "Oxanium", sans-serif;     /* WORDMARK ONLY — see notes */
+  --font-display: "Oxanium", system-ui, sans-serif;          /* wordmarks / compact brand marks */
 
   /* Type scale (matches Tailwind v4 site config) */
   --text-xs:   0.75rem;  /* 12 — micro tags */
