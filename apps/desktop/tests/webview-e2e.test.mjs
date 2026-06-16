@@ -105,20 +105,36 @@ async function click(sid, el) {
   await wd('POST', `/session/${sid}/element/${el}/click`, {});
 }
 
+async function execute(sid, script, args = []) {
+  return wd('POST', `/session/${sid}/execute/sync`, { script, args });
+}
+
 async function typeInto(sid, el, text) {
   // WebDriver's element/value sets the textarea value but does NOT reliably
   // fire the 'input' event SolidJS's controlled composer listens on, so the
   // signal never updates and the send dispatches empty. Set the value via
   // the native setter and dispatch a real InputEvent so the framework sees it.
-  await wd('POST', `/session/${sid}/execute/sync`, {
-    script:
+  await execute(sid,
+    (
       'const el = arguments[0], v = arguments[1]; el.focus();' +
       "const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');" +
       'if (d && d.set) { d.set.call(el, v); } else { el.value = v; }' +
       "el.dispatchEvent(new InputEvent('input', { bubbles: true, data: v, inputType: 'insertText' }));" +
-      "el.dispatchEvent(new Event('change', { bubbles: true }));",
-    args: [{ [EL]: el }, text],
-  });
+      "el.dispatchEvent(new Event('change', { bubbles: true }));"
+    ),
+    [{ [EL]: el }, text],
+  );
+}
+
+async function markReturningUser(sid) {
+  await execute(
+    sid,
+    (
+      "window.localStorage.setItem('clio.onboarding-done.v1', '1');" +
+      "document.querySelector('[data-testid=\"onboarding-skip\"]')?.click();" +
+      "return document.readyState;"
+    ),
+  );
 }
 
 async function screenshot(sid, name) {
@@ -148,25 +164,29 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     // the chat shell. Generous window for boot + attach + agent-ready.
     await waitFor(sid, '[data-testid="chat-screen"], [data-testid="sessions-column"]', 30_000);
 
-    // First-run onboarding tour (W3): on a fresh WebView2 profile the tour
-    // overlays the chat — skip it so the rest of the flow can click through.
-    // (Persisted, so subsequent runs on the same profile won't see it.)
-    await sleep(600);
-    const skipTour = await findMaybe(sid, '[data-testid="onboarding-skip"]');
-    if (skipTour) {
-      await click(sid, skipTour);
-      await sleep(400);
-    }
+    // First-run onboarding tour (W3): native CI runs with fresh WebView
+    // profiles, but this proof validates the steady-state app surface, not
+    // the tour. Mark the profile as returning-user and close any visible tour
+    // before capturing screenshots.
+    await markReturningUser(sid);
+    await sleep(400);
     await screenshot(sid, 'desktop-webview-chat');
 
-    // Fresh session, then a permission-triggering prompt → clio/emulator emits
-    // permission.requested, delivered over the SSE bridge.
-    const newBtn = await waitFor(sid, '[data-testid="sessions-new"]', 8_000);
-    await click(sid, newBtn);
-    await sleep(1_200);
-    const row = await waitFor(sid, '[data-testid^="session-row-"]', 8_000);
-    await click(sid, row);
-    await sleep(800);
+    // A permission-triggering prompt → clio/emulator emits
+    // permission.requested, delivered over the SSE bridge. The current
+    // conversation-first shell allows sending directly from an empty state;
+    // when a sessions inventory is visible, creating/selecting a row is only
+    // a convenience and must not be required for the proof.
+    const newBtn = await findMaybe(sid, '[data-testid="sessions-new"]');
+    if (newBtn) {
+      await click(sid, newBtn);
+      await sleep(1_200);
+      const row = await findMaybe(sid, '[data-testid^="session-row-"]');
+      if (row) {
+        await click(sid, row);
+        await sleep(800);
+      }
+    }
 
     const composer = await waitFor(sid, '[data-testid="composer-input"]', 8_000);
     await click(sid, composer);
