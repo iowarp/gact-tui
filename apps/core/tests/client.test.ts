@@ -247,22 +247,22 @@ describe('Client', () => {
     expect(JSON.parse(calledBody)).toMatchObject({ title: 'hi' });
   });
 
-  it('sendMessage wraps the payload in role+parts', async () => {
+  it('sendMessage appends text parts without client-only role fields', async () => {
     let body: Record<string, unknown> = {};
     const c = new Client({
       baseUrl: 'http://localhost:7777',
       fetch: ((_input, init) => {
         body = JSON.parse((init?.body as string) ?? '{}');
         return Promise.resolve(
-          new Response(JSON.stringify({ id: 'msg_1', role: 'user', parts: [] }), {
-            status: 200,
+          new Response(JSON.stringify({ message_id: 'msg_1', accepted_at: '2026-01-01T00:00:00Z' }), {
+            status: 202,
             headers: { 'Content-Type': 'application/json' },
           }),
         );
       }) as typeof fetch,
     });
     await c.sendMessage('sess_x', { text: 'hello' });
-    expect(body.role).toBe('user');
+    expect(body.role).toBeUndefined();
     expect(body.parts).toEqual([{ type: 'text', text: 'hello' }]);
   });
 

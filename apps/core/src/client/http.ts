@@ -897,16 +897,20 @@ export class Client {
 
   /**
    * POST /v1/sessions/{id}/messages — append a user message. The server
-   * responds with the created message envelope; streaming continuations
-   * arrive on the per-session SSE feed.
+   * responds with an accepted envelope; streaming continuations arrive on
+   * the per-session SSE feed.
    */
   sendMessage(
     sessionId: string,
     body: { text: string; metadata?: Record<string, unknown> },
-  ): Promise<Message> {
-    return this.post<Message>(
+  ): Promise<{ message_id: string; accepted_at: string }> {
+    const payload: { parts: Array<{ type: 'text'; text: string }>; metadata?: Record<string, unknown> } = {
+      parts: [{ type: 'text', text: body.text }],
+    };
+    if (body.metadata) payload.metadata = body.metadata;
+    return this.post<{ message_id: string; accepted_at: string }>(
       `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-      { role: 'user', parts: [{ type: 'text', text: body.text }], metadata: body.metadata },
+      payload,
     );
   }
 
