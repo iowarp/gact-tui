@@ -206,6 +206,25 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('diff-per-hunk-apply'), fullPage: false });
   });
 
+  test('mobile chat keeps the conversation readable without the sessions rail', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    await expect(page.getByTestId('sessions-column')).toBeHidden();
+    await expect(page.getByTestId('transcript-pane')).toBeVisible();
+    await expect(page.getByTestId('composer')).toBeVisible();
+    await page.screenshot({ path: shot('mobile-chat'), fullPage: false });
+  });
+
+  test('mobile diff pane owns the readable content area', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?route=chat&fixture=normal&open=diff');
+    await expect(page.getByTestId('diff-pane')).toBeVisible();
+    await expect(page.getByTestId('diff-pane-hunk-0')).toBeVisible();
+    await expect(page.getByTestId('diff-pane-apply-0')).toBeVisible();
+    await page.screenshot({ path: shot('mobile-diff-pane'), fullPage: false });
+  });
+
   test('slash-palette opens with the default command list', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal&open=palette');
     await expect(page.getByTestId('slash-palette')).toBeVisible();

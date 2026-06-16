@@ -392,3 +392,55 @@
   font-size: 11px;
   color: var(--color-accent-cyan);
 }
+
+@media (max-width: 760px) {
+  .composer {
+    max-width: none;
+    padding: 8px 10px 14px;
+  }
+
+  .composer__droptarget {
+    inset: 8px 10px 14px;
+  }
+
+  .composer__shell {
+    border-radius: 14px;
+    padding: 9px 10px;
+  }
+
+  .composer__row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .composer__input {
+    font-size: 14px;
+  }
+
+  .composer__send {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .composer__pickers {
+    gap: 5px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .composer__pickers::-webkit-scrollbar {
+    display: none;
+  }
+
+  .composer__picker {
+    flex: 0 0 auto;
+    max-width: 9rem;
+    padding: 4px 8px;
+  }
+
+  .composer__hint {
+    display: none;
+  }
+}
