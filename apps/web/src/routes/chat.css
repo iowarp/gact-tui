@@ -1,31 +1,28 @@
-/* Modern three-pane desktop layout.
-   rail (auto: 56 collapsed / 208 expanded) · sessions (320) · main (1fr) · inspector (0|340)
-   The rail track is `auto` (not a fixed 56px) so it always fits the rail's
-   actual rendered width — the rail is expanded-by-default at 208px, and a
-   fixed 56px track let it overflow 152px UNDER the sessions column, whose
-   rows then intercepted clicks on the rail buttons (real clickability bug). */
+/* Modern chat layout: sessions sidebar · main conversation · optional
+   contextual panels. Settings and command entry live in the sidebar/composer,
+   not in a separate permanent rail. */
 .chat {
   display: grid;
-  /* Base layout: rail · sessions · main. Each open right-hand panel
+  /* Base layout: sessions · main. Each open right-hand panel
      (inspector and/or preview rail) appends its own trailing `auto`
      track via the `.chat--inspector-open` / `.chat--preview-open`
      modifiers below — so the track count always matches the number of
      rendered children. A standalone trailing `auto` here would steal a
      track from whichever panel is open and starve the other (the
      "both panels open collapses the preview to a sliver" bug). */
-  grid-template-columns: auto var(--sessions-w, 320px) 1fr;
+  grid-template-columns: var(--sessions-w, 300px) 1fr;
   height: 100vh;
   background: var(--color-bg);
   min-height: 0;
   /* Preview-rail width that YIELDS to chat: the clamp gives a comfortable
      preferred width, but `max(0, …)` collapses it before the conversation is
      crushed below its minimum. Mirrors the hermes rule (§4). The subtracted
-     reserve accounts for the left rail + sessions column + inspector (when
+     reserve accounts for the sessions sidebar + inspector (when
      open) + a chat minimum. */
   --preview-rail-reserve: calc(
-    208px + var(--sessions-w, 320px) + var(--inspector-w, 0px) + 32rem
+    var(--sessions-w, 300px) + var(--inspector-w, 0px) + 32rem
   );
-  /* Space left for the preview after the rail + sessions + inspector + a hard
+  /* Space left for the preview after the sidebar + inspector + a hard
      chat minimum (32rem). */
   --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
   /* The preview is the lowest-priority column: it must YIELD entirely rather
@@ -50,17 +47,16 @@
    inspector's width in the clamp when it is actually open.
 
    Each modifier appends ONE trailing `auto` track. Combined, "both open"
-   resolves to `auto <sessions> 1fr auto auto` — five tracks for the five
-   children (rail · sessions · main · inspector · preview). */
+   resolves to `<sessions> 1fr auto auto`: sidebar · main · inspector · preview. */
 .chat--inspector-open {
   --inspector-w: 340px;
-  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
+  grid-template-columns: var(--sessions-w, 300px) 1fr auto;
 }
 .chat--preview-open {
-  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto;
+  grid-template-columns: var(--sessions-w, 300px) 1fr auto;
 }
 .chat--inspector-open.chat--preview-open {
-  grid-template-columns: auto var(--sessions-w, 320px) 1fr auto auto;
+  grid-template-columns: var(--sessions-w, 300px) 1fr auto auto;
 }
 
 /* Cmd+B focus mode removes the SessionsColumn from the DOM entirely, so its
@@ -70,20 +66,20 @@
    both-panels-open layout still resolves correctly. */
 .chat--no-sessions {
   --sessions-w: 0px;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
 }
 .chat--no-sessions.chat--inspector-open,
 .chat--no-sessions.chat--preview-open {
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
 }
 .chat--no-sessions.chat--inspector-open.chat--preview-open {
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: 1fr auto auto;
 }
 
 /* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
    and the inspector — they're chat-specific affordances. */
 .chat--discovery {
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
 }
 
 /* Cmd+B focus mode: collapse the sessions column. The sessions track is
@@ -205,7 +201,6 @@
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  border-left: 1px solid var(--color-border-30);
   margin-left: 8px;
   margin-right: 8px;
   height: 24px;
@@ -569,7 +564,7 @@
   .chat--no-sessions.chat--preview-open,
   .chat--no-sessions.chat--inspector-open.chat--preview-open,
   .chat--discovery {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     --sessions-w: 0px;
     --inspector-w: 0px;
   }

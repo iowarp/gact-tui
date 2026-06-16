@@ -10,7 +10,7 @@ function shot(name: string) {
 }
 
 async function openSettingsSection(page: Page, section: string) {
-  await page.getByTestId('rail-settings').click();
+  await page.getByTestId('sessions-settings').click();
   await page.getByTestId(`settings-nav-${section}`).click();
 }
 
@@ -40,8 +40,8 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('chat-screen')).toHaveClass(/chat--no-sessions/);
-    await expect(page.getByTestId('sidebar-empty')).toHaveCount(0);
+    await expect(page.getByTestId('sessions-column')).toBeVisible();
+    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
     await expect(page.getByTestId('transcript-pane')).toBeVisible();
     await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
   });
@@ -61,13 +61,13 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('density-verbose shows full tool-call bodies', async ({ page }) => {
     await page.goto('/?route=chat&fixture=verbose');
-    await expect(page.getByTestId('density-chip')).toContainText('verbose');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'verbose');
     await page.screenshot({ path: shot('density-verbose'), fullPage: false });
   });
 
   test('density-summary hides tool noise', async ({ page }) => {
     await page.goto('/?route=chat&fixture=summary');
-    await expect(page.getByTestId('density-chip')).toContainText('summary');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'summary');
     await page.screenshot({ path: shot('density-summary'), fullPage: false });
   });
 
@@ -192,13 +192,13 @@ test.describe('CLIO harness — visual proofs', () => {
     // Same render as density-verbose but with the file name the goal
     // requires; kept separate so the goal's PNG list is complete.
     await page.goto('/?route=chat&fixture=verbose');
-    await expect(page.getByTestId('density-chip')).toContainText('verbose');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'verbose');
     await page.screenshot({ path: shot('density-keybind-verbose'), fullPage: false });
   });
 
   test('density-keybind-summary shows the summary density chip', async ({ page }) => {
     await page.goto('/?route=chat&fixture=summary');
-    await expect(page.getByTestId('density-chip')).toContainText('summary');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'summary');
     await page.screenshot({ path: shot('density-keybind-summary'), fullPage: false });
   });
 
@@ -578,7 +578,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-providers').click();
     await expect(page.getByTestId('providers-active')).toBeVisible({ timeout: 4_000 });
     await page.waitForTimeout(500);
@@ -612,7 +612,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
     // Open Settings via rail
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await expect(page.getByTestId('settings-shell')).toBeVisible();
     await page.getByTestId('settings-nav-about').click();
     await expect(page.getByTestId('settings-about')).toBeVisible();
@@ -644,7 +644,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible();
     // Click Light → the page flips to the light palette immediately.
@@ -687,7 +687,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-data').click();
     await expect(page.getByTestId('settings-data')).toBeVisible();
     await expect(page.getByTestId('settings-export-btn')).toBeVisible();
@@ -728,7 +728,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible();
     await page.waitForTimeout(400);

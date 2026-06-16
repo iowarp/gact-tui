@@ -53,7 +53,7 @@ import { KeybindCheatsheet } from '../components/KeybindCheatsheet.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import { ServerSearchPanel } from '../components/ServerSearchPanel.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
-import { LeftRail, type RailRoute } from '../components/LeftRail.js';
+import type { RailRoute } from '../components/LeftRail.js';
 import { PermissionCard } from '../components/PermissionCard.js';
 import { UserQuestionCard } from '../components/UserQuestionCard.js';
 import {
@@ -2703,25 +2703,8 @@ function ChatLayout(props: ChatLayoutProps) {
     }
   }
 
-  const capsFlags = () => props.caps?.capabilities ?? {};
-
-  // Boolean-only projection of the capability flags. clio's real
-  // capabilities map mixes booleans with string + nested-object flags
-  // (x_clio_hook_backend, x_clio_hook_events, …); LeftRail only consumes
-  // the boolean feature gates, so narrow to those before handing it over.
-  const capsBoolFlags = (): Record<string, boolean | undefined> => {
-    const out: Record<string, boolean | undefined> = {};
-    for (const [k, v] of Object.entries(capsFlags())) {
-      if (typeof v === 'boolean') out[k] = v;
-    }
-    return out;
-  };
-
   const onChat = () => railRoute() === 'sessions';
-  const hasSessionsInventory = () =>
-    props.sessionsLoading || props.sessions.length > 0 || !!props.activeId;
-  const showSessionsColumn = () =>
-    onChat() && sessionsOpen() && hasSessionsInventory();
+  const showSessionsColumn = () => onChat() && sessionsOpen();
 
   // Lower-priority topbar chips. Rendered inline when the topbar is wide;
   // collapsed into the "⋯" overflow menu when narrow (W3 Tier-1). Defined
@@ -2823,15 +2806,6 @@ function ChatLayout(props: ChatLayoutProps) {
           perm · {props.permMode}
         </button>
       </Show>
-      <button
-        type="button"
-        class="chat__meta-item chat__meta-item--clickable"
-        data-testid="density-chip"
-        title="Cycle density (Ctrl+O)"
-        onClick={() => cycleDensity(props.density, props.setDensity)}
-      >
-        density · {props.density}
-      </button>
     </>
   );
 
@@ -2846,26 +2820,6 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       data-testid="chat-screen"
     >
-      <LeftRail
-        active={railRoute()}
-        caps={capsBoolFlags()}
-        onSelect={(id) => {
-          if (id === 'settings') {
-            props.onOpenSettings?.();
-            return;
-          }
-          // Re-clicking Sessions while already on chat with the column
-          // collapsed re-opens the column instead of being a no-op.
-          if (id === 'sessions' && railRoute() === 'sessions' && !sessionsOpen()) {
-            setSessionsOpen(true);
-            return;
-          }
-          setRailRoute(id);
-        }}
-        onOpenPalette={() => setPaletteOpen(true)}
-        onOpenCatalog={() => setCatalogOpen(true)}
-      />
-
       <Show when={showSessionsColumn()}>
         <SessionsColumn
           rows={props.sessions}
@@ -2886,6 +2840,8 @@ function ChatLayout(props: ChatLayoutProps) {
           onShareSession={props.onShareSession}
           onForkSession={props.onForkSession}
           onTogglePin={props.onTogglePin}
+          onOpenSettings={() => props.onOpenSettings?.()}
+          onCollapse={() => setSessionsOpen(false)}
           archivedClient={discoveryClient}
         />
       </Show>
@@ -2904,6 +2860,21 @@ function ChatLayout(props: ChatLayoutProps) {
         >
         <header class="chat__topbar" ref={topbarRef}>
           <div class="chat__crumbs" ref={crumbsRef}>
+            <Show when={!showSessionsColumn()}>
+              <button
+                type="button"
+                class="chat__iconbtn chat__sidebar-open"
+                title="Show sessions"
+                aria-label="Show sessions"
+                data-testid="topbar-sessions"
+                onClick={() => {
+                  setRailRoute('sessions');
+                  setSessionsOpen(true);
+                }}
+              >
+                <Icon name="menu" size={15} />
+              </button>
+            </Show>
             <span
               class="chat__crumb chat__crumb-head"
               title={
@@ -2929,10 +2900,6 @@ function ChatLayout(props: ChatLayoutProps) {
               >
                 renamed
               </span>
-            </Show>
-            <Show when={activeRow()?.workspace}>
-              <span class="chat__crumb-sep">/</span>
-              <span class="chat__crumb">{activeRow()?.workspace}</span>
             </Show>
           </div>
           <div class="chat__meta" ref={metaRef}>
@@ -3033,24 +3000,6 @@ function ChatLayout(props: ChatLayoutProps) {
           </div>
           <div class="chat__topbar-actions" ref={actionsRef}>
             <NotificationCenter />
-            <button
-              type="button"
-              class="chat__iconbtn"
-              title="Cycle density (Ctrl+O)"
-              onClick={() => cycleDensity(props.density, props.setDensity)}
-              data-testid="topbar-density"
-            >
-              <Icon name="menu" size={14} />
-            </button>
-            <button
-              type="button"
-              class="chat__iconbtn"
-              title="Command palette (Ctrl+K)"
-              onClick={() => setPaletteOpen(true)}
-              data-testid="topbar-palette"
-            >
-              <Icon name="palette" size={14} />
-            </button>
             <button
               type="button"
               class={'chat__iconbtn ' + (previewOpen() ? 'is-active' : '')}
@@ -3180,6 +3129,7 @@ function ChatLayout(props: ChatLayoutProps) {
           onStop={props.onStop}
           onSubmit={props.onSubmit}
           onSlashTyped={() => setPaletteOpen(true)}
+          onOpenCommandPalette={() => setPaletteOpen(true)}
           placeholder={
             props.activeId
               ? undefined

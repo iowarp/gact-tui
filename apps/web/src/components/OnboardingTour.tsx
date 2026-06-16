@@ -9,8 +9,8 @@ import './onboarding-tour.css';
 /**
  * First-run onboarding tour (W3 Tier-1).
  *
- * A spotlight walkthrough of the four core surfaces — composer, sessions,
- * left rail, command palette — shown once on a fresh profile. Each step
+ * A spotlight walkthrough of the core surfaces — composer, sessions,
+ * settings, command palette — shown once on a fresh profile. Each step
  * dims the app and rings the real UI element it describes (no mock
  * imagery), with a callout card placed beside it. Finish/Skip persists
  * `clio.onboarding-done.v1` so the tour never auto-shows again.
@@ -73,14 +73,14 @@ const STEPS: TourStep[] = [
   },
   {
     id: 'rail',
-    target: '[data-testid="left-rail"]',
+    target: '[data-testid="sessions-settings"]',
     placement: 'right',
     title: 'Discovery & settings',
-    body: `Browse the agents ${brand.name} can route to, MCP tool servers, cross-session memory, runtime metrics, and backend health. Settings lives at the bottom.`,
+    body: `Agents, MCP tool servers, cross-session memory, runtime metrics, and backend health live in Settings instead of taking over the chat shell.`,
   },
   {
     id: 'palette',
-    target: '[data-testid="topbar-palette"]',
+    target: '[data-testid="composer-command"]',
     placement: 'bottom',
     title: 'The command palette',
     body: 'Ctrl+K fuzzy-searches every command — sessions, settings, density, permissions. Ctrl+/ shows all keyboard shortcuts.',

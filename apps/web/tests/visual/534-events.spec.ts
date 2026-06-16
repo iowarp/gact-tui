@@ -275,7 +275,7 @@ test.describe('clio #534 — semantic events + hooks', () => {
     const browser = await bootBrowser();
     const { ctx, page } = await openConnected(browser);
 
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-hooks').click();
 
     // -- gap-04: runtime hooks status panel (read-only, from capabilities)

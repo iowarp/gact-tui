@@ -73,6 +73,8 @@ export interface SessionsColumnProps {
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
+  onOpenSettings?: () => void;
+  onCollapse?: () => void;
   /** When set, enables the "View archive" toggle — clicking it fetches
    * archived sessions via `client.sessions({archived: true})` and
    * renders them in place of the live list until the user toggles
@@ -140,6 +142,18 @@ export function SessionsColumn(props: SessionsColumnProps) {
   return (
     <aside class="sx" data-testid="sessions-column" aria-label="Sessions">
       <header class="sx__head">
+        <div class="sx__chrome-row">
+          <button
+            type="button"
+            class="sx__chrome-btn"
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            data-testid="sessions-collapse"
+            onClick={() => props.onCollapse?.()}
+          >
+            <Icon name="menu" size={15} />
+          </button>
+        </div>
         <Show when={props.workspaces && props.workspaces.length > 0}>
           <WorkspaceSwitcher
             workspaces={props.workspaces!}
@@ -353,6 +367,19 @@ export function SessionsColumn(props: SessionsColumnProps) {
           </For>
         </ul>
       </Show>
+      <footer class="sx__foot">
+        <button
+          type="button"
+          class="sx__foot-btn"
+          title="Settings"
+          data-testid="sessions-settings"
+          onClick={() => props.onOpenSettings?.()}
+          disabled={!props.onOpenSettings}
+        >
+          <Icon name="settings" size={14} />
+          <span>Settings</span>
+        </button>
+      </footer>
     </aside>
   );
 }

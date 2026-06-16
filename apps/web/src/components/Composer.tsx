@@ -85,6 +85,9 @@ export interface ComposerProps {
    */
   onSlashTyped?: () => void;
 
+  /** Explicit command-menu affordance rendered beside the attach button. */
+  onOpenCommandPalette?: () => void;
+
   /**
    * Identifier that scopes a per-session localStorage draft. When the
    * key changes (user switches sessions), the current draft is
@@ -700,8 +703,18 @@ export function Composer(props: ComposerProps = {}) {
           data-testid="composer-voice-input"
         />
 
-        <div class="composer__row">
+          <div class="composer__row">
           <div class="composer__row-lead">
+          <button
+            type="button"
+            class="composer__attach"
+            title="Commands"
+            aria-label="Open command menu"
+            data-testid="composer-command"
+            onClick={() => props.onOpenCommandPalette?.()}
+          >
+            <Icon name="palette" size={16} />
+          </button>
           <div class="composer__attach-wrap">
             <button
               type="button"
@@ -1097,7 +1110,7 @@ export function Composer(props: ComposerProps = {}) {
         <span class="composer__kbd">Enter</span> to send ·{' '}
         <span class="composer__kbd">Shift + Enter</span> for newline ·{' '}
         <span class="composer__kbd">@</span> mention ·{' '}
-        <span class="composer__kbd">Ctrl + K</span> palette
+        <span class="composer__kbd">/</span> commands
       </div>
     </div>
   );
