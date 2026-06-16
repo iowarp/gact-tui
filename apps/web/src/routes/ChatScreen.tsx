@@ -530,6 +530,10 @@ function LiveDriven(props: {
               onClick: () => void sendUserMessage(text),
             },
       });
+      // Let Composer restore the draft and show its inline error. Without
+      // this, a failed desktop bridge send looks successful and silently
+      // clears the user's prompt.
+      throw e;
     }
   }
 

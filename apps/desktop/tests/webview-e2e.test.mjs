@@ -215,16 +215,37 @@ async function sendDiagnostics(sid) {
     (
       "const ta = document.querySelector('[data-testid=\"composer-input\"]');" +
       "const send = document.querySelector('[data-testid=\"composer-send\"]');" +
+      "const err = document.querySelector('[data-testid=\"composer-error\"]');" +
+      "const toasts = Array.from(document.querySelectorAll('.toast')).map((n) => n.textContent?.trim() || '');" +
       "return {" +
       "  text: document.body?.innerText?.slice(0, 1200) || ''," +
       "  composerValue: ta?.value || ''," +
+      "  composerError: err?.textContent?.trim() || ''," +
       "  sendDisabled: !!send?.disabled," +
       "  active: document.activeElement?.getAttribute('data-testid') || document.activeElement?.tagName || null," +
+      "  toasts," +
+      "  tauriGlobals: Object.keys(window).filter((k) => k.toLowerCase().includes('tauri')).slice(0, 20)," +
       "  permissionCard: !!document.querySelector('[data-testid=\"permission-card\"]')" +
       "};"
     ),
   );
   return j.value;
+}
+
+async function waitForPermissionOrSendFailure(sid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const card = await findMaybe(sid, '[data-testid="permission-card"]');
+    if (card) return card;
+    const diag = await sendDiagnostics(sid);
+    if (diag.composerError || (diag.toasts ?? []).some((t) => /send failed|lm not configured|transport|error/i.test(t))) {
+      throw new Error(`send failed before permission card rendered: ${JSON.stringify(diag)}`);
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`timeout waiting for [data-testid="permission-card"]; diagnostics=${JSON.stringify(diag)}`);
+    }
+    await sleep(500);
+  }
 }
 
 test('real WebView: permission card renders + clears through the Tauri stack', { skip: !enabled ? 'TAURI_E2E!=1 or build/driver missing' : false }, async () => {
@@ -302,10 +323,9 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
 
     // The permission card must render in the REAL WebView — proving the
     // Rust SSE bridge delivers permission.requested end-to-end.
-    const card = await waitFor(sid, '[data-testid="permission-card"]', 60_000).catch(async (err) => {
-      const diag = await sendDiagnostics(sid);
+    const card = await waitForPermissionOrSendFailure(sid, 60_000).catch(async (err) => {
       await screenshot(sid, 'desktop-webview-after-send');
-      throw new Error(`${err.message}; diagnostics=${JSON.stringify(diag)}`);
+      throw err;
     });
     assert.ok(card, 'permission card should render');
     await screenshot(sid, 'desktop-webview-permission');
