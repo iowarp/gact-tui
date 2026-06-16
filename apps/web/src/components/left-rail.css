@@ -15,7 +15,7 @@
 }
 
 .rail--expanded {
-  width: 208px;
+  width: 216px;
   align-items: stretch;
   padding: 14px 10px 12px;
 }
@@ -162,8 +162,13 @@
    tightest row in the expanded rail. Trim its inner padding/gap so the label
    ("Command palette") fits in full instead of ellipsizing to "Command pal…". */
 .rail--expanded .rail__btn--palette {
-  gap: 8px;
-  padding-right: 6px;
+  gap: 6px;
+  padding-left: 8px;
+  padding-right: 5px;
+}
+
+.rail__btn--palette .rail__label {
+  font-size: 12.5px;
 }
 
 .rail--expanded .rail__btn > .icon {
