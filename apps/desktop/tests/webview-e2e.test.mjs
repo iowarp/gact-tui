@@ -9,7 +9,7 @@
 //   - a native WebDriver matching the platform WebView
 //     ($TAURI_NATIVE_DRIVER or apps/desktop/msedgedriver.exe on Windows)
 //   - tauri-driver on PATH (cargo install tauri-driver)
-//   - a live clio on :17800 (the app attaches first)
+//   - a live GACT-compatible backend on :17800 (clio or emulator; the app attaches first)
 //
 // Optional overrides:
 //   CLIO_DESKTOP_APP=/path/to/clio-desktop{.exe}
@@ -159,7 +159,7 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
     }
     await screenshot(sid, 'desktop-webview-chat');
 
-    // Fresh session, then a tool-using prompt → clio emits
+    // Fresh session, then a permission-triggering prompt → clio/emulator emits
     // permission.requested, delivered over the SSE bridge.
     const newBtn = await waitFor(sid, '[data-testid="sessions-new"]', 8_000);
     await click(sid, newBtn);
@@ -170,7 +170,7 @@ test('real WebView: permission card renders + clears through the Tauri stack', {
 
     const composer = await waitFor(sid, '[data-testid="composer-input"]', 8_000);
     await click(sid, composer);
-    await typeInto(sid, composer, 'Run the shell command: echo hi > e2e_probe.txt');
+    await typeInto(sid, composer, 'Run the shell command: rm -rf /tmp/scratch');
     const send = await waitFor(sid, '[data-testid="composer-send"]', 4_000);
     await click(sid, send);
 

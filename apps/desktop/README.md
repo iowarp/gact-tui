@@ -60,6 +60,14 @@ cargo install tauri-driver
 TAURI_E2E=1 pnpm --filter @clio/desktop test:webview
 ```
 
+For deterministic proof without touching a local CLIO runtime, start the repo
+emulator on the attach port first:
+
+```sh
+go build -o .tools/emulator-server ./emulator/cmd/emulator-server
+.tools/emulator-server -port 17800 -timing fast
+```
+
 Useful overrides:
 
 ```sh
@@ -78,3 +86,8 @@ The test writes:
 Issue #186 tracks the broader manual release proof still needed for desktop:
 splash/connect/chat, session switching, streaming/freshness, file-open
 affordances, and platform-specific styling across the native shell.
+
+The `apps` GitHub Actions workflow also exposes a manual
+`workflow_dispatch` native WebView proof job. It builds the desktop app, starts
+the emulator on `:17800`, runs this gated WebView test under Xvfb, and uploads
+the screenshots as an artifact.
