@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -351,15 +353,40 @@ func (a *App) openFileViewerDetail(entry fileTreeEntry) {
 }
 
 const maxLocalFilePreviewBytes = 2 * 1024 * 1024
+const maxExternalRendererRunes = 64 * 1024
+
+var fileViewerLookPath = exec.LookPath
 
 func (a *App) localFileDetailModes(entry fileTreeEntry, fullPath string) []fileDetailMode {
 	info := localFileInfoText(entry, a.fileViewerRoot)
 	ext := localFileExtension(entry.Path)
+	if modes, handled := a.externalFileDetailModes(entry, fullPath, info, ext); handled {
+		return modes
+	}
+	if ext == ".csv" || ext == ".tsv" {
+		table, err := previewDelimitedFilePath(fullPath, ext, 40)
+		if err != nil {
+			return []fileDetailMode{{
+				id:    "info",
+				label: "Info",
+				text:  info + "\n\npreview: unavailable\nreason: " + err.Error(),
+			}}
+		}
+		modes := []fileDetailMode{{id: "table", label: "Table", text: info + "\n\n" + table}}
+		if entry.Size <= maxLocalFilePreviewBytes {
+			if data, err := os.ReadFile(fullPath); err == nil && looksLikeTextBytes(data) {
+				modes = append(modes, fileDetailMode{id: "raw", label: "Raw", text: info + "\n\n" + truncateLocalPreview(string(data))})
+			}
+		} else {
+			modes = append(modes, fileDetailMode{id: "info", label: "Info", text: info + "\n\nraw preview skipped: file is " + humanBytes(entry.Size) + ", above the " + humanBytes(maxLocalFilePreviewBytes) + " inline raw limit"})
+		}
+		return modes
+	}
 	if isKnownExternalOnlyFile(ext) {
 		return []fileDetailMode{{
 			id:    "info",
 			label: "Info",
-			text:  localFileUnsupportedText(info, entry.Path, ext, "This file type is not rendered inside the TUI yet."),
+			text:  localFileUnsupportedText(info, entry.Path, ext, "No terminal preview renderer is configured for this file type."),
 		}}
 	}
 	if entry.Size > maxLocalFilePreviewBytes {
@@ -411,7 +438,7 @@ func (a *App) localFileDetailModes(entry fileTreeEntry, fullPath string) []fileD
 			{id: "raw", label: "Raw", text: info + "\n\n" + raw},
 		}
 	case ".csv", ".tsv":
-		table, err := previewDelimitedFile(data, ext, 40)
+		table, err := previewDelimitedBytes(data, ext, 40)
 		if err == nil {
 			return []fileDetailMode{
 				{id: "table", label: "Table", text: info + "\n\n" + table},
@@ -424,12 +451,197 @@ func (a *App) localFileDetailModes(entry fileTreeEntry, fullPath string) []fileD
 	case ".html", ".htm":
 		return []fileDetailMode{
 			{id: "info", label: "Info", text: localFileUnsupportedText(info, entry.Path, ext,
-				"HTML visual rendering is optional and not wired into this build yet.")},
+				"No terminal text-browser renderer is available for this HTML file.")},
 			{id: "raw", label: "Raw", text: info + "\n\n" + raw},
 		}
 	default:
 		return []fileDetailMode{{id: "raw", label: "Raw", text: info + "\n\n" + raw}}
 	}
+}
+
+func (a *App) externalFileDetailModes(entry fileTreeEntry, fullPath, info, ext string) ([]fileDetailMode, bool) {
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
+		rendered, err := a.renderChafaImagePreview(fullPath)
+		return rendererModes(info, "image", "Image", "chafa", rendered, err), true
+	case ".pdf":
+		rendered, err := renderCommandPreview("pdftotext", 5*time.Second, "-layout", "-f", "1", "-l", "3", fullPath, "-")
+		return rendererModes(info, "text", "Text", "pdftotext", rendered, err), true
+	case ".html", ".htm":
+		rendered, renderer, err := renderHTMLPreview(fullPath)
+		return rendererModes(info, "text", "Text", renderer, rendered, err), true
+	case ".parquet", ".arrow", ".feather":
+		rendered, err := renderPythonPreview(parquetPreviewPython(), fullPath)
+		return rendererModes(info, "table", "Table", "pyarrow", rendered, err), true
+	case ".h5", ".hdf5":
+		if _, err := fileViewerLookPath("h5ls"); err == nil {
+			rendered, err := renderCommandPreview("h5ls", 5*time.Second, "-r", fullPath)
+			return rendererModes(info, "tree", "Tree", "h5ls", rendered, err), true
+		}
+		rendered, err := renderPythonPreview(hdf5PreviewPython(), fullPath)
+		return rendererModes(info, "tree", "Tree", "h5py", rendered, err), true
+	case ".nc", ".nc4", ".cdf", ".netcdf":
+		if _, err := fileViewerLookPath("ncdump"); err == nil {
+			rendered, err := renderCommandPreview("ncdump", 5*time.Second, "-h", fullPath)
+			return rendererModes(info, "header", "Header", "ncdump", rendered, err), true
+		}
+		return rendererModes(info, "header", "Header", "ncdump", "", errMissingRenderer("ncdump")), true
+	case ".npy", ".npz":
+		rendered, err := renderPythonPreview(numpyPreviewPython(), fullPath)
+		return rendererModes(info, "array", "Array", "numpy", rendered, err), true
+	case ".bam", ".cram":
+		rendered, err := renderCommandPreview("samtools", 5*time.Second, "view", "-H", fullPath)
+		return rendererModes(info, "header", "Header", "samtools", rendered, err), true
+	case ".vcf.gz", ".bcf":
+		rendered, err := renderCommandPreview("bcftools", 5*time.Second, "view", "-h", fullPath)
+		return rendererModes(info, "header", "Header", "bcftools", rendered, err), true
+	default:
+		_ = entry
+		return nil, false
+	}
+}
+
+func rendererModes(info, id, label, renderer, rendered string, err error) []fileDetailMode {
+	if err == nil {
+		return []fileDetailMode{
+			{id: id, label: label, text: info + "\n\nrenderer: " + renderer + "\n\n" + rendered},
+			{id: "info", label: "Info", text: info + "\n\nrenderer: " + renderer},
+		}
+	}
+	return []fileDetailMode{{
+		id:    "info",
+		label: "Info",
+		text:  localFileRendererUnavailableText(info, rendererUnavailableReason(renderer, err)),
+	}}
+}
+
+func localFileRendererUnavailableText(info, reason string) string {
+	return strings.Join([]string{
+		info,
+		"",
+		"preview: unavailable",
+		"reason: " + reason,
+		"",
+		"Open externally with o or the open button.",
+	}, "\n")
+}
+
+func rendererUnavailableReason(renderer string, err error) string {
+	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, errRendererMissing) {
+		return "No terminal preview renderer is installed for this file type. Missing renderer: " + renderer + "."
+	}
+	return "The " + renderer + " preview renderer failed: " + err.Error()
+}
+
+var errRendererMissing = errors.New("renderer missing")
+
+func errMissingRenderer(name string) error {
+	return fmt.Errorf("%w: %s", errRendererMissing, name)
+}
+
+func (a *App) renderChafaImagePreview(path string) (string, error) {
+	if _, err := fileViewerLookPath("chafa"); err != nil {
+		return "", err
+	}
+	width := modalBodyContentWidth(a.detailModalWidth()) - 4
+	if width <= 0 {
+		width = 80
+	}
+	width = minInt(width, 96)
+	height := maxInt(10, minInt(28, maxInt(1, a.height-18)))
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "chafa",
+		"--format=symbols",
+		"--colors=none",
+		"--animate=off",
+		"--polite=on",
+		"--size", fmt.Sprintf("%dx%d", width, height),
+		path,
+	)
+	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	if err != nil {
+		return "", err
+	}
+	text := strings.TrimRight(string(out), "\n")
+	if strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("chafa returned an empty preview")
+	}
+	runes := []rune(text)
+	if len(runes) > maxExternalRendererRunes {
+		text = string(runes[:maxExternalRendererRunes]) + "\n[truncated]"
+	}
+	return text, nil
+}
+
+func renderCommandPreview(name string, timeout time.Duration, args ...string) (string, error) {
+	if _, err := fileViewerLookPath(name); err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	text := strings.TrimRight(string(out), "\n")
+	if err != nil {
+		if strings.TrimSpace(text) != "" {
+			return "", fmt.Errorf("%w: %s", err, firstLines(text, 6))
+		}
+		return "", err
+	}
+	if strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("%s returned an empty preview", name)
+	}
+	return truncateExternalRendererText(text), nil
+}
+
+func renderHTMLPreview(path string) (string, string, error) {
+	candidates := []struct {
+		name string
+		args []string
+	}{
+		{"w3m", []string{"-dump", path}},
+		{"elinks", []string{"-dump", path}},
+		{"lynx", []string{"-dump", path}},
+		{"links", []string{"-dump", path}},
+	}
+	for _, c := range candidates {
+		if _, err := fileViewerLookPath(c.name); err != nil {
+			continue
+		}
+		text, err := renderCommandPreview(c.name, 5*time.Second, c.args...)
+		return text, c.name, err
+	}
+	return "", "text browser", errMissingRenderer("w3m/elinks/lynx/links")
+}
+
+func renderPythonPreview(script, path string) (string, error) {
+	if _, err := fileViewerLookPath("python3"); err != nil {
+		return "", err
+	}
+	return renderCommandPreview("python3", 8*time.Second, "-c", script, path)
+}
+
+func truncateExternalRendererText(text string) string {
+	runes := []rune(strings.TrimRight(text, "\n"))
+	if len(runes) <= maxExternalRendererRunes {
+		return string(runes)
+	}
+	return string(runes[:maxExternalRendererRunes]) + "\n[truncated]"
+}
+
+func firstLines(text string, limit int) string {
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	if len(lines) > limit {
+		lines = lines[:limit]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func localFileInfoText(entry fileTreeEntry, root string) string {
@@ -488,26 +700,26 @@ func isKnownExternalOnlyFile(ext string) bool {
 
 func localFileRendererGuidance(ext string) string {
 	present := func(name string) bool {
-		_, err := exec.LookPath(name)
+		_, err := fileViewerLookPath(name)
 		return err == nil
 	}
 	switch ext {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp":
-		if present("chafa") {
-			return "chafa is installed; inline image rendering can be enabled in a follow-up."
+		if _, err := fileViewerLookPath("chafa"); err == nil {
+			return "chafa is installed, but the image could not be decoded."
 		}
 		return "install chafa for reliable terminal image previews."
 	case ".html", ".htm":
 		for _, tool := range []string{"w3m", "elinks", "lynx", "links"} {
 			if present(tool) {
-				return tool + " is installed; text-browser rendering can be enabled in a follow-up."
+				return tool + " is installed but could not render this file."
 			}
 		}
 		return "install w3m, elinks, lynx, or links for terminal HTML rendering."
 	case ".pdf":
 		for _, tool := range []string{"pdftotext", "mutool", "pandoc"} {
 			if present(tool) {
-				return tool + " is installed; PDF text extraction can be enabled in a follow-up."
+				return tool + " is installed but could not extract text from this file."
 			}
 		}
 		return "install pdftotext, mutool, or pandoc for PDF text previews."
@@ -528,6 +740,85 @@ func localFileRendererGuidance(ext string) string {
 	default:
 		return ""
 	}
+}
+
+func parquetPreviewPython() string {
+	return `
+import sys
+path = sys.argv[1]
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+except Exception as exc:
+    raise SystemExit(f"pyarrow unavailable: {exc}")
+
+if path.lower().endswith(".parquet"):
+    pf = pq.ParquetFile(path)
+    print(f"parquet rows: {pf.metadata.num_rows}")
+    print(f"row groups: {pf.metadata.num_row_groups}")
+    print(f"columns: {pf.metadata.num_columns}")
+    print()
+    print(pf.schema)
+    print()
+    table = pf.read_row_group(0, columns=pf.schema.names[: min(8, len(pf.schema.names))])
+else:
+    table = pa.ipc.open_file(path).read_all()
+    print(f"arrow rows: {table.num_rows}")
+    print(f"columns: {table.num_columns}")
+    print()
+    print(table.schema)
+    print()
+print(table.slice(0, 20).to_pandas().to_string(index=False))
+`
+}
+
+func hdf5PreviewPython() string {
+	return `
+import sys
+path = sys.argv[1]
+try:
+    import h5py
+except Exception as exc:
+    raise SystemExit(f"h5py unavailable: {exc}")
+
+with h5py.File(path, "r") as f:
+    rows = []
+    def visit(name, obj):
+        kind = "group" if isinstance(obj, h5py.Group) else "dataset"
+        if isinstance(obj, h5py.Dataset):
+            rows.append(f"{name}  {kind}  shape={obj.shape} dtype={obj.dtype}")
+        else:
+            rows.append(f"{name}  {kind}")
+    f.visititems(visit)
+    print("hdf5 tree:")
+    for row in rows[:200]:
+        print(row)
+    if len(rows) > 200:
+        print(f"... {len(rows)-200} more objects")
+`
+}
+
+func numpyPreviewPython() string {
+	return `
+import sys
+path = sys.argv[1]
+try:
+    import numpy as np
+except Exception as exc:
+    raise SystemExit(f"numpy unavailable: {exc}")
+
+obj = np.load(path, allow_pickle=False)
+if hasattr(obj, "files"):
+    print("npz archive:")
+    for name in obj.files:
+        arr = obj[name]
+        print(f"{name}: shape={arr.shape} dtype={arr.dtype}")
+        print(arr.reshape(-1)[:12])
+else:
+    arr = obj
+    print(f"array: shape={arr.shape} dtype={arr.dtype}")
+    print(arr.reshape(-1)[:24])
+`
 }
 
 func looksLikeTextBytes(data []byte) bool {
@@ -591,29 +882,56 @@ func previewJSONLines(data []byte, limit int) string {
 	return strings.TrimRight(out.String(), "\n")
 }
 
-func previewDelimitedFile(data []byte, ext string, limit int) (string, error) {
+func previewDelimitedBytes(data []byte, ext string, limit int) (string, error) {
 	r := csv.NewReader(strings.NewReader(string(data)))
+	return previewDelimitedRecords(r, ext, limit)
+}
+
+func previewDelimitedFilePath(path string, ext string, limit int) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	r := csv.NewReader(f)
+	return previewDelimitedRecords(r, ext, limit)
+}
+
+func previewDelimitedRecords(r *csv.Reader, ext string, limit int) (string, error) {
 	if ext == ".tsv" {
 		r.Comma = '\t'
 	}
 	r.FieldsPerRecord = -1
-	records, err := r.ReadAll()
+	header, err := r.Read()
 	if err != nil {
+		if err == io.EOF {
+			return "(empty file)", nil
+		}
 		return "", err
 	}
-	if len(records) == 0 {
-		return "(empty file)", nil
+	rows := make([][]string, 0, limit)
+	totalRows := 0
+	for {
+		row, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		totalRows++
+		if len(rows) < limit {
+			rows = append(rows, row)
+		}
 	}
-	header := records[0]
-	rows := records[1:]
 	widths := make([]int, len(header))
 	for i, h := range header {
-		widths[i] = len(h)
+		widths[i] = minInt(displayCellWidth(h), maxDelimitedPreviewCellWidth)
 	}
-	for _, row := range rows[:minInt(limit, len(rows))] {
+	for _, row := range rows {
 		for i := range header {
-			if i < len(row) && len(row[i]) > widths[i] {
-				widths[i] = len(row[i])
+			if i < len(row) {
+				widths[i] = maxInt(widths[i], minInt(displayCellWidth(row[i]), maxDelimitedPreviewCellWidth))
 			}
 		}
 	}
@@ -624,22 +942,40 @@ func previewDelimitedFile(data []byte, ext string, limit int) (string, error) {
 		sep[i] = strings.Repeat("-", w)
 	}
 	writePreviewRow(&out, sep, widths)
-	for _, row := range rows[:minInt(limit, len(rows))] {
+	for _, row := range rows {
 		writePreviewRow(&out, row, widths)
 	}
-	fmt.Fprintf(&out, "\n%d data rows total (showing %d), %d columns", len(rows), minInt(limit, len(rows)), len(header))
+	fmt.Fprintf(&out, "\n%d data rows total (showing %d), %d columns", totalRows, len(rows), len(header))
 	return out.String(), nil
 }
+
+const maxDelimitedPreviewCellWidth = 32
 
 func writePreviewRow(out *strings.Builder, cells []string, widths []int) {
 	for i, w := range widths {
 		cell := ""
 		if i < len(cells) {
-			cell = cells[i]
+			cell = truncateDelimitedCell(cells[i], w)
 		}
 		fmt.Fprintf(out, "%-*s  ", w, cell)
 	}
 	out.WriteString("\n")
+}
+
+func displayCellWidth(s string) int {
+	return len([]rune(strings.ReplaceAll(s, "\n", " ")))
+}
+
+func truncateDelimitedCell(s string, width int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	runes := []rune(s)
+	if len(runes) <= width {
+		return s
+	}
+	if width <= 3 {
+		return strings.Repeat(".", maxInt(1, width))
+	}
+	return string(runes[:width-3]) + "..."
 }
 
 func (a *App) openFileViewerRootDetail() {

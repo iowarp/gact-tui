@@ -3,6 +3,11 @@ import { brand } from '@brand';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
+import {
+  summarizeToolResultPresentation,
+  toolInputRows,
+  type StructuredResultPresentation,
+} from '../presentation.js';
 import type { ModelOption } from './Composer.js';
 import './transcript.css';
 import './inline-markdown.css';
@@ -190,6 +195,7 @@ function PartView(props: {
     );
   }
   if (p.type === 'tool_call') {
+    const inputRows = () => toolInputRows(p.input ?? {});
     if (props.density === 'normal') {
       return (
         <div
@@ -199,7 +205,7 @@ function PartView(props: {
           <Icon name="tool" size={14} class="trx-toolcall__icon" />
           <span class="trx-toolcall__name">{p.tool_name}</span>
           <span class="trx-toolcall__args">
-            ({Object.keys(p.input ?? {}).slice(0, 2).join(', ')})
+            ({inputRows().slice(0, 2).map((row) => row.label).join(', ')})
           </span>
         </div>
       );
@@ -214,7 +220,18 @@ function PartView(props: {
           <div>
             <span class="trx-toolcall__name">{p.tool_name}</span>
           </div>
-          <pre class="trx-toolcall__body">{JSON.stringify(p.input ?? {}, null, 2)}</pre>
+          <Show when={inputRows().length > 0} fallback={<div class="trx-toolcall__empty">No visible input</div>}>
+            <dl class="trx-toolcall__kv">
+              <For each={inputRows()}>
+                {(row) => (
+                  <div>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                )}
+              </For>
+            </dl>
+          </Show>
         </div>
       </div>
     );
@@ -233,6 +250,21 @@ function PartView(props: {
       }
       return '';
     })();
+    const toolResultName = String(
+      (p as Part & { tool_name?: string }).tool_name ??
+        p.metadata?.['tool_name'] ??
+        p.metadata?.['tool'] ??
+        '',
+    );
+    const structured = summarizeToolResultPresentation(toolResultName, body);
+    if (structured && !props.searchQuery?.trim()) {
+      return (
+        <StructuredToolResultCard
+          result={structured}
+          error={Boolean(p.is_error)}
+        />
+      );
+    }
     return (
       <div class={'trx-toolresult ' + (p.is_error ? 'trx-toolresult--err' : '')}>
         <Icon name="check" size={14} class="trx-toolresult__icon" />
@@ -400,6 +432,37 @@ function PartView(props: {
     );
   }
   return null;
+}
+
+function StructuredToolResultCard(props: {
+  result: StructuredResultPresentation;
+  error?: boolean;
+}) {
+  return (
+    <section
+      class={'trx-structured-result ' + (props.error ? 'trx-structured-result--err' : '')}
+      data-testid="structured-tool-result"
+    >
+      <div class="trx-structured-result__head">
+        <Icon name={props.error ? 'alert' : 'check'} size={14} />
+        <span>{props.result.title}</span>
+      </div>
+      <dl class="trx-structured-result__grid" data-testid="structured-tool-result-summary">
+        <For each={props.result.rows.slice(0, 8)}>
+          {(row) => (
+            <div>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          )}
+        </For>
+      </dl>
+      <details class="trx-structured-result__raw" data-testid="structured-tool-result-raw">
+        <summary>Raw result</summary>
+        <pre>{prettyJson(props.result.raw)}</pre>
+      </details>
+    </section>
+  );
 }
 
 function commandResultInfo(

@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -167,24 +166,20 @@ func (a *App) handleSessionSetupKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		a.closeSessionSetup()
 		return a, nil
+	case "tab", "right", "l":
+		a.sessionSetupFocusNextSection()
+		return a, nil
+	case "shift+tab", "left", "h":
+		a.sessionSetupFocusPrevSection()
+		return a, nil
 	case "up", "k":
-		if s.row > 0 {
-			s.row--
-		}
-		return a, nil
-	case "down", "j":
-		if s.row < a.sessionSetupLastRow() {
-			s.row++
-		}
-		return a, nil
-	case "left", "h":
 		a.stepSessionSetupSelection(-1)
 		return a, nil
-	case "right", "l":
+	case "down", "j":
 		a.stepSessionSetupSelection(+1)
 		return a, nil
-	case " ":
-		if s.row == 2 && !s.defaultsOnly {
+	case " ", "f":
+		if !s.defaultsOnly {
 			s.saveDefault = !s.saveDefault
 		}
 		return a, nil
@@ -192,32 +187,23 @@ func (a *App) handleSessionSetupKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if s.loading {
 			return a, nil
 		}
-		switch s.row {
-		case 0, 1:
-			a.stepSessionSetupSelection(+1)
-			return a, nil
-		case 2:
-			if s.defaultsOnly {
-				a.applySessionSetupDefaultsFromSelection()
-				a.closeSessionSetup()
-				a.transientHint = "new-session defaults saved"
-				return a, scheduleHintExpire(a.transientHint)
-			}
-			s.saveDefault = !s.saveDefault
-			return a, nil
-		default:
-			if s.saveDefault {
-				a.applySessionSetupDefaultsFromSelection()
-			}
-			sel := sessionSetupSelection{
-				BlueprintID: a.sessionSetupSelectedBlueprintID(),
-				PackID:      a.sessionSetupSelectedPackID(),
-			}
-			a.closeSessionSetup()
-			return a, createSessionWithSemanticsCmd(a.c, a.wsID, sel)
-		}
+		return a.sessionSetupPrimaryAction()
 	}
 	return a, nil
+}
+
+func (a *App) sessionSetupFocusNextSection() {
+	if a.sessionSetup == nil {
+		return
+	}
+	a.sessionSetup.row = modulo(a.sessionSetup.row+1, 2)
+}
+
+func (a *App) sessionSetupFocusPrevSection() {
+	if a.sessionSetup == nil {
+		return
+	}
+	a.sessionSetup.row = modulo(a.sessionSetup.row-1, 2)
 }
 
 func (a *App) stepSessionSetupSelection(delta int) {
@@ -243,13 +229,6 @@ func (a *App) stepSessionSetupSelection(delta int) {
 	}
 }
 
-func (a *App) sessionSetupLastRow() int {
-	if a.sessionSetup != nil && a.sessionSetup.defaultsOnly {
-		return 2
-	}
-	return 3
-}
-
 func (a *App) sessionSetupSelectedBlueprintID() string {
 	if a.sessionSetup == nil || a.sessionSetup.blueprintSel <= 0 {
 		return ""
@@ -272,54 +251,119 @@ func (a *App) sessionSetupSelectedPackID() string {
 	return strings.TrimSpace(a.sessionSetup.packs[idx].ID)
 }
 
+func (a *App) sessionSetupPrimaryAction() (tea.Model, tea.Cmd) {
+	if a.sessionSetup == nil {
+		return a, nil
+	}
+	if a.sessionSetup.defaultsOnly {
+		a.applySessionSetupDefaultsFromSelection()
+		a.closeSessionSetup()
+		a.transientHint = "new-session defaults saved"
+		return a, scheduleHintExpire(a.transientHint)
+	}
+	if a.sessionSetup.saveDefault {
+		a.applySessionSetupDefaultsFromSelection()
+	}
+	sel := sessionSetupSelection{
+		BlueprintID: a.sessionSetupSelectedBlueprintID(),
+		PackID:      a.sessionSetupSelectedPackID(),
+	}
+	a.closeSessionSetup()
+	return a, createSessionWithSemanticsCmd(a.c, a.wsID, sel)
+}
+
 func (a *App) viewSessionSetup() string {
 	t := a.Theme
 	if a.sessionSetup == nil {
 		a.sessionSetup = &sessionSetupState{}
 	}
 	s := a.sessionSetup
-	w := minInt(maxInt(64, a.modalWidth()), 92)
-	innerW := modalInnerWidth(w)
+	w := minInt(maxInt(76, a.modalWidth()), 104)
+	contentW := modalBodyContentWidth(w)
 	rows := []string{}
-	rowStyle := func(selected bool, label, value string) string {
-		marker := "  "
-		labelStyle := lipgloss.NewStyle().Foreground(t.Fg)
-		valueStyle := t.HintLabel
-		if selected {
-			marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌ ")
-			labelStyle = labelStyle.Foreground(t.Secondary).Bold(true)
-			valueStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-		}
-		line := marker + labelStyle.Render(label)
-		if value != "" {
-			budget := innerW - lipgloss.Width(ansi.Strip(marker)) - lipgloss.Width(label) - 4
-			line += "  " + valueStyle.Render(truncate(value, maxInt(12, budget)))
-		}
-		if selected {
-			line = lipgloss.NewStyle().Background(t.Bg).Width(innerW).Render(line)
-		}
-		return fitANSI(line, innerW)
-	}
 	if s.loading {
 		rows = append(rows, t.HintLabel.Render("loading workflows…"))
 	} else {
 		if s.errText != "" {
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.Warning).Render(s.errText), "")
 		}
-		rows = append(rows, rowStyle(s.row == 0, "Workflow blueprint", a.sessionSetupBlueprintLabel()))
-		rows = append(rows, rowStyle(s.row == 1, "Expert pack", a.sessionSetupPackLabel()))
-		if s.defaultsOnly {
-			rows = append(rows, rowStyle(s.row == 2, "Save defaults", "Enter"))
-		} else {
+		blueprintRows, blueprintList := a.renderSessionSetupBlueprintSection(contentW)
+		packRows, packList := a.renderSessionSetupPackSection(contentW)
+		sectionRows, blueprintStart, packStart, packCol, sectionW := joinSessionSetupSections(blueprintRows, packRows, contentW)
+		sectionStart := len(rows)
+		rows = append(rows, sectionRows...)
+		if !s.defaultsOnly {
+			rows = append(rows, "")
 			check := "□"
 			if s.saveDefault {
 				check = "■"
 			}
-			rows = append(rows, rowStyle(s.row == 2, "Use for future sessions", check))
-			rows = append(rows, rowStyle(s.row == 3, "Start session", "Enter"))
+			rows = append(rows, t.HintKey.Render(check)+" "+t.HintLabel.Render("Use these choices as the default for future sessions"))
 		}
 		rows = append(rows, "")
-		rows = append(rows, t.HintLabel.Italic(true).Render("←/→ change · Enter apply · Esc close"))
+		primary := "start session"
+		if s.defaultsOnly {
+			primary = "save defaults"
+		}
+		actionButtons := []menuButton{
+			{
+				id:    "session-setup:primary",
+				label: primary,
+				action: func(app *App) tea.Cmd {
+					_, cmd := app.sessionSetupPrimaryAction()
+					return cmd
+				},
+			},
+			{
+				id:    "session-setup:cancel",
+				label: "cancel",
+				action: func(app *App) tea.Cmd {
+					app.closeSessionSetup()
+					return nil
+				},
+			},
+		}
+		actionRow := len(rows)
+		actionText, actionCol := a.renderCenteredModalButtons(contentW, actionButtons, -1)
+		rows = append(rows, actionText)
+		rows = append(rows, "")
+		rows = append(rows, t.HintLabel.Italic(true).Render("↑/↓ choose · ←/→ switch section · f future default · Enter apply · Esc close"))
+
+		title := "New Session"
+		if s.defaultsOnly {
+			title = "Session Defaults"
+		}
+		buttons := []menuButton{closeMenuButton("session-setup:close", func(app *App) { app.closeSessionSetup() })}
+		rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+			width:   w,
+			title:   title,
+			buttons: buttons,
+			body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), minInt(18, maxInt(12, len(rows)))),
+			footer:  t.HintLabel.Render("Ctrl+B opens session defaults"),
+		})
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+blueprintStart, 0, sectionW, blueprintList, "session-setup:blueprints:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+			app.sessionSetup = app.ensureSessionSetup()
+			app.sessionSetup.row = 0
+			app.sessionSetup.blueprintSel = moveSelectionByWheel(app.sessionSetup.blueprintSel, len(app.sessionSetup.blueprints)+1, button)
+			return nil
+		})
+		a.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+packStart, packCol, sectionW, packList, "session-setup:packs:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+			app.sessionSetup = app.ensureSessionSetup()
+			app.sessionSetup.row = 1
+			app.sessionSetup.packSel = moveSelectionByWheel(app.sessionSetup.packSel, len(app.sessionSetup.packs)+1, button)
+			return nil
+		})
+		if !s.defaultsOnly {
+			futureRow := rendered.bodyRow + sectionStart + len(sectionRows) + 1
+			a.registerModalContentHit(rendered.modal, "session-setup:future-default", futureRow, 0, contentW, 1, func(app *App) tea.Cmd {
+				if app.sessionSetup != nil {
+					app.sessionSetup.saveDefault = !app.sessionSetup.saveDefault
+				}
+				return nil
+			})
+		}
+		a.registerModalButtons(rendered.modal, rendered.bodyRow+actionRow, actionCol, actionButtons)
+		return rendered.modal
 	}
 	title := "New Session"
 	if s.defaultsOnly {
@@ -336,28 +380,130 @@ func (a *App) viewSessionSetup() string {
 	return rendered.modal
 }
 
-func (a *App) sessionSetupBlueprintLabel() string {
-	if a.sessionSetup == nil || a.sessionSetup.blueprintSel <= 0 {
-		return "CLIO default"
+func (a *App) ensureSessionSetup() *sessionSetupState {
+	if a.sessionSetup == nil {
+		a.sessionSetup = &sessionSetupState{}
 	}
-	idx := a.sessionSetup.blueprintSel - 1
-	if idx < 0 || idx >= len(a.sessionSetup.blueprints) {
-		return "CLIO default"
-	}
-	bp := a.sessionSetup.blueprints[idx]
-	return firstNonEmpty(bp.Title, bp.ID)
+	return a.sessionSetup
 }
 
-func (a *App) sessionSetupPackLabel() string {
-	if a.sessionSetup == nil || a.sessionSetup.packSel <= 0 {
-		return "None"
+func (a *App) renderSessionSetupBlueprintSection(width int) ([]string, modalListRender) {
+	s := a.ensureSessionSetup()
+	title := a.sessionSetupSectionTitle("Workflow blueprint", s.row == 0, width)
+	indexes := make([]int, 0, len(s.blueprints)+1)
+	for i := 0; i < len(s.blueprints)+1; i++ {
+		indexes = append(indexes, i)
 	}
-	idx := a.sessionSetup.packSel - 1
-	if idx < 0 || idx >= len(a.sessionSetup.packs) {
-		return "None"
+	visible := minInt(7, maxInt(4, len(indexes)))
+	list, _ := a.renderWindowedIndexModalList(indexes, s.blueprintSel, visible, 7, modalListOptions{
+		width:     width,
+		rowBudget: visible,
+	}, func(idx int) modalListItem {
+		title := "CLIO default"
+		if idx > 0 {
+			bp := s.blueprints[idx-1]
+			title = firstNonEmpty(bp.Title, bp.ID)
+		}
+		prefix := "○ "
+		if idx == s.blueprintSel {
+			prefix = "● "
+		}
+		choice := idx
+		return modalListItem{
+			id:       fmt.Sprintf("session-setup:blueprint:%d", choice),
+			title:    prefix + title,
+			selected: s.row == 0 && choice == s.blueprintSel,
+			action: func(app *App) tea.Cmd {
+				state := app.ensureSessionSetup()
+				state.row = 0
+				state.blueprintSel = choice
+				return nil
+			},
+		}
+	})
+	return append([]string{title}, list.rows...), list
+}
+
+func (a *App) renderSessionSetupPackSection(width int) ([]string, modalListRender) {
+	s := a.ensureSessionSetup()
+	title := a.sessionSetupSectionTitle("Expert pack", s.row == 1, width)
+	indexes := make([]int, 0, len(s.packs)+1)
+	for i := 0; i < len(s.packs)+1; i++ {
+		indexes = append(indexes, i)
 	}
-	pack := a.sessionSetup.packs[idx]
-	return firstNonEmpty(pack.Title, pack.ID)
+	visible := minInt(7, maxInt(4, len(indexes)))
+	list, _ := a.renderWindowedIndexModalList(indexes, s.packSel, visible, 7, modalListOptions{
+		width:     width,
+		rowBudget: visible,
+	}, func(idx int) modalListItem {
+		title := "None"
+		if idx > 0 {
+			pack := s.packs[idx-1]
+			title = firstNonEmpty(pack.Title, pack.ID)
+		}
+		prefix := "○ "
+		if idx == s.packSel {
+			prefix = "● "
+		}
+		choice := idx
+		return modalListItem{
+			id:       fmt.Sprintf("session-setup:pack:%d", choice),
+			title:    prefix + title,
+			selected: s.row == 1 && choice == s.packSel,
+			action: func(app *App) tea.Cmd {
+				state := app.ensureSessionSetup()
+				state.row = 1
+				state.packSel = choice
+				return nil
+			},
+		}
+	})
+	return append([]string{title}, list.rows...), list
+}
+
+func (a *App) sessionSetupSectionTitle(title string, active bool, width int) string {
+	style := lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Bold(true).Width(width)
+	if active {
+		style = style.Foreground(a.Theme.Secondary)
+	}
+	return style.Render(title)
+}
+
+func joinSessionSetupSections(leftRows, rightRows []string, width int) (rows []string, leftListStart int, rightListStart int, rightCol int, sectionW int) {
+	gap := 4
+	if width < 60 {
+		gap = 2
+	}
+	sectionW = (width - gap) / 2
+	if sectionW < 20 {
+		sectionW = width
+		gap = 0
+	}
+	rightCol = sectionW + gap
+	maxRows := maxInt(len(leftRows), len(rightRows))
+	rows = make([]string, 0, maxRows)
+	leftStyle := lipgloss.NewStyle().Width(sectionW)
+	rightStyle := lipgloss.NewStyle().Width(sectionW)
+	gapText := strings.Repeat(" ", gap)
+	if sectionW == width {
+		rows = append(rows, leftRows...)
+		rows = append(rows, "")
+		rightStart := len(rows)
+		rows = append(rows, rightRows...)
+		return rows, 1, rightStart + 1, 0, sectionW
+	}
+	for i := 0; i < maxRows; i++ {
+		left := ""
+		right := ""
+		if i < len(leftRows) {
+			left = leftRows[i]
+		}
+		if i < len(rightRows) {
+			right = rightRows[i]
+		}
+		rows = append(rows, leftStyle.Render(left)+gapText+rightStyle.Render(right))
+	}
+	return rows, 1, 1, rightCol, sectionW
 }
 
 func (a *App) seedSessionSetupSelections() {

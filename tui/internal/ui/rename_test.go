@@ -109,6 +109,56 @@ func TestRename_EnterCommitsAndPatches(t *testing.T) {
 	}
 }
 
+func TestRename_RunningSessionWithScopedIDUsesEscapedPatchPath(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.EscapedPath()
+		if r.Method != http.MethodPatch {
+			t.Fatalf("method = %s", r.Method)
+		}
+		if gotPath != "/v1/sessions/ws1%2Frunning%3Fsession" {
+			t.Fatalf("path = %q", gotPath)
+		}
+		_, _ = w.Write([]byte(`{"id":"ws1/running?session","title":"live demo run","status":"running"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	a := New(srv.URL)
+	a.stage = StageReady
+	a.width, a.height = 100, 30
+	a.focus = FocusSidebar
+	a.sessions = []gact.Session{{ID: "ws1/running?session", Title: "original", Status: gact.StatusRunning}}
+	a.selected = 0
+	a.currentStatus = gact.StatusRunning
+	a.renameOpen = true
+	a.renameDraft = "live demo run"
+	a.renameCursor = len(a.renameDraft)
+
+	model, cmd := a.handleRenameKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a = model.(*App)
+	if cmd == nil {
+		t.Fatal("Enter should dispatch a PATCH cmd")
+	}
+	if a.renameOpen {
+		t.Fatal("rename modal should close before patch result")
+	}
+	if a.sessions[0].Title != "live demo run" || a.sessions[0].Status != gact.StatusRunning {
+		t.Fatalf("optimistic running session state = %#v", a.sessions[0])
+	}
+	msg := cmd()
+	model, follow := a.Update(msg)
+	a = model.(*App)
+	if follow != nil {
+		t.Fatal("successful rename should not dispatch a follow-up command")
+	}
+	if a.sessions[0].Title != "live demo run" || a.currentStatus != gact.StatusRunning {
+		t.Fatalf("renamed running session state = %#v current=%q", a.sessions[0], a.currentStatus)
+	}
+	if gotPath == "" {
+		t.Fatal("server did not receive PATCH")
+	}
+}
+
 func TestRename_ManualFailureRestoresTitleAndShowsHint(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, "/v1/sessions/") {

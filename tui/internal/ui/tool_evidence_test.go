@@ -293,6 +293,228 @@ func TestNormalizeMessagePresentationPromotesExpertHandoffsBeforeToolsAndText(t 
 	}
 }
 
+func TestExpertHandoffPrefersLocalEvidenceOverWorkflowStateBlob(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "main -> visualization | completed | delegate.completed | Retained typed workflow state: {\"workflow_state\":{\"artifact\":{\"path\":\"/tmp/MTA1_timeseries.png\",\"status\":\"ready\"}}}",
+			Metadata: map[string]any{
+				"agent_id":             "visualization",
+				"parent_id":            "main",
+				"stage":                "delegate.completed",
+				"status":               "completed",
+				"output_summary":       "Retained typed workflow state:\n{\"workflow_state\":{\"acquisition\":{\"analysis_ready\":true,\"local_path\":\"/tmp/MTA1.CI.LY_.30.csv\",\"status\":\"staged\"},\"artifact\":{\"columns\":[\"east\",\"north\",\"up\"],\"kind\":\"gnss_timeseries_plot\",\"path\":\"/tmp/MTA1_timeseries.png\",\"status\":\"ready\"},\"station_catalog\":{\"candidate_count\":155,\"station_ids\":[\"MTA1\",\"PKRD\",\"ELSC\"]}}}",
+				"local_output_summary": "PNG artifact path: /tmp/MTA1_timeseries.png\nSize: 2000 plotted rows\nPlotted columns: ['time', 'east', 'north', 'up']\nCaveats: scan-limited profile.\n\nCLIO typed workflow state:\n\nRetained typed workflow state:\n{\"workflow_state\":{\"artifact\":{\"path\":\"/tmp/MTA1_timeseries.png\",\"status\":\"ready\"}}}",
+			},
+		}},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		"visualization returned evidence to main",
+		"PNG artifact path",
+		"2000 plotted rows",
+		"Plotted columns",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("handoff render missing local evidence %q:\n%s", want, out)
+		}
+	}
+	for _, bad := range []string{`"workflow_state"`, "Retained typed workflow state", "local_output_summary"} {
+		if strings.Contains(out, bad) {
+			t.Fatalf("handoff render leaked workflow transport %q:\n%s", bad, out)
+		}
+	}
+}
+
+func TestExpertHandoffRendersNestedHierarchyIndentation(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				Type: gact.PartTypeExpertHandoff,
+				Text: "main delegated work to data.",
+				Metadata: map[string]any{
+					"agent_id":  "data",
+					"parent_id": "main",
+					"stage":     "delegate.started",
+					"status":    "running",
+				},
+			},
+			{
+				Type: gact.PartTypeExpertHandoff,
+				Text: "data delegated work to ndp_catalog.",
+				Metadata: map[string]any{
+					"agent_id":  "ndp_catalog",
+					"parent_id": "data",
+					"stage":     "delegate.started",
+					"status":    "running",
+				},
+			},
+			{
+				Type: gact.PartTypeExpertHandoff,
+				Text: "ndp_catalog returned records.",
+				Metadata: map[string]any{
+					"agent_id":  "ndp_catalog",
+					"parent_id": "data",
+					"stage":     "delegate.completed",
+					"status":    "completed",
+					"depth":     3.0,
+				},
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	dataIndent := leadingSpacesForLineContaining(out, "main handed work to data")
+	ndpStartedIndent := leadingSpacesForLineContaining(out, "data handed work to ndp_catalog")
+	ndpReturnedIndent := leadingSpacesForLineContaining(out, "ndp_catalog returned evidence to data")
+	if dataIndent < 2 {
+		t.Fatalf("child handoff should be indented below root, indent=%d:\n%s", dataIndent, out)
+	}
+	if ndpStartedIndent <= dataIndent {
+		t.Fatalf("grandchild handoff should be deeper than child, child=%d grandchild=%d:\n%s", dataIndent, ndpStartedIndent, out)
+	}
+	if ndpReturnedIndent <= ndpStartedIndent {
+		t.Fatalf("explicit depth should be honored, started=%d returned=%d:\n%s", ndpStartedIndent, ndpReturnedIndent, out)
+	}
+}
+
+func leadingSpacesForLineContaining(text, needle string) int {
+	for _, line := range strings.Split(text, "\n") {
+		if !strings.Contains(line, needle) {
+			continue
+		}
+		return len(line) - len(strings.TrimLeft(line, " "))
+	}
+	return -1
+}
+
+func TestAssistantWorkflowStateTextRendersAsSummary(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			Type: gact.PartTypeText,
+			Text: "CLIO typed workflow state: {\"workflow_state\":{\"acquisition\":{\"analysis_ready\":true,\"local_path\":\"/tmp/MTA1.CI.LY_.30.csv\",\"status\":\"staged\"},\"artifact\":{\"columns\":[\"east\",\"north\",\"up\"],\"path\":\"/tmp/MTA1_timeseries.png\",\"status\":\"ready\"},\"geospatial\":{\"center_lat\":34.0536909,\"center_lon\":-118.242766,\"radius_km\":100,\"region_name\":\"Los Angeles\",\"status\":\"resolved\"},\"station_catalog\":{\"candidate_count\":155,\"station_ids\":[\"MTA1\",\"PKRD\",\"ELSC\"]}}}",
+		}},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{"state:", "acquisition staged", "artifact ready", "geospatial resolved", "station catalog candidates 155"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workflow state text missing summary %q:\n%s", want, out)
+		}
+	}
+	for _, want := range []string{"• acquisition staged", "• artifact ready", "• station catalog candidates 155"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("workflow state text should render separate rows, missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `"workflow_state"`) || strings.Contains(out, "CLIO typed workflow state") {
+		t.Fatalf("workflow state text should not leak raw JSON inline:\n%s", out)
+	}
+}
+
+func TestStructuredToolResultsUseGenericEvidenceSummaries(t *testing.T) {
+	cases := []struct {
+		name     string
+		toolName string
+		input    map[string]any
+		result   string
+		want     []string
+		bad      []string
+	}{
+		{
+			name:     "coordinate filter",
+			toolName: "geofilterpoints_by_radius",
+			input:    map[string]any{"region": "Los Angeles", "radius_km": 100},
+			result:   `{"status":"filtered","center":{"lat":34.0536909,"lon":-118.242766},"radius_km":100,"input_count":155,"matched_count":72,"points":[{"station":"MTA1","distance_km":0.3749},{"station":"PKRD","distance_km":2.3714},{"station":"ELSC","distance_km":4.0982}]}`,
+			want: []string{
+				"GeofilterpointsByRadius",
+				"structured result:",
+				"status: filtered",
+				"location: 34.05, -118.2",
+				"radius 100 km",
+				"input: 155",
+				"matched: 72",
+				"MTA1",
+			},
+			bad: []string{`"points"`, `{"status"`, `"matched_count"`},
+		},
+		{
+			name:     "record list",
+			toolName: "facility_lookup_records",
+			input:    map[string]any{"dataset": "beamline-incidents"},
+			result:   `{"status":"ok","record_count":2,"records":[{"id":"INC-7","title":"cooling loop warning","severity":"medium"},{"id":"INC-8","title":"pump recovery","severity":"low"}]}`,
+			want: []string{
+				"FacilityLookupRecords",
+				"records result:",
+				"status: ok",
+				"records: 2",
+				"INC-7",
+				"INC-8",
+			},
+			bad: []string{`"records"`, `{"status"`, `"record_count"`},
+		},
+		{
+			name:     "artifact result",
+			toolName: "write_report_artifact",
+			input:    map[string]any{"format": "markdown"},
+			result:   `{"status":"ready","artifact_path":"/tmp/clio-report/final_summary.md","summary":"Wrote collaborator handoff report with retained evidence and caveats.","rows":18}`,
+			want: []string{
+				"WriteReportArtifact",
+				"structured result:",
+				"status: ready",
+				"artifact: /tmp/clio-report/final_summary.md",
+				"summary: Wrote collaborator handoff report",
+				"rows: 18",
+			},
+			bad: []string{`"artifact_path"`, `{"status"`, `"summary"`},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := gact.Message{
+				Role: gact.RoleAssistant,
+				Parts: []gact.Part{
+					{
+						Type:     gact.PartTypeToolCall,
+						CallID:   "call_structured",
+						ToolName: tc.toolName,
+						Input:    tc.input,
+					},
+					{
+						Type:     gact.PartTypeToolResult,
+						CallID:   "call_structured",
+						ToolName: tc.toolName,
+						Content: []gact.Part{{
+							Type: gact.PartTypeText,
+							Text: tc.result,
+						}},
+					},
+				},
+			}
+
+			out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+			for _, want := range tc.want {
+				if !strings.Contains(out, want) {
+					t.Fatalf("structured result missing %q:\n%s", want, out)
+				}
+			}
+			for _, bad := range tc.bad {
+				if strings.Contains(out, bad) {
+					t.Fatalf("structured result leaked raw JSON %q:\n%s", bad, out)
+				}
+			}
+			if got := strings.Count(out, "\n"); got > 20 {
+				t.Fatalf("structured result should stay compact, got %d lines:\n%s", got+1, out)
+			}
+		})
+	}
+}
+
 func TestNormalizeMessagePresentationSkipsRedundantDirectToolSuccessHandoffs(t *testing.T) {
 	msg := gact.Message{
 		Role: gact.RoleAssistant,
@@ -933,6 +1155,11 @@ func TestExpertHandoffSummarizesTypedWorkflowStateJSONOnly(t *testing.T) {
 	for _, want := range []string{"data returned evidence to main", "state:", "acquisition staged", "artifact ready", "station catalog ranked"} {
 		if !strings.Contains(normalized, want) {
 			t.Fatalf("typed workflow state render missing %q:\n%s", want, out)
+		}
+	}
+	for _, want := range []string{"• acquisition staged", "• artifact ready", "• station catalog ranked"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("typed workflow state should render separate rows, missing %q:\n%s", want, out)
 		}
 	}
 	for _, raw := range []string{"workflow_state", `"local_path"`, `"station_catalog"`, "/tmp/grind-es-1uvay5fx"} {

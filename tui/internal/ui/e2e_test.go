@@ -131,11 +131,10 @@ func TestE2E_TUI_HappyPath(t *testing.T) {
 	// Create a session via Ctrl+N.
 	tm.Send(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
 	waitForOutput(t, tm, func(s string) bool {
-		return strings.Contains(s, "New Session") && strings.Contains(s, "Start session")
+		return strings.Contains(s, "New Session") &&
+			strings.Contains(s, "Workflow blueprint") &&
+			strings.Contains(s, "start session")
 	}, 3*time.Second)
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
 	tm.Send(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	waitForOutput(t, tm, func(s string) bool {
@@ -178,11 +177,10 @@ func TestE2E_TUI_PermissionFlow(t *testing.T) {
 
 	tm.Send(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
 	waitForOutput(t, tm, func(s string) bool {
-		return strings.Contains(s, "New Session") && strings.Contains(s, "Start session")
+		return strings.Contains(s, "New Session") &&
+			strings.Contains(s, "Workflow blueprint") &&
+			strings.Contains(s, "start session")
 	}, 3*time.Second)
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
-	tm.Send(tea.KeyPressMsg{Code: tea.KeyDown})
 	tm.Send(tea.KeyPressMsg{Code: tea.KeyEnter})
 	waitForOutput(t, tm, func(s string) bool { return strings.Contains(s, "session: ") },
 		3*time.Second)

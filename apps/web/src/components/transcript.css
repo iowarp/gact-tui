@@ -450,6 +450,43 @@
   overflow-x: auto;
 }
 
+.trx-toolcall__kv {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+}
+
+.trx-toolcall__kv > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.28fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.trx-toolcall__kv dt {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.trx-toolcall__kv dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.trx-toolcall__empty {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
 /* Tool result                                                            */
 .trx-toolresult {
   display: flex;
@@ -481,6 +518,89 @@
   overflow-x: auto;
   flex: 1;
   min-width: 0;
+}
+
+.trx-structured-result {
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-left: 3px solid var(--color-success);
+  border-radius: 10px;
+  color: var(--color-text);
+}
+
+.trx-structured-result--err {
+  border-left-color: var(--color-error);
+}
+
+.trx-structured-result__head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.trx-structured-result__grid {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+}
+
+.trx-structured-result__grid > div {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.26fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.trx-structured-result__grid dt {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trx-structured-result__grid dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 12.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.trx-structured-result__raw {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.trx-structured-result__raw > summary {
+  cursor: pointer;
+  width: max-content;
+  max-width: 100%;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trx-structured-result__raw pre {
+  margin: 8px 0 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: pre-wrap;
 }
 
 /* Inline streaming cursor at the tail of an in-flight assistant turn   */

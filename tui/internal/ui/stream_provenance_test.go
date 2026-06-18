@@ -1399,6 +1399,85 @@ func TestSemanticEventDetailShowsStructuredLiveProvenance(t *testing.T) {
 	}
 }
 
+func TestSemanticToolEventsRenderNestedUnderInvokingAgent(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	base := map[string]any{
+		"schema_version": "clio.semantic_event.v1",
+		"session_id":     "s1",
+		"turn_id":        "turn_1",
+		"trace_id":       "trace_1",
+		"actor":          map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},
+		"subject":        map[string]any{"call_id": "call_1", "agent_id": "ndp_catalog"},
+		"payload": map[string]any{
+			"tool":             "ndp_search_datasets",
+			"call_id":          "call_1",
+			"telemetry_source": "live_observer",
+			"args":             map[string]any{"search_terms": "seismic waveform"},
+		},
+	}
+	started := map[string]any{}
+	for k, v := range base {
+		started[k] = v
+	}
+	started["event_id"] = "tool_started_1"
+	started["event_type"] = "tool.call.started"
+	started["status"] = "running"
+	a.applySSE(client.SSEEvent{Type: "semantic.event", Payload: map[string]any{"payload": started}})
+
+	completed := map[string]any{}
+	for k, v := range base {
+		completed[k] = v
+	}
+	completed["event_id"] = "tool_completed_1"
+	completed["event_type"] = "tool.call.completed"
+	completed["status"] = "completed"
+	completed["summary"] = "completed"
+	completed["payload"] = map[string]any{
+		"tool":        "ndp_search_datasets",
+		"call_id":     "call_1",
+		"duration_ms": 42.0,
+		"result": map[string]any{
+			"datasets": map[string]any{"items": []any{map[string]any{
+				"title": "Southern California seismic waveform archive",
+				"id":    "00d66104",
+			}}},
+		},
+	}
+	a.applySSE(client.SSEEvent{Type: "semantic.event", Payload: map[string]any{"payload": completed}})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 2 {
+		t.Fatalf("semantic tool parts = %#v", a.messages)
+	}
+	for _, part := range a.messages[0].Parts {
+		if got := stringValue(part.Metadata["agent_id"]); got != "ndp_catalog" {
+			t.Fatalf("semantic tool part agent_id = %q; part=%#v", got, part)
+		}
+	}
+	out := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 120))
+	lines := strings.Split(out, "\n")
+	var callLine, resultLine string
+	for _, line := range lines {
+		if strings.Contains(line, "NDP catalog search") {
+			callLine = line
+		}
+		if strings.Contains(line, "datasets:") {
+			resultLine = line
+		}
+	}
+	if !strings.HasPrefix(callLine, "  ") {
+		t.Fatalf("tool call should be nested under invoking agent, line=%q\n%s", callLine, out)
+	}
+	if !strings.HasPrefix(resultLine, "  ") {
+		t.Fatalf("tool result should be nested under invoking agent, line=%q\n%s", resultLine, out)
+	}
+	if strings.Contains(out, `"datasets"`) || strings.Contains(out, "raw_event") {
+		t.Fatalf("semantic tool render should remain operator-facing:\n%s", out)
+	}
+}
+
 func TestSemanticEventDetailUsesReadableControlIntent(t *testing.T) {
 	a := New("http://unused")
 	a.sessions = []gact.Session{{ID: "s1"}}

@@ -1475,7 +1475,7 @@ func (c *Client) UndoSession(ctx context.Context, id string, count int) ([]strin
 // PatchSession PATCH /v1/sessions/{id}. Returns the updated session.
 func (c *Client) PatchSession(ctx context.Context, id string, req PatchSessionRequest) (gact.Session, error) {
 	var out gact.Session
-	err := c.do(ctx, http.MethodPatch, "/v1/sessions/"+id, req, &out)
+	err := c.do(ctx, http.MethodPatch, "/v1/sessions/"+url.PathEscape(id), req, &out)
 	return out, err
 }
 
@@ -1491,8 +1491,8 @@ type VoiceTranscribeResponse struct {
 // mimeType examples: "audio/wav", "audio/webm", "audio/mp3". Returns the
 // recognised text + claimed duration.
 func (c *Client) VoiceTranscribe(ctx context.Context, sessionID string, audio []byte, mimeType string) (VoiceTranscribeResponse, error) {
-	url := c.baseURL + "/v1/sessions/" + sessionID + "/voice/transcribe"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(audio))
+	endpoint := c.baseURL + "/v1/sessions/" + url.PathEscape(sessionID) + "/voice/transcribe"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(audio))
 	if err != nil {
 		return VoiceTranscribeResponse{}, err
 	}

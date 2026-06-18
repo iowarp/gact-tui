@@ -211,6 +211,15 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('chat-live-stream'), fullPage: false });
   });
 
+  test('structured-tool-results renders evidence cards instead of raw JSON logs', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=structured');
+    await expect(page.getByTestId('structured-tool-result').first()).toBeVisible();
+    await expect(page.getByTestId('structured-tool-result-summary').first()).toContainText('MTA1');
+    await expect(page.getByTestId('structured-tool-result-summary').first()).not.toContainText('"records"');
+    await page.getByTestId('structured-tool-result').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: shot('structured-tool-results'), fullPage: false });
+  });
+
   test('stop-mid-stream shows the Stop affordance in the composer', async ({ page }) => {
     await page.goto('/?route=chat&fixture=streaming-busy');
     await expect(page.getByTestId('composer-stop')).toBeVisible();

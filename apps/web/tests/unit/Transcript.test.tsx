@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@solidjs/testing-library';
+import { render, screen, cleanup, within } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Transcript } from '../../src/components/Transcript.js';
 import type { Message } from '@clio/core';
@@ -37,6 +37,88 @@ describe('Transcript', () => {
   it('renders verbose tool call body in verbose mode', () => {
     render(() => <Transcript messages={messages} density="verbose" />);
     expect(screen.getByTestId('toolcall-tc1')).toBeTruthy();
+    expect(screen.getByText('Path')).toBeTruthy();
+    expect(screen.getByText('x')).toBeTruthy();
+  });
+
+  it('renders structured JSON tool results as readable evidence rows', () => {
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[
+          {
+            id: 'm-structured-tool',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool_call',
+                id: 'tc-geo',
+                call_id: 'tc-geo',
+                tool_name: 'any_mcp_filter_points',
+                input: { region: 'Los Angeles', radius_km: 100 },
+              },
+              {
+                type: 'tool_result',
+                call_id: 'tc-geo',
+                output: JSON.stringify({
+                  status: 'filtered',
+                  center: { lat: 34.0536909, lon: -118.242766 },
+                  radius_km: 100,
+                  input_count: 155,
+                  matched_count: 72,
+                  points: [
+                    { station: 'MTA1', distance_km: 0.3749 },
+                    { station: 'PKRD', distance_km: 2.3714 },
+                  ],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+    ));
+
+    const summary = within(screen.getByTestId('structured-tool-result-summary'));
+    expect(screen.getByText('records result')).toBeTruthy();
+    expect(summary.getByText('status')).toBeTruthy();
+    expect(summary.getByText('filtered')).toBeTruthy();
+    expect(summary.getByText('records')).toBeTruthy();
+    expect(summary.getByText('MTA1 · distance: 0.3749')).toBeTruthy();
+    expect(screen.getByText('Raw result')).toBeTruthy();
+    expect(summary.queryByText(/"matched_count"/)).toBeNull();
+  });
+
+  it('renders artifact-like JSON tool results without inline raw JSON', () => {
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[
+          {
+            id: 'm-artifact-tool',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool_result',
+                metadata: { tool_name: 'write_report_artifact' },
+                output: JSON.stringify({
+                  status: 'ready',
+                  artifact_path: '/tmp/clio-report/final_summary.md',
+                  summary: 'Wrote collaborator handoff report with retained evidence and caveats.',
+                  rows: 18,
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+    ));
+
+    expect(screen.getByText('artifact result')).toBeTruthy();
+    const summary = within(screen.getByTestId('structured-tool-result-summary'));
+    expect(summary.getByText('artifact')).toBeTruthy();
+    expect(summary.getByText('/tmp/clio-report/final_summary.md')).toBeTruthy();
+    expect(summary.getByText(/Wrote collaborator handoff report/)).toBeTruthy();
+    expect(summary.queryByText(/"artifact_path"/)).toBeNull();
   });
 
   it('summarizes CLIO typed workflow state instead of dumping JSON inline', () => {

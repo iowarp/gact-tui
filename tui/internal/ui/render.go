@@ -1379,6 +1379,59 @@ func renderAgentHandoffNarrative(t Theme, parent, agent, stage, status string, f
 	return renderAgentName(t, "expert")
 }
 
+func expertHandoffDepth(parent, agent string, metadata map[string]any) int {
+	if metadata != nil {
+		if depth, ok := firstNumericValue(metadata, "depth", "tier"); ok {
+			return clampWorkflowDepth(int(depth))
+		}
+	}
+	parent = strings.ToLower(strings.TrimSpace(parent))
+	agent = strings.ToLower(strings.TrimSpace(agent))
+	if parent == "" || parent == agent {
+		return 0
+	}
+	if workflowRootAgent(parent) {
+		return 1
+	}
+	return 2
+}
+
+func toolPartWorkflowPrefix(p gact.Part) string {
+	agent := firstNonEmpty(
+		stringValue(p.Metadata["agent_id"]),
+		stringValue(p.Metadata["expert"]),
+		stringValue(p.Metadata["tool_owner_agent"]),
+	)
+	parent := firstNonEmpty(
+		stringValue(p.Metadata["parent_id"]),
+		stringValue(p.Metadata["parent"]),
+	)
+	if agent == "" && parent == "" {
+		return ""
+	}
+	depth := expertHandoffDepth(parent, agent, p.Metadata)
+	return strings.Repeat("  ", clampWorkflowDepth(depth+1))
+}
+
+func workflowRootAgent(agent string) bool {
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "", "main", "orchestrator", "root", "default":
+		return true
+	default:
+		return false
+	}
+}
+
+func clampWorkflowDepth(depth int) int {
+	if depth < 0 {
+		return 0
+	}
+	if depth > 5 {
+		return 5
+	}
+	return depth
+}
+
 func pluralS(n int) string {
 	if n == 1 {
 		return ""
@@ -1494,7 +1547,11 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 	}
 	switch p.Type {
 	case gact.PartTypeText:
-		return withStreamProvenanceNote(t, p, renderMarkdownOrWrap(p.Text, t, wrapW))
+		text := p.Text
+		if summary := summarizeEmbeddedWorkflowStateText(text); summary != "" && embeddedWorkflowStateDominates(text) {
+			text = summary
+		}
+		return withStreamProvenanceNote(t, p, renderMarkdownOrWrap(text, t, wrapW))
 
 	case gact.PartTypeThinking:
 		label := "thinking"
@@ -1571,12 +1628,18 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			routeColor = t.Danger
 			glyphText = "✗ "
 		}
+		depth := expertHandoffDepth(parent, agent, p.Metadata)
+		prefix := strings.Repeat("  ", depth)
+		wrapWForDepth := wrapW - lipgloss.Width(prefix)
+		if wrapWForDepth < 20 {
+			wrapWForDepth = 20
+		}
 		glyph := lipgloss.NewStyle().Foreground(routeColor).Bold(true).Render(glyphText)
 		headText := renderAgentHandoffNarrative(t, parent, agent, stage, status, failed)
 		if selected := stringValue(p.Metadata["selected_agent"]); !failed && strings.Contains(strings.ToLower(stage), "agent.invocation.completed") && selected != "" {
 			headText = renderAgentName(t, agent) + " selected " + renderAgentName(t, selected)
 		}
-		head := glyph + headText
+		head := prefix + glyph + headText
 		meta := []string{status}
 		if stage != "" {
 			meta = append(meta, expertHandoffStageLabel(stage))
@@ -1594,12 +1657,12 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			return head
 		}
 		output = summarizeExpertHandoffOutput(output)
-		renderedOutput := renderMarkdownOrWrap(output, t, wrapW-2)
+		renderedOutput := renderMarkdownOrWrap(output, t, wrapWForDepth-2)
 		if looksLikeMarkdownBlock(output) {
-			return lipgloss.JoinVertical(lipgloss.Left, head, indent(renderedOutput, "  "))
+			return lipgloss.JoinVertical(lipgloss.Left, head, indent(renderedOutput, prefix+"  "))
 		}
-		body := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-			Render(indent(renderedOutput, "  "))
+		body := lipgloss.NewStyle().Foreground(t.Fg).
+			Render(indent(renderedOutput, prefix+"  "))
 		return lipgloss.JoinVertical(lipgloss.Left, head, body)
 
 	case gact.PartTypeAgentQuestion:
@@ -1614,18 +1677,23 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// overflows. Nothing indented beneath the header unless there
 		// are structured args to highlight (we don't split those out
 		// yet; tool_result carries the output and gets its own ⎿).
+		prefix := toolPartWorkflowPrefix(p)
+		toolWrapW := wrapW - lipgloss.Width(prefix)
+		if toolWrapW < 20 {
+			toolWrapW = 20
+		}
 		summary := toolCallSummary(p)
 		toolName := toolDisplayName(p.ToolName)
 		headText := toolName + "(" + summary + ")"
-		if lipgloss.Width(headText) > wrapW {
+		if lipgloss.Width(headText) > toolWrapW {
 			// Truncate the summary to fit. -3 for "…)" suffix.
-			keep := wrapW - lipgloss.Width(toolName) - 3
+			keep := toolWrapW - lipgloss.Width(toolName) - 3
 			if keep < 4 {
 				keep = 4
 			}
 			headText = toolName + "(" + truncateString(summary, keep) + "…)"
 		}
-		head := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
+		head := prefix + lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
 			Render(headText)
 		if status := toolCallStatusLabel(p); status != "" {
 			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
@@ -1660,6 +1728,11 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		//     RoleTool/Border (with a left-margin space) so a
 		//     subtle vertical bar runs the full height of the
 		//     block, anchoring everything visually under the call.
+		prefix := toolPartWorkflowPrefix(p)
+		toolWrapW := wrapW - lipgloss.Width(prefix)
+		if toolWrapW < 20 {
+			toolWrapW = 20
+		}
 		glyph := "⎿"
 		barColor := t.RoleTool
 		if barColor == nil {
@@ -1690,14 +1763,14 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			if i > 0 {
 				text.WriteString("\n")
 			}
-			text.WriteString(t.renderPart(c, wrapW-2))
+			text.WriteString(t.renderPart(c, toolWrapW-2))
 		}
 		bodyStyle := lipgloss.NewStyle().Foreground(t.Fg)
 		if p.IsError {
 			bodyStyle = bodyStyle.Foreground(t.Danger)
 		}
 
-		raw := wrap(text.String(), wrapW-3)
+		raw := wrap(text.String(), toolWrapW-3)
 		threshold := t.CollapseThreshold
 		if threshold <= 0 {
 			threshold = toolResultPreviewLines
@@ -1713,7 +1786,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// hangs under the elbow's stem at column 1, matching the
 		// `⎿` glyph's vertical leg position.
 		cont := " " + barStyle.Render("│") + " "
-		body := indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, cont)
+		body := prefix + indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, cont)
 		if hidden > 0 {
 			// P4: surface the Ctrl+E affordance with real weight — the
 			// previous faint-italic sat below users' radar. Key style
@@ -2323,6 +2396,9 @@ func summarizeAssistantInlineText(text string) string {
 	if text == "" {
 		return ""
 	}
+	if summary := summarizeEmbeddedWorkflowStateText(text); summary != "" && embeddedWorkflowStateDominates(text) {
+		return summary
+	}
 	return shortenKnownPathsPreservingLines(text)
 }
 
@@ -2383,6 +2459,9 @@ func summarizeExpertHandoffOutput(output string) string {
 	if output == "" {
 		return ""
 	}
+	if containsFormattedWorkflowStateSummary(output) {
+		return truncateMarkdownBlock(output, 1200, 18)
+	}
 	if stripped := stripEmbeddedWorkflowStateBlock(output); stripped != "" && stripped != output {
 		output = stripped
 	}
@@ -2411,6 +2490,29 @@ func summarizeExpertHandoffOutput(output string) string {
 	}
 	limit := min(len(segments), 3)
 	return truncateString(strings.Join(segments[:limit], "\n"), 320)
+}
+
+func embeddedWorkflowStateDominates(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	labels := []string{
+		"CLIO typed workflow state:",
+		"CLIO durable typed workflow state:",
+		"Retained typed workflow state:",
+		"workflow state:",
+	}
+	lower := strings.ToLower(text)
+	for _, label := range labels {
+		idx := strings.Index(lower, strings.ToLower(label))
+		if idx < 0 {
+			continue
+		}
+		before := strings.TrimSpace(text[:idx])
+		return before == "" || len(before) < 240
+	}
+	return false
 }
 
 func expandInlineMarkdownTables(text string) string {
@@ -2548,14 +2650,20 @@ func stripEmbeddedWorkflowStateBlock(text string) string {
 	if text == "" {
 		return ""
 	}
+	cutAt := -1
 	for _, marker := range []string{
 		"CLIO durable typed workflow state:",
 		"CLIO typed workflow state:",
 		"Retained typed workflow state:",
 	} {
 		if idx := indexFold(text, marker); idx > 0 {
-			return strings.TrimSpace(strings.TrimRight(text[:idx], " \n:.-"))
+			if cutAt < 0 || idx < cutAt {
+				cutAt = idx
+			}
 		}
+	}
+	if cutAt > 0 {
+		return strings.TrimSpace(strings.TrimRight(text[:cutAt], " \n:.-"))
 	}
 	return text
 }
@@ -2617,8 +2725,8 @@ func summarizeStructuredHandoffObject(obj map[string]any) string {
 		return summary
 	}
 	if state := mapValue(obj["workflow_state"]); len(state) > 0 {
-		if summary := workflowStateSummary(state); summary != "" {
-			return "state: " + summary
+		if summary := workflowStateBlockSummary(state); summary != "" {
+			return summary
 		}
 	}
 	if summary := summarizeRegionResolutionObject(obj); summary != "" {
@@ -2784,12 +2892,21 @@ func humanizeStructuredKey(key string) string {
 }
 
 func expertHandoffOutputSummary(p gact.Part) string {
-	output := firstNonEmpty(
+	if local := summarizeExpertHandoffOutput(stringValue(p.Metadata["local_output_summary"])); local != "" &&
+		!strings.Contains(strings.ToLower(local), "state:") {
+		return attachWorkflowStateSummary(local, p)
+	}
+	outputs := []string{
 		stringValue(p.Metadata["output_summary"]),
 		stringValue(p.Metadata["summary"]),
 		expertHandoffErrorSummary(p.Metadata["error"]),
 		p.Text,
-	)
+	}
+	output := bestExpertHandoffSummary(outputs)
+	return attachWorkflowStateSummary(output, p)
+}
+
+func attachWorkflowStateSummary(output string, p gact.Part) string {
 	workflowSummary := strings.TrimSpace(stringValue(p.Metadata["workflow_summary"]))
 	if workflowSummary == "" {
 		workflowSummary = workflowStateSummary(mapValue(p.Metadata["workflow_state"]))
@@ -2798,15 +2915,92 @@ func expertHandoffOutputSummary(p gact.Part) string {
 		return output
 	}
 	if output == "" {
-		return "state: " + workflowSummary
+		return workflowStateBlockFromSummary(workflowSummary)
 	}
 	if strings.Contains(output, workflowSummary) {
 		return output
 	}
 	if looksLikeMarkdownBlock(expandInlineMarkdownTables(output)) {
-		return output + "\n\nState: " + workflowSummary
+		return output + "\n\n" + workflowStateBlockFromSummary(workflowSummary)
 	}
-	return output + " · state: " + workflowSummary
+	if stateBlock := workflowStateBlockFromSummary(workflowSummary); stateBlock != "" {
+		return output + "\n" + stateBlock
+	}
+	return output
+}
+
+func formattedWorkflowStateSummary(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	lower := strings.ToLower(text)
+	return lower == "state:" || strings.HasPrefix(lower, "state:\n")
+}
+
+func containsFormattedWorkflowStateSummary(text string) bool {
+	text = strings.TrimSpace(text)
+	if formattedWorkflowStateSummary(text) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(text), "\nstate:\n")
+}
+
+func bestExpertHandoffSummary(candidates []string) string {
+	best := ""
+	bestScore := 0
+	haveBest := false
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		summary := summarizeExpertHandoffOutput(candidate)
+		if summary == "" {
+			continue
+		}
+		score := expertHandoffSummaryScore(candidate, summary)
+		if !haveBest || score > bestScore {
+			best = summary
+			bestScore = score
+			haveBest = true
+		}
+	}
+	return best
+}
+
+func expertHandoffSummaryScore(raw string, summary string) int {
+	rawLower := strings.ToLower(raw)
+	lower := strings.ToLower(summary)
+	score := 0
+	if looksLikeMarkdownBlock(expandInlineMarkdownTables(summary)) {
+		score += 6
+	}
+	for _, token := range []string{
+		"artifact", "plot", "staged", "selected station", "candidate", "resolved region",
+		"dataset", "resource", "blocker", "fallback", "rows", "columns", "confidence",
+		"center", "radius", "station",
+	} {
+		if strings.Contains(lower, token) {
+			score += 3
+		}
+	}
+	if strings.Contains(lower, "state:") {
+		score -= 3
+	}
+	if strings.Contains(rawLower, "workflow_state") {
+		score -= 4
+	}
+	if strings.Contains(rawLower, "local_output_summary") {
+		score -= 2
+	}
+	if len(summary) < 500 {
+		score += 2
+	}
+	if len(summary) > 1200 {
+		score -= 3
+	}
+	return score
 }
 
 func summarizeStructuredHandoffOutput(output string) string {
