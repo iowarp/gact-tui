@@ -4398,3 +4398,40 @@ Backend issue opened:
 Current interpretation: gact-tui now avoids overclaiming streaming. It proves
 truthful fallback rendering, but active text-evolution proof is still blocked on
 CLIO-agent/backend streaming semantics for these ALCF cells.
+
+## Desktop WebView Driver Autodetect Recheck - 2026-06-18
+
+After checkpoint `2ac8da27`, the desktop native WebView harness was updated to
+auto-detect the locally extracted Linux WebKit driver at
+`tmp/webkit-driver-local/root/usr/bin/WebKitWebDriver`.
+
+Fresh owned backend:
+
+- URL: `http://127.0.0.1:17800`
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-desktop-webview-20260617-231715-2124531`
+- Workspace: `ws_b24ce29caf61`
+- ALCF provider/model: `argonne`, `google/gemma-4-31B-it`
+
+Command:
+
+```bash
+TAURI_E2E=1 \
+CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:17800 \
+CLIO_DESKTOP_WORKSPACE_ID=ws_b24ce29caf61 \
+CLIO_DESKTOP_SCREENSHOT_DIR=/home/jcernuda/gact-tui/apps/web/screenshots/audit \
+xvfb-run -a npm exec --yes pnpm@9.15.9 -- --dir apps/desktop test:webview
+```
+
+Result: passed `1/1` in `8.8s` without setting `TAURI_NATIVE_DRIVER`, proving
+the local driver autodetection path.
+
+Evidence:
+
+- `apps/web/screenshots/audit/desktop-webview-chat.png`
+- `apps/web/screenshots/audit/desktop-webview-permission.png`
+- Backend permission row `perm_bb0855485f0c`: `shell_bash`, command
+  `rm -rf /tmp/gact-desktop-permission-probe-do-not-exist`, status `resolved`,
+  action `deny`.
+
+The owned backend was stopped after the proof and `:17800` was verified clear.

@@ -4,7 +4,11 @@
 
 Branch: `feat/0.8.4-web-desktop-polish`
 
-Current local commit: `b65d6d7e`
+Latest pushed checkpoint: `2ac8da27`
+
+Current working tree after that checkpoint contains a small follow-up harness
+change and refreshed desktop WebView screenshots described in the final section
+of this document.
 
 Primary objective: continue the 0.8.4 interface parity and polish pass by driving the real CLIO system, capturing screenshots/evidence, fixing UX gaps found through use, and keeping blocked backend semantics filed against `iowarp/clio-agent`.
 
@@ -1527,3 +1531,55 @@ Current interpretation: the web UI renders truthful fallback correctly, but the
 release still lacks real active text-evolution proof for ALCF-backed CLIO turns.
 This is now tracked as a CLIO-agent contract/backend issue rather than hidden as
 a gact-tui green proof.
+
+## Desktop WebView Driver Autodetect Proof - 2026-06-18
+
+Follow-up after checkpoint `2ac8da27`: the native WebView e2e harness now
+auto-detects the locally extracted Linux WebKit driver at
+`tmp/webkit-driver-local/root/usr/bin/WebKitWebDriver` in addition to `PATH` and
+explicit `TAURI_NATIVE_DRIVER`.
+
+This makes the local real-WebView proof runnable without exporting a bespoke
+driver path, while clean environments still skip with an explicit missing-driver
+reason.
+
+Owned backend:
+
+- URL: `http://127.0.0.1:17800`
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-desktop-webview-20260617-231715-2124531`
+- Workspace: `ws_b24ce29caf61`
+- Provider/model: `argonne` on ALCF Sophia,
+  `google/gemma-4-31B-it`
+
+Command:
+
+```bash
+TAURI_E2E=1 \
+CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:17800 \
+CLIO_DESKTOP_WORKSPACE_ID=ws_b24ce29caf61 \
+CLIO_DESKTOP_SCREENSHOT_DIR=/home/jcernuda/gact-tui/apps/web/screenshots/audit \
+xvfb-run -a npm exec --yes pnpm@9.15.9 -- --dir apps/desktop test:webview
+```
+
+Result: passed `1/1` in `8.8s` without setting `TAURI_NATIVE_DRIVER`.
+
+Evidence:
+
+- Screenshot:
+  `apps/web/screenshots/audit/desktop-webview-chat.png`
+- Screenshot:
+  `apps/web/screenshots/audit/desktop-webview-permission.png`
+- Backend permission row:
+  `perm_bb0855485f0c`, session `sess_263c69ad1373`, tool `shell_bash`,
+  command `rm -rf /tmp/gact-desktop-permission-probe-do-not-exist`,
+  status `resolved`, action `deny`.
+- Semantic trace:
+  `tmp/owned-clio-desktop-webview-20260617-231715-2124531/traces/sess_263c69ad1373.semantic.jsonl`
+
+Visual inspection: the permission card is prominent, the command is readable,
+the active model/provider are visible in the header, and the composer remains
+available without crowding the permission surface.
+
+Cleanup: the owned backend on `:17800` was stopped after the proof and the port
+was verified clear.

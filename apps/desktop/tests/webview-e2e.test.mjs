@@ -14,6 +14,7 @@
 // Optional overrides:
 //   CLIO_DESKTOP_APP=/path/to/clio-desktop{.exe}
 //   TAURI_DRIVER=/path/to/tauri-driver{.exe}
+//   TAURI_NATIVE_DRIVER=/path/to/WebKitWebDriver or msedgedriver.exe
 //   CLIO_DESKTOP_SCREENSHOT_DIR=/path/to/screenshots
 //
 // Run: TAURI_E2E=1 pnpm --filter @clio/desktop test:webview
@@ -41,11 +42,19 @@ function findOnPath(name) {
   return null;
 }
 
+function firstExisting(paths) {
+  return paths.find((candidate) => candidate && existsSync(candidate)) ?? '';
+}
+
 const home = process.env['USERPROFILE'] ?? process.env['HOME'] ?? '';
 const defaultNativeDriver =
   process.platform === 'win32'
     ? resolve(root, 'msedgedriver.exe')
-    : (findOnPath('WebKitWebDriver') ?? findOnPath('webkit2gtk-driver') ?? '');
+    : firstExisting([
+        findOnPath('WebKitWebDriver'),
+        findOnPath('webkit2gtk-driver'),
+        resolve(root, '..', '..', 'tmp', 'webkit-driver-local', 'root', 'usr', 'bin', 'WebKitWebDriver'),
+      ]);
 const defaultTauriDriver =
   process.platform === 'win32'
     ? resolve(home, '.cargo', 'bin', 'tauri-driver.exe')
