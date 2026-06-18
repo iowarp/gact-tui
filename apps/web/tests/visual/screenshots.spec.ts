@@ -354,7 +354,19 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
     await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
     await expect(page.locator('.im table').first()).toBeVisible();
-    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
+    const code = page.locator('.im__code code.hljs').first();
+    await expect(code).toBeVisible();
+    await code.scrollIntoViewIfNeeded();
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const codeEl = document.querySelector('.im__code code.hljs');
+        const composer = document.querySelector('[data-testid="composer"]');
+        if (!codeEl || !composer) return false;
+        const codeBox = codeEl.getBoundingClientRect();
+        const composerBox = composer.getBoundingClientRect();
+        return codeBox.bottom <= composerBox.top - 8;
+      });
+    }).toBe(true);
     await page.screenshot({ path: shot('markdown-read'), fullPage: false });
   });
 

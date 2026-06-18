@@ -6,17 +6,10 @@
   padding: 12px 32px 24px;
   max-width: 760px;
   width: 100%;
-  background: linear-gradient(
-    180deg,
-    transparent 0,
-    var(--color-bg) 40%
-  );
-  position: sticky;
-  bottom: 0;
-}
-
-.composer {
+  background: var(--color-bg);
+  flex: 0 0 auto;
   position: relative;
+  z-index: 20;
 }
 
 .composer__shell {
