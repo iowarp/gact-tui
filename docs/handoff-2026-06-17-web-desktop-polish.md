@@ -1583,3 +1583,18 @@ available without crowding the permission surface.
 
 Cleanup: the owned backend on `:17800` was stopped after the proof and the port
 was verified clear.
+
+## Session Workspace Label Polish - 2026-06-18
+
+`SessionsColumn` now resolves workspace ids through the live workspace list for
+row workspace metadata/search, so raw `ws_...` ids do not leak when meta chips
+are surfaced. The default rail remains compact because row meta chips are still
+hidden in the dense layout.
+
+Verification: `apps/web/tests/unit/Skeletons.test.tsx` passed `7/7`, web
+typecheck passed, web lint passed, and the focused real-backend switch visual
+gate passed `1/1` against owned no-agent CLIO backends on `:18272` and
+`:18273`. Refreshed screenshots:
+
+- `apps/web/screenshots/audit/overnight-real-backend-a-sessions.png`
+- `apps/web/screenshots/audit/overnight-real-backend-b-sessions.png`

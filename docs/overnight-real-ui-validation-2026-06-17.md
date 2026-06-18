@@ -4435,3 +4435,43 @@ Evidence:
   action `deny`.
 
 The owned backend was stopped after the proof and `:17800` was verified clear.
+
+## Session Workspace Label Polish - 2026-06-18
+
+The session rail keeps its dense layout by hiding row meta chips in the default
+view, but the underlying `SessionsColumn` now resolves workspace ids through the
+live workspace list before rendering or searching row workspace metadata. This
+prevents raw `ws_...` ids from leaking when row meta is surfaced and lets
+operators search sessions by friendly workspace name.
+
+Verification:
+
+```bash
+npm exec --yes pnpm@9.15.9 -- --dir apps/web test -- tests/unit/Skeletons.test.tsx --run
+npm exec --yes pnpm@9.15.9 -- --dir apps/web typecheck
+npm exec --yes pnpm@9.15.9 -- --dir apps/web lint
+```
+
+Results: focused unit test passed `7/7`, web typecheck passed, and web lint
+passed.
+
+Focused real-backend screenshot proof:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18272 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18273 \
+CLIO_WORKSPACE_A_ROOT=/home/jcernuda/gact-tui/tmp/owned-clio-workspace-label-20260617-232531-2128536/a/workspace \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-multibackend.spec.ts \
+  --grep "switches between two" --workers=1
+```
+
+Result: passed `1/1`. The refreshed screenshots keep the session rail compact
+and no longer show noisy workspace/project chips in the default density:
+
+- `apps/web/screenshots/audit/overnight-real-backend-a-sessions.png`
+- `apps/web/screenshots/audit/overnight-real-backend-b-sessions.png`
+
+The owned backends on `:18272` and `:18273` were stopped after the proof.

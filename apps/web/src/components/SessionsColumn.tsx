@@ -116,6 +116,11 @@ export function SessionsColumn(props: SessionsColumnProps) {
     return props.rows;
   });
 
+  const workspaceDisplay = (workspaceId: string | undefined): string | undefined => {
+    if (!workspaceId) return undefined;
+    return props.workspaces?.find((workspace) => workspace.id === workspaceId)?.name ?? workspaceId;
+  };
+
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
     const source = sourceRows();
@@ -126,7 +131,8 @@ export function SessionsColumn(props: SessionsColumnProps) {
             (r) =>
               r.title.toLowerCase().includes(q) ||
               (r.preview ?? '').toLowerCase().includes(q) ||
-              (r.workspace ?? '').toLowerCase().includes(q),
+              (r.workspace ?? '').toLowerCase().includes(q) ||
+              (workspaceDisplay(r.workspace) ?? '').toLowerCase().includes(q),
           );
     if (runningOnly()) {
       matches = matches.filter(
@@ -316,40 +322,41 @@ export function SessionsColumn(props: SessionsColumnProps) {
                   <li class="sx__divider" aria-hidden />
                 </Show>
                 <SessionListItem
-                row={row}
-                active={row.id === props.activeId}
-                onSelect={() => props.onSelect(row.id)}
-                onRename={
-                  props.onRenameSession
-                    ? (nextTitle) => props.onRenameSession!(row.id, nextTitle)
-                    : undefined
-                }
-                onDelete={
-                  props.onDeleteSession
-                    ? () => props.onDeleteSession!(row.id)
-                    : undefined
-                }
-                onExport={
-                  props.onExportSession
-                    ? () => props.onExportSession!(row.id)
-                    : undefined
-                }
-                onShare={
-                  props.onShareSession
-                    ? () => props.onShareSession!(row.id)
-                    : undefined
-                }
-                onFork={
-                  props.onForkSession
-                    ? () => props.onForkSession!(row.id)
-                    : undefined
-                }
-                onTogglePin={
-                  props.onTogglePin
-                    ? () => props.onTogglePin!(row.id)
-                    : undefined
-                }
-              />
+                  row={row}
+                  workspaceLabel={workspaceDisplay(row.workspace)}
+                  active={row.id === props.activeId}
+                  onSelect={() => props.onSelect(row.id)}
+                  onRename={
+                    props.onRenameSession
+                      ? (nextTitle) => props.onRenameSession!(row.id, nextTitle)
+                      : undefined
+                  }
+                  onDelete={
+                    props.onDeleteSession
+                      ? () => props.onDeleteSession!(row.id)
+                      : undefined
+                  }
+                  onExport={
+                    props.onExportSession
+                      ? () => props.onExportSession!(row.id)
+                      : undefined
+                  }
+                  onShare={
+                    props.onShareSession
+                      ? () => props.onShareSession!(row.id)
+                      : undefined
+                  }
+                  onFork={
+                    props.onForkSession
+                      ? () => props.onForkSession!(row.id)
+                      : undefined
+                  }
+                  onTogglePin={
+                    props.onTogglePin
+                      ? () => props.onTogglePin!(row.id)
+                      : undefined
+                  }
+                />
               </>
             )}
           </For>
@@ -379,6 +386,7 @@ function isFresh(bumpedAt: number | undefined): boolean {
 
 function SessionListItem(props: {
   row: SessionRow;
+  workspaceLabel?: string;
   active: boolean;
   onSelect: () => void;
   onRename?: (nextTitle: string) => void | Promise<void>;
@@ -492,8 +500,8 @@ function SessionListItem(props: {
               <p class="sx__row-preview">{props.row.preview}</p>
             </Show>
             <div class="sx__row-meta">
-              <Show when={props.row.workspace}>
-                <span class="sx__chip">{props.row.workspace}</span>
+              <Show when={props.workspaceLabel}>
+                <span class="sx__chip">{props.workspaceLabel}</span>
               </Show>
               <Show when={props.row.model}>
                 <span class="sx__chip sx__chip--soft">{props.row.model}</span>

@@ -8,7 +8,7 @@
  *    "No sessions yet" flash on first paint)
  *  - Transcript: skeleton conversation bubbles on session switch
  */
-import { render, screen, cleanup } from '@solidjs/testing-library';
+import { render, screen, cleanup, fireEvent } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DiscoveryPage } from '../../src/components/DiscoveryPage.js';
 import { SessionsColumn } from '../../src/components/SessionsColumn.js';
@@ -51,6 +51,39 @@ describe('SessionsColumn skeleton', () => {
     ));
     expect(screen.queryByTestId('sessions-skeleton')).toBeNull();
     expect(screen.getByTestId('sidebar-empty')).toBeTruthy();
+  });
+
+  it('shows workspace names in session chips while preserving workspace search', async () => {
+    render(() => (
+      <SessionsColumn
+        rows={[
+          {
+            id: 's1',
+            title: 'earthscope run',
+            status: 'idle',
+            workspace: 'ws_demo',
+            updatedAt: 'just now',
+          },
+        ]}
+        workspaces={[{ id: 'ws_demo', name: 'Demo Workspace' }]}
+        loading={false}
+        activeId=""
+        onSelect={() => undefined}
+      />
+    ));
+
+    expect(screen.getByText('Demo Workspace')).toBeTruthy();
+    expect(screen.queryByText('ws_demo')).toBeNull();
+
+    fireEvent.input(screen.getByTestId('sessions-search'), {
+      target: { value: 'demo' },
+    });
+    expect(screen.getByTestId('session-row-s1')).toBeTruthy();
+
+    fireEvent.input(screen.getByTestId('sessions-search'), {
+      target: { value: 'ws_demo' },
+    });
+    expect(screen.getByTestId('session-row-s1')).toBeTruthy();
   });
 });
 
