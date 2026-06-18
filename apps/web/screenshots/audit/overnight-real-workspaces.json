@@ -1,36 +1,34 @@
 {
-  "backendA": "http://127.0.0.1:18341",
+  "backendA": "http://127.0.0.1:18371",
   "primary": {
-    "id": "ws_00b0684d3bf6",
-    "name": "Overnight A Workspace",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace/.clio",
-    "created_at": "2026-06-18T04:45:48.244272+00:00",
-    "updated_at": "2026-06-18T04:45:48.244272+00:00",
-    "config": {
-      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace/.clio"
-    },
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace/.clio",
+    "created_at": "2026-06-18T05:55:17.980460+00:00",
+    "updated_at": "2026-06-18T05:55:17.980473+00:00",
+    "config": {},
     "metadata": {}
   },
   "secondary": {
-    "id": "ws_a5d9fd440e34",
+    "id": "ws_6349a0b9abb3",
     "name": "overnight-alt",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace-alt",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace-alt/.clio",
-    "created_at": "2026-06-18T04:46:26.624280+00:00",
-    "updated_at": "2026-06-18T04:46:26.624280+00:00",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace-alt",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace-alt/.clio",
+    "created_at": "2026-06-18T05:56:10.126433+00:00",
+    "updated_at": "2026-06-18T05:56:10.126433+00:00",
     "config": {
-      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace-alt/.clio"
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace-alt/.clio"
     },
     "metadata": {}
   },
   "primarySession": {
-    "id": "sess_590087fc20b4",
-    "workspace_id": "ws_00b0684d3bf6",
-    "title": "workspace primary 1781757986626",
+    "id": "sess_89165878c2ca",
+    "workspace_id": "ws_default",
+    "title": "workspace primary 1781762170128",
     "status": "idle",
-    "created_at": "2026-06-18T04:46:26.628372+00:00",
-    "updated_at": "2026-06-18T04:46:26.628372+00:00",
+    "created_at": "2026-06-18T05:56:10.129939+00:00",
+    "updated_at": "2026-06-18T05:56:10.129939+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -52,12 +50,12 @@
     "archived": false
   },
   "secondarySession": {
-    "id": "sess_daf0a348ef67",
-    "workspace_id": "ws_a5d9fd440e34",
-    "title": "workspace secondary 1781757986626",
+    "id": "sess_f16085475c52",
+    "workspace_id": "ws_6349a0b9abb3",
+    "title": "workspace secondary 1781762170128",
     "status": "idle",
-    "created_at": "2026-06-18T04:46:26.631423+00:00",
-    "updated_at": "2026-06-18T04:46:26.631423+00:00",
+    "created_at": "2026-06-18T05:56:10.133447+00:00",
+    "updated_at": "2026-06-18T05:56:10.133447+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {

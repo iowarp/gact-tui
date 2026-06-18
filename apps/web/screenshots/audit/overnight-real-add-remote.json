@@ -1,35 +1,33 @@
 {
-  "backendA": "http://127.0.0.1:18341",
-  "backendB": "http://127.0.0.1:18342",
+  "backendA": "http://127.0.0.1:18371",
+  "backendB": "http://127.0.0.1:18372",
   "workspaceA": {
-    "id": "ws_00b0684d3bf6",
-    "name": "Overnight A Workspace",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace/.clio",
-    "created_at": "2026-06-18T04:45:48.244272+00:00",
-    "updated_at": "2026-06-18T04:45:48.244272+00:00",
-    "config": {
-      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace/.clio"
-    },
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-a-20260618-005517-2164781/workspace/.clio",
+    "created_at": "2026-06-18T05:55:17.980460+00:00",
+    "updated_at": "2026-06-18T05:55:17.980473+00:00",
+    "config": {},
     "metadata": {}
   },
   "workspaceB": {
     "id": "ws_default",
     "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/b",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/b/.clio",
-    "created_at": "2026-06-18T04:44:46.153886+00:00",
-    "updated_at": "2026-06-18T04:44:46.153902+00:00",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-b-20260618-005532-2164824/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-b-20260618-005532-2164824/workspace/.clio",
+    "created_at": "2026-06-18T05:55:33.243503+00:00",
+    "updated_at": "2026-06-18T05:55:33.243517+00:00",
     "config": {},
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_6ae2800c61c2",
-    "workspace_id": "ws_00b0684d3bf6",
-    "title": "add remote A 1781757988215",
+    "id": "sess_8b094b698a35",
+    "workspace_id": "ws_default",
+    "title": "add remote A 1781762171543",
     "status": "idle",
-    "created_at": "2026-06-18T04:46:28.217113+00:00",
-    "updated_at": "2026-06-18T04:46:28.217113+00:00",
+    "created_at": "2026-06-18T05:56:11.544870+00:00",
+    "updated_at": "2026-06-18T05:56:11.544870+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -51,12 +49,12 @@
     "archived": false
   },
   "sessionB": {
-    "id": "sess_b1d31b749875",
+    "id": "sess_022240f60e01",
     "workspace_id": "ws_default",
-    "title": "add remote B 1781757988215",
+    "title": "add remote B 1781762171543",
     "status": "idle",
-    "created_at": "2026-06-18T04:46:28.220256+00:00",
-    "updated_at": "2026-06-18T04:46:28.220256+00:00",
+    "created_at": "2026-06-18T05:56:11.547796+00:00",
+    "updated_at": "2026-06-18T05:56:11.547796+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -77,5 +75,5 @@
     "metadata": {},
     "archived": false
   },
-  "addedLabel": "Added remote 1781757988215"
+  "addedLabel": "Added remote 1781762171543"
 }

@@ -114,6 +114,88 @@ Manifest: `apps/web/screenshots/audit/desktop-streaming-samples.json`.
   `apps/web/screenshots/audit/desktop-streaming-midturn.png`,
   `apps/web/screenshots/audit/desktop-streaming-final.png`
 
+## Fresh Web/Desktop Operational Recheck - 2026-06-18
+
+Started three owned CLIO backends from the current local CLIO checkout:
+
+- `http://127.0.0.1:18371`: isolated no-LM backend A for settings,
+  workspaces, backend switching, slash commands, and catalog checks.
+- `http://127.0.0.1:18372`: isolated no-LM backend B for backend switching.
+- `http://127.0.0.1:18373`: isolated ALCF/Gemma backend for desktop native
+  permission-agent execution.
+
+Web, fresh CLIO-branded settings/workspace/backend proof:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18371 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18372 \
+CLIO_WORKSPACE_A_ROOT=<owned-a>/workspace \
+CLIO_ALT_WORKSPACE_ROOT=<owned-a>/workspace-alt \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-brand-settings.spec.ts --workers=1
+```
+
+Result: passed `3/3`.
+
+Covered:
+
+- CLIO branding in chat and Settings.
+- Settings backend probe and backend selection.
+- Workspace filtering by live workspace id.
+- Add Remote backend form and activation against a second real backend.
+
+Web, fresh operational multibackend proof:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18371 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18372 \
+CLIO_WORKSPACE_A_ROOT=<owned-a>/workspace \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-multibackend.spec.ts \
+  --grep "switches between two|settings and refreshes|slash command|searches the live unified catalog" \
+  --workers=1
+```
+
+Result: passed `4/4`.
+
+Covered:
+
+- Switching between two live CLIO backends.
+- Settings return flow and real workspace file refresh.
+- `/cache-stats` slash command dispatch through the backend command endpoint.
+- Unified catalog search against live backend data.
+
+Desktop native WebView permission proof:
+
+The first run against `:18371` failed with `agent_not_available` because that
+backend intentionally had no LM provider configured. That was a harness
+configuration failure, not a desktop regression. Rerunning against the
+ALCF/Gemma-owned backend on `:18373` passed:
+
+```bash
+TAURI_E2E=1 \
+TAURI_NATIVE_DRIVER=/home/jcernuda/gact-tui/tmp/webkit-driver-local/root/usr/bin/WebKitWebDriver \
+CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:18373 \
+CLIO_DESKTOP_WORKSPACE_ID=ws_default \
+CLIO_DESKTOP_SCREENSHOT_DIR=/home/jcernuda/gact-tui/apps/web/screenshots/audit \
+CLIO_PORT=18373 \
+xvfb-run -a npm exec --yes pnpm@9.15.9 -- --dir apps/desktop test:webview
+```
+
+Result: passed `1/1`.
+
+Covered:
+
+- Debug Tauri app launched in native WebKitGTK under Xvfb.
+- Rust `gact_http` bridge reached the owned CLIO backend.
+- Rust SSE bridge connected to the selected session.
+- Disposable shell-capable validation agent triggered a live permission card.
+- Denying the permission cleared the card.
+
 ## Terminal TUI Primary Evidence - 2026-06-17
 
 From `/home/jcernuda/gact-tui`, the terminal TUI was rebuilt, installed into the
