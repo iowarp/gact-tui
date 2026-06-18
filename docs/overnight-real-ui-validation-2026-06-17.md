@@ -4526,3 +4526,46 @@ Refreshed screenshots:
 - `apps/web/screenshots/code-syntax-highlight.png`
 - `apps/web/screenshots/diff-pane-open.png`
 - `apps/web/screenshots/preview-image-decode-diagnostic.png`
+
+## Brand And Settings Real-Backend Refresh - 2026-06-18
+
+Brand audit:
+
+```bash
+GACT_BRAND=clio npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/brand-audit.spec.ts --workers=1
+GACT_BRAND=gact npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/brand-audit.spec.ts --workers=1
+```
+
+Results: both profiles passed `7/7`.
+
+Real settings proof:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18341 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18342 \
+CLIO_WORKSPACE_A_ROOT=/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace \
+CLIO_ALT_WORKSPACE_ROOT=/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392/a/workspace-alt \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-brand-settings.spec.ts --workers=1
+```
+
+Result: passed `3/3` after explicitly creating the intended workspace row via
+`POST /v1/workspaces`. The initial failure was a harness setup mismatch: the
+isolated backend auto-created `ws_default` at the server cwd, while the proof
+expected the nested `a/workspace` root.
+
+Evidence refreshed:
+
+- `apps/web/screenshots/audit/overnight-real-brand-chat.png`
+- `apps/web/screenshots/audit/overnight-real-settings-probe.png`
+- `apps/web/screenshots/audit/overnight-real-settings-selected-backend.png`
+- `apps/web/screenshots/audit/overnight-real-add-remote-active.png`
+- `apps/web/screenshots/audit/overnight-real-workspace-alt.png`
+- `apps/web/screenshots/audit/overnight-real-workspace-primary.png`
+
+The owned CLIO backends were stopped after the proof, and ports `:18341` and
+`:18342` were verified clear.

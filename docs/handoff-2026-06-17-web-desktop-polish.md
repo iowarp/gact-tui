@@ -1621,3 +1621,40 @@ Updated screenshots:
 - `apps/web/screenshots/code-syntax-highlight.png`
 - `apps/web/screenshots/diff-pane-open.png`
 - `apps/web/screenshots/preview-image-decode-diagnostic.png`
+
+## Brand And Settings Proof Refresh - 2026-06-18
+
+Refreshed the release-facing brand audit for both `GACT_BRAND=clio` and
+`GACT_BRAND=gact`. Each profile passed all seven checks covering splash,
+connect, connection errors, chat shell, settings/about, and operational
+settings copy.
+
+Also reran the real settings proof against two owned no-agent CLIO backends:
+
+- Backend A: `http://127.0.0.1:18341`
+- Backend B: `http://127.0.0.1:18342`
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-brand-settings-20260617-234414-2135392`
+
+The first attempt exposed a harness setup issue: the backend default workspace
+was rooted at the server cwd, not the intended `a/workspace` directory. The
+intended workspace was then created explicitly through `/v1/workspaces`, and
+the same proof passed `3/3`:
+
+- Settings probes both backends and shows latency.
+- Settings can select backend B and return to the chat shell.
+- Settings can add a remote HTTP backend and activate it.
+- The workspace switcher filters sessions by the live workspace id.
+
+Updated evidence:
+
+- `apps/web/screenshots/audit/brand-clio-*.png`
+- `apps/web/screenshots/audit/brand-gact-*.png`
+- `apps/web/screenshots/audit/overnight-real-brand-chat.png`
+- `apps/web/screenshots/audit/overnight-real-settings-probe.png`
+- `apps/web/screenshots/audit/overnight-real-settings-selected-backend.png`
+- `apps/web/screenshots/audit/overnight-real-add-remote-*.png`
+- `apps/web/screenshots/audit/overnight-real-workspace-*.png`
+
+Cleanup: the owned backends on `:18341` and `:18342` were stopped and both
+ports were verified clear.
