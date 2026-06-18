@@ -1898,3 +1898,38 @@ agent-blueprint install/uninstall, blueprint-source add/refresh/remove,
 diagnostics pages, hooks, and policy round-trips. Screenshots under
 `apps/web/screenshots/audit/overnight-real-*` were refreshed from this live
 two-backend run.
+
+## NDP/EarthScope Marketplace Gate Refresh - 2026-06-18
+
+Ran the real NDP/EarthScope marketplace blueprint gate against the same owned
+ALCF-backed backend on `http://127.0.0.1:18410`, using the local MCP override
+for `/home/jcernuda/clio-kit` and an isolated workspace:
+
+```bash
+CLIO_NDP_EARTHSCOPE_LIVE=1 \
+CLIO_GACT_URL=http://127.0.0.1:18410 \
+CLIO_NDP_EARTHSCOPE_WORKSPACE=tmp/owned-clio-polish-20260618-013703-2181274/ndp-earthscope-workspace \
+CLIO_MARKETPLACE_SOURCE=/home/jcernuda/clio-agent/external/clio-agent-marketplace \
+CLIO_AGENT_MARKETPLACE_SOURCE=/home/jcernuda/clio-agent/external/clio-agent-marketplace \
+CLIO_KIT_PATH=/home/jcernuda/clio-kit \
+CLIO_NDP_EARTHSCOPE_LOCAL_MCP=1 \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/ndp-earthscope-live.spec.ts --workers=1
+```
+
+Result: passed `1/1` in `6.2m`.
+
+Evidence:
+
+- CLIO registered the local NDP/EarthScope MCP path correctly; no
+  `_UnsupportedSessionAgent` failure occurred.
+- The blueprint staged real EarthScope GNSS files:
+  - `earthscope_converted_data.csv`
+  - `earthscope_stations_clean.csv`
+  - `MTA1.CI.LY_.30.csv` (`50,424,246` bytes)
+- The visualization path generated `MTA1_timeseries.png` (`180,471` bytes).
+- The web UI rendered the generated plot in the file rail:
+  `apps/web/screenshots/audit/ndp-earthscope-live-final.png`
+- Durable semantic trace:
+  `tmp/owned-clio-polish-20260618-013703-2181274/traces/sess_0974146e1f7e.semantic.jsonl`
