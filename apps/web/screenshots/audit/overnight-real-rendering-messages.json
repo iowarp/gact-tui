@@ -1,25 +1,25 @@
 {
-  "backend": "http://127.0.0.1:18352",
+  "backend": "http://127.0.0.1:18376",
   "workspaceId": "ws_default",
-  "sessionId": "sess_2e0607e494f9",
+  "sessionId": "sess_fa4d6091c9cc",
   "messages": [
     {
-      "id": "msg_asst_8450cd747095",
-      "session_id": "sess_2e0607e494f9",
+      "id": "msg_asst_a0c596f50d2b",
+      "session_id": "sess_fa4d6091c9cc",
       "role": "assistant",
-      "created_at": "2026-06-18T04:55:24.336853+00:00",
-      "updated_at": "2026-06-18T04:55:24.336861+00:00",
+      "created_at": "2026-06-18T06:06:50.167773+00:00",
+      "updated_at": "2026-06-18T06:06:50.167784+00:00",
       "parts": [
         {
-          "id": "part_874bab297c0c",
+          "id": "part_531ed9530620",
           "type": "routing_decision",
           "metadata": {
             "route_source": "user_agent",
-            "route_reason": "Session selected user agent 'markdown_probe_1781758517131'."
+            "route_reason": "Session selected user agent 'markdown_probe_1781762806955'."
           },
           "text": "",
-          "selected_agent": "markdown_probe_1781758517131",
-          "rationale": "Session selected user agent 'markdown_probe_1781758517131'.",
+          "selected_agent": "markdown_probe_1781762806955",
+          "rationale": "Session selected user agent 'markdown_probe_1781762806955'.",
           "confidence": 0,
           "heuristic": false,
           "execution_path": "",
@@ -39,23 +39,10 @@
           "lines_removed": 0
         },
         {
-          "id": "part_4e1b2b6af72f",
+          "id": "part_1da0feceab88",
           "type": "text",
           "metadata": {
-            "stream_source": "batch",
-            "stream_fallback": {
-              "reason": "stream_completed_without_chunks",
-              "category": "provider_streaming_limitation",
-              "synthetic_posthoc": true,
-              "live_streaming": false,
-              "recovery_actions": [
-                "continue_without_live_streaming",
-                "reconfigure",
-                "retry"
-              ],
-              "description": "DSPy streaming returned a final prediction but no visible token chunks.",
-              "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
-            }
+            "stream_source": "live"
           },
           "text": "# Rendering Probe\n\n| Surface | Expected UI |\n| --- | --- |\n| table | rendered as a table |\n| list | rendered as bullets |\n| code | rendered as a fenced code block |\n\n- first bullet\n- second bullet with `inline_code_probe`\n\n```python\ndef probe_rendering(value: int) -> int:\n    return value + 1\n```",
           "selected_agent": "",
@@ -88,23 +75,10 @@
       "cost_usd": 0,
       "stop_reason": "end_turn",
       "metadata": {
-        "stream_source": "batch",
-        "stream_fallback": {
-          "reason": "stream_completed_without_chunks",
-          "category": "provider_streaming_limitation",
-          "synthetic_posthoc": true,
-          "live_streaming": false,
-          "recovery_actions": [
-            "continue_without_live_streaming",
-            "reconfigure",
-            "retry"
-          ],
-          "description": "DSPy streaming returned a final prediction but no visible token chunks.",
-          "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
-        },
+        "stream_source": "live",
         "agent_runtime": {
           "kind": "dynamic_agent",
-          "agent_id": "markdown_probe_1781758517131",
+          "agent_id": "markdown_probe_1781762806955",
           "source": "user",
           "title": "Markdown Rendering Probe Agent",
           "execution_mode": "prompt_agent",
@@ -127,14 +101,14 @@
       }
     },
     {
-      "id": "msg_user_a84df41daaa9",
-      "session_id": "sess_2e0607e494f9",
+      "id": "msg_user_419567ef0bde",
+      "session_id": "sess_fa4d6091c9cc",
       "role": "user",
-      "created_at": "2026-06-18T04:55:18.430613+00:00",
-      "updated_at": "2026-06-18T04:55:18.430613+00:00",
+      "created_at": "2026-06-18T06:06:47.958125+00:00",
+      "updated_at": "2026-06-18T06:06:47.958125+00:00",
       "parts": [
         {
-          "id": "part_1cfeb7251a05",
+          "id": "part_2426c7d1ad60",
           "type": "text",
           "metadata": {},
           "text": "Return only markdown. Do not wrap the whole answer in a code fence.\nUse exactly this structure:\n# Rendering Probe\n\n| Surface | Expected UI |\n| --- | --- |\n| table | rendered as a table |\n| list | rendered as bullets |\n| code | rendered as a fenced code block |\n\n- first bullet\n- second bullet with `inline_code_probe`\n\n```python\ndef probe_rendering(value: int) -> int:\n    return value + 1\n```",

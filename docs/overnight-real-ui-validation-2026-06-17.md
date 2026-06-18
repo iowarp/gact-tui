@@ -26,6 +26,56 @@ Short durable checklist: see `docs/agent-operational-memory.md`.
   workspace-bound blueprint starts the declared MCP servers and child experts
   call the expected prefixed tools.
 
+## Current CLIO Command Readiness - 2026-06-18
+
+The local showcase `clio` command is wired to the current gact-tui checkout and
+was refreshed after the live streaming proof:
+
+```text
+/home/jcernuda/.local/bin/clio
+/home/jcernuda/.local/share/clio/gact -> /home/jcernuda/gact-tui/tui/gact
+/home/jcernuda/.local/bin/gact -> /home/jcernuda/gact-tui/tui/gact
+```
+
+`make dev-install` rebuilt `tui/gact` and relinked both installed paths. The
+installed binary now reports:
+
+```text
+gact 0.2.1 (contract 0.2)
+revision: 6ef3f5e435f9 (dirty)
+built: 2026-06-18T01:03:01-05:00
+```
+
+The dirty suffix is from refreshed screenshot/evidence files in the working
+tree, not from an uninstalled binary. `clio doctor` reports the server binary
+and gact binary present, launcher at `/home/jcernuda/.local/bin/clio`, and no
+server currently occupying the default `:17800` port.
+
+## Corrected NDP/EarthScope Gate Detection - 2026-06-18
+
+The stale `_UnsupportedSessionAgent` interpretation was corrected after the
+dev-team notes. On this machine, EarthScope/NDP is runnable when the owned CLIO
+backend is configured with the workspace-installed marketplace blueprint and
+the workspace MCP handshake reports the blueprint MCPs ready.
+
+For the TUI/web gates, do not treat an empty top-level `/v1/tools` response for
+`ndp_*` names as the hard readiness signal. The relevant preflight is the
+workspace MCP handshake for the active workspace/blueprint:
+
+```text
+ndp: ready, including search_datasets and stage_resource
+geo: ready, including filter_points_by_radius
+pandas: ready, including profile_csv
+plot: ready, including plot_timeseries
+```
+
+If that handshake is absent or only `fs`/`shell` are visible, the gate is
+misconfigured and must not be reported as a product `_UnsupportedSessionAgent`
+regression. The corrected owned setup reached real NDP work, staged
+`earthscope_converted_data.csv`, exercised the intentional `shell_bash`
+permission path, and generated the GNSS plot artifact before hitting later
+workflow behavior.
+
 ## Live Streaming Recheck - 2026-06-18
 
 Read `iowarp/clio-agent#692`. The CLIO-side finding was that ALCF/Sophia
