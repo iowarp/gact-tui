@@ -4569,3 +4569,49 @@ Evidence refreshed:
 
 The owned CLIO backends were stopped after the proof, and ports `:18341` and
 `:18342` were verified clear.
+
+## ALCF Web Streaming Refresh - 2026-06-18
+
+Started an owned CLIO backend on `http://127.0.0.1:18351` from the throwaway
+workspace root so `ws_default` matched the proof workspace:
+
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-web-stream-20260617-235042-2137852`
+- Provider/model: `argonne` on ALCF Sophia,
+  `google/gemma-4-31B-it`
+
+Command:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_GACT_URL=http://127.0.0.1:18351 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_default \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-streaming.spec.ts --workers=1
+```
+
+Result: passed `1/1` in the production web build. The real ALCF turn completed
+and the final response rendered in the transcript. The run did not produce live
+visible text chunks; the captured manifest reports:
+
+```json
+{
+  "liveUiSampleCount": 0,
+  "fallback": {
+    "reason": "stream_completed_without_chunks",
+    "category": "provider_streaming_limitation",
+    "synthetic_posthoc": true,
+    "live_streaming": false
+  }
+}
+```
+
+Evidence:
+
+- `apps/web/screenshots/audit/overnight-real-streaming-final.png`
+- `apps/web/screenshots/audit/overnight-real-streaming-no-live-midturn.png`
+- `apps/web/screenshots/audit/overnight-real-streaming-samples.json`
+
+The owned backend was stopped after the proof and port `:18351` was verified
+clear.
