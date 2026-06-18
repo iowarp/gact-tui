@@ -1,25 +1,25 @@
 {
-  "backend": "http://127.0.0.1:18176",
-  "workspaceId": "ws_80d27018c650",
-  "sessionId": "sess_745a0adaab97",
+  "backend": "http://127.0.0.1:18352",
+  "workspaceId": "ws_default",
+  "sessionId": "sess_2e0607e494f9",
   "messages": [
     {
-      "id": "msg_asst_572f1584fe47",
-      "session_id": "sess_745a0adaab97",
+      "id": "msg_asst_8450cd747095",
+      "session_id": "sess_2e0607e494f9",
       "role": "assistant",
-      "created_at": "2026-06-17T19:38:16.842952+00:00",
-      "updated_at": "2026-06-17T19:38:16.842963+00:00",
+      "created_at": "2026-06-18T04:55:24.336853+00:00",
+      "updated_at": "2026-06-18T04:55:24.336861+00:00",
       "parts": [
         {
-          "id": "part_6fcd7aad50a7",
+          "id": "part_874bab297c0c",
           "type": "routing_decision",
           "metadata": {
             "route_source": "user_agent",
-            "route_reason": "Session selected user agent 'markdown_probe_1781725093165'."
+            "route_reason": "Session selected user agent 'markdown_probe_1781758517131'."
           },
           "text": "",
-          "selected_agent": "markdown_probe_1781725093165",
-          "rationale": "Session selected user agent 'markdown_probe_1781725093165'.",
+          "selected_agent": "markdown_probe_1781758517131",
+          "rationale": "Session selected user agent 'markdown_probe_1781758517131'.",
           "confidence": 0,
           "heuristic": false,
           "execution_path": "",
@@ -39,7 +39,7 @@
           "lines_removed": 0
         },
         {
-          "id": "part_380d82da6f82",
+          "id": "part_4e1b2b6af72f",
           "type": "text",
           "metadata": {
             "stream_source": "batch",
@@ -104,7 +104,7 @@
         },
         "agent_runtime": {
           "kind": "dynamic_agent",
-          "agent_id": "markdown_probe_1781725093165",
+          "agent_id": "markdown_probe_1781758517131",
           "source": "user",
           "title": "Markdown Rendering Probe Agent",
           "execution_mode": "prompt_agent",
@@ -118,7 +118,7 @@
           },
           "model": {
             "provider_id": "argonne",
-            "model_id": "openai/gpt-oss-120b",
+            "model_id": "google/gemma-4-31B-it",
             "provider_source": "global_active",
             "model_source": "global_active",
             "fallback_to_global": true
@@ -127,14 +127,14 @@
       }
     },
     {
-      "id": "msg_user_0a7785644b7d",
-      "session_id": "sess_745a0adaab97",
+      "id": "msg_user_a84df41daaa9",
+      "session_id": "sess_2e0607e494f9",
       "role": "user",
-      "created_at": "2026-06-17T19:38:14.362903+00:00",
-      "updated_at": "2026-06-17T19:38:14.362903+00:00",
+      "created_at": "2026-06-18T04:55:18.430613+00:00",
+      "updated_at": "2026-06-18T04:55:18.430613+00:00",
       "parts": [
         {
-          "id": "part_9c2c670d5d75",
+          "id": "part_1cfeb7251a05",
           "type": "text",
           "metadata": {},
           "text": "Return only markdown. Do not wrap the whole answer in a code fence.\nUse exactly this structure:\n# Rendering Probe\n\n| Surface | Expected UI |\n| --- | --- |\n| table | rendered as a table |\n| list | rendered as bullets |\n| code | rendered as a fenced code block |\n\n- first bullet\n- second bullet with `inline_code_probe`\n\n```python\ndef probe_rendering(value: int) -> int:\n    return value + 1\n```",

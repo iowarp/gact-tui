@@ -1697,3 +1697,42 @@ Evidence:
 
 Cleanup: the owned backend on `:18351` was stopped and the port was verified
 clear.
+
+## ALCF Markdown Rendering Proof Refresh - 2026-06-18
+
+Reran the real markdown rendering proof against an owned ALCF-backed CLIO
+server:
+
+- Backend: `http://127.0.0.1:18352`
+- Workspace: `ws_default`
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-web-rendering-20260617-235424-2139275`
+- Provider/model: `argonne` on ALCF Sophia,
+  `google/gemma-4-31B-it`
+
+Command:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_GACT_URL=http://127.0.0.1:18352 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_default \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-rendering.spec.ts --workers=1
+```
+
+Result: passed `1/1`. CLIO returned markdown containing a table, bullet list,
+inline code, and fenced Python block. The web UI rendered them as structured
+table/list/code elements and captured the settled state.
+
+Evidence:
+
+- `apps/web/screenshots/audit/overnight-real-rendering-early.png`
+- `apps/web/screenshots/audit/overnight-real-rendering-table.png`
+- `apps/web/screenshots/audit/overnight-real-rendering-settled.png`
+- `apps/web/screenshots/audit/overnight-real-rendering-messages.json`
+- Semantic trace:
+  `tmp/owned-clio-web-rendering-20260617-235424-2139275/traces/sess_2e0607e494f9.semantic.jsonl`
+
+Cleanup: the owned backend on `:18352` was stopped and the port was verified
+clear.
