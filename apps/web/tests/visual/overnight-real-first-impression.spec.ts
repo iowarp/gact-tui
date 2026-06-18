@@ -156,6 +156,8 @@ test('overnight real short desktop window keeps empty chat readable', async () =
     await expect(page.locator('.chat__empty-prompts')).toBeHidden();
     await expect(page.locator('.chat__empty-tip')).toBeHidden();
     await expect(page.getByTestId('composer-input')).toBeVisible();
+    await expect(page.getByTestId('composer-model')).toContainText('pick model');
+    await expect(page.getByTestId('model-chip')).toHaveCount(0);
     await page.screenshot({ path: shot('overnight-real-first-impression-short'), fullPage: false });
     writeFileSync(
       resolve(auditDir, 'overnight-real-first-impression-short.json'),
@@ -188,6 +190,8 @@ test('overnight real mobile empty chat keeps the composer reachable', async () =
     await expect(page.getByText('wired into your workspace')).toBeVisible();
     await expect(page.getByTestId('composer-input')).toBeVisible();
     await expect(page.getByTestId('backend-picker')).toBeVisible();
+    await expect(page.getByTestId('composer-model')).toContainText('pick model');
+    await expect(page.getByTestId('model-chip')).toHaveCount(0);
     await expect(page.locator('.chat__empty-prompts')).toBeHidden();
     await page.screenshot({ path: shot('overnight-real-first-impression-mobile'), fullPage: false });
     writeFileSync(

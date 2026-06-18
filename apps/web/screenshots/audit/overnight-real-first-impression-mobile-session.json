@@ -1,17 +1,17 @@
 {
-  "backend": "http://127.0.0.1:18311",
+  "backend": "http://127.0.0.1:18381",
   "workspaceId": "ws_default",
   "viewport": {
     "width": 390,
     "height": 844
   },
   "session": {
-    "id": "sess_cdb221b7c6e5",
+    "id": "sess_a01ede0b23c2",
     "workspace_id": "ws_default",
-    "title": "mobile active 1781746838797",
+    "title": "mobile active 1781763815619",
     "status": "idle",
-    "created_at": "2026-06-18T01:40:38.801180+00:00",
-    "updated_at": "2026-06-18T01:40:38.801180+00:00",
+    "created_at": "2026-06-18T06:23:35.622874+00:00",
+    "updated_at": "2026-06-18T06:23:35.622874+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {

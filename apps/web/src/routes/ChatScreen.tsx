@@ -944,11 +944,9 @@ function LiveDriven(props: {
     // lmActive still loading → don't pick yet, leave chip blank so
     // we don't flash the wrong model and then correct it.
     if (lmActive.loading) return;
-    // lmActive failed → fall back to the first preset.
-    if (!selectedModelId()) {
-      const first = models()[0];
-      if (first) setSelectedModelId(first.id);
-    }
+    // No active LM configured. Keep the picker available, but do not imply
+    // that the first advertised preset is the backend's current model.
+    if (selectedModelId()) setSelectedModelId('');
   });
 
   async function pickModel(m: ModelOption) {

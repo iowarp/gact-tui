@@ -76,6 +76,64 @@ regression. The corrected owned setup reached real NDP work, staged
 permission path, and generated the GNSS plot artifact before hitting later
 workflow behavior.
 
+## First-Impression No-LM Model Correction - 2026-06-18
+
+Reran the real first-impression/mobile suite against an owned no-agent/no-LM
+backend on `http://127.0.0.1:18381`.
+
+Initial visual inspection caught a stale model-selection bug: when
+`GET /v1/providers/lm` reported `configured: false`, the web shell still picked
+the first advertised provider preset and showed `granite3.1-dense:8b` as if it
+were the active model. That was wrong for clean first-run and no-LM backends.
+
+Fix: the chat shell now clears the selected model when no active LM is
+configured. The model picker remains available, but the topbar does not show a
+model chip and the composer model control reads `pick model`.
+
+Regression proof:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_FIRST_IMPRESSION_URL=http://127.0.0.1:18381 \
+CLIO_FIRST_IMPRESSION_WORKSPACE_ID=ws_default \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-first-impression.spec.ts --workers=1
+```
+
+Result: passed `6/6`. The gate now asserts that no-LM views contain
+`composer-model = pick model` and no `model-chip`.
+
+Refreshed screenshots:
+
+- `apps/web/screenshots/audit/overnight-real-first-impression-short.png`
+- `apps/web/screenshots/audit/overnight-real-first-impression-mobile.png`
+- `apps/web/screenshots/audit/overnight-real-first-impression-mobile-drawer.png`
+- `apps/web/screenshots/audit/overnight-real-mobile-settings-about.png`
+
+Additional CI fix: `ndp-earthscope-live.spec.ts` no longer hardcodes
+`/home/jcernuda/gact-tui/tmp` at module import time. Its generated workspace
+parent is now repo-relative, so the default visual suite can import and skip the
+opt-in live NDP gate on GitHub runners.
+
+Verification after the fix:
+
+```bash
+npm exec --yes pnpm@9.15.9 -- --dir apps/web typecheck
+npm exec --yes pnpm@9.15.9 -- --dir apps/web test -- \
+  tests/unit/SettingsModels.test.tsx tests/unit/ProviderSetup.test.tsx --run
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/ndp-earthscope-live.spec.ts --workers=1
+GACT_BRAND=clio npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test --workers=1
+```
+
+Results:
+
+- typecheck passed
+- model/provider unit tests passed `15/15`
+- opt-in NDP live spec imported and skipped cleanly in default mode
+- full default visual suite passed: `45 passed`, `112 skipped`
+
 ## Live Streaming Recheck - 2026-06-18
 
 Read `iowarp/clio-agent#692`. The CLIO-side finding was that ALCF/Sophia

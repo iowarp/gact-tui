@@ -31,7 +31,8 @@ const MARKETPLACE_SOURCE =
   '/home/jcernuda/clio-agent/external/clio-agent-marketplace';
 const BLUEPRINT_INSTALL_SCOPE =
   process.env['CLIO_NDP_EARTHSCOPE_BLUEPRINT_SCOPE'] === 'workspace' ? 'workspace' : 'global';
-const GENERATED_WORKSPACE_PARENT = '/home/jcernuda/gact-tui/tmp';
+const REPO_ROOT = resolve(import.meta.dirname, '..', '..', '..', '..');
+const GENERATED_WORKSPACE_PARENT = resolve(REPO_ROOT, 'tmp');
 mkdirSync(GENERATED_WORKSPACE_PARENT, { recursive: true });
 const EXPLICIT_WORKSPACE_ROOT = process.env['CLIO_NDP_EARTHSCOPE_WORKSPACE'];
 const WORKSPACE_ROOT =
