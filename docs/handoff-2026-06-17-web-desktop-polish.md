@@ -1608,3 +1608,16 @@ agents, or tools by name/path.
 
 Verification: refreshed `attach-hybrid-menu.png` and `at-mention-picker.png`
 via the focused visual specs; web typecheck and lint passed.
+
+## Rendering Screenshot Refresh - 2026-06-18
+
+Refreshed the deterministic markdown/code/diff/image-diagnostic rendering
+screenshots after the composer wording polish. The focused visual specs passed
+from a production CLIO-branded build.
+
+Updated screenshots:
+
+- `apps/web/screenshots/markdown-read.png`
+- `apps/web/screenshots/code-syntax-highlight.png`
+- `apps/web/screenshots/diff-pane-open.png`
+- `apps/web/screenshots/preview-image-decode-diagnostic.png`

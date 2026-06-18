@@ -4504,3 +4504,25 @@ Refreshed screenshots:
 
 - `apps/web/screenshots/attach-hybrid-menu.png`
 - `apps/web/screenshots/at-mention-picker.png`
+
+## Rendering Screenshot Refresh - 2026-06-18
+
+Refreshed deterministic rendering screenshots after the composer wording polish
+so the visual corpus no longer shows stale `@ mention` text.
+
+Verification:
+
+```bash
+GACT_BRAND=clio npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/screenshots.spec.ts --grep "diff-pane-open|code blocks render|markdown file|preview rail explains" --workers=1
+```
+
+Result: passed `4/4` across two focused runs from a production CLIO-branded
+build.
+
+Refreshed screenshots:
+
+- `apps/web/screenshots/markdown-read.png`
+- `apps/web/screenshots/code-syntax-highlight.png`
+- `apps/web/screenshots/diff-pane-open.png`
+- `apps/web/screenshots/preview-image-decode-diagnostic.png`
