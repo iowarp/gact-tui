@@ -1797,3 +1797,77 @@ Updated evidence:
 
 Cleanup: the owned backend on `:18353` was stopped and the port was verified
 clear.
+
+## Owned Backend Web/Desktop Refresh - 2026-06-18
+
+Started a fresh owned CLIO backend on `http://127.0.0.1:18410` with isolated
+config/data/traces and an explicit workspace rooted under:
+
+`tmp/owned-clio-polish-20260618-013703-2181274/workspace`
+
+Provider/model: `argonne` on ALCF Sophia, `google/gemma-4-31B-it`.
+
+The installed `clio` launcher was also refreshed before these runs:
+
+- `/home/jcernuda/.local/share/clio/gact -> /home/jcernuda/gact-tui/tui/gact`
+- `/home/jcernuda/.local/bin/gact -> /home/jcernuda/gact-tui/tui/gact`
+- `gact --version`: revision `ecdd798ae81d`, `buildDirty=false`
+- `clio doctor`: server bin OK, gact bin OK, `:17800` free
+
+Fresh web proof against the owned backend:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_GACT_URL=http://127.0.0.1:18410 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_4629f4581b4a \
+CLIO_PLAYWRIGHT_CORS_SHIM=1 \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-rendering.spec.ts \
+  tests/visual/overnight-real-streaming.spec.ts \
+  tests/visual/overnight-real-ui.spec.ts \
+  --workers=1
+```
+
+Result after seeding the isolated workspace with `README.md`,
+`sample_metrics.csv`, `handlers.go`, and `validation_plot.png`:
+
+- `overnight-real-rendering.spec.ts`: passed `1/1`
+- `overnight-real-streaming.spec.ts`: passed `1/1`
+- `overnight-real-ui.spec.ts`: passed `2/2`
+
+The refreshed screenshots cover markdown preview, source preview, PNG preview,
+live assistant rendering, tool metadata, and the diff drawer.
+
+Desktop issue found: the native WebView test seeded sessions through
+`CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:18410`, but the desktop supervisor
+only honored `CLIO_PORT`/`:17800`, so the app attached to the stale local
+backend while the test inspected the owned backend.
+
+Fix:
+
+- desktop supervisor now honors `CLIO_GACT_URL` as a full attach URL before
+  falling back to `CLIO_PORT`/`:17800`
+- the WebView e2e gate bridges `CLIO_DESKTOP_BACKEND_URL` into
+  `CLIO_GACT_URL`/`CLIO_PORT` so the app and test fixture target the same
+  backend
+
+Verification:
+
+```bash
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+npm exec --yes pnpm@9.15.9 -- --dir apps/desktop test
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+npm exec --yes pnpm@9.15.9 -- --dir apps/desktop tauri:build:debug
+TAURI_E2E=1 \
+TAURI_NATIVE_DRIVER=/home/jcernuda/gact-tui/tmp/webkit-driver-local/root/usr/bin/WebKitWebDriver \
+CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:18410 \
+CLIO_DESKTOP_WORKSPACE_ID=ws_4629f4581b4a \
+CLIO_DESKTOP_SCREENSHOT_DIR=/home/jcernuda/gact-tui/apps/web/screenshots/audit \
+npm exec --yes pnpm@9.15.9 -- --dir apps/desktop test:webview
+```
+
+Result: all passed. The WebView logs showed the Tauri SSE bridge opening
+`http://127.0.0.1:18410/v1/sessions/.../events` and emitting live events. The
+permission-card screenshot confirms the desktop app used the ALCF/Gemma owned
+backend.

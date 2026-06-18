@@ -68,6 +68,10 @@ const ATTACH_DEFAULT_PORT: u16 = 17800;
 /// Env var that overrides the attach-port — matches the upstream
 /// `clio.{ps1,sh}` launcher convention.
 const ATTACH_PORT_ENV: &str = "CLIO_PORT";
+/// Env var that overrides the attach target with a full local backend URL.
+/// This mirrors the TUI/web test convention and lets native smoke tests bind
+/// to an owned CLIO without occupying the user's conventional `:17800`.
+const ATTACH_URL_ENV: &str = "CLIO_GACT_URL";
 /// Fast probe used during the attach-first check.
 const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -403,14 +407,21 @@ impl Default for Supervisor {
 /// back with a contract_version. Any other outcome returns None and the
 /// caller falls back to spawning a fresh sidecar.
 ///
-/// Honors `$CLIO_PORT` if set (matches the upstream `clio` launcher
-/// convention) before falling back to the documented :17800 default.
+/// Honors `$CLIO_GACT_URL` when set, then `$CLIO_PORT` (matching the upstream
+/// `clio` launcher convention), before falling back to the documented :17800
+/// default.
 fn try_attach_existing() -> Option<BackendHandle> {
-    let port = env::var(ATTACH_PORT_ENV)
+    let url = env::var(ATTACH_URL_ENV)
         .ok()
-        .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(ATTACH_DEFAULT_PORT);
-    let url = format!("http://127.0.0.1:{port}");
+        .map(|s| s.trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| {
+            let port = env::var(ATTACH_PORT_ENV)
+                .ok()
+                .and_then(|s| s.parse::<u16>().ok())
+                .unwrap_or(ATTACH_DEFAULT_PORT);
+            format!("http://127.0.0.1:{port}")
+        });
     let endpoint = format!("{url}/v1/capabilities");
     let resp = ureq::get(&endpoint)
         .timeout(ATTACH_PROBE_TIMEOUT)

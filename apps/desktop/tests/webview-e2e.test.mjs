@@ -75,6 +75,23 @@ const PORT = 4444;
 const BASE = `http://127.0.0.1:${PORT}`;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 
+// The native app's supervisor attaches through CLIO_GACT_URL / CLIO_PORT.
+// Keep the WebView test's backend fixture URL and the launched app's attach
+// target in lockstep so the test never seeds one backend and inspects another.
+if (!process.env['CLIO_GACT_URL']) {
+  process.env['CLIO_GACT_URL'] = BACKEND_URL;
+}
+if (!process.env['CLIO_PORT']) {
+  try {
+    const parsed = new URL(BACKEND_URL);
+    if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
+      process.env['CLIO_PORT'] = parsed.port;
+    }
+  } catch {
+    // BACKEND_URL validation happens when the API calls run.
+  }
+}
+
 const missing = [];
 if (process.env['TAURI_E2E'] !== '1') missing.push('TAURI_E2E=1');
 if (!existsSync(APP)) missing.push(`desktop app: ${APP}`);

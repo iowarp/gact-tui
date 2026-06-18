@@ -10,6 +10,7 @@ if (!brand || !script) {
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const child = spawn(pnpm, ['run', script, ...rest], {
   stdio: 'inherit',
+  shell: process.platform === 'win32',
   env: {
     ...process.env,
     GACT_BRAND: brand,

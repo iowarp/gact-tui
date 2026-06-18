@@ -1,72 +1,65 @@
 {
-  "backend": "http://127.0.0.1:18361",
-  "workspaceId": "ws_default",
-  "agentId": "streaming_probe_1781760950630",
-  "sessionId": "sess_28bc2d06a8c1",
+  "backend": "http://127.0.0.1:18410",
+  "workspaceId": "ws_4629f4581b4a",
+  "agentId": "streaming_probe_1781764733338",
+  "sessionId": "sess_0d58284a53e4",
   "liveUiSampleCount": 2,
-  "requireLive": true,
+  "requireLive": false,
   "samples": [
     {
-      "elapsed_ms": 594,
+      "elapsed_ms": 507,
       "ui_chars": 0,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 5455,
+      "elapsed_ms": 1913,
       "ui_chars": 0,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 6340,
-      "ui_chars": 274,
+      "elapsed_ms": 2708,
+      "ui_chars": 598,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 7308,
-      "ui_chars": 593,
+      "elapsed_ms": 3563,
+      "ui_chars": 908,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 8381,
-      "ui_chars": 1250,
-      "api_chars": 0,
-      "ui_active": false,
-      "stopped": false
-    },
-    {
-      "elapsed_ms": 9165,
-      "ui_chars": 1250,
-      "api_chars": 1180,
+      "elapsed_ms": 4322,
+      "ui_chars": 1213,
+      "api_chars": 1143,
       "ui_active": false,
       "stopped": true
     }
   ],
   "messages": [
     {
-      "id": "msg_asst_b515db8df43b",
-      "session_id": "sess_28bc2d06a8c1",
+      "id": "msg_asst_450735ed60ad",
+      "session_id": "sess_0d58284a53e4",
       "role": "assistant",
-      "created_at": "2026-06-18T05:36:00.004762+00:00",
-      "updated_at": "2026-06-18T05:36:00.004770+00:00",
+      "created_at": "2026-06-18T06:39:01.852271+00:00",
+      "updated_at": "2026-06-18T06:39:01.852367+00:00",
       "parts": [
         {
-          "id": "part_5dbcf55ca636",
+          "id": "part_b4375505b389",
           "type": "routing_decision",
           "metadata": {
             "route_source": "user_agent",
-            "route_reason": "Session selected user agent 'streaming_probe_1781760950630'."
+            "route_reason": "Session selected user agent 'streaming_probe_1781764733338'."
           },
           "text": "",
-          "selected_agent": "streaming_probe_1781760950630",
-          "rationale": "Session selected user agent 'streaming_probe_1781760950630'.",
+          "selected_agent": "streaming_probe_1781764733338",
+          "rationale": "Session selected user agent 'streaming_probe_1781764733338'.",
           "confidence": 0,
           "heuristic": false,
           "execution_path": "",
@@ -86,12 +79,12 @@
           "lines_removed": 0
         },
         {
-          "id": "part_fee69b9dc5ed",
+          "id": "part_e143c2a1ddad",
           "type": "text",
           "metadata": {
             "stream_source": "live"
           },
-          "text": "# Streaming Probe\n\n1. Always record the date and time at the start of every entry.\n2. Use objective language to describe observed behaviors without adding bias.\n3. Note the exact location where the observation is taking place.\n4. Describe the physical environment in detail to provide necessary context.\n5. Record direct quotes from participants whenever possible.\n6. Avoid using vague adjectives like \"many\" or \"few\" in favor of specific counts.\n7. Document the weather conditions if they might influence the subject's behavior.\n8. Keep a clear distinction between raw observations and personal interpretations.\n9. Use a consistent shorthand to speed up writing during active events.\n10. Note the presence of other people who may be affecting the scene.\n11. Describe the sequence of events in the order they actually occurred.\n12. Include sketches or diagrams to clarify spatial relationships.\n13. Review and expand upon shorthand notes immediately after the session.\n14. Document any interruptions or gaps in the observation period.\n15. Maintain a neutral tone to ensure the data remains scientific.\n16. Store all field notes in a secure and organized system for later analysis.",
+          "text": "# Streaming Probe\n\n1. Always record the date and time of each observation immediately.\n2. Use descriptive adjectives to capture the sensory details of the environment.\n3. Avoid interpreting data in the moment to prevent observer bias.\n4. Write in complete sentences to ensure clarity for future analysis.\n5. Note the exact location of the subject relative to fixed landmarks.\n6. Document the weather conditions as they may influence behavior.\n7. Use a consistent shorthand that is defined in a separate key.\n8. Record verbatim quotes whenever a subject speaks.\n9. Describe the physical layout of the space before detailing specific actions.\n10. Maintain a neutral tone throughout the descriptive process.\n11. Distinguish clearly between observed facts and personal reflections.\n12. Note any interruptions or anomalies that occur during the session.\n13. Use a durable notebook or a reliable digital device for data entry.\n14. Review and expand upon shorthand notes as soon as possible after the event.\n15. Document the presence and roles of other people in the vicinity.\n16. Ensure that all handwriting is legible to avoid transcription errors.",
           "selected_agent": "",
           "rationale": "",
           "confidence": 0,
@@ -125,7 +118,7 @@
         "stream_source": "live",
         "agent_runtime": {
           "kind": "dynamic_agent",
-          "agent_id": "streaming_probe_1781760950630",
+          "agent_id": "streaming_probe_1781764733338",
           "source": "user",
           "title": "Streaming Probe Agent",
           "execution_mode": "prompt_agent",
@@ -148,14 +141,14 @@
       }
     },
     {
-      "id": "msg_user_2842e2741831",
-      "session_id": "sess_28bc2d06a8c1",
+      "id": "msg_user_cf89f5bbce73",
+      "session_id": "sess_0d58284a53e4",
       "role": "user",
-      "created_at": "2026-06-18T05:35:51.863321+00:00",
-      "updated_at": "2026-06-18T05:35:51.863321+00:00",
+      "created_at": "2026-06-18T06:38:58.145299+00:00",
+      "updated_at": "2026-06-18T06:38:58.145299+00:00",
       "parts": [
         {
-          "id": "part_3235ce0e7e4f",
+          "id": "part_ff4451d73598",
           "type": "text",
           "metadata": {},
           "text": "Write a streaming probe response with 16 numbered observations. Each observation must be one complete sentence about careful field-note writing. Do not use tools. Do not include a table. Keep the title \"Streaming Probe\".",
