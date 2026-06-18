@@ -216,10 +216,7 @@ mod tunnel_tests {
         let host = env::var("SSH_TUNNEL_HOST").ok()?;
         let user = env::var("SSH_TUNNEL_USER").ok()?;
         let key = env::var("SSH_TUNNEL_KEY").unwrap_or_default();
-        let port: u16 = env::var("SSH_TUNNEL_REMOTE_PORT")
-            .ok()?
-            .parse()
-            .ok()?;
+        let port: u16 = env::var("SSH_TUNNEL_REMOTE_PORT").ok()?.parse().ok()?;
         Some((host, user, key, port))
     }
 
@@ -334,7 +331,13 @@ mod tunnel_tests {
         };
         let mgr = TunnelManager::new();
         let handle = mgr
-            .open(TunnelRequest { host, user, remote_port, key_path, passphrase: None })
+            .open(TunnelRequest {
+                host,
+                user,
+                remote_port,
+                key_path,
+                passphrase: None,
+            })
             .expect("tunnel open");
         // Wait until it forwards.
         let mut up = false;

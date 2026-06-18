@@ -18,6 +18,17 @@ declare module '@brand' {
     accent: string | null;
     /** CSS custom-property overrides merged into the default theme at boot. */
     themeTokens: Record<string, string>;
+    /** First-run prompt cards tuned for this brand profile. */
+    starterPrompts: Array<{
+      eyebrow: string;
+      label: string;
+    }>;
+    /** Optional backend repository surfaced in About / install diagnostics. */
+    backendRepository: {
+      label: string;
+      url: string;
+      detail: string;
+    } | null;
     /** Inlined SVG logo source, or null. Overrides markGlyph when present. */
     logoSvg: string | null;
   }

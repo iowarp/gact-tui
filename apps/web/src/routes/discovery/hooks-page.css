@@ -135,6 +135,22 @@
   color: var(--color-muted);
 }
 
+.bps__status {
+  min-width: 54px;
+  text-align: center;
+}
+
+.bps__status--ready,
+.bps__status--ok {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.bps__status--error {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+  color: var(--color-error);
+}
+
 .bps__msg {
   font-family: var(--font-sans);
   font-size: 11px;

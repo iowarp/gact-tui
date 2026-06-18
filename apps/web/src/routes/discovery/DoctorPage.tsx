@@ -23,6 +23,20 @@ export function DoctorPage(props: DoctorPageProps) {
       advertised: details.advertised === true,
     }));
   };
+  const overallStatus = () => data()?.overall_status ?? (data()?.healthy ? 'healthy' : 'unknown');
+  const overallMeaning = () => {
+    switch (overallStatus()) {
+      case 'healthy':
+      case 'ready':
+        return 'All reported integrations are ready.';
+      case 'degraded':
+        return 'Some integrations need attention.';
+      case 'unavailable':
+        return 'Backend health checks are unavailable.';
+      default:
+        return 'Backend reported an unknown health state.';
+    }
+  };
   return (
     <DiscoveryPage
       icon="doctor"
@@ -51,11 +65,11 @@ export function DoctorPage(props: DoctorPageProps) {
             <div class="dp__stat-label">overall</div>
             <div
               class="dp__stat-value"
-              style={`color:${healthColor(data()?.overall_status ?? '')}`}
+              style={`color:${healthColor(overallStatus())}`}
             >
-              {data()?.overall_status ?? (data()?.healthy ? 'healthy' : 'unknown')}
+              {overallStatus()}
             </div>
-            <div class="dp__stat-sub">healthy: {String(data()?.healthy ?? false)}</div>
+            <div class="dp__stat-sub">{overallMeaning()}</div>
           </div>
           <div class="dp__stat">
             <div class="dp__stat-label">uptime</div>

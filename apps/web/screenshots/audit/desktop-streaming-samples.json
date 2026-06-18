@@ -1,0 +1,148 @@
+{
+  "backend": "http://127.0.0.1:18361",
+  "sessionId": "sess_45a7102a7619",
+  "agentId": "desktop_streaming_probe_1781761722705",
+  "liveUiSampleCount": 11,
+  "assistantStreamSource": "live",
+  "assistantStop": "end_turn",
+  "samples": [
+    {
+      "elapsed_ms": 45,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 251,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 461,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 669,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 878,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 1086,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 1292,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 1500,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 1708,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 1918,
+      "ui_chars": 0,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 2345,
+      "ui_chars": 241,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 2903,
+      "ui_chars": 394,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 3123,
+      "ui_chars": 501,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 3339,
+      "ui_chars": 501,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 3934,
+      "ui_chars": 754,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 4505,
+      "ui_chars": 994,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 4713,
+      "ui_chars": 992,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 5336,
+      "ui_chars": 1275,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 5547,
+      "ui_chars": 1273,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 6232,
+      "ui_chars": 1561,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 6815,
+      "ui_chars": 1847,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 7096,
+      "ui_chars": 1854,
+      "ui_active": true,
+      "session_status": "running"
+    },
+    {
+      "elapsed_ms": 7710,
+      "ui_chars": 2117,
+      "ui_active": true,
+      "session_status": "idle"
+    }
+  ]
+}

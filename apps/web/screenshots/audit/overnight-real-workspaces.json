@@ -1,0 +1,81 @@
+{
+  "backendA": "http://127.0.0.1:18410",
+  "primary": {
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
+    "metadata": {}
+  },
+  "secondary": {
+    "id": "ws_da312bfccca9",
+    "name": "overnight-alt",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace-alt",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace-alt/.clio",
+    "created_at": "2026-06-18T06:54:08.598532+00:00",
+    "updated_at": "2026-06-18T06:54:08.598532+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace-alt/.clio"
+    },
+    "metadata": {}
+  },
+  "primarySession": {
+    "id": "sess_cc782647e72a",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "workspace primary 1781765648600",
+    "status": "idle",
+    "created_at": "2026-06-18T06:54:08.601044+00:00",
+    "updated_at": "2026-06-18T06:54:08.601044+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "secondarySession": {
+    "id": "sess_a4d514e1342d",
+    "workspace_id": "ws_da312bfccca9",
+    "title": "workspace secondary 1781765648600",
+    "status": "idle",
+    "created_at": "2026-06-18T06:54:08.603885+00:00",
+    "updated_at": "2026-06-18T06:54:08.603885+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  }
+}

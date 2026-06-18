@@ -6,6 +6,12 @@ import { useToast } from '../../components/Toast.js';
 
 export interface PromptsPageProps {
   client: Client;
+  context?: PromptScopeContext;
+}
+
+export interface PromptScopeContext {
+  sessionId?: string;
+  workspaceId?: string;
 }
 
 /**
@@ -16,7 +22,9 @@ export interface PromptsPageProps {
  * source set.
  */
 export function PromptsPage(props: PromptsPageProps) {
-  const [data, { refetch }] = createResource(() => props.client.prompts());
+  const [data, { refetch }] = createResource(() =>
+    props.client.prompts(scopeRequest(props.context)),
+  );
   const [reloading, setReloading] = createSignal(false);
   const [query, setQuery] = createSignal('');
   const toast = useToast();
@@ -60,7 +68,7 @@ export function PromptsPage(props: PromptsPageProps) {
     <DiscoveryPage
       icon="sparkle"
       title="Prompts"
-      subtitle="Built-in and user-defined prompt definitions registered with this backend."
+      subtitle="Reusable instructions available to sessions on this backend."
       actions={
         <>
           <button
@@ -117,11 +125,42 @@ export function PromptsPage(props: PromptsPageProps) {
       <div class="dp__section-title">Prompts ({items().length})</div>
       <div class="dp__grid">
         <For each={items()}>
-          {(p) => <PromptCard p={p} client={props.client} onSaved={refetch} />}
+          {(p) => (
+            <PromptCard
+              p={p}
+              client={props.client}
+              context={props.context}
+              onSaved={refetch}
+            />
+          )}
         </For>
       </div>
     </DiscoveryPage>
   );
+}
+
+function scopeRequest(context?: PromptScopeContext) {
+  return {
+    ...(context?.sessionId ? { session_id: context.sessionId } : {}),
+    ...(context?.workspaceId ? { workspace_id: context.workspaceId } : {}),
+  };
+}
+
+function scopedWriteBody(
+  scope: 'global' | 'workspace' | 'session',
+  text: string,
+  context?: PromptScopeContext,
+) {
+  return {
+    text,
+    scope,
+    ...(scope === 'session' && context?.sessionId
+      ? { session_id: context.sessionId }
+      : {}),
+    ...((scope === 'session' || scope === 'workspace') && context?.workspaceId
+      ? { workspace_id: context.workspaceId }
+      : {}),
+  };
 }
 
 function PromptSourceRow(props: { source: PromptSource }) {
@@ -135,7 +174,12 @@ function PromptSourceRow(props: { source: PromptSource }) {
   );
 }
 
-function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void }) {
+function PromptCard(props: {
+  p: PromptDef;
+  client?: Client;
+  context?: PromptScopeContext;
+  onSaved?: () => void;
+}) {
   const profileCount = () => {
     const profiles = props.p.profiles;
     if (!profiles) return 0;
@@ -155,6 +199,12 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
   // Result of the last Validate or Save: tone drives the colour, msg the text.
   const [result, setResult] = createSignal<{ ok: boolean; msg: string } | null>(null);
   const toast = useToast();
+  let cardRef: HTMLElement | undefined;
+
+  function scrollCardIntoView() {
+    if (typeof cardRef?.scrollIntoView !== 'function') return;
+    cardRef.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
 
   async function loadPreview() {
     if (preview() != null || loading()) return;
@@ -162,7 +212,7 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
     setPreviewError(null);
     try {
       if (!props.client) throw new Error('No client');
-      const res = await props.client.getPrompt(props.p.id);
+      const res = await props.client.getPrompt(props.p.id, scopeRequest(props.context));
       const text = res.prompt.text ?? '';
       setPreview(text);
       setDraft(text);
@@ -178,7 +228,10 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
     setValidating(true);
     setResult(null);
     try {
-      const res = await props.client.validatePrompt(props.p.id, { text: draft() });
+      const res = await props.client.validatePrompt(props.p.id, {
+        ...scopeRequest(props.context),
+        text: draft(),
+      });
       const errs = res.validation_errors ?? [];
       setResult(
         errs.length === 0
@@ -197,10 +250,10 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
     setSaving(true);
     setResult(null);
     try {
-      await props.client.savePrompt(props.p.id, { text: draft(), scope: scope() });
+      await props.client.savePrompt(props.p.id, scopedWriteBody(scope(), draft(), props.context));
       setResult({ ok: true, msg: `Saved (${scope()}).` });
+      queueMicrotask(scrollCardIntoView);
       toast.push({ tone: 'success', title: 'Prompt saved', duration: 2200 });
-      props.onSaved?.();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setResult({ ok: false, msg });
@@ -212,12 +265,16 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
   function toggle() {
     const next = !open();
     setOpen(next);
-    if (next) void loadPreview();
+    if (next) {
+      queueMicrotask(scrollCardIntoView);
+      void loadPreview();
+    }
   }
   return (
     <article
+      ref={cardRef}
       class={
-        'dp__card ' +
+        'dp__card prompts__card ' +
         (hasErrors() ? 'dp__card--err ' : '') +
         (open() ? 'dp__card--open' : '')
       }
@@ -301,7 +358,7 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
                 class="rmp__editor prompts__edit"
                 value={draft()}
                 onInput={(e) => setDraft(e.currentTarget.value)}
-                rows={14}
+                rows={7}
                 data-testid="prompt-edit-text"
               />
               <div class="prompts__edit-actions">
@@ -314,8 +371,12 @@ function PromptCard(props: { p: PromptDef; client?: Client; onSaved?: () => void
                   data-testid="prompt-save-scope"
                 >
                   <option value="global">global</option>
-                  <option value="workspace">workspace</option>
-                  <option value="session">session</option>
+                  <option value="workspace" disabled={!props.context?.workspaceId}>
+                    workspace
+                  </option>
+                  <option value="session" disabled={!props.context?.sessionId}>
+                    session
+                  </option>
                 </select>
                 <button
                   type="button"

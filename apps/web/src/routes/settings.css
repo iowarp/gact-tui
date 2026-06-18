@@ -50,6 +50,11 @@
   margin: 0 auto;
 }
 
+.settings__body--remote {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
 .settings__empty {
   background: var(--color-surface);
   border: 1px dashed var(--color-border-60);
@@ -162,6 +167,36 @@
 .settings__form {
   padding: 24px;
   max-width: 560px;
+}
+
+.settings__form--remote {
+  width: 100%;
+  padding: 20px 24px 18px;
+}
+
+.settings__form--remote .settings__seg {
+  margin-bottom: 14px;
+}
+
+.settings__form--remote .field {
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.settings__form--remote .field input {
+  padding: 8px 12px;
+}
+
+.settings__form--remote .settings__hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.settings__form--remote .settings__actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-30);
 }
 
 .settings__seg {

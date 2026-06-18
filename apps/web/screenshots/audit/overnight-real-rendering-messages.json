@@ -1,0 +1,147 @@
+{
+  "backend": "http://127.0.0.1:18410",
+  "workspaceId": "ws_4629f4581b4a",
+  "sessionId": "sess_3fa1ab684f46",
+  "messages": [
+    {
+      "id": "msg_asst_3d774714befc",
+      "session_id": "sess_3fa1ab684f46",
+      "role": "assistant",
+      "created_at": "2026-06-18T06:38:52.649978+00:00",
+      "updated_at": "2026-06-18T06:38:52.649992+00:00",
+      "parts": [
+        {
+          "id": "part_b80212a6470b",
+          "type": "routing_decision",
+          "metadata": {
+            "route_source": "user_agent",
+            "route_reason": "Session selected user agent 'markdown_probe_1781764728430'."
+          },
+          "text": "",
+          "selected_agent": "markdown_probe_1781764728430",
+          "rationale": "Session selected user agent 'markdown_probe_1781764728430'.",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        },
+        {
+          "id": "part_7b553778e6a0",
+          "type": "text",
+          "metadata": {
+            "stream_source": "live"
+          },
+          "text": "# Rendering Probe\n\n| Surface | Expected UI |\n| --- | --- |\n| table | rendered as a table |\n| list | rendered as bullets |\n| code | rendered as a fenced code block |\n\n- first bullet\n- second bullet with `inline_code_probe`\n\n```python\ndef probe_rendering(value: int) -> int:\n    return value + 1\n```",
+          "selected_agent": "",
+          "rationale": "",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        }
+      ],
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost_usd": 0,
+      "stop_reason": "end_turn",
+      "metadata": {
+        "stream_source": "live",
+        "agent_runtime": {
+          "kind": "dynamic_agent",
+          "agent_id": "markdown_probe_1781764728430",
+          "source": "user",
+          "title": "Markdown Rendering Probe Agent",
+          "execution_mode": "prompt_agent",
+          "module": {},
+          "tools": [],
+          "structured_outputs": {},
+          "fanout": {},
+          "prompt": {
+            "source": "agent_definition",
+            "has_system_prompt": true
+          },
+          "model": {
+            "provider_id": "argonne",
+            "model_id": "google/gemma-4-31B-it",
+            "provider_source": "global_active",
+            "model_source": "global_active",
+            "fallback_to_global": true
+          }
+        }
+      }
+    },
+    {
+      "id": "msg_user_4100d93bb6f3",
+      "session_id": "sess_3fa1ab684f46",
+      "role": "user",
+      "created_at": "2026-06-18T06:38:49.461096+00:00",
+      "updated_at": "2026-06-18T06:38:49.461096+00:00",
+      "parts": [
+        {
+          "id": "part_dbb487eda496",
+          "type": "text",
+          "metadata": {},
+          "text": "Return only markdown. Do not wrap the whole answer in a code fence.\nUse exactly this structure:\n# Rendering Probe\n\n| Surface | Expected UI |\n| --- | --- |\n| table | rendered as a table |\n| list | rendered as bullets |\n| code | rendered as a fenced code block |\n\n- first bullet\n- second bullet with `inline_code_probe`\n\n```python\ndef probe_rendering(value: int) -> int:\n    return value + 1\n```",
+          "selected_agent": "",
+          "rationale": "",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        }
+      ],
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost_usd": 0,
+      "stop_reason": "",
+      "metadata": {}
+    }
+  ]
+}

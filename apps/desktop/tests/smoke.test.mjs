@@ -15,8 +15,22 @@ test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'CLIO Desktop');
   assert.equal(cfg.identifier, 'ai.iowarp.clio.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build/);
+  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build:clio/);
+  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev:clio/);
   assert.equal(cfg.build.frontendDist, '../../web/dist');
+});
+
+test('neutral GACT overlay uses the matching web brand scripts', () => {
+  const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
+  assert.equal(cfg.productName, 'GACT Desktop');
+  assert.equal(cfg.identifier, 'land.charm.gact.desktop');
+  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build:gact/);
+  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev:gact/);
+  assert.equal(cfg.app.windows[0].title, 'GACT Desktop');
+  assert.equal(cfg.app.windows[0].width, 1440);
+  assert.equal(cfg.app.windows[0].height, 900);
+  assert.equal(cfg.app.windows[0].minWidth, 960);
+  assert.equal(cfg.app.windows[0].minHeight, 600);
 });
 
 test('Cargo.toml declares the tauri-build build-dependency', () => {

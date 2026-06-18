@@ -1,8 +1,13 @@
-import { createSignal, Match, Switch } from 'solid-js';
+import { createEffect, createSignal, Match, Show, Switch } from 'solid-js';
+import { brand } from '@brand';
 import { ConnectScreen } from './routes/ConnectScreen.js';
 import { ChatScreen } from './routes/ChatScreen.js';
 import { SplashScreen } from './routes/SplashScreen.js';
-import { SettingsShell, type SettingsSection } from './routes/SettingsShell.js';
+import {
+  SettingsShell,
+  type SettingsContext,
+  type SettingsSection,
+} from './routes/SettingsShell.js';
 import { readSectionParam } from './routes/settings-deeplink.js';
 import { AddRemoteBackend } from './routes/AddRemoteBackend.js';
 import type { Capabilities } from '@clio/core';
@@ -24,7 +29,7 @@ type Route =
   | { name: 'splash' }
   | { name: 'connect' }
   | { name: 'chat'; backend: BackendHandle }
-  | { name: 'settings'; section?: SettingsSection }
+  | { name: 'settings'; section?: SettingsSection; context?: SettingsContext }
   | { name: 'add-remote' };
 
 export function App() {
@@ -37,6 +42,19 @@ export function App() {
   // default route. (Per the product correction in
   // memory/feedback_clio_desktop_sidecar.md and Wave 0 in apps/PLAN.md.)
   const [route, setRoute] = createSignal<Route>({ name: 'splash' });
+
+  createEffect(() => {
+    const cur = registry.current();
+    const r = route();
+    if (r.name !== 'chat' || !cur) return;
+    if (r.backend.url === cur.url && r.backend.bearerToken === cur.bearerToken) {
+      return;
+    }
+    setRoute({
+      name: 'chat',
+      backend: backendHandleFromEntry(cur),
+    });
+  });
 
   // Test/visual hook: `?route=chat` jumps directly into the chat shell
   // with a synthesized handle so Playwright can capture screenshots
@@ -81,7 +99,7 @@ export function App() {
     // pollute the list.
     registry.add({
       id: 'clio:local',
-      label: inTauri() ? 'Local clio' : 'localhost:17800',
+      label: inTauri() ? `Local ${brand.name}` : 'localhost:17800',
       url: b.url,
       bearerToken: b.bearerToken,
       kind: inTauri() ? 'local-sidecar' : 'http',
@@ -126,13 +144,21 @@ export function App() {
             const r = route();
             if (r.name !== 'chat') return null;
             return (
-              <ChatScreen
-                backend={r.backend}
-                onOpenSettings={(section) =>
-                  setRoute({ name: 'settings', ...(section ? { section } : {}) })
-                }
-                onAddRemote={() => setRoute({ name: 'add-remote' })}
-              />
+              <Show when={r.backend} keyed>
+                {(backend) => (
+                  <ChatScreen
+                    backend={backend}
+                    onOpenSettings={(section, context) =>
+                      setRoute({
+                        name: 'settings',
+                        ...(section ? { section } : {}),
+                        ...(context ? { context } : {}),
+                      })
+                    }
+                    onAddRemote={() => setRoute({ name: 'add-remote' })}
+                  />
+                )}
+              </Show>
             );
           })()}
         </Match>
@@ -145,6 +171,7 @@ export function App() {
                 onAddRemote={() => setRoute({ name: 'add-remote' })}
                 onBack={() => backToChat(registry, setRoute)}
                 {...(r.section ? { initial: r.section } : {})}
+                {...(r.context ? { context: r.context } : {})}
               />
             );
           })()}
@@ -161,6 +188,18 @@ export function App() {
   );
 }
 
+function backendHandleFromEntry(cur: {
+  url: string;
+  bearerToken?: string;
+  capabilities?: Capabilities;
+}): BackendHandle {
+  return {
+    url: cur.url,
+    bearerToken: cur.bearerToken ?? '',
+    capabilities: cur.capabilities ?? synthCapabilities(),
+  };
+}
+
 function backToChat(
   registry: BackendRegistry,
   setRoute: (r: Route) => void,
@@ -172,11 +211,7 @@ function backToChat(
   }
   setRoute({
     name: 'chat',
-    backend: {
-      url: cur.url,
-      bearerToken: cur.bearerToken,
-      capabilities: cur.capabilities ?? synthCapabilities(),
-    },
+    backend: backendHandleFromEntry(cur),
   });
 }
 
@@ -242,7 +277,7 @@ function seedFixtureBackends(registry: BackendRegistry) {
   if (registry.state().backends.length > 0) return;
   registry.add({
     id: 'clio:local',
-    label: 'Local clio',
+    label: `Local ${brand.name}`,
     url: 'http://127.0.0.1:17800',
     bearerToken: 'demo-token',
     kind: 'local-sidecar',

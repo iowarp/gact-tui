@@ -1,11 +1,29 @@
 {
   "name": "GACT",
   "wordmark": "GACT",
-  "tagline": "Generic agentic-coder desktop",
+  "tagline": "Generic agentic-coder workspace",
   "markGlyph": "G",
   "logoSvg": "logo.svg",
   "accent": "#5b8def",
   "themeTokens": {
     "--color-accent": "#5b8def"
-  }
+  },
+  "starterPrompts": [
+    {
+      "eyebrow": "Inspect",
+      "label": "Show me the schema of data/sample.h5 and chart the largest 3 datasets."
+    },
+    {
+      "eyebrow": "Refactor",
+      "label": "Find println calls in src/ and rewrite them to log.Info."
+    },
+    {
+      "eyebrow": "Explain",
+      "label": "Walk me through the SSE event flow in this repo."
+    },
+    {
+      "eyebrow": "Plan",
+      "label": "Draft a migration plan from CSV to Parquet for our pipeline."
+    }
+  ]
 }

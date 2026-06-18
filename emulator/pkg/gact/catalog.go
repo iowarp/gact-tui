@@ -255,6 +255,7 @@ type AgentBlueprintDefinition struct {
 	RootPath           string         `json:"root_path,omitempty"`
 	DefinitionPath     string         `json:"definition_path,omitempty"`
 	RootExpert         string         `json:"root_expert,omitempty"`
+	Kind               string         `json:"kind,omitempty"` // "blueprint" | "pack"
 	Enabled            bool           `json:"enabled"`
 	ValidationWarnings []string       `json:"validation_warnings,omitempty"`
 	ValidationErrors   []string       `json:"validation_errors,omitempty"`

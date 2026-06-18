@@ -4,8 +4,8 @@
   "version": "0.7.1",
   "identifier": "ai.iowarp.clio.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/web build",
-    "beforeDevCommand": "pnpm --filter @clio/web dev",
+    "beforeBuildCommand": "pnpm --filter @clio/web build:clio",
+    "beforeDevCommand": "pnpm --filter @clio/web dev:clio",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"
   },

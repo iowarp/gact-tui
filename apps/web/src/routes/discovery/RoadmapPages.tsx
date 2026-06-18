@@ -1,12 +1,12 @@
 /**
  * Read-only discovery pages for the GACT v0.2 surfaces the desktop
- * doesn't yet have a write-flow for: hooks, policies, agent
- * blueprints, expert packs. Surfacing them in Settings makes them
- * discoverable (instead of users having to edit YAML on disk and
- * not knowing where to look).
+ * doesn't yet have a full custom editor for: hooks, policies, and agent
+ * blueprints. Surfacing them in Settings makes them discoverable while
+ * lifecycle actions use the backend APIs that are available.
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';
+import { brand } from '@brand';
 import type { BlueprintSource, Client, HookEvent } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
@@ -14,6 +14,14 @@ import './hooks-page.css';
 
 export interface ClientPageProps {
   client: Client;
+  context?: { sessionId?: string; workspaceId?: string };
+}
+
+function catalogScope(context?: ClientPageProps['context']) {
+  return {
+    ...(context?.sessionId ? { session_id: context.sessionId } : {}),
+    ...(context?.workspaceId ? { workspace_id: context.workspaceId } : {}),
+  };
 }
 
 /** The six declarative-hook event kinds clio accepts (live x_clio_hook_events). */
@@ -104,7 +112,7 @@ export function HooksPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="tool"
       title="Hooks"
-      subtitle="Two surfaces: the file-based runtime hooks that actually fire during turns (read-only, loaded at backend start), and the declarative hooks below — which this clio build stores but does not yet dispatch."
+      subtitle="Commands or webhooks connected to session events."
       actions={
         <button
           type="button"
@@ -120,9 +128,9 @@ export function HooksPage(props: ClientPageProps) {
       {/* GAP 4 — read-only runtime hook status from capabilities. */}
       <section class="rmp__panel" data-testid="hooks-runtime-panel">
         <header class="rmp__panel-head">
-          <h2 class="rmp__panel-title">Runtime hooks</h2>
+          <h2 class="rmp__panel-title">Loaded hooks</h2>
           <span class="rmp__panel-note">
-            file-based, loaded at backend start — read-only
+            active for this backend, read-only
           </span>
         </header>
         <div class="rmp__panel-row">
@@ -159,7 +167,7 @@ export function HooksPage(props: ClientPageProps) {
       </section>
 
       {/* GAP 2 / GAP 5 — editable declarative hook list. */}
-      <h2 class="dp__section-title">Declarative hooks</h2>
+      <h2 class="dp__section-title">Saved hooks</h2>
       <Show when={!data.loading && items().length === 0 && !error()}>
         <div
           class="dp__empty"
@@ -169,11 +177,10 @@ export function HooksPage(props: ClientPageProps) {
           <div class="dp__empty-icon">
             <Icon name="tool" size={28} />
           </div>
-          <h2 class="dp__empty-title">No declarative hooks registered</h2>
+          <h2 class="dp__empty-title">No saved hooks</h2>
           <p class="dp__empty-body">
-            Declarative hooks bind an event kind to a local command or an HTTP URL.
-            This clio build stores them but does not yet dispatch them during turns —
-            the runtime hooks above are what fire today. Add one below.
+            This backend can store event-triggered commands or webhooks. The loaded
+            hooks above are the ones that currently run during turns.
           </p>
         </div>
       </Show>
@@ -252,18 +259,26 @@ export function PoliciesPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
     props.client.policies().catch(() => null),
   );
-  const policies = () => (data() as { policies?: Record<string, unknown> } | null)?.policies ?? {};
-  const entries = () => Object.entries(policies()) as Array<[string, unknown]>;
+  const policies = () =>
+    (data() as { policies?: Record<string, unknown> | unknown[] } | null)?.policies ?? [];
+  const entries = () => {
+    const doc = policies();
+    return Array.isArray(doc)
+      ? doc.map((value, index) => [String(index), value] as [string, unknown])
+      : (Object.entries(doc) as Array<[string, unknown]>);
+  };
 
   const [draft, setDraft] = createSignal<string>('');
   const [editing, setEditing] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [saved, setSaved] = createSignal(false);
 
   function startEdit() {
     setDraft(JSON.stringify(policies(), null, 2));
     setEditing(true);
     setError(null);
+    setSaved(false);
   }
 
   function cancelEdit() {
@@ -273,7 +288,8 @@ export function PoliciesPage(props: ClientPageProps) {
 
   async function saveEdit() {
     setError(null);
-    let parsed: Record<string, unknown>;
+    setSaved(false);
+    let parsed: Record<string, unknown> | unknown[];
     try {
       parsed = JSON.parse(draft());
     } catch (e) {
@@ -284,6 +300,7 @@ export function PoliciesPage(props: ClientPageProps) {
     try {
       await props.client.putPolicies({ policies: parsed });
       setEditing(false);
+      setSaved(true);
       void refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -296,7 +313,7 @@ export function PoliciesPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="agents"
       title="Policies"
-      subtitle="Workspace + global autonomy policy that gates tools, commands, and memory access. Edit the JSON to relax or tighten gates."
+      subtitle="Access rules for tools, commands, and memory."
       actions={
         <>
           <Show when={!editing()}>
@@ -321,10 +338,15 @@ export function PoliciesPage(props: ClientPageProps) {
         </>
       }
       loading={data.loading}
-      empty={!data.loading && entries().length === 0 && !editing()}
-      emptyTitle="No policy returned"
-      emptyBody="Backend exposes /v1/policies but no entries are configured. Click Edit to add one."
+      empty={!data.loading && entries().length === 0 && !editing() && !saved()}
+      emptyTitle="No policy entries configured"
+      emptyBody="The backend returned an empty policy list. Click Edit to review or add JSON policy entries."
     >
+      <Show when={saved()}>
+        <p class="rmp__form-err rmp__form-ok" data-testid="policies-save-result">
+          ✓ Policies saved.
+        </p>
+      </Show>
       <Show
         when={editing()}
         fallback={
@@ -370,27 +392,43 @@ export function PoliciesPage(props: ClientPageProps) {
 /** Agent blueprints (#386 / #387). Read + install + uninstall. */
 export function BlueprintsPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
-    props.client.agentBlueprints().catch(() => ({ blueprints: [] })),
+    props.client.agentBlueprints(catalogScope(props.context)).catch(() => ({ blueprints: [] })),
   );
   const items = () => data()?.blueprints ?? [];
 
   const [installOpen, setInstallOpen] = createSignal(false);
   const [pathText, setPathText] = createSignal('');
-  const [scope, setScope] = createSignal<'workspace' | 'global'>('workspace');
+  const [scope, setScope] = createSignal<'workspace' | 'global'>(
+    props.context?.workspaceId ? 'workspace' : 'global',
+  );
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [verdict, setVerdict] = createSignal<string | null>(null);
+
+  const workspaceScope = () => ({
+    ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
+    ...(props.context?.sessionId ? { session_id: props.context.sessionId } : {}),
+  });
 
   async function uninstall(id: string, name: string, bpScope?: string) {
     if (!confirm(`Uninstall blueprint "${name}"? This cannot be undone.`)) return;
+    setError(null);
+    setVerdict(null);
     try {
       // Pass the blueprint's own scope so global installs can actually be
       // matched (clio's DELETE defaults to workspace scope) — W2 wire fix.
       await props.client.uninstallAgentBlueprint(
         id,
         bpScope === 'global' || bpScope === 'workspace'
-          ? { scope: bpScope }
+          ? {
+              scope: bpScope,
+              ...(bpScope === 'workspace' && props.context?.workspaceId
+                ? { workspace_id: props.context.workspaceId }
+                : {}),
+            }
           : undefined,
       );
+      setVerdict(`Uninstalled ${name}.`);
       void refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -400,9 +438,10 @@ export function BlueprintsPage(props: ClientPageProps) {
   async function submitInstall(ev: SubmitEvent) {
     ev.preventDefault();
     setError(null);
+    setVerdict(null);
     const src = pathText().trim();
     if (!src) {
-      setError('Enter a blueprint path on the clio host, or a git URL.');
+      setError('Enter a blueprint path on the backend host, or a git URL.');
       return;
     }
     // clio validates a blueprint on DISK by path; a git/URL source is
@@ -411,13 +450,24 @@ export function BlueprintsPage(props: ClientPageProps) {
     setBusy(true);
     try {
       if (!looksRemote) {
-        const v = await props.client.validateAgentBlueprint({ path: src, scope: scope() });
+        const v = await props.client.validateAgentBlueprint({
+          path: src,
+          scope: scope(),
+          ...workspaceScope(),
+        });
         if (!v.ok) {
           setError(`Validation failed: ${v.errors.join('; ') || 'no detail'}`);
           return;
         }
       }
-      await props.client.installAgentBlueprint({ source: src, scope: scope() });
+      await props.client.installAgentBlueprint({
+        source: src,
+        scope: scope(),
+        ...(scope() === 'workspace' && props.context?.workspaceId
+          ? { workspace_id: props.context.workspaceId }
+          : {}),
+      });
+      setVerdict('Installed. Refreshing blueprints.');
       setPathText('');
       setInstallOpen(false);
       void refetch();
@@ -432,7 +482,7 @@ export function BlueprintsPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="agents"
       title="Agent blueprints"
-      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install one by path (on the clio host) or git URL to add a new expert routing path."
+      subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install one by path on the backend host or from a git URL."
       actions={
         <>
           <button
@@ -459,7 +509,7 @@ export function BlueprintsPage(props: ClientPageProps) {
       <Show when={installOpen()}>
         <form class="rmp__install" onSubmit={submitInstall}>
           <label class="rmp__install-label" for="bp-install">
-            Blueprint path (on the clio host) or git URL
+            Blueprint path on the backend host or git URL
           </label>
           <input
             id="bp-install"
@@ -480,12 +530,11 @@ export function BlueprintsPage(props: ClientPageProps) {
             onChange={(e) => setScope(e.currentTarget.value as 'workspace' | 'global')}
             data-testid="blueprint-install-scope"
           >
-            <option value="workspace">workspace</option>
+            <option value="workspace" disabled={!props.context?.workspaceId}>
+              workspace
+            </option>
             <option value="global">global</option>
           </select>
-          <Show when={error()}>
-            <p class="rmp__form-err">{error()}</p>
-          </Show>
           <div class="rmp__editor-actions">
             <button
               type="button"
@@ -506,6 +555,16 @@ export function BlueprintsPage(props: ClientPageProps) {
           </div>
         </form>
       </Show>
+      <Show when={error()}>
+        <p class="rmp__form-err" data-testid="blueprint-error">
+          {error()}
+        </p>
+      </Show>
+      <Show when={verdict()}>
+        <p class="rmp__form-err rmp__form-ok" data-testid="blueprint-verdict">
+          {verdict()}
+        </p>
+      </Show>
       <BlueprintSourcesPanel client={props.client} />
       <h2 class="dp__section-title">Installed blueprints</h2>
       <Show when={!data.loading && items().length === 0}>
@@ -515,15 +574,15 @@ export function BlueprintsPage(props: ClientPageProps) {
           </div>
           <h2 class="dp__empty-title">No blueprints installed</h2>
           <p class="dp__empty-body">
-            Install one by path (on the clio host) or a git URL via the + button,
+            Install one by path on the backend host or a git URL via the + button,
             or register a source above to scan a registry.
           </p>
         </div>
       </Show>
-      <div class="dp__grid">
+      <div class="dp__grid rmp__blueprint-grid">
         <For each={items()}>
           {(bp) => (
-            <article class="dp__card" data-testid={`blueprint-${bp.id}`}>
+            <article class="dp__card rmp__blueprint-card" data-testid={`blueprint-${bp.id}`}>
               <header class="dp__card-head">
                 <div class="dp__card-title-row">
                   <div class="dp__card-icon">
@@ -654,7 +713,7 @@ function BlueprintSourcesPanel(props: ClientPageProps) {
       <header class="rmp__panel-head">
         <h2 class="rmp__panel-title">Sources</h2>
         <span class="rmp__panel-note">
-          git / local registries clio scans for installable blueprints
+          git / local registries the backend scans for installable blueprints
         </span>
       </header>
 
@@ -670,6 +729,9 @@ function BlueprintSourcesPanel(props: ClientPageProps) {
                     title={s.status_message || s.status}
                     aria-label={`status: ${s.status}`}
                   />
+                  <span class={'rmp__tag bps__status bps__status--' + (s.status || 'unknown')}>
+                    {s.status || 'unknown'}
+                  </span>
                   <span class="rmp__name">{s.name || s.source}</span>
                   <code class="rmp__uri" title={s.source}>
                     {s.source}
@@ -720,7 +782,7 @@ function BlueprintSourcesPanel(props: ClientPageProps) {
           </div>
           <h2 class="dp__empty-title">No blueprint sources registered</h2>
           <p class="dp__empty-body">
-            Add a git URL or local path below to point clio at a registry of
+            Add a git URL or local path below to point {brand.name} at a registry of
             installable blueprints.
           </p>
         </div>
@@ -774,33 +836,96 @@ function BlueprintSourcesPanel(props: ClientPageProps) {
   );
 }
 
-/** Expert packs (#344 / #376 / #377). Read + validate. */
+/** Expert packs. 0.5.3 exposes the install/update/delete lifecycle. */
 export function ExpertPacksPage(props: ClientPageProps) {
   const [data, { refetch }] = createResource(() =>
-    props.client.expertPacks().catch(() => ({ packs: [] })),
+    props.client.expertPacks(catalogScope(props.context)).catch(() => ({ packs: [] })),
   );
   const items = () => data()?.packs ?? [];
 
-  const [validateOpen, setValidateOpen] = createSignal(false);
-  const [pathText, setPathText] = createSignal('');
-  const [scope, setScope] = createSignal<'workspace' | 'global' | 'session'>('session');
+  const [panelOpen, setPanelOpen] = createSignal(false);
+  const [sourceText, setSourceText] = createSignal('');
+  const [scope, setScope] = createSignal<'workspace' | 'global'>(
+    props.context?.workspaceId ? 'workspace' : 'global',
+  );
   const [busy, setBusy] = createSignal(false);
-  const [verdict, setVerdict] = createSignal<{ ok: boolean; errors?: string[] } | null>(null);
+  const [verdict, setVerdict] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
 
-  async function submitValidate(ev: SubmitEvent) {
+  async function submitInstall(ev: SubmitEvent) {
     ev.preventDefault();
     setError(null);
     setVerdict(null);
-    const path = pathText().trim();
-    if (!path) {
-      setError('Enter the expert-pack path on the clio host.');
+    const source = sourceText().trim();
+    if (!source) {
+      setError('Enter a source path, URL, or marketplace identifier.');
       return;
     }
     setBusy(true);
     try {
+      await props.client.installExpertPack({
+        source,
+        scope: scope(),
+        ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
+      });
+      setVerdict('Installed. Refreshing expert packs.');
+      setSourceText('');
+      await refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function validateSource() {
+    const path = sourceText().trim();
+    if (!path) {
+      setError('Enter a source path, URL, or marketplace identifier.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setVerdict(null);
+    try {
       const v = await props.client.validateExpertPack({ path, scope: scope() });
-      setVerdict(v);
+      setVerdict(v.ok ? 'Source validates.' : (v.errors ?? []).join('; ') || 'Source is invalid.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updatePack(packId: string) {
+    setBusy(true);
+    setError(null);
+    setVerdict(null);
+    try {
+      await props.client.updateExpertPack(packId, {
+        scope: 'workspace',
+        ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
+      });
+      setVerdict(`Updated ${packId}.`);
+      await refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deletePack(packId: string) {
+    setBusy(true);
+    setError(null);
+    setVerdict(null);
+    try {
+      await props.client.deleteExpertPack(packId, {
+        scope: 'workspace',
+        ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
+      });
+      setVerdict(`Deleted ${packId}.`);
+      await refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -812,17 +937,17 @@ export function ExpertPacksPage(props: ClientPageProps) {
     <DiscoveryPage
       icon="sparkle"
       title="Expert packs"
-      subtitle="Hierarchical prompt + skill bundles that bind to a workspace, session, or single turn."
+      subtitle="Reusable agent bundles available to this backend."
       actions={
         <>
           <button
             type="button"
             class="dp-iconbtn"
-            onClick={() => setValidateOpen((v) => !v)}
-            title="Validate a pack JSON"
+            onClick={() => setPanelOpen((v) => !v)}
+            title="Install expert pack"
             data-testid="expertpack-validate-toggle"
           >
-            <Icon name="check" size={14} />
+            <Icon name="plus" size={14} />
           </button>
           <button
             type="button"
@@ -835,22 +960,22 @@ export function ExpertPacksPage(props: ClientPageProps) {
         </>
       }
       loading={data.loading}
-      empty={!data.loading && items().length === 0 && !validateOpen()}
+      empty={!data.loading && items().length === 0 && !panelOpen()}
       emptyTitle="No expert packs installed"
-      emptyBody="Drop a pack under clio-agent/src/clio_agent/experts/ then validate it by path above."
+      emptyBody="Install a pack source to make experts available in sessions."
     >
-      <Show when={validateOpen()}>
-        <form class="rmp__install" onSubmit={submitValidate}>
+      <Show when={panelOpen()}>
+        <form class="rmp__install" onSubmit={submitInstall}>
           <label class="rmp__install-label" for="ep-validate">
-            Expert pack path (on the clio host)
+            Expert pack source
           </label>
           <input
             id="ep-validate"
             class="rmp__editor"
             type="text"
-            placeholder="src/clio_agent/experts/my-pack"
-            value={pathText()}
-            onInput={(e) => setPathText(e.currentTarget.value)}
+            placeholder="local path, git URL, archive URL, or marketplace source"
+            value={sourceText()}
+            onInput={(e) => setSourceText(e.currentTarget.value)}
             data-testid="expertpack-validate-input"
           />
           <label class="rmp__install-label" for="ep-scope">
@@ -861,54 +986,58 @@ export function ExpertPacksPage(props: ClientPageProps) {
             class="rmp__editor"
             value={scope()}
             onChange={(e) =>
-              setScope(e.currentTarget.value as 'workspace' | 'global' | 'session')
+              setScope(e.currentTarget.value as 'workspace' | 'global')
             }
             data-testid="expertpack-validate-scope"
           >
-            <option value="session">session</option>
-            <option value="workspace">workspace</option>
+            <option value="workspace" disabled={!props.context?.workspaceId}>
+              workspace
+            </option>
             <option value="global">global</option>
           </select>
-          <Show when={error()}>
-            <p class="rmp__form-err">{error()}</p>
-          </Show>
-          <Show when={verdict()}>
-            <p
-              class={'rmp__form-err ' + (verdict()!.ok ? 'rmp__form-ok' : '')}
-              data-testid="expertpack-verdict"
-            >
-              <Show
-                when={verdict()!.ok}
-                fallback={`✗ ${(verdict()!.errors ?? []).join('; ') || 'invalid'}`}
-              >
-                ✓ Pack JSON looks valid.
-              </Show>
-            </p>
-          </Show>
           <div class="rmp__editor-actions">
             <button
               type="button"
               class="ws-form__btn"
-              onClick={() => setValidateOpen(false)}
+              onClick={() => setPanelOpen(false)}
               disabled={busy()}
             >
               Close
             </button>
             <button
-              type="submit"
-              class="ws-form__btn ws-form__btn--primary"
-              disabled={busy() || !pathText().trim()}
+              type="button"
+              class="ws-form__btn"
+              onClick={() => void validateSource()}
+              disabled={busy() || !sourceText().trim()}
               data-testid="expertpack-validate-submit"
             >
-              {busy() ? 'Validating…' : 'Validate'}
+              {busy() ? 'Working...' : 'Validate'}
+            </button>
+            <button
+              type="submit"
+              class="ws-form__btn ws-form__btn--primary"
+              disabled={busy() || !sourceText().trim()}
+              data-testid="expertpack-install-submit"
+            >
+              {busy() ? 'Working...' : 'Install'}
             </button>
           </div>
         </form>
       </Show>
-      <div class="dp__grid">
+      <Show when={error()}>
+        <p class="rmp__form-err" data-testid="expertpack-error">
+          {error()}
+        </p>
+      </Show>
+      <Show when={verdict()}>
+        <p class="rmp__form-err rmp__form-ok" data-testid="expertpack-verdict">
+          {verdict()}
+        </p>
+      </Show>
+      <div class="dp__grid rmp__pack-grid">
         <For each={items()}>
           {(p) => (
-            <article class="dp__card" data-testid={`expertpack-${p.id}`}>
+            <article class="dp__card rmp__pack-card" data-testid={`expertpack-${p.id}`}>
               <header class="dp__card-head">
                 <div class="dp__card-title-row">
                   <div class="dp__card-icon">
@@ -922,10 +1051,36 @@ export function ExpertPacksPage(props: ClientPageProps) {
                 <Show when={p.runtime_scope}>
                   <span class="dp__tag">{p.runtime_scope}</span>
                 </Show>
+                <Show when={p.kind}>
+                  <span class="dp__tag">{p.kind}</span>
+                </Show>
+                <Show when={p.scope}>
+                  <span class="dp__tag">{p.scope}</span>
+                </Show>
               </header>
               <Show when={p.description}>
                 <p class="dp__card-body">{p.description}</p>
               </Show>
+              <div class="rmp__editor-actions">
+                <button
+                  type="button"
+                  class="ws-form__btn"
+                  onClick={() => void updatePack(p.id)}
+                  disabled={busy()}
+                  data-testid={`expertpack-update-${p.id}`}
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  class="ws-form__btn"
+                  onClick={() => void deletePack(p.id)}
+                  disabled={busy()}
+                  data-testid={`expertpack-delete-${p.id}`}
+                >
+                  Delete
+                </button>
+              </div>
             </article>
           )}
         </For>

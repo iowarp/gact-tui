@@ -21,7 +21,16 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::ipc::Channel;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+const SSE_EVENT: &str = "gact:sse";
+
+fn redact_url(url: &str) -> String {
+    match url.split_once('?') {
+        Some((base, _)) => format!("{base}?<redacted>"),
+        None => url.to_string(),
+    }
+}
 
 /// One message pushed to the frontend channel. `kind` discriminates:
 /// `open` (stream connected), `event` (a parsed SSE event — `data`
@@ -37,18 +46,40 @@ pub struct SseMessage {
     message: Option<String>,
 }
 
+#[derive(Clone, Serialize)]
+struct SseEventPayload {
+    client_id: String,
+    message: SseMessage,
+}
+
 impl SseMessage {
     fn open() -> Self {
-        Self { kind: "open".into(), data: None, message: None }
+        Self {
+            kind: "open".into(),
+            data: None,
+            message: None,
+        }
     }
     fn event(data: String) -> Self {
-        Self { kind: "event".into(), data: Some(data), message: None }
+        Self {
+            kind: "event".into(),
+            data: Some(data),
+            message: None,
+        }
     }
     fn error(msg: String) -> Self {
-        Self { kind: "error".into(), data: None, message: Some(msg) }
+        Self {
+            kind: "error".into(),
+            data: None,
+            message: Some(msg),
+        }
     }
     fn closed() -> Self {
-        Self { kind: "closed".into(), data: None, message: None }
+        Self {
+            kind: "closed".into(),
+            data: None,
+            message: None,
+        }
     }
 }
 
@@ -115,16 +146,29 @@ pub fn gact_sse_open(
     url: String,
     headers: HashMap<String, String>,
     on_event: Channel<SseMessage>,
+    client_id: Option<String>,
 ) -> Result<u64, String> {
     let (id, stop) = app.state::<SseRegistry>().register();
+    let event_client_id = client_id.unwrap_or_else(|| id.to_string());
+    eprintln!("[gact_sse] open requested id={id} url={}", redact_url(&url));
     let app2 = app.clone();
     thread::Builder::new()
         .name(format!("gact-sse-{id}"))
         .spawn(move || {
+            eprintln!("[gact_sse] thread started id={id}");
             run_stream(&url, &headers, &stop, |m| {
-                let _ = on_event.send(m);
+                eprintln!("[gact_sse] emit id={id} kind={}", m.kind);
+                let _ = on_event.send(m.clone());
+                let _ = app2.emit(
+                    SSE_EVENT,
+                    SseEventPayload {
+                        client_id: event_client_id.clone(),
+                        message: m,
+                    },
+                );
             });
             app2.state::<SseRegistry>().forget(id);
+            eprintln!("[gact_sse] thread stopped id={id}");
         })
         .map_err(|e| format!("sse thread spawn: {e}"))?;
     Ok(id)
@@ -135,6 +179,7 @@ pub fn gact_sse_open(
 /// cadence to a few seconds) and exits.
 #[tauri::command]
 pub fn gact_sse_close(app: tauri::AppHandle, id: u64) {
+    eprintln!("[gact_sse] close requested id={id}");
     app.state::<SseRegistry>().stop(id);
 }
 
@@ -148,6 +193,7 @@ fn run_stream<F: FnMut(SseMessage)>(
     stop: &AtomicBool,
     mut emit: F,
 ) {
+    eprintln!("[gact_sse] connecting url={}", redact_url(url));
     let mut req = ureq::get(url).set("Accept", "text/event-stream");
     for (k, v) in headers {
         req = req.set(k, v);
@@ -155,14 +201,17 @@ fn run_stream<F: FnMut(SseMessage)>(
     let resp = match req.call() {
         Ok(r) => r,
         Err(ureq::Error::Status(code, _)) => {
+            eprintln!("[gact_sse] status error code={code}");
             emit(SseMessage::error(format!("sse status {code}")));
             return;
         }
         Err(e) => {
+            eprintln!("[gact_sse] connect error {e}");
             emit(SseMessage::error(format!("sse connect: {e}")));
             return;
         }
     };
+    eprintln!("[gact_sse] connected status={}", resp.status());
     emit(SseMessage::open());
 
     let mut reader = BufReader::new(resp.into_reader());
@@ -214,8 +263,8 @@ mod tests {
     use std::time::Duration;
 
     fn backend() -> Option<String> {
-        let url = std::env::var("CLIO_GACT_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
+        let url =
+            std::env::var("CLIO_GACT_URL").unwrap_or_else(|_| "http://127.0.0.1:17800".to_string());
         match ureq::get(&format!("{url}/v1/capabilities"))
             .timeout(Duration::from_millis(800))
             .call()
@@ -223,6 +272,24 @@ mod tests {
             Ok(_) | Err(ureq::Error::Status(_, _)) => Some(url),
             Err(_) => None,
         }
+    }
+
+    fn create_session_body(base: &str) -> String {
+        let workspace_id = ureq::get(&format!("{base}/v1/workspaces"))
+            .call()
+            .ok()
+            .and_then(|r| r.into_string().ok())
+            .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
+            .and_then(|j| {
+                j.get("workspaces")
+                    .and_then(|v| v.as_array())
+                    .and_then(|rows| rows.first())
+                    .and_then(|row| row.get("id"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "ws_default".to_string());
+        serde_json::json!({ "workspace_id": workspace_id }).to_string()
     }
 
     #[test]
@@ -234,7 +301,7 @@ mod tests {
         // Fresh session to subscribe to.
         let body = ureq::post(&format!("{base}/v1/sessions"))
             .set("Content-Type", "application/json")
-            .send_string("{}")
+            .send_string(&create_session_body(&base))
             .ok()
             .and_then(|r| r.into_string().ok())
             .expect("create session");
@@ -243,8 +310,7 @@ mod tests {
             .and_then(|j| j.get("id").and_then(|v| v.as_str()).map(String::from))
             .expect("session id in response");
 
-        let events: Arc<Mutex<Vec<(String, Option<String>)>>> =
-            Arc::new(Mutex::new(Vec::new()));
+        let events: Arc<Mutex<Vec<(String, Option<String>)>>> = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let url = format!("{base}/v1/sessions/{sid}/events");
         let ev2 = events.clone();
@@ -271,7 +337,10 @@ mod tests {
                 let g = events.lock().unwrap();
                 got_open = g.iter().any(|(k, _)| k == "open");
                 got_event = g.iter().any(|(k, d)| {
-                    k == "event" && d.as_deref().map(|s| s.contains("\"type\"")).unwrap_or(false)
+                    k == "event"
+                        && d.as_deref()
+                            .map(|s| s.contains("\"type\""))
+                            .unwrap_or(false)
                 });
             }
             if got_open && got_event {
@@ -301,7 +370,7 @@ mod tests {
         };
         let body = ureq::post(&format!("{base}/v1/sessions"))
             .set("Content-Type", "application/json")
-            .send_string("{}")
+            .send_string(&create_session_body(&base))
             .ok()
             .and_then(|r| r.into_string().ok())
             .expect("create session");
@@ -335,8 +404,14 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(500));
         }
-        assert!(joined, "reader thread did not stop within ~20s of stop flag");
+        assert!(
+            joined,
+            "reader thread did not stop within ~20s of stop flag"
+        );
         let _ = reader.join();
-        assert!(closed.load(Ordering::Relaxed), "reader should emit 'closed' on stop");
+        assert!(
+            closed.load(Ordering::Relaxed),
+            "reader should emit 'closed' on stop"
+        );
     }
 }

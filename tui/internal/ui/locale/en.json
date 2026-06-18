@@ -216,6 +216,7 @@
   "help.tab.permission": "Permission",
   "help.global.cycle_focus": "cycle focus between panes",
   "help.global.new_session": "create a new session",
+  "help.global.session_setup": "choose workflow for a new session",
   "help.global.switch_workspace": "switch workspace",
   "help.global.settings": "open model, agent, theme, TUI, and language settings",
   "help.global.metrics": "open metrics overlay",

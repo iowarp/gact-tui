@@ -78,6 +78,13 @@ type App struct {
 	// See scripts/voice-record.sh for a reference arecord wrapper.
 	VoiceCommand string
 
+	// New-session defaults shared with Settings and the Ctrl+B picker.
+	// They are local preferences; the backend binding happens after a
+	// session is created via /v1/sessions/{id}/agent-blueprint and
+	// /v1/sessions/{id}/expert-pack.
+	DefaultAgentBlueprintID string
+	DefaultExpertPackID     string
+
 	// ReloadConfig is invoked by Ctrl+L to re-read the on-disk config
 	// and reapply runtime-tweakable fields (theme, voice command). The
 	// returned string is shown to the user as a transient toast.
@@ -438,6 +445,11 @@ type App struct {
 	// Settings overlay
 	settingsOpen bool
 	settings     *settingsState
+
+	// New-session workflow picker. Opened by Ctrl+B, Ctrl+N, /new, and
+	// the Settings > Expert defaults row.
+	sessionSetupOpen bool
+	sessionSetup     *sessionSetupState
 
 	// Sidebar layout editor. Opened from Settings > TUI and backed by
 	// the same sidebar_layout.left/right config shape.
@@ -1377,7 +1389,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward paste events to the textarea when input has focus.
 		// This is the bracketed-paste happy path: one PasteMsg with the
 		// whole multi-line content, inserted as a single operation.
-		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen && !a.lmConfigOpen {
+		if a.focus == FocusInput && !a.helpOpen && !a.paletteOpen && !a.settingsOpen && !a.sessionSetupOpen && !a.metricsOpen && !a.workspaceSwitchOpen && !a.renameOpen && !a.contextAddOpen && !a.detailViewOpen && !a.quitConfirmOpen && !a.doctorOpen && !a.lmConfigOpen {
 			// Claude-Code-style compressed paste: multi-line pastes get a
 			// [pasted content: N lines] placeholder in the input, with
 			// the full content stashed on App. Ctrl+P toggles expand.
@@ -2247,7 +2259,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.selected < 0 {
 			a.selected = 0
 		}
+		if strings.TrimSpace(m.semanticWarning) != "" {
+			a.transientHint = "session created; setup warning: " + m.semanticWarning
+		}
 		return a, a.selectSession(a.selected)
+
+	case sessionSetupLoadedMsg:
+		if a.sessionSetup == nil {
+			return a, nil
+		}
+		a.sessionSetup.loading = false
+		a.sessionSetup.errText = ""
+		if m.err != nil {
+			a.sessionSetup.errText = m.err.Error()
+		}
+		a.sessionSetup.blueprints = filterSessionSetupBlueprints(m.blueprints)
+		a.sessionSetup.packs = m.packs
+		a.seedSessionSetupSelections()
+		return a, nil
 
 	case filePickerLoadedMsg:
 		if a.filePicker == nil {
@@ -3105,6 +3134,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if a.expertPackInstallOpen {
 		return a.handleExpertPackInstallKey(k)
 	}
+	if a.sessionSetupOpen {
+		return a.handleSessionSetupKey(k)
+	}
 	if a.workspaceSwitchOpen {
 		return a.handleWorkspaceSwitchKey(k)
 	}
@@ -3225,12 +3257,9 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "ctrl+n":
-		// New session in current workspace, or against a backend
-		// that doesn't model workspaces (CLIO advertises
-		// capabilities.workspaces=false). The server defaults
-		// missing workspace_id to its own ws_default — passing
-		// "" is honest about not having one.
-		return a, createSessionCmd(a.c, a.wsID)
+		return a, a.openSessionSetup(false)
+	case "ctrl+b":
+		return a, a.openSessionSetup(false)
 	case "ctrl+r":
 		// Manual reconnect / refresh.
 		return a, a.connectCmd()
@@ -3812,10 +3841,10 @@ func (a *App) handlePaletteKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 
-			// /new creates a new session inline so users don't have
-			// to remember Ctrl+N or tab into the sidebar.
+			// /new opens the same workflow picker as Ctrl+N/Ctrl+B so
+			// new sessions can start with the right blueprint attached.
 			if cmd.ID == "/new" {
-				return a, createSessionCmd(a.c, a.wsID)
+				return a, a.openSessionSetup(false)
 			}
 
 			// /duplicate clones the current session's title + expert,
@@ -5126,9 +5155,7 @@ func (a *App) handleSidebarKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, a.openSessionActionsForIndex(a.selected)
 	case "n":
-		if a.wsID != "" {
-			return a, createSessionCmd(a.c, a.wsID)
-		}
+		return a, a.openSessionSetup(false)
 	case "x":
 		// Two-step delete: first `x` arms, second `x` executes.
 		// Prevents a stray keystroke from silently destroying a
@@ -10633,6 +10660,9 @@ func (a *App) viewMain() string {
 	if a.expertPackInstallOpen {
 		base = overlay(base, a.viewExpertPackInstall(), a.width, a.height)
 	}
+	if a.sessionSetupOpen {
+		base = overlay(base, a.viewSessionSetup(), a.width, a.height)
+	}
 	if a.detailViewOpen {
 		base = overlay(base, a.viewDetailView(), a.width, a.height)
 	}
@@ -14724,6 +14754,7 @@ var helpTabs = []struct {
 		keys: []helpKey{
 			{"Tab / ⇧Tab", "help.global.cycle_focus"},
 			{"Ctrl+N", "help.global.new_session"},
+			{"Ctrl+B", "help.global.session_setup"},
 			{"Ctrl+W", "help.global.switch_workspace"},
 			{"Ctrl+S", "help.global.settings"},
 			{"Ctrl+T", "help.global.metrics"},
@@ -15432,7 +15463,8 @@ type msgPostedAck struct {
 }
 
 type sessionCreatedMsg struct {
-	session gact.Session
+	session         gact.Session
+	semanticWarning string
 }
 
 type sessionsRefreshedMsg struct {

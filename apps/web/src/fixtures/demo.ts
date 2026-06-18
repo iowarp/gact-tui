@@ -105,8 +105,8 @@ export function fixturesForDemo(): DemoFixtures {
 
   // Previews fixture (1.0 items 2+3): an inline image part + a retry-created
   // user message (metadata.retry_attempt_id) so both render deterministically.
-  const TINY_PNG =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const INLINE_CHART_SVG =
+    'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjAiIGhlaWdodD0iMTMwIiB2aWV3Qm94PSIwIDAgNDIwIDEzMCI+PHJlY3Qgd2lkdGg9IjQyMCIgaGVpZ2h0PSIxMzAiIHJ4PSIxNiIgZmlsbD0iIzA3MTExZiIvPjxwYXRoIGQ9Ik0zNSA5MiBDOTUgNTAgMTM1IDc4IDE4MyA0MCBTMjc2IDIwIDM0MiA2MiBTMzg3IDgyIDM5NyA0NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBkNGRiIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjgyIiBjeT0iNzIiIHI9IjciIGZpbGw9IiMzNGQzOTkiLz48Y2lyY2xlIGN4PSIxODMiIGN5PSI0MCIgcj0iNyIgZmlsbD0iI2ZiYmYyNCIvPjxjaXJjbGUgY3g9IjM0MiIgY3k9IjYyIiByPSI3IiBmaWxsPSIjZWE3YjJhIi8+PHRleHQgeD0iMjgiIHk9IjI4IiBmaWxsPSIjZDdlMmZmIiBmb250LWZhbWlseT0iSW50ZXIsQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI3MDAiPkdOU1MgbW90aW9uIHByZXZpZXc8L3RleHQ+PHRleHQgeD0iMjgiIHk9IjExNiIgZmlsbD0iIzdjYTZkOSIgZm9udC1mYW1pbHk9IkludGVyLEFyaWFsIiBmb250LXNpemU9IjEyIj5yZW5kZXJlZCBpbmxpbmUgZnJvbSBhbiBpbWFnZSBwYXJ0PC90ZXh0Pjwvc3ZnPg==';
   const previews: Message[] = [
     ...normal,
     {
@@ -127,7 +127,11 @@ export function fixturesForDemo(): DemoFixtures {
         { type: 'text', text: 'Here is the chart you asked for:' },
         {
           type: 'image',
-          source: { kind: 'base64', media_type: 'image/png', data: TINY_PNG },
+          source: {
+            kind: 'base64',
+            media_type: 'image/svg+xml',
+            data: INLINE_CHART_SVG,
+          },
         },
         {
           type: 'image',

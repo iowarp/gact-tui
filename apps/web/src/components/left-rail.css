@@ -15,7 +15,7 @@
 }
 
 .rail--expanded {
-  width: 208px;
+  width: 216px;
   align-items: stretch;
   padding: 14px 10px 12px;
 }
@@ -162,8 +162,13 @@
    tightest row in the expanded rail. Trim its inner padding/gap so the label
    ("Command palette") fits in full instead of ellipsizing to "Command pal…". */
 .rail--expanded .rail__btn--palette {
-  gap: 8px;
-  padding-right: 6px;
+  gap: 6px;
+  padding-left: 8px;
+  padding-right: 5px;
+}
+
+.rail__btn--palette .rail__label {
+  font-size: 12.5px;
 }
 
 .rail--expanded .rail__btn > .icon {
@@ -246,4 +251,60 @@
 .rail--expanded .rail__badge {
   position: static;
   margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .rail,
+  .rail--expanded,
+  .rail--collapsed {
+    width: 56px;
+    align-items: center;
+    padding: 12px 0 10px;
+  }
+
+  .rail__brand {
+    justify-content: center;
+  }
+
+  .rail__wordmark-text,
+  .rail__group-heading,
+  .rail__label,
+  .rail__kbd {
+    display: none;
+  }
+
+  .rail__groups,
+  .rail__group,
+  .rail__list {
+    align-items: center;
+  }
+
+  .rail__divider,
+  .rail--expanded .rail__divider,
+  .rail--collapsed .rail__divider {
+    width: 24px;
+    align-self: center;
+  }
+
+  .rail__btn,
+  .rail--expanded .rail__btn,
+  .rail--collapsed .rail__btn {
+    width: 40px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  .rail__btn.is-active::before,
+  .rail--expanded .rail__btn.is-active::before {
+    left: -8px;
+  }
+
+  .rail__badge,
+  .rail--expanded .rail__badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    margin-left: 0;
+  }
 }

@@ -77,7 +77,7 @@ export function Dropdown<T>(props: DropdownProps<T>) {
         <Show when={props.icon}>
           <Icon name={props.icon!} size={10} />
         </Show>
-        <span>{props.label}</span>
+        <span class="dd__trigger-label">{props.label}</span>
         <Icon name="chevron-down" size={10} />
       </button>
       <Show when={open()}>

@@ -38,6 +38,8 @@ const KIND_ICON: Record<CatalogKind, IconName> = {
   workspace: 'workspaces',
 };
 
+const CATALOG_KINDS: CatalogKind[] = ['agent', 'tool', 'mcp', 'prompt', 'workspace'];
+
 /**
  * Cmd+Shift+K — unified search across agents / commands / MCP
  * servers / prompts / workspaces. Mirrors the TUI's catalog browser.
@@ -135,6 +137,14 @@ export function CatalogBrowser(props: CatalogBrowserProps) {
     return Array.from(out.entries());
   };
 
+  const categoryCounts = () => {
+    const all = catalog() ?? [];
+    return CATALOG_KINDS.map((kind) => ({
+      kind,
+      count: all.filter((hit) => hit.kind === kind).length,
+    }));
+  };
+
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!props.open) return;
@@ -185,7 +195,7 @@ export function CatalogBrowser(props: CatalogBrowserProps) {
               data-testid="catalog-browser"
             >
               <header class="cbr__head">
-                <span class="eyebrow">Catalog · search agents · tools · MCP · prompts · workspaces</span>
+                <span class="eyebrow">Search agents, commands, tools, prompts, and workspaces</span>
               </header>
               <input
                 ref={inputRef}
@@ -201,6 +211,21 @@ export function CatalogBrowser(props: CatalogBrowserProps) {
               />
               <Show when={catalog.loading}>
                 <div class="cbr__loading">Loading catalog…</div>
+              </Show>
+              <Show when={!catalog.loading}>
+                <div class="cbr__summary" aria-label="Catalog category counts">
+                  <For each={categoryCounts()}>
+                    {(entry) => (
+                      <span
+                        class={'cbr__summary-chip ' + (entry.count > 0 ? 'is-live' : '')}
+                        data-testid={`catalog-summary-${entry.kind}`}
+                      >
+                        {KIND_LABEL[entry.kind]}
+                        <strong>{entry.count}</strong>
+                      </span>
+                    )}
+                  </For>
+                </div>
               </Show>
               <ul class="cbr__list" role="listbox">
                 <For each={grouped()}>

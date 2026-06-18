@@ -123,6 +123,29 @@ export interface MessageCompletion {
   cost_usd?: number;
 }
 
+export function shouldReconcileTranscriptAfterEvent(
+  ev: { type?: string; payload?: Record<string, unknown> },
+  activeSessionId: string,
+): boolean {
+  const p = ev.payload ?? {};
+  const eventSessionId = (p['session_id'] as string | undefined) ?? activeSessionId;
+  if (eventSessionId !== activeSessionId) return false;
+  if (
+    ev.type === 'message.completed' ||
+    ev.type === 'message.error' ||
+    ev.type === 'message.deleted' ||
+    ev.type === 'session.compacted' ||
+    ev.type === 'session.cleared'
+  ) {
+    return true;
+  }
+  return (
+    ev.type === 'session.status_changed' &&
+    p['status'] !== 'running' &&
+    p['status'] !== 'waiting_permission'
+  );
+}
+
 /**
  * Lists sessions on the connected backend. Used by Sidebar. Returns a
  * Solid resource that auto-fetches on mount, exposes a manual refetch,
@@ -139,7 +162,7 @@ export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
 
   const [override, setOverride] = createSignal<SidebarSession[] | null>(null);
   const [resource, { refetch }] = createResource<SidebarSession[]>(async () => {
-    const { sessions: rows } = await client.sessions();
+    const { sessions: rows } = await client.sessions({ include_all_workspaces: true });
     const next = rows.map(toSidebarSession);
     setOverride(null); // resource is fresh — discard local SSE-side overrides
     return next;
@@ -360,6 +383,7 @@ export function createLiveTranscript(
     let attempt = 0;
     let countdownTimer: ReturnType<typeof setInterval> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
 
     // SSE event types this stream listens for. Several handlers below are
@@ -424,6 +448,20 @@ export function createLiveTranscript(
 
     // Parse one SSE event's `data:` payload and reduce it. Shared by the
     // browser EventSource path (raw.data) and the Tauri bridge path.
+    const scheduleTranscriptReconcile = () => {
+      if (disposed) return;
+      if (reconcileTimer) clearTimeout(reconcileTimer);
+      reconcileTimer = setTimeout(() => {
+        reconcileTimer = null;
+        if (disposed) return;
+        void client
+          .messages(id)
+          .then(({ messages: fresh }) => setMessages(fresh))
+          .catch(() => undefined);
+        sessionEvents?.refetch?.();
+      }, 250);
+    };
+
     const handleData = (dataStr: string) => {
       let ev: unknown;
       try {
@@ -431,8 +469,9 @@ export function createLiveTranscript(
       } catch {
         return;
       }
-      trackStreamStats(ev as { type?: string; payload?: Record<string, unknown> });
-      reduce(ev as { type?: string; payload?: Record<string, unknown> }, {
+      const typed = ev as { type?: string; payload?: Record<string, unknown> };
+      trackStreamStats(typed);
+      reduce(typed, {
         setMessages,
         setPendingPermission,
         setLastCompletion,
@@ -448,6 +487,9 @@ export function createLiveTranscript(
         onDiffChanged: sessionEvents?.onDiffChanged,
         onMemoryChanged: sessionEvents?.onMemoryChanged,
       });
+      if (shouldReconcileTranscriptAfterEvent(typed, id)) {
+        scheduleTranscriptReconcile();
+      }
     };
     const onEvent = (raw: MessageEvent) => handleData(raw.data);
 
@@ -507,6 +549,7 @@ export function createLiveTranscript(
         // permanent close. We treat it uniformly: tear down and back
         // off. Browser's auto-reconnect is unreliable when the server
         // rejects mid-stream — explicit control is safer.
+        scheduleTranscriptReconcile();
         teardownEs();
         setStatus('error');
         scheduleReconnect();
@@ -533,6 +576,7 @@ export function createLiveTranscript(
           if (stale() || failed) return;
           failed = true;
           bridge = null;
+          scheduleTranscriptReconcile();
           setStatus('error');
           scheduleReconnect();
         };
@@ -600,8 +644,19 @@ export function createLiveTranscript(
       clearReconnectTimers();
       openEs();
     };
+    const onFocus = () => {
+      if (disposed) return;
+      scheduleTranscriptReconcile();
+      sessionEvents?.refetch?.();
+    };
+    const onVisibilityChange = () => {
+      if (disposed || document.visibilityState !== 'visible') return;
+      onFocus();
+    };
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     openEs();
 
@@ -610,7 +665,10 @@ export function createLiveTranscript(
       reconnectNowRef = null;
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearReconnectTimers();
+      if (reconcileTimer) clearTimeout(reconcileTimer);
       teardownEs();
       setStatus('closed');
     });
@@ -619,11 +677,20 @@ export function createLiveTranscript(
   async function refetch(): Promise<void> {
     const id = activeSessionId();
     if (!id) return;
-    try {
-      const { messages: fresh } = await client.messages(id);
-      setMessages(fresh);
-    } catch {
-      // ignore — SSE will catch up on the next event.
+    const [messagesResult, permissionsResult, questionsResult] =
+      await Promise.allSettled([
+        client.messages(id),
+        client.permissions(id),
+        client.sessionQuestions(id, 'pending'),
+      ]);
+    if (messagesResult.status === 'fulfilled') {
+      setMessages(messagesResult.value.messages);
+    }
+    if (permissionsResult.status === 'fulfilled') {
+      setPendingPermission(permissionsResult.value.permissions[0] ?? null);
+    }
+    if (questionsResult.status === 'fulfilled') {
+      setPendingQuestion(questionsResult.value.questions[0] ?? null);
     }
   }
 
@@ -873,6 +940,15 @@ export function reduce(
     case 'session.status_changed': {
       const sid = p.session_id as string;
       const next = p.status as SessionStatus;
+      const isSettledStatus =
+        next === 'idle' ||
+        next === 'error' ||
+        next === 'finished' ||
+        (typeof next === 'string' &&
+          ['completed', 'failed', 'cancelled', 'canceled'].includes(next));
+      if (isSettledStatus) {
+        hooks.setPendingPermission(null);
+      }
       if (sid && next && hooks.sessionEvents) {
         hooks.sessionEvents.patch(sid, {
           status: next,
