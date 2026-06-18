@@ -48,7 +48,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--color-text);
-  overflow-x: auto;
+  max-height: 168px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   margin: 0 0 8px;
 }
 

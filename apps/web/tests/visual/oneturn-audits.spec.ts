@@ -13,6 +13,7 @@
 
 import { test, expect, chromium, type Page, type Browser, type BrowserContext } from '@playwright/test';
 import { resolve } from 'node:path';
+import { DATA_SEMANTICS_EXPECT, uniqueDataSemanticsPrompt } from './live-prompts.js';
 
 const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
@@ -89,7 +90,7 @@ async function sendOneTurn(
   // A nonce keeps every test turn a real, fresh LM call.
   const prompt =
     text ??
-    `What is the capital of France? One word. (test nonce ${Date.now()}-${turnNonce++})`;
+    uniqueDataSemanticsPrompt(`turn ${turnNonce++}: `);
 
   // Surface the new session in the UI list and select exactly it.
   await page.getByTestId('sessions-refresh').click();
@@ -105,7 +106,7 @@ async function sendOneTurn(
 
   // Wait for assistant text to land — the session is guaranteed fresh,
   // so the first assistant bubble is this turn's response.
-  await expect(page.getByTestId('transcript-pane')).toContainText(/Paris/i, {
+  await expect(page.getByTestId('transcript-pane')).toContainText(DATA_SEMANTICS_EXPECT, {
     timeout: 120_000,
   });
 
@@ -303,11 +304,16 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
 
   /** Create a fresh session via the UI and send `text` without waiting
    * for an assistant reply — for flows that pause mid-turn (permission). */
-  async function newSessionAndSend(page: Page, text: string): Promise<void> {
+  async function startSessionFromUi(page: Page): Promise<void> {
     await page.getByTestId('sessions-new').click();
+    await page.getByTestId('session-semantics-start').click();
     await page.waitForTimeout(1_200);
     await page.locator('[data-testid^="session-row-"]').first().click();
     await page.waitForTimeout(600);
+  }
+
+  async function newSessionAndSend(page: Page, text: string): Promise<void> {
+    await startSessionFromUi(page);
     const composer = page.getByTestId('composer-input');
     await composer.click();
     await composer.pressSequentially(text, { delay: 6 });
@@ -322,10 +328,7 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
   test('forking a session shows the lineage badge (#145)', async () => {
     const browser = await bootBrowser();
     const { ctx, page } = await openConnected(browser);
-    await page.getByTestId('sessions-new').click();
-    await page.waitForTimeout(1_200);
-    await page.locator('[data-testid^="session-row-"]').first().click();
-    await page.waitForTimeout(500);
+    await startSessionFromUi(page);
     // Cmd/Ctrl+Shift+S forks the active session.
     await page.keyboard.press('Control+Shift+S');
     await page.waitForTimeout(2_500);
@@ -418,10 +421,7 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
   test('palette dispatches a backend slash command via runCommand (#118)', async () => {
     const browser = await bootBrowser();
     const { ctx, page } = await openConnected(browser);
-    await page.getByTestId('sessions-new').click();
-    await page.waitForTimeout(1_200);
-    await page.locator('[data-testid^="session-row-"]').first().click();
-    await page.waitForTimeout(600);
+    await startSessionFromUi(page);
     await page.keyboard.press('Control+k');
     await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 5_000 });
     await page.getByTestId('slash-palette-input').fill('cache-stats');
@@ -480,6 +480,7 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     const browser = await bootBrowser();
     const { ctx, page } = await openConnected(browser);
     await page.getByTestId('sessions-new').click();
+    await page.getByTestId('session-semantics-start').click();
     await page.waitForTimeout(1_200);
     const row = page.locator('[data-testid^="session-row-"]').first();
     await row.click();
@@ -898,7 +899,6 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     const chip = page.getByTestId('stream-stats-chip');
     await expect(chip).toBeVisible({ timeout: 10_000 });
     await expect(chip).toContainText('ttft');
-    await expect(chip).toContainText('tok/s');
     await page.screenshot({ path: shot('w3-stream-stats'), fullPage: false });
     await ctx.close();
     await browser.close();

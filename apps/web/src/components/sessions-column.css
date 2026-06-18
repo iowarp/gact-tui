@@ -1,11 +1,12 @@
 .sx {
-  width: 320px;
+  width: 300px;
   min-width: 0;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border-30);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: 52px;
 }
 
 .sx__ws {
@@ -89,16 +90,49 @@
 }
 
 .sx__head {
-  padding: 16px 14px 10px;
+  padding: 8px 10px 8px;
   border-bottom: 1px solid var(--color-border-30);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: linear-gradient(
     180deg,
     var(--color-surface) 0%,
     color-mix(in srgb, var(--color-surface) 92%, transparent) 100%
   );
+}
+
+.sx__chrome-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+}
+
+.sx__chrome-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    color var(--dur-fast);
+}
+
+.sx__chrome-btn:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-30);
+  color: var(--color-heading);
+}
+
+.sx__chrome-btn--settings {
+  margin-left: auto;
 }
 
 .sx__title-row {
@@ -171,14 +205,14 @@
 .sx__new {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--color-bg);
   border: 1px solid var(--color-border-30);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 6px 9px;
   color: var(--color-heading);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: border-color var(--dur-fast), background var(--dur-fast);
@@ -207,20 +241,20 @@
 
 .sx__list {
   list-style: none;
-  padding: 6px;
+  padding: 4px 6px;
   margin: 0;
   overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .sx__row {
   position: relative;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--color-heading);
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
@@ -230,20 +264,20 @@
   border-color: var(--color-border-30);
 }
 
-/* Selected session row = selection state → the single warm accent, with a
-   warm left accent bar so it reads as "current" at a glance. */
+/* Selected session row: keep the active conversation visible without making
+   the session rail compete with the transcript. */
 .sx__row.is-active {
-  background: var(--color-select-bg);
-  border-color: var(--color-select-border);
+  background: color-mix(in srgb, var(--color-surface-alt) 86%, var(--color-accent-cyan) 14%);
+  border-color: var(--color-accent-cyan-30);
 }
 
 .sx__row-hit {
   display: grid;
-  grid-template-columns: 10px 1fr;
-  gap: 10px;
+  grid-template-columns: 8px 1fr;
+  gap: 8px;
   align-items: start;
   width: 100%;
-  padding: 10px 36px 10px 14px;
+  padding: 6px 30px 6px 10px;
   background: transparent;
   border: none;
   text-align: left;
@@ -266,10 +300,10 @@
 
 .sx__row-kebab {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 22px;
-  height: 22px;
+  top: 5px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
   background: transparent;
   border: 1px solid transparent;
@@ -332,11 +366,29 @@
   background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
+@media (max-width: 760px) {
+  .sx {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 70;
+    width: min(320px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    padding-top: 48px;
+    border-right-color: var(--color-border-60);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .sx__ws-menu,
+  .sx__row-menu {
+    z-index: 80;
+  }
+}
+
 .sx__pip {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  margin-top: 6px;
+  margin-top: 5px;
   background: var(--color-muted);
 }
 
@@ -362,7 +414,7 @@
 
 .sx__row-title {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--color-heading);
   white-space: nowrap;
@@ -388,21 +440,18 @@
 
 .sx__row-preview {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--color-muted);
-  margin: 4px 0 0;
-  line-height: 1.45;
+  margin: 2px 0 0;
+  line-height: 1.3;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .sx__row-meta {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  display: none;
 }
 
 .sx__chip {
@@ -501,9 +550,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 2px 4px;
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--color-muted);
   cursor: pointer;
 }
@@ -515,6 +564,70 @@
 
 .sx__running-toggle:hover {
   color: var(--color-text);
+}
+
+.sx__filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 0;
+  opacity: 0.82;
+}
+
+.sx__filters:empty {
+  display: none;
+}
+
+.sx__foot {
+  border-top: 1px solid var(--color-border-30);
+  padding: 6px 8px;
+  background: var(--color-surface);
+}
+
+.sx__foot-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sx__foot-btn:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-30);
+  color: var(--color-heading);
+}
+
+.sx__foot-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sx__archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sx__archive-toggle:hover,
+.sx__archive-toggle.is-active {
+  color: var(--color-heading);
 }
 
 .sx__row-title--empty {
@@ -563,10 +676,23 @@
 }
 
 .sx__new-row .sx__new {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .sx__new--icon {
   flex: 0 0 auto !important;
   padding: 8px 10px;
+}
+
+@media (max-width: 760px) {
+  .sx {
+    width: 100vw;
+    max-width: 100vw;
+    border-right: 0;
+  }
+
+  .sx__ws-menu,
+  .sx__row-menu {
+    max-width: calc(100vw - 16px);
+  }
 }

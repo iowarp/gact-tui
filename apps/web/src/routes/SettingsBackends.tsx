@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js';
+import { brand } from '@brand';
 import { useBackendRegistry } from '../registry.js';
 import type { BackendEntry } from '@clio/core';
 import { inTauri, tauriFetch } from '../tauri.js';
@@ -12,9 +13,8 @@ export interface SettingsBackendsProps {
 
 /**
  * /settings/backends — list registered backends, refresh capabilities,
- * remove, or open the add-remote wizard. Wave 2 lands the URL+token
- * path; the SSH-tunnel section is wired to render the form (Wave 3
- * adds the real `ssh -L` spawn on desktop).
+ * remove, or open the add-remote wizard. HTTP works in web and desktop;
+ * desktop can also open an SSH tunnel through the native shell.
  */
 export function SettingsBackends(props: SettingsBackendsProps) {
   const reg = useBackendRegistry();
@@ -26,7 +26,7 @@ export function SettingsBackends(props: SettingsBackendsProps) {
           type="button"
           class="settings__back"
           onClick={props.onBack}
-          data-testid="settings-back"
+          data-testid="settings-backends-back"
         >
           ← Back
         </button>
@@ -38,7 +38,7 @@ export function SettingsBackends(props: SettingsBackendsProps) {
           type="button"
           class="btn btn--primary"
           onClick={props.onAddRemote}
-          data-testid="settings-add-remote"
+          data-testid="settings-backends-add-remote"
         >
           + Add remote backend
         </button>
@@ -51,9 +51,9 @@ export function SettingsBackends(props: SettingsBackendsProps) {
             <div class="settings__empty">
               <p>No backends registered yet.</p>
               <p>
-                The bundled <code>clio-agent-gact</code> backend registers
-                itself on first launch; additional backends (remote ALCF,
-                SSH-tunneled, etc.) can be added with{' '}
+                The bundled agent backend registers itself on first launch;
+                additional backends (remote ALCF, SSH-tunneled, etc.) can be
+                added with{' '}
                 <strong>Add remote backend</strong>.
               </p>
             </div>
@@ -74,7 +74,7 @@ function BackendRow(props: { entry: BackendEntry }) {
   const reg = useBackendRegistry();
   const status = () => {
     if (props.entry.lastError) return { label: 'error', cls: 'chip--err' };
-    if (props.entry.capabilities) return { label: 'ready', cls: 'chip--ok' };
+    if (props.entry.capabilities) return { label: 'reachable', cls: 'chip--ok' };
     return { label: 'unknown', cls: 'chip--warn' };
   };
 
@@ -204,7 +204,7 @@ function BackendRow(props: { entry: BackendEntry }) {
           aria-label="Remove this backend"
           title={
             props.entry.kind === 'local-sidecar'
-              ? 'The bundled clio can’t be removed.'
+              ? `The bundled ${brand.name} backend can't be removed.`
               : 'Remove this backend'
           }
         >

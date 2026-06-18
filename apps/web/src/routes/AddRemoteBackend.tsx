@@ -3,7 +3,7 @@ import { brand } from '@brand';
 import { useBackendRegistry } from '../registry.js';
 import { Client, type BackendEntry } from '@clio/core';
 import { getRequestLocale } from '../locale.js';
-import { inTauri } from '../tauri.js';
+import { inTauri, openSshTunnel, tauriFetch } from '../tauri.js';
 import './settings.css';
 
 export interface AddRemoteBackendProps {
@@ -19,9 +19,8 @@ type Mode = 'http' | 'ssh';
  * always available; SSH tunnelling is desktop-only and grays out in
  * the pure-web build (with a hint to install CLIO Desktop).
  *
- * The actual SSH tunnel spawn lands in Wave 3 (the Tauri shell will
- * own `ssh -L`); for v0.9 the form already collects the right inputs
- * and stores them on the backend entry under `entry.ssh`.
+ * Desktop can open an `ssh -L` tunnel through the Tauri shell; the web build
+ * keeps the form visible as a portable config surface but cannot spawn ssh.
  */
 export function AddRemoteBackend(props: AddRemoteBackendProps) {
   const reg = useBackendRegistry();
@@ -34,6 +33,7 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
   const [sshHost, setSshHost] = createSignal('');
   const [sshUser, setSshUser] = createSignal('');
   const [sshKey, setSshKey] = createSignal('');
+  const [sshRemotePort, setSshRemotePort] = createSignal('17800');
 
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -60,34 +60,58 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
       setError('URL is required for HTTP backends.');
       return;
     }
+    const parsedRemotePort = Number.parseInt(sshRemotePort().trim(), 10);
     if (mode() === 'ssh' && (!sshHost().trim() || !sshUser().trim())) {
       setError('SSH host and user are required.');
+      return;
+    }
+    if (mode() === 'ssh' && (!Number.isFinite(parsedRemotePort) || parsedRemotePort <= 0)) {
+      setError('Remote port must be a positive number.');
       return;
     }
 
     setSubmitting(true);
     try {
       const id = mode() + ':' + cryptoRandomId();
+      let tunneledUrl = 'http://127.0.0.1:0';
+      let tunneledPort: number | undefined;
+      if (mode() === 'ssh' && inTauri()) {
+        const tunnel = await openSshTunnel({
+          host: sshHost().trim(),
+          user: sshUser().trim(),
+          remote_port: parsedRemotePort,
+          key_path: sshKey().trim(),
+        });
+        tunneledUrl = tunnel.local_url;
+        tunneledPort = tunnel.local_port;
+      }
       const entry: BackendEntry = {
         id,
         label: label().trim(),
-        url: mode() === 'http' ? url().trim().replace(/\/+$/, '') : 'http://127.0.0.1:0',
+        url: mode() === 'http' ? url().trim().replace(/\/+$/, '') : tunneledUrl,
         bearerToken: token().trim(),
         kind: mode() === 'http' ? 'http' : 'ssh-tunnel',
         ssh:
           mode() === 'ssh'
-            ? { host: sshHost().trim(), user: sshUser().trim(), keyPath: sshKey().trim() }
+            ? {
+                host: sshHost().trim(),
+                user: sshUser().trim(),
+                keyPath: sshKey().trim(),
+                ...(tunneledPort ? { localPort: tunneledPort } : {}),
+              }
             : undefined,
       };
       reg.add(entry);
+      reg.select(id);
 
-      if (entry.kind === 'http') {
+      if (entry.kind === 'http' || (entry.kind === 'ssh-tunnel' && inTauri())) {
         // Best-effort capability probe before handing off — gives the
         // user immediate feedback (capabilities chip turns green).
         try {
           const c = new Client({
             baseUrl: entry.url,
             bearerToken: entry.bearerToken,
+            fetch: inTauri() ? tauriFetch : undefined,
             getLocale: getRequestLocale,
           });
           const caps = await c.capabilities();
@@ -106,7 +130,7 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
   }
 
   return (
-    <div class="settings" data-testid="settings-add-remote">
+    <div class="settings" data-testid="settings-add-remote-page">
       <header class="settings__topbar">
         <button
           type="button"
@@ -123,8 +147,8 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
         <div />
       </header>
 
-      <main class="settings__body">
-        <div class="card settings__form">
+      <main class="settings__body settings__body--remote">
+        <div class="card settings__form settings__form--remote">
           <div class="settings__seg">
             <button
               type="button"
@@ -139,11 +163,11 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
               class={'settings__seg-btn ' + (mode() === 'ssh' ? 'is-active' : '')}
               onClick={() => setMode('ssh')}
               data-testid="add-remote-mode-ssh"
-              title={!inTauri() ? `Form is fillable in any build; the actual ssh -L spawn only fires inside ${brand.name} Desktop.` : undefined}
+              title={!inTauri() ? `This stores SSH backend config. ${brand.name} Desktop can open the tunnel.` : undefined}
             >
               SSH tunnel
               <Show when={!inTauri()}>
-                <span class="chip chip--warn">desktop spawn</span>
+                <span class="chip chip--warn">desktop only</span>
               </Show>
             </button>
           </div>
@@ -178,7 +202,7 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
                 type="password"
                 value={token()}
                 onInput={(e) => setToken(e.currentTarget.value)}
-                placeholder="paste a token issued by clio-agent token issue …"
+                placeholder="paste a bearer token from the remote backend"
                 data-testid="add-remote-token"
               />
             </div>
@@ -218,20 +242,42 @@ export function AddRemoteBackend(props: AddRemoteBackendProps) {
               />
             </div>
             <div class="field">
+              <label for="ssh-port">Remote backend port</label>
+              <input
+                id="ssh-port"
+                type="number"
+                min="1"
+                max="65535"
+                value={sshRemotePort()}
+                onInput={(e) => setSshRemotePort(e.currentTarget.value)}
+                data-testid="add-remote-ssh-port"
+              />
+            </div>
+            <div class="field">
               <label for="ssh-token">Bearer token</label>
               <input
                 id="ssh-token"
                 type="password"
                 value={token()}
                 onInput={(e) => setToken(e.currentTarget.value)}
-                placeholder="token issued by the remote clio-agent-gact"
+                placeholder="bearer token from the remote backend"
                 data-testid="add-remote-ssh-token"
               />
             </div>
             <div class="settings__hint">
-              The desktop shell will spawn <code>ssh -L</code> when this
-              backend is selected and store the key passphrase in the OS
-              keychain. (Wave 3 lands the actual spawn.)
+              <Show
+                when={inTauri()}
+                fallback={
+                  <>
+                    The web build stores this backend config, but cannot spawn
+                    {' '}<code>ssh -L</code>. Open it from {brand.name} Desktop to
+                    create the tunnel.
+                  </>
+                }
+              >
+                Desktop opens <code>ssh -L</code> to the remote backend port and
+                stores the tunneled local URL on the backend entry.
+              </Show>
             </div>
           </Show>
 

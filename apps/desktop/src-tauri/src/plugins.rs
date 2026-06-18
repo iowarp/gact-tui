@@ -71,14 +71,20 @@ pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
     let stdout_thread = stdout.map(|mut s| {
         thread::spawn(move || {
             let mut buf = Vec::with_capacity(4096);
-            let _ = s.by_ref().take(OUTPUT_CAP_BYTES as u64).read_to_end(&mut buf);
+            let _ = s
+                .by_ref()
+                .take(OUTPUT_CAP_BYTES as u64)
+                .read_to_end(&mut buf);
             buf
         })
     });
     let stderr_thread = stderr.map(|mut s| {
         thread::spawn(move || {
             let mut buf = Vec::with_capacity(4096);
-            let _ = s.by_ref().take(OUTPUT_CAP_BYTES as u64).read_to_end(&mut buf);
+            let _ = s
+                .by_ref()
+                .take(OUTPUT_CAP_BYTES as u64)
+                .read_to_end(&mut buf);
             buf
         })
     });

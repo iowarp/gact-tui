@@ -29,12 +29,14 @@ Two supported paths:
    here for the neutral profile) overrides only the brand-specific keys:
 
    ```sh
-   GACT_BRAND=gact pnpm --filter @clio/desktop tauri build \
+   cd apps
+   pnpm --filter @clio/desktop tauri build \
      --config src-tauri/tauri.gact.conf.json
    ```
 
-   The `GACT_BRAND` env still flows into the `beforeBuildCommand`
-   (`pnpm --filter @clio/web build`), so the webview is built with the matching brand.
+   The overlay also replaces the Tauri `beforeBuildCommand` /
+   `beforeDevCommand` with the matching web brand scripts
+   (`build:gact` / `dev:gact`), so the webview and native shell stay paired.
    Add `tauri.<brand>.conf.json` next to this file for a new brand, overriding
    `productName`, `identifier`, `app.windows[0].title`, the descriptions, and
    `bundle.icon`.
@@ -50,9 +52,11 @@ clio-agent ships the **CLIO** brand, which is the base `tauri.conf.json` as-is â
 overlay needed. Its release pipeline runs:
 
 ```sh
-GACT_BRAND=clio pnpm --filter @clio/desktop tauri:build:bundled
+cd apps
+pnpm --filter @clio/desktop tauri:build:bundled
 ```
 
-`GACT_BRAND=clio` keeps the webview on the CLIO profile; the native config is already
-CLIO. No further injection is required for CLIO. Other distributors point `--config` at
-their own overlay + icons as above.
+The base Tauri config invokes `pnpm --filter @clio/web build:clio`, keeping the
+webview on the CLIO profile; the native config is already CLIO. No further
+injection is required for CLIO. Other distributors point `--config` at their own
+overlay + icons as above.

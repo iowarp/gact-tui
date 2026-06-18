@@ -1,3 +1,12 @@
+.mcp__grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+}
+
+.mcp__grid .dp__card-title {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
 .mcp__detail-toggle {
   display: inline-flex;
   align-items: center;
@@ -59,9 +68,9 @@
 }
 
 .mcp__detail-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
   font-family: var(--font-sans);
   font-size: 12.5px;
 }
@@ -75,6 +84,7 @@
 .mcp__detail-desc {
   color: var(--color-muted);
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .mcp__detail-status {
@@ -87,15 +97,27 @@
 
 .mcp__detail-row--resource {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 8px;
   row-gap: 4px;
   align-items: baseline;
 }
 
-.mcp__resource-preview {
+.mcp__detail-row--resource .mcp__detail-desc {
+  grid-column: 1 / -1;
+}
+
+.mcp__detail-actions {
   grid-row: 1;
   grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.mcp__resource-preview {
   background: transparent;
   border: 1px solid var(--color-border-30);
   border-radius: 4px;

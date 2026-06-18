@@ -15,7 +15,16 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
   transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+
+.dd__trigger-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dd__trigger:hover:not(:disabled) {

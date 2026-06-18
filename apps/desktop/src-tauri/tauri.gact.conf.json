@@ -2,10 +2,21 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "GACT Desktop",
   "identifier": "land.charm.gact.desktop",
+  "build": {
+    "beforeBuildCommand": "pnpm --filter @clio/web build:gact",
+    "beforeDevCommand": "pnpm --filter @clio/web dev:gact"
+  },
   "app": {
     "windows": [
       {
-        "title": "GACT Desktop"
+        "title": "GACT Desktop",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": false
       }
     ]
   },

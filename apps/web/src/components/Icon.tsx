@@ -22,6 +22,9 @@ export type IconName =
   | 'plus'
   | 'send'
   | 'attach'
+  | 'image'
+  | 'audio'
+  | 'mic'
   | 'stop'
   | 'sparkle'
   | 'chevron-down'
@@ -32,6 +35,7 @@ export type IconName =
   | 'panel-left'
   | 'copy'
   | 'edit'
+  | 'refresh'
   | 'regenerate'
   | 'branch'
   | 'share'
@@ -141,6 +145,30 @@ const PATHS: Record<IconName, () => JSX.Element> = {
   attach: () => (
     <path d="M21 11.5L12 20a5 5 0 0 1-7-7l9-9a4 4 0 0 1 6 6l-9 9a3 3 0 0 1-4-4l8-8" />
   ),
+  image: () => (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="10" r="1.5" />
+      <path d="M21 16l-5-5-5 5-2-2-5 5" />
+    </>
+  ),
+  audio: () => (
+    <>
+      <path d="M6 2h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <path d="M14 2v4h4" />
+      <path d="M9 16v-4l4-2v6" />
+      <circle cx="8.5" cy="16.5" r="1.5" />
+      <circle cx="12.5" cy="16.5" r="1.5" />
+    </>
+  ),
+  mic: () => (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+      <path d="M8 21h8" />
+    </>
+  ),
   stop: () => <rect x="6" y="6" width="12" height="12" rx="1.5" />,
   sparkle: () => (
     <>
@@ -174,6 +202,14 @@ const PATHS: Record<IconName, () => JSX.Element> = {
     <>
       <path d="M4 20h4l11-11-4-4L4 16z" />
       <path d="M14 6l4 4" />
+    </>
+  ),
+  refresh: () => (
+    <>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M3 21v-5h5" />
     </>
   ),
   regenerate: () => (

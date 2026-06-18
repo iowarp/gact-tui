@@ -53,6 +53,20 @@ python3 visual_loop/check_copy_selection_readiness.py --root . \
   --strict
 ```
 
+Refresh the focused 0.8.3 release readiness report after changing terminal,
+provider, marketplace-source, or runtime lifecycle evidence:
+
+```bash
+python3 visual_loop/check_release_0_8_3_readiness.py --root . \
+  --write-report visual_loop/screenshots/release_0_8_3_readiness.report.md \
+  --strict
+```
+
+Use `--strict-live` only when the release is expected to have all real
+owned-backend and real-terminal captures. This gate intentionally includes
+#150, #154, #143, and #152, and intentionally excludes the #153 prompt/expert-pack
+live mutation path because that is tracked in the CLIO-blocked 0.9 lane.
+
 For the live terminal permutation backlog (#150), capture the actual terminal
 environment from the terminal emulator being verified:
 

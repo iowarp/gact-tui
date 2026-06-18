@@ -79,6 +79,25 @@ pub struct SubmenuSpec {
     pub items: &'static [Item],
 }
 
+/// User-facing native product name from the merged Tauri config.
+///
+/// Brand overlays update `productName`; native menus and tray labels should
+/// derive from that same value instead of hardcoding the CLIO reference brand.
+pub fn native_app_name<R: Runtime>(app: &AppHandle<R>) -> String {
+    app.config()
+        .product_name
+        .clone()
+        .unwrap_or_else(|| app.package_info().name.clone())
+}
+
+pub fn short_app_name(name: &str) -> &str {
+    name.strip_suffix(" Desktop").unwrap_or(name)
+}
+
+fn about_label(name: &str) -> String {
+    format!("About {name}")
+}
+
 /// The authoritative, data-only definition of the entire menu tree.
 ///
 /// `build_menu` interprets this; the tests assert against it directly. Edit
@@ -136,7 +155,7 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
             Item::Action {
                 id: "toggle-sessions",
                 label: "Toggle Sessions Column",
-                accel: Some("CmdOrCtrl+B"),
+                accel: Some("CmdOrCtrl+Shift+B"),
             },
             Item::Action {
                 id: "cycle-density",
@@ -172,7 +191,7 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
             },
             Item::Action {
                 id: "about",
-                label: "About CLIO Desktop",
+                label: "About",
                 accel: None,
             },
         ],
@@ -223,7 +242,12 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         for item in spec.items {
             match item {
                 Item::Action { id, label, accel } => {
-                    let mi = MenuItem::with_id(app, *id, *label, true, *accel)?;
+                    let label = if *id == "about" {
+                        about_label(&native_app_name(app))
+                    } else {
+                        (*label).to_string()
+                    };
+                    let mi = MenuItem::with_id(app, *id, label, true, *accel)?;
                     submenu.append(&mi)?;
                 }
                 Item::Predefined(kind) => {
@@ -403,7 +427,7 @@ mod tests {
             ("export-session", "CmdOrCtrl+S"),
             ("open-settings", "CmdOrCtrl+Comma"),
             ("toggle-inspector", "CmdOrCtrl+I"),
-            ("toggle-sessions", "CmdOrCtrl+B"),
+            ("toggle-sessions", "CmdOrCtrl+Shift+B"),
             ("cycle-density", "Ctrl+O"),
             ("command-palette", "CmdOrCtrl+K"),
             ("keyboard-shortcuts", "CmdOrCtrl+/"),
@@ -433,5 +457,14 @@ mod tests {
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), ids.len(), "duplicate action id in MENU_SPEC");
+    }
+
+    #[test]
+    fn native_brand_labels_derive_from_product_name() {
+        assert_eq!(about_label("CLIO Desktop"), "About CLIO Desktop");
+        assert_eq!(about_label("GACT Desktop"), "About GACT Desktop");
+        assert_eq!(short_app_name("CLIO Desktop"), "CLIO");
+        assert_eq!(short_app_name("GACT Desktop"), "GACT");
+        assert_eq!(short_app_name("Other Product"), "Other Product");
     }
 }

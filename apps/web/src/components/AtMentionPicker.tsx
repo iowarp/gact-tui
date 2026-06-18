@@ -101,7 +101,7 @@ export function AtMentionPicker(props: AtMentionPickerProps) {
     <Show when={props.open}>
       <div class="atmention" role="listbox" data-testid="at-mention-picker">
         <div class="atmention__head">
-          <span class="eyebrow">@ mention · pick a file, agent, or tool</span>
+          <span class="eyebrow">@ reference · pick a file, agent, or tool</span>
         </div>
         <ul class="atmention__list">
           <For each={filtered()}>
