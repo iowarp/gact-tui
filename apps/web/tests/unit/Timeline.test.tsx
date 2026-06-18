@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   InspectorDrawer,
   assembleTimeline,
+  summarizeToolCalls,
 } from '../../src/components/InspectorDrawer.js';
 import type { Message } from '@clio/core';
 
@@ -130,6 +131,105 @@ describe('assembleTimeline (1.0 item 5)', () => {
   });
 });
 
+describe('summarizeToolCalls', () => {
+  it('surfaces metadata-only CLIO tool calls from dynamic tool agents', () => {
+    const message: Message = {
+      id: 'a-tools',
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'Diff proposed.' }],
+      metadata: {
+        tools_called: [
+          {
+            name: 'fs_read_file',
+            args: { filepath: '/tmp/workspace/handlers.go' },
+            ok: true,
+            result: '{"size_bytes":206}',
+          },
+          {
+            name: 'fs_propose_edit',
+            call_id: 'call_diff',
+            args: { filepath: '/tmp/workspace/handlers.go' },
+            ok: true,
+            duration_ms: 8.9,
+            result: '{"unified_diff":"--- a/handlers.go"}',
+          },
+        ],
+      },
+    } as Message;
+
+    expect(summarizeToolCalls(message)).toEqual([
+      {
+        callId: 'fs_read_file-0',
+        toolName: 'fs_read_file',
+        status: 'completed',
+        input: { filepath: '/tmp/workspace/handlers.go' },
+        output: '{"size_bytes":206}',
+      },
+      {
+        callId: 'call_diff',
+        toolName: 'fs_propose_edit',
+        status: 'completed',
+        durationMs: 9,
+        input: { filepath: '/tmp/workspace/handlers.go' },
+        output: '{"unified_diff":"--- a/handlers.go"}',
+      },
+    ]);
+  });
+
+  it('deduplicates repeated trajectory and live-observer tool metadata', () => {
+    const message: Message = {
+      id: 'a-tools-dup',
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'Diff proposed.' }],
+      metadata: {
+        tools_called: [
+          {
+            name: 'fs_read_file',
+            args: { filepath: '/tmp/workspace/handlers.go' },
+            ok: true,
+            telemetry_source: 'agent_trajectory',
+            result: '{"size_bytes":206}',
+          },
+          {
+            call_id: 'call_read_live',
+            name: 'fs_read_file',
+            args: { filepath: '/tmp/workspace/handlers.go' },
+            ok: true,
+            duration_ms: 4.4,
+            telemetry_source: 'live_observer',
+            result: '{"size_bytes":206}',
+          },
+          {
+            name: 'finish',
+            args: {},
+            ok: true,
+            telemetry_source: 'agent_trajectory',
+            result: 'Completed.',
+          },
+        ],
+      },
+    } as Message;
+
+    expect(summarizeToolCalls(message)).toEqual([
+      {
+        callId: 'call_read_live',
+        toolName: 'fs_read_file',
+        status: 'completed',
+        durationMs: 4,
+        input: { filepath: '/tmp/workspace/handlers.go' },
+        output: '{"size_bytes":206}',
+      },
+      {
+        callId: 'finish-1',
+        toolName: 'finish',
+        status: 'completed',
+        input: {},
+        output: 'Completed.',
+      },
+    ]);
+  });
+});
+
 describe('Inspector Timeline tab (1.0 item 5)', () => {
   it('renders the Timeline tab and its events for a message with parts', () => {
     render(() => (
@@ -149,5 +249,40 @@ describe('Inspector Timeline tab (1.0 item 5)', () => {
     expect(screen.getByText('Grep')).toBeTruthy();
     expect(screen.getByText('420ms')).toBeTruthy();
     expect(screen.getByText('1.8s')).toBeTruthy();
+  });
+
+  it('renders Tools tab rows with human labels and raw tool identifiers', () => {
+    const message: Message = {
+      id: 'a-tools',
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'Diff proposed.' }],
+      metadata: {
+        tools_called: [
+          {
+            name: 'fs_read_file',
+            call_id: 'call_read',
+            args: { filepath: '/tmp/workspace/handlers.go' },
+            ok: true,
+            duration_ms: 5,
+            result: '{"size_bytes":206}',
+          },
+        ],
+      },
+    } as Message;
+
+    render(() => (
+      <InspectorDrawer
+        open={true}
+        message={message}
+        toolCalls={summarizeToolCalls(message)}
+        costUsd={0}
+        onClose={() => undefined}
+      />
+    ));
+
+    screen.getByTestId('inspector-tab-tools').click();
+    expect(screen.getByText('Read workspace file')).toBeTruthy();
+    expect(screen.getByText('fs_read_file')).toBeTruthy();
+    expect(screen.getByText('5ms')).toBeTruthy();
   });
 });

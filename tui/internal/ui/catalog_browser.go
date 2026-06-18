@@ -712,20 +712,20 @@ func activateExpertPackCmd(c *client.Client, sessionID, packID string) tea.Cmd {
 	}
 }
 
-func updateExpertPackCmd(c *client.Client, packID string) tea.Cmd {
+func updateExpertPackCmd(c *client.Client, scope client.RuntimeScope, packID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		result, err := c.UpdateExpertPack(ctx, packID)
+		result, err := c.UpdateExpertPack(ctx, packID, scope)
 		return expertPackManagedMsg{packID: packID, action: "update", result: result, err: err}
 	}
 }
 
-func deleteExpertPackCmd(c *client.Client, packID string) tea.Cmd {
+func deleteExpertPackCmd(c *client.Client, scope client.RuntimeScope, packID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		err := c.DeleteExpertPack(ctx, packID)
+		err := c.DeleteExpertPack(ctx, packID, scope)
 		return expertPackManagedMsg{packID: packID, action: "delete", err: err}
 	}
 }
@@ -1257,7 +1257,7 @@ func (a *App) handleCatalogBrowserKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				a.transientHint = "select a session before activating an expert pack"
 				return a, scheduleHintExpire(a.transientHint)
 			case it.id == "expert-pack-action/update":
-				return a, updateExpertPackCmd(a.c, cb.expertPackID)
+				return a, updateExpertPackCmd(a.c, a.runtimeScope(), cb.expertPackID)
 			case it.id == "expert-pack-action/delete":
 				return a, a.confirmOrDeleteExpertPack()
 			case strings.HasPrefix(it.id, "agent/"):
@@ -2157,7 +2157,7 @@ func (a *App) confirmOrDeleteExpertPack() tea.Cmd {
 	if cb.pendingDeleteExpertPackID == cb.expertPackID {
 		packID := cb.expertPackID
 		cb.pendingDeleteExpertPackID = ""
-		return deleteExpertPackCmd(a.c, packID)
+		return deleteExpertPackCmd(a.c, a.runtimeScope(), packID)
 	}
 	cb.pendingDeleteExpertPackID = cb.expertPackID
 	label := firstNonEmpty(cb.expertPackID, "this expert pack")

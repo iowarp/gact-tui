@@ -353,6 +353,11 @@ func (a *App) handleSettingsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, a.importCustomTheme()
 		}
 		return a, nil
+	case "b", "ctrl+b":
+		if s.tab == 1 {
+			return a, a.openSessionSetup(true)
+		}
+		return a, nil
 	case "left", "h":
 		// LLLLL1: ←/→ on the selected TUI pref. Each row clamps
 		// independently. Collapse threshold (row 0) stays at the old
@@ -701,6 +706,15 @@ func (a *App) viewSettings() string {
 			}
 			rows = append(rows, detailLines...)
 		}
+		rows = append(rows, "")
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("New-session defaults"))
+		rows = append(rows, "  "+t.HintKey.Render("blueprint")+"  "+orPlaceholder(a.DefaultAgentBlueprintID, "CLIO default"))
+		rows = append(rows, "  "+t.HintKey.Render("expert pack")+"  "+orPlaceholder(a.DefaultExpertPackID, "none"))
+		defaultsRow := len(rows)
+		rows = append(rows, rowLine(false, "Change defaults", "Ctrl+B or b"))
+		addRowHit("settings:agent:session-defaults", defaultsRow, func(app *App) tea.Cmd {
+			return app.openSessionSetup(true)
+		})
 	case 2:
 		// Theme tab — pick any of the AllThemeModes palettes. ↑/↓
 		// previews live so users can see what they're picking
@@ -1006,7 +1020,7 @@ func (a *App) settingsTabPurpose(tab int) string {
 	case 0:
 		return "Provider/model runtime is managed through the shared CLIO provider modal."
 	case 1:
-		return "Choose the default session expert, or open details for capabilities and tools."
+		return "Choose the session expert and new-session workflow defaults."
 	case 2:
 		return "Preview terminal palettes before applying them."
 	case 3:

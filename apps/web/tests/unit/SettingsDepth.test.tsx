@@ -44,6 +44,14 @@ function backendsHarness(entry: BackendEntry) {
   return createBackendRegistry({ persistence });
 }
 
+function emptyBackendsHarness() {
+  const persistence = new InMemoryPersistence({
+    backends: [],
+    currentId: '',
+  });
+  return createBackendRegistry({ persistence });
+}
+
 async function hydrate() {
   await Promise.resolve();
   await Promise.resolve();
@@ -51,6 +59,20 @@ async function hydrate() {
 }
 
 describe('SettingsBackends test-connection', () => {
+  it('uses brand-neutral copy for the empty backend state', async () => {
+    const registry = emptyBackendsHarness();
+    render(() => (
+      <BackendRegistryProvider registry={registry}>
+        <SettingsBackends onAddRemote={() => undefined} onBack={() => undefined} />
+      </BackendRegistryProvider>
+    ));
+    await hydrate();
+
+    const body = screen.getByTestId('settings-backends').textContent ?? '';
+    expect(body).toContain('bundled agent backend');
+    expect(body).not.toContain('clio-agent-gact');
+  });
+
   it('shows ok + latency when the probe succeeds', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

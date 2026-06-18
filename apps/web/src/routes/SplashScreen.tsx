@@ -121,9 +121,13 @@ export function SplashScreen(props: SplashScreenProps) {
     // `installing` state with sample log lines for the screenshot.
     if (params.get('install') === 'demo') {
       setPhase('installing');
+      const runtimeDir = `%LOCALAPPDATA%\\${brand.name.toLowerCase()}\\agent\\.venv`;
+      const installSource = brand.backendRepository
+        ? `Cloning ${brand.backendRepository.label}@develop…`
+        : `Preparing ${brand.name} agent backend…`;
       setInstallLog([
-        'Cloning iowarp/clio-agent@develop…',
-        'Creating virtualenv at %LOCALAPPDATA%\\clio\\clio-agent\\.venv',
+        installSource,
+        `Creating virtualenv at ${runtimeDir}`,
         'Resolving dependencies (142 packages)…',
         'Downloading torch-2.4.0 (797 MB)',
         '  ████████████████░░░░  72%  574 MB / 797 MB',
@@ -182,7 +186,7 @@ export function SplashScreen(props: SplashScreenProps) {
       setPhase('error');
       setError(
         `Sidecar did not report ready within ${TAURI_MAX_WAIT_MS / 1000}s. ` +
-          `Check the clio-agent-gact install (CLIO_REF=develop).`,
+          `Check the backend install (CLIO_REF=develop).`,
       );
     }
   }
@@ -306,7 +310,10 @@ export function SplashScreen(props: SplashScreenProps) {
     <div class="splash" data-testid="splash-screen">
       <main class="splash__main">
         <BrandMark class="splash__mark" />
-        <h1 class="splash__wordmark">{brand.name} Desktop</h1>
+        <h1 class="splash__wordmark">
+          {brand.name}
+          <Show when={inTauri()}> Desktop</Show>
+        </h1>
         <p class="splash__sub">Starting your local agent…</p>
         <Show when={loadIntro()}>
           <pre class="splash__intro" data-testid="splash-intro">
@@ -322,7 +329,7 @@ export function SplashScreen(props: SplashScreenProps) {
           </div>
           <p class="splash__hint">
             {phase() === 'starting'
-              ? 'Booting the bundled clio-agent…'
+              ? 'Booting the bundled agent backend…'
               : 'Looking for a backend on localhost:17800…'}
             <Show when={elapsedMs() > 1500}>
               <span class="splash__elapsed">
@@ -344,7 +351,7 @@ export function SplashScreen(props: SplashScreenProps) {
               Setting up the {brand.name} agent backend (first run)
             </p>
             <p class="splash__install-note">
-              This downloads the clio-agent Python packages (~800&nbsp;MB) and
+              This downloads the backend Python packages (~800&nbsp;MB) and
               takes a few minutes. You only have to do this once.
             </p>
             <pre
@@ -371,10 +378,10 @@ export function SplashScreen(props: SplashScreenProps) {
             <p class="splash__error-msg">{error()}</p>
             <p class="splash__error-hint">
               {installFailed()
-                ? 'Automatic setup failed. You can retry, or install clio-agent manually and restart:'
+                ? 'Automatic setup failed. You can retry, or install the backend manually and restart:'
                 : 'Install '}
               <Show when={!installFailed()}>
-                <code>clio-agent</code> from the develop branch and restart:
+                the backend from the develop branch and restart:
               </Show>
             </p>
             <code class="splash__cmd">{installRecipeForPlatform()}</code>
@@ -452,7 +459,7 @@ function installFailureMessage(failure: InstallFailure, force = false): string {
   const code =
     failure.code == null ? 'could not be launched' : `exited with code ${failure.code}`;
   const verb = force ? 'repair' : 'installer';
-  const base = `The clio-agent ${verb} ${code}.`;
+  const base = `The backend ${verb} ${code}.`;
   const tail = failure.tail?.trim();
   return tail ? `${base}\n\n${tail}` : base;
 }

@@ -29,7 +29,7 @@ export function AgentsPage(props: AgentsPageProps) {
     <DiscoveryPage
       icon="agents"
       title="Agents"
-      subtitle="Multi-tier orchestrator + specialists. Click an agent for routing details."
+      subtitle="Orchestrators and specialists available to the active backend."
       actions={
         <button
           type="button"
@@ -94,7 +94,7 @@ export function AgentsPage(props: AgentsPageProps) {
 function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => void | Promise<void> }) {
   const tier = () => props.agent.tier ?? null;
   const [showDetail, setShowDetail] = createSignal(false);
-  const [detail, setDetail] = createSignal<Record<string, unknown> | null>(null);
+  const [detail, setDetail] = createSignal<AgentDetail | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [err, setErr] = createSignal<string | null>(null);
 
@@ -106,7 +106,7 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
       setErr(null);
       try {
         const d = await props.client.getAgent(props.agent.id);
-        setDetail(d as unknown as Record<string, unknown>);
+        setDetail(d as AgentDetail);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -117,7 +117,7 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
 
   return (
     <article
-      class={'dp__card ' + (showDetail() ? 'dp__card--open' : '')}
+      class={'dp__card agent-card ' + (showDetail() ? 'dp__card--open' : '')}
       data-testid={`agent-card-${props.agent.id}`}
     >
       <header class="dp__card-head">
@@ -179,20 +179,159 @@ function AgentCard(props: { agent: AgentDef; client: Client; onDelete?: () => vo
         <span>{showDetail() ? 'Hide' : 'Show'} routing detail</span>
       </button>
       <Show when={showDetail()}>
-        <div class="ws-card__repo">
+        <div class="ws-card__repo" data-testid={`agent-detail-${props.agent.id}`}>
           <Show when={busy()}>
             <div class="ws-card__repo-status">Loading…</div>
           </Show>
           <Show when={err()}>
             <div class="ws-card__repo-err">{err()}</div>
           </Show>
-          <Show when={detail() && !busy()}>
-            <pre class="ws-card__repo-tree">
-              {JSON.stringify(detail(), null, 2)}
-            </pre>
+          <Show when={!busy() && detail() !== null}>
+            <AgentDetailPanel agent={props.agent} detail={detail()!} />
           </Show>
         </div>
       </Show>
     </article>
   );
+}
+
+type AgentDetail = AgentDef & Record<string, unknown>;
+
+function AgentDetailPanel(props: { agent: AgentDef; detail: AgentDetail }) {
+  const detail = () => props.detail;
+  const tools = () => uniqueStrings(detail().tools ?? props.agent.tools ?? []);
+  const keywords = () => uniqueStrings(detail().keywords ?? props.agent.keywords ?? []);
+  const metadata = () => objectEntries(detail().metadata);
+  const routing = () =>
+    objectEntries(
+      detail().routing ??
+        detail().routing_rules ??
+        detail().delegation ??
+        detail().handoffs ??
+        null,
+    );
+  const model = () =>
+    firstString(
+      detail().default_model,
+      detail().model,
+      detail().model_id,
+      detail().provider_id,
+    );
+
+  return (
+    <div class="agent-detail">
+      <dl class="agent-detail__facts">
+        <DetailFact label="Source" value={firstString(detail().source) ?? 'backend'} />
+        <DetailFact
+          label="Tier"
+          value={
+            typeof detail().tier === 'number'
+              ? `tier ${detail().tier}`
+              : typeof props.agent.tier === 'number'
+                ? `tier ${props.agent.tier}`
+                : 'unreported'
+          }
+        />
+        <Show when={firstString(detail().specialization, props.agent.specialization)}>
+          {(v) => <DetailFact label="Focus" value={v()} />}
+        </Show>
+        <Show when={model()}>
+          {(v) => <DetailFact label="Model" value={v()} />}
+        </Show>
+      </dl>
+
+      <Show when={tools().length > 0}>
+        <DetailChipGroup label="Tools" values={tools()} />
+      </Show>
+      <Show when={keywords().length > 0}>
+        <DetailChipGroup label="Keywords" values={keywords().map((k) => `#${k}`)} />
+      </Show>
+      <Show when={routing().length > 0}>
+        <DetailRows label="Routing" rows={routing()} />
+      </Show>
+      <Show when={metadata().length > 0}>
+        <DetailRows label="Metadata" rows={metadata()} />
+      </Show>
+    </div>
+  );
+}
+
+function DetailFact(props: { label: string; value: string }) {
+  return (
+    <>
+      <dt>{props.label}</dt>
+      <dd>{props.value}</dd>
+    </>
+  );
+}
+
+function DetailChipGroup(props: { label: string; values: string[] }) {
+  return (
+    <section class="agent-detail__section">
+      <div class="agent-detail__section-title">{props.label}</div>
+      <div class="agent-detail__chips">
+        <For each={props.values}>{(v) => <span class="dp__tag">{v}</span>}</For>
+      </div>
+    </section>
+  );
+}
+
+function DetailRows(props: { label: string; rows: Array<[string, unknown]> }) {
+  return (
+    <section class="agent-detail__section">
+      <div class="agent-detail__section-title">{props.label}</div>
+      <dl class="agent-detail__rows">
+        <For each={props.rows}>
+          {([k, v]) => (
+            <>
+              <dt>{humanKey(k)}</dt>
+              <dd>{formatDetailValue(v)}</dd>
+            </>
+          )}
+        </For>
+      </dl>
+    </section>
+  );
+}
+
+function uniqueStrings(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return [
+    ...new Set(
+      values.filter(
+        (v): v is string => typeof v === 'string' && v.trim().length > 0,
+      ),
+    ),
+  ];
+}
+
+function objectEntries(value: unknown): Array<[string, unknown]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>).filter(([, v]) => v != null);
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const v of values) {
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return undefined;
+}
+
+function humanKey(key: string): string {
+  return key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function formatDetailValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    const strings = value.filter((v): v is string => typeof v === 'string');
+    if (strings.length === value.length && strings.length <= 6) return strings.join(', ');
+    return `${value.length} item${value.length === 1 ? '' : 's'}`;
+  }
+  if (value && typeof value === 'object') {
+    const count = Object.keys(value as Record<string, unknown>).length;
+    return count > 0 ? `${count} field${count === 1 ? '' : 's'}` : 'configured';
+  }
+  return 'unreported';
 }

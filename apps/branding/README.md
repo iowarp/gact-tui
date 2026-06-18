@@ -5,9 +5,14 @@ supplies the product name, wordmark, tagline, mark/logo, and theme tokens that a
 injected at **build time** via the `GACT_BRAND` environment variable.
 
 ```sh
-GACT_BRAND=gact  pnpm --filter @clio/web build   # neutral default
-GACT_BRAND=clio  pnpm --filter @clio/web build   # CLIO reference brand
+cd apps/web
+pnpm build:gact   # neutral default
+pnpm build:clio   # CLIO reference brand
 ```
+
+From the `apps/` workspace root, the equivalent filtered commands are
+`pnpm --filter @clio/web build:gact` and
+`pnpm --filter @clio/web build:clio`.
 
 `GACT_BRAND` defaults to `gact` when unset. The build reads
 `apps/branding/<profile>/brand.json` (plus any referenced asset files) and exposes a
@@ -26,9 +31,11 @@ user-facing product name / mark / accent through it.
 | `logoSvg`     | string (path)         | no       | Path (relative to the profile dir) to an SVG. Overrides `markGlyph` if present.           |
 | `accent`      | string (CSS color)    | no       | Primary accent token. Defaults to the design-system default if omitted.                   |
 | `themeTokens` | record<string,string> | no       | Extra CSS custom-property overrides, merged into the default theme at boot.               |
+| `starterPrompts` | array<{eyebrow,label}> | no   | First-run chat prompt cards tuned for the product/domain. Defaults to neutral GACT prompts. |
 
 The resolved `brand` object always carries `name`, `wordmark`, `tagline`, `markGlyph`,
-`accent`, `themeTokens`, and `logoSvg` (the inlined SVG source string, or `null`).
+`accent`, `themeTokens`, `starterPrompts`, and `logoSvg` (the inlined SVG source
+string, or `null`).
 
 ## Profiles shipped
 
@@ -40,7 +47,8 @@ The resolved `brand` object always carries `name`, `wordmark`, `tagline`, `markG
 
 1. Create `apps/branding/<id>/brand.json`.
 2. (Optional) Drop `logo.svg` next to it and set `"logoSvg": "logo.svg"`.
-3. Build with `GACT_BRAND=<id>`.
+3. Add package scripts that call `node scripts/with-brand.mjs <id> build` and
+   `node scripts/with-brand.mjs <id> dev`, or call that helper directly.
 
 ## Desktop (Tauri-native) injection points
 

@@ -285,11 +285,14 @@ pub fn run() {
             // platform-native badge surface for `detached sessions` once
             // the live wire grows a session count signal we can push
             // here.
-            let show = MenuItem::with_id(app, "show", "Show CLIO", true, None::<&str>)?;
+            let product_name = menu::native_app_name(app.handle());
+            let short_name = menu::short_app_name(&product_name);
+            let show_label = format!("Show {short_name}");
+            let show = MenuItem::with_id(app, "show", show_label, true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             TrayIconBuilder::with_id("clio-tray")
-                .tooltip("CLIO Desktop")
+                .tooltip(product_name)
                 .menu(&menu)
                 .on_menu_event(|app, ev| match ev.id().as_ref() {
                     "show" => {
@@ -374,6 +377,24 @@ mod gact_http_tests {
         }
     }
 
+    fn create_session_body(base: &str) -> String {
+        let workspace_id = ureq::get(&format!("{base}/v1/workspaces"))
+            .call()
+            .ok()
+            .and_then(|r| r.into_string().ok())
+            .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
+            .and_then(|j| {
+                j.get("workspaces")
+                    .and_then(|v| v.as_array())
+                    .and_then(|rows| rows.first())
+                    .and_then(|row| row.get("id"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "ws_default".to_string());
+        serde_json::json!({ "workspace_id": workspace_id }).to_string()
+    }
+
     #[test]
     fn proxies_capabilities_get() {
         let Some(url) = backend() else {
@@ -396,7 +417,11 @@ mod gact_http_tests {
             eprintln!("skip: no clio at CLIO_GACT_URL");
             return;
         };
-        let mut r = req("POST", format!("{url}/v1/sessions"), Some("{}".to_string()));
+        let mut r = req(
+            "POST",
+            format!("{url}/v1/sessions"),
+            Some(create_session_body(&url)),
+        );
         r.headers
             .insert("Content-Type".to_string(), "application/json".to_string());
         let resp = gact_http(r).expect("gact_http POST should not transport-error");

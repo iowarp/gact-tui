@@ -878,8 +878,42 @@ func (c *Client) ListExpertPacks(ctx context.Context, scope RuntimeScope) ([]gac
 	if scope.WorkspaceID != "" {
 		q.Set("workspace_id", scope.WorkspaceID)
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/expert-packs"+queryString(q), nil, &out)
-	return out.ExpertPacks, err
+	if err := c.do(ctx, http.MethodGet, "/v1/expert-packs"+queryString(q), nil, &out); err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	packs := append([]gact.ExpertPackDefinition(nil), out.ExpertPacks...)
+	for _, pack := range packs {
+		seen[pack.ID] = true
+	}
+	blueprints, err := c.ListAgentBlueprints(ctx, scope)
+	if err != nil {
+		return packs, nil
+	}
+	for _, bp := range blueprints {
+		if bp.Kind != "pack" || seen[bp.ID] {
+			continue
+		}
+		definitionPath := bp.DefinitionPath
+		if definitionPath == "" {
+			definitionPath = bp.RootPath
+		}
+		packs = append(packs, gact.ExpertPackDefinition{
+			ID:               bp.ID,
+			Version:          bp.Version,
+			Title:            bp.Title,
+			Description:      bp.Description,
+			Scope:            bp.Scope,
+			Root:             bp.Root,
+			DefinitionPath:   definitionPath,
+			Enabled:          bp.Enabled,
+			ValidationErrors: bp.ValidationErrors,
+			Defaults:         bp.Defaults,
+			Metadata:         bp.Metadata,
+		})
+		seen[bp.ID] = true
+	}
+	return packs, nil
 }
 
 func (c *Client) GetExpertPack(ctx context.Context, packID string, scope RuntimeScope) (gact.ExpertPackDetail, error) {
@@ -904,14 +938,26 @@ func (c *Client) InstallExpertPack(ctx context.Context, req gact.ExpertPackInsta
 	return out, err
 }
 
-func (c *Client) UpdateExpertPack(ctx context.Context, packID string) (map[string]any, error) {
+func (c *Client) UpdateExpertPack(ctx context.Context, packID string, scope RuntimeScope) (map[string]any, error) {
 	var out map[string]any
-	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/"+url.PathEscape(packID)+"/update", map[string]any{}, &out)
+	body := map[string]any{"scope": "workspace"}
+	if scope.WorkspaceID != "" {
+		body["workspace_id"] = scope.WorkspaceID
+	}
+	err := c.do(ctx, http.MethodPost, "/v1/expert-packs/"+url.PathEscape(packID)+"/update", body, &out)
 	return out, err
 }
 
-func (c *Client) DeleteExpertPack(ctx context.Context, packID string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/expert-packs/"+url.PathEscape(packID), nil, nil)
+func (c *Client) DeleteExpertPack(ctx context.Context, packID string, scope RuntimeScope) error {
+	q := url.Values{}
+	if scope.WorkspaceID != "" {
+		q.Set("workspace_id", scope.WorkspaceID)
+	}
+	// Expert-pack installs are workspace-scoped from the TUI. Passing the
+	// scope keeps the 0.5.3 one-engine lifecycle from deleting the wrong
+	// registry entry when global/workspace packs share an id.
+	q.Set("scope", "workspace")
+	return c.do(ctx, http.MethodDelete, "/v1/expert-packs/"+url.PathEscape(packID)+queryString(q), nil, nil)
 }
 
 func (c *Client) GetSessionExpertPack(ctx context.Context, sessionID string) (gact.SessionExpertPackState, error) {

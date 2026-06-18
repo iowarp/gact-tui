@@ -1,13 +1,8 @@
 /**
- * Left-rail completeness (task B1, hermes-agent-desktop.md §1c).
+ * Left-rail shell contract.
  *
- * The desktop exists for people who'd never open a terminal — so every
- * top-level destination must be reachable by CLICKING a LABELED rail item,
- * not only via Cmd+K. These tests pin:
- *   - the full destination set renders with text labels (not icon-only),
- *   - capability gating hides backend-dependent destinations,
- *   - the catalog (previously Cmd+K-only) has a visible rail door,
- *   - selecting an item / collapsing the rail behave as wired.
+ * The persistent left viewport is reserved for conversation/session work.
+ * Operational surfaces live in Settings and the command palette.
  */
 import { render, screen, cleanup, fireEvent } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,10 +45,12 @@ function renderRail(
 }
 
 describe('LeftRail destination set', () => {
-  it('renders every top-level destination as a clickable rail item', () => {
+  it('renders only the session route plus global controls', () => {
     renderRail(ALL_CAPS);
+    expect(screen.getByTestId('rail-sessions')).toBeTruthy();
+    expect(screen.getByTestId('rail-settings')).toBeTruthy();
+    expect(screen.getByTestId('rail-palette')).toBeTruthy();
     for (const id of [
-      'sessions',
       'workspaces',
       'agents',
       'tools',
@@ -63,90 +60,37 @@ describe('LeftRail destination set', () => {
       'metrics',
       'doctor',
       'plugins',
-      'settings',
-    ]) {
-      expect(screen.getByTestId(`rail-${id}`)).toBeTruthy();
-    }
-  });
-
-  it('labels every item with text — not icon-only mystery-meat', () => {
-    renderRail(ALL_CAPS);
-    // Expanded by default: text labels are present next to the icons.
-    expect(screen.getByText('Sessions')).toBeTruthy();
-    expect(screen.getByText('Workspaces')).toBeTruthy();
-    expect(screen.getByText('Agents')).toBeTruthy();
-    expect(screen.getByText('Commands')).toBeTruthy();
-    expect(screen.getByText('Prompts')).toBeTruthy();
-    expect(screen.getByText('MCP servers')).toBeTruthy();
-    expect(screen.getByText('Memory')).toBeTruthy();
-    expect(screen.getByText('Metrics')).toBeTruthy();
-    expect(screen.getByText('Doctor')).toBeTruthy();
-    expect(screen.getByText('Plugins')).toBeTruthy();
-    expect(screen.getByText('Settings')).toBeTruthy();
-  });
-
-  it('exposes the catalog (previously Cmd+K-only) as a visible rail door', () => {
-    renderRail(ALL_CAPS);
-    expect(screen.getByTestId('rail-catalog')).toBeTruthy();
-    expect(screen.getByText('Browse catalog')).toBeTruthy();
-  });
-
-  it('exposes the command palette as a labeled, clickable entry', () => {
-    renderRail(ALL_CAPS);
-    expect(screen.getByTestId('rail-palette')).toBeTruthy();
-    expect(screen.getByText('Command palette')).toBeTruthy();
-  });
-});
-
-describe('LeftRail capability gating', () => {
-  it('hides backend-dependent destinations when their capability is off', () => {
-    // Only sessions/plugins/settings/catalog/palette are capability-free.
-    renderRail({});
-    expect(screen.getByTestId('rail-sessions')).toBeTruthy();
-    expect(screen.getByTestId('rail-plugins')).toBeTruthy();
-    expect(screen.getByTestId('rail-settings')).toBeTruthy();
-    for (const id of [
-      'workspaces',
-      'agents',
-      'tools',
-      'prompts',
-      'mcp',
-      'memory',
-      'metrics',
     ]) {
       expect(screen.queryByTestId(`rail-${id}`)).toBeNull();
     }
   });
 
-  it('shows Doctor when EITHER the TUI or Desktop health flag is set', () => {
-    renderRail({ doctor: true });
-    expect(screen.getByTestId('rail-doctor')).toBeTruthy();
-    cleanup();
-    localStorage.clear();
-    renderRail({ integration_health: true });
-    expect(screen.getByTestId('rail-doctor')).toBeTruthy();
+  it('defaults to compact icons with accessible labels', () => {
+    renderRail(ALL_CAPS);
+    // Collapsed by default: labels do not consume first-viewport width, but
+    // buttons remain named for assistive tech and tooltips.
+    expect(screen.queryByText('Sessions')).toBeNull();
+    expect(screen.getByTestId('rail-sessions').getAttribute('aria-label')).toBe('Sessions');
+    expect(screen.getByTestId('rail-settings').getAttribute('aria-label')).toBe('Settings');
   });
 
-  it('shows only the capabilities advertised by a partial backend', () => {
-    renderRail({ mcp: true, prompts: true });
-    expect(screen.getByTestId('rail-mcp')).toBeTruthy();
-    expect(screen.getByTestId('rail-prompts')).toBeTruthy();
-    expect(screen.queryByTestId('rail-agents')).toBeNull();
-    expect(screen.queryByTestId('rail-metrics')).toBeNull();
+  it('keeps the catalog out of the persistent rail', () => {
+    renderRail(ALL_CAPS);
+    expect(screen.queryByTestId('rail-catalog')).toBeNull();
+  });
+
+  it('exposes the command palette as a labeled, clickable entry', () => {
+    renderRail(ALL_CAPS);
+    expect(screen.getByTestId('rail-palette')).toBeTruthy();
+    expect(screen.getByTestId('rail-palette').getAttribute('aria-label')).toBe('Open command palette');
   });
 });
 
 describe('LeftRail interaction', () => {
   it('fires onSelect with the route id when a destination is clicked', () => {
     const { onSelect } = renderRail(ALL_CAPS);
-    fireEvent.click(screen.getByTestId('rail-agents'));
-    expect(onSelect).toHaveBeenCalledWith('agents');
-  });
-
-  it('fires onOpenCatalog when the catalog door is clicked', () => {
-    const { onOpenCatalog } = renderRail(ALL_CAPS);
-    fireEvent.click(screen.getByTestId('rail-catalog'));
-    expect(onOpenCatalog).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('rail-sessions'));
+    expect(onSelect).toHaveBeenCalledWith('sessions');
   });
 
   it('fires onOpenPalette when the palette entry is clicked', () => {
@@ -156,20 +100,20 @@ describe('LeftRail interaction', () => {
   });
 
   it('marks the active destination with aria-current=page', () => {
-    renderRail(ALL_CAPS, { active: 'mcp' });
-    expect(screen.getByTestId('rail-mcp').getAttribute('aria-current')).toBe('page');
-    expect(screen.getByTestId('rail-sessions').getAttribute('aria-current')).toBeNull();
+    renderRail(ALL_CAPS, { active: 'sessions' });
+    expect(screen.getByTestId('rail-sessions').getAttribute('aria-current')).toBe('page');
+    expect(screen.getByTestId('rail-settings').getAttribute('aria-current')).toBeNull();
   });
 
-  it('collapses to an icon-only rail (labels hidden) and persists the choice', () => {
+  it('expands to a labeled rail and persists the choice', () => {
     renderRail(ALL_CAPS);
-    // Default expanded — label visible.
-    expect(screen.queryByText('Sessions')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('rail-toggle'));
-    // Collapsed — labels gone, icons (testids) remain clickable.
+    // Default collapsed — label hidden.
     expect(screen.queryByText('Sessions')).toBeNull();
+    fireEvent.click(screen.getByTestId('rail-toggle'));
+    // Expanded — labels visible, icons (testids) remain clickable.
+    expect(screen.queryByText('Sessions')).toBeTruthy();
     expect(screen.getByTestId('rail-sessions')).toBeTruthy();
-    expect(localStorage.getItem('clio.rail-expanded.v1')).toBe('false');
+    expect(localStorage.getItem('clio.rail-expanded.v1')).toBe('true');
   });
 
   it('omits the catalog door when no onOpenCatalog handler is supplied', () => {

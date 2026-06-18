@@ -81,12 +81,9 @@ export const ToastProvider: ParentComponent = (props) => {
   // Per-visible-toast auto-dismiss timers, so a coalesced duplicate can
   // restart the existing toast's countdown instead of stacking a copy.
   const timers = new Map<number, number>();
-  // When each visible toast was last shown/refreshed, to bound coalescing.
-  const lastShownAt = new Map<number, number>();
-  // Identical toasts (same tone+title+body) fired inside this window
-  // coalesce onto the existing visible toast — keeps an SSE flap or a
-  // retry loop from snowballing the same message N times.
-  const COALESCE_MS = 4000;
+  // Identical visible toasts (same tone+title+body) coalesce onto the
+  // existing toast until it is dismissed. This keeps reconnect loops from
+  // stacking visually identical recovery prompts.
 
   function clearTimer(id: number) {
     const t = timers.get(id);
@@ -98,7 +95,6 @@ export const ToastProvider: ParentComponent = (props) => {
 
   function dismiss(id: number) {
     clearTimer(id);
-    lastShownAt.delete(id);
     setToasts((cur) => cur.filter((t) => t.id !== id));
   }
 
@@ -139,8 +135,7 @@ export const ToastProvider: ParentComponent = (props) => {
       const dupe = toasts().find(
         (t) => t.tone === rec.tone && t.title === rec.title && t.body === rec.body,
       );
-      if (dupe && Date.now() - (lastShownAt.get(dupe.id) ?? 0) <= COALESCE_MS) {
-        lastShownAt.set(dupe.id, Date.now());
+      if (dupe) {
         scheduleDismiss(dupe.id, dupe.duration);
       } else {
         setToasts((cur) => {
@@ -153,7 +148,6 @@ export const ToastProvider: ParentComponent = (props) => {
           if (evicted) clearTimer(evicted.id);
           return next;
         });
-        lastShownAt.set(id, Date.now());
         scheduleDismiss(id, rec.duration);
       }
     }

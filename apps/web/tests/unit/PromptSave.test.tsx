@@ -3,9 +3,9 @@
  *
  *  - Expanding a prompt card loads its text (getPrompt) into an editable
  *    textarea seeded with that text.
- *  - Validate calls validatePrompt({text}) and reports the verdict.
+ *  - Validate calls validatePrompt({text, scope context}) and reports the verdict.
  *  - Save calls savePrompt(id, {text, scope}) with the chosen scope
- *    (default global), shows a success result, and refetches the list.
+ *    (default global) and keeps the inline success result visible.
  *  - A 422/validation error from Save surfaces inline (honest message).
  *
  * Mocks the @clio/core Client as a partial fake.
@@ -67,7 +67,7 @@ describe('A4 — prompt editor save', () => {
     render(() => <PromptsPage client={client} />);
     await expandAndWaitForEditor();
 
-    expect(getPrompt).toHaveBeenCalledWith('clio.chat');
+    expect(getPrompt).toHaveBeenCalledWith('clio.chat', {});
     const ta = screen.getByTestId('prompt-edit-text') as HTMLTextAreaElement;
     await waitFor(() => expect(ta.value).toBe('You are CLIO.'));
   });
@@ -86,7 +86,7 @@ describe('A4 — prompt editor save', () => {
     );
   });
 
-  it('Save calls savePrompt with edited text + default global scope and refetches', async () => {
+  it('Save calls savePrompt with edited text + default global scope and keeps the result visible', async () => {
     const { client, savePrompt, prompts } = makeClient();
     render(() => <PromptsPage client={client} />);
     await expandAndWaitForEditor();
@@ -105,13 +105,12 @@ describe('A4 — prompt editor save', () => {
     await waitFor(() =>
       expect(screen.getByTestId('prompt-save-result').textContent).toMatch(/saved/i),
     );
-    // initial load + refetch after save.
-    await waitFor(() => expect(prompts).toHaveBeenCalledTimes(2));
+    expect(prompts).toHaveBeenCalledTimes(1);
   });
 
-  it('honors a non-default scope selection', async () => {
+  it('honors a non-default scope selection with workspace context', async () => {
     const { client, savePrompt } = makeClient();
-    render(() => <PromptsPage client={client} />);
+    render(() => <PromptsPage client={client} context={{ workspaceId: 'ws_123' }} />);
     await expandAndWaitForEditor();
 
     fireEvent.change(screen.getByTestId('prompt-save-scope'), {
@@ -121,7 +120,7 @@ describe('A4 — prompt editor save', () => {
     await waitFor(() =>
       expect(savePrompt).toHaveBeenCalledWith(
         'clio.chat',
-        expect.objectContaining({ scope: 'workspace' }),
+        expect.objectContaining({ scope: 'workspace', workspace_id: 'ws_123' }),
       ),
     );
   });

@@ -166,6 +166,8 @@ export interface ToolCallSummary {
   toolName: string;
   status: 'started' | 'completed' | 'error';
   durationMs?: number;
+  input?: unknown;
+  output?: unknown;
 }
 
 export interface IntegrationStatus {
@@ -1200,22 +1202,33 @@ function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
     if (part?.type === 'tool_call' && part.input) {
       return JSON.stringify(part.input, null, 2);
     }
+    if (props.summary.input != null) {
+      return JSON.stringify(props.summary.input, null, 2);
+    }
     return null;
   };
 
   const callOutput = () => {
     const part = resultPart();
-    if (part?.type !== 'tool_result') return null;
-    if (typeof part.output === 'string') return part.output;
-    if (Array.isArray(part.content)) {
-      return part.content
-        .map((c) => (c.type === 'text' ? c.text : `[${c.type}]`))
-        .join('\n');
+    if (part?.type === 'tool_result') {
+      if (typeof part.output === 'string') return part.output;
+      if (Array.isArray(part.content)) {
+        return part.content
+          .map((c) => (c.type === 'text' ? c.text : `[${c.type}]`))
+          .join('\n');
+      }
+    }
+    if (props.summary.output != null) {
+      return typeof props.summary.output === 'string'
+        ? props.summary.output
+        : JSON.stringify(props.summary.output, null, 2);
     }
     return null;
   };
 
   const hasDetail = () => callInput() != null || callOutput() != null;
+  const displayName = () => toolDisplayName(props.summary.toolName);
+  const rawName = () => props.summary.toolName;
 
   return (
     <li
@@ -1226,10 +1239,15 @@ function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
         type="button"
         class="inspector__call-row"
         onClick={() => hasDetail() && setOpen((v) => !v)}
-        disabled={!hasDetail()}
+        aria-disabled={!hasDetail()}
       >
         <Icon name="tool" size={14} class="inspector__call-icon" />
-        <span class="inspector__call-name">{props.summary.toolName}</span>
+        <span class="inspector__call-labels">
+          <span class="inspector__call-name">{displayName()}</span>
+          <Show when={displayName() !== rawName()}>
+            <span class="inspector__call-raw">{rawName()}</span>
+          </Show>
+        </span>
         <Show when={props.summary.durationMs != null}>
           <span class="inspector__call-dur">{props.summary.durationMs}ms</span>
         </Show>
@@ -1287,9 +1305,50 @@ function ToolCallRow(props: { summary: ToolCallSummary; parts: Part[] }) {
   );
 }
 
-// Helper to derive a flat ToolCallSummary[] from a Message's parts (caller
-// passes them in already-shaped; this is here as a convenience for tests).
-export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
+function toolDisplayName(toolName: string): string {
+  const known: Record<string, string> = {
+    fs_read_file: 'Read workspace file',
+    fs_propose_edit: 'Propose file edit',
+    fs_apply_edit_write: 'Apply file edit',
+    shell_bash: 'Run shell command',
+    ndp_search_datasets: 'Search NDP datasets',
+    ndp_stage_resource: 'Stage NDP resource',
+    geo_filter_points_by_radius: 'Filter points by radius',
+    pandas_profile_csv: 'Profile CSV data',
+  };
+  const normalized = toolName.trim();
+  if (known[normalized]) return known[normalized];
+  return normalized
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stableJson(value: unknown): string {
+  if (!isRecord(value) && !Array.isArray(value)) return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+    .join(',')}}`;
+}
+
+function metadataToolFingerprint(
+  name: string,
+  input: unknown,
+  output: unknown,
+): string {
+  return `${name}\n${stableJson(input)}\n${stableJson(output)}`;
+}
+
+// Helper to derive a flat ToolCallSummary[] from the transcript parts, plus
+// CLIO's metadata-only `tools_called` ledger used by dynamic tool agents.
+export function summarizeToolCalls(source: Message | Part[]): ToolCallSummary[] {
+  const parts = Array.isArray(source) ? source : source.parts;
+  const metadata = Array.isArray(source) ? undefined : source.metadata;
   const out: ToolCallSummary[] = [];
   for (const p of parts) {
     if (p.type === 'tool_call') {
@@ -1306,6 +1365,48 @@ export function summarizeToolCalls(parts: Part[]): ToolCallSummary[] {
         if (p.duration_ms != null) target.durationMs = p.duration_ms;
       }
     }
+  }
+  const metaCalls = Array.isArray(metadata?.['tools_called'])
+    ? metadata?.['tools_called']
+    : [];
+  const metadataFingerprints = new Map<string, ToolCallSummary>();
+  for (const raw of metaCalls) {
+    if (!isRecord(raw)) continue;
+    const name = String(raw['name'] ?? raw['tool'] ?? raw['tool_name'] ?? '');
+    if (!name) continue;
+    const input = raw['args'];
+    const output = raw['result'];
+    const fingerprint = metadataToolFingerprint(name, input, output);
+    const existing = metadataFingerprints.get(fingerprint);
+    const rawCallId = raw['call_id'];
+    const callId = String(rawCallId ?? `${name}-${out.length}`);
+    if (out.some((row) => row.callId === callId)) continue;
+    const ok = raw['ok'];
+    const status: ToolCallSummary['status'] =
+      ok === false || raw['error'] ? 'error' : 'completed';
+    const durationRaw = raw['duration_ms'];
+    const durationMs =
+      typeof durationRaw === 'number'
+        ? Math.round(durationRaw)
+        : undefined;
+    if (existing) {
+      if (status === 'error') existing.status = 'error';
+      if (durationMs != null) existing.durationMs = durationMs;
+      if (rawCallId != null && existing.callId.startsWith(`${name}-`)) {
+        existing.callId = callId;
+      }
+      continue;
+    }
+    const summary: ToolCallSummary = {
+      callId,
+      toolName: name,
+      status,
+      ...(durationMs != null ? { durationMs } : {}),
+      ...(input != null ? { input } : {}),
+      ...(output != null ? { output } : {}),
+    };
+    metadataFingerprints.set(fingerprint, summary);
+    out.push(summary);
   }
   return out;
 }

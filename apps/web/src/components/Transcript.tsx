@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { brand } from '@brand';
 import type { FileDiff, Message, Part } from '@clio/core';
 import { Icon, type IconName } from './Icon.js';
@@ -113,6 +113,36 @@ function PartView(props: {
   const p = props.part;
   if (p.type === 'text') {
     const text = p.text ?? '';
+    const commandResult = commandResultInfo(p, text);
+    if (commandResult && !props.searchQuery?.trim()) {
+      return (
+        <CommandResultCard
+          command={commandResult.command}
+          text={commandResult.text}
+        >
+          <Show when={props.showCursor}>
+            <span class="trx-cursor" aria-hidden>▌</span>
+          </Show>
+        </CommandResultCard>
+      );
+    }
+    const workflow = splitWorkflowState(text);
+    if (workflow && !props.searchQuery?.trim()) {
+      return (
+        <div class="trx-text">
+          <Show when={workflow.before.trim()}>
+            <InlineMarkdown text={workflow.before.trim()} />
+          </Show>
+          <WorkflowStateCard state={workflow.state} raw={workflow.raw} />
+          <Show when={workflow.after.trim()}>
+            <InlineMarkdown text={workflow.after.trim()} />
+          </Show>
+          <Show when={props.showCursor}>
+            <span class="trx-cursor" aria-hidden>▌</span>
+          </Show>
+        </div>
+      );
+    }
     const q = props.searchQuery?.trim() ?? '';
     if (!q) {
       return (
@@ -265,6 +295,13 @@ function PartView(props: {
     const metadata = (p as Part & { metadata?: Record<string, unknown> }).metadata ?? {};
     const reason = String(metadata['route_reason'] ?? '');
     const source = String(metadata['route_source'] ?? '');
+    if (
+      !source &&
+      (!selected || selected === 'main') &&
+      /removed retained evidence scaffolding/i.test(`${reason} ${rationale}`)
+    ) {
+      return null;
+    }
     return (
       <div class="trx-routing">
         <span class="trx-routing__icon" aria-hidden>
@@ -295,6 +332,11 @@ function PartView(props: {
     const status = String(meta['status'] ?? 'observed');
     const output = String(meta['output_summary'] ?? meta['summary'] ?? '').trim();
     const summary = hp.text ?? '';
+    const detail = output || summary;
+    const workflow = splitWorkflowState(detail);
+    const displayDetail = workflow
+      ? summarizeHandoffDetail(workflow.before.trim() || workflow.after.trim())
+      : summarizeHandoffDetail(detail);
     return (
       <div class="trx-routing">
         <span class="trx-routing__icon" aria-hidden>
@@ -307,8 +349,11 @@ function PartView(props: {
             </Show>
             <span class="trx-routing__src"> · {status}</span>
           </span>
-          <Show when={output || summary}>
-            <span class="trx-routing__why">{output || summary}</span>
+          <Show when={displayDetail}>
+            <span class="trx-routing__why">{displayDetail}</span>
+          </Show>
+          <Show when={workflow}>
+            <WorkflowStateCard state={workflow!.state} raw={workflow!.raw} />
           </Show>
         </span>
       </div>
@@ -355,6 +400,380 @@ function PartView(props: {
     );
   }
   return null;
+}
+
+function commandResultInfo(
+  part: Part,
+  text: string,
+): { command: string; text: string } | null {
+  const synthetic = String(part.metadata?.['synthetic'] ?? '');
+  if (synthetic !== 'command_result') return null;
+  const command = String(part.metadata?.['command'] ?? '').trim() || 'Command';
+  const prefix = command.startsWith('/') ? `[${command}]` : '';
+  const body = prefix && text.trimStart().startsWith(prefix)
+    ? text.trimStart().slice(prefix.length).trimStart()
+    : text;
+  return { command, text: body };
+}
+
+function CommandResultCard(props: {
+  command: string;
+  text: string;
+  children?: JSX.Element;
+}) {
+  return (
+    <section class="trx-command-result" data-testid="command-result-card">
+      <div class="trx-command-result__head">
+        <Icon name="tool" size={14} />
+        <span class="trx-command-result__label">Command result</span>
+        <code>{props.command}</code>
+      </div>
+      <div class="trx-command-result__body">
+        <InlineMarkdown text={props.text} />
+        {props.children}
+      </div>
+    </section>
+  );
+}
+
+interface WorkflowStateBlock {
+  before: string;
+  after: string;
+  raw: string;
+  state: Record<string, unknown>;
+}
+
+const WORKFLOW_STATE_MARKERS = [
+  'CLIO durable typed workflow state:',
+  'CLIO typed workflow state:',
+  'Retained typed workflow state:',
+] as const;
+
+function splitWorkflowState(text: string): WorkflowStateBlock | null {
+  let markerIndex = -1;
+  let marker = '';
+  for (const candidate of WORKFLOW_STATE_MARKERS) {
+    const idx = text.indexOf(candidate);
+    if (idx >= 0 && (markerIndex < 0 || idx < markerIndex)) {
+      markerIndex = idx;
+      marker = candidate;
+    }
+  }
+  if (markerIndex < 0) return null;
+
+  const before = text.slice(0, markerIndex).trimEnd();
+  const tail = text.slice(markerIndex + marker.length).trimStart();
+  const jsonStart = tail.indexOf('{');
+  if (jsonStart < 0) return null;
+  const end = findBalancedJsonEnd(tail, jsonStart);
+  if (end < 0) return null;
+
+  const raw = tail.slice(jsonStart, end + 1);
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed)) return null;
+    const state = isRecord(parsed['workflow_state'])
+      ? parsed['workflow_state']
+      : parsed;
+    return {
+      before,
+      after: tail.slice(end + 1).trimStart(),
+      raw,
+      state,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function findBalancedJsonEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = inString;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function summarizeHandoffDetail(detail: string): string {
+  const text = detail.trim();
+  if (!text) return '';
+  const jsonStart = text.search(/{/);
+  if (jsonStart !== 0) return text;
+  const end = findBalancedJsonEnd(text, 0);
+  if (end < 0) return text;
+  const raw = text.slice(0, end + 1);
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed)) return text.slice(end + 1).trimStart();
+    const summary = summarizeEvidenceRecord(parsed);
+    const rest = text.slice(end + 1).trimStart();
+    return [summary, rest].filter(Boolean).join(' · ');
+  } catch {
+    return text;
+  }
+}
+
+function summarizeEvidenceRecord(record: Record<string, unknown>): string {
+  const region = shortScalar(record['REGION_LABEL'] ?? record['region_label'] ?? record['region_name']);
+  const confidence = shortScalar(record['CONFIDENCE'] ?? record['confidence']);
+  const lat = shortScalar(record['CENTER_LAT'] ?? record['center_lat']);
+  const lon = shortScalar(record['CENTER_LON'] ?? record['center_lon']);
+  const radius = shortScalar(record['RADIUS_KM'] ?? record['radius_km']);
+  const warnings = shortScalar(record['WARNINGS'] ?? record['warnings']);
+  if (region) {
+    const bits = [
+      `Resolved region: ${region}`,
+      lat && lon ? `center ${lat}, ${lon}` : '',
+      radius ? `radius ${radius} km` : '',
+      confidence ? `confidence ${confidence}` : '',
+      warnings ? `warnings ${warnings}` : '',
+    ].filter(Boolean);
+    return bits.join(' · ');
+  }
+
+  const bits = Object.entries(record)
+    .filter(([, value]) => value != null && value !== '')
+    .slice(0, 4)
+    .map(([key, value]) => `${humanizeKey(key)}: ${shortScalar(value)}`)
+    .filter((bit) => !bit.endsWith(': '));
+  return bits.join(' · ');
+}
+
+function WorkflowStateCard(props: { state: Record<string, unknown>; raw: string }) {
+  const rows = () => workflowRows(props.state);
+  const hasError = () => rows().some((row) => row.tone === 'err');
+  return (
+    <section
+      class={'trx-workflow' + (hasError() ? ' trx-workflow--err' : '')}
+      data-testid="workflow-state-card"
+    >
+      <div class="trx-workflow__head">
+        <Icon name={hasError() ? 'alert' : 'branch'} size={13} />
+        <span>{hasError() ? 'Workflow blocker' : 'Workflow state'}</span>
+      </div>
+      <Show when={rows().length > 0} fallback={<p class="trx-workflow__empty">Structured state captured.</p>}>
+        <dl class="trx-workflow__grid">
+          <For each={rows().slice(0, 8)}>
+            {(row) => (
+              <div class="trx-workflow__row">
+                <dt>{row.label}</dt>
+                <dd>
+                  <span class={'trx-workflow__status trx-workflow__status--' + row.tone}>
+                    {row.status}
+                  </span>
+                  <Show when={row.detail}>
+                    <span class="trx-workflow__detail">{row.detail}</span>
+                  </Show>
+                </dd>
+              </div>
+            )}
+          </For>
+        </dl>
+      </Show>
+      <details class="trx-workflow__raw">
+        <summary>Raw state</summary>
+        <pre>{prettyJson(props.raw)}</pre>
+      </details>
+    </section>
+  );
+}
+
+interface WorkflowBlockerSummary {
+  title: string;
+  detail: string;
+}
+
+function TurnWorkflowBlocker(props: { summary: WorkflowBlockerSummary }) {
+  return (
+    <aside class="trx-turn-blocker" data-testid="turn-workflow-blocker" role="note">
+      <span class="trx-turn-blocker__icon">
+        <Icon name="alert" size={13} />
+      </span>
+      <div class="trx-turn-blocker__body">
+        <div class="trx-turn-blocker__title">{props.summary.title}</div>
+        <div class="trx-turn-blocker__detail">{props.summary.detail}</div>
+      </div>
+    </aside>
+  );
+}
+
+function turnWorkflowBlocker(parts: Part[]): WorkflowBlockerSummary | null {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const state = workflowStateFromPart(parts[i]);
+    if (!state) continue;
+    const delegation = state['delegation'];
+    if (!isRecord(delegation)) continue;
+    if (workflowTone(String(delegation['status'] ?? ''), delegation) !== 'err') continue;
+    const detail = knownWorkflowBlocker(delegation) || workflowDetail(delegation);
+    if (!detail) continue;
+    return {
+      title: 'Workflow blocker',
+      detail,
+    };
+  }
+  return null;
+}
+
+function workflowStateFromPart(part: Part | undefined): Record<string, unknown> | null {
+  const metadata = part?.metadata;
+  if (!isRecord(metadata)) return null;
+  const state = metadata['workflow_state'];
+  if (isRecord(state)) return state;
+  const partRecord: Record<string, unknown> = isRecord(part) ? part : {};
+
+  const candidates = [
+    metadata['output_summary'],
+    metadata['return_output_summary'],
+    metadata['local_output_summary'],
+    partRecord['text'],
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const workflow = splitWorkflowState(candidate);
+    if (workflow) return workflow.state;
+  }
+  return null;
+}
+
+interface WorkflowRow {
+  label: string;
+  status: string;
+  tone: 'ok' | 'warn' | 'err' | 'idle';
+  detail: string;
+}
+
+function workflowRows(state: Record<string, unknown>): WorkflowRow[] {
+  return Object.entries(state).map(([key, value]) => {
+    if (!isRecord(value)) {
+      return {
+        label: humanizeKey(key),
+        status: shortScalar(value),
+        tone: 'idle',
+        detail: '',
+      };
+    }
+    const status = String(
+      value['status'] ??
+        value['state'] ??
+        value['kind'] ??
+        value['confidence'] ??
+        'recorded',
+    );
+    return {
+      label: humanizeKey(key),
+      status,
+      tone: workflowTone(status, value),
+      detail: workflowDetail(value),
+    };
+  });
+}
+
+function workflowTone(status: string, value: Record<string, unknown>): WorkflowRow['tone'] {
+  const text = `${status} ${String(value['blocker'] ?? '')} ${String(value['error'] ?? '')}`.toLowerCase();
+  if (/fail|error|blocked|missing|invalid/.test(text)) return 'err';
+  if (/warn|partial|preliminary|metadata|scan_limited|unknown/.test(text)) return 'warn';
+  if (/ready|complete|completed|staged|resolved|ranked|selected|ok|true/.test(text)) return 'ok';
+  return 'idle';
+}
+
+function workflowDetail(value: Record<string, unknown>): string {
+  const knownBlocker = knownWorkflowBlocker(value);
+  if (knownBlocker) return knownBlocker;
+
+  const keys = [
+    'failed_child',
+    'parent',
+    'message',
+    'path',
+    'local_path',
+    'metadata_path',
+    'source_url',
+    'region_name',
+    'station_id',
+    'candidate_count',
+    'size_bytes',
+    'blocker',
+    'error',
+    'warning',
+    'warnings',
+    'next_action',
+  ];
+  const bits: string[] = [];
+  for (const key of keys) {
+    const raw = value[key];
+    if (raw == null || raw === '') continue;
+    const formatted = Array.isArray(raw)
+      ? raw.slice(0, 3).map(shortScalar).join(', ')
+      : shortScalar(raw);
+    if (formatted) bits.push(`${humanizeKey(key)}: ${formatted}`);
+    if (bits.length >= 3) break;
+  }
+  return bits.join(' · ');
+}
+
+function knownWorkflowBlocker(value: Record<string, unknown>): string {
+  const error = String(value['error'] ?? '');
+  if (error !== '_UnsupportedSessionAgent') return '';
+
+  const child = shortScalar(value['failed_child'] ?? value['message']);
+  const parent = shortScalar(value['parent']);
+  const bits = [
+    child ? `child expert: ${child}` : '',
+    parent ? `parent: ${parent}` : '',
+    'reason: required tools are not available in this session',
+  ].filter(Boolean);
+  return bits.join(' · ');
+}
+
+function humanizeKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function shortScalar(value: unknown): string {
+  if (typeof value === 'string') {
+    const compact = value.replace(/\s+/g, ' ').trim();
+    if (compact.length <= 90) return compact;
+    return `${compact.slice(0, 87)}...`;
+  }
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(4);
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (Array.isArray(value)) return value.slice(0, 4).map(shortScalar).join(', ');
+  if (isRecord(value)) return 'recorded';
+  return value == null ? '' : String(value);
+}
+
+function prettyJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
 }
 
 /** Regenerate variant menu (1.0 item 4). Plain regenerate, regenerate with
@@ -564,6 +983,10 @@ function MessageView(props: {
 }) {
   const role = () => props.msg.role;
   const isAssistant = () => role() === 'assistant';
+  const metadataDiffs = createMemo(() => metadataToolDiffs(props.msg));
+  const turnBlocker = createMemo(() =>
+    isAssistant() ? turnWorkflowBlocker(props.msg.parts ?? []) : null,
+  );
 
   return (
     <article
@@ -713,6 +1136,24 @@ function MessageView(props: {
             />
           )}
         </For>
+        <For each={metadataDiffs()}>
+          {(diff) => (
+            <PartView
+              part={diff}
+              density={props.density}
+              onOpenDiff={props.onOpenDiff}
+              onPinFile={props.onPinFile}
+              searchQuery={props.searchQuery}
+              messageId={props.msg.id}
+              currentMatchKey={props.currentMatchKey}
+              matchBaseIndex={props.matchBaseIndex}
+              imagePartsSupported={props.imagePartsSupported}
+            />
+          )}
+        </For>
+        <Show when={turnBlocker()}>
+          {(summary) => <TurnWorkflowBlocker summary={summary()} />}
+        </Show>
         {/* GAP 1: a pre_message hook block folds into message.completed
             with stop_reason "blocked" + error_info, targeting the USER
             message (no assistant message exists). Render a distinct,
@@ -782,6 +1223,55 @@ function MessageView(props: {
 
 function isErrored(msg: Message): boolean {
   return msg.stop_reason === 'error' || !!msg.error_info;
+}
+
+function metadataToolDiffs(msg: Message): FileDiff[] {
+  if (msg.parts.some((part) => part.type === 'file_diff')) return [];
+  const metadata = msg.metadata;
+  const tools = Array.isArray(metadata?.['tools_called'])
+    ? metadata['tools_called']
+    : [];
+  const diffs: FileDiff[] = [];
+  const seen = new Set<string>();
+  for (const tool of tools) {
+    if (!isRecord(tool)) continue;
+    const name = String(tool['name'] ?? tool['tool_name'] ?? '');
+    if (name !== 'fs_propose_edit') continue;
+    const result = parseToolResult(tool['result']);
+    if (!isRecord(result)) continue;
+    const path = String(result['path'] ?? result['filepath'] ?? toolPath(tool) ?? '');
+    const unifiedDiff = typeof result['unified_diff'] === 'string'
+      ? result['unified_diff']
+      : '';
+    if (!path || !unifiedDiff) continue;
+    const key = `${path}\n${unifiedDiff}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    diffs.push({
+      id: `metadata-diff-${msg.id}-${diffs.length}`,
+      type: 'file_diff',
+      path,
+      unified_diff: unifiedDiff,
+      after: typeof result['new_content'] === 'string' ? result['new_content'] : undefined,
+    });
+  }
+  return diffs;
+}
+
+function parseToolResult(value: unknown): unknown {
+  if (isRecord(value)) return value;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function toolPath(tool: Record<string, unknown>): string {
+  const args = tool['args'];
+  if (!isRecord(args)) return '';
+  return String(args['filepath'] ?? args['path'] ?? '');
 }
 
 /** GAP 1: a turn blocked by a pre_message hook arrives as

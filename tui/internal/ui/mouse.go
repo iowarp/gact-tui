@@ -190,6 +190,7 @@ func (a *App) mouseOverlays() []mouseOverlay {
 			closeOutside: func(app *App) { app.cancelCompose() },
 		},
 		{open: a.detailViewOpen, view: a.viewDetailView, closeOutside: func(app *App) { app.closeDetailView() }},
+		{open: a.sessionSetupOpen, view: a.viewSessionSetup, closeOutside: func(app *App) { app.closeSessionSetup() }},
 		{
 			open:         a.catalogBrowserOpen,
 			view:         a.viewCatalogBrowser,
