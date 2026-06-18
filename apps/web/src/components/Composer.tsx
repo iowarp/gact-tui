@@ -884,7 +884,7 @@ export function Composer(props: ComposerProps = {}) {
               class="composer__input"
               placeholder={
                 props.placeholder ??
-                `Ask ${brand.name} anything — type @ for files, agents, tools`
+                `Ask ${brand.name} anything — @ references, / commands`
               }
               rows={1}
               value={text()}
@@ -1136,7 +1136,7 @@ export function Composer(props: ComposerProps = {}) {
       <div class="composer__hint">
         <span class="composer__kbd">Enter</span> to send ·{' '}
         <span class="composer__kbd">Shift + Enter</span> for newline ·{' '}
-        <span class="composer__kbd">@</span> mention ·{' '}
+        <span class="composer__kbd">@</span> reference ·{' '}
         <span class="composer__kbd">/</span> commands
       </div>
     </div>

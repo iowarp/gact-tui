@@ -4475,3 +4475,32 @@ and no longer show noisy workspace/project chips in the default density:
 - `apps/web/screenshots/audit/overnight-real-backend-b-sessions.png`
 
 The owned backends on `:18272` and `:18273` were stopped after the proof.
+
+## Composer Reference Wording Polish - 2026-06-18
+
+Clarified the composer controls without changing behavior:
+
+- `/` remains the command-palette button.
+- The paperclip remains the context menu for uploading bytes or referencing a
+  workspace file.
+- `@ mention` wording was changed to `@ reference` in the picker, placeholder,
+  and footer hint, because `@` creates references to files/agents/tools rather
+  than uploading another attachment.
+
+Verification:
+
+```bash
+GACT_BRAND=clio npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/screenshots.spec.ts --grep "attach menu" --workers=1
+GACT_BRAND=clio npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/screenshots.spec.ts --grep "at-mention-picker" --workers=1
+npm exec --yes pnpm@9.15.9 -- --dir apps/web typecheck
+npm exec --yes pnpm@9.15.9 -- --dir apps/web lint
+```
+
+Results: both visual proofs passed, web typecheck passed, and web lint passed.
+
+Refreshed screenshots:
+
+- `apps/web/screenshots/attach-hybrid-menu.png`
+- `apps/web/screenshots/at-mention-picker.png`

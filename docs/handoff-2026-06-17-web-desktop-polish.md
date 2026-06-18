@@ -1598,3 +1598,13 @@ gate passed `1/1` against owned no-agent CLIO backends on `:18272` and
 
 - `apps/web/screenshots/audit/overnight-real-backend-a-sessions.png`
 - `apps/web/screenshots/audit/overnight-real-backend-b-sessions.png`
+
+## Composer Reference Wording Polish - 2026-06-18
+
+The composer now uses `@ reference` wording instead of `@ mention` in the
+placeholder, footer hint, and picker heading. This keeps the mental model clear:
+paperclip adds context/uploads bytes, while `@` references workspace files,
+agents, or tools by name/path.
+
+Verification: refreshed `attach-hybrid-menu.png` and `at-mention-picker.png`
+via the focused visual specs; web typecheck and lint passed.
