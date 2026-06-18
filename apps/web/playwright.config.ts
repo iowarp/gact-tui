@@ -25,7 +25,7 @@ export default defineConfig({
     // dist always matches BRAND regardless of any prior build.
     command: `pnpm build && pnpm preview --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: !process.env['CI'] && !process.env['GACT_BRAND'],
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',

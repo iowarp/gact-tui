@@ -1,0 +1,174 @@
+{
+  "backendA": "http://127.0.0.1:18310",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio",
+    "created_at": "2026-06-18T01:31:19.668002+00:00",
+    "updated_at": "2026-06-18T01:31:19.668016+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_451ed5eaa10f",
+    "workspace_id": "ws_default",
+    "title": "overnight expert packs 1781746786379",
+    "status": "idle",
+    "created_at": "2026-06-18T01:39:46.383489+00:00",
+    "updated_at": "2026-06-18T01:39:46.383489+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "packId": "toolkit-live-1781746786379",
+  "marketplaceRoot": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/expert-pack-marketplace-1781746786379",
+  "beforePacks": {
+    "expert_packs": []
+  },
+  "afterInstallBlueprints": {
+    "agent_blueprints": [
+      {
+        "id": "data-semantics",
+        "version": "0.1.0",
+        "title": "Data Semantics Agent",
+        "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
+        "scope": "global",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root_expert": "main",
+        "enabled": true,
+        "validation_errors": [],
+        "defaults": {
+          "prompt_profile": "heavy"
+        },
+        "metadata": {
+          "layout": "agent_blueprint",
+          "body": "# Data Semantics Agent\n\nThis Agent Blueprint is a starter marketplace package for validating CLIO's\nfile-backed Agent runtime. It keeps the hierarchy small enough for smoke tests\nwhile exercising model defaults, prompts, skills, tools, and parent/child expert\nlinks.",
+          "compatibility": {},
+          "requires": {},
+          "mcp_servers": {},
+          "includes": [],
+          "blueprint": {},
+          "install": {
+            "source": "/home/jcernuda/clio-agent/external/clio-agent-marketplace",
+            "source_kind": "path",
+            "ref": "main",
+            "commit": "614f16f51e1cd92d0c59ac47084d1c7a5ad2e287",
+            "pinned_commit": "",
+            "installed_at": "2026-06-18T01:33:35.368620+00:00",
+            "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
+            "scope": "global"
+          },
+          "default_registry": {
+            "source": "git@github.com:JaimeCernuda/clio-agent-marketplace.git",
+            "ref": "main",
+            "commit": "",
+            "default_agent_blueprint_id": "data-semantics",
+            "submodule_path": "external/clio-agent-marketplace"
+          }
+        },
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "kind": "blueprint"
+      },
+      {
+        "id": "toolkit-live-1781746786379",
+        "version": "0.1.0",
+        "title": "Live Toolkit 1781746786379",
+        "description": "",
+        "scope": "workspace",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/toolkit-live-1781746786379",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/toolkit-live-1781746786379/AGENT.md",
+        "root_expert": "",
+        "enabled": true,
+        "validation_errors": [],
+        "defaults": {},
+        "metadata": {
+          "layout": "agent_blueprint",
+          "body": "A loose pack installed through the web UI live gate.",
+          "compatibility": {},
+          "requires": {},
+          "mcp_servers": {},
+          "includes": [],
+          "blueprint": {},
+          "install": {
+            "source": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/expert-pack-marketplace-1781746786379",
+            "source_kind": "path",
+            "ref": "",
+            "commit": "b65d6d7eee49c2e0eaed3ec8b81698fce51a02ea",
+            "pinned_commit": "",
+            "installed_at": "2026-06-18T01:39:47.908942+00:00",
+            "checksum": "ef6561c634d3fc107d06d01a947c8e8582f135c0b7d57b7ad7b52d499a034164",
+            "scope": "workspace"
+          },
+          "default_registry": {}
+        },
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/toolkit-live-1781746786379/AGENT.md",
+        "kind": "pack"
+      }
+    ]
+  },
+  "afterDeleteBlueprints": {
+    "agent_blueprints": [
+      {
+        "id": "data-semantics",
+        "version": "0.1.0",
+        "title": "Data Semantics Agent",
+        "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
+        "scope": "global",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root_expert": "main",
+        "enabled": true,
+        "validation_errors": [],
+        "defaults": {
+          "prompt_profile": "heavy"
+        },
+        "metadata": {
+          "layout": "agent_blueprint",
+          "body": "# Data Semantics Agent\n\nThis Agent Blueprint is a starter marketplace package for validating CLIO's\nfile-backed Agent runtime. It keeps the hierarchy small enough for smoke tests\nwhile exercising model defaults, prompts, skills, tools, and parent/child expert\nlinks.",
+          "compatibility": {},
+          "requires": {},
+          "mcp_servers": {},
+          "includes": [],
+          "blueprint": {},
+          "install": {
+            "source": "/home/jcernuda/clio-agent/external/clio-agent-marketplace",
+            "source_kind": "path",
+            "ref": "main",
+            "commit": "614f16f51e1cd92d0c59ac47084d1c7a5ad2e287",
+            "pinned_commit": "",
+            "installed_at": "2026-06-18T01:33:35.368620+00:00",
+            "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
+            "scope": "global"
+          },
+          "default_registry": {
+            "source": "git@github.com:JaimeCernuda/clio-agent-marketplace.git",
+            "ref": "main",
+            "commit": "",
+            "default_agent_blueprint_id": "data-semantics",
+            "submodule_path": "external/clio-agent-marketplace"
+          }
+        },
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "kind": "blueprint"
+      }
+    ]
+  }
+}

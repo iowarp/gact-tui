@@ -316,6 +316,8 @@ func runEmitConfig() {
 	th := "dark"
 	locale := "en"
 	vc := ""
+	defaultBlueprint := ""
+	defaultExpertPack := ""
 	ct := 5
 	cw := 100_000
 	cd := 150_000
@@ -327,6 +329,8 @@ func runEmitConfig() {
 		Theme:                  &th,
 		Locale:                 &locale,
 		VoiceCommand:           &vc,
+		DefaultBlueprint:       &defaultBlueprint,
+		DefaultExpertPack:      &defaultExpertPack,
 		CollapseThreshold:      &ct,
 		CostWarnTokens:         &cw,
 		CostDangerTokens:       &cd,
@@ -1052,6 +1056,12 @@ func runTUI() {
 	}
 	app.BackendLabel = os.Getenv("GACT_BACKEND_LABEL")
 	app.VoiceCommand = finalVoice
+	if cfg.DefaultBlueprint != nil {
+		app.DefaultAgentBlueprintID = strings.TrimSpace(*cfg.DefaultBlueprint)
+	}
+	if cfg.DefaultExpertPack != nil {
+		app.DefaultExpertPackID = strings.TrimSpace(*cfg.DefaultExpertPack)
+	}
 	// BBBBBBBB1: seed the previously-detached set so the sidebar can
 	// mark sessions the user already walked away from. Soft-fails:
 	// missing/malformed registry just means no markers on this run.
@@ -1177,6 +1187,16 @@ func runTUI() {
 		danger := app.Theme.CostDangerTokens
 		cur.CostWarnTokens = &warn
 		cur.CostDangerTokens = &danger
+		if bp := strings.TrimSpace(app.DefaultAgentBlueprintID); bp != "" {
+			cur.DefaultBlueprint = &bp
+		} else {
+			cur.DefaultBlueprint = nil
+		}
+		if pack := strings.TrimSpace(app.DefaultExpertPackID); pack != "" {
+			cur.DefaultExpertPack = &pack
+		} else {
+			cur.DefaultExpertPack = nil
+		}
 		// YYYYY1: persist paste-compress threshold + intro toggle so
 		// they survive across launches like the other Settings → TUI
 		// knobs.

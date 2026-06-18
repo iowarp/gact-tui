@@ -6,6 +6,7 @@
 
 import { test, expect, chromium } from '@playwright/test';
 import { resolve } from 'node:path';
+import { DATA_SEMANTICS_EXPECT, uniqueDataSemanticsPrompt } from './live-prompts.js';
 
 const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 
@@ -25,7 +26,7 @@ try {
 
 test.setTimeout(180_000);
 
-test('webapp drives one ALCF turn (capital of France)', async () => {
+test('webapp drives one ALCF Data Semantics turn', async () => {
   test.skip(
     !realBackendReachable,
     `no live clio backend reachable at ${BACKEND} — run locally with CLIO_GACT_URL`,
@@ -59,9 +60,9 @@ test('webapp drives one ALCF turn (capital of France)', async () => {
   await page.waitForTimeout(800);
 
   // Make a new session via the UI, then click into it. The new-session
-  // button creates a row but doesn't auto-activate; the user is
-  // expected to click the row to switch focus to it.
+  // button opens the semantics picker before creating a row.
   await page.getByTestId('sessions-new').click();
+  await page.getByTestId('session-semantics-start').click();
   await page.waitForTimeout(1_500);
   const newRow = page.locator('[data-testid^="session-row-"]').first();
   await newRow.click();
@@ -69,7 +70,7 @@ test('webapp drives one ALCF turn (capital of France)', async () => {
 
   const composer = page.getByTestId('composer-input');
   await composer.click();
-  await composer.pressSequentially('What is the capital of France? One word.', {
+  await composer.pressSequentially(uniqueDataSemanticsPrompt(), {
     delay: 10,
   });
   await page.screenshot({
@@ -85,10 +86,10 @@ test('webapp drives one ALCF turn (capital of France)', async () => {
     fullPage: false,
   });
 
-  // Wait for assistant message to render with the answer.
+  // Wait for assistant message to render with current CLIO Data Semantics output.
   const transcript = page.getByTestId('transcript-pane');
   try {
-    await expect(transcript).toContainText('Paris', { timeout: 150_000 });
+    await expect(transcript).toContainText(DATA_SEMANTICS_EXPECT, { timeout: 150_000 });
   } catch (e) {
     await page.screenshot({
       path: resolve(auditDir, 'oneturn-timeout.png'),

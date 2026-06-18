@@ -28,6 +28,7 @@ import {
   For,
   Show,
 } from 'solid-js';
+import { brand } from '@brand';
 import type { Client, LmPreset } from '@clio/core';
 import { DiscoveryPage } from '../components/DiscoveryPage.js';
 import {
@@ -253,7 +254,7 @@ export function SettingsModels(props: SettingsModelsProps) {
             <EmptyState
               icon="sparkle"
               title="No providers available"
-              body="The connected backend reported no LM presets. Check that clio is running and configured."
+              body={`The connected backend reported no LM presets. Check that ${brand.name} is running and configured.`}
               testid="models-empty"
             />
           }

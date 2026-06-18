@@ -25,6 +25,7 @@
 import { test, expect, chromium, type Page, type Browser, type BrowserContext } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { DATA_SEMANTICS_EXPECT, uniqueDataSemanticsPrompt } from './live-prompts.js';
 
 const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17803';
 const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
@@ -169,11 +170,8 @@ test.describe('clio #534 — semantic events + hooks', () => {
     // Now send a clean turn through the same session — proven live: clio
     // accepts new turns after a hook block (session error state is not
     // terminal).
-    await send(
-      page,
-      `What is the capital of France? One word. (nonce ${Date.now()})`,
-    );
-    await expect(page.getByTestId('transcript-pane')).toContainText(/Paris/i, {
+    await send(page, uniqueDataSemanticsPrompt());
+    await expect(page.getByTestId('transcript-pane')).toContainText(DATA_SEMANTICS_EXPECT, {
       timeout: 120_000,
     });
     await page.screenshot({ path: shot('534-blocked-then-recovered'), fullPage: false });
@@ -188,11 +186,8 @@ test.describe('clio #534 — semantic events + hooks', () => {
     const { ctx, page } = await openConnected(browser);
     await openFreshSession(page);
 
-    await send(
-      page,
-      `What is the capital of France? One word. (nonce ${Date.now()})`,
-    );
-    await expect(page.getByTestId('transcript-pane')).toContainText(/Paris/i, {
+    await send(page, uniqueDataSemanticsPrompt());
+    await expect(page.getByTestId('transcript-pane')).toContainText(DATA_SEMANTICS_EXPECT, {
       timeout: 120_000,
     });
 

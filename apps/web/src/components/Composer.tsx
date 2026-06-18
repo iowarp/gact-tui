@@ -703,151 +703,178 @@ export function Composer(props: ComposerProps = {}) {
           data-testid="composer-voice-input"
         />
 
-          <div class="composer__row">
+        <div class="composer__row">
           <div class="composer__row-lead">
-          <button
-            type="button"
-            class="composer__attach"
-            title="Commands"
-            aria-label="Open command menu"
-            data-testid="composer-command"
-            onClick={() => props.onOpenCommandPalette?.()}
-          >
-            <Icon name="palette" size={16} />
-          </button>
-          <div class="composer__attach-wrap">
             <button
               type="button"
-              class="composer__attach"
-              title="Add context"
-              aria-label="Add context"
-              aria-haspopup="menu"
-              aria-expanded={attachMenuOpen()}
-              data-testid="composer-attach"
-              onClick={() => setAttachMenuOpen((v) => !v)}
+              class="composer__attach composer__command"
+              title="Commands"
+              aria-label="Open command menu"
+              data-testid="composer-command"
+              onClick={() => props.onOpenCommandPalette?.()}
             >
-              <Icon name="attach" size={16} />
+              <span class="composer__slash-icon" aria-hidden>/</span>
             </button>
-            <Show when={attachMenuOpen()}>
-              <div
-                class="composer__attach-backdrop"
-                onClick={() => setAttachMenuOpen(false)}
-                aria-hidden
-              />
-              <div class="composer__attach-menu" role="menu" data-testid="composer-attach-menu">
-                <div class="composer__attach-menu-group">From your computer</div>
-                <Show
-                  when={props.attachmentsCapable && props.onUploadFile}
-                  fallback={
-                    <div class="composer__attach-menuitem is-disabled" data-testid="composer-attach-upload-disabled">
-                      <Icon name="attach" size={13} />
-                      <span class="composer__attach-menuitem-label">Upload from computer…</span>
-                      <span class="composer__attach-menuitem-sub">backend has no upload</span>
-                    </div>
-                  }
+            <div class="composer__attach-wrap">
+              <button
+                type="button"
+                class="composer__attach"
+                title="Add context"
+                aria-label="Add context"
+                aria-haspopup="menu"
+                aria-expanded={attachMenuOpen()}
+                data-testid="composer-attach"
+                onClick={() => setAttachMenuOpen((v) => !v)}
+              >
+                <Icon name="attach" size={16} />
+              </button>
+              <Show when={attachMenuOpen()}>
+                <div
+                  class="composer__attach-backdrop"
+                  onClick={() => setAttachMenuOpen(false)}
+                  aria-hidden
+                />
+                <div
+                  class="composer__attach-menu"
+                  role="menu"
+                  data-testid="composer-attach-menu"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    class="composer__attach-menuitem"
-                    data-testid="composer-attach-upload"
-                    onClick={openUpload}
+                  <div class="composer__attach-menu-group">From your computer</div>
+                  <Show
+                    when={props.attachmentsCapable && props.onUploadFile}
+                    fallback={
+                      <div
+                        class="composer__attach-menuitem is-disabled"
+                        data-testid="composer-attach-upload-disabled"
+                      >
+                        <Icon name="file" size={13} />
+                        <span class="composer__attach-menuitem-label">
+                          Upload from computer…
+                        </span>
+                        <span class="composer__attach-menuitem-sub">
+                          backend has no upload
+                        </span>
+                      </div>
+                    }
                   >
-                    <Icon name="attach" size={13} />
-                    <span class="composer__attach-menuitem-label">Upload from computer…</span>
-                    <span class="composer__attach-menuitem-sub">sends file bytes</span>
-                  </button>
-                </Show>
-                {/* A2: image attach is gated on multimodal_image_parts. When
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="composer__attach-menuitem"
+                      data-testid="composer-attach-upload"
+                      onClick={openUpload}
+                    >
+                      <Icon name="file" size={13} />
+                      <span class="composer__attach-menuitem-label">
+                        Upload from computer…
+                      </span>
+                      <span class="composer__attach-menuitem-sub">
+                        sends file bytes
+                      </span>
+                    </button>
+                  </Show>
+                  {/* A2: image attach is gated on multimodal_image_parts. When
                     the backend/model can't accept images we still render the
                     row, but disabled with an explanatory tooltip — generic
                     file upload above and text are unaffected. */}
-                <Show
-                  when={
-                    props.attachmentsCapable &&
-                    props.onUploadFile &&
-                    imageAttachAllowed()
-                  }
-                  fallback={
-                    <Show when={props.attachmentsCapable && props.onUploadFile}>
-                      <div
-                        class="composer__attach-menuitem is-disabled"
-                        data-testid="composer-attach-image-disabled"
-                        title="This model/backend doesn't accept images"
-                      >
-                        <Icon name="attach" size={13} />
-                        <span class="composer__attach-menuitem-label">Attach image…</span>
-                        <span class="composer__attach-menuitem-sub">no image support</span>
-                      </div>
-                    </Show>
-                  }
-                >
+                  <Show
+                    when={
+                      props.attachmentsCapable &&
+                      props.onUploadFile &&
+                      imageAttachAllowed()
+                    }
+                    fallback={
+                      <Show when={props.attachmentsCapable && props.onUploadFile}>
+                        <div
+                          class="composer__attach-menuitem is-disabled"
+                          data-testid="composer-attach-image-disabled"
+                          title="This model/backend doesn't accept images"
+                        >
+                          <Icon name="image" size={13} />
+                          <span class="composer__attach-menuitem-label">
+                            Attach image…
+                          </span>
+                          <span class="composer__attach-menuitem-sub">
+                            no image support
+                          </span>
+                        </div>
+                      </Show>
+                    }
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="composer__attach-menuitem"
+                      data-testid="composer-attach-image"
+                      onClick={openImageUpload}
+                    >
+                      <Icon name="image" size={13} />
+                      <span class="composer__attach-menuitem-label">
+                        Attach image…
+                      </span>
+                      <span class="composer__attach-menuitem-sub">
+                        sends image bytes
+                      </span>
+                    </button>
+                  </Show>
+                  <div class="composer__attach-menu-group">In this workspace</div>
                   <button
                     type="button"
                     role="menuitem"
                     class="composer__attach-menuitem"
-                    data-testid="composer-attach-image"
-                    onClick={openImageUpload}
+                    data-testid="composer-attach-mention"
+                    onClick={mentionWorkspaceFile}
                   >
-                    <Icon name="attach" size={13} />
-                    <span class="composer__attach-menuitem-label">Attach image…</span>
-                    <span class="composer__attach-menuitem-sub">sends image bytes</span>
+                    <Icon name="mention" size={13} />
+                    <span class="composer__attach-menuitem-label">
+                      Reference a workspace file
+                    </span>
+                    <span class="composer__attach-menuitem-sub">
+                      @ — agent reads by path
+                    </span>
                   </button>
-                </Show>
-                <div class="composer__attach-menu-group">In this workspace</div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="composer__attach-menuitem"
-                  data-testid="composer-attach-mention"
-                  onClick={mentionWorkspaceFile}
-                >
-                  <Icon name="workspaces" size={13} />
-                  <span class="composer__attach-menuitem-label">Reference a workspace file</span>
-                  <span class="composer__attach-menuitem-sub">@ — agent reads by path</span>
-                </button>
-              </div>
-            </Show>
-          </div>
-          <Show when={props.onTranscribeVoice}>
-            <button
-              type="button"
-              class={'composer__attach ' + (recording() ? 'is-recording' : '')}
-              title={
-                recording()
-                  ? `Recording ${Math.floor(recordingElapsedMs() / 1000)}s — click to stop`
-                  : voiceBusy()
-                    ? 'Transcribing…'
-                    : 'Record voice — click again to stop'
-              }
-              aria-label="Record voice"
-              data-testid="composer-mic"
-              onClick={() => void toggleMicRecording()}
-              disabled={voiceBusy() && !recording()}
-            >
-              <Icon name={recording() ? 'stop' : 'mention'} size={16} />
-            </button>
-            <Show when={recording()}>
-              <span
-                class="composer__mic-elapsed"
-                data-testid="composer-mic-elapsed"
-                aria-live="polite"
+                </div>
+              </Show>
+            </div>
+            <Show when={props.onTranscribeVoice}>
+              <button
+                type="button"
+                class={'composer__attach ' + (recording() ? 'is-recording' : '')}
+                title={
+                  recording()
+                    ? `Recording ${Math.floor(recordingElapsedMs() / 1000)}s — click to stop`
+                    : voiceBusy()
+                      ? 'Transcribing…'
+                      : 'Record voice — click again to stop'
+                }
+                aria-label="Record voice"
+                data-testid="composer-mic"
+                onClick={() => void toggleMicRecording()}
+                disabled={voiceBusy() && !recording()}
               >
-                {Math.floor(recordingElapsedMs() / 1000)}s
-              </span>
+                <Icon name={recording() ? 'stop' : 'mic'} size={16} />
+              </button>
+              <Show when={recording()}>
+                <span
+                  class="composer__mic-elapsed"
+                  data-testid="composer-mic-elapsed"
+                  aria-live="polite"
+                >
+                  {Math.floor(recordingElapsedMs() / 1000)}s
+                </span>
+              </Show>
+              <button
+                type="button"
+                class="composer__attach"
+                title="Upload audio file for transcription"
+                aria-label="Upload audio file"
+                data-testid="composer-voice"
+                onClick={() => voiceInputRef?.click()}
+                disabled={voiceBusy() || recording()}
+              >
+                <Icon name="audio" size={14} />
+              </button>
             </Show>
-            <button
-              type="button"
-              class="composer__attach"
-              title="Upload audio file for transcription"
-              aria-label="Upload audio file"
-              data-testid="composer-voice"
-              onClick={() => voiceInputRef?.click()}
-              disabled={voiceBusy() || recording()}
-            >
-              <Icon name="attach" size={14} />
-            </button>
-          </Show>
           </div>
           <div class="composer__input-wrap">
             <textarea

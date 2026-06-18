@@ -108,6 +108,47 @@ export class HttpError extends Error {
   }
 }
 
+const WORKSPACE_MEDIA_BY_EXT: Record<string, string> = {
+  avif: 'image/avif',
+  gif: 'image/gif',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  json: 'application/json',
+  csv: 'text/csv',
+  go: 'text/x-go',
+  py: 'text/x-python',
+  rs: 'text/x-rust',
+  ts: 'text/typescript',
+  tsx: 'text/tsx',
+  js: 'text/javascript',
+  jsx: 'text/jsx',
+  css: 'text/css',
+  html: 'text/html',
+};
+
+function normalizeWorkspaceMediaType(path: string, declared: string): string {
+  const fallback = declared || 'application/octet-stream';
+  const lower = fallback.toLowerCase();
+  const ext = path.split(/[\\/]/).pop()?.split('.').pop()?.toLowerCase() ?? '';
+  const inferred = WORKSPACE_MEDIA_BY_EXT[ext];
+  if (!inferred) return fallback;
+  if (
+    lower === 'application/octet-stream' ||
+    lower === 'binary/octet-stream' ||
+    lower === 'text/plain'
+  ) {
+    return inferred;
+  }
+  return fallback;
+}
+
 function shorten(s: string): string {
   return s.length <= 200 ? s : s.slice(0, 200) + '…';
 }
@@ -193,10 +234,22 @@ export class Client {
     return this.get<Session>(`/v1/sessions/${encodeURIComponent(sessionId)}`);
   }
 
-  sessions(options: { archived?: boolean } = {}): Promise<{ sessions: Session[] }> {
+  sessions(
+    options: {
+      archived?: boolean;
+      workspace_id?: string;
+      include_all_workspaces?: boolean;
+    } = {},
+  ): Promise<{ sessions: Session[] }> {
     const qs = new URLSearchParams();
     if (options.archived !== undefined) {
       qs.set('archived', String(options.archived));
+    }
+    if (options.workspace_id) {
+      qs.set('workspace_id', options.workspace_id);
+    }
+    if (options.include_all_workspaces !== undefined) {
+      qs.set('include_all_workspaces', String(options.include_all_workspaces));
     }
     const suffix = qs.toString() ? `?${qs}` : '';
     return this.get<{ sessions: Session[] }>(`/v1/sessions${suffix}`);
@@ -679,9 +732,10 @@ export class Client {
     if (!res.ok) {
       throw new Error(`readWorkspaceFile ${path}: HTTP ${res.status}`);
     }
-    const mediaType =
+    const sourceMediaType =
       res.headers.get('content-type')?.split(';')[0]?.trim() ||
       'application/octet-stream';
+    const mediaType = normalizeWorkspaceMediaType(path, sourceMediaType);
     const buf = await res.arrayBuffer();
     // ArrayBuffer → base64 without blowing the call stack on large files.
     const bytes = new Uint8Array(buf);
@@ -699,6 +753,7 @@ export class Client {
       display_path: path,
       size: bytes.length,
       media_type: mediaType,
+      source_media_type: sourceMediaType,
       encoding: 'base64',
       data,
     };
@@ -1593,12 +1648,12 @@ export class Client {
    * tool / command / memory autonomy. PR #378 added the
    * `command.agent_invocable` gate.
    */
-  policies(): Promise<{ policies: Record<string, unknown> }> {
+  policies(): Promise<{ policies: Record<string, unknown> | unknown[] }> {
     return this.get('/v1/policies');
   }
 
   /** PUT /v1/policies — replace the policy document. */
-  putPolicies(body: Record<string, unknown>): Promise<unknown> {
+  putPolicies(body: { policies: Record<string, unknown> | unknown[] }): Promise<unknown> {
     return this.request<unknown>('/v1/policies', 'PUT', body);
   }
 
@@ -1682,6 +1737,8 @@ export class Client {
   async validateAgentBlueprint(body: {
     path: string;
     scope?: string;
+    workspace_id?: string;
+    session_id?: string;
   }): Promise<{ ok: boolean; errors: string[]; raw: Record<string, unknown> }> {
     const raw = await this.post<Record<string, unknown>>(
       '/v1/agent-blueprints/validate',
@@ -1747,13 +1804,23 @@ export class Client {
    * `agent_blueprints` depending on which build of the contract they
    * land on. Normalize to `blueprints` so call sites can rely on a
    * single shape. */
-  async agentBlueprints(): Promise<{ blueprints: Array<{
+  async agentBlueprints(
+    options: { workspace_id?: string; session_id?: string } = {},
+  ): Promise<{ blueprints: Array<{
     id: string;
     name?: string;
     description?: string;
+    kind?: string;
+    scope?: string;
+    version?: string;
     metadata?: Record<string, unknown>;
   }> }> {
-    const raw = await this.get<Record<string, unknown>>('/v1/agent-blueprints');
+    const qs = new URLSearchParams();
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    if (options.session_id) qs.set('session_id', options.session_id);
+    const raw = await this.get<Record<string, unknown>>(
+      `/v1/agent-blueprints${qs.size ? `?${qs}` : ''}`,
+    );
     const list =
       (raw['blueprints'] as unknown[]) ??
       (raw['agent_blueprints'] as unknown[]) ??
@@ -1767,6 +1834,9 @@ export class Client {
             ? { name: String(o['name'] ?? o['title']) }
             : {}),
           ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['kind'] ? { kind: String(o['kind']) } : {}),
+          ...(o['scope'] ? { scope: String(o['scope']) } : {}),
+          ...(o['version'] ? { version: String(o['version']) } : {}),
           ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
         };
       }),
@@ -1901,20 +1971,28 @@ export class Client {
    *
    * Normalize `packs` vs `expert_packs` for the same reason as
    * agentBlueprints() above. */
-  async expertPacks(): Promise<{ packs: Array<{
+  async expertPacks(
+    options: { workspace_id?: string; session_id?: string } = {},
+  ): Promise<{ packs: Array<{
     id: string;
     name?: string;
     description?: string;
+    kind?: string;
+    scope?: string;
     runtime_scope?: string;
     metadata?: Record<string, unknown>;
   }> }> {
-    const raw = await this.get<Record<string, unknown>>('/v1/expert-packs');
+    const qs = new URLSearchParams();
+    if (options.workspace_id) qs.set('workspace_id', options.workspace_id);
+    if (options.session_id) qs.set('session_id', options.session_id);
+    const raw = await this.get<Record<string, unknown>>(
+      `/v1/expert-packs${qs.size ? `?${qs}` : ''}`,
+    );
     const list =
       (raw['packs'] as unknown[]) ??
       (raw['expert_packs'] as unknown[]) ??
       [];
-    return {
-      packs: list.map((p) => {
+    const packs = list.map((p) => {
         const o = p as Record<string, unknown>;
         return {
           id: String(o['id'] ?? ''),
@@ -1922,11 +2000,66 @@ export class Client {
             ? { name: String(o['name'] ?? o['title']) }
             : {}),
           ...(o['description'] ? { description: String(o['description']) } : {}),
+          ...(o['kind'] ? { kind: String(o['kind']) } : {}),
+          ...(o['scope'] ? { scope: String(o['scope']) } : {}),
           ...(o['runtime_scope'] ? { runtime_scope: String(o['runtime_scope']) } : {}),
           ...(o['metadata'] ? { metadata: o['metadata'] as Record<string, unknown> } : {}),
         };
-      }),
-    };
+      });
+    const seen = new Set(packs.map((p) => p.id));
+    try {
+      const blueprints = await this.agentBlueprints(options);
+      for (const bp of blueprints.blueprints) {
+        if (bp.kind !== 'pack' || seen.has(bp.id)) continue;
+        packs.push({
+          id: bp.id,
+          ...(bp.name ? { name: bp.name } : {}),
+          ...(bp.description ? { description: bp.description } : {}),
+          kind: 'pack',
+          ...(bp.scope ? { scope: bp.scope } : {}),
+          ...(bp.metadata ? { metadata: bp.metadata } : {}),
+        });
+        seen.add(bp.id);
+      }
+    } catch {
+      // Older CLIO builds may not expose the blueprint catalog. The legacy
+      // expert-pack list is still useful, so keep the original result.
+    }
+    return { packs };
+  }
+
+  installExpertPack(body: {
+    source?: string;
+    url?: string;
+    path?: string;
+    scope?: 'workspace' | 'global' | 'session' | string;
+    workspace_id?: string;
+    ref?: string;
+    pinned_commit?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>('/v1/expert-packs/install', body);
+  }
+
+  updateExpertPack(
+    packId: string,
+    opts: { scope?: string; workspace_id?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(
+      `/v1/expert-packs/${encodeURIComponent(packId)}/update`,
+      opts,
+    );
+  }
+
+  deleteExpertPack(
+    packId: string,
+    opts: { scope?: string; workspace_id?: string } = {},
+  ): Promise<void> {
+    const qs = new URLSearchParams();
+    if (opts.scope) qs.set('scope', opts.scope);
+    if (opts.workspace_id) qs.set('workspace_id', opts.workspace_id);
+    return this.del<void>(
+      `/v1/expert-packs/${encodeURIComponent(packId)}${qs.size ? `?${qs}` : ''}`,
+    );
   }
 
   /**

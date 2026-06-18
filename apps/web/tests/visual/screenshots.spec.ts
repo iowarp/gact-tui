@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { connectMockBackend } from './mock-backend';
 
 const screenshotDir = resolve(import.meta.dirname, '..', '..', 'screenshots');
 mkdirSync(screenshotDir, { recursive: true });
@@ -40,9 +41,9 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('sessions-column')).toBeVisible();
-    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
+    await expect(page.getByTestId('sessions-column')).toHaveCount(0);
     await expect(page.getByTestId('transcript-pane')).toBeVisible();
+    await expect(page.getByTestId('transcript-pane')).toContainText(/Pick a session or start fresh/i);
     await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
   });
 
@@ -337,6 +338,47 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
   });
 
+  test('markdown file reads render as structured markdown', async ({ page }) => {
+    await connectMockBackend(page, 'markdown');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
+    await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
+    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
+    await expect(page.locator('.im table').first()).toBeVisible();
+    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
+    await page.screenshot({ path: shot('markdown-read'), fullPage: false });
+  });
+
+  test('EarthScope routing shows tool calls plus semantic delegation', async ({ page }) => {
+    await connectMockBackend(page, 'earthscope');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('topbar-inspector').click();
+    await expect(page.getByTestId('toolcall-tc-geo')).toBeVisible();
+    await expect(page.locator('.im__table').getByText('MTA1')).toBeVisible();
+    await expect(page.getByTestId('workflow-state-card').first()).toBeVisible();
+    await expect(page.getByText('Station Catalog')).toBeVisible();
+    await page.getByTestId('inspector-tab-timeline').click();
+    await expect(page.getByTestId('inspector-semantic-title')).toBeVisible();
+    await expect(page.getByText('geospatial returned Los Angeles bounds.')).toBeVisible();
+    await expect(page.getByText('earthscope_catalog ranked nearby GNSS stations.')).toBeVisible();
+    await page.screenshot({ path: shot('earthscope-routing-flow'), fullPage: false });
+  });
+
+  test('EarthScope blocker renders as a user-facing workflow blocker', async ({ page }) => {
+    await connectMockBackend(page, 'earthscope-blocked');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    const blocker = page.getByTestId('turn-workflow-blocker');
+    await expect(blocker).toBeVisible();
+    await expect(blocker.getByText('Workflow blocker')).toBeVisible();
+    await expect(blocker.getByText(/child expert: ndp_dataset_discovery/)).toBeVisible();
+    await expect(blocker.getByText(/required tools are not available/)).toBeVisible();
+    await expect(page.getByTestId('transcript-pane')).toContainText(
+      'No station time-series, CSV profile, or PNG artifact was produced.',
+    );
+    await blocker.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: shot('earthscope-blocked-workflow'), fullPage: false });
+  });
+
   test('command palette fuzzy-matches sparse queries (W3 Tier-1)', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal&open=palette');
     await expect(page.getByTestId('slash-palette')).toBeVisible();
@@ -380,6 +422,20 @@ test.describe('CLIO harness — visual proofs', () => {
     // The retry-created user message carries the lineage chip.
     await expect(page.getByTestId('msg-retry-chip-m-user-retry')).toBeVisible();
     await page.screenshot({ path: shot('previews-and-retry'), fullPage: false });
+  });
+
+  test('preview rail explains image artifact decode failures', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.preview-rail-open.v1', 'true');
+      window.localStorage.setItem('clio.inspector-open.v1', 'false');
+    });
+    await connectMockBackend(page, 'markdown');
+    await expect(page.getByTestId('preview-rail')).toBeVisible();
+    await page.getByTestId('preview-rail-filter').fill('validation_plot');
+    await page.getByTestId('preview-rail-row-plots/validation_plot.png').click();
+    await expect(page.getByTestId('preview-rail-image-error')).toContainText('JSON/text');
+    await expect(page.getByTestId('preview-rail-image-error')).toContainText('read, 68 B listed');
+    await page.screenshot({ path: shot('preview-image-decode-diagnostic'), fullPage: false });
   });
 
   test('inspector execution timeline renders turn events (1.0 item 5)', async ({ page }) => {

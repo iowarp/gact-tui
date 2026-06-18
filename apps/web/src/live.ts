@@ -162,7 +162,7 @@ export function createLiveSessions(opts: LiveStoreOptions): LiveSessionsHandle {
 
   const [override, setOverride] = createSignal<SidebarSession[] | null>(null);
   const [resource, { refetch }] = createResource<SidebarSession[]>(async () => {
-    const { sessions: rows } = await client.sessions();
+    const { sessions: rows } = await client.sessions({ include_all_workspaces: true });
     const next = rows.map(toSidebarSession);
     setOverride(null); // resource is fresh — discard local SSE-side overrides
     return next;
@@ -458,6 +458,7 @@ export function createLiveTranscript(
           .messages(id)
           .then(({ messages: fresh }) => setMessages(fresh))
           .catch(() => undefined);
+        sessionEvents?.refetch?.();
       }, 250);
     };
 
@@ -548,6 +549,7 @@ export function createLiveTranscript(
         // permanent close. We treat it uniformly: tear down and back
         // off. Browser's auto-reconnect is unreliable when the server
         // rejects mid-stream — explicit control is safer.
+        scheduleTranscriptReconcile();
         teardownEs();
         setStatus('error');
         scheduleReconnect();
@@ -574,6 +576,7 @@ export function createLiveTranscript(
           if (stale() || failed) return;
           failed = true;
           bridge = null;
+          scheduleTranscriptReconcile();
           setStatus('error');
           scheduleReconnect();
         };
@@ -674,11 +677,20 @@ export function createLiveTranscript(
   async function refetch(): Promise<void> {
     const id = activeSessionId();
     if (!id) return;
-    try {
-      const { messages: fresh } = await client.messages(id);
-      setMessages(fresh);
-    } catch {
-      // ignore — SSE will catch up on the next event.
+    const [messagesResult, permissionsResult, questionsResult] =
+      await Promise.allSettled([
+        client.messages(id),
+        client.permissions(id),
+        client.sessionQuestions(id, 'pending'),
+      ]);
+    if (messagesResult.status === 'fulfilled') {
+      setMessages(messagesResult.value.messages);
+    }
+    if (permissionsResult.status === 'fulfilled') {
+      setPendingPermission(permissionsResult.value.permissions[0] ?? null);
+    }
+    if (questionsResult.status === 'fulfilled') {
+      setPendingQuestion(questionsResult.value.questions[0] ?? null);
     }
   }
 
@@ -928,6 +940,15 @@ export function reduce(
     case 'session.status_changed': {
       const sid = p.session_id as string;
       const next = p.status as SessionStatus;
+      const isSettledStatus =
+        next === 'idle' ||
+        next === 'error' ||
+        next === 'finished' ||
+        (typeof next === 'string' &&
+          ['completed', 'failed', 'cancelled', 'canceled'].includes(next));
+      if (isSettledStatus) {
+        hooks.setPendingPermission(null);
+      }
       if (sid && next && hooks.sessionEvents) {
         hooks.sessionEvents.patch(sid, {
           status: next,

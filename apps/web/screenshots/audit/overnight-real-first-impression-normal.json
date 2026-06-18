@@ -1,0 +1,31 @@
+{
+  "backend": "http://127.0.0.1:18311",
+  "workspaceId": "ws_default",
+  "session": {
+    "id": "sess_cf1c38daea78",
+    "workspace_id": "ws_default",
+    "title": "first impression normal 1781746841399",
+    "status": "idle",
+    "created_at": "2026-06-18T01:40:41.400618+00:00",
+    "updated_at": "2026-06-18T01:40:41.400618+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  }
+}

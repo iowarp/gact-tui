@@ -63,7 +63,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 10px;
-  align-items: end;
+  align-items: start;
   position: relative;
 }
 
@@ -71,6 +71,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  padding-top: 1px;
 }
 
 .composer__input-wrap {
@@ -106,8 +107,20 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   transition: color var(--dur-fast), background var(--dur-fast);
+}
+
+.composer__command {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.composer__slash-icon {
+  font-size: 17px;
+  line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 .composer__attach:hover {
@@ -144,6 +157,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
+  align-self: start;
   box-shadow: var(--glow-warm-sm);
   transition: transform var(--dur-fast), opacity var(--dur-fast),
     background var(--dur-fast);
@@ -440,7 +454,33 @@
     padding: 4px 8px;
   }
 
+  .composer__pickers .dd {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .composer__pickers .dd__trigger {
+    max-width: 8rem;
+    padding: 4px 8px;
+  }
+
   .composer__hint {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .composer__pickers {
+    overflow: visible;
+  }
+
+  .composer__picker {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .composer__pickers [data-testid="composer-perm"],
+  .composer__pickers [data-testid="composer-model"] {
     display: none;
   }
 }

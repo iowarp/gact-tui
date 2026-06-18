@@ -1,0 +1,42 @@
+{
+  "backendA": "http://127.0.0.1:18260",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/session-semantics-proof-20260618-022642/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/session-semantics-proof-20260618-022642/a/workspace/.clio",
+    "created_at": "2026-06-18T02:26:53.648005+00:00",
+    "updated_at": "2026-06-18T02:26:53.648025+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_8c83d622a3a8",
+    "workspace_id": "ws_default",
+    "title": "overnight session semantics 1781749664641",
+    "status": "idle",
+    "created_at": "2026-06-18T02:27:44.646651+00:00",
+    "updated_at": "2026-06-18T02:27:44.646651+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "settings_screenshot": "overnight-real-session-defaults-settings.png",
+  "modal_screenshot": "overnight-real-session-semantics-modal.png"
+}

@@ -1,0 +1,79 @@
+{
+  "backendA": "http://127.0.0.1:18242",
+  "backendB": "http://127.0.0.1:18243",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/live-web-proof-20260617-182652/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/live-web-proof-20260617-182652/a/workspace/.clio",
+    "created_at": "2026-06-17T23:27:07.345316+00:00",
+    "updated_at": "2026-06-17T23:27:07.345334+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "workspaceB": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/live-web-proof-20260617-182652/b/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/live-web-proof-20260617-182652/b/workspace/.clio",
+    "created_at": "2026-06-17T23:27:20.688422+00:00",
+    "updated_at": "2026-06-17T23:27:20.688435+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_6acc23c025be",
+    "workspace_id": "ws_default",
+    "title": "add remote A 1781739052140",
+    "status": "idle",
+    "created_at": "2026-06-17T23:30:52.141876+00:00",
+    "updated_at": "2026-06-17T23:30:52.141876+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "sessionB": {
+    "id": "sess_5001a9042cab",
+    "workspace_id": "ws_default",
+    "title": "add remote B 1781739052140",
+    "status": "idle",
+    "created_at": "2026-06-17T23:30:52.145039+00:00",
+    "updated_at": "2026-06-17T23:30:52.145039+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "addedLabel": "Added remote 1781739052140"
+}

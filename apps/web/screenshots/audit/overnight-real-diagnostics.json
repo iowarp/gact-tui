@@ -1,0 +1,116 @@
+{
+  "backendA": "http://127.0.0.1:18310",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio",
+    "created_at": "2026-06-18T01:31:19.668002+00:00",
+    "updated_at": "2026-06-18T01:31:19.668016+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_f13f90202454",
+    "workspace_id": "ws_default",
+    "title": "overnight diagnostics 1781746792738",
+    "status": "idle",
+    "created_at": "2026-06-18T01:39:52.738955+00:00",
+    "updated_at": "2026-06-18T01:39:52.738955+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "metrics": {
+    "uptime_s": 424,
+    "sessions": {
+      "total": 38,
+      "active": 38,
+      "by_status": {
+        "idle": 38
+      }
+    },
+    "messages": {
+      "total": 3,
+      "by_role": {
+        "assistant": 3
+      }
+    },
+    "tokens": {
+      "input_total": 0,
+      "output_total": 0,
+      "cache_read_total": 0,
+      "cache_write_total": 0
+    },
+    "cost": {
+      "total_usd": 0,
+      "by_provider": {}
+    },
+    "latencies": {}
+  },
+  "health": {
+    "healthy": false,
+    "uptime_s": 424,
+    "overall_status": "unavailable",
+    "integrations": [
+      {
+        "name": "api",
+        "status": "ready",
+        "detail": "clio-agent-gact 0.1.0"
+      },
+      {
+        "name": "sessions",
+        "status": "ready",
+        "detail": "38 session(s) registered"
+      },
+      {
+        "name": "agent",
+        "status": "unavailable",
+        "detail": "no ClioAgent wired; POST /messages will 503"
+      },
+      {
+        "name": "memory",
+        "status": "degraded",
+        "detail": "memory layer not wired; /v1/memory/stats returns zeros"
+      },
+      {
+        "name": "lm",
+        "status": "unavailable",
+        "detail": "no LM configured; PUT /v1/providers/lm or set CLIO_LM_PROVIDER and restart"
+      }
+    ]
+  },
+  "memory": {
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "hit_rate": 0,
+      "capacity": 0
+    },
+    "session": null,
+    "global": {
+      "conversations_total": 0,
+      "invocations_total": 0
+    },
+    "metadata": {
+      "retained_context_source": "visible_gact_transcript",
+      "token_estimate": "message_tokens_or_chars_div_4"
+    }
+  }
+}

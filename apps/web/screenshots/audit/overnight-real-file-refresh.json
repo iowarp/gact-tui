@@ -1,0 +1,41 @@
+{
+  "backendA": "http://127.0.0.1:18263",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/web-operational-proof-20260618-023610/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/web-operational-proof-20260618-023610/a/workspace/.clio",
+    "created_at": "2026-06-18T02:36:20.717802+00:00",
+    "updated_at": "2026-06-18T02:36:20.717855+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_b460feed64dc",
+    "workspace_id": "ws_default",
+    "title": "overnight file refresh 1781750240383",
+    "status": "idle",
+    "created_at": "2026-06-18T02:37:20.385263+00:00",
+    "updated_at": "2026-06-18T02:37:20.385263+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "createdPath": "/home/jcernuda/gact-tui/tmp/web-operational-proof-20260618-023610/a/workspace/agent-created-1781750240383.md"
+}

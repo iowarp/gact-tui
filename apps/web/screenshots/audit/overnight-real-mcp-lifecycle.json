@@ -1,0 +1,152 @@
+{
+  "backendA": "http://127.0.0.1:18310",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio",
+    "created_at": "2026-06-18T01:31:19.668002+00:00",
+    "updated_at": "2026-06-18T01:31:19.668016+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_8ea94726ee45",
+    "workspace_id": "ws_default",
+    "title": "overnight mcp lifecycle 1781746768432",
+    "status": "idle",
+    "created_at": "2026-06-18T01:39:28.433411+00:00",
+    "updated_at": "2026-06-18T01:39:28.433411+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "serverName": "everything_live_1781746768432",
+  "installStatus": 201,
+  "reconnectStatus": 200,
+  "deleteStatus": 204,
+  "beforeServers": {
+    "servers": [
+      {
+        "id": "mcp_fs",
+        "name": "fs",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 3,
+        "tools": [
+          "fs_apply_edit_write",
+          "fs_propose_edit",
+          "fs_read_file"
+        ]
+      },
+      {
+        "id": "mcp_shell",
+        "name": "shell",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 1,
+        "tools": [
+          "shell_bash"
+        ]
+      }
+    ]
+  },
+  "afterInstallServers": {
+    "servers": [
+      {
+        "id": "mcp_fs",
+        "name": "fs",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 3,
+        "tools": [
+          "fs_apply_edit_write",
+          "fs_propose_edit",
+          "fs_read_file"
+        ]
+      },
+      {
+        "id": "mcp_shell",
+        "name": "shell",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 1,
+        "tools": [
+          "shell_bash"
+        ]
+      },
+      {
+        "id": "mcp_ext_17743ca156",
+        "name": "everything_live_1781746768432",
+        "status": "ready",
+        "transport": "stdio",
+        "tools_count": 13,
+        "tools": [
+          "echo",
+          "get-annotated-message",
+          "get-env",
+          "get-resource-links",
+          "get-resource-reference",
+          "get-structured-content",
+          "get-sum",
+          "get-tiny-image",
+          "gzip-file-as-resource",
+          "toggle-simulated-logging",
+          "toggle-subscriber-updates",
+          "trigger-long-running-operation",
+          "simulate-research-query"
+        ],
+        "spec": {
+          "transport": "stdio",
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-everything"
+          ]
+        }
+      }
+    ]
+  },
+  "afterDeleteServers": {
+    "servers": [
+      {
+        "id": "mcp_fs",
+        "name": "fs",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 3,
+        "tools": [
+          "fs_apply_edit_write",
+          "fs_propose_edit",
+          "fs_read_file"
+        ]
+      },
+      {
+        "id": "mcp_shell",
+        "name": "shell",
+        "status": "ready",
+        "transport": "in_process",
+        "tools_count": 1,
+        "tools": [
+          "shell_bash"
+        ]
+      }
+    ]
+  }
+}

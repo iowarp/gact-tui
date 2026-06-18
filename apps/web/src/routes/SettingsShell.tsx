@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
+import { createEffect, createResource, createSignal, For, Match, Show, Switch, onCleanup, onMount } from 'solid-js';
 import { brand } from '@brand';
 import { Icon, type IconName } from '../components/Icon.js';
 import { Client } from '@clio/core';
@@ -19,6 +19,11 @@ import {
   type ThemeMode,
 } from '../theme.js';
 import { useToast } from '../components/Toast.js';
+import {
+  loadSessionSemanticsDefaults,
+  saveSessionSemanticsDefaults,
+  sanitizeSessionSemantics,
+} from '../session-semantics.js';
 import {
   EmptyState,
   Pill,
@@ -55,6 +60,7 @@ import './settings-shell.css';
 export type SettingsSection =
   | 'backends'
   | 'workspaces'
+  | 'session-defaults'
   | 'models'
   | 'providers'
   | 'agents'
@@ -83,6 +89,7 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { id: 'backends', label: 'Backends', icon: 'mcp', group: 'Connection' },
   { id: 'workspaces', label: 'Workspaces', icon: 'workspaces', group: 'Connection' },
+  { id: 'session-defaults', label: 'Session defaults', icon: 'branch', group: 'Agents' },
   { id: 'models', label: 'Models', icon: 'sparkle', group: 'Agents' },
   { id: 'providers', label: 'Providers (advanced)', icon: 'plug', group: 'Agents' },
   { id: 'agents', label: 'Agents', icon: 'agents', group: 'Agents' },
@@ -107,6 +114,12 @@ export interface SettingsShellProps {
   onBack: () => void;
   /** Initial section to land on (e.g. when arrived via a deep link). */
   initial?: SettingsSection;
+  context?: SettingsContext;
+}
+
+export interface SettingsContext {
+  sessionId?: string;
+  workspaceId?: string;
 }
 
 export function SettingsShell(props: SettingsShellProps) {
@@ -183,7 +196,18 @@ export function SettingsShell(props: SettingsShellProps) {
           <span>Back to {brand.name}</span>
         </button>
         <h1 class="settings-shell__title">Settings</h1>
-        <div />
+        <div class="settings-shell__actions">
+          <Show when={section() === 'backends'}>
+            <button
+              type="button"
+              class="btn btn--primary"
+              onClick={props.onAddRemote}
+              data-testid="settings-add-remote"
+            >
+              Add remote
+            </button>
+          </Show>
+        </div>
       </header>
       <div class="settings-shell__body">
         <nav class="settings-shell__nav" aria-label="Settings sections">
@@ -228,6 +252,9 @@ export function SettingsShell(props: SettingsShellProps) {
             <Match when={client() && section() === 'workspaces'}>
               <WorkspacesPage client={client()!} />
             </Match>
+            <Match when={client() && section() === 'session-defaults'}>
+              <SessionDefaultsSection client={client()!} context={props.context} />
+            </Match>
             <Match when={client() && section() === 'models'}>
               <SettingsModels client={client()!} />
             </Match>
@@ -241,13 +268,13 @@ export function SettingsShell(props: SettingsShellProps) {
               <ToolsPage client={client()!} />
             </Match>
             <Match when={client() && section() === 'prompts'}>
-              <PromptsPage client={client()!} />
+              <PromptsPage client={client()!} context={props.context} />
             </Match>
             <Match when={client() && section() === 'blueprints'}>
-              <BlueprintsPage client={client()!} />
+              <BlueprintsPage client={client()!} context={props.context} />
             </Match>
             <Match when={client() && section() === 'expert-packs'}>
-              <ExpertPacksPage client={client()!} />
+              <ExpertPacksPage client={client()!} context={props.context} />
             </Match>
             <Match when={client() && section() === 'hooks'}>
               <HooksPage client={client()!} />
@@ -259,7 +286,7 @@ export function SettingsShell(props: SettingsShellProps) {
               <McpPage client={client()!} />
             </Match>
             <Match when={client() && section() === 'memory'}>
-              <MemoryPage client={client()!} />
+              <MemoryPage client={client()!} activeSessionId={props.context?.sessionId} />
             </Match>
             <Match when={client() && section() === 'metrics'}>
               <MetricsPage client={client()!} />
@@ -286,6 +313,159 @@ export function SettingsShell(props: SettingsShellProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+export function SessionDefaultsSection(props: { client: Client; context?: SettingsContext }) {
+  const toast = useToast();
+  const [catalog, { refetch }] = createResource(async () => {
+    const scope = {
+      ...(props.context?.sessionId ? { session_id: props.context.sessionId } : {}),
+      ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
+    };
+    const [blueprints, expertPacks] = await Promise.allSettled([
+      props.client.agentBlueprints(scope),
+      props.client.expertPacks(scope),
+    ]);
+    return {
+      blueprints:
+        blueprints.status === 'fulfilled'
+          ? blueprints.value.blueprints.map((b) => ({
+              id: b.id,
+              label: b.name ?? b.id,
+              ...(b.description ? { description: b.description } : {}),
+            }))
+          : [],
+      expertPacks:
+        expertPacks.status === 'fulfilled'
+          ? expertPacks.value.packs.map((p) => ({
+              id: p.id,
+              label: p.name ?? p.id,
+              ...(p.description ? { description: p.description } : {}),
+            }))
+          : [],
+    };
+  });
+  const [blueprintId, setBlueprintId] = createSignal('');
+  const [expertPackId, setExpertPackId] = createSignal('');
+
+  createEffect(() => {
+    const data = catalog();
+    if (!data) return;
+    const defaults = sanitizeSessionSemantics(
+      loadSessionSemanticsDefaults(),
+      data.blueprints,
+      data.expertPacks,
+    );
+    setBlueprintId(defaults.blueprintId);
+    setExpertPackId(defaults.expertPackId);
+  });
+
+  function save() {
+    saveSessionSemanticsDefaults({
+      blueprintId: blueprintId(),
+      expertPackId: expertPackId(),
+    });
+    toast.push({
+      tone: 'success',
+      title: 'Session defaults saved',
+      duration: 2200,
+    });
+  }
+
+  function clear() {
+    setBlueprintId('');
+    setExpertPackId('');
+    saveSessionSemanticsDefaults({ blueprintId: '', expertPackId: '' });
+    toast.push({
+      tone: 'info',
+      title: 'Session defaults cleared',
+      duration: 2200,
+    });
+  }
+
+  const data = () => catalog() ?? { blueprints: [], expertPacks: [] };
+
+  return (
+    <section class="dp" data-testid="settings-session-defaults">
+      <header class="dp__head">
+        <div class="dp__title-block">
+          <div class="dp__icon">
+            <Icon name="branch" size={20} />
+          </div>
+          <div>
+            <h1 class="dp__title">Session defaults</h1>
+            <p class="dp__subtitle">
+              Choose the blueprint and expert pack applied to new sessions.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="dp-iconbtn"
+          onClick={() => void refetch()}
+          title="Refresh"
+          data-testid="session-defaults-refresh"
+        >
+          <Icon name="regenerate" size={14} />
+        </button>
+      </header>
+
+      <div class="dp__body">
+        <SectionHeading
+          title="Defaults"
+          hint="Used by New session and by the first message in an empty chat."
+        />
+        <div class="settings-shell__form-grid">
+          <label class="settings-shell__field">
+            <span>Agent blueprint</span>
+            <select
+              value={blueprintId()}
+              onChange={(e) => setBlueprintId(e.currentTarget.value)}
+              disabled={catalog.loading}
+              data-testid="session-default-blueprint"
+            >
+              <option value="">Default agent</option>
+              <For each={data().blueprints}>
+                {(bp) => <option value={bp.id}>{bp.label}</option>}
+              </For>
+            </select>
+          </label>
+          <label class="settings-shell__field">
+            <span>Expert pack</span>
+            <select
+              value={expertPackId()}
+              onChange={(e) => setExpertPackId(e.currentTarget.value)}
+              disabled={catalog.loading}
+              data-testid="session-default-expert-pack"
+            >
+              <option value="">No expert pack</option>
+              <For each={data().expertPacks}>
+                {(pack) => <option value={pack.id}>{pack.label}</option>}
+              </For>
+            </select>
+          </label>
+        </div>
+        <div class="settings__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            onClick={save}
+            data-testid="session-defaults-save"
+          >
+            Save defaults
+          </button>
+          <button
+            type="button"
+            class="btn btn--secondary"
+            onClick={clear}
+            data-testid="session-defaults-clear"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -746,6 +926,7 @@ function AboutSection() {
   const reg = useBackendRegistry();
   const cur = () => reg.current();
   const appName = () => (inTauri() ? `${brand.name} Desktop` : `${brand.name} Web`);
+  const shellLabel = () => (inTauri() ? 'desktop frontend' : 'web frontend');
   const capabilityEntries = () =>
     Object.entries(cur()?.capabilities?.capabilities ?? {})
       .filter(([, v]) => typeof v === 'boolean')
@@ -770,7 +951,7 @@ function AboutSection() {
           <div class="dp__stat">
             <div class="dp__stat-label">app</div>
             <div class="dp__stat-value" style="font-size:18px">{appName()}</div>
-            <div class="dp__stat-sub">web + desktop frontend</div>
+            <div class="dp__stat-sub">{shellLabel()}</div>
           </div>
           <div class="dp__stat">
             <div class="dp__stat-label">contract</div>
@@ -837,14 +1018,18 @@ function AboutSection() {
             <a href="https://github.com/iowarp/gact-tui" target="_blank" rel="noreferrer">
               github.com/iowarp/gact-tui
             </a>
-            <span class="settings-shell__link-detail">desktop + emulator + TUI</span>
+            <span class="settings-shell__link-detail">web, desktop, and TUI clients</span>
           </li>
-          <li>
-            <a href="https://github.com/iowarp/clio-agent" target="_blank" rel="noreferrer">
-              github.com/iowarp/clio-agent
-            </a>
-            <span class="settings-shell__link-detail">GACT v0.2 backend</span>
-          </li>
+          <Show when={brand.backendRepository}>
+            {(repo) => (
+              <li>
+                <a href={repo().url} target="_blank" rel="noreferrer">
+                  {repo().label}
+                </a>
+                <span class="settings-shell__link-detail">{repo().detail}</span>
+              </li>
+            )}
+          </Show>
           <li>
             <a
               href="https://github.com/iowarp/gact-tui/blob/main/contract/SPEC.md"

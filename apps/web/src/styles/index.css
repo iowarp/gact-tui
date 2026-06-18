@@ -162,6 +162,12 @@ textarea {
   background: color-mix(in srgb, var(--color-accent) 85%, white);
 }
 
+.btn--primary:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+  border-color: var(--color-border-30);
+}
+
 .btn--secondary {
   background: transparent;
   color: var(--color-accent-cyan);

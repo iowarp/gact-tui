@@ -24,7 +24,7 @@ export interface InlineMarkdownProps {
  * for `[click](javascript:…)` smuggling.
  */
 export function InlineMarkdown(props: InlineMarkdownProps) {
-  const blocks = () => splitBlocks(props.text);
+  const blocks = () => splitBlocks(normalizeCompactMarkdown(props.text));
   return (
     <div class="im">
       <For each={blocks()}>
@@ -33,57 +33,64 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
             return <CodeBlock lang={b.lang} body={b.body} />;
           }
           if (b.kind === 'heading') {
-            const tag = b.level === 1 ? 'h2' : b.level === 2 ? 'h3' : 'h4';
-            return (
-              <DynamicTag tag={tag} class={`im__h im__h-${b.level}`}>
-                <For each={tokenizeInline(b.body)}>{(t) => renderToken(t)}</For>
-              </DynamicTag>
+            const content = (
+              <For each={tokenizeInline(b.body)}>{(t) => renderToken(t)}</For>
             );
+            if (b.level === 1) {
+              return <h2 class="im__h im__h-1">{content}</h2>;
+            }
+            if (b.level === 2) {
+              return <h3 class="im__h im__h-2">{content}</h3>;
+            }
+            return <h4 class="im__h im__h-3">{content}</h4>;
           }
           if (b.kind === 'list') {
-            const ListTag = b.ordered ? 'ol' : 'ul';
             // Detect a markdown task list — all items start with
             // `[ ] ` or `[x] `. We render the checkbox glyph + drop
             // the marker from the text so the rest renders normally.
             const taskListRe = /^\[([ xX])\]\s+(.*)$/;
             const isTaskList =
               !b.ordered &&
-              b.items.length > 0 &&
-              b.items.every((it) => taskListRe.test(it));
-            return (
-              <ListTag
-                class={
-                  'im__list ' +
-                  (b.ordered ? 'im__list--ol' : 'im__list--ul') +
-                  (isTaskList ? ' im__list--tasks' : '')
-                }
-              >
-                <For each={b.items}>
-                  {(item) => {
-                    if (isTaskList) {
-                      const m = item.match(taskListRe)!;
-                      const checked = m[1]!.toLowerCase() === 'x';
-                      const body = m[2]!;
-                      return (
-                        <li class={'im__li im__li--task ' + (checked ? 'is-done' : '')}>
-                          <span
-                            class={'im__check ' + (checked ? 'is-checked' : '')}
-                            aria-hidden
-                          />
-                          <span>
-                            <For each={tokenizeInline(body)}>{(t) => renderToken(t)}</For>
-                          </span>
-                        </li>
-                      );
-                    }
+                b.items.length > 0 &&
+                b.items.every((it) => taskListRe.test(it));
+            const items = (
+              <For each={b.items}>
+                {(item) => {
+                  if (isTaskList) {
+                    const m = item.match(taskListRe)!;
+                    const checked = m[1]!.toLowerCase() === 'x';
+                    const body = m[2]!;
                     return (
-                      <li class="im__li">
-                        <For each={tokenizeInline(item)}>{(t) => renderToken(t)}</For>
+                      <li
+                        class={'im__li im__li--task ' + (checked ? 'is-done' : '')}
+                      >
+                        <span
+                          class={'im__check ' + (checked ? 'is-checked' : '')}
+                          aria-hidden
+                        />
+                        <span>
+                          <For each={tokenizeInline(body)}>{(t) => renderToken(t)}</For>
+                        </span>
                       </li>
                     );
-                  }}
-                </For>
-              </ListTag>
+                  }
+                  return (
+                    <li class="im__li">
+                      <For each={tokenizeInline(item)}>{(t) => renderToken(t)}</For>
+                    </li>
+                  );
+                }}
+              </For>
+            );
+            const className =
+              'im__list ' +
+              (b.ordered ? 'im__list--ol' : 'im__list--ul') +
+              (isTaskList ? ' im__list--tasks' : '');
+            if (b.ordered) {
+              return <ol class={className}>{items}</ol>;
+            }
+            return (
+              <ul class={className}>{items}</ul>
             );
           }
           if (b.kind === 'hr') {
@@ -153,6 +160,11 @@ export function InlineMarkdown(props: InlineMarkdownProps) {
       </For>
     </div>
   );
+}
+
+function normalizeCompactMarkdown(text: string): string {
+  if (!/\|[-:\s|]{3,}\|/.test(text)) return text;
+  return text.replace(/(\|)\s+(?=\|(?:\s*[-:]{3,}|\s*\d+\s*\||\s*[A-Za-z][^|\n]{0,80}\s*\|))/g, '$1\n');
 }
 
 function escapeHtml(s: string): string {
@@ -258,17 +270,6 @@ function CodeBlock(props: { lang: string | null; body: string }) {
       </Show>
     </pre>
   );
-}
-
-function DynamicTag(props: { tag: string; class?: string; children: unknown }) {
-  // Solid doesn't have a built-in dynamic tag helper outside JSX, so
-  // route through a tiny switch. Keeps the heading levels semantic.
-  switch (props.tag) {
-    case 'h2': return <h2 class={props.class}>{props.children as never}</h2>;
-    case 'h3': return <h3 class={props.class}>{props.children as never}</h3>;
-    case 'h4': return <h4 class={props.class}>{props.children as never}</h4>;
-    default:   return <div class={props.class}>{props.children as never}</div>;
-  }
 }
 
 type Block =
@@ -422,17 +423,17 @@ function tokenizeInline(s: string): InlineToken[] {
   // Autolinks match bare http/https URLs only; markdown link syntax
   // is intentionally not parsed to keep the href whitelist tight.
   const pattern =
-    /(`[^`\n]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*\n]+\*|_[^_\n]+_)|(~~[^~]+~~)|(==[^=]+==)|(https?:\/\/[^\s)>\]"']+)/g;
+    /(`[^`\n]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(~~[^~]+~~)|(==[^=]+==)|(https?:\/\/[^\s)>\]"']+)/g;
   let cur = 0;
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(s)) !== null) {
     if (m.index > cur) out.push({ kind: 'plain', text: s.slice(cur, m.index) });
     if (m[1]) out.push({ kind: 'code', text: m[1].slice(1, -1) });
-    else if (m[2]) {
-      // **bold** or __bold__
-      out.push({ kind: 'bold', text: m[2].slice(2, -2) });
-    } else if (m[3]) {
-      // *italic* or _italic_
+    else if (m[2]) out.push({ kind: 'bold', text: m[2].slice(2, -2) });
+    else if (m[3]) {
+      // *italic*. Underscore emphasis is intentionally unsupported because
+      // scientific identifiers such as time_s and temperature_c are common
+      // CLIO output and must never be reformatted into "times".
       out.push({ kind: 'italic', text: m[3].slice(1, -1) });
     } else if (m[4]) out.push({ kind: 'strike', text: m[4].slice(2, -2) });
     else if (m[5]) out.push({ kind: 'highlight', text: m[5].slice(2, -2) });

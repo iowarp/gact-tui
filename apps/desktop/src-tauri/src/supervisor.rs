@@ -138,8 +138,7 @@ fn boot_log_line(line: &str) {
 /// than a Tauri opener plugin so no extra capability surface is exposed —
 /// matching the existing `taskkill` / `ssh` direct-spawn pattern.
 pub fn open_boot_log() -> Result<PathBuf, String> {
-    let path = boot_log_path()
-        .ok_or_else(|| "boot log path is not initialized".to_string())?;
+    let path = boot_log_path().ok_or_else(|| "boot log path is not initialized".to_string())?;
     if !path.is_file() {
         return Err(format!("boot log not found at {}", path.display()));
     }
@@ -240,7 +239,11 @@ impl Supervisor {
 
     /// Reads the current backend handle (cheap clone of a small struct).
     pub fn snapshot(&self) -> BackendHandle {
-        self.inner.lock().expect("supervisor poisoned").handle.clone()
+        self.inner
+            .lock()
+            .expect("supervisor poisoned")
+            .handle
+            .clone()
     }
 
     /// Records a startup error without spawning anything. Used when the
@@ -347,16 +350,26 @@ impl Supervisor {
                     .stderr(Stdio::null())
                     .status();
             }
-            // Unix: the launcher execs/waits on clio in the same process
-            // group; killing the launcher delivers SIGKILL to it and uvicorn
-            // shuts down when its parent dies. (Tree-kill via process groups
-            // is a follow-up if a Linux/macOS leak is ever observed.)
+            // Unix: spawn_and_probe places the launcher and its descendants
+            // into a dedicated process group. Kill that group so uvicorn
+            // workers cannot outlive the Tauri shell.
+            #[cfg(unix)]
+            terminate_process_group(child.id(), libc::SIGTERM);
+
+            #[cfg(not(any(windows, unix)))]
             let _ = child.kill();
+
             let deadline = Instant::now() + SHUTDOWN_GRACE;
             loop {
                 match child.try_wait() {
-                    Ok(Some(_)) => break,
+                    Ok(Some(_)) => {
+                        #[cfg(unix)]
+                        terminate_process_group(child.id(), libc::SIGKILL);
+                        break;
+                    }
                     Ok(None) if Instant::now() >= deadline => {
+                        #[cfg(unix)]
+                        terminate_process_group(child.id(), libc::SIGKILL);
                         let _ = child.kill();
                         let _ = child.wait();
                         break;
@@ -366,6 +379,15 @@ impl Supervisor {
                 }
             }
         }
+    }
+}
+
+#[cfg(unix)]
+fn terminate_process_group(pid: u32, signal: libc::c_int) {
+    let pgid = pid as libc::pid_t;
+    // Negative pid targets the process group whose id equals `pid`.
+    unsafe {
+        let _ = libc::kill(-pgid, signal);
     }
 }
 
@@ -434,8 +456,11 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError
     let token = generate_token();
     let url = format!("http://127.0.0.1:{port}");
 
-    boot_log_line(&format!("spawning launcher {launcher:?} on 127.0.0.1:{port}"));
-    let mut child = Command::new(launcher)
+    boot_log_line(&format!(
+        "spawning launcher {launcher:?} on 127.0.0.1:{port}"
+    ));
+    let mut command = Command::new(launcher);
+    command
         .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")
@@ -447,7 +472,24 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError
         // failure leaves a re-openable transcript. Reader threads below
         // tee each line into the persisted boot log.
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setpgid(0, 0) == 0 {
+                    Ok(())
+                } else {
+                    Err(io::Error::last_os_error())
+                }
+            });
+        }
+    }
+
+    let mut child = command
         .spawn()
         .map_err(|e| format!("spawn launcher {launcher:?}: {e}"))?;
 
@@ -1011,13 +1053,19 @@ mod tests {
 
         let body = fs::read_to_string(&path).expect("boot log written");
         assert!(body.starts_with("=== clio boot log ==="), "got: {body}");
-        assert!(body.contains("line one") && body.contains("line two"), "got: {body}");
+        assert!(
+            body.contains("line one") && body.contains("line two"),
+            "got: {body}"
+        );
 
         // reset again truncates the prior content.
         reset_boot_log("repair");
         let body2 = fs::read_to_string(&path).expect("boot log re-written");
         assert!(body2.starts_with("=== clio repair log ==="), "got: {body2}");
-        assert!(!body2.contains("line one"), "reset must truncate, got: {body2}");
+        assert!(
+            !body2.contains("line one"),
+            "reset must truncate, got: {body2}"
+        );
 
         // restore + cleanup.
         *BOOT_LOG_PATH.lock().unwrap() = saved;

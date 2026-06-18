@@ -98,7 +98,7 @@ export function McpPage(props: McpPageProps) {
     <DiscoveryPage
       icon="mcp"
       title="MCP servers"
-      subtitle="Model Context Protocol tool gateways wired into this backend."
+      subtitle="External tool providers available to this backend."
       actions={
         <>
           <button
@@ -125,7 +125,7 @@ export function McpPage(props: McpPageProps) {
       onRetry={() => void refetch()}
       empty={!data.loading && items().length === 0}
       emptyTitle="No MCP servers"
-      emptyBody="Register a server via the backend's tool gateway config."
+      emptyBody="Install or enable a tool server to make its tools available in sessions."
     >
       <Show when={all().length > 4}>
         <div class="dp__search-row">
@@ -140,7 +140,7 @@ export function McpPage(props: McpPageProps) {
           />
         </div>
       </Show>
-      <div class="dp__grid">
+      <div class="dp__grid mcp__grid">
         <For each={items()}>
           {(s) => (
             <McpServerCard
@@ -207,15 +207,17 @@ function McpPromptRow(props: {
       <Show when={props.p.description}>
         <span class="mcp__detail-desc">{props.p.description}</span>
       </Show>
-      <button
-        type="button"
-        class="mcp__resource-preview"
-        onClick={() => void load()}
-        disabled={busy()}
-        data-testid={`mcp-prompt-render-${props.s.id}-${props.p.name}`}
-      >
-        {busy() ? '…' : rendered() !== null ? 'Hide' : 'Render'}
-      </button>
+      <div class="mcp__detail-actions">
+        <button
+          type="button"
+          class="mcp__resource-preview"
+          onClick={() => void load()}
+          disabled={busy()}
+          data-testid={`mcp-prompt-render-${props.s.id}-${props.p.name}`}
+        >
+          {busy() ? '…' : rendered() !== null ? 'Hide' : 'Render'}
+        </button>
+      </div>
       <Show when={err()}>
         <pre class="mcp__resource-err">{err()}</pre>
       </Show>
@@ -277,23 +279,25 @@ function McpResourceRow(props: {
       <Show when={props.r.name}>
         <span class="mcp__detail-desc">{props.r.name}</span>
       </Show>
-      <button
-        type="button"
-        class="mcp__resource-preview"
-        onClick={() => void load()}
-        disabled={busy()}
-        data-testid={`mcp-resource-preview-${props.s.id}-${props.r.uri}`}
-      >
-        {busy() ? '…' : preview() !== null ? 'Hide' : 'Preview'}
-      </button>
-      <button
-        type="button"
-        class="mcp__resource-preview"
-        onClick={() => void toggleSubscribe()}
-        data-testid={`mcp-resource-sub-${props.s.id}-${props.r.uri}`}
-      >
-        {subscribed() ? '✓ Subscribed' : 'Subscribe'}
-      </button>
+      <div class="mcp__detail-actions">
+        <button
+          type="button"
+          class="mcp__resource-preview"
+          onClick={() => void load()}
+          disabled={busy()}
+          data-testid={`mcp-resource-preview-${props.s.id}-${props.r.uri}`}
+        >
+          {busy() ? '…' : preview() !== null ? 'Hide' : 'Preview'}
+        </button>
+        <button
+          type="button"
+          class="mcp__resource-preview"
+          onClick={() => void toggleSubscribe()}
+          data-testid={`mcp-resource-sub-${props.s.id}-${props.r.uri}`}
+        >
+          {subscribed() ? '✓ Subscribed' : 'Subscribe'}
+        </button>
+      </div>
       <Show when={err()}>
         <pre class="mcp__resource-err">{err()}</pre>
       </Show>

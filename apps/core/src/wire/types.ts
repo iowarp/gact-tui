@@ -332,6 +332,7 @@ export interface ContextFileContent {
   display_path?: string;
   size: number;
   media_type: string;
+  source_media_type?: string;
   encoding: 'base64';
   data: string;
 }

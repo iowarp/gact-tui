@@ -15,7 +15,7 @@ import {
   shouldReconcileTranscriptAfterEvent,
   type ReduceHooks,
 } from '../../src/live.js';
-import type { Message, SemanticEventPayload } from '@clio/core';
+import type { Message, PermissionRequest, SemanticEventPayload } from '@clio/core';
 
 /** A minimal mutable harness over the subset of hooks a test cares about.
  * Each setter accepts either a value or an updater, mirroring Solid's
@@ -24,6 +24,7 @@ function makeHooks(initialMessages: Message[] = []) {
   let messages = initialMessages;
   let semantic: SemanticEventPayload[] = [];
   let lastCompletion: unknown = null;
+  let pendingPermission: PermissionRequest | null = null;
   let cost = 0;
 
   const apply = <T,>(cur: T, next: T | ((p: T) => T)): T =>
@@ -33,7 +34,9 @@ function makeHooks(initialMessages: Message[] = []) {
     setMessages: (m) => {
       messages = apply(messages, m);
     },
-    setPendingPermission: () => undefined,
+    setPendingPermission: (p) => {
+      pendingPermission = p;
+    },
     setLastCompletion: (c) => {
       lastCompletion = c;
     },
@@ -58,6 +61,9 @@ function makeHooks(initialMessages: Message[] = []) {
     },
     get lastCompletion() {
       return lastCompletion as { stop_reason?: string } | null;
+    },
+    get pendingPermission() {
+      return pendingPermission;
     },
     get cost() {
       return cost;
@@ -180,6 +186,56 @@ describe('reduce: semantic.event feed (GAP 3)', () => {
       h.hooks,
     );
     expect(h.semantic).toHaveLength(0);
+  });
+});
+
+describe('reduce: permission lifecycle', () => {
+  it('clears stale permission cards once the session leaves permission-waiting state', () => {
+    const h = makeHooks();
+
+    reduce(
+      {
+        type: 'permission.requested',
+        payload: {
+          id: 'perm_1',
+          session_id: 's1',
+          tool_call: {
+            tool_name: 'shell_bash',
+            input: { cmd: 'head -n 20 sample.csv' },
+          },
+          reason: 'inspect a generated artifact',
+        },
+      },
+      h.hooks,
+    );
+    expect(h.pendingPermission?.id).toBe('perm_1');
+
+    reduce(
+      {
+        type: 'session.status_changed',
+        payload: { session_id: 's1', status: 'waiting_permission' },
+      },
+      h.hooks,
+    );
+    expect(h.pendingPermission?.id).toBe('perm_1');
+
+    reduce(
+      {
+        type: 'session.status_changed',
+        payload: { session_id: 's1', status: 'running' },
+      },
+      h.hooks,
+    );
+    expect(h.pendingPermission?.id).toBe('perm_1');
+
+    reduce(
+      {
+        type: 'session.status_changed',
+        payload: { session_id: 's1', status: 'idle' },
+      },
+      h.hooks,
+    );
+    expect(h.pendingPermission).toBeNull();
   });
 });
 

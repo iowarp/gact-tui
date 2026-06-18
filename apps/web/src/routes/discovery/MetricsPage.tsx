@@ -13,7 +13,7 @@ export function MetricsPage(props: MetricsPageProps) {
     <DiscoveryPage
       icon="metrics"
       title="Metrics"
-      subtitle="Aggregate telemetry from this backend's lifecycle."
+      subtitle="Backend activity, token usage, cost, and latency."
       actions={
         <button
           type="button"
@@ -101,6 +101,41 @@ export function MetricsPage(props: MetricsPageProps) {
               </Show>
             </div>
 
+            <div class="dp__section-title">Backend latency</div>
+            <Show
+              when={latencyEntries(d().latencies).length > 0}
+              fallback={
+                <div class="dp__empty dp__empty--inline" data-testid="metrics-latency-empty">
+                  <div class="dp__empty-icon">
+                    <Icon name="metrics" size={20} />
+                  </div>
+                  <h2 class="dp__empty-title">No latency samples yet</h2>
+                  <p class="dp__empty-body">
+                    This backend is reporting sessions and messages, but no backend
+                    latency buckets are populated.
+                  </p>
+                </div>
+              }
+            >
+              <div class="dp__stats" data-testid="metrics-latency-stats">
+                <For each={latencyEntries(d().latencies)}>
+                  {([k, v]) => (
+                    <div class="dp__stat">
+                      <div class="dp__stat-label">{k}</div>
+                      <div class="dp__stat-value">{formatLatencyValue(v)}</div>
+                      <Show when={formatLatencyDetail(v)}>
+                        {(detail) => (
+                          <div class="dp__stat-sub">
+                            {detail()}
+                          </div>
+                        )}
+                      </Show>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+
             <div class="dp__section-title">Backend</div>
             <div class="dp__stats">
               <div class="dp__stat">
@@ -120,6 +155,40 @@ export function MetricsPage(props: MetricsPageProps) {
       </Show>
     </DiscoveryPage>
   );
+}
+
+export function latencyEntries(latencies: Record<string, unknown> | undefined): Array<[string, unknown]> {
+  return Object.entries(latencies ?? {}).filter(([, value]) => value != null);
+}
+
+export function formatLatencyValue(value: unknown): string {
+  if (typeof value === 'number') return `${Math.round(value)}ms`;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value) {
+    const record = value as Record<string, unknown>;
+    if (typeof record['p50_ms'] === 'number') return `p50 ${formatMs(record['p50_ms'])}`;
+    if (typeof record['avg_ms'] === 'number') return `avg ${formatMs(record['avg_ms'])}`;
+    if (typeof record['mean_ms'] === 'number') return `mean ${formatMs(record['mean_ms'])}`;
+    if (typeof record['last_ms'] === 'number') return `last ${formatMs(record['last_ms'])}`;
+    if (typeof record['count'] === 'number') return `${Math.round(record['count'])} samples`;
+  }
+  return 'reported';
+}
+
+export function formatLatencyDetail(value: unknown): string {
+  if (typeof value !== 'object' || !value) return '';
+  const record = value as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof record['count'] === 'number') parts.push(`${Math.round(record['count'])} samples`);
+  if (typeof record['p95_ms'] === 'number') parts.push(`p95 ${formatMs(record['p95_ms'])}`);
+  if (typeof record['max_ms'] === 'number') parts.push(`max ${formatMs(record['max_ms'])}`);
+  return parts.join(' · ');
+}
+
+function formatMs(value: number): string {
+  if (value >= 100) return `${Math.round(value)}ms`;
+  if (value >= 10) return `${Math.round(value * 10) / 10}ms`;
+  return `${Math.round(value * 100) / 100}ms`;
 }
 
 /**

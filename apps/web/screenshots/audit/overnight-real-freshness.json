@@ -1,0 +1,203 @@
+{
+  "backend": "http://127.0.0.1:18176",
+  "workspaceId": "ws_80d27018c650",
+  "agentId": "freshness_probe_1781725076304",
+  "sessionId": "sess_0e6d4de18e27",
+  "marker": "FRESHNESS_MARKER_1781725076304",
+  "finalUi": {
+    "transcriptHasMarker": true,
+    "assistantHasMarker": true,
+    "assistantText": "CLIO\njust now\nrouted to freshness_probe_1781725076304 · user_agent\nSession selected user agent 'freshness_probe_1781725076304'.\n\nFRESHNESS_MARKER_1781725076304"
+  },
+  "samples": [
+    {
+      "elapsed_ms": 570,
+      "ui_has_user_marker": true,
+      "ui_has_assistant_marker": false,
+      "api_message_count": 1,
+      "stopped": false
+    },
+    {
+      "elapsed_ms": 1834,
+      "ui_has_user_marker": true,
+      "ui_has_assistant_marker": false,
+      "api_message_count": 1,
+      "stopped": false
+    },
+    {
+      "elapsed_ms": 2789,
+      "ui_has_user_marker": true,
+      "ui_has_assistant_marker": true,
+      "api_message_count": 2,
+      "stopped": true
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_asst_b9c5c3832b2e",
+      "session_id": "sess_0e6d4de18e27",
+      "role": "assistant",
+      "created_at": "2026-06-17T19:38:00.208767+00:00",
+      "updated_at": "2026-06-17T19:38:00.208778+00:00",
+      "parts": [
+        {
+          "id": "part_d7d206eb1fc6",
+          "type": "routing_decision",
+          "metadata": {
+            "route_source": "user_agent",
+            "route_reason": "Session selected user agent 'freshness_probe_1781725076304'."
+          },
+          "text": "",
+          "selected_agent": "freshness_probe_1781725076304",
+          "rationale": "Session selected user agent 'freshness_probe_1781725076304'.",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        },
+        {
+          "id": "part_8c9c01912067",
+          "type": "text",
+          "metadata": {
+            "stream_source": "batch",
+            "stream_fallback": {
+              "reason": "stream_completed_without_chunks",
+              "category": "provider_streaming_limitation",
+              "synthetic_posthoc": true,
+              "live_streaming": false,
+              "recovery_actions": [
+                "continue_without_live_streaming",
+                "reconfigure",
+                "retry"
+              ],
+              "description": "DSPy streaming returned a final prediction but no visible token chunks.",
+              "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
+            }
+          },
+          "text": "FRESHNESS_MARKER_1781725076304",
+          "selected_agent": "",
+          "rationale": "",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        }
+      ],
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost_usd": 0,
+      "stop_reason": "end_turn",
+      "metadata": {
+        "stream_source": "batch",
+        "stream_fallback": {
+          "reason": "stream_completed_without_chunks",
+          "category": "provider_streaming_limitation",
+          "synthetic_posthoc": true,
+          "live_streaming": false,
+          "recovery_actions": [
+            "continue_without_live_streaming",
+            "reconfigure",
+            "retry"
+          ],
+          "description": "DSPy streaming returned a final prediction but no visible token chunks.",
+          "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
+        },
+        "agent_runtime": {
+          "kind": "dynamic_agent",
+          "agent_id": "freshness_probe_1781725076304",
+          "source": "user",
+          "title": "Freshness Probe Agent",
+          "execution_mode": "prompt_agent",
+          "module": {},
+          "tools": [],
+          "structured_outputs": {},
+          "fanout": {},
+          "prompt": {
+            "source": "agent_definition",
+            "has_system_prompt": true
+          },
+          "model": {
+            "provider_id": "argonne",
+            "model_id": "openai/gpt-oss-120b",
+            "provider_source": "global_active",
+            "model_source": "global_active",
+            "fallback_to_global": true
+          }
+        }
+      }
+    },
+    {
+      "id": "msg_user_1b3df4c7d61a",
+      "session_id": "sess_0e6d4de18e27",
+      "role": "user",
+      "created_at": "2026-06-17T19:37:57.495155+00:00",
+      "updated_at": "2026-06-17T19:37:57.495155+00:00",
+      "parts": [
+        {
+          "id": "part_7573431bd5d7",
+          "type": "text",
+          "metadata": {},
+          "text": "External freshness probe. Reply with this exact marker: FRESHNESS_MARKER_1781725076304",
+          "selected_agent": "",
+          "rationale": "",
+          "confidence": 0,
+          "heuristic": false,
+          "execution_path": "",
+          "call_id": "",
+          "tool_name": "",
+          "input": {},
+          "content": [],
+          "is_error": false,
+          "cached": false,
+          "duration_ms": 0,
+          "path": "",
+          "unified_diff": "",
+          "new_content": "",
+          "status": "",
+          "edit_mode": "",
+          "lines_added": 0,
+          "lines_removed": 0
+        }
+      ],
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "cost_usd": 0,
+      "stop_reason": "",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "backendA": "http://127.0.0.1:18310",
+  "workspaceA": {
+    "id": "ws_default",
+    "name": "default",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio",
+    "created_at": "2026-06-18T01:31:19.668002+00:00",
+    "updated_at": "2026-06-18T01:31:19.668016+00:00",
+    "config": {},
+    "metadata": {}
+  },
+  "sessionA": {
+    "id": "sess_793cbcf7b109",
+    "workspace_id": "ws_default",
+    "title": "overnight hooks policies 1781746797486",
+    "status": "idle",
+    "created_at": "2026-06-18T01:39:57.487095+00:00",
+    "updated_at": "2026-06-18T01:39:57.487095+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "hookPostStatus": 200,
+  "hookDeleteStatus": 204,
+  "policiesPutStatus": 200,
+  "hooksAfter": {
+    "hooks": []
+  },
+  "policiesAfter": {
+    "policies": []
+  }
+}

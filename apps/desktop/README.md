@@ -28,13 +28,23 @@ include their `.pc` files.
 
 ## Commands
 
+Run filtered commands from the `apps/` workspace root, or run the package-local
+scripts from `apps/desktop`.
+
 ```sh
+cd apps
 pnpm install
 pnpm --filter @clio/desktop tauri:dev          # dev shell + vite HMR
 pnpm --filter @clio/desktop tauri:build:debug  # debug binary, no-bundle (fastest)
 pnpm --filter @clio/desktop tauri:build        # production binary + installers
 pnpm --filter @clio/desktop test               # Node smoke tests
 pnpm --filter @clio/desktop test:webview       # gated real WebView proof
+```
+
+```sh
+cd apps/desktop
+pnpm tauri:build:debug
+pnpm test
 ```
 
 `tauri:build:debug` is what the harness CI exercises — it produces a binary
@@ -50,14 +60,22 @@ native menu/window chrome, and sidecar supervisor path.
 Build the debug desktop app first:
 
 ```sh
-pnpm --filter @clio/desktop tauri:build:debug
+cd apps/desktop
+pnpm tauri:build:debug
 ```
 
 Then run the gated WebView test against a live CLIO/GACT backend on `:17800`:
 
 ```sh
 cargo install tauri-driver
-TAURI_E2E=1 pnpm --filter @clio/desktop test:webview
+TAURI_E2E=1 pnpm test:webview
+```
+
+When another real CLIO is already bound to `:17800`, use chat-only mode to
+capture the native shell without sending the permission-triggering prompt:
+
+```sh
+TAURI_E2E=1 TAURI_E2E_CHAT_ONLY=1 pnpm test:webview
 ```
 
 For deterministic proof without touching a local CLIO runtime, start the repo

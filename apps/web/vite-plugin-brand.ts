@@ -26,6 +26,15 @@ interface RawBrand {
   logoSvg?: string;
   accent?: string;
   themeTokens?: Record<string, string>;
+  starterPrompts?: Array<{
+    eyebrow?: string;
+    label?: string;
+  }>;
+  backendRepository?: {
+    label?: string;
+    url?: string;
+    detail?: string;
+  } | null;
 }
 
 export interface ResolvedBrand {
@@ -35,12 +44,40 @@ export interface ResolvedBrand {
   markGlyph: string;
   accent: string | null;
   themeTokens: Record<string, string>;
+  starterPrompts: Array<{
+    eyebrow: string;
+    label: string;
+  }>;
+  backendRepository: {
+    label: string;
+    url: string;
+    detail: string;
+  } | null;
   /** Inlined SVG source, or null when the profile has no logoSvg. */
   logoSvg: string | null;
 }
 
 /** Default accent when a profile omits one — the design-system default. */
 const DEFAULT_ACCENT: string | null = null;
+
+const DEFAULT_STARTER_PROMPTS: ResolvedBrand['starterPrompts'] = [
+  {
+    eyebrow: 'Inspect',
+    label: 'Show me the schema of data/sample.h5 and chart the largest 3 datasets.',
+  },
+  {
+    eyebrow: 'Refactor',
+    label: 'Find println calls in src/ and rewrite them to log.Info.',
+  },
+  {
+    eyebrow: 'Explain',
+    label: 'Walk me through the SSE event flow in this repo.',
+  },
+  {
+    eyebrow: 'Plan',
+    label: 'Draft a migration plan from CSV to Parquet for our pipeline.',
+  },
+];
 
 export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand {
   const dir = resolve(brandingRoot, profile);
@@ -72,6 +109,22 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
   if (raw.accent && !themeTokens['--color-accent']) {
     themeTokens['--color-accent'] = raw.accent;
   }
+  const starterPrompts = Array.isArray(raw.starterPrompts)
+    ? raw.starterPrompts
+        .map((prompt) => ({
+          eyebrow: String(prompt.eyebrow ?? '').trim(),
+          label: String(prompt.label ?? '').trim(),
+        }))
+        .filter((prompt) => prompt.eyebrow.length > 0 && prompt.label.length > 0)
+    : [];
+  const backendRepository =
+    raw.backendRepository && raw.backendRepository.label && raw.backendRepository.url
+      ? {
+          label: String(raw.backendRepository.label).trim(),
+          url: String(raw.backendRepository.url).trim(),
+          detail: String(raw.backendRepository.detail ?? 'backend').trim(),
+        }
+      : null;
 
   return {
     name: raw.name,
@@ -80,6 +133,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     markGlyph: raw.markGlyph ?? raw.name.charAt(0).toUpperCase(),
     accent: raw.accent ?? DEFAULT_ACCENT,
     themeTokens,
+    starterPrompts: starterPrompts.length > 0 ? starterPrompts : DEFAULT_STARTER_PROMPTS,
+    backendRepository,
     logoSvg,
   };
 }

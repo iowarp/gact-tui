@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 // (icons used by WorkspaceSwitcher are loaded via the shared Icon.)
 import type { Client, SessionStatus } from '@clio/core';
@@ -142,18 +143,6 @@ export function SessionsColumn(props: SessionsColumnProps) {
   return (
     <aside class="sx" data-testid="sessions-column" aria-label="Sessions">
       <header class="sx__head">
-        <div class="sx__chrome-row">
-          <button
-            type="button"
-            class="sx__chrome-btn"
-            title="Collapse sidebar"
-            aria-label="Collapse sidebar"
-            data-testid="sessions-collapse"
-            onClick={() => props.onCollapse?.()}
-          >
-            <Icon name="menu" size={15} />
-          </button>
-        </div>
         <Show when={props.workspaces && props.workspaces.length > 0}>
           <WorkspaceSwitcher
             workspaces={props.workspaces!}
@@ -204,8 +193,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
             data-testid="sessions-new"
           >
             <Icon name="plus" size={14} />
-            <span>New session</span>
-            <span class="sx__kbd">Ctrl + N</span>
+            <span>New</span>
           </button>
           <Show when={props.onImportSession}>
             <button
@@ -293,7 +281,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
                 </p>
                 <p class="sx__empty-body">
                   {props.rows.length === 0
-                    ? 'Start a conversation — clio is ready.'
+                    ? `Start a conversation — ${brand.name} is ready.`
                     : 'Try a different search.'}
                 </p>
               </div>

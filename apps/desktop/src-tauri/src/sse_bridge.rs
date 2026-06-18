@@ -274,6 +274,24 @@ mod tests {
         }
     }
 
+    fn create_session_body(base: &str) -> String {
+        let workspace_id = ureq::get(&format!("{base}/v1/workspaces"))
+            .call()
+            .ok()
+            .and_then(|r| r.into_string().ok())
+            .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
+            .and_then(|j| {
+                j.get("workspaces")
+                    .and_then(|v| v.as_array())
+                    .and_then(|rows| rows.first())
+                    .and_then(|row| row.get("id"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "ws_default".to_string());
+        serde_json::json!({ "workspace_id": workspace_id }).to_string()
+    }
+
     #[test]
     fn streams_real_clio_events_through_the_parser() {
         let Some(base) = backend() else {
@@ -283,7 +301,7 @@ mod tests {
         // Fresh session to subscribe to.
         let body = ureq::post(&format!("{base}/v1/sessions"))
             .set("Content-Type", "application/json")
-            .send_string("{}")
+            .send_string(&create_session_body(&base))
             .ok()
             .and_then(|r| r.into_string().ok())
             .expect("create session");
@@ -352,7 +370,7 @@ mod tests {
         };
         let body = ureq::post(&format!("{base}/v1/sessions"))
             .set("Content-Type", "application/json")
-            .send_string("{}")
+            .send_string(&create_session_body(&base))
             .ok()
             .and_then(|r| r.into_string().ok())
             .expect("create session");

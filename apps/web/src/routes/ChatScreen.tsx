@@ -9,6 +9,7 @@ import {
   onMount,
   Show,
   Switch,
+  untrack,
 } from 'solid-js';
 import { brand } from '@brand';
 import type {
@@ -25,6 +26,7 @@ import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
 import { fixturesForDemo } from '../fixtures/demo.js';
 import { createLiveSessions, createLiveTranscript } from '../live.js';
+import { activityLabelFromSemanticEvents } from '../activity-label.js';
 
 import { BackendPicker } from '../components/BackendPicker.js';
 import { Composer } from '../components/Composer.js';
@@ -85,18 +87,26 @@ import { getRequestLocale } from '../locale.js';
 import { inTauri, onMenuAction, tauriFetch } from '../tauri.js';
 import { dispatchMenuAction } from '../menu-actions.js';
 import { useToast } from '../components/Toast.js';
+import { trapFocusRef } from '../focus-trap.js';
 import {
   createPersistedBoolean,
   createPersistedSignal,
   createPersistedString,
 } from '../persisted.js';
+import {
+  loadSessionSemanticsDefaults,
+  saveSessionSemanticsDefaults,
+  sanitizeSessionSemantics,
+  type SessionSemanticOption,
+  type SessionSemanticsSelection,
+} from '../session-semantics.js';
 import './chat.css';
 
-import type { SettingsSection } from './SettingsShell.js';
+import type { SettingsContext, SettingsSection } from './SettingsShell.js';
 
 export interface ChatScreenProps {
   backend: BackendHandle;
-  onOpenSettings?: (section?: SettingsSection) => void;
+  onOpenSettings?: (section?: SettingsSection, context?: SettingsContext) => void;
   onAddRemote?: () => void;
 }
 
@@ -247,7 +257,7 @@ function LiveDriven(props: {
   backend: BackendHandle;
   // Accepts a section so error toasts can deep-link (e.g. 'providers'
   // when a send fails because no LM is configured).
-  onOpenSettings?: (section?: SettingsSection) => void;
+  onOpenSettings?: (section?: SettingsSection, context?: SettingsContext) => void;
   onAddRemote?: () => void;
 }) {
   const live = createLiveSessions({
@@ -442,7 +452,13 @@ function LiveDriven(props: {
 
   createMemo(() => {
     const cur = rows().find((r) => r.id === activeId());
-    setStreaming(cur?.status === 'running');
+    const latestAssistant = [...transcript.messages()]
+      .reverse()
+      .find((message) => message.role === 'assistant');
+    const assistantSettled = Boolean(
+      latestAssistant?.stop_reason || latestAssistant?.error_info,
+    );
+    setStreaming(cur?.status === 'running' && !assistantSettled);
   });
 
   // SSE state-change toasts so the user notices reconnects + errors.
@@ -454,7 +470,11 @@ function LiveDriven(props: {
     const s = transcript.status();
     if (s === lastSseStatus) return;
     if (notifPrefs().connectionStatus) {
-      if (s === 'error' && lastSseStatus !== 'error') {
+      if (
+        s === 'error' &&
+        lastSseStatus !== 'error' &&
+        lastSseStatus !== 'reconnecting'
+      ) {
         toast.push({
           tone: 'error',
           title: 'SSE disconnected',
@@ -492,21 +512,64 @@ function LiveDriven(props: {
       title: isError ? 'Turn ended in error' : `${brand.name} responded`,
       body: isError
         ? 'See the message error pill for detail.'
-        : `${c.tokens?.total ?? (c.tokens?.input ?? 0) + (c.tokens?.output ?? 0)} tokens · $${(c.cost_usd ?? 0).toFixed(4)}`,
+        : completionToastBody(c),
       duration: 3500,
     });
   });
 
+  async function applySessionSemantics(
+    sessionId: string,
+    selection: SessionSemanticsSelection,
+  ) {
+    if (selection.blueprintId) {
+      await live.client.setSessionBlueprint(sessionId, {
+        blueprint_id: selection.blueprintId,
+      });
+    }
+    if (selection.expertPackId) {
+      await live.client.setSessionExpertPack(sessionId, {
+        pack_id: selection.expertPackId,
+      });
+    }
+  }
+
+  function defaultSessionSemantics(): SessionSemanticsSelection {
+    const defaults = loadSessionSemanticsDefaults();
+    const available = sessionSemanticsOptions();
+    if (!available) return defaults;
+    return sanitizeSessionSemantics(
+      defaults,
+      available.blueprints,
+      available.expertPacks,
+    );
+  }
+
+  async function createSessionWithSemantics(
+    title: string,
+    selection = defaultSessionSemantics(),
+  ) {
+    const workspaceId = await workspaceIdForNewSession();
+    const created = await live.client.createSession({
+      title,
+      ...(workspaceId ? { workspace_id: workspaceId } : {}),
+    });
+    await applySessionSemantics(created.id, selection);
+    live.refetch();
+    setActiveId(created.id);
+    void refetchBindings();
+    return created;
+  }
+
   async function sendUserMessage(text: string) {
     let sessionId = activeId();
     if (!sessionId) {
-      const created = await live.client.createSession({ title: text.slice(0, 60) });
+      const created = await createSessionWithSemantics(text.slice(0, 60));
       sessionId = created.id;
-      live.refetch();
-      setActiveId(sessionId);
     }
     try {
       await live.client.sendMessage(sessionId, { text });
+      await transcript.refetch();
+      live.refetch();
     } catch (e) {
       // Common cause: no LM configured. Surface the backend's typed
       // error envelope instead of leaving the user wondering — and give
@@ -591,10 +654,13 @@ function LiveDriven(props: {
     }
   }
 
-  async function newEmptySession() {
-    const created = await live.client.createSession({ title: 'New session' });
-    live.refetch();
-    setActiveId(created.id);
+  async function newEmptySession(selection?: SessionSemanticsSelection) {
+    try {
+      await createSessionWithSemantics('New session', selection);
+    } catch (e) {
+      failToast('Could not create session', e, () => void newEmptySession(selection));
+      throw e;
+    }
   }
 
   async function importSession(blob: Record<string, unknown>) {
@@ -758,11 +824,81 @@ function LiveDriven(props: {
     'clio.selected-workspace.v1',
     '__all',
   );
+  createEffect(() => {
+    const selected = selectedWorkspaceId();
+    if (selected === '__all' || workspacesData.loading) return;
+    const available = workspaces();
+    if (available.length === 0) return;
+    if (!available.some((workspace) => workspace.id === selected)) {
+      setSelectedWorkspaceId('__all');
+    }
+  });
+  async function workspaceIdForNewSession(): Promise<string | undefined> {
+    const selected = selectedWorkspaceId();
+    if (selected !== '__all') return selected;
+    const activeWorkspace = rows().find((s) => s.id === activeId())?.workspace;
+    if (activeWorkspace) return activeWorkspace;
+    const cached = workspaces()[0]?.id;
+    if (cached) return cached;
+    try {
+      const fresh = await live.client.workspaces();
+      return fresh.workspaces[0]?.id;
+    } catch {
+      return undefined;
+    }
+  }
+  const [sessionSemanticsData, { refetch: refetchSessionSemantics }] =
+    createResource(
+      () => selectedWorkspaceId(),
+      async (workspaceId) => {
+        const scope = workspaceId && workspaceId !== '__all'
+          ? { workspace_id: workspaceId }
+          : {};
+        const [blueprints, expertPacks] = await Promise.allSettled([
+          live.client.agentBlueprints(scope),
+          live.client.expertPacks(scope),
+        ]);
+        return {
+          blueprints:
+            blueprints.status === 'fulfilled'
+              ? blueprints.value.blueprints.map((b) => ({
+                  id: b.id,
+                  label: b.name ?? b.id,
+                  ...(b.description ? { description: b.description } : {}),
+                }))
+              : [],
+          expertPacks:
+            expertPacks.status === 'fulfilled'
+              ? expertPacks.value.packs.map((p) => ({
+                  id: p.id,
+                  label: p.name ?? p.id,
+                  ...(p.description ? { description: p.description } : {}),
+                }))
+              : [],
+        };
+      },
+    );
+  const sessionSemanticsOptions = createMemo(() => sessionSemanticsData());
   const filteredRows = createMemo(() => {
     const ws = selectedWorkspaceId();
     if (ws === '__all') return rows();
     return rows().filter((r) => r.workspace === ws || r.workspace === undefined);
   });
+
+  const settingsContext = (): SettingsContext => {
+    const sid = activeId();
+    const workspaceId =
+      rows().find((s) => s.id === sid)?.workspace ??
+      (selectedWorkspaceId() === '__all' ? undefined : selectedWorkspaceId());
+    return {
+      ...(sid ? { sessionId: sid } : {}),
+      ...(workspaceId ? { workspaceId } : {}),
+    };
+  };
+
+  const openSettings = (section?: SettingsSection) => {
+    props.onOpenSettings?.(section, settingsContext());
+  };
 
   // Live providers (powers the composer model picker).
   const [providersData] = createResource(() => live.client.providers());
@@ -1306,6 +1442,9 @@ function LiveDriven(props: {
       onCancelQuestion={cancelQuestion}
       onStop={stopRun}
       onNewSession={newEmptySession}
+      sessionSemanticsOptions={sessionSemanticsOptions()}
+      sessionSemanticsLoading={sessionSemanticsData.loading}
+      onRefreshSessionSemantics={() => void refetchSessionSemantics()}
       onRefreshSessions={() => live.refetch()}
       onImportSession={importSession}
       onRenameSession={renameSession}
@@ -1450,7 +1589,7 @@ function LiveDriven(props: {
       onSummarizeWithInstructions={async () => {
         const sid = activeId();
         if (!sid) return;
-        const instructions = prompt('How should clio summarize the session? (e.g. "tldr in 5 sentences", "extract action items only")');
+        const instructions = prompt(`How should ${brand.name} summarize the session? (e.g. "tldr in 5 sentences", "extract action items only")`);
         if (!instructions) return;
         try {
           await live.client.summarizeSession(sid, { auto: false, instructions });
@@ -1527,11 +1666,12 @@ function LiveDriven(props: {
       sseStatus={transcript.status()}
       sseReconnectInSec={transcript.reconnectInSec()}
       runningTools={transcript.runningTools()}
+      responseActivity={activityLabelFromSemanticEvents(transcript.semanticEvents())}
       streamStats={transcript.streamStats()}
       sessionCostUsd={transcript.costUsd()}
       sessionTokens={transcript.lastCompletion()?.tokens}
       lastStopReason={transcript.lastCompletion()?.stop_reason}
-      onOpenSettings={props.onOpenSettings}
+      onOpenSettings={openSettings}
       onAddRemote={props.onAddRemote}
       caps={props.backend.capabilities}
     />
@@ -1569,6 +1709,7 @@ interface ChatLayoutProps {
   sseStatus?: 'connecting' | 'open' | 'closed' | 'error' | 'reconnecting';
   sseReconnectInSec?: number;
   runningTools?: RunningTool[];
+  responseActivity?: string;
   /** TTFT + token rate of the most recent turn (W3 Tier-2). */
   streamStats?: StreamStats | null;
   sessionTokens?: { input?: number; output?: number; total?: number };
@@ -1578,7 +1719,13 @@ interface ChatLayoutProps {
    * a "renamed" pill so the user notices an auto-rename. */
   renamedSessionId?: string | null;
   lastStopReason?: string;
-  onNewSession?: () => void | Promise<void>;
+  onNewSession?: (selection?: SessionSemanticsSelection) => void | Promise<void>;
+  sessionSemanticsOptions?: {
+    blueprints: SessionSemanticOption[];
+    expertPacks: SessionSemanticOption[];
+  };
+  sessionSemanticsLoading?: boolean;
+  onRefreshSessionSemantics?: () => void | Promise<void>;
   onOpenSettings?: (section?: SettingsSection) => void;
   onAddRemote?: () => void;
   caps?: BackendHandle['capabilities'];
@@ -1758,6 +1905,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const [catalogOpen, setCatalogOpen] = createSignal(false);
   const [composeOpen, setComposeOpen] = createSignal(false);
   const [sharedSessionOpen, setSharedSessionOpen] = createSignal(false);
+  const [sessionSemanticsOpen, setSessionSemanticsOpen] = createSignal(false);
   const [draftReloadTick, setDraftReloadTick] = createSignal(0);
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
@@ -1911,9 +2059,13 @@ function ChatLayout(props: ChatLayoutProps) {
   const [previewPath, setPreviewPath] = createSignal<string | undefined>(
     undefined,
   );
+  const defaultSessionsOpen =
+    typeof window !== 'undefined'
+      ? !window.matchMedia('(max-width: 760px)').matches
+      : true;
   const [sessionsOpen, setSessionsOpen] = createPersistedBoolean(
     'clio.sessions-open.v1',
-    true,
+    defaultSessionsOpen,
   );
   const [railRoute, setRailRoute] = createSignal<RailRoute>('sessions');
   const [selectedMessageId, setSelectedMessageId] = createSignal<string>('');
@@ -1924,9 +2076,21 @@ function ChatLayout(props: ChatLayoutProps) {
   // reactive prop for virtual windowing (1.0 item 6).
   const [paneSignal, setPaneSignal] = createSignal<HTMLElement>();
   let lastMessageCount = 0;
+  let lastTranscriptActivity = '';
+  let hadPendingPermission = false;
+
+  const SCROLL_BOTTOM_TOLERANCE_PX = 220;
+
+  function distanceFromBottom(el: HTMLElement): number {
+    return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
+  }
 
   function isAtBottom(el: HTMLElement): boolean {
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    // The floating composer reserves 184px of bottom clearance in CSS.
+    // Treat that reserved layout band as still "at latest"; otherwise a
+    // completed run can show the jump pill even when the latest message is
+    // visibly in view above the composer.
+    return distanceFromBottom(el) < SCROLL_BOTTOM_TOLERANCE_PX;
   }
 
   function scrollToBottom() {
@@ -1934,6 +2098,26 @@ function ChatLayout(props: ChatLayoutProps) {
     paneEl.scrollTo({ top: paneEl.scrollHeight, behavior: 'smooth' });
     setScrolledUp(false);
     setNewSinceScroll(0);
+    queueMicrotask(() => {
+      if (!paneEl || !isAtBottom(paneEl)) return;
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    });
+  }
+
+  function transcriptActivityKey(): string {
+    return props.messages
+      .map((message) => {
+        const partKey = message.parts
+          .map((part) => {
+            if (part.type === 'text') return part.text?.length ?? 0;
+            if (part.type === 'thinking') return (part.text ?? part.thinking ?? '').length;
+            return part.type;
+          })
+          .join(',');
+        return `${message.id}:${message.stop_reason ?? ''}:${partKey}`;
+      })
+      .join('|');
   }
 
   function onPaneScroll() {
@@ -1953,14 +2137,17 @@ function ChatLayout(props: ChatLayoutProps) {
   // the streaming text stays in view.
   createEffect(() => {
     const count = props.messages.length;
+    const activity = transcriptActivityKey();
+    const changed = activity !== lastTranscriptActivity;
     if (scrolledUp() && count > lastMessageCount) {
       setNewSinceScroll((n) => n + (count - lastMessageCount));
-    } else if (!scrolledUp() && count > lastMessageCount && paneEl) {
+    } else if (!scrolledUp() && changed && paneEl) {
       queueMicrotask(() => {
         if (paneEl) paneEl.scrollTop = paneEl.scrollHeight;
       });
     }
     lastMessageCount = count;
+    lastTranscriptActivity = activity;
   });
 
   // When the active session changes, jump to the bottom (without
@@ -1973,7 +2160,10 @@ function ChatLayout(props: ChatLayoutProps) {
       // priority surface — don't bury it by jumping to the bottom. The
       // dedicated permission effect scrolls it into view instead.
       if (paneEl && !props.pendingPermission) {
-        paneEl.scrollTop = paneEl.scrollHeight;
+        const empty = untrack(
+          () => props.messages.length === 0 && !props.pendingQuestion,
+        );
+        paneEl.scrollTop = empty ? 0 : paneEl.scrollHeight;
         setScrolledUp(false);
         setNewSinceScroll(0);
       }
@@ -2004,6 +2194,23 @@ function ChatLayout(props: ChatLayoutProps) {
       ) as HTMLElement | null;
       card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
+  });
+
+  // Permission approval is part of the live workflow, not an intentional
+  // request to keep reading history. Once the blocking card clears, return
+  // the transcript to live-follow mode so subsequent agent progress and the
+  // final answer stay visible.
+  createEffect(() => {
+    const hasPending = !!props.pendingPermission;
+    if (hadPendingPermission && !hasPending) {
+      queueMicrotask(() => {
+        if (!paneEl) return;
+        paneEl.scrollTop = paneEl.scrollHeight;
+        setScrolledUp(false);
+        setNewSinceScroll(0);
+      });
+    }
+    hadPendingPermission = hasPending;
   });
 
   // Shared Client for the discovery pages — same backend, routed
@@ -2151,7 +2358,7 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && onChat()) {
         e.preventDefault();
-        setSessionsOpen((v) => !v);
+        openSessionSemanticsPicker();
         return;
       }
       // Cmd+Shift+S forks the active session — the cheatsheet has
@@ -2169,7 +2376,7 @@ function ChatLayout(props: ChatLayoutProps) {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        void props.onNewSession?.();
+        openSessionSemanticsPicker();
         return;
       }
       // Ctrl+Shift+Up/Down — move active session forward/backward in
@@ -2235,7 +2442,7 @@ function ChatLayout(props: ChatLayoutProps) {
   onMount(() => {
     const unsub = onMenuAction((action) => {
       dispatchMenuAction(action, {
-        newSession: () => void props.onNewSession?.(),
+        newSession: openSessionSemanticsPicker,
         importSession: () => {
           // The import affordance is a file-picker in the SessionsColumn —
           // make sure the column is visible, then open the picker.
@@ -2319,7 +2526,7 @@ function ChatLayout(props: ChatLayoutProps) {
       return;
     }
     if (cmd.id === 'new-session') {
-      void props.onNewSession?.();
+      openSessionSemanticsPicker();
       return;
     }
     if (cmd.id === 'copy-session-id' && props.activeId) {
@@ -2685,7 +2892,7 @@ function ChatLayout(props: ChatLayoutProps) {
   const toolCallsForInspector = createMemo(() => {
     const m = inspectorTarget();
     if (!m) return [];
-    return summarizeToolCalls(m.parts);
+    return summarizeToolCalls(m);
   });
 
   function connectionTone(): 'ok' | 'warn' | 'err' | 'idle' {
@@ -2704,7 +2911,24 @@ function ChatLayout(props: ChatLayoutProps) {
   }
 
   const onChat = () => railRoute() === 'sessions';
-  const showSessionsColumn = () => onChat() && sessionsOpen();
+  const hasSessionInventory = () =>
+    props.sessionsLoading || props.sessions.length > 0 || !!props.activeId;
+  const showSessionsColumn = () => onChat() && sessionsOpen() && hasSessionInventory();
+  const openSessionSemanticsPicker = () => {
+    setSessionSemanticsOpen(true);
+    void props.onRefreshSessionSemantics?.();
+  };
+  const emptyTranscript = () =>
+    props.messages.length === 0 && !props.pendingPermission && !props.pendingQuestion;
+  const isNarrowViewport = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(max-width: 760px)').matches;
+  const selectFromSessionsColumn = (id: string) => {
+    props.onSelect(id);
+    if (isNarrowViewport()) {
+      setSessionsOpen(false);
+    }
+  };
 
   // Lower-priority topbar chips. Rendered inline when the topbar is wide;
   // collapsed into the "⋯" overflow menu when narrow (W3 Tier-1). Defined
@@ -2816,7 +3040,8 @@ function ChatLayout(props: ChatLayoutProps) {
         (onChat() ? '' : 'chat--discovery') +
         (onChat() && inspectorOpen() ? ' chat--inspector-open' : '') +
         (onChat() && previewOpen() ? ' chat--preview-open' : '') +
-        (onChat() && !showSessionsColumn() ? ' chat--no-sessions' : '')
+        (onChat() && !showSessionsColumn() ? ' chat--no-sessions' : '') +
+        (onChat() && emptyTranscript() ? ' chat--empty-transcript' : '')
       }
       data-testid="chat-screen"
     >
@@ -2825,8 +3050,8 @@ function ChatLayout(props: ChatLayoutProps) {
           rows={props.sessions}
           loading={props.sessionsLoading}
           activeId={props.activeId}
-          onSelect={props.onSelect}
-          onNewSession={props.onNewSession}
+          onSelect={selectFromSessionsColumn}
+          onNewSession={openSessionSemanticsPicker}
           connectionLabel={props.sseStatus ?? 'idle'}
           connectionTone={connectionTone()}
           workspaces={props.workspaces}
@@ -2840,7 +3065,12 @@ function ChatLayout(props: ChatLayoutProps) {
           onShareSession={props.onShareSession}
           onForkSession={props.onForkSession}
           onTogglePin={props.onTogglePin}
-          onOpenSettings={() => props.onOpenSettings?.()}
+          onOpenSettings={() => {
+            if (isNarrowViewport()) {
+              setSessionsOpen(false);
+            }
+            props.onOpenSettings?.();
+          }}
           onCollapse={() => setSessionsOpen(false)}
           archivedClient={discoveryClient}
         />
@@ -2860,21 +3090,23 @@ function ChatLayout(props: ChatLayoutProps) {
         >
         <header class="chat__topbar" ref={topbarRef}>
           <div class="chat__crumbs" ref={crumbsRef}>
-            <Show when={!showSessionsColumn()}>
-              <button
-                type="button"
-                class="chat__iconbtn chat__sidebar-open"
-                title="Show sessions"
-                aria-label="Show sessions"
-                data-testid="topbar-sessions"
-                onClick={() => {
+            <button
+              type="button"
+              class="chat__iconbtn chat__sidebar-open"
+              title={showSessionsColumn() ? 'Hide sessions' : 'Show sessions'}
+              aria-label={showSessionsColumn() ? 'Hide sessions' : 'Show sessions'}
+              data-testid="topbar-sessions"
+              onClick={() => {
+                if (showSessionsColumn()) {
+                  setSessionsOpen(false);
+                } else {
                   setRailRoute('sessions');
                   setSessionsOpen(true);
-                }}
-              >
-                <Icon name="menu" size={15} />
-              </button>
-            </Show>
+                }
+              }}
+            >
+              <Icon name="menu" size={15} />
+            </button>
             <span
               class="chat__crumb chat__crumb-head"
               title={
@@ -3051,6 +3283,7 @@ function ChatLayout(props: ChatLayoutProps) {
             <Show when={props.messages.length === 0 && !props.pendingPermission}>
               <EmptyState
                 hasSession={!!props.activeId}
+                previewActive={previewOpen()}
                 onPrompt={(p) => void props.onSubmit?.(p)}
               />
             </Show>
@@ -3093,25 +3326,17 @@ function ChatLayout(props: ChatLayoutProps) {
                 props.caps?.capabilities?.['multimodal_image_parts'] !== false
               }
             />
-            <Show when={scrolledUp()}>
-              <button
-                type="button"
-                class="chat__scroll-pill"
-                onClick={scrollToBottom}
-                data-testid="scroll-to-bottom"
-              >
-                <Icon name="chevron-down" size={14} />
-                <Show when={newSinceScroll() > 0} fallback={<span>Jump to latest</span>}>
-                  <span>{newSinceScroll()} new</span>
-                </Show>
-              </button>
-            </Show>
             <Show when={props.streaming && props.messages.length > 0}>
               <div class="chat__typing" data-testid="chat-typing">
                 <span class="chat__typing-avatar" aria-hidden>
                   <Icon name="bot" size={14} />
                 </span>
-                <span class="chat__typing-label">{brand.name} is responding</span>
+                <span class="chat__typing-copy">
+                  <span class="chat__typing-label">{brand.name} is responding</span>
+                  <Show when={props.responseActivity}>
+                    <span class="chat__typing-detail">{props.responseActivity}</span>
+                  </Show>
+                </span>
                 <span class="chat__typing-dots" aria-hidden>
                   <span class="chat__typing-dot" />
                   <span class="chat__typing-dot" />
@@ -3119,8 +3344,25 @@ function ChatLayout(props: ChatLayoutProps) {
                 </span>
               </div>
             </Show>
+            <Show when={props.messages.length > 0 || props.pendingPermission || props.pendingQuestion}>
+              <div class="chat__composer-clearance" aria-hidden="true" />
+            </Show>
           </div>
         </div>
+
+        <Show when={scrolledUp() && !props.pendingPermission && !props.pendingQuestion}>
+          <button
+            type="button"
+            class="chat__scroll-pill"
+            onClick={scrollToBottom}
+            data-testid="scroll-to-bottom"
+          >
+            <Icon name="chevron-down" size={14} />
+            <Show when={newSinceScroll() > 0} fallback={<span>Jump to latest</span>}>
+              <span>{newSinceScroll()} new</span>
+            </Show>
+          </button>
+        </Show>
 
         <Composer
           backendLabel={hostFromUrl(props.backendUrl)}
@@ -3273,6 +3515,19 @@ function ChatLayout(props: ChatLayoutProps) {
         onClose={() => setSharedSessionOpen(false)}
       />
 
+      <SessionSemanticsModal
+        open={sessionSemanticsOpen()}
+        loading={props.sessionSemanticsLoading}
+        blueprints={props.sessionSemanticsOptions?.blueprints ?? []}
+        expertPacks={props.sessionSemanticsOptions?.expertPacks ?? []}
+        onClose={() => setSessionSemanticsOpen(false)}
+        onOpenSettings={() => props.onOpenSettings?.('blueprints')}
+        onStart={async (selection) => {
+          await props.onNewSession?.(selection);
+          setSessionSemanticsOpen(false);
+        }}
+      />
+
       <ComposeModal
         open={composeOpen()}
         draftKey={props.activeId || '__new'}
@@ -3378,62 +3633,218 @@ function DiscoveryView(props: {
   );
 }
 
+function SessionSemanticsModal(props: {
+  open: boolean;
+  loading?: boolean;
+  blueprints: SessionSemanticOption[];
+  expertPacks: SessionSemanticOption[];
+  onStart: (selection: SessionSemanticsSelection) => Promise<void> | void;
+  onClose: () => void;
+  onOpenSettings: () => void;
+}) {
+  const [blueprintId, setBlueprintId] = createSignal('');
+  const [expertPackId, setExpertPackId] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  const [saveAsDefault, setSaveAsDefault] = createSignal(false);
+
+  createEffect(() => {
+    if (!props.open) return;
+    const defaults = sanitizeSessionSemantics(
+      loadSessionSemanticsDefaults(),
+      props.blueprints,
+      props.expertPacks,
+    );
+    setBlueprintId(defaults.blueprintId);
+    setExpertPackId(defaults.expertPackId);
+    setSaveAsDefault(false);
+  });
+
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!props.open) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        props.onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  });
+
+  const selection = (): SessionSemanticsSelection => ({
+    blueprintId: blueprintId(),
+    expertPackId: expertPackId(),
+  });
+
+  async function start() {
+    if (busy()) return;
+    setBusy(true);
+    try {
+      const next = selection();
+      if (saveAsDefault()) saveSessionSemanticsDefaults(next);
+      await props.onStart(next);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Show when={props.open}>
+      <div class="semantics__backdrop" onClick={props.onClose} />
+      <div
+        class="semantics"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Session semantics"
+        ref={trapFocusRef}
+        data-testid="session-semantics-modal"
+      >
+        <header class="semantics__head">
+          <div>
+            <span class="eyebrow">New session</span>
+            <h2>Session semantics</h2>
+          </div>
+          <button
+            type="button"
+            class="cmp__close"
+            onClick={props.onClose}
+            aria-label="Close session semantics"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </header>
+
+        <div class="semantics__body">
+          <label class="semantics__field">
+            <span>Agent blueprint</span>
+            <select
+              value={blueprintId()}
+              onChange={(e) => setBlueprintId(e.currentTarget.value)}
+              data-testid="session-semantics-blueprint"
+            >
+              <option value="">Default agent</option>
+              <For each={props.blueprints}>
+                {(bp) => <option value={bp.id}>{bp.label}</option>}
+              </For>
+            </select>
+          </label>
+          <Show
+            when={
+              blueprintId() &&
+              props.blueprints.find((bp) => bp.id === blueprintId())
+                ?.description
+            }
+          >
+            {(desc) => <p class="semantics__desc">{desc()}</p>}
+          </Show>
+
+          <label class="semantics__field">
+            <span>Expert pack</span>
+            <select
+              value={expertPackId()}
+              onChange={(e) => setExpertPackId(e.currentTarget.value)}
+              data-testid="session-semantics-expert-pack"
+            >
+              <option value="">No expert pack</option>
+              <For each={props.expertPacks}>
+                {(pack) => <option value={pack.id}>{pack.label}</option>}
+              </For>
+            </select>
+          </label>
+          <Show
+            when={
+              expertPackId() &&
+              props.expertPacks.find((pack) => pack.id === expertPackId())
+                ?.description
+            }
+          >
+            {(desc) => <p class="semantics__desc">{desc()}</p>}
+          </Show>
+
+          <label class="semantics__check">
+            <input
+              type="checkbox"
+              checked={saveAsDefault()}
+              onChange={(e) => setSaveAsDefault(e.currentTarget.checked)}
+              data-testid="session-semantics-save-default"
+            />
+            <span>Use this for future sessions</span>
+          </label>
+
+          <Show when={props.loading}>
+            <p class="semantics__desc">Refreshing available blueprints and packs…</p>
+          </Show>
+        </div>
+
+        <footer class="semantics__foot">
+          <button
+            type="button"
+            class="btn btn--secondary"
+            onClick={props.onOpenSettings}
+            data-testid="session-semantics-settings"
+          >
+            Manage blueprints
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            onClick={() => void start()}
+            disabled={busy()}
+            data-testid="session-semantics-start"
+          >
+            {busy() ? 'Starting…' : 'Start session'}
+          </button>
+        </footer>
+      </div>
+    </Show>
+  );
+}
+
 function EmptyState(props: {
   hasSession: boolean;
+  previewActive?: boolean;
   onPrompt: (text: string) => void;
 }) {
-  const PROMPTS = [
-    {
-      eyebrow: 'Inspect',
-      label: 'Show me the schema of data/sample.h5 and chart the largest 3 datasets.',
-    },
-    {
-      eyebrow: 'Refactor',
-      label: 'Find println calls in src/ and rewrite them to log.Info.',
-    },
-    {
-      eyebrow: 'Explain',
-      label: 'Walk me through the SSE event flow in this repo.',
-    },
-    {
-      eyebrow: 'Plan',
-      label: 'Draft a migration plan from CSV to Parquet for our pipeline.',
-    },
-  ];
   return (
-    <div class="chat__empty">
+    <div class={'chat__empty' + (props.previewActive ? ' chat__empty--preview' : '')}>
       <div class="chat__empty-icon">
-        <Icon name="sparkle" size={32} />
+        <Icon name={props.previewActive ? 'folder' : 'sparkle'} size={32} />
       </div>
       <h2 class="chat__empty-title">
-        {props.hasSession ? 'Start the conversation' : 'Pick a session or start fresh'}
+        {props.previewActive
+          ? 'Previewing workspace files'
+          : props.hasSession
+            ? 'Start the conversation'
+            : 'Pick a session or start fresh'}
       </h2>
       <p class="chat__empty-body">
-        {brand.name} is wired into your workspace — ask about your data, propose
-        a change, kick off a tool. Anything you'd type into the terminal,
-        you can drop here.
+        {props.previewActive
+          ? 'Use the file rail to inspect workspace artifacts. Ask about a file when you want the session to start.'
+          : `${brand.name} is wired into your workspace — ask about your data, propose a change, or kick off a tool. Start with a question, a file, or a task.`}
       </p>
-      <div class="chat__empty-prompts">
-        <For each={PROMPTS}>
-          {(p) => (
-            <button
-              type="button"
-              class="chat__empty-prompt"
-              onClick={() => props.onPrompt(p.label)}
-            >
-              <div class="chat__empty-prompt-eyebrow">{p.eyebrow}</div>
-              {p.label}
-            </button>
-          )}
-        </For>
-      </div>
-      <p class="chat__empty-tip">
-        Tip: press{' '}
-        <kbd class="chat__empty-kbd">{platformMod()} + K</kbd> for the
-        command palette, or{' '}
-        <kbd class="chat__empty-kbd">{platformMod()} + /</kbd> for a
-        keyboard shortcuts cheatsheet.
-      </p>
+      <Show when={!props.previewActive}>
+        <div class="chat__empty-prompts">
+          <For each={brand.starterPrompts}>
+            {(p) => (
+              <button
+                type="button"
+                class="chat__empty-prompt"
+                onClick={() => props.onPrompt(p.label)}
+              >
+                <div class="chat__empty-prompt-eyebrow">{p.eyebrow}</div>
+                {p.label}
+              </button>
+            )}
+          </For>
+        </div>
+        <p class="chat__empty-tip">
+          Tip: press{' '}
+          <kbd class="chat__empty-kbd">{platformMod()} + K</kbd> for the
+          command palette, or{' '}
+          <kbd class="chat__empty-kbd">{platformMod()} + /</kbd> for a
+          keyboard shortcuts cheatsheet.
+        </p>
+      </Show>
     </div>
   );
 }
@@ -3468,6 +3879,19 @@ function humanTokens(tokens: { input?: number; output?: number; total?: number }
   if (t >= 10_000) return `${(t / 1_000).toFixed(1)}k tok`;
   if (t >= 1_000) return `${(t / 1_000).toFixed(2)}k tok`;
   return `${t} tok`;
+}
+
+function completionToastBody(c: {
+  tokens?: { input?: number; output?: number; total?: number };
+  cost_usd?: number;
+}): string | undefined {
+  const tokenTotal =
+    c.tokens?.total ??
+    (c.tokens ? (c.tokens.input ?? 0) + (c.tokens.output ?? 0) : 0);
+  const bits: string[] = [];
+  if (tokenTotal > 0) bits.push(humanTokens({ total: tokenTotal }));
+  if ((c.cost_usd ?? 0) > 0) bits.push(`$${(c.cost_usd ?? 0).toFixed(4)}`);
+  return bits.length ? bits.join(' · ') : undefined;
 }
 
 function hostFromUrl(u: string): string {

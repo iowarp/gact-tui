@@ -29,13 +29,13 @@ describe('DiffPane', () => {
     expect(screen.getByTestId('diff-pane').textContent).toMatch(/[−-]2/);
   });
 
-  it('exposes per-hunk Apply / Reject buttons', () => {
+  it('exposes per-hunk local review buttons', () => {
     render(() => <DiffPane diff={sampleDiff} onClose={() => undefined} />);
     expect(screen.getByTestId('diff-pane-apply-0')).toBeTruthy();
     expect(screen.getByTestId('diff-pane-reject-0')).toBeTruthy();
   });
 
-  it('marks a hunk as applied after Apply is clicked', () => {
+  it('marks a hunk as reviewed after the review button is clicked', () => {
     let appliedIdx = -1;
     render(() => (
       <DiffPane

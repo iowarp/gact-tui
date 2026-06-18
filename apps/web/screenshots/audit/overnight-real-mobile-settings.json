@@ -1,0 +1,37 @@
+{
+  "backend": "http://127.0.0.1:18311",
+  "workspaceId": "ws_default",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "session": {
+    "id": "sess_da9e37b98d93",
+    "workspace_id": "ws_default",
+    "title": "mobile settings 1781746840103",
+    "status": "idle",
+    "created_at": "2026-06-18T01:40:40.105125+00:00",
+    "updated_at": "2026-06-18T01:40:40.105125+00:00",
+    "message_count": 0,
+    "parent_session_id": "",
+    "model": {
+      "provider_id": "",
+      "model_id": "",
+      "variant": ""
+    },
+    "agent": {
+      "id": "main",
+      "mode": ""
+    },
+    "tokens_input": 0,
+    "tokens_output": 0,
+    "cost_usd": 0,
+    "mode": "chat",
+    "edit_mode": "diff",
+    "routing_mode": "auto",
+    "metadata": {},
+    "archived": false
+  },
+  "settingsReachableFromDrawer": true,
+  "returnsToChat": true
+}
