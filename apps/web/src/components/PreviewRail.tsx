@@ -10,8 +10,10 @@ import {
 } from 'solid-js';
 import type { Client, WorkspaceFileEntry, ContextFileContent } from '@clio/core';
 import { Icon } from './Icon.js';
+import { InlineMarkdown } from './InlineMarkdown.js';
 import { getHljs, hljsSync } from '../hljs-lazy.js';
 import './preview-rail.css';
+import './inline-markdown.css';
 
 /**
  * Right-side, collapsible preview rail — the "you can't do this in a terminal"
@@ -199,6 +201,18 @@ const LANG_BY_EXT: Record<string, string> = {
   swift: 'swift',
 };
 
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+};
+
 function extOf(path: string): string {
   const name = splitPath(path).pop() ?? path;
   const dot = name.lastIndexOf('.');
@@ -209,6 +223,10 @@ function langForPath(path: string): string | null {
   return LANG_BY_EXT[extOf(path)] ?? null;
 }
 
+function imageMimeForPath(path: string): string | null {
+  return IMAGE_MIME_BY_EXT[extOf(path)] ?? null;
+}
+
 export type PreviewKind = 'image' | 'text' | 'binary';
 
 /** Decide how to render a payload from its media type + size. Exposed for
@@ -216,6 +234,7 @@ export type PreviewKind = 'image' | 'text' | 'binary';
 export function classifyPreview(content: ContextFileContent): PreviewKind {
   const mt = (content.media_type || '').toLowerCase();
   if (mt.startsWith('image/')) return 'image';
+  if (imageMimeForPath(content.path)) return 'image';
   const texty =
     mt.startsWith('text/') ||
     mt.includes('json') ||
@@ -255,10 +274,77 @@ function humanSize(n: number | undefined): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function findTreeNode(nodes: TreeNode[], path: string): TreeNode | undefined {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.type === 'dir') {
+      const found = findTreeNode(node.children, path);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function decodedBytePrefix(content: ContextFileContent | null, max = 80): string {
+  if (!content) return '';
+  try {
+    const bin = atob(content.data);
+    const bytes = new Uint8Array(Math.min(bin.length, max));
+    for (let i = 0; i < bytes.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  } catch {
+    return '';
+  }
+}
+
+function sourceMediaType(content: ContextFileContent): string {
+  return (content.source_media_type || content.media_type || '').toLowerCase();
+}
+
+export function imageFailureHint(
+  content: ContextFileContent | null,
+  listedSize: number | undefined,
+): string {
+  if (!content) return 'The image could not be decoded.';
+  const inferredImageType = imageMimeForPath(content.path);
+  const declaredType = (content.media_type || '').toLowerCase();
+  const sourceType = sourceMediaType(content);
+  const sizeMismatch =
+    typeof listedSize === 'number' &&
+    typeof content.size === 'number' &&
+    listedSize !== content.size;
+  const prefix = decodedBytePrefix(content).trimStart();
+  if (
+    inferredImageType &&
+    sourceType &&
+    !sourceType.startsWith('image/') &&
+    sourceType !== declaredType
+  ) {
+    return sizeMismatch
+      ? `Backend read returned ${content.source_media_type} for a ${inferredImageType} file and transformed the bytes (${humanSize(content.size)} read, ${humanSize(listedSize)} listed).`
+      : `Backend read returned ${content.source_media_type} for a ${inferredImageType} file, so the browser could not trust the bytes as an image.`;
+  }
+  if (inferredImageType && declaredType && !declaredType.startsWith('image/')) {
+    return sizeMismatch
+      ? `Backend read labeled this image as ${content.media_type} and returned ${humanSize(content.size)} for a ${humanSize(listedSize)} file.`
+      : `Backend read labeled this image as ${content.media_type}, so the returned bytes could not be trusted as ${inferredImageType}.`;
+  }
+  if (prefix.startsWith('{') || prefix.startsWith('[')) {
+    return sizeMismatch
+      ? `Backend read returned JSON/text instead of image bytes (${humanSize(content.size)} read, ${humanSize(listedSize)} listed).`
+      : 'Backend read returned JSON/text instead of image bytes.';
+  }
+  if (sizeMismatch) {
+    return `Backend read size differs from the file listing (${humanSize(content.size)} read, ${humanSize(listedSize)} listed).`;
+  }
+  return 'The file is labeled as an image, but the returned bytes do not decode as one.';
+}
+
 export function PreviewRail(props: PreviewRailProps) {
   const [filter, setFilter] = createSignal('');
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
   const [selected, setSelected] = createSignal<string>('');
+  const [imageLoadFailed, setImageLoadFailed] = createSignal(false);
 
   // highlight.js loads lazily; flip this once it's ready to re-run the
   // highlight memo (plain escaped text renders until then — no blank flash).
@@ -272,7 +358,7 @@ export function PreviewRail(props: PreviewRailProps) {
   // the success value (a `{ error }` shape) rather than thrown, so a failed
   // fetch never becomes an unhandled rejection — we render an honest error
   // row instead.
-  const [listing] = createResource(
+  const [listing, { refetch: refetchListing }] = createResource(
     () => props.workspaceId,
     async (wid): Promise<{ entries: WorkspaceFileEntry[]; error?: true }> => {
       try {
@@ -331,7 +417,10 @@ export function PreviewRail(props: PreviewRailProps) {
 
   function onRowClick(node: TreeNode) {
     if (node.type === 'dir') toggleDir(node.path);
-    else setSelected(node.path);
+    else {
+      setImageLoadFailed(false);
+      setSelected(node.path);
+    }
   }
 
   const kind = createMemo<PreviewKind | null>(() => {
@@ -339,10 +428,17 @@ export function PreviewRail(props: PreviewRailProps) {
     return c ? classifyPreview(c) : null;
   });
 
+  const selectedNode = createMemo(() => findTreeNode(tree(), selected()));
+
   const dataUrl = createMemo(() => {
     const c = fileContent();
     if (!c || kind() !== 'image') return '';
-    return `data:${c.media_type};base64,${c.data}`;
+    return `data:${imageMimeForPath(c.path) ?? c.media_type};base64,${c.data}`;
+  });
+
+  createEffect(() => {
+    void dataUrl();
+    setImageLoadFailed(false);
   });
 
   const textBody = createMemo(() => {
@@ -368,6 +464,7 @@ export function PreviewRail(props: PreviewRailProps) {
     }
     return escapeHtml(src);
   });
+  const isMarkdownPreview = createMemo(() => extOf(selected()) === 'md');
 
   return (
     <aside class="preview-rail" data-testid="preview-rail">
@@ -376,6 +473,16 @@ export function PreviewRail(props: PreviewRailProps) {
           <Icon name="folder" size={14} />
           Files
         </span>
+        <button
+          type="button"
+          class="preview-rail__refresh"
+          title="Refresh files"
+          aria-label="Refresh files"
+          data-testid="preview-rail-refresh"
+          onClick={() => void refetchListing()}
+        >
+          <Icon name="refresh" size={14} />
+        </button>
         <button
           type="button"
           class="preview-rail__close"
@@ -405,7 +512,7 @@ export function PreviewRail(props: PreviewRailProps) {
             when={props.workspaceId}
             fallback={
               <p class="preview-rail__empty" data-testid="preview-rail-no-workspace">
-                No workspace for this session.
+                Select a session to browse workspace files.
               </p>
             }
           >
@@ -531,20 +638,52 @@ export function PreviewRail(props: PreviewRailProps) {
                 }
               >
                 <Show when={kind() === 'image'}>
-                  <div class="preview-rail__image-wrap" data-testid="preview-rail-image">
-                    <img
-                      class="preview-rail__image"
-                      src={dataUrl()}
-                      alt={selected()}
-                    />
-                  </div>
+                  <Show
+                    when={!imageLoadFailed()}
+                    fallback={
+                      <div
+                        class="preview-rail__placeholder preview-rail__placeholder--err"
+                        data-testid="preview-rail-image-error"
+                      >
+                        <Icon name="alert" size={22} />
+                        <p>Could not render image bytes.</p>
+                        <p class="preview-rail__hint">
+                          {imageFailureHint(fileContent(), selectedNode()?.size)}
+                        </p>
+                        <p class="preview-rail__meta">
+                          {fileContent()?.media_type} · {humanSize(fileContent()?.size)}
+                        </p>
+                      </div>
+                    }
+                  >
+                    <div class="preview-rail__image-wrap" data-testid="preview-rail-image">
+                      <img
+                        class="preview-rail__image"
+                        src={dataUrl()}
+                        alt={selected()}
+                        onError={() => setImageLoadFailed(true)}
+                      />
+                    </div>
+                  </Show>
                 </Show>
 
                 <Show when={kind() === 'text'}>
-                  <pre
-                    class="preview-rail__code hljs"
-                    data-testid="preview-rail-text"
-                  ><code innerHTML={highlighted() ?? ''} /></pre>
+                  <Show
+                    when={isMarkdownPreview()}
+                    fallback={
+                      <pre
+                        class="preview-rail__code hljs"
+                        data-testid="preview-rail-text"
+                      ><code innerHTML={highlighted() ?? ''} /></pre>
+                    }
+                  >
+                    <div
+                      class="preview-rail__markdown"
+                      data-testid="preview-rail-markdown"
+                    >
+                      <InlineMarkdown text={textBody()} />
+                    </div>
+                  </Show>
                 </Show>
 
                 <Show when={kind() === 'binary'}>

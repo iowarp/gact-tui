@@ -19,6 +19,7 @@ import type { SettingsSection } from './SettingsShell.js';
 export const SETTINGS_SECTION_IDS: SettingsSection[] = [
   'backends',
   'workspaces',
+  'session-defaults',
   'models',
   'providers',
   'agents',

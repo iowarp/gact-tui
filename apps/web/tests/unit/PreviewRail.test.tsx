@@ -16,6 +16,7 @@ import {
   buildTree,
   flattenVisible,
   classifyPreview,
+  imageFailureHint,
 } from '../../src/components/PreviewRail.js';
 import type { ContextFileContent, WorkspaceFileEntry } from '@clio/core';
 
@@ -141,7 +142,9 @@ describe('PreviewRail component', () => {
         onClose={() => undefined}
       />
     ));
-    expect(screen.getByTestId('preview-rail-no-workspace')).toBeTruthy();
+    expect(screen.getByTestId('preview-rail-no-workspace').textContent).toContain(
+      'Select a session to browse workspace files.',
+    );
   });
 
   it('renders the file browser from a listing', async () => {
@@ -158,7 +161,7 @@ describe('PreviewRail component', () => {
     expect(screen.getByTestId('preview-rail-row-src')).toBeTruthy();
   });
 
-  it('previews a text file as highlighted code on click', async () => {
+  it('previews a markdown file as rendered markdown on click', async () => {
     const client = makeClient({
       entries: SAMPLE,
       read: {
@@ -183,8 +186,8 @@ describe('PreviewRail component', () => {
     );
     fireEvent.click(screen.getByTestId('preview-rail-row-README.md'));
     await waitFor(() => {
-      const pre = screen.getByTestId('preview-rail-text');
-      expect(pre.textContent).toContain('hello world');
+      const md = screen.getByTestId('preview-rail-markdown');
+      expect(md.textContent).toContain('hello world');
     });
   });
 
@@ -214,6 +217,71 @@ describe('PreviewRail component', () => {
       const img = screen.getByTestId('preview-rail-image').querySelector('img');
       expect(img?.getAttribute('src')).toContain('data:image/png;base64,');
     });
+  });
+
+  it('surfaces image decode failures instead of leaving a broken preview', async () => {
+    const client = makeClient({
+      entries: SAMPLE,
+      read: {
+        'logo.png': {
+          path: 'logo.png',
+          size: 16,
+          media_type: 'image/png',
+          encoding: 'base64',
+          data: b64('not a png'),
+        },
+      },
+    });
+    render(() => (
+      <PreviewRail
+        client={client}
+        workspaceId="ws_default"
+        onClose={() => undefined}
+      />
+    ));
+    await waitFor(() => screen.getByTestId('preview-rail-row-logo.png'));
+    fireEvent.click(screen.getByTestId('preview-rail-row-logo.png'));
+    const img = await waitFor(() =>
+      screen.getByTestId('preview-rail-image').querySelector('img'),
+    );
+    fireEvent.error(img!);
+    await waitFor(() => {
+      expect(screen.getByTestId('preview-rail-image-error').textContent).toContain(
+        'Could not render image bytes.',
+      );
+      expect(screen.getByTestId('preview-rail-image-error').textContent).toContain(
+        'read size differs from the file listing',
+      );
+    });
+  });
+
+  it('explains image decode failures caused by JSON/text payloads or transformed bytes', () => {
+    const content: ContextFileContent = {
+      path: 'plot.png',
+      size: 84,
+      media_type: 'image/png',
+      encoding: 'base64',
+      data: b64('{"error":"not raw image bytes"}'),
+    };
+
+    expect(imageFailureHint(content, 68)).toContain('JSON/text');
+    expect(imageFailureHint(content, 68)).toContain('84 B read, 68 B listed');
+  });
+
+  it('explains binary image reads transformed by a text/plain backend response', () => {
+    const content: ContextFileContent = {
+      path: 'plot.png',
+      size: 84,
+      media_type: 'image/png',
+      source_media_type: 'text/plain',
+      encoding: 'base64',
+      data: b64('\u{fffd}PNG\r\n'),
+    };
+
+    expect(imageFailureHint(content, 68)).toContain(
+      'Backend read returned text/plain for a image/png file',
+    );
+    expect(imageFailureHint(content, 68)).toContain('transformed the bytes');
   });
 
   it('shows an honest placeholder for binary files', async () => {
@@ -297,6 +365,36 @@ describe('PreviewRail component', () => {
     });
   });
 
+  it('refreshes the workspace file listing on demand', async () => {
+    let entries: WorkspaceFileEntry[] = [
+      { path: 'before.txt', type: 'file', size: 4 },
+    ];
+    const client = {
+      listWorkspaceFiles: async (_wid: string) => ({ entries }),
+      readWorkspaceFile: async (_wid: string, path: string) => ({
+        path,
+        size: 4,
+        media_type: 'text/plain',
+        encoding: 'base64' as const,
+        data: b64(path),
+      }),
+    };
+    render(() => (
+      <PreviewRail
+        client={client}
+        workspaceId="ws_default"
+        onClose={() => undefined}
+      />
+    ));
+    await waitFor(() => screen.getByTestId('preview-rail-row-before.txt'));
+    expect(screen.queryByTestId('preview-rail-row-after.txt')).toBeNull();
+
+    entries = [...entries, { path: 'after.txt', type: 'file', size: 4 }];
+    fireEvent.click(screen.getByTestId('preview-rail-refresh'));
+
+    await waitFor(() => screen.getByTestId('preview-rail-row-after.txt'));
+  });
+
   it('persists the open flag through the shared persisted-pref helper', async () => {
     // The rail open/closed state is owned by ChatScreen via the same
     // createPersistedBoolean used app-wide. Exercise that contract here so
@@ -357,7 +455,7 @@ describe('PreviewRail component', () => {
     await waitFor(() => screen.getByTestId('preview-rail-row-README.md'));
     setPath('README.md');
     await waitFor(() =>
-      expect(screen.getByTestId('preview-rail-text').textContent).toContain(
+      expect(screen.getByTestId('preview-rail-markdown').textContent).toContain(
         'docs!',
       ),
     );

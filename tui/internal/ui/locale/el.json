@@ -216,6 +216,7 @@
   "help.tab.permission": "Άδεια",
   "help.global.cycle_focus": "εναλλαγή εστίασης μεταξύ πάνελ",
   "help.global.new_session": "δημιουργία νέας συνεδρίας",
+  "help.global.session_setup": "επιλογή workflow για νέα συνεδρία",
   "help.global.switch_workspace": "αλλαγή workspace",
   "help.global.settings": "άνοιγμα ρυθμίσεων μοντέλου, πράκτορα, θέματος, TUI και γλώσσας",
   "help.global.metrics": "άνοιγμα προβολής metrics",

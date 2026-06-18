@@ -1,6 +1,6 @@
 .diffpane {
   position: absolute;
-  top: 0;
+  top: 52px;
   right: 0;
   bottom: 0;
   width: 640px;
@@ -180,4 +180,66 @@
   padding: 12px;
   border-radius: var(--radius-md);
   overflow-x: auto;
+}
+
+@media (max-width: 760px) {
+  .diffpane {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 56px;
+    width: auto;
+    max-width: none;
+    z-index: 80;
+  }
+
+  .diffpane__head {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .diffpane__path {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .diffpane__stats {
+    justify-content: flex-start;
+  }
+
+  .diffpane__close {
+    margin-left: auto;
+  }
+
+  .diffpane__hunks {
+    padding: 10px;
+  }
+
+  .diffpane__hunk-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .diffpane__hunk-actions {
+    width: 100%;
+  }
+
+  .diffpane__hunk-actions .btn {
+    flex: 1;
+  }
+
+  .diffpane__hunk-body {
+    font-size: 11px;
+  }
+
+  .diffpane__line {
+    min-width: max-content;
+  }
+
+  .diffpane__lineno {
+    flex-basis: 30px;
+    font-size: 10px;
+  }
 }

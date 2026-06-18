@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
+import { brand } from '@brand';
 import { Icon } from './Icon.js';
 // (icons used by WorkspaceSwitcher are loaded via the shared Icon.)
 import type { Client, SessionStatus } from '@clio/core';
@@ -73,6 +74,8 @@ export interface SessionsColumnProps {
   onShareSession?: (id: string) => void | Promise<void>;
   onForkSession?: (id: string) => void | Promise<void>;
   onTogglePin?: (id: string) => void;
+  onOpenSettings?: () => void;
+  onCollapse?: () => void;
   /** When set, enables the "View archive" toggle — clicking it fetches
    * archived sessions via `client.sessions({archived: true})` and
    * renders them in place of the live list until the user toggles
@@ -113,6 +116,11 @@ export function SessionsColumn(props: SessionsColumnProps) {
     return props.rows;
   });
 
+  const workspaceDisplay = (workspaceId: string | undefined): string | undefined => {
+    if (!workspaceId) return undefined;
+    return props.workspaces?.find((workspace) => workspace.id === workspaceId)?.name ?? workspaceId;
+  };
+
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
     const source = sourceRows();
@@ -123,7 +131,8 @@ export function SessionsColumn(props: SessionsColumnProps) {
             (r) =>
               r.title.toLowerCase().includes(q) ||
               (r.preview ?? '').toLowerCase().includes(q) ||
-              (r.workspace ?? '').toLowerCase().includes(q),
+              (r.workspace ?? '').toLowerCase().includes(q) ||
+              (workspaceDisplay(r.workspace) ?? '').toLowerCase().includes(q),
           );
     if (runningOnly()) {
       matches = matches.filter(
@@ -190,8 +199,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
             data-testid="sessions-new"
           >
             <Icon name="plus" size={14} />
-            <span>New session</span>
-            <span class="sx__kbd">Ctrl + N</span>
+            <span>New</span>
           </button>
           <Show when={props.onImportSession}>
             <button
@@ -279,7 +287,7 @@ export function SessionsColumn(props: SessionsColumnProps) {
                 </p>
                 <p class="sx__empty-body">
                   {props.rows.length === 0
-                    ? 'Start a conversation — clio is ready.'
+                    ? `Start a conversation — ${brand.name} is ready.`
                     : 'Try a different search.'}
                 </p>
               </div>
@@ -314,45 +322,59 @@ export function SessionsColumn(props: SessionsColumnProps) {
                   <li class="sx__divider" aria-hidden />
                 </Show>
                 <SessionListItem
-                row={row}
-                active={row.id === props.activeId}
-                onSelect={() => props.onSelect(row.id)}
-                onRename={
-                  props.onRenameSession
-                    ? (nextTitle) => props.onRenameSession!(row.id, nextTitle)
-                    : undefined
-                }
-                onDelete={
-                  props.onDeleteSession
-                    ? () => props.onDeleteSession!(row.id)
-                    : undefined
-                }
-                onExport={
-                  props.onExportSession
-                    ? () => props.onExportSession!(row.id)
-                    : undefined
-                }
-                onShare={
-                  props.onShareSession
-                    ? () => props.onShareSession!(row.id)
-                    : undefined
-                }
-                onFork={
-                  props.onForkSession
-                    ? () => props.onForkSession!(row.id)
-                    : undefined
-                }
-                onTogglePin={
-                  props.onTogglePin
-                    ? () => props.onTogglePin!(row.id)
-                    : undefined
-                }
-              />
+                  row={row}
+                  workspaceLabel={workspaceDisplay(row.workspace)}
+                  active={row.id === props.activeId}
+                  onSelect={() => props.onSelect(row.id)}
+                  onRename={
+                    props.onRenameSession
+                      ? (nextTitle) => props.onRenameSession!(row.id, nextTitle)
+                      : undefined
+                  }
+                  onDelete={
+                    props.onDeleteSession
+                      ? () => props.onDeleteSession!(row.id)
+                      : undefined
+                  }
+                  onExport={
+                    props.onExportSession
+                      ? () => props.onExportSession!(row.id)
+                      : undefined
+                  }
+                  onShare={
+                    props.onShareSession
+                      ? () => props.onShareSession!(row.id)
+                      : undefined
+                  }
+                  onFork={
+                    props.onForkSession
+                      ? () => props.onForkSession!(row.id)
+                      : undefined
+                  }
+                  onTogglePin={
+                    props.onTogglePin
+                      ? () => props.onTogglePin!(row.id)
+                      : undefined
+                  }
+                />
               </>
             )}
           </For>
         </ul>
       </Show>
+      <footer class="sx__foot">
+        <button
+          type="button"
+          class="sx__foot-btn"
+          title="Settings"
+          data-testid="sessions-settings"
+          onClick={() => props.onOpenSettings?.()}
+          disabled={!props.onOpenSettings}
+        >
+          <Icon name="settings" size={14} />
+          <span>Settings</span>
+        </button>
+      </footer>
     </aside>
   );
 }
@@ -364,6 +386,7 @@ function isFresh(bumpedAt: number | undefined): boolean {
 
 function SessionListItem(props: {
   row: SessionRow;
+  workspaceLabel?: string;
   active: boolean;
   onSelect: () => void;
   onRename?: (nextTitle: string) => void | Promise<void>;
@@ -477,8 +500,8 @@ function SessionListItem(props: {
               <p class="sx__row-preview">{props.row.preview}</p>
             </Show>
             <div class="sx__row-meta">
-              <Show when={props.row.workspace}>
-                <span class="sx__chip">{props.row.workspace}</span>
+              <Show when={props.workspaceLabel}>
+                <span class="sx__chip">{props.workspaceLabel}</span>
               </Show>
               <Show when={props.row.model}>
                 <span class="sx__chip sx__chip--soft">{props.row.model}</span>

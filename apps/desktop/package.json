@@ -7,6 +7,7 @@
     "lint": "echo 'no JS/TS lint for @clio/desktop (Rust crate via cargo)' && exit 0",
     "typecheck": "echo 'no TS to typecheck — @clio/desktop is a Rust crate; smoke tests are JS' && exit 0",
     "test": "node --test tests/smoke.test.mjs",
+    "test:webview": "node --test tests/webview-e2e.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
     "build-clio-runtime": "node scripts/build-clio-runtime.mjs",

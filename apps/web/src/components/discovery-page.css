@@ -159,6 +159,24 @@
   color: var(--color-muted);
 }
 
+.dp__empty--inline {
+  padding: 20px 24px;
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.dp__empty--inline .dp__empty-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.dp__empty--inline .dp__empty-title {
+  font-size: 15px;
+}
+
 .dp__empty-icon {
   width: 56px;
   height: 56px;
@@ -761,6 +779,10 @@
   border-radius: 8px;
 }
 
+.prompts__card.dp__card--open {
+  grid-column: 1 / -1;
+}
+
 .prompts__preview-label {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -795,30 +817,26 @@
 
 /* A4 — editable prompt text + save controls. */
 .prompts__edit {
-  max-height: 320px;
+  max-height: 180px;
   resize: vertical;
 }
 
 .prompts__edit-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
-  /* Keep the trailing Save button off the card's right edge — without this
-     the primary button was flush against (and clipped by) the card border
-     when the editor was expanded. */
-  padding-right: 2px;
 }
 
 .prompts__edit-actions .rmp__form-select {
-  margin-right: auto;
+  grid-column: 1 / -1;
+  margin-right: 0;
 }
 
-/* The Save/Validate buttons must never be clipped by the editor card; let
-   the row keep them inside the padded content box. */
 .prompts__edit-actions .ws-form__btn {
-  flex: 0 0 auto;
+  width: 100%;
+  justify-content: center;
 }
 
 .dp__search-row {
@@ -1218,6 +1236,64 @@
   margin-bottom: 6px;
 }
 
+.rmp__pack-grid {
+  grid-template-columns: 1fr;
+}
+
+.rmp__pack-card {
+  gap: 14px;
+}
+
+.rmp__pack-card .dp__card-head {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.rmp__pack-card .dp__card-title-row {
+  flex: 1 1 320px;
+}
+
+.rmp__pack-card .dp__card-title {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.rmp__pack-card .dp__card-sub {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rmp__pack-card .rmp__editor-actions {
+  justify-content: flex-start;
+}
+
+.rmp__blueprint-grid {
+  grid-template-columns: 1fr;
+}
+
+.rmp__blueprint-card {
+  gap: 14px;
+}
+
+.rmp__blueprint-card .dp__card-head {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.rmp__blueprint-card .dp__card-title-row {
+  flex: 1 1 320px;
+}
+
+.rmp__blueprint-card .dp__card-title {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.rmp__blueprint-card .dp__card-sub {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .rmp__form-ok {
   color: var(--color-success);
 }
@@ -1281,6 +1357,64 @@
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.agent-detail {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+}
+
+.agent-card.dp__card--open {
+  grid-column: 1 / -1;
+}
+
+.agent-detail__facts,
+.agent-detail__rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.agent-detail__facts dt,
+.agent-detail__rows dt {
+  color: var(--color-muted);
+}
+
+.agent-detail__facts dd,
+.agent-detail__rows dd {
+  margin: 0;
+  color: var(--color-heading);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-detail__section {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.agent-detail__section-title {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.agent-detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .rmp__name {

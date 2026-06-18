@@ -67,7 +67,20 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"reload": gact.PromptReloadResult{PromptCount: 1, PromptIDs: []string{"p1"}}})
 		case "/v1/expert-packs":
 			_ = json.NewEncoder(w).Encode(map[string]any{"expert_packs": []gact.ExpertPackDefinition{{ID: "ep1", Title: "Expert Pack", Enabled: true}}})
+		case "/v1/expert-packs/ep1/update":
+			var req map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode expert-pack update: %v", err)
+			}
+			if req["scope"] != "workspace" || req["workspace_id"] != "ws1" {
+				t.Fatalf("expert-pack update request = %v", req)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"updated": map[string]any{"id": "ep1"}})
 		case "/v1/expert-packs/ep1":
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 			_ = json.NewEncoder(w).Encode(gact.ExpertPackDetail{ExpertPack: gact.ExpertPackDefinition{ID: "ep1", Title: "Expert Pack", Enabled: true}})
 		case "/v1/memory/stats":
 			_ = json.NewEncoder(w).Encode(gact.MemoryStats{})
@@ -116,6 +129,12 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 	if _, err := c.GetExpertPack(t.Context(), "ep1", scope); err != nil {
 		t.Fatalf("GetExpertPack: %v", err)
 	}
+	if _, err := c.UpdateExpertPack(t.Context(), "ep1", scope); err != nil {
+		t.Fatalf("UpdateExpertPack: %v", err)
+	}
+	if err := c.DeleteExpertPack(t.Context(), "ep1", scope); err != nil {
+		t.Fatalf("DeleteExpertPack: %v", err)
+	}
 	if _, err := c.MemoryStatsScoped(t.Context(), scope); err != nil {
 		t.Fatalf("MemoryStatsScoped: %v", err)
 	}
@@ -130,6 +149,12 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 		if row.path == "/v1/prompts/p1/render" || row.path == "/v1/prompts/p1/validate" || row.path == "/v1/prompts/reload" {
 			continue
 		}
+		if row.path == "/v1/expert-packs/ep1/update" {
+			if row.query["session_id"] != "" || row.query["workspace_id"] != "" {
+				t.Fatalf("expert-pack update should carry scope in body, not query: %v", row.query)
+			}
+			continue
+		}
 		if row.query["workspace_id"] != "ws1" {
 			t.Fatalf("%s workspace_id = %q, want ws1 (query=%v)", row.path, row.query["workspace_id"], row.query)
 		}
@@ -142,9 +167,20 @@ func TestRuntimeScopeCatalogQueries(t *testing.T) {
 			}
 			continue
 		}
-		if row.path == "/v1/expert-packs" || row.path == "/v1/expert-packs/ep1" {
+		if row.path == "/v1/expert-packs" ||
+			row.path == "/v1/agent-blueprints" ||
+			(row.path == "/v1/expert-packs/ep1" && row.query["scope"] == "") {
 			if row.query["session_id"] != "" {
-				t.Fatalf("expert-pack catalog should not send session_id query: %v", row.query)
+				t.Fatalf("catalog list should not send session_id query: %v", row.query)
+			}
+			continue
+		}
+		if row.path == "/v1/expert-packs/ep1" && row.query["scope"] == "workspace" {
+			if row.query["workspace_id"] != "ws1" {
+				t.Fatalf("expert-pack delete workspace_id = %q, want ws1 (query=%v)", row.query["workspace_id"], row.query)
+			}
+			if row.query["session_id"] != "" {
+				t.Fatalf("expert-pack delete should not send session_id query: %v", row.query)
 			}
 			continue
 		}

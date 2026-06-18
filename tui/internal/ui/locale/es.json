@@ -216,6 +216,7 @@
   "help.tab.permission": "Permisos",
   "help.global.cycle_focus": "cambiar foco entre paneles",
   "help.global.new_session": "crear una sesión nueva",
+  "help.global.session_setup": "elegir flujo para una sesión nueva",
   "help.global.switch_workspace": "cambiar espacio de trabajo",
   "help.global.settings": "abrir ajustes de modelo, agente, tema, TUI e idioma",
   "help.global.metrics": "abrir métricas",

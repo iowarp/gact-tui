@@ -49,6 +49,12 @@
   letter-spacing: -0.005em;
 }
 
+.settings-shell__actions {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .settings-shell__body {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -218,6 +224,36 @@
   background: linear-gradient(135deg, #0a0f1a 0%, #0a0f1a 49%, #f8fafc 51%, #f8fafc 100%);
 }
 
+.settings-shell__form-grid {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.settings-shell__field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-shell__field > span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.settings-shell__field select {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  color: var(--color-text);
+  padding: 9px 10px;
+  outline: none;
+}
+
+.settings-shell__field select:focus {
+  border-color: var(--color-accent-cyan);
+}
+
 .settings-shell__hint {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -254,8 +290,58 @@
   cursor: pointer;
 }
 
+.settings-shell__cap-summary {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.settings-shell__cap-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-shell__cap-disabled {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--color-warning) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 22%, transparent);
+  border-radius: 10px;
+}
+
+.settings-shell__cap-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-warning);
+}
+
+.settings-shell__cap-details {
+  max-width: 760px;
+}
+
+.settings-shell__cap-details summary {
+  width: max-content;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings-shell__cap-details summary:hover {
+  color: var(--color-heading);
+}
+
+.settings-shell__cap-details[open] {
+  display: grid;
+  gap: 10px;
+}
+
 .settings-shell__caps {
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .settings-shell__links {
@@ -285,6 +371,68 @@
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 760px) {
+  .settings-shell__top {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .settings-shell__back {
+    padding: 6px 8px;
+    max-width: 8.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .settings-shell__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-shell__nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-30);
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-direction: row;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+
+  .settings-shell__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-shell__nav-group {
+    display: none;
+  }
+
+  .settings-shell__nav-btn {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+
+  .settings-shell__content,
+  .settings-shell__content .settings {
+    min-width: 0;
+  }
+
+  .settings-shell__choices {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: none;
+  }
+
+  .settings-shell__link-detail {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
 }
 
 .theme-tokens {

@@ -1,12 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { connectMockBackend } from './mock-backend';
 
 const screenshotDir = resolve(import.meta.dirname, '..', '..', 'screenshots');
 mkdirSync(screenshotDir, { recursive: true });
 
 function shot(name: string) {
   return resolve(screenshotDir, `${name}.png`);
+}
+
+async function openSettingsSection(page: Page, section: string) {
+  await page.getByTestId('sessions-settings').click();
+  await page.getByTestId(`settings-nav-${section}`).click();
 }
 
 const REAL_BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17800';
@@ -33,10 +39,12 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('connect-screen'), fullPage: false });
   });
 
-  test('empty-sidebar fixture shows zero-session affordance', async ({ page }) => {
+  test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
-    await page.screenshot({ path: shot('empty-sidebar'), fullPage: false });
+    await expect(page.getByTestId('sessions-column')).toHaveCount(0);
+    await expect(page.getByTestId('transcript-pane')).toBeVisible();
+    await expect(page.getByTestId('transcript-pane')).toContainText(/Pick a session or start fresh/i);
+    await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
   });
 
   test('chat-streaming fixture shows assistant mid-response', async ({ page }) => {
@@ -54,13 +62,13 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('density-verbose shows full tool-call bodies', async ({ page }) => {
     await page.goto('/?route=chat&fixture=verbose');
-    await expect(page.getByTestId('density-chip')).toContainText('verbose');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'verbose');
     await page.screenshot({ path: shot('density-verbose'), fullPage: false });
   });
 
   test('density-summary hides tool noise', async ({ page }) => {
     await page.goto('/?route=chat&fixture=summary');
-    await expect(page.getByTestId('density-chip')).toContainText('summary');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'summary');
     await page.screenshot({ path: shot('density-summary'), fullPage: false });
   });
 
@@ -95,6 +103,24 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('settings-backends'), fullPage: false });
   });
 
+  test('settings-about summarizes app and backend capabilities', async ({ page }) => {
+    await page.goto('/?route=settings&section=about');
+    await expect(page.getByTestId('settings-about')).toBeVisible();
+    await expect(page.getByTestId('settings-cap-summary')).toBeVisible();
+    await expect(page.getByTestId('settings-cap-enabled')).toContainText('enabled');
+    await expect(page.getByText(/polish wave/i)).toHaveCount(0);
+    await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
+  });
+
+  test('settings-appearance keeps theme controls compact', async ({ page }) => {
+    await page.goto('/?route=settings&section=appearance');
+    await expect(page.getByTestId('settings-appearance')).toBeVisible();
+    await expect(page.getByTestId('settings-theme-dark')).toBeVisible();
+    await expect(page.getByTestId('settings-theme-presets')).toBeVisible();
+    await expect(page.getByText(/High contrast maximizes/i)).toHaveCount(0);
+    await page.screenshot({ path: shot('settings-shell-appearance'), fullPage: false });
+  });
+
   test('add-remote-ssh-wizard captures the tunnel form', async ({ page }) => {
     await page.goto('/?route=add-remote');
     await page.getByTestId('add-remote-mode-ssh').click();
@@ -103,6 +129,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('add-remote-ssh-host').fill('polaris.alcf.anl.gov');
     await page.getByTestId('add-remote-ssh-user').fill('jaime');
     await page.getByTestId('add-remote-ssh-key').fill('~/.ssh/id_ed25519');
+    await expect(page.getByTestId('add-remote-save')).toBeVisible();
     await page.screenshot({ path: shot('add-remote-ssh-wizard'), fullPage: false });
   });
 
@@ -166,13 +193,13 @@ test.describe('CLIO harness — visual proofs', () => {
     // Same render as density-verbose but with the file name the goal
     // requires; kept separate so the goal's PNG list is complete.
     await page.goto('/?route=chat&fixture=verbose');
-    await expect(page.getByTestId('density-chip')).toContainText('verbose');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'verbose');
     await page.screenshot({ path: shot('density-keybind-verbose'), fullPage: false });
   });
 
   test('density-keybind-summary shows the summary density chip', async ({ page }) => {
     await page.goto('/?route=chat&fixture=summary');
-    await expect(page.getByTestId('density-chip')).toContainText('summary');
+    await expect(page.getByTestId('transcript')).toHaveAttribute('data-density', 'summary');
     await page.screenshot({ path: shot('density-keybind-summary'), fullPage: false });
   });
 
@@ -202,6 +229,75 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('diff-pane-apply-0').click();
     await expect(page.locator('.diffpane__hunk--applied')).toBeVisible();
     await page.screenshot({ path: shot('diff-per-hunk-apply'), fullPage: false });
+  });
+
+  test('mobile chat keeps the conversation readable without the sessions rail', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?route=chat&fixture=normal');
+    await expect(page.getByTestId('chat-screen')).toBeVisible();
+    await expect(page.getByTestId('sessions-column')).toBeHidden();
+    await expect(page.getByTestId('transcript-pane')).toBeVisible();
+    await expect(page.getByTestId('composer')).toBeVisible();
+    await page.screenshot({ path: shot('mobile-chat'), fullPage: false });
+  });
+
+  test('mobile diff pane owns the readable content area', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?route=chat&fixture=normal&open=diff');
+    await expect(page.getByTestId('diff-pane')).toBeVisible();
+    await expect(page.getByTestId('diff-pane-hunk-0')).toBeVisible();
+    await expect(page.getByTestId('diff-pane-apply-0')).toBeVisible();
+    await page.screenshot({ path: shot('mobile-diff-pane'), fullPage: false });
+  });
+
+  test('agents detail expands into structured routing evidence', async ({ page }) => {
+    await page.route('**/v1/agents', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          agents: [
+            {
+              id: 'main',
+              title: 'Data Semantics Orchestrator',
+              source: 'builtin',
+              tier: 1,
+              tools: ['delegate'],
+              keywords: ['main'],
+            },
+          ],
+        }),
+      });
+    });
+    await page.route('**/v1/agents/main', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'main',
+          title: 'Data Semantics Orchestrator',
+          source: 'builtin',
+          tier: 1,
+          specialization: 'workflow routing',
+          default_model: 'gpt-oss-120b',
+          tools: ['delegate', 'summarize_evidence'],
+          keywords: ['main', 'routing'],
+          routing_rules: {
+            data: 'delegate dataset discovery',
+            analysis: 'delegate scientific review',
+          },
+          metadata: {
+            owner: 'bench',
+            expert_pack: 'ndp-demo',
+            nested: { retained: true },
+          },
+        }),
+      });
+    });
+    await page.goto('/?route=settings&section=agents');
+    await expect(page.getByTestId('agent-card-main')).toBeVisible();
+    await page.getByTestId('agent-detail-toggle-main').click();
+    await expect(page.getByTestId('agent-detail-main')).toContainText('Routing');
+    await expect(page.getByTestId('agent-detail-main')).not.toContainText('routing_rules');
+    await page.screenshot({ path: shot('agents-detail-structured'), fullPage: false });
   });
 
   test('slash-palette opens with the default command list', async ({ page }) => {
@@ -240,6 +336,47 @@ test.describe('CLIO harness — visual proofs', () => {
       page.locator('.im__code .hljs-keyword, .im__code .hljs-string, .im__code .hljs-built_in').first(),
     ).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
+  });
+
+  test('markdown file reads render as structured markdown', async ({ page }) => {
+    await connectMockBackend(page, 'markdown');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
+    await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
+    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
+    await expect(page.locator('.im table').first()).toBeVisible();
+    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
+    await page.screenshot({ path: shot('markdown-read'), fullPage: false });
+  });
+
+  test('EarthScope routing shows tool calls plus semantic delegation', async ({ page }) => {
+    await connectMockBackend(page, 'earthscope');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId('topbar-inspector').click();
+    await expect(page.getByTestId('toolcall-tc-geo')).toBeVisible();
+    await expect(page.locator('.im__table').getByText('MTA1')).toBeVisible();
+    await expect(page.getByTestId('workflow-state-card').first()).toBeVisible();
+    await expect(page.getByText('Station Catalog')).toBeVisible();
+    await page.getByTestId('inspector-tab-timeline').click();
+    await expect(page.getByTestId('inspector-semantic-title')).toBeVisible();
+    await expect(page.getByText('geospatial returned Los Angeles bounds.')).toBeVisible();
+    await expect(page.getByText('earthscope_catalog ranked nearby GNSS stations.')).toBeVisible();
+    await page.screenshot({ path: shot('earthscope-routing-flow'), fullPage: false });
+  });
+
+  test('EarthScope blocker renders as a user-facing workflow blocker', async ({ page }) => {
+    await connectMockBackend(page, 'earthscope-blocked');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    const blocker = page.getByTestId('turn-workflow-blocker');
+    await expect(blocker).toBeVisible();
+    await expect(blocker.getByText('Workflow blocker')).toBeVisible();
+    await expect(blocker.getByText(/child expert: ndp_dataset_discovery/)).toBeVisible();
+    await expect(blocker.getByText(/required tools are not available/)).toBeVisible();
+    await expect(page.getByTestId('transcript-pane')).toContainText(
+      'No station time-series, CSV profile, or PNG artifact was produced.',
+    );
+    await blocker.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: shot('earthscope-blocked-workflow'), fullPage: false });
   });
 
   test('command palette fuzzy-matches sparse queries (W3 Tier-1)', async ({ page }) => {
@@ -287,8 +424,22 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('previews-and-retry'), fullPage: false });
   });
 
+  test('preview rail explains image artifact decode failures', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('clio.preview-rail-open.v1', 'true');
+      window.localStorage.setItem('clio.inspector-open.v1', 'false');
+    });
+    await connectMockBackend(page, 'markdown');
+    await expect(page.getByTestId('preview-rail')).toBeVisible();
+    await page.getByTestId('preview-rail-filter').fill('validation_plot');
+    await page.getByTestId('preview-rail-row-plots/validation_plot.png').click();
+    await expect(page.getByTestId('preview-rail-image-error')).toContainText('JSON/text');
+    await expect(page.getByTestId('preview-rail-image-error')).toContainText('read, 68 B listed');
+    await page.screenshot({ path: shot('preview-image-decode-diagnostic'), fullPage: false });
+  });
+
   test('inspector execution timeline renders turn events (1.0 item 5)', async ({ page }) => {
-    await page.goto('/?route=chat&fixture=normal');
+    await page.goto('/?route=chat&fixture=normal&open=inspector');
     await expect(page.getByTestId('inspector-drawer')).toBeVisible();
     await page.getByTestId('inspector-tab-timeline').click();
     await expect(page.getByTestId('inspector-timeline')).toBeVisible();
@@ -333,12 +484,12 @@ test.describe('CLIO harness — visual proofs', () => {
     const panel = page.getByTestId('notification-panel');
     await expect(panel).toBeVisible();
     await expect(panel.getByText('Send failed')).toBeVisible();
-    await expect(panel.getByText('CLIO responded')).toBeVisible();
+    await expect(panel.getByText(/responded/)).toBeVisible();
     await page.screenshot({ path: shot('notification-center'), fullPage: false });
     // Search narrows to the matching entry.
     await page.getByTestId('notification-search').fill('fail');
     await expect(panel.getByText('Send failed')).toBeVisible();
-    await expect(panel.getByText('CLIO responded')).toHaveCount(0);
+    await expect(panel.getByText(/responded/)).toHaveCount(0);
     await page.screenshot({ path: shot('notification-center-search'), fullPage: false });
     // Tone chip filters by kind (clear search first).
     await page.getByTestId('notification-search').fill('');
@@ -384,7 +535,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-agents')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-agents'), fullPage: false });
@@ -416,7 +567,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-mcp'), fullPage: false });
@@ -450,7 +601,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-doctor').click();
+    await openSettingsSection(page, 'doctor');
     await expect(page.getByTestId('dp-doctor')).toBeVisible();
     await expect(page.getByTestId('doctor-integrations')).toBeVisible();
     await page.waitForTimeout(400);
@@ -483,7 +634,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-providers').click();
     await expect(page.getByTestId('providers-active')).toBeVisible({ timeout: 4_000 });
     await page.waitForTimeout(500);
@@ -517,7 +668,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
     // Open Settings via rail
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await expect(page.getByTestId('settings-shell')).toBeVisible();
     await page.getByTestId('settings-nav-about').click();
     await expect(page.getByTestId('settings-about')).toBeVisible();
@@ -549,7 +700,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible();
     // Click Light → the page flips to the light palette immediately.
@@ -592,7 +743,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-data').click();
     await expect(page.getByTestId('settings-data')).toBeVisible();
     await expect(page.getByTestId('settings-export-btn')).toBeVisible();
@@ -633,7 +784,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible();
     await page.waitForTimeout(400);
@@ -666,7 +817,7 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('rail-metrics').click();
+    await openSettingsSection(page, 'metrics');
     await expect(page.getByTestId('dp-metrics')).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: shot('discovery-metrics'), fullPage: false });

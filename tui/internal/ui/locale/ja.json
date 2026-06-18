@@ -216,6 +216,7 @@
   "help.tab.permission": "権限",
   "help.global.cycle_focus": "ペイン間でフォーカスを移動",
   "help.global.new_session": "新しいセッションを作成",
+  "help.global.session_setup": "新しいセッションのワークフローを選択",
   "help.global.switch_workspace": "ワークスペースを切替",
   "help.global.settings": "モデル、エージェント、テーマ、TUI、言語設定を開く",
   "help.global.metrics": "メトリクスを開く",

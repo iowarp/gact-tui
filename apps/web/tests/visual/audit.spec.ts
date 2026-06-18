@@ -61,6 +61,11 @@ async function connect(
   };
 }
 
+async function openSettingsSection(page: Page, section: string) {
+  await page.getByTestId('sessions-settings').click();
+  await page.getByTestId(`settings-nav-${section}`).click();
+}
+
 /** Select the first available session — many tests need an active
  * session for the Inspector tabs to render. */
 async function pickFirstSession(page: Page) {
@@ -158,7 +163,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Settings → Appearance (locale + theme + intro) ----
   test('Settings → Appearance renders locale, theme tokens, intro (#104 #106 #121)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     // Settings shell lands on Backends — click into Appearance.
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible({ timeout: 6_000 });
@@ -169,21 +174,19 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- Plugins discovery page (#147) ----
-  test('Plugins rail entry opens the registry form (#147)', async ({ browser }) => {
+  // ---- Plugins settings page (#147) ----
+  test('Settings → Plugins opens the registry form (#147)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    const railPlugins = page.getByTestId('rail-plugins');
-    await expect(railPlugins).toBeVisible({ timeout: 4_000 });
-    await railPlugins.click();
+    await openSettingsSection(page, 'plugins');
     await expect(page.getByTestId('plugin-form')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('147-plugins-form'), fullPage: false });
     await close();
   });
 
   // ---- Memory page with cross-session search (#108) ----
-  test('Memory rail entry shows cross-session search input (#108)', async ({ browser }) => {
+  test('Settings → Memory shows cross-session search input (#108)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-memory').click();
+    await openSettingsSection(page, 'memory');
     await expect(page.getByTestId('memory-search-input')).toBeVisible({ timeout: 6_000 });
     await page.screenshot({ path: shot('108-memory-search'), fullPage: false });
     await close();
@@ -192,7 +195,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Hooks editor (#122) ----
   test('Settings → Hooks renders editor (#122)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-hooks').click();
     // Hooks page mounts under settings-hooks; the editor surface
     // exposes `hook-form` once the page renders. Accept either when
@@ -220,10 +223,10 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- Discovery: agents, mcp, prompts, doctor (#132 #125 #128 #141) ----
-  test('Discovery → Agents renders cards (#132)', async ({ browser }) => {
+  // ---- Settings: agents, mcp, prompts, doctor (#132 #125 #128 #141) ----
+  test('Settings → Agents renders cards (#132)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(
       page.locator('[data-testid^="agent-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -231,9 +234,9 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  test('Discovery → MCP renders cards (#125)', async ({ browser }) => {
+  test('Settings → MCP renders cards (#125)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(
       page.locator('[data-testid^="mcp-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -241,9 +244,9 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  test('Discovery → Doctor renders LSP clients section if backend has any (#141)', async ({ browser }) => {
+  test('Settings → Doctor renders LSP clients section if backend has any (#141)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-doctor').click();
+    await openSettingsSection(page, 'doctor');
     await expect(page.getByTestId('doctor-integrations')).toBeVisible({ timeout: 8_000 });
     // LSP section is optional; just capture whatever Doctor renders.
     await page.screenshot({ path: shot('141-doctor-page'), fullPage: false });
@@ -251,9 +254,9 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- MCP install modal (#95) ----
-  test('MCP page exposes install modal (#95)', async ({ browser }) => {
+  test('Settings → MCP exposes install modal (#95)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await page.getByTestId('mcp-install-open').click();
     await expect(page.getByTestId('mcp-install-modal')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('95-mcp-install-modal'), fullPage: false });
@@ -263,7 +266,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Policies editor (#103 #123) ----
   test('Settings → Policies opens JSON editor (#123)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-policies').click();
     await page.getByTestId('policies-edit').click();
     await expect(page.getByTestId('policies-editor')).toBeVisible({ timeout: 4_000 });
@@ -274,7 +277,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Blueprint validate/install (#126) ----
   test('Settings → Agent blueprints exposes install/validate (#126)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-blueprints').click();
     await page.getByTestId('blueprint-install-toggle').click();
     await expect(page.getByTestId('blueprint-install-input')).toBeVisible({ timeout: 4_000 });
@@ -285,7 +288,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Expert pack validate (#127) ----
   test('Settings → Expert packs exposes validate flow (#127)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-expert-packs').click();
     await page.getByTestId('expertpack-validate-toggle').click();
     await expect(page.getByTestId('expertpack-validate-input')).toBeVisible({ timeout: 4_000 });
@@ -319,7 +322,7 @@ test.describe('CLIO audit-batch verification', () => {
   test('Memory page exposes session-scoped events list (#100)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await pickFirstSession(page);
-    await page.getByTestId('rail-memory').click();
+    await openSettingsSection(page, 'memory');
     const toggle = page.getByTestId('memory-events-toggle');
     await expect(toggle).toBeVisible({ timeout: 6_000 });
     await toggle.click();
@@ -452,22 +455,23 @@ test.describe('CLIO audit-batch verification', () => {
     await close();
   });
 
-  // ---- LeftRail capability-gated rails exist for the live backend (#120) ----
-  test('LeftRail surfaces rail entries for advertised capabilities (#120)', async ({ browser }) => {
+  // ---- Primary shell keeps configuration out of persistent chat chrome (#120) ----
+  test('Sessions sidebar stays conversation-first while Settings exposes capabilities (#120)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    // Every backend in our test fleet advertises these — they should
-    // all be present in the rail.
+    await expect(page.getByTestId('sessions-column')).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByTestId('sessions-settings')).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByTestId('composer-command')).toBeVisible({ timeout: 4_000 });
     for (const rail of ['agents', 'mcp', 'memory', 'metrics', 'doctor', 'plugins', 'tools']) {
-      await expect(page.getByTestId(`rail-${rail}`)).toBeVisible({ timeout: 4_000 });
+      await expect(page.getByTestId(`rail-${rail}`)).toHaveCount(0);
     }
-    await page.screenshot({ path: shot('120-leftrail-rails'), fullPage: false });
+    await page.screenshot({ path: shot('120-chat-shell-sidebar'), fullPage: false });
     await close();
   });
 
   // ---- Providers detail in Settings (#128) ----
   test('Settings → Providers renders provider list with active marker (#128)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-providers').click();
     // providers-active is the chip on the currently-active provider; if
     // the backend has no providers, providers-error shows instead.
@@ -481,7 +485,7 @@ test.describe('CLIO audit-batch verification', () => {
   // ---- Provider models detail expansion (#101) ----
   test('Settings → Providers expands a provider to show models (#101)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-providers').click();
     await expect(
       page.getByTestId('providers-active').or(page.getByTestId('providers-error')),
@@ -558,9 +562,9 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- Workspaces page (#28 + workspace card features) ----
-  test('Discovery → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
+  test('Settings → Workspaces renders cards + new-workspace form toggle (#131 #140)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-workspaces').click();
+    await openSettingsSection(page, 'workspaces');
     await expect(
       page.locator('[data-testid^="workspace-card-"]').first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -586,7 +590,7 @@ test.describe('CLIO audit-batch verification', () => {
       // Defer to the CORS-shim route installed by connect().
       await route.fallback();
     });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-error')).toBeVisible({ timeout: 8_000 });
     const retry = page.getByTestId('dp-error-retry');
     await expect(retry).toBeVisible();
@@ -690,7 +694,7 @@ test.describe('CLIO audit-batch verification', () => {
   test('Appearance presets apply high-contrast tokens live (W3 settings)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await page.waitForTimeout(800);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     // Navigate to the Appearance section.
     await page.getByTestId('settings-nav-appearance').click();
     await expect(page.getByTestId('settings-appearance')).toBeVisible({ timeout: 6_000 });
@@ -714,7 +718,7 @@ test.describe('CLIO audit-batch verification', () => {
   test('Per-backend Test connection shows latency against live clio (W3 settings)', async ({ browser }) => {
     const { page, close } = await connect(browser);
     await page.waitForTimeout(800);
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-backends').click();
     // The connect() flow registers the live backend; find its row's Test button.
     const testBtn = page.locator('[data-testid^="settings-row-test-"]:not([data-testid*="result"])').first();
@@ -754,9 +758,9 @@ test.describe('CLIO audit-batch verification', () => {
   });
 
   // ---- W3 Tier-1: topbar overflow when chips don't fit (priority+ pattern) ----
-  test('Narrow topbar collapses secondary chips into a ⋯ overflow menu (W3 overflow)', async ({ browser }) => {
-    // Narrow window: the secondary chips (density/model/perm/cost/tokens)
-    // must NOT render inline; a ⋯ button opens them in a dropdown.
+  test('Narrow topbar keeps commands and density out of persistent chrome (W3 overflow)', async ({ browser }) => {
+    // Narrow window: command entry belongs in the composer and density belongs
+    // in settings/shortcuts, not in the permanent topbar.
     const ctx = await browser.newContext({ viewport: { width: 760, height: 720 } });
     const page = await ctx.newPage();
     // Inspector closed for a clean reading-mode capture; even without it
@@ -781,22 +785,17 @@ test.describe('CLIO audit-batch verification', () => {
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(800);
 
-    // Inline density chip must be collapsed away; the overflow button shown.
-    const overflowBtn = page.getByTestId('topbar-overflow');
-    await expect(overflowBtn).toBeVisible({ timeout: 6_000 });
-    await expect(page.getByTestId('density-chip')).toBeHidden();
-    // Open the menu → the secondary chips render inside it.
-    await overflowBtn.click();
-    const menu = page.getByTestId('topbar-overflow-menu');
-    await expect(menu).toBeVisible();
-    await expect(menu.getByTestId('density-chip')).toBeVisible();
+    await expect(page.getByTestId('composer-command')).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('topbar-palette')).toHaveCount(0);
+    await expect(page.getByTestId('topbar-density')).toHaveCount(0);
+    await expect(page.getByTestId('density-chip')).toHaveCount(0);
     await page.screenshot({ path: shot('w3-topbar-overflow'), fullPage: false });
     await ctx.close();
   });
 
-  test('Wide topbar renders secondary chips inline, no overflow button (W3 overflow)', async ({ browser }) => {
-    // Inspector closed → the topbar gets the full main-column width at
-    // 1280px, so every chip fits inline and no ⋯ button appears.
+  test('Wide topbar still keeps command entry in the composer (W3 overflow)', async ({ browser }) => {
+    // Inspector closed → the topbar gets the full main-column width at 1280px,
+    // but command and density controls still stay out of persistent chrome.
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.addInitScript(() => {
@@ -817,8 +816,10 @@ test.describe('CLIO audit-batch verification', () => {
     await page.getByTestId('connect-submit').click();
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(800);
-    await expect(page.getByTestId('density-chip')).toBeVisible({ timeout: 6_000 });
-    await expect(page.getByTestId('topbar-overflow')).toBeHidden();
+    await expect(page.getByTestId('composer-command')).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId('topbar-palette')).toHaveCount(0);
+    await expect(page.getByTestId('topbar-density')).toHaveCount(0);
+    await expect(page.getByTestId('density-chip')).toHaveCount(0);
     await ctx.close();
   });
 
@@ -835,7 +836,7 @@ test.describe('CLIO audit-batch verification', () => {
       await gate;
       await route.fallback();
     });
-    await page.getByTestId('rail-agents').click();
+    await openSettingsSection(page, 'agents');
     await expect(page.getByTestId('dp-loading')).toBeVisible({ timeout: 6_000 });
     await expect(page.locator('.dp__skeleton-card').first()).toBeVisible();
     await page.screenshot({ path: shot('w3-skeleton-discovery'), fullPage: false });
@@ -1012,7 +1013,7 @@ test.describe('CLIO audit-batch verification', () => {
 
   test('MCP Reconnect button behaves honestly on the live backend (1.0 item E3)', async ({ browser }) => {
     const { page, close } = await connect(browser);
-    await page.getByTestId('rail-mcp').click();
+    await openSettingsSection(page, 'mcp');
     await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
     const btn = page.locator('[data-testid^="mcp-reconnect-"]').first();
     await expect(btn).toBeVisible({ timeout: 8_000 });
@@ -1048,7 +1049,7 @@ test.describe('CLIO audit-batch verification', () => {
     });
 
     // Settings → Data & backups → Export (real browser download).
-    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-data').click();
     await expect(page.getByTestId('settings-data')).toBeVisible();
     const downloadP = page.waitForEvent('download');

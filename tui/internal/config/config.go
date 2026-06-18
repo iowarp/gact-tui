@@ -34,6 +34,8 @@ type Config struct {
 	Theme             *string `json:"theme,omitempty"`         // "dark" | "light"
 	Locale            *string `json:"locale,omitempty"`        // "en" | "es" | "ja"
 	VoiceCommand      *string `json:"voice_command,omitempty"` // shell cmd; stdout = audio/wav
+	DefaultBlueprint  *string `json:"default_blueprint,omitempty"`
+	DefaultExpertPack *string `json:"default_expert_pack,omitempty"`
 	CollapseThreshold *int    `json:"collapse_threshold,omitempty"`
 	CostWarnTokens    *int    `json:"cost_warn_tokens,omitempty"`
 	CostDangerTokens  *int    `json:"cost_danger_tokens,omitempty"`

@@ -37,6 +37,13 @@ describe('InlineMarkdown', () => {
     expect(em?.textContent).toBe('subtle');
   });
 
+  it('does not treat underscores inside identifiers as emphasis', () => {
+    render(() => <InlineMarkdown text="columns time_s and temperature_c remain intact." />);
+    expect(document.body.textContent).toContain('time_s');
+    expect(document.body.textContent).toContain('temperature_c');
+    expect(document.querySelector('em')).toBeNull();
+  });
+
   it('renders inline code via backticks', () => {
     render(() => <InlineMarkdown text="run `pnpm install` first." />);
     const code = document.querySelector('code.im__inline-code');
@@ -128,5 +135,19 @@ describe('InlineMarkdown', () => {
     // SolidJS escapes by default; the <script> appears as literal text.
     expect(document.querySelector('script')).toBeNull();
     expect(document.body.innerHTML).toContain('&lt;script&gt;');
+  });
+
+  it('repairs compact one-line pipe tables before rendering', () => {
+    render(() => (
+      <InlineMarkdown
+        text={
+          'Ranked stations | Rank | Station | Distance km | | ---: | --- | ---: | | 1 | MTA1 | 0.37 | | 2 | PKRD | 2.37 |'
+        }
+      />
+    ));
+    const table = document.querySelector('table.im__table');
+    expect(table).toBeTruthy();
+    expect(table?.textContent).toContain('MTA1');
+    expect(table?.querySelectorAll('tbody tr').length).toBe(2);
   });
 });

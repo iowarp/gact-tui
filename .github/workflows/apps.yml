@@ -16,6 +16,7 @@ on:
     paths:
       - 'apps/**'
       - '.github/workflows/apps.yml'
+  workflow_dispatch:
 
 env:
   PNPM_VERSION: '9.15.9'
@@ -136,6 +137,109 @@ jobs:
 
       - name: Tauri debug build
         run: pnpm --filter @clio/desktop tauri:build:debug
+
+  native-webview-proof:
+    name: native WebView proof (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+
+      - name: Install Linux desktop/WebDriver deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            patchelf \
+            webkit2gtk-driver \
+            xvfb
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build emulator
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p .tools
+          go build -o .tools/emulator-server ./emulator/cmd/emulator-server
+
+      - name: Start emulator on :17800
+        working-directory: ${{ github.workspace }}
+        run: |
+          GACT_EMULATOR_LOG_REQUESTS=1 .tools/emulator-server -port 17800 -timing fast -seed-sessions ws_default=1 > /tmp/gact-emulator.log 2>&1 &
+          echo $! > /tmp/gact-emulator.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:17800/v1/capabilities >/dev/null; then
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat /tmp/gact-emulator.log
+          exit 1
+
+      - name: Build desktop debug app
+        run: pnpm --filter @clio/desktop tauri:build:debug
+
+      - name: Run native WebView proof
+        run: |
+          mkdir -p web/screenshots/native-webview
+          xvfb-run -a env \
+            TAURI_E2E=1 \
+            TAURI_DRIVER="$HOME/.cargo/bin/tauri-driver" \
+            TAURI_NATIVE_DRIVER="$(which WebKitWebDriver)" \
+            CLIO_DESKTOP_SCREENSHOT_DIR="$PWD/web/screenshots/native-webview" \
+            pnpm --filter @clio/desktop test:webview
+
+      - name: Upload native WebView screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-native-webview-proof
+          path: apps/web/screenshots/native-webview/
+          if-no-files-found: warn
+
+      - name: Dump emulator log
+        if: always()
+        run: cat /tmp/gact-emulator.log || true
+
+      - name: Stop emulator
+        if: always()
+        run: |
+          if [ -f /tmp/gact-emulator.pid ]; then
+            kill "$(cat /tmp/gact-emulator.pid)" || true
+          fi
 
   release:
     name: release · ${{ matrix.variant }} · ${{ matrix.os }} / ${{ matrix.target }}
