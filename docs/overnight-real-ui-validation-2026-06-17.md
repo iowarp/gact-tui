@@ -26,6 +26,94 @@ Short durable checklist: see `docs/agent-operational-memory.md`.
   workspace-bound blueprint starts the declared MCP servers and child experts
   call the expected prefixed tools.
 
+## Live Streaming Recheck - 2026-06-18
+
+Read `iowarp/clio-agent#692`. The CLIO-side finding was that ALCF/Sophia
+already streamed token deltas, but dynamic-agent and blueprint expert calls ran
+outside the top-level `dspy.streamify` pump. CLIO fixed that on
+`feat/earthscope-blueprint-generalization` at `bea9cd8` by routing executor
+thread token chunks through the live message publisher and recording final
+assistant parts as `stream_source: live`.
+
+The local runnable CLIO checkout was already on the fixed branch:
+
+```text
+/home/jcernuda/clio-agent
+HEAD bea9cd8 feat(streaming): unified LM token highway -- live streaming for blueprint/expert turns (#693, fixes #692)
+```
+
+Started an isolated owned backend on `http://127.0.0.1:18361` from that checkout
+with ALCF Sophia `google/gemma-4-31B-it`, `CLIO_LM_TOKEN_LIVENESS=1`, and
+`CLIO_LIVE_STREAMING=1`. No shared CLIO runtime was touched.
+
+Web proof:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_REQUIRE_LIVE_STREAMING=1 \
+CLIO_GACT_URL=http://127.0.0.1:18361 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_default \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-streaming.spec.ts --workers=1
+```
+
+Result: passed 1/1 with live required. Manifest:
+`apps/web/screenshots/audit/overnight-real-streaming-samples.json`.
+
+- `liveUiSampleCount: 2`
+- `requireLive: true`
+- `fallback: null`
+- final assistant metadata: `stream_source: live`
+- screenshots:
+  `apps/web/screenshots/audit/overnight-real-streaming-midturn.png`,
+  `apps/web/screenshots/audit/overnight-real-streaming-final.png`
+
+Terminal TUI proof:
+
+```bash
+go build -p 1 -o tui/gact ./tui
+./tui/gact stream <session> --backend http://127.0.0.1:18361 \
+  --filter message.part.delta,turn.completed
+vhs tmp/tui_streaming_live.tape
+```
+
+Result: the terminal client printed `166` `message.part.delta` events for a
+live dynamic-agent turn, and the final session message reconciled with
+`stream_source: live`. The VHS capture shows the interactive TUI attached to the
+same backend, with a running mid-turn state and an idle final transcript.
+
+Screenshots:
+
+- `visual_loop/screenshots/tui-live-streaming-fixed-midturn.png`
+- `visual_loop/screenshots/tui-live-streaming-fixed-final.png`
+- `visual_loop/screenshots/tui-live-streaming-fixed.gif`
+
+Desktop WebView proof:
+
+```bash
+npm exec --yes pnpm@9.15.9 -- --dir apps/desktop tauri:build:debug
+CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:18361 \
+CLIO_DESKTOP_WORKSPACE_ID=ws_default \
+CLIO_DESKTOP_SCREENSHOT_DIR=/home/jcernuda/gact-tui/apps/web/screenshots/audit \
+CLIO_PORT=18361 \
+xvfb-run -a node tmp/desktop_streaming_probe.mjs
+```
+
+Result: passed against the rebuilt native Tauri/WebKit app. The Rust SSE bridge
+connected to the owned backend and the WebView transcript grew while the turn
+was active.
+
+Manifest: `apps/web/screenshots/audit/desktop-streaming-samples.json`.
+
+- `liveUiSampleCount: 11`
+- final assistant metadata: `stream_source: live`
+- final assistant stop reason: `end_turn`
+- screenshots:
+  `apps/web/screenshots/audit/desktop-streaming-before.png`,
+  `apps/web/screenshots/audit/desktop-streaming-midturn.png`,
+  `apps/web/screenshots/audit/desktop-streaming-final.png`
+
 ## Terminal TUI Primary Evidence - 2026-06-17
 
 From `/home/jcernuda/gact-tui`, the terminal TUI was rebuilt, installed into the

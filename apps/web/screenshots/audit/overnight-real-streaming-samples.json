@@ -1,78 +1,72 @@
 {
-  "backend": "http://127.0.0.1:18351",
+  "backend": "http://127.0.0.1:18361",
   "workspaceId": "ws_default",
-  "agentId": "streaming_probe_1781758309936",
-  "sessionId": "sess_77ccbb76a8ef",
-  "liveUiSampleCount": 0,
-  "requireLive": false,
-  "fallback": {
-    "reason": "stream_completed_without_chunks",
-    "category": "provider_streaming_limitation",
-    "synthetic_posthoc": true,
-    "live_streaming": false,
-    "recovery_actions": [
-      "continue_without_live_streaming",
-      "reconfigure",
-      "retry"
-    ],
-    "description": "DSPy streaming returned a final prediction but no visible token chunks.",
-    "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
-  },
+  "agentId": "streaming_probe_1781760950630",
+  "sessionId": "sess_28bc2d06a8c1",
+  "liveUiSampleCount": 2,
+  "requireLive": true,
   "samples": [
     {
-      "elapsed_ms": 511,
+      "elapsed_ms": 594,
       "ui_chars": 0,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 1771,
+      "elapsed_ms": 5455,
       "ui_chars": 0,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 3029,
-      "ui_chars": 0,
+      "elapsed_ms": 6340,
+      "ui_chars": 274,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 4288,
-      "ui_chars": 0,
+      "elapsed_ms": 7308,
+      "ui_chars": 593,
       "api_chars": 0,
       "ui_active": true,
       "stopped": false
     },
     {
-      "elapsed_ms": 5051,
-      "ui_chars": 1179,
-      "api_chars": 1109,
+      "elapsed_ms": 8381,
+      "ui_chars": 1250,
+      "api_chars": 0,
+      "ui_active": false,
+      "stopped": false
+    },
+    {
+      "elapsed_ms": 9165,
+      "ui_chars": 1250,
+      "api_chars": 1180,
       "ui_active": false,
       "stopped": true
     }
   ],
   "messages": [
     {
-      "id": "msg_asst_657aa9f181e6",
-      "session_id": "sess_77ccbb76a8ef",
+      "id": "msg_asst_b515db8df43b",
+      "session_id": "sess_28bc2d06a8c1",
       "role": "assistant",
-      "created_at": "2026-06-18T04:51:56.387949+00:00",
-      "updated_at": "2026-06-18T04:51:56.387959+00:00",
+      "created_at": "2026-06-18T05:36:00.004762+00:00",
+      "updated_at": "2026-06-18T05:36:00.004770+00:00",
       "parts": [
         {
-          "id": "part_5ec07815947c",
+          "id": "part_5dbcf55ca636",
           "type": "routing_decision",
           "metadata": {
             "route_source": "user_agent",
-            "route_reason": "Session selected user agent 'streaming_probe_1781758309936'."
+            "route_reason": "Session selected user agent 'streaming_probe_1781760950630'."
           },
           "text": "",
-          "selected_agent": "streaming_probe_1781758309936",
-          "rationale": "Session selected user agent 'streaming_probe_1781758309936'.",
+          "selected_agent": "streaming_probe_1781760950630",
+          "rationale": "Session selected user agent 'streaming_probe_1781760950630'.",
           "confidence": 0,
           "heuristic": false,
           "execution_path": "",
@@ -92,25 +86,12 @@
           "lines_removed": 0
         },
         {
-          "id": "part_5eb2c53d579c",
+          "id": "part_fee69b9dc5ed",
           "type": "text",
           "metadata": {
-            "stream_source": "batch",
-            "stream_fallback": {
-              "reason": "stream_completed_without_chunks",
-              "category": "provider_streaming_limitation",
-              "synthetic_posthoc": true,
-              "live_streaming": false,
-              "recovery_actions": [
-                "continue_without_live_streaming",
-                "reconfigure",
-                "retry"
-              ],
-              "description": "DSPy streaming returned a final prediction but no visible token chunks.",
-              "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
-            }
+            "stream_source": "live"
           },
-          "text": "# Streaming Probe\n\n1. Always record the date and time of each observation immediately.\n2. Use descriptive adjectives to capture the sensory details of the environment.\n3. Avoid interpreting data in the moment to prevent observer bias.\n4. Write in complete sentences to ensure clarity for future analysis.\n5. Note the exact location where the observation took place.\n6. Document the presence of other people and their interactions.\n7. Record verbatim quotes whenever possible to preserve original meaning.\n8. Maintain a consistent format across all field entries.\n9. Describe the physical layout of the space in detail.\n10. Note any unexpected events that disrupt the normal flow of activity.\n11. Use a dedicated notebook or digital tool to prevent data loss.\n12. Distinguish clearly between objective facts and personal reflections.\n13. Capture the atmospheric conditions, such as lighting and noise levels.\n14. Review notes shortly after the session to fill in critical gaps.\n15. Use shorthand only if there is a predefined key for decoding.\n16. Ensure that all handwriting is legible for external reviewers.",
+          "text": "# Streaming Probe\n\n1. Always record the date and time at the start of every entry.\n2. Use objective language to describe observed behaviors without adding bias.\n3. Note the exact location where the observation is taking place.\n4. Describe the physical environment in detail to provide necessary context.\n5. Record direct quotes from participants whenever possible.\n6. Avoid using vague adjectives like \"many\" or \"few\" in favor of specific counts.\n7. Document the weather conditions if they might influence the subject's behavior.\n8. Keep a clear distinction between raw observations and personal interpretations.\n9. Use a consistent shorthand to speed up writing during active events.\n10. Note the presence of other people who may be affecting the scene.\n11. Describe the sequence of events in the order they actually occurred.\n12. Include sketches or diagrams to clarify spatial relationships.\n13. Review and expand upon shorthand notes immediately after the session.\n14. Document any interruptions or gaps in the observation period.\n15. Maintain a neutral tone to ensure the data remains scientific.\n16. Store all field notes in a secure and organized system for later analysis.",
           "selected_agent": "",
           "rationale": "",
           "confidence": 0,
@@ -141,23 +122,10 @@
       "cost_usd": 0,
       "stop_reason": "end_turn",
       "metadata": {
-        "stream_source": "batch",
-        "stream_fallback": {
-          "reason": "stream_completed_without_chunks",
-          "category": "provider_streaming_limitation",
-          "synthetic_posthoc": true,
-          "live_streaming": false,
-          "recovery_actions": [
-            "continue_without_live_streaming",
-            "reconfigure",
-            "retry"
-          ],
-          "description": "DSPy streaming returned a final prediction but no visible token chunks.",
-          "message": "DSPy streamify returned a final prediction but emitted no visible text chunks."
-        },
+        "stream_source": "live",
         "agent_runtime": {
           "kind": "dynamic_agent",
-          "agent_id": "streaming_probe_1781758309936",
+          "agent_id": "streaming_probe_1781760950630",
           "source": "user",
           "title": "Streaming Probe Agent",
           "execution_mode": "prompt_agent",
@@ -180,14 +148,14 @@
       }
     },
     {
-      "id": "msg_user_ae31642c9988",
-      "session_id": "sess_77ccbb76a8ef",
+      "id": "msg_user_2842e2741831",
+      "session_id": "sess_28bc2d06a8c1",
       "role": "user",
-      "created_at": "2026-06-18T04:51:51.548651+00:00",
-      "updated_at": "2026-06-18T04:51:51.548651+00:00",
+      "created_at": "2026-06-18T05:35:51.863321+00:00",
+      "updated_at": "2026-06-18T05:35:51.863321+00:00",
       "parts": [
         {
-          "id": "part_d4a57e8afc73",
+          "id": "part_3235ce0e7e4f",
           "type": "text",
           "metadata": {},
           "text": "Write a streaming probe response with 16 numbered observations. Each observation must be one complete sentence about careful field-note writing. Do not use tools. Do not include a table. Keep the title \"Streaming Probe\".",
