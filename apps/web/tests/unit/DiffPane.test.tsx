@@ -1,6 +1,6 @@
 import { render, screen, cleanup, fireEvent, waitFor } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DiffPane } from '../../src/components/DiffPane.js';
+import { DiffPane, compactDiffPath } from '../../src/components/DiffPane.js';
 import type { FileDiff } from '@clio/core';
 
 afterEach(cleanup);
@@ -27,6 +27,25 @@ describe('DiffPane', () => {
     expect(screen.getByTestId('diff-pane').textContent).toContain('src/handlers.go');
     expect(screen.getByTestId('diff-pane').textContent).toMatch(/\+3/);
     expect(screen.getByTestId('diff-pane').textContent).toMatch(/[−-]2/);
+  });
+
+  it('compacts long absolute paths in the drawer title', () => {
+    const path =
+      '/home/jcernuda/gact-tui/tmp/owned-clio-web-files-20260617-235829-2140843/workspace/handlers.go';
+    render(() => (
+      <DiffPane diff={{ ...sampleDiff, path }} onClose={() => undefined} />
+    ));
+    const heading = screen.getByRole('heading', { name: path });
+    expect(heading.textContent).toBe('workspace/handlers.go');
+    expect(heading.getAttribute('title')).toBe(path);
+  });
+
+  it('uses a short path tail when no workspace segment exists', () => {
+    expect(
+      compactDiffPath(
+        '/very/long/generated/root/without/workspace-name/nested/src/handlers.go',
+      ),
+    ).toBe('.../src/handlers.go');
   });
 
   it('exposes per-hunk local review buttons', () => {

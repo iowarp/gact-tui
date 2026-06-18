@@ -4644,3 +4644,51 @@ Evidence:
 
 The owned backend was stopped after the proof and port `:18352` was verified
 clear.
+
+## Real File/Image/Diff Web Proof - 2026-06-18
+
+Prepared a throwaway workspace with `README.md`, `sample_metrics.csv`,
+`handlers.go`, and `validation_plot.png`, then launched an owned CLIO backend
+on `http://127.0.0.1:18353` from that workspace root.
+
+Command:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_GACT_URL=http://127.0.0.1:18353 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_default \
+CLIO_PLAYWRIGHT_CORS_SHIM=1 \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-ui.spec.ts --workers=1
+```
+
+Result: passed `2/2` both before and after the diff drawer polish. The proof
+covered real backend file listing/reads, markdown preview, source preview,
+PNG image preview, a live file-edit agent turn, tool evidence, and a real diff
+pane.
+
+During visual inspection, the first refreshed diff screenshot showed the drawer
+title wrapped under the topbar because it used the full absolute path. The web
+UI now compacts long diff paths for display and positions the desktop drawer
+below the 52px topbar.
+
+Additional checks:
+
+```bash
+npm exec --yes pnpm@9.15.9 -- --dir apps/web test -- tests/unit/DiffPane.test.tsx --run
+npm exec --yes pnpm@9.15.9 -- --dir apps/web typecheck
+```
+
+Results: `DiffPane.test.tsx` passed `10/10`; typecheck passed.
+
+Evidence refreshed:
+
+- `apps/web/screenshots/audit/overnight-real-markdown-preview.png`
+- `apps/web/screenshots/audit/overnight-real-code-preview.png`
+- `apps/web/screenshots/audit/overnight-real-image-preview.png`
+- `apps/web/screenshots/audit/overnight-real-file-editor-tools.png`
+- `apps/web/screenshots/audit/overnight-real-file-editor-diff.png`
+
+The owned backend was stopped after the proof and port `:18353` was verified
+clear.

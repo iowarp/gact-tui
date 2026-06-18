@@ -28,6 +28,7 @@ type HunkState = 'pending' | 'applied' | 'rejected';
 export function DiffPane(props: DiffPaneProps) {
   const hunks = () => parseHunks(props.diff.unified_diff ?? '');
   const lang = () => langForPath(props.diff.path ?? '');
+  const displayPath = () => compactDiffPath(props.diff.path ?? 'diff');
   const [states, setStates] = createSignal<HunkState[]>([]);
   // highlight.js loads on demand (see hljs-lazy). Lines render plain until
   // it resolves, then this signal flips and the per-line highlight re-runs.
@@ -64,7 +65,13 @@ export function DiffPane(props: DiffPaneProps) {
       <header class="diffpane__head">
         <div>
           <span class="eyebrow">diff preview</span>
-          <h2 class="diffpane__path">{props.diff.path}</h2>
+          <h2
+            class="diffpane__path"
+            title={props.diff.path}
+            aria-label={props.diff.path}
+          >
+            {displayPath()}
+          </h2>
         </div>
         <div class="diffpane__stats">
           <span class="chip chip--ok">+{total()}</span>
@@ -133,6 +140,26 @@ export function DiffPane(props: DiffPaneProps) {
       </Show>
     </aside>
   );
+}
+
+export function compactDiffPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/');
+  if (normalized.length <= 64) return normalized;
+
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 2) return normalized;
+
+  const workspaceIndex = parts.lastIndexOf('workspace');
+  if (workspaceIndex >= 0 && workspaceIndex < parts.length - 1) {
+    const workspaceTail = parts.slice(workspaceIndex).join('/');
+    if (workspaceTail.length <= 64) return workspaceTail;
+  }
+
+  const tail = parts.slice(-2).join('/');
+  if (tail.length <= 60) return `.../${tail}`;
+
+  const file = parts.at(-1) ?? normalized;
+  return file.length <= 60 ? `.../${file}` : `.../${file.slice(0, 57)}...`;
 }
 
 function DiffLine(p: { line: DiffLineInfo; lang: string | null; ready: boolean }) {

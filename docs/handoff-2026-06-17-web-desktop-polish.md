@@ -1736,3 +1736,64 @@ Evidence:
 
 Cleanup: the owned backend on `:18352` was stopped and the port was verified
 clear.
+
+## Real File/Image/Diff Web Proof And Diff Drawer Polish - 2026-06-18
+
+Reran the broad real web UI file proof against an owned ALCF-backed CLIO
+server:
+
+- Backend: `http://127.0.0.1:18353`
+- Workspace: `ws_default`
+- Run root:
+  `/home/jcernuda/gact-tui/tmp/owned-clio-web-files-20260617-235829-2140843`
+- Provider/model: `argonne` on ALCF Sophia,
+  `google/gemma-4-31B-it`
+
+The throwaway workspace contained `README.md`, `sample_metrics.csv`,
+`handlers.go`, and `validation_plot.png`.
+
+Command:
+
+```bash
+CLIO_OVERNIGHT_REAL_UI=1 \
+CLIO_GACT_URL=http://127.0.0.1:18353 \
+CLIO_OVERNIGHT_WORKSPACE_ID=ws_default \
+CLIO_PLAYWRIGHT_CORS_SHIM=1 \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-ui.spec.ts --workers=1
+```
+
+Result: passed `2/2`. Evidence confirms the preview rail rendered markdown,
+source code, and PNG image bytes from the real backend; a live file-edit agent
+called `fs_read_file` and `fs_propose_edit`; the web UI surfaced tool evidence
+and opened an actual diff pane.
+
+Visual inspection found and fixed two diff drawer issues:
+
+- Long absolute paths no longer render as the primary drawer title. The drawer
+  now shows a compact tail such as `workspace/handlers.go` while keeping the
+  full path in `title`/ARIA.
+- The drawer now starts below the 52px chat topbar on desktop instead of being
+  partially hidden under it. Mobile keeps the full-screen overlay behavior.
+
+Verification:
+
+- `npm exec --yes pnpm@9.15.9 -- --dir apps/web test -- tests/unit/DiffPane.test.tsx --run`
+  passed `10/10`.
+- `npm exec --yes pnpm@9.15.9 -- --dir apps/web typecheck` passed.
+- The real web UI file proof passed again after the polish.
+
+Updated evidence:
+
+- `apps/web/screenshots/audit/overnight-real-markdown-preview.png`
+- `apps/web/screenshots/audit/overnight-real-code-preview.png`
+- `apps/web/screenshots/audit/overnight-real-image-preview.png`
+- `apps/web/screenshots/audit/overnight-real-agent-turn-settled.png`
+- `apps/web/screenshots/audit/overnight-real-file-editor-tools.png`
+- `apps/web/screenshots/audit/overnight-real-file-editor-diff.png`
+- `apps/web/screenshots/audit/overnight-real-agent-messages.json`
+- `apps/web/screenshots/audit/overnight-real-file-editor-messages.json`
+
+Cleanup: the owned backend on `:18353` was stopped and the port was verified
+clear.
