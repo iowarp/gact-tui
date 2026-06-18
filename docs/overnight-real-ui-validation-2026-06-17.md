@@ -169,6 +169,33 @@ Covered:
 - `/cache-stats` slash command dispatch through the backend command endpoint.
 - Unified catalog search against live backend data.
 
+After the targeted pass, the full extended real-web suite was rerun against a
+new pair of fresh owned backends on `:18374` and `:18375`:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18374 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18375 \
+CLIO_WORKSPACE_A_ROOT=<owned-full-a>/workspace \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-multibackend.spec.ts --workers=1
+```
+
+Result: passed `13/13`.
+
+Additional covered surfaces:
+
+- Session defaults and `Ctrl+B` session-selection semantics.
+- Live MCP server details.
+- MCP install, reconnect, and uninstall.
+- Prompt draft validation and save.
+- Expert-pack install, update, and delete.
+- Agent-blueprint install and uninstall.
+- Blueprint source add, refresh, and remove.
+- Diagnostics pages for doctor, metrics, and memory.
+- Hooks and policies round-trip.
+
 Desktop native WebView permission proof:
 
 The first run against `:18371` failed with `agent_not_available` because that

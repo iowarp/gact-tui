@@ -1,22 +1,22 @@
 {
-  "backendA": "http://127.0.0.1:18310",
+  "backendA": "http://127.0.0.1:18374",
   "workspaceA": {
     "id": "ws_default",
     "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio",
-    "created_at": "2026-06-18T01:31:19.668002+00:00",
-    "updated_at": "2026-06-18T01:31:19.668016+00:00",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
+    "created_at": "2026-06-18T06:00:49.513729+00:00",
+    "updated_at": "2026-06-18T06:00:49.513741+00:00",
     "config": {},
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_aab098e584e8",
+    "id": "sess_615b7b62e37c",
     "workspace_id": "ws_default",
-    "title": "overnight blueprint 1781746788736",
+    "title": "overnight blueprint 1781762529031",
     "status": "idle",
-    "created_at": "2026-06-18T01:39:48.740204+00:00",
-    "updated_at": "2026-06-18T01:39:48.740204+00:00",
+    "created_at": "2026-06-18T06:02:09.034578+00:00",
+    "updated_at": "2026-06-18T06:02:09.034578+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -37,8 +37,8 @@
     "metadata": {},
     "archived": false
   },
-  "blueprintId": "workflow-live-1781746788736",
-  "blueprintRoot": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/agent-blueprint-source-1781746788736/workflow-live-1781746788736",
+  "blueprintId": "workflow-live-1781762529031",
+  "blueprintRoot": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/agent-blueprint-source-1781762529031/workflow-live-1781762529031",
   "beforeBlueprints": {
     "agent_blueprints": [
       {
@@ -47,8 +47,8 @@
         "title": "Data Semantics Agent",
         "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
         "scope": "global",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -67,9 +67,9 @@
             "source": "/home/jcernuda/clio-agent/external/clio-agent-marketplace",
             "source_kind": "path",
             "ref": "main",
-            "commit": "614f16f51e1cd92d0c59ac47084d1c7a5ad2e287",
+            "commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T01:33:35.368620+00:00",
+            "installed_at": "2026-06-18T06:01:42.440594+00:00",
             "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
             "scope": "global"
           },
@@ -81,7 +81,7 @@
             "submodule_path": "external/clio-agent-marketplace"
           }
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "kind": "blueprint"
       }
     ]
@@ -94,8 +94,8 @@
         "title": "Data Semantics Agent",
         "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
         "scope": "global",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -114,9 +114,9 @@
             "source": "/home/jcernuda/clio-agent/external/clio-agent-marketplace",
             "source_kind": "path",
             "ref": "main",
-            "commit": "614f16f51e1cd92d0c59ac47084d1c7a5ad2e287",
+            "commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T01:33:35.368620+00:00",
+            "installed_at": "2026-06-18T06:01:42.440594+00:00",
             "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
             "scope": "global"
           },
@@ -128,17 +128,17 @@
             "submodule_path": "external/clio-agent-marketplace"
           }
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "kind": "blueprint"
       },
       {
-        "id": "workflow-live-1781746788736",
+        "id": "workflow-live-1781762529031",
         "version": "0.1.0",
-        "title": "Live Workflow 1781746788736",
+        "title": "Live Workflow 1781762529031",
         "description": "Workspace blueprint installed through the web UI live gate.",
         "scope": "workspace",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/workflow-live-1781746788736",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/workflow-live-1781746788736/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/workflow-live-1781762529031",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/workflow-live-1781762529031/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -154,18 +154,18 @@
             "format": "agent-blueprint-v1"
           },
           "install": {
-            "source": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/agent-blueprint-source-1781746788736/workflow-live-1781746788736",
+            "source": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/agent-blueprint-source-1781762529031/workflow-live-1781762529031",
             "source_kind": "path",
             "ref": "",
-            "commit": "b65d6d7eee49c2e0eaed3ec8b81698fce51a02ea",
+            "commit": "29215074b700902361d5adf162fd6bc618e8396e",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T01:39:50.217650+00:00",
-            "checksum": "7fa0585f06cfcedc2281653a5aa7a499cfa7f7fdebd18cc1e8e0783ce57154ff",
+            "installed_at": "2026-06-18T06:02:10.194548+00:00",
+            "checksum": "42f2e61176f1400e137c2776bd41121ad4cd17598bc58f1acb917f3ab1ca4ea6",
             "scope": "workspace"
           },
           "default_registry": {}
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/workspace/.clio/agent-blueprints/workflow-live-1781746788736/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/workflow-live-1781762529031/AGENT.md",
         "kind": "blueprint"
       }
     ]
@@ -178,8 +178,8 @@
         "title": "Data Semantics Agent",
         "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
         "scope": "global",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -198,9 +198,9 @@
             "source": "/home/jcernuda/clio-agent/external/clio-agent-marketplace",
             "source_kind": "path",
             "ref": "main",
-            "commit": "614f16f51e1cd92d0c59ac47084d1c7a5ad2e287",
+            "commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T01:33:35.368620+00:00",
+            "installed_at": "2026-06-18T06:01:42.440594+00:00",
             "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
             "scope": "global"
           },
@@ -212,7 +212,7 @@
             "submodule_path": "external/clio-agent-marketplace"
           }
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-web-continuation-20260617-203119/a/xdg-config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "kind": "blueprint"
       }
     ]
