@@ -1,22 +1,24 @@
 {
-  "backendA": "http://127.0.0.1:18374",
+  "backendA": "http://127.0.0.1:18410",
   "workspaceA": {
-    "id": "ws_default",
-    "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
-    "created_at": "2026-06-18T06:00:49.513729+00:00",
-    "updated_at": "2026-06-18T06:00:49.513741+00:00",
-    "config": {},
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_dc68645b82dc",
-    "workspace_id": "ws_default",
-    "title": "overnight expert packs 1781762526968",
+    "id": "sess_d970a515833e",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "overnight expert packs 1781765680495",
     "status": "idle",
-    "created_at": "2026-06-18T06:02:06.972273+00:00",
-    "updated_at": "2026-06-18T06:02:06.972273+00:00",
+    "created_at": "2026-06-18T06:54:40.499078+00:00",
+    "updated_at": "2026-06-18T06:54:40.499078+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -37,8 +39,8 @@
     "metadata": {},
     "archived": false
   },
-  "packId": "toolkit-live-1781762526968",
-  "marketplaceRoot": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/expert-pack-marketplace-1781762526968",
+  "packId": "toolkit-live-1781765680495",
+  "marketplaceRoot": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/expert-pack-marketplace-1781765680495",
   "beforePacks": {
     "expert_packs": []
   },
@@ -50,8 +52,8 @@
         "title": "Data Semantics Agent",
         "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
         "scope": "global",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -72,7 +74,7 @@
             "ref": "main",
             "commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T06:01:42.440594+00:00",
+            "installed_at": "2026-06-18T06:37:10.961066+00:00",
             "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
             "scope": "global"
           },
@@ -84,17 +86,17 @@
             "submodule_path": "external/clio-agent-marketplace"
           }
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "kind": "blueprint"
       },
       {
-        "id": "toolkit-live-1781762526968",
+        "id": "toolkit-live-1781765680495",
         "version": "0.1.0",
-        "title": "Live Toolkit 1781762526968",
+        "title": "Live Toolkit 1781765680495",
         "description": "",
         "scope": "workspace",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/toolkit-live-1781762526968",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/toolkit-live-1781762526968/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio/agent-blueprints/toolkit-live-1781765680495",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio/agent-blueprints/toolkit-live-1781765680495/AGENT.md",
         "root_expert": "",
         "enabled": true,
         "validation_errors": [],
@@ -108,18 +110,18 @@
           "includes": [],
           "blueprint": {},
           "install": {
-            "source": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/expert-pack-marketplace-1781762526968",
+            "source": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/expert-pack-marketplace-1781765680495",
             "source_kind": "path",
             "ref": "",
-            "commit": "29215074b700902361d5adf162fd6bc618e8396e",
+            "commit": "332143ed960ce3e158ba7f1c179c1f0473085cb6",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T06:02:08.253655+00:00",
-            "checksum": "b2182cfc8fde7a141abb108f068208688e8fa3d8d909cd3e0a2055011662afa6",
+            "installed_at": "2026-06-18T06:54:41.626451+00:00",
+            "checksum": "5af7ac49121e01865608f3198226dd70ca0828d84d9f0f77d82f13d5ed45b85d",
             "scope": "workspace"
           },
           "default_registry": {}
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio/agent-blueprints/toolkit-live-1781762526968/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio/agent-blueprints/toolkit-live-1781765680495/AGENT.md",
         "kind": "pack"
       }
     ]
@@ -132,8 +134,8 @@
         "title": "Data Semantics Agent",
         "description": "Interprets scientific datasets by combining metadata inspection, semantic analysis, and visualization planning.",
         "scope": "global",
-        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics",
-        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics",
+        "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "root_expert": "main",
         "enabled": true,
         "validation_errors": [],
@@ -154,7 +156,7 @@
             "ref": "main",
             "commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
             "pinned_commit": "",
-            "installed_at": "2026-06-18T06:01:42.440594+00:00",
+            "installed_at": "2026-06-18T06:37:10.961066+00:00",
             "checksum": "6b3949529368bc1b7f81f6fd8c8dadfe80ad9ebcc82dfcb58dc8e681cdf8f4de",
             "scope": "global"
           },
@@ -166,7 +168,7 @@
             "submodule_path": "external/clio-agent-marketplace"
           }
         },
-        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+        "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
         "kind": "blueprint"
       }
     ]

@@ -1,22 +1,24 @@
 {
-  "backendA": "http://127.0.0.1:18374",
+  "backendA": "http://127.0.0.1:18410",
   "workspaceA": {
-    "id": "ws_default",
-    "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
-    "created_at": "2026-06-18T06:00:49.513729+00:00",
-    "updated_at": "2026-06-18T06:00:49.513741+00:00",
-    "config": {},
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_dc99989a73aa",
-    "workspace_id": "ws_default",
-    "title": "overnight mcp lifecycle 1781762511387",
+    "id": "sess_1796b88cafb0",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "overnight mcp lifecycle 1781765660251",
     "status": "idle",
-    "created_at": "2026-06-18T06:01:51.388608+00:00",
-    "updated_at": "2026-06-18T06:01:51.388608+00:00",
+    "created_at": "2026-06-18T06:54:20.252103+00:00",
+    "updated_at": "2026-06-18T06:54:20.252103+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -37,7 +39,7 @@
     "metadata": {},
     "archived": false
   },
-  "serverName": "everything_live_1781762511387",
+  "serverName": "everything_live_1781765660251",
   "installStatus": 201,
   "reconnectStatus": 200,
   "deleteStatus": 204,
@@ -92,8 +94,8 @@
         ]
       },
       {
-        "id": "mcp_ext_b5117cbe87",
-        "name": "everything_live_1781762511387",
+        "id": "mcp_ext_7d1cc4d473",
+        "name": "everything_live_1781765660251",
         "status": "ready",
         "transport": "stdio",
         "tools_count": 13,

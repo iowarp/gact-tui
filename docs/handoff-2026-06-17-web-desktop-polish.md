@@ -1871,3 +1871,30 @@ Result: all passed. The WebView logs showed the Tauri SSE bridge opening
 `http://127.0.0.1:18410/v1/sessions/.../events` and emitting live events. The
 permission-card screenshot confirms the desktop app used the ALCF/Gemma owned
 backend.
+
+Additional extended web proof:
+
+Started a second owned no-agent backend on `http://127.0.0.1:18411` with an
+isolated workspace and reran the extended real UI gates with A=`:18410`,
+B=`:18411`:
+
+```bash
+CLIO_OVERNIGHT_EXTENDED_UI=1 \
+CLIO_BACKEND_A_URL=http://127.0.0.1:18410 \
+CLIO_BACKEND_B_URL=http://127.0.0.1:18411 \
+CLIO_WORKSPACE_A_ROOT=tmp/owned-clio-polish-20260618-013703-2181274/workspace \
+CLIO_ALT_WORKSPACE_ROOT=tmp/owned-clio-polish-20260618-013703-2181274/workspace-alt \
+GACT_BRAND=clio \
+npm exec --yes pnpm@9.15.9 -- --dir apps/web exec playwright test \
+  tests/visual/overnight-real-multibackend.spec.ts \
+  tests/visual/overnight-real-brand-settings.spec.ts \
+  --workers=1
+```
+
+Result: passed `16/16`, covering backend switching, workspace filtering, backend
+settings/probe/activation, slash-command dispatch, unified catalog search, MCP
+install/reconnect/uninstall, prompt save, expert-pack install/update/delete,
+agent-blueprint install/uninstall, blueprint-source add/refresh/remove,
+diagnostics pages, hooks, and policy round-trips. Screenshots under
+`apps/web/screenshots/audit/overnight-real-*` were refreshed from this live
+two-backend run.

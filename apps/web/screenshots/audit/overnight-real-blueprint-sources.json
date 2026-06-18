@@ -1,22 +1,24 @@
 {
-  "backendA": "http://127.0.0.1:18374",
+  "backendA": "http://127.0.0.1:18410",
   "workspaceA": {
-    "id": "ws_default",
-    "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
-    "created_at": "2026-06-18T06:00:49.513729+00:00",
-    "updated_at": "2026-06-18T06:00:49.513741+00:00",
-    "config": {},
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_94f4f646b9d4",
-    "workspace_id": "ws_default",
-    "title": "overnight blueprint source 1781762534423",
+    "id": "sess_92170762dc27",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "overnight blueprint source 1781765684271",
     "status": "idle",
-    "created_at": "2026-06-18T06:02:14.426592+00:00",
-    "updated_at": "2026-06-18T06:02:14.426592+00:00",
+    "created_at": "2026-06-18T06:54:44.274506+00:00",
+    "updated_at": "2026-06-18T06:54:44.274506+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -37,62 +39,62 @@
     "metadata": {},
     "archived": false
   },
-  "sourceName": "live-source-1781762534423",
-  "sourceRoot": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/blueprint-registry-source-1781762534423",
+  "sourceName": "live-source-1781765684271",
+  "sourceRoot": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/blueprint-registry-source-1781765684271",
   "beforeSources": {
     "sources": []
   },
   "afterAddSources": {
     "sources": [
       {
-        "added_at": "2026-06-18T06:02:15.545542+00:00",
+        "added_at": "2026-06-18T06:54:45.499097+00:00",
         "available_blueprints": [
           {
-            "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/blueprint-registry-source-1781762534423/source-workflow-1781762534423/AGENT.md",
+            "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/blueprint-registry-source-1781765684271/source-workflow-1781765684271/AGENT.md",
             "enabled": true,
-            "id": "source-workflow-1781762534423",
-            "title": "Source Workflow 1781762534423",
+            "id": "source-workflow-1781765684271",
+            "title": "Source Workflow 1781765684271",
             "validation_errors": [],
             "version": "0.1.0"
           }
         ],
-        "commit": "29215074b700902361d5adf162fd6bc618e8396e",
+        "commit": "332143ed960ce3e158ba7f1c179c1f0473085cb6",
         "error": "",
-        "id": "src_cd2dd1770c81",
-        "name": "live-source-1781762534423",
+        "id": "src_e161532f36b6",
+        "name": "live-source-1781765684271",
         "pinned_commit": "",
         "ref": "",
-        "source": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/blueprint-registry-source-1781762534423",
+        "source": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/blueprint-registry-source-1781765684271",
         "source_kind": "path",
         "status": "ready",
-        "updated_at": "2026-06-18T06:02:15.549644+00:00"
+        "updated_at": "2026-06-18T06:54:45.504740+00:00"
       }
     ]
   },
   "afterRefreshSources": {
     "sources": [
       {
-        "added_at": "2026-06-18T06:02:15.545542+00:00",
+        "added_at": "2026-06-18T06:54:45.499097+00:00",
         "available_blueprints": [
           {
-            "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/blueprint-registry-source-1781762534423/source-workflow-1781762534423/AGENT.md",
+            "definition_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/blueprint-registry-source-1781765684271/source-workflow-1781765684271/AGENT.md",
             "enabled": true,
-            "id": "source-workflow-1781762534423",
-            "title": "Source Workflow 1781762534423",
+            "id": "source-workflow-1781765684271",
+            "title": "Source Workflow 1781765684271",
             "validation_errors": [],
             "version": "0.1.0"
           }
         ],
-        "commit": "29215074b700902361d5adf162fd6bc618e8396e",
+        "commit": "332143ed960ce3e158ba7f1c179c1f0473085cb6",
         "error": "",
-        "id": "src_cd2dd1770c81",
-        "name": "live-source-1781762534423",
+        "id": "src_e161532f36b6",
+        "name": "live-source-1781765684271",
         "pinned_commit": "",
         "ref": "",
-        "source": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/blueprint-registry-source-1781762534423",
+        "source": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/blueprint-registry-source-1781765684271",
         "source_kind": "path",
         "status": "ready",
-        "updated_at": "2026-06-18T06:02:15.882439+00:00"
+        "updated_at": "2026-06-18T06:54:45.821125+00:00"
       }
     ]
   },

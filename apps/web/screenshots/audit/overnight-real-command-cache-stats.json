@@ -1,22 +1,24 @@
 {
-  "backendA": "http://127.0.0.1:18374",
+  "backendA": "http://127.0.0.1:18410",
   "workspaceA": {
-    "id": "ws_default",
-    "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
-    "created_at": "2026-06-18T06:00:49.513729+00:00",
-    "updated_at": "2026-06-18T06:00:49.513741+00:00",
-    "config": {},
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_c2a6a84023ef",
-    "workspace_id": "ws_default",
-    "title": "overnight command 1781762506160",
+    "id": "sess_a8ba501d1a0b",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "overnight command 1781765655770",
     "status": "idle",
-    "created_at": "2026-06-18T06:01:46.161771+00:00",
-    "updated_at": "2026-06-18T06:01:46.161771+00:00",
+    "created_at": "2026-06-18T06:54:15.772095+00:00",
+    "updated_at": "2026-06-18T06:54:15.772095+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -38,5 +40,5 @@
     "archived": false
   },
   "status": 200,
-  "url": "http://127.0.0.1:18374/v1/sessions/sess_c2a6a84023ef/commands/cache-stats"
+  "url": "http://127.0.0.1:18410/v1/sessions/sess_a8ba501d1a0b/commands/cache-stats"
 }

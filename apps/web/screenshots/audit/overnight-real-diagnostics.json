@@ -1,22 +1,24 @@
 {
-  "backendA": "http://127.0.0.1:18374",
+  "backendA": "http://127.0.0.1:18410",
   "workspaceA": {
-    "id": "ws_default",
-    "name": "default",
-    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace",
-    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-web-full-a-20260618-010049-2166960/workspace/.clio",
-    "created_at": "2026-06-18T06:00:49.513729+00:00",
-    "updated_at": "2026-06-18T06:00:49.513741+00:00",
-    "config": {},
+    "id": "ws_4629f4581b4a",
+    "name": "owned-polish",
+    "root_path": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace",
+    "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio",
+    "created_at": "2026-06-18T06:38:15.978927+00:00",
+    "updated_at": "2026-06-18T06:38:15.978927+00:00",
+    "config": {
+      "storage_root": "/home/jcernuda/gact-tui/tmp/owned-clio-polish-20260618-013703-2181274/workspace/.clio"
+    },
     "metadata": {}
   },
   "sessionA": {
-    "id": "sess_dadd2da39072",
-    "workspace_id": "ws_default",
-    "title": "overnight diagnostics 1781762536285",
+    "id": "sess_e87035599e88",
+    "workspace_id": "ws_4629f4581b4a",
+    "title": "overnight diagnostics 1781765686215",
     "status": "idle",
-    "created_at": "2026-06-18T06:02:16.286322+00:00",
-    "updated_at": "2026-06-18T06:02:16.286322+00:00",
+    "created_at": "2026-06-18T06:54:46.216413+00:00",
+    "updated_at": "2026-06-18T06:54:46.216413+00:00",
     "message_count": 0,
     "parent_session_id": "",
     "model": {
@@ -38,18 +40,19 @@
     "archived": false
   },
   "metrics": {
-    "uptime_s": 86,
+    "uptime_s": 1013,
     "sessions": {
-      "total": 12,
-      "active": 12,
+      "total": 26,
+      "active": 26,
       "by_status": {
-        "idle": 12
+        "idle": 26
       }
     },
     "messages": {
-      "total": 1,
+      "total": 13,
       "by_role": {
-        "assistant": 1
+        "user": 6,
+        "assistant": 7
       }
     },
     "tokens": {
@@ -62,12 +65,31 @@
       "total_usd": 0,
       "by_provider": {}
     },
-    "latencies": {}
+    "latencies": {
+      "tool:fs_read_file": {
+        "count": 2,
+        "p50_ms": 6.283998489379883,
+        "p95_ms": 8.018255233764648,
+        "max_ms": 8.018255233764648
+      },
+      "tool_call": {
+        "count": 3,
+        "p50_ms": 6.283998489379883,
+        "p95_ms": 8.018255233764648,
+        "max_ms": 8.018255233764648
+      },
+      "tool:fs_propose_edit": {
+        "count": 1,
+        "p50_ms": 5.335092544555664,
+        "p95_ms": 5.335092544555664,
+        "max_ms": 5.335092544555664
+      }
+    }
   },
   "health": {
-    "healthy": false,
-    "uptime_s": 86,
-    "overall_status": "unavailable",
+    "healthy": true,
+    "uptime_s": 1013,
+    "overall_status": "degraded",
     "integrations": [
       {
         "name": "api",
@@ -77,22 +99,22 @@
       {
         "name": "sessions",
         "status": "ready",
-        "detail": "12 session(s) registered"
+        "detail": "26 session(s) registered"
       },
       {
         "name": "agent",
-        "status": "unavailable",
-        "detail": "no ClioAgent wired; POST /messages will 503"
+        "status": "ready",
+        "detail": "ClioAgent wired"
       },
       {
         "name": "memory",
-        "status": "degraded",
-        "detail": "memory layer not wired; /v1/memory/stats returns zeros"
+        "status": "ready",
+        "detail": "cache 0% hit rate"
       },
       {
         "name": "lm",
-        "status": "unavailable",
-        "detail": "no LM configured; PUT /v1/providers/lm or set CLIO_LM_PROVIDER and restart"
+        "status": "degraded",
+        "detail": "argonne/google/gemma-4-31B-it (ALCF Globus token stored; validate before use)"
       }
     ]
   },
@@ -101,7 +123,7 @@
       "hits": 0,
       "misses": 0,
       "hit_rate": 0,
-      "capacity": 0
+      "capacity": 1000
     },
     "session": null,
     "global": {
