@@ -366,7 +366,7 @@ func TestApplySemanticToolCompletionSummarizesDirectPayloadEvidence(t *testing.T
 		t.Fatalf("semantic tool message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac result:", "npts: 12000", "min: -0.14", "max: 0.19", "mean: 0.003", "earthscope_CI_BAR.sac"} {
+	for _, want := range []string{"SAC evidence:", "npts: 12000", "min: -0.14", "max: 0.19", "mean: 0.003", "earthscope_CI_BAR.sac"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("direct semantic payload summary missing %q:\n%s", want, text)
 		}
@@ -407,7 +407,7 @@ func TestApplySemanticToolCompletionSummarizesDirectArtifactEvidence(t *testing.
 		t.Fatalf("semantic tool message = %#v", a.messages)
 	}
 	text := flattenToolResult(a.messages[0].Parts[0])
-	for _, want := range []string{"sac result:", "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png", "traces_plotted: 3"} {
+	for _, want := range []string{"SAC evidence:", "sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png", "traces_plotted: 3"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("direct artifact payload summary missing %q:\n%s", want, text)
 		}
@@ -1050,7 +1050,7 @@ func TestApplySemanticEventSummarizesStructuredDelegationOutput(t *testing.T) {
 	}
 	part := a.messages[0].Parts[0]
 	for _, want := range []string{
-		"sac result:",
+		"SAC evidence:",
 		"sac_traces_earthscope_CI_BAR_--_BHZ_2026-05-29T021201.png",
 		"traces_plotted: 3",
 	} {

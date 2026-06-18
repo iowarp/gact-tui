@@ -302,7 +302,7 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		t.Fatal("selected short tool_result should open detail view")
 	}
 	for _, want := range []string{
-		"ShellBash result",
+		"Shell command result",
 		"tool: shell_bash",
 		"call: c1",
 		"duration: 123 ms",

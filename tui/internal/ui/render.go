@@ -1148,9 +1148,84 @@ func summarizeToolResultText(toolName string, rawText string) string {
 	}
 	var payload any
 	if err := json.Unmarshal([]byte(rawText), &payload); err != nil {
-		return ""
+		return summarizeNonJSONToolResultText(toolName, rawText)
 	}
 	return summarizeToolResult(toolName, payload)
+}
+
+func summarizeNonJSONToolResultText(toolName string, rawText string) string {
+	lowerTool := strings.ToLower(strings.TrimSpace(toolName))
+	if strings.Contains(lowerTool, "geo_geocode") || strings.Contains(lowerTool, "geocode") {
+		return summarizePseudoGeocodeResult(rawText)
+	}
+	return ""
+}
+
+func summarizePseudoGeocodeResult(rawText string) string {
+	name := firstNonEmpty(
+		pseudoFieldString(rawText, "display_name"),
+		pseudoFieldString(rawText, "name"),
+	)
+	lat := pseudoFieldNumber(rawText, "lat")
+	lon := pseudoFieldNumber(rawText, "lon")
+	provenance := pseudoFieldString(rawText, "provenance")
+	if name == "" && (lat == "" || lon == "") {
+		return ""
+	}
+	var rows []string
+	if name != "" {
+		rows = append(rows, name)
+	}
+	if lat != "" && lon != "" {
+		rows = append(rows, "center: "+lat+", "+lon)
+	}
+	if provenance != "" {
+		rows = append(rows, "source: "+provenance)
+	}
+	return strings.Join(rows, "\n")
+}
+
+func pseudoFieldString(rawText, key string) string {
+	for _, quote := range []string{"'", `"`} {
+		token := quote + key + quote + ":"
+		idx := strings.Index(rawText, token)
+		if idx < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(rawText[idx+len(token):])
+		if rest == "" || (rest[0] != '\'' && rest[0] != '"') {
+			continue
+		}
+		endQuote := rest[0]
+		rest = rest[1:]
+		end := strings.IndexRune(rest, rune(endQuote))
+		if end >= 0 {
+			return strings.TrimSpace(rest[:end])
+		}
+	}
+	return ""
+}
+
+func pseudoFieldNumber(rawText, key string) string {
+	for _, quote := range []string{"'", `"`} {
+		token := quote + key + quote + ":"
+		idx := strings.Index(rawText, token)
+		if idx < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(rawText[idx+len(token):])
+		end := 0
+		for end < len(rest) {
+			ch := rest[end]
+			if (ch >= '0' && ch <= '9') || ch == '-' || ch == '+' || ch == '.' {
+				end++
+				continue
+			}
+			break
+		}
+		return strings.TrimSpace(rest[:end])
+	}
+	return ""
 }
 
 // renderGrepResult parses grep's "path:line:content" output and
@@ -1677,8 +1752,8 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// overflows. Nothing indented beneath the header unless there
 		// are structured args to highlight (we don't split those out
 		// yet; tool_result carries the output and gets its own ⎿).
-		prefix := toolPartWorkflowPrefix(p)
-		toolWrapW := wrapW - lipgloss.Width(prefix)
+		workflowPrefix := toolPartWorkflowPrefix(p)
+		toolWrapW := wrapW - lipgloss.Width(workflowPrefix)
 		if toolWrapW < 20 {
 			toolWrapW = 20
 		}
@@ -1693,7 +1768,7 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			}
 			headText = toolName + "(" + truncateString(summary, keep) + "…)"
 		}
-		head := prefix + lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
+		head := workflowPrefix + lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).
 			Render(headText)
 		if status := toolCallStatusLabel(p); status != "" {
 			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
@@ -1728,8 +1803,8 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		//     RoleTool/Border (with a left-margin space) so a
 		//     subtle vertical bar runs the full height of the
 		//     block, anchoring everything visually under the call.
-		prefix := toolPartWorkflowPrefix(p)
-		toolWrapW := wrapW - lipgloss.Width(prefix)
+		workflowPrefix := toolPartWorkflowPrefix(p)
+		toolWrapW := wrapW - lipgloss.Width(workflowPrefix)
 		if toolWrapW < 20 {
 			toolWrapW = 20
 		}
@@ -1786,31 +1861,31 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		// hangs under the elbow's stem at column 1, matching the
 		// `⎿` glyph's vertical leg position.
 		cont := " " + barStyle.Render("│") + " "
-		body := prefix + indentWithGlyph(rendered, glyphStyle.Render(glyph)+errTag, cont)
+		body := indentWithGlyph(rendered, workflowPrefix+glyphStyle.Render(glyph)+errTag, workflowPrefix+cont)
 		if hidden > 0 {
 			// P4: surface the Ctrl+E affordance with real weight — the
 			// previous faint-italic sat below users' radar. Key style
 			// matches the footer hints (Secondary + bold) so users pick
 			// up the pattern without having to remember a third
 			// affordance style.
-			prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			hintPrefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render(fmt.Sprintf("   [%d more lines · ", hidden))
 			keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 			suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render(" to expand]")
-			hint := prefix + keyStyle.Render("Ctrl+E") + suffix
-			body = body + "\n" + hint
+			hint := hintPrefix + keyStyle.Render("Ctrl+E") + suffix
+			body = body + "\n" + workflowPrefix + hint
 		} else if hasRawDetail {
 			label := "raw detail"
 			if provenance := promotedEvidenceLabel(p); provenance != "" {
 				label = provenance + " · raw detail"
 			}
-			prefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+			hintPrefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render("   [" + label + " · ")
 			keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 			suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
 				Render("]")
-			body = body + "\n" + prefix + keyStyle.Render("Ctrl+E") + suffix
+			body = body + "\n" + workflowPrefix + hintPrefix + keyStyle.Render("Ctrl+E") + suffix
 		}
 		return body
 
@@ -2284,6 +2359,9 @@ func toolCallSummary(p gact.Part) string {
 		} else if v, ok := p.Input["cmd"].(string); ok {
 			primary = v
 		}
+		if tool == "shell_bash" && primary != "" {
+			primary = summarizeShellCommandIntent(primary)
+		}
 	case "read", "read_file", "cat":
 		if v, ok := p.Input["path"].(string); ok {
 			primary = shortenPathForInline(v)
@@ -2310,9 +2388,74 @@ func toolCallSummary(p gact.Part) string {
 	return jsonOneLine(p.Input)
 }
 
+func summarizeShellCommandIntent(command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return ""
+	}
+	lower := strings.ToLower(command)
+	if dest := shellRedirectDestination(command); dest != "" {
+		switch {
+		case strings.Contains(lower, "cut "), strings.Contains(lower, "awk "), strings.Contains(lower, "sed "):
+			return "prepare " + shortenPathForInline(dest)
+		default:
+			return "write " + shortenPathForInline(dest)
+		}
+	}
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return "workspace command"
+	}
+	switch fields[0] {
+	case "date":
+		return "check date/time"
+	case "pwd":
+		return "check current folder"
+	case "head", "tail", "cat":
+		if path := lastShellPathToken(fields); path != "" {
+			return "preview " + shortenPathForInline(path)
+		}
+	case "python", "python3":
+		return "run Python analysis"
+	case "Rscript":
+		return "run R analysis"
+	case "mkdir":
+		return "create workspace folder"
+	case "rm":
+		return "remove workspace path"
+	}
+	return "workspace command"
+}
+
+func shellRedirectDestination(command string) string {
+	idx := strings.LastIndex(command, ">")
+	if idx < 0 || idx+1 >= len(command) {
+		return ""
+	}
+	rest := strings.TrimSpace(command[idx+1:])
+	rest = strings.TrimLeft(rest, "> ")
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(fields[0], `"'`)
+}
+
+func lastShellPathToken(fields []string) string {
+	for i := len(fields) - 1; i >= 0; i-- {
+		token := strings.Trim(fields[i], `"'`)
+		if strings.Contains(token, "/") || strings.Contains(token, ".") {
+			return token
+		}
+	}
+	return ""
+}
+
 func scientificToolCallSummary(tool string, input map[string]any) string {
 	keys := []string{}
 	switch {
+	case strings.Contains(tool, "geo_geocode") || strings.Contains(tool, "geocode"):
+		keys = []string{"query", "countrycodes", "limit"}
 	case strings.HasPrefix(tool, "ndp_search"):
 		keys = []string{"search_terms", "query", "limit", "server"}
 	case strings.HasPrefix(tool, "ndp_list"):
@@ -2892,11 +3035,23 @@ func humanizeStructuredKey(key string) string {
 }
 
 func expertHandoffOutputSummary(p gact.Part) string {
+	if expertHandoffStarted(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["status"])) {
+		startOutputs := []string{
+			summarizeExpertHandoffInput(stringValue(p.Metadata["input_summary"])),
+			summarizeExpertHandoffInput(stringValue(p.Metadata["input"])),
+		}
+		if output := bestExpertHandoffSummary(startOutputs); output != "" {
+			return output
+		}
+	}
 	if local := summarizeExpertHandoffOutput(stringValue(p.Metadata["local_output_summary"])); local != "" &&
 		!strings.Contains(strings.ToLower(local), "state:") {
 		return attachWorkflowStateSummary(local, p)
 	}
 	outputs := []string{
+		stringValue(p.Metadata["return_output_summary"]),
+		stringValue(p.Metadata["result_summary"]),
+		stringValue(p.Metadata["observation_summary"]),
 		stringValue(p.Metadata["output_summary"]),
 		stringValue(p.Metadata["summary"]),
 		expertHandoffErrorSummary(p.Metadata["error"]),
@@ -2904,6 +3059,30 @@ func expertHandoffOutputSummary(p gact.Part) string {
 	}
 	output := bestExpertHandoffSummary(outputs)
 	return attachWorkflowStateSummary(output, p)
+}
+
+func summarizeExpertHandoffInput(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return ""
+	}
+	for _, marker := range []string{
+		"Parent evidence available for this delegated task:",
+		"CLIO typed workflow state:",
+		"CLIO durable typed workflow state:",
+		"Retained typed workflow state:",
+	} {
+		if idx := indexFold(input, marker); idx > 0 {
+			input = strings.TrimSpace(input[:idx])
+		}
+	}
+	return input
+}
+
+func expertHandoffStarted(stage string, status string) bool {
+	stage = strings.ToLower(strings.TrimSpace(stage))
+	status = strings.ToLower(strings.TrimSpace(status))
+	return strings.Contains(stage, "started") || status == "running"
 }
 
 func attachWorkflowStateSummary(output string, p gact.Part) string {
@@ -2917,6 +3096,9 @@ func attachWorkflowStateSummary(output string, p gact.Part) string {
 	if output == "" {
 		return workflowStateBlockFromSummary(workflowSummary)
 	}
+	if expertHandoffOutputIsRich(output) {
+		return output
+	}
 	if strings.Contains(output, workflowSummary) {
 		return output
 	}
@@ -2927,6 +3109,32 @@ func attachWorkflowStateSummary(output string, p gact.Part) string {
 		return output + "\n" + stateBlock
 	}
 	return output
+}
+
+func expertHandoffOutputIsRich(output string) bool {
+	text := strings.TrimSpace(output)
+	if text == "" {
+		return false
+	}
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "state:") || strings.Contains(lower, "workflow_state") {
+		return false
+	}
+	if looksLikeMarkdownBlock(expandInlineMarkdownTables(text)) {
+		return true
+	}
+	if strings.Count(text, "\n") >= 2 {
+		return true
+	}
+	for _, token := range []string{
+		"staged", "selected", "station", "artifact", "plot", "resource",
+		"resolved", "profile", "coverage", "provenance", "trust", "limitation",
+	} {
+		if strings.Contains(lower, token) {
+			return true
+		}
+	}
+	return len(text) > 180
 }
 
 func formattedWorkflowStateSummary(text string) bool {
@@ -3136,6 +3344,10 @@ func capitalizeToolName(name string) string {
 func toolDisplayName(name string) string {
 	tool := strings.ToLower(strings.TrimSpace(name))
 	switch {
+	case strings.Contains(tool, "geo_geocode") || strings.Contains(tool, "geocode"):
+		return "Geocode location"
+	case tool == "shell_bash":
+		return "Shell command"
 	case strings.HasPrefix(tool, "sac_discover_earthscope"):
 		return "EarthScope waveform discovery"
 	case strings.Contains(tool, "sac_compute") && strings.Contains(tool, "stat"):

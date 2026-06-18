@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -230,7 +231,7 @@ func TestNormalizeMessageToolEvidenceInsertsBeforeFinalText(t *testing.T) {
 		t.Fatalf("tool result should prefer stdout text, got %q", got)
 	}
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
-	toolIdx := strings.Index(out, "ShellBash")
+	toolIdx := strings.Index(out, "Shell command")
 	resultIdx := strings.Index(out, "Saturday, May 23")
 	answerIdx := strings.Index(out, "It is 3 PM.")
 	if toolIdx < 0 || resultIdx < 0 || answerIdx < 0 || !(toolIdx < resultIdx && resultIdx < answerIdx) {
@@ -1075,6 +1076,161 @@ Retained typed workflow state:
 	}
 }
 
+func TestRenoEarthScopeWorkflowRendersAgentProseAndSemanticTools(t *testing.T) {
+	parts := []gact.Part{
+		{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "main delegated sync work to geospatial.",
+			Metadata: map[string]any{
+				"agent_id":  "geospatial",
+				"parent_id": "main",
+				"stage":     "delegate.started",
+				"status":    "running",
+				"input":     "Resolve \"Reno, Nevada\" into grounded coordinates and define a search radius for EarthScope GNSS station discovery.\n\nParent evidence available for this delegated task:\n\nThe user asked for the nearest station and plot.",
+			},
+		},
+		gact.Part{
+			Type:          gact.PartTypeRoutingDecision,
+			SelectedAgent: "geo",
+			Rationale:     "The geospatial expert can resolve Reno before station ranking.",
+			Metadata:      map[string]any{"parent_id": "orchestrator"},
+		},
+		{
+			Type:     gact.PartTypeToolCall,
+			CallID:   "geo_1",
+			ToolName: "geo_geocode",
+			Input: map[string]any{
+				"query":        "Reno, Nevada",
+				"countrycodes": "us",
+				"limit":        1.0,
+			},
+			Metadata: map[string]any{"status": "running", "agent_id": "geo", "parent_id": "geospatial"},
+		},
+		{
+			Type:     gact.PartTypeToolResult,
+			CallID:   "geo_1",
+			ToolName: "geo_geocode",
+			Metadata: map[string]any{"agent_id": "geo", "parent_id": "geospatial"},
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: "[{'display_name': 'Reno, Washoe County, Nevada, United States', 'lat': 39.5261788, 'lon': -119.812658, 'bbox': [-120.002317, 39.392426, -119.6912347, 39.723436], 'type': 'administrative', 'importance': 0.61651822736575, 'provenance': 'osm_nominatim'}]",
+			}},
+		},
+		{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "geospatial returned a compact result to main.",
+			Metadata: map[string]any{
+				"agent_id":       "geospatial",
+				"parent_id":      "main",
+				"stage":          "delegate.completed",
+				"status":         "completed",
+				"duration_ms":    11684.0,
+				"output_summary": "Resolved Region (Reno, Nevada)\n\n- Center: 39.5261788, -119.812658\n- Radius: 50km\n- Confidence: high\n\nCLIO typed workflow state:\n\nRetained typed workflow state:\n{\"workflow_state\":{\"geospatial\":{\"center_lat\":39.5261788,\"center_lon\":-119.812658,\"radius_km\":50,\"status\":\"resolved\"}}}",
+			},
+		},
+		{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "main delegated sync work to data.",
+			Metadata: map[string]any{
+				"agent_id":      "data",
+				"parent_id":     "main",
+				"stage":         "delegate.started",
+				"status":        "running",
+				"input_summary": "Using the resolved Reno region, discover EarthScope GNSS station resources, rank the nearest station, stage the CSV, and keep enough evidence for plotting east, north, and up displacement.",
+			},
+		},
+		{
+			Type:     gact.PartTypeToolCall,
+			CallID:   "ndp_1",
+			ToolName: "ndp_search_datasets",
+			Metadata: map[string]any{"agent_id": "ndp_dataset_discovery", "parent_id": "data"},
+			Input: map[string]any{
+				"search_terms": "earthscope, converted",
+				"limit":        10.0,
+			},
+		},
+		{
+			Type:     gact.PartTypeToolResult,
+			CallID:   "ndp_1",
+			ToolName: "ndp_search_datasets",
+			Metadata: map[string]any{"agent_id": "ndp_dataset_discovery", "parent_id": "data"},
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: `{"status":"success","count":1}`,
+			}},
+		},
+		{
+			Type:     gact.PartTypeToolCall,
+			CallID:   "shell_1",
+			ToolName: "shell_bash",
+			Metadata: map[string]any{"agent_id": "utility", "parent_id": "data"},
+			Input: map[string]any{
+				"command": "cut -d, -f1-3 '/home/jcernuda/demo-clio/earthscope_converted_data.csv' > '/home/jcernuda/demo-clio/earthscope_stations_clean.csv'",
+			},
+		},
+		{
+			Type:     gact.PartTypeToolResult,
+			CallID:   "shell_1",
+			ToolName: "shell_bash",
+			Metadata: map[string]any{"agent_id": "utility", "parent_id": "data"},
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: `{"exit_code":0}`,
+			}},
+		},
+		{
+			Type: gact.PartTypeExpertHandoff,
+			Text: "data returned a compact result to main.",
+			Metadata: map[string]any{
+				"agent_id":       "data",
+				"parent_id":      "main",
+				"stage":          "delegate.completed",
+				"status":         "completed",
+				"output_summary": "The EarthScope GNSS data acquisition for the Reno region is complete.\n\n- **Resolved Region**: Reno (Center: 39.5261788, -119.812658; Radius: 50km).\n- **Station Selection**: nearest candidate selected from the staged station catalog.\n- **Staged Resource**: a concrete time-series CSV has been staged for analysis.\n\nCLIO typed workflow state:\n\nRetained typed workflow state:\n{\"workflow_state\":{\"acquisition\":{\"status\":\"staged\",\"local_path\":\"/home/jcernuda/demo-clio/RENO.csv\"},\"station_catalog\":{\"candidate_count\":12,\"status\":\"ranked\"}}}",
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderPartsForRoleWithResultsSelected(parts, 140, gact.RoleAssistant, nil, ""))
+	if exportPath := strings.TrimSpace(os.Getenv("GACT_TUI_RENO_RENDER_AUDIT_OUT")); exportPath != "" {
+		if err := os.WriteFile(exportPath, []byte(out+"\n"), 0o644); err != nil {
+			t.Fatalf("write render audit: %v", err)
+		}
+	}
+	for _, want := range []string{
+		"main handed work to geospatial",
+		"Resolve \"Reno, Nevada\" into grounded coordinates",
+		"orchestrator selected geo",
+		"Geocode location",
+		"Reno, Washoe County, Nevada, United States",
+		"center: 39.5261788, -119.812658",
+		"geospatial returned evidence to main",
+		"Resolved Region (Reno, Nevada)",
+		"main handed work to data",
+		"discover EarthScope GNSS station resources",
+		"NDP catalog search",
+		"Shell command(prepare",
+		"data returned evidence to main",
+		"The EarthScope GNSS data acquisition for the Reno region is complete.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("Reno workflow render missing %q:\n%s", want, out)
+		}
+	}
+	for _, bad := range []string{
+		"GeoGeocode({",
+		"[{'display_name'",
+		"cut -d, -f1-3",
+		"workflow_state",
+		"Retained typed workflow state",
+		"CLIO typed workflow state",
+	} {
+		if strings.Contains(out, bad) {
+			t.Fatalf("Reno workflow render leaked %q:\n%s", bad, out)
+		}
+	}
+}
+
 func TestExpertHandoffRendersMarkdownTableSummary(t *testing.T) {
 	summary := `## EarthScope GNSS check
 
@@ -1806,7 +1962,7 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 				"sample_rate_hz": 100.0,
 				"duration_s":     40.0,
 			},
-			want: []string{"sac result:", "station: SALTON", "channel: BHZ", "sample_rate_hz: 100"},
+			want: []string{"SAC evidence:", "station: SALTON", "channel: BHZ", "sample_rate_hz: 100"},
 		},
 		{
 			name: "sac plot",
@@ -1824,7 +1980,7 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 				"_meta": map[string]any{"status": "success"},
 			},
 			want: []string{
-				"sac result:",
+				"SAC evidence:",
 				"status: success",
 				"artifact: .../charts/sac_traces_Pachhai_etal_2023_ScP_data.png",
 				"sac_trace_count: 11260",
@@ -1850,7 +2006,7 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 				"_meta":        map[string]any{"status": "success"},
 			},
 			want: []string{
-				"sac result:",
+				"SAC evidence:",
 				"status: success",
 				"trace_count: 1",
 				"event_count: 4",
@@ -1882,7 +2038,7 @@ func TestSummarizeDetachedSACResultWithoutToolName(t *testing.T) {
 	raw := `{"_meta":{"status":"success"},"archive_path":"/home/jcernuda/.local/share/clio/clio-agent/tmp/clio-seismic-staging/earthscope_CI_BAR_--_BHZ_2026-05-29T021201.sac","network":"CI","station":"BAR","location":"--","channel":"BHZ","trace_count":1,"event_count":4,"start_time":"2026-05-29T02:12:01Z"}`
 	got := summarizeToolResultText("", raw)
 	for _, want := range []string{
-		"sac result:",
+		"SAC evidence:",
 		"status: success",
 		"trace_count: 1",
 		"event_count: 4",

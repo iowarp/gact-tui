@@ -8498,14 +8498,23 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 	nested := mapValue(payload["payload"])
 	provider := mapValue(payload["provider"])
 	refs := semanticWorkflowRefs(payload, eventType)
+	userSummary := semanticUserSummary(payload, eventType)
 	md := map[string]any{
 		"agent_id":       refs.agent,
 		"parent_id":      refs.parent,
 		"status":         refs.status,
 		"stage":          refs.stage,
-		"summary":        semanticUserSummary(payload, eventType),
-		"output_summary": semanticUserSummary(payload, eventType),
+		"summary":        userSummary,
+		"output_summary": userSummary,
 	}
+	copySemanticTextField(md, "input", payload, nested)
+	copySemanticTextField(md, "input_summary", payload, nested)
+	copySemanticTextField(md, "output_summary", payload, nested)
+	copySemanticTextField(md, "local_output_summary", payload, nested)
+	copySemanticTextField(md, "return_output_summary", payload, nested)
+	copySemanticTextField(md, "return_summary", payload, nested)
+	copySemanticTextField(md, "result_summary", payload, nested)
+	copySemanticTextField(md, "observation_summary", payload, nested)
 	if duration, ok := floatValue(nested["duration_ms"]); ok {
 		md["duration_ms"] = duration
 	} else if duration, ok := floatValue(payload["duration_ms"]); ok {
@@ -8547,6 +8556,14 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 		md["agent_id"] = firstNonEmpty(eventType, "workflow")
 	}
 	return md
+}
+
+func copySemanticTextField(dst map[string]any, key string, payload map[string]any, nested map[string]any) {
+	text := firstNonEmpty(stringValue(nested[key]), stringValue(payload[key]))
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	dst[key] = text
 }
 
 type semanticWorkflowRef struct {

@@ -548,7 +548,7 @@ func summarizeSACResult(result map[string]any) string {
 	if len(rows) == 0 {
 		return ""
 	}
-	rows = append([]string{"sac result:"}, rows...)
+	rows = append([]string{"SAC evidence:"}, rows...)
 	return strings.Join(rows, "\n")
 }
 

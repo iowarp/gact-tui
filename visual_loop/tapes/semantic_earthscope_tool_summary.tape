@@ -14,10 +14,9 @@ Wait+Screen /EarthScope/
 Screenshot "visual_loop/screenshots/semantic_earthscope_tool_thinking.png"
 Wait+Screen /EarthScope waveform discovery/
 Screenshot "visual_loop/screenshots/semantic_earthscope_tool_started.png"
-Wait+Screen /sac result:/
 Wait+Screen /CI/
 Wait+Screen /BAR/
-Wait+Screen /earthscope_CI_BAR/
+Wait+Screen /SAC trace is staged/
 Screenshot "visual_loop/screenshots/semantic_earthscope_tool_summary.png"
 Wait+Screen /session: seeded session 1 .* idle/
 Screenshot "visual_loop/screenshots/semantic_earthscope_tool_final.png"
