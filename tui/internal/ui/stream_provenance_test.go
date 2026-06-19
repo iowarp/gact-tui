@@ -157,9 +157,9 @@ func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
 			"session_id":   "s1",
 			"turn_id":      "turn_1",
 			"trace_id":     "trace_1",
-			"event_type":   "agent.invocation.started",
-			"status":       "running",
-			"summary":      "Agent data started.",
+			"event_type":   "agent.invocation.completed",
+			"status":       "completed",
+			"summary":      "Agent data completed.",
 			"detail_level": "semantic",
 			"actor":        map[string]any{"agent": "data"},
 		}},
@@ -169,12 +169,119 @@ func TestApplySemanticEventAddsLiveTimelinePart(t *testing.T) {
 		t.Fatalf("messages = %#v", a.messages)
 	}
 	part := a.messages[0].Parts[0]
-	if part.Type != gact.PartTypeExpertHandoff || part.Text != "Agent data started." || part.Metadata["agent_id"] != "data" {
+	if part.Type != gact.PartTypeExpertHandoff || part.Text != "Agent data completed." || part.Metadata["agent_id"] != "data" {
 		t.Fatalf("semantic part = %#v", part)
 	}
 	if part.Metadata["semantic_event"] != true || part.Metadata["trace_id"] != "trace_1" {
 		t.Fatalf("semantic metadata = %#v", part.Metadata)
 	}
+}
+
+func TestApplySemanticTrajectoryEventsProjectIntoTranscript(t *testing.T) {
+	a := New("http://unused")
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+
+	base := map[string]any{
+		"schema_version": "clio.semantic_event.v1",
+		"session_id":     "s1",
+		"turn_id":        "turn_1",
+		"trace_id":       "trace_1",
+		"actor":          map[string]any{"agent_id": "ndp_dataset_discovery", "role": "expert"},
+	}
+	started := cloneMap(base)
+	started["event_id"] = "expert_started_1"
+	started["event_type"] = "expert.lifecycle.started"
+	started["status"] = "running"
+	started["summary"] = "expert ndp_dataset_discovery started"
+	started["payload"] = map[string]any{
+		"expert_id":      "ndp_dataset_discovery",
+		"expert_span_id": "expert_span_1",
+		"input":          map[string]any{"question": "Find EarthScope metadata."},
+	}
+	a.applySSE(client.SSEEvent{ID: "1", Type: "semantic.event", Payload: map[string]any{"payload": started}})
+
+	step := cloneMap(base)
+	step["event_id"] = "react_step_1"
+	step["event_type"] = "react.step.completed"
+	step["status"] = "completed"
+	step["summary"] = "ndp_dataset_discovery ReAct step 0: ndp_search_datasets"
+	step["parent_span_id"] = "expert_span_1"
+	step["payload"] = map[string]any{
+		"expert_id":      "ndp_dataset_discovery",
+		"expert_span_id": "expert_span_1",
+		"step_span_id":   "step_span_1",
+		"step_index":     0,
+		"thought":        "I should search NDP for EarthScope GNSS metadata before staging a resource.",
+		"tool_name":      "ndp_search_datasets",
+		"tool_args":      map[string]any{"query": "earthscope gnss"},
+		"observation":    map[string]any{"count": 1},
+	}
+	a.applySSE(client.SSEEvent{ID: "2", Type: "semantic.event", Payload: map[string]any{"payload": step}})
+
+	extract := cloneMap(base)
+	extract["event_id"] = "expert_extract_1"
+	extract["event_type"] = "expert.extract.completed"
+	extract["status"] = "completed"
+	extract["summary"] = "expert ndp_dataset_discovery completed"
+	extract["parent_span_id"] = "expert_span_1"
+	extract["payload"] = map[string]any{
+		"expert_id":      "ndp_dataset_discovery",
+		"expert_span_id": "expert_span_1",
+		"output":         "The EarthScope station metadata catalog has been staged.",
+		"step_count":     1,
+		"structured": map[string]any{
+			"workflow_state": map[string]any{
+				"catalog": map[string]any{"status": "metadata_found"},
+			},
+		},
+	}
+	a.applySSE(client.SSEEvent{ID: "3", Type: "semantic.event", Payload: map[string]any{"payload": extract}})
+
+	if len(a.messages) != 1 || len(a.messages[0].Parts) != 3 {
+		t.Fatalf("semantic trajectory parts = %#v", a.messages)
+	}
+	if a.messages[0].Parts[0].Metadata["transcript_hidden"] != true {
+		t.Fatalf("lifecycle part should stay in state but be hidden from transcript: %#v", a.messages[0].Parts[0])
+	}
+	if a.messages[0].Parts[1].Type != gact.PartTypeThinking || a.messages[0].Parts[1].Metadata["semantic_react_step"] != true {
+		t.Fatalf("react step part = %#v", a.messages[0].Parts[1])
+	}
+	out := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 120))
+	for _, want := range []string{
+		"ndp_dataset_discovery",
+		"thinking available",
+		"Ctrl+E",
+		"The EarthScope station metadata catalog has been staged.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("semantic trajectory render missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "I should search NDP for EarthScope GNSS metadata") {
+		t.Fatalf("normal transcript should not inline full ReAct thought:\n%s", out)
+	}
+	var thoughtLine string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "thinking available") {
+			thoughtLine = line
+			break
+		}
+	}
+	if !strings.HasPrefix(thoughtLine, "      ") {
+		t.Fatalf("semantic thinking row should be nested under expert timeline, line=%q\n%s", thoughtLine, out)
+	}
+	if strings.Contains(out, "expert ndp_dataset_discovery started") {
+		t.Fatalf("hidden lifecycle scaffolding leaked into transcript:\n%s", out)
+	}
+}
+
+func cloneMap(values map[string]any) map[string]any {
+	cloned := make(map[string]any, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func TestApplyNotificationSSESurfacesGlobalEventsWithoutSessionID(t *testing.T) {
@@ -513,8 +620,8 @@ func TestSemanticLiveMessageLabelsToolProgressAsAssistantTurn(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "● ASSISTANT") {
-		t.Fatalf("semantic live transcript should stay inside the assistant turn:\n%s", out)
+	if strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("semantic live transcript should not create a second assistant header:\n%s", out)
 	}
 	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
 		t.Fatalf("semantic live transcript should not create a separate pseudo-role:\n%s", out)
@@ -546,8 +653,8 @@ func TestSemanticLiveMessageLabelsMixedWorkflowProgress(t *testing.T) {
 	}
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 90, nil))
-	if !strings.Contains(out, "● ASSISTANT") {
-		t.Fatalf("mixed semantic live transcript should stay inside the assistant turn:\n%s", out)
+	if strings.Contains(out, "● ASSISTANT") {
+		t.Fatalf("mixed semantic live transcript should not create a second assistant header:\n%s", out)
 	}
 	if strings.Contains(out, "◆ TOOL ACTIVITY") || strings.Contains(out, "WORKFLOW ACTIVITY") {
 		t.Fatalf("mixed semantic live transcript should not create a separate pseudo-role:\n%s", out)
@@ -1087,6 +1194,9 @@ func TestApplySemanticEventFallsBackForBareAgentInvocation(t *testing.T) {
 	if part.Text != "main started." || part.Metadata["agent_id"] != "main" {
 		t.Fatalf("agent invocation fallback = %#v", part)
 	}
+	if part.Metadata["transcript_hidden"] != true {
+		t.Fatalf("agent invocation started should stay in state but be hidden from transcript: %#v", part)
+	}
 }
 
 func TestApplySemanticEventPrefersAgentRoutingSummaryOverGenericCompletion(t *testing.T) {
@@ -1620,7 +1730,7 @@ func TestApplySemanticEventReplacesCompactResultPlumbingWithNextAction(t *testin
 
 	out := ansi.Strip(DefaultTheme().renderPart(part, 120))
 	normalizedOut := strings.Join(strings.Fields(out), " ")
-	for _, want := range []string{"analysis returned evidence to main", "returned", "20353ms", "next: visualization", "plot SAC traces"} {
+	for _, want := range []string{"analysis returned evidence to main", "next: visualization", "plot SAC traces"} {
 		if !strings.Contains(normalizedOut, want) {
 			t.Fatalf("rendered timeline missing %q:\n%s", want, out)
 		}
@@ -1998,6 +2108,13 @@ func TestApplyToolCallEventsAddLiveToolPartsAndDeduplicateMirroredParts(t *testi
 	}
 	if a.messages[0].Parts[1].IsError {
 		t.Fatalf("explicit ok=true should not render as an error: %#v", a.messages[0].Parts[1])
+	}
+	out := ansi.Strip(DefaultTheme().renderMessage(a.messages[0], 120))
+	if strings.Contains(out, "running now") {
+		t.Fatalf("paired same-message tool result should clear running status:\n%s", out)
+	}
+	if !strings.Contains(out, "NDP catalog search") || !strings.Contains(out, "completed") {
+		t.Fatalf("paired tool call/result should still render useful evidence:\n%s", out)
 	}
 
 	a.messages = append(a.messages, gact.Message{ID: "msg_1", SessionID: "s1", Role: gact.RoleAssistant})

@@ -222,6 +222,13 @@ type App struct {
 	// equivalent runtime provenance.
 	semanticLiveMessagesBySession map[string][]gact.Message
 
+	// executionEventsBySession is the append-only receive-order ledger used
+	// to project CLIO's semantic highway and assistant deltas into one
+	// chronological execution transcript. The normal messages slice remains
+	// the compatibility/detail source.
+	executionEventsBySession map[string][]executionTimelineEvent
+	executionEventSeq        int
+
 	// connectRetryAttempts is the count of consecutive failed
 	// connectCmd dispatches. Same backoff schedule as the SSE
 	// reconnect; reset on connectedMsg.
@@ -714,6 +721,8 @@ type App struct {
 	// should be reloaded from scratch (e.g. /clear wiped the backend).
 	// The next Update reads + clears it and fires loadMessagesCmd.
 	pendingReload bool
+
+	audit *tuiAuditRecorder
 }
 
 // New constructs an App with the default (dark) theme.
@@ -767,6 +776,8 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		previouslyDetached:            map[string]bool{},
 		lastSeenSeqIDBySession:        map[string]uint64{},
 		semanticLiveMessagesBySession: map[string][]gact.Message{},
+		executionEventsBySession:      map[string][]executionTimelineEvent{},
+		audit:                         newTUIAuditRecorderFromEnv(),
 	}
 	app.initFileViewerFromCwd()
 	app.refreshLocalizedPlaceholders()
@@ -1001,12 +1012,20 @@ func loadMessagesCmd(c *client.Client, sessionID string) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err, stage: "messages"}
 		}
+		writeTUIAuditReceived("messages.loaded.raw", map[string]any{
+			"session_id": sessionID,
+			"messages":   msgs,
+		})
 		// Reverse so we have chronological (oldest-first) order for display.
 		out := make([]gact.Message, len(msgs))
 		for i, m := range msgs {
 			normalizeMessagePresentation(&m)
 			out[len(msgs)-1-i] = m
 		}
+		writeTUIAuditReceived("messages.loaded.normalized", map[string]any{
+			"session_id": sessionID,
+			"messages":   out,
+		})
 		return messagesLoadedMsg{sessionID: sessionID, messages: out}
 	}
 }
@@ -1137,9 +1156,15 @@ type sseConnectedMsg struct {
 	errs   <-chan error
 }
 
+type sseBatchMsg struct {
+	Events []client.SSEEvent
+}
+
 type sseOpenCanceledMsg struct {
 	sessionID string
 }
+
+const maxSSEBatchEvents = 128
 
 func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 	return func() tea.Msg {
@@ -1148,7 +1173,19 @@ func waitForSSE(events <-chan client.SSEEvent, errs <-chan error) tea.Cmd {
 			if !ok {
 				return sseClosedMsg{}
 			}
-			return sseEventMsg{Event: e}
+			batch := []client.SSEEvent{e}
+			for len(batch) < maxSSEBatchEvents {
+				select {
+				case next, ok := <-events:
+					if !ok {
+						return sseBatchMsg{Events: batch}
+					}
+					batch = append(batch, next)
+				default:
+					return sseBatchMsg{Events: batch}
+				}
+			}
+			return sseBatchMsg{Events: batch}
 		case err, ok := <-errs:
 			if !ok {
 				return sseClosedMsg{}
@@ -2164,63 +2201,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case sseEventMsg:
-		// Event arrival means the stream is healthy — reset the
-		// reconnect backoff so the NEXT disconnect waits 250 ms, not
-		// whatever the attempts counter had climbed to.
-		a.sseBackoffAttempts = 0
-		a.sseDownSince = time.Time{} // DDDDD1: clear outage clock
-		// Track the highest SeqID we've processed so a reconnect can
-		// resume via Last-Event-ID rather than silently dropping
-		// events published during the outage. Monotonic under normal
-		// operation; a max() guards against a late-arriving out-of-
-		// order event from a replay window not dragging us backwards.
-		if seq := m.Event.SeqID(); seq > a.lastSeenSeqID {
-			a.lastSeenSeqID = seq
-		}
-		if seq := m.Event.SeqID(); seq > 0 {
-			if sid := a.eventSessionID(m.Event); sid != "" {
-				if a.lastSeenSeqIDBySession == nil {
-					a.lastSeenSeqIDBySession = map[string]uint64{}
-				}
-				if seq > a.lastSeenSeqIDBySession[sid] {
-					a.lastSeenSeqIDBySession[sid] = seq
-				}
-			}
-		}
-		prevRunning := a.anySessionRunning()
-		prevStatus := a.currentStatus
-		a.applySSE(m.Event)
-		if a.sidebarHasEnabledModule(sidebarModuleFiles) {
-			a.refreshFileViewerFromWorkspace()
-		}
-		cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
-		// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled
-		// back to idle AND the backend has memory, refresh the cache
-		// stats. Piggy-backs on the status_changed event loop — one
-		// fetch per turn completion, no extra polling.
-		if a.caps.Capabilities.Memory &&
-			prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
-			cmds = append(cmds, memoryStatsScopedCmd(a.c, a.runtimeScope()))
-		}
-		if a.pendingSidebarRefresh && a.wsID != "" {
-			a.pendingSidebarRefresh = false
-			cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
-		}
-		if a.pendingReload {
-			a.pendingReload = false
-			if sid := a.currentSessionID(); sid != "" {
-				cmds = append(cmds, loadMessagesCmd(a.c, sid))
-			}
-		}
-		// Restart the spinner loop if this event flipped a session
-		// into a running state. The spinnerTickMsg handler drains
-		// itself when nothing's running, so idle→running needs to
-		// re-arm the tick; running→running is fine because the loop
-		// is still alive.
-		if !prevRunning && a.anySessionRunning() {
-			cmds = append(cmds, spinnerCmd())
-		}
-		return a, tea.Batch(cmds...)
+		return a, a.applySSEBatch([]client.SSEEvent{m.Event})
+
+	case sseBatchMsg:
+		return a, a.applySSEBatch(m.Events)
 
 	case sseClosedMsg:
 		// Stream ended (cancelled or remote closed). Wait per the
@@ -6282,10 +6266,13 @@ func (a *App) handleBodyKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "enter":
-		// ZZZZZZZZ1: Enter on body focus opens the floating detail
-		// view for the selected message — same code path as Ctrl+E,
-		// but mapped to the intuitive "Enter to open" convention
-		// (matches file pickers, list navigation, etc.).
+		// For projected execution, Enter answers "what is this
+		// transcript item?" with event/turn detail. Ctrl+E remains the
+		// produced-artifact expansion path. Legacy message parts keep
+		// their historical Enter expansion behavior below.
+		if a.openExecutionSemanticDetailForSelection() {
+			return a, nil
+		}
 		a.openDetailForSelection()
 		return a, nil
 	case "up", "k":
@@ -6898,6 +6885,16 @@ func (a *App) mergeContextFiles(files []gact.ContextFile) {
 // with top-level {type, occurred_at, payload}. The payload subobject carries
 // the actual event data, so handlers must read e.Payload["payload"][...].
 func (a *App) applySSE(e client.SSEEvent) {
+	if a.audit != nil {
+		a.audit.RecordReceived("sse."+firstNonEmpty(e.Type, "event"), e)
+		defer a.audit.RecordReceived("state.after_sse", map[string]any{
+			"session_id":     a.currentSessionID(),
+			"event_type":     e.Type,
+			"messages":       auditMessageStateSummary(a.messages),
+			"current_status": a.currentStatus,
+		})
+	}
+	a.recordExecutionSSE(e)
 	pl, _ := e.Payload["payload"].(map[string]any)
 	switch e.Type {
 	case "message.created":
@@ -7000,6 +6997,233 @@ func (a *App) applySSE(e client.SSEEvent) {
 			}
 		}
 	}
+}
+
+func (a *App) applySSEBatch(events []client.SSEEvent) tea.Cmd {
+	if len(events) == 0 {
+		return waitForSSE(a.sseEvents, a.sseErrs)
+	}
+	// Event arrival means the stream is healthy — reset the reconnect backoff
+	// so the NEXT disconnect waits 250 ms, not whatever the attempts counter
+	// had climbed to.
+	a.sseBackoffAttempts = 0
+	a.sseDownSince = time.Time{} // DDDDD1: clear outage clock
+
+	prevRunning := a.anySessionRunning()
+	prevStatus := a.currentStatus
+	for _, event := range events {
+		// Track the highest SeqID we've processed so a reconnect can resume via
+		// Last-Event-ID rather than silently dropping events published during an
+		// outage. Monotonic under normal operation; max() guards against a late
+		// replay event dragging us backwards.
+		if seq := event.SeqID(); seq > a.lastSeenSeqID {
+			a.lastSeenSeqID = seq
+		}
+		if seq := event.SeqID(); seq > 0 {
+			if sid := a.eventSessionID(event); sid != "" {
+				if a.lastSeenSeqIDBySession == nil {
+					a.lastSeenSeqIDBySession = map[string]uint64{}
+				}
+				if seq > a.lastSeenSeqIDBySession[sid] {
+					a.lastSeenSeqIDBySession[sid] = seq
+				}
+			}
+		}
+		a.applySSE(event)
+	}
+	if a.sidebarHasEnabledModule(sidebarModuleFiles) {
+		a.refreshFileViewerFromWorkspace()
+	}
+	cmds := []tea.Cmd{waitForSSE(a.sseEvents, a.sseErrs)}
+	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled back to idle
+	// AND the backend has memory, refresh the cache stats. Piggy-backs on the
+	// status_changed event loop — one fetch per turn completion, no extra
+	// polling.
+	if a.caps.Capabilities.Memory &&
+		prevStatus != a.currentStatus && a.currentStatus == gact.StatusIdle {
+		cmds = append(cmds, memoryStatsScopedCmd(a.c, a.runtimeScope()))
+	}
+	if a.pendingSidebarRefresh && a.wsID != "" {
+		a.pendingSidebarRefresh = false
+		cmds = append(cmds, reloadSessionsCmd(a.c, a.wsID))
+	}
+	if a.pendingReload {
+		a.pendingReload = false
+		if sid := a.currentSessionID(); sid != "" {
+			cmds = append(cmds, loadMessagesCmd(a.c, sid))
+		}
+	}
+	// Restart the spinner loop if this batch flipped a session into a running
+	// state. The spinnerTickMsg handler drains itself when nothing's running.
+	if !prevRunning && a.anySessionRunning() {
+		cmds = append(cmds, spinnerCmd())
+	}
+	return tea.Batch(cmds...)
+}
+
+func auditMessageStateSummary(messages []gact.Message) []map[string]any {
+	out := make([]map[string]any, 0, len(messages))
+	for _, msg := range messages {
+		row := map[string]any{
+			"id":         msg.ID,
+			"role":       msg.Role,
+			"part_count": len(msg.Parts),
+		}
+		if len(msg.Parts) > 0 {
+			part := msg.Parts[len(msg.Parts)-1]
+			row["last_part"] = map[string]any{
+				"id":            part.ID,
+				"type":          part.Type,
+				"text_len":      len(part.Text),
+				"call_id":       part.CallID,
+				"tool_name":     part.ToolName,
+				"metadata_keys": sortedAnyMapKeys(part.Metadata),
+			}
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+func (a *App) recordExecutionSSE(e client.SSEEvent) {
+	pl := eventPayload(e)
+	if len(pl) == 0 {
+		return
+	}
+	sid := a.replaySessionID(stringValue(pl["session_id"]))
+	if sid == "" {
+		sid = a.currentSessionID()
+	}
+	if sid == "" || a.shouldIgnoreSessionReplay(sid, e) {
+		return
+	}
+	record := executionTimelineEvent{
+		Sequence:  a.nextExecutionEventSeq(),
+		Type:      e.Type,
+		SessionID: sid,
+		Payload:   pl,
+	}
+	record.TurnID = a.executionTurnIDForSSERecord(e.Type, pl)
+	switch e.Type {
+	case "message.created":
+		if role := strings.TrimSpace(stringValue(pl["role"])); role == gact.RoleUser {
+			record.Type = "turn.user_message"
+			record.TurnID = firstNonEmpty(stringValue(pl["turn_id"]), stringValue(pl["id"]))
+		} else {
+			return
+		}
+	case "message.part.delta":
+		delta := mapValue(pl["delta"])
+		if strings.TrimSpace(stringValue(delta["text_append"])) == "" {
+			return
+		}
+	case "message.part.added":
+		partRaw := mapValue(pl["part"])
+		part := decodePart(partRaw)
+		record.Part = &part
+		switch part.Type {
+		case gact.PartTypeText:
+			if strings.TrimSpace(part.Text) == "" {
+				return
+			}
+		case gact.PartTypeExpertHandoff:
+		default:
+			return
+		}
+	case "semantic.event":
+		eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
+		switch eventType {
+		case "expert.lifecycle.started", "blueprint.delegation.started", "blueprint.delegation.completed", "expert.extract.completed", "react.step.completed", "tool.call.started", "tool.call.completed":
+			record.Type = eventType
+		default:
+			return
+		}
+	case "tool.call.started", "tool.call.completed":
+	default:
+		return
+	}
+	if a.executionEventsBySession == nil {
+		a.executionEventsBySession = map[string][]executionTimelineEvent{}
+	}
+	a.executionEventsBySession[sid] = append(a.executionEventsBySession[sid], record)
+}
+
+func (a *App) executionTurnIDForSSERecord(eventType string, pl map[string]any) string {
+	if turnID := strings.TrimSpace(stringValue(pl["turn_id"])); turnID != "" {
+		return turnID
+	}
+	switch eventType {
+	case "message.part.delta", "message.part.added", "message.part.completed":
+		if turnID := a.executionTurnIDForMessage(stringValue(pl["message_id"])); turnID != "" {
+			return turnID
+		}
+	}
+	return a.latestUserTurnIDForCurrentSession()
+}
+
+func messageTurnID(msg gact.Message) string {
+	if turnID := strings.TrimSpace(msg.TurnID); turnID != "" {
+		return turnID
+	}
+	if msg.Metadata != nil {
+		if turnID := strings.TrimSpace(stringValue(msg.Metadata["turn_id"])); turnID != "" {
+			return turnID
+		}
+	}
+	if msg.Role == gact.RoleUser {
+		return strings.TrimSpace(msg.ID)
+	}
+	return ""
+}
+
+func (a *App) executionTurnIDForMessage(messageID string) string {
+	messageID = strings.TrimSpace(messageID)
+	if messageID == "" {
+		return ""
+	}
+	for i, msg := range a.messages {
+		if msg.ID != messageID {
+			continue
+		}
+		if msg.Role == gact.RoleUser {
+			return messageTurnID(msg)
+		}
+		if turnID := messageTurnID(msg); turnID != "" {
+			return turnID
+		}
+		for j := i - 1; j >= 0; j-- {
+			if a.messages[j].Role == gact.RoleUser && sameSessionOrUnknown(a.messages[j].SessionID, msg.SessionID) {
+				return messageTurnID(a.messages[j])
+			}
+		}
+		return ""
+	}
+	return ""
+}
+
+func (a *App) latestUserTurnIDForCurrentSession() string {
+	sid := a.currentSessionID()
+	for i := len(a.messages) - 1; i >= 0; i-- {
+		msg := a.messages[i]
+		if msg.Role != gact.RoleUser {
+			continue
+		}
+		if sameSessionOrUnknown(msg.SessionID, sid) {
+			return messageTurnID(msg)
+		}
+	}
+	return ""
+}
+
+func sameSessionOrUnknown(a, b string) bool {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	return a == "" || b == "" || a == b
+}
+
+func (a *App) nextExecutionEventSeq() int {
+	a.executionEventSeq++
+	return a.executionEventSeq
 }
 
 func operatorNotificationTitle(title string) string {
@@ -7165,6 +7389,7 @@ func statusForTerminalStopReason(stopReason string) string {
 
 func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageCompactionSummaries(m)
+	normalizeMessageAdapterSections(m)
 	normalizeMessageExpertHandoffs(m)
 	normalizeMessageWorkflowState(m)
 	normalizeMessageReasoningLog(m)
@@ -7172,6 +7397,169 @@ func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessagePartialAnswerLabels(m)
 	normalizeMessageToolEvidence(m)
 	normalizeMessageRuntimeProvenance(m)
+}
+
+func normalizeMessageAdapterSections(m *gact.Message) {
+	if m == nil || m.Role != gact.RoleAssistant {
+		return
+	}
+	for i := 0; i < len(m.Parts); i++ {
+		part := m.Parts[i]
+		if part.Type != gact.PartTypeText || !strings.Contains(part.Text, "[[ ## ") {
+			continue
+		}
+		sections, ok := parseAdapterSections(part.Text)
+		if !ok {
+			continue
+		}
+		expanded := adapterSectionsToParts(part, sections)
+		if len(expanded) == 0 {
+			continue
+		}
+		next := make([]gact.Part, 0, len(m.Parts)-1+len(expanded))
+		next = append(next, m.Parts[:i]...)
+		next = append(next, expanded...)
+		next = append(next, m.Parts[i+1:]...)
+		m.Parts = next
+		i += len(expanded) - 1
+	}
+}
+
+type adapterSection struct {
+	name string
+	text string
+}
+
+func parseAdapterSections(text string) ([]adapterSection, bool) {
+	const open = "[[ ## "
+	const close = " ## ]]"
+	pos := 0
+	var sections []adapterSection
+	for {
+		startRel := strings.Index(text[pos:], open)
+		if startRel < 0 {
+			break
+		}
+		start := pos + startRel
+		nameStart := start + len(open)
+		nameEndRel := strings.Index(text[nameStart:], close)
+		if nameEndRel < 0 {
+			break
+		}
+		nameEnd := nameStart + nameEndRel
+		contentStart := nameEnd + len(close)
+		nextRel := strings.Index(text[contentStart:], open)
+		contentEnd := len(text)
+		if nextRel >= 0 {
+			contentEnd = contentStart + nextRel
+		}
+		name := strings.ToLower(strings.TrimSpace(text[nameStart:nameEnd]))
+		content := strings.TrimSpace(text[contentStart:contentEnd])
+		if name != "" {
+			sections = append(sections, adapterSection{name: name, text: content})
+		}
+		pos = contentEnd
+	}
+	return sections, len(sections) > 0
+}
+
+func adapterSectionsToParts(source gact.Part, sections []adapterSection) []gact.Part {
+	var parts []gact.Part
+	for _, section := range sections {
+		if adapterSectionIsEmpty(section.text) {
+			continue
+		}
+		partID := firstNonEmpty(source.ID, "adapter_text") + "_" + stableIDFragment(section.name)
+		switch section.name {
+		case "reasoning", "next_thought", "thought":
+			parts = append(parts, gact.Part{
+				ID:       partID,
+				Type:     gact.PartTypeThinking,
+				Thinking: section.text,
+				Metadata: adapterSectionMetadata(source, section.name),
+			})
+		case "answer", "final", "response":
+			parts = append(parts, gact.Part{
+				ID:       partID,
+				Type:     gact.PartTypeText,
+				Text:     section.text,
+				Metadata: adapterSectionMetadata(source, section.name),
+			})
+		case "workflow_state":
+			state, ok := parseWorkflowStateJSON(section.text)
+			if !ok || len(state) == 0 {
+				continue
+			}
+			summary := workflowStateSummary(state)
+			if summary == "" {
+				continue
+			}
+			md := adapterSectionMetadata(source, section.name)
+			md["workflow_state"] = state
+			md["workflow_summary"] = summary
+			md["output_summary"] = summary
+			parts = append(parts, gact.Part{
+				ID:       partID,
+				Type:     gact.PartTypeExpertHandoff,
+				Text:     "workflow state: " + summary,
+				Metadata: md,
+			})
+		case "evidence", "artifacts":
+			parts = append(parts, gact.Part{
+				ID:       partID,
+				Type:     gact.PartTypeText,
+				Text:     "### " + adapterSectionTitle(section.name) + "\n" + section.text,
+				Metadata: adapterSectionMetadata(source, section.name),
+			})
+		case "errors":
+			if strings.EqualFold(strings.Trim(section.text, ". "), "none") {
+				continue
+			}
+			parts = append(parts, gact.Part{
+				ID:       partID,
+				Type:     gact.PartTypeText,
+				Text:     "### Errors\n" + section.text,
+				Metadata: adapterSectionMetadata(source, section.name),
+			})
+		}
+	}
+	return parts
+}
+
+func adapterSectionTitle(name string) string {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "evidence":
+		return "Evidence"
+	case "artifacts":
+		return "Artifacts"
+	default:
+		return humanizeAgentLabel(name)
+	}
+}
+
+func adapterSectionMetadata(source gact.Part, section string) map[string]any {
+	md := map[string]any{
+		"synthetic_from":  "adapter_section_text",
+		"adapter_section": section,
+	}
+	for key, value := range source.Metadata {
+		md[key] = value
+	}
+	return md
+}
+
+func adapterSectionIsEmpty(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return true
+	}
+	normalized := strings.ToLower(strings.Trim(text, ". \n\t"))
+	switch normalized {
+	case "", "none", "null", "[]", "{}":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeMessageCompactionSummaries(m *gact.Message) {
@@ -7788,6 +8176,7 @@ func (a *App) applyPartAdded(e client.SSEEvent) {
 		return
 	}
 	part := decodePart(partRaw)
+	promoteMessagePartEventMetadata(&part, pl)
 	if part.Type == gact.PartTypeToolCall {
 		if part.Metadata == nil {
 			part.Metadata = map[string]any{}
@@ -8459,8 +8848,30 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 		return gact.Part{}, false
 	case strings.HasPrefix(eventType, "turn.") && !semanticEventIsFailure(eventType, status):
 		return gact.Part{}, false
+	case eventType == "agent.invocation.started" && !semanticEventIsFailure(eventType, status):
+		return hideTranscriptSemanticPart(gact.Part{
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     summary,
+			Metadata: metadata,
+		}), true
+	case eventType == "blueprint.delegation.started" && !semanticEventIsFailure(eventType, status):
+		return hideTranscriptSemanticPart(gact.Part{
+			Type:     gact.PartTypeExpertHandoff,
+			Text:     summary,
+			Metadata: metadata,
+		}), true
 	case eventType == "blueprint.delegation.parent_resumed":
 		return gact.Part{}, false
+	case eventType == "expert.lifecycle.started":
+		return hideTranscriptSemanticPart(semanticExpertLifecyclePart(payload, metadata)), true
+	case eventType == "react.step.completed":
+		part, ok := semanticReactStepPart(payload, metadata)
+		return part, ok
+	case eventType == "expert.extract.completed":
+		if semanticExtractOutputIsRedacted(payload) {
+			return gact.Part{}, false
+		}
+		return semanticExpertExtractPart(payload, metadata), true
 	case strings.HasPrefix(eventType, "blueprint.delegation."):
 		return gact.Part{
 			Type:     gact.PartTypeExpertHandoff,
@@ -8484,6 +8895,115 @@ func semanticEventPart(e client.SSEEvent, payload map[string]any, eventType stri
 	default:
 		return gact.Part{}, false
 	}
+}
+
+func hideTranscriptSemanticPart(part gact.Part) gact.Part {
+	if part.Metadata == nil {
+		part.Metadata = map[string]any{}
+	}
+	part.Metadata["transcript_hidden"] = true
+	return part
+}
+
+func semanticExpertLifecyclePart(payload map[string]any, metadata map[string]any) gact.Part {
+	nested := mapValue(payload["payload"])
+	expert := firstNonEmpty(stringValue(nested["expert_id"]), stringValue(metadata["agent_id"]), "expert")
+	metadata["agent_id"] = expert
+	metadata["stage"] = "expert.lifecycle.started"
+	metadata["expert_span_id"] = stringValue(nested["expert_span_id"])
+	if input := firstNonEmpty(stringValue(nested["input"]), stringValue(nested["question"])); input != "" {
+		if !semanticRedactedMarker(input) {
+			metadata["input"] = input
+		}
+	}
+	summary := firstNonEmpty(stringValue(payload["summary"]), "expert "+expert+" started")
+	return gact.Part{
+		Type:     gact.PartTypeExpertHandoff,
+		Text:     summary,
+		Metadata: metadata,
+	}
+}
+
+func semanticReactStepPart(payload map[string]any, metadata map[string]any) (gact.Part, bool) {
+	nested := mapValue(payload["payload"])
+	thought := strings.TrimSpace(stringValue(nested["thought"]))
+	if thought == "" {
+		thought = strings.TrimSpace(firstNonEmpty(stringValue(nested["result_summary"]), stringValue(payload["summary"])))
+	}
+	if thought == "" {
+		return gact.Part{}, false
+	}
+	expert := firstNonEmpty(stringValue(nested["expert_id"]), stringValue(metadata["agent_id"]), "expert")
+	metadata["agent_id"] = expert
+	metadata["stage"] = "react.step.completed"
+	metadata["semantic_react_step"] = true
+	metadata["expert_span_id"] = stringValue(nested["expert_span_id"])
+	metadata["step_span_id"] = stringValue(nested["step_span_id"])
+	if stepIndex, ok := firstNumericValue(nested, "step_index"); ok {
+		metadata["step_index"] = stepIndex
+	}
+	if isFinish, ok := nested["is_finish"].(bool); ok {
+		metadata["is_finish"] = isFinish
+	}
+	if toolName := stringValue(nested["tool_name"]); toolName != "" {
+		metadata["tool_name"] = toolName
+	}
+	if args := firstNonNil(nested["tool_args"], nested["args"]); args != nil {
+		metadata["tool_args"] = args
+	}
+	if observation := firstNonNil(nested["observation"], nested["result"]); observation != nil {
+		metadata["observation"] = observation
+	}
+	if resultSummary := firstNonEmpty(stringValue(nested["result_summary"]), stringValue(payload["summary"])); resultSummary != "" {
+		metadata["output_summary"] = resultSummary
+	}
+	return gact.Part{
+		Type:     gact.PartTypeThinking,
+		Thinking: thought,
+		Metadata: metadata,
+	}, true
+}
+
+func semanticExpertExtractPart(payload map[string]any, metadata map[string]any) gact.Part {
+	nested := mapValue(payload["payload"])
+	expert := firstNonEmpty(stringValue(nested["expert_id"]), stringValue(metadata["agent_id"]), "expert")
+	metadata["agent_id"] = expert
+	metadata["stage"] = "expert.extract.completed"
+	metadata["expert_span_id"] = stringValue(nested["expert_span_id"])
+	if stepCount, ok := firstNumericValue(nested, "step_count"); ok {
+		metadata["step_count"] = stepCount
+	}
+	if structured := mapValue(nested["structured"]); len(structured) > 0 {
+		metadata["structured"] = structured
+		if workflowState := mapValue(structured["workflow_state"]); len(workflowState) > 0 {
+			metadata["workflow_state"] = workflowState
+			metadata["workflow_summary"] = workflowStateSummary(workflowState)
+		}
+	}
+	output := strings.TrimSpace(stringValue(nested["output"]))
+	if output != "" && !semanticRedactedMarker(output) {
+		metadata["output_summary"] = output
+	} else if summary := semanticStructuredOutputSummary(nested, nested); summary != "" {
+		metadata["output_summary"] = summary
+	} else if summary := strings.TrimSpace(stringValue(payload["summary"])); summary != "" {
+		metadata["output_summary"] = summary
+	}
+	return gact.Part{
+		Type:     gact.PartTypeExpertHandoff,
+		Text:     firstNonEmpty(stringValue(metadata["output_summary"]), stringValue(payload["summary"]), "expert "+expert+" completed"),
+		Metadata: metadata,
+	}
+}
+
+func semanticExtractOutputIsRedacted(payload map[string]any) bool {
+	nested := mapValue(payload["payload"])
+	output := strings.TrimSpace(stringValue(nested["output"]))
+	return output == "" || semanticRedactedMarker(output)
+}
+
+func semanticRedactedMarker(text string) bool {
+	text = strings.TrimSpace(strings.ToLower(text))
+	return strings.HasPrefix(text, "[redacted]")
 }
 
 func semanticEventIsFailure(eventType, status string) bool {
@@ -8561,6 +9081,9 @@ func semanticWorkflowMetadata(payload map[string]any, eventType string) map[stri
 func copySemanticTextField(dst map[string]any, key string, payload map[string]any, nested map[string]any) {
 	text := firstNonEmpty(stringValue(nested[key]), stringValue(payload[key]))
 	if strings.TrimSpace(text) == "" {
+		return
+	}
+	if semanticRedactedMarker(text) {
 		return
 	}
 	dst[key] = text
@@ -8999,6 +9522,11 @@ func stripSemanticControlContracts(text string) string {
 		"DO_NOT_DELEGATE",
 		"DO_NOT_FINALIZE",
 		"continuation_contract=",
+		"CLIO typed workflow state:",
+		"CLIO durable typed workflow state:",
+		"Retained typed workflow state:",
+		"The workflow state is populated accordingly:",
+		"The workflow state now records",
 	}
 	for _, marker := range contractMarkers {
 		if idx := strings.Index(strings.ToUpper(text), strings.ToUpper(marker)); idx >= 0 {
@@ -9185,6 +9713,20 @@ func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
 	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+stringValue(e.Payload["occurred_at"]))
 }
 
+func promoteMessagePartEventMetadata(part *gact.Part, pl map[string]any) {
+	if part == nil {
+		return
+	}
+	for _, key := range []string{"turn_id", "stream_source"} {
+		if value := strings.TrimSpace(stringValue(pl[key])); value != "" {
+			if part.Metadata == nil {
+				part.Metadata = map[string]any{}
+			}
+			part.Metadata[key] = value
+		}
+	}
+}
+
 func eventPayload(e client.SSEEvent) map[string]any {
 	if pl, ok := e.Payload["payload"].(map[string]any); ok && len(pl) > 0 {
 		return pl
@@ -9247,6 +9789,12 @@ func (a *App) applyPartDelta(e client.SSEEvent) {
 				}
 				a.messages[i].Parts[j].Metadata["stream_source"] = v
 			}
+			if v := strings.TrimSpace(stringValue(pl["turn_id"])); v != "" {
+				if a.messages[i].Parts[j].Metadata == nil {
+					a.messages[i].Parts[j].Metadata = map[string]any{}
+				}
+				a.messages[i].Parts[j].Metadata["turn_id"] = v
+			}
 			if v, ok := pl["stream_fallback"].(map[string]any); ok && len(v) > 0 {
 				if a.messages[i].Parts[j].Metadata == nil {
 					a.messages[i].Parts[j].Metadata = map[string]any{}
@@ -9289,6 +9837,7 @@ func (a *App) applyPartCompleted(e client.SSEEvent) {
 				continue
 			}
 			p := &a.messages[i].Parts[j]
+			promoteMessagePartEventMetadata(p, pl)
 			if p.Type == gact.PartTypeToolCall && p.Metadata != nil {
 				if raw, ok := p.Metadata["raw_input"].(string); ok && raw != "" {
 					var parsed map[string]any
@@ -9401,6 +9950,17 @@ func (a *App) View() tea.View {
 	// user is looking at. Fallback is the bare "GACT" brand when no
 	// session is selected.
 	v.WindowTitle = a.windowTitle()
+	if a.audit != nil {
+		a.audit.RecordRendered(content, map[string]any{
+			"stage":          tuiAuditStageLabel(a.stage),
+			"session_id":     a.currentSessionID(),
+			"window_title":   v.WindowTitle,
+			"width":          a.width,
+			"height":         a.height,
+			"message_count":  len(a.messages),
+			"current_status": a.currentStatus,
+		})
+	}
 	a.finishTUIInteractionRender(time.Since(renderStarted))
 	return v
 }
@@ -11855,94 +12415,104 @@ func (a *App) renderBody(width, height int) string {
 		var rows []string
 		var hitBlocks []conversationPartHitBlock
 		fullLine := 0
-		// III1: pair tool_results to their tool_calls so each call's
-		// output renders directly under it. Tool messages whose entire
-		// payload was absorbed get skipped from standalone rendering
-		// (the role header would otherwise be empty noise).
-		inlineResults, absorbed := pairToolResults(a.messages)
-		lastModelLabel := ""
-		var prevRendered *gact.Message
-		for i, m := range a.messages {
-			if absorbed[i] {
-				continue
-			}
-			if !shouldRenderConversationMessage(m) {
-				continue
-			}
-			if isModelSwapMarker(m) {
-				if label := modelSwapMarkerLabel(m); label != "" {
+		hasProjectedExecution := a.currentSessionHasProjectedExecution()
+		if projected, ok := a.renderProjectedExecutionConversation(t, width-4); ok {
+			body = projected
+			a.registerConversationWheelHit(conversationH, width, permBanner != "")
+			body = a.scrollClip(body, conversationH, t)
+		} else {
+			// III1: pair tool_results to their tool_calls so each call's
+			// output renders directly under it. Tool messages whose entire
+			// payload was absorbed get skipped from standalone rendering
+			// (the role header would otherwise be empty noise).
+			inlineResults, absorbed := pairToolResults(a.messages)
+			lastModelLabel := ""
+			var prevRendered *gact.Message
+			for i, m := range a.messages {
+				if hasProjectedExecution && isSemanticLiveMessage(m) {
+					continue
+				}
+				if absorbed[i] {
+					continue
+				}
+				if !shouldRenderConversationMessage(m) {
+					continue
+				}
+				if isModelSwapMarker(m) {
+					if label := modelSwapMarkerLabel(m); label != "" {
+						lastModelLabel = label
+					}
+				} else if label := modelRefLabel(m); label != "" {
+					if lastModelLabel != "" && label != lastModelLabel {
+						rows = append(rows, t.renderModelSwapDivider(gact.Message{
+							Role: gact.RoleSystem,
+							Metadata: map[string]any{
+								"gact_tui_kind": modelSwapMarkerKind,
+								"label":         label,
+							},
+						}, width-4))
+					}
 					lastModelLabel = label
 				}
-			} else if label := modelRefLabel(m); label != "" {
-				if lastModelLabel != "" && label != lastModelLabel {
-					rows = append(rows, t.renderModelSwapDivider(gact.Message{
-						Role: gact.RoleSystem,
-						Metadata: map[string]any{
-							"gact_tui_kind": modelSwapMarkerKind,
-							"label":         label,
-						},
-					}, width-4))
+				// TTTTTTTTT1: pass the selected part ID so the per-block
+				// `▸ ` marker paints on the currently focused part. Only
+				// honoured on the selected message; empty string on every
+				// other row so unrelated messages render untouched.
+				selPartID := ""
+				if i == a.bodySelMsgIdx && a.focus == FocusBody {
+					selPartID = a.selectedPartID()
 				}
-				lastModelLabel = label
+				if len(rows) > 0 {
+					fullLine++
+				}
+				rendered := a.cachedConversationMessageRender(t, m, prevRendered, width-4, inlineResults[i], selPartID)
+				row := rendered.row
+				for _, block := range rendered.blocks {
+					block.msgIdx = i
+					block.fullStart += fullLine
+					hitBlocks = append(hitBlocks, block)
+				}
+				// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
+				// per user feedback: "i also dont see the value with the
+				// message selector and global turn selector rather just have
+				// the message selector". The per-block `▸ ` cursor from
+				// TTTTTTTTT1 is now the only selection indicator — single
+				// selector, clearer signal. Search-hit marker still paints
+				// (different colour + glyph, independent UX).
+				if m.ID != "" && m.ID == a.searchHitMessageID {
+					marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
+					row = prependGutter(row, marker)
+				}
+				rows = append(rows, row)
+				fullLine += rendered.lineCount
+				prevRendered = &a.messages[i]
 			}
-			// TTTTTTTTT1: pass the selected part ID so the per-block
-			// `▸ ` marker paints on the currently focused part. Only
-			// honoured on the selected message; empty string on every
-			// other row so unrelated messages render untouched.
-			selPartID := ""
-			if i == a.bodySelMsgIdx && a.focus == FocusBody {
-				selPartID = a.selectedPartID()
+			// Pending-turn indicator: when the session is running but the latest
+			// message hasn't produced any visible parts yet (e.g. user just
+			// pressed Enter and the assistant hasn't streamed a delta), show a
+			// "● thinking…" stub so the user knows the system isn't dead.
+			if a.shouldShowThinkingIndicator() {
+				thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
+					Render(a.spinnerChar()) + " " +
+					lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+						Render(a.localizer.t(msgConversationThinking, nil))
+				rows = append(rows, "", thinkLine)
 			}
-			if len(rows) > 0 {
-				fullLine++
+			body = strings.Join(rows, "\n")
+			// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
+			// flagged pendingPartScroll, find the ▸ marker in the full
+			// body and bump scrollOffset so it falls within the viewport
+			// (ideally at ~1/3 from top for context). Clear the flag so
+			// subsequent renders (e.g. SSE streaming a new message in)
+			// don't re-thrash the scroll.
+			if a.pendingPartScroll {
+				a.adjustScrollForSelectedPart(body, conversationH)
+				a.pendingPartScroll = false
 			}
-			rendered := a.cachedConversationMessageRender(t, m, prevRendered, width-4, inlineResults[i], selPartID)
-			row := rendered.row
-			for _, block := range rendered.blocks {
-				block.msgIdx = i
-				block.fullStart += fullLine
-				hitBlocks = append(hitBlocks, block)
-			}
-			// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
-			// per user feedback: "i also dont see the value with the
-			// message selector and global turn selector rather just have
-			// the message selector". The per-block `▸ ` cursor from
-			// TTTTTTTTT1 is now the only selection indicator — single
-			// selector, clearer signal. Search-hit marker still paints
-			// (different colour + glyph, independent UX).
-			if m.ID != "" && m.ID == a.searchHitMessageID {
-				marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
-				row = prependGutter(row, marker)
-			}
-			rows = append(rows, row)
-			fullLine += rendered.lineCount
-			prevRendered = &a.messages[i]
+			a.registerConversationWheelHit(conversationH, width, permBanner != "")
+			a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
+			body = a.scrollClip(body, conversationH, t)
 		}
-		// Pending-turn indicator: when the session is running but the latest
-		// message hasn't produced any visible parts yet (e.g. user just
-		// pressed Enter and the assistant hasn't streamed a delta), show a
-		// "● thinking…" stub so the user knows the system isn't dead.
-		if a.shouldShowThinkingIndicator() {
-			thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
-				Render(a.spinnerChar()) + " " +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-					Render(a.localizer.t(msgConversationThinking, nil))
-			rows = append(rows, "", thinkLine)
-		}
-		body = strings.Join(rows, "\n")
-		// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
-		// flagged pendingPartScroll, find the ▸ marker in the full
-		// body and bump scrollOffset so it falls within the viewport
-		// (ideally at ~1/3 from top for context). Clear the flag so
-		// subsequent renders (e.g. SSE streaming a new message in)
-		// don't re-thrash the scroll.
-		if a.pendingPartScroll {
-			a.adjustScrollForSelectedPart(body, conversationH)
-			a.pendingPartScroll = false
-		}
-		a.registerConversationWheelHit(conversationH, width, permBanner != "")
-		a.registerConversationPartHits(hitBlocks, body, conversationH, width, permBanner != "")
-		body = a.scrollClip(body, conversationH, t)
 	}
 	a.setConversationCopySnapshot(body, conversationH, width, permBanner != "")
 	body = a.renderConversationCopyDragHighlight(body)
@@ -11952,6 +12522,19 @@ func (a *App) renderBody(width, height int) string {
 		pieces = append(pieces, permBanner)
 	}
 	pieces = append(pieces, "", body)
+	if a.audit != nil {
+		a.audit.RecordConversation(lipgloss.JoinVertical(lipgloss.Left, pieces...), map[string]any{
+			"stage":             tuiAuditStageLabel(a.stage),
+			"session_id":        a.currentSessionID(),
+			"width":             width,
+			"height":            msgH,
+			"conversation_rows": conversationH,
+			"message_count":     len(a.messages),
+			"current_status":    a.currentStatus,
+			"scroll_offset":     a.scrollOffset,
+			"sticky_to_bottom":  a.stickyToBottom,
+		})
+	}
 	msgPane := msgStyle.Render(lipgloss.JoinVertical(lipgloss.Left, pieces...))
 	// CCCCC1: hard-fit to msgH (truncate AND pad). The previous
 	// clamp-only path let lipgloss render a short pane when content

@@ -343,6 +343,14 @@ func summarizeToolResult(toolName string, raw any) string {
 	if !ok {
 		return ""
 	}
+	if preview := strings.TrimSpace(stringValue(result["preview"])); preview != "" {
+		if text := summarizeJSONPreviewToolResult(toolName, preview); text != "" {
+			if truncated, ok := result["truncated"].(bool); ok && truncated {
+				text += "\n[raw detail truncated by backend]"
+			}
+			return text
+		}
+	}
 	if text := summarizeErrorResult(result); text != "" {
 		return text
 	}
@@ -398,6 +406,20 @@ func summarizeToolResult(toolName string, raw any) string {
 	}
 	if text := summarizeStructuredEvidenceResult(result); text != "" {
 		return text
+	}
+	return ""
+}
+
+func summarizeJSONPreviewToolResult(toolName string, preview string) string {
+	var parsed any
+	if err := json.Unmarshal([]byte(preview), &parsed); err != nil {
+		return ""
+	}
+	if text := summarizeToolResult(toolName, parsed); text != "" {
+		return text
+	}
+	if obj, ok := parsed.(map[string]any); ok {
+		return summarizeStructuredEvidenceResult(obj)
 	}
 	return ""
 }
@@ -601,8 +623,14 @@ func summarizeStatusRows(result map[string]any) []string {
 			rows = append(rows, "status: "+status)
 		}
 	}
-	if errText := firstStringValue(result, "error", "message"); errText != "" {
+	if errText := firstStringValue(result, "error"); errText != "" {
 		rows = append(rows, "error: "+errText)
+	} else if ok, hasOK := result["success"].(bool); hasOK && !ok {
+		if message := firstStringValue(result, "message"); message != "" {
+			rows = append(rows, "error: "+message)
+		}
+	} else if message := firstStringValue(result, "message"); message != "" {
+		rows = append(rows, "message: "+message)
 	}
 	return rows
 }
@@ -712,10 +740,10 @@ func appendSummaryItem(items []string, item any) []string {
 		}
 	case map[string]any:
 		name := firstNonEmpty(
-			firstStringValue(typed, "station", "station_id", "site", "site_id", "id", "name", "path", "column", "dataset", "variable", "title"),
+			firstStringValueFold(typed, "station", "station_id", "site", "site_id", "id", "name", "path", "column", "dataset", "variable", "title"),
 			"(unnamed)",
 		)
-		if dtype := firstStringValue(typed, "dtype", "type", "data_type"); dtype != "" {
+		if dtype := firstStringValueFold(typed, "dtype", "type", "data_type"); dtype != "" {
 			name += " " + dtype
 		}
 		if distance, ok := firstNumericValue(typed, "distance_km", "distance"); ok {
@@ -729,6 +757,30 @@ func appendSummaryItem(items []string, item any) []string {
 		}
 	}
 	return items
+}
+
+func firstStringValueFold(result map[string]any, keys ...string) string {
+	if len(result) == 0 {
+		return ""
+	}
+	for _, key := range keys {
+		if text := strings.TrimSpace(stringValue(result[key])); text != "" {
+			return text
+		}
+	}
+	lowerKeys := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		lowerKeys[strings.ToLower(strings.TrimSpace(key))] = true
+	}
+	for key, value := range result {
+		if !lowerKeys[strings.ToLower(strings.TrimSpace(key))] {
+			continue
+		}
+		if text := strings.TrimSpace(stringValue(value)); text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func summarizeNDPResult(result map[string]any) string {
@@ -831,10 +883,11 @@ func summarizeEvidenceCounts(result map[string]any) string {
 		label string
 		keys  []string
 	}{
-		{"input", []string{"input_count", "source_count", "total_count", "total"}},
-		{"matched", []string{"matched_count", "filtered_count", "match_count"}},
-		{"records", []string{"count", "record_count", "feature_count", "point_count"}},
+		{"input", []string{"input_count", "source_count", "total_count", "total", "total_points"}},
+		{"matched", []string{"matched_count", "filtered_count", "match_count", "within_radius_count"}},
+		{"records", []string{"count", "record_count", "feature_count", "point_count", "station_count", "candidate_count"}},
 		{"rows", []string{"rows", "row_count"}},
+		{"skipped", []string{"skipped_invalid", "skipped_count"}},
 	} {
 		if value, ok := firstNumericValue(result, pair.keys...); ok {
 			bits = append(bits, pair.label+": "+formatCompactFloat(value))

@@ -20,7 +20,7 @@ import type {
   ProviderDef,
   SlashCommandDef,
 } from '@clio/core';
-import type { RunningTool, StreamStats } from '../live.js';
+import type { ExecutionTranscriptEvent, RunningTool, StreamStats } from '../live.js';
 import { notifPrefs } from '../notif-prefs.js';
 import type { ModelOption, PermissionMode } from '../components/Composer.js';
 import type { BackendHandle } from '../App.js';
@@ -1655,6 +1655,7 @@ function LiveDriven(props: {
       }}
       onPinFile={pinFileToContext}
       semanticEvents={transcript.semanticEvents()}
+      executionEvents={transcript.executionEvents()}
       semanticEventsEnabled={
         !!props.backend.capabilities?.capabilities?.['x_clio_semantic_events']
       }
@@ -1804,6 +1805,9 @@ interface ChatLayoutProps {
   /** Read-only semantic execution trace for the active session (GAP 3) —
    * feeds the Inspector Timeline tab. */
   semanticEvents?: import('@clio/core').SemanticEventPayload[];
+  /** Transcript projection ledger: assistant deltas and semantic execution
+   * events in receive order. Shared by web and desktop. */
+  executionEvents?: ExecutionTranscriptEvent[];
   /** Capability gate for the semantic trace (x_clio_semantic_events). */
   semanticEventsEnabled?: boolean;
 }
@@ -3323,6 +3327,7 @@ function ChatLayout(props: ChatLayoutProps) {
               imagePartsSupported={
                 props.caps?.capabilities?.['multimodal_image_parts'] !== false
               }
+              executionEvents={props.executionEvents}
             />
             <Show when={props.streaming && props.messages.length > 0}>
               <div class="chat__typing" data-testid="chat-typing">

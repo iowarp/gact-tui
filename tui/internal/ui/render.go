@@ -373,6 +373,8 @@ func (t Theme) renderMessageInContextWithResultsSelected(m gact.Message, prev *g
 		body = lipgloss.JoinVertical(lipgloss.Left, body, evidence)
 	case body == "" && evidence != "":
 		body = evidence
+	case body == "" && isSemanticLiveMessage(m):
+		return ""
 	case body == "":
 		body = t.HintLabel.Render("(no parts)")
 	}
@@ -410,6 +412,8 @@ func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Mess
 		body = lipgloss.JoinVertical(lipgloss.Left, body, evidence)
 	case body == "" && evidence != "":
 		body = evidence
+	case body == "" && isSemanticLiveMessage(m):
+		return ""
 	case body == "":
 		body = t.HintLabel.Render("(no parts)")
 	}
@@ -435,6 +439,9 @@ func (t Theme) renderMessageInContextWithResults(m gact.Message, prev *gact.Mess
 }
 
 func shouldHideConversationHeader(m gact.Message, prev *gact.Message) bool {
+	if isSemanticLiveMessage(m) {
+		return true
+	}
 	if prev == nil {
 		return false
 	}
@@ -444,9 +451,6 @@ func shouldHideConversationHeader(m gact.Message, prev *gact.Message) bool {
 	if m.Role == gact.RoleTool &&
 		(prev.Role == gact.RoleTool ||
 			(prev.Role == gact.RoleAssistant && assistantCarriedToolCall(prev))) {
-		return true
-	}
-	if isSemanticLiveMessage(m) && prev.Role == gact.RoleAssistant {
 		return true
 	}
 	return false
@@ -694,11 +698,12 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 	// (e.g. a diff proposed without a preceding edit_file, or an
 	// edit_file that legitimately returns non-diff output).
 	editDiffByCall, suppressed := matchEditFileDiffs(parts)
+	pairedResults, pairedResultIndexes := pairedToolResultsInParts(parts, inlineResults)
 	duplicateSkip, duplicateNotice := compactDuplicateToolRuns(parts, inlineResults)
 
 	var rows []string
-	for _, p := range parts {
-		if suppressed[p.ID] || duplicateSkip[p.ID] {
+	for i, p := range parts {
+		if partHiddenFromTranscript(p) || suppressed[p.ID] || duplicateSkip[p.ID] || pairedResultIndexes[i] {
 			continue
 		}
 		var rendered string
@@ -709,9 +714,9 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 			// Always render the call header (matches CC style where
 			// you see the tool name + path even when the body IS the
 			// diff).
-			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, pairedResults), width)
 		default:
-			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, pairedResults), width)
 		}
 		if rendered != "" {
 			if selectedPartID != "" && p.ID == selectedPartID {
@@ -734,8 +739,8 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 				// Skip the normal tool_result path for this call.
 				continue
 			}
-			if inlineResults != nil {
-				if r, ok := inlineResults[p.CallID]; ok {
+			if pairedResults != nil {
+				if r, ok := pairedResults[p.CallID]; ok {
 					// AAAAAAAAAA1: thread the parent tool_name so
 					// grep / similar tools can take over the result
 					// layout (file:line gutter instead of raw text).
@@ -801,6 +806,7 @@ func (t Theme) conversationPartHitBlocks(m gact.Message, prev *gact.Message, wid
 
 func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string]gact.Part) []conversationPartHitBlock {
 	editDiffByCall, suppressed := matchEditFileDiffs(m.Parts)
+	pairedResults, pairedResultIndexes := pairedToolResultsInParts(m.Parts, inlineResults)
 	duplicateSkip, duplicateNotice := compactDuplicateToolRuns(m.Parts, inlineResults)
 	addr := addressablePartsOf(m)
 	addrByPart := make(map[int]int, len(addr))
@@ -810,7 +816,7 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 	row := 0
 	var blocks []conversationPartHitBlock
 	for i, p := range m.Parts {
-		if suppressed[p.ID] || duplicateSkip[p.ID] {
+		if partHiddenFromTranscript(p) || suppressed[p.ID] || duplicateSkip[p.ID] || pairedResultIndexes[i] {
 			continue
 		}
 		start := row
@@ -822,9 +828,9 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 		case m.Role == gact.RoleAssistant && p.Type == gact.PartTypeText && p.Text != "":
 			rendered = t.renderAssistantTextPart(p, width)
 		case p.Type == gact.PartTypeToolCall && p.ToolName == "edit_file":
-			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, pairedResults), width)
 		default:
-			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, inlineResults), width)
+			rendered = t.renderPart(toolCallWithResultStatusSuppressed(p, pairedResults), width)
 		}
 		if rendered != "" {
 			h := renderedStringLineCount(rendered)
@@ -849,8 +855,8 @@ func (t Theme) partHitBlocks(m gact.Message, width int, inlineResults map[string
 					height += h
 					row += h
 				}
-			} else if inlineResults != nil {
-				if r, ok := inlineResults[p.CallID]; ok {
+			} else if pairedResults != nil {
+				if r, ok := pairedResults[p.CallID]; ok {
 					rr := t.renderToolResultForTool(r, width, p.ToolName)
 					if rr != "" {
 						resultStart := row
@@ -1131,6 +1137,11 @@ func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) 
 	if !p.IsError {
 		if summary := summarizeToolResultText(toolName, flattenToolResult(p)); summary != "" {
 			preview := p
+			rawText := flattenToolResult(p)
+			if strings.TrimSpace(summary) != strings.TrimSpace(rawText) {
+				preview.Metadata = clonePartMetadata(preview.Metadata)
+				preview.Metadata["raw_result"] = rawText
+			}
 			preview.Content = []gact.Part{{
 				Type: gact.PartTypeText,
 				Text: summary,
@@ -1139,6 +1150,14 @@ func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) 
 		}
 	}
 	return t.renderPart(p, width)
+}
+
+func clonePartMetadata(metadata map[string]any) map[string]any {
+	clone := make(map[string]any, len(metadata)+1)
+	for key, value := range metadata {
+		clone[key] = value
+	}
+	return clone
 }
 
 func summarizeToolResultText(toolName string, rawText string) string {
@@ -1454,6 +1473,33 @@ func renderAgentHandoffNarrative(t Theme, parent, agent, stage, status string, f
 	return renderAgentName(t, "expert")
 }
 
+func (t Theme) renderSemanticReactThought(p gact.Part, width int) string {
+	thought := strings.TrimSpace(p.Thinking)
+	if thought == "" {
+		return ""
+	}
+	agent := firstNonEmpty(stringValue(p.Metadata["agent_id"]), "expert")
+	stepLabel := "step"
+	if step, ok := firstNumericValue(p.Metadata, "step_index"); ok {
+		stepLabel = fmt.Sprintf("step %.0f", step)
+	}
+	if toolName := stringValue(p.Metadata["tool_name"]); toolName != "" {
+		stepLabel += " · " + toolDisplayName(toolName)
+	}
+	lines := strings.Count(thought, "\n") + 1
+	prefix := strings.Repeat("  ", clampWorkflowDepth(semanticReactStepDepth(agent, p.Metadata)+1))
+	glyph := lipgloss.NewStyle().Foreground(agentColor(t, agent)).Bold(true).Render("◦ ")
+	keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	meta := []string{
+		stepLabel,
+		fmt.Sprintf("thinking available · %d line%s", lines, pluralS(lines)),
+		keyStyle.Render("Ctrl+E"),
+	}
+	return prefix + glyph + renderAgentName(t, agent) +
+		lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+		lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
+}
+
 func expertHandoffDepth(parent, agent string, metadata map[string]any) int {
 	if metadata != nil {
 		if depth, ok := firstNumericValue(metadata, "depth", "tier"); ok {
@@ -1469,6 +1515,24 @@ func expertHandoffDepth(parent, agent string, metadata map[string]any) int {
 		return 1
 	}
 	return 2
+}
+
+func semanticReactStepDepth(agent string, metadata map[string]any) int {
+	if metadata != nil {
+		if depth, ok := firstNumericValue(metadata, "depth", "tier"); ok {
+			return clampWorkflowDepth(int(depth))
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "", "main", "orchestrator", "root", "default":
+		return 0
+	case "data", "geospatial", "analysis", "synthesis", "visualization", "station_network_analysis", "earthscope_station_catalog", "gnss_timeseries_analysis", "seismic_event_catalog":
+		return 1
+	}
+	if strings.Contains(agent, "_") {
+		return 2
+	}
+	return 1
 }
 
 func toolPartWorkflowPrefix(p gact.Part) string {
@@ -1534,6 +1598,15 @@ func markSelectedBlock(rendered string, t Theme) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+func (t Theme) renderToolDetailHint(label string) string {
+	text := "detail"
+	if strings.TrimSpace(label) != "" {
+		text += ": " + strings.TrimSpace(label)
+	}
+	text += " · Ctrl+E expand"
+	return lipgloss.NewStyle().Foreground(t.FgFaint).Render(text)
 }
 
 // glamourStyle is retained for backwards compat with any caller that
@@ -1604,6 +1677,10 @@ func standaloneToolHeaderLabel(parts []gact.Part) string {
 	return ""
 }
 
+func partHiddenFromTranscript(p gact.Part) bool {
+	return p.Metadata != nil && p.Metadata["transcript_hidden"] == true
+}
+
 func (t Theme) renderParts(parts []gact.Part, width int) string {
 	var rows []string
 	for _, p := range parts {
@@ -1616,6 +1693,9 @@ func (t Theme) renderParts(parts []gact.Part, width int) string {
 }
 
 func (t Theme) renderPart(p gact.Part, width int) string {
+	if partHiddenFromTranscript(p) {
+		return ""
+	}
 	wrapW := width - 2
 	if wrapW < 10 {
 		wrapW = 10
@@ -1629,6 +1709,9 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		return withStreamProvenanceNote(t, p, renderMarkdownOrWrap(text, t, wrapW))
 
 	case gact.PartTypeThinking:
+		if p.Metadata != nil && p.Metadata["semantic_react_step"] == true {
+			return t.renderSemanticReactThought(p, wrapW)
+		}
 		label := "thinking"
 		lines := strings.Count(strings.TrimSpace(p.Thinking), "\n") + 1
 		if strings.TrimSpace(p.Thinking) == "" {
@@ -1715,18 +1798,24 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 			headText = renderAgentName(t, agent) + " selected " + renderAgentName(t, selected)
 		}
 		head := prefix + glyph + headText
-		meta := []string{status}
-		if stage != "" {
-			meta = append(meta, expertHandoffStageLabel(stage))
+		var meta []string
+		semanticEvent := p.Metadata != nil && p.Metadata["stream_source"] == "semantic_event"
+		if failed {
+			meta = append(meta, firstNonEmpty(status, "failed"))
 		}
-		if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
-			meta = append(meta, fmt.Sprintf("%.0fms", duration))
+		if !semanticEvent {
+			if stageLabel := expertHandoffStageLabel(stage); stageLabel != "" &&
+				stageLabel != "delegating" && stageLabel != "returned" && stageLabel != "routed" {
+				meta = append(meta, stageLabel)
+			}
+			if label := promotedEvidenceLabel(p); label != "" {
+				meta = append(meta, label)
+			}
 		}
-		if label := promotedEvidenceLabel(p); label != "" {
-			meta = append(meta, label)
+		if len(meta) > 0 {
+			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
 		}
-		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
-			lipgloss.NewStyle().Foreground(t.FgMuted).Render(strings.Join(meta, " · "))
 		output := expertHandoffOutputSummary(p)
 		if output == "" {
 			return head
@@ -1773,10 +1862,6 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		if status := toolCallStatusLabel(p); status != "" {
 			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
 				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(status)
-		}
-		if label := promotedEvidenceLabel(p); label != "" {
-			head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
-				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(label)
 		}
 		return head
 
@@ -1863,29 +1948,9 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 		cont := " " + barStyle.Render("│") + " "
 		body := indentWithGlyph(rendered, workflowPrefix+glyphStyle.Render(glyph)+errTag, workflowPrefix+cont)
 		if hidden > 0 {
-			// P4: surface the Ctrl+E affordance with real weight — the
-			// previous faint-italic sat below users' radar. Key style
-			// matches the footer hints (Secondary + bold) so users pick
-			// up the pattern without having to remember a third
-			// affordance style.
-			hintPrefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render(fmt.Sprintf("   [%d more lines · ", hidden))
-			keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-			suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render(" to expand]")
-			hint := hintPrefix + keyStyle.Render("Ctrl+E") + suffix
-			body = body + "\n" + workflowPrefix + hint
+			body = body + "\n" + workflowPrefix + cont + t.renderToolDetailHint(fmt.Sprintf("%d more lines", hidden))
 		} else if hasRawDetail {
-			label := "raw detail"
-			if provenance := promotedEvidenceLabel(p); provenance != "" {
-				label = provenance + " · raw detail"
-			}
-			hintPrefix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("   [" + label + " · ")
-			keyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-			suffix := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-				Render("]")
-			body = body + "\n" + workflowPrefix + hintPrefix + keyStyle.Render("Ctrl+E") + suffix
+			body = body + "\n" + workflowPrefix + cont + t.renderToolDetailHint("raw")
 		}
 		return body
 
@@ -2173,6 +2238,36 @@ func toolCallWithResultStatusSuppressed(p gact.Part, inlineResults map[string]ga
 	return clone
 }
 
+func pairedToolResultsInParts(parts []gact.Part, inlineResults map[string]gact.Part) (map[string]gact.Part, map[int]bool) {
+	paired := map[string]gact.Part{}
+	for callID, result := range inlineResults {
+		if callID != "" {
+			paired[callID] = result
+		}
+	}
+	callSeen := map[string]bool{}
+	resultIndexes := map[int]bool{}
+	for i, part := range parts {
+		switch part.Type {
+		case gact.PartTypeToolCall:
+			if part.CallID != "" {
+				callSeen[part.CallID] = true
+			}
+		case gact.PartTypeToolResult:
+			if part.CallID != "" && callSeen[part.CallID] {
+				if _, exists := paired[part.CallID]; !exists {
+					paired[part.CallID] = part
+				}
+				resultIndexes[i] = true
+			}
+		}
+	}
+	if len(paired) == 0 {
+		paired = nil
+	}
+	return paired, resultIndexes
+}
+
 func toolCallStatusLabel(p gact.Part) string {
 	if p.Metadata == nil {
 		return ""
@@ -2456,6 +2551,8 @@ func scientificToolCallSummary(tool string, input map[string]any) string {
 	switch {
 	case strings.Contains(tool, "geo_geocode") || strings.Contains(tool, "geocode"):
 		keys = []string{"query", "countrycodes", "limit"}
+	case strings.Contains(tool, "filter_points") || strings.Contains(tool, "points_by_radius"):
+		keys = []string{"center_lat", "center_lon", "radius_km", "id_column", "data_path", "lat_column", "lon_column"}
 	case strings.HasPrefix(tool, "ndp_search"):
 		keys = []string{"search_terms", "query", "limit", "server"}
 	case strings.HasPrefix(tool, "ndp_list"):
@@ -3040,9 +3137,7 @@ func expertHandoffOutputSummary(p gact.Part) string {
 			summarizeExpertHandoffInput(stringValue(p.Metadata["input_summary"])),
 			summarizeExpertHandoffInput(stringValue(p.Metadata["input"])),
 		}
-		if output := bestExpertHandoffSummary(startOutputs); output != "" {
-			return output
-		}
+		return bestExpertHandoffSummary(startOutputs)
 	}
 	if local := summarizeExpertHandoffOutput(stringValue(p.Metadata["local_output_summary"])); local != "" &&
 		!strings.Contains(strings.ToLower(local), "state:") {
@@ -3346,6 +3441,8 @@ func toolDisplayName(name string) string {
 	switch {
 	case strings.Contains(tool, "geo_geocode") || strings.Contains(tool, "geocode"):
 		return "Geocode location"
+	case strings.Contains(tool, "filter_points") || strings.Contains(tool, "points_by_radius"):
+		return "Filter points by radius"
 	case tool == "shell_bash":
 		return "Shell command"
 	case strings.HasPrefix(tool, "sac_discover_earthscope"):
@@ -3356,6 +3453,8 @@ func toolDisplayName(name string) string {
 		return "SAC waveform visualization"
 	case strings.Contains(tool, "sac_inspect"):
 		return "SAC trace inspection"
+	case tool == "plot_plot_timeseries" || strings.Contains(tool, "plot_timeseries"):
+		return "Plot timeseries"
 	case strings.HasPrefix(tool, "ndp_search"):
 		return "NDP catalog search"
 	case strings.HasPrefix(tool, "ndp_stage"):

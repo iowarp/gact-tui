@@ -8,6 +8,7 @@ import {
   toolInputRows,
   type StructuredResultPresentation,
 } from '../presentation.js';
+import type { ExecutionTranscriptEvent } from '../live.js';
 import type { ModelOption } from './Composer.js';
 import './transcript.css';
 import './inline-markdown.css';
@@ -62,6 +63,10 @@ export interface TranscriptProps {
    * true (absent capability is treated as allowed).
    */
   imagePartsSupported?: boolean;
+  /** Chronological CLIO execution ledger. When present, assistant execution
+   * renders as one interleaved timeline instead of separate semantic/message
+   * blocks. Shared by web and desktop. */
+  executionEvents?: ExecutionTranscriptEvent[];
 }
 
 // ---- Virtual windowing (1.0 item 6) ----
@@ -88,6 +93,547 @@ const ROLE_LABEL: Record<string, string> = {
   system: 'System',
   tool: 'Tool',
 };
+
+interface ProjectedExecutionNode {
+  kind: 'text' | 'handoff' | 'step' | 'report';
+  agent: string;
+  parent?: string;
+  depth: number;
+  text?: string;
+  question?: string;
+  toolName?: string;
+  toolArgs?: unknown;
+  observation?: unknown;
+  isFinish?: boolean;
+  reasoning?: string;
+  structured?: unknown;
+}
+
+function projectedTranscriptMessages(
+  messages: Message[],
+  events?: ExecutionTranscriptEvent[],
+): Message[] {
+  const turns = projectWebExecutionTurns(events ?? []);
+  if (turns.length === 0) return messages;
+  const keyed = new Map(turns.filter((turn) => turn.turnId).map((turn) => [turn.turnId, turn.nodes]));
+  const unscoped = turns.filter((turn) => !turn.turnId).map((turn) => turn.nodes);
+  const supplements = assistantSupplementNodesByTurn(messages);
+  let unscopedIdx = 0;
+  const projected: Message[] = [];
+  for (const message of messages) {
+    if (message.role !== 'user') continue;
+    projected.push(message);
+    let nodes = keyed.get(message.id);
+    if (!nodes && unscopedIdx < unscoped.length) {
+      nodes = unscoped[unscopedIdx++];
+    }
+    const turnSupplements = supplements.get(message.id) ?? [];
+    if (turnSupplements.length) {
+      nodes = dedupeProjectedSupplements(nodes ?? [], turnSupplements);
+    }
+    if (nodes?.length) {
+      projected.push({
+        id: `execution-projected-assistant-${message.id}`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: formatProjectedExecution(nodes) }],
+      } satisfies Message);
+    }
+  }
+  for (; unscopedIdx < unscoped.length; unscopedIdx++) {
+    const nodes = unscoped[unscopedIdx];
+    if (!nodes) continue;
+    projected.push({
+      id: `execution-projected-assistant-unscoped-${unscopedIdx}`,
+      role: 'assistant',
+      parts: [{ type: 'text', text: formatProjectedExecution(nodes) }],
+    } satisfies Message);
+  }
+  return projected;
+}
+
+function assistantSupplementNodesByTurn(messages: Message[]): Map<string, ProjectedExecutionNode[]> {
+  const out = new Map<string, ProjectedExecutionNode[]>();
+  let currentTurnId = '';
+  for (const message of messages) {
+    if (message.role === 'user') {
+      currentTurnId = message.id;
+      continue;
+    }
+    if (message.role !== 'assistant' || !currentTurnId) continue;
+    const nodes = assistantSupplementNodes(message);
+    if (nodes.length) out.set(currentTurnId, [...(out.get(currentTurnId) ?? []), ...nodes]);
+  }
+  return out;
+}
+
+function assistantSupplementNodes(message: Message): ProjectedExecutionNode[] {
+  const nodes: ProjectedExecutionNode[] = [];
+  for (const part of message.parts ?? []) {
+    if (part.type === 'text') {
+      const text = stripControlContracts(part.text ?? '');
+      if (text && carriesArtifact(text)) nodes.push({ kind: 'text', agent: 'main', depth: 0, text });
+      continue;
+    }
+    if (part.type === 'expert_handoff') {
+      const metadata = objectValue(part.metadata);
+      const text = stringValue(part.text);
+      const structured = objectValue(metadata['structured']);
+      const retained = retainedWorkflowStateFromText(text);
+      const node: ProjectedExecutionNode = {
+        kind: 'report',
+        agent: stringValue(metadata['agent_id']) || stringValue(metadata['delegate_to']) || 'expert',
+        parent: stringValue(metadata['parent_id']) || stringValue(metadata['parent']),
+        depth: agentDepth(stringValue(metadata['agent_id']) || stringValue(metadata['delegate_to'])),
+        text,
+        structured: Object.keys(structured).length ? structured : retained,
+      };
+      const preview = reportPreview(node);
+      if (carriesArtifact(preview)) nodes.push({ ...node, text: preview });
+      continue;
+    }
+    if (part.type === 'image') {
+      const raw = part as unknown as Record<string, unknown>;
+      const path = stringValue(raw['uri']) || stringValue(objectValue(raw['metadata'])['path']);
+      nodes.push({
+        kind: 'report',
+        agent: 'artifact',
+        depth: 1,
+        text: ['image artifact', path, path ? 'show full image' : ''].filter(Boolean).join('\n'),
+      });
+    }
+  }
+  return nodes;
+}
+
+function dedupeProjectedSupplements(existing: ProjectedExecutionNode[], supplements: ProjectedExecutionNode[]): ProjectedExecutionNode[] {
+  let comparable = existing.map(nodeComparableText).map(normalizeComparable).join(' ');
+  const out = [...existing];
+  for (const node of supplements) {
+    const text = normalizeComparable(nodeComparableText(node));
+    if (!text || comparable.includes(text)) continue;
+    out.push(node);
+    comparable += ` ${text}`;
+  }
+  return out;
+}
+
+function nodeComparableText(node: ProjectedExecutionNode): string {
+  return node.text || node.question || '';
+}
+
+function normalizeComparable(text: string): string {
+  return stripControlContracts(text).toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+}
+
+interface ProjectedExecutionTurn {
+  turnId: string;
+  nodes: ProjectedExecutionNode[];
+}
+
+function projectWebExecutionTurns(events: ExecutionTranscriptEvent[]): ProjectedExecutionTurn[] {
+  if (!events.some((e) => ['react.step.completed', 'expert.extract.completed', 'blueprint.delegation.started'].includes(e.type))) {
+    return [];
+  }
+  const buckets = new Map<string, ExecutionTranscriptEvent[]>();
+  const firstSequence = new Map<string, number>();
+  for (const event of events) {
+    const key = event.turnId?.trim() || '__unscoped__';
+    buckets.set(key, [...(buckets.get(key) ?? []), event]);
+    firstSequence.set(key, Math.min(firstSequence.get(key) ?? event.sequence, event.sequence));
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => (firstSequence.get(a) ?? 0) - (firstSequence.get(b) ?? 0))
+    .map(([key, bucketEvents]) => ({
+      turnId: key === '__unscoped__' ? '' : key,
+      nodes: projectWebExecutionTimeline(bucketEvents),
+    }))
+    .filter((turn) => turn.nodes.length > 0);
+}
+
+function projectWebExecutionTimeline(events: ExecutionTranscriptEvent[]): ProjectedExecutionNode[] {
+  const ordered = [...events].sort((a, b) => a.sequence - b.sequence);
+  const nodes: ProjectedExecutionNode[] = [];
+  let buffer = '';
+  let currentAgent = 'main';
+  const handoffQuestions = new Map<string, string>();
+  const reportedAgents = new Set<string>();
+  const reactStepSpans = new Set<string>();
+  for (const event of ordered) {
+    if (event.type === 'react.step.completed') {
+      const payload = objectValue(event.payload['payload']);
+      const span = stringValue(payload['step_span_id']) || stringValue(event.payload['parent_span_id']);
+      if (span) reactStepSpans.add(span);
+    }
+  }
+  const flushText = () => {
+    const text = buffer.trim();
+    buffer = '';
+    if (!text) return;
+    nodes.push({ kind: 'text', agent: currentAgent || 'main', depth: agentDepth(currentAgent), text });
+  };
+  for (const event of ordered) {
+    if (event.type === 'message.part.delta') {
+      const delta = objectValue(event.payload['delta']);
+      buffer += stringValue(delta['text_append']);
+      continue;
+    }
+    if (event.type === 'message.part.added') {
+      const part = event.part;
+      if (part?.type === 'text') {
+        buffer += part.text ?? '';
+      }
+      if (part?.type === 'expert_handoff') {
+        const meta = part.metadata ?? {};
+        const parent = stringValue(meta['parent_id']) || stringValue(meta['parent']) || 'main';
+        const agent = stringValue(meta['agent_id']) || stringValue(meta['delegate_to']);
+        const question = stringValue(meta['question']);
+        if (agent && question && !isRedacted(question)) {
+          handoffQuestions.set(`${parent}->${agent}`, question);
+          const existing = nodes.find((n) => n.kind === 'handoff' && n.parent === parent && n.agent === agent && !n.question);
+          if (existing) existing.question = question;
+        }
+      }
+      continue;
+    }
+    if (event.type === 'expert.lifecycle.started') {
+      flushText();
+      const payload = objectValue(event.payload['payload']);
+      currentAgent = stringValue(payload['expert_id']) || stringValue(objectValue(event.payload['actor'])['agent_id']) || currentAgent;
+      continue;
+    }
+    if (event.type === 'blueprint.delegation.started') {
+      flushText();
+      const payload = objectValue(event.payload['payload']);
+      const parent = stringValue(payload['parent_id']) || stringValue(objectValue(event.payload['actor'])['agent_id']) || 'main';
+      const agent = stringValue(payload['delegate_to']) || stringValue(payload['agent_id']) || stringValue(objectValue(event.payload['subject'])['agent_id']);
+      let question = stringValue(payload['question']);
+      if (isRedacted(question)) question = handoffQuestions.get(`${parent}->${agent}`) ?? '';
+      nodes.push({ kind: 'handoff', agent, parent, depth: handoffDepth(parent, agent), question });
+      if (agent) currentAgent = agent;
+      continue;
+    }
+    if (event.type === 'react.step.completed') {
+      flushText();
+      const payload = objectValue(event.payload['payload']);
+      const agent = stringValue(payload['expert_id']) || stringValue(objectValue(event.payload['actor'])['agent_id']) || currentAgent;
+      nodes.push({
+        kind: 'step',
+        agent,
+        depth: agentDepth(agent),
+        text: stringValue(payload['thought']),
+        reasoning: stringValue(payload['reasoning']),
+        toolName: stringValue(payload['tool_name']),
+        toolArgs: payload['tool_args'],
+        observation: payload['observation'],
+        isFinish: Boolean(payload['is_finish']),
+      });
+      continue;
+    }
+    if (event.type === 'expert.extract.completed') {
+      flushText();
+      const payload = objectValue(event.payload['payload']);
+      const agent = stringValue(payload['expert_id']) || stringValue(objectValue(event.payload['actor'])['agent_id']) || currentAgent;
+      reportedAgents.add(agent);
+      nodes.push({
+        kind: 'report',
+        agent,
+        depth: agentDepth(agent),
+        text: stringValue(payload['output']) || stringValue(payload['result_summary']),
+        structured: payload['structured'],
+      });
+      continue;
+    }
+    if (event.type === 'blueprint.delegation.completed') {
+      flushText();
+      const payload = objectValue(event.payload['payload']);
+      const agent = stringValue(payload['delegate_to']) || stringValue(payload['agent_id']) || stringValue(objectValue(event.payload['actor'])['agent_id']);
+      const parent = stringValue(payload['return_to']) || stringValue(payload['parent_id']) || stringValue(objectValue(event.payload['subject'])['agent_id']);
+      if (reportedAgents.has(agent)) {
+        currentAgent = parent || currentAgent;
+        continue;
+      }
+      nodes.push({
+        kind: 'report',
+        agent,
+        parent,
+        depth: handoffDepth(parent, agent),
+        text: stringValue(payload['output_summary']) || stringValue(payload['return_output_summary']) || stringValue(event.payload['summary']),
+      });
+      currentAgent = parent || currentAgent;
+      continue;
+    }
+    if ((event.type === 'tool.call.started' || event.type === 'tool.call.completed') && reactStepSpans.size > 0) {
+      continue;
+    }
+    if ((event.type === 'tool.call.started' || event.type === 'tool.call.completed') && reactStepSpans.has(stringValue(event.payload['parent_span_id']))) {
+      continue;
+    }
+  }
+  flushText();
+  return nodes.filter((n) => !isRedacted(n.text ?? '') && !isRedacted(n.question ?? ''));
+}
+
+function formatProjectedExecution(nodes: ProjectedExecutionNode[]): string {
+  const rows: string[] = [];
+  for (const node of nodes) {
+    if (rows.length > 0 && (node.kind === 'text' || node.kind === 'report')) rows.push('');
+    const indent = '  '.repeat(Math.max(0, node.depth));
+    if (node.kind === 'text') {
+      rows.push(`${indent}${node.agent || 'main'}`);
+      pushWrapped(rows, node.text ?? '', `${indent}  `);
+    } else if (node.kind === 'handoff') {
+      rows.push(`${indent}↳ ${node.parent || 'main'} → ${node.agent}`);
+      pushWrapped(rows, node.question ?? '', `${indent}  `);
+    } else if (node.kind === 'step') {
+      const text = node.reasoning ? `${node.text ?? ''} · show reasoning trace` : node.text ?? '';
+      pushWrapped(rows, text, indent);
+      if (node.toolName && !node.isFinish) {
+        rows.push(`${indent}${toolDisplayName(node.toolName)}${formatArgs(node.toolArgs)}`);
+        const obs = observationPreview(node.toolName, node.observation);
+        if (obs) pushWrapped(rows, `⎿ ${obs}`, `${indent}  `);
+      }
+    } else if (node.kind === 'report') {
+      rows.push(`${indent}${node.agent} returned evidence`);
+      pushWrapped(rows, reportPreview(node), `${indent}  `);
+    }
+  }
+  return rows.join('\n').trim();
+}
+
+function pushWrapped(rows: string[], text: string, prefix: string) {
+  const clean = structuredAgentTextPreview(stripControlContracts(text));
+  if (!clean) return;
+  for (const line of clean.split('\n')) {
+    rows.push(prefix + line);
+  }
+}
+
+function structuredAgentTextPreview(text: string): string {
+  const parsed = objectValue(parseJSON(text) ?? {});
+  if (!Object.keys(parsed).some((key) => ['workflow_state', 'catalog', 'acquisition', 'resource_candidate', 'station_catalog', 'profile', 'artifact', 'plot'].includes(key))) {
+    return text;
+  }
+  return reportPreview({ kind: 'report', agent: 'main', depth: 0, structured: parsed, text });
+}
+
+function formatArgs(args: unknown): string {
+  const obj = objectValue(args);
+  const parts = Object.keys(obj).sort().map((key) => `${key}: ${compactValue(obj[key])}`).filter((v) => !isRedacted(v));
+  return parts.length ? `(${parts.join(' · ')})` : '';
+}
+
+function observationPreview(toolName: string, raw: unknown): string {
+  const specific = specificObservationPreview(toolName, raw);
+  if (specific) return specific;
+  const text = typeof raw === 'string' ? raw : JSON.stringify(raw ?? '');
+  if (!text || isRedacted(text) || /^(completed|done|ok)$/i.test(text.trim())) return '';
+  if (/geocode/i.test(toolName)) {
+    const name = /display_name['"]?\s*:\s*['"]([^'"]+)/.exec(text)?.[1];
+    const lat = /lat['"]?\s*:\s*([-\d.]+)/.exec(text)?.[1];
+    const lon = /lon['"]?\s*:\s*([-\d.]+)/.exec(text)?.[1];
+    return [name, lat && lon ? `center ${lat}, ${lon}` : ''].filter(Boolean).join('\n');
+  }
+  const csv = /[\w.-]+\.csv\b/.exec(text)?.[0];
+  if (/ndp_search/i.test(toolName) && csv) return csv;
+  if (/local_path/.test(text)) {
+    const path = /"local_path"\s*:\s*"([^"]+)"/.exec(text)?.[1];
+    const size = /"size_bytes"\s*:\s*(\d+)/.exec(text)?.[1];
+    return [path, size ? `${size} bytes` : ''].filter(Boolean).join(' · ');
+  }
+  return text.length > 240 ? `${text.slice(0, 240)}…\nshow full output` : text;
+}
+
+function specificObservationPreview(toolName: string, raw: unknown): string {
+  const obj = objectValue(raw);
+  const lower = toolName.toLowerCase();
+  if (lower.includes('filter_points') || lower.includes('points_by_radius')) {
+    const points = Array.isArray(obj['points']) ? obj['points'] : [];
+    const rows = [
+      stringValue(obj['within_radius_count']) || stringValue(obj['count'])
+        ? `${stringValue(obj['within_radius_count']) || stringValue(obj['count'])} stations within radius`
+        : '',
+      ...points.slice(0, 3).map((rawPoint) => {
+        const point = objectValue(rawPoint);
+        const id = stringValue(point['Site']) || stringValue(point['site']) || stringValue(point['station']) || stringValue(point['id']);
+        const distance = formatDistanceKm(stringValue(point['distance_km']) || stringValue(point['distance']));
+        return id ? `${id}${distance ? ` ${distance} km` : ''}` : '';
+      }),
+      points.length > 3 ? 'show full output' : '',
+    ].filter(Boolean);
+    return rows.join('\n');
+  }
+  if (lower.startsWith('ndp_stage')) {
+    const path = stringValue(obj['local_path']) || stringValue(obj['path']) || stringValue(obj['output_path']) || stringValue(obj['artifact_path']);
+    if (!path) return '';
+    const size = stringValue(obj['size_bytes']) || stringValue(obj['bytes']);
+    return `${basename(path)}${size ? ` · ${size} bytes` : ''}`;
+  }
+  if (lower === 'shell_bash') {
+    const command = stringValue(obj['command']);
+    const dst = redirectDestination(command);
+    if (dst) return `prepared ${basename(dst)}`;
+  }
+  if (lower.includes('plot') || lower.includes('chart') || lower.includes('visual')) {
+    const path = stringValue(obj['output_path']) || stringValue(obj['artifact_path']) || stringValue(obj['path']) || stringValue(obj['file_path']);
+    if (!path) return '';
+    return [
+      path,
+      stringValue(obj['plot_type']) ? `chart ${stringValue(obj['plot_type'])}` : '',
+      stringValue(obj['x_column']) ? `x ${stringValue(obj['x_column'])}` : '',
+      Array.isArray(obj['y_columns']) ? `y ${obj['y_columns'].join(', ')}` : '',
+      stringValue(obj['data_points']) ? `${stringValue(obj['data_points'])} rows` : '',
+    ].filter(Boolean).join('\n');
+  }
+  return '';
+}
+
+function basename(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts.at(-1) ?? path;
+}
+
+function formatDistanceKm(value: string): string {
+  if (!value) return '';
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return value;
+  return parsed.toFixed(2).replace(/\.00$/, '');
+}
+
+function redirectDestination(command: string): string {
+  const parts = command.split('>');
+  if (parts.length < 2) return '';
+  return parts.at(-1)?.trim().replace(/^['"]|['"]$/g, '') ?? '';
+}
+
+function reportPreview(node: ProjectedExecutionNode): string {
+  const structured = objectValue(node.structured);
+  const workflow = objectValue(structured['workflow_state']);
+  const state = objectValue(workflow[node.agent]);
+  const source = Object.keys(state).length
+    ? state
+    : Object.keys(workflow).length
+      ? workflow
+      : objectValue(parseJSON(stripControlContracts(node.text ?? '')) ?? {});
+  const acquisition = objectValue(source['acquisition']);
+  const resource = objectValue(source['resource_candidate']);
+  if (Object.keys(acquisition).length || Object.keys(resource).length) {
+    return [
+      stringValue(acquisition['status']) ? `acquisition ${stringValue(acquisition['status'])}` : '',
+      stringValue(acquisition['metadata_path']),
+      stringValue(acquisition['analysis_ready']) ? `analysis ready ${stringValue(acquisition['analysis_ready'])}` : '',
+      stringValue(resource['resource_name']) || stringValue(resource['dataset_name']),
+    ].filter(Boolean).join('\n');
+  }
+  const artifact = objectValue(source['artifact']);
+  const plot = objectValue(source['plot']);
+  const artifactSource = Object.keys(artifact).length ? artifact : plot;
+  if (Object.keys(artifactSource).length) {
+    const path = stringValue(artifactSource['path']) || stringValue(artifactSource['local_path']) || stringValue(artifactSource['output_path']) || stringValue(artifactSource['plot_path']) || stringValue(artifactSource['artifact_path']);
+    return [
+      stringValue(artifactSource['kind']) || stringValue(artifactSource['plot_type']) || stringValue(artifactSource['type']),
+      path,
+      imagePath(path) ? 'show full image' : '',
+      Array.isArray(artifactSource['columns']) ? `columns ${artifactSource['columns'].join(', ')}` : '',
+      stringValue(artifactSource['status']) ? `status ${stringValue(artifactSource['status'])}` : '',
+    ].filter(Boolean).join('\n');
+  }
+  const rows = [
+    stringValue(source['region_name']) || stringValue(source['display_name']) || stringValue(source['name']),
+    stringValue(source['center_lat']) && stringValue(source['center_lon'])
+      ? `center ${stringValue(source['center_lat'])}, ${stringValue(source['center_lon'])}`
+      : '',
+    stringValue(source['radius_km']) ? `radius ${stringValue(source['radius_km'])} km` : '',
+    stringValue(source['confidence']) ? `confidence ${stringValue(source['confidence'])}` : '',
+    stringValue(source['provenance']) ? `provenance ${stringValue(source['provenance'])}` : '',
+  ].filter(Boolean);
+  return rows.length ? rows.join('\n') : stripControlContracts(node.text ?? '');
+}
+
+function retainedWorkflowStateFromText(text: string): Record<string, unknown> {
+  for (const marker of [
+    'Retained typed workflow state:',
+    'CLIO durable typed workflow state:',
+    'CLIO merged nested typed workflow state:',
+    'CLIO typed workflow state:',
+  ]) {
+    const idx = text.toLowerCase().lastIndexOf(marker.toLowerCase());
+    if (idx < 0) continue;
+    const tail = text.slice(idx + marker.length);
+    const brace = tail.indexOf('{');
+    if (brace < 0) continue;
+    return objectValue(parseJSON(tail.slice(brace)) ?? {});
+  }
+  return {};
+}
+
+function carriesArtifact(text: string): boolean {
+  return /(\.png|\.jpe?g|\.gif|\.webp|plot|artifact|full image)/i.test(text);
+}
+
+function imagePath(path: string): boolean {
+  return /\.(png|jpe?g|gif|webp)$/i.test(path);
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function compactValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(compactValue).filter(Boolean).join(', ');
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function parseJSON(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function stripControlContracts(text: string): string {
+  return text
+    .replace(/CLIO typed workflow state:\s*\n?[\s\S]*$/m, '')
+    .replace(/CLIO durable typed workflow state:\s*\n?[\s\S]*$/m, '')
+    .replace(/Retained typed workflow state:\s*\n?[\s\S]*$/m, '')
+    .replace(/The workflow state is populated accordingly:\s*\n?[\s\S]*$/m, '')
+    .replace(/The workflow state now records[\s\S]*$/m, '')
+    .trim();
+}
+
+function isRedacted(text: string): boolean {
+  return /\[redacted\]/i.test(text.trim());
+}
+
+function agentDepth(agent: string): number {
+  if (!agent || agent === 'main') return 0;
+  if (['data', 'geospatial', 'analysis', 'visualization', 'synthesis'].includes(agent)) return 1;
+  return 2;
+}
+
+function handoffDepth(parent: string, agent: string): number {
+  if (!parent || parent === 'main') return agent === 'main' ? 0 : 1;
+  return agentDepth(parent) + 1;
+}
+
+function toolDisplayName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('geocode')) return 'Geocode location';
+  if (lower.startsWith('ndp_search')) return 'NDP catalog search';
+  if (lower.startsWith('ndp_stage')) return 'NDP resource staging';
+  if (lower === 'shell_bash') return 'Shell command';
+  if (lower.includes('plot') || lower.includes('chart') || lower.includes('visual')) return 'Plot timeseries';
+  return name;
+}
 
 function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   if (density === 'verbose') return true;
@@ -1378,9 +1924,12 @@ export function Transcript(props: TranscriptProps) {
   /** Measured per-message heights (px, incl. flex gap). Estimates until
    * a message has actually rendered once. */
   const measured = new Map<string, number>();
+  const displayMessages = createMemo(() =>
+    projectedTranscriptMessages(props.messages, props.executionEvents),
+  );
 
   const virtual = () =>
-    props.messages.length > VIRTUAL_THRESHOLD && !!props.scrollEl;
+    displayMessages().length > VIRTUAL_THRESHOLD && !!props.scrollEl;
 
   // Track the scroll container's position + viewport size.
   createEffect(() => {
@@ -1405,11 +1954,11 @@ export function Transcript(props: TranscriptProps) {
 
   /** Visible [start, end) index range + spacer heights. */
   const vwindow = createMemo(() => {
+    const msgs = displayMessages();
     if (!virtual()) {
-      return { start: 0, end: props.messages.length, padTop: 0, padBottom: 0 };
+      return { start: 0, end: msgs.length, padTop: 0, padBottom: 0 };
     }
     void measureTick();
-    const msgs = props.messages;
     const top = scrollTop();
     const vh = viewH();
     // First message whose bottom edge crosses the viewport top.
@@ -1438,7 +1987,8 @@ export function Transcript(props: TranscriptProps) {
 
   const visible = createMemo(() => {
     const w = vwindow();
-    return virtual() ? props.messages.slice(w.start, w.end) : props.messages;
+    const msgs = displayMessages();
+    return virtual() ? msgs.slice(w.start, w.end) : msgs;
   });
 
   // After every windowed render, measure real heights so the spacer
@@ -1464,8 +2014,9 @@ export function Transcript(props: TranscriptProps) {
   /** Estimated pixel offset of message #idx (for off-window jumps). */
   function offsetOfIndex(idx: number): number {
     let sum = 0;
-    for (let i = 0; i < idx && i < props.messages.length; i++) {
-      sum += heightOf(props.messages[i]!.id);
+    const msgs = displayMessages();
+    for (let i = 0; i < idx && i < msgs.length; i++) {
+      sum += heightOf(msgs[i]!.id);
     }
     return sum;
   }
@@ -1478,7 +2029,7 @@ export function Transcript(props: TranscriptProps) {
     const key = props.currentMatchKey;
     if (!key || !virtual()) return;
     const msgId = key.slice(0, key.lastIndexOf(':'));
-    const idx = props.messages.findIndex((m) => m.id === msgId);
+    const idx = displayMessages().findIndex((m) => m.id === msgId);
     if (idx === -1) return;
     const w = vwindow();
     if (idx >= w.start && idx < w.end) return;
@@ -1502,7 +2053,7 @@ export function Transcript(props: TranscriptProps) {
       // window — scroll to its estimated offset so it mounts, then retry.
       if (virtual()) {
         const id = target.replace(/^msg-/, '');
-        const idx = props.messages.findIndex((m) => m.id === id);
+        const idx = displayMessages().findIndex((m) => m.id === id);
         if (idx !== -1) {
           props.scrollEl?.scrollTo({ top: offsetOfIndex(idx) });
           setTimeout(jumpToHash, 150);
@@ -1518,7 +2069,7 @@ export function Transcript(props: TranscriptProps) {
     queueMicrotask(jumpToHash);
   });
   createEffect(() => {
-    void props.messages.length;
+    void displayMessages().length;
     queueMicrotask(jumpToHash);
   });
 
@@ -1529,7 +2080,7 @@ export function Transcript(props: TranscriptProps) {
     const q = props.searchQuery.trim().toLowerCase();
     if (!q) return 0;
     let total = 0;
-    for (const m of props.messages) {
+    for (const m of displayMessages()) {
       if (m.id === msgId) return total;
       for (const p of m.parts) {
         if (p.type === 'text' && p.text) {
@@ -1544,8 +2095,9 @@ export function Transcript(props: TranscriptProps) {
   // its last text part — that's where the streaming cursor goes.
   const streamingTarget = (): { msgId: string; partIdx: number } | null => {
     if (!props.streaming) return null;
-    for (let i = props.messages.length - 1; i >= 0; i--) {
-      const m = props.messages[i];
+    const msgs = displayMessages();
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
       if (!m || m.role !== 'assistant') continue;
       if (m.stop_reason) return null; // already completed
       const visible = m.parts.filter((p) => shouldRenderPart(p, props.density));
@@ -1572,7 +2124,7 @@ export function Transcript(props: TranscriptProps) {
       aria-live="polite"
       aria-busy={props.streaming ? 'true' : 'false'}
     >
-      <Show when={props.loading && props.messages.length === 0}>
+      <Show when={props.loading && displayMessages().length === 0}>
         {/* Skeleton conversation while messages load on session switch
             (W3 Tier-1) — alternating user/assistant shaped bubbles. */}
         <div class="trx__skeleton" data-testid="transcript-skeleton" aria-hidden="true">

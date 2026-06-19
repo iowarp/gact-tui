@@ -29,6 +29,7 @@ import {
   upsertMessage,
   type ErrorInfo,
   type Message,
+  type Part,
   type PermissionRequest,
   type SemanticEventPayload,
   type Session,
@@ -78,6 +79,10 @@ export interface LiveTranscriptHandle {
    * switch, capped at SEMANTIC_FEED_CAP. Feeds the Inspector timeline —
    * NOT the transcript (the plain events already drive that). */
   semanticEvents: Accessor<SemanticEventPayload[]>;
+  /** Chronological transcript projection input: assistant text deltas,
+   * handoff parts, ReAct steps, expert extracts, and tool events. This is
+   * the transcript highway; semanticEvents remains the Inspector feed. */
+  executionEvents: Accessor<ExecutionTranscriptEvent[]>;
   /** TTFT + token-rate of the most recent turn (null before the first turn). */
   streamStats: Accessor<StreamStats | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
@@ -121,6 +126,14 @@ export interface MessageCompletion {
   stop_reason: string;
   tokens?: { input?: number; output?: number; total?: number };
   cost_usd?: number;
+}
+
+export interface ExecutionTranscriptEvent {
+  sequence: number;
+  type: string;
+  turnId?: string;
+  payload: Record<string, unknown>;
+  part?: Part;
 }
 
 export function shouldReconcileTranscriptAfterEvent(
@@ -229,6 +242,7 @@ export function createLiveTranscript(
   // for the ACTIVE session only, append-order, capped so a long-lived
   // session can't grow it without bound.
   const [semanticEvents, setSemanticEvents] = createSignal<SemanticEventPayload[]>([]);
+  const [executionEvents, setExecutionEvents] = createSignal<ExecutionTranscriptEvent[]>([]);
   // Bound inside the per-session effect (it closes over that session's
   // openEs/timers); exposed via the public reconnectNow() API.
   let reconnectNowRef: (() => void) | null = null;
@@ -339,6 +353,7 @@ export function createLiveTranscript(
     // The semantic feed is per-session; clear it on every session switch so
     // events never bleed between conversations.
     setSemanticEvents([]);
+    setExecutionEvents([]);
     if (!id) {
       setMessages([]);
       setMessagesLoading(false);
@@ -480,6 +495,7 @@ export function createLiveTranscript(
         setPendingQuestion,
         setSemanticEvents,
         semanticFeedCap: SEMANTIC_FEED_CAP,
+        setExecutionEvents,
         sessionEvents,
         onNotification: sessionEvents?.onNotification,
         onFrameChanged: sessionEvents?.onFrameChanged,
@@ -705,6 +721,7 @@ export function createLiveTranscript(
     runningTools,
     pendingQuestion,
     semanticEvents,
+    executionEvents,
     streamStats,
     refetch,
     reconnectNow: () => {
@@ -770,6 +787,11 @@ export interface ReduceHooks {
       | ((p: SemanticEventPayload[]) => SemanticEventPayload[]),
   ) => void;
   semanticFeedCap?: number;
+  setExecutionEvents?: (
+    n:
+      | ExecutionTranscriptEvent[]
+      | ((p: ExecutionTranscriptEvent[]) => ExecutionTranscriptEvent[]),
+  ) => void;
   sessionEvents?: SessionEventSink;
   onNotification?: (n: BackendNotification) => void;
   onFrameChanged?: () => void;
@@ -809,6 +831,7 @@ export function reduce(
     case 'message.part.added': {
       const messageId = p.message_id as string;
       const part = p.part as Message['parts'][number];
+      appendExecutionTranscriptEvent(t, p, hooks, part);
       if (messageId && part) {
         hooks.setMessages((prev) => appendPart(prev, messageId, part));
       }
@@ -818,6 +841,7 @@ export function reduce(
       const messageId = p.message_id as string;
       const partId = p.part_id as string;
       const delta = (p.delta as { text_append?: string }) ?? {};
+      appendExecutionTranscriptEvent(t, p, hooks);
       if (messageId && partId && delta.text_append) {
         hooks.setMessages((prev) =>
           applyTextAppend(prev, messageId, partId, delta.text_append!),
@@ -892,6 +916,7 @@ export function reduce(
       // plain events (tool.call.*, permission.requested, …) already drive
       // the UI; semantic events are an observability timeline only.
       const sev = p as unknown as SemanticEventPayload;
+      appendExecutionTranscriptEvent(t, p, hooks);
       if (sev && typeof sev.event_id === 'string' && hooks.setSemanticEvents) {
         const cap = hooks.semanticFeedCap ?? 500;
         hooks.setSemanticEvents((prev) => {
@@ -1003,6 +1028,7 @@ export function reduce(
       break;
     }
     case 'tool.call.started': {
+      appendExecutionTranscriptEvent(t, p, hooks);
       const toolName = (p.tool_name as string) ?? 'tool';
       const callId =
         (p.call_id as string) ??
@@ -1040,6 +1066,7 @@ export function reduce(
       break;
     }
     case 'tool.call.completed': {
+      appendExecutionTranscriptEvent(t, p, hooks);
       const callId = (p.call_id as string) ?? (p.tool_call_id as string);
       if (callId) {
         hooks.setRunningTools((prev) => prev.filter((t) => t.callId !== callId));
@@ -1285,6 +1312,51 @@ export function reduce(
       // are tracked as v1.0 follow-ups for the chat shell.
       break;
   }
+}
+
+function appendExecutionTranscriptEvent(
+  eventType: string | undefined,
+  payload: Record<string, unknown>,
+  hooks: ReduceHooks,
+  part?: Part,
+) {
+  if (!hooks.setExecutionEvents || !eventType) return;
+  let type = eventType;
+  if (eventType === 'semantic.event') {
+    type = String(payload['event_type'] ?? '');
+    if (
+      ![
+        'expert.lifecycle.started',
+        'blueprint.delegation.started',
+        'blueprint.delegation.completed',
+        'expert.extract.completed',
+        'react.step.completed',
+        'tool.call.started',
+        'tool.call.completed',
+      ].includes(type)
+    ) {
+      return;
+    }
+  }
+  if (eventType === 'message.part.delta') {
+    const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
+    if (!delta.text_append?.trim()) return;
+  }
+  if (eventType === 'message.part.added') {
+    if (!part) return;
+    if (part.type === 'text' && !(part.text ?? '').trim()) return;
+    if (part.type !== 'text' && part.type !== 'expert_handoff') return;
+  }
+  hooks.setExecutionEvents((prev) => [
+    ...prev,
+    {
+      sequence: prev.length + 1,
+      type,
+      turnId: String(payload['turn_id'] ?? ''),
+      payload,
+      ...(part ? { part } : {}),
+    },
+  ]);
 }
 
 function toSidebarSession(s: Session): SidebarSession {

@@ -35,15 +35,16 @@ func TestRenderAssistantToolEvidenceFromMetadata(t *testing.T) {
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 100, nil))
 	for _, want := range []string{
 		"HDF5 data analysis(path: run.h5)",
-		"trace metadata",
 		`["/entry/current","/entry/voltage"]`,
-		"raw detail",
-		"Ctrl+E",
+		"detail: raw · Ctrl+E expand",
 		"I inspected the file.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered tool evidence missing %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "trace metadata") {
+		t.Fatalf("tool transcript should not duplicate provenance labels; details keep provenance:\n%s", out)
 	}
 }
 
@@ -183,8 +184,7 @@ func TestLiveStructuredToolResultUsesSemanticPreview(t *testing.T) {
 		"status: success",
 		"count: 5",
 		"Salton Sea Seismic Data",
-		"raw detail",
-		"Ctrl+E",
+		"detail: raw · Ctrl+E expand",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("live structured result missing %q:\n%s", want, out)
@@ -192,6 +192,56 @@ func TestLiveStructuredToolResultUsesSemanticPreview(t *testing.T) {
 	}
 	if strings.Contains(out, `"_meta"`) || strings.Contains(out, `"datasets":`) {
 		t.Fatalf("live structured result should not render raw JSON inline:\n%s", out)
+	}
+}
+
+func TestGenericPointFilterToolResultRendersReadableSummary(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{
+				Type:     gact.PartTypeToolCall,
+				CallID:   "call_geo_filter",
+				ToolName: "geo_filter_points_by_radius",
+				Input: map[string]any{
+					"data_path":  "/tmp/earthscope_stations_clean.csv",
+					"center_lat": 39.5261788,
+					"center_lon": -119.812658,
+					"radius_km":  50,
+					"id_column":  "Site",
+				},
+			},
+			{
+				Type:     gact.PartTypeToolResult,
+				CallID:   "call_geo_filter",
+				ToolName: "geo_filter_points_by_radius",
+				Content: []gact.Part{{
+					Type: gact.PartTypeText,
+					Text: `{"preview":"{\"ok\":true,\"count\":3,\"within_radius_count\":3,\"total_points\":1101,\"skipped_invalid\":0,\"center\":{\"lat\":39.5261788,\"lon\":-119.812658},\"radius_km\":50,\"points\":[{\"Site\":\"MTA1\",\"Latitude\":\"34.05522077\",\"(deg)\":\"-118.24550778\",\"distance_km\":0.3045,\"id\":\"MTA1\"},{\"Site\":\"PKRD\",\"Latitude\":\"34.07156214\",\"(deg)\":\"-118.23290960\",\"distance_km\":2.1848,\"id\":\"PKRD\"},{\"Site\":\"ELSC\",\"Latitude\":\"34.02973561\",\"(deg)\":\"-118.20843865\",\"distance_km\":4.1351,\"id\":\"ELSC\"}]}","truncated":true}`,
+				}},
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		"Filter points by radius",
+		"radius km: 50",
+		"location: 39.53, -119.8 · radius 50 km",
+		"input: 1101",
+		"matched: 3",
+		"records: 3",
+		"sample: MTA1 (0.3045 km), PKRD (2.185 km), ELSC (4.135 km)",
+		"detail: raw · Ctrl+E expand",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("generic point-filter render missing %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{`"preview"`, `within_radius_count`, `total_points`, `GeoFilterPointsByRadius`} {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("generic point-filter render leaked raw detail %q:\n%s", unwanted, out)
+		}
 	}
 }
 
@@ -285,11 +335,108 @@ func TestNormalizeMessagePresentationPromotesExpertHandoffsBeforeToolsAndText(t 
 		"found NDP waveform archive",
 		"data -> ndp_catalog",
 		"NDP catalog search",
-		"trace metadata",
 		"Plot written.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered promoted handoff missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestStartedHandoffRendersRealInputNotSyntheticStatusBody(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{
+			{ID: "intro", Type: gact.PartTypeText, Text: "I will resolve the location first."},
+			{
+				ID:   "geo_started",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "main -> geospatial | running | delegate.started",
+				Metadata: map[string]any{
+					"agent_id":  "geospatial",
+					"parent_id": "main",
+					"stage":     "delegate.started",
+					"status":    "running",
+				},
+			},
+			{
+				ID:   "data_started",
+				Type: gact.PartTypeExpertHandoff,
+				Text: "main -> data | running | delegate.started",
+				Metadata: map[string]any{
+					"agent_id":      "data",
+					"parent_id":     "main",
+					"stage":         "delegate.started",
+					"status":        "running",
+					"input_summary": "Find and stage the nearest EarthScope station metadata catalog.",
+				},
+			},
+		},
+	}
+
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	if strings.Contains(out, "main -> geospatial | running | delegate.started") {
+		t.Fatalf("started handoff should not render synthetic status body as content:\n%s", out)
+	}
+	if !strings.Contains(out, "Find and stage the nearest EarthScope station metadata catalog.") {
+		t.Fatalf("started handoff should render real delegated input text:\n%s", out)
+	}
+}
+
+func TestNormalizeMessagePresentationParsesAdapterSections(t *testing.T) {
+	msg := gact.Message{
+		Role: gact.RoleAssistant,
+		Parts: []gact.Part{{
+			ID:   "adapter",
+			Type: gact.PartTypeText,
+			Text: strings.Join([]string{
+				"[[ ## reasoning ## ]]",
+				"The user asked for a GNSS plot. I should use the staged CSV and preserve caveats.",
+				"",
+				"[[ ## answer ## ]]",
+				"The requested time-series plot has been generated.",
+				"- **Artifact Path**: `gnss_timeseries_P475.png`",
+				"",
+				"[[ ## workflow_state ## ]]",
+				`{"artifact":{"path":"gnss_timeseries_P475.png","status":"ready"},"profile":{"status":"complete"},"station_catalog":{"candidate_count":42,"status":"ranked"}}`,
+				"",
+				"[[ ## evidence ## ]]",
+				"- Station: P475",
+				"- Data Points: 2,000",
+				"",
+				"[[ ## errors ## ]]",
+				"none",
+				"",
+				"[[ ## completed ## ]]",
+			}, "\n"),
+		}},
+	}
+
+	normalizeMessagePresentation(&msg)
+
+	kinds := make([]string, 0, len(msg.Parts))
+	for _, part := range msg.Parts {
+		kinds = append(kinds, part.Type)
+	}
+	if strings.Join(kinds, ",") != "thinking,text,expert_handoff,text" {
+		t.Fatalf("adapter sections should become thinking/text/state/evidence, got %#v", kinds)
+	}
+	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(msg, nil, 120, nil))
+	for _, want := range []string{
+		"thinking available",
+		"The requested time-series plot has been generated.",
+		"artifact ready",
+		"station catalog ranked",
+		"Evidence",
+		"Station: P475",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("adapter-section render missing %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{"[[ ##", "workflow_state", `"candidate_count"`, "completed ##", "errors ##"} {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("adapter-section render leaked raw adapter text %q:\n%s", unwanted, out)
 		}
 	}
 }
@@ -432,7 +579,7 @@ func TestStructuredToolResultsUseGenericEvidenceSummaries(t *testing.T) {
 			input:    map[string]any{"region": "Los Angeles", "radius_km": 100},
 			result:   `{"status":"filtered","center":{"lat":34.0536909,"lon":-118.242766},"radius_km":100,"input_count":155,"matched_count":72,"points":[{"station":"MTA1","distance_km":0.3749},{"station":"PKRD","distance_km":2.3714},{"station":"ELSC","distance_km":4.0982}]}`,
 			want: []string{
-				"GeofilterpointsByRadius",
+				"Filter points by radius",
 				"structured result:",
 				"status: filtered",
 				"location: 34.05, -118.2",
@@ -762,9 +909,6 @@ func TestToolEvidenceNDPSearchRendersReadableDatasetSummary(t *testing.T) {
 	if strings.Contains(out, `"_meta"`) || strings.Contains(out, `resource_urls`) {
 		t.Fatalf("inline NDP summary should not be raw JSON:\n%s", out)
 	}
-	if !strings.Contains(out, "trace metadata · raw detail") {
-		t.Fatalf("promoted tool result should advertise provenance and raw detail:\n%s", out)
-	}
 	foundRaw := false
 	for _, part := range msg.Parts {
 		if part.Type == gact.PartTypeToolResult && part.Metadata["raw_result"] != nil {
@@ -774,8 +918,11 @@ func TestToolEvidenceNDPSearchRendersReadableDatasetSummary(t *testing.T) {
 	if !foundRaw {
 		t.Fatal("raw NDP result should remain available in tool detail metadata")
 	}
-	if !strings.Contains(out, "[trace metadata · raw detail") {
+	if !strings.Contains(out, "detail: raw · Ctrl+E expand") {
 		t.Fatalf("inline NDP summary should advertise raw detail expansion:\n%s", out)
+	}
+	if strings.Contains(out, "trace metadata") {
+		t.Fatalf("inline NDP transcript should not duplicate provenance labels:\n%s", out)
 	}
 }
 
@@ -811,7 +958,7 @@ func TestToolEvidenceVisualizationArtifactRendersReadableSummary(t *testing.T) {
 		"y column: anomaly_score",
 		"artifact result:",
 		"artifact: .../clio-benchmark-data/facility_measurements_scatter.png",
-		"raw detail",
+		"detail: raw · Ctrl+E expand",
 		"Scatter plot saved.",
 	} {
 		if !strings.Contains(out, want) {
@@ -883,7 +1030,7 @@ func TestToolEvidenceNDPFeatureCollectionRendersReadableRecords(t *testing.T) {
 		"acres: 1420",
 		"containment: 35",
 		"Current wildfire records are ready.",
-		"Ctrl+E to expand",
+		"Ctrl+E expand",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("NDP feature summary missing %q:\n%s", want, out)
@@ -995,9 +1142,6 @@ func TestExpertHandoffInlineHumanizesWorkflowLifecycleStage(t *testing.T) {
 	normalized := strings.Join(strings.Fields(out), " ")
 	for _, want := range []string{
 		"analysis returned evidence to main",
-		"completed",
-		"returned",
-		"20353ms",
 		"analysis returned a compact result",
 	} {
 		if !strings.Contains(normalized, want) {
@@ -1161,6 +1305,29 @@ func TestRenoEarthScopeWorkflowRendersAgentProseAndSemanticTools(t *testing.T) {
 		},
 		{
 			Type:     gact.PartTypeToolCall,
+			CallID:   "geo_filter_1",
+			ToolName: "geo_filter_points_by_radius",
+			Metadata: map[string]any{"agent_id": "geospatial", "parent_id": "data"},
+			Input: map[string]any{
+				"data_path":  "/home/jcernuda/demo-clio/earthscope_stations_clean.csv",
+				"center_lat": 39.5261788,
+				"center_lon": -119.812658,
+				"radius_km":  50.0,
+				"id_column":  "Site",
+			},
+		},
+		{
+			Type:     gact.PartTypeToolResult,
+			CallID:   "geo_filter_1",
+			ToolName: "geo_filter_points_by_radius",
+			Metadata: map[string]any{"agent_id": "geospatial", "parent_id": "data"},
+			Content: []gact.Part{{
+				Type: gact.PartTypeText,
+				Text: `{"preview":"{\"ok\":true,\"count\":3,\"within_radius_count\":3,\"total_points\":1101,\"skipped_invalid\":0,\"center\":{\"lat\":39.5261788,\"lon\":-119.812658},\"radius_km\":50,\"points\":[{\"Site\":\"RENO\",\"Latitude\":\"39.526\",\"(deg)\":\"-119.812\",\"distance_km\":0.1,\"id\":\"RENO\"},{\"Site\":\"SPKS\",\"Latitude\":\"39.53\",\"(deg)\":\"-119.75\",\"distance_km\":5.2,\"id\":\"SPKS\"},{\"Site\":\"CARV\",\"Latitude\":\"39.16\",\"(deg)\":\"-119.76\",\"distance_km\":40.6,\"id\":\"CARV\"}]}","truncated":true}`,
+			}},
+		},
+		{
+			Type:     gact.PartTypeToolCall,
 			CallID:   "shell_1",
 			ToolName: "shell_bash",
 			Metadata: map[string]any{"agent_id": "utility", "parent_id": "data"},
@@ -1209,6 +1376,8 @@ func TestRenoEarthScopeWorkflowRendersAgentProseAndSemanticTools(t *testing.T) {
 		"main handed work to data",
 		"discover EarthScope GNSS station resources",
 		"NDP catalog search",
+		"Filter points by radius",
+		"sample: RENO (0.1 km), SPKS (5.2 km), CARV (40.6 km)",
 		"Shell command(prepare",
 		"data returned evidence to main",
 		"The EarthScope GNSS data acquisition for the Reno region is complete.",
@@ -1219,7 +1388,9 @@ func TestRenoEarthScopeWorkflowRendersAgentProseAndSemanticTools(t *testing.T) {
 	}
 	for _, bad := range []string{
 		"GeoGeocode({",
+		"GeoFilterPointsByRadius",
 		"[{'display_name'",
+		"within_radius_count",
 		"cut -d, -f1-3",
 		"workflow_state",
 		"Retained typed workflow state",

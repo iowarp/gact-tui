@@ -146,6 +146,9 @@ func detailBodyRows(value string) []string {
 // individually. The old findBulkyPartIn fallback (first bulky in
 // the selected message) still covers the unset-partIdx case.
 func (a *App) openDetailForSelection() {
+	if a.openExecutionArtifactForSelection() {
+		return
+	}
 	var (
 		ref bulkyPartRef
 		ok  bool
