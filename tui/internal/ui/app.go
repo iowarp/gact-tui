@@ -7123,6 +7123,14 @@ func (a *App) recordExecutionSSE(e client.SSEEvent) {
 		record.Part = &part
 		switch part.Type {
 		case gact.PartTypeText:
+			// Live text parts are already represented by message.part.delta.
+			// Recording the later full part text creates a second assistant
+			// prose node and makes live vs reload ordering diverge. Batch
+			// providers still need the full part because they may emit no
+			// deltas.
+			if strings.TrimSpace(stringValue(pl["stream_source"])) == "live" {
+				return
+			}
 			if strings.TrimSpace(part.Text) == "" {
 				return
 			}

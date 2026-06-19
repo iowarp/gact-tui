@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   reduce,
   shouldReconcileTranscriptAfterEvent,
+  type ExecutionTranscriptEvent,
   type ReduceHooks,
 } from '../../src/live.js';
 import type { Message, PermissionRequest, SemanticEventPayload } from '@clio/core';
@@ -26,6 +27,7 @@ function makeHooks(initialMessages: Message[] = []) {
   let lastCompletion: unknown = null;
   let pendingPermission: PermissionRequest | null = null;
   let cost = 0;
+  let executionEvents: ExecutionTranscriptEvent[] = [];
 
   const apply = <T,>(cur: T, next: T | ((p: T) => T)): T =>
     typeof next === 'function' ? (next as (p: T) => T)(cur) : next;
@@ -48,6 +50,9 @@ function makeHooks(initialMessages: Message[] = []) {
     setSemanticEvents: (n) => {
       semantic = apply(semantic, n);
     },
+    setExecutionEvents: (n) => {
+      executionEvents = apply(executionEvents, n);
+    },
     semanticFeedCap: 500,
   };
 
@@ -67,6 +72,9 @@ function makeHooks(initialMessages: Message[] = []) {
     },
     get cost() {
       return cost;
+    },
+    get executionEvents() {
+      return executionEvents;
     },
   };
 }
@@ -236,6 +244,40 @@ describe('reduce: permission lifecycle', () => {
       h.hooks,
     );
     expect(h.pendingPermission).toBeNull();
+  });
+});
+
+describe('reduce: execution transcript projection events', () => {
+  it('keeps batch text parts but skips live full-text part echoes', () => {
+    const h = makeHooks();
+    reduce(
+      {
+        type: 'message.part.added',
+        payload: {
+          turn_id: 'u1',
+          message_id: 'a1',
+          stream_source: 'live',
+          part: { type: 'text', text: 'already represented by deltas' },
+        },
+      },
+      h.hooks,
+    );
+    expect(h.executionEvents).toHaveLength(0);
+
+    reduce(
+      {
+        type: 'message.part.added',
+        payload: {
+          turn_id: 'u1',
+          message_id: 'a1',
+          stream_source: 'batch',
+          part: { type: 'text', text: 'batch text has no deltas' },
+        },
+      },
+      h.hooks,
+    );
+    expect(h.executionEvents).toHaveLength(1);
+    expect(h.executionEvents[0]?.type).toBe('message.part.added');
   });
 });
 

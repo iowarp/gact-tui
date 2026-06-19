@@ -136,10 +136,11 @@ func projectExecutionTimeline(events []executionTimelineEvent) []executionTimeli
 func (p *executionTimelineProjector) apply(event executionTimelineEvent) {
 	switch event.Type {
 	case "message.part.delta":
+		p.switchTextAgent(executionMessageTextAgent(event.Payload))
 		delta := mapValue(event.Payload["delta"])
 		p.appendText(stringValue(delta["text_append"]))
 	case "message.part.added":
-		p.applyPartAdded(event.Part)
+		p.applyPartAdded(event)
 	case "expert.lifecycle.started":
 		p.flushText()
 		p.applyExpertLifecycleStarted(event.Payload)
@@ -162,6 +163,32 @@ func (p *executionTimelineProjector) apply(event executionTimelineEvent) {
 		p.flushText()
 		p.applyToolCompleted(event.Payload)
 	}
+}
+
+func executionMessageTextAgent(payload map[string]any) string {
+	actor := mapValue(payload["actor"])
+	if agent := strings.TrimSpace(stringValue(actor["agent_id"])); agent != "" {
+		return agent
+	}
+	// Canonical assistant transcript text belongs to the parent assistant
+	// turn. Child expert internals arrive on semantic trajectory events.
+	return "main"
+}
+
+func (p *executionTimelineProjector) switchTextAgent(agent string) {
+	agent = strings.TrimSpace(agent)
+	if agent == "" {
+		agent = "main"
+	}
+	if p.currentTextAgent == "" {
+		p.currentTextAgent = agent
+		return
+	}
+	if p.currentTextAgent == agent {
+		return
+	}
+	p.flushText()
+	p.currentTextAgent = agent
 }
 
 func (p *executionTimelineProjector) appendText(next string) {
@@ -194,6 +221,9 @@ func (p *executionTimelineProjector) flushText() {
 	if agent == "" {
 		agent = "main"
 	}
+	if p.replaceDuplicateAssistantText(agent, text) {
+		return
+	}
 	p.nodes = append(p.nodes, executionTimelineNode{
 		Kind:  executionNodeAssistantText,
 		Agent: agent,
@@ -202,14 +232,37 @@ func (p *executionTimelineProjector) flushText() {
 	})
 }
 
-func (p *executionTimelineProjector) applyPartAdded(part *gact.Part) {
+func (p *executionTimelineProjector) replaceDuplicateAssistantText(agent string, text string) bool {
+	comparable := normalizeExecutionLooseComparable(text)
+	if comparable == "" {
+		return false
+	}
+	for i := range p.nodes {
+		node := &p.nodes[i]
+		if node.Kind != executionNodeAssistantText || strings.TrimSpace(node.Agent) != strings.TrimSpace(agent) {
+			continue
+		}
+		if normalizeExecutionLooseComparable(node.Text) != comparable {
+			continue
+		}
+		if executionTextQualityScore(text) > executionTextQualityScore(node.Text) {
+			node.Text = text
+		}
+		return true
+	}
+	return false
+}
+
+func (p *executionTimelineProjector) applyPartAdded(event executionTimelineEvent) {
+	part := event.Part
 	if part == nil {
 		return
 	}
 	if part.Type == gact.PartTypeText {
 		text := strings.TrimSpace(part.Text)
 		if text != "" {
-			p.text.WriteString(text)
+			p.switchTextAgent(executionMessageTextAgent(event.Payload))
+			p.appendText(text)
 		}
 		return
 	}

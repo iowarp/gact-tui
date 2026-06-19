@@ -193,6 +193,53 @@ describe('Transcript', () => {
     expect(screen.queryByText(/This accumulated assistant text/)).toBeNull();
   });
 
+  it('deduplicates repeated assistant prose across handoffs', () => {
+    const bad =
+      'I am initiating the process to find the nearest GNSS station to San Diego andgenerate a plot of its data. First, I will resolve the geographic coordinates for San Diego.';
+    const good =
+      'I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego.';
+
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Find station' }] }]}
+        executionEvents={[
+          {
+            sequence: 1,
+            turnId: 'u1',
+            type: 'message.part.delta',
+            payload: { delta: { text_append: bad } },
+          },
+          {
+            sequence: 2,
+            turnId: 'u1',
+            type: 'blueprint.delegation.started',
+            payload: {
+              actor: { agent_id: 'main' },
+              payload: {
+                parent_id: 'main',
+                delegate_to: 'geospatial',
+                question: 'Resolve San Diego.',
+              },
+            },
+          },
+          {
+            sequence: 3,
+            turnId: 'u1',
+            type: 'message.part.added',
+            payload: {},
+            part: { type: 'text', text: good },
+          },
+        ]}
+      />
+    ));
+
+    const text = screen.getByTestId('transcript').textContent ?? '';
+    expect((text.match(/I am initiating the process/g) ?? []).length).toBe(1);
+    expect(text).toContain('and generate a plot');
+    expect(text).not.toContain('andgenerate');
+  });
+
   it('groups projected CLIO execution by user turn', () => {
     const executionEvents: ExecutionTranscriptEvent[] = [
       {

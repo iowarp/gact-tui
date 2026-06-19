@@ -1344,6 +1344,7 @@ function appendExecutionTranscriptEvent(
   }
   if (eventType === 'message.part.added') {
     if (!part) return;
+    if (part.type === 'text' && String(payload['stream_source'] ?? '').trim() === 'live') return;
     if (part.type === 'text' && !(part.text ?? '').trim()) return;
     if (part.type !== 'text' && part.type !== 'expert_handoff') return;
   }

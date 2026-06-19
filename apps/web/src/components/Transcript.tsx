@@ -225,6 +225,14 @@ function normalizeComparable(text: string): string {
   return stripControlContracts(text).toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 }
 
+function normalizeLooseComparable(text: string): string {
+  return stripControlContracts(text).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function textQualityScore(text: string): number {
+  return text.trim().length + [...text].filter((ch) => ch === ' ' || ch === '\n' || ch === '\t').length * 2;
+}
+
 interface ProjectedExecutionTurn {
   turnId: string;
   nodes: ProjectedExecutionNode[];
@@ -258,6 +266,12 @@ function projectWebExecutionTimeline(events: ExecutionTranscriptEvent[]): Projec
   const handoffQuestions = new Map<string, string>();
   const reportedAgents = new Set<string>();
   const reactStepSpans = new Set<string>();
+  const switchTextAgent = (agent: string) => {
+    const next = agent.trim() || 'main';
+    if (currentAgent === next) return;
+    flushText();
+    currentAgent = next;
+  };
   for (const event of ordered) {
     if (event.type === 'react.step.completed') {
       const payload = objectValue(event.payload['payload']);
@@ -269,10 +283,22 @@ function projectWebExecutionTimeline(events: ExecutionTranscriptEvent[]): Projec
     const text = buffer.trim();
     buffer = '';
     if (!text) return;
+    const comparable = normalizeLooseComparable(text);
+    const duplicate = nodes.find(
+      (node) =>
+        node.kind === 'text' &&
+        node.agent === (currentAgent || 'main') &&
+        normalizeLooseComparable(node.text ?? '') === comparable,
+    );
+    if (duplicate) {
+      if (textQualityScore(text) > textQualityScore(duplicate.text ?? '')) duplicate.text = text;
+      return;
+    }
     nodes.push({ kind: 'text', agent: currentAgent || 'main', depth: agentDepth(currentAgent), text });
   };
   for (const event of ordered) {
     if (event.type === 'message.part.delta') {
+      switchTextAgent(messageTextAgent(event.payload));
       const delta = objectValue(event.payload['delta']);
       buffer += stringValue(delta['text_append']);
       continue;
@@ -280,6 +306,7 @@ function projectWebExecutionTimeline(events: ExecutionTranscriptEvent[]): Projec
     if (event.type === 'message.part.added') {
       const part = event.part;
       if (part?.type === 'text') {
+        switchTextAgent(messageTextAgent(event.payload));
         buffer += part.text ?? '';
       }
       if (part?.type === 'expert_handoff') {
@@ -371,6 +398,11 @@ function projectWebExecutionTimeline(events: ExecutionTranscriptEvent[]): Projec
   }
   flushText();
   return nodes.filter((n) => !isRedacted(n.text ?? '') && !isRedacted(n.question ?? ''));
+}
+
+function messageTextAgent(payload: Record<string, unknown>): string {
+  const actor = objectValue(payload['actor']);
+  return stringValue(actor['agent_id']) || 'main';
 }
 
 function formatProjectedExecution(nodes: ProjectedExecutionNode[]): string {

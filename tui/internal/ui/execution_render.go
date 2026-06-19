@@ -255,6 +255,26 @@ func normalizeExecutionComparable(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(stripSemanticControlContracts(text)), " "))
 }
 
+func normalizeExecutionLooseComparable(text string) string {
+	var out strings.Builder
+	for _, r := range strings.ToLower(stripSemanticControlContracts(text)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
+func executionTextQualityScore(text string) int {
+	score := len(strings.TrimSpace(text))
+	for _, r := range text {
+		if r == ' ' || r == '\n' || r == '\t' {
+			score += 2
+		}
+	}
+	return score
+}
+
 func executionPlaceholderAssistantText(text string) bool {
 	normalized := strings.ToLower(strings.Join(strings.Fields(stripSemanticControlContracts(text)), " "))
 	if normalized == "" {
@@ -412,8 +432,8 @@ func (t Theme) renderExecutionAgentBlock(agent, text string, depth int, width in
 	if body == "" {
 		return label
 	}
-	body = wrap(body, width-2)
-	return lipgloss.JoinVertical(lipgloss.Left, label, indentText(body, indent+"  "))
+	body = executionWrapForPrefix(body, width, indent+"  ")
+	return lipgloss.JoinVertical(lipgloss.Left, label, body)
 }
 
 func executionAgentTextStructuredPreview(agent, text string) string {
@@ -465,7 +485,8 @@ func (t Theme) renderExecutionHandoff(node executionTimelineNode, width int) str
 	if question == "" {
 		return head
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, head, indentText(wrap(executionDisplayProse(question), width-2), indent+"  "))
+	body := executionWrapForPrefix(executionDisplayProse(question), width, indent+"  ")
+	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }
 
 func (t Theme) renderExecutionReactStep(node executionTimelineNode, width int) string {
@@ -518,7 +539,24 @@ func (t Theme) renderExecutionExpertReport(node executionTimelineNode, width int
 	if report == "" {
 		return head
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, head, indentText(wrap(report, width-2), indent+"  "))
+	body := executionWrapForPrefix(report, width, indent+"  ")
+	return lipgloss.JoinVertical(lipgloss.Left, head, body)
+}
+
+func executionProseWrapWidth(width int) int {
+	w := width - 8
+	if w < 24 {
+		return max(12, width-2)
+	}
+	return w
+}
+
+func executionWrapForPrefix(text string, width int, prefix string) string {
+	w := executionProseWrapWidth(width) - lipgloss.Width(prefix)
+	if w < 12 {
+		w = 12
+	}
+	return indentText(wrap(text, w), prefix)
 }
 
 func executionDisplayProse(text string) string {
@@ -526,11 +564,53 @@ func executionDisplayProse(text string) string {
 	text = strings.ReplaceAll(text, "\u00a0", " ")
 	text = strings.ReplaceAll(text, "**", "")
 	text = strings.ReplaceAll(text, "`", "")
-	lines := strings.Split(strings.TrimSpace(text), "\n")
-	for i := range lines {
-		lines[i] = strings.TrimRight(lines[i], " ")
+	return flowExecutionProse(text)
+}
+
+func flowExecutionProse(text string) string {
+	var out []string
+	var paragraph []string
+	flushParagraph := func() {
+		if len(paragraph) == 0 {
+			return
+		}
+		out = append(out, strings.Join(paragraph, " "))
+		paragraph = nil
 	}
-	return strings.TrimSpace(strings.Join(lines, "\n"))
+	for _, raw := range strings.Split(strings.TrimSpace(text), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			flushParagraph()
+			if len(out) > 0 && out[len(out)-1] != "" {
+				out = append(out, "")
+			}
+			continue
+		}
+		line = strings.Join(strings.Fields(line), " ")
+		if executionProseLineIsBoundary(line) {
+			flushParagraph()
+			out = append(out, line)
+			continue
+		}
+		paragraph = append(paragraph, line)
+	}
+	flushParagraph()
+	for len(out) > 0 && out[len(out)-1] == "" {
+		out = out[:len(out)-1]
+	}
+	return strings.TrimSpace(strings.Join(out, "\n"))
+}
+
+func executionProseLineIsBoundary(line string) bool {
+	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
+		return true
+	}
+	if len(line) > 3 && line[0] >= '0' && line[0] <= '9' {
+		if dot := strings.Index(line, ". "); dot > 0 && dot <= 3 {
+			return true
+		}
+	}
+	return false
 }
 
 func (t Theme) executionToolCallLine(toolName string, args any, width int) string {
@@ -552,7 +632,27 @@ func (t Theme) executionToolCallLine(toolName string, args any, width int) strin
 
 func (t Theme) executionObservationBlock(observation string) string {
 	glyph := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true).Render("⎿")
-	return indentWithGlyph(observation, glyph, " ")
+	lines := strings.Split(strings.TrimRight(observation, "\n"), "\n")
+	for i := range lines {
+		lines[i] = t.executionObservationLine(lines[i])
+	}
+	return indentWithGlyph(strings.Join(lines, "\n"), glyph, " ")
+}
+
+func (t Theme) executionObservationLine(line string) string {
+	trimmed := strings.TrimSpace(line)
+	switch {
+	case strings.HasPrefix(trimmed, "+ "):
+		return lipgloss.NewStyle().Foreground(t.Success).Render(line)
+	case strings.HasPrefix(trimmed, "- "):
+		return lipgloss.NewStyle().Foreground(t.Danger).Render(line)
+	case strings.HasPrefix(trimmed, "Ctrl+E"):
+		return lipgloss.NewStyle().Foreground(t.FgFaint).Render(line)
+	case strings.Contains(trimmed, ",") || strings.Contains(trimmed, "|"):
+		return lipgloss.NewStyle().Foreground(t.FgMuted).Render(line)
+	default:
+		return line
+	}
 }
 
 func executionArgsPreview(args any) string {

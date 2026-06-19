@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestProjectExecutionTimelineInterleavesMainGeoDataNDP(t *testing.T) {
@@ -588,6 +589,73 @@ func TestProjectExecutionTimelineDedupsRepeatedHandoffAndOverlappedText(t *testi
 	}
 }
 
+func TestProjectExecutionTimelineDedupsDuplicateAssistantTextAcrossHandoff(t *testing.T) {
+	textBad := "I am initiating the process to find the nearest GNSS station to San Diego andgenerate a plot of its data. First, I will resolve the geographic coordinates for San Diego."
+	textGood := "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego."
+	events := []executionTimelineEvent{
+		deltaEvent(1, textBad),
+		semanticEventWithTurn(2, "turn-one", "blueprint.delegation.started", "main", "geospatial", map[string]any{
+			"parent_id":   "main",
+			"delegate_to": "geospatial",
+			"question":    "Resolve San Diego.",
+			"status":      "running",
+		}),
+		{Sequence: 3, Type: "message.part.added", Part: &gact.Part{Type: gact.PartTypeText, Text: textGood}},
+	}
+
+	rendered := ansi.Strip(DefaultTheme().renderExecutionTimeline(projectExecutionTimeline(events), 120))
+	if got := strings.Count(rendered, "I am initiating the process"); got != 1 {
+		t.Fatalf("expected one assistant prose block, got %d:\n%s", got, rendered)
+	}
+	if strings.Contains(rendered, "andgenerate") {
+		t.Fatalf("worse duplicate text was retained:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "and generate") {
+		t.Fatalf("better duplicate text was not retained:\n%s", rendered)
+	}
+}
+
+func TestRecordExecutionSSESkipsLiveTextPartAdded(t *testing.T) {
+	a := NewWithTheme("", DefaultTheme())
+	a.sessions = []gact.Session{{ID: "s1"}}
+	a.selected = 0
+	a.messages = []gact.Message{{ID: "msg_user_1", SessionID: "s1", Role: gact.RoleUser}}
+	a.recordExecutionSSE(client.SSEEvent{
+		Type: "message.part.added",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":    "s1",
+			"turn_id":       "msg_user_1",
+			"message_id":    "msg_asst_1",
+			"stream_source": "live",
+			"part": map[string]any{
+				"id":   "part_1",
+				"type": "text",
+				"text": "This is already represented by deltas.",
+			},
+		}},
+	})
+	if got := len(a.executionEventsBySession["s1"]); got != 0 {
+		t.Fatalf("live text part added should not be recorded, got %d events", got)
+	}
+	a.recordExecutionSSE(client.SSEEvent{
+		Type: "message.part.added",
+		Payload: map[string]any{"payload": map[string]any{
+			"session_id":    "s1",
+			"turn_id":       "msg_user_1",
+			"message_id":    "msg_asst_1",
+			"stream_source": "batch",
+			"part": map[string]any{
+				"id":   "part_1",
+				"type": "text",
+				"text": "Batch text should be recorded.",
+			},
+		}},
+	})
+	if got := len(a.executionEventsBySession["s1"]); got != 1 {
+		t.Fatalf("batch text part added should be recorded, got %d events", got)
+	}
+}
+
 func TestProjectExecutionTimelineSuppressesNoAnswerPlaceholder(t *testing.T) {
 	events := []executionTimelineEvent{
 		deltaEvent(1, "*No answer yet – awaiting geospatial resolution of “San Diego”.*"),
@@ -656,6 +724,41 @@ func TestRenderExecutionSubagentToolAlignsUnderThought(t *testing.T) {
 	}
 	if thoughtIndent != toolIndent {
 		t.Fatalf("tool indent = %d, thought indent = %d:\n%s", toolIndent, thoughtIndent, rendered)
+	}
+}
+
+func TestRenderExecutionHandoffWrapsWithinWidthWithIndent(t *testing.T) {
+	theme := DefaultTheme()
+	node := executionTimelineNode{
+		Kind:        executionNodeHandoff,
+		Agent:       "ndp_dataset_discovery",
+		ParentAgent: "data",
+		Depth:       2,
+		Question:    "Search the NDP for EarthScope GNSS station metadata datasets. Identify the appropriate catalog containing station coordinates and metadata, and stage that metadata CSV to provide a acquisition.metadata_path for subsequent filtering.",
+	}
+
+	rendered := ansi.Strip(theme.renderExecutionHandoff(node, 76))
+	for _, line := range strings.Split(rendered, "\n") {
+		if len(line) > 76 {
+			t.Fatalf("line exceeded render width (%d): %q\n%s", len(line), line, rendered)
+		}
+		if strings.Contains(line, "subsequent") && !strings.HasPrefix(line, "      ") {
+			t.Fatalf("wrapped continuation lost handoff indent: %q\n%s", line, rendered)
+		}
+	}
+}
+
+func TestRenderExecutionObservationStylesDiffLines(t *testing.T) {
+	theme := DefaultTheme()
+	rendered := theme.executionObservationBlock("prepared file.csv\n- old,row\n+ new,row\nCtrl+E full diff")
+	if !strings.Contains(rendered, "\x1b[") {
+		t.Fatalf("expected styled observation output, got plain text: %q", rendered)
+	}
+	plain := ansi.Strip(rendered)
+	for _, want := range []string{"⎿ prepared file.csv", "- old,row", "+ new,row", "Ctrl+E full diff"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("styled observation missing %q:\n%s", want, plain)
+		}
 	}
 }
 
