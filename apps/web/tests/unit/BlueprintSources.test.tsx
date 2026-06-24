@@ -181,6 +181,25 @@ describe('A3 — per-row actions', () => {
     await waitFor(() => expect(blueprintSources).toHaveBeenCalledTimes(2));
   });
 
+  it('surfaces refresh failures and restores the row action', async () => {
+    const failingRefresh = vi.fn().mockRejectedValue(new Error('refresh failed'));
+    const { client, blueprintSources } = makeClient({
+      refreshBlueprintSource: failingRefresh,
+    });
+    render(() => <BlueprintsPage client={client} />);
+    await settled();
+
+    const refreshButton = screen.getByTestId('blueprint-source-refresh-src_aaa') as HTMLButtonElement;
+    fireEvent.click(refreshButton);
+
+    await waitFor(() => expect(failingRefresh).toHaveBeenCalledWith('src_aaa'));
+    await waitFor(() =>
+      expect(screen.getByTestId('blueprint-source-error').textContent).toContain('refresh failed'),
+    );
+    await waitFor(() => expect(refreshButton.disabled).toBe(false));
+    expect(blueprintSources).toHaveBeenCalledTimes(1);
+  });
+
   it('remove confirms then calls deleteBlueprintSource(id) and refetches', async () => {
     const { client, deleteBlueprintSource, blueprintSources } = makeClient();
     render(() => <BlueprintsPage client={client} />);

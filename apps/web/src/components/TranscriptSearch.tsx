@@ -1,5 +1,10 @@
-import { Show, onCleanup, onMount } from 'solid-js';
+/**
+ * In-transcript find bar: query input, match navigation, and highlight wiring
+ * for searching the visible conversation.
+ */
+import { Show, onMount } from 'solid-js';
 import { Icon } from './Icon.js';
+import { registerWindowKeydown } from '../domListeners.js';
 import './transcript-search.css';
 
 export interface TranscriptSearchProps {
@@ -33,8 +38,7 @@ export function TranscriptSearch(props: TranscriptSearchProps) {
         else props.onNext();
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+    registerWindowKeydown(onKey, true);
   });
 
   // Auto-focus the input each time the bar opens.

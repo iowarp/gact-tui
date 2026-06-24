@@ -79,6 +79,48 @@ describe('DiffPane', () => {
     expect(reject.disabled).toBe(true);
   });
 
+  // v0.2 (file_diff status/edit_mode/lines) — surfaced in the pane header.
+  it('renders the v0.2 status badge, edit_mode, and wire line counts', () => {
+    render(() => (
+      <DiffPane
+        diff={{
+          ...sampleDiff,
+          status: 'applied',
+          edit_mode: 'whole',
+          lines_added: 42,
+          lines_removed: 7,
+        }}
+        onClose={() => undefined}
+      />
+    ));
+    const status = screen.getByTestId('diff-pane-status');
+    expect(status.textContent).toBe('applied');
+    expect(status.getAttribute('data-status')).toBe('applied');
+    expect(status.className).toContain('chip--ok');
+    expect(screen.getByTestId('diff-pane-editmode').textContent).toBe('whole-file');
+    // Wire tally wins over the hunk-derived count (+3/−2).
+    expect(screen.getByTestId('diff-pane-adds').textContent).toBe('+42');
+    expect(screen.getByTestId('diff-pane-dels').textContent).toBe('−7');
+  });
+
+  it('renders apply_failed as an error-toned badge', () => {
+    render(() => (
+      <DiffPane diff={{ ...sampleDiff, status: 'apply_failed' }} onClose={() => undefined} />
+    ));
+    const status = screen.getByTestId('diff-pane-status');
+    expect(status.textContent).toBe('apply failed');
+    expect(status.className).toContain('chip--err');
+  });
+
+  it('omits the status/edit_mode badges for v0.1 diffs and keeps the derived count', () => {
+    render(() => <DiffPane diff={sampleDiff} onClose={() => undefined} />);
+    expect(screen.queryByTestId('diff-pane-status')).toBeNull();
+    expect(screen.queryByTestId('diff-pane-editmode')).toBeNull();
+    // No wire tally -> derived hunk count (+3/−2).
+    expect(screen.getByTestId('diff-pane-adds').textContent).toBe('+3');
+    expect(screen.getByTestId('diff-pane-dels').textContent).toBe('−2');
+  });
+
   it('renders a graceful no-hunks state when the diff is empty', () => {
     render(() => (
       <DiffPane diff={{ ...sampleDiff, unified_diff: '' }} onClose={() => undefined} />

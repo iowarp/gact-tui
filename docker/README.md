@@ -170,6 +170,18 @@ check the clio-agent docs for the current location.)
 
 ---
 
+## Keeping containers up to date
+
+Docker has no in-container auto-update — a running container keeps the image it
+was started from. To pull a newer image and restart onto it, use **Watchtower**
+or a scheduled `docker compose pull && docker compose up -d`, and optionally have
+the entrypoint log a warning at startup when the running image is behind the
+latest published tag. See [`AUTOUPDATE.md`](./AUTOUPDATE.md) for both approaches
+and how they tie to the shared `git describe` version stamp (the same one the web
+and desktop surfaces show).
+
+---
+
 ## Security notes
 
 - **Bind scope.** `clio-api` binds `0.0.0.0:7777` so the published port is

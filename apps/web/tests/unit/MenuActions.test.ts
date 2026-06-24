@@ -2,7 +2,7 @@
  * 1.0 item 9 (JS half) — native menu action dispatch.
  *
  * Includes a cross-language contract test: every action id the JS dispatcher
- * knows must appear verbatim in the Rust MENU_SPEC (src-tauri/src/menu.rs),
+ * knows must appear verbatim in the Rust MENU_SPEC (src-tauri/src/menu_spec.rs),
  * and vice versa — the two sides cannot drift without failing this test.
  */
 import { readFileSync } from 'node:fs';
@@ -13,6 +13,7 @@ import {
   dispatchMenuAction,
   type MenuActionHandlers,
 } from '../../src/menu-actions.js';
+import menuActionsSpec from '../../src/menu-actions.json' with { type: 'json' };
 
 describe('Menu action dispatch (1.0 item 9)', () => {
   it('every documented action routes to exactly one handler', () => {
@@ -43,8 +44,14 @@ describe('Menu action dispatch (1.0 item 9)', () => {
     expect(dispatchMenuAction('new-session', {})).toBe(false);
   });
 
+  it('ALL_MENU_ACTIONS is exactly the shared menu-actions.json source', () => {
+    // ALL_MENU_ACTIONS is read straight from menu-actions.json, so this also
+    // pins the hand-written MenuAction union to the same single source.
+    expect([...ALL_MENU_ACTIONS]).toEqual(menuActionsSpec.actions);
+  });
+
   it('JS action list matches the Rust MENU_SPEC exactly (contract test)', () => {
-    const menuRs = readFileSync(
+    const menuSpecRs = readFileSync(
       resolve(
         import.meta.dirname,
         '..',
@@ -53,13 +60,13 @@ describe('Menu action dispatch (1.0 item 9)', () => {
         'desktop',
         'src-tauri',
         'src',
-        'menu.rs',
+        'menu_spec.rs',
       ),
       'utf-8',
     );
-    // Every JS-side action id must appear as a string literal in menu.rs…
+    // Every JS-side action id must appear as a string literal in menu_spec.rs…
     for (const action of ALL_MENU_ACTIONS) {
-      expect(menuRs, `Rust menu.rs is missing action id "${action}"`).toContain(
+      expect(menuSpecRs, `Rust MENU_SPEC is missing action id "${action}"`).toContain(
         `"${action}"`,
       );
     }
@@ -67,7 +74,7 @@ describe('Menu action dispatch (1.0 item 9)', () => {
     // live in MenuEntry::Action { id: "…" } entries; extract conservatively
     // by scanning for the documented id pattern.
     const rustIds = new Set(
-      [...menuRs.matchAll(/"([a-z]+(?:-[a-z]+)*)"/g)]
+      [...menuSpecRs.matchAll(/"([a-z]+(?:-[a-z]+)*)"/g)]
         .map((m) => m[1]!)
         // Keep only strings that are known action ids (drops labels, events…).
         .filter((id) => (ALL_MENU_ACTIONS as readonly string[]).includes(id)),

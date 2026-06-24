@@ -1,3 +1,6 @@
+/**
+ * UI component: Backend Picker. Renders `BackendPicker` from `BackendPickerProps`.
+ */
 import { createSignal, For, Show } from 'solid-js';
 import type { BackendEntry } from '@clio/core';
 import { useBackendRegistry } from '../registry.js';

@@ -1,3 +1,7 @@
+/**
+ * Session semantic-defaults model: blueprint/expert-pack selection types and
+ * the load/empty helpers backing the new-session defaults UI. Pure, no DOM.
+ */
 export interface SessionSemanticOption {
   id: string;
   label: string;

@@ -16,6 +16,12 @@ tauri-build = { version = "2.0", features = [] }
 [dependencies]
 tauri = { version = "2.0", features = ["tray-icon", "image-png"] }
 tauri-plugin-notification = "2.0"
+# Auto-update: checks the GitHub-releases latest.json marker, verifies the
+# minisign signature against the configured pubkey, downloads + installs.
+tauri-plugin-updater = "2"
+# Relaunch the app after an in-place update installs (the updater leaves the
+# running process in place on macOS/Linux; `relaunch()` boots the new binary).
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Lifecycle supervisor (Wave 0c) + the gact_http command (post-tag bridge)

@@ -33,6 +33,39 @@ test('neutral GACT overlay uses the matching web brand scripts', () => {
   assert.equal(cfg.app.windows[0].minHeight, 600);
 });
 
+test('CSP is present, localhost-scoped, and identical across config variants', () => {
+  const base = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  );
+  const gact = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'),
+  );
+
+  const baseCsp = base.app?.security?.csp;
+  const gactCsp = gact.app?.security?.csp;
+
+  // (1) The brand overlay must not ship CSP-less — it carries its own CSP.
+  assert.ok(typeof baseCsp === 'string' && baseCsp.length > 0, 'base config must define a CSP');
+  assert.ok(
+    typeof gactCsp === 'string' && gactCsp.length > 0,
+    'gact overlay must define a CSP (not ship CSP-less)',
+  );
+
+  // CSP is a security setting, not a brand setting: it must stay identical.
+  assert.equal(gactCsp, baseCsp, 'gact CSP must match the base CSP verbatim');
+
+  // (2) connect-src is scoped to localhost; broad wildcards are removed because
+  // remote/SSH-tunneled egress is done by Rust (gact_http/gact_sse), not the WebView.
+  for (const csp of [baseCsp, gactCsp]) {
+    assert.match(csp, /connect-src[^;]*'self'/, 'connect-src must allow self');
+    assert.match(csp, /http:\/\/localhost:\*/, 'connect-src must allow http://localhost:*');
+    assert.match(csp, /http:\/\/127\.0\.0\.1:\*/, 'connect-src must allow http://127.0.0.1:*');
+    assert.match(csp, /wss?:\/\/localhost:\*/, 'connect-src must allow ws/wss localhost for SSE');
+    assert.doesNotMatch(csp, /connect-src[^;]*\shttp:\/\/\*/, 'connect-src must not use http://* wildcard');
+    assert.doesNotMatch(csp, /connect-src[^;]*\shttps:\/\/\*/, 'connect-src must not use https://* wildcard');
+  }
+});
+
 test('Cargo.toml declares the tauri-build build-dependency', () => {
   const cargo = readFileSync(resolve(root, 'src-tauri', 'Cargo.toml'), 'utf8');
   assert.match(cargo, /tauri-build/);
@@ -59,6 +92,70 @@ test('tauri.conf.json declares the clio-agent sidecar via externalBin', () => {
   );
 });
 
+test('updater plugin config is present and consistent across variants', () => {
+  const base = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  );
+  const gact = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'),
+  );
+
+  for (const [name, cfg] of [['base', base], ['gact', gact]]) {
+    const updater = cfg.plugins?.updater;
+    assert.ok(updater, `${name} config must define plugins.updater`);
+    assert.ok(
+      Array.isArray(updater.endpoints) && updater.endpoints.length > 0,
+      `${name} updater must define at least one endpoint`,
+    );
+    assert.match(
+      updater.endpoints[0],
+      /releases\/latest\/download\/latest\.json$/,
+      `${name} updater endpoint must point at the releases latest.json marker`,
+    );
+    assert.ok(
+      typeof updater.pubkey === 'string' && updater.pubkey.length > 0,
+      `${name} updater must declare a pubkey field`,
+    );
+    assert.equal(
+      cfg.bundle.createUpdaterArtifacts,
+      true,
+      `${name} bundle must emit updater artifacts`,
+    );
+  }
+
+  // Endpoint + key must stay identical across brand variants — they target the
+  // same releases and are verified against the same signing key.
+  assert.deepEqual(
+    base.plugins.updater.endpoints,
+    gact.plugins.updater.endpoints,
+    'updater endpoints must match across variants',
+  );
+  assert.equal(
+    base.plugins.updater.pubkey,
+    gact.plugins.updater.pubkey,
+    'updater pubkey must match across variants',
+  );
+});
+
+test('Cargo.toml + lib.rs wire the updater + process plugins', () => {
+  const cargo = readFileSync(resolve(root, 'src-tauri', 'Cargo.toml'), 'utf8');
+  assert.match(cargo, /tauri-plugin-updater\s*=/);
+  assert.match(cargo, /tauri-plugin-process\s*=/);
+
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(libRs, /tauri_plugin_updater::Builder::new\(\)\.build\(\)/);
+  assert.match(libRs, /tauri_plugin_process::init\(\)/);
+
+  const caps = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
+  );
+  assert.ok(caps.permissions.includes('updater:default'), 'updater:default capability');
+  assert.ok(
+    caps.permissions.includes('process:allow-restart'),
+    'process:allow-restart capability',
+  );
+});
+
 test('sidecar-launcher Go module declares no workspace tie-in', () => {
   const goMod = readFileSync(resolve(root, 'sidecar-launcher', 'go.mod'), 'utf8');
   assert.match(goMod, /^module github\.com\/iowarp\/gact-tui\/apps\/desktop\/sidecar-launcher$/m);
@@ -69,15 +166,18 @@ test('sidecar-launcher Go module declares no workspace tie-in', () => {
 });
 
 test('Tauri SSE path does not fall back to raw browser EventSource', () => {
-  const live = readFileSync(resolve(root, '..', 'web', 'src', 'live.ts'), 'utf8');
-  assert.doesNotMatch(live, /BRIDGE_FALLBACK_MS/);
-  assert.doesNotMatch(live, /function\s+fallBack\s*\(/);
+  const connection = readFileSync(
+    resolve(root, '..', 'web', 'src', 'LiveTranscriptConnection.ts'),
+    'utf8',
+  );
+  assert.doesNotMatch(connection, /BRIDGE_FALLBACK_MS/);
+  assert.doesNotMatch(connection, /function\s+fallBack\s*\(/);
 
-  const tauriStart = live.indexOf('if (inTauri()) {');
+  const tauriStart = connection.indexOf('if (inTauri()) {');
   assert.notEqual(tauriStart, -1, 'expected an explicit Tauri SSE branch');
-  const pureWebCall = live.indexOf('openEventSource();', tauriStart);
+  const pureWebCall = connection.indexOf('openEventSource();', tauriStart);
   assert.notEqual(pureWebCall, -1, 'expected pure-web EventSource call after Tauri branch');
-  const tauriBranch = live.slice(tauriStart, pureWebCall);
+  const tauriBranch = connection.slice(tauriStart, pureWebCall);
   assert.doesNotMatch(
     tauriBranch,
     /openEventSource\s*\(/,

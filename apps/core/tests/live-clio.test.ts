@@ -70,7 +70,10 @@ describeIf(`live clio-agent-gact @ ${BASE}`, () => {
     expect(s.id).toMatch(/^sess_/);
     created.push(s.id);
 
-    const list = await client.sessions();
+    // clio scopes an unfiltered list to the DEFAULT workspace; this session
+    // was created in workspaces[0] (not necessarily the default), so the
+    // round-trip must ask for all workspaces — exactly what LiveSessions does.
+    const list = await client.sessions({ include_all_workspaces: true });
     expect(list.sessions.find((r) => r.id === s.id)).toBeTruthy();
   });
 

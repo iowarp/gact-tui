@@ -16,79 +16,34 @@
  *   pnpm exec playwright test tests/visual/overnight-real-brand-settings.spec.ts
  */
 
-import { expect, test, chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  BACKEND_A,
+  BACKEND_B,
+  ENABLED,
+  WORKSPACE_A_ROOT,
+  api,
+  auditDir,
+  createSession,
+  openBrowser,
+  reachableA,
+  reachableB,
+  seedRegistry,
+  shot,
+  workspaceByRoot,
+  workspaces,
+  type WorkspaceRow,
+} from './overnight-real-helpers';
 
-const ENABLED = process.env['CLIO_OVERNIGHT_EXTENDED_UI'] === '1';
-const BACKEND_A = process.env['CLIO_BACKEND_A_URL'] ?? 'http://127.0.0.1:18131';
-const BACKEND_B = process.env['CLIO_BACKEND_B_URL'] ?? 'http://127.0.0.1:18132';
-const WORKSPACE_A_ROOT = process.env['CLIO_WORKSPACE_A_ROOT'] ?? '';
 const ALT_WORKSPACE_ROOT =
   process.env['CLIO_ALT_WORKSPACE_ROOT'] ??
   (WORKSPACE_A_ROOT
     ? resolve(WORKSPACE_A_ROOT, '..', 'workspace-alt')
     : '/tmp/gact-overnight-real-workspace-alt');
 
-const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
-mkdirSync(auditDir, { recursive: true });
 mkdirSync(ALT_WORKSPACE_ROOT, { recursive: true });
-
-interface WorkspaceRow {
-  id: string;
-  name?: string;
-  root_path?: string;
-}
-
-interface SessionRow {
-  id: string;
-  title?: string;
-  workspace_id?: string;
-}
-
-let reachableA = false;
-let reachableB = false;
-try {
-  const [a, b] = await Promise.all([
-    fetch(`${BACKEND_A}/v1/capabilities`, { signal: AbortSignal.timeout(2_000) }),
-    fetch(`${BACKEND_B}/v1/capabilities`, { signal: AbortSignal.timeout(2_000) }),
-  ]);
-  reachableA = a.ok;
-  reachableB = b.ok;
-} catch {
-  reachableA = false;
-  reachableB = false;
-}
-
-function shot(slug: string): string {
-  return resolve(auditDir, `${slug}.png`);
-}
-
-async function api<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!r.ok) {
-    const body = await r.text().catch(() => '');
-    throw new Error(`${base} ${init.method ?? 'GET'} ${path} failed: ${r.status} ${body}`);
-  }
-  if (r.status === 204) return undefined as T;
-  return (await r.json()) as T;
-}
-
-async function workspaces(base: string): Promise<WorkspaceRow[]> {
-  return (await api<{ workspaces: WorkspaceRow[] }>(base, '/v1/workspaces')).workspaces;
-}
-
-async function workspaceByRoot(base: string, rootPath: string): Promise<WorkspaceRow> {
-  const row = (await workspaces(base)).find((workspace) => workspace.root_path === rootPath);
-  if (row?.id) return row;
-  throw new Error(`${base} has no workspace rooted at ${rootPath}`);
-}
 
 async function ensureWorkspaceByRoot(
   base: string,
@@ -105,70 +60,6 @@ async function ensureWorkspaceByRoot(
       storage_root: `${rootPath}/.clio`,
     }),
   });
-}
-
-async function createSession(
-  base: string,
-  workspaceId: string,
-  title: string,
-): Promise<SessionRow> {
-  return await api<SessionRow>(base, '/v1/sessions', {
-    method: 'POST',
-    body: JSON.stringify({ title, workspace_id: workspaceId }),
-  });
-}
-
-async function seedRegistry(page: Page, currentId = 'overnight:a'): Promise<void> {
-  const [capsA, capsB] = await Promise.all([
-    api<Record<string, unknown>>(BACKEND_A, '/v1/capabilities'),
-    api<Record<string, unknown>>(BACKEND_B, '/v1/capabilities'),
-  ]);
-  await page.addInitScript(
-    ({ backendA, backendB, capsASeed, capsBSeed, currentIdSeed }) => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
-      window.localStorage.setItem('clio.selected-workspace.v1', '__all');
-      window.localStorage.setItem('clio.preview-rail-open.v1', 'false');
-      window.localStorage.setItem('clio.inspector-open.v1', 'false');
-      window.localStorage.setItem(
-        'clio.backends.v1',
-        JSON.stringify({
-          backends: [
-            {
-              id: 'overnight:a',
-              label: 'Overnight A',
-              url: backendA,
-              bearerToken: '',
-              kind: 'http',
-              capabilities: capsASeed,
-            },
-            {
-              id: 'overnight:b',
-              label: 'Overnight B',
-              url: backendB,
-              bearerToken: '',
-              kind: 'http',
-              capabilities: capsBSeed,
-            },
-          ],
-          currentId: currentIdSeed,
-        }),
-      );
-    },
-    {
-      backendA: BACKEND_A,
-      backendB: BACKEND_B,
-      capsASeed: capsA,
-      capsBSeed: capsB,
-      currentIdSeed: currentId,
-    },
-  );
-}
-
-async function openBrowser(): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  return { browser, ctx, page };
 }
 
 async function clickWorkspaceOptionByRoot(page: Page, rootPath: string): Promise<void> {
@@ -203,7 +94,7 @@ test('real CLIO shell uses CLIO branding and Settings can probe/select backends'
 
   const { browser, ctx, page } = await openBrowser();
   try {
-    await seedRegistry(page);
+    await seedRegistry(page, 'overnight:a', { previewRailOpen: false });
     await page.goto(`/?route=chat&backend=${encodeURIComponent(BACKEND_A)}`);
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId(`session-row-${sessionA.id}`)).toBeVisible();
@@ -300,7 +191,7 @@ test('real CLIO workspace switcher filters sessions by live workspace id', async
 
   const { browser, ctx, page } = await openBrowser();
   try {
-    await seedRegistry(page);
+    await seedRegistry(page, 'overnight:a', { previewRailOpen: false });
     await page.goto(`/?route=chat&backend=${encodeURIComponent(BACKEND_A)}`);
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId(`session-row-${primarySession.id}`)).toBeVisible({
@@ -362,7 +253,7 @@ test('real CLIO settings can add and activate a remote HTTP backend', async () =
 
   const { browser, ctx, page } = await openBrowser();
   try {
-    await seedRegistry(page, 'overnight:a');
+    await seedRegistry(page, 'overnight:a', { previewRailOpen: false });
     await page.goto(`/?route=chat&backend=${encodeURIComponent(BACKEND_A)}`);
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId(`session-row-${sessionA.id}`)).toBeVisible({

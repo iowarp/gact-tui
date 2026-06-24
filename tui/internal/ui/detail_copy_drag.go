@@ -1,22 +1,24 @@
 package ui
 
+// detail_copy_drag.go manages mouse drag text-selection within the detail modal.
+
 import (
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (a *App) setDetailCopySnapshot(lines []string, renderedModal string, bodyRow int) {
-	a.detailCopy = conversationCopySnapshot{}
+func (c *clipboardComponent) setDetailSnapshot(lines []string, renderedModal string, bodyRow int) {
+	c.detailCopy = conversationCopySnapshot{}
 	if renderedModal == "" || bodyRow < 0 || len(lines) == 0 {
 		return
 	}
-	rect := overlayMouseRect(renderedModal, a.width, a.height)
+	rect := overlayMouseRect(renderedModal, c.app.width, c.app.height)
 	bodyWidth := modalScrollableBodyWidth(rect.w)
 	if bodyWidth < 1 {
 		bodyWidth = 1
 	}
-	a.detailCopy = conversationCopySnapshot{
+	c.detailCopy = conversationCopySnapshot{
 		rect: mouseRect{
 			x: rect.x + 3,
 			y: rect.y + 2 + bodyRow,
@@ -35,12 +37,12 @@ func stripTextSelectionLines(lines []string) []string {
 	return out
 }
 
-func (a *App) beginDetailCopyDrag(x, y int) bool {
-	if !a.detailViewOpen || a.detailView == nil || !a.detailCopy.rect.contains(x, y) {
-		a.detailCopyDrag = conversationCopyDrag{}
+func (c *clipboardComponent) beginDetailDrag(x, y int) bool {
+	if !c.app.detail.visible || c.app.detail.ref == nil || !c.detailCopy.rect.contains(x, y) {
+		c.detailCopyDrag = conversationCopyDrag{}
 		return false
 	}
-	a.detailCopyDrag = conversationCopyDrag{
+	c.detailCopyDrag = conversationCopyDrag{
 		active: true,
 		startX: x,
 		startY: y,
@@ -50,53 +52,53 @@ func (a *App) beginDetailCopyDrag(x, y int) bool {
 	return true
 }
 
-func (a *App) updateDetailCopyDrag(x, y int) {
-	if !a.detailCopyDrag.active {
+func (c *clipboardComponent) updateDetailDrag(x, y int) {
+	if !c.detailCopyDrag.active {
 		return
 	}
-	x, y = clampTextSelectionPoint(a.detailCopy.rect, x, y)
-	if x != a.detailCopyDrag.startX || y != a.detailCopyDrag.startY {
-		a.detailCopyDrag.moved = true
+	x, y = clampTextSelectionPoint(c.detailCopy.rect, x, y)
+	if x != c.detailCopyDrag.startX || y != c.detailCopyDrag.startY {
+		c.detailCopyDrag.moved = true
 	}
-	a.detailCopyDrag.endX = x
-	a.detailCopyDrag.endY = y
+	c.detailCopyDrag.endX = x
+	c.detailCopyDrag.endY = y
 }
 
-func (a *App) finishDetailCopyDrag(x, y int) bool {
-	if !a.detailCopyDrag.active {
+func (c *clipboardComponent) finishDetailDrag(x, y int) bool {
+	if !c.detailCopyDrag.active {
 		return false
 	}
-	a.updateDetailCopyDrag(x, y)
-	drag := a.detailCopyDrag
-	a.detailCopyDrag = conversationCopyDrag{}
+	c.updateDetailDrag(x, y)
+	drag := c.detailCopyDrag
+	c.detailCopyDrag = conversationCopyDrag{}
 	if !drag.moved {
 		return false
 	}
-	text := visibleConversationSelectionText(a.detailCopy, drag.startX, drag.startY, drag.endX, drag.endY)
+	text := visibleConversationSelectionText(c.detailCopy, drag.startX, drag.startY, drag.endX, drag.endY)
 	if strings.TrimSpace(text) == "" {
-		a.transientHint = "nothing to copy - detail selection has no text"
+		c.app.setHint("nothing to copy - detail selection has no text")
 		return true
 	}
-	a.transientHint = copyExactTextToClipboard(text, "nothing to copy - detail selection has no text", func(chars int) string {
+	c.app.setHint(copyExactTextToClipboard(text, "nothing to copy - detail selection has no text", func(chars int) string {
 		return copiedSelectionToast("detail selection", text, chars)
-	})
+	}))
 	return true
 }
 
-func (a *App) renderDetailCopyDragHighlight(modal string) string {
-	if !a.detailCopyDrag.active || a.detailCopy.rect.w <= 0 {
+func (c *clipboardComponent) renderDetailDragHighlight(modal string) string {
+	if !c.detailCopyDrag.active || c.detailCopy.rect.w <= 0 {
 		return modal
 	}
-	rect := overlayMouseRect(modal, a.width, a.height)
-	localSnapshot := a.detailCopy
+	rect := overlayMouseRect(modal, c.app.width, c.app.height)
+	localSnapshot := c.detailCopy
 	localSnapshot.rect.x -= rect.x
 	localSnapshot.rect.y -= rect.y
-	localDrag := a.detailCopyDrag
+	localDrag := c.detailCopyDrag
 	localDrag.startX -= rect.x
 	localDrag.endX -= rect.x
 	localDrag.startY -= rect.y
 	localDrag.endY -= rect.y
-	return renderCopySelectionOnSurface(modal, localSnapshot, localDrag, a.Theme)
+	return renderCopySelectionOnSurface(modal, localSnapshot, localDrag, c.app.Theme)
 }
 
 func clampTextSelectionPoint(rect mouseRect, x, y int) (int, int) {

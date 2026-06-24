@@ -1,0 +1,70 @@
+# Desktop auto-update release: builds the Tauri shell on each platform, signs
+# the updater artifacts with the minisign key, and publishes a single signed
+# `latest.json` to the GitHub release. The client (tauri-plugin-updater) polls
+# releases/latest/download/latest.json — see apps/desktop/DESKTOP-AUTOUPDATE.md.
+#
+# Requires two repo secrets (Settings -> Secrets and variables -> Actions):
+#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/clio-updater.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the password set at generate time (empty here)
+# The public half lives in tauri.conf.json's plugins.updater.pubkey (committed).
+name: desktop-release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: macos-latest,   args: '--target universal-apple-darwin' }
+          - { platform: ubuntu-22.04,   args: '' }
+          - { platform: windows-latest, args: '' }
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build deps (webkit2gtk + appindicator)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install JS deps
+        working-directory: apps
+        run: pnpm install --frozen-lockfile
+
+      # The desktop shell bundles the GACT sidecar (clio-agent runtime); fetch it
+      # before building so the bundled installer is self-contained.
+      - name: Fetch sidecar
+        working-directory: apps
+        run: pnpm --filter @clio/desktop fetch-sidecar
+
+      - name: Build, sign, and publish the updater release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'CLIO Desktop ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

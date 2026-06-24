@@ -1,0 +1,12 @@
+.sx__head {
+  padding: 8px 10px 8px;
+  border-bottom: 1px solid var(--color-border-30);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    color-mix(in srgb, var(--color-surface) 92%, transparent) 100%
+  );
+}

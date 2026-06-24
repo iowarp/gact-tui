@@ -12,6 +12,7 @@ import {
   orderPresets,
   isReady,
   needsKey,
+  providerSelectionBody,
   statusChip,
   type LmPreset,
 } from '../../src/components/ProviderSetup.js';
@@ -106,6 +107,20 @@ describe('ProviderSetup — pure helpers', () => {
     expect(statusChip(PRESETS[0]!)).toEqual({ label: 'Needs key', tone: 'key' });
     expect(statusChip(PRESETS[2]!)).toEqual({ label: 'Needs setup', tone: 'setup' });
   });
+
+  it('builds the LM selection payload with an optional trimmed key', () => {
+    expect(providerSelectionBody(PRESETS[1]!)).toEqual({
+      provider: 'claude_code',
+      api_base: 'claude-code://exec',
+      model: 'sonnet',
+    });
+    expect(providerSelectionBody(PRESETS[0]!, '  sk-live-123  ')).toEqual({
+      provider: 'openai',
+      api_base: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      api_key: 'sk-live-123',
+    });
+  });
 });
 
 describe('ProviderSetup — rendering', () => {
@@ -122,9 +137,9 @@ describe('ProviderSetup — rendering', () => {
     );
     expect(order).toEqual(['claude_code', 'codex', 'openai', 'ollama']);
     // ready cards carry the data flag
-    expect(
-      screen.getByTestId('provider-setup-card-claude_code').getAttribute('data-ready'),
-    ).toBe('1');
+    expect(screen.getByTestId('provider-setup-card-claude_code').getAttribute('data-ready')).toBe(
+      '1',
+    );
   });
 
   it('picking a READY provider configures it in one click (no key field)', async () => {
@@ -182,6 +197,26 @@ describe('ProviderSetup — rendering', () => {
     expect(onConfigured).toHaveBeenCalledTimes(1);
   });
 
+  it('surfaces setup failures without marking the provider configured', async () => {
+    const client = fakeClient({
+      setLm: vi.fn().mockRejectedValue(new Error('provider unavailable')),
+    });
+    const onConfigured = vi.fn();
+    render(() => (
+      <ProviderSetup client={client} onConfigured={onConfigured} onSkip={() => undefined} />
+    ));
+    await waitFor(() => screen.getByTestId('provider-setup-card-claude_code'));
+
+    fireEvent.click(screen.getByTestId('provider-setup-card-claude_code'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-setup-error').textContent).toContain(
+        'provider unavailable',
+      ),
+    );
+    expect(onConfigured).not.toHaveBeenCalled();
+  });
+
   it('the happy path never shows a backend URL or bearer-token field', async () => {
     const client = fakeClient();
     render(() => (
@@ -196,9 +231,7 @@ describe('ProviderSetup — rendering', () => {
   it('Skip-for-now points to Settings → Providers and fires onSkip', async () => {
     const client = fakeClient();
     const onSkip = vi.fn();
-    render(() => (
-      <ProviderSetup client={client} onConfigured={() => undefined} onSkip={onSkip} />
-    ));
+    render(() => <ProviderSetup client={client} onConfigured={() => undefined} onSkip={onSkip} />);
     await waitFor(() => screen.getByTestId('provider-setup-skip'));
     const skip = screen.getByTestId('provider-setup-skip');
     expect(skip.textContent).toContain('Settings');

@@ -1,3 +1,6 @@
+/**
+ * UI component: Sidebar.
+ */
 import { For } from 'solid-js';
 import type { SessionStatus } from '@clio/core';
 import './sidebar.css';

@@ -13,15 +13,15 @@ import (
 )
 
 // TestSSEResume_TracksHighestSeqID verifies that processing an
-// sseEventMsg updates a.lastSeenSeqID to the event's SeqID. This is
+// sseEventMsg updates a.connection.lastSeenSeqID to the event's SeqID. This is
 // the data the next reconnect will send as Last-Event-ID.
 func TestSSEResume_TracksHighestSeqID(t *testing.T) {
 	a := New("http://unused")
 	for _, id := range []string{"5", "12", "8", "20"} {
 		_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{ID: id, Type: "noop"}})
 	}
-	if a.lastSeenSeqID != 20 {
-		t.Errorf("lastSeenSeqID = %d, want 20 (the highest)", a.lastSeenSeqID)
+	if a.connection.lastSeenSeqID != 20 {
+		t.Errorf("lastSeenSeqID = %d, want 20 (the highest)", a.connection.lastSeenSeqID)
 	}
 }
 
@@ -31,10 +31,10 @@ func TestSSEResume_TracksHighestSeqID(t *testing.T) {
 // backwards.
 func TestSSEResume_OutOfOrderDoesNotRegress(t *testing.T) {
 	a := New("http://unused")
-	a.lastSeenSeqID = 100
+	a.connection.lastSeenSeqID = 100
 	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{ID: "42", Type: "noop"}})
-	if a.lastSeenSeqID != 100 {
-		t.Errorf("lastSeenSeqID = %d after lower-id event, want 100", a.lastSeenSeqID)
+	if a.connection.lastSeenSeqID != 100 {
+		t.Errorf("lastSeenSeqID = %d after lower-id event, want 100", a.connection.lastSeenSeqID)
 	}
 }
 
@@ -70,11 +70,11 @@ func TestSSEResume_PassesLastEventIDOnReconnect(t *testing.T) {
 	defer srv.Close()
 
 	a := New(srv.URL)
-	a.sessions = []gact.Session{{ID: "ses_resume"}}
-	a.selected = 0
-	a.lastSeenSeqID = 42
+	a.session.sessions = []gact.Session{{ID: "ses_resume"}}
+	a.session.selected = 0
+	a.connection.lastSeenSeqID = 42
 
-	cmd1 := a.startSSECmd("ses_resume")
+	cmd1 := a.session.startSSE("ses_resume")
 	if cmd1 == nil {
 		t.Fatal("first startSSECmd returned nil")
 	}
@@ -85,8 +85,8 @@ func TestSSEResume_PassesLastEventIDOnReconnect(t *testing.T) {
 	_ = cmd1()
 
 	// Second connect — pretend we processed event 99 in between.
-	a.lastSeenSeqID = 99
-	cmd2 := a.startSSECmd("ses_resume")
+	a.connection.lastSeenSeqID = 99
+	cmd2 := a.session.startSSE("ses_resume")
 	if cmd2 == nil {
 		t.Fatal("second startSSECmd returned nil")
 	}
@@ -105,8 +105,8 @@ func TestSSEResume_PassesLastEventIDOnReconnect(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	if a.sseCancel != nil {
-		a.sseCancel()
+	if a.connection.sseCancel != nil {
+		a.connection.sseCancel()
 	}
 
 	mu.Lock()
@@ -133,25 +133,25 @@ func TestSSEResume_SelectSessionRestoresSessionCounter(t *testing.T) {
 	defer srv.Close()
 
 	a := New(srv.URL)
-	a.sessions = []gact.Session{{ID: "s_a"}, {ID: "s_b"}}
-	a.selected = 0
-	a.lastSeenSeqID = 100
-	a.lastSeenSeqIDBySession["s_b"] = 42
+	a.session.sessions = []gact.Session{{ID: "s_a"}, {ID: "s_b"}}
+	a.session.selected = 0
+	a.connection.lastSeenSeqID = 100
+	a.connection.lastSeenSeqIDBySession["s_b"] = 42
 
-	cmd := a.selectSession(1) // switch to s_b
-	if a.lastSeenSeqID != 42 {
-		t.Errorf("selectSession should restore s_b lastSeenSeqID, got %d", a.lastSeenSeqID)
+	cmd := a.session.selectIndex(1) // switch to s_b
+	if a.connection.lastSeenSeqID != 42 {
+		t.Errorf("selectSession should restore s_b lastSeenSeqID, got %d", a.connection.lastSeenSeqID)
 	}
-	if a.sseCancel != nil {
-		a.sseCancel()
+	if a.connection.sseCancel != nil {
+		a.connection.sseCancel()
 	}
 	_ = cmd
 }
 
 func TestSSEResume_TracksHighestSeqIDPerSession(t *testing.T) {
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1"}, {ID: "s2"}}
-	a.selected = 0
+	a.session.sessions = []gact.Session{{ID: "s1"}, {ID: "s2"}}
+	a.session.selected = 0
 
 	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{
 		ID:   "11",
@@ -160,7 +160,7 @@ func TestSSEResume_TracksHighestSeqIDPerSession(t *testing.T) {
 			"session_id": "s1",
 		}},
 	}})
-	a.selected = 1
+	a.session.selected = 1
 	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{
 		ID:   "5",
 		Type: "semantic.event",
@@ -169,8 +169,8 @@ func TestSSEResume_TracksHighestSeqIDPerSession(t *testing.T) {
 		}},
 	}})
 
-	if a.lastSeenSeqIDBySession["s1"] != 11 || a.lastSeenSeqIDBySession["s2"] != 5 {
-		t.Fatalf("per-session seq ids = %#v", a.lastSeenSeqIDBySession)
+	if a.connection.lastSeenSeqIDBySession["s1"] != 11 || a.connection.lastSeenSeqIDBySession["s2"] != 5 {
+		t.Fatalf("per-session seq ids = %#v", a.connection.lastSeenSeqIDBySession)
 	}
 }
 
@@ -178,14 +178,14 @@ func TestSSEOpenCanceledDoesNotEnterErrorStage(t *testing.T) {
 	a := New("http://127.0.0.1:1")
 	a.stage = StageReady
 
-	cmd := a.startSSECmd("s_canceled")
+	cmd := a.session.startSSE("s_canceled")
 	if cmd == nil {
 		t.Fatal("startSSECmd returned nil")
 	}
-	if a.sseCancel == nil {
+	if a.connection.sseCancel == nil {
 		t.Fatal("startSSECmd did not install a cancel func")
 	}
-	a.sseCancel()
+	a.connection.sseCancel()
 
 	msg := cmd()
 	if _, ok := msg.(sseOpenCanceledMsg); !ok {

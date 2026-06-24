@@ -1,12 +1,15 @@
+/**
+ * UI component: Slash Palette.
+ */
 import {
   createEffect,
   createMemo,
   createSignal,
   For,
-  onCleanup,
   Show,
 } from 'solid-js';
 import { brand } from '@brand';
+import { registerWindowKeydown } from '../domListeners.js';
 import { fuzzyRank } from '../fuzzy.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './slash-palette.css';
@@ -91,8 +94,7 @@ export function SlashPalette(props: SlashPaletteProps) {
       if (pick) props.onPick(pick);
     }
   };
-  window.addEventListener('keydown', onKey, true);
-  onCleanup(() => window.removeEventListener('keydown', onKey, true));
+  registerWindowKeydown(onKey, true);
 
   return (
     <Show when={props.open}>

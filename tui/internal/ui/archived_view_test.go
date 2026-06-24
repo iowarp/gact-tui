@@ -45,9 +45,9 @@ func makeArchivedViewApp(t *testing.T) *App {
 	a.stage = StageReady
 	a.width, a.height = 100, 30
 	a.focus = FocusSidebar
-	a.wsID = "ws_a"
-	a.sessions = []gact.Session{{ID: "live1", Title: "current", WorkspaceID: "ws_a"}}
-	a.selected = 0
+	a.session.wsID = "ws_a"
+	a.session.sessions = []gact.Session{{ID: "live1", Title: "current", WorkspaceID: "ws_a"}}
+	a.session.selected = 0
 	return a
 }
 
@@ -71,11 +71,11 @@ func TestArchivedView_HTogglesFetchesWithFilter(t *testing.T) {
 
 	a := New(srv.URL)
 	a.focus = FocusSidebar
-	a.wsID = "ws_a"
+	a.session.wsID = "ws_a"
 
 	// `h` toggles on → fetch with archived=true.
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
-	if !a.showArchived {
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	if !a.sidebar.showArchived {
 		t.Error("h should toggle showArchived to true")
 	}
 	if !strings.Contains(a.transientHint, "archived") {
@@ -86,8 +86,8 @@ func TestArchivedView_HTogglesFetchesWithFilter(t *testing.T) {
 	}
 
 	// `h` again toggles off → fetch with no archived filter.
-	_, cmd = a.handleSidebarKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
-	if a.showArchived {
+	_, cmd = a.sidebar.handleKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	if a.sidebar.showArchived {
 		t.Error("second h should toggle back to active view")
 	}
 	if cmd != nil {
@@ -110,13 +110,13 @@ func TestArchivedView_HTogglesFetchesWithFilter(t *testing.T) {
 func TestArchivedView_HSkipsFetchWhenNoWorkspace(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusSidebar
-	a.wsID = "" // no workspace yet
+	a.session.wsID = "" // no workspace yet
 
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	if cmd != nil {
 		t.Error("h with no workspace should not issue a fetch")
 	}
-	if !a.showArchived {
+	if !a.sidebar.showArchived {
 		t.Error("toggle flag should still flip for deferred use")
 	}
 }
@@ -146,15 +146,15 @@ func TestArchive_InArchivedViewSendsFalse(t *testing.T) {
 
 	a := New(srv.URL)
 	a.focus = FocusSidebar
-	a.wsID = "ws_a"
-	a.sessions = []gact.Session{{ID: "arch1", Title: "old"}}
-	a.selected = 0
-	a.showArchived = true
+	a.session.wsID = "ws_a"
+	a.session.sessions = []gact.Session{{ID: "arch1", Title: "old"}}
+	a.session.selected = 0
+	a.sidebar.showArchived = true
 
 	// Match the Code + Text + Mod shape that k.String() expands to "A";
 	// without Text set the key renders differently in lipgloss's key
 	// encoder and the case arm won't match.
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'A', Text: "A", Mod: tea.ModShift})
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'A', Text: "A", Mod: tea.ModShift})
 	if cmd == nil {
 		t.Fatal("A should dispatch unarchive cmd")
 	}
@@ -175,8 +175,8 @@ func TestArchive_InArchivedViewSendsFalse(t *testing.T) {
 
 func TestArchive_UnarchiveHintSaysUnArchived(t *testing.T) {
 	a := makeArchivedViewApp(t)
-	a.sessions = []gact.Session{{ID: "arch1"}}
-	a.selected = 0
+	a.session.sessions = []gact.Session{{ID: "arch1"}}
+	a.session.selected = 0
 
 	model, _ := a.Update(sessionArchivedMsg{sessionID: "arch1", archived: false})
 	a = model.(*App)

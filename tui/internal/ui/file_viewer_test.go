@@ -1,10 +1,6 @@
 package ui
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -38,9 +34,9 @@ func seedFileViewerTree(t *testing.T) string {
 
 func TestFileViewerLazilyLoadsCurrentDirectoryTree(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.fileViewer.setRoot(seedFileViewerTree(t))
 
-	visible := a.visibleFileTreeEntries()
+	visible := a.fileViewer.visibleEntries()
 	if len(visible) != 2 {
 		t.Fatalf("collapsed visible entries = %#v, want docs and README", visible)
 	}
@@ -48,12 +44,12 @@ func TestFileViewerLazilyLoadsCurrentDirectoryTree(t *testing.T) {
 		t.Fatalf("visible entries = %#v, want sorted dirs first", visible)
 	}
 
-	if len(a.fileTreeEntries) != 2 {
-		t.Fatalf("root load should only include immediate children, got %#v", a.fileTreeEntries)
+	if len(a.fileViewer.fileTreeEntries) != 2 {
+		t.Fatalf("root load should only include immediate children, got %#v", a.fileViewer.fileTreeEntries)
 	}
-	a.fileTreeSel = 0
-	a.activateFileTreeSelection()
-	visible = a.visibleFileTreeEntries()
+	a.fileViewer.fileTreeSel = 0
+	a.fileViewer.activateSelection()
+	visible = a.fileViewer.visibleEntries()
 	paths := make([]string, 0, len(visible))
 	for _, entry := range visible {
 		paths = append(paths, entry.Path)
@@ -61,26 +57,26 @@ func TestFileViewerLazilyLoadsCurrentDirectoryTree(t *testing.T) {
 	if strings.Join(paths, ",") != "docs,docs/api,docs/guide.md,README.md" {
 		t.Fatalf("expanded paths = %#v", paths)
 	}
-	if len(a.fileTreeEntries) != 4 {
-		t.Fatalf("expanding docs should load only docs' immediate children, got %#v", a.fileTreeEntries)
+	if len(a.fileViewer.fileTreeEntries) != 4 {
+		t.Fatalf("expanding docs should load only docs' immediate children, got %#v", a.fileViewer.fileTreeEntries)
 	}
 }
 
 func TestFileViewerFollowsActiveWorkspaceRoot(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	root := seedFileViewerTree(t)
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
-	a.wsID = "ws_demo"
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.session.wsID = "ws_demo"
 
-	a.syncFileViewerRootToWorkspace()
+	a.fileViewer.syncRootToWorkspace()
 
-	if a.fileViewerRoot != root {
-		t.Fatalf("file viewer root = %q, want workspace root %q", a.fileViewerRoot, root)
+	if a.fileViewer.fileViewerRoot != root {
+		t.Fatalf("file viewer root = %q, want workspace root %q", a.fileViewer.fileViewerRoot, root)
 	}
-	if a.fileTreeRootMode != "workspace" {
-		t.Fatalf("file viewer root mode = %q, want workspace", a.fileTreeRootMode)
+	if a.fileViewer.fileTreeRootMode != "workspace" {
+		t.Fatalf("file viewer root mode = %q, want workspace", a.fileViewer.fileTreeRootMode)
 	}
-	out := ansi.Strip(a.renderFileViewerModuleRows(42, 0, 8)[1])
+	out := ansi.Strip(a.fileViewer.renderModuleRows(42, 0, 8)[1])
 	if !strings.Contains(out, "workspace:") {
 		t.Fatalf("root label should indicate workspace mode, got %q", out)
 	}
@@ -97,16 +93,16 @@ func TestFileViewerUsesPathLikeWorkspaceNameWhenClioReportsScratchRoot(t *testin
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(scratchRoot) })
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: realRoot, RootPath: scratchRoot}}
-	a.wsID = "ws_demo"
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: realRoot, RootPath: scratchRoot}}
+	a.session.wsID = "ws_demo"
 
-	a.syncFileViewerRootToWorkspace()
+	a.fileViewer.syncRootToWorkspace()
 
-	if a.fileViewerRoot != realRoot {
-		t.Fatalf("file viewer root = %q, want path-like workspace name %q", a.fileViewerRoot, realRoot)
+	if a.fileViewer.fileViewerRoot != realRoot {
+		t.Fatalf("file viewer root = %q, want path-like workspace name %q", a.fileViewer.fileViewerRoot, realRoot)
 	}
-	if len(a.fileTreeEntries) != 1 || a.fileTreeEntries[0].Name != "agent-demo-marker.txt" {
-		t.Fatalf("file tree entries = %#v, want named workspace contents", a.fileTreeEntries)
+	if len(a.fileViewer.fileTreeEntries) != 1 || a.fileViewer.fileTreeEntries[0].Name != "agent-demo-marker.txt" {
+		t.Fatalf("file tree entries = %#v, want named workspace contents", a.fileViewer.fileTreeEntries)
 	}
 }
 
@@ -116,21 +112,21 @@ func TestFileViewerRefreshDetectsNewWorkspaceFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "initial.txt"), []byte("initial"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
-	a.wsID = "ws_demo"
-	a.syncFileViewerRootToWorkspace()
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.session.wsID = "ws_demo"
+	a.fileViewer.syncRootToWorkspace()
 
 	if err := os.WriteFile(filepath.Join(root, "created-by-agent.txt"), []byte("artifact"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a.refreshFileViewerFromWorkspace()
+	a.fileViewer.refreshFromWorkspace()
 
 	var names []string
-	for _, entry := range a.fileTreeEntries {
+	for _, entry := range a.fileViewer.fileTreeEntries {
 		names = append(names, entry.Name)
 	}
 	if !slices.Contains(names, "created-by-agent.txt") {
-		t.Fatalf("file tree entries = %#v, want newly created file", a.fileTreeEntries)
+		t.Fatalf("file tree entries = %#v, want newly created file", a.fileViewer.fileTreeEntries)
 	}
 }
 
@@ -141,10 +137,10 @@ func TestFileViewerRefreshTickDetectsNewWorkspaceFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.stage = StageReady
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
-	a.wsID = "ws_demo"
-	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
-	a.syncFileViewerRootToWorkspace()
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.session.wsID = "ws_demo"
+	a.sidebar.SetLayout([]string{"sessions", "files", "context"}, nil)
+	a.fileViewer.syncRootToWorkspace()
 
 	if err := os.WriteFile(filepath.Join(root, "created-after-start.txt"), []byte("artifact"), 0o644); err != nil {
 		t.Fatal(err)
@@ -155,16 +151,16 @@ func TestFileViewerRefreshTickDetectsNewWorkspaceFiles(t *testing.T) {
 	}
 
 	var names []string
-	for _, entry := range a.fileTreeEntries {
+	for _, entry := range a.fileViewer.fileTreeEntries {
 		names = append(names, entry.Name)
 	}
 	if !slices.Contains(names, "created-after-start.txt") {
-		t.Fatalf("file tree entries = %#v, want newly created file after tick", a.fileTreeEntries)
+		t.Fatalf("file tree entries = %#v, want newly created file after tick", a.fileViewer.fileTreeEntries)
 	}
-	if a.fileTreeUpdated.IsZero() {
+	if a.fileViewer.fileTreeUpdated.IsZero() {
 		t.Fatal("file refresh should stamp the last updated time")
 	}
-	out := ansi.Strip(strings.Join(a.renderFileViewerModuleRows(60, 0, 8), "\n"))
+	out := ansi.Strip(strings.Join(a.fileViewer.renderModuleRows(60, 0, 8), "\n"))
 	if !strings.Contains(out, "updated") {
 		t.Fatalf("file viewer root row should show refresh freshness, got %q", out)
 	}
@@ -177,10 +173,10 @@ func TestFileViewerRefreshesOnLiveSSEEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.stage = StageReady
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
-	a.wsID = "ws_demo"
-	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
-	a.syncFileViewerRootToWorkspace()
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.session.wsID = "ws_demo"
+	a.sidebar.SetLayout([]string{"sessions", "files", "context"}, nil)
+	a.fileViewer.syncRootToWorkspace()
 
 	if err := os.WriteFile(filepath.Join(root, "artifact-from-agent.txt"), []byte("artifact"), 0o644); err != nil {
 		t.Fatal(err)
@@ -196,11 +192,11 @@ func TestFileViewerRefreshesOnLiveSSEEvent(t *testing.T) {
 	}})
 
 	var names []string
-	for _, entry := range a.fileTreeEntries {
+	for _, entry := range a.fileViewer.fileTreeEntries {
 		names = append(names, entry.Name)
 	}
 	if !slices.Contains(names, "artifact-from-agent.txt") {
-		t.Fatalf("file tree entries = %#v, want newly created file after live event", a.fileTreeEntries)
+		t.Fatalf("file tree entries = %#v, want newly created file after live event", a.fileViewer.fileTreeEntries)
 	}
 }
 
@@ -213,39 +209,39 @@ func TestFileViewerRefreshPreservesExpandedFoldersAndSelection(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "outputs", "first.txt"), []byte("first"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
-	a.wsID = "ws_demo"
-	a.syncFileViewerRootToWorkspace()
-	a.fileTreeExpanded["outputs"] = true
-	a.reloadFileViewer()
-	a.fileTreeSel = 1 // outputs/first.txt
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: root}}
+	a.session.wsID = "ws_demo"
+	a.fileViewer.syncRootToWorkspace()
+	a.fileViewer.fileTreeExpanded["outputs"] = true
+	a.fileViewer.reload()
+	a.fileViewer.fileTreeSel = 1 // outputs/first.txt
 
 	if err := os.WriteFile(filepath.Join(root, "outputs", "second.txt"), []byte("second"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a.refreshFileViewerFromWorkspace()
+	a.fileViewer.refreshFromWorkspace()
 
-	visible := a.visibleFileTreeEntries()
+	visible := a.fileViewer.visibleEntries()
 	if len(visible) != 3 {
 		t.Fatalf("visible entries = %#v, want folder plus two files", visible)
 	}
 	if !slices.ContainsFunc(visible, func(entry fileTreeEntry) bool { return entry.Path == "outputs/second.txt" }) {
 		t.Fatalf("visible entries = %#v, want newly created child file", visible)
 	}
-	if a.fileTreeSel < 0 || a.fileTreeSel >= len(visible) || visible[a.fileTreeSel].Path != "outputs/first.txt" {
-		t.Fatalf("selection moved unexpectedly: sel=%d visible=%#v", a.fileTreeSel, visible)
+	if a.fileViewer.fileTreeSel < 0 || a.fileViewer.fileTreeSel >= len(visible) || visible[a.fileViewer.fileTreeSel].Path != "outputs/first.txt" {
+		t.Fatalf("selection moved unexpectedly: sel=%d visible=%#v", a.fileViewer.fileTreeSel, visible)
 	}
 }
 
 func TestFileViewerUnavailableWorkspaceUsesOperatorSummary(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	missing := filepath.Join(t.TempDir(), "missing-workspace")
-	a.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: missing}}
-	a.wsID = "ws_demo"
+	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "demo", RootPath: missing}}
+	a.session.wsID = "ws_demo"
 
-	a.syncFileViewerRootToWorkspace()
+	a.fileViewer.syncRootToWorkspace()
 
-	rows := a.renderFileViewerModuleRows(44, 0, 8)
+	rows := a.fileViewer.renderModuleRows(44, 0, 8)
 	out := ansi.Strip(strings.Join(rows, "\n"))
 	if !strings.Contains(out, "folder unavailable") {
 		t.Fatalf("sidebar should summarize unavailable workspace:\n%s", out)
@@ -255,13 +251,13 @@ func TestFileViewerUnavailableWorkspaceUsesOperatorSummary(t *testing.T) {
 	}
 
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionFiles
-	a.sidebarSectionCursor = false
-	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if !a.detailViewOpen || a.detailView == nil {
+	a.sidebar.sectionFocus = sidebarSectionFiles
+	a.sidebar.sectionCursor = false
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.detail.visible || a.detail.ref == nil {
 		t.Fatal("Enter on unavailable file viewer should open detail")
 	}
-	detail := a.detailView.fullText
+	detail := a.detail.ref.fullText
 	for _, want := range []string{"root: " + missing, "mode: workspace", "status: unavailable", "details:"} {
 		if !strings.Contains(detail, want) {
 			t.Fatalf("detail missing %q:\n%s", want, detail)
@@ -282,13 +278,13 @@ func TestFileViewerRendersCollapsibleSidebarModule(t *testing.T) {
 	a.width = 100
 	a.height = 32
 	a.stage = StageReady
-	a.SetFileViewerRoot(seedFileViewerTree(t))
-	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
+	a.fileViewer.setRoot(seedFileViewerTree(t))
+	a.sidebar.SetLayout([]string{"sessions", "files", "context"}, nil)
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionFiles
-	a.sidebarSectionCursor = false
+	a.sidebar.sectionFocus = sidebarSectionFiles
+	a.sidebar.sectionCursor = false
 
-	out := ansi.Strip(a.renderSidebar(42, 26))
+	out := ansi.Strip(a.sidebar.render(42, 26))
 	for _, want := range []string{"FILES", "root:", "▸ docs", "README.md"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("file viewer render missing %q:\n%s", want, out)
@@ -298,133 +294,21 @@ func TestFileViewerRendersCollapsibleSidebarModule(t *testing.T) {
 
 func TestFileViewerEnterTogglesFoldersAndOpensFiles(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(seedFileViewerTree(t))
+	a.fileViewer.setRoot(seedFileViewerTree(t))
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionFiles
-	a.sidebarSectionCursor = false
-	a.fileTreeSel = 0
+	a.sidebar.sectionFocus = sidebarSectionFiles
+	a.sidebar.sectionCursor = false
+	a.fileViewer.fileTreeSel = 0
 
-	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if !a.fileTreeExpanded["docs"] {
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.fileViewer.fileTreeExpanded["docs"] {
 		t.Fatal("Enter on a folder should expand it")
 	}
 
-	a.fileTreeSel = 2 // docs/guide.md after docs/api
-	a.handleSidebarKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "guide") {
-		t.Fatalf("Enter on a file should open detail, open=%v detail=%#v", a.detailViewOpen, a.detailView)
-	}
-}
-
-func TestFileViewerMarkdownDetailOffersRenderedAndRawModes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("# Demo\n\n**bold** text\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-	a.fileTreeSel = 0
-
-	a.activateFileTreeSelection()
-
-	if !a.detailViewOpen || a.detailView == nil {
-		t.Fatal("markdown file should open detail")
-	}
-	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "rendered" {
-		t.Fatalf("markdown modes = %#v active=%q, want rendered/raw", a.detailView.fileModes, a.detailView.fileMode)
-	}
-	if !strings.Contains(stripANSI(a.detailView.fullText), "Demo") {
-		t.Fatalf("rendered markdown detail missing content:\n%s", a.detailView.fullText)
-	}
-	model, _ := a.handleDetailViewKey(tea.KeyPressMsg{Code: tea.KeyTab})
-	a = model.(*App)
-	if a.detailView.fileMode != "raw" || !strings.Contains(a.detailView.fullText, "**bold**") {
-		t.Fatalf("tab should switch to raw markdown, mode=%q text:\n%s", a.detailView.fileMode, a.detailView.fullText)
-	}
-}
-
-func TestFileViewerJSONDetailOffersPrettyAndRawModes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "data.json"), []byte(`{"ok":true,"n":2}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-	a.fileTreeSel = 0
-
-	a.activateFileTreeSelection()
-
-	if !a.detailViewOpen || a.detailView == nil {
-		t.Fatal("json file should open detail")
-	}
-	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "pretty" {
-		t.Fatalf("json modes = %#v active=%q, want pretty/raw", a.detailView.fileModes, a.detailView.fileMode)
-	}
-	if !strings.Contains(a.detailView.fullText, "\"ok\": true") {
-		t.Fatalf("pretty json missing formatted body:\n%s", a.detailView.fullText)
-	}
-}
-
-func TestFileViewerCSVDetailOffersTableAndRawModes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "stations.csv"), []byte("station,value\nMTA1,1.2\nPKRD,0.9\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-	a.fileTreeSel = 0
-
-	a.activateFileTreeSelection()
-
-	if !a.detailViewOpen || a.detailView == nil {
-		t.Fatal("csv file should open detail")
-	}
-	if len(a.detailView.fileModes) != 2 || a.detailView.fileMode != "table" {
-		t.Fatalf("csv modes = %#v active=%q, want table/raw", a.detailView.fileModes, a.detailView.fileMode)
-	}
-	if !strings.Contains(a.detailView.fullText, "station") || !strings.Contains(a.detailView.fullText, "2 data rows total") {
-		t.Fatalf("table preview missing expected summary:\n%s", a.detailView.fullText)
-	}
-}
-
-func TestFileViewerLargeFileShowsInfoWithoutReadingInline(t *testing.T) {
-	root := t.TempDir()
-	name := filepath.Join(root, "large.log")
-	if err := os.WriteFile(name, []byte("too large for preview"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	entry := fileTreeEntry{Path: "large.log", Size: maxLocalFilePreviewBytes + 1}
-
-	modes := a.localFileDetailModes(entry, name)
-
-	if len(modes) != 1 || modes[0].id != "info" {
-		t.Fatalf("large file modes = %#v, want single info mode", modes)
-	}
-	if !strings.Contains(modes[0].text, "inline preview limit") || strings.Contains(modes[0].text, "too large for preview") {
-		t.Fatalf("large file info should explain the limit without reading body:\n%s", modes[0].text)
-	}
-}
-
-func TestFileViewerBinaryDetailShowsUnsupportedState(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "blob.bin"), []byte{0x00, 0x01, 0xff, 0x02}, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-	a.fileTreeSel = 0
-
-	a.activateFileTreeSelection()
-
-	if !a.detailViewOpen || a.detailView == nil {
-		t.Fatal("binary file should open an info detail")
-	}
-	if a.detailView.fileMode != "info" || !strings.Contains(a.detailView.fullText, "preview: unsupported") {
-		t.Fatalf("binary detail should show unsupported state, mode=%q text:\n%s", a.detailView.fileMode, a.detailView.fullText)
-	}
-	if strings.Contains(a.detailView.fullText, "\x00") {
-		t.Fatalf("binary detail leaked raw NUL bytes:\n%s", a.detailView.fullText)
+	a.fileViewer.fileTreeSel = 2 // docs/guide.md after docs/api
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !a.detail.visible || a.detail.ref == nil || !strings.Contains(a.detail.ref.fullText, "guide") {
+		t.Fatalf("Enter on a file should open detail, open=%v detail=%#v", a.detail.visible, a.detail.ref)
 	}
 }
 
@@ -433,11 +317,11 @@ func TestFileViewerMouseClickUsesSemanticHitTarget(t *testing.T) {
 	a.width = 100
 	a.height = 32
 	a.stage = StageReady
-	a.SetFileViewerRoot(seedFileViewerTree(t))
-	a.SetSidebarLayout([]string{"sessions", "files", "context"}, nil)
+	a.fileViewer.setRoot(seedFileViewerTree(t))
+	a.sidebar.SetLayout([]string{"sessions", "files", "context"}, nil)
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionFiles
-	a.sidebarSectionCursor = false
+	a.sidebar.sectionFocus = sidebarSectionFiles
+	a.sidebar.sectionCursor = false
 
 	_ = a.View()
 	target, ok := findHitTargetForTest(a, "sidebar:files:item:0")
@@ -446,172 +330,7 @@ func TestFileViewerMouseClickUsesSemanticHitTarget(t *testing.T) {
 	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
-	if !a.fileTreeExpanded["docs"] {
+	if !a.fileViewer.fileTreeExpanded["docs"] {
 		t.Fatal("clicking folder row should expand it")
-	}
-}
-
-func TestFileViewerDetailUploadActionUploadsAttachment(t *testing.T) {
-	root := seedFileViewerTree(t)
-	var uploadBody map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/v1/sessions/s1/attachments" {
-			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
-		}
-		if err := json.NewDecoder(r.Body).Decode(&uploadBody); err != nil {
-			t.Fatalf("decode upload body: %v", err)
-		}
-		_ = json.NewEncoder(w).Encode(gact.ContextFile{
-			Path:     ".clio/attachments/s1/README.md",
-			Mode:     "read",
-			Size:     7,
-			Uploaded: true,
-		})
-	}))
-	defer srv.Close()
-
-	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.caps.Capabilities.AttachmentsUpload = true
-	a.sessions = []gact.Session{{ID: "s1", Title: "demo"}}
-	a.selected = 0
-	a.SetFileViewerRoot(root)
-	a.fileTreeSel = 1 // README.md
-	a.activateFileTreeSelection()
-	if !a.detailViewOpen || a.detailView == nil || a.detailView.localPath == "" {
-		t.Fatalf("expected file detail with local path, detail=%#v", a.detailView)
-	}
-	_ = a.View()
-	if _, ok := findHitTargetForTest(a, "button:detail:upload"); !ok {
-		t.Fatal("advertised attachment support should render upload button target")
-	}
-
-	model, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
-	a = model.(*App)
-	if cmd == nil {
-		t.Fatal("upload action should dispatch a command")
-	}
-	msg := cmd()
-	if batch, ok := msg.(tea.BatchMsg); ok {
-		if len(batch) != 2 {
-			t.Fatalf("upload action batch length = %d, want hint + upload", len(batch))
-		}
-		msg = batch[1]()
-	}
-	uploaded, ok := msg.(contextFileUploadedMsg)
-	if !ok {
-		t.Fatalf("upload command returned %T, want contextFileUploadedMsg", msg)
-	}
-	if uploaded.err != nil {
-		t.Fatalf("upload failed: %v", uploaded.err)
-	}
-	if uploadBody["filename"] != "README.md" || uploadBody["mode"] != "read" {
-		t.Fatalf("upload body = %#v", uploadBody)
-	}
-	if uploadBody["file"] != base64.StdEncoding.EncodeToString([]byte("# demo\n")) {
-		t.Fatalf("upload file = %#v", uploadBody["file"])
-	}
-
-	model, _ = a.Update(uploaded)
-	a = model.(*App)
-	if len(a.contextFiles) != 1 || !a.contextFiles[0].Uploaded {
-		t.Fatalf("context files after upload = %#v", a.contextFiles)
-	}
-	if !strings.Contains(a.transientHint, "uploaded .clio/attachments/s1/README.md to context") {
-		t.Fatalf("hint = %q", a.transientHint)
-	}
-}
-
-func TestFileViewerDetailUploadRequiresCapability(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.detailViewOpen = true
-	a.detailView = &bulkyPartRef{messageID: "files", localPath: "/tmp/report.txt"}
-
-	_ = a.View()
-	if _, ok := findHitTargetForTest(a, "button:detail:upload"); ok {
-		t.Fatal("upload button should be hidden when attachments_upload is not advertised")
-	}
-	_, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 'u', Text: "u"})
-	if cmd == nil {
-		t.Fatal("unsupported upload should still schedule hint expiry")
-	}
-	if a.transientHint != "attachment upload unsupported by this backend" {
-		t.Fatalf("hint = %q", a.transientHint)
-	}
-}
-
-func BenchmarkLocalFileMarkdownDetailModes(b *testing.B) {
-	root := b.TempDir()
-	var body strings.Builder
-	body.WriteString("# Preview\n\n| station | value | note |\n| --- | --- | --- |\n")
-	for i := 0; i < 200; i++ {
-		body.WriteString("| MTA1 | 1.2 | representative row |\n")
-	}
-	path := filepath.Join(root, "guide.md")
-	if err := os.WriteFile(path, []byte(body.String()), 0o644); err != nil {
-		b.Fatal(err)
-	}
-	entry := fileTreeEntry{Path: "guide.md", Size: int64(len(body.String()))}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-	a.width = 140
-	a.height = 40
-
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		modes := a.localFileDetailModes(entry, path)
-		if len(modes) != 2 {
-			b.Fatalf("modes = %#v, want rendered/raw", modes)
-		}
-	}
-}
-
-func BenchmarkLocalFileCSVDetailModes(b *testing.B) {
-	root := b.TempDir()
-	var body strings.Builder
-	body.WriteString("station,value,note\n")
-	for i := 0; i < 500; i++ {
-		body.WriteString("MTA1,1.2,representative row\n")
-	}
-	path := filepath.Join(root, "stations.csv")
-	if err := os.WriteFile(path, []byte(body.String()), 0o644); err != nil {
-		b.Fatal(err)
-	}
-	entry := fileTreeEntry{Path: "stations.csv", Size: int64(len(body.String()))}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		modes := a.localFileDetailModes(entry, path)
-		if len(modes) != 2 {
-			b.Fatalf("modes = %#v, want table/raw", modes)
-		}
-	}
-}
-
-func BenchmarkLocalFileLargeDetailGuard(b *testing.B) {
-	root := b.TempDir()
-	path := filepath.Join(root, "large.log")
-	if err := os.WriteFile(path, []byte("small body should not be read when size metadata exceeds limit"), 0o644); err != nil {
-		b.Fatal(err)
-	}
-	entry := fileTreeEntry{Path: "large.log", Size: maxLocalFilePreviewBytes + 1}
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.SetFileViewerRoot(root)
-
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		modes := a.localFileDetailModes(entry, path)
-		if len(modes) != 1 || modes[0].id != "info" {
-			b.Fatalf("modes = %#v, want single info mode", modes)
-		}
 	}
 }

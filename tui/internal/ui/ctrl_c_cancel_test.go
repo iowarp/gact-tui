@@ -36,7 +36,7 @@ func TestCtrlC_CancelsRunningSession(t *testing.T) {
 		nil,
 	)
 	a.c = client.New(srv.URL)
-	a.currentStatus = gact.StatusRunning
+	a.session.currentStatus = gact.StatusRunning
 
 	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. First press opens
 	// with "close" highlighted (the original quit-everything option);
@@ -92,7 +92,7 @@ func TestCtrlC_NoCancelWhenIdle(t *testing.T) {
 		nil,
 	)
 	a.c = client.New(srv.URL)
-	a.currentStatus = gact.StatusIdle
+	a.session.currentStatus = gact.StatusIdle
 
 	// ZZZZZZZZZ1: double-Ctrl+C preserves the old "quit immediately"
 	// UX. The first press opens the modal, the second accepts and

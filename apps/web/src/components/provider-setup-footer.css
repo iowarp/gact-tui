@@ -1,0 +1,21 @@
+.psetup__footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.psetup__skip {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.psetup__skip:hover {
+  color: var(--color-heading);
+}

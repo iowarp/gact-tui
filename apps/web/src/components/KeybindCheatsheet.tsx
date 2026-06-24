@@ -1,6 +1,10 @@
-import { For, Show, onCleanup, onMount } from 'solid-js';
+/**
+ * UI component: Keybind Cheatsheet. Renders `KeybindCheatsheet` from `KeybindCheatsheetProps`.
+ */
+import { For, Show, onMount } from 'solid-js';
 import { brand } from '@brand';
 import { Icon } from './Icon.js';
+import { registerWindowKeydown } from '../domListeners.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './keybind-cheatsheet.css';
 
@@ -72,8 +76,7 @@ export function KeybindCheatsheet(props: KeybindCheatsheetProps) {
         props.onClose();
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+    registerWindowKeydown(onKey, true);
   });
 
   return (

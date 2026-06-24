@@ -1,5 +1,7 @@
 package ui
 
+// decode.go decodes raw map data into typed gact.Message and gact.Part values.
+
 import (
 	"encoding/json"
 

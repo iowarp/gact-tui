@@ -1,0 +1,25 @@
+export type {
+  AddContextFileInput,
+  AddContextFileResult,
+  AttachmentFileInput,
+  ContextFileListResult,
+  ContextFileMode,
+  ContextFrame,
+  ContextFrameDetail,
+  ContextFrameItem,
+  ContextFramesResult,
+  PatchContextFileInput,
+  ReadWorkspaceFileResult,
+  UploadAttachmentResult,
+  WorkspaceFileListResult,
+} from './context.js';
+export type {
+  CreateWorkspaceInput,
+  PatchWorkspaceInput,
+  WorkspaceFilesNormalized,
+  WorkspaceFilesOptions,
+  WorkspaceFilesRaw,
+  WorkspaceReadFileResult,
+  WorkspaceRepoMapResult,
+  WorkspacesResult,
+} from './workspace.js';

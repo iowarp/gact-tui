@@ -1,5 +1,92 @@
 # STATUS
 
+## feat/rework — TUI architecture rework (2026-06-23)
+
+Branch `feat/rework`. Goal (per owner): turn `tui/` into a well-architected,
+reusable, testable, maintainable codebase — unify duplicated semantics, build on
+shared abstractions, kill the god-objects — while preserving every feature.
+Owner reviews at the end on the PR by running clio for real. Scope: `tui/` only.
+
+**Headline: the `*App` god-object is dismantled — 947 → 27 methods (-97%).** What
+remains on `*App` is exactly a thin root coordinator: the 16 exported-API methods
+`main.go` calls, plus `Init`/`Update`/`View`/`dispatchUpdateMessage`/`handleKey`/
+`handleActiveOverlayKey`/`wireComponents`/`refreshLocalizedPlaceholders` and the
+top-level view composition (`viewMain`/`viewConnecting`/`viewError`/`viewIntro`).
+Every functional domain is now a cohesive component that owns its state *and* its
+behaviour, with an explicit `app *App` shared-services seam (no more reaching into
+implicit globals); `Update` only *routes* top-level messages to the components.
+Every step was green-gated and adversarially verified for behaviour-equivalence
+(~50 independent reviews, all clean); the full `tui` module test suite (incl. the
+~500 s CLI suite) is green; the render hot path is unchanged. 40 commits.
+
+**Performance (kept):** warm `renderBody` 14.9 → 3.33 ms (4.5×); large-transcript
+render 3.53 ms after the whole decomposition (flat vs the 3.33 ms baseline, no
+regression). Cache keyed on per-message epoch + cheap content signal (not a
+per-frame `json.Marshal`); per-part semantic memo; single-pass
+`renderMessageWithHits`.
+
+**Reusable primitives, one home each:**
+- `internal/ui/widget/` package: `TextInput` (+ `Insert`), `ScrollState`,
+  `SelectableList` — pure, App-independent, unit-tested. The 10 single-line text
+  overlays own a `widget.TextInput`; the `applyTextInputKey` bridge is deleted.
+- `internal/ui/textutil/` package: `Truncate`/`Wrap`/`WrapPlainRows`/`PadRight`/
+  `FormatUptime`/`HumanBytes`/`HumanTokens`/`HumanAgeShort` — the truncation/wrap/
+  format primitives, a clean leaf package (verified zero `internal/ui` dependency).
+- `modalkit` — the shared modal-render scaffold (`renderModalFrame`,
+  `renderTextEntryModal`, `renderScrollableModalFrame`, `renderSelectableListModal`,
+  the modal layout helpers) in one named holder off the coordinator.
+- **Timers unified (closes the owner's original "3 timers" complaint):** the 7
+  scattered `tea.Tick(...)` sites all route through one `scheduleTick(d, mk)`
+  helper; intro/spinner tick logic lives on a `tickerComponent`.
+
+**Components (each owns state + behaviour, every conversion verified
+behaviour-equivalent):** ~920 methods moved off `*App` into ~30 components — 13
+domains (conversation, sidebar, catalog, execution, settings, fileViewer,
+commandPalette, agent, lmConfig, doctor, metrics, clipboard, session), 22
+overlay-modals (rename/contextAdd/mcpInstall/…/workspace), the chrome
+(header/footer/geometry), and the IO/infra components: `connection` (SSE +
+reconnect), `interaction` (hit-registry + mouse-event handling), `ticker`,
+`permission`, `memory`, `plugins`, `contextFiles`, plus the `modalkit`
+render-scaffold holder. The former data-bag sub-state structs are gone. Component
+back-refs are wired once in `wireComponents()` (called from `New()` and
+idempotently at the top of `Update()` so struct-literal test apps are safe).
+
+**Coordinator (the 27 methods that legitimately stay on `*App`):** the exported
+API `main.go` drives (`New`/`Init`/`Set*`/`Get*`/`Enable*`/`Load*`/`Locale`/…),
+`Update`/`View`/`dispatchUpdateMessage`/`handleKey`/`handleActiveOverlayKey`/
+`wireComponents`/`refreshLocalizedPlaceholders`, and the top-level view
+composition. `Update` *routes* messages to components; the components do the work.
+
+**Files reframed:** 23+ sub-40-line fragments merged into coherent domain siblings
+(now ~9 genuinely-small single-responsibility files, no monster files, avg ~137
+lines). Dispatch is data tables, not branch chains. Naming made consistent
+(`Sidebar`/`CommandPaletteComponent` unexported); stale doc-comments fixed.
+
+**Sub-packages — three clean leaf packages + a documented boundary:** `widget`
+(input primitives), `textutil` (truncate/wrap/format), and `locale` are extracted
+as leaf packages with **zero `internal/ui` dependency** (verified via
+`go list -deps`) — explicit, acyclic boundaries for the reusable primitives. The
+*domain* components are NOT lifted into per-domain packages: they use the explicit
+`c.app` back-ref seam, which is acyclic-correct *within* `package ui` but would
+import-cycle as a package (`ui/doctor` → `*ui.App` → `ui/doctor`). Cycle-free
+per-domain packaging needs the idiomatic "accept-interface" inversion (each domain
+holds a small `host` interface it consumes; App implements the union; cross-domain
+calls route through it) — a well-scoped but *global* change touching every
+component's signature and every `c.app.X` access. Per the goal's "where seams are
+clean" conditional, the leaf primitives are packaged now; the domain-package
+inversion is the recommended next phase for the owner to greenlight (the god-object
+problem itself is solved — this is a boundary-hardening refinement, not a fix).
+
+**Verification:** every conversion batch reviewed by an independent adversarial
+pass (own-vs-shared field classification, no logic change, no weakened tests) —
+all clean. Fresh screenshots (`screenshots/rework_final_*.png`) prove the main
+multi-pane view, the rename overlay (typed input through the
+sidebar→`e`→`widget.TextInput` chain), and the Ctrl+C quit-confirm all render
+post-decomposition. **Push is blocked from this environment (SSH/HTTPS to GitHub
+hang); all work is local commits on `feat/rework` for the owner to push + review.**
+
+**Pre-rework history below (v0.3.x and earlier).**
+
 **Last updated:** 2026-04-27T06:40Z
 **Current phase:** **v0.3.1 lab-ready.** clio-agent v0.3.1 + gact-tui v0.2.1 shipped. Every advertised capability (28/30 — only LSP + voice intentionally `false`) verified end-to-end with curl trace, screenshot, or strict integration test pass. Full integration_v0_2 suite is 16/16 strict in 95s. Zero `xfail` markers anywhere. Lab users can clone, install, point at OpenAI / Anthropic / OpenRouter / Codex / ALCF, and drive any capability — see `clio-agent/docs/SETUP.md` and `clio-agent/docs/CAPABILITIES_MATRIX.md`.
 

@@ -1,0 +1,115 @@
+/* File diff chip — interactive button that opens the DiffPane. */
+.trx-filediff {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--color-heading);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+  text-align: left;
+}
+
+.trx-filediff:hover {
+  border-color: var(--color-accent-cyan);
+  background: var(--color-surface-alt);
+}
+
+.trx-filediff__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trx-filediff__path {
+  color: var(--color-heading);
+}
+
+.trx-filediff__status {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.trx-filediff__editmode {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+}
+
+.trx-filediff__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.trx-filediff__plus {
+  color: var(--color-success);
+  margin-right: 2px;
+}
+
+.trx-filediff__minus {
+  color: var(--color-error);
+}
+
+.trx-filediff__diff {
+  display: none;
+}
+
+.trx-filediff-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trx-filediff-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+  opacity: 0;
+}
+
+.trx-filediff-wrap:hover .trx-filediff-pin {
+  opacity: 1;
+}
+
+.trx-filediff-pin:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+}
+
+/* Inline image parts (1.0 item 2). */
+.trx-image {
+  max-width: min(480px, 100%);
+  max-height: 360px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-30);
+  display: block;
+  margin: 4px 0;
+}
+
+.trx-image-unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--color-border-30);
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}

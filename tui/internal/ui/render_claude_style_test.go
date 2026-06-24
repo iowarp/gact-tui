@@ -67,7 +67,7 @@ func TestToolCallSummary_KnownTools(t *testing.T) {
 		want  string
 	}{
 		{"bash", map[string]any{"command": "ls -la"}, "ls -la"},
-		{"shell_bash", map[string]any{"command": "date", "cwd": ".", "timeout_s": 5}, "date"},
+		{"shell_bash", map[string]any{"command": "date", "cwd": ".", "timeout_s": 5}, "check date/time"},
 		{"shell", map[string]any{"cmd": "pwd"}, "pwd"},
 		{"read_file", map[string]any{"path": "cmd/main.go"}, "cmd/main.go"},
 		{"grep", map[string]any{"pattern": "TODO"}, "TODO"},

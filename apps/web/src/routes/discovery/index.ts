@@ -1,3 +1,7 @@
+/**
+ * Barrel re-exporting the discovery pages (Agents, MCP, Memory, Prompts,
+ * Tools, Hooks, Policies, …) for the discovery route shell.
+ */
 export { AgentsPage } from './AgentsPage.js';
 export { DoctorPage } from './DoctorPage.js';
 export { McpPage } from './McpPage.js';
