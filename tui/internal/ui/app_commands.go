@@ -112,7 +112,7 @@ func (c *connectionComponent) handleConnected(m connectedMsg) (tea.Model, tea.Cm
 	if a.session.caps.Capabilities.Memory {
 		cmds = append(cmds, memoryStatsScopedCmd(a.c, client.RuntimeScope{WorkspaceID: a.session.wsID}))
 	}
-	if a.session.caps.Capabilities.XClioContextState {
+	if a.session.caps.Capabilities.XClioContextFrames {
 		cmds = append(cmds, footerContextStateCmd(a.c, a.session.runtimeScope(), a.agent.nextTurnAgentID))
 	}
 	cmds = append(cmds, loadAgentHierarchyCmd(a.c, a.session.runtimeScope()))

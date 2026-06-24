@@ -155,7 +155,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Open the per-expert Context usage overlay (SPEC §6.9). Gated on
 		// the backend capability so non-clio backends get a hint instead of
 		// an empty modal.
-		if !a.session.caps.Capabilities.XClioContextState {
+		if !a.session.caps.Capabilities.XClioContextFrames {
 			a.setHint("context usage view not supported by this backend")
 			return a, nil
 		}

@@ -34,7 +34,7 @@ func (c *chromeComponent) registerFooterActionHits(rendered string) {
 		return loadMemoryInspectorCmd(app.Theme, app.c, app.session.runtimeScope(), app.conversation.messages)
 	})
 	c.registerFooterPlainHit(plain, y, "footer:context", footerContextIndicatorLabel, func(app *App) tea.Cmd {
-		if !app.session.caps.Capabilities.XClioContextState {
+		if !app.session.caps.Capabilities.XClioContextFrames {
 			return nil
 		}
 		return app.contextView.openModal()

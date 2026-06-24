@@ -55,7 +55,7 @@ func (c *chromeComponent) renderFooter() string {
 	// segmented bar + % for the active expert, labelled with the expert name.
 	// Click opens the full Context overlay. Gated on the capability + a cached
 	// state; absent until the first fetch so v0.1 backends show nothing.
-	if c.app.session.caps.Capabilities.XClioContextState && c.app.session.footerContext != nil {
+	if c.app.session.caps.Capabilities.XClioContextFrames && c.app.session.footerContext != nil {
 		right += c.renderFooterContextIndicator(*c.app.session.footerContext) + "  "
 	}
 
