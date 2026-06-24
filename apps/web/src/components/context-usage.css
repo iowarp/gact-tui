@@ -1,0 +1,303 @@
+/* Per-expert context-usage view — the Claude /context-style segmented bar,
+   its legend, the per-session ContextPanel, and the footer indicator.
+
+   Category colors are DERIVED from the design tokens (apps/design, read-only)
+   via color-mix(), so the palette tracks theme/brand changes and is never
+   hardcoded. Each category gets a distinct, stable swatch. */
+:root {
+  --ctx-cat-system: var(--color-accent);
+  --ctx-cat-messages: var(--color-accent-cyan);
+  --ctx-cat-tools: var(--color-success);
+  --ctx-cat-tool_calls: color-mix(in srgb, var(--color-success) 55%, var(--color-accent-cyan));
+  --ctx-cat-reasoning: var(--color-warning);
+  --ctx-cat-observations: color-mix(in srgb, var(--color-accent-cyan) 60%, var(--color-heading));
+  --ctx-cat-summary: color-mix(in srgb, var(--color-accent) 55%, var(--color-warning));
+  --ctx-cat-io: color-mix(in srgb, var(--color-text) 70%, var(--color-accent-cyan));
+  --ctx-cat-other: var(--color-muted);
+  --ctx-cat-framing: color-mix(in srgb, var(--color-border-60) 70%, var(--color-muted));
+}
+
+/* ---- swatch color classes (shared by bar blocks + legend pips) ---- */
+.ctx-cat--system {
+  background: var(--ctx-cat-system);
+}
+.ctx-cat--messages {
+  background: var(--ctx-cat-messages);
+}
+.ctx-cat--tools {
+  background: var(--ctx-cat-tools);
+}
+.ctx-cat--tool_calls {
+  background: var(--ctx-cat-tool_calls);
+}
+.ctx-cat--reasoning {
+  background: var(--ctx-cat-reasoning);
+}
+.ctx-cat--observations {
+  background: var(--ctx-cat-observations);
+}
+.ctx-cat--summary {
+  background: var(--ctx-cat-summary);
+}
+.ctx-cat--io {
+  background: var(--ctx-cat-io);
+}
+.ctx-cat--other {
+  background: var(--ctx-cat-other);
+}
+.ctx-cat--framing {
+  background: var(--ctx-cat-framing);
+}
+
+/* ============ segmented bar ============ */
+.ctx-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ctx-bar__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctx-bar__abs {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.ctx-bar__pct {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.ctx-bar__pct--warn {
+  color: var(--color-warning);
+}
+.ctx-bar__pct--err {
+  color: var(--color-error);
+}
+
+/* The continuous bar: a single track split into proportional colored blocks. */
+.ctx-bar__track {
+  position: relative;
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-border-30);
+  border: 1px solid var(--color-border-30);
+}
+
+.ctx-bar__track--mini {
+  height: 7px;
+  border-radius: 4px;
+}
+
+.ctx-bar__block {
+  height: 100%;
+  min-width: 1px;
+}
+
+.ctx-bar__block + .ctx-bar__block {
+  border-left: 1px solid color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.ctx-bar__empty {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+}
+
+/* Auto-compaction threshold marker, positioned along the track. */
+.ctx-bar__marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-error);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-bg) 60%, transparent);
+  pointer-events: none;
+}
+
+.ctx-bar__marker-cap {
+  position: absolute;
+  top: -7px;
+  transform: translateX(-50%);
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--color-error);
+  white-space: nowrap;
+}
+
+/* ============ legend ============ */
+.ctx-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctx-legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctx-legend__pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.ctx-legend__name {
+  flex: 1;
+  color: var(--color-text);
+  text-transform: capitalize;
+}
+
+.ctx-legend__tokens {
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.ctx-legend__pct {
+  font-family: var(--font-mono);
+  color: var(--color-heading);
+  min-width: 42px;
+  text-align: right;
+}
+
+/* ============ panel ============ */
+.ctx-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  padding: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: var(--radius-xl, 12px);
+}
+
+.ctx-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ctx-panel__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.ctx-panel__selector {
+  min-width: 180px;
+}
+
+.ctx-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctx-panel__compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--color-accent-cyan-30);
+  background: var(--color-accent-cyan-10);
+  color: var(--color-accent-cyan);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.ctx-panel__compact:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ctx-panel__empty,
+.ctx-panel__loading {
+  color: var(--color-muted);
+  font-size: 12.5px;
+  padding: 12px 0;
+}
+
+/* ============ footer indicator ============ */
+.ctx-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-30);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  max-width: 280px;
+}
+
+.ctx-footer:hover {
+  border-color: var(--color-accent-cyan-30);
+}
+
+.ctx-footer__expert {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.ctx-footer__bar {
+  width: 90px;
+  flex: 0 0 auto;
+}
+
+.ctx-footer__pct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-heading);
+}
+
+.ctx-footer__pct--warn {
+  color: var(--color-warning);
+}
+.ctx-footer__pct--err {
+  color: var(--color-error);
+}
+
+/* Backdrop for the footer-launched panel overlay. */
+.ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 16px 56px;
+  background: color-mix(in srgb, var(--color-bg) 55%, transparent);
+}

@@ -4,6 +4,16 @@
 /* Modern chat layout: sessions sidebar · main conversation · optional
    contextual panels. Settings and command entry live in the sidebar/composer,
    not in a separate permanent rail. */
+/* Active-expert context indicator, pinned to the bottom-right corner of the
+   chat surface. Positioned out of the grid flow so it never steals a track. */
+.chat__context-footer {
+  position: fixed;
+  right: 14px;
+  bottom: 12px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
 .chat {
   display: grid;
   /* Base layout: sessions · main. Each open right-hand panel

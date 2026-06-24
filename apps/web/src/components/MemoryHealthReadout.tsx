@@ -2,9 +2,10 @@
  * UI component: Memory Health Readout.
  */
 import { Show } from 'solid-js';
-import type { MemoryStats, SessionMemoryStats } from '@clio/core';
+import type { ContextState, MemoryStats, SessionMemoryStats } from '@clio/core';
 import { formatCount, formatPercentage } from '../formatters.js';
 import { THRESHOLD_TONES, thresholdTone, type PressureTone } from '../statusTones.js';
+import { ContextUsageBar } from './ContextUsageBar.js';
 import './memory-health-readout.css';
 
 export type { PressureTone };
@@ -55,14 +56,19 @@ function cacheHitTone(hitRate: number): PressureTone {
  * signals the TUI shows (token pressure / budget) that the web previously
  * dropped. Pure presentational — the caller owns fetching `MemoryStats`.
  */
-export function MemoryHealthReadout(props: { stats?: MemoryStats }) {
+export function MemoryHealthReadout(props: {
+  stats?: MemoryStats;
+  /** Per-expert context state — when present, renders the segmented
+   * category bar (the Claude /context view) beneath the pressure block. */
+  contextState?: ContextState;
+}) {
   const cache = () => props.stats?.cache;
   const session = () => props.stats?.session;
   const fraction = () => tokenPressureFraction(session());
   const tone = () => pressureTone(session(), fraction());
 
   return (
-    <Show when={props.stats}>
+    <Show when={props.stats || props.contextState}>
       <div class="mem-health" data-testid="memory-health">
         <Show when={cache()}>
           {(c) => (
@@ -115,6 +121,21 @@ export function MemoryHealthReadout(props: { stats?: MemoryStats }) {
                   compaction recommended
                 </div>
               </Show>
+            </div>
+          )}
+        </Show>
+        <Show when={props.contextState}>
+          {(cs) => (
+            <div class="mem-health__context" data-testid="memory-health-context">
+              <div class="mem-health__pressure-head">
+                <span class="mem-health__chip-label">context breakdown</span>
+              </div>
+              <ContextUsageBar
+                state={cs()}
+                showHeader
+                showLegend
+                testid="memory-health-context-bar"
+              />
             </div>
           )}
         </Show>

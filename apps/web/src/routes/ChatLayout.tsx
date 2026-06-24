@@ -2,11 +2,13 @@
  * Top-level chat layout: composes the sessions column, main column, side
  * panels and overlays. Exports {@link ChatLayout}.
  */
+import { Show } from 'solid-js';
 import { ChatLayoutOverlays } from './ChatLayoutOverlays.js';
 import { ChatLayoutMainColumn } from './ChatLayoutMainColumn.js';
 import { ChatLayoutSessionsColumn } from './ChatLayoutSessionsColumn.js';
 import { ChatLayoutSidePanels } from './ChatLayoutSidePanels.js';
 import { createChatLayoutModel } from './chatLayoutModel.js';
+import { ContextFooter } from '../components/ContextFooter.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 
 export type { ChatLayoutProps } from './ChatLayoutTypes.js';
@@ -156,6 +158,21 @@ export function ChatLayout(props: ChatLayoutProps) {
         setServerSearchOpen={setServerSearchOpen}
         setSelectedMessageId={setSelectedMessageId}
       />
+
+      <Show when={onChat() && props.activeId}>
+        <div class="chat__context-footer" data-testid="chat-context-footer">
+          <ContextFooter
+            client={discoveryClient}
+            sessionId={props.activeId}
+            {...(props.sessionBindings?.pack_id
+              ? {
+                  activeExpert: props.sessionBindings.pack_id,
+                  activeExpertLabel: props.sessionBindings.pack_id,
+                }
+              : {})}
+          />
+        </div>
+      </Show>
     </div>
   );
 }
