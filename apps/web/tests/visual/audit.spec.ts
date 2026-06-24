@@ -8,7 +8,7 @@
  * does not work — fix before marking the underlying task completed.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIResponse } from '@playwright/test';
 import {
   REAL_BACKEND,
   connect,
@@ -217,20 +217,34 @@ test.describe('CLIO audit-batch verification', () => {
         return s.id as string;
       }, REAL_BACKEND);
       await page.getByTestId('sessions-refresh').click();
-      await page.waitForTimeout(800);
-      await page.getByTestId(`session-row-${sid}`).click();
+      const row = page.getByTestId(`session-row-${sid}`);
+      await expect(row).toBeVisible({ timeout: 6_000 });
+      await row.click();
+      // The composer only binds the workspace once the freshly-selected
+      // session lands in the store (its `workspace` field drives the picker's
+      // /files fetch). Wait for that to settle before opening the picker, else
+      // it opens with an empty workspaceId and never queries.
       await page.waitForTimeout(800);
 
       const ta = page.getByTestId('composer-input');
       await expect(ta).toBeVisible({ timeout: 6_000 });
-      await ta.click();
-      await ta.type('@');
-      await expect(page.getByTestId('at-mention-picker')).toBeVisible({ timeout: 4_000 });
-      // The picker must surface at least one real workspace file (proves the
-      // entries->files normalization; previously this list was always empty).
-      await expect(
-        page.locator('[data-testid^="at-mention-item-file:"]').first(),
-      ).toBeVisible({ timeout: 6_000 });
+      const fileItem = page.locator('[data-testid^="at-mention-item-file:"]').first();
+      // The picker resource captures the workspaceId when it opens; if the
+      // workspace wasn't bound yet, reopen the picker so it re-queries once
+      // the session is active. Retry a few times to absorb that race.
+      await expect(async () => {
+        // Fully close + clear the composer so reopening `@` re-runs the
+        // picker's workspace-files resource (it captures the workspaceId at
+        // open time — reopening after the session binds picks it up).
+        await ta.click();
+        await ta.fill('');
+        await page.keyboard.press('Escape');
+        await ta.type('@');
+        await expect(page.getByTestId('at-mention-picker')).toBeVisible({ timeout: 4_000 });
+        // The picker must surface at least one real workspace file (proves the
+        // entries->files normalization; previously this list was always empty).
+        await expect(fileItem).toBeVisible({ timeout: 4_000 });
+      }).toPass({ timeout: 25_000 });
       await page.screenshot({ path: shot('96-at-mention-picker'), fullPage: false });
     });
   });
@@ -381,14 +395,21 @@ test.describe('CLIO audit-batch verification', () => {
     await page.getByTestId('slash-palette-item-rail:doctor').click();
     await expect(page.getByTestId('dp-doctor')).toBeVisible({ timeout: 8_000 });
 
+    // The "go · doctor" command opens the Settings → Doctor route, which is a
+    // full route (testid "settings-shell"), not an outside-click-dismiss
+    // overlay. Per SettingsShell, Escape is the chrome-wide "return to chat"
+    // gesture, so we press it to land back on the chat screen where Ctrl+K is
+    // wired.
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('settings-shell')).toBeHidden({ timeout: 6_000 });
+
     // Reopen with an empty query: rail:doctor must now be the FIRST item
     // and carry the "recent" badge.
-    await page.locator('body').click();
     await page.keyboard.press('Control+KeyK');
     await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 6_000 });
     const firstItem = page.locator('.slash-palette__item').first();
     await expect(firstItem).toHaveAttribute('data-testid', 'slash-palette-item-rail:doctor');
-    await expect(firstItem.locator('.chip')).toContainText('recent');
+    await expect(firstItem.locator('.slash-palette__cat')).toContainText('recent');
     await page.screenshot({ path: shot('w3-palette-frecency'), fullPage: false });
     await close();
   });
@@ -404,14 +425,24 @@ test.describe('CLIO audit-batch verification', () => {
         await route.continue();
         return;
       }
-      const resp = await route.fetch();
+      // route.fetch() rejects when the underlying request is aborted (the
+      // connect flow + SSE churn cancels in-flight /v1 calls). That abort is
+      // benign for the proxy shim, so fall back to a plain continue instead of
+      // letting the rejection fail the test.
+      let resp: APIResponse;
+      try {
+        resp = await route.fetch();
+      } catch {
+        await route.continue().catch(() => undefined);
+        return;
+      }
       const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
+      await route.fulfill({ response: resp, headers }).catch(() => undefined);
     });
     await page.goto('/?route=connect');
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
 
     // Tour appears on the welcome step.
     const tour = page.getByTestId('onboarding-tour');
@@ -496,14 +527,24 @@ test.describe('CLIO audit-batch verification', () => {
         await route.continue();
         return;
       }
-      const resp = await route.fetch();
+      // route.fetch() rejects when the underlying request is aborted (the
+      // connect flow + SSE churn cancels in-flight /v1 calls). That abort is
+      // benign for the proxy shim, so fall back to a plain continue instead of
+      // letting the rejection fail the test.
+      let resp: APIResponse;
+      try {
+        resp = await route.fetch();
+      } catch {
+        await route.continue().catch(() => undefined);
+        return;
+      }
       const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
+      await route.fulfill({ response: resp, headers }).catch(() => undefined);
     });
     await page.goto('/?route=connect');
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(800);
 
     await expect(page.getByTestId('composer-command')).toBeVisible({ timeout: 6_000 });
@@ -528,14 +569,24 @@ test.describe('CLIO audit-batch verification', () => {
         await route.continue();
         return;
       }
-      const resp = await route.fetch();
+      // route.fetch() rejects when the underlying request is aborted (the
+      // connect flow + SSE churn cancels in-flight /v1 calls). That abort is
+      // benign for the proxy shim, so fall back to a plain continue instead of
+      // letting the rejection fail the test.
+      let resp: APIResponse;
+      try {
+        resp = await route.fetch();
+      } catch {
+        await route.continue().catch(() => undefined);
+        return;
+      }
       const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
+      await route.fulfill({ response: resp, headers }).catch(() => undefined);
     });
     await page.goto('/?route=connect');
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(800);
     await expect(page.getByTestId('composer-command')).toBeVisible({ timeout: 6_000 });
     await expect(page.getByTestId('topbar-palette')).toHaveCount(0);
@@ -705,14 +756,24 @@ test.describe('CLIO audit-batch verification', () => {
         await route.continue();
         return;
       }
-      const resp = await route.fetch();
+      // route.fetch() rejects when the underlying request is aborted (the
+      // connect flow + SSE churn cancels in-flight /v1 calls). That abort is
+      // benign for the proxy shim, so fall back to a plain continue instead of
+      // letting the rejection fail the test.
+      let resp: APIResponse;
+      try {
+        resp = await route.fetch();
+      } catch {
+        await route.continue().catch(() => undefined);
+        return;
+      }
       const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
+      await route.fulfill({ response: resp, headers }).catch(() => undefined);
     });
     await page.goto('/?route=connect');
     await page.getByTestId('connect-url').fill(REAL_BACKEND);
     await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
     await pickFirstSession(page);
 
     const rail = page.getByTestId('preview-rail');

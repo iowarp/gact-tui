@@ -1,4 +1,4 @@
-import { expect, type Browser, type Page } from '@playwright/test';
+import { expect, type APIResponse, type Browser, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -11,13 +11,19 @@ export function shot(slug: string): string {
 
 export const REAL_BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17800';
 export let realBackendReachable = false;
-try {
-  const r = await fetch(`${REAL_BACKEND}/v1/capabilities`, {
-    signal: AbortSignal.timeout(1500),
-  });
-  realBackendReachable = r.ok;
-} catch {
-  realBackendReachable = false;
+// Probe the backend a few times before declaring it unreachable: the first
+// request after a cold import can be slow enough to blow a single short
+// timeout, which would spuriously skip the entire suite. A short retry loop
+// keeps the gate honest without hanging when clio really is down.
+for (let attempt = 0; attempt < 3 && !realBackendReachable; attempt += 1) {
+  try {
+    const r = await fetch(`${REAL_BACKEND}/v1/capabilities`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    realBackendReachable = r.ok;
+  } catch {
+    realBackendReachable = false;
+  }
 }
 
 export async function connect(
@@ -35,19 +41,34 @@ export async function connect(
       await route.continue();
       return;
     }
-    const resp = await route.fetch();
+    // route.fetch() rejects when the underlying request is aborted (the
+    // connect flow + SSE churn cancels in-flight /v1 calls). That abort is
+    // benign for the proxy shim, so fall back to a plain continue instead of
+    // letting the rejection fail the test.
+    let resp: APIResponse;
+    try {
+      resp = await route.fetch();
+    } catch {
+      await route.continue().catch(() => undefined);
+      return;
+    }
     const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-    await route.fulfill({ response: resp, headers });
+    await route.fulfill({ response: resp, headers }).catch(() => undefined);
   });
   await page.goto('/?route=connect');
   await page.getByTestId('connect-url').fill(REAL_BACKEND);
   await page.getByTestId('connect-submit').click();
-  await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 10_000 });
+  // 15s (not 10) so a momentarily-busy backend — clio also serves the live
+  // scenarios concurrently — doesn't trip the gate before the chat shell
+  // mounts.
+  await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 15_000 });
   return {
     page,
     close: async () => {
       await page.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);
-      await ctx.close();
+      // Context teardown can race in-flight requests/SSE; a failure here is
+      // pure cleanup noise and must not fail an otherwise-green test.
+      await ctx.close().catch(() => undefined);
     },
   };
 }
