@@ -1,3 +1,4 @@
+import { HttpError } from './http_error.js';
 import {
   bytesToBase64,
   normalizeWorkspaceMediaType,
@@ -11,6 +12,7 @@ import type {
   ContextFileMode,
   ContextFrameDetail,
   ContextFramesResult,
+  ContextState,
   PatchContextFileInput,
   ReadWorkspaceFileResult,
   UploadAttachmentResult,
@@ -20,6 +22,60 @@ import type {
 export * from './context_types.js';
 
 type ContextTransport = Pick<HttpTransport, 'get' | 'post' | 'request' | 'response'>;
+
+/**
+ * Typed reason for a failed `compactContext` call. The backend signals
+ * these via flat `{error: "..."}` envelopes with specific HTTP statuses:
+ *  - 409 `nothing_to_compact` — no live segments to summarize.
+ *  - 503 `compaction_unavailable` — no LM bound / the summary failed.
+ *  - 404 `session_not_found` — unknown session id.
+ */
+export type CompactErrorReason =
+  | 'nothing_to_compact'
+  | 'compaction_unavailable'
+  | 'session_not_found'
+  | 'unknown';
+
+export class CompactContextError extends Error {
+  override name = 'CompactContextError';
+  constructor(
+    public reason: CompactErrorReason,
+    public status: number,
+    message?: string,
+  ) {
+    super(message ?? reason);
+  }
+}
+
+/**
+ * Map an HttpError off the compact route to a typed CompactContextError.
+ * clio returns a flat `{error: "<reason>"}` body (not the nested §14
+ * envelope), so we parse it directly and fall back on the status code.
+ */
+function toCompactError(err: HttpError): CompactContextError {
+  let reason: CompactErrorReason = 'unknown';
+  try {
+    const parsed = JSON.parse(err.body) as { error?: unknown };
+    if (typeof parsed?.error === 'string') {
+      const e = parsed.error;
+      if (
+        e === 'nothing_to_compact' ||
+        e === 'compaction_unavailable' ||
+        e === 'session_not_found'
+      ) {
+        reason = e;
+      }
+    }
+  } catch {
+    // body wasn't JSON; fall through to status-based mapping.
+  }
+  if (reason === 'unknown') {
+    if (err.status === 409) reason = 'nothing_to_compact';
+    else if (err.status === 503) reason = 'compaction_unavailable';
+    else if (err.status === 404) reason = 'session_not_found';
+  }
+  return new CompactContextError(reason, err.status, err.message);
+}
 
 export function fetchSessionContextFrames(
   client: ContextTransport,
@@ -38,6 +94,47 @@ export function fetchSessionContextFrame(
   return client.get(
     `/v1/sessions/${encodeURIComponent(sessionId)}/context/frames/${encodeURIComponent(frameId)}`,
   );
+}
+
+/**
+ * GET /v1/sessions/{id}/context/state[?scope=<expert>] — the per-expert
+ * context-usage snapshot (SPEC §6.9 vendor `x_clio_context_state`). Omit
+ * `scope` for the session-default expert.
+ */
+export function fetchSessionContextState(
+  client: ContextTransport,
+  sessionId: string,
+  scope?: string,
+): Promise<ContextState> {
+  const q = scope ? `?scope=${encodeURIComponent(scope)}` : '';
+  return client.get(
+    `/v1/sessions/${encodeURIComponent(sessionId)}/context/state${q}`,
+  );
+}
+
+/**
+ * POST /v1/sessions/{id}/context/compact[?scope=<expert>] — LLM-summarize
+ * the live working set into a single summary segment and return the updated
+ * ContextState. Throws a typed {@link CompactContextError} on the documented
+ * 409/503/404 envelopes.
+ */
+export async function compactSessionContext(
+  client: ContextTransport,
+  sessionId: string,
+  scope?: string,
+): Promise<ContextState> {
+  const q = scope ? `?scope=${encodeURIComponent(scope)}` : '';
+  try {
+    return await client.post(
+      `/v1/sessions/${encodeURIComponent(sessionId)}/context/compact${q}`,
+      {},
+    );
+  } catch (err) {
+    if (err instanceof HttpError) {
+      throw toCompactError(err);
+    }
+    throw err;
+  }
 }
 
 export function fetchSessionContextFiles(
