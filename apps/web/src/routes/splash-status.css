@@ -1,0 +1,50 @@
+.splash__spinner {
+  display: inline-flex;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+
+.splash__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-cyan);
+  opacity: 0.35;
+  animation: splash-pulse 1.2s ease-in-out infinite;
+}
+
+.splash__dot:nth-child(2) {
+  animation-delay: 0.18s;
+  background: var(--color-accent);
+}
+
+.splash__dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+.splash__hint {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  margin: 0;
+}
+
+.splash__elapsed {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+}

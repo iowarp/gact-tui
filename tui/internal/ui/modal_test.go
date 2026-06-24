@@ -14,16 +14,16 @@ func TestModalWidthsUseSingleSharedPolicy(t *testing.T) {
 	a := New("http://unused")
 
 	a.width = 180
-	if got := a.wideModalWidth(); got != a.modalWidth() {
-		t.Fatalf("wide modal width at 180 = %d, want shared width %d", got, a.modalWidth())
+	if got := a.modals.wideModalWidth(); got != a.modals.modalWidth() {
+		t.Fatalf("wide modal width at 180 = %d, want shared width %d", got, a.modals.modalWidth())
 	}
 	a.width = 120
-	if got := a.detailModalWidth(); got != a.modalWidth() {
-		t.Fatalf("detail modal width at 120 = %d, want shared width %d", got, a.modalWidth())
+	if got := a.modals.detailModalWidth(); got != a.modals.modalWidth() {
+		t.Fatalf("detail modal width at 120 = %d, want shared width %d", got, a.modals.modalWidth())
 	}
 	a.width = 92
-	if got := a.wideModalWidth(); got != a.modalWidth() {
-		t.Fatalf("wide modal should fall back to standard width on narrow screens, got %d want %d", got, a.modalWidth())
+	if got := a.modals.wideModalWidth(); got != a.modals.modalWidth() {
+		t.Fatalf("wide modal should fall back to standard width on narrow screens, got %d want %d", got, a.modals.modalWidth())
 	}
 }
 
@@ -74,7 +74,7 @@ func TestModalScrollableWidthsMatchSharedFramePadding(t *testing.T) {
 
 func TestModalCloseButtonGlyphIsCenteredInBox(t *testing.T) {
 	a := New("http://unused")
-	row, hits := a.renderModalButtonsWithHits([]menuButton{closeMenuButton("test:close", func(app *App) {})}, -1)
+	row, hits := a.modals.renderModalButtonsWithHits([]menuButton{closeMenuButton("test:close", func(app *App) {})}, -1)
 	plain := strings.TrimRight(row, " ")
 	if len(hits) != 1 {
 		t.Fatalf("button hits = %d, want 1", len(hits))
@@ -89,7 +89,7 @@ func TestModalCloseButtonGlyphIsCenteredInBox(t *testing.T) {
 
 func TestHeaderQuitGlyphIsCenteredInBox(t *testing.T) {
 	a := New("http://unused")
-	row := ansi.Strip(a.renderHeaderActionCell("x"))
+	row := ansi.Strip(a.chrome.renderHeaderActionCell("x"))
 	if got, want := lipgloss.Width(row), 5; got != want {
 		t.Fatalf("header quit width = %d, want %d in %q", got, want, row)
 	}
@@ -101,7 +101,7 @@ func TestHeaderQuitGlyphIsCenteredInBox(t *testing.T) {
 func TestLMConfigUsesSharedModalBodyContentWidth(t *testing.T) {
 	a := New("http://unused")
 	a.width = 120
-	w := a.lmConfigModalWidth()
+	w := a.lmConfig.modalWidth()
 	if got := maxInt(20, modalBodyContentWidth(w)); got != modalScrollableBodyWidth(w) {
 		t.Fatalf("lm config content width = %d, want shared modal body width %d", got, modalScrollableBodyWidth(w))
 	}
@@ -112,8 +112,8 @@ func TestOverlayTopIsStableAcrossModalHeights(t *testing.T) {
 	a.width = 120
 	a.height = 40
 
-	short := a.renderModalFrame(modalFrameOptions{width: a.modalWidth(), title: "Short", body: "one"})
-	tall := a.renderModalFrame(modalFrameOptions{width: a.modalWidth(), title: "Tall", body: strings.Repeat("row\n", 12)})
+	short := a.modals.renderModalFrame(modalFrameOptions{width: a.modals.modalWidth(), title: "Short", body: "one"})
+	tall := a.modals.renderModalFrame(modalFrameOptions{width: a.modals.modalWidth(), title: "Tall", body: strings.Repeat("row\n", 12)})
 
 	shortRect := overlayMouseRect(short, a.width, a.height)
 	tallRect := overlayMouseRect(tall, a.width, a.height)
@@ -141,7 +141,7 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 		return a
 	}
 	wantRect := func(a *App) mouseRect {
-		return mouseRect{x: (screenW - a.modalWidth()) / 2, y: 3, w: a.modalWidth()}
+		return mouseRect{x: (screenW - a.modals.modalWidth()) / 2, y: 3, w: a.modals.modalWidth()}
 	}
 
 	cases := []struct {
@@ -153,39 +153,39 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 			name: "settings",
 			app: func() *App {
 				a := newBase()
-				a.settingsOpen = true
-				a.settings = &settingsState{tab: 3}
+				a.settings.open = true
+				a.settings.settingsState = settingsState{tab: 3}
 				return a
 			},
-			view: func(a *App) string { return a.viewSettings() },
+			view: func(a *App) string { return a.settings.view() },
 		},
 		{
 			name: "help",
 			app:  newBase,
 			view: func(a *App) string {
-				a.helpOpen = true
-				return a.viewHelp()
+				a.help.open = true
+				return a.help.view()
 			},
 		},
 		{
 			name: "doctor",
 			app: func() *App {
 				a := newBase()
-				a.doctorOpen = true
-				a.doctor = &doctorState{health: gact.HealthResponse{Healthy: true, OverallStatus: "ready"}}
+				a.doctor.open = true
+				a.doctor.doctorState = doctorState{health: gact.HealthResponse{Healthy: true, OverallStatus: "ready"}}
 				return a
 			},
-			view: func(a *App) string { return a.viewDoctor() },
+			view: func(a *App) string { return a.doctor.view() },
 		},
 		{
 			name: "metrics",
 			app: func() *App {
 				a := newBase()
-				a.metricsOpen = true
-				a.metrics = &metricsState{data: gact.Metrics{UptimeS: 12}}
+				a.metrics.open = true
+				a.metrics.metricsState = metricsState{data: gact.Metrics{UptimeS: 12}}
 				return a
 			},
-			view: func(a *App) string { return a.viewMetrics() },
+			view: func(a *App) string { return a.metrics.view() },
 		},
 		{
 			name: "provider",
@@ -195,39 +195,39 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 				a.height = screenH
 				return a
 			},
-			view: func(a *App) string { return a.viewLMConfig() },
+			view: func(a *App) string { return a.lmConfig.view() },
 		},
 		{
 			name: "catalog",
 			app: func() *App {
 				a := newBase()
-				a.catalogBrowser = &catalogBrowserState{
+				a.catalog.current = &catalogBrowserState{
 					kind:  catalogKindTools,
 					title: "Tools",
 					items: []catalogItem{{id: "read", title: "ReadFile", desc: "read files"}},
 				}
 				return a
 			},
-			view: func(a *App) string { return a.viewCatalogBrowser() },
+			view: func(a *App) string { return a.catalog.view() },
 		},
 		{
 			name: "detail",
 			app: func() *App {
 				a := newBase()
-				a.detailView = &bulkyPartRef{title: "Detail", fullText: "one\ntwo"}
-				a.detailViewOpen = true
+				a.detail.ref = &bulkyPartRef{title: "Detail", fullText: "one\ntwo"}
+				a.detail.visible = true
 				return a
 			},
-			view: func(a *App) string { return a.viewDetailView() },
+			view: func(a *App) string { return a.detail.view() },
 		},
 		{
 			name: "quit",
 			app: func() *App {
 				a := newBase()
-				a.quitConfirmOpen = true
+				a.quitConfirm.open = true
 				return a
 			},
-			view: func(a *App) string { return a.viewQuitConfirm() },
+			view: func(a *App) string { return a.quitConfirm.view() },
 		},
 		{
 			name: "connection-error",
@@ -243,71 +243,71 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 			name: "palette",
 			app: func() *App {
 				a := newBase()
-				a.paletteOpen = true
+				a.cmdPalette.paletteOpen = true
 				return a
 			},
-			view: func(a *App) string { return a.viewPalette() },
+			view: func(a *App) string { return a.cmdPalette.view() },
 		},
 		{
 			name: "workspace",
 			app: func() *App {
 				a := newBase()
-				a.workspaceSwitchOpen = true
-				a.workspaces = []gact.Workspace{{ID: "default", Name: "default"}}
+				a.workspace.switchOpen = true
+				a.session.workspaces = []gact.Workspace{{ID: "default", Name: "default"}}
 				return a
 			},
-			view: func(a *App) string { return a.viewWorkspaceSwitch() },
+			view: func(a *App) string { return a.workspace.view() },
 		},
 		{
 			name: "mcp-install",
 			app: func() *App {
 				a := newBase()
-				a.mcpInstallOpen = true
+				a.mcpInstall.open = true
 				return a
 			},
-			view: func(a *App) string { return a.viewMcpInstall() },
+			view: func(a *App) string { return a.mcpInstall.view() },
 		},
 		{
 			name: "mcp-remove",
 			app: func() *App {
 				a := newBase()
-				a.mcpRemoveOpen = true
-				a.mcpRemoveOptions = []gact.McpServer{{ID: "srv", Name: "server", Transport: "stdio"}}
+				a.mcpRemove.open = true
+				a.mcpRemove.options = []gact.McpServer{{ID: "srv", Name: "server", Transport: "stdio"}}
 				return a
 			},
-			view: func(a *App) string { return a.viewMcpRemove() },
+			view: func(a *App) string { return a.mcpRemove.view() },
 		},
 		{
 			name: "rename",
 			app: func() *App {
 				a := newBase()
-				a.renameOpen = true
-				a.renameDraft = "demo"
-				a.renameCursor = len([]rune(a.renameDraft))
+				a.rename.open = true
+				a.rename.input.SetValue("demo")
+				a.rename.input.SetCursor(len([]rune(a.rename.input.Value())))
 				return a
 			},
-			view: func(a *App) string { return a.viewRename() },
+			view: func(a *App) string { return a.rename.view() },
 		},
 		{
 			name: "context-add",
 			app: func() *App {
 				a := newBase()
-				a.contextAddOpen = true
-				a.contextAddDraft = "README.md"
-				a.contextAddCursor = len([]rune(a.contextAddDraft))
+				a.contextAdd.open = true
+				a.contextAdd.input.SetValue("README.md")
+				a.contextAdd.input.SetCursor(len([]rune(a.contextAdd.input.Value())))
 				return a
 			},
-			view: func(a *App) string { return a.viewContextAdd() },
+			view: func(a *App) string { return a.contextAdd.view() },
 		},
 		{
 			name: "compose",
 			app: func() *App {
 				a := newBase()
-				a.input.SetValue("hello")
-				a.openCompose()
+				a.inputComposer.input.SetValue("hello")
+				a.inputComposer.openCompose()
 				return a
 			},
-			view: func(a *App) string { return a.viewCompose() },
+			view: func(a *App) string { return a.inputComposer.viewCompose() },
 		},
 	}
 
@@ -320,7 +320,7 @@ func TestProductionModalFamiliesShareOverlayOriginAndWidth(t *testing.T) {
 		rect := overlayMouseRect(view, a.width, a.height)
 		want := wantRect(a)
 		if tc.name == "help" {
-			helpW := a.helpModalWidthForTab(helpTabs[a.helpTab].title)
+			helpW := a.help.modalWidthForTab(helpTabs[a.help.tab].title)
 			want = mouseRect{x: (screenW - helpW) / 2, y: 3, w: helpW}
 		}
 		if rect.x != want.x || rect.y != want.y || rect.w != want.w {
@@ -334,22 +334,22 @@ func TestLMConfigAndComposeUseSharedWidth(t *testing.T) {
 	a.width = 160
 	a.height = 40
 
-	if got := a.lmConfigModalWidth(); got != a.modalWidth() {
-		t.Fatalf("lm config width = %d, want shared width %d", got, a.modalWidth())
+	if got := a.lmConfig.modalWidth(); got != a.modals.modalWidth() {
+		t.Fatalf("lm config width = %d, want shared width %d", got, a.modals.modalWidth())
 	}
 
 	a.stage = StageReady
-	a.input.SetValue("hello")
-	a.openCompose()
+	a.inputComposer.input.SetValue("hello")
+	a.inputComposer.openCompose()
 	_ = a.View()
 	target, ok := findHitTargetForTest(a, "button:compose:commit")
 	if !ok {
 		t.Fatal("missing compose commit button hit target")
 	}
-	view := a.viewCompose()
+	view := a.inputComposer.viewCompose()
 	rect := overlayMouseRect(view, a.width, a.height)
-	if rect.w != a.modalWidth() {
-		t.Fatalf("compose modal width = %d, want shared width %d", rect.w, a.modalWidth())
+	if rect.w != a.modals.modalWidth() {
+		t.Fatalf("compose modal width = %d, want shared width %d", rect.w, a.modals.modalWidth())
 	}
 	if target.rect.y != rect.y+2 {
 		t.Fatalf("compose commit button y = %d, want header row %d", target.rect.y, rect.y+2)

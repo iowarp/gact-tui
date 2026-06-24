@@ -14,8 +14,8 @@ func newFilePickerTreeTestApp() *App {
 	a.width = 120
 	a.height = 36
 	a.stage = StageReady
-	a.filePickerOpen = true
-	a.filePicker = &filePickerState{
+	a.filePicker.open = true
+	a.filePicker.filePickerState = filePickerState{
 		loaded:       true,
 		treeMode:     true,
 		treeExpanded: map[string]bool{},
@@ -32,7 +32,7 @@ func newFilePickerTreeTestApp() *App {
 func TestFilePickerTreeModeExpandsFoldersAndInsertsFiles(t *testing.T) {
 	a := newFilePickerTreeTestApp()
 
-	out := stripANSI(a.viewFilePicker())
+	out := stripANSI(a.filePicker.view())
 	if !strings.Contains(out, "▸ docs") || !strings.Contains(out, "README.md") {
 		t.Fatalf("tree picker did not render collapsed root rows:\n%s", out)
 	}
@@ -51,8 +51,8 @@ func TestFilePickerTreeModeExpandsFoldersAndInsertsFiles(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expanding a folder should not dispatch a command")
 	}
-	if !a.filePicker.treeExpanded["docs"] || !a.filePickerOpen {
-		t.Fatalf("folder click should expand and keep picker open, expanded=%v open=%v", a.filePicker.treeExpanded, a.filePickerOpen)
+	if !a.filePicker.treeExpanded["docs"] || !a.filePicker.open {
+		t.Fatalf("folder click should expand and keep picker open, expanded=%v open=%v", a.filePicker.treeExpanded, a.filePicker.open)
 	}
 
 	_ = a.View()
@@ -69,10 +69,10 @@ func TestFilePickerTreeModeExpandsFoldersAndInsertsFiles(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("inserting a file should not dispatch a command")
 	}
-	if a.filePickerOpen {
+	if a.filePicker.open {
 		t.Fatal("selecting a file should close the picker")
 	}
-	if got := a.input.Value(); !strings.Contains(got, "@docs/guide.md") {
+	if got := a.inputComposer.input.Value(); !strings.Contains(got, "@docs/guide.md") {
 		t.Fatalf("selected file was not inserted, input=%q", got)
 	}
 }
@@ -81,11 +81,11 @@ func TestFilePickerTypingUsesFuzzyFileResultsNotFolderRows(t *testing.T) {
 	a := newFilePickerTreeTestApp()
 	a.filePicker.filter = "spec"
 
-	matches := a.filePickerMatches()
+	matches := a.filePicker.matches()
 	if len(matches) != 1 || matches[0].Path != "docs/api/spec.yaml" {
 		t.Fatalf("fuzzy matches = %#v, want only docs/api/spec.yaml", matches)
 	}
-	out := stripANSI(a.viewFilePicker())
+	out := stripANSI(a.filePicker.view())
 	if strings.Contains(out, "▸ docs") || !strings.Contains(out, "docs/api/spec.yaml") {
 		t.Fatalf("filtered picker should show flat fuzzy file result, not folder rows:\n%s", out)
 	}
@@ -95,12 +95,12 @@ func TestFilePickerResultRowsScaleWithTerminalHeight(t *testing.T) {
 	a := newFilePickerTreeTestApp()
 
 	a.height = 30
-	if got := a.filePickerResultRows(); got != 10 {
+	if got := a.filePicker.resultRows(); got != 10 {
 		t.Fatalf("short terminal result rows = %d, want 10", got)
 	}
 
 	a.height = 40
-	if got := a.filePickerResultRows(); got != 18 {
+	if got := a.filePicker.resultRows(); got != 18 {
 		t.Fatalf("tall terminal result rows = %d, want capped 18", got)
 	}
 }
@@ -110,8 +110,8 @@ func TestFilePickerTallTerminalShowsMoreRows(t *testing.T) {
 	a.width = 120
 	a.height = 42
 	a.stage = StageReady
-	a.filePickerOpen = true
-	a.filePicker = &filePickerState{loaded: true, sel: 16}
+	a.filePicker.open = true
+	a.filePicker.filePickerState = filePickerState{loaded: true, sel: 16}
 	for i := 0; i < 24; i++ {
 		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "file_" + itoa2(i) + ".txt"})
 	}
@@ -144,10 +144,10 @@ func TestFilePickerLoadClampsStaleSelection(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("file picker insert should not dispatch a command")
 	}
-	if a.filePickerOpen {
+	if a.filePicker.open {
 		t.Fatal("enter after clamped load should insert and close picker")
 	}
-	if got := a.input.Value(); !strings.Contains(got, "@README.md") {
+	if got := a.inputComposer.input.Value(); !strings.Contains(got, "@README.md") {
 		t.Fatalf("clamped selection did not insert loaded file, input=%q", got)
 	}
 }
@@ -157,22 +157,22 @@ func TestFilePickerTreeRailUsesTreeRowCount(t *testing.T) {
 	a.width = 120
 	a.height = 30
 	a.stage = StageReady
-	a.filePickerOpen = true
-	a.filePicker = &filePickerState{loaded: true, treeMode: true, treeExpanded: map[string]bool{}}
+	a.filePicker.open = true
+	a.filePicker.filePickerState = filePickerState{loaded: true, treeMode: true, treeExpanded: map[string]bool{}}
 	for i := 0; i < 20; i++ {
 		a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "dir_" + itoa2(i), Type: "dir"})
 	}
 	a.filePicker.entries = append(a.filePicker.entries, gact.FileEntry{Path: "z.txt", Type: "file"})
 
-	rows := a.filePickerTreeRows()
-	if len(rows) <= len(a.filePickerMatches()) {
-		t.Fatalf("test setup should have more tree rows than file matches, rows=%d matches=%d", len(rows), len(a.filePickerMatches()))
+	rows := a.filePicker.treeRows()
+	if len(rows) <= len(a.filePicker.matches()) {
+		t.Fatalf("test setup should have more tree rows than file matches, rows=%d matches=%d", len(rows), len(a.filePicker.matches()))
 	}
 
 	_ = a.View()
 	var rail uiHitTarget
 	found := false
-	for _, target := range a.hits.targets {
+	for _, target := range a.interaction.hits.targets {
 		if strings.HasPrefix(target.id, "file-picker:list:wheel:rail:") && (!found || target.rect.y > rail.rect.y) {
 			rail = target
 			found = true

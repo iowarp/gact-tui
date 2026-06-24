@@ -1,110 +1,21 @@
-import { createEffect, createSignal, Show } from 'solid-js';
+/**
+ * Connect route: backend URL/token entry and capabilities probe. Exports
+ * {@link ConnectScreen}.
+ */
+import { Show } from 'solid-js';
 import { brand } from '@brand';
 import type { BackendHandle } from '../App.js';
 import { Icon } from '../components/Icon.js';
 import { BrandMark } from '../components/BrandMark.js';
-import { inTauri, tauriFetch } from '../tauri.js';
+import { createConnectScreenController } from './ConnectScreenController.js';
 import './connect.css';
 
 export interface ConnectScreenProps {
   onConnected: (b: BackendHandle) => void;
 }
 
-/**
- * True when `u` points at a non-loopback host — i.e. a REMOTE / federated
- * backend (bearer-token or SSH-tunnelled), not the bundled local clio.
- * Reauth affordances are scoped strictly to these: the local clio's LM
- * token is maintained externally and must never surface a "re-auth" path.
- */
-function isRemoteBackend(u: string): boolean {
-  let host: string;
-  try {
-    host = new URL(u).hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-  return !(
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '::1' ||
-    host === '[::1]'
-  );
-}
-
 export function ConnectScreen(props: ConnectScreenProps) {
-  const [url, setUrl] = createSignal('http://127.0.0.1:17800');
-  const [token, setToken] = createSignal('');
-  const [status, setStatus] = createSignal<'idle' | 'connecting' | 'error'>('idle');
-  const [error, setError] = createSignal<string | null>(null);
-  // True only when a REMOTE backend rejected the request with 401/403 — the
-  // one case where re-entering bearer/SSH credentials is the fix. Drives the
-  // "Re-enter credentials" affordance. Never set for a local backend.
-  const [reauthNeeded, setReauthNeeded] = createSignal(false);
-  // Bearer token lives behind an "Advanced" disclosure: the localhost
-  // trust-socket happy path needs no token, so novices never see
-  // "bearer token" / "trust_socket". It auto-opens when a credential is
-  // actually required (auth failure / remote reauth).
-  const [showAdvanced, setShowAdvanced] = createSignal(false);
-
-  let tokenInputEl: HTMLInputElement | undefined;
-
-  // A remote (non-loopback) URL almost always needs a bearer token, so reveal
-  // Advanced automatically once the user points at one. localhost keeps the
-  // happy path (no token field). We only ever OPEN it here — the user can
-  // still collapse it manually for a remote that trusts its socket.
-  createEffect(() => {
-    if (isRemoteBackend(url())) setShowAdvanced(true);
-  });
-
-  async function tryConnect() {
-    setStatus('connecting');
-    setError(null);
-    setReauthNeeded(false);
-    try {
-      const fetchImpl = inTauri() ? tauriFetch : globalThis.fetch;
-      const res = await fetchImpl(`${url().replace(/\/+$/, '')}/v1/capabilities`, {
-        headers: token() ? { Authorization: `Bearer ${token()}` } : {},
-      });
-      if (!res.ok) {
-        // Remote-backend auth failure → offer a credentials re-entry path
-        // instead of a generic HTTP error. Scoped to remote hosts only.
-        if ((res.status === 401 || res.status === 403) && isRemoteBackend(url())) {
-          setReauthNeeded(true);
-        }
-        // An auth failure means a token IS needed — reveal the field.
-        if (res.status === 401 || res.status === 403) {
-          setShowAdvanced(true);
-        }
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const caps = await res.json();
-      props.onConnected({ url: url(), bearerToken: token(), capabilities: caps });
-    } catch (e) {
-      setStatus('error');
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  /** Clear the stale token and focus the field so the user can paste a
-   * fresh credential, then they press Connect again. */
-  function reenterCredentials() {
-    setToken('');
-    setReauthNeeded(false);
-    setStatus('idle');
-    setShowAdvanced(true);
-    queueMicrotask(() => tokenInputEl?.focus());
-  }
-
-  // Actionable hint derived from the failure shape — tells the user what to
-  // try next instead of leaving a bare HTTP code / network error.
-  const errorHint = () => {
-    const msg = error();
-    if (!msg) return null;
-    if (/401|403/.test(msg)) return 'The backend rejected the credentials — paste a token from `clio-agent token issue`.';
-    if (/404/.test(msg)) return 'That URL responded but is not a GACT backend — check the port.';
-    if (/HTTP \d/.test(msg)) return 'The backend answered with an error — check its logs, then press Connect to retry.';
-    return `Nothing answered at that URL — is the local backend running? Start ${brand.name}'s backend, then press Connect to retry.`;
-  };
+  const connect = createConnectScreenController({ onConnected: props.onConnected });
 
   return (
     <div class="connect" data-testid="connect-screen-bg">
@@ -125,8 +36,8 @@ export function ConnectScreen(props: ConnectScreenProps) {
             <input
               id="conn-url"
               type="url"
-              value={url()}
-              onInput={(e) => setUrl(e.currentTarget.value)}
+              value={connect.url()}
+              onInput={(e) => connect.setUrl(e.currentTarget.value)}
               placeholder="http://127.0.0.1:17800"
               data-testid="connect-url"
               autocomplete="off"
@@ -137,19 +48,19 @@ export function ConnectScreen(props: ConnectScreenProps) {
           <button
             type="button"
             class="connect__advanced-toggle"
-            aria-expanded={showAdvanced()}
-            onClick={() => setShowAdvanced((v) => !v)}
+            aria-expanded={connect.showAdvanced()}
+            onClick={() => connect.setShowAdvanced((v) => !v)}
             data-testid="connect-advanced-toggle"
           >
             <Icon
               name="chevron-right"
               size={11}
-              class={'connect__advanced-chev ' + (showAdvanced() ? 'is-open' : '')}
+              class={'connect__advanced-chev ' + (connect.showAdvanced() ? 'is-open' : '')}
             />
             <span>Advanced</span>
           </button>
 
-          <Show when={showAdvanced()}>
+          <Show when={connect.showAdvanced()}>
             <div class="field connect__advanced">
               <label for="conn-token">
                 Bearer token{' '}
@@ -159,10 +70,10 @@ export function ConnectScreen(props: ConnectScreenProps) {
               </label>
               <input
                 id="conn-token"
-                ref={tokenInputEl}
+                ref={connect.setTokenInputRef}
                 type="password"
-                value={token()}
-                onInput={(e) => setToken(e.currentTarget.value)}
+                value={connect.token()}
+                onInput={(e) => connect.setToken(e.currentTarget.value)}
                 placeholder="paste a token issued by clio-agent token issue …"
                 data-testid="connect-token"
                 autocomplete="off"
@@ -171,12 +82,12 @@ export function ConnectScreen(props: ConnectScreenProps) {
             </div>
           </Show>
 
-          <Show when={error()}>
+          <Show when={connect.error()}>
             <div class="connect__error" data-testid="connect-error">
               <Icon name="help" size={14} />
               <span>
-                {error()}
-                <span class="connect__error-hint">{errorHint()}</span>
+                {connect.error()}
+                <span class="connect__error-hint">{connect.errorHint()}</span>
               </span>
             </div>
           </Show>
@@ -185,7 +96,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
               action (bearer / SSH token) instead of leaving a bare 401/403.
               Scoped to remote hosts only — the local clio's model-provider
               token is maintained externally and is never re-auth'd here. */}
-          <Show when={reauthNeeded()}>
+          <Show when={connect.reauthNeeded()}>
             <div class="connect__reauth" data-testid="connect-reauth">
               <span class="connect__reauth-msg">
                 This remote backend rejected your credentials. Sign in again
@@ -194,7 +105,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
               <button
                 type="button"
                 class="connect__reauth-btn"
-                onClick={reenterCredentials}
+                onClick={connect.reenterCredentials}
                 data-testid="splash-reauth"
               >
                 Re-enter credentials
@@ -206,12 +117,12 @@ export function ConnectScreen(props: ConnectScreenProps) {
             <button
               type="button"
               class="connect__submit"
-              onClick={tryConnect}
-              disabled={status() === 'connecting'}
+              onClick={connect.tryConnect}
+              disabled={connect.status() === 'connecting'}
               data-testid="connect-submit"
             >
               <Show
-                when={status() === 'connecting'}
+                when={connect.status() === 'connecting'}
                 fallback={
                   <>
                     Connect

@@ -32,22 +32,24 @@ func TestAdjustScrollForSelectedPart_BringsMarkerIntoView(t *testing.T) {
 	body := strings.Join(lines, "\n")
 
 	a := &App{
-		stickyToBottom: true,
-		scrollOffset:   0,
+		conversation: conversationComponent{appConversationState: appConversationState{
+			stickyToBottom: true,
+			scrollOffset:   0,
+		}},
 	}
-	a.adjustScrollForSelectedPart(body, 10)
+	a.conversation.adjustScrollForSelectedPart(body, 10)
 
 	// After adjustment, the visible slice must contain the marker.
 	totalLines := 50
 	viewportH := 10
-	start := totalLines - viewportH - a.scrollOffset
-	if a.stickyToBottom {
+	start := totalLines - viewportH - a.conversation.scrollOffset
+	if a.conversation.stickyToBottom {
 		start = totalLines - viewportH
 	}
 	end := start + viewportH
 	if 8 < start || 8 >= end {
 		t.Errorf("after adjust, marker row 8 outside visible [%d,%d); scrollOffset=%d sticky=%v",
-			start, end, a.scrollOffset, a.stickyToBottom)
+			start, end, a.conversation.scrollOffset, a.conversation.stickyToBottom)
 	}
 }
 
@@ -62,17 +64,17 @@ func TestAdjustScrollForSelectedPart_UsesCurrentSelectionMarker(t *testing.T) {
 	}
 	body := strings.Join(lines, "\n")
 
-	a := &App{stickyToBottom: true}
-	a.adjustScrollForSelectedPart(body, 12)
+	a := &App{conversation: conversationComponent{appConversationState: appConversationState{stickyToBottom: true}}}
+	a.conversation.adjustScrollForSelectedPart(body, 12)
 
-	start := 60 - 12 - a.scrollOffset
-	if a.stickyToBottom {
+	start := 60 - 12 - a.conversation.scrollOffset
+	if a.conversation.stickyToBottom {
 		start = 60 - 12
 	}
 	end := start + 12
 	if 9 < start || 9 >= end {
 		t.Fatalf("current selection marker row not visible [%d,%d); scrollOffset=%d sticky=%v",
-			start, end, a.scrollOffset, a.stickyToBottom)
+			start, end, a.conversation.scrollOffset, a.conversation.stickyToBottom)
 	}
 }
 
@@ -91,16 +93,18 @@ func TestAdjustScrollForSelectedPart_NoOpWhenVisible(t *testing.T) {
 	body := strings.Join(lines, "\n")
 
 	a := &App{
-		stickyToBottom: false,
-		scrollOffset:   0, // bottom-sticky: visible [10,20), marker at 15 = visible
+		conversation: conversationComponent{appConversationState: appConversationState{
+			stickyToBottom: false,
+			scrollOffset:   0, // bottom-sticky: visible [10,20), marker at 15 = visible
+		}},
 	}
 	// Marker at row 15, viewport 10 → [10,20). Margin = 10/3 = 3, so
 	// target zone is [10,17). 15 is in [10,17) — no-op expected.
-	before := a.scrollOffset
-	a.adjustScrollForSelectedPart(body, 10)
-	if a.scrollOffset != before {
+	before := a.conversation.scrollOffset
+	a.conversation.adjustScrollForSelectedPart(body, 10)
+	if a.conversation.scrollOffset != before {
 		t.Errorf("expected no-op when marker already in upper 2/3 of viewport; scrollOffset moved %d→%d",
-			before, a.scrollOffset)
+			before, a.conversation.scrollOffset)
 	}
 }
 
@@ -108,11 +112,11 @@ func TestAdjustScrollForSelectedPart_NoOpWhenVisible(t *testing.T) {
 // and "selected part has empty rendering" cases.
 func TestAdjustScrollForSelectedPart_NoMarkerIsNoOp(t *testing.T) {
 	body := "line 1\nline 2\nline 3\n"
-	a := &App{scrollOffset: 5, stickyToBottom: false}
-	a.adjustScrollForSelectedPart(body, 10)
-	if a.scrollOffset != 5 || a.stickyToBottom {
+	a := &App{conversation: conversationComponent{appConversationState: appConversationState{scrollOffset: 5, stickyToBottom: false}}}
+	a.conversation.adjustScrollForSelectedPart(body, 10)
+	if a.conversation.scrollOffset != 5 || a.conversation.stickyToBottom {
 		t.Errorf("no-marker should leave scroll state untouched; got offset=%d sticky=%v",
-			a.scrollOffset, a.stickyToBottom)
+			a.conversation.scrollOffset, a.conversation.stickyToBottom)
 	}
 }
 
@@ -126,16 +130,16 @@ func TestBodyEndKeepsLongTranscriptAtTrueBottom(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := newLongToolTranscriptApp()
-			a.scrollOffset = 30
-			a.stickyToBottom = false
-			a.bodySelMsgIdx = 1
-			a.bodySelPartIdx = 3
+			a.conversation.scrollOffset = 30
+			a.conversation.stickyToBottom = false
+			a.conversation.bodySelMsgIdx = 1
+			a.conversation.bodySelPartIdx = 3
 
-			a.handleBodyKey(tc.key)
-			rendered := ansi.Strip(a.renderBody(100, 34))
+			a.conversation.handleKey(tc.key)
+			rendered := ansi.Strip(a.conversation.render(100, 34))
 
-			if a.scrollOffset != 0 || !a.stickyToBottom {
-				t.Fatalf("%s should reattach to bottom, got offset=%d sticky=%v", tc.name, a.scrollOffset, a.stickyToBottom)
+			if a.conversation.scrollOffset != 0 || !a.conversation.stickyToBottom {
+				t.Fatalf("%s should reattach to bottom, got offset=%d sticky=%v", tc.name, a.conversation.scrollOffset, a.conversation.stickyToBottom)
 			}
 			if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
 				t.Fatalf("true bottom sentinel not visible after %s:\n%s", tc.name, rendered)
@@ -146,19 +150,19 @@ func TestBodyEndKeepsLongTranscriptAtTrueBottom(t *testing.T) {
 
 func TestBodyDownRepeatedlyReachesTrueBottomOnLongToolTranscript(t *testing.T) {
 	a := newLongToolTranscriptApp()
-	a.scrollOffset = 30
-	a.stickyToBottom = false
-	a.bodySelMsgIdx = 1
-	a.bodySelPartIdx = 0
+	a.conversation.scrollOffset = 30
+	a.conversation.stickyToBottom = false
+	a.conversation.bodySelMsgIdx = 1
+	a.conversation.bodySelPartIdx = 0
 
 	for i := 0; i < 40; i++ {
-		a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyDown})
-		_ = a.renderBody(100, 34)
+		a.conversation.handleKey(tea.KeyPressMsg{Code: tea.KeyDown})
+		_ = a.conversation.render(100, 34)
 	}
-	rendered := ansi.Strip(a.renderBody(100, 34))
+	rendered := ansi.Strip(a.conversation.render(100, 34))
 
-	if a.scrollOffset != 0 || !a.stickyToBottom {
-		t.Fatalf("repeated Down should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+	if a.conversation.scrollOffset != 0 || !a.conversation.stickyToBottom {
+		t.Fatalf("repeated Down should reattach to bottom, got offset=%d sticky=%v", a.conversation.scrollOffset, a.conversation.stickyToBottom)
 	}
 	if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
 		t.Fatalf("true bottom sentinel not visible after repeated Down:\n%s", rendered)
@@ -175,16 +179,16 @@ func TestBodyPageDownReattachesLongTranscriptToTrueBottom(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := newLongToolTranscriptApp()
-			a.scrollOffset = 30
-			a.stickyToBottom = false
-			a.bodySelMsgIdx = 1
-			a.bodySelPartIdx = 0
+			a.conversation.scrollOffset = 30
+			a.conversation.stickyToBottom = false
+			a.conversation.bodySelMsgIdx = 1
+			a.conversation.bodySelPartIdx = 0
 
-			a.handleBodyKey(tc.key)
-			rendered := ansi.Strip(a.renderBody(100, 34))
+			a.conversation.handleKey(tc.key)
+			rendered := ansi.Strip(a.conversation.render(100, 34))
 
-			if a.scrollOffset != 0 || !a.stickyToBottom {
-				t.Fatalf("PageDown should reattach to bottom, got offset=%d sticky=%v", a.scrollOffset, a.stickyToBottom)
+			if a.conversation.scrollOffset != 0 || !a.conversation.stickyToBottom {
+				t.Fatalf("PageDown should reattach to bottom, got offset=%d sticky=%v", a.conversation.scrollOffset, a.conversation.stickyToBottom)
 			}
 			if !strings.Contains(rendered, "TRUE_BOTTOM_SENTINEL") {
 				t.Fatalf("true bottom sentinel not visible after PageDown:\n%s", rendered)

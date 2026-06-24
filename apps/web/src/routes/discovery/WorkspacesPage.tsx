@@ -1,9 +1,24 @@
+/**
+ * Discovery surface: Workspaces Page component. Key export `WorkspacesPageProps`.
+ */
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { brand } from '@brand';
-import type { Client, Workspace } from '@clio/core';
+import type { Client } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
 import { useToast } from '../../components/Toast.js';
+import { WorkspaceCard } from './WorkspaceCard.js';
+import {
+  buildCreateWorkspaceInput,
+  createdWorkspaceToastBody,
+  filterWorkspaces,
+  unregisterWorkspacePrompt,
+} from './WorkspacesPageModel.js';
+import {
+  WorkspaceAddCard,
+  WorkspaceCreateForm,
+  WorkspaceSearchRow,
+} from './WorkspaceSections.js';
 
 export interface WorkspacesPageProps {
   client: Client;
@@ -13,16 +28,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
   const [data, { refetch }] = createResource(() => props.client.workspaces());
   const [query, setQuery] = createSignal('');
   const all = () => data()?.workspaces ?? [];
-  const items = () => {
-    const q = query().trim().toLowerCase();
-    if (!q) return all();
-    return all().filter(
-      (w) =>
-        w.id.toLowerCase().includes(q) ||
-        w.name.toLowerCase().includes(q) ||
-        w.root_path.toLowerCase().includes(q),
-    );
-  };
+  const items = () => filterWorkspaces(all(), query());
   const [showForm, setShowForm] = createSignal(false);
   const [name, setName] = createSignal('');
   const [rootPath, setRootPath] = createSignal('');
@@ -31,7 +37,8 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
 
   async function submit(e: Event) {
     e.preventDefault();
-    if (!rootPath().trim()) {
+    const body = buildCreateWorkspaceInput(rootPath(), name());
+    if (!body) {
       toast.push({
         tone: 'warn',
         title: 'Root path required',
@@ -41,14 +48,11 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
     }
     setSubmitting(true);
     try {
-      const created = await props.client.createWorkspace({
-        root_path: rootPath().trim(),
-        ...(name().trim() ? { name: name().trim() } : {}),
-      });
+      const created = await props.client.createWorkspace(body);
       toast.push({
         tone: 'success',
         title: 'Workspace created',
-        body: created.name ?? created.id,
+        body: createdWorkspaceToastBody(created),
       });
       setName('');
       setRootPath('');
@@ -99,66 +103,18 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
       emptyBody={`Click + above to add one — ${brand.name} needs a root path before it can read or write files.`}
     >
       <Show when={showForm()}>
-        <form
-          class="ws-form"
+        <WorkspaceCreateForm
+          rootPath={rootPath()}
+          name={name()}
+          submitting={submitting()}
+          onRootPath={setRootPath}
+          onName={setName}
+          onCancel={() => setShowForm(false)}
           onSubmit={submit}
-          data-testid="workspaces-form"
-        >
-          <label class="ws-form__row">
-            <span class="ws-form__label">Root path</span>
-            <input
-              class="ws-form__input"
-              type="text"
-              value={rootPath()}
-              onInput={(e) => setRootPath(e.currentTarget.value)}
-              placeholder="/Users/jane/projects/llm-eval"
-              autofocus
-              data-testid="workspaces-root-input"
-            />
-          </label>
-          <label class="ws-form__row">
-            <span class="ws-form__label">Display name (optional)</span>
-            <input
-              class="ws-form__input"
-              type="text"
-              value={name()}
-              onInput={(e) => setName(e.currentTarget.value)}
-              placeholder="llm-eval"
-              data-testid="workspaces-name-input"
-            />
-          </label>
-          <div class="ws-form__actions">
-            <button
-              type="button"
-              class="ws-form__btn"
-              onClick={() => setShowForm(false)}
-              disabled={submitting()}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="ws-form__btn ws-form__btn--primary"
-              disabled={submitting() || !rootPath().trim()}
-              data-testid="workspaces-submit"
-            >
-              {submitting() ? 'Creating…' : 'Create workspace'}
-            </button>
-          </div>
-        </form>
+        />
       </Show>
       <Show when={all().length > 4}>
-        <div class="dp__search-row">
-          <Icon name="search" size={14} class="dp__search-icon" />
-          <input
-            type="text"
-            class="dp__search-input"
-            placeholder="Filter workspaces by name, id, or root path…"
-            value={query()}
-            onInput={(e) => setQuery(e.currentTarget.value)}
-            data-testid="workspaces-search"
-          />
-        </div>
+        <WorkspaceSearchRow query={query()} onQuery={setQuery} />
       </Show>
       <div class="dp__grid">
         <For each={items()}>
@@ -185,12 +141,7 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
                 }
               }}
               onDelete={async () => {
-                if (
-                  !confirm(
-                    `Unregister workspace "${w.name}"? Backend keeps on-disk files; only metadata is dropped.`,
-                  )
-                )
-                  return;
+                if (!confirm(unregisterWorkspacePrompt(w.name))) return;
                 try {
                   await props.client.deleteWorkspace(w.id);
                   toast.push({
@@ -215,162 +166,9 @@ export function WorkspacesPage(props: WorkspacesPageProps) {
             empty void — it sits in the grid as a peer of the real cards and
             opens the create form. */}
         <Show when={!showForm()}>
-          <button
-            type="button"
-            class="dp__card dp__card--add"
-            onClick={() => setShowForm(true)}
-            data-testid="workspaces-add-card"
-          >
-            <span class="dp__card-add-icon">
-              <Icon name="plus" size={20} />
-            </span>
-            <span class="dp__card-add-label">Add a workspace</span>
-            <span class="dp__card-add-sub">
-              Point {brand.name} at a project folder on the backend host.
-            </span>
-          </button>
+          <WorkspaceAddCard brandName={brand.name} onClick={() => setShowForm(true)} />
         </Show>
       </div>
     </DiscoveryPage>
   );
-}
-
-function WorkspaceCard(props: {
-  ws: Workspace;
-  client: Client;
-  onDelete?: () => void | Promise<void>;
-  onRename?: (next: string) => void | Promise<void>;
-}) {
-  const [showRepo, setShowRepo] = createSignal(false);
-  const [repoData, setRepoData] = createSignal<{
-    tree?: Record<string, unknown>;
-    tokens?: number;
-  } | null>(null);
-  const [repoLoading, setRepoLoading] = createSignal(false);
-  const [repoErr, setRepoErr] = createSignal<string | null>(null);
-
-  async function loadRepo() {
-    if (repoData() || repoLoading()) return;
-    setRepoLoading(true);
-    setRepoErr(null);
-    try {
-      const d = await props.client.workspaceRepoMap(props.ws.id);
-      setRepoData(d);
-    } catch (e) {
-      setRepoErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRepoLoading(false);
-    }
-  }
-
-  function toggleRepo() {
-    const next = !showRepo();
-    setShowRepo(next);
-    if (next) void loadRepo();
-  }
-
-  return (
-    <article class="dp__card" data-testid={`workspace-card-${props.ws.id}`}>
-      <header class="dp__card-head">
-        <div class="dp__card-title-row">
-          <div class="dp__card-icon">
-            <Icon name="workspaces" size={14} />
-          </div>
-          <div style="min-width:0">
-            <h3 class="dp__card-title">{props.ws.name}</h3>
-            <div class="dp__card-sub">{props.ws.id}</div>
-          </div>
-        </div>
-      </header>
-      <dl class="dp__card-kv">
-        <dt>root</dt>
-        <dd title={props.ws.root_path}>{props.ws.root_path}</dd>
-        <Show
-          when={
-            (props.ws as Workspace & { created_at?: string }).created_at
-          }
-        >
-          <dt>created</dt>
-          <dd>
-            {humanDate(
-              (props.ws as Workspace & { created_at?: string }).created_at!,
-            )}
-          </dd>
-        </Show>
-      </dl>
-      <button
-        type="button"
-        class="ws-card__repo-toggle"
-        onClick={toggleRepo}
-        data-testid={`workspace-repo-toggle-${props.ws.id}`}
-      >
-        <Icon
-          name="chevron-right"
-          size={11}
-          class={'ws-card__repo-chev ' + (showRepo() ? 'is-open' : '')}
-        />
-        <span>
-          {showRepo() ? 'Hide' : 'Show'} repo map
-          <Show when={repoData()?.tokens}>{` · ${repoData()!.tokens}t`}</Show>
-        </span>
-      </button>
-      <Show when={props.onDelete || props.onRename}>
-        <div class="dp__card-actions">
-          <Show when={props.onRename}>
-            <button
-              type="button"
-              class="dp__card-btn"
-              onClick={async () => {
-                const next = window.prompt('New workspace name', props.ws.name);
-                if (next && next !== props.ws.name) {
-                  await props.onRename?.(next);
-                }
-              }}
-              data-testid={`workspace-rename-${props.ws.id}`}
-            >
-              Rename
-            </button>
-          </Show>
-          <Show when={props.onDelete}>
-            <button
-              type="button"
-              class="dp__card-btn dp__card-btn--danger"
-              onClick={() => void props.onDelete?.()}
-              data-testid={`workspace-delete-${props.ws.id}`}
-            >
-              Unregister
-            </button>
-          </Show>
-        </div>
-      </Show>
-      <Show when={showRepo()}>
-        <div class="ws-card__repo">
-          <Show when={repoLoading()}>
-            <div class="ws-card__repo-status">Loading repo map…</div>
-          </Show>
-          <Show when={repoErr()}>
-            <div class="ws-card__repo-err">{repoErr()}</div>
-          </Show>
-          <Show when={repoData()?.tree}>
-            <pre class="ws-card__repo-tree">
-              {JSON.stringify(repoData()!.tree, null, 2)}
-            </pre>
-          </Show>
-          <Show when={!repoLoading() && !repoErr() && !repoData()?.tree}>
-            <div class="ws-card__repo-status">No repo map returned.</div>
-          </Show>
-        </div>
-      </Show>
-    </article>
-  );
-}
-
-function humanDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }

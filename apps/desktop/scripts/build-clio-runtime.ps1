@@ -168,21 +168,6 @@ if (-not (Test-Path $gactExe)) {
   throw "build-clio-runtime: expected $gactExe to exist after install but it does not"
 }
 Write-Host "[build-clio-runtime] sanity: $gactExe --help"
-# Capture output so that on failure we surface WHY (the traceback), instead of
-# a bare non-zero exit. On Windows the usual cause is a server-import crash
-# (e.g. a POSIX-only call such as faulthandler.register(SIGUSR1) evaluated at
-# import time), which previously showed up only as an opaque "exit 1" because
-# the streamed output was piped to Out-Null. Still STRICT: any non-zero exit
-# fails the build (a tolerant sanity would hide exactly this class of bug).
-$prevEAP = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-$helpOut = & $gactExe --help 2>&1
-$helpCode = $LASTEXITCODE
-$ErrorActionPreference = $prevEAP
-if ($helpCode -ne 0) {
-  Write-Host "[build-clio-runtime] '--help' failed (exit $helpCode); output follows:"
-  $helpOut | ForEach-Object { Write-Host "  | $_" }
-  throw "build-clio-runtime: '$gactExe --help' exited $helpCode. On Windows this is usually a clio-agent server-import crash (a POSIX-only call evaluated at import); fix the import-time crash in clio-agent rather than relaxing this check."
-}
+Invoke-Native -Exe $gactExe -Args @('--help') | Out-Null
 
 Write-Host "[build-clio-runtime] OK - relocatable runtime ready at $target ($sizeAfter MB)"

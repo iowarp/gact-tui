@@ -1,0 +1,48 @@
+  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /tmp/gact-tui-audit-earthscope-san…  running  help   settings    x  
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION  ⠴ running                                                              ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: gact-tui-audit-ear… │
+│ ▌⠴ TUI audit: San Diego… ││     00a645bfcf8c/P475.CI.LY_.20.csv                                                  ││ updated 2s ago                 │
+│   running · 8m ago       ││                                                                                      ││  ▸ .clio/                      │
+│   ◆ earthscope-gnss      ││     • Source URL:  https://ds2.datacollaboratory.                                    ││  ▸ .clio_agent/                │
+│ ▾ CONTEXT                ││     org/Earthscope_api_dec2024/raw_csv/P475.CI.LY_.20.csv   - Size: 51,608,375 bytes ││  • earthscope_conve… 149.5 KiB │
+│ (no files)               ││     • Columns: time, east, north, up                                                 ││  • earthscope_statio… 33.4 KiB │
+│                          ││                                                                                      ││  • P475.CI.LY_.20.csv 49.2 MiB │
+│ 1 active · 0 archived    ││     full summary available in detail                                                 ││  • P475.CI.LY_.20.p… 364.9 KiB │
+│                          ││                                                                                      ││                                │
+│                          ││ CSV data analysis                                                                    ││                                │
+│                          ││   ⎿ csv result: message: Profiled 8 columns across 5000 of 250000 scanned rows file: ││                                │
+│                          ││ /tmp/gact-tui-audit-earthscope-san-diego-00a645bfcf8c/P475.CI.LY_.20.csv row_count:  ││                                │
+│                          ││ 250000 columns: time, east, north, up, sigEE, ... 3 more                             ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││ main                                                                                 ││                                │
+│                          ││     CSV Profile – P475.CI.LY_.20.csv                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││      Item                    │ Value                                                 ││                                │
+│                          ││     ─────────────────────────┼────────────────────────────────────────────────────── ││                                │
+│                          ││      File path               │  /tmp/gact-tui-audit-earthscope-san-diego-            ││                                │
+│                          ││                              │ 00a645bfcf8c/P475.CI.LY_.20.csv                       ││                                │
+│                          ││      File size               │ 51,608,375 bytes                                      ││                                │
+│                          ││      Rowsscanned (full file) │ 250 000                                               ││                                │
+│                          ││      Rows profiled (sample)  │ 5 000                                                 ││                                │
+│                          ││      Columns (8)             │  time ,  east ,  north ,  up ,  sigEE , sigNN ,       ││                                │
+│                          ││                              │  sigUU ,  qChannel                                    ││                                │
+│                          ││      Data types              │  time  (int),  east  (float),  north  (float),  up    ││                                │
+│                          ││                              │ (float),  sigEE  (float),  sigNN (float), sigUU       ││                                │
+│                          ││                              │ (float),  qChannel  (int)                             ││                                │
+│                          ││      Null values             │ None detected in anycolumn (in the sampled rows)      ││                                │
+│                          ││      Profiling limitation    │  scan_limited: true  – numeric summaries arebased on  ││                                │
+│                          ││                              │ a 5 000‑row sample, not the full 250 000 rows.        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ### Required columns present                                                     ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • Displacement:  east , north ,  up                                              ││                                │
+│                          ││     • Uncertainty:  sigEE ,  sigNN ,  sigUU                                          ││                                │
+│                          ││     • Timestamp:  time                                                               ││                                │
+│                          ││     All are present and contain no missing values in the sampled rows.               ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯│     full summary available in detail                                                 ││                                │
+                            ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │
+                            │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │
+                            ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                               

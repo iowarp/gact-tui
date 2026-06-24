@@ -1,5 +1,7 @@
 package ui
 
+// operator_errors.go formats operator-facing error and failure-hint messages.
+
 import (
 	"errors"
 	"strings"

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   formatLatencyDetail,
   formatLatencyValue,
+  humanUptime,
   latencyEntries,
-} from '../../src/routes/discovery/MetricsPage.js';
+  statusValueClass,
+} from '../../src/routes/discovery/MetricsPageModel.js';
 
 describe('MetricsPage latency formatting', () => {
   it('keeps CLIO 0.5.3 latency buckets readable', () => {
@@ -20,5 +22,17 @@ describe('MetricsPage latency formatting', () => {
         empty: null,
       }),
     ).toEqual([['tool:shell_bash', { count: 1, p50_ms: 9 }]]);
+  });
+
+  it('formats uptime and status tint classes', () => {
+    expect(humanUptime(42)).toBe('42s');
+    expect(humanUptime(120)).toBe('2m');
+    expect(humanUptime(7200)).toBe('2h');
+    expect(humanUptime(172800)).toBe('2d');
+
+    expect(statusValueClass('failed', 1)).toBe('dp__stat-value--err');
+    expect(statusValueClass('pending', 2)).toBe('dp__stat-value--warn');
+    expect(statusValueClass('running', 3)).toBe('dp__stat-value--ok');
+    expect(statusValueClass('failed', 0)).toBe('');
   });
 });

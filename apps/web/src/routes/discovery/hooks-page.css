@@ -1,9 +1,11 @@
 /*
  * Hooks page — runtime-hook status panel (read-only) + declarative-hook
- * editor layout overrides. The shared .rmp__* / .dp__* rules live in
- * components/discovery-page.css; this file adds only the hooks-specific
- * surfaces (GAP 4 runtime panel) and the 4-column editor form.
+ * editor layout overrides. Shared roadmap/editor primitives live in
+ * roadmap-page.css; this file adds only the hooks-specific surfaces
+ * (GAP 4 runtime panel) and the 4-column editor form.
  */
+
+@import './roadmap-page.css';
 
 /* GAP 4 — runtime hooks status panel. */
 .rmp__panel {

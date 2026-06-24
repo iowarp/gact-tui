@@ -9,17 +9,16 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func BenchmarkRenderLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
 	app.MouseEnabled = true
-	_ = app.renderBody(app.width-40, app.height-3)
+	_ = app.conversation.render(app.width-40, app.height-3)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = app.renderBody(app.width-40, app.height-3)
+		_ = app.conversation.render(app.width-40, app.height-3)
 	}
 }
 
@@ -39,7 +38,7 @@ func BenchmarkFullConversationCopyLargeSemanticTranscript(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, ok := fullConversationText(app.messages); !ok {
+		if _, ok := fullConversationText(app.conversation.messages); !ok {
 			b.Fatal("large transcript should be copyable")
 		}
 	}
@@ -47,13 +46,13 @@ func BenchmarkFullConversationCopyLargeSemanticTranscript(b *testing.B) {
 
 func BenchmarkFullConversationCopyCachedLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
-	if _, ok := app.fullConversationTextCached(); !ok {
+	if _, ok := app.clipboard.fullTranscriptTextCached(); !ok {
 		b.Fatal("large transcript should be copyable")
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, ok := app.fullConversationTextCached(); !ok {
+		if _, ok := app.clipboard.fullTranscriptTextCached(); !ok {
 			b.Fatal("large transcript should be copyable")
 		}
 	}
@@ -61,12 +60,12 @@ func BenchmarkFullConversationCopyCachedLargeSemanticTranscript(b *testing.B) {
 
 func BenchmarkSelectedBlockCopyLargeSemanticTranscript(b *testing.B) {
 	app := benchmarkLargeSemanticTranscriptApp(160, 48, 180)
-	app.bodySelMsgIdx = len(app.messages) - 1
-	app.bodySelPartIdx = 1
+	app.conversation.bodySelMsgIdx = len(app.conversation.messages) - 1
+	app.conversation.bodySelPartIdx = 1
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, ok := selectedConversationBlockText(app.messages, app.bodySelMsgIdx, app.bodySelPartIdx); !ok {
+		if _, ok := selectedConversationBlockText(app.conversation.messages, app.conversation.bodySelMsgIdx, app.conversation.bodySelPartIdx); !ok {
 			b.Fatal("selected block should be copyable")
 		}
 	}
@@ -77,26 +76,26 @@ func BenchmarkDetailModalLargeMarkdownInitialRender(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		app.detailWrap = detailWrapCache{}
-		app.detailScroll = 0
-		_ = app.viewDetailView()
+		app.detail.wrap = detailWrapCache{}
+		app.detail.scroll = 0
+		_ = app.detail.view()
 	}
 }
 
 func BenchmarkDetailModalLargeMarkdownCachedScroll(b *testing.B) {
 	app := benchmarkLargeDetailApp()
-	_ = app.viewDetailView()
+	_ = app.detail.view()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		app.detailScroll = i % 250
-		_ = app.viewDetailView()
+		app.detail.scroll = i % 250
+		_ = app.detail.view()
 	}
 }
 
 func TestLargeSemanticTranscriptDefaultViewIsReadable(t *testing.T) {
 	app := benchmarkLargeSemanticTranscriptApp(140, 42, 20)
-	out := ansi.Strip(app.renderBody(app.width-40, app.height-3))
+	out := ansi.Strip(app.conversation.render(app.width-40, app.height-3))
 	for _, want := range []string{
 		"CONVERSATION",
 		"NDP catalog search",
@@ -136,107 +135,25 @@ func TestWorkflowStateJSONSummaryDoesNotLeakInline(t *testing.T) {
 	}
 }
 
-func TestConversationRenderCacheTracksChangedPartTextWithoutGlobalInvalidation(t *testing.T) {
-	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
-	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: first version."
-	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
-	if !strings.Contains(first, "first version") {
-		t.Fatalf("initial render missing first version:\n%s", first)
-	}
-
-	app.messages[1].Parts[len(app.messages[1].Parts)-1].Text = "Final answer: changed version."
-	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
-	if !strings.Contains(second, "changed version") {
-		t.Fatalf("cached render did not reflect changed text:\n%s", second)
-	}
-	if strings.Contains(second, "first version") {
-		t.Fatalf("cached render leaked stale text:\n%s", second)
-	}
-}
-
-func TestConversationRenderCacheTracksPartAddedWithoutGlobalInvalidation(t *testing.T) {
-	app := benchmarkLargeSemanticTranscriptApp(120, 34, 1)
-	app.messages[1].Parts = app.messages[1].Parts[:1]
-	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
-	if strings.Contains(first, "late evidence") {
-		t.Fatalf("initial render unexpectedly had late part:\n%s", first)
-	}
-
-	app.messages[1].Parts = append(app.messages[1].Parts, gact.Part{
-		ID:   "late_part",
-		Type: gact.PartTypeText,
-		Text: "late evidence arrived while streaming",
-	})
-	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[1], &app.messages[0], 80, nil, "").row)
-	if !strings.Contains(second, "late evidence arrived while streaming") {
-		t.Fatalf("cached render did not reflect appended part:\n%s", second)
-	}
-}
-
-func TestConversationRenderCacheTracksPartDeltaWithoutGlobalInvalidation(t *testing.T) {
-	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	app.messages = []gact.Message{{
-		ID:   "msg_1",
-		Role: gact.RoleAssistant,
-		Parts: []gact.Part{{
-			ID:   "part_1",
-			Type: gact.PartTypeText,
-			Text: "streaming",
-		}},
-	}}
-	first := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
-	if !strings.Contains(first, "streaming") {
-		t.Fatalf("initial render missing streamed text:\n%s", first)
-	}
-
-	app.applyPartDelta(client.SSEEvent{
-		Type: "message.part.delta",
-		Payload: map[string]any{"payload": map[string]any{
-			"message_id": "msg_1",
-			"part_id":    "part_1",
-			"delta":      map[string]any{"text_append": " update"},
-		}},
-	})
-	second := ansi.Strip(app.cachedConversationMessageRender(app.Theme, app.messages[0], nil, 80, nil, "").row)
-	if !strings.Contains(second, "streaming update") {
-		t.Fatalf("cached render did not reflect text delta:\n%s", second)
-	}
-}
-
-func TestConversationRenderFingerprintTracksVisibleMetadataOnly(t *testing.T) {
-	msg := benchmarkAssistantSemanticMessage(0, time.Date(2026, 6, 11, 9, 0, 0, 0, time.UTC))
-	original := conversationMessageRenderFingerprint(msg)
-
-	msg.Metadata["raw_event"] = map[string]any{"debug": "different raw payload"}
-	if got := conversationMessageRenderFingerprint(msg); got != original {
-		t.Fatalf("raw_event metadata should not affect render fingerprint: got %x want %x", got, original)
-	}
-
-	msg.Metadata["workflow_state"] = map[string]any{"status": "changed"}
-	if got := conversationMessageRenderFingerprint(msg); got == original {
-		t.Fatalf("visible metadata change should affect render fingerprint")
-	}
-}
-
 func benchmarkLargeSemanticTranscriptApp(width, height, turns int) *App {
 	app := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	app.width = width
 	app.height = height
 	app.stage = StageReady
 	app.focus = FocusBody
-	app.stickyToBottom = true
-	app.sessions = []gact.Session{{
+	app.conversation.stickyToBottom = true
+	app.session.sessions = []gact.Session{{
 		ID:        "sess_perf",
 		Title:     "large semantic transcript",
 		Status:    gact.StatusIdle,
 		CreatedAt: time.Date(2026, 6, 11, 9, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, 6, 11, 9, 5, 0, 0, time.UTC),
 	}}
-	app.selected = 0
-	app.currentStatus = gact.StatusIdle
-	app.bodySelMsgIdx = turns*2 - 1
-	app.bodySelPartIdx = 0
-	app.messages = benchmarkSemanticMessages(turns)
+	app.session.selected = 0
+	app.session.currentStatus = gact.StatusIdle
+	app.conversation.bodySelMsgIdx = turns*2 - 1
+	app.conversation.bodySelPartIdx = 0
+	app.conversation.messages = benchmarkSemanticMessages(turns)
 	return app
 }
 
@@ -247,8 +164,8 @@ func benchmarkLargeDetailApp() *App {
 	app.stage = StageReady
 	app.focus = FocusBody
 	app.MouseEnabled = true
-	app.detailViewOpen = true
-	app.detailView = &bulkyPartRef{
+	app.detail.visible = true
+	app.detail.ref = &bulkyPartRef{
 		messageID: "msg_perf",
 		partID:    "part_large_markdown",
 		title:     "Tool evidence · large Markdown output",

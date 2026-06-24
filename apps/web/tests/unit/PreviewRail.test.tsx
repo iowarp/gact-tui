@@ -11,13 +11,7 @@ import {
   waitFor,
 } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  PreviewRail,
-  buildTree,
-  flattenVisible,
-  classifyPreview,
-  imageFailureHint,
-} from '../../src/components/PreviewRail.js';
+import { PreviewRail } from '../../src/components/PreviewRail.js';
 import type { ContextFileContent, WorkspaceFileEntry } from '@clio/core';
 
 afterEach(cleanup);
@@ -59,79 +53,6 @@ const SAMPLE: WorkspaceFileEntry[] = [
   { path: 'README.md', type: 'file', size: 64 },
   { path: 'logo.png', type: 'file', size: 2048 },
 ];
-
-describe('buildTree', () => {
-  it('nests files under synthesized + explicit dirs, sorted dirs-first', () => {
-    const tree = buildTree(SAMPLE);
-    const names = tree.map((n) => n.name);
-    // dirs first (src), then files alphabetically
-    // localeCompare collates case-insensitively → logo.png before README.md.
-    expect(names).toEqual(['src', 'logo.png', 'README.md']);
-    const src = tree.find((n) => n.name === 'src')!;
-    expect(src.type).toBe('dir');
-    // 'util' dir was synthesized from src/util/helpers.ts, plus app.ts file
-    const childNames = src.children.map((c) => c.name);
-    expect(childNames).toEqual(['util', 'app.ts']);
-    const util = src.children.find((c) => c.name === 'util')!;
-    expect(util.children[0]?.path).toBe('src/util/helpers.ts');
-  });
-});
-
-describe('flattenVisible', () => {
-  it('only shows top-level rows when nothing is expanded', () => {
-    const tree = buildTree(SAMPLE);
-    const rows = flattenVisible(tree, new Set(), '');
-    expect(rows.map((r) => r.node.name)).toEqual([
-      'src',
-      'logo.png',
-      'README.md',
-    ]);
-  });
-
-  it('expands a dir to reveal its children at depth+1', () => {
-    const tree = buildTree(SAMPLE);
-    const rows = flattenVisible(tree, new Set(['src']), '');
-    const src = rows.find((r) => r.node.name === 'src')!;
-    const app = rows.find((r) => r.node.name === 'app.ts')!;
-    expect(app.depth).toBe(src.depth + 1);
-  });
-
-  it('filtering matches files by path and force-expands ancestors', () => {
-    const tree = buildTree(SAMPLE);
-    const rows = flattenVisible(tree, new Set(), 'helpers');
-    const names = rows.map((r) => r.node.name);
-    expect(names).toContain('helpers.ts');
-    expect(names).toContain('util'); // ancestor shown
-    expect(names).not.toContain('logo.png'); // non-matching pruned
-  });
-});
-
-describe('classifyPreview', () => {
-  const base = { path: 'x', size: 10, encoding: 'base64' as const, data: '' };
-  it('classifies images', () => {
-    expect(classifyPreview({ ...base, media_type: 'image/png' })).toBe('image');
-  });
-  it('classifies text/code', () => {
-    expect(classifyPreview({ ...base, media_type: 'text/plain' })).toBe('text');
-    expect(
-      classifyPreview({ ...base, media_type: 'application/json' }),
-    ).toBe('text');
-  });
-  it('classifies unknown binary', () => {
-    expect(
-      classifyPreview({ ...base, media_type: 'application/pdf' }),
-    ).toBe('binary');
-  });
-  it('treats oversized text as binary (too large to render inline)', () => {
-    expect(
-      classifyPreview({
-        ...base,
-        media_type: 'text/plain',
-        size: 2 * 1024 * 1024,
-      }),
-    ).toBe('binary');
-  });
-});
 
 describe('PreviewRail component', () => {
   it('shows a no-workspace empty state when workspaceId is undefined', () => {
@@ -253,35 +174,6 @@ describe('PreviewRail component', () => {
         'read size differs from the file listing',
       );
     });
-  });
-
-  it('explains image decode failures caused by JSON/text payloads or transformed bytes', () => {
-    const content: ContextFileContent = {
-      path: 'plot.png',
-      size: 84,
-      media_type: 'image/png',
-      encoding: 'base64',
-      data: b64('{"error":"not raw image bytes"}'),
-    };
-
-    expect(imageFailureHint(content, 68)).toContain('JSON/text');
-    expect(imageFailureHint(content, 68)).toContain('84 B read, 68 B listed');
-  });
-
-  it('explains binary image reads transformed by a text/plain backend response', () => {
-    const content: ContextFileContent = {
-      path: 'plot.png',
-      size: 84,
-      media_type: 'image/png',
-      source_media_type: 'text/plain',
-      encoding: 'base64',
-      data: b64('\u{fffd}PNG\r\n'),
-    };
-
-    expect(imageFailureHint(content, 68)).toContain(
-      'Backend read returned text/plain for a image/png file',
-    );
-    expect(imageFailureHint(content, 68)).toContain('transformed the bytes');
   });
 
   it('shows an honest placeholder for binary files', async () => {

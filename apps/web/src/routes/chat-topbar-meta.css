@@ -1,0 +1,131 @@
+.chat__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  margin-left: 8px;
+  margin-right: 8px;
+  height: 24px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: visible;
+}
+
+.chat__meta-item {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.chat__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.chat__secondary--collapsed {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  width: max-content;
+}
+
+.chat__meta-item--cost {
+  color: var(--color-accent-cyan);
+}
+
+.chat__meta-item--err {
+  color: var(--color-error);
+}
+
+.chat__meta-item--warn {
+  color: var(--color-warning);
+}
+
+.chat__meta-item--running {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.chat__meta-item--model {
+  color: var(--color-accent-cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.chat__meta-item--clickable {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.chat__meta-item--clickable:hover {
+  background: color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+}
+
+.chat__overflow-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.chat__overflow-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 180px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-60);
+  border-radius: 10px;
+  box-shadow: var(--shadow-overlay);
+  animation: anim-rise 160ms ease-out both;
+}
+
+.chat__overflow-menu .chat__meta-item {
+  height: auto;
+}
+
+.chat__running-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: inline-block;
+  animation: chat-running-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-running-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (max-width: 760px) {
+  .chat__meta {
+    display: none;
+  }
+}

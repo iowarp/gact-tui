@@ -1,27 +1,41 @@
 package ui
 
+// contextAddModal: the add-context-file path/mode prompt overlay.
+
 import (
-	"context"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
 var contextAddModes = []string{"read", "edit", "pin"}
 
-func (a *App) closeContextAddModal() {
-	a.contextAddOpen = false
-	a.contextAddDraft = ""
-	a.contextAddCursor = 0
-	a.contextAddMode = ""
+// contextAddModal is the add-context-file prompt's state: a single-line path
+// draft plus the attach mode ("read"/"edit"/"pin"). It owns its behaviour and
+// holds a back-reference to App for shared services.
+type contextAddModal struct {
+	app   *App
+	open  bool
+	input widget.TextInput
+	mode  string
 }
 
-func (a *App) contextAddModeValue() string {
-	mode := strings.TrimSpace(a.contextAddMode)
+func (m *contextAddModal) reset() { *m = contextAddModal{app: m.app} }
+
+func (m *contextAddModal) close() { m.reset() }
+
+// openModal shows the add-context-file prompt with an empty path draft and the
+// default "read" attach mode.
+func (m *contextAddModal) openModal() {
+	m.open = true
+	m.input.SetValue("")
+	m.input.SetCursor(0)
+	m.mode = "read"
+}
+
+func (m *contextAddModal) modeValue() string {
+	mode := strings.TrimSpace(m.mode)
 	for _, candidate := range contextAddModes {
 		if mode == candidate {
 			return mode
@@ -30,18 +44,18 @@ func (a *App) contextAddModeValue() string {
 	return "read"
 }
 
-func (a *App) setContextAddMode(mode string) {
+func (m *contextAddModal) setMode(mode string) {
 	for _, candidate := range contextAddModes {
 		if mode == candidate {
-			a.contextAddMode = mode
+			m.mode = mode
 			return
 		}
 	}
-	a.contextAddMode = "read"
+	m.mode = "read"
 }
 
-func (a *App) cycleContextAddMode(delta int) {
-	active := a.contextAddModeValue()
+func (m *contextAddModal) cycleMode(delta int) {
+	active := m.modeValue()
 	idx := 0
 	for i, candidate := range contextAddModes {
 		if candidate == active {
@@ -53,173 +67,83 @@ func (a *App) cycleContextAddMode(delta int) {
 	if next < 0 {
 		next += len(contextAddModes)
 	}
-	a.contextAddMode = contextAddModes[next]
+	m.mode = contextAddModes[next]
 }
 
-// handleContextAddKey drives the inline "add to context" prompt —
-// a narrower sibling of handleRenameKey. Same editor primitives
+// handleKey drives the inline "add to context" prompt —
+// a narrower sibling of rename's handleKey. Same editor primitives
 // (rune-indexed cursor, arrow/home/end/backspace/delete) so muscle
 // memory carries over. Enter POSTs; Esc cancels.
-func (a *App) handleContextAddKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *contextAddModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.closeContextAddModal()
-		return a, nil
+		m.close()
+		return m.app, nil
 	case "enter":
-		return a.commitContextAdd()
+		return m.commit()
 	case "tab":
-		a.cycleContextAddMode(1)
-		return a, nil
+		m.cycleMode(1)
+		return m.app, nil
 	case "shift+tab":
-		a.cycleContextAddMode(-1)
-		return a, nil
-	case "backspace":
-		if a.contextAddCursor == 0 {
-			return a, nil
-		}
-		runes := []rune(a.contextAddDraft)
-		runes = append(runes[:a.contextAddCursor-1], runes[a.contextAddCursor:]...)
-		a.contextAddDraft = string(runes)
-		a.contextAddCursor--
-		return a, nil
-	case "delete":
-		runes := []rune(a.contextAddDraft)
-		if a.contextAddCursor >= len(runes) {
-			return a, nil
-		}
-		runes = append(runes[:a.contextAddCursor], runes[a.contextAddCursor+1:]...)
-		a.contextAddDraft = string(runes)
-		return a, nil
-	case "left":
-		if a.contextAddCursor > 0 {
-			a.contextAddCursor--
-		}
-		return a, nil
-	case "right":
-		if a.contextAddCursor < len([]rune(a.contextAddDraft)) {
-			a.contextAddCursor++
-		}
-		return a, nil
-	case "home", "ctrl+a":
-		a.contextAddCursor = 0
-		return a, nil
-	case "end", "ctrl+e":
-		a.contextAddCursor = len([]rune(a.contextAddDraft))
-		return a, nil
+		m.cycleMode(-1)
+		return m.app, nil
 	}
-	if k.Text != "" {
-		a.insertContextAddText(k.Text)
-	}
-	return a, nil
+	m.input.HandleKey(k)
+	return m.app, nil
 }
 
-func (a *App) insertContextAddText(text string) {
-	a.contextAddDraft, a.contextAddCursor = insertTextAtCursor(a.contextAddDraft, a.contextAddCursor, text)
+func (m *contextAddModal) insert(text string) {
+	m.input.Insert(text)
 }
 
-// commitContextAdd closes the modal and dispatches the add Cmd.
+// commit closes the modal and dispatches the add Cmd.
 // Whitespace-only input is treated as "cancel" — matching K2 rename's
 // "don't commit an empty title" philosophy; an empty path on the wire
 // would 400 the backend anyway.
-func (a *App) commitContextAdd() (tea.Model, tea.Cmd) {
-	path := strings.TrimSpace(a.contextAddDraft)
-	mode := a.contextAddModeValue()
-	a.closeContextAddModal()
+func (m *contextAddModal) commit() (tea.Model, tea.Cmd) {
+	path := strings.TrimSpace(m.input.Value())
+	mode := m.modeValue()
+	m.close()
 	if path == "" {
-		a.transientHint = "add cancelled (empty path)"
-		return a, nil
+		m.app.setHint("add cancelled (empty path)")
+		return m.app, nil
 	}
-	sid := a.currentSessionID()
+	sid := m.app.session.currentID()
 	if sid == "" {
-		return a, nil
+		return m.app, nil
 	}
-	return a, addContextFileCmd(a.c, sid, path, mode)
+	return m.app, addContextFileCmd(m.app.c, sid, path, mode)
 }
 
-// addContextFileCmd POSTs the file to /v1/sessions/{id}/context/files.
-// Returns contextFileAddedMsg; on success the handler folds the new
-// entry into a.contextFiles so the sidebar updates without a list
-// refetch.
-func addContextFileCmd(c *client.Client, sessionID, path, mode string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		cf, err := c.AddContextFile(ctx, sessionID, path, mode)
-		return contextFileAddedMsg{sessionID: sessionID, file: cf, err: err}
-	}
-}
-
-func removeContextFileCmd(c *client.Client, sessionID, path string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		err := c.RemoveContextFile(ctx, sessionID, path)
-		return contextFileRemovedMsg{sessionID: sessionID, path: path, err: err}
-	}
-}
-
-type contextFileAddedMsg struct {
-	sessionID string
-	file      gact.ContextFile
-	err       error
-}
-
-type contextFileUploadedMsg struct {
-	sessionID string
-	localPath string
-	file      gact.ContextFile
-	err       error
-}
-
-type contextFileRemovedMsg struct {
-	sessionID string
-	path      string
-	err       error
-}
-
-// viewContextAdd renders the prompt. Matches the rename/workspace
+// view renders the prompt. Matches the rename/workspace
 // modal chrome so muscle memory carries over.
-func (a *App) viewContextAdd() string {
-	w := a.modalWidth()
-	modeRow, modeHits := a.renderContextAddModeRow()
-	buttons := []menuButton{
-		{
-			id:    "context-add:save",
-			label: "save",
-			action: func(app *App) tea.Cmd {
-				_, cmd := app.commitContextAdd()
-				return cmd
-			},
+func (m *contextAddModal) view() string {
+	a := m.app
+	w := a.modals.modalWidth()
+	modeRow, modeHits := m.renderModeRow()
+	buttons := saveCancelButtons("context-add:save", "context-add:cancel",
+		func(app *App) tea.Cmd {
+			_, cmd := app.contextAdd.commit()
+			return cmd
 		},
-		{
-			id:    "context-add:cancel",
-			label: "cancel",
-			action: func(app *App) tea.Cmd {
-				app.closeContextAddModal()
-				return nil
-			},
-		},
-	}
-	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:       w,
-		title:       "Add file to context",
-		buttons:     buttons,
-		surfaceID:   "context-add",
-		editor:      a.renderCursorEditor(a.contextAddDraft, a.contextAddCursor),
-		editorID:    "context-add",
-		editorValue: a.contextAddDraft,
-		cursorAction: func(app *App, cursor int) {
-			app.contextAddCursor = cursor
-		},
+		func(app *App) tea.Cmd {
+			app.contextAdd.close()
+			return nil
+		})
+	rendered := a.modals.renderTextEntryModal(a.modals.withInputEditor(textEntryModalOptions{
+		width:      w,
+		title:      "Add file to context",
+		buttons:    buttons,
+		surfaceID:  "context-add",
 		status:     []string{modeRow},
 		statusHits: modeHits,
 		footer:     a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Tab mode", "Esc cancel", "/drop remove")),
-	})
+	}, "context-add", &m.input))
 	return rendered.modal
 }
 
-func (a *App) renderContextAddModeRow() (string, []modalCellHit) {
-	active := a.contextAddModeValue()
+func (m *contextAddModal) renderModeRow() (string, []modalCellHit) {
+	active := m.modeValue()
 	options := make([]modalInlineOption, 0, len(contextAddModes))
 	for _, mode := range contextAddModes {
 		mode := mode
@@ -228,10 +152,10 @@ func (a *App) renderContextAddModeRow() (string, []modalCellHit) {
 			label:  mode,
 			active: mode == active,
 			action: func(app *App) tea.Cmd {
-				app.setContextAddMode(mode)
+				app.contextAdd.setMode(mode)
 				return nil
 			},
 		})
 	}
-	return a.renderModalInlineOptions("mode: ", options)
+	return m.app.modals.renderModalInlineOptions("mode: ", options)
 }

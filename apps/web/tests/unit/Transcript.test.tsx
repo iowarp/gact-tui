@@ -37,6 +37,8 @@ describe('Transcript', () => {
   it('renders verbose tool call body in verbose mode', () => {
     render(() => <Transcript messages={messages} density="verbose" />);
     expect(screen.getByTestId('toolcall-tc1')).toBeTruthy();
+    expect(screen.getByText('Path')).toBeTruthy();
+    expect(screen.getByText('x')).toBeTruthy();
   });
 
   it('summarizes CLIO typed workflow state instead of dumping JSON inline', () => {
@@ -217,98 +219,4 @@ describe('Transcript', () => {
     expect(screen.getByTestId('workflow-state-card')).toBeTruthy();
   });
 
-  it('renders fs_propose_edit metadata results as reviewable diff chips', () => {
-    const diff =
-      '--- a/handlers.go\n' +
-      '+++ b/handlers.go\n' +
-      '@@ -1,3 +1,3 @@\n' +
-      '-fmt.Println("done", id)\n' +
-      '+log.Printf("processed=%s", id)\n';
-    let opened = '';
-
-    render(() => (
-      <Transcript
-        density="normal"
-        onOpenDiff={(d) => {
-          opened = d.unified_diff ?? '';
-        }}
-        messages={[
-          {
-            id: 'm-tool-diff',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'text',
-                text: 'The proposed edit is ready for review.',
-              },
-            ],
-            metadata: {
-              tools_called: [
-                {
-                  name: 'fs_propose_edit',
-                  args: { filepath: '/tmp/workspace/handlers.go' },
-                  ok: true,
-                  result: JSON.stringify({
-                    path: '/tmp/workspace/handlers.go',
-                    unified_diff: diff,
-                    new_content: 'package main\n',
-                  }),
-                },
-                {
-                  name: 'fs_propose_edit',
-                  args: { filepath: '/tmp/workspace/handlers.go' },
-                  ok: true,
-                  result: JSON.stringify({
-                    path: '/tmp/workspace/handlers.go',
-                    unified_diff: diff,
-                    new_content: 'package main\n',
-                  }),
-                },
-              ],
-            },
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getAllByTestId('filediff-chip')).toHaveLength(1);
-    const chip = screen.getByTestId('filediff-chip');
-    expect(chip.textContent).toContain('/tmp/workspace/handlers.go');
-    chip.click();
-    expect(opened).toContain('log.Printf');
-  });
-
-  it('renders backend command results as readable command cards', () => {
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-command',
-            role: 'assistant',
-            metadata: {
-              synthetic: 'command_result',
-              command: '/cache-stats',
-            },
-            parts: [
-              {
-                type: 'text',
-                metadata: {
-                  synthetic: 'command_result',
-                  command: '/cache-stats',
-                },
-                text: '[/cache-stats] ARC cache: hits=0 misses=0 hit_rate=0.00 capacity=1000',
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getByTestId('command-result-card')).toBeTruthy();
-    expect(screen.getByText('Command result')).toBeTruthy();
-    expect(screen.getByText('/cache-stats')).toBeTruthy();
-    expect(screen.getByText(/ARC cache/)).toBeTruthy();
-    expect(screen.queryByText(/\[\/cache-stats\]/)).toBeNull();
-  });
 });

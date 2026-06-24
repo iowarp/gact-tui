@@ -1,7 +1,17 @@
-import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
+/**
+ * Discovery surface: Memory Page component. Key export `MemoryPageProps`.
+ */
+import { createResource, Show } from 'solid-js';
 import type { Client } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
+import { MemoryHealthReadout } from '../../components/MemoryHealthReadout.js';
+import { formatCount } from '../../formatters.js';
+import {
+  MemoryEventsSection,
+  MemorySearchSection,
+  type MemoryEventRow,
+} from './MemorySections.js';
 
 export interface MemoryPageProps {
   client: Client;
@@ -9,18 +19,14 @@ export interface MemoryPageProps {
   activeSessionId?: string;
 }
 
-interface MemoryEventRow {
-  id?: string;
-  type?: string;
-  scope?: string;
-  created_at?: string;
-  message?: string;
-  payload?: Record<string, unknown>;
-  [k: string]: unknown;
-}
-
 export function MemoryPage(props: MemoryPageProps) {
-  const [data, { refetch }] = createResource(() => props.client.memoryStats());
+  // Keyed on the active session so the per-session context-budget block
+  // (tokens_retained / token_pressure / threshold_state) is populated when a
+  // session is open, and falls back to backend-wide stats otherwise.
+  const [data, { refetch }] = createResource(
+    () => props.activeSessionId ?? '',
+    (sid) => props.client.memoryStats(sid || undefined),
+  );
 
   // Events resource keyed on the active session — only refetches when
   // the user switches sessions or hits Refresh.
@@ -36,35 +42,6 @@ export function MemoryPage(props: MemoryPageProps) {
     },
   );
   const events = () => (eventsData()?.events ?? []) as MemoryEventRow[];
-  const [showEvents, setShowEvents] = createSignal(true);
-
-  // Cross-session memory search (PR #351). Debounced so we don't
-  // hammer /v1/memory/search on every keystroke. Empty query returns
-  // null and the result panel collapses.
-  const [rawQuery, setRawQuery] = createSignal('');
-  const [debouncedQuery, setDebouncedQuery] = createSignal('');
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  function onQueryInput(v: string) {
-    setRawQuery(v);
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => setDebouncedQuery(v.trim()), 250);
-  }
-  const searchKey = createMemo(() => {
-    const q = debouncedQuery();
-    return q.length >= 2 ? q : null;
-  });
-  const [searchData] = createResource(
-    () => searchKey(),
-    async (q) => {
-      if (!q) return null;
-      try {
-        const r = await props.client.memorySearch(q, { limit: 50 });
-        return r;
-      } catch {
-        return { query: q, hits: [] };
-      }
-    },
-  );
 
   return (
     <DiscoveryPage
@@ -88,66 +65,13 @@ export function MemoryPage(props: MemoryPageProps) {
       error={data.error ? String((data.error as Error).message ?? data.error) : null}
       onRetry={() => void refetch()}
     >
-      <div class="mem__search">
-        <Icon name="search" size={13} />
-        <input
-          type="search"
-          class="mem__search-input"
-          placeholder="Search every session in this workspace…"
-          value={rawQuery()}
-          onInput={(e) => onQueryInput(e.currentTarget.value)}
-          data-testid="memory-search-input"
-        />
-        <Show when={rawQuery()}>
-          <button
-            type="button"
-            class="mem__search-clear"
-            onClick={() => {
-              setRawQuery('');
-              setDebouncedQuery('');
-            }}
-            aria-label="Clear search"
-          >
-            <Icon name="close" size={11} />
-          </button>
-        </Show>
-      </div>
-      <Show when={searchKey()}>
-        <div class="mem__search-results" data-testid="memory-search-results">
-          <Show when={searchData.loading}>
-            <div class="mem__search-status">Searching…</div>
-          </Show>
-          <Show when={!searchData.loading && searchData() && (searchData()?.hits.length ?? 0) === 0}>
-            <div class="mem__search-status">No hits.</div>
-          </Show>
-          <Show when={!searchData.loading && (searchData()?.hits.length ?? 0) > 0}>
-            <ul class="mem__search-list">
-              <For each={searchData()?.hits ?? []}>
-                {(h) => (
-                  <li class="mem__search-hit" data-testid={`memory-search-hit-${h.message_id}`}>
-                    <div class="mem__search-hit-meta">
-                      <Show when={h.role}>
-                        <span class="mem__search-hit-role">{h.role}</span>
-                      </Show>
-                      <span class="mem__search-hit-session">
-                        session {h.session_id.slice(0, 8)}
-                      </span>
-                      <Show when={typeof h.score === 'number'}>
-                        <span class="mem__search-hit-score">{h.score!.toFixed(2)}</span>
-                      </Show>
-                    </div>
-                    <div class="mem__search-hit-text">{h.text}</div>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </div>
-      </Show>
+      <MemorySearchSection client={props.client} />
 
       <Show when={data()}>
         {(d) => (
           <>
+            <div class="dp__section-title">Health</div>
+            <MemoryHealthReadout stats={d()} />
             <div class="dp__section-title">Cache</div>
             <div class="dp__stats">
               <div class="dp__stat">
@@ -161,7 +85,7 @@ export function MemoryPage(props: MemoryPageProps) {
               </div>
               <div class="dp__stat">
                 <div class="dp__stat-label">capacity</div>
-                <div class="dp__stat-value">{d().cache.capacity.toLocaleString()}</div>
+                <div class="dp__stat-value">{formatCount(d().cache.capacity)}</div>
                 <div class="dp__stat-sub">entries</div>
               </div>
             </div>
@@ -172,13 +96,13 @@ export function MemoryPage(props: MemoryPageProps) {
                 <div class="dp__stat">
                   <div class="dp__stat-label">conversations</div>
                   <div class="dp__stat-value">
-                    {(d().global!.conversations_total ?? 0).toLocaleString()}
+                    {formatCount(d().global!.conversations_total ?? 0)}
                   </div>
                 </div>
                 <div class="dp__stat">
                   <div class="dp__stat-label">invocations</div>
                   <div class="dp__stat-value">
-                    {(d().global!.invocations_total ?? 0).toLocaleString()}
+                    {formatCount(d().global!.invocations_total ?? 0)}
                   </div>
                 </div>
               </div>
@@ -187,74 +111,7 @@ export function MemoryPage(props: MemoryPageProps) {
         )}
       </Show>
 
-      <Show when={props.activeSessionId}>
-        <button
-          type="button"
-          class="mem__events-toggle"
-          onClick={() => setShowEvents((v) => !v)}
-          data-testid="memory-events-toggle"
-        >
-          <Icon
-            name="chevron-right"
-            size={11}
-            class={'mem__events-chev ' + (showEvents() ? 'is-open' : '')}
-          />
-          <span>
-            Events for current session
-            <Show when={events().length > 0}>
-              {' '}({events().length})
-            </Show>
-          </span>
-        </button>
-        <Show when={showEvents()}>
-          <ul class="mem__events" data-testid="memory-events-list">
-            <Show
-              when={events().length > 0}
-              fallback={
-                <li class="mem__events-empty">
-                  No memory events recorded for this session yet.
-                </li>
-              }
-            >
-              <For each={events()}>
-                {(e) => (
-                  <li class="mem__event" data-testid={`memory-event-${e.id ?? ''}`}>
-                    <span
-                      class={
-                        'mem__event-type mem__event-type--' +
-                        ((e.type ?? 'event').split('.')[0] ?? 'event')
-                      }
-                    >
-                      {e.type ?? 'event'}
-                    </span>
-                    <Show when={e.scope}>
-                      <span class="mem__event-scope">{e.scope}</span>
-                    </Show>
-                    <Show when={e.message}>
-                      <span class="mem__event-message">{e.message}</span>
-                    </Show>
-                    <Show when={e.created_at}>
-                      <span class="mem__event-when">{humanWhen(e.created_at!)}</span>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </Show>
-          </ul>
-        </Show>
-      </Show>
+      <MemoryEventsSection activeSessionId={props.activeSessionId} events={events()} />
     </DiscoveryPage>
   );
-}
-
-function humanWhen(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const delta = Date.now() - d.getTime();
-  const min = Math.round(delta / 60_000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h`;
-  return `${Math.round(hr / 24)}d`;
 }

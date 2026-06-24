@@ -1,0 +1,115 @@
+/* Provider card: expandable detailed-model list */
+.prov__models-toggle {
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  transition: background var(--dur-fast);
+}
+
+.prov__models-toggle:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.prov__models-chev {
+  transition: transform var(--dur-fast);
+}
+
+.prov__models-chev.is-open {
+  transform: rotate(90deg);
+}
+
+.prov__models {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+}
+
+.prov__models-loading,
+.prov__models-err {
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.prov__models-err {
+  color: var(--color-error);
+}
+
+.prov__models-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.prov__model {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text);
+}
+
+.prov__model--default {
+  background: color-mix(in srgb, var(--color-accent-cyan) 8%, transparent);
+}
+
+.prov__model--err {
+  opacity: 0.6;
+}
+
+.prov__model-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prov__model-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+
+.prov__model-tag--builtin   { color: var(--color-accent-cyan); background: color-mix(in srgb, var(--color-accent-cyan) 14%, transparent); }
+.prov__model-tag--discovered { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+.prov__model-tag--default    { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); }
+
+.prov__model-ctx {
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.prov__model-err {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--color-error);
+  font-size: 10px;
+  font-family: var(--font-sans);
+}

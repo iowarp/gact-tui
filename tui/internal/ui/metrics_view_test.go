@@ -14,8 +14,8 @@ func TestMetricsViewUsesSharedDetailSections(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 40
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: gact.Metrics{
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: gact.Metrics{
 		UptimeS: 42,
 		Sessions: gact.MetricsSessions{
 			Total:    3,
@@ -41,7 +41,7 @@ func TestMetricsViewUsesSharedDetailSections(t *testing.T) {
 		},
 	}}
 
-	out := stripANSI(a.viewMetrics())
+	out := stripANSI(a.metrics.view())
 	for _, want := range []string{
 		"Operations Metrics",
 		"Operator snapshot",
@@ -76,9 +76,9 @@ func TestMetricsViewShowsTUIInteractionLatency(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 40
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:      "conversation:click",
 		surface:  "conversation",
 		kind:     "click",
@@ -88,7 +88,7 @@ func TestMetricsViewShowsTUIInteractionLatency(t *testing.T) {
 		render: 4 * time.Millisecond,
 		total:  15 * time.Millisecond,
 	})
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:      "conversation:click",
 		surface:  "conversation",
 		kind:     "click",
@@ -99,7 +99,7 @@ func TestMetricsViewShowsTUIInteractionLatency(t *testing.T) {
 		total:  22 * time.Millisecond,
 	})
 
-	out := stripANSI(a.viewMetrics())
+	out := stripANSI(a.metrics.view())
 	for _, want := range []string{
 		"slowest TUI surface: conversation click",
 		"TUI latency by section",
@@ -117,9 +117,9 @@ func TestMetricsTUILatencyRowsOpenSharedDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 40
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:      "metrics:wheel down",
 		surface:  "metrics",
 		kind:     "wheel down",
@@ -145,7 +145,7 @@ func TestMetricsTUILatencyRowsOpenSharedDetail(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("TUI latency detail click should not dispatch a command")
 	}
-	if !a.detailViewOpen || a.detailView == nil {
+	if !a.detail.visible || a.detail.ref == nil {
 		t.Fatal("TUI latency row should open shared detail")
 	}
 	for _, want := range []string{
@@ -157,8 +157,8 @@ func TestMetricsTUILatencyRowsOpenSharedDetail(t *testing.T) {
 		"render p95: 6.0ms",
 		"last hit target: metrics:body:wheel",
 	} {
-		if !strings.Contains(a.detailView.fullText, want) {
-			t.Fatalf("TUI latency detail missing %q:\n%s", want, a.detailView.fullText)
+		if !strings.Contains(a.detail.ref.fullText, want) {
+			t.Fatalf("TUI latency detail missing %q:\n%s", want, a.detail.ref.fullText)
 		}
 	}
 }
@@ -167,9 +167,9 @@ func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 40
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: gact.Metrics{UptimeS: 42}}
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: gact.Metrics{UptimeS: 42}}
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:         "input:click",
 		surface:     "input",
 		kind:        "click",
@@ -195,7 +195,7 @@ func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("TUI section latency click should not dispatch a command")
 	}
-	if !a.detailViewOpen || a.detailView == nil {
+	if !a.detail.visible || a.detail.ref == nil {
 		t.Fatal("TUI section latency row should open shared detail")
 	}
 	for _, want := range []string{
@@ -208,8 +208,8 @@ func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
 		"slowest render: 5.0ms",
 		"labels: input surface",
 	} {
-		if !strings.Contains(a.detailView.title+"\n"+a.detailView.fullText, want) {
-			t.Fatalf("TUI section latency detail missing %q:\n%s\n%s", want, a.detailView.title, a.detailView.fullText)
+		if !strings.Contains(a.detail.ref.title+"\n"+a.detail.ref.fullText, want) {
+			t.Fatalf("TUI section latency detail missing %q:\n%s\n%s", want, a.detail.ref.title, a.detail.ref.fullText)
 		}
 	}
 }
@@ -217,9 +217,9 @@ func TestMetricsTUILatencySectionRowsOpenSharedDetail(t *testing.T) {
 func TestMetricsLatencyDetailPreservesExactRouteEvidence(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	route := "GET /v1/sessions/{id}/messages"
-	a.openMetricsLatencyDetail(route, gact.MetricsLatencyStat{Count: 3, P50Ms: 1.2, P95Ms: 5.6, MaxMs: 8.9})
+	a.metrics.openLatencyDetail(route, gact.MetricsLatencyStat{Count: 3, P50Ms: 1.2, P95Ms: 5.6, MaxMs: 8.9})
 
-	if !a.detailViewOpen || a.detailView == nil {
+	if !a.detail.visible || a.detail.ref == nil {
 		t.Fatal("latency detail should open")
 	}
 	for _, want := range []string{
@@ -230,8 +230,8 @@ func TestMetricsLatencyDetailPreservesExactRouteEvidence(t *testing.T) {
 		"count: 3",
 		"p95 latency: 5.6 ms",
 	} {
-		if !strings.Contains(a.detailView.title+"\n"+a.detailView.fullText, want) {
-			t.Fatalf("latency detail missing %q:\n%s\n%s", want, a.detailView.title, a.detailView.fullText)
+		if !strings.Contains(a.detail.ref.title+"\n"+a.detail.ref.fullText, want) {
+			t.Fatalf("latency detail missing %q:\n%s\n%s", want, a.detail.ref.title, a.detail.ref.fullText)
 		}
 	}
 }
@@ -240,8 +240,8 @@ func TestMetricsFooterAdvertisesClickableDetails(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 40
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: gact.Metrics{
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: gact.Metrics{
 		Cost: gact.MetricsCost{
 			TotalUSD:   2.50,
 			ByProvider: map[string]float64{"argonne": 1.25},
@@ -251,7 +251,7 @@ func TestMetricsFooterAdvertisesClickableDetails(t *testing.T) {
 		},
 	}}
 
-	out := stripANSI(a.viewMetrics())
+	out := stripANSI(a.metrics.view())
 	if !strings.Contains(out, "Enter/click details") {
 		t.Fatalf("metrics footer should advertise keyboard and mouse row details when rows are actionable:\n%s", out)
 	}
@@ -261,10 +261,10 @@ func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 22
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: denseMetricsForTest()}
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: denseMetricsForTest()}
 
-	out := stripANSI(a.viewMetrics())
+	out := stripANSI(a.metrics.view())
 	if strings.Contains(out, "route-12") {
 		t.Fatalf("short metrics modal should window long body:\n%s", out)
 	}
@@ -276,7 +276,7 @@ func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 	}
 
 	a.metrics.scroll = 1 << 30
-	out = stripANSI(a.viewMetrics())
+	out = stripANSI(a.metrics.view())
 	if !strings.Contains(out, "Latency watchlist") || !strings.Contains(out, "route-6: usually 106.0ms") {
 		t.Fatalf("bottom-scrolled metrics modal should show final latency rows:\n%s", out)
 	}
@@ -288,23 +288,23 @@ func TestMetricsViewUsesBoundedScrollWindow(t *testing.T) {
 func TestMetricsShortSnapshotUsesCompactSharedBodyHeight(t *testing.T) {
 	short := newReadyApp(nil, nil)
 	short.width, short.height = 150, 44
-	short.metricsOpen = true
-	short.metrics = &metricsState{data: gact.Metrics{
+	short.metrics.open = true
+	short.metrics.metricsState = metricsState{data: gact.Metrics{
 		UptimeS: 5,
 		Sessions: gact.MetricsSessions{
 			Total: 1,
 		},
 	}}
-	shortRect := overlayMouseRect(short.viewMetrics(), short.width, short.height)
+	shortRect := overlayMouseRect(short.metrics.view(), short.width, short.height)
 	if shortRect.y != 3 {
 		t.Fatalf("short metrics top = %d, want shared top row 3", shortRect.y)
 	}
 
 	long := newReadyApp(nil, nil)
 	long.width, long.height = short.width, short.height
-	long.metricsOpen = true
-	long.metrics = &metricsState{data: denseMetricsForTest()}
-	longRect := overlayMouseRect(long.viewMetrics(), long.width, long.height)
+	long.metrics.open = true
+	long.metrics.metricsState = metricsState{data: denseMetricsForTest()}
+	longRect := overlayMouseRect(long.metrics.view(), long.width, long.height)
 	if shortRect.w != longRect.w {
 		t.Fatalf("short metrics width = %d, long metrics width = %d; shared modal width should be stable", shortRect.w, longRect.w)
 	}
@@ -320,8 +320,8 @@ func TestMetricsMouseWheelScrollsBody(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 22
-	a.metricsOpen = true
-	a.metrics = &metricsState{data: denseMetricsForTest()}
+	a.metrics.open = true
+	a.metrics.metricsState = metricsState{data: denseMetricsForTest()}
 
 	_ = a.View()
 	target, ok := findHitTargetForTest(a, "metrics:body:wheel")
@@ -334,8 +334,8 @@ func TestMetricsMouseWheelScrollsBody(t *testing.T) {
 		Button: tea.MouseWheelDown,
 	}))
 	a = model.(*App)
-	if a.metrics == nil || a.metrics.scroll != 1 {
-		t.Fatalf("wheel down should advance metrics scroll, got %+v", a.metrics)
+	if a.metrics.scroll != 1 {
+		t.Fatalf("wheel down should advance metrics scroll, got %+v", a.metrics.metricsState)
 	}
 	_ = a.View()
 	target, ok = findHitTargetForTest(a, "metrics:body:wheel")
@@ -348,8 +348,8 @@ func TestMetricsMouseWheelScrollsBody(t *testing.T) {
 		Button: tea.MouseWheelUp,
 	}))
 	a = model.(*App)
-	if a.metrics == nil || a.metrics.scroll != 0 {
-		t.Fatalf("wheel up should move metrics scroll back, got %+v", a.metrics)
+	if a.metrics.scroll != 0 {
+		t.Fatalf("wheel up should move metrics scroll back, got %+v", a.metrics.metricsState)
 	}
 }
 

@@ -12,10 +12,10 @@ import (
 
 func TestModelSwapMarkerInsertedOnProviderSave(t *testing.T) {
 	a := newLMConfigTestApp()
-	a.wsID = "ws_default"
-	a.sessions = []gact.Session{{ID: "sess_1", Title: "demo"}}
-	a.selected = 0
-	a.messages = []gact.Message{
+	a.session.wsID = "ws_default"
+	a.session.sessions = []gact.Session{{ID: "sess_1", Title: "demo"}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
 		{ID: "msg_user", Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "before"}}},
 	}
 
@@ -27,10 +27,10 @@ func TestModelSwapMarkerInsertedOnProviderSave(t *testing.T) {
 	model, _ := a.Update(lmConfigSavedMsg{info: info})
 	a = model.(*App)
 
-	if len(a.messages) != 2 {
-		t.Fatalf("messages len = %d, want 2", len(a.messages))
+	if len(a.conversation.messages) != 2 {
+		t.Fatalf("messages len = %d, want 2", len(a.conversation.messages))
 	}
-	marker := a.messages[1]
+	marker := a.conversation.messages[1]
 	if !isModelSwapMarker(marker) {
 		t.Fatalf("last message is not model swap marker: %#v", marker)
 	}
@@ -65,10 +65,10 @@ func TestConversationRendersPersistedModelRefChangeDivider(t *testing.T) {
 	a.width = 130
 	a.height = 30
 	a.stage = StageReady
-	a.wsID = "ws_default"
-	a.sessions = []gact.Session{{ID: "sess_1", Title: "model history", Status: gact.StatusIdle}}
-	a.selected = 0
-	a.messages = []gact.Message{
+	a.session.wsID = "ws_default"
+	a.session.sessions = []gact.Session{{ID: "sess_1", Title: "model history", Status: gact.StatusIdle}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
 		{
 			ID:        "msg_old",
 			SessionID: "sess_1",

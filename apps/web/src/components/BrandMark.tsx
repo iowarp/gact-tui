@@ -1,3 +1,6 @@
+/**
+ * UI component: Brand Mark. Exports `BrandMark`.
+ */
 import { brand } from '@brand';
 
 /**

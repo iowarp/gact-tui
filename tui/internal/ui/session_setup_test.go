@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
@@ -94,5 +97,107 @@ func TestSessionSetupFiltersPackKindFromBlueprintChoices(t *testing.T) {
 	})
 	if len(got) != 2 || got[0].ID != "workflow" || got[1].ID != "plain" {
 		t.Fatalf("filtered blueprints = %#v", got)
+	}
+}
+
+func TestSessionSetupRendersSeparatedWorkflowSectionsAndButtons(t *testing.T) {
+	a := New("http://example.test")
+	a.stage = StageReady
+	a.width, a.height = 120, 36
+	a.session.setupOpen = true
+	a.session.setup = &sessionSetupState{
+		blueprints: []gact.AgentBlueprintDefinition{{
+			ID:          "earthscope-gnss-region",
+			Title:       "EarthScope GNSS",
+			Description: "GNSS benchmark workflow",
+		}},
+		packs: []gact.ExpertPackDefinition{{
+			ID:          "ndp-tools",
+			Title:       "NDP tools",
+			Description: "NDP tools",
+		}},
+	}
+
+	out := a.session.viewSetup()
+	for _, want := range []string{"Workflow blueprint", "Expert pack", "EarthScope GNSS", "NDP tools", "start session", "cancel"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("new-session setup missing %q:\n%s", want, out)
+		}
+	}
+	for _, old := range []string{"←/→ change", "Start session  [Enter]"} {
+		if strings.Contains(out, old) {
+			t.Fatalf("new-session setup still looks like old row cycler %q:\n%s", old, out)
+		}
+	}
+}
+
+func TestSessionSetupMouseSelectsBlueprintAndExpertPackRows(t *testing.T) {
+	a := New("http://example.test")
+	a.stage = StageReady
+	a.width, a.height = 120, 36
+	a.session.setupOpen = true
+	a.session.setup = &sessionSetupState{
+		blueprints: []gact.AgentBlueprintDefinition{{ID: "earthscope-gnss-region", Title: "EarthScope GNSS"}},
+		packs:      []gact.ExpertPackDefinition{{ID: "ndp-tools", Title: "NDP tools"}},
+	}
+
+	_ = a.View()
+	blueprintTarget, ok := findHitTargetForTest(a, "session-setup:blueprint:1")
+	if !ok {
+		t.Fatal("missing blueprint row hit target")
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      blueprintTarget.rect.x,
+		Y:      blueprintTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("blueprint row click should not dispatch backend command")
+	}
+	if a.session.setup.blueprintSel != 1 || a.session.setup.row != 0 {
+		t.Fatalf("blueprint click selection = row %d sel %d", a.session.setup.row, a.session.setup.blueprintSel)
+	}
+
+	_ = a.View()
+	packTarget, ok := findHitTargetForTest(a, "session-setup:pack:1")
+	if !ok {
+		t.Fatal("missing expert-pack row hit target")
+	}
+	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      packTarget.rect.x,
+		Y:      packTarget.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("expert-pack row click should not dispatch backend command")
+	}
+	if a.session.setup.packSel != 1 || a.session.setup.row != 1 {
+		t.Fatalf("pack click selection = row %d sel %d", a.session.setup.row, a.session.setup.packSel)
+	}
+}
+
+func TestSessionSetupEnterRunsPrimaryInsteadOfCyclingSelection(t *testing.T) {
+	a := New("http://example.test")
+	a.stage = StageReady
+	a.width, a.height = 120, 36
+	a.session.setupOpen = true
+	a.session.setup = &sessionSetupState{
+		row:          0,
+		blueprintSel: 1,
+		blueprints:   []gact.AgentBlueprintDefinition{{ID: "earthscope-gnss-region", Title: "EarthScope GNSS"}},
+		packs:        []gact.ExpertPackDefinition{{ID: "ndp-tools", Title: "NDP tools"}},
+	}
+
+	_, cmd := a.session.handleSetupKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter should dispatch primary new-session action")
+	}
+	if a.session.setupOpen {
+		t.Fatal("Enter primary action should close setup modal")
+	}
+	if a.session.setup != nil {
+		t.Fatal("setup state should clear after primary action")
 	}
 }

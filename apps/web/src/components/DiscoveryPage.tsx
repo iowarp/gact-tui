@@ -1,3 +1,6 @@
+/**
+ * UI component: Discovery Page. Renders `DiscoveryPage` from `DiscoveryPageProps`.
+ */
 import { Show, type JSX } from 'solid-js';
 import { Icon, type IconName } from './Icon.js';
 import './discovery-page.css';

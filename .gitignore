@@ -64,3 +64,8 @@ tui/coverage.txt
 
 # Backup files
 *.bak
+
+# visual_loop capture dumps + derived images (regenerable from .tape sources)
+visual_loop/**/*.jsonl
+visual_loop/**/*.png
+visual_loop/**/*.gif

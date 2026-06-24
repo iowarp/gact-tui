@@ -1,5 +1,11 @@
+/**
+ * Demo/fixture data (demo) for offline rendering and visual tests; not used against a live backend.
+ */
 import type { Message, PermissionRequest } from '@clio/core';
 import type { SidebarSession } from '../components/Sidebar.js';
+import { demoMessagesByName } from './demoMessages.js';
+import { demoPermission } from './demoPermission.js';
+import { demoSessions } from './demoSessions.js';
 
 export interface DemoFixtures {
   sessions: SidebarSession[];
@@ -7,150 +13,10 @@ export interface DemoFixtures {
   permission: PermissionRequest;
 }
 
-const DEMO_DIFF = `--- a/src/handlers.go
-+++ b/src/handlers.go
-@@ -3,4 +3,5 @@
--func handle(r *Request) {
--    println("got request")
-+func handle(r *Request) error {
-+    log.Info("request received", "id", r.ID)
-+    return nil
- }
-`;
-
 export function fixturesForDemo(): DemoFixtures {
-  const sessions: SidebarSession[] = [
-    { id: 's1', title: 'refactor logger', status: 'running', project: 'gact-tui', updatedAt: '2m' },
-    { id: 's2', title: 'investigate flaky test', status: 'idle', project: 'gact-tui', updatedAt: '14m' },
-    { id: 's3', title: 'awaiting policy review', status: 'waiting_permission', project: 'clio-agent', updatedAt: '1m' },
-    { id: 's4', title: 'finished migration', status: 'finished', project: 'clio-agent', updatedAt: '1h' },
-    { id: 's5', title: 'failed compose run', status: 'error', project: 'apps', updatedAt: '6h' },
-  ];
-
-  const normal: Message[] = [
-    {
-      id: 'm-user-1',
-      role: 'user',
-      parts: [{ type: 'text', text: 'Read src/handlers.go and rewrite the println calls to use log.Info.' }],
-    },
-    {
-      id: 'm-asst-1',
-      role: 'assistant',
-      parts: [
-        {
-          type: 'tool_call',
-          id: 'tc-read-1',
-          tool_name: 'ReadFile',
-          input: { path: 'src/handlers.go' },
-        },
-        { type: 'tool_result', tool_call_id: 'tc-read-1', output: 'func handle(r *Request) {\n    println("got request")\n}\n' },
-        { type: 'text', text: "Here's the patch — switched to structured logging and surfaced an error return.\n\n```go\nfunc handle(w http.ResponseWriter, r *http.Request) {\n\tif err := process(r); err != nil {\n\t\tlog.Error(\"process failed\", \"err\", err)\n\t\thttp.Error(w, \"internal\", 500)\n\t\treturn\n\t}\n\tlog.Info(\"handled request\", \"path\", r.URL.Path)\n}\n```" },
-        {
-          type: 'file_diff',
-          path: 'src/handlers.go',
-          unified_diff: DEMO_DIFF,
-          applied: false,
-        },
-      ],
-    },
-  ];
-
-  const streaming: Message[] = [
-    ...normal.slice(0, 1),
-    {
-      id: 'm-asst-streaming',
-      role: 'assistant',
-      parts: [
-        { type: 'thinking', text: 'I should read the file first, then patch the println calls.' },
-        {
-          type: 'tool_call',
-          id: 'tc-stream-read',
-          tool_name: 'ReadFile',
-          input: { path: 'src/handlers.go' },
-        },
-        { type: 'text', text: 'Reading handlers.go… found 3 println calls. Drafting a structured-log rewrite' },
-      ],
-    },
-  ];
-
-  const verbose: Message[] = [
-    ...normal,
-    {
-      id: 'm-asst-2',
-      role: 'assistant',
-      parts: [
-        { type: 'thinking', text: 'Should double-check the test file uses the same logger.' },
-        {
-          type: 'tool_call',
-          id: 'tc-grep',
-          tool_name: 'Grep',
-          input: { pattern: 'println', glob: '**/*.go' },
-        },
-        { type: 'tool_result', tool_call_id: 'tc-grep', output: 'src/handlers_test.go:18:    println("calling")\n' },
-      ],
-    },
-  ];
-
-  const permission: PermissionRequest = {
-    id: 'p-1',
-    session_id: 's3',
-    tool_name: 'WriteFile',
-    risk: 'medium',
-    reason: 'WriteFile touches the workspace; review the path before approving.',
-    created_at: new Date().toISOString(),
-    tool_call: {
-      input: { path: 'src/handlers.go', mode: 'overwrite' },
-    },
-  };
-
-  // Previews fixture (1.0 items 2+3): an inline image part + a retry-created
-  // user message (metadata.retry_attempt_id) so both render deterministically.
-  const INLINE_CHART_SVG =
-    'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjAiIGhlaWdodD0iMTMwIiB2aWV3Qm94PSIwIDAgNDIwIDEzMCI+PHJlY3Qgd2lkdGg9IjQyMCIgaGVpZ2h0PSIxMzAiIHJ4PSIxNiIgZmlsbD0iIzA3MTExZiIvPjxwYXRoIGQ9Ik0zNSA5MiBDOTUgNTAgMTM1IDc4IDE4MyA0MCBTMjc2IDIwIDM0MiA2MiBTMzg3IDgyIDM5NyA0NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBkNGRiIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjgyIiBjeT0iNzIiIHI9IjciIGZpbGw9IiMzNGQzOTkiLz48Y2lyY2xlIGN4PSIxODMiIGN5PSI0MCIgcj0iNyIgZmlsbD0iI2ZiYmYyNCIvPjxjaXJjbGUgY3g9IjM0MiIgY3k9IjYyIiByPSI3IiBmaWxsPSIjZWE3YjJhIi8+PHRleHQgeD0iMjgiIHk9IjI4IiBmaWxsPSIjZDdlMmZmIiBmb250LWZhbWlseT0iSW50ZXIsQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI3MDAiPkdOU1MgbW90aW9uIHByZXZpZXc8L3RleHQ+PHRleHQgeD0iMjgiIHk9IjExNiIgZmlsbD0iIzdjYTZkOSIgZm9udC1mYW1pbHk9IkludGVyLEFyaWFsIiBmb250LXNpemU9IjEyIj5yZW5kZXJlZCBpbmxpbmUgZnJvbSBhbiBpbWFnZSBwYXJ0PC90ZXh0Pjwvc3ZnPg==';
-  const previews: Message[] = [
-    ...normal,
-    {
-      id: 'm-user-retry',
-      role: 'user',
-      metadata: { retry_attempt_id: 'attempt_demo_1' },
-      parts: [
-        {
-          type: 'text',
-          text: 'Read src/handlers.go and rewrite the println calls to use log.Info.\n\n[Retry notes]\nUse structured logging with zap instead.',
-        },
-      ],
-    },
-    {
-      id: 'm-asst-image',
-      role: 'assistant',
-      parts: [
-        { type: 'text', text: 'Here is the chart you asked for:' },
-        {
-          type: 'image',
-          source: {
-            kind: 'base64',
-            media_type: 'image/svg+xml',
-            data: INLINE_CHART_SVG,
-          },
-        },
-        {
-          type: 'image',
-          source: { kind: 'file_id', file_id: 'file_abc123' },
-        },
-      ],
-    },
-  ];
-
   return {
-    sessions,
-    byName: {
-      normal,
-      streaming,
-      verbose,
-      summary: verbose,
-      permission: normal,
-      previews,
-    },
-    permission,
+    sessions: demoSessions(),
+    byName: demoMessagesByName(),
+    permission: demoPermission(),
   };
 }

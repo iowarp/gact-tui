@@ -1,5 +1,7 @@
 package ui
 
+// action_menu.go renders the generic action-menu modal (a keyed item list) and routes its selection keys via modalkit.
+
 import (
 	tea "charm.land/bubbletea/v2"
 )
@@ -22,7 +24,7 @@ type actionMenuOptions struct {
 	close       func(*App)
 }
 
-func (a *App) clampActionMenuSelection(selected *int, count int) {
+func (m *modalkit) clampActionMenuSelection(selected *int, count int) {
 	if selected == nil {
 		return
 	}
@@ -34,26 +36,26 @@ func (a *App) clampActionMenuSelection(selected *int, count int) {
 	}
 }
 
-func (a *App) applyActionMenuSelection(items []actionMenuItem, selected *int, close func(*App)) tea.Cmd {
+func (m *modalkit) applyActionMenuSelection(items []actionMenuItem, selected *int, close func(*App)) tea.Cmd {
 	if len(items) == 0 {
 		if close != nil {
-			close(a)
+			close(m.app)
 		}
 		return nil
 	}
-	a.clampActionMenuSelection(selected, len(items))
+	m.clampActionMenuSelection(selected, len(items))
 	idx := 0
 	if selected != nil {
 		idx = *selected
 	}
-	return items[idx].action(a)
+	return items[idx].action(m.app)
 }
 
-func (a *App) handleActionMenuKey(k tea.KeyPressMsg, items []actionMenuItem, selected *int, close func(*App)) (tea.Cmd, bool) {
+func (m *modalkit) handleActionMenuKey(k tea.KeyPressMsg, items []actionMenuItem, selected *int, close func(*App)) (tea.Cmd, bool) {
 	switch k.String() {
 	case "esc", "q", "left", "h", "m":
 		if close != nil {
-			close(a)
+			close(m.app)
 		}
 		return nil, true
 	case "up", "k":
@@ -77,23 +79,23 @@ func (a *App) handleActionMenuKey(k tea.KeyPressMsg, items []actionMenuItem, sel
 		}
 		return nil, true
 	case "enter":
-		return a.applyActionMenuSelection(items, selected, close), true
+		return m.applyActionMenuSelection(items, selected, close), true
 	}
 	for i, item := range items {
 		if k.String() == item.key {
 			if selected != nil {
 				*selected = i
 			}
-			return item.action(a), true
+			return item.action(m.app), true
 		}
 	}
 	return nil, false
 }
 
-func (a *App) renderActionMenu(opts actionMenuOptions) string {
-	w := a.modalWidth()
+func (m *modalkit) renderActionMenu(opts actionMenuOptions) string {
+	w := m.modalWidth()
 	listW := modalInsetListWidth(w)
-	a.clampActionMenuSelection(opts.selected, len(opts.items))
+	m.clampActionMenuSelection(opts.selected, len(opts.items))
 	selected := 0
 	if opts.selected != nil {
 		selected = *opts.selected
@@ -103,9 +105,9 @@ func (a *App) renderActionMenu(opts actionMenuOptions) string {
 		rowBudget = 14
 	}
 
-	rows := []string{a.Theme.HintLabel.Render(opts.contextLine), ""}
+	rows := []string{m.app.Theme.HintLabel.Render(opts.contextLine), ""}
 	listStartRow := len(rows)
-	win := selectedItemWindow(len(opts.items), selected, a.modalListItemBudget(5, 1, rowBudget))
+	win := selectedItemWindow(len(opts.items), selected, m.modalListItemBudget(5, 1, rowBudget))
 	listItems := make([]modalListItem, 0, win.end-win.start)
 	for i := win.start; i < win.end; i++ {
 		item := opts.items[i]
@@ -120,18 +122,18 @@ func (a *App) renderActionMenu(opts actionMenuOptions) string {
 				if opts.selected != nil {
 					*opts.selected = idx
 				}
-				return app.applyActionMenuSelection(opts.items, opts.selected, opts.close)
+				return app.modals.applyActionMenuSelection(opts.items, opts.selected, opts.close)
 			},
 		})
 	}
-	list := a.renderModalList(listItems, modalListOptions{
+	list := m.renderModalList(listItems, modalListOptions{
 		width:            listW,
 		rowBudget:        rowBudget,
 		descriptionLines: 0,
 	})
 	rows = append(rows, list.rows...)
 
-	rendered := a.renderSelectableListModal(selectableListModalOptions{
+	rendered := m.renderSelectableListModal(selectableListModalOptions{
 		frame: modalFrameOptions{
 			width:   w,
 			title:   opts.title,

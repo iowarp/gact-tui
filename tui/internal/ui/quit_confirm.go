@@ -1,10 +1,13 @@
 package ui
 
+// quitConfirmModal: the Ctrl+C quit/detach confirmation overlay.
+
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
 // ZZZZZZZZZ1: quit-confirm modal. User feedback: "ctrl+c should have
@@ -28,19 +31,28 @@ import (
 //	Ctrl+C  — accept current selection (preserves double-Ctrl+C quit
 //	          muscle memory from before the confirm was added)
 
+// quitConfirmModal is the Ctrl+C confirmation overlay: open flag plus the
+// highlighted option index (0=close, 1=no, 2=detach), the behaviour that drives
+// it, and a back-reference to the root App for shared services.
+type quitConfirmModal struct {
+	app      *App
+	open     bool
+	selected int
+}
+
 // quitConfirmOptions is the canonical option order + labels.
 var quitConfirmOptions = []string{"close", "no", "detach"}
 
-func (a *App) openQuitConfirm() {
-	a.quitConfirmOpen = true
-	a.quitConfirmSelected = 0 // default: close
+func (m *quitConfirmModal) openModal() {
+	m.open = true
+	m.selected = 0 // default: close
 }
 
-func (a *App) quitConfirmButtons() []menuButton {
+func (m *quitConfirmModal) buttons() []menuButton {
 	labels := []string{
-		a.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
-		a.localizer.t(msgQuitNo, nil),     // 1 - keep running
-		a.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
+		m.app.localizer.t(msgQuitClose, nil),  // 0 - yes, quit
+		m.app.localizer.t(msgQuitNo, nil),     // 1 - keep running
+		m.app.localizer.t(msgQuitDetach, nil), // 2 - Ctrl+Z style
 	}
 	keyHints := []string{"y", "n", "d"}
 	buttons := make([]menuButton, 0, len(labels))
@@ -50,8 +62,8 @@ func (a *App) quitConfirmButtons() []menuButton {
 			id:    "quit:" + quitConfirmOptions[i],
 			label: label + "  (" + keyHints[i] + ")",
 			action: func(app *App) tea.Cmd {
-				app.quitConfirmSelected = idx
-				_, cmd := app.applyQuitConfirmSelection()
+				app.quitConfirm.selected = idx
+				_, cmd := app.quitConfirm.applySelection()
 				return cmd
 			},
 		})
@@ -59,54 +71,55 @@ func (a *App) quitConfirmButtons() []menuButton {
 	return buttons
 }
 
-// handleQuitConfirmKey drives the modal while it's open.
-func (a *App) handleQuitConfirmKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+// handleKey drives the modal while it's open.
+func (m *quitConfirmModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc":
 		// Esc is "no" — dismiss without doing anything.
-		a.quitConfirmOpen = false
-		return a, nil
+		m.open = false
+		return m.app, nil
 	case "left", "h":
-		if a.quitConfirmSelected > 0 {
-			a.quitConfirmSelected--
+		if m.selected > 0 {
+			m.selected--
 		}
-		return a, nil
+		return m.app, nil
 	case "right", "l":
-		if a.quitConfirmSelected < len(quitConfirmOptions)-1 {
-			a.quitConfirmSelected++
+		if m.selected < len(quitConfirmOptions)-1 {
+			m.selected++
 		}
-		return a, nil
+		return m.app, nil
 	case "y", "Y":
-		a.quitConfirmSelected = 0
-		return a.applyQuitConfirmSelection()
+		m.selected = 0
+		return m.applySelection()
 	case "n", "N":
-		a.quitConfirmSelected = 1
-		return a.applyQuitConfirmSelection()
+		m.selected = 1
+		return m.applySelection()
 	case "d", "D":
-		a.quitConfirmSelected = 2
-		return a.applyQuitConfirmSelection()
+		m.selected = 2
+		return m.applySelection()
 	case "enter":
-		return a.applyQuitConfirmSelection()
+		return m.applySelection()
 	case "ctrl+c":
 		// Double Ctrl+C: accept current selection — keeps the old
 		// spam-ctrl+c muscle memory working.
-		return a.applyQuitConfirmSelection()
+		return m.applySelection()
 	}
-	return a, nil
+	return m.app, nil
 }
 
-// applyQuitConfirmSelection fires the action for the currently
-// highlighted option and closes the modal.
-func (a *App) applyQuitConfirmSelection() (tea.Model, tea.Cmd) {
-	defer func() { a.quitConfirmOpen = false }()
-	switch a.quitConfirmSelected {
+// applySelection fires the action for the currently highlighted option and
+// closes the modal.
+func (m *quitConfirmModal) applySelection() (tea.Model, tea.Cmd) {
+	a := m.app
+	defer func() { m.open = false }()
+	switch m.selected {
 	case 0: // close — original Ctrl+C behaviour
-		if a.sseCancel != nil {
-			a.sseCancel()
+		if a.connection.sseCancel != nil {
+			a.connection.sseCancel()
 		}
 		var cmds []tea.Cmd
-		if sid := a.currentSessionID(); sid != "" && a.c != nil {
-			switch a.currentStatus {
+		if sid := a.session.currentID(); sid != "" && a.c != nil {
+			switch a.session.currentStatus {
 			case gact.StatusRunning, gact.StatusWaitingPermission:
 				cmds = append(cmds, cancelCmd(a.c, sid))
 			}
@@ -116,9 +129,9 @@ func (a *App) applyQuitConfirmSelection() (tea.Model, tea.Cmd) {
 	case 1: // no — dismiss
 		return a, nil
 	case 2: // detach — mirror Ctrl+Z flow
-		a.DetachedSessionID = a.currentSessionID()
-		if a.selected >= 0 && a.selected < len(a.sessions) {
-			s := a.sessions[a.selected]
+		a.DetachedSessionID = a.session.currentID()
+		if a.session.selected >= 0 && a.session.selected < len(a.session.sessions) {
+			s := a.session.sessions[a.session.selected]
 			a.DetachedTitle = s.Title
 			a.DetachedWorkspace = s.WorkspaceID
 		}
@@ -127,39 +140,40 @@ func (a *App) applyQuitConfirmSelection() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// viewQuitConfirm renders the modal with the shared overlay width so the
-// confirmation does not introduce a one-off modal shape.
-func (a *App) viewQuitConfirm() string {
-	if !a.quitConfirmOpen {
+// view renders the modal with the shared overlay width so the confirmation does
+// not introduce a one-off modal shape.
+func (m *quitConfirmModal) view() string {
+	if !m.open {
 		return ""
 	}
+	a := m.app
 	t := a.Theme
-	w := a.modalWidth()
+	w := a.modals.modalWidth()
 
 	contentW := modalInnerWidth(w)
 	hintStyle := lipgloss.NewStyle().Foreground(t.FgMuted)
-	hintLines := wrapPlainRows(a.localizer.t(msgQuitHint, nil), contentW, "")
+	hintLines := textutil.WrapPlainRows(a.localizer.t(msgQuitHint, nil), contentW, "")
 	for i, line := range hintLines {
 		hintLines[i] = hintStyle.Render(line)
 	}
 	hint := lipgloss.JoinVertical(lipgloss.Left, hintLines...)
 
-	buttons := a.quitConfirmButtons()
+	buttons := m.buttons()
 	keyStyle := lipgloss.NewStyle().Foreground(t.FgFaint)
-	keyLines := wrapPlainRows(a.localizer.t(msgQuitKeyHint, nil), contentW, "")
+	keyLines := textutil.WrapPlainRows(a.localizer.t(msgQuitKeyHint, nil), contentW, "")
 	for i, line := range keyLines {
 		keyLines[i] = keyStyle.Render(line)
 	}
 	keyLine := lipgloss.JoinVertical(lipgloss.Left, keyLines...)
 
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.modals.renderModalFrameWithLayout(modalFrameOptions{
 		width:           w,
 		title:           a.localizer.t(msgQuitTitle, nil),
 		titleColor:      t.Warning,
 		border:          t.Warning,
 		background:      t.BgSubtle,
 		buttons:         buttons,
-		buttonSelected:  a.quitConfirmSelected,
+		buttonSelected:  m.selected,
 		buttonSelection: true,
 		body:            hint,
 		footer:          keyLine,

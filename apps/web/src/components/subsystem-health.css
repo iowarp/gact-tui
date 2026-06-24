@@ -1,0 +1,76 @@
+/* Compact subsystem-health indicator (SPEC §3.4 integrations[]). Overall chip
+   + per-integration pips. Tones from design tokens. */
+.subhealth {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.subhealth__overall {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-30);
+  background: var(--color-surface);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.subhealth__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subhealth__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.subhealth__name {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+}
+
+.subhealth__pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-muted);
+  flex: none;
+}
+
+.subhealth__pip--ok {
+  background: var(--color-success);
+}
+
+.subhealth__pip--warn {
+  background: var(--color-warning);
+}
+
+.subhealth__pip--err {
+  background: var(--color-error);
+}
+
+.subhealth__overall.subhealth__pip--ok {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.subhealth__overall.subhealth__pip--warn {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.subhealth__overall.subhealth__pip--err {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}

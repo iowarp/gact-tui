@@ -16,55 +16,12 @@
 //! the frontend so the AddRemote wizard can render an actionable
 //! message ("install OpenSSH client" / "wrong passphrase" / etc.).
 
-use serde::{Deserialize, Serialize};
-use std::{
-    io,
-    net::TcpListener,
-    process::{Child, Command, Stdio},
-    sync::Mutex,
-    time::Duration,
-};
+use std::{process::Child, sync::Mutex, time::Duration};
 
-const KEYRING_SERVICE: &str = "ai.iowarp.clio.desktop.ssh";
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TunnelRequest {
-    pub host: String,
-    pub user: String,
-    pub remote_port: u16,
-    pub key_path: String,
-    /// Optional passphrase — when provided we route it through the OS
-    /// keychain so subsequent reconnects don't prompt the user.
-    pub passphrase: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TunnelHandle {
-    pub local_url: String,
-    pub local_port: u16,
-}
-
-#[derive(Debug)]
-pub struct TunnelError {
-    pub code: TunnelErrorCode,
-    pub message: String,
-}
-
-impl std::fmt::Display for TunnelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{:?}] {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for TunnelError {}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum TunnelErrorCode {
-    SshNotInstalled,
-    PortAllocation,
-    KeychainWriteFailed,
-    SpawnFailed,
-}
+use crate::net_util::pick_free_port;
+use crate::ssh_command::{build_ssh_forward_command, ssh_available};
+use crate::ssh_keyring::store_passphrase;
+use crate::ssh_types::{TunnelError, TunnelErrorCode, TunnelHandle, TunnelRequest};
 
 pub struct TunnelManager {
     /// (host, child) for active tunnels — keyed by the remote host so the
@@ -101,29 +58,7 @@ impl TunnelManager {
             store_passphrase(&req.user, &req.host, secret)?;
         }
 
-        let local_arg = format!("{local_port}:127.0.0.1:{}", req.remote_port);
-        let user_at_host = format!("{}@{}", req.user, req.host);
-
-        let mut cmd = Command::new("ssh");
-        cmd.arg("-N") // no remote command
-            .arg("-T") // no pseudo-TTY
-            .arg("-o")
-            .arg("ExitOnForwardFailure=yes")
-            .arg("-o")
-            .arg("ServerAliveInterval=30")
-            .arg("-o")
-            .arg("ServerAliveCountMax=3")
-            .arg("-L")
-            .arg(&local_arg);
-
-        if !req.key_path.is_empty() {
-            cmd.arg("-i").arg(&req.key_path);
-        }
-        cmd.arg(user_at_host);
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
-
+        let mut cmd = build_ssh_forward_command(&req, local_port);
         let child = cmd.spawn().map_err(|e| TunnelError {
             code: TunnelErrorCode::SpawnFailed,
             message: format!("ssh spawn failed: {e}"),
@@ -158,212 +93,9 @@ impl Default for TunnelManager {
     }
 }
 
-fn ssh_available() -> bool {
-    let out = Command::new("ssh").arg("-V").output();
-    match out {
-        Ok(o) => !o.stderr.is_empty() || !o.stdout.is_empty(),
-        Err(_) => false,
-    }
-}
-
-fn pick_free_port() -> io::Result<u16> {
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let port = listener.local_addr()?.port();
-    drop(listener);
-    Ok(port)
-}
-
-fn store_passphrase(user: &str, host: &str, secret: &str) -> Result<(), TunnelError> {
-    let account = format!("{user}@{host}");
-    let entry = keyring::Entry::new(KEYRING_SERVICE, &account).map_err(|e| TunnelError {
-        code: TunnelErrorCode::KeychainWriteFailed,
-        message: format!("keyring init: {e}"),
-    })?;
-    entry.set_password(secret).map_err(|e| TunnelError {
-        code: TunnelErrorCode::KeychainWriteFailed,
-        message: format!("keyring write: {e}"),
-    })?;
-    Ok(())
-}
-
-/// Best-effort retrieval — silently returns None if no entry exists or
-/// the OS denies access. Wave 4 ssh-agent integration may replace this.
-#[allow(dead_code)]
-pub fn load_passphrase(user: &str, host: &str) -> Option<String> {
-    let account = format!("{user}@{host}");
-    let entry = keyring::Entry::new(KEYRING_SERVICE, &account).ok()?;
-    entry.get_password().ok()
-}
-
 #[allow(dead_code)]
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 #[cfg(test)]
-mod tunnel_tests {
-    //! Live SSH-tunnel integration test (Wave 3). Spawns a real
-    //! `ssh -L` tunnel via `TunnelManager::open` to a remote host and
-    //! verifies traffic actually forwards through it.
-    //!
-    //! Gated on env so CI without an SSH target stays green:
-    //!   SSH_TUNNEL_HOST, SSH_TUNNEL_USER, SSH_TUNNEL_KEY,
-    //!   SSH_TUNNEL_REMOTE_PORT (the remote loopback port to forward).
-    //! Stand up something HTTP on the remote loopback first; the test
-    //! asserts a 200 comes back through the local forwarded port.
-    use super::{TunnelManager, TunnelRequest};
-    use std::{env, thread, time::Duration};
-
-    fn cfg() -> Option<(String, String, String, u16)> {
-        let host = env::var("SSH_TUNNEL_HOST").ok()?;
-        let user = env::var("SSH_TUNNEL_USER").ok()?;
-        let key = env::var("SSH_TUNNEL_KEY").unwrap_or_default();
-        let port: u16 = env::var("SSH_TUNNEL_REMOTE_PORT").ok()?.parse().ok()?;
-        Some((host, user, key, port))
-    }
-
-    #[test]
-    fn forwards_http_through_a_real_ssh_tunnel() {
-        let Some((host, user, key_path, remote_port)) = cfg() else {
-            eprintln!("skip: SSH_TUNNEL_* env not set");
-            return;
-        };
-        let mgr = TunnelManager::new();
-        let handle = mgr
-            .open(TunnelRequest {
-                host,
-                user,
-                remote_port,
-                key_path,
-                passphrase: None,
-            })
-            .expect("tunnel open should succeed (ssh on PATH + reachable host)");
-
-        // The ssh child needs a beat to establish forwarding; poll the
-        // local end for up to ~12s.
-        let probe = format!("{}/v1/capabilities", handle.local_url);
-        let mut last = String::new();
-        let mut ok = false;
-        for _ in 0..24 {
-            match ureq::get(&probe)
-                .timeout(Duration::from_millis(1500))
-                .call()
-            {
-                Ok(r) => {
-                    last = r.into_string().unwrap_or_default();
-                    ok = true;
-                    break;
-                }
-                Err(ureq::Error::Status(code, _)) => {
-                    last = format!("status {code}");
-                    ok = true; // reached the remote service (any HTTP status)
-                    break;
-                }
-                Err(_) => thread::sleep(Duration::from_millis(500)),
-            }
-        }
-        mgr.shutdown_all();
-        assert!(
-            ok,
-            "no HTTP response through the tunnel at {} — forwarding failed",
-            handle.local_url
-        );
-        // When pointed at the homelab GACT mock, the body carries the
-        // contract envelope; any 2xx/4xx still proves bytes traversed.
-        eprintln!("tunnel reached remote service; body/preview: {last:.120}");
-    }
-
-    fn local_serves(url: &str) -> bool {
-        matches!(
-            ureq::get(&format!("{url}/v1/capabilities"))
-                .timeout(Duration::from_millis(1200))
-                .call(),
-            Ok(_) | Err(ureq::Error::Status(_, _))
-        )
-    }
-
-    /// HARDENING: a tunnel to a host that refuses the SSH connection
-    /// must NOT end up forwarding. With `ExitOnForwardFailure=yes` the
-    /// ssh child exits, so the local port never serves. Guards against a
-    /// "looks connected but is a black hole" false-positive.
-    #[test]
-    fn bad_host_does_not_forward() {
-        if !super::ssh_available() {
-            eprintln!("skip: ssh not on PATH");
-            return;
-        }
-        let mgr = TunnelManager::new();
-        // 127.0.0.1:22 has no sshd on a stock Windows box → connection
-        // refused fast → ssh exits → no forward (deterministic, no slow
-        // black-hole timeout).
-        let handle = mgr
-            .open(TunnelRequest {
-                host: "127.0.0.1".into(),
-                user: "nobody".into(),
-                remote_port: 18900,
-                key_path: String::new(),
-                passphrase: None,
-            })
-            .expect("open() returns Ok once the child is spawned");
-        // Give ssh a moment to fail + exit.
-        let mut served = false;
-        for _ in 0..8 {
-            if local_serves(&handle.local_url) {
-                served = true;
-                break;
-            }
-            thread::sleep(Duration::from_millis(400));
-        }
-        mgr.shutdown_all();
-        assert!(
-            !served,
-            "a tunnel to a refusing host must not forward, but {} answered",
-            handle.local_url
-        );
-    }
-
-    /// HARDENING: shutdown_all() must reap the ssh child so the local
-    /// forwarded port stops serving. Proves teardown actually kills the
-    /// tunnel rather than leaking it.
-    #[test]
-    fn reaping_stops_forwarding() {
-        let Some((host, user, key_path, remote_port)) = cfg() else {
-            eprintln!("skip: SSH_TUNNEL_* env not set");
-            return;
-        };
-        let mgr = TunnelManager::new();
-        let handle = mgr
-            .open(TunnelRequest {
-                host,
-                user,
-                remote_port,
-                key_path,
-                passphrase: None,
-            })
-            .expect("tunnel open");
-        // Wait until it forwards.
-        let mut up = false;
-        for _ in 0..24 {
-            if local_serves(&handle.local_url) {
-                up = true;
-                break;
-            }
-            thread::sleep(Duration::from_millis(500));
-        }
-        assert!(up, "tunnel never came up at {}", handle.local_url);
-
-        // Reap, then the local port must stop serving.
-        mgr.shutdown_all();
-        let mut down = false;
-        for _ in 0..16 {
-            if !local_serves(&handle.local_url) {
-                down = true;
-                break;
-            }
-            thread::sleep(Duration::from_millis(500));
-        }
-        assert!(
-            down,
-            "forwarding still alive after shutdown_all — tunnel leaked at {}",
-            handle.local_url
-        );
-    }
-}
+#[path = "ssh_tests.rs"]
+mod tunnel_tests;

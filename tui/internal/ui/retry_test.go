@@ -98,13 +98,13 @@ func TestHandleBodyKey_CapitalRDispatchesPost(t *testing.T) {
 
 	a := New(srv.URL)
 	a.focus = FocusBody
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.messages = []gact.Message{
+	a.session.sessions = []gact.Session{{ID: "s1"}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
 		{Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "rerun this"}}},
 		{Role: gact.RoleAssistant, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "earlier answer"}}},
 	}
-	_, cmd := a.handleBodyKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
+	_, cmd := a.conversation.handleKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
 	if cmd == nil {
 		t.Fatal("R should dispatch postMessageCmd")
 	}
@@ -123,12 +123,12 @@ func TestHandleBodyKey_CapitalRDispatchesPost(t *testing.T) {
 func TestHandleBodyKey_CapitalRWithNoUserMessageHintsAndSkips(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.messages = []gact.Message{
+	a.session.sessions = []gact.Session{{ID: "s1"}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
 		{Role: gact.RoleAssistant, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "nothing to retry"}}},
 	}
-	_, cmd := a.handleBodyKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
+	_, cmd := a.conversation.handleKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
 	if cmd != nil {
 		t.Error("R without a user message should not dispatch a post")
 	}
@@ -140,9 +140,9 @@ func TestHandleBodyKey_CapitalRWithNoUserMessageHintsAndSkips(t *testing.T) {
 func TestHandleBodyKey_CapitalRNoSessionIsNoop(t *testing.T) {
 	a := New("http://unused")
 	a.focus = FocusBody
-	a.selected = -1
-	a.messages = []gact.Message{{Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "x"}}}}
-	_, cmd := a.handleBodyKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
+	a.session.selected = -1
+	a.conversation.messages = []gact.Message{{Role: gact.RoleUser, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "x"}}}}
+	_, cmd := a.conversation.handleKey(tea.KeyPressMsg{Code: 'R', Text: "R", Mod: tea.ModShift})
 	if cmd != nil {
 		t.Error("R with no current session should be a no-op")
 	}

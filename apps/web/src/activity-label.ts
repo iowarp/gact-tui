@@ -1,4 +1,9 @@
+/**
+ * Derives a short human activity label (e.g. "running tool", "thinking")
+ * from the latest semantic-feed events for status display.
+ */
 import type { SemanticEventPayload } from '@clio/core';
+import { normalizeWhitespace } from './presentationUtils.js';
 
 const REDACTED_RE = /^\[redacted\]:\d+ chars$/i;
 
@@ -45,7 +50,7 @@ function semanticEventActivityLabel(event: SemanticEventPayload | undefined): st
 
 function cleanSummary(value: unknown): string {
   if (typeof value !== 'string') return '';
-  const text = normalizeSummary(value.replace(/\s+/g, ' ').trim());
+  const text = normalizeSummary(normalizeWhitespace(value));
   if (!text || REDACTED_RE.test(text)) return '';
   return compact(text);
 }
@@ -77,7 +82,7 @@ function stringField(
 }
 
 function compact(text: string): string {
-  const clean = text.replace(/\s+/g, ' ').trim();
+  const clean = normalizeWhitespace(text);
   if (clean.length <= 92) return clean;
   return `${clean.slice(0, 89).trimEnd()}...`;
 }

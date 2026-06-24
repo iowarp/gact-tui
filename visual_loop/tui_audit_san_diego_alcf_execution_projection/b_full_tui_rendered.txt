@@ -1,0 +1,48 @@
+  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /tmp/gact-tui-audit-earthscope-san…  running  help   settings    x  
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION  ⠋ running                                                              ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: gact-tui-audit-ear… │
+│ ▌⠋ TUI audit: San Diego… ││                                                                                      ││ updated 1s ago                 │
+│   running · 4m ago       ││       • states the resolved region around San Diego,                                 ││  ▸ .clio/                      │
+│   ◆ earthscope-gnss      ││       • identifies the nearest EarthScope GNSS station (P475) with its coordinates,  ││  ▸ .clio_agent/                │
+│ ▾ CONTEXT                ││       • provides the download URL for the staged CSV,                                ││  • earthscope_conve… 149.5 KiB │
+│ (no files)               ││       • summarizes the profile (scan‑limited, file size, columns present),           ││  • earthscope_statio… 33.4 KiB │
+│                          ││       • notes any limitations (e.g., scan‑limited, coverage not fully verified,      ││  • P475.CI.LY_.20.csv 49.2 MiB │
+│ 1 active · 0 archived    ││       single station not sufficient for network‑scale analysis),                     ││  • P475.CI.LY_.20.p… 385.0 KiB │
+│                          ││       • includes the path to the generated PNG plot,                                 ││                                │
+│                          ││       • cites provenance for the region (osm_nominatim) and data source (ds2.        ││                                │
+│                          ││       datacollaboratory.org).                                                        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││ main                                                                                 ││                                │
+│                          ││     ## Region                                                                        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     San Diego, California, United States – resolved with a high‑confidence OSM       ││                                │
+│                          ││     Nominatim geocode,centered at latitude 32.717° N, longitude ‑117.163 ° W, using  ││                                │
+│                          ││     a 100 km radius.                                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ##Station selected Station P475 – the only EarthScope GNSS station staged for    ││                                │
+│                          ││     this region. (Coordinate values are not provided in the staged data.)            ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Data resource                                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • Staged CSV:  /tmp/gact-tui-audit-earthscope-san-diego-e979b9ee0c6d/P475.CI.    ││                                │
+│                          ││     LY_.20.csv                                                                       ││                                │
+│                          ││     • Source URL: https://ds2.datacollaboratory.                                     ││                                │
+│                          ││     org/Earthscope_api_dec2024/raw_csv/P475.CI.LY_.20.csv                            ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Profile evidence                                                              ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • Scan‑limited GNSS time‑series (coverage not fully verified).                   ││                                │
+│                          ││     -File size: 51,608,375 bytes. - Columns present:  east ,  north ,  up .          ││                                │
+│                          ││     • Rows scanned: notreported.                                                     ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Visualization                                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • PNG plot: `/tmp/gact-tui-audit-earthscope-san-diego-e979b9ee0c6d/P475.CI.LY_.  ││                                │
+│                          ││     20.                                                                              ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────────╯│                                │
+                            ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │
+                            │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │
+                            ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                               

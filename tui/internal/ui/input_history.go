@@ -5,21 +5,21 @@ package ui
 // but small enough that the whole history fits in one terminal scroll.
 const inputHistoryCap = 100
 
-// pushInputHistory appends text to the current session's history ring.
+// pushHistory appends text to the current session's history ring.
 // No-ops on empty input or if the same text was just pushed (so
 // repeated Enter on the same unchanged draft doesn't pollute history).
-func (a *App) pushInputHistory(text string) {
+func (c *inputComposerComponent) pushHistory(text string) {
 	if text == "" {
 		return
 	}
-	sid := a.currentSessionID()
+	sid := c.app.session.currentID()
 	if sid == "" {
 		return
 	}
-	if a.inputHistoryBySession == nil {
-		a.inputHistoryBySession = map[string][]string{}
+	if c.inputHistoryBySession == nil {
+		c.inputHistoryBySession = map[string][]string{}
 	}
-	h := a.inputHistoryBySession[sid]
+	h := c.inputHistoryBySession[sid]
 	if n := len(h); n > 0 && h[n-1] == text {
 		return
 	}
@@ -30,63 +30,63 @@ func (a *App) pushInputHistory(text string) {
 		// eventually instead of growing unbounded.
 		h = append([]string{}, h[len(h)-inputHistoryCap:]...)
 	}
-	a.inputHistoryBySession[sid] = h
+	c.inputHistoryBySession[sid] = h
 }
 
 // historyPrev moves one entry older in history. Returns the text to
 // display (empty string = no-op, caller should do nothing). Saves the
 // current draft on first entry into history mode so ↓-past-end can
 // restore it.
-func (a *App) historyPrev() (string, bool) {
-	sid := a.currentSessionID()
+func (c *inputComposerComponent) historyPrev() (string, bool) {
+	sid := c.app.session.currentID()
 	if sid == "" {
 		return "", false
 	}
-	h := a.inputHistoryBySession[sid]
+	h := c.inputHistoryBySession[sid]
 	if len(h) == 0 {
 		return "", false
 	}
 	// Entering history mode — remember what was typed so the user
 	// can return to it.
-	if a.historyCursor < 0 {
-		a.historyDraft = a.input.Value()
-		a.historyCursor = len(h) // "one past the end"; first ↑ goes to last entry
+	if c.historyCursor < 0 {
+		c.historyDraft = c.input.Value()
+		c.historyCursor = len(h) // "one past the end"; first ↑ goes to last entry
 	}
-	if a.historyCursor > 0 {
-		a.historyCursor--
+	if c.historyCursor > 0 {
+		c.historyCursor--
 	}
 	// Clamp for safety against out-of-range cursors set by an earlier
 	// session's history length.
-	if a.historyCursor >= len(h) {
-		a.historyCursor = len(h) - 1
+	if c.historyCursor >= len(h) {
+		c.historyCursor = len(h) - 1
 	}
-	return h[a.historyCursor], true
+	return h[c.historyCursor], true
 }
 
 // historyNext moves one entry newer. At the end (cursor == len(h)),
 // restores the saved draft and exits history mode.
-func (a *App) historyNext() (string, bool) {
-	if a.historyCursor < 0 {
+func (c *inputComposerComponent) historyNext() (string, bool) {
+	if c.historyCursor < 0 {
 		// Not in history mode — nothing to do.
 		return "", false
 	}
-	sid := a.currentSessionID()
-	h := a.inputHistoryBySession[sid]
-	a.historyCursor++
-	if a.historyCursor >= len(h) {
+	sid := c.app.session.currentID()
+	h := c.inputHistoryBySession[sid]
+	c.historyCursor++
+	if c.historyCursor >= len(h) {
 		// Stepped past the newest; restore the pre-history draft.
-		draft := a.historyDraft
-		a.historyCursor = -1
-		a.historyDraft = ""
+		draft := c.historyDraft
+		c.historyCursor = -1
+		c.historyDraft = ""
 		return draft, true
 	}
-	return h[a.historyCursor], true
+	return h[c.historyCursor], true
 }
 
 // exitHistory drops out of history mode without changing input. Called
 // when the user types any non-navigation key; their edit replaces
 // whatever was in the textarea from the history walk.
-func (a *App) exitHistory() {
-	a.historyCursor = -1
-	a.historyDraft = ""
+func (c *inputComposerComponent) exitHistory() {
+	c.historyCursor = -1
+	c.historyDraft = ""
 }

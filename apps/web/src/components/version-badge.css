@@ -1,0 +1,21 @@
+/* Fixed corner build-version badge (see VersionBadge.tsx). */
+.app-version-badge {
+  position: fixed;
+  right: 8px;
+  bottom: 6px;
+  z-index: 60;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--color-text-dim, var(--color-text));
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Uncommitted build — flag it like the TUI splash does. */
+.app-version-badge--dirty {
+  color: var(--color-warning, #d08770);
+  opacity: 0.9;
+}

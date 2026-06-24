@@ -1,0 +1,48 @@
+  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /tmp/gact-tui-audit-earthscope-san…  running  help   settings    x  
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION  ⠼ running                                                              ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: gact-tui-audit-ear… │
+│ ▌⠼ TUI audit: San Diego… ││   analysis                                                                           ││ updated 0s ago                 │
+│   running · 2m ago       ││       Awaiting network suitability assessment for station P475.                      ││  ▸ .clio/                      │
+│   ◆ earthscope-gnss      ││                                                                                      ││  ▸ .clio_agent/                │
+│ ▾ CONTEXT                ││     ↳ analysis → station_network_analysis                                            ││  • earthscope_conve… 149.5 KiB │
+│ (no files)               ││       Assess the suitability of station P475 and its network for deformation         ││  • earthscope_statio… 33.4 KiB │
+│                          ││ analysis                                                                             ││  • P475.CI.LY_.20.csv 49.2 MiB │
+│ 1 active · 0 archived    ││       based on the staged GNSS CSV at                                                ││                                │
+│                          ││       /tmp/gact-tui-audit-earthscope-san-diego-1ac1835cd1f7/P475.CI.LY_.20.csv.      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     station_network_analysis                                                         ││                                │
+│                          ││         Station P475 –preliminary suitability                                        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││         • Geographic relevance: Markedas  geographically_grounded: true ; lies       ││                                │
+│                          ││         within the San Diego region (exact distance from the region centre is not    ││                                │
+│                          ││         provided in the evidence).                                                   ││                                │
+│                          ││         • Data coverage: The CSV is  scan_limited: true ; only asubset of rows was   ││                                │
+│                          ││         examined, so full‑record cadence, duration, and gap‑free quality are not     ││                                │
+│                          ││         verified.                                                                    ││                                │
+│                          ││         • Uncertainty / quality flags: Noexplicit uncertaintyvalues,  qChannel       ││                                │
+│                          ││         decoding, or missing‑value summaries are available; therefore data noise and ││                                │
+│                          ││         completeness cannot be assessed.                                             ││                                │
+│                          ││         • Network context: The station catalog contains 42 candidate stations (e.g., ││                                │
+│                          ││         P473, P472, P474, P476). No network geometry or status is supplied, so a     ││                                │
+│                          ││         single‑station solution cannot be deemed sufficient for deformation          ││                                │
+│                          ││ analysis.                                                                            ││                                │
+│                          ││         Overall assessment: P475 is a geographically appropriate candidate, but      ││                                │
+│                          ││         because the data are only scan‑limited and network information is absent,    ││                                │
+│                          ││         its suitability for deformationanalysis preliminary. A single station is     ││                                │
+│                          ││         unlikely to provide reliable deformation signals without corroborating       ││                                │
+│                          ││         nearby stations.                                                             ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││         Recommended next steps                                                       ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││         1. Review additional nearby stations (e.g., P473, P472, P474, P476) that are ││                                │
+│                          ││         also marked  geographically_grounded .                                       ││                                │
+│                          ││         2. Collect full‑file metadata (timespan, cadence, gap analysis) for each     ││                                │
+│                          ││         candidate to confirm data completeness.                                      ││                                │
+│                          ││         3. Construct a multi‑station fan‑out thatincludes P475 plus th               ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯│         full summary available in detail                                             ││                                │
+                            ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │
+                            │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │
+                            ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                               

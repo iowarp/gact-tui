@@ -1,0 +1,166 @@
+[
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-19T17:26:05.171145+00:00",
+    "id": "msg_user_9a745e584a64",
+    "metadata": {},
+    "parts": [
+      {
+        "cached": false,
+        "call_id": "",
+        "confidence": 0.0,
+        "content": [],
+        "duration_ms": 0.0,
+        "edit_mode": "",
+        "execution_path": "",
+        "heuristic": false,
+        "id": "part_01928b0fe2c0",
+        "input": {},
+        "is_error": false,
+        "lines_added": 0,
+        "lines_removed": 0,
+        "metadata": {},
+        "new_content": "",
+        "path": "",
+        "rationale": "",
+        "selected_agent": "",
+        "status": "",
+        "text": "Find the nearest station to San Diego on earthscope, download and analyze the data and plot it",
+        "tool_name": "",
+        "type": "text",
+        "unified_diff": ""
+      }
+    ],
+    "role": "user",
+    "session_id": "sess_cb57ed5f7971",
+    "stop_reason": "",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "turn_id": "msg_user_9a745e584a64",
+    "updated_at": "2026-06-19T17:26:05.171145+00:00"
+  },
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-19T17:26:16.166033+00:00",
+    "error_info": {
+      "details": {
+        "routing_mode": "auto",
+        "selected_agent": "main",
+        "session_id": "sess_cb57ed5f7971"
+      },
+      "error": "empty_response",
+      "message": "Agent completed without user-visible output.",
+      "recoverable": true
+    },
+    "id": "msg_asst_57f2c0466c2e",
+    "metadata": {
+      "agent_runtime": {
+        "agent_blueprint": {
+          "definition_path": "/tmp/gact-tui-audit-earthscope-san-diego-05ad1bf27fad/.clio/agent-blueprints/earthscope-gnss-region/AGENT.md",
+          "id": "earthscope-gnss-region",
+          "scope": "workspace",
+          "version": "0.1.0"
+        },
+        "agent_id": "main",
+        "commands": [],
+        "execution_mode": "blueprint_chain_of_thought",
+        "fanout": {
+          "enabled": true,
+          "max_workers": 4
+        },
+        "kind": "dynamic_agent",
+        "model": {
+          "fallback_to_global": true,
+          "model_id": "openai/gpt-oss-120b",
+          "model_source": "global_active",
+          "provider_id": "argonne",
+          "provider_source": "global_active"
+        },
+        "module": {
+          "kind": "chain_of_thought"
+        },
+        "pack": {
+          "definition_path": "/tmp/gact-tui-audit-earthscope-san-diego-05ad1bf27fad/.clio/agent-blueprints/earthscope-gnss-region/experts/main.md",
+          "id": "earthscope-gnss-region",
+          "scope": "workspace",
+          "version": "0.1.0"
+        },
+        "parent_id": "",
+        "prompt": {
+          "has_system_prompt": true,
+          "source": "agent_definition"
+        },
+        "skills": [],
+        "source": "expert_pack",
+        "structured_outputs": {
+          "artifacts": true,
+          "delegation": true,
+          "errors": true,
+          "evidence": true,
+          "workflow_state": true
+        },
+        "title": "EarthScope GNSS Region Orchestrator",
+        "tools": []
+      },
+      "stream_fallback": {
+        "category": "provider_streaming_limitation",
+        "description": "DSPy streaming returned a final prediction but no visible token chunks.",
+        "live_streaming": false,
+        "message": "DSPy streamify returned a final prediction but emitted no visible text chunks.",
+        "reason": "stream_completed_without_chunks",
+        "recovery_actions": [
+          "continue_without_live_streaming",
+          "reconfigure",
+          "retry"
+        ],
+        "synthetic_posthoc": true
+      },
+      "stream_source": "batch"
+    },
+    "parts": [
+      {
+        "cached": false,
+        "call_id": "",
+        "confidence": 0.0,
+        "content": [],
+        "duration_ms": 0.0,
+        "edit_mode": "",
+        "execution_path": "",
+        "heuristic": false,
+        "id": "part_9fee19c28404",
+        "input": {},
+        "is_error": false,
+        "lines_added": 0,
+        "lines_removed": 0,
+        "metadata": {
+          "route_reason": "Blueprint expert returned an empty answer; CLIO will attempt runtime settlement or declared-child handoff repair.",
+          "route_source": "agent_blueprint"
+        },
+        "new_content": "",
+        "path": "",
+        "rationale": "Blueprint expert returned an empty answer; CLIO will attempt runtime settlement or declared-child handoff repair.",
+        "selected_agent": "main",
+        "status": "",
+        "text": "",
+        "tool_name": "",
+        "type": "routing_decision",
+        "unified_diff": ""
+      }
+    ],
+    "role": "assistant",
+    "session_id": "sess_cb57ed5f7971",
+    "stop_reason": "error",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "turn_id": "msg_user_9a745e584a64",
+    "updated_at": "2026-06-19T17:26:16.166041+00:00"
+  }
+]

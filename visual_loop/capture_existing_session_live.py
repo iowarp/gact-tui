@@ -12,7 +12,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from capture_live_observability import sse_reader, summarize
+from capture_live_observability import sse_reader
+from live_observability_summary import summarize
 
 
 def request_json(method: str, url: str, body: dict[str, Any] | None = None) -> dict[str, Any]:

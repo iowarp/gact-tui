@@ -19,6 +19,8 @@
 // paste handling) transfers verbatim.
 package ui
 
+// compose.go drives the full-screen compose editor: open/commit/cancel, key handling, and rendering.
+
 import (
 	"strings"
 
@@ -28,19 +30,19 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// composeState carries the modal's runtime bits. App.compose is nil
+// composeState carries the modal's runtime bits. compose is nil
 // while the modal is closed; populated on open, cleared on close.
 type composeState struct {
 	ta        textarea.Model
-	prevDraft string // raw contents of a.input at the moment of open; restored on cancel
+	prevDraft string // raw contents of the input at the moment of open; restored on cancel
 }
 
 // openCompose pops the compose modal seeded with the current input
 // draft. Expands any compressed paste placeholders inline so the
 // editor sees real content, mirroring the user's expectation that
 // "the compose view is where everything renders expanded".
-func (a *App) openCompose() {
-	expanded := a.expandPasteText(a.input.Value())
+func (c *inputComposerComponent) openCompose() {
+	expanded := c.expandText(c.input.Value())
 
 	ta := textarea.New()
 	ta.SetValue(expanded)
@@ -56,79 +58,80 @@ func (a *App) openCompose() {
 	// Drop it at the end of the buffer so the user can keep typing.
 	ta.CursorEnd()
 
-	a.compose = &composeState{ta: ta, prevDraft: a.input.Value()}
-	a.composeOpen = true
+	c.compose = &composeState{ta: ta, prevDraft: c.input.Value()}
+	c.composeOpen = true
 	// Clear pastes — we've inlined them; subsequent compress/expand
 	// cycles can start fresh.
-	a.pastes = nil
+	c.pastes = nil
 }
 
 // commitCompose copies the modal's body back into the base input and
 // closes the modal. Preserves cursor-end so the user can immediately
 // Enter-send.
-func (a *App) commitCompose() {
-	if a.compose == nil {
-		a.composeOpen = false
+func (c *inputComposerComponent) commitCompose() {
+	if c.compose == nil {
+		c.composeOpen = false
 		return
 	}
-	a.input.SetValue(a.compose.ta.Value())
-	a.composeOpen = false
-	a.compose = nil
+	c.input.SetValue(c.compose.ta.Value())
+	c.composeOpen = false
+	c.compose = nil
 }
 
 // cancelCompose closes the modal WITHOUT overwriting the base input.
-// Pre-modal draft is already intact (we didn't touch a.input on open),
+// Pre-modal draft is already intact (we didn't touch the input on open),
 // so this is just a state teardown.
-func (a *App) cancelCompose() {
-	a.composeOpen = false
-	a.compose = nil
+func (c *inputComposerComponent) cancelCompose() {
+	c.composeOpen = false
+	c.compose = nil
 }
 
-func (a *App) copyComposeToClipboard() tea.Cmd {
-	if a.compose == nil {
-		a.transientHint = "nothing to copy"
+func (c *clipboardComponent) copyComposeText() tea.Cmd {
+	compose := c.app.inputComposer.compose
+	if compose == nil {
+		c.app.setHint("nothing to copy")
 		return nil
 	}
-	a.transientHint = copyTextToClipboard("compose draft", a.compose.ta.Value())
+	c.app.setHint(copyTextToClipboard("compose draft", compose.ta.Value()))
 	return nil
 }
 
 // handleComposeKey routes keypresses while the compose modal is open.
 // Returns a new model + command like every other modal handler.
-func (a *App) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if a.compose == nil {
-		a.composeOpen = false
-		return a, nil
+func (c *inputComposerComponent) handleComposeKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if c.compose == nil {
+		c.composeOpen = false
+		return c.app, nil
 	}
 	switch k.String() {
 	case "ctrl+s", "ctrl+enter":
 		// Ctrl+Enter is a convenience alias for Ctrl+S — matches
 		// chat-app muscle memory where the modifier-Enter sends.
 		// Kitty-protocol terminals only; Ctrl+S always works.
-		a.commitCompose()
-		return a, nil
+		c.commitCompose()
+		return c.app, nil
 	case "esc":
-		a.cancelCompose()
-		return a, nil
+		c.cancelCompose()
+		return c.app, nil
 	}
 	// Everything else — delegate to the inner textarea.
 	var cmd tea.Cmd
-	a.compose.ta, cmd = a.compose.ta.Update(k)
-	return a, cmd
+	c.compose.ta, cmd = c.compose.ta.Update(k)
+	return c.app, cmd
 }
 
-func (a *App) moveComposeCursorByWheel(button tea.MouseButton) tea.Cmd {
-	if a.compose == nil {
-		a.composeOpen = false
+func (c *inputComposerComponent) moveCursorByWheel(button tea.MouseButton) tea.Cmd {
+	if c.compose == nil {
+		c.composeOpen = false
 		return nil
 	}
-	a.compose.ta.Focus()
+	c.compose.ta.Focus()
 	for i := 0; i < 3; i++ {
 		switch button {
 		case tea.MouseWheelUp:
-			a.compose.ta.CursorUp()
+			c.compose.ta.CursorUp()
 		case tea.MouseWheelDown:
-			a.compose.ta.CursorDown()
+			c.compose.ta.CursorDown()
 		default:
 			return nil
 		}
@@ -141,15 +144,16 @@ func (a *App) moveComposeCursorByWheel(button tea.MouseButton) tea.Cmd {
 // the app viewport so the surrounding base layout is still visible
 // through the overlay gutters (consistent with other modals' use of
 // spliceRow).
-func (a *App) viewCompose() string {
+func (c *inputComposerComponent) viewCompose() string {
+	a := c.app
 	t := a.Theme
-	if a.compose == nil {
+	if c.compose == nil {
 		return ""
 	}
 
 	// Modal dimensions use the shared chrome width so expanded editor
 	// and provider setup windows do not jump horizontally.
-	w := a.wideModalWidth()
+	w := a.modals.wideModalWidth()
 	h := a.height * 4 / 5
 	if h < 14 {
 		h = 14
@@ -163,10 +167,10 @@ func (a *App) viewCompose() string {
 		taH = 6
 	}
 	textareaW := modalTextAreaWidth(w)
-	a.compose.ta.SetWidth(textareaW)
-	a.compose.ta.SetHeight(taH)
+	c.compose.ta.SetWidth(textareaW)
+	c.compose.ta.SetHeight(taH)
 
-	lines := strings.Count(a.compose.ta.Value(), "\n") + 1
+	lines := strings.Count(c.compose.ta.Value(), "\n") + 1
 	title := "Compose (" + itoa2(lines) + " lines)"
 	footer := t.HintLabel.Render(
 		"Ctrl+S commit  Esc cancel  pastes render expanded; newlines are literal")
@@ -175,7 +179,7 @@ func (a *App) viewCompose() string {
 			id:    "compose:commit",
 			label: "commit",
 			action: func(app *App) tea.Cmd {
-				app.commitCompose()
+				app.inputComposer.commitCompose()
 				return nil
 			},
 		},
@@ -183,50 +187,38 @@ func (a *App) viewCompose() string {
 			id:    "compose:copy",
 			label: "copy",
 			action: func(app *App) tea.Cmd {
-				return app.copyComposeToClipboard()
+				return app.clipboard.copyComposeText()
 			},
 		},
 		{
 			id:    "compose:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.cancelCompose()
+				app.inputComposer.cancelCompose()
 				return nil
 			},
 		},
 	}
-	textareaView := a.compose.ta.View()
+	textareaView := c.compose.ta.View()
 	rows := []string{textareaView}
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	rendered := a.renderModalFrameWithLayout(modalFrameOptions{
+	rendered := a.modals.renderModalFrameWithLayout(modalFrameOptions{
 		width:   w,
 		title:   title,
 		buttons: buttons,
 		body:    body,
 		footer:  footer,
 	})
-	a.registerModalSurfaceWheel(rendered, "compose")
-	a.registerModalTextareaRegion(rendered.modal, rendered.bodyRow, 0, textareaW, taH, "compose", a.compose.ta.Value(), func(app *App, line int, col int) {
-		if app.compose == nil {
+	a.interaction.registerModalSurfaceWheel(rendered, "compose")
+	a.interaction.registerModalTextareaRegion(rendered.modal, rendered.bodyRow, 0, textareaW, taH, "compose", c.compose.ta.Value(), func(app *App, line int, col int) {
+		if app.inputComposer.compose == nil {
 			return
 		}
-		app.compose.ta.Focus()
-		setTextareaCursor(&app.compose.ta, line, col)
+		app.inputComposer.compose.ta.Focus()
+		setTextareaCursor(&app.inputComposer.compose.ta, line, col)
 	}, func(app *App, button tea.MouseButton) tea.Cmd {
-		return app.moveComposeCursorByWheel(button)
+		return app.inputComposer.moveCursorByWheel(button)
 	})
 	return rendered.modal
-}
-
-// composeSummary returns a short hint like "(compose open — 12 lines)"
-// suitable for status-bar / debug display when someone needs to see at
-// a glance that the modal is live. Currently unused outside of tests,
-// but cheap to keep around.
-func (a *App) composeSummary() string {
-	if a.compose == nil {
-		return ""
-	}
-	n := strings.Count(a.compose.ta.Value(), "\n") + 1
-	return "(compose open — " + itoa2(n) + " lines)"
 }

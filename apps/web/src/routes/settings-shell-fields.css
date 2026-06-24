@@ -1,0 +1,29 @@
+.settings-shell__form-grid {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.settings-shell__field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-shell__field > span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.settings-shell__field select {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  color: var(--color-text);
+  padding: 9px 10px;
+  outline: none;
+}
+
+.settings-shell__field select:focus {
+  border-color: var(--color-accent-cyan);
+}

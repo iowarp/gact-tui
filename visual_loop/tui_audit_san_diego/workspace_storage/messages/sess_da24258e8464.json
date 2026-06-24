@@ -1,0 +1,131 @@
+[
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-18T22:43:45.782555+00:00",
+    "id": "msg_user_1c5d32ba8b3e",
+    "metadata": {},
+    "parts": [
+      {
+        "cached": false,
+        "call_id": "",
+        "confidence": 0.0,
+        "content": [],
+        "duration_ms": 0.0,
+        "edit_mode": "",
+        "execution_path": "",
+        "heuristic": false,
+        "id": "part_5152a42a1da5",
+        "input": {},
+        "is_error": false,
+        "lines_added": 0,
+        "lines_removed": 0,
+        "metadata": {},
+        "new_content": "",
+        "path": "",
+        "rationale": "",
+        "selected_agent": "",
+        "status": "",
+        "text": "Find the nearest station to San Diego on earthscope, download and analyze the data and plot it",
+        "tool_name": "",
+        "type": "text",
+        "unified_diff": ""
+      }
+    ],
+    "role": "user",
+    "session_id": "sess_da24258e8464",
+    "stop_reason": "",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "updated_at": "2026-06-18T22:43:45.782555+00:00"
+  },
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-18T22:44:19.682630+00:00",
+    "error_info": {
+      "details": {
+        "original_error": "MidStreamFallbackError"
+      },
+      "error": "agent_error",
+      "message": "agent.forward raised: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1988, in __anext__\n    raise exception_type(\n          ~~~~~~~~~~~~~~^\n        model=self.model,\n        ^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n        extra_kwargs={},\n        ^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py\", line 2273, in exception_type\n    raise e\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py\", line 2249, in exception_type\n    raise APIConnectionError(\n    ...<8 lines>...\n    )\nlitellm.exceptions.APIConnectionError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/adapters/chat_adapter.py\", line 73, in __call__\n    return super().__call__(lm, lm_kwargs, signature, demos, inputs)\n           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/adapters/base.py\", line 202, in __call__\n    outputs = lm(messages=inputs, **lm_kwargs)\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 736, in __call__\n    return self._clio_invoke_once(prompt, messages, **kwargs)\n           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 758, in _clio_invoke_once\n    return self._clio_streamed_call(prompt, messages, **kwargs)\n           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 941, in _clio_streamed_call\n    return _asyncio.run(_drive())\n           ~~~~~~~~~~~~^^^^^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ~~~~~~~~~~^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py\", line 725, in run_until_complete\n    return future.result()\n           ~~~~~~~~~~~~~^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 937, in _drive\n    raise holder[\"exc\"]\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 891, in _produce\n    holder[\"result\"] = await self.acall(\n                       ^^^^^^^^^^^^^^^^^\n        prompt=prompt, messages=messages, **kwargs\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/utils/callback.py\", line 296, in async_wrapper\n    return await fn(instance, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/base_lm.py\", line 103, in acall\n    response = await self.aforward(prompt=prompt, messages=messages, **kwargs)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 197, in aforward\n    results = await completion(\n              ^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 416, in alitellm_completion\n    return await stream_completion()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 345, in async_stream_completion\n    return await stream_completion(request, cache_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 332, in stream_completion\n    async for chunk in response:\n    ...<4 lines>...\n        await stream.send(chunk)\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1998, in __anext__\n    raise MidStreamFallbackError(\n    ...<6 lines>...\n    )\nlitellm.exceptions.MidStreamFallbackError: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n Original exception: APIConnectionError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n Original exception: APIConnectionError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1988, in __anext__\n    raise exception_type(\n          ~~~~~~~~~~~~~~^\n        model=self.model,\n        ^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n        extra_kwargs={},\n        ^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py\", line 2273, in exception_type\n    raise e\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py\", line 2249, in exception_type\n    raise APIConnectionError(\n    ...<8 lines>...\n    )\nlitellm.exceptions.APIConnectionError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/adapters/chat_adapter.py\", line 73, in __call__\n    return super().__call__(lm, lm_kwargs, signature, demos, inputs)\n           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/adapters/base.py\", line 202, in __call__\n    outputs = lm(messages=inputs, **lm_kwargs)\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 736, in __call__\n    return self._clio_invoke_once(prompt, messages, **kwargs)\n           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 758, in _clio_invoke_once\n    return self._clio_streamed_call(prompt, messages, **kwargs)\n           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 941, in _clio_streamed_call\n    return _asyncio.run(_drive())\n           ~~~~~~~~~~~~^^^^^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ~~~~~~~~~~^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/home/jcernuda/.local/share/uv/python/cpython-3.13.5-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py\", line 725, in run_until_complete\n    return future.result()\n           ~~~~~~~~~~~~~^^\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 937, in _drive\n    raise holder[\"exc\"]\n  File \"/home/jcernuda/clio-agent/src/clio_agent/config.py\", line 891, in _produce\n    holder[\"result\"] = await self.acall(\n                       ^^^^^^^^^^^^^^^^^\n        prompt=prompt, messages=messages, **kwargs\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/utils/callback.py\", line 296, in async_wrapper\n    return await fn(instance, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/base_lm.py\", line 103, in acall\n    response = await self.aforward(prompt=prompt, messages=messages, **kwargs)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 197, in aforward\n    results = await completion(\n              ^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n    )\n    ^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 416, in alitellm_completion\n    return await stream_completion()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 345, in async_stream_completion\n    return await stream_completion(request, cache_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/dspy/clients/lm.py\", line 332, in stream_completion\n    async for chunk in response:\n    ...<4 lines>...\n        await stream.send(chunk)\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1998, in __anext__\n    raise MidStreamFallbackError(\n    ...<6 lines>...\n    )\nlitellm.exceptions.MidStreamFallbackError: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n Original exception: APIConnectionError: litellm.APIConnectionError: 'coroutine' object is not an iterator\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/jcernuda/clio-agent/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/streaming_handler.py\", line 1882, in __anext__\n    chunk = next(self.completion_stream)\nTypeError: 'coroutine' object is not an iterator\n",
+      "recoverable": true
+    },
+    "id": "msg_asst_36e14cb35cc2",
+    "metadata": {
+      "agent_runtime": {
+        "agent_blueprint": {
+          "definition_path": "/home/jcernuda/clio-agent/.clio/agent-blueprints/earthscope-gnss-region/AGENT.md",
+          "id": "earthscope-gnss-region",
+          "scope": "session",
+          "version": "0.1.0"
+        },
+        "agent_id": "main",
+        "commands": [],
+        "execution_mode": "blueprint_chain_of_thought",
+        "fanout": {
+          "enabled": true,
+          "max_workers": 4
+        },
+        "kind": "dynamic_agent",
+        "model": {
+          "fallback_to_global": true,
+          "model_id": "gpt-5.5",
+          "model_source": "global_active",
+          "provider_id": "codex",
+          "provider_source": "global_active"
+        },
+        "module": {
+          "kind": "chain_of_thought"
+        },
+        "pack": {
+          "definition_path": "/home/jcernuda/clio-agent/.clio/agent-blueprints/earthscope-gnss-region/experts/main.md",
+          "id": "earthscope-gnss-region",
+          "scope": "session",
+          "version": "0.1.0"
+        },
+        "parent_id": "",
+        "prompt": {
+          "has_system_prompt": true,
+          "source": "agent_definition"
+        },
+        "skills": [],
+        "source": "expert_pack",
+        "structured_outputs": {
+          "artifacts": true,
+          "delegation": true,
+          "errors": true,
+          "evidence": true,
+          "workflow_state": true
+        },
+        "title": "EarthScope GNSS Region Orchestrator",
+        "tools": []
+      },
+      "stream_fallback": {
+        "category": "provider_streaming_limitation",
+        "description": "The configured provider does not expose a live streaming contract.",
+        "live_streaming": false,
+        "reason": "provider_streaming_unsupported",
+        "recovery_actions": [
+          "continue_without_live_streaming",
+          "reconfigure"
+        ],
+        "synthetic_posthoc": true
+      },
+      "stream_source": "batch"
+    },
+    "parts": [],
+    "role": "assistant",
+    "session_id": "sess_da24258e8464",
+    "stop_reason": "error",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "updated_at": "2026-06-18T22:44:19.682644+00:00"
+  }
+]

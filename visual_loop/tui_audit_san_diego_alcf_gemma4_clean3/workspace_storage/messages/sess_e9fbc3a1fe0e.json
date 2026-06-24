@@ -1,0 +1,45 @@
+[
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-18T23:32:54.963507+00:00",
+    "id": "msg_user_35f306107f47",
+    "metadata": {},
+    "parts": [
+      {
+        "cached": false,
+        "call_id": "",
+        "confidence": 0.0,
+        "content": [],
+        "duration_ms": 0.0,
+        "edit_mode": "",
+        "execution_path": "",
+        "heuristic": false,
+        "id": "part_d612eeb03646",
+        "input": {},
+        "is_error": false,
+        "lines_added": 0,
+        "lines_removed": 0,
+        "metadata": {},
+        "new_content": "",
+        "path": "",
+        "rationale": "",
+        "selected_agent": "",
+        "status": "",
+        "text": "Find the nearest station to San Diego on earthscope, download and analyze the data and plot it",
+        "tool_name": "",
+        "type": "text",
+        "unified_diff": ""
+      }
+    ],
+    "role": "user",
+    "session_id": "sess_e9fbc3a1fe0e",
+    "stop_reason": "",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "updated_at": "2026-06-18T23:32:54.963507+00:00"
+  }
+]

@@ -30,7 +30,7 @@ func TestTUIInteractionLatencyRecordsClickByHitTargetSurface(t *testing.T) {
 	a = model.(*App)
 	_ = a.View()
 
-	summaries := a.tuiInteractionSummaries(10)
+	summaries := a.metrics.tuiInteractionSummaries(10)
 	if len(summaries) == 0 {
 		t.Fatal("expected at least one TUI interaction latency sample")
 	}
@@ -54,7 +54,7 @@ func TestTUIInteractionLatencyRecordsClickByHitTargetSurface(t *testing.T) {
 
 func TestTUIInteractionLatencySeparatesClicksByHitTarget(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:         tuiLatencyInteractionKey("input", "click", "input:command"),
 		surface:     "input",
 		kind:        "click",
@@ -65,7 +65,7 @@ func TestTUIInteractionLatencySeparatesClicksByHitTarget(t *testing.T) {
 		render: time.Millisecond,
 		total:  2 * time.Millisecond,
 	})
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:         tuiLatencyInteractionKey("input", "click", "input:focus"),
 		surface:     "input",
 		kind:        "click",
@@ -77,7 +77,7 @@ func TestTUIInteractionLatencySeparatesClicksByHitTarget(t *testing.T) {
 		total:  3 * time.Millisecond,
 	})
 
-	summaries := a.tuiInteractionSummaries(0)
+	summaries := a.metrics.tuiInteractionSummaries(0)
 	if len(summaries) != 2 {
 		t.Fatalf("expected separate summaries for two input click targets, got %d: %+v", len(summaries), summaries)
 	}
@@ -102,7 +102,7 @@ func TestTUIInteractionLatencyLabelsUntargetedSurfaceClicks(t *testing.T) {
 	a.stage = StageReady
 	a.focus = FocusInput
 
-	trace := a.beginTUIInteractionTrace(tea.MouseClickMsg(tea.Mouse{
+	trace := a.metrics.beginInteractionTrace(tea.MouseClickMsg(tea.Mouse{
 		X:      119,
 		Y:      35,
 		Button: tea.MouseLeft,
@@ -126,7 +126,7 @@ func TestTUIInteractionLatencyClassifiesConversationCopyKeys(t *testing.T) {
 	a.stage = StageReady
 	a.focus = FocusBody
 
-	trace := a.beginTUIInteractionTrace(tea.KeyPressMsg{Code: 'Y'})
+	trace := a.metrics.beginInteractionTrace(tea.KeyPressMsg{Code: 'Y'})
 	if trace == nil {
 		t.Fatal("expected full conversation copy trace")
 	}
@@ -140,7 +140,7 @@ func TestTUIInteractionLatencyClassifiesConversationCopyKeys(t *testing.T) {
 		t.Fatalf("trace target label = %q, want full conversation copy", trace.targetLabel)
 	}
 
-	trace = a.beginTUIInteractionTrace(tea.KeyPressMsg{Code: 'y'})
+	trace = a.metrics.beginInteractionTrace(tea.KeyPressMsg{Code: 'y'})
 	if trace == nil {
 		t.Fatal("expected selected block copy trace")
 	}
@@ -178,7 +178,7 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 	a.height = 36
 	a.stage = StageReady
 	a.MouseEnabled = true
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:         tuiLatencyInteractionKey("input", "click", "input:command"),
 		surface:     "input",
 		kind:        "click",
@@ -189,7 +189,7 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 		render: 4 * time.Millisecond,
 		total:  9 * time.Millisecond,
 	})
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:      "conversation:wheel down",
 		surface:  "conversation",
 		kind:     "wheel down",
@@ -199,7 +199,7 @@ func TestWriteTUIInteractionLatencyReport(t *testing.T) {
 		render: 3 * time.Millisecond,
 		total:  8 * time.Millisecond,
 	})
-	a.recordTUIInteractionSample(&tuiInteractionTrace{
+	a.metrics.recordInteractionSample(&tuiInteractionTrace{
 		key:         tuiLatencyInteractionKey("conversation", "copy", "conversation:copy:full-conversation"),
 		surface:     "conversation",
 		kind:        "copy",

@@ -1,8 +1,12 @@
-import { Show, createResource, createSignal, onCleanup, onMount } from 'solid-js';
+/**
+ * UI component: Shared Session Modal. Renders `SharedSessionModal` from `SharedSessionModalProps`.
+ */
+import { Show, createResource, createSignal, onMount } from 'solid-js';
 import { brand } from '@brand';
 import type { Client, Message } from '@clio/core';
 import { Icon } from './Icon.js';
 import { Transcript } from './Transcript.js';
+import { registerWindowKeydown } from '../domListeners.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './shared-session-modal.css';
 
@@ -66,8 +70,7 @@ export function SharedSessionModal(props: SharedSessionModalProps) {
         props.onClose();
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+    registerWindowKeydown(onKey, true);
   });
 
   return (

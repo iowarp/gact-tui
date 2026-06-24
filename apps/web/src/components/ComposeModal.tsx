@@ -1,5 +1,9 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+/**
+ * UI component: Compose Modal. Renders `ComposeModal` from `ComposeModalProps`.
+ */
+import { Show, createEffect, createSignal, onMount } from 'solid-js';
 import { Icon } from './Icon.js';
+import { registerWindowKeydown } from '../domListeners.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './compose-modal.css';
 
@@ -91,8 +95,7 @@ export function ComposeModal(props: ComposeModalProps) {
         void submit();
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+    registerWindowKeydown(onKey, true);
   });
 
   const lineCount = () => text().split('\n').length;

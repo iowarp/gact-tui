@@ -1,5 +1,7 @@
 package ui
 
+// autorename.go derives auto session titles from message text and issues the title-patch commands.
+
 import (
 	"context"
 	"strings"
@@ -22,11 +24,11 @@ const autoRenameTitleMaxLen = 60
 // caller then dispatches a PATCH via patchSessionTitleCmd.
 //
 // Rules:
-//  1. Session must be findable in a.sessions (we need its ID + title).
+//  1. Session must be findable in a.session.sessions (we need its ID + title).
 //  2. Session title must still look default: empty, or starts with
 //     "new session " (the prefix sessions get at creation time).
 //  3. Session must have no prior user messages. We approximate this
-//     by checking that the loaded a.messages contains at most one
+//     by checking that the loaded a.conversation.messages contains at most one
 //     user message (the one we just posted, which may already have
 //     been reflected via SSE by the time we get here — or may not,
 //     so the "at most one" bound covers both orderings).
@@ -39,7 +41,7 @@ func autoRenameTitle(a *App, sessionID, text string) (string, bool) {
 		return "", false
 	}
 	idx := -1
-	for i, s := range a.sessions {
+	for i, s := range a.session.sessions {
 		if s.ID == sessionID {
 			idx = i
 			break
@@ -48,14 +50,14 @@ func autoRenameTitle(a *App, sessionID, text string) (string, bool) {
 	if idx < 0 {
 		return "", false
 	}
-	curr := a.sessions[idx].Title
+	curr := a.session.sessions[idx].Title
 	if curr != "" && !strings.HasPrefix(curr, "new session ") {
 		return "", false
 	}
 	// Count user messages. If there's already more than one, this is a
 	// later message in an ongoing conversation and rename is stale.
 	userMessageCount := 0
-	for _, m := range a.messages {
+	for _, m := range a.conversation.messages {
 		if m.Role == gact.RoleUser {
 			userMessageCount++
 		}
@@ -87,7 +89,7 @@ func derivedTitle(text string) string {
 
 // patchSessionTitleCmd dispatches PATCH /v1/sessions/{id} with the
 // new title. Returns sessionTitleRenamedMsg so the Update handler can
-// mirror the change into a.sessions without a full list refetch.
+// mirror the change into a.session.sessions without a full list refetch.
 // Silent on failure because this path is used for auto-rename, which
 // is a nicety rather than an explicit user action.
 func patchSessionTitleCmd(c *client.Client, sessionID, title string) tea.Cmd {
@@ -124,4 +126,33 @@ type sessionTitleRenamedMsg struct {
 	err           error
 	manual        bool
 	previousTitle string
+}
+
+func (c *sessionComponent) handleTitleRenamed(m sessionTitleRenamedMsg) (tea.Model, tea.Cmd) {
+	if m.err != nil {
+		if !m.manual {
+			// Auto-rename failed: keep the default title silently because
+			// this is background polish, not the user's explicit action.
+			return c.app, nil
+		}
+		if m.previousTitle != "" {
+			for i, s := range c.sessions {
+				if s.ID == m.sessionID {
+					c.sessions[i].Title = m.previousTitle
+					break
+				}
+			}
+		}
+		c.app.setHint("rename failed: " + operatorErrorMessage(m.err))
+		return c.app, scheduleHintExpire(c.app.transientHint)
+	}
+	// Mirror the new title into c.sessions so the sidebar updates
+	// without a full list refetch.
+	for i, s := range c.sessions {
+		if s.ID == m.sessionID {
+			c.sessions[i].Title = m.title
+			break
+		}
+	}
+	return c.app, nil
 }

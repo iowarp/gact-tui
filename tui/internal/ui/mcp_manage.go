@@ -11,374 +11,100 @@ package ui
 // excluded — backend rejects DELETE on those anyway.
 
 import (
-	"context"
 	"fmt"
-	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-// openMcpInstallModal arms the install prompt overlay. The actual modal
-// state lives on App.mcpInstall — see app.go for the field declaration.
-func (a *App) openMcpInstallModal() {
-	a.mcpInstallOpen = true
-	a.mcpInstallInput = ""
-	a.mcpInstallCursor = 0
-	a.mcpInstallErr = ""
-	a.mcpInstallSaving = false
+// mcpRemoveModal is the MCP-remove picker's state: the fetched server options,
+// the selected row, a saving guard, and the id pending delete-confirmation. It
+// owns its behaviour (open/close/key/wheel/view) and holds an app back-ref for
+// shared services, wired centrally in wireComponents().
+type mcpRemoveModal struct {
+	app       *App
+	open      bool
+	options   []gact.McpServer
+	sel       int
+	saving    bool
+	confirmID string
 }
 
-func (a *App) closeMcpInstallModal() {
-	a.mcpInstallOpen = false
-	a.mcpInstallInput = ""
-	a.mcpInstallCursor = 0
-	a.mcpInstallErr = ""
-	a.mcpInstallSaving = false
+func (m *mcpRemoveModal) reset() { *m = mcpRemoveModal{app: m.app} }
+
+// openPicker opens the remove picker. Always re-fetches the server list so the
+// picker reflects current backend state (catalog cache may be stale after a
+// recent install/remove). Returns a tea.Cmd that triggers the fetch; the
+// resulting message populates m.options.
+func (m *mcpRemoveModal) openPicker() tea.Cmd {
+	m.open = true
+	m.options = nil
+	m.sel = 0
+	m.saving = false
+	m.confirmID = ""
+	return mcpListServersCmd(m.app.c)
 }
 
-// openMcpRemoveModal opens the remove picker. Always re-fetches the server
-// list so the picker reflects current backend state (catalog cache may be
-// stale after a recent install/remove). Returns a tea.Cmd that triggers
-// the fetch; the resulting message populates a.mcpRemoveOptions.
-func (a *App) openMcpRemoveModal() tea.Cmd {
-	a.mcpRemoveOpen = true
-	a.mcpRemoveOptions = nil
-	a.mcpRemoveSel = 0
-	a.mcpRemoveSaving = false
-	a.mcpRemoveConfirmID = ""
-	return mcpListServersCmd(a.c)
-}
+func (m *mcpRemoveModal) close() { m.reset() }
 
-func (a *App) closeMcpRemoveModal() {
-	a.mcpRemoveOpen = false
-	a.mcpRemoveOptions = nil
-	a.mcpRemoveSel = 0
-	a.mcpRemoveSaving = false
-	a.mcpRemoveConfirmID = ""
-}
-
-func (a *App) handleMcpRemoveWheel(button tea.MouseButton) tea.Cmd {
-	if a.mcpRemoveSaving {
+func (m *mcpRemoveModal) handleWheel(button tea.MouseButton) tea.Cmd {
+	if m.saving {
 		return nil
 	}
-	a.mcpRemoveSel = moveSelectionByWheel(a.mcpRemoveSel, len(a.mcpRemoveOptions), button)
+	m.sel = moveSelectionByWheel(m.sel, len(m.options), button)
 	return nil
 }
 
-// mcpListServersCmd refreshes the cached MCP server list. Used by both the
-// remove modal and the cache-on-open path.
-func mcpListServersCmd(c *client.Client) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		servers, err := c.ListMcpServers(ctx)
-		return mcpServersFetchedMsg{servers: servers, err: err}
-	}
-}
-
-type mcpServersFetchedMsg struct {
-	servers []gact.McpServer
-	err     error
-}
-
-// handleMcpInstallKey routes keystrokes while the install modal is open.
-func (a *App) handleMcpInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if a.mcpInstallSaving {
-		return a, nil
+// handleKey routes keystrokes while the remove modal is open.
+func (m *mcpRemoveModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.saving {
+		return m.app, nil
 	}
 	switch k.String() {
 	case "esc":
-		a.closeMcpInstallModal()
-		return a, nil
-	case "enter":
-		body, err := parseMcpInstallLine(a.mcpInstallInput)
-		if err != nil {
-			a.mcpInstallErr = err.Error()
-			return a, nil
-		}
-		a.mcpInstallSaving = true
-		return a, mcpInstallCmd(a.c, body)
-	case "backspace":
-		if a.mcpInstallCursor == 0 {
-			return a, nil
-		}
-		runes := []rune(a.mcpInstallInput)
-		runes = append(runes[:a.mcpInstallCursor-1], runes[a.mcpInstallCursor:]...)
-		a.mcpInstallInput = string(runes)
-		a.mcpInstallCursor--
-		return a, nil
-	case "delete":
-		runes := []rune(a.mcpInstallInput)
-		if a.mcpInstallCursor >= len(runes) {
-			return a, nil
-		}
-		runes = append(runes[:a.mcpInstallCursor], runes[a.mcpInstallCursor+1:]...)
-		a.mcpInstallInput = string(runes)
-		return a, nil
-	case "left":
-		if a.mcpInstallCursor > 0 {
-			a.mcpInstallCursor--
-		}
-		return a, nil
-	case "right":
-		if a.mcpInstallCursor < len([]rune(a.mcpInstallInput)) {
-			a.mcpInstallCursor++
-		}
-		return a, nil
-	case "home", "ctrl+a":
-		a.mcpInstallCursor = 0
-		return a, nil
-	case "end", "ctrl+e":
-		a.mcpInstallCursor = len([]rune(a.mcpInstallInput))
-		return a, nil
-	default:
-		if k.Text != "" {
-			a.insertMcpInstallText(k.Text)
-		}
-	}
-	return a, nil
-}
-
-func (a *App) insertMcpInstallText(text string) {
-	a.mcpInstallInput, a.mcpInstallCursor = insertTextAtCursor(a.mcpInstallInput, a.mcpInstallCursor, text)
-}
-
-// handleMcpRemoveKey routes keystrokes while the remove modal is open.
-func (a *App) handleMcpRemoveKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if a.mcpRemoveSaving {
-		return a, nil
-	}
-	switch k.String() {
-	case "esc":
-		a.closeMcpRemoveModal()
-		return a, nil
+		m.close()
+		return m.app, nil
 	case "up", "k":
-		a.mcpRemoveConfirmID = ""
-		if a.mcpRemoveSel > 0 {
-			a.mcpRemoveSel--
+		m.confirmID = ""
+		if m.sel > 0 {
+			m.sel--
 		}
 	case "down", "j":
-		a.mcpRemoveConfirmID = ""
-		if a.mcpRemoveSel < len(a.mcpRemoveOptions)-1 {
-			a.mcpRemoveSel++
+		m.confirmID = ""
+		if m.sel < len(m.options)-1 {
+			m.sel++
 		}
 	case "enter":
-		if a.mcpRemoveSel < 0 || a.mcpRemoveSel >= len(a.mcpRemoveOptions) {
-			return a, nil
+		if m.sel < 0 || m.sel >= len(m.options) {
+			return m.app, nil
 		}
-		target := a.mcpRemoveOptions[a.mcpRemoveSel]
-		if a.mcpRemoveConfirmID != target.ID {
-			a.mcpRemoveConfirmID = target.ID
-			a.transientHint = "press Enter again to confirm removing MCP " + target.ID + " (any other key cancels)"
-			return a, scheduleHintExpire(a.transientHint)
+		target := m.options[m.sel]
+		if m.confirmID != target.ID {
+			m.confirmID = target.ID
+			m.app.setHint("press Enter again to confirm removing MCP " + target.ID + " (any other key cancels)")
+			return m.app, scheduleHintExpire(m.app.transientHint)
 		}
-		a.mcpRemoveConfirmID = ""
-		a.mcpRemoveSaving = true
-		return a, mcpUninstallCmd(a.c, target.ID)
+		m.confirmID = ""
+		m.saving = true
+		return m.app, mcpUninstallCmd(m.app.c, target.ID)
 	default:
-		a.mcpRemoveConfirmID = ""
+		m.confirmID = ""
 	}
-	return a, nil
-}
-
-// parseMcpInstallLine parses one line of user input into the request body
-// the backend expects. Supported shapes:
-//
-//	<name> stdio <command> [args...]
-//	<name> http <url>
-func parseMcpInstallLine(line string) (map[string]any, error) {
-	tokens := strings.Fields(strings.TrimSpace(line))
-	if len(tokens) < 3 {
-		return nil, fmt.Errorf("usage: <name> stdio <command> [args...]  OR  <name> http <url>")
-	}
-	name := tokens[0]
-	transport := strings.ToLower(tokens[1])
-	switch transport {
-	case "stdio":
-		body := map[string]any{
-			"name":      name,
-			"transport": "stdio",
-			"command":   tokens[2],
-		}
-		if len(tokens) > 3 {
-			body["args"] = tokens[3:]
-		}
-		return body, nil
-	case "http":
-		if len(tokens) != 3 {
-			return nil, fmt.Errorf("http transport: <name> http <url>")
-		}
-		return map[string]any{
-			"name":      name,
-			"transport": "http",
-			"url":       tokens[2],
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown transport %q (use stdio or http)", transport)
-	}
-}
-
-// mcpInstallCmd POSTs the install request and returns a result message the
-// app loop converts to a transientHint + catalog refresh.
-func mcpInstallCmd(c *client.Client, body map[string]any) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		out, err := c.McpInstall(ctx, body)
-		return mcpInstallDoneMsg{result: out, err: err}
-	}
-}
-
-// mcpUninstallCmd DELETEs the server and returns a result message.
-func mcpUninstallCmd(c *client.Client, serverID string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := c.McpUninstall(ctx, serverID)
-		return mcpUninstallDoneMsg{serverID: serverID, err: err}
-	}
-}
-
-func mcpReconnectCmd(c *client.Client, serverID string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := c.McpReconnect(ctx, serverID)
-		return mcpReconnectDoneMsg{serverID: serverID, err: err}
-	}
-}
-
-type mcpInstallDoneMsg struct {
-	result map[string]any
-	err    error
-}
-
-type mcpUninstallDoneMsg struct {
-	serverID string
-	err      error
-}
-
-type mcpReconnectDoneMsg struct {
-	serverID string
-	err      error
+	return m.app, nil
 }
 
 const mcpRemoveMaxItems = 6
 
-type mcpInstallExample struct {
-	id    string
-	label string
-	value string
-}
-
-func mcpInstallExamples() []mcpInstallExample {
-	return []mcpInstallExample{
-		{id: "stdio", label: "stdio:", value: "files stdio mcp-files /tmp"},
-		{id: "http", label: "http:", value: "weather http https://mcp.example.com"},
-	}
-}
-
-func (a *App) applyMcpInstallExample(value string) {
-	a.mcpInstallInput = value
-	a.mcpInstallCursor = len([]rune(value))
-	a.mcpInstallErr = ""
-}
-
-func (a *App) renderMcpInstallExampleList() modalListRender {
-	examples := mcpInstallExamples()
-	rows := make([]string, 0, len(examples))
-	hits := make([]modalListHit, 0, len(examples))
-	for row, example := range examples {
-		example := example
-		rows = append(rows, fmt.Sprintf("  %-6s %s", example.label, example.value))
-		hits = append(hits, modalListHit{
-			id:     "mcp-install:example:" + example.id,
-			row:    row,
-			height: 1,
-			action: func(app *App) tea.Cmd {
-				app.applyMcpInstallExample(example.value)
-				return nil
-			},
-		})
-	}
-	return modalListRender{rows: rows, hits: hits, renderedItems: len(rows)}
-}
-
-// viewMcpInstall renders the install prompt overlay. Tiny intentionally —
-// one input field, hint text, and a status line for any error.
-func (a *App) viewMcpInstall() string {
+// view renders the picker for which third-party server to remove.
+func (m *mcpRemoveModal) view() string {
+	a := m.app
 	t := a.Theme
-	w := a.modalWidth()
-	innerW := modalInnerWidth(w)
-	buttons := []menuButton{
-		{
-			id:    "mcp-install:install",
-			label: "install",
-			action: func(app *App) tea.Cmd {
-				_, cmd := app.handleMcpInstallKey(keyMsg("enter"))
-				return cmd
-			},
-		},
-		{
-			id:    "mcp-install:cancel",
-			label: "cancel",
-			action: func(app *App) tea.Cmd {
-				app.closeMcpInstallModal()
-				return nil
-			},
-		},
-	}
-	statusRows := []string{}
-	if a.mcpInstallErr != "" {
-		statusRows = append(statusRows,
-			lipgloss.NewStyle().Foreground(t.Danger).Italic(true).
-				Render("error: "+a.mcpInstallErr),
-		)
-	}
-	if a.mcpInstallSaving {
-		statusRows = append(statusRows,
-			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-				Render(a.spinnerChar()+" installing…"),
-		)
-	}
-	exampleList := a.renderMcpInstallExampleList()
-	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:     w,
-		title:     "Install MCP connection",
-		buttons:   buttons,
-		surfaceID: "mcp-install",
-		intro: []string{
-			t.HintLabel.Render("Add a trusted third-party MCP connection to the current workspace."),
-			t.HintLabel.Render("Format: <name> stdio <command> [args...]  or  <name> http <url>"),
-			"",
-			t.HintLabel.Render(strings.Join(exampleList.rows, "\n")),
-		},
-		introList:   exampleList,
-		introListW:  innerW,
-		editor:      a.renderCursorEditor(a.mcpInstallInput, a.mcpInstallCursor),
-		editorID:    "mcp-install",
-		editorValue: a.mcpInstallInput,
-		cursorAction: func(app *App, cursor int) {
-			app.mcpInstallCursor = cursor
-		},
-		status: statusRows,
-		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
-	})
-	return rendered.modal
-}
-
-// viewMcpRemove renders the picker for which third-party server to remove.
-func (a *App) viewMcpRemove() string {
-	t := a.Theme
-	w := a.modalWidth()
+	w := a.modals.modalWidth()
 	listW := modalInsetListWidth(w)
 	removeLabel := "remove"
-	if a.mcpRemoveConfirmID != "" {
+	if m.confirmID != "" {
 		removeLabel = "confirm remove"
 	}
 	buttons := []menuButton{
@@ -386,7 +112,7 @@ func (a *App) viewMcpRemove() string {
 			id:    "mcp-remove:remove",
 			label: removeLabel,
 			action: func(app *App) tea.Cmd {
-				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
+				_, cmd := app.mcpRemove.handleKey(keyMsg("enter"))
 				return cmd
 			},
 		},
@@ -394,7 +120,7 @@ func (a *App) viewMcpRemove() string {
 			id:    "mcp-remove:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.closeMcpRemoveModal()
+				app.mcpRemove.close()
 				return nil
 			},
 		},
@@ -405,30 +131,30 @@ func (a *App) viewMcpRemove() string {
 		t.HintLabel.Render("Bundled CLIO connections stay available and are not listed here."),
 		"",
 	)
-	itemBudget := a.modalListItemBudget(6, 1, mcpRemoveMaxItems)
-	win := selectedItemWindow(len(a.mcpRemoveOptions), a.mcpRemoveSel, itemBudget)
+	itemBudget := a.modals.modalListItemBudget(6, 1, mcpRemoveMaxItems)
+	win := selectedItemWindow(len(m.options), m.sel, itemBudget)
 	listStartRow := len(rows)
 	listItems := make([]modalListItem, 0, win.end-win.start)
 	for i := win.start; i < win.end; i++ {
-		server := a.mcpRemoveOptions[i]
+		server := m.options[i]
 		idx := i
 		listItems = append(listItems, modalListItem{
 			id:       fmt.Sprintf("mcp-remove:item:%d", idx),
 			title:    server.Name,
 			meta:     server.ID,
-			status:   mcpRemoveRowStatus(a, server),
-			selected: i == a.mcpRemoveSel,
+			status:   m.rowStatus(server),
+			selected: i == m.sel,
 			action: func(app *App) tea.Cmd {
-				if app.mcpRemoveConfirmID != server.ID {
-					app.mcpRemoveConfirmID = ""
+				if app.mcpRemove.confirmID != server.ID {
+					app.mcpRemove.confirmID = ""
 				}
-				app.mcpRemoveSel = idx
-				_, cmd := app.handleMcpRemoveKey(keyMsg("enter"))
+				app.mcpRemove.sel = idx
+				_, cmd := app.mcpRemove.handleKey(keyMsg("enter"))
 				return cmd
 			},
 		})
 	}
-	list := a.renderModalList(listItems, modalListOptions{
+	list := a.modals.renderModalList(listItems, modalListOptions{
 		width:            listW,
 		rowBudget:        itemBudget,
 		descriptionLines: 0,
@@ -438,22 +164,22 @@ func (a *App) viewMcpRemove() string {
 	} else {
 		rows = append(rows, t.HintLabel.Render("(no removable MCP connections)"))
 	}
-	if a.mcpRemoveSaving {
+	if m.saving {
 		rows = append(rows, "",
 			lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
-				Render(a.spinnerChar()+" removing…"),
+				Render(a.ticker.spinnerChar()+" removing…"),
 		)
-	} else if a.mcpRemoveConfirmID != "" {
+	} else if m.confirmID != "" {
 		rows = append(rows, "",
-			t.HintLabel.Render("Confirm removing "+a.mcpRemoveConfirmID+". Any other key cancels."),
+			t.HintLabel.Render("Confirm removing "+m.confirmID+". Any other key cancels."),
 		)
 	}
 	footer := modalKeyHint("↑/↓ select", "Enter remove", "Esc cancel")
-	if a.mcpRemoveConfirmID != "" {
+	if m.confirmID != "" {
 		footer = modalKeyHint("Enter confirm remove", "↑/↓ cancel", "Esc cancel")
 	}
 
-	rendered := a.renderSelectableListModal(selectableListModalOptions{
+	rendered := a.modals.renderSelectableListModal(selectableListModalOptions{
 		frame: modalFrameOptions{
 			width:   w,
 			title:   "Remove MCP connection",
@@ -469,18 +195,18 @@ func (a *App) viewMcpRemove() string {
 		wheelID:        "mcp-remove:list:wheel",
 		surfaceWheelID: "mcp-remove",
 		wheelAction: func(app *App, button tea.MouseButton) tea.Cmd {
-			return app.handleMcpRemoveWheel(button)
+			return app.mcpRemove.handleWheel(button)
 		},
 		railAction: func(app *App, index int) tea.Cmd {
-			app.mcpRemoveSel = clampSelection(index, len(app.mcpRemoveOptions))
+			app.mcpRemove.sel = clampSelection(index, len(app.mcpRemove.options))
 			return nil
 		},
 	})
 	return rendered.modal
 }
 
-func mcpRemoveRowStatus(a *App, server gact.McpServer) string {
-	if a != nil && a.mcpRemoveConfirmID == server.ID {
+func (m *mcpRemoveModal) rowStatus(server gact.McpServer) string {
+	if m.confirmID == server.ID {
 		return "confirm remove"
 	}
 	return server.Transport

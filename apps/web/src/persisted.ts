@@ -1,3 +1,7 @@
+/**
+ * localStorage-backed Solid signal factory (`createPersistedSignal`) so UI
+ * preferences survive reloads.
+ */
 import {
   createSignal,
   type Accessor,

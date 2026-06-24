@@ -15,8 +15,9 @@ Enter
 Show
 
 Wait+Screen /CONVERSATION/
-Ctrl+B
-Wait+Screen /New Session/
+Ctrl+N
+Wait+Screen /Workflow blueprint/
+Wait+Screen /Expert pack/
 Screenshot "visual_loop/screenshots/session_setup_picker.png"
 Sleep 300ms
 Type "q"

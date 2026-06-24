@@ -1,8 +1,17 @@
+/**
+ * Discovery surface: Tools Page component. Key export `ToolsPageProps`.
+ */
 import { createResource, createSignal, For, Show } from 'solid-js';
 import type { Client, SlashCommandDef } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
 import { useToast } from '../../components/Toast.js';
+import {
+  commandCopyFailureBody,
+  commandCopySuccessBody,
+  commandTrigger,
+  filterCommands,
+} from './ToolsPageModel.js';
 
 export interface ToolsPageProps {
   client: Client;
@@ -12,16 +21,7 @@ export function ToolsPage(props: ToolsPageProps) {
   const [data, { refetch }] = createResource(() => props.client.commands());
   const [query, setQuery] = createSignal('');
   const all = () => data()?.commands ?? [];
-  const items = () => {
-    const q = query().trim().toLowerCase();
-    if (!q) return all();
-    return all().filter(
-      (c) =>
-        c.id.toLowerCase().includes(q) ||
-        c.title.toLowerCase().includes(q) ||
-        (c.description ?? '').toLowerCase().includes(q),
-    );
-  };
+  const items = () => filterCommands(all(), query());
   return (
     <DiscoveryPage
       icon="tools"
@@ -67,8 +67,7 @@ export function ToolsPage(props: ToolsPageProps) {
 function CommandCard(props: { c: SlashCommandDef }) {
   const toast = useToast();
   // The slash trigger the user types in the composer to run this command.
-  const trigger = () =>
-    props.c.id.startsWith('/') ? props.c.id : `/${props.c.id}`;
+  const trigger = () => commandTrigger(props.c.id);
 
   async function copyTrigger() {
     try {
@@ -76,14 +75,14 @@ function CommandCard(props: { c: SlashCommandDef }) {
       toast.push({
         tone: 'success',
         title: 'Copied',
-        body: `Paste ${trigger()} into the composer to run it.`,
+        body: commandCopySuccessBody(trigger()),
         duration: 2400,
       });
     } catch {
       toast.push({
         tone: 'warn',
         title: 'Copy failed',
-        body: `Type ${trigger()} into the composer to run it.`,
+        body: commandCopyFailureBody(trigger()),
       });
     }
   }

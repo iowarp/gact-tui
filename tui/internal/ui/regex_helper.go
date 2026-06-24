@@ -1,5 +1,7 @@
 package ui
 
+// regex_helper.go wraps regexp compilation for shared use.
+
 import "regexp"
 
 // mustCompileImpl is a tiny indirection so we can swap regex implementations

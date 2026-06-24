@@ -12,9 +12,9 @@ func TestReconnectIndicator_HiddenWhenHealthy(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageReady
 	a.width, a.height = 120, 30
-	a.sseBackoffAttempts = 0
+	a.connection.sseBackoffAttempts = 0
 
-	got := a.renderFooter()
+	got := a.chrome.renderFooter()
 	if strings.Contains(got, "reconnecting") {
 		t.Errorf("healthy SSE should not show 'reconnecting': %q", got)
 	}
@@ -24,10 +24,10 @@ func TestReconnectIndicator_VisibleDuringBackoff(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageReady
 	a.width, a.height = 120, 30
-	a.sseBackoffAttempts = 3
-	a.sseDownSince = time.Now().Add(-2 * time.Second) // outage past gate
+	a.connection.sseBackoffAttempts = 3
+	a.connection.sseDownSince = time.Now().Add(-2 * time.Second) // outage past gate
 
-	got := a.renderFooter()
+	got := a.chrome.renderFooter()
 	if !strings.Contains(got, "reconnecting") {
 		t.Errorf("mid-backoff past gate should show 'reconnecting' hint: %q", got)
 	}
@@ -37,8 +37,8 @@ func TestReconnectIndicator_VisibleBadgeIsClickable(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageReady
 	a.width, a.height = 120, 30
-	a.sseBackoffAttempts = 3
-	a.sseDownSince = time.Now().Add(-2 * time.Second)
+	a.connection.sseBackoffAttempts = 3
+	a.connection.sseDownSince = time.Now().Add(-2 * time.Second)
 
 	_ = a.View()
 	target, ok := findHitTargetForTest(a, "footer:reconnect")
@@ -65,10 +65,10 @@ func TestReconnectIndicator_HiddenDuringSubSecondBlip(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageReady
 	a.width, a.height = 120, 30
-	a.sseBackoffAttempts = 1
-	a.sseDownSince = time.Now() // outage just started
+	a.connection.sseBackoffAttempts = 1
+	a.connection.sseDownSince = time.Now() // outage just started
 
-	got := a.renderFooter()
+	got := a.chrome.renderFooter()
 	if strings.Contains(got, "reconnecting") {
 		t.Errorf("sub-gate outage should NOT show 'reconnecting' (flicker source): %q", got)
 	}
@@ -82,10 +82,10 @@ func TestReconnectIndicator_HiddenWhenDownSinceZero(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageReady
 	a.width, a.height = 120, 30
-	a.sseBackoffAttempts = 5
-	a.sseDownSince = time.Time{} // zero = no recorded outage
+	a.connection.sseBackoffAttempts = 5
+	a.connection.sseDownSince = time.Time{} // zero = no recorded outage
 
-	got := a.renderFooter()
+	got := a.chrome.renderFooter()
 	if strings.Contains(got, "reconnecting") {
 		t.Errorf("zero down-clock should suppress badge: %q", got)
 	}

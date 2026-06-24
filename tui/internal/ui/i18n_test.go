@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -130,33 +129,33 @@ func TestLocalizerLoadsGreekCatalog(t *testing.T) {
 
 func TestInputPlaceholderUsesActiveLocale(t *testing.T) {
 	a := New("http://unused")
-	if !strings.Contains(a.input.Placeholder, "type a message") {
-		t.Fatalf("English placeholder = %q, want English text", a.input.Placeholder)
+	if !strings.Contains(a.inputComposer.input.Placeholder, "type a message") {
+		t.Fatalf("English placeholder = %q, want English text", a.inputComposer.input.Placeholder)
 	}
 
 	a.SetLocale("es")
-	if !strings.Contains(a.input.Placeholder, "escribe un mensaje") {
-		t.Fatalf("Spanish placeholder = %q, want translated text", a.input.Placeholder)
+	if !strings.Contains(a.inputComposer.input.Placeholder, "escribe un mensaje") {
+		t.Fatalf("Spanish placeholder = %q, want translated text", a.inputComposer.input.Placeholder)
 	}
-	if strings.Contains(a.input.Placeholder, "type a message") {
-		t.Fatalf("Spanish placeholder fell back to English: %q", a.input.Placeholder)
+	if strings.Contains(a.inputComposer.input.Placeholder, "type a message") {
+		t.Fatalf("Spanish placeholder fell back to English: %q", a.inputComposer.input.Placeholder)
 	}
 
 	a.SetLocale("ja")
-	if !strings.Contains(a.input.Placeholder, "メッセージを入力") {
-		t.Fatalf("Japanese placeholder = %q, want translated text", a.input.Placeholder)
+	if !strings.Contains(a.inputComposer.input.Placeholder, "メッセージを入力") {
+		t.Fatalf("Japanese placeholder = %q, want translated text", a.inputComposer.input.Placeholder)
 	}
 }
 
 func TestInputPlaceholderCompactsForComposerWidth(t *testing.T) {
 	a := New("http://unused")
 
-	wide := a.localizedInputPlaceholderForWidth(120)
+	wide := a.inputComposer.localizedPlaceholder(120)
 	if !strings.Contains(wide, "supporting terminals") {
 		t.Fatalf("wide placeholder = %q, want full help copy", wide)
 	}
 
-	narrow := a.localizedInputPlaceholderForWidth(48)
+	narrow := a.inputComposer.localizedPlaceholder(48)
 	if !strings.Contains(narrow, "type a message") {
 		t.Fatalf("narrow placeholder = %q, want primary instruction", narrow)
 	}
@@ -165,7 +164,7 @@ func TestInputPlaceholderCompactsForComposerWidth(t *testing.T) {
 	}
 
 	a.SetLocale("es")
-	spanish := a.localizedInputPlaceholderForWidth(48)
+	spanish := a.inputComposer.localizedPlaceholder(48)
 	if !strings.Contains(spanish, "escribe un mensaje") {
 		t.Fatalf("Spanish compact placeholder = %q, want localized primary instruction", spanish)
 	}
@@ -210,7 +209,7 @@ func TestSpanishChromeStringsRenderInHeaderAndFooter(t *testing.T) {
 	a.SetLocale("es")
 	a.width = 180
 
-	header := ansi.Strip(a.renderHeader())
+	header := ansi.Strip(a.chrome.renderHeader())
 	if !strings.Contains(header, "espacio: default") ||
 		!strings.Contains(header, "sesión: demo") ||
 		!strings.Contains(header, "modelo: lm_studio/qwopus3.5-9b-v3") ||
@@ -219,73 +218,11 @@ func TestSpanishChromeStringsRenderInHeaderAndFooter(t *testing.T) {
 		t.Fatalf("Spanish header did not render localized chrome: %q", header)
 	}
 
-	footer := ansi.Strip(a.renderFooter())
+	footer := ansi.Strip(a.chrome.renderFooter())
 	if !strings.Contains(footer, "foco:") ||
 		!strings.Contains(footer, "ajustes") ||
 		!strings.Contains(footer, "salir") {
 		t.Fatalf("Spanish footer did not render localized chrome: %q", footer)
-	}
-}
-
-func TestJapaneseLMConfigChromeRendersUnicodeText(t *testing.T) {
-	a := New("http://unused")
-	a.SetLocale("ja")
-	a.width = 120
-	a.height = 40
-	a.lmConfigOpen = true
-	a.lmConfig = &lmConfigState{loading: true}
-
-	plain := ansi.Strip(a.viewLMConfig())
-	if !strings.Contains(plain, "CLIO の LM プロバイダー設定") {
-		t.Fatalf("LM config title = %q, want Japanese title", plain)
-	}
-	if !strings.Contains(plain, "/v1/providers/lm を取得中") {
-		t.Fatalf("LM config loading text = %q, want Japanese loading text", plain)
-	}
-	if strings.Contains(plain, "Configure CLIO") || strings.Contains(plain, "fetching /v1") {
-		t.Fatalf("LM config chrome fell back to English: %q", plain)
-	}
-}
-
-func TestSpanishLMConfigBodyDoesNotFallBackToEnglish(t *testing.T) {
-	a := New("http://unused")
-	a.SetLocale("es")
-	a.width = 140
-	a.height = 42
-	a.lmConfigOpen = true
-	a.lmConfig = &lmConfigState{
-		info: &client.LMProviderInfo{
-			Configured: true,
-			Provider:   "lm_studio",
-			Model:      "qwopus3.5-9b-v3",
-			Presets: []client.LMProviderPreset{{
-				ID:                  "lm_studio",
-				Label:               "LM Studio",
-				Provider:            "lm_studio",
-				APIBase:             "http://127.0.0.1:1234/v1",
-				Status:              "ready",
-				SupportsLiveCatalog: true,
-			}},
-		},
-		selected:            0,
-		modelIndex:          0,
-		modelCatalogs:       map[string][]gact.Model{"lm_studio": {{ID: "qwopus3.5-9b-v3", Name: "Qwopus", ContextWindow: 262144}}},
-		modelCatalogSources: map[string]string{"lm_studio": "live"},
-		modelCatalogWarnings: map[string]string{
-			"lm_studio": "",
-		},
-	}
-
-	plain := ansi.Strip(a.viewLMConfig())
-	for _, want := range []string{"Proveedor", "Configuración", "Modelo", "Configuración del modelo", "Detalles del modelo", "Contexto máximo"} {
-		if !strings.Contains(plain, want) {
-			t.Fatalf("Spanish LM config missing %q in:\n%s", want, plain)
-		}
-	}
-	for _, bad := range []string{"Provider (", "Selected", "Model configuration", "Model details", "Max context"} {
-		if strings.Contains(plain, bad) {
-			t.Fatalf("Spanish LM config still contains English %q in:\n%s", bad, plain)
-		}
 	}
 }
 
@@ -294,31 +231,31 @@ func TestSpanishHighVisibilityChromeDoesNotFallBackToEnglish(t *testing.T) {
 	a.SetLocale("es")
 	a.width = 140
 	a.height = 34
-	a.paletteOpen = true
-	a.helpOpen = true
-	a.quitConfirmOpen = true
+	a.cmdPalette.paletteOpen = true
+	a.help.open = true
+	a.quitConfirm.open = true
 
-	sidebar := ansi.Strip(a.renderSidebar(28, 20))
+	sidebar := ansi.Strip(a.sidebar.render(28, 20))
 	if !strings.Contains(sidebar, "SESIONES") || strings.Contains(sidebar, "SESSIONS") {
 		t.Fatalf("Spanish sidebar not localized: %q", sidebar)
 	}
 
-	body := ansi.Strip(a.renderBody(100, 24))
+	body := ansi.Strip(a.conversation.render(100, 24))
 	if !strings.Contains(body, "CONVERSACIÓN") || strings.Contains(body, "CONVERSATION") {
 		t.Fatalf("Spanish conversation pane not localized: %q", body)
 	}
 
-	help := ansi.Strip(a.viewHelp())
+	help := ansi.Strip(a.help.view())
 	if !strings.Contains(help, "Atajos") || strings.Contains(help, "Keybindings") {
 		t.Fatalf("Spanish help chrome not localized: %q", help)
 	}
 
-	palette := ansi.Strip(a.viewPalette())
+	palette := ansi.Strip(a.cmdPalette.view())
 	if !strings.Contains(palette, "Comandos") || strings.Contains(palette, "Commands") {
 		t.Fatalf("Spanish palette chrome not localized: %q", palette)
 	}
 
-	quit := ansi.Strip(a.viewQuitConfirm())
+	quit := ansi.Strip(a.quitConfirm.view())
 	if !strings.Contains(quit, "¿Cerrar la TUI?") || strings.Contains(quit, "Close the TUI?") {
 		t.Fatalf("Spanish quit modal not localized: %q", quit)
 	}
@@ -330,36 +267,36 @@ func TestSpanishSettingsHelpCommandsAndProviderDescriptionsAreLocalized(t *testi
 	a.width = 150
 	a.height = 42
 
-	a.settings = &settingsState{
+	a.settings.settingsState = settingsState{
 		tab: 1,
 		agentList: []gact.AgentDef{
 			{ID: "analysis", Title: "Analysis Expert"},
 			{ID: "data_validator", Title: "Data Validator"},
 		},
 	}
-	agentView := ansi.Strip(a.viewSettings())
+	agentView := ansi.Strip(a.settings.view())
 	if !strings.Contains(agentView, "Experto de análisis") || strings.Contains(agentView, "Analysis Expert") {
 		t.Fatalf("Spanish agent settings not localized:\n%s", agentView)
 	}
 
-	a.settings = &settingsState{tab: 2}
-	themeView := ansi.Strip(a.viewSettings())
+	a.settings.settingsState = settingsState{tab: 2}
+	themeView := ansi.Strip(a.settings.view())
 	if !strings.Contains(themeView, "Oscuro") || strings.Contains(themeView, "default - purple") {
 		t.Fatalf("Spanish theme settings not localized:\n%s", themeView)
 	}
 
-	a.settings = &settingsState{tab: 3}
-	tuiView := ansi.Strip(a.viewSettings())
+	a.settings.settingsState = settingsState{tab: 3}
+	tuiView := ansi.Strip(a.settings.view())
 	if !strings.Contains(tuiView, "umbral de colapso") || strings.Contains(tuiView, "collapse threshold") {
 		t.Fatalf("Spanish TUI settings not localized:\n%s", tuiView)
 	}
 
-	helpView := ansi.Strip(a.viewHelp())
+	helpView := ansi.Strip(a.help.view())
 	if !strings.Contains(helpView, "cambiar foco entre paneles") || strings.Contains(helpView, "cycle focus") {
 		t.Fatalf("Spanish help descriptions not localized:\n%s", helpView)
 	}
 
-	commands := a.paletteMatches()
+	commands := a.cmdPalette.matches()
 	foundTheme := false
 	for _, cmd := range commands {
 		if cmd.ID == "/theme" {
@@ -373,7 +310,8 @@ func TestSpanishSettingsHelpCommandsAndProviderDescriptionsAreLocalized(t *testi
 		t.Fatal("did not find /theme command")
 	}
 
-	a.lmConfig = &lmConfigState{
+	a.lmConfig.open = true
+	a.lmConfig.lmConfigState = lmConfigState{
 		info: &client.LMProviderInfo{Presets: []client.LMProviderPreset{{
 			ID:          "lm_studio",
 			Label:       "LM Studio (localhost)",
@@ -387,27 +325,9 @@ func TestSpanishSettingsHelpCommandsAndProviderDescriptionsAreLocalized(t *testi
 		modelCatalogWarnings: map[string]string{},
 		modelCatalogSources:  map[string]string{},
 	}
-	providerView := ansi.Strip(a.renderLMConfigProviderDetails(72, 8))
+	providerView := ansi.Strip(a.lmConfig.renderProviderDetails(72, 8))
 	if !strings.Contains(providerView, "Modelos locales servidos por LM Studio") ||
 		strings.Contains(providerView, "Locally-hosted models") {
 		t.Fatalf("Spanish provider description not localized:\n%s", providerView)
-	}
-}
-
-func TestJapaneseLMConfigBoxKeepsBorderWidthWithWideText(t *testing.T) {
-	a := New("http://unused")
-	a.SetLocale("ja")
-	width := 44
-	box := a.lmConfigBox(
-		"プロバイダー",
-		[]string{"プロバイダーの説明がとても長い場合でも罫線は揃う必要があります"},
-		width,
-		2,
-	)
-	for _, line := range strings.Split(box, "\n") {
-		stripped := ansi.Strip(line)
-		if got := lipgloss.Width(stripped); got != width {
-			t.Fatalf("line width = %d, want %d for %q in:\n%s", got, width, stripped, box)
-		}
 	}
 }

@@ -1,0 +1,48 @@
+  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /home/jcernuda/tui-audit-earthscop…  running  help   settings    x  
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION  ⠴ running                                                              ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: tui-audit-earthsco… │
+│ ▌⠴ TUI audit: San Diego… ││     • profile complete, file P475.CI.LY_.20.csv                                      ││ updated 0s ago                 │
+│   running · 14m ago      ││                                                                                      ││  • earthscope_conve… 149.5 KiB │
+│   ◆ earthscope-gnss      ││     state:                                                                           ││  • earthscope_statio… 33.4 KiB │
+│ ▾ CONTEXT                ││                                                                                      ││  • P475.CI.LY_.20.csv 49.2 MiB │
+│ (no files)               ││     • acquisition staged, file P475.CI.LY_.20.csv                                    ││  • P475.CI.LY_.20_p… 375.3 KiB │
+│                          ││     • catalog metadata_found                                                         ││                                │
+│ 1 active · 0 archived    ││     • geospatial resolved                                                            ││                                │
+│                          ││     • profile complete, file P475.CI.LY_.20.csv                                      ││                                │
+│                          ││ ↳ analysis handed work to gnss_timeseries_analysis  ·  running · delegating          ││                                │
+│                          ││ CSV data analysis({columns: <nil>, data_path: /home/jcernuda/tui-audit-earthscope……) ││                                │
+│                          ││ ·  running now                                                                       ││                                │
+│                          ││ ⎿ csv result:                                                                        ││                                │
+│                          ││  │ error: Profiled 8 columns across 5000 of 250000 scanned rows                      ││                                │
+│                          ││  │ file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv            ││                                │
+│                          ││  │ row_count: 250000                                                                 ││                                │
+│                          ││  │ columns: time, east, north, up, sigEE, ... 3 more                                 ││                                │
+│                          ││  │ detail: raw · Ctrl+E expand                                                       ││                                │
+│                          ││ ↳ gnss_timeseries_analysis returned evidence to analysis  ·  completed · returned ·  ││                                │
+│                          ││ 14665ms                                                                              ││                                │
+│                          ││     state:                                                                           ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • acquisition staged, file P475.CI.LY_.20.csv                                    ││                                │
+│                          ││     • catalog metadata_found                                                         ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││     • profile complete, file P475.CI.LY_.20.csv                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     state:                                                                           ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • acquisition staged, file P475.CI.LY_.20.csv                                    ││                                │
+│                          ││     • catalog metadata_found                                                         ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││     • profile complete, file P475.CI.LY_.20.csv                                      ││                                │
+│                          ││ ↳ analysis handed work to gnss_timeseries_analysis  ·  running · delegating          ││                                │
+│                          ││ CSV data analysis({columns: <nil>, data_path: /home/jcernuda/tui-audit-earthscope……) ││                                │
+│                          ││ ·  running now                                                                       ││                                │
+│                          ││ ⎿ csv result:                                                                        ││                                │
+│                          ││  │ error: Profiled 8 columns across 5000 of 250000 scanned rows                      ││                                │
+│                          ││  │ file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv            ││                                │
+│                          ││  │ row_count: 250000                                                                 ││                                │
+╰──────────────────────────╯│  │ columns: time, east, north, up, sigEE, ... 3 more                                 ││                                │
+                            ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │
+                            │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │
+                            ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                               

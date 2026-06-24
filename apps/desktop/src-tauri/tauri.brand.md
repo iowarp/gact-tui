@@ -20,6 +20,32 @@ by `GACT_BRAND`.
 | `bundle.longDescription`     | `CLIO Desktop is …`                     | Installer metadata.                                |
 | `bundle.icon`                | `icons/*` (the CLIO app icon)           | OS app icon — a raster asset, not generated at runtime. |
 
+## What is NOT brand-specific (must stay identical across overlays)
+
+`app.security.csp` is a **security** setting, not a brand setting, so it is intentionally
+**duplicated identically** in the base `tauri.conf.json` and every brand overlay
+(`tauri.gact.conf.json`, …). Do not let an overlay drop or weaken it — a brand build with
+no CSP, or a looser CSP than CLIO, would ship a less-locked shell. When you add a new
+`tauri.<brand>.conf.json`, copy the `app.security` block verbatim from the base.
+
+### connect-src rationale (why it is localhost-only)
+
+The CSP `connect-src` is scoped to `localhost` / `127.0.0.1` (http + ws/wss) and deliberately
+omits broad `http://*` / `https://*` wildcards. This does **not** break the
+remote / SSH-tunneled backend feature, because the WebView never makes the cross-origin
+request itself:
+
+- **HTTP** is performed by the Rust `gact_http` command (`src/gact_http.rs`, `ureq`), which
+  has no CORS/CSP layer. The WebView only `invoke`s a Tauri command.
+- **SSE** is performed by the Rust `gact_sse` bridge (`src/sse_*.rs`); the WebView receives
+  parsed events over Tauri IPC, it does not open an `EventSource` to the backend.
+- **SSH-tunneled remotes** are exposed locally as `http://127.0.0.1:<port>`
+  (`src/ssh.rs` → `ssh -L`), so even remote backends present to the app as localhost.
+
+If a future feature genuinely needs the WebView to reach an arbitrary remote host directly
+(not via the Rust bridge), widen `connect-src` to the **minimal** scheme/host set that
+feature requires and update this note — do not restore the blanket `http://*` / `https://*`.
+
 ## How to build a brand other than CLIO
 
 Two supported paths:

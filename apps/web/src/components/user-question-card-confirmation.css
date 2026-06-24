@@ -1,0 +1,39 @@
+.uqc__body--confirmation {
+  display: flex;
+  gap: 8px;
+}
+
+.uqc__yesno {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.uqc__yesno--yes:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.uqc__yesno--no:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 16%, transparent);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.uqc__yesno:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

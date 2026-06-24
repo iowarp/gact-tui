@@ -25,6 +25,8 @@
 // don't need to think about borders or padding.
 package ui
 
+// theme_custom.go loads, applies, exports, and saves the user's custom theme.
+
 import (
 	"encoding/json"
 	"image/color"

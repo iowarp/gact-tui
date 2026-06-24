@@ -33,11 +33,11 @@ func TestSSEBackoff_ScheduleBoundsPerAttempt(t *testing.T) {
 		{20, maxReconnectDelay},
 	}
 	for _, tc := range cases {
-		a.sseBackoffAttempts = tc.attempts
+		a.connection.sseBackoffAttempts = tc.attempts
 		// Sample 50 times per attempt so we detect a jitter range that
 		// drifts outside bounds even intermittently.
 		for i := 0; i < 50; i++ {
-			got := a.nextReconnectDelay()
+			got := a.connection.nextReconnectDelay()
 			lower := time.Duration(float64(tc.target) * 0.75)
 			if lower < baseReconnectDelay {
 				lower = baseReconnectDelay
@@ -54,8 +54,8 @@ func TestSSEBackoff_ScheduleBoundsPerAttempt(t *testing.T) {
 // TestSSEBackoff_NegativeAttemptsIsSafe defends against bookkeeping
 // bugs that could underflow the counter.
 func TestSSEBackoff_NegativeAttemptsIsSafe(t *testing.T) {
-	a := &App{sseBackoffAttempts: -5}
-	got := a.nextReconnectDelay()
+	a := &App{connection: connectionComponent{appConnectionState: appConnectionState{sseBackoffAttempts: -5}}}
+	got := a.connection.nextReconnectDelay()
 	if got < baseReconnectDelay || got > time.Duration(float64(baseReconnectDelay)*1.25) {
 		t.Errorf("negative-attempts delay = %v, want ~baseReconnectDelay", got)
 	}
@@ -66,11 +66,11 @@ func TestSSEBackoff_NegativeAttemptsIsSafe(t *testing.T) {
 // then an incoming event pins them back to 0.
 func TestSSEBackoff_ResetOnEventArrival(t *testing.T) {
 	a := &App{}
-	a.sseBackoffAttempts = 5
+	a.connection.sseBackoffAttempts = 5
 
 	// Synthesise an arriving event and route through Update.
 	_, _ = a.Update(sseEventMsg{Event: client.SSEEvent{Type: "noop"}})
-	if a.sseBackoffAttempts != 0 {
-		t.Errorf("attempts after event = %d, want 0", a.sseBackoffAttempts)
+	if a.connection.sseBackoffAttempts != 0 {
+		t.Errorf("attempts after event = %d, want 0", a.connection.sseBackoffAttempts)
 	}
 }

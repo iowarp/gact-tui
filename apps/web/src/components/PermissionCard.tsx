@@ -1,3 +1,6 @@
+/**
+ * UI component: Permission Card. Renders `PermissionCard` from `PermissionCardProps`.
+ */
 import type { PermissionRequest, PermissionScope } from '@clio/core';
 import './permission.css';
 
