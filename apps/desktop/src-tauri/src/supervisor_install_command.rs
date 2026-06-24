@@ -1,6 +1,32 @@
-/// Git ref of clio-agent the upstream installer should check out. Matches
-/// the `CLIO_REF=develop` the manual install hint uses.
+/// Default git ref of clio-agent the upstream installer should check out when
+/// no explicit target version is requested. Matches the `CLIO_REF=develop` the
+/// manual install hint uses.
 const CLIO_INSTALL_REF: &str = "develop";
+
+/// Resolve the clio-agent ref to install. An explicit target (from the
+/// version-badge update panel — a release tag like `v0.5.2`) wins; otherwise
+/// fall back to the default `develop` ref the first-run install/repair uses.
+///
+/// Trimmed and validated to a conservative ref charset (alphanumerics plus
+/// `.`, `_`, `-`, `/`) so a UI-supplied value can never inject extra shell —
+/// anything outside that set falls back to the default ref.
+pub(crate) fn resolve_ref(target_version: Option<&str>) -> String {
+    match target_version {
+        Some(v) => {
+            let trimmed = v.trim();
+            let safe = !trimmed.is_empty()
+                && trimmed
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '/'));
+            if safe {
+                trimmed.to_string()
+            } else {
+                CLIO_INSTALL_REF.to_string()
+            }
+        }
+        None => CLIO_INSTALL_REF.to_string(),
+    }
+}
 
 /// The shell program + argument vector that runs the UPSTREAM clio-agent
 /// installer for the current OS. This is the SAME script the manual error
@@ -15,14 +41,21 @@ const CLIO_INSTALL_REF: &str = "develop";
 /// short-circuiting when it sees an existing (but broken) install. A normal
 /// first-run install passes `force = false`.
 ///
+/// `target_version` pins a specific release ref (from the update panel);
+/// `None` installs the default `develop` ref.
+///
 /// - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -Command
-///   "$env:CLIO_REF='develop'; [$env:CLIO_FORCE='1';] irm <install.ps1 url> | iex"`
-/// - macOS/Linux: `bash -c "CLIO_REF=develop [CLIO_FORCE=1] curl -fsSL <install.sh url> | bash"`
-pub(crate) fn install_command(force: bool) -> (String, Vec<String>) {
+///   "$env:CLIO_REF='<ref>'; [$env:CLIO_FORCE='1';] irm <install.ps1 url> | iex"`
+/// - macOS/Linux: `bash -c "CLIO_REF=<ref> [CLIO_FORCE=1] curl -fsSL <install.sh url> | bash"`
+pub(crate) fn install_command_versioned(
+    force: bool,
+    target_version: Option<&str>,
+) -> (String, Vec<String>) {
+    let clio_ref = resolve_ref(target_version);
     if cfg!(windows) {
         let force_prefix = if force { "$env:CLIO_FORCE='1'; " } else { "" };
         let script = format!(
-            "$env:CLIO_REF='{CLIO_INSTALL_REF}'; {force_prefix}\
+            "$env:CLIO_REF='{clio_ref}'; {force_prefix}\
              irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex"
         );
         (
@@ -38,7 +71,7 @@ pub(crate) fn install_command(force: bool) -> (String, Vec<String>) {
     } else {
         let force_prefix = if force { "CLIO_FORCE=1 " } else { "" };
         let script = format!(
-            "CLIO_REF={CLIO_INSTALL_REF} {force_prefix}\
+            "CLIO_REF={clio_ref} {force_prefix}\
              curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash"
         );
         ("bash".to_string(), vec!["-c".to_string(), script])
@@ -54,7 +87,7 @@ mod tests {
     /// the upstream URL — the SAME one-liner the manual error card shows.
     #[test]
     fn install_command_targets_upstream_installer() {
-        let (program, args) = install_command(false);
+        let (program, args) = install_command_versioned(false, None);
         let joined = args.join(" ");
 
         assert!(
@@ -93,14 +126,14 @@ mod tests {
     /// upstream installer rebuild a broken venv instead of short-circuiting.
     #[test]
     fn install_command_force_flag_toggles_clio_force() {
-        let (_p, normal) = install_command(false);
+        let (_p, normal) = install_command_versioned(false, None);
         let normal = normal.join(" ");
         assert!(
             !normal.contains("CLIO_FORCE"),
             "first-run install must not force a reinstall, got: {normal}"
         );
 
-        let (_p, repair) = install_command(true);
+        let (_p, repair) = install_command_versioned(true, None);
         let repair = repair.join(" ");
         assert!(
             repair.contains("CLIO_FORCE"),
@@ -124,5 +157,45 @@ mod tests {
                 "unix repair must set CLIO_FORCE=1, got: {repair}"
             );
         }
+    }
+
+    /// An explicit target version (a release tag from the update panel) pins
+    /// CLIO_REF to that tag instead of the default `develop`.
+    #[test]
+    fn versioned_install_pins_the_requested_ref() {
+        let (_p, args) = install_command_versioned(false, Some("v0.5.2"));
+        let joined = args.join(" ");
+        assert!(
+            joined.contains("CLIO_REF=v0.5.2") || joined.contains("CLIO_REF='v0.5.2'"),
+            "versioned install must pin the requested tag, got: {joined}"
+        );
+        assert!(
+            !joined.contains(CLIO_INSTALL_REF),
+            "a versioned install must NOT fall back to the default ref, got: {joined}"
+        );
+    }
+
+    /// No target version → the default `develop` ref (NOT a pinned tag).
+    #[test]
+    fn versioned_install_without_target_uses_default_ref() {
+        let (_p, with_none) = install_command_versioned(false, None);
+        let joined = with_none.join(" ");
+        assert!(
+            joined.contains(CLIO_INSTALL_REF),
+            "an unpinned install must use the default `{CLIO_INSTALL_REF}` ref, got: {joined}"
+        );
+    }
+
+    /// A target version carrying shell metacharacters is rejected and falls
+    /// back to the default ref — the UI can never inject extra shell.
+    #[test]
+    fn resolve_ref_rejects_injection_and_falls_back() {
+        assert_eq!(resolve_ref(Some("v1.0.0; rm -rf /")), CLIO_INSTALL_REF);
+        assert_eq!(resolve_ref(Some("$(whoami)")), CLIO_INSTALL_REF);
+        assert_eq!(resolve_ref(Some("  ")), CLIO_INSTALL_REF);
+        assert_eq!(resolve_ref(None), CLIO_INSTALL_REF);
+        // A normal release tag passes through untouched.
+        assert_eq!(resolve_ref(Some("v0.5.2")), "v0.5.2");
+        assert_eq!(resolve_ref(Some("release/0.5")), "release/0.5");
     }
 }

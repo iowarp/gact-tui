@@ -37,6 +37,24 @@ pub fn repair_clio(app: tauri::AppHandle) {
     run_installer(app, true);
 }
 
+/// Update the clio-agent runtime to a specific released version. Driven by the
+/// version-badge update panel's Backend row: it re-runs the upstream installer
+/// pinned to `target_version` (a release tag like `v0.5.2`) with the force flag
+/// so the new ref is checked out over the existing install. A null/empty
+/// target falls back to the default `develop` ref.
+#[tauri::command]
+pub fn update_clio(app: tauri::AppHandle, target_version: Option<String>) {
+    let target = target_version.filter(|v| !v.trim().is_empty());
+    std::thread::spawn(move || {
+        let restart_app = app.clone();
+        supervisor_installer::install_clio_versioned(app, true, target, move || {
+            if let Some(state) = restart_app.try_state::<Mutex<Supervisor>>() {
+                lock_recover(&state).restart();
+            }
+        });
+    });
+}
+
 fn run_installer(app: tauri::AppHandle, force: bool) {
     std::thread::spawn(move || {
         let restart_app = app.clone();
