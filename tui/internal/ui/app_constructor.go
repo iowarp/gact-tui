@@ -142,6 +142,7 @@ func (a *App) wireComponents() {
 	a.permission.app = a
 	a.memory.app = a
 	a.plugins.app = a
+	a.contextView.app = a
 }
 
 // LoadDetachedRegistry seeds previouslyDetached from the local

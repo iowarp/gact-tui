@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
@@ -50,6 +51,14 @@ func (c *chromeComponent) renderFooter() string {
 
 	right := ""
 
+	// Per-expert context-usage mini indicator (SPEC §6.9): a compact
+	// segmented bar + % for the active expert, labelled with the expert name.
+	// Click opens the full Context overlay. Gated on the capability + a cached
+	// state; absent until the first fetch so v0.1 backends show nothing.
+	if c.app.session.caps.Capabilities.XClioContextState && c.app.session.footerContext != nil {
+		right += c.renderFooterContextIndicator(*c.app.session.footerContext) + "  "
+	}
+
 	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): memory cache-hit-rate chip.
 	// Gated on capabilities.memory so v0.1 backends render nothing.
 	// A non-zero memoryStats.Cache (either hits or misses) means we've
@@ -73,7 +82,7 @@ func (c *chromeComponent) renderFooter() string {
 			rate := lipgloss.NewStyle().Background(t.Bg).
 				Foreground(hrColor).Bold(true).Padding(0, 1).
 				Render(fmt.Sprintf("%.0f%%", hr*100))
-			right = chip + rate + "  "
+			right += chip + rate + "  "
 		}
 	}
 
@@ -110,4 +119,35 @@ func (c *chromeComponent) renderFooter() string {
 	)
 	c.registerFooterActionHits(rendered)
 	return rendered
+}
+
+// footerContextIndicatorLabel is the stable, hit-testable prefix the click
+// registration searches for in the rendered footer.
+const footerContextIndicatorLabel = "ctx "
+
+// renderFooterContextIndicator draws the compact per-expert mini segmented bar +
+// % for the footer. The label names the active expert (session default when
+// unscoped) so the user knows which lane the bar reflects.
+func (c *chromeComponent) renderFooterContextIndicator(cs client.ContextState) string {
+	t := c.app.Theme
+	expert := firstNonEmpty(c.app.agent.nextTurnAgentTitle, cs.Scope)
+	if expert == "" {
+		expert = "session"
+	}
+	pctText := ""
+	if pct, ok := contextFullnessPct(cs); ok {
+		pctText = fmt.Sprintf(" %.0f%%", pct*100)
+	}
+	segs := orderedContextCategories(cs.Categories)
+	total := contextCategoryTotal(cs.Categories)
+	bar := ""
+	if len(segs) > 0 {
+		bar = renderContextBar(t, 10, segs, contextBarDenominator(cs, total), cs.AutocompactPct)
+	}
+	label := lipgloss.NewStyle().Background(t.Bg).Foreground(t.FgMuted).Padding(0, 1).
+		Render(footerContextIndicatorLabel + textutil.Truncate(expert, 14))
+	barCell := lipgloss.NewStyle().Background(t.Bg).Render(bar)
+	pctCell := lipgloss.NewStyle().Background(t.Bg).Foreground(t.Fg).Bold(true).Padding(0, 1).
+		Render(pctText)
+	return label + barCell + pctCell
 }

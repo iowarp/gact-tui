@@ -151,6 +151,15 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+t":
 		// Open Metrics modal.
 		return a, a.metrics.openLoad()
+	case "ctrl+o":
+		// Open the per-expert Context usage overlay (SPEC §6.9). Gated on
+		// the backend capability so non-clio backends get a hint instead of
+		// an empty modal.
+		if !a.session.caps.Capabilities.XClioContextState {
+			a.setHint("context usage view not supported by this backend")
+			return a, nil
+		}
+		return a, a.contextView.openModal()
 	case "ctrl+alt+t", "alt+ctrl+t":
 		// Q2: cycle to the next theme without opening Settings.
 		// Kitty-protocol-only binding — non-Kitty users get the

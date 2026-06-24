@@ -115,6 +115,7 @@ type Server struct {
 	bus              *events.Bus
 	perms            *store.Permissions
 	contextFiles     *contextFileSet
+	contextState     *contextStateStore
 	latency          *latencyTracker
 	hooks            *hooksStore // §6.17 — MMM3
 	tasks            *tasksStore // §6.18 — MMM5
@@ -153,6 +154,7 @@ func NewWithStore(cfg Config, st *store.Store) *Server {
 		bus:            events.NewBus(cfg.EventRingCapacity),
 		perms:          store.NewPermissions(),
 		contextFiles:   newContextFileSet(),
+		contextState:   newContextStateStore(),
 		latency:        newLatencyTracker(1024),
 		hooks:          newHooksStore(),
 		tasks:          newTasksStore(),

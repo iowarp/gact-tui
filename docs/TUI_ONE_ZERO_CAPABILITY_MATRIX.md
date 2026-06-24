@@ -58,6 +58,7 @@ Support classes:
 | CLIO user questions | `x_clio_user_questions` | full | Question SSE lifecycle and answer modal are surfaced. |
 | CLIO retry attempts | `x_clio_retry_attempts` | full | Retry attempts and retry-with-model provenance are surfaced. |
 | CLIO context frames | `x_clio_context_frames` | full | Frame list/detail fetch and memory-tool detail are surfaced. |
+| CLIO context state | `x_clio_context_state` | full | Per-expert context usage view: segmented bar, memory inspector, footer indicator, and compact action are surfaced. |
 | CLIO semantic events | `x_clio_semantic_events` | full | `semantic.event` and `tool.call.*` SSE frames are reduced into live transcript evidence. |
 | CLIO semantic trace backend | `x_clio_semantic_trace_backend` | full | Trace backend metadata is visible in Doctor. |
 | CLIO semantic trace detail | `x_clio_semantic_trace_detail` | full | Trace detail metadata is visible in Doctor. |

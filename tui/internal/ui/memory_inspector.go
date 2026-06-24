@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func formatMemoryInspector(stats gact.MemoryStats) string {
@@ -23,6 +24,47 @@ func formatMemoryInspectorWithSearch(stats gact.MemoryStats, messages []gact.Mes
 
 func formatMemoryInspectorWithContext(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any) string {
 	return formatMemoryInspectorWithTools(stats, messages, search, frames, nil)
+}
+
+// formatMemoryInspectorFull is the production entry point: it renders the full
+// inspector text and, when a per-expert ContextState is available, prepends the
+// Claude /context-style segmented bar + legend (SPEC §6.9) so the memory modal
+// shows the same usage visual as the dedicated Context view. theme supplies the
+// stable category colours; contextState==nil falls back to the plain text.
+func formatMemoryInspectorFull(theme Theme, stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence, contextState *client.ContextState) string {
+	body := formatMemoryInspectorWithTools(stats, messages, search, frames, toolEvidence)
+	if contextState == nil {
+		return body
+	}
+	bar := memoryInspectorContextBar(theme, *contextState)
+	if bar == "" {
+		return body
+	}
+	return bar + "\n\n" + body
+}
+
+// memoryInspectorContextBar renders the segmented bar + header + legend block
+// the memory inspector prepends. Returns "" when there's nothing to attribute.
+func memoryInspectorContextBar(theme Theme, cs client.ContextState) string {
+	segs := orderedContextCategories(cs.Categories)
+	if len(segs) == 0 {
+		return ""
+	}
+	total := contextCategoryTotal(cs.Categories)
+	barW := 48
+	denom := contextBarDenominator(cs, total)
+	rows := []string{
+		"Context usage (" + firstNonEmpty(cs.Scope, "session") + ")",
+		"  " + contextHeaderText(cs),
+		"  " + renderContextBar(theme, barW, segs, denom, cs.AutocompactPct),
+	}
+	if cs.AutocompactPct != nil {
+		rows = append(rows, "  "+autocompactMarkerLegend(*cs.AutocompactPct))
+	}
+	for _, row := range renderContextLegend(theme, segs, total) {
+		rows = append(rows, "  "+row)
+	}
+	return strings.Join(rows, "\n")
 }
 
 func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Message, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) string {

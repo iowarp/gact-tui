@@ -36,6 +36,7 @@ var overlayKeyBindings = []overlayKeyBinding{
 	{func(a *App) bool { return a.session.setupOpen }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.session.handleSetupKey(k) }},
 	{func(a *App) bool { return a.workspace.switchOpen }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.workspace.handleKey(k) }},
 	{func(a *App) bool { return a.metrics.open }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.metrics.handleKey(k) }},
+	{func(a *App) bool { return a.contextView.open }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.contextView.handleKey(k) }},
 	{func(a *App) bool { return a.doctor.open }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.doctor.handleKey(k) }},
 	{func(a *App) bool { return a.lmConfig.open }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.lmConfig.handleKey(k) }},
 	{func(a *App) bool { return a.mcpInstall.open }, func(a *App, k tea.KeyPressMsg) (tea.Model, tea.Cmd) { return a.mcpInstall.handleKey(k) }},

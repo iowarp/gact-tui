@@ -16,6 +16,7 @@ var overlayViewBindings = []overlayViewBinding{
 	{func(a *App) bool { return a.settings.open }, func(a *App) string { return a.settings.view() }},
 	{func(a *App) bool { return a.sidebarLayout.open }, func(a *App) string { return a.sidebar.viewLayoutEditor() }},
 	{func(a *App) bool { return a.metrics.open }, func(a *App) string { return a.metrics.view() }},
+	{func(a *App) bool { return a.contextView.open }, func(a *App) string { return a.contextView.view() }},
 	{func(a *App) bool { return a.doctor.open }, func(a *App) string { return a.doctor.view() }},
 	{func(a *App) bool { return a.lmConfig.open }, func(a *App) string { return a.lmConfig.view() }},
 	{func(a *App) bool { return a.workspace.switchOpen }, func(a *App) string { return a.workspace.view() }},
