@@ -35,13 +35,41 @@ function pctLabel(fraction: number | null): string {
 export function ContextFooter(props: ContextFooterProps) {
   const [open, setOpen] = createSignal(false);
 
+  // Resolve a default scope when the caller supplies none. Some backends
+  // (real clio) REQUIRE a `scope` on GET .../context/state and 422 without it,
+  // so an unscoped probe would fail and the footer would never mount. Fall back
+  // to the routing root (the agent with no parent — typically `main`), else the
+  // first roster entry. Pre-supplied `experts`/`activeExpert` always win.
+  const [rosterScope] = createResource(
+    () => (props.activeExpert ? null : (props.sessionId ?? null)),
+    async () => {
+      const supplied = props.experts?.[0]?.id;
+      if (supplied) return supplied;
+      try {
+        const { agents } = await props.client.agents();
+        if (agents.length === 0) return undefined;
+        // clio routing roots at `main`; prefer it, else an agent with no
+        // parent in metadata, else the first roster entry.
+        const root =
+          agents.find((a) => a.id === 'main') ??
+          agents.find((a) => !(a.metadata?.['parent_id'] ?? a.metadata?.['parent_agent_id'])) ??
+          agents[0];
+        return root?.id;
+      } catch {
+        return undefined;
+      }
+    },
+  );
+
+  const effectiveScope = () => props.activeExpert ?? rosterScope();
+
   const [state] = createResource<
     ContextState | null,
     { sid: string; scope: string | undefined }
   >(
     () =>
       props.sessionId
-        ? { sid: props.sessionId, scope: props.activeExpert }
+        ? { sid: props.sessionId, scope: effectiveScope() }
         : null,
     async ({ sid, scope }) => {
       try {
@@ -101,7 +129,7 @@ export function ContextFooter(props: ContextFooterProps) {
               <ContextPanel
                 client={props.client}
                 sessionId={props.sessionId!}
-                {...(props.activeExpert ? { activeExpert: props.activeExpert } : {})}
+                {...(effectiveScope() ? { activeExpert: effectiveScope() } : {})}
                 {...(props.experts ? { experts: props.experts } : {})}
                 onClose={() => setOpen(false)}
               />
