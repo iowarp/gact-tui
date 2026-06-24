@@ -26,6 +26,18 @@ export async function repairClio(): Promise<void> {
 }
 
 /**
+ * Update the clio-agent runtime to a specific released version. Driven by the
+ * version-badge update panel's Backend row: it re-runs the upstream installer
+ * pinned to `targetVersion` (a release tag like `v0.5.2`) over the existing
+ * install. A null/empty target falls back to the default `develop` ref.
+ * Progress streams over the same `clio:install-*` events as a fresh install.
+ */
+export async function updateClio(targetVersion?: string | null): Promise<void> {
+  if (!inTauri()) return;
+  await invoke('update_clio', { targetVersion: targetVersion ?? null });
+}
+
+/**
  * Reveal the persisted boot log in the OS file manager. Resolves to the
  * revealed path or rejects with the Rust-side error string.
  */

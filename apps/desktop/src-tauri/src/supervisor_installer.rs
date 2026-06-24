@@ -13,7 +13,7 @@ use std::{
 use tauri::{AppHandle, Emitter};
 
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
-use crate::supervisor_install_command::install_command;
+use crate::supervisor_install_command::install_command_versioned;
 use crate::supervisor_install_events::{
     record_recent_line, tail_of, InstallFailed, InstallProgress, InstallRecentLines,
     EVT_INSTALL_DONE, EVT_INSTALL_FAILED, EVT_INSTALL_PROGRESS,
@@ -35,9 +35,30 @@ where
     R: tauri::Runtime,
     F: FnOnce(),
 {
-    // Fresh transcript for this install/repair attempt.
-    reset_boot_log(if force { "repair" } else { "install" });
-    let (program, args) = install_command(force);
+    install_clio_versioned(app, force, None, on_success);
+}
+
+/// Like {@link install_clio} but pins a specific clio-agent release ref (from
+/// the update panel's Backend row). `target_version = None` installs the
+/// default `develop` ref — identical to {@link install_clio}.
+pub fn install_clio_versioned<R, F>(
+    app: AppHandle<R>,
+    force: bool,
+    target_version: Option<String>,
+    on_success: F,
+) where
+    R: tauri::Runtime,
+    F: FnOnce(),
+{
+    // Fresh transcript for this install/repair/update attempt.
+    reset_boot_log(if target_version.is_some() {
+        "update"
+    } else if force {
+        "repair"
+    } else {
+        "install"
+    });
+    let (program, args) = install_command_versioned(force, target_version.as_deref());
 
     let spawn = Command::new(&program)
         .args(&args)

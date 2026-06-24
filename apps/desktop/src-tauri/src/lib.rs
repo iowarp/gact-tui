@@ -73,6 +73,7 @@ pub fn run() {
             commands::get_backend,
             commands::install_clio,
             commands::repair_clio,
+            commands::update_clio,
             commands::open_logs,
             commands::tunnel_open,
             gact_http::gact_http,
