@@ -188,11 +188,22 @@
   gap: 14px;
   width: min(520px, 92vw);
   max-height: 80vh;
-  overflow: auto;
+  /* `visible` (not `auto`) so the expert-selector dropdown menu can escape the
+     panel box instead of being clipped by a scroll container. The panel's own
+     content (header + bar + ~9-row legend + action) is short and bounded. */
+  overflow: visible;
   padding: 18px;
   background: var(--color-surface);
   border: 1px solid var(--color-border-30);
   border-radius: var(--radius-xl, 12px);
+}
+
+/* The panel is pinned bottom-right and its trigger sits high, so the Dropdown's
+   default upward menu clips off the top of the viewport — open it downward,
+   where the panel body + backdrop below give room. */
+.ctx-panel .dd__menu {
+  top: calc(100% + 6px);
+  bottom: auto;
 }
 
 .ctx-panel__head {

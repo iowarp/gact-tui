@@ -73,11 +73,15 @@ test.describe('per-expert context observer — visual proofs', () => {
     // shape differs markedly from the session-default working set.
     const option = panel.getByTestId('context-panel-expert-item-geospatial');
     await expect(option).toBeVisible({ timeout: 4_000 });
-    // Fire the option's onClick at the DOM level. A real bubbling pointer click
-    // would also reach the ctx-overlay backdrop and dismiss the panel (the
-    // overlay closes on a backdrop click); a direct `el.click()` runs the
-    // handler — switching the scope — while keeping the panel open for capture.
-    await option.evaluate((el: HTMLElement) => el.click());
+    // A REAL pointer click on the option. Regression guard for the overlay
+    // dismissal bug: the Dropdown option now stops propagation, so picking it
+    // switches the scope WITHOUT the click bubbling to the ctx-overlay backdrop
+    // and dismissing the panel.
+    await option.click();
+
+    // The panel must STILL be open after a real click — this is the bug this
+    // test guards against (previously the selection dismissed the overlay).
+    await expect(panel).toBeVisible();
 
     // Wait for the refetch to land a different segmentation.
     await expect
