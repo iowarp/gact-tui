@@ -170,7 +170,7 @@ func (c *conversationComponent) applySSEBatch(events []client.SSEEvent) tea.Cmd 
 		cmds = append(cmds, memoryStatsScopedCmd(c.app.c, c.app.session.runtimeScope()))
 	}
 	// Same idle piggy-back for the footer's per-expert context indicator.
-	if c.app.session.caps.Capabilities.XClioContextState &&
+	if c.app.session.caps.Capabilities.XClioContextFrames &&
 		prevStatus != c.app.session.currentStatus && c.app.session.currentStatus == gact.StatusIdle {
 		cmds = append(cmds, footerContextStateCmd(c.app.c, c.app.session.runtimeScope(), c.app.agent.nextTurnAgentID))
 	}
