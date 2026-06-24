@@ -89,11 +89,24 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
+		raw, _ := io.ReadAll(resp.Body)
 		var e gact.Error
-		_ = json.NewDecoder(resp.Body).Decode(&e)
+		_ = json.Unmarshal(raw, &e)
 		code := e.Error.Code
 		if code == "" {
 			code = e.Error.Error
+		}
+		if code == "" {
+			// Some vendor routes (e.g. context/compact) reply with a FLAT
+			// envelope `{"error": "nothing_to_compact"}` where `error` is a
+			// bare string rather than the §14 object. Recover the reason code
+			// from that shape so callers can switch on it.
+			var flat struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(raw, &flat) == nil {
+				code = flat.Error
+			}
 		}
 		return &Error{
 			Status:  resp.StatusCode,
@@ -124,9 +137,13 @@ func (e *Error) Error() string {
 
 // RuntimeScope carries the currently selected CLIO workspace/session into
 // runtime catalogs. Empty fields are omitted so older backends keep working.
+// Scope names the per-expert context lane (the `scope=<expert>` query on the
+// vendor context/state + context/compact routes); empty means the
+// session-default expert.
 type RuntimeScope struct {
 	WorkspaceID string
 	SessionID   string
+	Scope       string
 }
 
 func (s RuntimeScope) appendTo(q url.Values) {

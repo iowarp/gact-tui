@@ -2,17 +2,21 @@ export type {
   AddContextFileInput,
   AddContextFileResult,
   AttachmentFileInput,
+  CompactErrorReason,
   ContextFileListResult,
   ContextFileMode,
   ContextFrame,
   ContextFrameDetail,
   ContextFrameItem,
   ContextFramesResult,
+  ContextSegment,
+  ContextState,
   PatchContextFileInput,
   ReadWorkspaceFileResult,
   UploadAttachmentResult,
   WorkspaceFileListResult,
 } from './context.js';
+export { CompactContextError } from './context.js';
 export type {
   CreateWorkspaceInput,
   PatchWorkspaceInput,

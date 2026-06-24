@@ -166,7 +166,7 @@ consumers have an authority for the values.
     "x_clio_agent_blueprints": true,               // §6.21 — /v1/agent-blueprints
     "x_clio_user_questions": true,                 // §6.23 — /v1/sessions/{id}/questions
     "x_clio_retry_attempts": true,                 // §6.24 — /v1/sessions/{id}/messages/{id}/retry
-    "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames
+    "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
     "x_clio_semantic_events": true,                // §7.6 — the semantic.event SSE spine
     "x_clio_semantic_trace_backend": "none",       // "none" | "file" | "factory"
     "x_clio_semantic_trace_detail": "semantic",    // "off" | "metadata" | "semantic" | "full_debug"
@@ -787,6 +787,54 @@ Otherwise omit; TUI hides LSP UI.
 > | GET | `/v1/sessions/{id}/context/frames` (query `limit?`) | `{frames: ContextFrame[]}` — per-turn assembled-context snapshots (what was actually fed to the model: items with `kind`, `included`, `reason`, `tokens_estimated`) |
 > | GET | `/v1/sessions/{id}/context/frames/{frame_id}` | `ContextFrame` |
 > | GET | `/v1/sessions/{id}/context/policy` | `SessionContextPolicy` — effective memory/context policy (memory scope, cross-session-read availability, consent flags) |
+> | GET | `/v1/sessions/{id}/context/state` (query `scope?=<expert>`) | `ContextStateResponse` — per-expert context-usage snapshot (token fullness, auto-compaction line, `/context-style` category buckets) |
+> | POST | `/v1/sessions/{id}/context/compact` (query `scope?=<expert>`) | `ContextStateResponse` — LLM-summarizes the live working set into one summary segment, then returns the updated state |
+>
+> **`/context/state`** is the per-expert context-usage view. `scope` selects
+> the expert lane; omit it for the session-default expert. The response is
+> back-compatible (clients ignore unknown fields):
+>
+> ```json
+> // ContextStateResponse
+> {
+>   "session_id": "...",
+>   "scope": "<expert>",              // echoes the requested scope ("" = default)
+>   "as_of": 1700000000000,            // epoch millis of the snapshot, or null
+>   "window_tokens": 200000,           // model context window; 0 = unknown
+>   "live_tokens": 12000,              // segment-store attribution sum
+>   "pct_used": 0.06,                  // live_tokens/window_tokens, or null
+>   "used_tokens": 15500,              // NEW: REAL prompt tokens from the last LM call; null between turns
+>   "used_pct": 0.0775,                // NEW: used_tokens/window_tokens; null when unavailable
+>   "autocompact_pct": 0.85,           // NEW: auto-compaction trigger fraction in (0,1]; default 0.85
+>   "live_block_count": 7,
+>   "tokens_by_kind": { "<SegmentKind>": 8000 },
+>   "categories": {                    // NEW: /context-style buckets; zero buckets dropped
+>     "system": 0, "messages": 8000, "tools": 0, "reasoning": 0,
+>     "tool_calls": 4000, "observations": 0, "summary": 0, "io": 0, "other": 0,
+>     "framing": 3500                  //   synthetic = used_tokens - live_tokens; present only when used_tokens>0 and framing>0
+>   },
+>   "segments": [ /* attributed working-set rows */ ],
+>   "render_text": "...",              // pre-rendered one-line summary
+>   "render_keys": { /* ... */ }
+> }
+> ```
+>
+> **Fullness** = `used_pct` (model-grounded, preferred) else `pct_used`; draw
+> the auto-compaction line on the bar at `autocompact_pct`; absolute usage =
+> `used_tokens` (or `live_tokens` when `used_tokens` is null) / `window_tokens`.
+> `categories` keys are drawn from `system | messages | tools | reasoning |
+> tool_calls | observations | summary | io | other`, plus the synthetic
+> `framing` key.
+>
+> **`/context/compact`** summarizes the live working set into a single summary
+> segment and returns the post-compaction `ContextStateResponse` for the same
+> `scope`. Errors: `409 {"error": "nothing_to_compact"}` (no live segments),
+> `503 {"error": "compaction_unavailable"}` (no LM bound / summary failed),
+> `404` session not found. (These two routes use the flat `{"error": "..."}`
+> envelope, not the §14 object form.)
+>
+> Both routes are gated by the same `x_clio_context_frames` capability as the
+> frame routes above.
 
 ### §6.10 Diffs
 
@@ -1570,7 +1618,7 @@ to depend on.
 - Expert packs `/v1/expert-packs*` + session pack (§6.22)
 - User questions `/v1/sessions/{id}/questions*` (§6.23)
 - Turn retry/attempts `/v1/sessions/{id}/attempts`, `.../retry` (§6.24)
-- Context frames/policy `/v1/sessions/{id}/context/frames*`, `/context/policy` (§6.9)
+- Context frames/policy/state `/v1/sessions/{id}/context/frames*`, `/context/policy`, `/context/state`, `/context/compact` (§6.9)
 - Memory search/events/tools `/v1/memory/search`, `/v1/sessions/{id}/memory/*` (§6.19)
 - Capability gaps `/v1/capability-gaps` (§3.3.1)
 - Scheduled sessions + sharing (§6.15, §6.15b)

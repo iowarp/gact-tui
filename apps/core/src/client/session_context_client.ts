@@ -8,9 +8,11 @@ import type {
 } from './diffs.js';
 import {
   addSessionContextFile,
+  compactSessionContext,
   fetchSessionContextFrame,
   fetchSessionContextFiles,
   fetchSessionContextFrames,
+  fetchSessionContextState,
   patchSessionContextFile,
   removeSessionContextFile,
   uploadSessionAttachment,
@@ -23,6 +25,7 @@ import type {
   ContextFramesResult,
   ContextFrameDetail,
   ContextFileMode,
+  ContextState,
   PatchContextFileInput,
   UploadAttachmentResult,
 } from './context.js';
@@ -46,6 +49,27 @@ export class SessionContextClient extends SystemClient {
    */
   sessionContextFrame(sessionId: string, frameId: string): Promise<ContextFrameDetail> {
     return fetchSessionContextFrame(this, sessionId, frameId);
+  }
+
+  /**
+   * GET /v1/sessions/{id}/context/state[?scope=<expert>] — per-expert
+   * context-usage snapshot (token fullness, auto-compaction line, and the
+   * /context-style category buckets). Omit `scope` for the session-default
+   * expert. Vendor route, gated by `capabilities.x_clio_context_state`.
+   */
+  getContextState(sessionId: string, scope?: string): Promise<ContextState> {
+    return fetchSessionContextState(this, sessionId, scope);
+  }
+
+  /**
+   * POST /v1/sessions/{id}/context/compact[?scope=<expert>] — summarize the
+   * live working set into one summary segment and return the updated state.
+   * Rejects with a typed `CompactContextError` on the documented
+   * nothing_to_compact (409) / compaction_unavailable (503) /
+   * session_not_found (404) envelopes.
+   */
+  compactContext(sessionId: string, scope?: string): Promise<ContextState> {
+    return compactSessionContext(this, sessionId, scope);
   }
 
   /**
