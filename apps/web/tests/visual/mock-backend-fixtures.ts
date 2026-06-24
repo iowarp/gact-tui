@@ -1,4 +1,12 @@
-import type { Capabilities, Message, Part, SemanticEventPayload, Session } from '@clio/core';
+import type {
+  AgentsResult,
+  Capabilities,
+  ContextState,
+  Message,
+  Part,
+  SemanticEventPayload,
+  Session,
+} from '@clio/core';
 
 export const NOW = '2026-06-16T12:00:00Z';
 
@@ -500,10 +508,168 @@ export function capabilities(): Capabilities {
       structured_errors: true,
       tool_telemetry: true,
       x_clio_semantic_events: true,
+      x_clio_context_state: true,
     },
     transports: { events_sse: true, events_websocket: false },
     auth: { schemes: ['trust_socket'], current: 'trust_socket' },
     extensions: [],
+  };
+}
+
+// --- Per-expert context observer (x_clio_context_state) fixtures -----------
+//
+// The ContextPanel sources its expert roster from `client.agents()` and the
+// segmented bar from `getContextState(sessionId, scope?)`. These fixtures feed
+// a realistic, FULL-ish ContextStateResponse so the bar shows multiple colored
+// blocks, and vary by scope so switching the expert visibly re-shapes the bar.
+
+/** The expert roster the ContextPanel selector lists (GET /v1/agents). */
+export function contextAgentRoster(): AgentsResult {
+  return {
+    agents: [
+      { id: 'main', source: 'builtin', title: 'Main orchestrator', tier: 0 },
+      { id: 'geospatial', source: 'builtin', title: 'Geospatial expert', tier: 1 },
+      { id: 'data', source: 'builtin', title: 'Data acquisition', tier: 1 },
+      {
+        id: 'earthscope_catalog',
+        source: 'builtin',
+        title: 'EarthScope catalog',
+        tier: 2,
+      },
+    ],
+  };
+}
+
+/**
+ * Per-scope category shapes. The session default ("active expert", no scope)
+ * is a heavy, near-autocompact working set; named experts are lighter and
+ * differently weighted so the bar re-segments when the selector changes.
+ */
+const CONTEXT_CATEGORY_SHAPES: Record<string, Record<string, number>> = {
+  // session default / active expert — a full, late-turn working set
+  __default__: {
+    system: 18000,
+    messages: 64000,
+    tools: 12000,
+    reasoning: 9000,
+    tool_calls: 7000,
+    observations: 6000,
+    summary: 2000,
+    io: 1500,
+    framing: 4000,
+  },
+  geospatial: {
+    system: 14000,
+    messages: 28000,
+    tools: 9000,
+    reasoning: 16000,
+    tool_calls: 11000,
+    observations: 8000,
+    summary: 1200,
+    io: 900,
+    framing: 2600,
+  },
+  data: {
+    system: 12000,
+    messages: 41000,
+    tools: 6000,
+    reasoning: 4000,
+    tool_calls: 9000,
+    observations: 14000,
+    summary: 3200,
+    io: 2400,
+    framing: 1800,
+  },
+  earthscope_catalog: {
+    system: 9000,
+    messages: 16000,
+    tools: 21000,
+    reasoning: 3000,
+    tool_calls: 15000,
+    observations: 5000,
+    summary: 800,
+    io: 600,
+    framing: 1500,
+  },
+};
+
+const CONTEXT_WINDOW_TOKENS = 200000;
+
+/** Build a full ContextState for a (session, scope) pair. */
+export function contextStateForScope(
+  sessionId: string,
+  scope?: string,
+): ContextState {
+  const key = scope && CONTEXT_CATEGORY_SHAPES[scope] ? scope : '__default__';
+  const categories = CONTEXT_CATEGORY_SHAPES[key]!;
+  const live = Object.entries(categories)
+    .filter(([k]) => k !== 'framing')
+    .reduce((sum, [, v]) => sum + v, 0);
+  const framing = categories['framing'] ?? 0;
+  const used = live + framing;
+  const liveBlockCount = Object.values(categories).filter((v) => v > 0).length * 6;
+  // tokens_by_kind mirrors the categories at the SegmentKind granularity the
+  // backend reports (a 1:1 reflection is fine for the visual proof).
+  const tokensByKind: Record<string, number> = {
+    SystemPrompt: categories['system'] ?? 0,
+    UserMessage: Math.round((categories['messages'] ?? 0) * 0.55),
+    AssistantMessage: Math.round((categories['messages'] ?? 0) * 0.45),
+    ToolSchema: categories['tools'] ?? 0,
+    ToolCall: categories['tool_calls'] ?? 0,
+    ToolResult: categories['observations'] ?? 0,
+    Reasoning: categories['reasoning'] ?? 0,
+    Summary: categories['summary'] ?? 0,
+    Attachment: categories['io'] ?? 0,
+  };
+  return {
+    session_id: sessionId,
+    scope: scope ?? 'main',
+    as_of: Date.parse(NOW),
+    window_tokens: CONTEXT_WINDOW_TOKENS,
+    live_tokens: live,
+    pct_used: live / CONTEXT_WINDOW_TOKENS,
+    used_tokens: used,
+    used_pct: used / CONTEXT_WINDOW_TOKENS,
+    autocompact_pct: 0.85,
+    live_block_count: liveBlockCount,
+    tokens_by_kind: tokensByKind,
+    categories,
+    segments: [],
+    render_text: '',
+    render_keys: {},
+  };
+}
+
+/**
+ * Compacted state after "Compact now": the live working set collapses into a
+ * single dominant `summary` bucket (one live block), well under threshold.
+ */
+export function compactedContextState(
+  sessionId: string,
+  scope?: string,
+): ContextState {
+  const categories = { system: 18000, summary: 9000, framing: 1500 };
+  const live = categories.system + categories.summary;
+  const used = live + categories.framing;
+  return {
+    session_id: sessionId,
+    scope: scope ?? 'main',
+    as_of: Date.parse(NOW),
+    window_tokens: CONTEXT_WINDOW_TOKENS,
+    live_tokens: live,
+    pct_used: live / CONTEXT_WINDOW_TOKENS,
+    used_tokens: used,
+    used_pct: used / CONTEXT_WINDOW_TOKENS,
+    autocompact_pct: 0.85,
+    live_block_count: 1,
+    tokens_by_kind: {
+      SystemPrompt: categories.system,
+      Summary: categories.summary,
+    },
+    categories,
+    segments: [],
+    render_text: '',
+    render_keys: {},
   };
 }
 

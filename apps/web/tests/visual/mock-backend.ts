@@ -2,6 +2,9 @@ import type { Page, Route } from '@playwright/test';
 import {
   NOW,
   capabilities,
+  compactedContextState,
+  contextAgentRoster,
+  contextStateForScope,
   messagesForCase,
   provider,
   semanticEventsForCase,
@@ -90,6 +93,23 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
 
     if (method === 'GET' && path === '/v1/capabilities') {
       return json(route, capabilities());
+    }
+    if (method === 'GET' && path === '/v1/agents') {
+      return json(route, contextAgentRoster());
+    }
+    if (
+      method === 'GET' &&
+      path === `/v1/sessions/${session.id}/context/state`
+    ) {
+      const scope = url.searchParams.get('scope') ?? undefined;
+      return json(route, contextStateForScope(session.id, scope));
+    }
+    if (
+      method === 'POST' &&
+      path === `/v1/sessions/${session.id}/context/compact`
+    ) {
+      const scope = url.searchParams.get('scope') ?? undefined;
+      return json(route, compactedContextState(session.id, scope));
     }
     if (method === 'GET' && path === '/v1/sessions') {
       return json(route, { sessions: [session] });
