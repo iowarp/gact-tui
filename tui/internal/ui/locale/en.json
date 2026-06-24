@@ -220,6 +220,7 @@
   "help.global.switch_workspace": "switch workspace",
   "help.global.settings": "open model, agent, theme, TUI, and language settings",
   "help.global.metrics": "open metrics overlay",
+  "help.global.context": "open per-expert context usage view",
   "help.global.cycle_theme": "cycle theme without opening settings",
   "help.global.refresh": "refresh active server data",
   "help.global.reload_config": "reload config from disk",

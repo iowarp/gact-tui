@@ -37,7 +37,7 @@ func (c *commandPaletteComponent) executeCommand(cmd gact.Command) tea.Cmd {
 			c.app.setHint("memory inspector unsupported by this backend")
 			return scheduleHintExpire(c.app.transientHint)
 		}
-		return loadMemoryInspectorCmd(c.app.c, c.app.session.runtimeScope(), c.app.conversation.messages)
+		return loadMemoryInspectorCmd(c.app.Theme, c.app.c, c.app.session.runtimeScope(), c.app.conversation.messages)
 	}
 	if cmd.ID == "/mouse" {
 		c.app.MouseEnabled = !c.app.MouseEnabled

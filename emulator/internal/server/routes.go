@@ -84,6 +84,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PATCH /v1/sessions/{id}/context/files", s.handlePatchContextFile)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/frames", s.handleListContextFrames)
 	s.mux.HandleFunc("GET /v1/sessions/{id}/context/frames/{frame_id}", s.handleGetContextFrame)
+	s.mux.HandleFunc("GET /v1/sessions/{id}/context/state", s.handleContextState)
+	s.mux.HandleFunc("POST /v1/sessions/{id}/context/compact", s.handleContextCompact)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/files", s.handleWorkspaceFiles)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/files/read", s.handleWorkspaceFileRead)
 	s.mux.HandleFunc("GET /v1/workspaces/{id}/repo_map", s.handleRepoMap)

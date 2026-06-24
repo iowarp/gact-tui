@@ -220,6 +220,7 @@
   "help.global.switch_workspace": "ワークスペースを切替",
   "help.global.settings": "モデル、エージェント、テーマ、TUI、言語設定を開く",
   "help.global.metrics": "メトリクスを開く",
+  "help.global.context": "エキスパート別のコンテキスト使用状況を開く",
   "help.global.cycle_theme": "設定を開かずテーマを切替",
   "help.global.refresh": "現在のバックエンド情報を更新",
   "help.global.reload_config": "ディスクから設定を再読込",

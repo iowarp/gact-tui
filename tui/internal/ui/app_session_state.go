@@ -42,8 +42,14 @@ type appSessionState struct {
 	caps gact.Capabilities
 
 	memoryStats gact.MemoryStats
-	workspaces  []gact.Workspace
-	wsID        string
+	// footerContext caches the active-expert per-scope ContextState that the
+	// footer's mini segmented-bar indicator renders. Refreshed on connect and
+	// each turn-completion (idle) — same piggy-back loop as memoryStats. Nil
+	// until the first successful fetch; backends without the capability never
+	// fetch, so the indicator stays hidden.
+	footerContext *client.ContextState
+	workspaces    []gact.Workspace
+	wsID          string
 
 	sessions []gact.Session
 	selected int

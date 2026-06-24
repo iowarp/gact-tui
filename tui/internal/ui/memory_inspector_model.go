@@ -46,7 +46,7 @@ func memoryStatsScopedCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	}
 }
 
-func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, messages []gact.Message) tea.Cmd {
+func loadMemoryInspectorCmd(theme Theme, c *client.Client, scope client.RuntimeScope, messages []gact.Message) tea.Cmd {
 	sessionMessages := append([]gact.Message(nil), messages...)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -86,9 +86,18 @@ func loadMemoryInspectorCmd(c *client.Client, scope client.RuntimeScope, message
 		if scope.SessionID != "" {
 			toolEvidence = loadMemoryToolEvidence(ctx, c, scope, sessionMessages, frames)
 		}
+		// Best-effort per-expert context state for the segmented bar. A 501
+		// (backend doesn't support it) or any error just omits the bar; the
+		// rest of the inspector still renders.
+		var contextState *client.ContextState
+		if scope.SessionID != "" {
+			if cs, csErr := c.GetContextStateScoped(ctx, scope); csErr == nil {
+				contextState = &cs
+			}
+		}
 		return catalogDetailLoadedMsg{
 			title:      "Memory · context",
-			text:       formatMemoryInspectorWithTools(stats, sessionMessages, search, frames, toolEvidence),
+			text:       formatMemoryInspectorFull(theme, stats, sessionMessages, search, frames, toolEvidence, contextState),
 			standalone: true,
 		}
 	}

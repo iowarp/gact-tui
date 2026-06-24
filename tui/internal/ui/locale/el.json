@@ -220,6 +220,7 @@
   "help.global.switch_workspace": "αλλαγή workspace",
   "help.global.settings": "άνοιγμα ρυθμίσεων μοντέλου, πράκτορα, θέματος, TUI και γλώσσας",
   "help.global.metrics": "άνοιγμα προβολής metrics",
+  "help.global.context": "άνοιγμα προβολής χρήσης context ανά expert",
   "help.global.cycle_theme": "εναλλαγή θέματος χωρίς άνοιγμα ρυθμίσεων",
   "help.global.refresh": "ανανέωση δεδομένων ενεργού backend",
   "help.global.reload_config": "επαναφόρτωση ρύθμισης από δίσκο",

@@ -81,6 +81,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"x_clio_user_questions", caps.Capabilities.XClioUserQuestions, capVendor, capUIFull, "question SSE lifecycle and answer modal"},
 		{"x_clio_retry_attempts", caps.Capabilities.XClioRetryAttempts, capVendor, capUIFull, "retry attempts and retry-with-model provenance"},
 		{"x_clio_context_frames", caps.Capabilities.XClioContextFrames, capVendor, capUIFull, "frame list/detail fetch and memory tool detail"},
+		{"x_clio_context_state", caps.Capabilities.XClioContextState, capVendor, capUIFull, "per-expert context usage view: segmented bar, memory inspector, footer indicator, and compact action"},
 		{"x_clio_semantic_events", caps.Capabilities.XClioSemanticEvents, capVendor, capUIFull, "semantic.event and tool.call.* SSE frames reduce into live transcript evidence"},
 		{"x_clio_semantic_trace_backend", caps.Capabilities.XClioSemanticTraceBackend != "", capVendor, capUIFull, "trace backend metadata visible"},
 		{"x_clio_semantic_trace_detail", caps.Capabilities.XClioSemanticTraceDetail != "", capVendor, capUIFull, "trace detail metadata visible"},

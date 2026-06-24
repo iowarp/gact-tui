@@ -230,6 +230,12 @@ func (a *App) dispatchUpdateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentHierarchyLoadedMsg:
 		return a.agent.handleAgentHierarchyLoaded(m)
+
+	case contextStateLoadedMsg:
+		return a.contextView.handleLoaded(m)
+
+	case footerContextStateMsg:
+		return a.contextView.handleFooterState(m)
 	}
 	return a, nil
 }

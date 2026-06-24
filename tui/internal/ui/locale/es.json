@@ -220,6 +220,7 @@
   "help.global.switch_workspace": "cambiar espacio de trabajo",
   "help.global.settings": "abrir ajustes de modelo, agente, tema, TUI e idioma",
   "help.global.metrics": "abrir métricas",
+  "help.global.context": "abrir vista de uso de contexto por experto",
   "help.global.cycle_theme": "cambiar tema sin abrir ajustes",
   "help.global.refresh": "refrescar datos del backend activo",
   "help.global.reload_config": "recargar configuración desde disco",

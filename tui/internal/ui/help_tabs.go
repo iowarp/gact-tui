@@ -20,6 +20,7 @@ var helpTabs = []struct {
 			{"Ctrl+W", "help.global.switch_workspace"},
 			{"Ctrl+S", "help.global.settings"},
 			{"Ctrl+T", "help.global.metrics"},
+			{"Ctrl+O", "help.global.context"},
 			{"Ctrl+Alt+T", "help.global.cycle_theme"},
 			{"Ctrl+R", "help.global.refresh"},
 			{"Ctrl+L", "help.global.reload_config"},

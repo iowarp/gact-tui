@@ -128,4 +128,10 @@ type appOverlayState struct {
 	// `detail` (not `detailView`) so the struct field and its *bulkyPartRef
 	// ref don't share a selector path.
 	detail detailViewModal
+
+	// Per-expert Context usage overlay (SPEC §6.9). The dedicated Context
+	// view: an expert selector, the Claude /context-style segmented bar +
+	// legend + header, and a "Compact now" action. Opened by Ctrl+O or the
+	// footer context indicator; gated on capabilities.x_clio_context_state.
+	contextView contextViewComponent
 }

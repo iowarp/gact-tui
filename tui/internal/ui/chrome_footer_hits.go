@@ -31,7 +31,13 @@ func (c *chromeComponent) registerFooterActionHits(rendered string) {
 		if !app.session.caps.Capabilities.Memory {
 			return nil
 		}
-		return loadMemoryInspectorCmd(app.c, app.session.runtimeScope(), app.conversation.messages)
+		return loadMemoryInspectorCmd(app.Theme, app.c, app.session.runtimeScope(), app.conversation.messages)
+	})
+	c.registerFooterPlainHit(plain, y, "footer:context", footerContextIndicatorLabel, func(app *App) tea.Cmd {
+		if !app.session.caps.Capabilities.XClioContextState {
+			return nil
+		}
+		return app.contextView.openModal()
 	})
 	c.registerFooterActionHit(plain, y, "footer:pane", "Tab", c.app.localizer.t(msgFooterPane, nil), func(app *App) tea.Cmd {
 		app.chrome.focusNextPane()
