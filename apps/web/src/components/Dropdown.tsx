@@ -114,7 +114,13 @@ export function Dropdown<T>(props: DropdownProps<T>) {
                         data-testid={
                           props.testid ? `${props.testid}-item-${it.id}` : undefined
                         }
-                        onClick={() => {
+                        onClick={(e) => {
+                          // Stop the selection from bubbling to outer
+                          // click-away handlers (e.g. the ContextPanel overlay
+                          // backdrop / document close-on-outside), matching the
+                          // trigger button above. Without this, picking an
+                          // option inside an overlay dismisses the overlay.
+                          e.stopPropagation();
                           setOpen(false);
                           props.onPick(it);
                         }}
