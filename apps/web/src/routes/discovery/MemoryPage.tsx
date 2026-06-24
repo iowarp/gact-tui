@@ -43,6 +43,21 @@ export function MemoryPage(props: MemoryPageProps) {
   );
   const events = () => (eventsData()?.events ?? []) as MemoryEventRow[];
 
+  // Per-expert context state for the active session — feeds the segmented
+  // category bar inside the health readout. Best-effort: a backend without the
+  // x_clio_context_state route simply leaves the breakdown hidden.
+  const [contextState] = createResource(
+    () => props.activeSessionId,
+    async (sid) => {
+      if (!sid) return undefined;
+      try {
+        return await props.client.getContextState(sid);
+      } catch {
+        return undefined;
+      }
+    },
+  );
+
   return (
     <DiscoveryPage
       icon="memory"
@@ -71,7 +86,10 @@ export function MemoryPage(props: MemoryPageProps) {
         {(d) => (
           <>
             <div class="dp__section-title">Health</div>
-            <MemoryHealthReadout stats={d()} />
+            <MemoryHealthReadout
+              stats={d()}
+              {...(contextState() ? { contextState: contextState() } : {})}
+            />
             <div class="dp__section-title">Cache</div>
             <div class="dp__stats">
               <div class="dp__stat">
