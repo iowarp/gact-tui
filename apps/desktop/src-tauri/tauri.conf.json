@@ -4,7 +4,7 @@
   "version": "0.7.1",
   "identifier": "ai.iowarp.clio.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/web build:clio",
+    "beforeBuildCommand": "node scripts/gen-brand-backend.mjs clio && pnpm --filter @clio/web build:clio",
     "beforeDevCommand": "pnpm --filter @clio/web dev:clio",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"

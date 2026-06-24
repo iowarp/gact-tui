@@ -37,13 +37,10 @@ use std::{
 };
 use tauri::{AppHandle, Emitter};
 
-/// Launcher exit code meaning "clio-agent-gact could not be resolved".
+/// Launcher exit code meaning "the sidecar binary could not be resolved".
 /// Must stay in lockstep with `exitNotFound` in
 /// `apps/desktop/sidecar-launcher/main.go`.
 const LAUNCHER_EXIT_NOT_FOUND: i32 = 2;
-/// Git ref of clio-agent the upstream installer should check out. Matches
-/// the `CLIO_REF=develop` the manual install hint uses.
-const CLIO_INSTALL_REF: &str = "develop";
 /// Tauri event names for the streamed install. The frontend subscribes to
 /// these on the `needs_install` → auto-install transition.
 const EVT_INSTALL_PROGRESS: &str = "clio:install-progress";
@@ -60,20 +57,101 @@ const CAPABILITIES_TIMEOUT: Duration = Duration::from_secs(30);
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 /// Grace period between SIGTERM (or graceful kill on Windows) and SIGKILL.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
-/// Port the upstream `clio` installer binds by default. If a server is
-/// answering here we attach to it instead of spawning a competing one
-/// — the user's existing config (CLIO_LM_PROVIDER=alcf etc.) is then
-/// honored automatically.
-const ATTACH_DEFAULT_PORT: u16 = 17800;
-/// Env var that overrides the attach-port — matches the upstream
-/// `clio.{ps1,sh}` launcher convention.
-const ATTACH_PORT_ENV: &str = "CLIO_PORT";
-/// Env var that overrides the attach target with a full local backend URL.
-/// This mirrors the TUI/web test convention and lets native smoke tests bind
-/// to an owned CLIO without occupying the user's conventional `:17800`.
-const ATTACH_URL_ENV: &str = "CLIO_GACT_URL";
 /// Fast probe used during the attach-first check.
 const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Brand-driven backend configuration, embedded at compile time from the
+/// generated, committed `gen/brand-backend.json`. A committed DEFAULT holds
+/// the clio-agent (managed) values so `cargo build`/`cargo test` pass with
+/// zero generator runs; a brand build overwrites that file (via
+/// `scripts/gen-brand-backend.mjs <brand>`) before the web + cargo build, so
+/// `include_str!` picks up the brand-correct config. The JSON wire shape
+/// matches the brand.json "backend" block (camelCase keys).
+const BRAND_BACKEND_JSON: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/gen/brand-backend.json"));
+
+/// The resolved backend block for the active brand. Deserialized once from
+/// [`BRAND_BACKEND_JSON`]. `mode == "managed"` means the supervisor may
+/// spawn/install a sidecar; `mode == "connect"` means attach-only (never
+/// install). All scalar defaults are applied by the generator before this is
+/// embedded, so every field is present at parse time except the optional
+/// top-level `repo_label` (only emitted for connect/no-install brands).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrandBackend {
+    /// `"managed"` (spawn/install a sidecar) or `"connect"` (attach-only).
+    pub mode: String,
+    /// externalBin basename — the launcher is `<sidecar_name>-<triple>{.exe}`.
+    pub sidecar_name: String,
+    /// Conventional local port to attach-first; `0` disables attach.
+    pub attach_port: u16,
+    /// Env var overriding [`Self::attach_port`].
+    pub attach_port_env: String,
+    /// Env var overriding the full attach URL.
+    pub attach_url_env: String,
+    /// Top-level repo label used only on the connect/no-install error path
+    /// (where there is no `install.repo_label` to fall back to).
+    #[serde(default)]
+    pub repo_label: Option<String>,
+    /// Installer config, or `None` for connect-mode brands (no installer).
+    pub install: Option<BrandInstall>,
+}
+
+/// Upstream installer coordinates for a managed brand. Absent (`None` on
+/// [`BrandBackend::install`]) for connect-mode brands.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrandInstall {
+    /// Git ref the installer should check out.
+    #[serde(rename = "ref")]
+    pub r#ref: String,
+    /// Env var overriding [`Self::r#ref`].
+    pub ref_env: String,
+    /// Env var that forces a reinstall (rebuild a broken runtime).
+    pub force_env: String,
+    /// Windows installer URL (piped to `iex`).
+    pub windows_url: String,
+    /// macOS/Linux installer URL (piped to `bash`).
+    pub unix_url: String,
+    /// Human label for the install source (e.g. `github.com/iowarp/clio-agent`).
+    pub repo_label: String,
+}
+
+/// Accessor for the embedded brand backend config, parsed once.
+fn brand_backend() -> &'static BrandBackend {
+    use std::sync::OnceLock;
+    static BB: OnceLock<BrandBackend> = OnceLock::new();
+    BB.get_or_init(|| {
+        serde_json::from_str(BRAND_BACKEND_JSON).expect("gen/brand-backend.json is malformed")
+    })
+}
+
+/// True when the active brand is managed AND ships an installer — i.e. the
+/// supervisor is allowed to spawn the sidecar and (on exit-2) auto-install.
+/// Connect-mode brands (or managed brands with `install: null`) return false:
+/// the launcher is intentionally absent and a missing launcher is NORMAL, so
+/// the boot path attaches-only and surfaces [`connect_mode_error`] instead of
+/// `NeedsInstall`.
+pub(crate) fn is_managed_install() -> bool {
+    brand_backend().mode == "managed" && brand_backend().install.is_some()
+}
+
+/// The user-facing error for a connect-mode brand when no backend answers the
+/// attach probe. Names the brand's repo label (never a clio-agent literal) and
+/// the override env vars, telling the user to start that backend themselves.
+pub(crate) fn connect_mode_error() -> String {
+    let bb = brand_backend();
+    let label = bb
+        .repo_label
+        .clone()
+        .or_else(|| bb.install.as_ref().map(|i| i.repo_label.clone()))
+        .unwrap_or_else(|| "the configured backend".to_string());
+    format!(
+        "No backend is running. Start {label} and ensure it is listening on the \
+         attach port (override with {} / {}).",
+        bb.attach_port_env, bb.attach_url_env
+    )
+}
 
 /// Filename of the persisted boot log under the app log dir. The
 /// boot-failure card's "Open logs" button reveals THIS file. It is
@@ -314,6 +392,14 @@ impl Supervisor {
     pub fn restart(&self) {
         // Reap a stale child (e.g. a half-started launcher) before re-spawning.
         self.shutdown();
+        if let Ok(mut g) = self.inner.lock() {
+            g.handle.status = BackendStatus::Starting;
+        }
+        // Connect-mode brands never own a launcher — re-attach only.
+        if !is_managed_install() {
+            self.start_attach_only();
+            return;
+        }
         let launcher = match locate_launcher() {
             Ok(p) => p,
             Err(e) => {
@@ -323,10 +409,30 @@ impl Supervisor {
                 return;
             }
         };
-        if let Ok(mut g) = self.inner.lock() {
-            g.handle.status = BackendStatus::Starting;
-        }
         self.start(launcher);
+    }
+
+    /// Connect-mode boot: attach to an already-running backend on the brand's
+    /// conventional port (or its override env vars) and surface the
+    /// connect-mode hint if nothing answers. Never spawns or installs a
+    /// sidecar — used for brands whose `backend.mode == "connect"` (or managed
+    /// brands without an installer), where the launcher is intentionally
+    /// absent and a missing launcher is NORMAL.
+    pub fn start_attach_only(&self) {
+        let state = self.inner.clone();
+        thread::spawn(move || {
+            reset_boot_log("attach");
+            if let Some(handle) = try_attach_existing() {
+                boot_log_line("attached to an existing backend on the conventional port");
+                let mut guard = state.lock().expect("supervisor poisoned");
+                guard.handle = handle;
+                return;
+            }
+            let msg = connect_mode_error();
+            boot_log_line(&format!("attach-only boot found no backend: {msg}"));
+            let mut guard = state.lock().expect("supervisor poisoned");
+            guard.handle.status = BackendStatus::Error(msg);
+        });
     }
 
     /// Best-effort reap of the child process on app shutdown.
@@ -407,19 +513,20 @@ impl Default for Supervisor {
 /// back with a contract_version. Any other outcome returns None and the
 /// caller falls back to spawning a fresh sidecar.
 ///
-/// Honors `$CLIO_GACT_URL` when set, then `$CLIO_PORT` (matching the upstream
-/// `clio` launcher convention), before falling back to the documented :17800
-/// default.
+/// Honors the brand's attach-url env var when set, then its attach-port env
+/// var (matching the upstream launcher convention), before falling back to the
+/// brand's conventional attach port.
 fn try_attach_existing() -> Option<BackendHandle> {
-    let url = env::var(ATTACH_URL_ENV)
+    let bb = brand_backend();
+    let url = env::var(&bb.attach_url_env)
         .ok()
         .map(|s| s.trim_end_matches('/').to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| {
-            let port = env::var(ATTACH_PORT_ENV)
+            let port = env::var(&bb.attach_port_env)
                 .ok()
                 .and_then(|s| s.parse::<u16>().ok())
-                .unwrap_or(ATTACH_DEFAULT_PORT);
+                .unwrap_or(bb.attach_port);
             format!("http://127.0.0.1:{port}")
         });
     let endpoint = format!("{url}/v1/capabilities");
@@ -531,8 +638,17 @@ fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError
             // any other failure (→ Error). The launcher mirrors clio's exit
             // code, so a still-running child means clio is up but unhealthy.
             match child.try_wait() {
-                Ok(Some(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
+                Ok(Some(status))
+                    if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) && is_managed_install() =>
+                {
                     Err(SpawnError::NeedsInstall)
+                }
+                // Connect-mode (or no-install) brands never auto-install: a
+                // missing sidecar is normal, so surface the connect-mode hint
+                // naming the brand's repo label instead of NeedsInstall.
+                Ok(Some(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
+                    let _ = child.wait();
+                    Err(SpawnError::Other(connect_mode_error()))
                 }
                 _ => {
                     // Best-effort reap so a half-started launcher isn't leaked.
@@ -592,17 +708,19 @@ fn probe_capabilities(url: &str, token: &str) -> Result<(), String> {
 /// placement convention.
 ///
 /// Production install: alongside the main executable, named
-///   `clio-agent-<host-triple>{.exe}` (e.g. `clio-agent-x86_64-pc-windows-msvc.exe`).
+///   `<sidecarName>-<host-triple>{.exe}` (e.g. for the clio-agent default,
+///   `clio-agent-x86_64-pc-windows-msvc.exe`).
 /// `tauri:dev`: Tauri copies the externalBin into `target/debug/` so the
 ///   `current_exe + sibling` lookup works there too.
 /// Fallback for tests / cargo-run: `apps/desktop/src-tauri/binaries/`
 ///   relative to `CARGO_MANIFEST_DIR`.
 pub fn locate_launcher() -> Result<PathBuf, String> {
     let triple = host_target_triple();
+    let name = &brand_backend().sidecar_name;
     let basename = if cfg!(windows) {
-        format!("clio-agent-{triple}.exe")
+        format!("{name}-{triple}.exe")
     } else {
-        format!("clio-agent-{triple}")
+        format!("{name}-{triple}")
     };
 
     // 1) Tauri-installed: next to current_exe.
@@ -643,21 +761,38 @@ pub fn locate_launcher() -> Result<PathBuf, String> {
 /// Extracted as a pure function (no spawn, no I/O) so the exact command line
 /// is unit-testable per-OS. `install_clio` is the thin spawn wrapper.
 ///
-/// `force` drives the Repair / reinstall flow: it sets `CLIO_FORCE=1` so the
-/// upstream installer rebuilds a broken venv/runtime from scratch instead of
-/// short-circuiting when it sees an existing (but broken) install. A normal
-/// first-run install passes `force = false`.
+/// All of the ref/env-var/URL values come from the active brand's
+/// `backend.install` block (the clio-agent defaults for the committed config),
+/// so this stays brand-driven rather than hardcoded.
+///
+/// `force` drives the Repair / reinstall flow: it sets the brand's force env
+/// var (`CLIO_FORCE=1` by default) so the upstream installer rebuilds a broken
+/// venv/runtime from scratch instead of short-circuiting when it sees an
+/// existing (but broken) install. A normal first-run install passes
+/// `force = false`.
 ///
 /// - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -Command
-///   "$env:CLIO_REF='develop'; [$env:CLIO_FORCE='1';] irm <install.ps1 url> | iex"`
-/// - macOS/Linux: `bash -c "CLIO_REF=develop [CLIO_FORCE=1] curl -fsSL <install.sh url> | bash"`
+///   "$env:<refEnv>='<ref>'; [$env:<forceEnv>='1';] irm <windowsUrl> | iex"`
+/// - macOS/Linux: `bash -c "<refEnv>=<ref> [<forceEnv>=1] curl -fsSL <unixUrl> | bash"`
 pub fn install_command(force: bool) -> (String, Vec<String>) {
+    // Callers gate on `is_managed_install()`, so `install` is always present
+    // here in practice. The committed default also ships an `install` block,
+    // so the per-OS unit tests below exercise this path safely.
+    let inst = brand_backend()
+        .install
+        .as_ref()
+        .expect("install_command requires a managed install config");
+    let install_ref = &inst.r#ref;
+    let ref_env = &inst.ref_env;
+    let force_env = &inst.force_env;
     if cfg!(windows) {
-        let force_prefix = if force { "$env:CLIO_FORCE='1'; " } else { "" };
-        let script = format!(
-            "$env:CLIO_REF='{CLIO_INSTALL_REF}'; {force_prefix}\
-             irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex"
-        );
+        let force_prefix = if force {
+            format!("$env:{force_env}='1'; ")
+        } else {
+            String::new()
+        };
+        let url = &inst.windows_url;
+        let script = format!("$env:{ref_env}='{install_ref}'; {force_prefix}irm {url} | iex");
         (
             "powershell".to_string(),
             vec![
@@ -669,11 +804,13 @@ pub fn install_command(force: bool) -> (String, Vec<String>) {
             ],
         )
     } else {
-        let force_prefix = if force { "CLIO_FORCE=1 " } else { "" };
-        let script = format!(
-            "CLIO_REF={CLIO_INSTALL_REF} {force_prefix}\
-             curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash"
-        );
+        let force_prefix = if force {
+            format!("{force_env}=1 ")
+        } else {
+            String::new()
+        };
+        let url = &inst.unix_url;
+        let script = format!("{ref_env}={install_ref} {force_prefix}curl -fsSL {url} | bash");
         ("bash".to_string(), vec!["-c".to_string(), script])
     }
 }
@@ -878,9 +1015,13 @@ mod tests {
         // Rust build; that puts the host-triple launcher under binaries/.
         let p = locate_launcher().expect("launcher binary present after fetch-sidecar");
         let s = p.to_string_lossy();
+        // Assert against the active brand's sidecar name (the committed
+        // clio-agent default) rather than a hardcoded literal, so the test
+        // tracks the brand-driven basename.
+        let prefix = format!("{}-", brand_backend().sidecar_name);
         assert!(
-            s.contains("clio-agent-"),
-            "launcher path should include the basename, got {s}"
+            s.contains(&prefix),
+            "launcher path should include the brand basename `{prefix}`, got {s}"
         );
         assert!(p.is_file());
     }
@@ -949,6 +1090,76 @@ mod tests {
         assert_eq!(LAUNCHER_EXIT_NOT_FOUND, 2);
     }
 
+    /// The committed default brand backend (clio-agent, managed) deserializes
+    /// to the contract's exact camelCase wire keys. This pins the serde rename
+    /// mapping the generator output and this struct must agree on.
+    #[test]
+    fn committed_default_brand_backend_parses() {
+        let bb = brand_backend();
+        assert_eq!(bb.mode, "managed");
+        assert_eq!(bb.sidecar_name, "clio-agent");
+        assert_eq!(bb.attach_port, 17800);
+        assert_eq!(bb.attach_port_env, "CLIO_PORT");
+        assert_eq!(bb.attach_url_env, "CLIO_GACT_URL");
+        let inst = bb.install.as_ref().expect("default ships an install block");
+        assert_eq!(inst.r#ref, "develop");
+        assert_eq!(inst.ref_env, "CLIO_REF");
+        assert_eq!(inst.force_env, "CLIO_FORCE");
+        assert!(inst.windows_url.contains("iowarp/clio-agent"));
+        assert!(inst.unix_url.contains("iowarp/clio-agent"));
+        assert_eq!(inst.repo_label, "github.com/iowarp/clio-agent");
+        // The default is managed-with-install, so the install routing gate is
+        // open (the supervisor may spawn/auto-install).
+        assert!(is_managed_install());
+    }
+
+    /// A connect-mode brand (mode=="connect", install=null) parses through the
+    /// SAME serde struct and its connect-mode error names the top-level
+    /// repoLabel — never a clio-agent literal. This is the one genuinely-new
+    /// behavior; it's tested against an inline JSON literal so it doesn't
+    /// depend on the committed (managed) default file.
+    #[test]
+    fn connect_mode_brand_parses_and_error_names_repo_label() {
+        let json = r#"{
+            "mode": "connect",
+            "sidecarName": "clio-coder",
+            "attachPort": 8123,
+            "attachPortEnv": "CLIO_PORT",
+            "attachUrlEnv": "CLIO_GACT_URL",
+            "repoLabel": "github.com/iowarp/clio-coder",
+            "install": null
+        }"#;
+        let bb: BrandBackend = serde_json::from_str(json).expect("connect-mode JSON parses");
+        assert_eq!(bb.mode, "connect");
+        assert_eq!(bb.sidecar_name, "clio-coder");
+        assert_eq!(bb.attach_port, 8123);
+        assert!(bb.install.is_none());
+        assert_eq!(bb.repo_label.as_deref(), Some("github.com/iowarp/clio-coder"));
+
+        // The connect-mode error formatting (mirrors `connect_mode_error`,
+        // which reads the global default) must name the repo label and the
+        // override env vars, and must never mention clio-agent.
+        let label = bb
+            .repo_label
+            .clone()
+            .or_else(|| bb.install.as_ref().map(|i| i.repo_label.clone()))
+            .unwrap_or_else(|| "the configured backend".to_string());
+        let msg = format!(
+            "No backend is running. Start {label} and ensure it is listening on the \
+             attach port (override with {} / {}).",
+            bb.attach_port_env, bb.attach_url_env
+        );
+        assert!(
+            msg.contains("github.com/iowarp/clio-coder"),
+            "connect-mode error must name the brand repo label, got: {msg}"
+        );
+        assert!(
+            !msg.contains("clio-agent"),
+            "connect-mode error must not leak a clio-agent literal, got: {msg}"
+        );
+        assert!(msg.contains("CLIO_PORT") && msg.contains("CLIO_GACT_URL"));
+    }
+
     /// The install command is the upstream installer for the host OS. We
     /// assert the parts that matter: the right shell, the develop ref, and
     /// the upstream URL — the SAME one-liner the manual error card shows.
@@ -957,17 +1168,32 @@ mod tests {
         let (program, args) = install_command(false);
         let joined = args.join(" ");
 
+        // Drive the assertions from the active brand's install config (the
+        // committed clio-agent default) so they stay brand-correct. For the
+        // default these are `CLIO_REF`, `develop`, and the iowarp/clio-agent
+        // installer URLs, so the contract values still match.
+        let inst = brand_backend()
+            .install
+            .as_ref()
+            .expect("committed default ships an install block");
         assert!(
-            joined.contains("CLIO_REF"),
-            "installer must pin the clio ref env var, got: {joined}"
+            joined.contains(&inst.ref_env),
+            "installer must pin the brand ref env var `{}`, got: {joined}",
+            inst.ref_env
         );
         assert!(
-            joined.contains(CLIO_INSTALL_REF),
-            "installer must check out the `{CLIO_INSTALL_REF}` ref, got: {joined}"
+            joined.contains(&inst.r#ref),
+            "installer must check out the `{}` ref, got: {joined}",
+            inst.r#ref
         );
+        let expected_url = if cfg!(windows) {
+            &inst.windows_url
+        } else {
+            &inst.unix_url
+        };
         assert!(
-            joined.contains("raw.githubusercontent.com/iowarp/clio-agent"),
-            "installer must fetch from the upstream repo, got: {joined}"
+            joined.contains(expected_url.as_str()),
+            "installer must fetch from the brand's installer URL `{expected_url}`, got: {joined}"
         );
 
         if cfg!(windows) {
@@ -993,35 +1219,45 @@ mod tests {
     /// upstream installer rebuild a broken venv instead of short-circuiting.
     #[test]
     fn install_command_force_flag_toggles_clio_force() {
+        let inst = brand_backend()
+            .install
+            .as_ref()
+            .expect("committed default ships an install block");
+        let force_env = &inst.force_env;
+        let expected_url = if cfg!(windows) {
+            &inst.windows_url
+        } else {
+            &inst.unix_url
+        };
+
         let (_p, normal) = install_command(false);
         let normal = normal.join(" ");
         assert!(
-            !normal.contains("CLIO_FORCE"),
+            !normal.contains(force_env.as_str()),
             "first-run install must not force a reinstall, got: {normal}"
         );
 
         let (_p, repair) = install_command(true);
         let repair = repair.join(" ");
         assert!(
-            repair.contains("CLIO_FORCE"),
-            "repair must set CLIO_FORCE to rebuild a broken runtime, got: {repair}"
+            repair.contains(force_env.as_str()),
+            "repair must set the brand force env `{force_env}` to rebuild a broken runtime, got: {repair}"
         );
         // Repair still targets the SAME upstream installer + ref as a normal
         // install — it only adds the force env, nothing else changes.
         assert!(
-            repair.contains(CLIO_INSTALL_REF)
-                && repair.contains("raw.githubusercontent.com/iowarp/clio-agent"),
-            "repair must reuse the upstream installer, got: {repair}"
+            repair.contains(&inst.r#ref) && repair.contains(expected_url.as_str()),
+            "repair must reuse the brand installer, got: {repair}"
         );
         if cfg!(windows) {
             assert!(
-                repair.contains("$env:CLIO_FORCE='1'"),
+                repair.contains(&format!("$env:{force_env}='1'")),
                 "windows repair must set the force env via $env:, got: {repair}"
             );
         } else {
             assert!(
-                repair.contains("CLIO_FORCE=1"),
-                "unix repair must set CLIO_FORCE=1, got: {repair}"
+                repair.contains(&format!("{force_env}=1")),
+                "unix repair must set the force env, got: {repair}"
             );
         }
     }

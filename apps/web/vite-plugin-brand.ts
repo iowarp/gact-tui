@@ -35,6 +35,42 @@ interface RawBrand {
     url?: string;
     detail?: string;
   } | null;
+  backend?: RawBackend | null;
+}
+
+interface RawBackend {
+  mode?: 'managed' | 'connect';
+  sidecarName?: string;
+  attachPort?: number;
+  attachPortEnv?: string;
+  attachUrlEnv?: string;
+  repoLabel?: string;
+  install?: {
+    ref?: string;
+    refEnv?: string;
+    forceEnv?: string;
+    windowsUrl?: string;
+    unixUrl?: string;
+    repoLabel?: string;
+  } | null;
+}
+
+export interface ResolvedBackend {
+  mode: 'managed' | 'connect';
+  sidecarName: string;
+  attachPort: number;
+  attachPortEnv: string;
+  attachUrlEnv: string;
+  /** Top-level label for the connect / no-install hint; null otherwise. */
+  repoLabel: string | null;
+  install: {
+    ref: string;
+    refEnv: string;
+    forceEnv: string;
+    windowsUrl: string;
+    unixUrl: string;
+    repoLabel: string;
+  } | null;
 }
 
 export interface ResolvedBrand {
@@ -53,6 +89,8 @@ export interface ResolvedBrand {
     url: string;
     detail: string;
   } | null;
+  /** Resolved backend config (defaults applied); never absent. */
+  backend: ResolvedBackend;
   /** Inlined SVG source, or null when the profile has no logoSvg. */
   logoSvg: string | null;
 }
@@ -78,6 +116,68 @@ const DEFAULT_STARTER_PROMPTS: ResolvedBrand['starterPrompts'] = [
     label: 'Draft a migration plan from CSV to Parquet for our pipeline.',
   },
 ];
+
+/**
+ * Default backend block — the clio-agent managed configuration. Applied
+ * field-by-field whenever a profile omits (parts of) its `backend` block, so a
+ * brand with no `backend` resolves to byte-identical managed behavior.
+ */
+const DEFAULT_BACKEND: ResolvedBackend = {
+  mode: 'managed',
+  sidecarName: 'clio-agent',
+  attachPort: 17800,
+  attachPortEnv: 'CLIO_PORT',
+  attachUrlEnv: 'CLIO_GACT_URL',
+  repoLabel: null,
+  install: {
+    ref: 'develop',
+    refEnv: 'CLIO_REF',
+    forceEnv: 'CLIO_FORCE',
+    windowsUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1',
+    unixUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh',
+    repoLabel: 'github.com/iowarp/clio-agent',
+  },
+};
+
+/**
+ * Resolve a raw `backend` block into a fully-defaulted {@link ResolvedBackend}.
+ *
+ * Mirrors the duplicated logic in `apps/desktop/scripts/gen-brand-backend.mjs`
+ * (kept literally in sync). When `backend` is absent the managed clio-agent
+ * default is returned. An explicit `install: null` yields a connect-mode brand
+ * with no installer; an absent `install` inherits the default installer.
+ */
+function resolveBackend(raw: RawBrand): ResolvedBackend {
+  const b = raw.backend;
+  if (!b) return DEFAULT_BACKEND;
+
+  let install: ResolvedBackend['install'];
+  if (b.install === null) {
+    install = null;
+  } else if (b.install === undefined) {
+    install = DEFAULT_BACKEND.install;
+  } else {
+    const di = DEFAULT_BACKEND.install!;
+    install = {
+      ref: b.install.ref ?? di.ref,
+      refEnv: b.install.refEnv ?? di.refEnv,
+      forceEnv: b.install.forceEnv ?? di.forceEnv,
+      windowsUrl: b.install.windowsUrl ?? di.windowsUrl,
+      unixUrl: b.install.unixUrl ?? di.unixUrl,
+      repoLabel: b.install.repoLabel ?? di.repoLabel,
+    };
+  }
+
+  return {
+    mode: b.mode ?? DEFAULT_BACKEND.mode,
+    sidecarName: b.sidecarName ?? DEFAULT_BACKEND.sidecarName,
+    attachPort: b.attachPort ?? DEFAULT_BACKEND.attachPort,
+    attachPortEnv: b.attachPortEnv ?? DEFAULT_BACKEND.attachPortEnv,
+    attachUrlEnv: b.attachUrlEnv ?? DEFAULT_BACKEND.attachUrlEnv,
+    repoLabel: b.repoLabel ?? null,
+    install,
+  };
+}
 
 export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand {
   const dir = resolve(brandingRoot, profile);
@@ -135,6 +235,7 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     themeTokens,
     starterPrompts: starterPrompts.length > 0 ? starterPrompts : DEFAULT_STARTER_PROMPTS,
     backendRepository,
+    backend: resolveBackend(raw),
     logoSvg,
   };
 }

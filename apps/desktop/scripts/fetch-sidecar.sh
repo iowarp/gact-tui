@@ -5,9 +5,15 @@
 # Tauri's externalBin bundling can pick it up.
 #
 # Usage:
-#   ./fetch-sidecar.sh              # host triple only
-#   ./fetch-sidecar.sh --all        # host + all release triples
-#   ./fetch-sidecar.sh <triple>...  # specific triples
+#   ./fetch-sidecar.sh                            # host triple only
+#   ./fetch-sidecar.sh --all                      # host + all release triples
+#   ./fetch-sidecar.sh <triple>...                # specific triples
+#   ./fetch-sidecar.sh --sidecar-name <name> ...  # override the externalBin basename
+#
+# The optional --sidecar-name flag overrides the output basename so the
+# launcher lands at binaries/<name>-<triple>{.exe}. It defaults to
+# `clio-agent`, preserving the managed clio-agent behavior. Connect-mode
+# brands (e.g. clio-coder) do not run this script at all.
 #
 # Triple <-> GOOS/GOARCH map:
 #   x86_64-pc-windows-msvc   -> windows/amd64
@@ -25,6 +31,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/sidecar-launcher"
 OUT="$ROOT/src-tauri/binaries"
 LOCK="$ROOT/src-tauri/sidecar.lock"
+
+# externalBin basename for the produced launcher; defaults to clio-agent.
+SIDECAR_NAME="clio-agent"
 
 mkdir -p "$OUT"
 
@@ -72,7 +81,7 @@ build_one() {
   goos=$(echo "$spec" | awk '{print $1}')
   goarch=$(echo "$spec" | awk '{print $2}')
   ext=$(echo "$spec" | awk '{print $3}')
-  local out="$OUT/clio-agent-${triple}${ext}"
+  local out="$OUT/${SIDECAR_NAME}-${triple}${ext}"
   echo "[fetch-sidecar] building $triple -> $out (GOOS=$goos GOARCH=$goarch)"
   (
     cd "$SRC"
@@ -131,6 +140,17 @@ EOF
 }
 
 main() {
+  # Consume an optional leading `--sidecar-name <name>` flag so the
+  # remaining args still mean exactly what they did before.
+  if [ "${1:-}" = "--sidecar-name" ]; then
+    if [ $# -lt 2 ]; then
+      echo "fetch-sidecar: --sidecar-name requires a value" >&2
+      return 2
+    fi
+    SIDECAR_NAME="$2"
+    shift 2
+  fi
+
   local triples
   if [ $# -eq 0 ]; then
     triples="$(host_triple)"

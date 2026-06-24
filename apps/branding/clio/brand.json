@@ -13,6 +13,21 @@
     "url": "https://github.com/iowarp/clio-agent",
     "detail": "CLIO backend"
   },
+  "backend": {
+    "mode": "managed",
+    "sidecarName": "clio-agent",
+    "attachPort": 17800,
+    "attachPortEnv": "CLIO_PORT",
+    "attachUrlEnv": "CLIO_GACT_URL",
+    "install": {
+      "ref": "develop",
+      "refEnv": "CLIO_REF",
+      "forceEnv": "CLIO_FORCE",
+      "windowsUrl": "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1",
+      "unixUrl": "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh",
+      "repoLabel": "github.com/iowarp/clio-agent"
+    }
+  },
   "starterPrompts": [
     {
       "eyebrow": "EarthScope",

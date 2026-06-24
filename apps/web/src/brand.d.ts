@@ -31,6 +31,30 @@ declare module '@brand' {
     } | null;
     /** Inlined SVG logo source, or null. Overrides markGlyph when present. */
     logoSvg: string | null;
+    /** Brand-driven backend descriptor consumed by the desktop supervisor. */
+    backend: {
+      /** managed = supervisor spawns/installs a sidecar; connect = attach-only. */
+      mode: 'managed' | 'connect';
+      /** externalBin basename → binaries/<sidecarName>-<triple>. */
+      sidecarName: string;
+      /** Conventional local port to attach-first; 0 disables attach. */
+      attachPort: number;
+      /** Env var overriding attachPort. */
+      attachPortEnv: string;
+      /** Env var overriding the full attach URL. */
+      attachUrlEnv: string;
+      /** Repo label for the connect/no-install hint, or null. */
+      repoLabel: string | null;
+      /** Installer descriptor, or null for connect-mode brands. */
+      install: {
+        ref: string;
+        refEnv: string;
+        forceEnv: string;
+        windowsUrl: string;
+        unixUrl: string;
+        repoLabel: string;
+      } | null;
+    };
   }
   export const brand: Brand;
   export default brand;

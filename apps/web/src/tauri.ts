@@ -7,8 +7,8 @@
  * tree-shake-friendly and never throws on missing Tauri internals.
  *
  * IMPORTANT: when running inside Tauri, the WebView origin is
- * `http://tauri.localhost` and HTTP requests to the local sidecar
- * (e.g. http://127.0.0.1:17800) hit browser-level CORS. The
+ * `http://tauri.localhost` and HTTP requests to the local backend
+ * (e.g. http://127.0.0.1:<attachPort>) hit browser-level CORS. The
  * `tauri-plugin-http` bridge routes those requests through Rust,
  * sidestepping CORS entirely. The frontend Client uses `pickFetch()`
  * which returns the Tauri-bridged fetch inside the shell and the
@@ -24,10 +24,11 @@ export interface BackendHandle {
 export type BackendStatus =
   | { kind: 'starting' }
   | { kind: 'ready' }
-  // First run: the bundled launcher resolved no clio-agent-gact (exit 2).
-  // The Splash reacts by auto-running `installClio()` (one swoop) rather
-  // than showing the manual copy-paste error card. Only ever reported
-  // inside the Tauri shell — the pure-web path can't produce it.
+  // First run (managed brands only): the bundled launcher resolved no
+  // sidecar binary (exit 2). The Splash reacts by auto-running
+  // `installClio()` (one swoop) rather than showing the manual copy-paste
+  // error card. Only ever reported inside the Tauri shell — the pure-web
+  // path can't produce it, and connect-mode brands never emit it.
   | { kind: 'needs_install' }
   | { kind: 'error'; detail: string };
 
@@ -207,9 +208,9 @@ export function onMenuAction(handler: (action: MenuAction) => void): () => void 
 }
 
 /**
- * Kick off the first-run "one swoop" clio-agent install. Runs the upstream
- * installer in the Rust supervisor and streams progress back over the
- * `clio:install-*` events (subscribe via {@link onInstallProgress}).
+ * Kick off the first-run "one swoop" managed-backend install. Runs the
+ * upstream installer in the Rust supervisor and streams progress back over
+ * the `clio:install-*` events (subscribe via {@link onInstallProgress}).
  *
  * Resolves as soon as the worker thread is launched — NOT when the install
  * finishes. Completion is signalled by `clio:install-done` /
@@ -225,7 +226,7 @@ export async function installClio(): Promise<void> {
 }
 
 /**
- * Repair / reinstall the clio-agent runtime — the boot-failure card's
+ * Repair / reinstall the managed backend runtime — the boot-failure card's
  * "Repair install" action. Distinct from Retry (re-probe/re-spawn the
  * existing install): this re-runs the upstream installer with a force flag
  * so a broken venv/runtime is rebuilt from scratch.

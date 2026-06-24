@@ -34,6 +34,11 @@ func main() {
 	port := flag.Int("port", 8123, "TCP port to listen on for GACT clients")
 	host := flag.String("host", "127.0.0.1", "bind interface")
 	cwd := flag.String("cwd", "", "workspace root passed to the agent (defaults to $PWD)")
+	// --token is accepted for drop-in compatibility with GACT desktop's
+	// supervisor (which spawns every sidecar as `<bin> --host --port --token`).
+	// The bridge serves localhost over the contract's trust_socket scheme, so
+	// the token is not enforced today; the flag just keeps the CLI uniform.
+	_ = flag.String("token", "", "bearer token (accepted for supervisor compatibility; not enforced)")
 	flag.Parse()
 
 	if *cwd == "" {

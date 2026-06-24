@@ -10,6 +10,7 @@
     "test:webview": "node --test tests/webview-e2e.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
+    "gen-brand-backend": "node scripts/gen-brand-backend.mjs",
     "build-clio-runtime": "node scripts/build-clio-runtime.mjs",
     "tauri": "tauri",
     "tauri:dev": "pnpm fetch-sidecar && tauri dev",

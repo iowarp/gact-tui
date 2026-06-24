@@ -273,11 +273,23 @@ pub fn run() {
             {
                 let sup = app.state::<Mutex<Supervisor>>();
                 let sup = sup.lock().expect("supervisor poisoned");
-                match supervisor::locate_launcher() {
-                    Ok(launcher) => sup.start(launcher),
-                    Err(e) => sup.set_error(format!(
-                        "sidecar launcher missing: {e}. Run `pnpm fetch-sidecar` and rebuild."
-                    )),
+                if supervisor::is_managed_install() {
+                    // Managed brand: locate the bundled launcher and spawn it.
+                    // A missing launcher IS an error here (the build should
+                    // have fetched it).
+                    match supervisor::locate_launcher() {
+                        Ok(launcher) => sup.start(launcher),
+                        Err(e) => sup.set_error(format!(
+                            "sidecar launcher missing: {e}. Run `pnpm fetch-sidecar` and rebuild."
+                        )),
+                    }
+                } else {
+                    // Connect-mode (or no-install) brand: the launcher is
+                    // intentionally absent (externalBin: []). Attach to an
+                    // already-running backend on the brand's conventional port
+                    // and surface the connect-mode hint (naming the brand's
+                    // repo label) if nothing answers — never install.
+                    sup.start_attach_only();
                 }
             }
 

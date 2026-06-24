@@ -14,11 +14,17 @@
 
 .PARAMETER Triples
   Specific triples to build (e.g. "x86_64-pc-windows-msvc").
+
+.PARAMETER SidecarName
+  Overrides the externalBin basename so the launcher lands at
+  binaries/<name>-<triple>{.exe}. Defaults to "clio-agent", preserving the
+  managed clio-agent behavior. Connect-mode brands do not run this script.
 #>
 [CmdletBinding()]
 param(
   [switch] $All,
-  [string[]] $Triples
+  [string[]] $Triples,
+  [string] $SidecarName = 'clio-agent'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +50,7 @@ function Build-One($triple) {
     throw "fetch-sidecar: unknown target triple: $triple"
   }
   $t = $targets[$triple]
-  $outFile = Join-Path $out "clio-agent-$triple$($t.ext)"
+  $outFile = Join-Path $out "$SidecarName-$triple$($t.ext)"
   Write-Host "[fetch-sidecar] building $triple -> $outFile"
   Push-Location $src
   try {

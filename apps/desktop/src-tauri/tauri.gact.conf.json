@@ -3,7 +3,7 @@
   "productName": "GACT Desktop",
   "identifier": "land.charm.gact.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/web build:gact",
+    "beforeBuildCommand": "node scripts/gen-brand-backend.mjs gact && pnpm --filter @clio/web build:gact",
     "beforeDevCommand": "pnpm --filter @clio/web dev:gact"
   },
   "app": {

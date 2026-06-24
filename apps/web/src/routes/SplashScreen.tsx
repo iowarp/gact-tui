@@ -37,9 +37,10 @@ import './splash.css';
  * pure-web build.
  *
  * - In Tauri: polls `get_backend` until status flips from `starting`
- *   to `ready` (or `error`). The bundled clio-agent-gact sidecar is
- *   already spawning in the Rust supervisor; we just wait.
- * - In a pure browser: probes `http://localhost:17800/v1/capabilities`
+ *   to `ready` (or `error`). The managed sidecar (brand.backend.sidecarName)
+ *   is already spawning in the Rust supervisor; we just wait. Connect-mode
+ *   brands attach to an already-running backend instead.
+ * - In a pure browser: probes `http://localhost:<brand.backend.attachPort>/v1/capabilities`
  *   directly. If it answers, transition to chat. If not, surface a
  *   "manual connect" prompt that opens ConnectScreen (rendered as a
  *   sibling route, not the default).
@@ -52,7 +53,7 @@ export interface SplashScreenProps {
   onWebFallbackNeeded: () => void;
 }
 
-const PURE_WEB_DEFAULT_BACKEND = 'http://localhost:17800';
+const PURE_WEB_DEFAULT_BACKEND = `http://localhost:${brand.backend.attachPort}`;
 const PURE_WEB_PROBE_TIMEOUT_MS = 2_500;
 const TAURI_POLL_INTERVAL_MS = 250;
 const TAURI_MAX_WAIT_MS = 30_000;
@@ -123,7 +124,7 @@ export function SplashScreen(props: SplashScreenProps) {
       setPhase('installing');
       const runtimeDir = `%LOCALAPPDATA%\\${brand.name.toLowerCase()}\\agent\\.venv`;
       const installSource = brand.backendRepository
-        ? `Cloning ${brand.backendRepository.label}@develop…`
+        ? `Cloning ${brand.backendRepository.label}@${brand.backend.install?.ref ?? 'develop'}…`
         : `Preparing ${brand.name} agent backend…`;
       setInstallLog([
         installSource,
@@ -169,9 +170,19 @@ export function SplashScreen(props: SplashScreenProps) {
         return;
       }
       if (status.kind === 'needs_install') {
-        // First run: clio-agent-gact isn't installed. Auto-run the upstream
+        // First run: the managed sidecar isn't installed. Auto-run the upstream
         // installer (one swoop — no click) and switch to the install view.
+        //
+        // Connect-mode brands never install anything — the Rust supervisor must
+        // not emit `needs_install` for them, but guard defensively: if it ever
+        // does, surface the connect hint instead of running an installer that
+        // doesn't exist.
         stopElapsedTimer();
+        if (brand.backend.mode === 'connect') {
+          setPhase('error');
+          setError(connectModeMessage());
+          return;
+        }
         startInstall();
         return;
       }
@@ -184,9 +195,13 @@ export function SplashScreen(props: SplashScreenProps) {
     }
     if (!cancelled) {
       setPhase('error');
+      const install = brand.backend.install;
+      const hint =
+        install === null
+          ? connectModeMessage()
+          : `Check the backend install (${install.refEnv}=${install.ref}).`;
       setError(
-        `Sidecar did not report ready within ${TAURI_MAX_WAIT_MS / 1000}s. ` +
-          `Check the backend install (CLIO_REF=develop).`,
+        `Backend did not report ready within ${TAURI_MAX_WAIT_MS / 1000}s. ` + hint,
       );
     }
   }
@@ -277,8 +292,8 @@ export function SplashScreen(props: SplashScreenProps) {
       await handoff(PURE_WEB_DEFAULT_BACKEND, '');
     } catch (e) {
       clearTimeout(timer);
-      // No live backend on :7777 — fall back to the manual connect form
-      // (only path where the user sees URL/token entry).
+      // No live backend on the attach port — fall back to the manual connect
+      // form (only path where the user sees URL/token entry).
       if (!cancelled) {
         props.onWebFallbackNeeded();
       }
@@ -330,7 +345,7 @@ export function SplashScreen(props: SplashScreenProps) {
           <p class="splash__hint">
             {phase() === 'starting'
               ? 'Booting the bundled agent backend…'
-              : 'Looking for a backend on localhost:17800…'}
+              : `Looking for a backend on localhost:${brand.backend.attachPort}…`}
             <Show when={elapsedMs() > 1500}>
               <span class="splash__elapsed">
                 {' · '}
@@ -376,15 +391,25 @@ export function SplashScreen(props: SplashScreenProps) {
                 : `Couldn't start ${brand.name}`}
             </div>
             <p class="splash__error-msg">{error()}</p>
-            <p class="splash__error-hint">
-              {installFailed()
-                ? 'Automatic setup failed. You can retry, or install the backend manually and restart:'
-                : 'Install '}
-              <Show when={!installFailed()}>
-                the backend from the develop branch and restart:
-              </Show>
-            </p>
-            <code class="splash__cmd">{installRecipeForPlatform()}</code>
+            <Show
+              when={brand.backend.install !== null}
+              fallback={
+                <p class="splash__error-hint" data-testid="splash-connect-hint">
+                  {connectModeMessage()}
+                </p>
+              }
+            >
+              <p class="splash__error-hint">
+                {installFailed()
+                  ? 'Automatic setup failed. You can retry, or install the backend manually and restart:'
+                  : 'Install '}
+                <Show when={!installFailed()}>
+                  the backend from the {brand.backend.install?.ref ?? 'develop'} branch
+                  and restart:
+                </Show>
+              </p>
+              <code class="splash__cmd">{installRecipeForPlatform()}</code>
+            </Show>
             <div class="splash__error-actions">
               <button
                 type="button"
@@ -473,22 +498,41 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * One-line hint for connect-mode brands (no installer). Names the brand's
+ * backend repository label — never a clio-agent literal — and the env vars
+ * that override where the desktop attaches.
+ */
+function connectModeMessage(): string {
+  const label =
+    brand.backend.repoLabel ?? brand.backendRepository?.label ?? 'your backend';
+  return (
+    `Start ${label} and make sure it is listening on port ${brand.backend.attachPort} ` +
+    `(override with ${brand.backend.attachPortEnv} / ${brand.backend.attachUrlEnv}).`
+  );
+}
+
+/**
  * Picks an install command appropriate for the user's OS so the error
  * panel doesn't show a PowerShell line to a macOS user (and vice
- * versa). The actual install scripts live in the clio-agent repo.
+ * versa). The install URLs come from the resolved brand backend config.
+ *
+ * Returns '' for connect-mode brands (install === null): the error card
+ * renders {@link connectModeMessage} instead of a copy-paste recipe.
  */
 function installRecipeForPlatform(): string {
+  const install = brand.backend.install;
+  if (install === null) return '';
   if (typeof navigator === 'undefined') return '';
   const ua = navigator.userAgent;
   const win = /Windows/i.test(navigator.platform) || /Windows/i.test(ua);
   if (win) {
     return [
-      "$env:CLIO_REF = 'develop'; irm",
-      'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex',
+      `$env:${install.refEnv} = '${install.ref}'; irm`,
+      `${install.windowsUrl} | iex`,
     ].join(' ');
   }
   return [
-    'CLIO_REF=develop curl -fsSL',
-    'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash',
+    `${install.refEnv}=${install.ref} curl -fsSL`,
+    `${install.unixUrl} | bash`,
   ].join(' ');
 }

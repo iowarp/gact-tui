@@ -1,0 +1,16 @@
+{
+  "mode": "managed",
+  "sidecarName": "clio-agent",
+  "attachPort": 17800,
+  "attachPortEnv": "CLIO_PORT",
+  "attachUrlEnv": "CLIO_GACT_URL",
+  "repoLabel": null,
+  "install": {
+    "ref": "develop",
+    "refEnv": "CLIO_REF",
+    "forceEnv": "CLIO_FORCE",
+    "windowsUrl": "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1",
+    "unixUrl": "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh",
+    "repoLabel": "github.com/iowarp/clio-agent"
+  }
+}

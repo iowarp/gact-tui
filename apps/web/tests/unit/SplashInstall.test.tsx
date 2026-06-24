@@ -181,8 +181,12 @@ describe('Splash first-run install (one swoop)', () => {
     // Tail of the installer output is surfaced for triage.
     expect(card.textContent).toContain('failed to build wheel');
     expect(card.textContent).toContain('exited with code 1');
-    // The manual one-liner is still present as the fallback.
+    // The manual one-liner is still present as the fallback. For the CLIO
+    // brand (the Vitest default) the recipe is derived from the resolved
+    // backend install config, which points at the clio-agent installer.
     expect(card.textContent).toContain('clio-agent');
+    // The recipe is brand-driven: it carries the resolved install ref env.
+    expect(card.textContent).toContain('CLIO_REF');
 
     // Retry re-runs the installer (one more swoop) and returns to the
     // installing view.
