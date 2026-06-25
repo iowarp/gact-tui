@@ -5,7 +5,6 @@ import type { Part } from '@clio/core';
 import { findBalancedJsonEnd, isRecord, splitWorkflowState } from './WorkflowStateParsing.js';
 import {
   humanizeKey,
-  knownWorkflowBlocker,
   shortScalar,
   summarizeEvidenceRecord,
   workflowDetail,
@@ -19,7 +18,6 @@ export {
 } from './WorkflowStateParsing.js';
 export {
   humanizeKey,
-  knownWorkflowBlocker,
   shortScalar,
   summarizeEvidenceRecord,
   workflowDetail,
@@ -88,15 +86,16 @@ export function turnWorkflowBlocker(parts: Part[]): WorkflowBlockerSummary | nul
   for (let i = parts.length - 1; i >= 0; i--) {
     const state = workflowStateFromPart(parts[i]);
     if (!state) continue;
-    const delegation = state['delegation'];
-    if (!isRecord(delegation)) continue;
-    if (workflowTone(String(delegation['status'] ?? ''), delegation) !== 'err') continue;
-    const detail = knownWorkflowBlocker(delegation) || workflowDetail(delegation);
-    if (!detail) continue;
-    return {
-      title: 'Workflow blocker',
-      detail,
-    };
+    // Generic: surface the first nested workflow-state entry that resolves to an
+    // error tone (structural error/blocker field), whatever it is named. No
+    // backend-specific sub-key (`delegation`) is assumed.
+    for (const value of Object.values(state)) {
+      if (!isRecord(value)) continue;
+      if (workflowTone(String(value['status'] ?? ''), value) !== 'err') continue;
+      const detail = workflowDetail(value);
+      if (!detail) continue;
+      return { title: 'Workflow blocker', detail };
+    }
   }
   return null;
 }

@@ -173,8 +173,9 @@ describe('Transcript', () => {
     expect(screen.getByText('San Diego area resolved.')).toBeTruthy();
     expect(screen.getByTestId('turn-workflow-blocker')).toBeTruthy();
     expect(screen.getAllByText('Workflow blocker').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/child expert: ndp_dataset_discovery/)).toBeTruthy();
-    expect(screen.getByText(/required tools are not available/)).toBeTruthy();
+    // The blocker detail is built GENERICALLY from the nested entry's own fields
+    // (no hardcoded backend error-code copy).
+    expect(screen.getByText(/Failed Child: ndp_dataset_discovery/)).toBeTruthy();
   });
 
   it('treats a bare JSON handoff body as display-only state (not rendered as prose)', () => {

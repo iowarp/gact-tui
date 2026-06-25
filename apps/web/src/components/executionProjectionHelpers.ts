@@ -14,9 +14,9 @@ export function objectValue(value: unknown): Record<string, unknown> {
  * Execution-projection variant of `stringValue` (cf. {@link import('../presentationUtils.js').stringValue}).
  *
  * It deliberately diverges from the presentation default: numbers and booleans
- * render with raw `String(value)` (full-precision coordinates such as
- * `center_lat`, and `true`/`false` rather than `yes`/`no`), and arrays/objects
- * collapse to an empty string. The presentation default instead rounds numbers
+ * render with raw `String(value)` (full-precision numbers, and `true`/`false`
+ * rather than `yes`/`no`), and arrays/objects collapse to an empty string. The
+ * presentation default instead rounds numbers
  * via `formatNumber`, humanizes booleans, and joins arrays — which would corrupt
  * the projection report copy. Both variants share the single
  * {@link presentationStringValue} implementation via its `rawScalar` option.
@@ -74,17 +74,4 @@ export function parseJSON(text: string): unknown {
 
 export function imagePath(path: string): boolean {
   return /\.(png|jpe?g|gif|webp)$/i.test(path);
-}
-
-export function formatDistanceKm(value: string): string {
-  if (!value) return '';
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return value;
-  return parsed.toFixed(2).replace(/\.00$/, '');
-}
-
-export function redirectDestination(command: string): string {
-  const parts = command.split('>');
-  if (parts.length < 2) return '';
-  return parts.at(-1)?.trim().replace(/^['"]|['"]$/g, '') ?? '';
 }

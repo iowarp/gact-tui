@@ -22,32 +22,25 @@
  * PERFORMANCE: every block + tool carries a STABLE id so Solid's keyed <For>
  * only re-renders the block whose text changed during streaming.
  */
-import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { CollapsibleText } from './CollapsibleContent.js';
 import { MemoMarkdown } from './MemoMarkdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
-import { InlineWorkspaceImage } from './InlineWorkspaceImage.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
   AssistantTurnModel,
   DelegationBlock,
   DelegationToolCall,
 } from './transcriptDelegationModel.js';
-import type { ToolResultContent } from './toolResultContent.js';
+import {
+  ToolResultView,
+  type ReadWorkspaceImage,
+} from './ToolResultContentView.js';
 import './assistant-turn.css';
-
-/** Resolve a workspace file path to an inline image data URL (tool artifacts). */
-type ReadWorkspaceImage = (
-  path: string,
-) => Promise<{ url: string; mediaType: string } | null>;
 
 /** Cap visual indentation so deep chains stay on-screen. */
 const MAX_INDENT_DEPTH = 6;
-
-/** Tool OUTPUT is the one and only thing that collapses (RENDERING_SPEC §2). */
-const TOOL_RESULT_THRESHOLD = 6;
 
 export function AssistantTurnView(props: {
   model: AssistantTurnModel;
@@ -214,151 +207,6 @@ function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: Re
         </div>
       </div>
     </li>
-  );
-}
-
-/**
- * Render a tool result BY ITS DETECTED CONTENT TYPE (backend-agnostic). Only the
- * tool output collapses (by size); a "show raw" disclosure reveals the full
- * underlying body for every type.
- */
-function ToolResultView(props: {
-  content: ToolResultContent;
-  raw: string;
-  preview: string;
-  readWorkspaceImage?: ReadWorkspaceImage;
-}) {
-  const content = () => props.content;
-  const [showRaw, setShowRaw] = createSignal(false);
-  const hasRaw = () => {
-    const full = props.raw.trim();
-    return full.length > 0 && full !== props.preview.trim() && content().kind !== 'image';
-  };
-  return (
-    <>
-      <Switch
-        fallback={
-          <CollapsibleText
-            text={(content() as { kind: 'text'; text: string }).text}
-            threshold={TOOL_RESULT_THRESHOLD}
-            plain
-          />
-        }
-      >
-        <Match when={content().kind === 'image' ? (content() as { kind: 'image'; path: string }) : null}>
-          {(img) => (
-            <InlineWorkspaceImage path={img().path} readWorkspaceImage={props.readWorkspaceImage} />
-          )}
-        </Match>
-        <Match when={content().kind === 'diff' ? (content() as { kind: 'diff'; diff: string }) : null}>
-          {(diff) => <DiffView diff={diff().diff} />}
-        </Match>
-        <Match
-          when={
-            content().kind === 'table'
-              ? (content() as Extract<ToolResultContent, { kind: 'table' }>)
-              : null
-          }
-        >
-          {(table) => <TableView table={table()} />}
-        </Match>
-        <Match when={content().kind === 'markdown' ? (content() as { kind: 'markdown'; text: string }) : null}>
-          {(md) => (
-            <div class="trx-tool__markdown">
-              <MemoMarkdown text={md().text} />
-            </div>
-          )}
-        </Match>
-        <Match when={content().kind === 'json' ? (content() as { kind: 'json'; preview: string }) : null}>
-          {(json) => (
-            <CollapsibleText text={json().preview} threshold={TOOL_RESULT_THRESHOLD} plain />
-          )}
-        </Match>
-      </Switch>
-      <Show when={hasRaw()}>
-        <button
-          type="button"
-          class="trx-collapse__toggle"
-          data-testid="tool-raw-toggle"
-          aria-expanded={showRaw()}
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowRaw((v) => !v);
-          }}
-        >
-          {showRaw() ? 'hide raw' : 'show raw'}
-        </button>
-        <Show when={showRaw()}>
-          <pre class="trx-tool__raw" data-testid="tool-raw-body">
-            {props.raw}
-          </pre>
-        </Show>
-      </Show>
-    </>
-  );
-}
-
-/** A unified-diff body with +/- line coloring (RENDERING_SPEC §4). */
-function DiffView(props: { diff: string }) {
-  const lines = createMemo(() => props.diff.replace(/\n$/, '').split('\n'));
-  const classFor = (line: string): string => {
-    if (/^@@/.test(line)) return 'is-hunk';
-    if (/^\+(?!\+\+)/.test(line)) return 'is-add';
-    if (/^-(?!--)/.test(line)) return 'is-del';
-    if (/^(---|\+\+\+)\s/.test(line)) return 'is-file';
-    return 'is-ctx';
-  };
-  return (
-    <pre class="trx-tool__diff" data-testid="tool-diff">
-      <For each={lines()}>
-        {(line) => <div class={`trx-diff-line ${classFor(line)}`}>{line || ' '}</div>}
-      </For>
-    </pre>
-  );
-}
-
-/** A small TABLE of the columns + a few example rows (RENDERING_SPEC §4). */
-function TableView(props: { table: Extract<ToolResultContent, { kind: 'table' }> }) {
-  const table = () => props.table;
-  return (
-    <div class="trx-tool__table-wrap" data-testid="tool-table">
-      <table class="trx-tool__table">
-        <thead>
-          <tr>
-            <For each={table().columns}>
-              {(col) => (
-                <th>
-                  <span class="trx-tool__col-name">{col.name}</span>
-                  <Show when={col.dtype}>
-                    <span class="trx-tool__col-type">{col.dtype}</span>
-                  </Show>
-                </th>
-              )}
-            </For>
-          </tr>
-        </thead>
-        <Show when={table().rows.length > 0}>
-          <tbody>
-            <For each={table().rows}>
-              {(row) => (
-                <tr>
-                  <For each={table().columns}>
-                    {(_, ci) => <td>{row[ci()] ?? ''}</td>}
-                  </For>
-                </tr>
-              )}
-            </For>
-          </tbody>
-        </Show>
-      </table>
-      <Show when={table().rowCount != null}>
-        <div class="trx-tool__table-note">
-          {table().columns.length} columns
-          {table().rows.length ? ` · ${table().rows.length} sample rows` : ''} ·{' '}
-          {table().rowCount} rows total
-        </div>
-      </Show>
-    </div>
   );
 }
 
