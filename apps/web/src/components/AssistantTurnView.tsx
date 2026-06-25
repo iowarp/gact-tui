@@ -32,6 +32,7 @@ import type {
   AssistantTurnModel,
   DelegationBlock,
   DelegationToolCall,
+  ReasoningBlock,
 } from './transcriptDelegationModel.js';
 import {
   ToolResultView,
@@ -67,6 +68,12 @@ export function AssistantTurnView(props: {
         )}
       </Show>
 
+      <Show when={props.model.reasoning?.length}>
+        <For each={props.model.reasoning}>
+          {(block) => <ReasoningBlockView block={block} />}
+        </For>
+      </Show>
+
       <For each={props.model.blocks}>
         {(block) => (
           <DelegationBlockView block={block} readWorkspaceImage={props.readWorkspaceImage} />
@@ -99,6 +106,39 @@ export function AssistantTurnView(props: {
         </div>
       </Show>
     </div>
+  );
+}
+
+/** Cap visual indentation here too. */
+const MAX_REASON_DEPTH = 6;
+
+/**
+ * A free-standing model-reasoning block (e.g. main's own thoughts) — `● <agent>`
+ * marker then the reasoning as markdown, in FULL, never collapsed. FLAT, no box.
+ */
+function ReasoningBlockView(props: { block: ReasoningBlock }) {
+  const block = () => props.block;
+  const depth = () => Math.min(block().depth, MAX_REASON_DEPTH);
+  return (
+    <section
+      class="trx-block trx-block--reason"
+      data-testid="assistant-turn-reasoning"
+      data-depth={depth()}
+      data-agent={block().agent}
+      style={{ '--trx-depth': String(depth()) }}
+    >
+      <div class="trx-block__step">
+        <span class="trx-block__marker" aria-hidden="true">
+          ●
+        </span>
+        <span class="trx-block__owner">
+          <span class="trx-block__agent">{block().agent}</span>
+        </span>
+      </div>
+      <div class="trx-block__result" data-testid="assistant-turn-reasoning-body">
+        <MemoMarkdown text={block().text} />
+      </div>
+    </section>
   );
 }
 
@@ -174,6 +214,13 @@ function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: Re
   const tool = () => props.tool;
   return (
     <li class="trx-tool" data-testid="assistant-turn-tool" classList={{ 'is-err': !tool().ok }}>
+      {/* The expert's reasoning BEFORE this tool call — delineates a turn
+          (reasoning → tool call → tool response), in FULL, never collapsed. */}
+      <Show when={tool().reasoning?.trim()}>
+        <div class="trx-tool__reasoning" data-testid="assistant-turn-tool-reasoning">
+          <MemoMarkdown text={tool().reasoning!} />
+        </div>
+      </Show>
       <div class="trx-tool__call">
         <Icon name="tool" size={12} />
         <span class="trx-tool__name">{tool().name}</span>
@@ -193,21 +240,33 @@ function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: Re
         </span>
       </div>
 
-      <div class="trx-tool__result">
-        <span class="trx-tool__result-gutter" aria-hidden="true">
-          ⎿
-        </span>
-        <div class="trx-tool__result-body">
-          <ToolResultView
-            content={tool().content}
-            raw={tool().result}
-            preview={tool().preview}
-            readWorkspaceImage={props.readWorkspaceImage}
-          />
+      {/* Only render the result row when there is actual output — avoids a stray
+          empty `⎿` line between a tool-call header and (no) result. */}
+      <Show when={toolHasResult(tool())}>
+        <div class="trx-tool__result">
+          <span class="trx-tool__result-gutter" aria-hidden="true">
+            ⎿
+          </span>
+          <div class="trx-tool__result-body">
+            <ToolResultView
+              content={tool().content}
+              raw={tool().result}
+              preview={tool().preview}
+              readWorkspaceImage={props.readWorkspaceImage}
+            />
+          </div>
         </div>
-      </div>
+      </Show>
     </li>
   );
+}
+
+/** Whether a tool call carries any renderable output (so we can omit the empty
+ *  `⎿` result row entirely when it does not). */
+function toolHasResult(tool: DelegationToolCall): boolean {
+  if (tool.content.kind === 'image') return Boolean(tool.imagePath || tool.preview.trim());
+  if (tool.content.kind === 'table') return tool.content.columns.length > 0;
+  return Boolean(tool.preview.trim() || tool.result.trim());
 }
 
 /**

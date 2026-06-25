@@ -13,8 +13,6 @@ import { createTranscriptPresentationModel } from './TranscriptPresentationModel
 import { createTranscriptHashNavigation } from './TranscriptHashNavigation.js';
 import { createTranscriptVirtualization } from './TranscriptVirtualization.js';
 import { projectedTranscriptMessages } from './executionProjection.js';
-import { ConversationExecutionTrace } from './ConversationExecutionTrace.js';
-import { buildExecutionTraceByTurn } from './conversationExecutionTrace.js';
 import './transcript.css';
 import './inline-markdown.css';
 
@@ -86,9 +84,6 @@ export function Transcript(props: TranscriptProps) {
   const displayMessages = createMemo(() =>
     projectedTranscriptMessages(props.messages, props.executionEvents),
   );
-  const executionTraceByTurn = createMemo(() =>
-    buildExecutionTraceByTurn(props.semanticEvents ?? []),
-  );
   const { virtual, vwindow, visible, offsetOfIndex } = createTranscriptVirtualization({
     messages: displayMessages,
     scrollEl: () => props.scrollEl,
@@ -134,35 +129,30 @@ export function Transcript(props: TranscriptProps) {
           const target = presentation.streamingTarget();
           const partIdx = target?.msgId === m.id ? target.partIdx : -1;
           return (
-            <>
-              <MessageView
-                msg={m}
-                density={props.density}
-                onOpenDiff={props.onOpenDiff}
-                onPinFile={props.onPinFile}
-                onCopy={props.onCopy}
-                onRegenerate={props.onRegenerate}
-                onRegenerateWithNotes={props.onRegenerateWithNotes}
-                onRegenerateWithModel={props.onRegenerateWithModel}
-                models={props.models}
-                onEdit={props.onEdit}
-                onQuote={props.onQuote}
-                onSpeak={props.onSpeak}
-                onCopyPermalink={props.onCopyPermalink}
-                onDelete={props.onDelete}
-                selected={m.id === props.selectedId}
-                onSelect={props.onSelect}
-                searchQuery={props.searchQuery}
-                currentMatchKey={props.currentMatchKey}
-                matchBaseIndex={presentation.baseIndexFor(m.id)}
-                streamingPartIdx={partIdx}
-                imagePartsSupported={props.imagePartsSupported}
-                readWorkspaceImage={props.readWorkspaceImage}
-              />
-              <Show when={m.role === 'user' && executionTraceByTurn().get(m.id)}>
-                <ConversationExecutionTrace trace={executionTraceByTurn().get(m.id)} />
-              </Show>
-            </>
+            <MessageView
+              msg={m}
+              density={props.density}
+              onOpenDiff={props.onOpenDiff}
+              onPinFile={props.onPinFile}
+              onCopy={props.onCopy}
+              onRegenerate={props.onRegenerate}
+              onRegenerateWithNotes={props.onRegenerateWithNotes}
+              onRegenerateWithModel={props.onRegenerateWithModel}
+              models={props.models}
+              onEdit={props.onEdit}
+              onQuote={props.onQuote}
+              onSpeak={props.onSpeak}
+              onCopyPermalink={props.onCopyPermalink}
+              onDelete={props.onDelete}
+              selected={m.id === props.selectedId}
+              onSelect={props.onSelect}
+              searchQuery={props.searchQuery}
+              currentMatchKey={props.currentMatchKey}
+              matchBaseIndex={presentation.baseIndexFor(m.id)}
+              streamingPartIdx={partIdx}
+              imagePartsSupported={props.imagePartsSupported}
+              readWorkspaceImage={props.readWorkspaceImage}
+            />
           );
         }}
       </For>
