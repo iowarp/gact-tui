@@ -40,6 +40,12 @@ import type { ToolResultContent } from './toolResultContent.js';
 export interface DelegationToolCall {
   /** Stable key for keyed rendering. */
   id: string;
+  /**
+   * The expert's reasoning/thought IMMEDIATELY BEFORE this tool call. Carrying
+   * it on the tool delineates a TURN (reasoning → tool call → tool response)
+   * within the expert's block (RENDERING_SPEC §9). Empty when the backend gave
+   * no per-step reasoning. Rendered in FULL, never collapsed. */
+  reasoning?: string;
   /** Tool name (rendered verbatim — the renderer never special-cases it). */
   name: string;
   /** Compact one-line argument summary for the "name(args)" line. */
@@ -81,6 +87,19 @@ export interface DelegationBlock {
   result: string;
 }
 
+/** A free-standing model-reasoning block (e.g. main's own thoughts) shown in
+ *  the flow before/around the delegations — always in FULL (RENDERING_SPEC §3). */
+export interface ReasoningBlock {
+  /** Stable key for keyed rendering. */
+  id: string;
+  /** The owning agent (usually `main`). */
+  agent: string;
+  /** Indentation depth. */
+  depth: number;
+  /** The reasoning prose, rendered as markdown in FULL. */
+  text: string;
+}
+
 /** The clean ordered view-model for an assistant turn. */
 export interface AssistantTurnModel {
   /** Optional routing chip (kept OUT of the main flow). */
@@ -89,6 +108,9 @@ export interface AssistantTurnModel {
     rationale: string;
     source: string;
   };
+  /** Free-standing model reasoning (main's own thoughts) shown in the flow —
+   *  ordered, depth-tagged, always full. Empty for the persisted-message path. */
+  reasoning?: ReasoningBlock[];
   /** The delegation blocks, in order, deduped + depth-tagged. */
   blocks: DelegationBlock[];
   /** The final answer text part(s), rendered prominently as markdown. */

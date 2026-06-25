@@ -114,6 +114,7 @@ export function MessageView(props: MessageViewProps) {
                   matchBaseIndex={props.matchBaseIndex}
                   showCursor={i() === props.streamingPartIdx}
                   imagePartsSupported={props.imagePartsSupported}
+                  readWorkspaceImage={props.readWorkspaceImage}
                 />
               )}
             </For>

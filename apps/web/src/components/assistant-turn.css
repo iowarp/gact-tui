@@ -126,6 +126,23 @@
   color: var(--color-error);
 }
 
+/* A free-standing reasoning block (main's thoughts). Same flat step layout as a
+ * delegation block; the markdown body sits under the `●` marker, in full. */
+.trx-block--reason .trx-block__result {
+  margin-top: 2px;
+}
+
+/* The expert's per-step reasoning shown directly above a tool call — the thought
+ * when requesting that tool (turn delineation). In FULL, never collapsed; quiet
+ * but not muted, so it reads as the model's own text. */
+.trx-tool__reasoning {
+  font-size: var(--trx-body);
+  line-height: 1.6;
+  color: var(--color-text);
+  min-width: 0;
+  margin-bottom: 2px;
+}
+
 /* Ordered tool calls the expert ran — indented under the step line. */
 .trx-block__tools {
   list-style: none;

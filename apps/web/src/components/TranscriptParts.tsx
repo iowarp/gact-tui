@@ -35,7 +35,8 @@ import { TranscriptErrorPartView } from './TranscriptErrorPartView.js';
 import { TranscriptCompactionPartView } from './TranscriptCompactionPartView.js';
 import { TranscriptRedactedThinkingPartView } from './TranscriptRedactedThinkingPartView.js';
 import { UnknownPartView } from './TranscriptUnknownPartView.js';
-import { ExecutionTree } from './ExecutionTree.js';
+import { AssistantTurnView } from './AssistantTurnView.js';
+import { buildTurnModelFromNodes } from './executionTurnModel.js';
 import type { PartExecutionTree } from './executionProjectionModel.js';
 import './transcript-new-parts.css';
 
@@ -73,6 +74,9 @@ export interface PartViewProps {
   matchBaseIndex?: number;
   showCursor?: boolean;
   imagePartsSupported?: boolean;
+  /** Resolve a workspace file path to an inline image — used by the LIVE
+   *  execution turn to render tool-artifact images (e.g. a plot output_path). */
+  readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
 }
 
 /**
@@ -88,9 +92,25 @@ type PartRenderer = (part: Part, props: PartViewProps) => JSX.Element;
 // `execution_tree` is a synthetic part carrying the projected multi-agent
 // execution nodes; it is not in the wire `Part` union, hence the dual cast.
 const PART_RENDERERS: Record<string, PartRenderer> = {
+  // LIVE execution turn (RENDERING_SPEC §9): the projected execution nodes are
+  // converted to the SAME clean AssistantTurnModel the persisted path uses and
+  // rendered through AssistantTurnView — flat, no boxes, depth-indented,
+  // content-typed tool output, full model text. Live === post-reload.
   execution_tree: (p, props) => {
     const tree = p as unknown as PartExecutionTree;
-    return <ExecutionTree nodes={tree.nodes} onOpenDiff={props.onOpenDiff} />;
+    const model = buildTurnModelFromNodes(tree.nodes);
+    if (!model) return <></>;
+    return (
+      <AssistantTurnView
+        model={model}
+        density={props.density}
+        onOpenDiff={props.onOpenDiff}
+        onPinFile={props.onPinFile}
+        imagePartsSupported={props.imagePartsSupported}
+        readWorkspaceImage={props.readWorkspaceImage}
+        messageId={props.messageId}
+      />
+    );
   },
   text: (p, props) => (
     <TextPartView

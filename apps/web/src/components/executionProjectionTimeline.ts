@@ -19,6 +19,13 @@ import {
   messagePartActor,
 } from './executionProjectionEventModel.js';
 
+/** The real, unredacted result recovered from a `tool.call.completed` event. */
+interface CompletedToolResult {
+  result: string;
+  isError: boolean;
+  durationMs?: number;
+}
+
 export function projectWebExecutionTimeline(
   events: ExecutionTranscriptEvent[],
 ): ProjectedExecutionNode[] {
@@ -28,6 +35,24 @@ export function projectWebExecutionTimeline(
   let currentAgent = 'main';
   const handoffQuestions = new Map<string, string>();
   const reportedAgents = new Set<string>();
+  // The REAL tool results, recovered from `tool.call.completed` (whose
+  // `payload.result` carries the unredacted data the `react.step` observation
+  // strips). Keyed by tool name → FIFO queue, plus a global FIFO fallback for
+  // backends that omit a tool name on the completion event. Consumed when a
+  // `react.step.completed` for the same tool appears.
+  const toolNameOf = new Map<string, string>(); // call_id → tool_name (from started)
+  const resultsByTool = new Map<string, CompletedToolResult[]>();
+  const resultsFifo: CompletedToolResult[] = [];
+  const takeToolResult = (toolName: string): CompletedToolResult | undefined => {
+    const byName = resultsByTool.get(toolName);
+    if (byName && byName.length) {
+      const next = byName.shift()!;
+      const gi = resultsFifo.indexOf(next);
+      if (gi >= 0) resultsFifo.splice(gi, 1);
+      return next;
+    }
+    return resultsFifo.shift();
+  };
   // Generic delegation depth: the root agent is 0; every delegated child is its
   // parent's depth + 1. Built from the live delegation graph — no agent-name
   // list. Unknown agents default to depth 0 until a delegation places them.
@@ -112,16 +137,23 @@ export function projectWebExecutionTimeline(
       flushText();
       const payload = objectValue(event.payload['payload']);
       const agent = expertIdFromPayload(event, currentAgent);
+      const toolName = stringValue(payload['tool_name']);
+      // Recover the REAL tool result from the matching `tool.call.completed`
+      // event; the step's own `observation` is redacted.
+      const completed = toolName ? takeToolResult(toolName) : undefined;
       nodes.push({
         kind: 'step',
         agent,
         depth: depthOf(agent),
         text: stringValue(payload['thought']),
         reasoning: stringValue(payload['reasoning']),
-        toolName: stringValue(payload['tool_name']),
+        toolName,
         toolArgs: payload['tool_args'],
         observation: payload['observation'],
         isFinish: Boolean(payload['is_finish']),
+        ...(completed?.result ? { toolResult: completed.result } : {}),
+        ...(completed?.isError ? { toolError: true } : {}),
+        ...(completed?.durationMs != null ? { toolDurationMs: completed.durationMs } : {}),
       });
       continue;
     }
@@ -156,14 +188,48 @@ export function projectWebExecutionTimeline(
       currentAgent = parent || currentAgent;
       continue;
     }
-    if (isToolCallEvent(event)) {
+    if (event.type === 'tool.call.started') {
+      const payload = objectValue(event.payload['payload']);
+      const callId = stringValue(event.payload['call_id']) || stringValue(payload['call_id']);
+      const toolName =
+        stringValue(event.payload['tool_name']) || stringValue(payload['tool_name']);
+      if (callId && toolName) toolNameOf.set(callId, toolName);
+      continue;
+    }
+    if (event.type === 'tool.call.completed') {
+      const payload = objectValue(event.payload['payload']);
+      const callId = stringValue(event.payload['call_id']) || stringValue(payload['call_id']);
+      // The REAL result lives in `payload.result` on the dedicated completion
+      // event (the semantic `react.step` copy is redacted). It may be a string
+      // or an arbitrary structured value.
+      const rawResult =
+        event.payload['result'] ?? payload['result'] ?? event.payload['output'] ?? payload['output'];
+      const resultStr =
+        typeof rawResult === 'string'
+          ? rawResult
+          : rawResult == null
+            ? ''
+            : JSON.stringify(rawResult);
+      if (isRedacted(resultStr) || !resultStr) continue;
+      const toolName =
+        stringValue(event.payload['tool_name']) ||
+        stringValue(payload['tool_name']) ||
+        (callId ? toolNameOf.get(callId) ?? '' : '');
+      const isError =
+        event.payload['is_error'] === true || payload['is_error'] === true;
+      const durationRaw = event.payload['duration_ms'] ?? payload['duration_ms'];
+      const completed: CompletedToolResult = {
+        result: resultStr,
+        isError,
+        ...(typeof durationRaw === 'number' ? { durationMs: durationRaw } : {}),
+      };
+      if (toolName) {
+        resultsByTool.set(toolName, [...(resultsByTool.get(toolName) ?? []), completed]);
+      }
+      resultsFifo.push(completed);
       continue;
     }
   }
   flushText();
   return nodes.filter((n) => !isRedacted(n.text ?? '') && !isRedacted(n.question ?? ''));
-}
-
-function isToolCallEvent(event: ExecutionTranscriptEvent): boolean {
-  return event.type === 'tool.call.started' || event.type === 'tool.call.completed';
 }
