@@ -179,6 +179,42 @@ live path MUST be made identical to the clean `AssistantTurnView` render. Requir
 - **Verify MID-STREAM** — a reloaded session renders via `AssistantTurnView`; you
   must capture while a run is live to see the execution path.
 
+### 9.1 The conceptual model (CORRECTED, from live design review)
+
+The conversation is a **hierarchy of agent turns** joined by **light delegation
+edges**. Get this model right, not just the styling.
+
+- **An agent TURN = one LLM round of that agent: its thoughts (reasoning) + its
+  action** (a tool call, a delegation decision, or a final answer). An agent may
+  take several turns.
+- **`main` has its own turn(s) that must be shown.** main receives the user
+  prompt → the LLM returns **main's thoughts + the routing/delegation decision**.
+  Surface main's reasoning (from the stream — `llm.response.completed` for main;
+  the clio asks cover the redaction/scaffolding). Do NOT show only the routing.
+- **A delegation (`main → geospatial`) is a LIGHT EDGE, not a panel.** Render it
+  subtly — a **small dot + spacing/indent** to mark the separation and the prompt
+  main passed. **No heavy green left-bar / bordered rule.** It is an operation, not
+  a container.
+- **The expert's execution is SEPARATE from the handoff.** After the edge, the
+  expert (geospatial) runs **its own turns, owned by it** (label/marker = the
+  agent). geospatial's "The user request names a place…" is geospatial's turn, not
+  the handoff.
+- **Each expert turn must be visually delineable.** e.g. geospatial turn 1 =
+  reasoning → `Geo Geocode(…)` → result; turn 2 = reasoning → return. The reader
+  must be able to count turns 1, 2, … per agent.
+- Depth/nesting = **indentation + a subtle dot marker**, never a colored bar.
+
+Shape:
+```
+GACT
+  main · reasons "…" → delegates
+   ·∙ geospatial              (light dot + indent = the task main sent)
+      geospatial · turn 1 — reasons → Geo Geocode(…) → Los Angeles 34.05,−118.24
+      geospatial · turn 2 — reasons → returns the region
+   ·∙ data …
+  GACT · final answer
+```
+
 ## 8. Definition of done
 
 On the **live** EarthScope session, captured from the real page and read raw:
