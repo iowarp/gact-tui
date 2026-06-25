@@ -6,80 +6,69 @@ import {
   structuredAgentTextPreview,
 } from '../../src/components/executionProjectionReport.js';
 
-describe('execution projection report summaries', () => {
-  it('summarizes geospatial structured evidence without dumping workflow JSON', () => {
-    expect(
-      reportPreview({
-        kind: 'report',
-        agent: 'geospatial',
-        depth: 1,
-        structured: {
-          workflow_state: {
-            geospatial: {
-              region_name: 'San Diego, San Diego County, California, United States',
-              center_lat: 32.7174202,
-              center_lon: -117.162772,
-              radius_km: 50,
-              confidence: 'high',
-              provenance: 'osm_nominatim',
-            },
+// All of these are BACKEND-AGNOSTIC: structured state is summarised GENERICALLY
+// (key: value rows), and embedded state blobs are detected STRUCTURALLY (a
+// caption line + a JSON object), never by matching a backend marker string.
+describe('execution projection report summaries (backend-agnostic)', () => {
+  it('summarises nested structured evidence generically, without dumping JSON', () => {
+    const out = reportPreview({
+      kind: 'report',
+      agent: 'geospatial',
+      depth: 1,
+      structured: {
+        workflow_state: {
+          geospatial: {
+            region_name: 'San Diego, California',
+            center_lat: 32.7174202,
+            radius_km: 50,
+            confidence: 'high',
           },
-        },
-      }),
-    ).toBe(
-      [
-        'San Diego, San Diego County, California, United States',
-        'center 32.7174202, -117.162772',
-        'radius 50 km',
-        'confidence high',
-        'provenance osm_nominatim',
-      ].join('\n'),
-    );
-  });
-
-  it('extracts retained workflow state from assistant handoff text', () => {
-    expect(
-      retainedWorkflowStateFromText(
-        'done\nCLIO typed workflow state:\n{"workflow_state":{"artifact":{"path":"/tmp/plot.png"}}}',
-      ),
-    ).toEqual({
-      workflow_state: {
-        artifact: {
-          path: '/tmp/plot.png',
         },
       },
     });
+    expect(out).toContain('region_name: San Diego, California');
+    expect(out).toContain('center_lat: 32.7174202');
+    expect(out).toContain('radius_km: 50');
+    expect(out).not.toContain('{');
+    expect(out).not.toContain('workflow_state');
   });
 
-  it('strips control contracts before formatting assistant prose', () => {
+  it('adds an inline image hint for an image-pathed value', () => {
+    const out = reportPreview({
+      kind: 'report',
+      agent: 'viz',
+      depth: 1,
+      structured: { artifact: { path: '/tmp/plot.png' } },
+    });
+    expect(out).toContain('/tmp/plot.png');
+    expect(out).toContain('show full image');
+  });
+
+  it('extracts an embedded JSON state object detected by structure (caption + JSON)', () => {
     expect(
-      stripControlContracts(
-        'Analysis ready.\nRetained typed workflow state:\n{"workflow_state":{"hidden":true}}',
+      retainedWorkflowStateFromText(
+        'Some caption:\n{"workflow_state":{"artifact":{"path":"/tmp/plot.png"}}}',
       ),
+    ).toEqual({
+      workflow_state: { artifact: { path: '/tmp/plot.png' } },
+    });
+  });
+
+  it('strips a trailing caption + JSON state blob from prose, structurally', () => {
+    expect(
+      stripControlContracts('Analysis ready.\nSome caption:\n{"hidden":true}'),
     ).toBe('Analysis ready.');
   });
 
-  it('turns structured assistant JSON into a compact report preview', () => {
-    expect(
-      structuredAgentTextPreview(
-        JSON.stringify({
-          acquisition: {
-            status: 'staged',
-            metadata_path: '/tmp/earthscope_stations_clean.csv',
-            analysis_ready: true,
-          },
-          resource_candidate: {
-            resource_name: 'P475.CI.LY_.20.csv',
-          },
-        }),
-      ),
-    ).toBe(
-      [
-        'acquisition staged',
-        '/tmp/earthscope_stations_clean.csv',
-        'analysis ready true',
-        'P475.CI.LY_.20.csv',
-      ].join('\n'),
+  it('summarises a bare structured-JSON body into a compact key:value preview', () => {
+    const out = structuredAgentTextPreview(
+      JSON.stringify({
+        acquisition: { status: 'staged', analysis_ready: true },
+        resource_candidate: { resource_name: 'P475.csv' },
+      }),
     );
+    expect(out).toContain('status: staged');
+    expect(out).toContain('analysis_ready: true');
+    expect(out).toContain('resource_name: P475.csv');
   });
 });

@@ -9,8 +9,8 @@ import {
 } from '../../src/components/InspectorToolCallsModel.js';
 
 describe('InspectorToolCallsModel', () => {
-  it('maps known and unknown tool names into readable labels', () => {
-    expect(toolDisplayName('fs_read_file')).toBe('Read workspace file');
+  it('humanises any tool name verbatim (no per-tool special-casing)', () => {
+    expect(toolDisplayName('fs_read_file')).toBe('Fs Read File');
     expect(toolDisplayName('custom-tool_name')).toBe('Custom Tool Name');
   });
 

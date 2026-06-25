@@ -177,7 +177,7 @@ describe('Transcript', () => {
     expect(screen.getByText(/required tools are not available/)).toBeTruthy();
   });
 
-  it('summarizes leading handoff evidence JSON before workflow state', () => {
+  it('treats a bare JSON handoff body as display-only state (not rendered as prose)', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -218,12 +218,12 @@ describe('Transcript', () => {
       />
     ));
 
-    // The leading evidence JSON is summarised into prose inside the step; the
-    // raw keys and the workflow_state card are gone.
-    const step = screen.getByTestId('assistant-turn-step');
-    expect(step.textContent).toMatch(/Resolved region: San Diego area/);
-    expect(step.textContent).toMatch(/center 32.7157, -117.1611/);
+    // The handoff body is a bare JSON evidence object — display-only structured
+    // state per the contract — with no task and no tools, so the delegation is
+    // entirely empty: NO prose result, NO raw JSON keys, NO workflow-state card.
+    expect(screen.queryByTestId('assistant-turn-result')).toBeNull();
     expect(screen.queryByText(/REGION_LABEL/)).toBeNull();
+    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
     expect(screen.queryByTestId('workflow-state-card')).toBeNull();
   });
 

@@ -1,8 +1,8 @@
 /**
  * Renders a projected multi-agent execution turn as an INDENTED, INTERACTIVE
  * tree — TUI parity (cf. tui/internal/ui/execution_render.go). Each node is
- * indented by its delegation depth (one level deeper per delegation child:
- * Main > Data > NDP_expert = 3 levels). Agent text, delegation headers
+ * indented by its delegation depth (one level deeper per delegation child).
+ * Agent text, delegation headers
  * ("↳ parent → child"), react steps (thought + tool call + collapsed
  * observation with click-to-expand), and expert reports each render with their
  * own per-kind content, reusing the existing projection content helpers so the
@@ -78,15 +78,15 @@ function observationImage(observation: unknown): Part | undefined {
   return candidate as unknown as Part;
 }
 
+/** A backend-agnostic accent class for an agent: the root/orchestrator gets the
+ *  primary accent; every other agent is assigned one of a small palette by a
+ *  generic hash of its id. No per-agent-name knowledge. */
 function agentClass(agent: string): string {
   const id = (agent || 'main').trim();
-  if (id === 'main' || id === 'orchestrator') return 'is-main';
-  if (['data', 'data_expert', 'geospatial'].includes(id)) return 'is-data';
-  if (['research', 'research_expert', 'search'].includes(id)) return 'is-research';
-  if (['analysis', 'seismic_analysis', 'sac_format'].includes(id)) return 'is-analysis';
-  if (['visualization', 'viz'].includes(id)) return 'is-viz';
-  if (['ndp_catalog', 'earthscope_catalog'].includes(id)) return 'is-catalog';
-  return 'is-expert';
+  if (id === '' || id === 'main' || id === 'orchestrator') return 'is-main';
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return `is-agent-${hash % 4}`;
 }
 
 function AgentName(props: { agent: string }) {

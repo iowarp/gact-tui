@@ -5,7 +5,15 @@
 import { Show } from 'solid-js';
 import type { Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { stripControlScaffolding } from './transcriptDelegationModel.js';
+
+/** A body that is (or is a caption labelling) a bare JSON object/array is
+ *  DISPLAY-ONLY structured state per the contract — never rendered as prose. */
+function isStructuralBody(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/^[[{]/.test(t)) return true;
+  return /^[^\n{}]{0,80}:\s*\n?\s*[[{]/.test(t);
+}
 
 /** clio execution-path chip label (SPEC §4.5). "fast" = deterministic tool
  *  template (no LM); "expert_loop" = full expert tool-loop. */
@@ -35,11 +43,9 @@ export function RoutingDecisionPartView(props: { part: Part }) {
   // heuristic === true => deterministic keyword match; false => LM router.
   const routedBy = p.heuristic ? 'heuristic' : 'LM-routed';
   const execPath = executionPathLabel(String(p.execution_path ?? ''));
-  if (
-    !source &&
-    (!selected || selected === 'main') &&
-    /removed retained evidence scaffolding/i.test(`${reason} ${rationale}`)
-  ) {
+  // Suppress an empty/no-op routing decision (no destination, no source, no
+  // rationale) — nothing to show. No backend-specific marker matching.
+  if (!source && !rationale && !reason && (!selected || selected === 'main')) {
     return null;
   }
   return (
@@ -104,11 +110,13 @@ export function ExpertHandoffPartView(props: { part: Part }) {
   const parent = String(meta['parent_id'] ?? meta['parent'] ?? '').trim();
   const status = String(meta['status'] ?? 'observed');
   const output = String(meta['output_summary'] ?? meta['summary'] ?? '').trim();
-  const summary = p.text ?? '';
-  // Strip clio's control scaffolding (status prefix + workflow_state JSON blob)
-  // and keep only the real prose — the WorkflowStateCard is gone (the durable
-  // typed state is plumbing, not conversation content).
-  const displayDetail = stripControlScaffolding(output || summary);
+  const summary = (p.text ?? '').trim();
+  // Render the expert's prose IN FULL. metadata.workflow_state is display-only
+  // (the contract: clients never rely on specific keys), so a body that is a
+  // bare JSON state blob is suppressed — detected structurally, not by matching
+  // any backend marker text.
+  const body = output || summary;
+  const displayDetail = isStructuralBody(body) ? '' : body;
   return (
     <div class="trx-routing">
       <span class="trx-routing__icon" aria-hidden>

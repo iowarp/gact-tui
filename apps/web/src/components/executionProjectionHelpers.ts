@@ -29,27 +29,27 @@ export function isRedacted(text: string): boolean {
   return /\[redacted\]/i.test(text.trim());
 }
 
-export function agentDepth(agent: string): number {
-  if (!agent || agent === 'main') return 0;
-  if (['data', 'geospatial', 'analysis', 'visualization', 'synthesis'].includes(agent)) return 1;
-  return 2;
+/**
+ * Visual delegation depth, generic. A node whose parent is the conversation
+ * root sits at depth 1; deeper parents push it further. The root agent (the one
+ * with no parent in the turn) is depth 0. No hardcoded agent-name list — depth
+ * is the length of the parent chain, supplied by the caller's `parentDepth`.
+ */
+export function handoffDepth(parent: string, agent: string, parentDepth = 0): number {
+  if (!agent) return 0;
+  if (!parent) return 0;
+  return parentDepth + 1;
 }
 
-export function handoffDepth(parent: string, agent: string): number {
-  if (!parent || parent === 'main') return agent === 'main' ? 0 : 1;
-  return agentDepth(parent) + 1;
-}
-
+/**
+ * Display name for a tool — the tool name verbatim, humanised for readability
+ * (snake/kebab → Title Case). GACT never special-cases a specific tool's name
+ * (contract/SPEC.md: "Unknown names MUST render as a generic row").
+ */
 export function toolDisplayName(name: string): string {
-  const lower = name.toLowerCase();
-  if (lower.includes('geocode')) return 'Geocode location';
-  if (lower.startsWith('ndp_search')) return 'NDP catalog search';
-  if (lower.startsWith('ndp_stage')) return 'NDP resource staging';
-  if (lower === 'shell_bash') return 'Shell command';
-  if (lower.includes('plot') || lower.includes('chart') || lower.includes('visual')) {
-    return 'Plot timeseries';
-  }
-  return name;
+  const normalized = name.trim();
+  if (!normalized) return normalized;
+  return normalized.replace(/[_-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 export function basename(path: string): string {

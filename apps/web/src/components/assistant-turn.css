@@ -3,24 +3,25 @@
  * a prominent final answer. No hardcoded colors — design tokens only. */
 
 .trx-turn {
+  /* LOCKED typography: one body size for ALL transcript text — reasoning, tool
+   * output, task, answer. Differentiate by weight/color only, never per-element
+   * font-size. Nothing in the transcript is "tiny". */
+  --trx-body: 14.5px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  font-size: var(--trx-body);
 }
 
-/* Subtle routing chip kept out of the main flow. */
+/* Subtle routing line kept out of the main flow. FLAT — no chip box. */
 .trx-turn__routing {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   align-self: flex-start;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body);
   color: var(--color-muted);
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border-30);
-  border-radius: 999px;
-  padding: 2px 9px;
 }
 
 .trx-turn__routing strong {
@@ -32,58 +33,62 @@
   opacity: 0.8;
 }
 
-/* A delegation BLOCK: a turn in the chat-of-turns log. A left rule whose indent
- * grows clearly with depth so the "one level deeper per child" hierarchy reads
- * at a glance (TUI parity). Each block is a stable, self-contained card.
+/* A delegation BLOCK: a turn in the chat-of-turns log. NO box — a flat,
+ * indented step. Delegation DEPTH is signalled purely by left indentation
+ * (Claude-Code style), not by borders or surfaces.
  * `content-visibility:auto` lets the browser skip layout/paint for off-screen
  * blocks so scrolling a long transcript stays smooth. */
 .trx-block {
-  --trx-indent: calc(var(--trx-depth, 0) * 28px);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px;
+  --trx-indent: calc(var(--trx-depth, 0) * 22px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* REAL, visible depth indentation: each delegation level is pushed in by a
+   * clear left margin, with a faint gutter rule on nested levels so the nesting
+   * reads at a glance (Claude-Code style). No box. */
   margin-left: var(--trx-indent);
+  padding-left: 0;
   content-visibility: auto;
   contain-intrinsic-size: auto 120px;
 }
 
-.trx-block__rule {
-  width: 3px;
-  border-radius: 3px;
-  background: var(--color-border-60);
-  align-self: stretch;
+.trx-block[data-depth='1'],
+.trx-block[data-depth='2'],
+.trx-block[data-depth='3'],
+.trx-block[data-depth='4'],
+.trx-block[data-depth='5'],
+.trx-block[data-depth='6'] {
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border-30);
 }
 
-.trx-block[data-depth='1'] .trx-block__rule {
-  background: var(--color-accent);
-}
-
-/* Deeper levels get a progressively warmer rule so the offset + colour both
- * signal nesting depth. */
-.trx-block[data-depth='2'] .trx-block__rule {
-  background: var(--color-accent-cyan);
-}
-
-.trx-block[data-depth='3'] .trx-block__rule,
-.trx-block[data-depth='4'] .trx-block__rule {
-  background: color-mix(in srgb, var(--color-accent-cyan) 60%, var(--color-muted));
-}
-
-.trx-block__body {
+/* The step line: `● main → agent: <task>` — one natural flowing line, no box. */
+.trx-block__step {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--trx-body);
+  line-height: 1.6;
+  color: var(--color-text);
 }
 
-/* main → expert delegation header. */
-.trx-block__head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.trx-block__marker {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.trx-block__owner {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--color-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.trx-block__owner.is-err .trx-block__agent {
+  color: var(--color-error);
 }
 
 .trx-block__from {
@@ -92,6 +97,7 @@
 
 .trx-block__arrow {
   opacity: 0.6;
+  color: var(--color-muted);
 }
 
 .trx-block__agent {
@@ -100,49 +106,32 @@
   letter-spacing: 0.01em;
 }
 
+/* The task delegated — one muted sub-line under the owner, in full. No box,
+ * no label. Indented to align under the `●` marker glyph. */
+.trx-block__task {
+  margin-left: 18px;
+  color: var(--color-muted);
+  font-size: var(--trx-body);
+  line-height: 1.55;
+  min-width: 0;
+}
+
 .trx-block__status {
-  margin-left: auto;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
-  background: color-mix(in srgb, var(--color-success) 10%, transparent);
-  border-radius: 999px;
-  padding: 0 7px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .trx-block__status.is-err {
   color: var(--color-error);
-  border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
-  background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
-/* The task main SENT to the expert — a quiet, quoted brief. */
-.trx-block__task {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--color-text);
-  border-left: 2px solid var(--color-border-30);
-  padding-left: 10px;
-}
-
-.trx-block__task-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-muted);
-}
-
-/* Ordered tool calls the expert ran. */
+/* Ordered tool calls the expert ran — indented under the step line. */
 .trx-block__tools {
   list-style: none;
   margin: 0;
   padding: 0;
+  margin-left: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -160,7 +149,7 @@
   align-items: baseline;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--trx-body);
   color: var(--color-text);
   min-width: 0;
 }
@@ -193,12 +182,11 @@
 }
 
 .trx-tool__dur {
-  font-size: 10.5px;
   color: var(--color-muted);
 }
 
 .trx-tool__badge {
-  font-size: 9.5px;
+  font-size: 0.82em;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-muted);
@@ -232,15 +220,105 @@
   min-width: 0;
 }
 
-/* Raw tool result, revealed by the "show raw" disclosure. */
+/* Raw tool result, revealed by the "show raw" disclosure. An opt-in code view,
+ * not an always-on card — kept quiet so the flow stays flat. */
 .trx-tool__raw {
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 4px 0 0;
   max-height: 280px;
   overflow: auto;
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border-30);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-surface-alt) 60%, transparent);
+  border-radius: 4px;
   padding: 6px 8px;
+}
+
+/* Tool output rendered AS MARKDOWN (a prose/markdown content type). */
+.trx-tool__markdown {
+  font-size: var(--trx-body);
+  line-height: 1.6;
+  min-width: 0;
+}
+
+/* Tool output rendered as a DIFF — +/- line coloring, FLAT (no card). */
+.trx-tool__diff {
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.trx-diff-line {
+  white-space: pre;
+}
+
+.trx-diff-line.is-add {
+  color: var(--color-success);
+}
+
+.trx-diff-line.is-del {
+  color: var(--color-error);
+}
+
+.trx-diff-line.is-hunk {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.trx-diff-line.is-file {
+  color: var(--color-muted);
+}
+
+.trx-diff-line.is-ctx {
+  color: var(--color-text);
+}
+
+/* Tool output rendered as a small TABLE of columns (+ a few sample rows). */
+.trx-tool__table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.trx-tool__table {
+  border-collapse: collapse;
+  font-size: var(--trx-body);
+  font-family: var(--font-mono);
+}
+
+.trx-tool__table th,
+.trx-tool__table td {
+  text-align: left;
+  padding: 2px 10px 2px 0;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border-30);
+  white-space: nowrap;
+}
+
+.trx-tool__table th {
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.trx-tool__col-type {
+  margin-left: 6px;
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.trx-tool__table td {
+  color: var(--color-text);
+}
+
+.trx-tool__table-note {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
 }
 
 /* Inline image artifact (a plot's output_path rendered as a thumbnail). */
@@ -251,7 +329,7 @@
 .trx-tool__image-loading,
 .trx-tool__image-missing {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--trx-body);
   color: var(--color-muted);
 }
 
@@ -259,22 +337,22 @@
   color: var(--color-error);
 }
 
-/* The expert's result, rendered as markdown. */
+/* The expert's reasoning / prose result, rendered as markdown — indented under
+ * the step, in full, no box. */
 .trx-block__result {
+  margin-left: 18px;
   color: var(--color-text);
-  font-size: 15px;
+  font-size: var(--trx-body);
   line-height: 1.65;
 }
 
-/* The final answer — the HEADLINE of the turn. A clear separator + accent label
- * set it apart from the muted synthesis delegation above. */
+/* The final answer — `● Answer` then full markdown. No box, no separator rule;
+ * a quiet accent label and the same body size as everything else. */
 .trx-turn__answer {
   color: var(--color-text);
-  font-size: 15.5px;
-  line-height: 1.72;
-  padding-top: 14px;
-  border-top: 2px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border-30));
-  margin-top: 6px;
+  font-size: var(--trx-body);
+  line-height: 1.7;
+  margin-top: 4px;
 }
 
 .trx-turn__answer-label {
@@ -282,12 +360,14 @@
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--color-accent-cyan);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+.trx-turn__answer-body {
+  min-width: 0;
 }
 
 .trx-turn__passthrough {
@@ -327,7 +407,7 @@
   left: 6px;
   bottom: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--trx-body);
   color: var(--color-heading);
   background: color-mix(in srgb, var(--color-bg) 70%, transparent);
   border: 1px solid var(--color-border-30);
@@ -347,7 +427,7 @@
 
 .trx-collapse__pre {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--trx-body);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -358,7 +438,7 @@
 .trx-collapse__toggle {
   align-self: flex-start;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body);
   color: var(--color-accent-cyan);
   background: transparent;
   border: none;

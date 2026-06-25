@@ -14,19 +14,14 @@ export interface ToolCallSummary {
   output?: unknown;
 }
 
+/**
+ * Display name for a tool — the tool name verbatim, humanised (snake/kebab →
+ * Title Case). GACT never special-cases a specific tool's name (contract/SPEC.md:
+ * "Unknown names MUST render as a generic row without special handling").
+ */
 export function toolDisplayName(toolName: string): string {
-  const known: Record<string, string> = {
-    fs_read_file: 'Read workspace file',
-    fs_propose_edit: 'Propose file edit',
-    fs_apply_edit_write: 'Apply file edit',
-    shell_bash: 'Run shell command',
-    ndp_search_datasets: 'Search NDP datasets',
-    ndp_stage_resource: 'Stage NDP resource',
-    geo_filter_points_by_radius: 'Filter points by radius',
-    pandas_profile_csv: 'Profile CSV data',
-  };
   const normalized = toolName.trim();
-  if (known[normalized]) return known[normalized];
+  if (!normalized) return normalized;
   return normalized.replace(/[_-]+/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
 }
 

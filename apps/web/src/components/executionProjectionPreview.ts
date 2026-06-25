@@ -17,7 +17,6 @@ import {
 import type { ProjectedExecutionNode } from './executionProjectionTypes.js';
 
 export {
-  agentDepth,
   handoffDepth,
   isRedacted,
   objectValue,

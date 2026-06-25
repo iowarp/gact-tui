@@ -3,7 +3,6 @@ import type { Message, Part } from '@clio/core';
 import {
   buildAssistantTurnModel,
   reconcileTurnModel,
-  stripControlScaffolding,
 } from '../../src/components/transcriptDelegationModel.js';
 import earthscopeRealTrace from '../visual/fixtures/earthscope-real-trace.json' with { type: 'json' };
 
@@ -11,51 +10,14 @@ const realAssistant = (earthscopeRealTrace as { messages: Message[] }).messages.
   (m) => m.role === 'assistant',
 )!;
 
-describe('stripControlScaffolding', () => {
-  it('removes the "agent -> agent | status | stage | " status prefix', () => {
-    const out = stripControlScaffolding(
-      'main -> data | completed | delegate.completed | Real prose here.',
-    );
-    expect(out).toBe('Real prose here.');
-  });
-
-  it('removes the parent.resumed status prefix', () => {
-    const out = stripControlScaffolding('main | completed | parent.resumed | Real prose.');
-    expect(out).toBe('Real prose.');
-  });
-
-  it('cuts the "Retained typed workflow state:" scaffolding and its JSON blob', () => {
-    const out = stripControlScaffolding(
-      'Useful summary.\n\nRetained typed workflow state:\n{"workflow_state": {"a": 1}}',
-    );
-    expect(out).toBe('Useful summary.');
-    expect(out).not.toContain('workflow_state');
-  });
-
-  it('cuts the "CLIO durable typed workflow state:" trailer', () => {
-    const out = stripControlScaffolding('Answer body.\n\nCLIO durable typed workflow state:');
-    expect(out).toBe('Answer body.');
-  });
-
-  it('does not eat pipes inside markdown tables', () => {
-    const md = '## Heading\n\n| A | B |\n| - | - |\n| 1 | 2 |';
-    expect(stripControlScaffolding(md)).toBe(md);
-  });
-
-  it('returns empty for empty input', () => {
-    expect(stripControlScaffolding('')).toBe('');
-    expect(stripControlScaffolding('   ')).toBe('');
-  });
-});
-
-describe('buildAssistantTurnModel — real earthscope trace', () => {
+describe('buildAssistantTurnModel — real earthscope trace (backend-agnostic)', () => {
   const model = buildAssistantTurnModel(realAssistant.parts as Part[])!;
 
   it('returns a model for a turn carrying handoffs', () => {
     expect(model).not.toBeNull();
   });
 
-  it('DEDUPEs the 10 handoffs (5 delegations x2) down to 5 blocks', () => {
+  it('DEDUPEs the 10 handoffs (5 delegations x2) down to 5 blocks via the stage metadata', () => {
     expect(model.blocks).toHaveLength(5);
     expect(model.blocks.map((b) => b.agent)).toEqual([
       'geospatial',
@@ -72,14 +34,14 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(ids.every((id) => id.length > 0)).toBe(true);
   });
 
-  it('places every named expert at delegation depth 1 under main', () => {
+  it('places every delegated expert at depth 1 under its parent (parent_id walk)', () => {
     for (const block of model.blocks) {
       expect(block.depth).toBe(1);
       expect(block.parent).toBe('main');
     }
   });
 
-  it('SURFACES the task main actually sent to each expert (meta.question)', () => {
+  it('SURFACES the task sent to each expert (meta.question)', () => {
     const geospatial = model.blocks[0]!;
     expect(geospatial.task).toContain('Resolve Los Angeles');
     expect(geospatial.task).toContain('geocode');
@@ -87,15 +49,14 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(data.task).toContain('Discover EarthScope/NDP GNSS stations');
   });
 
-  it('exposes each expert tool call + SEMANTIC preview, in order', () => {
+  it('exposes each tool call (name verbatim) + a content-typed preview, in order', () => {
     const geospatial = model.blocks[0]!;
     expect(geospatial.tools).toHaveLength(1);
     expect(geospatial.tools[0]!.name).toBe('geo_geocode');
     expect(geospatial.tools[0]!.argsSummary).toContain('Los Angeles');
-    // Semantic preview = resolved place, NOT the raw repr key dump.
-    expect(geospatial.tools[0]!.preview).toContain('Los Angeles');
-    expect(geospatial.tools[0]!.preview).not.toContain('display_name');
-    // Full raw body retained for the expand affordance.
+    // The geocode array is STRUCTURED json — rendered by content type, not by a
+    // tool-name special case. The raw body is retained behind the fold.
+    expect(geospatial.tools[0]!.content.kind).toBe('json');
     expect(geospatial.tools[0]!.result).toContain('display_name');
     expect(geospatial.tools[0]!.ok).toBe(true);
 
@@ -109,19 +70,44 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
       'ndp_search_datasets',
       'ndp_stage_resource',
     ]);
-    // The shell `head -5` tool shows its STDOUT, not the echoed command.
+  });
+
+  it('detects a CSV stdout body as a TABLE by content (not by the shell tool name)', () => {
+    const data = model.blocks[1]!;
     const headTool = data.tools.find(
       (t) => t.name === 'shell_bash' && t.argsSummary.includes('head -5'),
     )!;
-    expect(headTool.preview).toContain('Site,Latitude');
-    expect(headTool.preview).not.toMatch(/^\s*head -5/);
+    expect(headTool.content.kind).toBe('table');
+    if (headTool.content.kind === 'table') {
+      expect(headTool.content.columns.map((c) => c.name)).toContain('Site');
+      expect(headTool.content.columns.map((c) => c.name)).toContain('Latitude');
+    }
   });
 
-  it('surfaces the plot output_path as an inline image on the visualization turn', () => {
+  it('detects the CSV profile (columns[]) as a TABLE on the analysis turn', () => {
+    const analysis = model.blocks.find((b) => b.agent === 'analysis')!;
+    const profile = analysis.tools.find((t) => t.name === 'pandas_profile_csv')!;
+    expect(profile.content.kind).toBe('table');
+    if (profile.content.kind === 'table') {
+      expect(profile.content.columns.map((c) => c.name)).toEqual([
+        'time',
+        'east',
+        'north',
+        'up',
+        'sigEE',
+        'sigNN',
+        'sigUU',
+        'qChannel',
+      ]);
+      expect(profile.content.rowCount).toBe(250000);
+    }
+  });
+
+  it('detects the plot output_path as an inline IMAGE by extension (not by tool name)', () => {
     const viz = model.blocks.find((b) => b.agent === 'visualization')!;
     const plot = viz.tools.find((t) => t.name === 'plot_plot_timeseries')!;
+    expect(plot.content.kind).toBe('image');
     expect(plot.imagePath).toMatch(/MTA1_GNSS_timeseries_displacement\.png$/);
-    expect(plot.preview).toContain('.png');
   });
 
   it('gives every tool call a stable, unique id', () => {
@@ -130,27 +116,22 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('STRIPs all workflow-state + injected-evidence scaffolding from every result', () => {
-    for (const block of model.blocks) {
-      expect(block.result).not.toContain('Retained typed workflow state');
-      expect(block.result).not.toContain('CLIO durable typed workflow state');
-      expect(block.result).not.toContain('"workflow_state"');
-      expect(block.result).not.toMatch(/delegate\.completed|parent\.resumed/);
-      expect(block.result).not.toContain('delegation output truncated');
-      expect(block.result).not.toContain('exact retained evidence index');
-    }
-  });
-
-  it('renders the expert result as markdown prose, not scaffolding', () => {
+  it('renders a prose result IN FULL, and never a workflow_state JSON blob', () => {
     const geospatial = model.blocks[0]!;
     expect(geospatial.result).toContain('Los Angeles');
     const data = model.blocks[1]!;
     expect(data.result).toContain('EarthScope Data Acquisition');
+    for (const block of model.blocks) {
+      // Display-only structured state is never rendered as prose.
+      expect(block.result).not.toContain('"workflow_state"');
+      expect(block.result).not.toMatch(/^\s*Retained typed workflow state:/);
+    }
   });
 
-  it('suppresses the scaffolding-only synthesis result so it does not duplicate the answer', () => {
+  it('drops a result body that is only display-only structured state', () => {
+    // analysis / visualization / synthesis carry a bare workflow-state blob as
+    // their output_summary — that is display-only, so the prose result is empty.
     const synthesis = model.blocks.find((b) => b.agent === 'synthesis')!;
-    // Its task is still surfaced, but the fake structured-state "return" is gone.
     expect(synthesis.task).toContain('Compose the final');
     expect(synthesis.result).toBe('');
   });
@@ -158,11 +139,6 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
   it('exposes the final text answer as a prominent markdown body', () => {
     expect(model.answer).toContain('Region');
     expect(model.answer).toContain('Station');
-    expect(model.answer).not.toContain('workflow_state');
-  });
-
-  it('keeps the routing decision out of the blocks flow', () => {
-    expect(model.blocks.every((b) => b.agent !== 'chat')).toBe(true);
   });
 });
 
@@ -171,7 +147,13 @@ describe('reconcileTurnModel — streaming identity stability (perf)', () => {
     return {
       type: 'expert_handoff',
       id: `p-${agent}`,
-      metadata: { delegate_to: agent, parent_id: 'main', status: 'completed', question },
+      metadata: {
+        delegate_to: agent,
+        parent_id: 'main',
+        status: 'completed',
+        question,
+        output_summary: summary,
+      },
       text: summary,
     } as unknown as Part;
   }
@@ -180,16 +162,13 @@ describe('reconcileTurnModel — streaming identity stability (perf)', () => {
     const partsA = [handoff('geospatial', 'q1', 'done one'), handoff('data', 'q2', 'done two')];
     const a = buildAssistantTurnModel(partsA)!;
 
-    // A later delta extends only the SECOND block's result; the first is identical.
     const partsB = [
       handoff('geospatial', 'q1', 'done one'),
       handoff('data', 'q2', 'done two — now with more streamed text'),
     ];
     const b = reconcileTurnModel(a, buildAssistantTurnModel(partsB)!);
 
-    // Unchanged first block keeps its identity → <For> skips it.
     expect(b.blocks[0]).toBe(a.blocks[0]);
-    // Changed second block gets a fresh reference → <For> re-renders just it.
     expect(b.blocks[1]).not.toBe(a.blocks[1]);
     expect(b.blocks[1]!.result).toContain('more streamed text');
   });
@@ -204,6 +183,7 @@ describe('reconcileTurnModel — streaming identity stability (perf)', () => {
           parent_id: 'main',
           status: 'completed',
           question: 'q',
+          output_summary: 'prose',
           tools_called: [
             { call_id: 'c1', name: 'tool_a', args: { x: 1 }, ok: true, result: 'A result' },
             { call_id: 'c2', name: 'tool_b', args: { y: 2 }, ok: true, result: `B result${extra}` },
@@ -215,7 +195,6 @@ describe('reconcileTurnModel — streaming identity stability (perf)', () => {
     const a = buildAssistantTurnModel([withTools('')])!;
     const b = reconcileTurnModel(a, buildAssistantTurnModel([withTools(' grown')])!);
 
-    // First tool unchanged → same reference; second tool changed → new reference.
     expect(b.blocks[0]!.tools[0]).toBe(a.blocks[0]!.tools[0]);
     expect(b.blocks[0]!.tools[1]).not.toBe(a.blocks[0]!.tools[1]);
   });
@@ -223,6 +202,33 @@ describe('reconcileTurnModel — streaming identity stability (perf)', () => {
   it('passes the next model through unchanged when there is no previous', () => {
     const next = buildAssistantTurnModel([handoff('geospatial', 'q', 's')])!;
     expect(reconcileTurnModel(null, next)).toBe(next);
+  });
+});
+
+describe('buildAssistantTurnModel — depth from metadata when it varies', () => {
+  function handoff(id: string, agent: string, parent: string, depth: number): Part {
+    return {
+      type: 'expert_handoff',
+      id,
+      metadata: { agent_id: agent, parent_id: parent, depth, question: 'q', output_summary: 'p' },
+    } as unknown as Part;
+  }
+
+  it('uses metadata.depth directly when the turn carries differing depths', () => {
+    const model = buildAssistantTurnModel([
+      handoff('a', 'data', 'main', 1),
+      handoff('b', 'child', 'data', 2),
+    ])!;
+    expect(model.blocks.map((b) => b.depth)).toEqual([1, 2]);
+  });
+
+  it('walks the parent_id chain when depth is uniform/absent', () => {
+    const model = buildAssistantTurnModel([
+      { type: 'expert_handoff', id: 'a', metadata: { agent_id: 'data', parent_id: 'main', question: 'q', output_summary: 'p' } } as unknown as Part,
+      { type: 'expert_handoff', id: 'b', metadata: { agent_id: 'child', parent_id: 'data', question: 'q', output_summary: 'p' } } as unknown as Part,
+    ])!;
+    expect(model.blocks[0]!.depth).toBe(1);
+    expect(model.blocks[1]!.depth).toBe(2);
   });
 });
 

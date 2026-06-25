@@ -281,7 +281,9 @@ describe('Inspector Timeline tab (1.0 item 5)', () => {
     ));
 
     screen.getByTestId('inspector-tab-tools').click();
-    expect(screen.getByText('Read workspace file')).toBeTruthy();
+    // The display label is the tool name humanised verbatim (no per-tool map),
+    // and the raw identifier is also shown.
+    expect(screen.getByText('Fs Read File')).toBeTruthy();
     expect(screen.getByText('fs_read_file')).toBeTruthy();
     expect(screen.getByText('5ms')).toBeTruthy();
   });

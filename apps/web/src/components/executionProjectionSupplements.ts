@@ -4,8 +4,8 @@
  */
 import type { Message } from '@clio/core';
 import {
-  agentDepth,
   carriesArtifact,
+  handoffDepth,
   normalizeComparable,
   objectValue,
   type ProjectedExecutionNode,
@@ -47,11 +47,12 @@ export function assistantSupplementNodes(message: Message): ProjectedExecutionNo
       const structured = objectValue(metadata['structured']);
       const retained = retainedWorkflowStateFromText(text);
       const agent = stringValue(metadata['agent_id']) || stringValue(metadata['delegate_to']);
+      const parent = stringValue(metadata['parent_id']) || stringValue(metadata['parent']);
       const node: ProjectedExecutionNode = {
         kind: 'report',
         agent: agent || 'expert',
-        parent: stringValue(metadata['parent_id']) || stringValue(metadata['parent']),
-        depth: agentDepth(agent),
+        parent,
+        depth: handoffDepth(parent, agent),
         text,
         structured: Object.keys(structured).length ? structured : retained,
       };

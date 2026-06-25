@@ -8,88 +8,120 @@ import {
   parseJSON,
   stringValue,
 } from './executionProjectionHelpers.js';
+import { findBalancedJsonEnd } from '../presentationUtils.js';
 
+/**
+ * Build a node's report preview. BACKEND-AGNOSTIC: when the node carries prose,
+ * show the prose. When it carries only a structured object (display-only state
+ * per the contract — clients "never rely on specific keys"), summarise it
+ * GENERICALLY into "key: value" rows + an inline image hint when any value is an
+ * image path. No backend-specific key names (no acquisition / resource_candidate
+ * / artifact / region_name / center_lat …).
+ */
 export function reportPreview(node: ProjectedExecutionNode): string {
-  const structured = objectValue(node.structured);
-  const workflow = objectValue(structured['workflow_state']);
-  const state = objectValue(workflow[node.agent]);
-  const source = Object.keys(state).length
-    ? state
-    : Object.keys(workflow).length
-      ? workflow
-      : objectValue(parseJSON(stripControlContracts(node.text ?? '')) ?? {});
-  const acquisition = objectValue(source['acquisition']);
-  const resource = objectValue(source['resource_candidate']);
-  if (Object.keys(acquisition).length || Object.keys(resource).length) {
-    return [
-      stringValue(acquisition['status']) ? `acquisition ${stringValue(acquisition['status'])}` : '',
-      stringValue(acquisition['metadata_path']),
-      stringValue(acquisition['analysis_ready']) ? `analysis ready ${stringValue(acquisition['analysis_ready'])}` : '',
-      stringValue(resource['resource_name']) || stringValue(resource['dataset_name']),
-    ].filter(Boolean).join('\n');
-  }
-  const artifact = objectValue(source['artifact']);
-  const plot = objectValue(source['plot']);
-  const artifactSource = Object.keys(artifact).length ? artifact : plot;
-  if (Object.keys(artifactSource).length) {
-    const path = stringValue(artifactSource['path']) || stringValue(artifactSource['local_path']) || stringValue(artifactSource['output_path']) || stringValue(artifactSource['plot_path']) || stringValue(artifactSource['artifact_path']);
-    return [
-      stringValue(artifactSource['kind']) || stringValue(artifactSource['plot_type']) || stringValue(artifactSource['type']),
-      path,
-      imagePath(path) ? 'show full image' : '',
-      Array.isArray(artifactSource['columns']) ? `columns ${artifactSource['columns'].join(', ')}` : '',
-      stringValue(artifactSource['status']) ? `status ${stringValue(artifactSource['status'])}` : '',
-    ].filter(Boolean).join('\n');
-  }
-  const rows = [
-    stringValue(source['region_name']) || stringValue(source['display_name']) || stringValue(source['name']),
-    stringValue(source['center_lat']) && stringValue(source['center_lon'])
-      ? `center ${stringValue(source['center_lat'])}, ${stringValue(source['center_lon'])}`
-      : '',
-    stringValue(source['radius_km']) ? `radius ${stringValue(source['radius_km'])} km` : '',
-    stringValue(source['confidence']) ? `confidence ${stringValue(source['confidence'])}` : '',
-    stringValue(source['provenance']) ? `provenance ${stringValue(source['provenance'])}` : '',
-  ].filter(Boolean);
-  return rows.length ? rows.join('\n') : stripControlContracts(node.text ?? '');
+  const prose = stripControlContracts(node.text ?? '').trim();
+  const structured = Object.keys(objectValue(node.structured)).length
+    ? objectValue(node.structured)
+    : objectValue(parseJSON(prose) ?? {});
+  const summary = summarizeStructured(structured);
+  // A structured-state summary is the report node's content when present (it is
+  // the display-only evidence). Otherwise fall back to the node's prose.
+  if (summary) return summary;
+  if (prose && !/^[[{]/.test(prose)) return prose;
+  return summary || prose;
 }
 
+/** Generic "key: value" summary of an arbitrary structured object. Recurses
+ *  into nested objects (capped) so deeply-wrapped leaf scalars still surface,
+ *  with an image hint for any image-pathed value. No backend key knowledge. */
+function summarizeStructured(obj: Record<string, unknown>): string {
+  const rows: string[] = [];
+  const visit = (record: Record<string, unknown>, depth: number) => {
+    for (const [key, value] of Object.entries(record)) {
+      if (rows.length >= 8) return;
+      if (value == null) continue;
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        if (depth < 3) visit(objectValue(value), depth + 1);
+        continue;
+      }
+      const cell = scalarOrPath(value);
+      if (cell) rows.push(`${key}: ${cell}`);
+    }
+  };
+  visit(obj, 0);
+  return rows.join('\n');
+}
+
+function scalarOrPath(value: unknown): string {
+  if (Array.isArray(value)) {
+    const items = value.map((v) => stringValue(v)).filter(Boolean);
+    return items.length ? items.slice(0, 6).join(', ') : '';
+  }
+  const text = stringValue(value);
+  if (text && imagePath(text)) return `${text}\nshow full image`;
+  return text;
+}
+
+/**
+ * Recover a display-only structured-state object embedded in a text body. The
+ * shape is detected STRUCTURALLY — a bare JSON object, optionally introduced by
+ * a short single-line caption (`<caption>:\n{ … }`) — never by matching any
+ * backend's marker text. Returns the parsed object, or {} when none is present.
+ */
 export function retainedWorkflowStateFromText(text: string): Record<string, unknown> {
-  for (const marker of [
-    'Retained typed workflow state:',
-    'CLIO durable typed workflow state:',
-    'CLIO merged nested typed workflow state:',
-    'CLIO typed workflow state:',
-  ]) {
-    const idx = text.toLowerCase().lastIndexOf(marker.toLowerCase());
-    if (idx < 0) continue;
-    const tail = text.slice(idx + marker.length);
-    const brace = tail.indexOf('{');
-    if (brace < 0) continue;
-    return objectValue(parseJSON(tail.slice(brace)) ?? {});
-  }
-  return {};
+  const brace = text.indexOf('{');
+  if (brace < 0) return {};
+  const head = text.slice(0, brace).trim();
+  // Only treat trailing JSON as state when nothing but a short caption precedes
+  // it (otherwise it is prose that happens to contain a brace).
+  if (head && !/^[^\n{}]{0,80}:?$/.test(head)) return {};
+  return objectValue(parseJSON(text.slice(brace)) ?? {});
 }
 
+/**
+ * If a text body is (only) a structured object, summarise it generically;
+ * otherwise return the text unchanged. Backend-agnostic — no key-name list.
+ */
 export function structuredAgentTextPreview(text: string): string {
-  const parsed = objectValue(parseJSON(text) ?? {});
-  if (!Object.keys(parsed).some((key) => ['workflow_state', 'catalog', 'acquisition', 'resource_candidate', 'station_catalog', 'profile', 'artifact', 'plot'].includes(key))) {
-    return text;
-  }
+  const trimmed = text.trim();
+  if (!/^[[{]/.test(trimmed)) return text;
+  const parsed = objectValue(parseJSON(trimmed) ?? {});
+  if (!Object.keys(parsed).length) return text;
   return reportPreview({ kind: 'report', agent: 'main', depth: 0, structured: parsed, text });
 }
 
+/** True when the text references an inline image artifact (by extension or the
+ *  generic "show full image" affordance). No backend-specific vocabulary. */
 export function carriesArtifact(text: string): boolean {
-  return /(\.png|\.jpe?g|\.gif|\.webp|plot|artifact|full image)/i.test(text);
+  return /(\.png|\.jpe?g|\.gif|\.webp|\.svg|\.bmp|full image)/i.test(text);
 }
 
+/**
+ * Drop a trailing display-only structured-state blob from a prose body. The blob
+ * is detected STRUCTURALLY: an optional short caption line immediately followed
+ * by a balanced JSON object that runs to the end of the text. No backend marker
+ * strings are matched.
+ */
 export function stripControlContracts(text: string): string {
-  return text
-    .replace(/CLIO typed workflow state:\s*\n?[\s\S]*$/m, '')
-    .replace(/CLIO durable typed workflow state:\s*\n?[\s\S]*$/m, '')
-    .replace(/Retained typed workflow state:\s*\n?[\s\S]*$/m, '')
-    .replace(/The workflow state is populated accordingly:\s*\n?[\s\S]*$/m, '')
-    .replace(/The workflow state now records[\s\S]*$/m, '')
-    .trim();
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  // A bare JSON body is left intact — summarising it is structuredAgentTextPreview's
+  // job, not this stripper's. We only remove an embedded/trailing state blob that
+  // is glued onto PROSE.
+  if (/^[[{]/.test(trimmed)) return trimmed;
+  // Find the last "caption:\n{" boundary; if the JSON from there is balanced and
+  // runs to the end, strip the caption + blob.
+  const m = /(^|\n)([^\n{}]{0,80}:)\s*\n?\s*\{/.exec(trimmed);
+  if (m) {
+    const braceIdx = trimmed.indexOf('{', m.index);
+    if (braceIdx >= 0) {
+      const end = findBalancedJsonEnd(trimmed, braceIdx);
+      if (end >= 0 && trimmed.slice(end + 1).trim() === '') {
+        return trimmed.slice(0, m.index).trim();
+      }
+    }
+  }
+  return trimmed;
 }
 
 export function normalizeComparable(text: string): string {
