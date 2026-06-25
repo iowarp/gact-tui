@@ -1,4 +1,4 @@
-import { render, screen, cleanup, within } from '@solidjs/testing-library';
+import { render, screen, cleanup } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SemanticEventPayload } from '@clio/core';
 import { Transcript } from '../../src/components/Transcript.js';
@@ -6,13 +6,14 @@ import { Transcript } from '../../src/components/Transcript.js';
 afterEach(cleanup);
 
 /**
- * v0.2 inline execution trace: the semantic spine (agent invocations, expert
- * handoffs, tool timings, memory access) is surfaced INLINE in the main
- * conversation under each assistant turn, not only in the Inspector. These
- * guard that the per-turn strip renders the rows + durations, drops redaction
- * sentinels, and stays absent when no spine is present (additive).
+ * RENDERING_SPEC §9: the redundant inline "Execution trace" disclosure
+ * (`conversation-execution-trace` / `cx-trace*`) has been REMOVED. The unified
+ * live turn (`execution_tree` → buildTurnModelFromNodes → AssistantTurnView)
+ * already shows the execution, so the separate strip is silly and must never
+ * render. These guard that it stays gone and that a redaction sentinel never
+ * leaks into the conversation regardless of the spine.
  */
-describe('conversation execution trace', () => {
+describe('conversation execution trace (removed)', () => {
   function renderWith(events: SemanticEventPayload[] | undefined) {
     render(() => (
       <Transcript
@@ -33,7 +34,7 @@ describe('conversation execution trace', () => {
   const ev = (p: Partial<SemanticEventPayload>): SemanticEventPayload =>
     ({ event_id: Math.random().toString(36), event_type: 'tool.call.completed', turn_id: 'turn-1', ...p }) as SemanticEventPayload;
 
-  it('renders an inline execution-trace strip keyed to the turn', () => {
+  it('never renders the redundant inline execution-trace strip', () => {
     renderWith([
       ev({
         event_id: 's-handoff',
@@ -50,25 +51,9 @@ describe('conversation execution trace', () => {
         payload: { tool: 'sac_read', duration_ms: 812.4 },
       }),
     ]);
-    const trace = screen.getByTestId('conversation-execution-trace');
-    expect(within(trace).getByText('main → data')).toBeTruthy();
-    expect(within(trace).getByText('sac_read')).toBeTruthy();
-    // 812.4ms rounds to a sub-second ms reading.
-    expect(within(trace).getByText('812ms')).toBeTruthy();
-  });
-
-  it('formats a multi-second duration as seconds', () => {
-    renderWith([
-      ev({
-        event_id: 's-agent',
-        event_type: 'agent.invocation.completed',
-        summary: 'main returned a prediction',
-        actor: { agent_id: 'main' },
-        payload: { duration_ms: 4200 },
-      }),
-    ]);
-    const trace = screen.getByTestId('conversation-execution-trace');
-    expect(within(trace).getByText('4.2s')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-execution-trace')).toBeNull();
+    // None of the old `cx-trace*` disclosure markup may survive.
+    expect(document.querySelector('.cx-trace, .cx-trace__title')).toBeNull();
   });
 
   it('never renders a redaction sentinel as content', () => {
@@ -84,7 +69,7 @@ describe('conversation execution trace', () => {
     expect(screen.queryByText(/\[redacted\]/)).toBeNull();
   });
 
-  it('renders no strip when the spine is absent (additive)', () => {
+  it('renders no strip when the spine is absent', () => {
     renderWith(undefined);
     expect(screen.queryByTestId('conversation-execution-trace')).toBeNull();
   });

@@ -204,16 +204,83 @@ edges**. Get this model right, not just the styling.
   must be able to count turns 1, 2, … per agent.
 - Depth/nesting = **indentation + a subtle dot marker**, never a colored bar.
 
-Shape:
+### 9.2 The React-loop turn shape (DEFINITIVE — confirmed with owner)
+
+Each expert invocation renders as: **[0] parent prompt → [1..N] turns → return**.
+
+- **[0] Parent prompt** — the delegation task the parent sent this expert (input,
+  not an LLM turn). Shown first as the opening context. (Dropping it = "misses
+  step 0".)
+- **[k] A turn = ONE LLM response = its reasoning text + the SINGLE action it
+  takes** (a tool call, or `finish`). Reasoning and the tool call are the **same
+  turn** — the reasoning is the LLM deciding to call that tool; never split them
+  into disconnected blocks.
+- The tool **result (`⎿`) is the observation** that feeds the NEXT turn.
+- **`→ returns`** — the structured result handed back to the parent (the final
+  step). Render its key fields.
+- Model wording like "STEP 1/2/3" is just the model narrating its plan — it's the
+  model's text, render it; do not invent or strip it.
+
+**Turn marker = `●` per turn (DECIDED with owner).** Each turn starts with a `●`
++ its reasoning; `⚙` the tool call and `⎿` the result indent under it; a blank
+line separates turns (gap alone is NOT enough — the `●` is what makes the
+boundary unambiguous). The parent prompt opens with `↳`, **FULL prominence (NOT
+muted)** — it's as important as anything; the return uses `⮑`. Agent name is a
+header, depth = indentation + light dots (no bars).
+
+```
+ndp_dataset_discovery
+  ↳ search the NDP for EarthScope GNSS station metadata…        (parent prompt [0], muted)
+
+  ● STEP 1 search — narrow earthscope/converted terms
+    ⚙ ndp_search_datasets(search_terms: earthscope, converted)
+    ⎿ count: 1 · EarthScope Stations Dataset
+
+  ● STEP 2 stage the resource by URL
+    ⚙ ndp_stage_resource(url: …earthscope_converted_data.csv)
+    ⎿ ok · staged …converted_data.csv · 153082 B · text/csv
+
+  ● STEP 3 clean — keep first 3 columns
+    ⚙ shell_bash(cut -d, -f1-3 … > …clean.csv)
+    ⎿ (no output, exit 0)
+
+  ● all three done — finish
+  ⮑ returns: metadata_found · metadata_path …clean.csv · analysis_ready false
+```
+
+FULL CONVERSATION MODEL (authoritative — `main` is an agent with turns; a
+delegation is one of main's turns; the child indents ONE LEVEL below it;
+RECURSIVE; the `<agent> returned` hand-back is KEPT; the task is FIRST-CLASS,
+never muted; depth = indentation + light dots, never bars):
 ```
 GACT
-  main · reasons "…" → delegates
-   ·∙ geospatial              (light dot + indent = the task main sent)
-      geospatial · turn 1 — reasons → Geo Geocode(…) → Los Angeles 34.05,−118.24
-      geospatial · turn 2 — reasons → returns the region
-   ·∙ data …
-  GACT · final answer
+  ● main — thinks "<main's own reasoning>"
+  ● main — delegates to geospatial
+       Resolve 'Los Angeles' into coordinates…             (task — full prominence)
+       geospatial                                          ← indent one level
+         ● thinks "…" → ⚙ geo_geocode(…) → ⎿ Los Angeles 34.05,−118.24
+         ● thinks "…" → finish
+         geospatial returned                               (KEEP the hand-back)
+           center 34.05,−118.24 · 100 km · high confidence
+  ● main — delegates to data
+       Discover EarthScope GNSS stations…
+       data                                                ← indent one level
+         ● thinks "…" → delegates to ndp_dataset_discovery
+              Search the NDP for metadata…
+              ndp_dataset_discovery                        ← indent again (recursive)
+                ● STEP 1 → ⚙ ndp_search_datasets(…) → ⎿ count: 1
+                ● STEP 2 → ⚙ ndp_stage_resource(…) → ⎿ ok · 153082 B
+                ● finish
+                ndp_dataset_discovery returned
+                  metadata_path …clean.csv · analysis_ready false
+         data returned …
+  ● main — final answer (markdown)
 ```
+
+Rules locked: ● per turn; reasoning + its action on the same turn; ⚙ tool call,
+⎿ result indented; blank line between turns; the delegation TASK is first-class
+(not muted); each delegated agent indents one level under the delegating turn;
+`<agent> returned` + its return content is always shown.
 
 ## 8. Definition of done
 
