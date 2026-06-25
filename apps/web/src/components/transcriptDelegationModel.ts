@@ -35,6 +35,7 @@
 import type { Part } from '@clio/core';
 import { reportPreview, retainedWorkflowStateFromText } from './executionProjectionReport.js';
 import { summarizeHandoffDetail } from './WorkflowStateModel.js';
+import { analyzeToolResult } from './toolResultPreview.js';
 
 /** Control-contract markers that prefix a trailing JSON state blob. Mirrors
  *  the marker list in stripSemanticControlContracts / the TUI report stripper. */
@@ -61,8 +62,13 @@ export interface DelegationToolCall {
   name: string;
   /** Compact one-line argument summary for the "⚙ name(args)" line. */
   argsSummary: string;
-  /** The raw result body, rendered as a compacted "⎿ result" block. */
+  /** SEMANTIC preview of the result (resolved place / columns / stdout / …),
+   *  shown by default — never the raw command-echo JSON. */
+  preview: string;
+  /** The full, pretty-printed raw result body, for the expand affordance. */
   result: string;
+  /** When the result is an image artifact, its workspace path (for inline render). */
+  imagePath?: string;
   /** Whether the call succeeded. */
   ok: boolean;
   /** Wall-clock duration in ms, when reported. */
@@ -141,7 +147,39 @@ export function stripControlScaffolding(raw: string): string {
     if (idx >= 0 && (cut < 0 || idx < cut)) cut = idx;
   }
   if (cut >= 0) text = text.slice(0, cut);
-  return text.trim();
+  return stripInjectedNoise(text).trim();
+}
+
+/**
+ * Remove clio's injected evidence-retention scaffolding from the displayed
+ * prose. clio glues two kinds of noise into a delegation's prose BEFORE the
+ * workflow-state marker, so the marker cut above does not catch them:
+ *
+ *   - "[...delegation output truncated; exact evidence retained below...]" and
+ *     everything from the "[exact retained evidence index]" block onward (a
+ *     Paths: list of raw filesystem paths — pure machine bookkeeping).
+ *   - "(In progress—awaiting …)" / "(awaiting …)" status placeholders the model
+ *     leaves in mid-orchestration; they read as injected noise.
+ *
+ * Mirrors the TUI's stripSemanticControlContracts which drops the same markers.
+ */
+function stripInjectedNoise(text: string): string {
+  let out = text;
+  // Cut from the truncation/evidence-index marker to the end (it is always
+  // trailing bookkeeping).
+  const evidenceRe = /\n*\**\s*\[?\.{0,3}\s*delegation output truncated[^\n]*\]?/i;
+  const em = evidenceRe.exec(out);
+  if (em) out = out.slice(0, em.index);
+  const indexRe = /\n*\[exact retained evidence index\][\s\S]*$/i;
+  out = out.replace(indexRe, '');
+  // Drop standalone "(In progress—awaiting …)" / "(awaiting …)" placeholder lines.
+  out = out
+    .split('\n')
+    .filter((line) => !/^\s*\(?\s*(in progress\s*[—-]\s*)?awaiting[^)]*\)?\s*$/i.test(line))
+    .join('\n');
+  // Collapse the dangling bullet/asterisk a truncation leaves behind.
+  out = out.replace(/\n\s*\*\s*\n/g, '\n\n');
+  return out;
 }
 
 /**
@@ -215,18 +253,23 @@ function structuredHandoffSummary(raw: string, agent: string): string {
  * summarise any bare leading JSON evidence object, and finally fall back to a
  * structured workflow-state summary when no prose remains. A markdown ```json
  * fenced block is left intact (it renders as a readable code block).
+ *
+ * Returns `{ text, fallback }` — `fallback` is true when `text` is NOT real
+ * model prose but a synthesised structured-state summary. The caller suppresses
+ * a fallback-only result when a real final answer exists, so a scaffolding-only
+ * synthesis handoff does not render a confusing duplicate of the answer.
  */
-function cleanHandoffText(raw: string, agent: string): string {
+function cleanHandoffText(raw: string, agent: string): { text: string; fallback: boolean } {
   const stripped = stripControlScaffolding(raw);
-  if (!stripped) return structuredHandoffSummary(raw, agent);
+  if (!stripped) return { text: structuredHandoffSummary(raw, agent), fallback: true };
   // A bare leading "{ … }" evidence object (NOT a fenced ```json block) gets
   // summarised into "key: value" prose rather than dumped verbatim (mirrors the
   // TUI's summarizeHandoffDetail).
   if (stripped.startsWith('{')) {
     const summary = summarizeHandoffDetail(stripped).trim();
-    if (summary) return summary;
+    if (summary) return { text: summary, fallback: false };
   }
-  return stripped;
+  return { text: stripped, fallback: false };
 }
 
 /** Normalised text used for the dedupe comparison (mirrors
@@ -268,12 +311,12 @@ function summariseArgs(args: unknown): string {
   return clip(parts.join(', '), 160);
 }
 
-/** Render a tool's result (object or string) into displayable text. */
-function resultText(result: unknown): string {
+/** Coerce a tool's result (object or string) into a raw string for analysis. */
+function rawResultString(result: unknown): string {
   if (result == null) return '';
   if (typeof result === 'string') return result;
   try {
-    return JSON.stringify(result, null, 2);
+    return JSON.stringify(result);
   } catch {
     return String(result);
   }
@@ -284,7 +327,8 @@ function clip(s: string, max: number): string {
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
 }
 
-/** Extract the ordered tool calls a handoff recorded in meta.tools_called. */
+/** Extract the ordered tool calls a handoff recorded in meta.tools_called,
+ *  with a SEMANTIC result preview (see analyzeToolResult) instead of raw JSON. */
 function extractTools(meta: Record<string, unknown>, blockId: string): DelegationToolCall[] {
   const raw = meta['tools_called'];
   if (!Array.isArray(raw)) return [];
@@ -294,11 +338,15 @@ function extractTools(meta: Record<string, unknown>, blockId: string): Delegatio
     if (!t || typeof t !== 'object') continue;
     const rec = t as Record<string, unknown>;
     const name = str(rec['name']) || str(rec['tool_name']) || 'tool';
+    const resultStr = rawResultString(rec['result'] ?? rec['output'] ?? rec['content']);
+    const analysis = analyzeToolResult(name, resultStr);
     out.push({
       id: str(rec['call_id']) || `${blockId}-tool-${i}`,
       name,
       argsSummary: summariseArgs(rec['args'] ?? rec['input']),
-      result: resultText(rec['result'] ?? rec['output'] ?? rec['content']),
+      preview: analysis.preview,
+      result: analysis.full,
+      ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
       ok: rec['ok'] !== false && rec['is_error'] !== true,
       ...(typeof rec['duration_ms'] === 'number' ? { durationMs: rec['duration_ms'] } : {}),
       ...(typeof rec['cached'] === 'boolean' ? { cached: rec['cached'] } : {}),
@@ -363,7 +411,9 @@ function toolEquals(a: DelegationToolCall, b: DelegationToolCall): boolean {
   return (
     a.name === b.name &&
     a.argsSummary === b.argsSummary &&
+    a.preview === b.preview &&
     a.result === b.result &&
+    a.imagePath === b.imagePath &&
     a.ok === b.ok &&
     a.durationMs === b.durationMs &&
     a.cached === b.cached
@@ -382,6 +432,9 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
   if (!list.some(isHandoff)) return null;
 
   const blocks: DelegationBlock[] = [];
+  /** Tracks, per emitted block, whether its result is a synthesised fallback
+   *  (not real prose) so we can suppress it when a final answer exists. */
+  const blockResultFallback: boolean[] = [];
   const passthrough: Part[] = [];
   let routing: AssistantTurnModel['routing'] | undefined;
   const answerChunks: string[] = [];
@@ -425,11 +478,11 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       // The task main actually SENT to the expert (surfaced from handoff meta).
       const task = str(meta['question']);
       // The expert's result prose, scaffolding removed, rendered as markdown.
-      const result = cleanHandoffText(raw, agent);
+      const cleaned = cleanHandoffText(raw, agent);
       const tools = extractTools(meta, id);
 
       // Skip an utterly empty delegation (no task, no result, no tools).
-      if (!task && !result.trim() && tools.length === 0) continue;
+      if (!task && !cleaned.text.trim() && tools.length === 0) continue;
 
       const parent = str(meta['parent_id']) || str(meta['parent']) || 'main';
       const status = str(meta['status']) || 'observed';
@@ -441,8 +494,9 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         status,
         task,
         tools,
-        result,
+        result: cleaned.text,
       });
+      blockResultFallback.push(cleaned.fallback);
       continue;
     }
 
@@ -458,10 +512,22 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
   }
   void prevHandoffKey;
 
+  const answer = answerChunks.join('\n\n');
+
+  // When a real final answer exists, suppress any block whose result is only a
+  // synthesised structured-state fallback (no real prose) — that is the
+  // scaffolding-only synthesis "return" that would otherwise duplicate the
+  // answer. The block keeps its task + tools; only the fake result is dropped.
+  if (answer.trim()) {
+    for (let b = 0; b < blocks.length; b++) {
+      if (blockResultFallback[b]) blocks[b]!.result = '';
+    }
+  }
+
   return {
     ...(routing ? { routing } : {}),
     blocks,
-    answer: answerChunks.join('\n\n'),
+    answer,
     passthrough,
   };
 }

@@ -42,30 +42,39 @@ test.describe('clean transcript — real earthscope trace', () => {
     await expect(firstBlock.getByTestId('assistant-turn-delegation-header')).toContainText(
       'geospatial',
     );
-    await expect(firstBlock.getByTestId('assistant-turn-task')).toContainText('Resolve "Los Angeles"');
-    await expect(firstBlock.getByTestId('assistant-turn-tool').first()).toContainText('geo_geocode');
+    await expect(firstBlock.getByTestId('assistant-turn-task')).toContainText('Resolve Los Angeles');
+    const geoTool = firstBlock.getByTestId('assistant-turn-tool').first();
+    await expect(geoTool).toContainText('geo_geocode');
+    // SEMANTIC preview: the geocode tool shows the resolved place, not raw repr.
+    await expect(geoTool).toContainText('Los Angeles');
+    await expect(geoTool).not.toContainText('display_name');
     await expect(firstBlock.getByTestId('assistant-turn-result')).toBeVisible();
 
     // DEPTH: every named expert sits at delegation depth 1 under main.
     await expect(steps.first()).toHaveAttribute('data-depth', '1');
 
-    // STRIP: no workflow_state JSON / control scaffolding leaks into the DOM.
+    // STRIP: no workflow_state JSON / control scaffolding leaks into the DOM,
+    // including the injected evidence-retention markers.
     const body = page.getByTestId('transcript-pane');
     await expect(body).not.toContainText('Retained typed workflow state');
     await expect(body).not.toContainText('CLIO durable typed workflow state');
     await expect(body).not.toContainText('"workflow_state"');
     await expect(body).not.toContainText('delegate.completed');
     await expect(body).not.toContainText('parent.resumed');
+    await expect(body).not.toContainText('delegation output truncated');
+    await expect(body).not.toContainText('exact retained evidence index');
 
     // COMPACTION: at least one long step is collapsed with an expand toggle.
     const toggle = page.getByTestId('collapsible-toggle').first();
     await expect(toggle).toBeVisible();
     await expect(toggle).toContainText(/expand/);
 
-    // The final answer renders prominently as markdown (its heading shows).
+    // The final answer renders prominently as labelled markdown (its sections show).
     const answer = page.getByTestId('assistant-turn-answer');
     await expect(answer).toBeVisible();
-    await expect(answer).toContainText('EarthScope GNSS Ground Motion');
+    await expect(answer).toContainText('Answer');
+    await expect(answer).toContainText('Region');
+    await expect(answer).toContainText('Station');
 
     // Scroll the transcript to the top so the user prompt, routing chip and the
     // depth-indented delegation steps are in view for the primary screenshot.
@@ -124,6 +133,55 @@ test.describe('clean transcript — real earthscope trace', () => {
       fullPage: false,
     });
 
+    // ---- LIVE TOOLS: semantic result preview, not raw JSON ------------------
+    // The `data` turn ran 7 tools; its shell `head -5` shows STDOUT (Site,…),
+    // never the echoed command, and a "show raw" toggle reveals the full body.
+    await connectMockBackend(page, 'earthscope-real');
+    await expect(page.getByTestId('assistant-turn')).toBeVisible();
+    const dataBlock = page
+      .getByTestId('assistant-turn-step')
+      .filter({ hasText: 'data' })
+      .first();
+    const shellTool = dataBlock
+      .getByTestId('assistant-turn-tool')
+      .filter({ hasText: 'head -5' })
+      .first();
+    await shellTool.scrollIntoViewIfNeeded();
+    await expect(shellTool).toContainText('Site,Latitude');
+    await expect(shellTool).not.toContainText('"command"');
+    await page.evaluate(() => {
+      const el = document
+        .querySelectorAll('[data-testid="assistant-turn-step"]')[1] as HTMLElement | null;
+      el?.scrollIntoView({ block: 'start' });
+    });
+    await page.waitForTimeout(300);
+    await page.screenshot({
+      path: resolve(REPO_SHOT, 'web-live-tools.png'),
+      fullPage: false,
+    });
+
+    // ---- LIVE IMAGE: the plot output_path renders as an inline image --------
+    const vizBlock = page
+      .getByTestId('assistant-turn-step')
+      .filter({ hasText: 'visualization' })
+      .first();
+    await vizBlock.scrollIntoViewIfNeeded();
+    const plotImg = vizBlock.getByTestId('trx-image').first();
+    await expect(plotImg).toBeVisible({ timeout: 8_000 });
+    // It is a real raster image with non-zero dimensions (not a JSON dump).
+    const imgBox = await plotImg.boundingBox();
+    expect(imgBox).not.toBeNull();
+    expect(imgBox!.height).toBeGreaterThan(40);
+    await page.evaluate(() => {
+      const blocks = document.querySelectorAll('[data-testid="assistant-turn-step"]');
+      (blocks[blocks.length - 2] as HTMLElement | undefined)?.scrollIntoView({ block: 'start' });
+    });
+    await page.waitForTimeout(300);
+    await page.screenshot({
+      path: resolve(REPO_SHOT, 'web-live-image.png'),
+      fullPage: false,
+    });
+
     // Expand everything and capture the fully-disclosed view (scrolled to top).
     const toggles = page.getByTestId('collapsible-toggle');
     const count = await toggles.count();
@@ -150,10 +208,16 @@ test.describe('clean transcript — real earthscope trace', () => {
       a?.scrollIntoView({ block: 'start' });
     });
     await page.waitForTimeout(300);
-    // The answer's markdown headings actually rendered (not a fenced code dump).
+    // The answer's markdown headings actually rendered (not a fenced code dump),
+    // and the "Answer" headline label is present and distinct.
     await expect(answer.locator('.im__h-2, .im__h-1').first()).toBeVisible();
+    await expect(answer).toContainText('Answer');
     await page.screenshot({
       path: resolve(REPO_SHOT, 'web-transcript-clean-answer.png'),
+      fullPage: false,
+    });
+    await page.screenshot({
+      path: resolve(REPO_SHOT, 'web-live-answer.png'),
       fullPage: false,
     });
   });

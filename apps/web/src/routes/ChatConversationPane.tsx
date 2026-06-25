@@ -19,6 +19,7 @@ import { ChatConversationComposer } from './ChatConversationComposer.js';
 import { ChatConversationTranscript } from './ChatConversationTranscript.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import type { TranscriptScrollController } from './chatTranscriptScroll.js';
+import { previewWorkspaceIdForSession } from './chatLayoutSelectionModel.js';
 
 export interface ChatConversationPaneProps {
   backendUrl: string;
@@ -76,9 +77,34 @@ export interface ChatConversationPaneProps {
 }
 
 export function ChatConversationPane(props: ChatConversationPaneProps) {
+  // Resolve a workspace file path (often the absolute output_path emitted by a
+  // tool) into an inline image data URL via the workspace file-read endpoint.
+  // The workspace id is the active session's workspace (falling back to the
+  // selected one); the endpoint accepts absolute paths under the workspace root.
+  const readWorkspaceImage = async (
+    path: string,
+  ): Promise<{ url: string; mediaType: string } | null> => {
+    const workspaceId = previewWorkspaceIdForSession({
+      sessions: props.sessions,
+      activeId: props.activeId,
+      ...(props.selectedWorkspaceId ? { selectedWorkspaceId: props.selectedWorkspaceId } : {}),
+    });
+    if (!workspaceId) return null;
+    try {
+      const content = await props.workspaceClient.readWorkspaceFile(workspaceId, path);
+      if (!content?.data) return null;
+      const mediaType = content.media_type || 'image/png';
+      if (!mediaType.startsWith('image/')) return null;
+      return { url: `data:${mediaType};base64,${content.data}`, mediaType };
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <>
       <ChatConversationTranscript
+        readWorkspaceImage={readWorkspaceImage}
         activeId={props.activeId}
         voiceCapable={props.voiceCapable}
         caps={props.caps}

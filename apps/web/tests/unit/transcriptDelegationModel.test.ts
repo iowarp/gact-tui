@@ -81,17 +81,21 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
 
   it('SURFACES the task main actually sent to each expert (meta.question)', () => {
     const geospatial = model.blocks[0]!;
-    expect(geospatial.task).toContain('Resolve "Los Angeles"');
+    expect(geospatial.task).toContain('Resolve Los Angeles');
     expect(geospatial.task).toContain('geocode');
     const data = model.blocks[1]!;
     expect(data.task).toContain('Discover EarthScope/NDP GNSS stations');
   });
 
-  it('exposes each expert tool call + result, in order', () => {
+  it('exposes each expert tool call + SEMANTIC preview, in order', () => {
     const geospatial = model.blocks[0]!;
     expect(geospatial.tools).toHaveLength(1);
     expect(geospatial.tools[0]!.name).toBe('geo_geocode');
     expect(geospatial.tools[0]!.argsSummary).toContain('Los Angeles');
+    // Semantic preview = resolved place, NOT the raw repr key dump.
+    expect(geospatial.tools[0]!.preview).toContain('Los Angeles');
+    expect(geospatial.tools[0]!.preview).not.toContain('display_name');
+    // Full raw body retained for the expand affordance.
     expect(geospatial.tools[0]!.result).toContain('display_name');
     expect(geospatial.tools[0]!.ok).toBe(true);
 
@@ -105,6 +109,19 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
       'ndp_search_datasets',
       'ndp_stage_resource',
     ]);
+    // The shell `head -5` tool shows its STDOUT, not the echoed command.
+    const headTool = data.tools.find(
+      (t) => t.name === 'shell_bash' && t.argsSummary.includes('head -5'),
+    )!;
+    expect(headTool.preview).toContain('Site,Latitude');
+    expect(headTool.preview).not.toMatch(/^\s*head -5/);
+  });
+
+  it('surfaces the plot output_path as an inline image on the visualization turn', () => {
+    const viz = model.blocks.find((b) => b.agent === 'visualization')!;
+    const plot = viz.tools.find((t) => t.name === 'plot_plot_timeseries')!;
+    expect(plot.imagePath).toMatch(/MTA1_GNSS_timeseries_displacement\.png$/);
+    expect(plot.preview).toContain('.png');
   });
 
   it('gives every tool call a stable, unique id', () => {
@@ -113,13 +130,14 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('STRIPs all workflow-state scaffolding from every block result', () => {
+  it('STRIPs all workflow-state + injected-evidence scaffolding from every result', () => {
     for (const block of model.blocks) {
       expect(block.result).not.toContain('Retained typed workflow state');
       expect(block.result).not.toContain('CLIO durable typed workflow state');
       expect(block.result).not.toContain('"workflow_state"');
       expect(block.result).not.toMatch(/delegate\.completed|parent\.resumed/);
-      expect(block.result.trim().length).toBeGreaterThan(0);
+      expect(block.result).not.toContain('delegation output truncated');
+      expect(block.result).not.toContain('exact retained evidence index');
     }
   });
 
@@ -127,11 +145,19 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     const geospatial = model.blocks[0]!;
     expect(geospatial.result).toContain('Los Angeles');
     const data = model.blocks[1]!;
-    expect(data.result).toContain('EarthScope GNSS Data Acquisition');
+    expect(data.result).toContain('EarthScope Data Acquisition');
+  });
+
+  it('suppresses the scaffolding-only synthesis result so it does not duplicate the answer', () => {
+    const synthesis = model.blocks.find((b) => b.agent === 'synthesis')!;
+    // Its task is still surfaced, but the fake structured-state "return" is gone.
+    expect(synthesis.task).toContain('Compose the final');
+    expect(synthesis.result).toBe('');
   });
 
   it('exposes the final text answer as a prominent markdown body', () => {
-    expect(model.answer).toContain('EarthScope GNSS Ground Motion');
+    expect(model.answer).toContain('Region');
+    expect(model.answer).toContain('Station');
     expect(model.answer).not.toContain('workflow_state');
   });
 
