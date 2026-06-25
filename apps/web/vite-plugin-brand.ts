@@ -118,34 +118,30 @@ const DEFAULT_STARTER_PROMPTS: ResolvedBrand['starterPrompts'] = [
 ];
 
 /**
- * Default backend block — the clio-agent managed configuration. Applied
- * field-by-field whenever a profile omits (parts of) its `backend` block, so a
- * brand with no `backend` resolves to byte-identical managed behavior.
+ * Default backend block — the neutral connect default. Applied field-by-field
+ * whenever a profile omits (parts of) its `backend` block. A brand with no
+ * `backend` resolves to connect-mode with no installer: gact-tui makes NO
+ * assumption about a managed agent. Projects that ship a managed backend supply
+ * an explicit `backend` block in their own brand (see `GACT_BRAND_SRC`).
  */
 const DEFAULT_BACKEND: ResolvedBackend = {
-  mode: 'managed',
-  sidecarName: 'clio-agent',
+  mode: 'connect',
+  sidecarName: '',
   attachPort: 17800,
-  attachPortEnv: 'CLIO_PORT',
-  attachUrlEnv: 'CLIO_GACT_URL',
+  attachPortEnv: 'GACT_PORT',
+  attachUrlEnv: 'GACT_URL',
   repoLabel: null,
-  install: {
-    ref: 'develop',
-    refEnv: 'CLIO_REF',
-    forceEnv: 'CLIO_FORCE',
-    windowsUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1',
-    unixUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh',
-    repoLabel: 'github.com/iowarp/clio-agent',
-  },
+  install: null,
 };
 
 /**
  * Resolve a raw `backend` block into a fully-defaulted {@link ResolvedBackend}.
  *
  * Mirrors the duplicated logic in `apps/desktop/scripts/gen-brand-backend.mjs`
- * (kept literally in sync). When `backend` is absent the managed clio-agent
- * default is returned. An explicit `install: null` yields a connect-mode brand
- * with no installer; an absent `install` inherits the default installer.
+ * (kept literally in sync). When `backend` is absent the neutral connect
+ * default is returned (no installer, no managed assumption). An explicit
+ * `install: null` yields a connect-mode brand with no installer; an absent
+ * `install` inherits the default (which is `null` for the neutral default).
  */
 function resolveBackend(raw: RawBrand): ResolvedBackend {
   const b = raw.backend;
@@ -243,16 +239,14 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
 /**
  * Resolve the active brand profile id.
  *
- * Precedence: explicit `GACT_BRAND` always wins. Otherwise the default is
- * `gact` (neutral) — EXCEPT under Vitest, where the existing unit suite is
- * authored against the CLIO product (the brand under test), so it defaults to
- * `clio` to keep those assertions valid. The visual (Playwright) build is run
- * with an explicit `GACT_BRAND=clio` via the `test:visual` script.
+ * Precedence: explicit `GACT_BRAND` always wins. Otherwise the default is the
+ * neutral in-repo `gact` profile — including under tests. Product brands are
+ * owned by the embedding project and selected via `GACT_BRAND=<id>` (plus
+ * `GACT_BRAND_SRC=<dir>` to point at the project's branding dir).
  */
 export function activeProfile(): string {
   const explicit = process.env['GACT_BRAND'];
   if (explicit) return explicit;
-  if (process.env['VITEST']) return 'clio';
   return 'gact';
 }
 

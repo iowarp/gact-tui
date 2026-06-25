@@ -24,22 +24,22 @@ if (!brand) {
   process.exit(2);
 }
 
-/** Default backend block — the clio-agent managed configuration. */
+/**
+ * Default backend block — the neutral connect default. A brand with no
+ * `backend` block resolves to connect-mode with no installer: gact-tui makes
+ * NO managed-agent assumption. Projects that ship a managed backend supply an
+ * explicit `backend` block in their own brand (see GACT_BRAND_SRC).
+ *
+ * Kept literally in sync with apps/web/vite-plugin-brand.ts.
+ */
 const DEFAULT_BACKEND = {
-  mode: 'managed',
-  sidecarName: 'clio-agent',
+  mode: 'connect',
+  sidecarName: '',
   attachPort: 17800,
-  attachPortEnv: 'CLIO_PORT',
-  attachUrlEnv: 'CLIO_GACT_URL',
+  attachPortEnv: 'GACT_PORT',
+  attachUrlEnv: 'GACT_URL',
   repoLabel: null,
-  install: {
-    ref: 'develop',
-    refEnv: 'CLIO_REF',
-    forceEnv: 'CLIO_FORCE',
-    windowsUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1',
-    unixUrl: 'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh',
-    repoLabel: 'github.com/iowarp/clio-agent',
-  },
+  install: null,
 };
 
 /** Resolve a raw "backend" block into a fully-defaulted backend object. */

@@ -24,6 +24,46 @@ import type {
   InstallFailure,
   InstallProgressHandlers,
 } from '../../src/tauri.js';
+import type { ResolvedBrand } from '../../vite-plugin-brand';
+
+// --- Synthetic MANAGED brand ----------------------------------------------
+// The in-repo default brand (`gact`) resolves to connect-mode with no
+// installer, so it cannot exercise the managed first-run install UI. We mock
+// `@brand` with a synthetic MANAGED brand so this suite keeps covering the
+// install state machine WITHOUT depending on any product (CLIO) brand.
+const TEST_BRAND: ResolvedBrand = {
+  name: 'TestBrand',
+  wordmark: 'TestBrand',
+  tagline: 'Synthetic managed test brand',
+  markGlyph: 'T',
+  accent: '#5b8def',
+  themeTokens: {},
+  logoSvg: null,
+  starterPrompts: [{ eyebrow: 'Inspect', label: 'Show me the schema of data/sample.h5.' }],
+  backendRepository: {
+    label: 'example/test-agent',
+    url: 'https://example/test-agent',
+    detail: 'test backend',
+  },
+  backend: {
+    mode: 'managed',
+    sidecarName: 'test-agent',
+    attachPort: 17800,
+    attachPortEnv: 'TEST_PORT',
+    attachUrlEnv: 'TEST_URL',
+    repoLabel: null,
+    install: {
+      ref: 'develop',
+      refEnv: 'TEST_REF',
+      forceEnv: 'TEST_FORCE',
+      windowsUrl: 'https://example/install.ps1',
+      unixUrl: 'https://example/install.sh',
+      repoLabel: 'example/test-agent',
+    },
+  },
+};
+
+vi.mock('@brand', () => ({ brand: TEST_BRAND, default: TEST_BRAND }));
 
 // --- Mock the Tauri bridge -------------------------------------------------
 // Mutable handles the tests drive: the next backend status getBackend()
@@ -143,7 +183,7 @@ describe('Splash first-run install (one swoop)', () => {
 
     // The first-run note + log pane are present.
     const view = screen.getByTestId('splash-installing');
-    expect(view.textContent).toContain('Setting up the CLIO agent backend');
+    expect(view.textContent).toContain('Setting up the TestBrand agent backend');
     expect(view.textContent).toContain('800');
     expect(screen.getByTestId('splash-install-log')).toBeTruthy();
   });
@@ -152,13 +192,13 @@ describe('Splash first-run install (one swoop)', () => {
     mount();
     await waitFor(() => expect(state.progressHandlers).not.toBeNull());
 
-    state.progressHandlers!.onLine('Cloning iowarp/clio-agent@develop…');
+    state.progressHandlers!.onLine('Cloning example/test-agent@develop…');
     state.progressHandlers!.onLine('Creating virtualenv .venv');
     state.progressHandlers!.onLine('Installing 142 packages');
 
     await waitFor(() => {
       const log = screen.getByTestId('splash-install-log');
-      expect(log.textContent).toContain('Cloning iowarp/clio-agent@develop');
+      expect(log.textContent).toContain('Cloning example/test-agent@develop');
       expect(log.textContent).toContain('Creating virtualenv .venv');
       expect(log.textContent).toContain('Installing 142 packages');
     });
@@ -181,12 +221,12 @@ describe('Splash first-run install (one swoop)', () => {
     // Tail of the installer output is surfaced for triage.
     expect(card.textContent).toContain('failed to build wheel');
     expect(card.textContent).toContain('exited with code 1');
-    // The manual one-liner is still present as the fallback. For the CLIO
-    // brand (the Vitest default) the recipe is derived from the resolved
-    // backend install config, which points at the clio-agent installer.
-    expect(card.textContent).toContain('clio-agent');
+    // The manual one-liner is still present as the fallback. The recipe is
+    // derived from the synthetic managed brand's install config, which points
+    // at the synthetic installer URL.
+    expect(card.textContent).toContain('example/install');
     // The recipe is brand-driven: it carries the resolved install ref env.
-    expect(card.textContent).toContain('CLIO_REF');
+    expect(card.textContent).toContain('TEST_REF');
 
     // Retry re-runs the installer (one more swoop) and returns to the
     // installing view.
@@ -261,7 +301,7 @@ describe('Splash first-run install (one swoop)', () => {
       expect(card.textContent).toContain('repair');
       expect(card.textContent).toContain('repair blew up too');
       // Manual one-liner remains the ultimate fallback.
-      expect(card.textContent).toContain('clio-agent');
+      expect(card.textContent).toContain('example/install');
     });
   });
 

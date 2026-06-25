@@ -1,24 +1,27 @@
 # apps/ — STATUS
 
-## BRAND NEUTRALITY (2026-06-07) — build-time white-label, DONE.
-GACT web+desktop are now brand-neutral by default; brand injected at BUILD via
-`GACT_BRAND=<profile>` (default `gact`). Profiles in `apps/branding/<id>/brand.json`
-(+`logo.svg`): `gact` (neutral, blue `#5b8def`, mark "G") and `clio` (orange
-`#ea7b2a`, mark "C", "Your local AI coding & data agent"). Injection: Vite virtual
-module `@brand` (`apps/web/vite-plugin-brand.ts`) exposes a typed `brand` object;
-HTML transform bakes `<title>`+favicon; `theme.ts` applies `brand.themeTokens` as a
-base layer (beneath the user-override !important layer) so accent follows the brand.
-De-hardcoded ~25 user-facing "CLIO" sites (rail, splash, connect, onboarding, chat
-empty/typing/toasts, composer placeholder, transcript role, settings/about,
-workspaces, plugins, slash/keybind, inspector, etc.) — code symbols (`@clio/core`,
-`clio:local`, `clio.*` storage keys, env-var names) left as-is. Tests/visual default
-to `clio` (vitest via `activeProfile()`, playwright via `GACT_BRAND ?? 'clio'`).
-Tauri-native injection documented in `desktop/src-tauri/tauri.brand.md` + neutral
-overlay `tauri.gact.conf.json` (`--config` hook for productName/identifier/title/
-icon; clio = base config as-is). Gates green: GACT_BRAND=clio typecheck·lint·web
-247·build·screenshots 39/39; GACT_BRAND=gact web build OK. Proof:
-`apps/web/screenshots/audit/brand-{gact,clio}-{connect,chat}.png` (gact = blue/G/no
-CLIO; clio = orange/C/identical to today).
+## BRAND NEUTRALITY — fully brand-neutral; in-repo default = `gact`.
+GACT web+desktop are brand-neutral; brand is injected at BUILD via
+`GACT_BRAND=<profile>` (default `gact`). The repo ships ONLY the neutral `gact`
+profile (`apps/branding/gact/`: blue `#5b8def`, mark "G"). **Product brands (e.g.
+CLIO) are owned by the embedding project** — `clio-agent` owns the full CLIO brand in
+its own `branding/clio/brand.json` — and are supplied by pointing the build at the
+project's branding dir via `GACT_BRAND=<id>` + `GACT_BRAND_SRC=<dir>` (wired in
+`apps/web/vite.config.ts` and `apps/desktop/scripts/gen-brand-backend.mjs`).
+Injection: Vite virtual module `@brand` (`apps/web/vite-plugin-brand.ts`) exposes a
+typed `brand` object; HTML transform bakes `<title>`+favicon; `theme.ts` applies
+`brand.themeTokens`. **Backend resolution is neutral**: a brand that omits a
+`backend` block resolves to connect-mode (attach on `attachPort`, default 17800, env
+`GACT_PORT`/`GACT_URL`) with NO installer and NO managed-agent assumption; product
+brands that ship a managed backend supply an explicit `backend` block. Desktop base
+identity is neutral "GACT Desktop" / `ai.iowarp.gact.desktop`; product native overlays
+are the embedding project's responsibility (`desktop/src-tauri/tauri.brand.md`).
+Tests default to `gact`; the managed-install UI suite (`SplashInstall.test.tsx`) mocks
+`@brand` with a synthetic managed brand so install coverage has no CLIO dependency.
+This pass REMOVED the in-repo CLIO brand profile, the CLIO-only visual specs
+(`brand-audit`, `overnight-real-brand-settings`), the redundant `tauri.gact.conf.json`
+overlay, and the `build:clio`/`dev:clio` scripts. NOTE: visual baselines need CI regen
+on the neutral brand.
 
 **Last updated:** 2026-06-07 (0.9-readiness audit — COMPLETE + real-binary verified)
 **Branch:** feat/0.9-readiness (10 commits; ready to push)

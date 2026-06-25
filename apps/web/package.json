@@ -5,10 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:clio": "node scripts/with-brand.mjs clio dev",
     "dev:gact": "node scripts/with-brand.mjs gact dev",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "build:clio": "node scripts/with-brand.mjs clio build",
     "build:gact": "node scripts/with-brand.mjs gact build",
     "preview": "vite preview --port 4173",
     "lint": "eslint . --max-warnings=0",

@@ -2,11 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 
-// The visual suite exercises the CLIO product (the brand under test): its
-// screenshots + string assertions are CLIO-branded. Default the brand to
-// `clio` so `test:visual` stays valid even when GACT_BRAND is unset; an
-// explicit GACT_BRAND still wins (e.g. to render the neutral profile).
-const BRAND = process.env['GACT_BRAND'] ?? 'clio';
+// The visual suite renders the in-repo neutral `gact` brand by default. A
+// product brand (e.g. CLIO, owned by the embedding project) is exercised by
+// setting GACT_BRAND=<id> (plus GACT_BRAND_SRC=<dir> for an external brand),
+// which always wins over this default.
+const BRAND = process.env['GACT_BRAND'] ?? 'gact';
 
 export default defineConfig({
   testDir: './tests/visual',
