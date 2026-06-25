@@ -3,7 +3,13 @@ import solid from 'vite-plugin-solid';
 import { resolve } from 'node:path';
 import { brandPlugin, loadBrand, activeProfile } from './vite-plugin-brand';
 
-const BRANDING_ROOT = resolve(__dirname, '../branding');
+// Project-owned branding: the agentic system that embeds gact-tui defines the brand
+// used to compile it. `GACT_BRAND_SRC` points the build at that project's branding dir
+// (e.g. clio-agent's `branding/`); it defaults to the in-repo neutral profiles under
+// `apps/branding` for the standalone gact shell.
+const BRANDING_ROOT = process.env['GACT_BRAND_SRC']
+  ? resolve(process.env['GACT_BRAND_SRC'])
+  : resolve(__dirname, '../branding');
 const PROFILE = activeProfile();
 
 // Resolve the brand once at config time so we can also drive the static

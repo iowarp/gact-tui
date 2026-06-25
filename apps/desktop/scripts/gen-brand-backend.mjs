@@ -75,7 +75,14 @@ function resolveBackend(raw) {
   };
 }
 
-const brandPath = resolve(__dirname, '../../branding', brand, 'brand.json');
+// The branding ROOT is the embedding project's responsibility: the agentic system
+// that ships gact-tui defines the brand used to compile it, via GACT_BRAND_SRC
+// (e.g. clio-agent points this at its own branding/). Falls back to the in-repo
+// neutral profiles under apps/branding for the standalone gact shell.
+const brandingRoot = process.env.GACT_BRAND_SRC
+  ? resolve(process.env.GACT_BRAND_SRC)
+  : resolve(__dirname, '../../branding');
+const brandPath = resolve(brandingRoot, brand, 'brand.json');
 let raw;
 try {
   raw = JSON.parse(readFileSync(brandPath, 'utf8'));
