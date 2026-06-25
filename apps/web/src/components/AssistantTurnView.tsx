@@ -15,17 +15,21 @@
  * inline. Routing is a subtle chip kept out of the main flow. The clean model
  * is produced by buildAssistantTurnModel (pure, unit-tested).
  */
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { InlineMarkdown } from './InlineMarkdown.js';
 import { CollapsibleBlock, CollapsibleText, COLLAPSE_THRESHOLD } from './CollapsibleContent.js';
+import { ImagePartView } from './TranscriptImagePartView.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type { AssistantTurnModel, DelegationStep } from './transcriptDelegationModel.js';
 import './assistant-turn.css';
 
 /** Cap visual indentation so deep chains stay on-screen. */
 const MAX_INDENT_DEPTH = 4;
+
+/** The final answer gets a generous preview budget — it is the headline of the
+ *  turn — but still compacts when it runs very long. */
+const ANSWER_THRESHOLD = 16;
 
 function countLines(s: string): number {
   if (!s) return 0;
@@ -75,7 +79,9 @@ export function AssistantTurnView(props: {
 
       <Show when={props.model.answer.trim()}>
         <div class="trx-turn__answer" data-testid="assistant-turn-answer">
-          <InlineMarkdown text={props.model.answer} />
+          {/* The final answer is prominent, but a very long answer still
+              compacts to a top preview + expand (same semantics as tools). */}
+          <CollapsibleText text={props.model.answer} threshold={ANSWER_THRESHOLD} />
         </div>
       </Show>
     </div>
@@ -117,10 +123,10 @@ function DelegationStepView(props: { step: DelegationStep }) {
 }
 
 /**
- * Render a passthrough part inside the flow. Long text-bearing parts are
- * clamped with the same top-preview+expand affordance; structured parts
- * (tool_call/file_diff/image/…) delegate to their existing per-type renderer
- * wrapped in a CollapsibleBlock so big outputs do not dominate the transcript.
+ * Render a passthrough part inside the flow. Image parts render as a capped
+ * thumbnail that enlarges on click; long text-bearing parts (tool returns,
+ * diffs) are clamped to a top preview + expand — the same compaction semantics
+ * as tool returns, delegating to the existing per-type renderer.
  */
 function PassthroughPartView(props: {
   part: Part;
@@ -130,6 +136,9 @@ function PassthroughPartView(props: {
   imagePartsSupported?: boolean;
   messageId?: string;
 }) {
+  if (props.part.type === 'image') {
+    return <ImageThumbPartView part={props.part} imagePartsSupported={props.imagePartsSupported} />;
+  }
   const p = props.part as Part & {
     output?: string;
     content?: string;
@@ -156,6 +165,35 @@ function PassthroughPartView(props: {
           messageId={props.messageId}
         />
       </CollapsibleBlock>
+    </div>
+  );
+}
+
+/**
+ * Image artifact: a capped thumbnail (top preview) that enlarges to a full
+ * overlay on click — the image analogue of the tool-output top-preview+expand.
+ */
+function ImageThumbPartView(props: { part: Part; imagePartsSupported?: boolean }) {
+  const [enlarged, setEnlarged] = createSignal(false);
+  return (
+    <div class="trx-turn__passthrough">
+      <button
+        type="button"
+        class="trx-image-thumb"
+        classList={{ 'is-enlarged': enlarged() }}
+        data-testid="trx-image-thumb"
+        aria-expanded={enlarged()}
+        title={enlarged() ? 'click to shrink' : 'click to enlarge'}
+        onClick={(e) => {
+          e.stopPropagation();
+          setEnlarged((v) => !v);
+        }}
+      >
+        <ImagePartView part={props.part} imagePartsSupported={props.imagePartsSupported} />
+        <span class="trx-image-thumb__hint" data-testid="trx-image-thumb-hint">
+          {enlarged() ? 'collapse' : 'click to enlarge'}
+        </span>
+      </button>
     </div>
   );
 }
