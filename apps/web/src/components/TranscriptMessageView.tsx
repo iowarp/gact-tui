@@ -11,7 +11,8 @@ import { TranscriptMessageHeader } from './TranscriptMessageHeader.js';
 import { MessageStatusPanels } from './TranscriptMessageStatus.js';
 import { TurnWorkflowBlocker, turnWorkflowBlocker } from './WorkflowState.js';
 import { AssistantTurnView } from './AssistantTurnView.js';
-import { buildAssistantTurnModel } from './transcriptDelegationModel.js';
+import type { AssistantTurnModel } from './transcriptDelegationModel.js';
+import { buildAssistantTurnModel, reconcileTurnModel } from './transcriptDelegationModel.js';
 import './transcript-message.css';
 
 export interface MessageViewProps {
@@ -50,11 +51,24 @@ export function MessageView(props: MessageViewProps) {
   // flowing, indented, TUI-style view (dedupe + strip + depth) instead of the
   // flat per-part box loop. Searching disables it so the highlight loop stays
   // authoritative. User turns and plain assistant turns keep the simple path.
-  const turnModel = createMemo(() =>
-    isAssistant() && !props.searchQuery?.trim()
-      ? buildAssistantTurnModel(props.msg.parts ?? [])
-      : null,
-  );
+  // Rebuilt per SSE delta, but identity-stabilised against the previous model so
+  // Solid's <For> only re-renders the block that actually changed (perf — see
+  // reconcileTurnModel). `prevModel` persists across the memo's recomputations.
+  let prevModel: AssistantTurnModel | null = null;
+  const turnModel = createMemo(() => {
+    if (!isAssistant() || props.searchQuery?.trim()) {
+      prevModel = null;
+      return null;
+    }
+    const next = buildAssistantTurnModel(props.msg.parts ?? []);
+    if (!next) {
+      prevModel = null;
+      return null;
+    }
+    const stable = reconcileTurnModel(prevModel, next);
+    prevModel = stable;
+    return stable;
+  });
 
   return (
     <article

@@ -1,26 +1,36 @@
 /**
- * Pure data-transform for ASSISTANT transcript turns, mirroring the TUI's two
- * readability semantics (see tui/internal/ui/execution_supplements.go and
- * semantic_text_summaries.go):
+ * Pure data-transform for ASSISTANT transcript turns. Mirrors the TUI's
+ * readability semantics but models the assistant's work as a CHAT OF TURNS: an
+ * ordered list of clearly-separated delegation BLOCKS (one per expert
+ * invocation), each exposing its own explicit, ordered structure:
  *
- *  1. DEDUPE — clio emits each delegation TWICE: a `delegate.completed`
- *     handoff (meta.delegate_to set) immediately followed by a
- *     `parent.resumed` handoff (meta.stage === 'parent.resumed') whose text is
- *     a verbatim duplicate. We keep one row per delegation.
+ *   main → <expert>          delegation header
+ *   task                     the task main actually sent (handoff meta.question)
+ *   tool call(s) + result(s) each tool the expert ran, in order (meta.tools_called)
+ *   <expert> result          the expert's prose/result, rendered as markdown
+ *   (return)                 folded into the result — the parent.resumed handoff
+ *                            is a verbatim duplicate and is DEDUPED away
+ *
+ * Three transforms, identical in spirit to the TUI (see
+ * tui/internal/ui/execution_supplements.go and semantic_text_summaries.go):
+ *
+ *  1. DEDUPE — clio emits each delegation TWICE: a `delegate.completed` handoff
+ *     (meta.delegate_to set) immediately followed by a `parent.resumed` handoff
+ *     (meta.stage === 'parent.resumed') whose body is a verbatim duplicate of
+ *     the return. We keep ONE block per delegation and drop the resumed twin.
  *
  *  2. STRIP — handoff text carries control scaffolding ("Retained typed
  *     workflow state: {…}", "CLIO durable typed workflow state:", a leading
  *     "main -> data | completed | delegate.completed | " status prefix, and a
- *     trailing JSON state blob). We strip all of it and keep the real prose,
- *     mirroring stripSemanticControlContracts.
+ *     trailing JSON state blob). We strip all of it and keep the real prose
+ *     (mirrors stripSemanticControlContracts).
  *
- *  3. DEPTH — delegation depth is computed from agent metadata so the named
- *     experts (geospatial/data/analysis/visualization/synthesis) sit at depth
- *     1 under `main`, and any nested children deeper (mirrors
- *     timelineAgentDepth / depthForAgent in the TUI).
+ *  3. DEPTH — delegation depth from agent metadata so the named experts sit at
+ *     depth 1 under `main`, nested children deeper (mirrors depthForAgent).
  *
- * The output is an ordered list of rows the renderer lays out as a flowing,
- * indented transcript instead of a wall of bordered cards.
+ * The output is an append-only list of blocks the renderer lays out as a flowing
+ * transcript. Each block + each tool carries a STABLE id so Solid's <For> only
+ * re-renders the block that actually changed during streaming.
  */
 import type { Part } from '@clio/core';
 import { reportPreview, retainedWorkflowStateFromText } from './executionProjectionReport.js';
@@ -43,20 +53,42 @@ const CONTROL_MARKERS = [
   'continuation_contract=',
 ] as const;
 
-/** A single rendered step in an assistant turn. */
-export interface DelegationStep {
-  /** Stable key for keyed rendering (part id, or a synthesised fallback). */
+/** A single tool the expert ran during its turn (from meta.tools_called). */
+export interface DelegationToolCall {
+  /** Stable key for keyed rendering. */
   id: string;
-  /** Owning agent label (main / geospatial / data / …). */
+  /** Tool name (e.g. geo_geocode, ndp_stage_resource). */
+  name: string;
+  /** Compact one-line argument summary for the "⚙ name(args)" line. */
+  argsSummary: string;
+  /** The raw result body, rendered as a compacted "⎿ result" block. */
+  result: string;
+  /** Whether the call succeeded. */
+  ok: boolean;
+  /** Wall-clock duration in ms, when reported. */
+  durationMs?: number;
+  /** Whether the result was served from cache. */
+  cached?: boolean;
+}
+
+/** A single delegation BLOCK in the assistant turn — one expert invocation. */
+export interface DelegationBlock {
+  /** Stable key for keyed rendering (handoff part id, or a synthesised fallback). */
+  id: string;
+  /** Owning expert label (geospatial / data / analysis / …). */
   agent: string;
-  /** Parent agent, when the metadata carried one. */
-  parent?: string;
+  /** Parent agent that issued the delegation (usually `main`). */
+  parent: string;
   /** Delegation depth — 0 = main, 1 = named expert, 2+ = nested child. */
   depth: number;
   /** Lifecycle status (completed / failed / running / observed …). */
   status: string;
-  /** The cleaned, human-readable model prose (markdown). Never scaffolding. */
-  text: string;
+  /** The task main actually SENT to this expert (handoff meta.question). */
+  task: string;
+  /** The tool calls this expert ran, in order. */
+  tools: DelegationToolCall[];
+  /** The expert's cleaned prose/result, rendered as markdown. Never scaffolding. */
+  result: string;
 }
 
 /** The clean ordered view-model for an assistant turn. */
@@ -67,8 +99,8 @@ export interface AssistantTurnModel {
     rationale: string;
     source: string;
   };
-  /** The delegation steps, in order, deduped + stripped + depth-tagged. */
-  steps: DelegationStep[];
+  /** The delegation blocks, in order, deduped + stripped + depth-tagged. */
+  blocks: DelegationBlock[];
   /** The final answer text part(s), rendered prominently as markdown. */
   answer: string;
   /** Non-delegation, non-text parts (tool_call/tool_result/file_diff/image/…)
@@ -134,7 +166,7 @@ function stripStatusPrefix(text: string): string {
     return firstNl >= 0 ? text.slice(firstNl + 1).trimStart() : '';
   }
   const consumed = m.index + m[0].length + sepIdx + 1;
-  const rest = (firstNl >= 0 ? head.slice(consumed) + text.slice(firstNl) : head.slice(consumed));
+  const rest = firstNl >= 0 ? head.slice(consumed) + text.slice(firstNl) : head.slice(consumed);
   return rest.trimStart();
 }
 
@@ -168,8 +200,6 @@ function depthFor(agent: string, parent: string): number {
 function structuredHandoffSummary(raw: string, agent: string): string {
   const state = retainedWorkflowStateFromText(raw);
   if (!state || Object.keys(state).length === 0) return '';
-  // `state` is the object after the marker — already `{ workflow_state: {…} }`,
-  // so pass it as `structured` directly (reportPreview unwraps workflow_state).
   const preview = reportPreview({
     kind: 'report',
     agent,
@@ -177,8 +207,6 @@ function structuredHandoffSummary(raw: string, agent: string): string {
     structured: state,
     text: raw,
   }).trim();
-  // reportPreview's last-resort is stripControlContracts(text), which can still
-  // carry the wire status prefix; run it through our prefix stripper to be safe.
   return stripStatusPrefix(preview);
 }
 
@@ -223,8 +251,128 @@ function isParentResumed(part: PartLike): boolean {
   return str(part.metadata?.['stage']) === 'parent.resumed';
 }
 
+/** Render a tool's args object/string into a compact one-line summary for the
+ *  "⚙ name(args)" header line — long values are truncated. */
+function summariseArgs(args: unknown): string {
+  if (args == null) return '';
+  if (typeof args === 'string') return clip(args, 120);
+  if (typeof args !== 'object') return clip(String(args), 120);
+  const entries = Object.entries(args as Record<string, unknown>);
+  const parts = entries.map(([k, v]) => {
+    let val: string;
+    if (typeof v === 'string') val = v;
+    else if (v == null) val = 'null';
+    else val = JSON.stringify(v);
+    return `${k}: ${clip(val, 60)}`;
+  });
+  return clip(parts.join(', '), 160);
+}
+
+/** Render a tool's result (object or string) into displayable text. */
+function resultText(result: unknown): string {
+  if (result == null) return '';
+  if (typeof result === 'string') return result;
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return String(result);
+  }
+}
+
+function clip(s: string, max: number): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
+/** Extract the ordered tool calls a handoff recorded in meta.tools_called. */
+function extractTools(meta: Record<string, unknown>, blockId: string): DelegationToolCall[] {
+  const raw = meta['tools_called'];
+  if (!Array.isArray(raw)) return [];
+  const out: DelegationToolCall[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i];
+    if (!t || typeof t !== 'object') continue;
+    const rec = t as Record<string, unknown>;
+    const name = str(rec['name']) || str(rec['tool_name']) || 'tool';
+    out.push({
+      id: str(rec['call_id']) || `${blockId}-tool-${i}`,
+      name,
+      argsSummary: summariseArgs(rec['args'] ?? rec['input']),
+      result: resultText(rec['result'] ?? rec['output'] ?? rec['content']),
+      ok: rec['ok'] !== false && rec['is_error'] !== true,
+      ...(typeof rec['duration_ms'] === 'number' ? { durationMs: rec['duration_ms'] } : {}),
+      ...(typeof rec['cached'] === 'boolean' ? { cached: rec['cached'] } : {}),
+    });
+  }
+  return out;
+}
+
 /**
- * Project an assistant message's parts into the clean ordered turn model.
+ * Identity-stabilise a freshly-built turn model against the previous one so that
+ * Solid's reference-keyed <For> only re-renders the block that actually changed.
+ *
+ * `buildAssistantTurnModel` is pure and returns brand-new objects on every SSE
+ * delta. Without this, <For each={blocks}> would tear down and rebuild EVERY
+ * block component per token — discarding each block's memoized markdown and
+ * forcing a full re-parse + re-layout of the whole transcript (the lag the
+ * owner reported). Here we reuse the previous block object (same reference) when
+ * its content is byte-for-byte identical, so unchanged blocks keep their DOM and
+ * their MemoMarkdown caches; only the streaming block (whose result/tools grew)
+ * gets a new reference and re-renders.
+ */
+export function reconcileTurnModel(
+  prev: AssistantTurnModel | null,
+  next: AssistantTurnModel,
+): AssistantTurnModel {
+  if (!prev) return next;
+  const prevById = new Map(prev.blocks.map((b) => [b.id, b]));
+  const blocks = next.blocks.map((block) => {
+    const old = prevById.get(block.id);
+    if (old && blockEquals(old, block)) return old;
+    if (old) return reconcileBlock(old, block);
+    return block;
+  });
+  return { ...next, blocks };
+}
+
+/** Reuse the prior block reference's unchanged tool objects so a streaming
+ *  block only re-renders the tool whose result grew. */
+function reconcileBlock(old: DelegationBlock, next: DelegationBlock): DelegationBlock {
+  const prevTools = new Map(old.tools.map((t) => [t.id, t]));
+  const tools = next.tools.map((tool) => {
+    const ot = prevTools.get(tool.id);
+    return ot && toolEquals(ot, tool) ? ot : tool;
+  });
+  return { ...next, tools };
+}
+
+function blockEquals(a: DelegationBlock, b: DelegationBlock): boolean {
+  return (
+    a.agent === b.agent &&
+    a.parent === b.parent &&
+    a.depth === b.depth &&
+    a.status === b.status &&
+    a.task === b.task &&
+    a.result === b.result &&
+    a.tools.length === b.tools.length &&
+    a.tools.every((t, i) => toolEquals(t, b.tools[i]!))
+  );
+}
+
+function toolEquals(a: DelegationToolCall, b: DelegationToolCall): boolean {
+  return (
+    a.name === b.name &&
+    a.argsSummary === b.argsSummary &&
+    a.result === b.result &&
+    a.ok === b.ok &&
+    a.durationMs === b.durationMs &&
+    a.cached === b.cached
+  );
+}
+
+/**
+ * Project an assistant message's parts into the clean ordered turn model — a
+ * chat of delegation blocks plus the final answer.
  *
  * Returns null for non-assistant messages or turns that carry no delegation /
  * handoff structure (those keep the simple flat rendering).
@@ -233,7 +381,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
   const list = parts as readonly PartLike[];
   if (!list.some(isHandoff)) return null;
 
-  const steps: DelegationStep[] = [];
+  const blocks: DelegationBlock[] = [];
   const passthrough: Part[] = [];
   let routing: AssistantTurnModel['routing'] | undefined;
   const answerChunks: string[] = [];
@@ -246,8 +394,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
 
     if (type === 'routing_decision') {
       const selected = str(part.selected_agent) || 'main';
-      const rationale =
-        str(part.rationale) || str((part.metadata ?? {})['route_reason']);
+      const rationale = str(part.rationale) || str((part.metadata ?? {})['route_reason']);
       const source = str((part.metadata ?? {})['route_source']);
       // Keep routing OUT of the main flow as a subtle chip; skip pure
       // scaffolding-removal notes.
@@ -259,37 +406,42 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
 
     if (type === 'expert_handoff') {
       const meta = part.metadata ?? {};
-      // The model prose may arrive as the part text or, when the wire omits it,
-      // in the output_summary / summary metadata (mirrors ExpertHandoffPartView).
       const raw = (part.text ?? '').trim() || str(meta['output_summary']) || str(meta['summary']);
-      const agent =
-        str(meta['delegate_to']) || str(meta['agent_id']) || str(meta['expert']) || 'expert';
-      // The real model prose, scaffolding removed. A bare leading JSON evidence
-      // blob is summarised (mirrors summarizeHandoffDetail); a handoff that is
-      // PURE workflow-state scaffolding falls back to a structured evidence
-      // summary from the retained typed state (mirrors reportPreview) — so the
-      // delegation always shows max information, never a raw JSON dump.
-      const cleaned = cleanHandoffText(raw, agent);
       const key = comparable(raw);
 
-      // DEDUPE: drop a parent.resumed whose comparable text duplicates the
-      // immediately-preceding delegate.completed.
-      if (isParentResumed(part) && key && key === prevHandoffKey) {
+      // DEDUPE: a parent.resumed handoff is a verbatim duplicate of the
+      // delegation's return — fold it into the already-emitted block instead of
+      // rendering a confusing second unlabeled `geospatial` row. We never start
+      // a new block from a parent.resumed.
+      if (isParentResumed(part)) {
         prevHandoffKey = key;
         continue;
       }
       prevHandoffKey = key;
-      if (!cleaned.trim()) continue;
 
-      const parent = str(meta['parent_id']) || str(meta['parent']);
+      const agent =
+        str(meta['delegate_to']) || str(meta['agent_id']) || str(meta['expert']) || 'expert';
+      const id = str(part.id) || `block-${i}`;
+      // The task main actually SENT to the expert (surfaced from handoff meta).
+      const task = str(meta['question']);
+      // The expert's result prose, scaffolding removed, rendered as markdown.
+      const result = cleanHandoffText(raw, agent);
+      const tools = extractTools(meta, id);
+
+      // Skip an utterly empty delegation (no task, no result, no tools).
+      if (!task && !result.trim() && tools.length === 0) continue;
+
+      const parent = str(meta['parent_id']) || str(meta['parent']) || 'main';
       const status = str(meta['status']) || 'observed';
-      steps.push({
-        id: str(part.id) || `step-${i}`,
+      blocks.push({
+        id,
         agent,
-        ...(parent ? { parent } : {}),
+        parent,
         depth: depthFor(agent, parent),
         status,
-        text: cleaned,
+        task,
+        tools,
+        result,
       });
       continue;
     }
@@ -304,10 +456,11 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     // the existing per-type renderers, but inside the flowing layout.
     passthrough.push(part as Part);
   }
+  void prevHandoffKey;
 
   return {
     ...(routing ? { routing } : {}),
-    steps,
+    blocks,
     answer: answerChunks.join('\n\n'),
     passthrough,
   };
