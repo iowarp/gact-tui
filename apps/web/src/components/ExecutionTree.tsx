@@ -258,24 +258,8 @@ export function ExecutionTree(props: {
   nodes: ProjectedExecutionNode[];
   onOpenDiff?: (diff: FileDiff) => void;
 }) {
-  const text = createMemo(() => formatProjectedExecution(props.nodes));
-  const copy = () => {
-    void navigator.clipboard?.writeText(text());
-  };
   return (
     <div class="extree" data-testid="execution-tree">
-      <div class="extree__head">
-        <span class="extree__head-label">agent execution</span>
-        <button
-          type="button"
-          class="extree__copy"
-          data-testid="execution-tree-copy"
-          title="Copy execution trace as text"
-          onClick={copy}
-        >
-          <Icon name="copy" size={11} />
-        </button>
-      </div>
       <For each={props.nodes}>
         {(node) => <ExecutionTreeNode node={node} onOpenDiff={props.onOpenDiff} />}
       </For>

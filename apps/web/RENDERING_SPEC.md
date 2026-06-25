@@ -153,6 +153,32 @@ These must **never** appear in the rendered conversation:
 
 ---
 
+## 9. Live-streaming path (from live mid-run review — CRITICAL)
+
+A turn renders via TWO paths: persisted message → `AssistantTurnView` (clean,
+fixed); LIVE streaming (SSE events) → the **execution-projection / ExecutionTree**
+(`extree__*`) + a `ConversationExecutionTrace` (`cx-trace*`) disclosure. The owner
+only sees the **live** path during a run, and it is the old boxed renderer. The
+live path MUST be made identical to the clean `AssistantTurnView` render. Required:
+
+- **Markdown everywhere.** ALL text (answer, each expert's reasoning) renders as
+  markdown — NEVER literal `**asterisks**`. (Live path currently shows raw `**`.)
+- **Real tool result, not a count.** The tool result must render the ACTUAL data
+  via the content-type path (geocode → resolved place + lat/lon; CSV → table; …).
+  NEVER a generic `N item · M fields` count summary.
+- **Turn delineation.** `main → <expert>` is the delegation *operation* (an edge).
+  Under it the expert takes **turns**, each turn = reasoning text → tool call →
+  tool response. A new reasoning block is the next turn. The turns must be
+  **visually delineated** (you can tell turn 1 from turn 2), not blurred together.
+- **Routing is a subtle chip**, not a line. The backend emits `(Routing to X
+  expert …)` status text (clio-generated, not the web) — it must NOT appear as a
+  noisy parenthetical in the flow.
+- **No `extree` box / "agent execution" label; no `cx-trace` "Execution trace"
+  disclosure; consistent font (kill 10px/11px); user prompt full width** (it wraps
+  at ~50% today).
+- **Verify MID-STREAM** — a reloaded session renders via `AssistantTurnView`; you
+  must capture while a run is live to see the execution path.
+
 ## 8. Definition of done
 
 On the **live** EarthScope session, captured from the real page and read raw:
