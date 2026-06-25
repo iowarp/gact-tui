@@ -10,6 +10,8 @@ import { PartView, shouldRenderPart, type TranscriptDensity } from './Transcript
 import { TranscriptMessageHeader } from './TranscriptMessageHeader.js';
 import { MessageStatusPanels } from './TranscriptMessageStatus.js';
 import { TurnWorkflowBlocker, turnWorkflowBlocker } from './WorkflowState.js';
+import { AssistantTurnView } from './AssistantTurnView.js';
+import { buildAssistantTurnModel } from './transcriptDelegationModel.js';
 import './transcript-message.css';
 
 export interface MessageViewProps {
@@ -44,6 +46,15 @@ export function MessageView(props: MessageViewProps) {
   const turnBlocker = createMemo(() =>
     isAssistant() ? turnWorkflowBlocker(props.msg.parts ?? []) : null,
   );
+  // For assistant turns carrying delegation/handoff structure, render the
+  // flowing, indented, TUI-style view (dedupe + strip + depth) instead of the
+  // flat per-part box loop. Searching disables it so the highlight loop stays
+  // authoritative. User turns and plain assistant turns keep the simple path.
+  const turnModel = createMemo(() =>
+    isAssistant() && !props.searchQuery?.trim()
+      ? buildAssistantTurnModel(props.msg.parts ?? [])
+      : null,
+  );
 
   return (
     <article
@@ -71,22 +82,38 @@ export function MessageView(props: MessageViewProps) {
         onCopyPermalink={props.onCopyPermalink}
       />
       <div class="trx-msg__body">
-        <For each={props.msg.parts.filter((part) => shouldRenderPart(part, props.density))}>
-          {(part, i) => (
-            <PartView
-              part={part}
+        <Show
+          when={turnModel()}
+          fallback={
+            <For each={props.msg.parts.filter((part) => shouldRenderPart(part, props.density))}>
+              {(part, i) => (
+                <PartView
+                  part={part}
+                  density={props.density}
+                  onOpenDiff={props.onOpenDiff}
+                  onPinFile={props.onPinFile}
+                  searchQuery={props.searchQuery}
+                  messageId={props.msg.id}
+                  currentMatchKey={props.currentMatchKey}
+                  matchBaseIndex={props.matchBaseIndex}
+                  showCursor={i() === props.streamingPartIdx}
+                  imagePartsSupported={props.imagePartsSupported}
+                />
+              )}
+            </For>
+          }
+        >
+          {(model) => (
+            <AssistantTurnView
+              model={model()}
               density={props.density}
               onOpenDiff={props.onOpenDiff}
               onPinFile={props.onPinFile}
-              searchQuery={props.searchQuery}
-              messageId={props.msg.id}
-              currentMatchKey={props.currentMatchKey}
-              matchBaseIndex={props.matchBaseIndex}
-              showCursor={i() === props.streamingPartIdx}
               imagePartsSupported={props.imagePartsSupported}
+              messageId={props.msg.id}
             />
           )}
-        </For>
+        </Show>
         <For each={metadataDiffs()}>
           {(diff) => (
             <PartView

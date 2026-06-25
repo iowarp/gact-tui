@@ -5,7 +5,7 @@
 import { Show } from 'solid-js';
 import type { Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { WorkflowStateCard, splitWorkflowState, summarizeHandoffDetail } from './WorkflowState.js';
+import { stripControlScaffolding } from './transcriptDelegationModel.js';
 
 /** clio execution-path chip label (SPEC §4.5). "fast" = deterministic tool
  *  template (no LM); "expert_loop" = full expert tool-loop. */
@@ -105,11 +105,10 @@ export function ExpertHandoffPartView(props: { part: Part }) {
   const status = String(meta['status'] ?? 'observed');
   const output = String(meta['output_summary'] ?? meta['summary'] ?? '').trim();
   const summary = p.text ?? '';
-  const detail = output || summary;
-  const workflow = splitWorkflowState(detail);
-  const displayDetail = workflow
-    ? summarizeHandoffDetail(workflow.before.trim() || workflow.after.trim())
-    : summarizeHandoffDetail(detail);
+  // Strip clio's control scaffolding (status prefix + workflow_state JSON blob)
+  // and keep only the real prose — the WorkflowStateCard is gone (the durable
+  // typed state is plumbing, not conversation content).
+  const displayDetail = stripControlScaffolding(output || summary);
   return (
     <div class="trx-routing">
       <span class="trx-routing__icon" aria-hidden>
@@ -131,9 +130,6 @@ export function ExpertHandoffPartView(props: { part: Part }) {
         </span>
         <Show when={displayDetail}>
           <span class="trx-routing__why">{displayDetail}</span>
-        </Show>
-        <Show when={workflow}>
-          <WorkflowStateCard state={workflow!.state} raw={workflow!.raw} />
         </Show>
       </span>
     </div>

@@ -86,7 +86,7 @@ describe('Transcript', () => {
     expect(screen.getByText('Raw state')).toBeTruthy();
   });
 
-  it('summarizes workflow state carried by expert handoff parts', () => {
+  it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -121,11 +121,16 @@ describe('Transcript', () => {
         ]}
       />
     ));
-    expect(screen.getByText('Delegation')).toBeTruthy();
-    expect(screen.getAllByText('Workflow blocker').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/child expert: data/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/required tools are not available/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Raw state')).toBeTruthy();
+    // The delegation renders as an indented step (agent + status) with the real
+    // prose; the workflow_state JSON / "Raw state" card is gone (stripped).
+    const step = screen.getByTestId('assistant-turn-step');
+    expect(step).toBeTruthy();
+    expect(step.textContent).toContain('data');
+    expect(step.textContent).toContain('failed');
+    expect(step.textContent).toContain("Child expert 'data' failed");
+    expect(screen.queryByText('Raw state')).toBeNull();
+    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
+    expect(step.textContent).not.toContain('workflow_state');
   });
 
   it('keeps a turn-level workflow blocker visible after the final answer text', () => {
@@ -213,10 +218,13 @@ describe('Transcript', () => {
       />
     ));
 
-    expect(screen.getByText(/Resolved region: San Diego area/)).toBeTruthy();
-    expect(screen.getByText(/center 32.7157, -117.1611/)).toBeTruthy();
+    // The leading evidence JSON is summarised into prose inside the step; the
+    // raw keys and the workflow_state card are gone.
+    const step = screen.getByTestId('assistant-turn-step');
+    expect(step.textContent).toMatch(/Resolved region: San Diego area/);
+    expect(step.textContent).toMatch(/center 32.7157, -117.1611/);
     expect(screen.queryByText(/REGION_LABEL/)).toBeNull();
-    expect(screen.getByTestId('workflow-state-card')).toBeTruthy();
+    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
   });
 
 });
