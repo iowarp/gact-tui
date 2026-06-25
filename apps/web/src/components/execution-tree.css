@@ -30,7 +30,7 @@
 
 .extree__head-label {
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: var(--trx-body, 14.5px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -79,7 +79,7 @@
 .extree__agent {
   font-weight: 600;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
   color: var(--color-accent);
 }
 /* The root/orchestrator agent gets the primary accent; every other agent is
@@ -114,7 +114,7 @@
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
 }
 .extree__handoff-arrow {
   color: var(--color-accent-cyan);
@@ -143,7 +143,7 @@
   align-items: center;
   gap: 5px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
   color: var(--color-heading);
 }
 .extree__tool-call .icon {
@@ -181,7 +181,7 @@
   flex-direction: column;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
   line-height: 1.35;
 }
 .extree__obs-line {
@@ -195,7 +195,7 @@
   margin-left: auto;
   flex: 0 0 auto;
   color: var(--color-accent-cyan);
-  font-size: 10px;
+  font-size: var(--trx-body, 14.5px);
 }
 .extree__obs-toggle-label {
   text-transform: uppercase;
@@ -220,7 +220,7 @@
   margin-top: 3px;
   padding-left: 16px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
   line-height: 1.35;
   color: var(--color-text);
 }
@@ -236,5 +236,5 @@
 }
 .extree__report-verb {
   color: var(--color-muted);
-  font-size: 11px;
+  font-size: var(--trx-body, 14.5px);
 }
