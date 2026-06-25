@@ -14,12 +14,15 @@ const root = resolve(__dirname, '..');
 test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   // The in-repo base config is the neutral GACT brand. Product brands (e.g.
-  // CLIO) are owned by the embedding project and supplied via GACT_BRAND +
-  // GACT_BRAND_SRC at build time — no per-brand overlay lives in this repo.
+  // CLIO) are owned by the embedding project and selected via the brand config
+  // file (apps/brand.config.json + a brand.config.local.json override) — no
+  // env var and no per-brand overlay live in this repo. Both before-commands
+  // read the config file (gen-brand-backend.mjs + the plain web build/dev).
   assert.equal(cfg.productName, 'GACT Desktop');
   assert.equal(cfg.identifier, 'ai.iowarp.gact.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build:gact/);
-  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev:gact/);
+  assert.match(cfg.build.beforeBuildCommand, /gen-brand-backend\.mjs/);
+  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build/);
+  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev/);
   assert.equal(cfg.build.frontendDist, '../../web/dist');
   assert.equal(cfg.app.windows[0].title, 'GACT Desktop');
   assert.equal(cfg.app.windows[0].width, 1440);

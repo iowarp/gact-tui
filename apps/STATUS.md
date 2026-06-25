@@ -1,21 +1,28 @@
 # apps/ — STATUS
 
 ## BRAND NEUTRALITY — fully brand-neutral; in-repo default = `gact`.
-GACT web+desktop are brand-neutral; brand is injected at BUILD via
-`GACT_BRAND=<profile>` (default `gact`). The repo ships ONLY the neutral `gact`
-profile (`apps/branding/gact/`: blue `#5b8def`, mark "G"). **Product brands (e.g.
-CLIO) are owned by the embedding project** — `clio-agent` owns the full CLIO brand in
-its own `branding/clio/brand.json` — and are supplied by pointing the build at the
-project's branding dir via `GACT_BRAND=<id>` + `GACT_BRAND_SRC=<dir>` (wired in
-`apps/web/vite.config.ts` and `apps/desktop/scripts/gen-brand-backend.mjs`).
+GACT web+desktop are brand-neutral; the brand is selected at COMPILE TIME by a
+**config file** — `apps/brand.config.json` (`{profile, brandingRoot}`), NOT an env
+var. `brandingRoot` resolves relative to the config file's dir (default `"branding"`
+→ `apps/branding`) or may be absolute. An embedding project overrides the brand
+WITHOUT mutating the tracked file by dropping an `apps/brand.config.local.json`
+(gitignored), which WINS. The shared resolver is `apps/branding/brand-config.mjs`
+(`resolveBrandConfig()`), imported by both `apps/web/vite.config.ts` (+
+`playwright.config.ts`) and `apps/desktop/scripts/gen-brand-backend.mjs` (which also
+takes `--config <path>`). The repo ships ONLY the neutral `gact` profile
+(`apps/branding/gact/`: blue `#5b8def`, mark "G"). **Product brands (e.g. CLIO) are
+owned by the embedding project** — `clio-agent` owns the full CLIO brand in its own
+`branding/clio/brand.json` — and are selected by a `brand.config.local.json` whose
+`brandingRoot` is the absolute path to the project's `branding/` dir.
 Injection: Vite virtual module `@brand` (`apps/web/vite-plugin-brand.ts`) exposes a
 typed `brand` object; HTML transform bakes `<title>`+favicon; `theme.ts` applies
 `brand.themeTokens`. **Backend resolution is neutral**: a brand that omits a
-`backend` block resolves to connect-mode (attach on `attachPort`, default 17800, env
-`GACT_PORT`/`GACT_URL`) with NO installer and NO managed-agent assumption; product
-brands that ship a managed backend supply an explicit `backend` block. Desktop base
-identity is neutral "GACT Desktop" / `ai.iowarp.gact.desktop`; product native overlays
-are the embedding project's responsibility (`desktop/src-tauri/tauri.brand.md`).
+`backend` block resolves to connect-mode (attach on `attachPort`, default 17800,
+overridable at RUNTIME via `GACT_PORT`/`GACT_URL`) with NO installer and NO
+managed-agent assumption; product brands that ship a managed backend supply an
+explicit `backend` block. Desktop base identity is neutral "GACT Desktop" /
+`ai.iowarp.gact.desktop`; product native overlays are the embedding project's
+responsibility (`desktop/src-tauri/tauri.brand.md`).
 Tests default to `gact`; the managed-install UI suite (`SplashInstall.test.tsx`) mocks
 `@brand` with a synthetic managed brand so install coverage has no CLIO dependency.
 This pass REMOVED the in-repo CLIO brand profile, the CLIO-only visual specs

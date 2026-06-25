@@ -2,11 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 
-// The visual suite renders the in-repo neutral `gact` brand by default. A
-// product brand (e.g. CLIO, owned by the embedding project) is exercised by
-// setting GACT_BRAND=<id> (plus GACT_BRAND_SRC=<dir> for an external brand),
-// which always wins over this default.
-const BRAND = process.env['GACT_BRAND'] ?? 'gact';
+// The visual suite renders whatever brand the config file selects (the in-repo
+// default is the neutral `gact` brand). The brand is chosen by
+// apps/brand.config.json (or a brand.config.local.json override) — NOT an env
+// var: both `vite build` and `vite preview` (run by the webServer below) read
+// that config file via the shared resolver, so the served build always matches
+// the selected brand with no per-suite env injection.
 
 export default defineConfig({
   testDir: './tests/visual',
@@ -21,15 +22,14 @@ export default defineConfig({
     colorScheme: 'dark',
   },
   webServer: {
-    // Build (with the selected brand baked in) then preview, so the served
-    // dist always matches BRAND regardless of any prior build.
+    // Build (with the config-selected brand baked in) then preview, so the
+    // served dist always matches the brand the config file selects.
     command: `pnpm build && pnpm preview --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env['CI'] && !process.env['GACT_BRAND'],
+    reuseExistingServer: !process.env['CI'],
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { GACT_BRAND: BRAND },
   },
   projects: [
     {

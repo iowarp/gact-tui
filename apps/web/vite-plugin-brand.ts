@@ -5,10 +5,14 @@ import type { Plugin } from 'vite';
 /**
  * Build-time brand injection.
  *
- * Resolves the virtual module `@brand` to the selected brand profile, chosen
- * via the `GACT_BRAND` env var (default `gact`). The profile lives at
- * `apps/branding/<profile>/brand.json`; an optional `logoSvg` path is read and
- * inlined as a string so the app never has to fetch an asset at runtime.
+ * Resolves the virtual module `@brand` to the selected brand profile. The
+ * profile + branding root are chosen by a CONFIG FILE (never an env var):
+ * `vite.config.ts` reads `apps/brand.config.json` (or an
+ * `apps/brand.config.local.json` override) via the shared resolver
+ * (`apps/branding/brand-config.mjs`) and passes the resolved `{profile,
+ * brandingRoot}` to {@link brandPlugin} / {@link loadBrand}. The profile lives
+ * at `<brandingRoot>/<profile>/brand.json`; an optional `logoSvg` path is read
+ * and inlined as a string so the app never has to fetch an asset at runtime.
  *
  * The exposed `brand` object is fully resolved (defaults applied), so the app
  * can read `brand.name`, `brand.wordmark`, `brand.markGlyph`, `brand.accent`,
@@ -122,7 +126,7 @@ const DEFAULT_STARTER_PROMPTS: ResolvedBrand['starterPrompts'] = [
  * whenever a profile omits (parts of) its `backend` block. A brand with no
  * `backend` resolves to connect-mode with no installer: gact-tui makes NO
  * assumption about a managed agent. Projects that ship a managed backend supply
- * an explicit `backend` block in their own brand (see `GACT_BRAND_SRC`).
+ * an explicit `backend` block in their own brand (selected via the config file).
  */
 const DEFAULT_BACKEND: ResolvedBackend = {
   mode: 'connect',
@@ -181,7 +185,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
   if (!existsSync(jsonPath)) {
     throw new Error(
       `[brand] profile "${profile}" not found: ${jsonPath} does not exist. ` +
-        `Set GACT_BRAND to a profile under ${brandingRoot}.`,
+        `Point apps/brand.config.json (or brand.config.local.json) at a profile ` +
+        `under ${brandingRoot}.`,
     );
   }
   const raw = JSON.parse(readFileSync(jsonPath, 'utf8')) as RawBrand;
@@ -237,21 +242,14 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
 }
 
 /**
- * Resolve the active brand profile id.
+ * Vite plugin that resolves the `@brand` virtual module for a profile.
  *
- * Precedence: explicit `GACT_BRAND` always wins. Otherwise the default is the
- * neutral in-repo `gact` profile — including under tests. Product brands are
- * owned by the embedding project and selected via `GACT_BRAND=<id>` (plus
- * `GACT_BRAND_SRC=<dir>` to point at the project's branding dir).
+ * The caller (`vite.config.ts`) resolves `{profile, brandingRoot}` from the
+ * brand config file (via `apps/branding/brand-config.mjs`) and passes them in —
+ * there is no env-var fallback. The default `gact` profile (including under
+ * tests) comes from the tracked `apps/brand.config.json`.
  */
-export function activeProfile(): string {
-  const explicit = process.env['GACT_BRAND'];
-  if (explicit) return explicit;
-  return 'gact';
-}
-
-export function brandPlugin(brandingRoot: string): Plugin {
-  const profile = activeProfile();
+export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let resolved: ResolvedBrand | null = null;
   const jsonPath = resolve(brandingRoot, profile, 'brand.json');
 

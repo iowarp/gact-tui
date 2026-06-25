@@ -20,3 +20,6 @@ playwright/.cache/
 # Local config
 .env
 .env.local
+
+# Local brand override (embedding project drops this; never tracked)
+brand.config.local.json

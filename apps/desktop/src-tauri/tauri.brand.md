@@ -1,18 +1,20 @@
 # Tauri-native brand injection points
 
-The **webview** (the `@clio/web` frontend) is fully brand-driven at build time via
-`GACT_BRAND` (see `apps/branding/README.md`): window title once loaded, splash, connect,
-copy, accent, favicon. Nothing CLIO-specific is hardcoded in the SolidJS app.
+The **webview** (the `@clio/web` frontend) is fully brand-driven at compile time by
+the **brand config file** (`apps/brand.config.json`, or a `brand.config.local.json`
+override — see `apps/branding/README.md`): window title once loaded, splash, connect,
+copy, accent, favicon. Nothing CLIO-specific is hardcoded in the SolidJS app. The
+brand is selected by the config file, NOT an env var.
 
 Tauri's **native** layer, however, reads a static `tauri.conf.json` at compile time.
-Tauri does not template these from env vars, so the per-brand values below are injected
-by the **packaging build** (e.g. the embedding project's release pipeline) — they are
-NOT rewritten by `GACT_BRAND`.
+Tauri does not template these from the brand config file, so the per-brand values
+below are injected by the **packaging build** (e.g. the embedding project's release
+pipeline) via a `--config` overlay.
 
 The in-repo base `tauri.conf.json` carries the neutral **GACT** identity. A product
 brand (e.g. CLIO) is owned by the embedding project, which supplies its own native
-values via a `--config` overlay (and points `GACT_BRAND` / `GACT_BRAND_SRC` at its own
-branding dir for the webview half).
+values via a `--config` overlay and selects the webview/backend brand by dropping a
+`brand.config.local.json` whose `brandingRoot` points at its own `branding/` dir.
 
 ## What is brand-specific in `tauri.conf.json`
 
@@ -36,15 +38,17 @@ build GACT). A product brand is owned by the embedding project; build it via:
 
    ```sh
    cd apps
-   GACT_BRAND=<brand> GACT_BRAND_SRC=<project-branding-dir> \
+   # Select the webview/backend brand by dropping apps/brand.config.local.json
+   # ({ "profile": "<brand>", "brandingRoot": "<project-branding-dir>" }), then:
    pnpm --filter @clio/desktop tauri build \
      --config <path-to>/tauri.<brand>.conf.json
    ```
 
-   The overlay also replaces the Tauri `beforeBuildCommand` /
-   `beforeDevCommand` with the matching web brand scripts so the webview and native
-   shell stay paired. Override `productName`, `identifier`, `app.windows[0].title`,
-   the descriptions, and `bundle.icon`.
+   The native `beforeBuildCommand` / `beforeDevCommand` already read the brand config
+   file (the plain web build/dev + `gen-brand-backend.mjs`), so the webview, backend
+   descriptor, and native shell all resolve the same brand without per-brand scripts.
+   The overlay overrides the native-only keys: `productName`, `identifier`,
+   `app.windows[0].title`, the descriptions, and `bundle.icon`.
 
 2. **Per-brand icon set.** Drop the brand's icon PNG/ICO/ICNS into a brand-specific
    `icons/` dir and point `bundle.icon` at it from the overlay. (Tauri requires real
@@ -54,15 +58,18 @@ build GACT). A product brand is owned by the embedding project; build it via:
 ## clio-agent build hook (the reference product brand)
 
 clio-agent ships the **CLIO** brand, which it owns in its own `branding/clio/`. Its
-release pipeline points `GACT_BRAND_SRC` at that dir and supplies the CLIO native
-overlay via `--config`. Its release pipeline runs:
+release pipeline drops an `apps/brand.config.local.json` pointing `brandingRoot` at
+that dir and supplies the CLIO native overlay via `--config`. Its release pipeline
+runs:
 
 ```sh
 cd apps
-GACT_BRAND=clio GACT_BRAND_SRC=<clio-agent>/branding \
+# apps/brand.config.local.json:
+#   { "profile": "clio", "brandingRoot": "<clio-agent>/branding" }
 pnpm --filter @clio/desktop tauri:build:bundled --config <clio native overlay>
 ```
 
-The webview half is selected by `GACT_BRAND` / `GACT_BRAND_SRC`; the native half by
-the CLIO overlay. Other distributors point `GACT_BRAND_SRC` + `--config` at their own
-branding dir, overlay, and icons as above.
+The webview + backend halves are selected by the `brand.config.local.json`; the
+native half by the CLIO overlay. Other distributors drop their own
+`brand.config.local.json` (with an absolute `brandingRoot`) + `--config` overlay and
+icons as above.

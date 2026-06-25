@@ -4,8 +4,8 @@
   "version": "0.7.1",
   "identifier": "ai.iowarp.gact.desktop",
   "build": {
-    "beforeBuildCommand": "node scripts/gen-brand-backend.mjs gact && pnpm --filter @clio/web build:gact",
-    "beforeDevCommand": "pnpm --filter @clio/web dev:gact",
+    "beforeBuildCommand": "node scripts/gen-brand-backend.mjs && pnpm --filter @clio/web build",
+    "beforeDevCommand": "pnpm --filter @clio/web dev",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"
   },

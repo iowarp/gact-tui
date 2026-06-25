@@ -1,8 +1,10 @@
 /**
  * Virtual module injected at build time by `vite-plugin-brand.ts`.
  *
- * The selected brand profile (env `GACT_BRAND`, default `gact`) is read from
- * `apps/branding/<profile>/brand.json` and exposed as a fully-resolved object.
+ * The selected brand profile is chosen by the brand config file
+ * (`apps/brand.config.json`, or a `brand.config.local.json` override) — not an
+ * env var. Its `brand.json` (under `<brandingRoot>/<profile>/`) is read and
+ * exposed as a fully-resolved object.
  */
 declare module '@brand' {
   export interface Brand {
