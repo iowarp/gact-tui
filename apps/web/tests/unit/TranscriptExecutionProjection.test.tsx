@@ -159,11 +159,14 @@ describe('Transcript execution projection', () => {
     expect(handoff.textContent).toContain('→');
     expect(screen.getByText(/Resolve the place name/)).toBeTruthy();
 
-    // Tool call display name + collapsed observations are still rendered.
-    expect(screen.getByText(/Geocode location/)).toBeTruthy();
-    expect(tree.textContent).toContain('4 stations within radius');
-    expect(tree.textContent).toContain('P475 9.48 km');
-    expect(tree.textContent).toContain('P475.CI.LY_.20.csv · 51608375 bytes');
+    // Tool call display name is the tool name humanised verbatim (no per-tool
+    // special-casing). Observations render by content type.
+    expect(screen.getByText(/Geo Geocode/)).toBeTruthy();
+    // The radius-filter observation is a structured object → its station ids
+    // surface (content-typed), and the staged-resource path appears.
+    expect(tree.textContent).toContain('P475');
+    expect(tree.textContent).toContain('51608375');
+    // The expert report summarises the structured state generically.
     expect(screen.getAllByText(/San Diego, San Diego County/).length).toBeGreaterThan(0);
 
     // The expert report renders an "<agent> returned" header.
@@ -313,7 +316,7 @@ describe('Transcript execution projection', () => {
       />
     ));
 
-    expect(screen.getByText(/acquisition staged/)).toBeTruthy();
+    expect(screen.getByText(/status: staged/)).toBeTruthy();
     expect(screen.getByText(/P475\.CI\.LY_\.20\.csv/)).toBeTruthy();
     expect(screen.queryByText(/resource_candidate/)).toBeNull();
   });

@@ -4,8 +4,6 @@
  */
 import type { ExecutionTranscriptEvent } from '../live.js';
 import {
-  agentDepth,
-  handoffDepth,
   isRedacted,
   normalizeLooseComparable,
   objectValue,
@@ -30,6 +28,16 @@ export function projectWebExecutionTimeline(
   let currentAgent = 'main';
   const handoffQuestions = new Map<string, string>();
   const reportedAgents = new Set<string>();
+  // Generic delegation depth: the root agent is 0; every delegated child is its
+  // parent's depth + 1. Built from the live delegation graph — no agent-name
+  // list. Unknown agents default to depth 0 until a delegation places them.
+  const depthByAgent = new Map<string, number>([['main', 0]]);
+  const depthOf = (agent: string): number => depthByAgent.get(agent.trim() || 'main') ?? 0;
+  const placeChild = (parent: string, child: string): number => {
+    const d = depthOf(parent) + 1;
+    if (child) depthByAgent.set(child.trim(), d);
+    return d;
+  };
   const switchTextAgent = (agent: string) => {
     const next = agent.trim() || 'main';
     if (currentAgent === next) return;
@@ -54,7 +62,7 @@ export function projectWebExecutionTimeline(
     nodes.push({
       kind: 'text',
       agent: currentAgent || 'main',
-      depth: agentDepth(currentAgent),
+      depth: depthOf(currentAgent),
       text,
     });
   };
@@ -96,7 +104,7 @@ export function projectWebExecutionTimeline(
       const { parent, agent } = handoff;
       let { question } = handoff;
       if (isRedacted(question)) question = handoffQuestions.get(`${parent}->${agent}`) ?? '';
-      nodes.push({ kind: 'handoff', agent, parent, depth: handoffDepth(parent, agent), question });
+      nodes.push({ kind: 'handoff', agent, parent, depth: placeChild(parent, agent), question });
       if (agent) currentAgent = agent;
       continue;
     }
@@ -107,7 +115,7 @@ export function projectWebExecutionTimeline(
       nodes.push({
         kind: 'step',
         agent,
-        depth: agentDepth(agent),
+        depth: depthOf(agent),
         text: stringValue(payload['thought']),
         reasoning: stringValue(payload['reasoning']),
         toolName: stringValue(payload['tool_name']),
@@ -125,7 +133,7 @@ export function projectWebExecutionTimeline(
       nodes.push({
         kind: 'report',
         agent,
-        depth: agentDepth(agent),
+        depth: depthOf(agent),
         text: stringValue(payload['output']) || stringValue(payload['result_summary']),
         structured: payload['structured'],
       });
@@ -142,7 +150,7 @@ export function projectWebExecutionTimeline(
         kind: 'report',
         agent,
         parent,
-        depth: handoffDepth(parent, agent),
+        depth: placeChild(parent, agent),
         text,
       });
       currentAgent = parent || currentAgent;

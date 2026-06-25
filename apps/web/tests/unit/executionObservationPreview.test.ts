@@ -1,57 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { observationPreview } from '../../src/components/executionObservationPreview.js';
 
-describe('observationPreview', () => {
-  it('summarizes geocode observations from raw text', () => {
-    expect(
-      observationPreview(
-        'geo_geocode',
-        '{"display_name":"San Diego, California","lat":32.7174202,"lon":-117.162772}',
-      ),
-    ).toBe('San Diego, California\ncenter 32.7174202, -117.162772');
+// observationPreview is BACKEND-AGNOSTIC: it renders by content type, never by
+// the tool's name (the first arg is ignored for special-casing).
+describe('observationPreview — by content type', () => {
+  it('summarises a structured JSON observation generically', () => {
+    const out = observationPreview(
+      'anything',
+      '{"display_name":"San Diego, California","lat":32.7174202,"lon":-117.162772}',
+    );
+    expect(out).toContain('San Diego');
   });
 
-  it('summarizes NDP search and stage observations', () => {
-    expect(
-      observationPreview('ndp_search_datasets', 'found resource earthscope_converted_data.csv'),
-    ).toBe('earthscope_converted_data.csv');
-    expect(
-      observationPreview('ndp_stage_resource', {
-        local_path: '/tmp/earthscope_converted_data.csv',
-        size_bytes: 153082,
-      }),
-    ).toBe('earthscope_converted_data.csv · 153082 bytes');
+  it('renders an image observation with an inline hint', () => {
+    const out = observationPreview('anything', { output_path: '/tmp/station_axis.png' });
+    expect(out).toContain('/tmp/station_axis.png');
+    expect(out).toContain('show full image');
   });
 
-  it('summarizes station filtering observations with a bounded preview', () => {
-    expect(
-      observationPreview('filter_points_by_radius', {
-        within_radius_count: 4,
-        points: [
-          { Site: 'P475', distance_km: 9.483 },
-          { Site: 'SIO5', distance_km: 15.94 },
-          { Site: 'P472', distance_km: 19.86 },
-          { Site: 'P473', distance_km: 20.03 },
-        ],
-      }),
-    ).toBe('4 stations within radius\nP475 9.48 km\nSIO5 15.94 km\nP472 19.86 km\nshow full output');
-  });
-
-  it('summarizes shell redirects and plot artifacts', () => {
-    expect(
-      observationPreview('shell_bash', {
-        command: 'cut -d, -f1,2,3 earthscope_converted_data.csv > earthscope_stations_clean.csv',
-      }),
-    ).toBe('prepared earthscope_stations_clean.csv');
-    expect(
-      observationPreview('plot_timeseries', {
-        output_path: '/tmp/station_axis.png',
-        plot_type: 'line',
-        x_column: 'time',
-        y_columns: ['east', 'north', 'up'],
-        data_points: 128,
-      }),
-    ).toBe('/tmp/station_axis.png\nchart line\nx time\ny east, north, up\n128 rows');
+  it('renders a CSV table observation as columns + sample rows', () => {
+    const out = observationPreview(
+      'anything',
+      'Site,distance_km\nP475,9.483\nSIO5,15.94\nP472,19.86\n',
+    );
+    expect(out).toContain('Site');
+    expect(out).toContain('distance_km');
+    expect(out).toContain('show full output');
   });
 
   it('hides empty, done, and redacted observations', () => {

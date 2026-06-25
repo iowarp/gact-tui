@@ -1,32 +1,32 @@
 /**
- * ASSISTANT turn renderer — a CHAT OF TURNS.
+ * ASSISTANT turn renderer — a FLAT, INDEXED LOG (RENDERING_SPEC.md).
  *
- * The assistant's work is an append-only sequence of clearly-separated
- * delegation BLOCKS (one per expert invocation), NOT one container everything
- * piles into. Each block is a stable element in the log and renders its own
- * explicit, ordered structure (mirrors transcriptDelegationModel):
+ * The assistant's work is an append-only sequence of delegation BLOCKS (one per
+ * expert invocation). It renders like Claude Code's own terminal log: a flat,
+ * indented log, NO boxes — indentation + a gutter marker only. Each block shows:
  *
- *   main → <expert>            delegation header
- *   ↳ task                     the task main actually SENT to the expert
- *   ⚙ tool(args) / ⎿ result    each tool the expert ran, in order
- *   <expert> result            the expert's prose/result, rendered as markdown
+ *   ● parent → agent           delegation header (one line)
+ *     <task>                   the task that was sent — one inline muted sub-line
+ *     name(args) · Nms         each tool the expert ran
+ *     ⎿ <content-typed output> rendered BY CONTENT TYPE (image / diff / table /
+ *                              markdown / json / text); only this collapses
+ *     <agent result>           the expert's prose, rendered as markdown IN FULL
  *
- * The good parts are kept: delegation-DEPTH INDENTATION (left rule offset per
- * depth) and tool-output / long-content COMPACTION (top preview + expand via
- * CollapsibleContent). The final answer renders prominently as markdown; image
- * artifacts render inline.
+ * Non-negotiables (RENDERING_SPEC):
+ *   - FLAT: no card boxes around messages or blocks. Indentation only.
+ *   - ONLY TOOL OUTPUT COLLAPSES — task / reasoning / result / answer in FULL.
+ *   - REAL DEPTH INDENTATION from metadata.depth (visible left padding per level).
+ *   - ONE consistent body font; differentiate by weight/color only.
+ *   - Tool output rendered by CONTENT TYPE, never by tool name.
  *
- * PERFORMANCE: every block + tool carries a STABLE id, so Solid's keyed <For>
- * (`each` over the same identity) only re-renders the block whose text changed
- * during streaming — not the whole transcript. Markdown is parsed via the
- * memoized MemoMarkdown so an unchanged block's prose is not re-parsed per
- * token, and off-screen blocks use `content-visibility:auto` so scrolling a long
- * transcript stays cheap.
+ * PERFORMANCE: every block + tool carries a STABLE id so Solid's keyed <For>
+ * only re-renders the block whose text changed during streaming.
  */
-import { For, Show, createSignal } from 'solid-js';
+import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { CollapsibleBlock, CollapsibleText, COLLAPSE_THRESHOLD } from './CollapsibleContent.js';
+import { CollapsibleText } from './CollapsibleContent.js';
+import { MemoMarkdown } from './MemoMarkdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
 import { InlineWorkspaceImage } from './InlineWorkspaceImage.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
@@ -35,6 +35,7 @@ import type {
   DelegationBlock,
   DelegationToolCall,
 } from './transcriptDelegationModel.js';
+import type { ToolResultContent } from './toolResultContent.js';
 import './assistant-turn.css';
 
 /** Resolve a workspace file path to an inline image data URL (tool artifacts). */
@@ -43,19 +44,10 @@ type ReadWorkspaceImage = (
 ) => Promise<{ url: string; mediaType: string } | null>;
 
 /** Cap visual indentation so deep chains stay on-screen. */
-const MAX_INDENT_DEPTH = 4;
+const MAX_INDENT_DEPTH = 6;
 
-/** The final answer gets a generous preview budget — it is the headline of the
- *  turn — but still compacts when it runs very long. */
-const ANSWER_THRESHOLD = 16;
-
-/** Tool results compact aggressively — they're supporting evidence, not prose. */
-const TOOL_RESULT_THRESHOLD = 4;
-
-function countLines(s: string): number {
-  if (!s) return 0;
-  return s.split('\n').length;
-}
+/** Tool OUTPUT is the one and only thing that collapses (RENDERING_SPEC §2). */
+const TOOL_RESULT_THRESHOLD = 6;
 
 export function AssistantTurnView(props: {
   model: AssistantTurnModel;
@@ -71,7 +63,7 @@ export function AssistantTurnView(props: {
       <Show when={props.model.routing}>
         {(routing) => (
           <div class="trx-turn__routing" data-testid="assistant-turn-routing">
-            <Icon name="branch" size={11} />
+            <Icon name="branch" size={12} />
             <span>
               routed to <strong>{routing().selected}</strong>
             </span>
@@ -82,8 +74,6 @@ export function AssistantTurnView(props: {
         )}
       </Show>
 
-      {/* Keyed by stable block id: a streaming delta only re-renders the block
-          whose identity is unchanged but whose text grew — not the whole list. */}
       <For each={props.model.blocks}>
         {(block) => (
           <DelegationBlockView block={block} readWorkspaceImage={props.readWorkspaceImage} />
@@ -105,14 +95,14 @@ export function AssistantTurnView(props: {
 
       <Show when={props.model.answer.trim()}>
         <div class="trx-turn__answer" data-testid="assistant-turn-answer">
-          {/* The final answer is the HEADLINE of the turn — labelled and visually
-              distinct from the synthesis delegation task above it. A very long
-              answer still compacts to a top preview + expand. */}
           <div class="trx-turn__answer-label">
-            <Icon name="sparkle" size={12} />
+            <Icon name="sparkle" size={13} />
             <span>Answer</span>
           </div>
-          <CollapsibleText text={props.model.answer} threshold={ANSWER_THRESHOLD} />
+          {/* The final answer renders in FULL — it never collapses. */}
+          <div class="trx-turn__answer-body">
+            <MemoMarkdown text={props.model.answer} />
+          </div>
         </div>
       </Show>
     </div>
@@ -120,9 +110,9 @@ export function AssistantTurnView(props: {
 }
 
 /**
- * One delegation turn-block: a depth-indented card with a left rule, the
- * `main → expert` header, the task that was sent, the ordered tool calls, and
- * the expert's markdown result.
+ * One delegation turn-block: a depth-indented, FLAT step (no box). The `●`
+ * marker, the `parent → agent` header, the inline task sub-line, the ordered
+ * tool calls, and the expert's markdown result.
  */
 function DelegationBlockView(props: {
   block: DelegationBlock;
@@ -130,6 +120,7 @@ function DelegationBlockView(props: {
 }) {
   const block = () => props.block;
   const depth = () => Math.min(block().depth, MAX_INDENT_DEPTH);
+  const isErr = () => /fail|block|error/i.test(block().status);
   return (
     <section
       class="trx-block"
@@ -138,70 +129,60 @@ function DelegationBlockView(props: {
       data-agent={block().agent}
       style={{ '--trx-depth': String(depth()) }}
     >
-      <div class="trx-block__rule" aria-hidden="true" />
-      <div class="trx-block__body">
-        <header class="trx-block__head" data-testid="assistant-turn-delegation-header">
-          <Icon name="branch" size={12} />
+      <div class="trx-block__step" data-testid="assistant-turn-delegation-header">
+        <span class="trx-block__marker" aria-hidden="true">
+          ●
+        </span>
+        <span class="trx-block__owner" classList={{ 'is-err': isErr() }}>
           <span class="trx-block__from">{block().parent}</span>
           <span class="trx-block__arrow" aria-hidden="true">
             →
           </span>
           <span class="trx-block__agent">{block().agent}</span>
-          <span
-            class="trx-block__status"
-            classList={{ 'is-err': /fail|block|error/i.test(block().status) }}
-          >
-            {block().status}
-          </span>
-        </header>
-
-        <Show when={block().task}>
-          <div class="trx-block__task" data-testid="assistant-turn-task">
-            <span class="trx-block__task-label" aria-hidden="true">
-              ↳ task
-            </span>
-            <CollapsibleText text={block().task} threshold={TOOL_RESULT_THRESHOLD} />
-          </div>
-        </Show>
-
-        <Show when={block().tools.length > 0}>
-          <ul class="trx-block__tools" data-testid="assistant-turn-tools">
-            <For each={block().tools}>
-              {(tool) => (
-                <ToolCallView tool={tool} readWorkspaceImage={props.readWorkspaceImage} />
-              )}
-            </For>
-          </ul>
-        </Show>
-
-        <Show when={block().result.trim()}>
-          <div class="trx-block__result" data-testid="assistant-turn-result">
-            <CollapsibleText text={block().result} threshold={COLLAPSE_THRESHOLD} />
-          </div>
+        </span>
+        <Show when={isErr()}>
+          <span class="trx-block__status is-err">{block().status}</span>
         </Show>
       </div>
+
+      {/* The delegated task: ONE inline muted sub-line, in FULL. Not a box. */}
+      <Show when={block().task}>
+        <div class="trx-block__task" data-testid="assistant-turn-task">
+          {block().task}
+        </div>
+      </Show>
+
+      <Show when={block().tools.length > 0}>
+        <ul class="trx-block__tools" data-testid="assistant-turn-tools">
+          <For each={block().tools}>
+            {(tool) => (
+              <ToolCallView tool={tool} readWorkspaceImage={props.readWorkspaceImage} />
+            )}
+          </For>
+        </ul>
+      </Show>
+
+      {/* The expert's prose result — rendered in FULL, never collapsed. */}
+      <Show when={block().result.trim()}>
+        <div class="trx-block__result" data-testid="assistant-turn-result">
+          <MemoMarkdown text={block().result} />
+        </div>
+      </Show>
     </section>
   );
 }
 
 /**
- * A single tool call: a "⚙ name(args) · Nms" header + a SEMANTIC result
- * preview (resolved place / columns / stdout — never the raw command echo),
- * with a "raw" disclosure for the full result and an inline image when the
- * result is an image artifact (a plot's output_path).
+ * A single tool call: a "name(args) · Nms" header + the result rendered BY
+ * CONTENT TYPE (image / diff / table / markdown / json / text). Only the tool
+ * output collapses; a "show raw" disclosure reveals the underlying body.
  */
 function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: ReadWorkspaceImage }) {
   const tool = () => props.tool;
-  const [showRaw, setShowRaw] = createSignal(false);
-  // Offer the raw body when it carries more than the semantic preview already shows.
-  const hasRaw = () => {
-    const full = tool().result.trim();
-    return full.length > 0 && full !== tool().preview.trim();
-  };
   return (
     <li class="trx-tool" data-testid="assistant-turn-tool" classList={{ 'is-err': !tool().ok }}>
       <div class="trx-tool__call">
-        <Icon name="tool" size={11} />
+        <Icon name="tool" size={12} />
         <span class="trx-tool__name">{tool().name}</span>
         <Show when={tool().argsSummary}>
           <span class="trx-tool__args">({tool().argsSummary})</span>
@@ -219,55 +200,172 @@ function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: Re
         </span>
       </div>
 
-      {/* Inline image artifact (plot output_path) — capped thumbnail, enlarge on click. */}
-      <Show when={tool().imagePath}>
-        <div class="trx-tool__result">
-          <span class="trx-tool__result-gutter" aria-hidden="true">
-            ⎿
-          </span>
-          <InlineWorkspaceImage path={tool().imagePath!} readWorkspaceImage={props.readWorkspaceImage} />
+      <div class="trx-tool__result">
+        <span class="trx-tool__result-gutter" aria-hidden="true">
+          ⎿
+        </span>
+        <div class="trx-tool__result-body">
+          <ToolResultView
+            content={tool().content}
+            raw={tool().result}
+            preview={tool().preview}
+            readWorkspaceImage={props.readWorkspaceImage}
+          />
         </div>
-      </Show>
-
-      {/* Semantic preview (plain text) — the meaningful content, not raw JSON. */}
-      <Show when={tool().preview.trim()}>
-        <div class="trx-tool__result">
-          <span class="trx-tool__result-gutter" aria-hidden="true">
-            ⎿
-          </span>
-          <div class="trx-tool__result-body">
-            <CollapsibleText text={tool().preview} threshold={TOOL_RESULT_THRESHOLD} plain />
-            <Show when={hasRaw()}>
-              <button
-                type="button"
-                class="trx-collapse__toggle"
-                data-testid="tool-raw-toggle"
-                aria-expanded={showRaw()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowRaw((v) => !v);
-                }}
-              >
-                {showRaw() ? 'hide raw' : 'show raw'}
-              </button>
-              <Show when={showRaw()}>
-                <pre class="trx-collapse__pre trx-tool__raw" data-testid="tool-raw-body">
-                  {tool().result}
-                </pre>
-              </Show>
-            </Show>
-          </div>
-        </div>
-      </Show>
+      </div>
     </li>
   );
 }
 
 /**
+ * Render a tool result BY ITS DETECTED CONTENT TYPE (backend-agnostic). Only the
+ * tool output collapses (by size); a "show raw" disclosure reveals the full
+ * underlying body for every type.
+ */
+function ToolResultView(props: {
+  content: ToolResultContent;
+  raw: string;
+  preview: string;
+  readWorkspaceImage?: ReadWorkspaceImage;
+}) {
+  const content = () => props.content;
+  const [showRaw, setShowRaw] = createSignal(false);
+  const hasRaw = () => {
+    const full = props.raw.trim();
+    return full.length > 0 && full !== props.preview.trim() && content().kind !== 'image';
+  };
+  return (
+    <>
+      <Switch
+        fallback={
+          <CollapsibleText
+            text={(content() as { kind: 'text'; text: string }).text}
+            threshold={TOOL_RESULT_THRESHOLD}
+            plain
+          />
+        }
+      >
+        <Match when={content().kind === 'image' ? (content() as { kind: 'image'; path: string }) : null}>
+          {(img) => (
+            <InlineWorkspaceImage path={img().path} readWorkspaceImage={props.readWorkspaceImage} />
+          )}
+        </Match>
+        <Match when={content().kind === 'diff' ? (content() as { kind: 'diff'; diff: string }) : null}>
+          {(diff) => <DiffView diff={diff().diff} />}
+        </Match>
+        <Match
+          when={
+            content().kind === 'table'
+              ? (content() as Extract<ToolResultContent, { kind: 'table' }>)
+              : null
+          }
+        >
+          {(table) => <TableView table={table()} />}
+        </Match>
+        <Match when={content().kind === 'markdown' ? (content() as { kind: 'markdown'; text: string }) : null}>
+          {(md) => (
+            <div class="trx-tool__markdown">
+              <MemoMarkdown text={md().text} />
+            </div>
+          )}
+        </Match>
+        <Match when={content().kind === 'json' ? (content() as { kind: 'json'; preview: string }) : null}>
+          {(json) => (
+            <CollapsibleText text={json().preview} threshold={TOOL_RESULT_THRESHOLD} plain />
+          )}
+        </Match>
+      </Switch>
+      <Show when={hasRaw()}>
+        <button
+          type="button"
+          class="trx-collapse__toggle"
+          data-testid="tool-raw-toggle"
+          aria-expanded={showRaw()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowRaw((v) => !v);
+          }}
+        >
+          {showRaw() ? 'hide raw' : 'show raw'}
+        </button>
+        <Show when={showRaw()}>
+          <pre class="trx-tool__raw" data-testid="tool-raw-body">
+            {props.raw}
+          </pre>
+        </Show>
+      </Show>
+    </>
+  );
+}
+
+/** A unified-diff body with +/- line coloring (RENDERING_SPEC §4). */
+function DiffView(props: { diff: string }) {
+  const lines = createMemo(() => props.diff.replace(/\n$/, '').split('\n'));
+  const classFor = (line: string): string => {
+    if (/^@@/.test(line)) return 'is-hunk';
+    if (/^\+(?!\+\+)/.test(line)) return 'is-add';
+    if (/^-(?!--)/.test(line)) return 'is-del';
+    if (/^(---|\+\+\+)\s/.test(line)) return 'is-file';
+    return 'is-ctx';
+  };
+  return (
+    <pre class="trx-tool__diff" data-testid="tool-diff">
+      <For each={lines()}>
+        {(line) => <div class={`trx-diff-line ${classFor(line)}`}>{line || ' '}</div>}
+      </For>
+    </pre>
+  );
+}
+
+/** A small TABLE of the columns + a few example rows (RENDERING_SPEC §4). */
+function TableView(props: { table: Extract<ToolResultContent, { kind: 'table' }> }) {
+  const table = () => props.table;
+  return (
+    <div class="trx-tool__table-wrap" data-testid="tool-table">
+      <table class="trx-tool__table">
+        <thead>
+          <tr>
+            <For each={table().columns}>
+              {(col) => (
+                <th>
+                  <span class="trx-tool__col-name">{col.name}</span>
+                  <Show when={col.dtype}>
+                    <span class="trx-tool__col-type">{col.dtype}</span>
+                  </Show>
+                </th>
+              )}
+            </For>
+          </tr>
+        </thead>
+        <Show when={table().rows.length > 0}>
+          <tbody>
+            <For each={table().rows}>
+              {(row) => (
+                <tr>
+                  <For each={table().columns}>
+                    {(_, ci) => <td>{row[ci()] ?? ''}</td>}
+                  </For>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </Show>
+      </table>
+      <Show when={table().rowCount != null}>
+        <div class="trx-tool__table-note">
+          {table().columns.length} columns
+          {table().rows.length ? ` · ${table().rows.length} sample rows` : ''} ·{' '}
+          {table().rowCount} rows total
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+/**
  * Render a passthrough part inside the flow. Image parts render as a capped
- * thumbnail that enlarges on click; long text-bearing parts (tool returns,
- * diffs) are clamped to a top preview + expand — the same compaction semantics
- * as tool returns, delegating to the existing per-type renderer.
+ * thumbnail that enlarges on click; other parts delegate to the per-type
+ * renderer in the flat flow.
  */
 function PassthroughPartView(props: {
   part: Part;
@@ -280,40 +378,21 @@ function PassthroughPartView(props: {
   if (props.part.type === 'image') {
     return <ImageThumbPartView part={props.part} imagePartsSupported={props.imagePartsSupported} />;
   }
-  const p = props.part as Part & {
-    output?: string;
-    content?: string;
-    unified_diff?: string;
-    new_content?: string;
-  };
-  // Estimate the part's vertical footprint to decide whether to clamp.
-  const body =
-    (typeof p.output === 'string' && p.output) ||
-    (typeof p.content === 'string' && p.content) ||
-    (typeof p.unified_diff === 'string' && p.unified_diff) ||
-    (typeof p.new_content === 'string' && p.new_content) ||
-    '';
-  const lines = countLines(body);
   return (
     <div class="trx-turn__passthrough">
-      <CollapsibleBlock lines={lines} threshold={COLLAPSE_THRESHOLD}>
-        <PartView
-          part={props.part}
-          density={props.density}
-          onOpenDiff={props.onOpenDiff}
-          onPinFile={props.onPinFile}
-          imagePartsSupported={props.imagePartsSupported}
-          messageId={props.messageId}
-        />
-      </CollapsibleBlock>
+      <PartView
+        part={props.part}
+        density={props.density}
+        onOpenDiff={props.onOpenDiff}
+        onPinFile={props.onPinFile}
+        imagePartsSupported={props.imagePartsSupported}
+        messageId={props.messageId}
+      />
     </div>
   );
 }
 
-/**
- * Image artifact: a capped thumbnail (top preview) that enlarges to a full
- * overlay on click — the image analogue of the tool-output top-preview+expand.
- */
+/** Image artifact: a capped thumbnail that enlarges to a full overlay on click. */
 function ImageThumbPartView(props: { part: Part; imagePartsSupported?: boolean }) {
   const [enlarged, setEnlarged] = createSignal(false);
   return (

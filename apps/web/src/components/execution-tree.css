@@ -83,23 +83,22 @@
   font-size: 11px;
   color: var(--color-accent);
 }
+/* The root/orchestrator agent gets the primary accent; every other agent is
+ * assigned one of a small palette by a generic hash of its id (no per-agent
+ * name knowledge — GACT is backend-agnostic). */
 .extree__agent.is-main {
   color: var(--color-accent);
 }
-.extree__agent.is-data {
+.extree__agent.is-agent-0 {
   color: var(--color-success);
 }
-.extree__agent.is-research,
-.extree__agent.is-analysis {
+.extree__agent.is-agent-1 {
   color: var(--color-warning);
 }
-.extree__agent.is-viz {
+.extree__agent.is-agent-2 {
   color: var(--color-accent-cyan);
 }
-.extree__agent.is-catalog {
-  color: var(--color-accent-cyan);
-}
-.extree__agent.is-expert {
+.extree__agent.is-agent-3 {
   color: var(--color-heading);
 }
 

@@ -77,7 +77,7 @@ describe('executionProjectionSupplements', () => {
         agent: 'visualization',
         parent: 'main',
         depth: 1,
-        text: 'plot\n/tmp/station_axis.png\nshow full image\nstatus ready',
+        text: 'kind: plot\npath: /tmp/station_axis.png\nshow full image\nstatus: ready',
         structured: {
           workflow_state: {
             visualization: {

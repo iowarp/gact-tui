@@ -44,10 +44,12 @@ test.describe('clean transcript — real earthscope trace', () => {
     );
     await expect(firstBlock.getByTestId('assistant-turn-task')).toContainText('Resolve Los Angeles');
     const geoTool = firstBlock.getByTestId('assistant-turn-tool').first();
+    // The tool name renders verbatim (no per-tool special-casing).
     await expect(geoTool).toContainText('geo_geocode');
-    // SEMANTIC preview: the geocode tool shows the resolved place, not raw repr.
-    await expect(geoTool).toContainText('Los Angeles');
-    await expect(geoTool).not.toContainText('display_name');
+    // The full resolved place is reachable via "show raw" (content-typed json).
+    await expect(geoTool.getByTestId('tool-raw-toggle')).toBeVisible();
+    await geoTool.getByTestId('tool-raw-toggle').click();
+    await expect(geoTool.getByTestId('tool-raw-body')).toContainText('Los Angeles');
     await expect(firstBlock.getByTestId('assistant-turn-result')).toBeVisible();
 
     // DEPTH: every named expert sits at delegation depth 1 under main.
@@ -64,10 +66,10 @@ test.describe('clean transcript — real earthscope trace', () => {
     await expect(body).not.toContainText('delegation output truncated');
     await expect(body).not.toContainText('exact retained evidence index');
 
-    // COMPACTION: at least one long step is collapsed with an expand toggle.
-    const toggle = page.getByTestId('collapsible-toggle').first();
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toContainText(/expand/);
+    // COMPACTION (tool output only): content-typed results are compact by
+    // construction (a table shows columns + a few rows; structured json shows a
+    // preview) with the full body reachable behind a "show raw" disclosure.
+    await expect(page.getByTestId('tool-raw-toggle').first()).toBeVisible();
 
     // The final answer renders prominently as labelled markdown (its sections show).
     const answer = page.getByTestId('assistant-turn-answer');
@@ -147,7 +149,10 @@ test.describe('clean transcript — real earthscope trace', () => {
       .filter({ hasText: 'head -5' })
       .first();
     await shellTool.scrollIntoViewIfNeeded();
-    await expect(shellTool).toContainText('Site,Latitude');
+    // The shell stdout is CSV → detected as a TABLE by content (not by tool
+    // name): the Site / Latitude columns render as a table, not the echoed cmd.
+    await expect(shellTool.getByTestId('tool-table')).toContainText('Site');
+    await expect(shellTool.getByTestId('tool-table')).toContainText('Latitude');
     await expect(shellTool).not.toContainText('"command"');
     await page.evaluate(() => {
       const el = document
@@ -256,7 +261,7 @@ test.describe('clean transcript — real earthscope trace', () => {
     });
   });
 
-  test('image / long markdown / diff each render a top preview + expand', async ({ page }) => {
+  test('image enlarges; long markdown + diff render flat and in full', async ({ page }) => {
     await connectMockBackend(page, 'transcript-artifacts');
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
 
@@ -274,15 +279,10 @@ test.describe('clean transcript — real earthscope trace', () => {
     await thumb.click(); // shrink back for the screenshot
     await page.waitForTimeout(250);
 
-    // (c) the diff is clamped with an expand toggle (block-level compaction).
-    const blockToggle = page.getByTestId('collapsible-block-toggle').first();
-    await expect(blockToggle).toBeVisible();
-    await expect(blockToggle).toContainText(/expand/);
-
-    // (b) the long markdown answer is compacted with a line-level expand toggle.
-    const textToggle = page.getByTestId('collapsible-toggle').first();
-    await expect(textToggle).toBeVisible();
-    await expect(textToggle).toContainText(/expand/);
+    // (b) the long markdown answer renders IN FULL (model text never collapses):
+    // its last methodology step is present, not hidden behind an expand toggle.
+    const answer = page.getByTestId('assistant-turn-answer');
+    await expect(answer).toContainText('Step 20');
 
     await page.evaluate(() => {
       const pane = document.querySelector('[data-testid="transcript-pane"]') as HTMLElement | null;
