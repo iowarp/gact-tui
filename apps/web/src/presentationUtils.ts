@@ -2,19 +2,6 @@
  * Shared presentation primitives: type guards, key humanisation, scalar
  * shortening, and leading-JSON parsing.
  */
-export function parseLeadingJson(text: string): { value: unknown; raw: string } | null {
-  const start = text.search(/[\[{]/);
-  if (start < 0) return null;
-  const end = findBalancedJsonEnd(text, start);
-  if (end < 0) return null;
-  const raw = text.slice(start, end + 1);
-  try {
-    return { value: JSON.parse(raw), raw };
-  } catch {
-    return null;
-  }
-}
-
 export function findBalancedJsonEnd(text: string, start: number): number {
   const open = text[start];
   const close = open === '[' ? ']' : '}';
@@ -45,15 +32,6 @@ export function findBalancedJsonEnd(text: string, start: number): number {
   return -1;
 }
 
-export function firstNumber(record: Record<string, unknown>, keys: readonly string[]): number | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
-  }
-  return undefined;
-}
-
 /**
  * Options that let {@link stringValue} serve two documented variants from a
  * single implementation:
@@ -63,8 +41,8 @@ export function firstNumber(record: Record<string, unknown>, keys: readonly stri
  * - The execution-projection variant
  *   ({@link import('./components/executionProjectionHelpers.js').stringValue})
  *   passes `rawScalar: true` to render numbers/booleans with full-precision
- *   `String(value)` (coordinates such as `center_lat`, `true`/`false`) and
- *   collapses arrays/objects to an empty string, which the report copy relies on.
+ *   `String(value)` (full-precision numbers, `true`/`false`) and collapses
+ *   arrays/objects to an empty string, which the report copy relies on.
  */
 export interface StringValueOptions {
   rawScalar?: boolean;

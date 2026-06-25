@@ -5,7 +5,7 @@ import {
   turnWorkflowBlocker,
 } from '../../src/components/WorkflowStateModel.js';
 
-describe('WorkflowStateModel', () => {
+describe('WorkflowStateModel — BACKEND-AGNOSTIC', () => {
   it('extracts typed workflow state without dropping surrounding text', () => {
     const block = splitWorkflowState(
       'Before\nCLIO typed workflow state:\n' +
@@ -18,32 +18,32 @@ describe('WorkflowStateModel', () => {
     expect(block?.state.acquisition).toEqual({ status: 'staged' });
   });
 
-  it('summarizes leading handoff evidence JSON into readable text', () => {
+  it('summarizes leading handoff evidence JSON generically into readable text', () => {
     const summary = summarizeHandoffDetail(
       JSON.stringify({
-        REGION_LABEL: 'San Diego area',
-        CENTER_LAT: 32.7157,
-        CENTER_LON: -117.1611,
-        RADIUS_KM: 50,
-        CONFIDENCE: 'high',
+        region_label: 'San Diego area',
+        center_lat: 32.7157,
+        center_lon: -117.1611,
       }),
     );
 
-    expect(summary).toContain('Resolved region: San Diego area');
-    expect(summary).toContain('center 32.7157, -117.1611');
+    expect(summary).toContain('Region Label: San Diego area');
+    expect(summary).toContain('Center Lat: 32.7157');
   });
 
-  it('finds unsupported child-agent blockers from metadata workflow state', () => {
+  it('surfaces a turn blocker from ANY nested entry with a structural error, regardless of its name', () => {
     const blocker = turnWorkflowBlocker([
       {
         type: 'expert_handoff',
         metadata: {
           workflow_state: {
-            delegation: {
+            // The sub-key is NOT named `delegation`; the renderer must still
+            // surface it because the entry carries a structural error field.
+            some_phase: {
               status: 'failed',
-              failed_child: 'ndp_dataset_discovery',
+              failed_child: 'dataset_discovery',
               parent: 'data',
-              error: '_UnsupportedSessionAgent',
+              error: 'tools unavailable',
             },
           },
         },
@@ -51,7 +51,6 @@ describe('WorkflowStateModel', () => {
     ]);
 
     expect(blocker?.title).toBe('Workflow blocker');
-    expect(blocker?.detail).toContain('child expert: ndp_dataset_discovery');
-    expect(blocker?.detail).toContain('required tools are not available');
+    expect(blocker?.detail).toContain('Failed Child: dataset_discovery');
   });
 });

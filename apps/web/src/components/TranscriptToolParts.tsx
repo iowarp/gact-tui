@@ -3,17 +3,14 @@
  * result/error disclosure with telemetry.
  */
 import { For, Show, type JSX } from 'solid-js';
-import type { Part, PartToolCall, PartToolResult } from '@clio/core';
-import {
-  summarizeToolResultPresentation,
-  toolInputRows,
-  type StructuredResultPresentation,
-} from '../presentation.js';
+import type { PartToolCall, PartToolResult } from '@clio/core';
+import { toolInputRows } from '../presentation.js';
 import { Icon } from './Icon.js';
 import { InlineMarkdown } from './InlineMarkdown.js';
-import { prettyJson } from './WorkflowState.js';
 import { toolResultBody } from './TranscriptToolPartsModel.js';
 import { PartCard } from './TranscriptPartCard.js';
+import { analyzeToolResult } from './toolResultPreview.js';
+import { ToolResultView } from './ToolResultContentView.js';
 
 export {
   commandResultInfo,
@@ -74,28 +71,29 @@ export function ToolResultPartView(props: {
 }) {
   const p = props.part;
   const body = toolResultBody(p);
-  const toolResultName = String(
-    (p as Part & { tool_name?: string }).tool_name ??
-      p.metadata?.['tool_name'] ??
-      p.metadata?.['tool'] ??
-      '',
-  );
-  const structured = summarizeToolResultPresentation(toolResultName, body);
-  if (structured && !props.searchQuery?.trim()) {
+  // Searching keeps the raw highlight loop authoritative, so render the plain
+  // body. Otherwise render BY CONTENT TYPE (image / diff / table / markdown /
+  // json / text) — backend-agnostic, never keyed off the tool name.
+  if (props.searchQuery?.trim()) {
     return (
-      <StructuredToolResultCard
-        result={structured}
-        error={Boolean(p.is_error)}
-        cached={p.cached}
-        durationMs={p.duration_ms}
-      />
+      <div class={'trx-toolresult ' + (p.is_error ? 'trx-toolresult--err' : '')}>
+        <Icon name="check" size={14} class="trx-toolresult__icon" />
+        <div class="trx-toolresult__main">
+          <pre>{body}</pre>
+          <ToolTelemetryFooter cached={p.cached} durationMs={p.duration_ms} />
+        </div>
+      </div>
     );
   }
+  const analysis = analyzeToolResult(body);
   return (
-    <div class={'trx-toolresult ' + (p.is_error ? 'trx-toolresult--err' : '')}>
-      <Icon name="check" size={14} class="trx-toolresult__icon" />
+    <div
+      class={'trx-toolresult ' + (p.is_error ? 'trx-toolresult--err' : '')}
+      data-testid="content-typed-tool-result"
+    >
+      <Icon name={p.is_error ? 'alert' : 'check'} size={14} class="trx-toolresult__icon" />
       <div class="trx-toolresult__main">
-        <pre>{body}</pre>
+        <ToolResultView content={analysis.content} raw={analysis.full} preview={analysis.preview} />
         <ToolTelemetryFooter cached={p.cached} durationMs={p.duration_ms} />
       </div>
     </div>
@@ -128,42 +126,6 @@ function ToolTelemetryFooter(props: { cached?: boolean; durationMs?: number }) {
         </Show>
       </div>
     </Show>
-  );
-}
-
-function StructuredToolResultCard(props: {
-  result: StructuredResultPresentation;
-  error?: boolean;
-  cached?: boolean;
-  durationMs?: number;
-}) {
-  return (
-    <PartCard
-      variant="structured-result"
-      class={props.error ? 'trx-structured-result--err' : ''}
-      testId="structured-tool-result"
-      root="section"
-      icon={props.error ? 'alert' : 'check'}
-      iconSize={14}
-      layout="iconInHead"
-      head={<span>{props.result.title}</span>}
-    >
-      <dl class="trx-structured-result__grid" data-testid="structured-tool-result-summary">
-        <For each={props.result.rows.slice(0, 8)}>
-          {(row) => (
-            <div>
-              <dt>{row.label}</dt>
-              <dd>{row.value}</dd>
-            </div>
-          )}
-        </For>
-      </dl>
-      <details class="trx-structured-result__raw" data-testid="structured-tool-result-raw">
-        <summary>Raw result</summary>
-        <pre>{prettyJson(props.result.raw)}</pre>
-      </details>
-      <ToolTelemetryFooter cached={props.cached} durationMs={props.durationMs} />
-    </PartCard>
   );
 }
 

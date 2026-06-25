@@ -1,44 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import {
-  knownWorkflowBlocker,
   summarizeEvidenceRecord,
   workflowDetail,
   workflowTone,
 } from '../../src/components/WorkflowStateFormatting.js';
 
-describe('WorkflowStateFormatting', () => {
-  it('summarizes region evidence records', () => {
+describe('WorkflowStateFormatting — BACKEND-AGNOSTIC', () => {
+  it('summarizes an evidence record generically from its own scalar fields', () => {
+    // No special keys: whatever scalar fields the backend provides are surfaced
+    // as `Humanised Key: value`, in declaration order.
     expect(
       summarizeEvidenceRecord({
-        REGION_LABEL: 'San Diego area',
-        CENTER_LAT: 32.7157,
-        CENTER_LON: -117.1611,
-        RADIUS_KM: 50,
-        CONFIDENCE: 'high',
+        region_label: 'San Diego area',
+        center_lat: 32.7157,
+        center_lon: -117.1611,
+        radius_km: 50,
+        confidence: 'high',
+        nested: { ignored: true },
       }),
-    ).toBe('Resolved region: San Diego area · center 32.7157, -117.1611 · radius 50 km · confidence high');
+    ).toBe(
+      'Region Label: San Diego area · Center Lat: 32.7157 · Center Lon: -117.1611 · Radius Km: 50 · Confidence: high',
+    );
   });
 
-  it('uses the unsupported expert blocker copy for known delegation failures', () => {
-    expect(
-      knownWorkflowBlocker({
-        error: '_UnsupportedSessionAgent',
-        failed_child: 'ndp_dataset_discovery',
-        parent: 'data',
-      }),
-    ).toContain('required tools are not available');
+  it('derives tone STRUCTURALLY, never by matching status prose', () => {
+    // A status word alone — whatever the backend calls it — is neutral; only a
+    // structural error/blocker field (or ok:false / failed:true) is an error.
+    expect(workflowTone('completed', {})).toBe('idle');
+    expect(workflowTone('whatever-backend-word', {})).toBe('idle');
+    expect(workflowTone('any', { error: 'boom' })).toBe('err');
+    expect(workflowTone('any', { blocker: 'missing tool' })).toBe('err');
+    expect(workflowTone('any', { ok: false })).toBe('err');
+    expect(workflowTone('any', { failed: true })).toBe('err');
   });
 
-  it('maps workflow status and fields into row tone/details', () => {
-    expect(workflowTone('completed', {})).toBe('ok');
-    expect(workflowTone('metadata_only', {})).toBe('warn');
-    expect(workflowTone('failed', { error: 'boom' })).toBe('err');
+  it('builds a detail line from the object own keys, with no hardcoded key list', () => {
     expect(
       workflowDetail({
         station_id: 'P475',
         candidate_count: 9,
         local_path: '/tmp/station.csv',
+        nested: { skipped: true },
       }),
-    ).toBe('Local Path: /tmp/station.csv · Station Id: P475 · Candidate Count: 9');
+    ).toBe('Station Id: P475 · Candidate Count: 9 · Local Path: /tmp/station.csv');
   });
 });

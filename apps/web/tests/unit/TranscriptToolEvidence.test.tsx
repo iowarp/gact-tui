@@ -1,11 +1,14 @@
-import { render, screen, cleanup, within } from '@solidjs/testing-library';
+import { render, screen, cleanup } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Transcript } from '../../src/components/Transcript.js';
 
 afterEach(cleanup);
 
 describe('Transcript tool evidence', () => {
-  it('renders structured JSON tool results as readable evidence rows', () => {
+  it('renders a structured JSON tool result by CONTENT TYPE (generic preview + show raw)', () => {
+    // A structured object that is not an image/diff/table surfaces as the `json`
+    // content type: a generic collapsed preview plus a "show raw" affordance.
+    // No backend key vocabulary, no tool-name-derived card title.
     render(() => (
       <Transcript
         density="normal"
@@ -42,17 +45,15 @@ describe('Transcript tool evidence', () => {
       />
     ));
 
-    const summary = within(screen.getByTestId('structured-tool-result-summary'));
-    expect(screen.getByText('records result')).toBeTruthy();
-    expect(summary.getByText('status')).toBeTruthy();
-    expect(summary.getByText('filtered')).toBeTruthy();
-    expect(summary.getByText('records')).toBeTruthy();
-    expect(summary.getByText('MTA1 · distance: 0.3749')).toBeTruthy();
-    expect(screen.getByText('Raw result')).toBeTruthy();
-    expect(summary.queryByText(/"matched_count"/)).toBeNull();
+    // The result renders by detected content type, not a coupled "records result"
+    // card. A generic key/value preview is shown and the raw body is reachable.
+    expect(screen.getByText('status: filtered', { exact: false })).toBeTruthy();
+    expect(screen.getByTestId('tool-raw-toggle')).toBeTruthy();
+    // No backend-coupled card title is emitted.
+    expect(screen.queryByText('records result')).toBeNull();
   });
 
-  it('renders artifact-like JSON tool results without inline raw JSON', () => {
+  it('renders an artifact-like JSON tool result by content type, not a coupled card', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -77,12 +78,12 @@ describe('Transcript tool evidence', () => {
       />
     ));
 
-    expect(screen.getByText('artifact result')).toBeTruthy();
-    const summary = within(screen.getByTestId('structured-tool-result-summary'));
-    expect(summary.getByText('artifact')).toBeTruthy();
-    expect(summary.getByText('/tmp/clio-report/final_summary.md')).toBeTruthy();
-    expect(summary.getByText(/Wrote collaborator handoff report/)).toBeTruthy();
-    expect(summary.queryByText(/"artifact_path"/)).toBeNull();
+    // Detected as the `json` content type: generic preview + show raw. The path
+    // appears in the preview/raw, but there is no tool-name-derived "artifact
+    // result" title.
+    expect(screen.getByText('/tmp/clio-report/final_summary.md', { exact: false })).toBeTruthy();
+    expect(screen.getByTestId('tool-raw-toggle')).toBeTruthy();
+    expect(screen.queryByText('artifact result')).toBeNull();
   });
 
   it('renders fs_propose_edit metadata results as reviewable diff chips', () => {
