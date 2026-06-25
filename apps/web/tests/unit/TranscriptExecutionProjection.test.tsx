@@ -146,17 +146,16 @@ describe('Transcript execution projection', () => {
     expect(screen.getAllByText('CLIO')).toHaveLength(1);
     expect(screen.getByText(/I am initiating the workflow/)).toBeTruthy();
 
-    // The projected turn renders the hierarchical execution tree (TUI parity),
-    // not a flat-text blob. The "↳ parent → child" delegation header is split
-    // across agent-name spans, so assert against the handoff node's structure.
-    const tree = screen.getByTestId('execution-tree');
-    const handoff = screen
-      .getAllByTestId('execution-tree-node')
-      .find((n) => n.getAttribute('data-kind') === 'handoff')!;
-    const handoffAgents = handoff.querySelectorAll('.extree__agent');
-    expect(handoffAgents[0]?.textContent).toBe('main');
-    expect(handoffAgents[1]?.textContent).toBe('geospatial');
-    expect(handoff.textContent).toContain('→');
+    // RENDERING_SPEC §9: the projected live turn now renders through the SAME
+    // clean AssistantTurnView the persisted path uses (flat, no boxes). The
+    // delegation header is the `parent → agent` step; the task is its sub-line.
+    const turn = screen.getByTestId('assistant-turn');
+    const header = screen
+      .getAllByTestId('assistant-turn-delegation-header')
+      .find((n) => /geospatial/.test(n.textContent ?? ''))!;
+    expect(header.querySelector('.trx-block__from')?.textContent).toBe('main');
+    expect(header.querySelector('.trx-block__agent')?.textContent).toBe('geospatial');
+    expect(header.textContent).toContain('→');
     expect(screen.getByText(/Resolve the place name/)).toBeTruthy();
 
     // Tool call display name is the tool name humanised verbatim (no per-tool
@@ -164,17 +163,16 @@ describe('Transcript execution projection', () => {
     expect(screen.getByText(/Geo Geocode/)).toBeTruthy();
     // The radius-filter observation is a structured object → its station ids
     // surface (content-typed), and the staged-resource path appears.
-    expect(tree.textContent).toContain('P475');
-    expect(tree.textContent).toContain('51608375');
+    expect(turn.textContent).toContain('P475');
+    expect(turn.textContent).toContain('51608375');
     // The expert report summarises the structured state generically.
     expect(screen.getAllByText(/San Diego, San Diego County/).length).toBeGreaterThan(0);
 
-    // The expert report renders an "<agent> returned" header.
-    const report = screen
-      .getAllByTestId('execution-tree-node')
-      .find((n) => n.getAttribute('data-kind') === 'report')!;
-    expect(report.textContent).toContain('geospatial');
-    expect(report.textContent).toContain('returned');
+    // The expert's return is folded into the delegation block's result.
+    const result = screen
+      .getAllByTestId('assistant-turn-result')
+      .find((n) => /San Diego, San Diego County/.test(n.textContent ?? ''))!;
+    expect(result).toBeTruthy();
 
     expect(screen.queryByText(/redacted/i)).toBeNull();
     expect(screen.queryByText(/This accumulated assistant text/)).toBeNull();
@@ -316,9 +314,12 @@ describe('Transcript execution projection', () => {
       />
     ));
 
-    expect(screen.getByText(/status: staged/)).toBeTruthy();
-    expect(screen.getByText(/P475\.CI\.LY_\.20\.csv/)).toBeTruthy();
-    expect(screen.queryByText(/resource_candidate/)).toBeNull();
+    const turn = screen.getByTestId('assistant-turn');
+    // The workflow JSON is summarised, not dumped: the staged status + path
+    // survive; the noisy `resource_candidate` envelope key does not.
+    expect(turn.textContent).toMatch(/status: staged/);
+    expect(turn.textContent).toContain('P475.CI.LY_.20.csv');
+    expect(turn.textContent).not.toContain('resource_candidate');
   });
 
   it('keeps persisted assistant artifact evidence inside the projected turn', () => {
@@ -371,14 +372,15 @@ describe('Transcript execution projection', () => {
     ));
 
     expect(screen.getAllByText('CLIO')).toHaveLength(1);
-    const report = screen
-      .getAllByTestId('execution-tree-node')
-      .find((n) => n.getAttribute('data-kind') === 'report')!;
-    expect(report.textContent).toContain('visualization');
-    expect(report.textContent).toContain('returned');
-    const tree = screen.getByTestId('execution-tree');
-    expect(tree.textContent).toContain('gnss_timeseries_plot');
-    expect(tree.textContent).toContain('P475.CI.LY_.20.png');
-    expect(tree.textContent).toContain('show full image');
+    // The visualization handoff opens a delegation block; its persisted artifact
+    // evidence surfaces in the block (header agent + result), rendered through
+    // the unified AssistantTurnView.
+    const turn = screen.getByTestId('assistant-turn');
+    const header = screen
+      .getAllByTestId('assistant-turn-delegation-header')
+      .find((n) => /visualization/.test(n.textContent ?? ''))!;
+    expect(header.querySelector('.trx-block__agent')?.textContent).toBe('visualization');
+    expect(turn.textContent).toContain('gnss_timeseries_plot');
+    expect(turn.textContent).toContain('P475.CI.LY_.20.png');
   });
 });

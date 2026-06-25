@@ -56,9 +56,11 @@ export function projectedTranscriptMessages(
 }
 
 /**
- * Synthetic transcript Part carrying the projected execution nodes so the
- * renderer can show the hierarchical, interactive tree (cf. ExecutionTree)
- * instead of a flat-text blob. Dispatched in TranscriptParts.PartView.
+ * Synthetic transcript Part carrying the projected execution nodes. Dispatched
+ * in TranscriptParts.PartView, where `buildTurnModelFromNodes` converts the
+ * nodes into the clean AssistantTurnModel and renders them through
+ * AssistantTurnView — the SAME flat, depth-indented, content-typed path the
+ * persisted message uses (RENDERING_SPEC §9). Live render === post-reload.
  */
 export interface PartExecutionTree {
   type: 'execution_tree';

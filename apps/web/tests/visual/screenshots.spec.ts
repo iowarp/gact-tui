@@ -356,37 +356,43 @@ test.describe('CLIO harness — visual proofs', () => {
     await connectMockBackend(page, 'earthscope');
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
 
-    // The projected multi-agent turn renders as an indented, interactive tree
-    // in the conversation (TUI parity) — not a flat-text blob.
-    const tree = page.getByTestId('execution-tree').first();
-    await expect(tree).toBeVisible();
-    await tree.scrollIntoViewIfNeeded();
+    // RENDERING_SPEC §9: the projected multi-agent turn renders through the SAME
+    // clean AssistantTurnView the persisted path uses — flat, no boxes,
+    // depth-indented delegation steps, content-typed tool output. Live ===
+    // post-reload. (The old boxed `extree` tree is gone.)
+    const turn = page.getByTestId('assistant-turn').first();
+    await expect(turn).toBeVisible();
+    await turn.scrollIntoViewIfNeeded();
+    // The old boxed renderer must NOT be present.
+    await expect(page.locator('.extree, [data-testid="execution-tree"]')).toHaveCount(0);
 
-    // Agent names appear as hierarchy labels: main delegates to geospatial,
-    // then data delegates to earthscope_catalog.
-    await expect(tree.locator('.extree__agent', { hasText: 'main' }).first()).toBeVisible();
-    await expect(tree.locator('.extree__agent', { hasText: /^geospatial$/ }).first()).toBeVisible();
+    // Agent names appear as delegation-header labels: main delegates to
+    // geospatial, then data delegates to earthscope_catalog.
+    const headers = turn.getByTestId('assistant-turn-delegation-header');
+    await expect(headers.locator('.trx-block__agent', { hasText: /^geospatial$/ }).first()).toBeVisible();
     await expect(
-      tree.locator('.extree__agent', { hasText: /^earthscope_catalog$/ }).first(),
+      headers.locator('.trx-block__agent', { hasText: /^earthscope_catalog$/ }).first(),
     ).toBeVisible();
+    // The top-level delegation is owned by main.
+    await expect(turn.locator('.trx-block__from', { hasText: /^main$/ }).first()).toBeVisible();
 
-    // Delegation depth: the data → earthscope_catalog handoff sits one level
-    // deeper (depth 2) than the top-level main → geospatial handoff (depth 1).
-    const handoffNodes = tree.locator('[data-testid="execution-tree-node"][data-kind="handoff"]');
-    await expect(handoffNodes.first()).toHaveAttribute('data-depth', '1');
-    await expect(handoffNodes.nth(1)).toHaveAttribute('data-depth', '2');
+    // Delegation depth: the data → earthscope_catalog block sits one level
+    // deeper than the top-level main → geospatial block (depth via indentation).
+    const geoStep = turn.locator('[data-testid="assistant-turn-step"][data-agent="geospatial"]').first();
+    const catStep = turn.locator('[data-testid="assistant-turn-step"][data-agent="earthscope_catalog"]').first();
+    const geoDepth = Number(await geoStep.getAttribute('data-depth'));
+    const catDepth = Number(await catStep.getAttribute('data-depth'));
+    expect(catDepth).toBeGreaterThan(geoDepth);
 
-    // The geospatial react step exposes its tool call (geocode_location) and a
-    // collapsed tool result that expands on click.
-    const toolNode = tree.getByTestId('execution-tree-tool');
-    await expect(toolNode).toBeVisible();
-    await expect(toolNode.getByTestId('toolcall-geocode_location')).toBeVisible();
-    const obs = toolNode.getByTestId('execution-tree-observation');
-    await expect(obs).toBeVisible();
-    // Collapsed: the full body (a later observation line) is hidden until expand.
-    await expect(obs).not.toHaveAttribute('open', '');
-    await obs.locator('summary').click();
-    await expect(obs).toHaveAttribute('open', '');
+    // The geospatial block exposes a tool call with a content-typed result and a
+    // `show raw` disclosure (the one thing that collapses).
+    const toolCall = geoStep.getByTestId('assistant-turn-tool').first();
+    await expect(toolCall).toBeVisible();
+    const rawToggle = toolCall.getByTestId('tool-raw-toggle').first();
+    await expect(rawToggle).toBeVisible();
+    await expect(toolCall.getByTestId('tool-raw-body')).toHaveCount(0);
+    await rawToggle.click();
+    await expect(toolCall.getByTestId('tool-raw-body')).toBeVisible();
 
     await page.screenshot({ path: shot('earthscope-routing-flow'), fullPage: false });
   });
