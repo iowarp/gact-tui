@@ -84,6 +84,38 @@ describe('detectToolResultContent — by CONTENT, never by tool name', () => {
     expect(c.kind).toBe('json');
   });
 
+  it('a single-record array summarises the record fields, NOT a "N item · M fields" count', () => {
+    // Live geocode result: a 1-element array whose lone record carries the
+    // resolved place + lat/lon. RENDERING_SPEC §9: never a generic count.
+    const raw = JSON.stringify([
+      {
+        display_name: 'Los Angeles, California',
+        lat: 34.0536909,
+        lon: -118.242766,
+        place_id: 1,
+        osm_type: 'relation',
+        importance: 0.9,
+        type: 'city',
+      },
+    ]);
+    const c = detectToolResultContent(raw);
+    expect(c.kind).toBe('json');
+    if (c.kind === 'json') {
+      expect(c.preview).toContain('Los Angeles, California');
+      expect(c.preview).toContain('34.0536909');
+      expect(c.preview).toContain('-118.242766');
+      expect(c.preview).not.toContain('1 item');
+      expect(c.preview).not.toContain('7 fields');
+    }
+  });
+
+  it('a multi-record array still reads as a count (no single record to feature)', () => {
+    const raw = JSON.stringify([{ a: 1 }, { b: 2 }, { c: 3 }]);
+    const c = detectToolResultContent(raw);
+    expect(c.kind).toBe('json');
+    if (c.kind === 'json') expect(c.preview).toBe('3 items');
+  });
+
   it('unwraps a {preview, truncated} envelope and detects the inner content', () => {
     const inner = 'Site,Latitude\nMTA1,34.05\nPKRD,34.07\n';
     const raw = JSON.stringify({ preview: inner, truncated: true });
