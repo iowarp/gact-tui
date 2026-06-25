@@ -163,7 +163,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
                 type="password"
                 value={token()}
                 onInput={(e) => setToken(e.currentTarget.value)}
-                placeholder="paste a token issued by clio-agent token issue …"
+                placeholder="paste a bearer token from your backend …"
                 data-testid="connect-token"
                 autocomplete="off"
                 spellcheck={false}

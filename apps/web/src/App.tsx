@@ -99,7 +99,7 @@ export function App() {
     // pollute the list.
     registry.add({
       id: 'clio:local',
-      label: inTauri() ? `Local ${brand.name}` : 'localhost:17800',
+      label: inTauri() ? `Local ${brand.name}` : new URL(b.url).host,
       url: b.url,
       bearerToken: b.bearerToken,
       kind: inTauri() ? 'local-sidecar' : 'http',
