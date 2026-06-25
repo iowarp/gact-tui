@@ -122,9 +122,14 @@
 .trx-subagent {
   flex-direction: column;
   gap: 6px;
-  margin-left: 12px;
-  border-left: 2px solid var(--color-accent-cyan-30);
-  border-radius: 0 8px 8px 0;
+  /* Flat: no card — just a depth left-rule + indentation, like the rest of the
+     delegation flow (RENDERING_SPEC §2: no boxes in the conversation). */
+  margin-left: 4px;
+  padding: 2px 0 2px 12px;
+  border: none;
+  background: none;
+  border-radius: 0;
+  border-left: 2px solid var(--color-border-30);
 }
 
 .trx-subagent__head {
