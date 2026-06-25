@@ -63,7 +63,9 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
       await page.waitForTimeout(200);
 
       await expect(page.getByTestId(`msg-copy-${asstMsgId}`)).toBeVisible();
-      await expect(page.getByTestId(`msg-delete-${asstMsgId}`)).toBeVisible();
+      // Delete + quote were removed from the inline hover row per owner feedback
+      // (rarely used, destructive delete should not sit a mis-click away).
+      await expect(page.getByTestId(`msg-delete-${asstMsgId}`)).toHaveCount(0);
       await expect(page.getByTestId(`msg-link-${asstMsgId}`)).toBeVisible();
       // msg-speak is gated on backend.capabilities.voice (per E-25 —
       // clicking a Speak button on a backend without /voice/synthesize
@@ -83,25 +85,10 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     });
   });
 
-  // -- delete a message #99 ------------------------------------------
-  test('msg-delete removes the message from the transcript (#99)', async () => {
-    await withConnectedPage(async ({ page }) => {
-      const { asstMsgId } = await sendOneTurn(page);
-
-      // Accept the confirm() dialog so the delete proceeds.
-      page.on('dialog', (d) => void d.accept());
-
-      const msg = page.getByTestId(`msg-${asstMsgId}`);
-      await msg.hover();
-      await page.getByTestId(`msg-delete-${asstMsgId}`).click();
-
-      // Wait for the message to actually disappear from the DOM.
-      await expect(page.getByTestId(`msg-${asstMsgId}`)).toHaveCount(0, {
-        timeout: 8_000,
-      });
-      await page.screenshot({ path: shot('99-delete-confirmed'), fullPage: false });
-    });
-  });
+  // (Inline per-message delete was removed from the hover action row per owner
+  // feedback; the delete capability now lives off the always-visible chrome, so
+  // the former `msg-delete removes the message` row-click audit no longer
+  // applies. Delete wiring is still exercised via the model-level handlers.)
 
   // -- per-message copy-permalink #139 -------------------------------
   test('msg-link copies a permalink and surfaces a toast (#139)', async () => {

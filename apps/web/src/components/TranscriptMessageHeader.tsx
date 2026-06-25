@@ -31,9 +31,7 @@ export function TranscriptMessageHeader(props: {
   const role = () => props.msg.role;
   return (
     <header class="trx-msg__head">
-      <span class="trx-msg__avatar">
-        <Icon name={transcriptRoleIcon(role())} size={14} />
-      </span>
+      <Icon name={transcriptRoleIcon(role())} size={12} class="trx-msg__role-icon" />
       <span class="trx-msg__role">{transcriptRoleLabel(role())}</span>
       <Show when={props.isAssistant && props.msg.model?.model_id}>
         <span class="trx-msg__model">{props.msg.model?.model_id}</span>

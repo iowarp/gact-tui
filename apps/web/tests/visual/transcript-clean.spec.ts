@@ -34,6 +34,18 @@ test.describe('clean transcript — real earthscope trace', () => {
       ).toBeVisible();
     }
 
+    // CHAT-OF-TURNS structure: each block surfaces the delegation header
+    // (main → expert), the task main SENT, the expert's tool calls, and the
+    // expert's markdown result — distinct, ordered, countable.
+    const firstBlock = steps.first();
+    await expect(firstBlock.getByTestId('assistant-turn-delegation-header')).toContainText('main');
+    await expect(firstBlock.getByTestId('assistant-turn-delegation-header')).toContainText(
+      'geospatial',
+    );
+    await expect(firstBlock.getByTestId('assistant-turn-task')).toContainText('Resolve "Los Angeles"');
+    await expect(firstBlock.getByTestId('assistant-turn-tool').first()).toContainText('geo_geocode');
+    await expect(firstBlock.getByTestId('assistant-turn-result')).toBeVisible();
+
     // DEPTH: every named expert sits at delegation depth 1 under main.
     await expect(steps.first()).toHaveAttribute('data-depth', '1');
 
@@ -64,6 +76,51 @@ test.describe('clean transcript — real earthscope trace', () => {
     await page.waitForTimeout(300);
     await page.screenshot({
       path: resolve(REPO_SHOT, 'web-transcript-clean.png'),
+      fullPage: false,
+    });
+
+    // CHAT-OF-TURNS primary proof: expand the first delegation block's task /
+    // tool result / result so a single turn shows ALL its structure at once
+    // (main → geospatial + task sent + tool call/result + markdown result).
+    await page.evaluate(() => {
+      const pane = document.querySelector('[data-testid="transcript-pane"]') as HTMLElement | null;
+      if (pane) pane.scrollTop = 0;
+    });
+    const block = page.getByTestId('assistant-turn-step').first();
+    const blockToggles = block.getByTestId('collapsible-toggle');
+    const btCount = await blockToggles.count();
+    for (let i = 0; i < btCount; i++) {
+      const t = blockToggles.nth(i);
+      if (await t.isVisible()) await t.click();
+    }
+    await block.scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const b = document.querySelector('[data-testid="assistant-turn-step"]');
+      b?.scrollIntoView({ block: 'start' });
+    });
+    await page.waitForTimeout(300);
+    await page.screenshot({
+      path: resolve(REPO_SHOT, 'web-chat-turns.png'),
+      fullPage: false,
+    });
+
+    // CHAT-OF-TURNS full scroll: reconnect fresh (all blocks compacted) and
+    // scroll the inner pane partway so SEVERAL consecutive turn-blocks
+    // (main → geospatial / data / analysis …) are visible at once — proving the
+    // flowing append-only log of clearly-separated turns, not one monolithic box.
+    await connectMockBackend(page, 'earthscope-real');
+    await expect(page.getByTestId('assistant-turn')).toBeVisible();
+    // Land near the tail so the shorter analysis / visualization / synthesis
+    // turn-blocks AND the prominent final markdown answer are visible together —
+    // several clearly-separated turns in one frame.
+    await page.getByTestId('assistant-turn-answer').scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const pane = document.querySelector('[data-testid="transcript-pane"]') as HTMLElement | null;
+      if (pane) pane.scrollTop = Math.max(0, pane.scrollTop - 360);
+    });
+    await page.waitForTimeout(250);
+    await page.screenshot({
+      path: resolve(REPO_SHOT, 'web-chat-turns-full.png'),
       fullPage: false,
     });
 

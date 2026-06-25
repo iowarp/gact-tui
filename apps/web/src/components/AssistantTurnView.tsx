@@ -1,19 +1,27 @@
 /**
- * TUI-style ASSISTANT turn renderer.
+ * ASSISTANT turn renderer — a CHAT OF TURNS.
  *
- * Replaces the flat "wall of bordered cards" (one box per part) with a flowing,
- * indented transcript that mirrors the TUI's two readability semantics:
+ * The assistant's work is an append-only sequence of clearly-separated
+ * delegation BLOCKS (one per expert invocation), NOT one container everything
+ * piles into. Each block is a stable element in the log and renders its own
+ * explicit, ordered structure (mirrors transcriptDelegationModel):
  *
- *   - delegation-DEPTH INDENTATION — each delegation step is indented by its
- *     depth with a left rule, labelled by agent + status, showing the FULL
- *     stripped model prose (max information, nothing summarised away).
- *   - tool-output / long-content COMPACTION — long prose, tool returns, diffs
- *     and images show a top preview with a "+K lines · expand" affordance
- *     (see CollapsibleContent).
+ *   main → <expert>            delegation header
+ *   ↳ task                     the task main actually SENT to the expert
+ *   ⚙ tool(args) / ⎿ result    each tool the expert ran, in order
+ *   <expert> result            the expert's prose/result, rendered as markdown
  *
- * The final answer renders prominently as full markdown; image artifacts render
- * inline. Routing is a subtle chip kept out of the main flow. The clean model
- * is produced by buildAssistantTurnModel (pure, unit-tested).
+ * The good parts are kept: delegation-DEPTH INDENTATION (left rule offset per
+ * depth) and tool-output / long-content COMPACTION (top preview + expand via
+ * CollapsibleContent). The final answer renders prominently as markdown; image
+ * artifacts render inline.
+ *
+ * PERFORMANCE: every block + tool carries a STABLE id, so Solid's keyed <For>
+ * (`each` over the same identity) only re-renders the block whose text changed
+ * during streaming — not the whole transcript. Markdown is parsed via the
+ * memoized MemoMarkdown so an unchanged block's prose is not re-parsed per
+ * token, and off-screen blocks use `content-visibility:auto` so scrolling a long
+ * transcript stays cheap.
  */
 import { For, Show, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
@@ -21,7 +29,11 @@ import { Icon } from './Icon.js';
 import { CollapsibleBlock, CollapsibleText, COLLAPSE_THRESHOLD } from './CollapsibleContent.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
-import type { AssistantTurnModel, DelegationStep } from './transcriptDelegationModel.js';
+import type {
+  AssistantTurnModel,
+  DelegationBlock,
+  DelegationToolCall,
+} from './transcriptDelegationModel.js';
 import './assistant-turn.css';
 
 /** Cap visual indentation so deep chains stay on-screen. */
@@ -30,6 +42,9 @@ const MAX_INDENT_DEPTH = 4;
 /** The final answer gets a generous preview budget — it is the headline of the
  *  turn — but still compacts when it runs very long. */
 const ANSWER_THRESHOLD = 16;
+
+/** Tool results compact aggressively — they're supporting evidence, not prose. */
+const TOOL_RESULT_THRESHOLD = 4;
 
 function countLines(s: string): number {
   if (!s) return 0;
@@ -60,9 +75,9 @@ export function AssistantTurnView(props: {
         )}
       </Show>
 
-      <For each={props.model.steps}>
-        {(step) => <DelegationStepView step={step} />}
-      </For>
+      {/* Keyed by stable block id: a streaming delta only re-renders the block
+          whose identity is unchanged but whose text grew — not the whole list. */}
+      <For each={props.model.blocks}>{(block) => <DelegationBlockView block={block} />}</For>
 
       <For each={props.model.passthrough}>
         {(part) => (
@@ -88,37 +103,97 @@ export function AssistantTurnView(props: {
   );
 }
 
-function DelegationStepView(props: { step: DelegationStep }) {
-  const step = () => props.step;
-  const depth = () => Math.min(step().depth, MAX_INDENT_DEPTH);
+/**
+ * One delegation turn-block: a depth-indented card with a left rule, the
+ * `main → expert` header, the task that was sent, the ordered tool calls, and
+ * the expert's markdown result.
+ */
+function DelegationBlockView(props: { block: DelegationBlock }) {
+  const block = () => props.block;
+  const depth = () => Math.min(block().depth, MAX_INDENT_DEPTH);
   return (
     <section
-      class="trx-step"
+      class="trx-block"
       data-testid="assistant-turn-step"
       data-depth={depth()}
-      data-agent={step().agent}
+      data-agent={block().agent}
       style={{ '--trx-depth': String(depth()) }}
     >
-      <div class="trx-step__rule" aria-hidden="true" />
-      <div class="trx-step__body">
-        <header class="trx-step__head">
-          <Icon name={depth() === 0 ? 'bot' : 'branch'} size={12} />
-          <span class="trx-step__agent">{step().agent}</span>
-          <Show when={step().parent}>
-            <span class="trx-step__parent">← {step().parent}</span>
-          </Show>
+      <div class="trx-block__rule" aria-hidden="true" />
+      <div class="trx-block__body">
+        <header class="trx-block__head" data-testid="assistant-turn-delegation-header">
+          <Icon name="branch" size={12} />
+          <span class="trx-block__from">{block().parent}</span>
+          <span class="trx-block__arrow" aria-hidden="true">
+            →
+          </span>
+          <span class="trx-block__agent">{block().agent}</span>
           <span
-            class="trx-step__status"
-            classList={{ 'is-err': /fail|block|error/i.test(step().status) }}
+            class="trx-block__status"
+            classList={{ 'is-err': /fail|block|error/i.test(block().status) }}
           >
-            {step().status}
+            {block().status}
           </span>
         </header>
-        <div class="trx-step__text">
-          <CollapsibleText text={step().text} threshold={COLLAPSE_THRESHOLD} />
-        </div>
+
+        <Show when={block().task}>
+          <div class="trx-block__task" data-testid="assistant-turn-task">
+            <span class="trx-block__task-label" aria-hidden="true">
+              ↳ task
+            </span>
+            <CollapsibleText text={block().task} threshold={TOOL_RESULT_THRESHOLD} />
+          </div>
+        </Show>
+
+        <Show when={block().tools.length > 0}>
+          <ul class="trx-block__tools" data-testid="assistant-turn-tools">
+            <For each={block().tools}>{(tool) => <ToolCallView tool={tool} />}</For>
+          </ul>
+        </Show>
+
+        <Show when={block().result.trim()}>
+          <div class="trx-block__result" data-testid="assistant-turn-result">
+            <CollapsibleText text={block().result} threshold={COLLAPSE_THRESHOLD} />
+          </div>
+        </Show>
       </div>
     </section>
+  );
+}
+
+/** A single tool call: a "⚙ name(args)" line + a compacted "⎿ result" block. */
+function ToolCallView(props: { tool: DelegationToolCall }) {
+  const tool = () => props.tool;
+  return (
+    <li class="trx-tool" data-testid="assistant-turn-tool" classList={{ 'is-err': !tool().ok }}>
+      <div class="trx-tool__call">
+        <Icon name="tool" size={11} />
+        <span class="trx-tool__name">{tool().name}</span>
+        <Show when={tool().argsSummary}>
+          <span class="trx-tool__args">({tool().argsSummary})</span>
+        </Show>
+        <span class="trx-tool__meta">
+          <Show when={!tool().ok}>
+            <span class="trx-tool__badge is-err">failed</span>
+          </Show>
+          <Show when={tool().cached}>
+            <span class="trx-tool__badge">cached</span>
+          </Show>
+          <Show when={tool().durationMs != null}>
+            <span class="trx-tool__dur">{Math.round(tool().durationMs!)}ms</span>
+          </Show>
+        </span>
+      </div>
+      <Show when={tool().result.trim()}>
+        <div class="trx-tool__result">
+          <span class="trx-tool__result-gutter" aria-hidden="true">
+            ⎿
+          </span>
+          {/* Raw tool output renders as plain text (not markdown) and compacts. */}
+          <CollapsibleText text={tool().result} threshold={TOOL_RESULT_THRESHOLD} plain />
+        </div>
+      </Show>
+    </li>
   );
 }
 

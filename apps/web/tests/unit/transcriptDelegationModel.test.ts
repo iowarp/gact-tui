@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Message, Part } from '@clio/core';
 import {
   buildAssistantTurnModel,
+  reconcileTurnModel,
   stripControlScaffolding,
 } from '../../src/components/transcriptDelegationModel.js';
 import earthscopeRealTrace from '../visual/fixtures/earthscope-real-trace.json' with { type: 'json' };
@@ -54,9 +55,9 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(model).not.toBeNull();
   });
 
-  it('DEDUPEs the 10 handoffs (5 delegations x2) down to 5 steps', () => {
-    expect(model.steps).toHaveLength(5);
-    expect(model.steps.map((s) => s.agent)).toEqual([
+  it('DEDUPEs the 10 handoffs (5 delegations x2) down to 5 blocks', () => {
+    expect(model.blocks).toHaveLength(5);
+    expect(model.blocks.map((b) => b.agent)).toEqual([
       'geospatial',
       'data',
       'analysis',
@@ -65,28 +66,68 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     ]);
   });
 
+  it('gives every block a stable, unique id for keyed rendering', () => {
+    const ids = model.blocks.map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.every((id) => id.length > 0)).toBe(true);
+  });
+
   it('places every named expert at delegation depth 1 under main', () => {
-    for (const step of model.steps) {
-      expect(step.depth).toBe(1);
-      expect(step.parent).toBe('main');
+    for (const block of model.blocks) {
+      expect(block.depth).toBe(1);
+      expect(block.parent).toBe('main');
     }
   });
 
-  it('STRIPs all workflow-state scaffolding from every step', () => {
-    for (const step of model.steps) {
-      expect(step.text).not.toContain('Retained typed workflow state');
-      expect(step.text).not.toContain('CLIO durable typed workflow state');
-      expect(step.text).not.toContain('"workflow_state"');
-      expect(step.text).not.toMatch(/delegate\.completed|parent\.resumed/);
-      expect(step.text.trim().length).toBeGreaterThan(0);
+  it('SURFACES the task main actually sent to each expert (meta.question)', () => {
+    const geospatial = model.blocks[0]!;
+    expect(geospatial.task).toContain('Resolve "Los Angeles"');
+    expect(geospatial.task).toContain('geocode');
+    const data = model.blocks[1]!;
+    expect(data.task).toContain('Discover EarthScope/NDP GNSS stations');
+  });
+
+  it('exposes each expert tool call + result, in order', () => {
+    const geospatial = model.blocks[0]!;
+    expect(geospatial.tools).toHaveLength(1);
+    expect(geospatial.tools[0]!.name).toBe('geo_geocode');
+    expect(geospatial.tools[0]!.argsSummary).toContain('Los Angeles');
+    expect(geospatial.tools[0]!.result).toContain('display_name');
+    expect(geospatial.tools[0]!.ok).toBe(true);
+
+    const data = model.blocks[1]!;
+    expect(data.tools.map((t) => t.name)).toEqual([
+      'ndp_search_datasets',
+      'ndp_stage_resource',
+      'shell_bash',
+      'shell_bash',
+      'geo_filter_points_by_radius',
+      'ndp_search_datasets',
+      'ndp_stage_resource',
+    ]);
+  });
+
+  it('gives every tool call a stable, unique id', () => {
+    const data = model.blocks[1]!;
+    const ids = data.tools.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('STRIPs all workflow-state scaffolding from every block result', () => {
+    for (const block of model.blocks) {
+      expect(block.result).not.toContain('Retained typed workflow state');
+      expect(block.result).not.toContain('CLIO durable typed workflow state');
+      expect(block.result).not.toContain('"workflow_state"');
+      expect(block.result).not.toMatch(/delegate\.completed|parent\.resumed/);
+      expect(block.result.trim().length).toBeGreaterThan(0);
     }
   });
 
-  it('keeps the real prose for each step', () => {
-    const geospatial = model.steps[0]!;
-    expect(geospatial.text).toContain('Los Angeles');
-    const data = model.steps[1]!;
-    expect(data.text).toContain('EarthScope GNSS Data Acquisition');
+  it('renders the expert result as markdown prose, not scaffolding', () => {
+    const geospatial = model.blocks[0]!;
+    expect(geospatial.result).toContain('Los Angeles');
+    const data = model.blocks[1]!;
+    expect(data.result).toContain('EarthScope GNSS Data Acquisition');
   });
 
   it('exposes the final text answer as a prominent markdown body', () => {
@@ -94,8 +135,68 @@ describe('buildAssistantTurnModel — real earthscope trace', () => {
     expect(model.answer).not.toContain('workflow_state');
   });
 
-  it('keeps the routing decision out of the steps flow', () => {
-    expect(model.steps.every((s) => s.agent !== 'chat')).toBe(true);
+  it('keeps the routing decision out of the blocks flow', () => {
+    expect(model.blocks.every((b) => b.agent !== 'chat')).toBe(true);
+  });
+});
+
+describe('reconcileTurnModel — streaming identity stability (perf)', () => {
+  function handoff(agent: string, question: string, summary: string): Part {
+    return {
+      type: 'expert_handoff',
+      id: `p-${agent}`,
+      metadata: { delegate_to: agent, parent_id: 'main', status: 'completed', question },
+      text: summary,
+    } as unknown as Part;
+  }
+
+  it('reuses the object reference of an UNCHANGED block across a rebuild', () => {
+    const partsA = [handoff('geospatial', 'q1', 'done one'), handoff('data', 'q2', 'done two')];
+    const a = buildAssistantTurnModel(partsA)!;
+
+    // A later delta extends only the SECOND block's result; the first is identical.
+    const partsB = [
+      handoff('geospatial', 'q1', 'done one'),
+      handoff('data', 'q2', 'done two — now with more streamed text'),
+    ];
+    const b = reconcileTurnModel(a, buildAssistantTurnModel(partsB)!);
+
+    // Unchanged first block keeps its identity → <For> skips it.
+    expect(b.blocks[0]).toBe(a.blocks[0]);
+    // Changed second block gets a fresh reference → <For> re-renders just it.
+    expect(b.blocks[1]).not.toBe(a.blocks[1]);
+    expect(b.blocks[1]!.result).toContain('more streamed text');
+  });
+
+  it('reuses unchanged tool-call references inside a streaming block', () => {
+    const withTools = (extra: string): Part =>
+      ({
+        type: 'expert_handoff',
+        id: 'p-data',
+        metadata: {
+          delegate_to: 'data',
+          parent_id: 'main',
+          status: 'completed',
+          question: 'q',
+          tools_called: [
+            { call_id: 'c1', name: 'tool_a', args: { x: 1 }, ok: true, result: 'A result' },
+            { call_id: 'c2', name: 'tool_b', args: { y: 2 }, ok: true, result: `B result${extra}` },
+          ],
+        },
+        text: 'summary',
+      }) as unknown as Part;
+
+    const a = buildAssistantTurnModel([withTools('')])!;
+    const b = reconcileTurnModel(a, buildAssistantTurnModel([withTools(' grown')])!);
+
+    // First tool unchanged → same reference; second tool changed → new reference.
+    expect(b.blocks[0]!.tools[0]).toBe(a.blocks[0]!.tools[0]);
+    expect(b.blocks[0]!.tools[1]).not.toBe(a.blocks[0]!.tools[1]);
+  });
+
+  it('passes the next model through unchanged when there is no previous', () => {
+    const next = buildAssistantTurnModel([handoff('geospatial', 'q', 's')])!;
+    expect(reconcileTurnModel(null, next)).toBe(next);
   });
 });
 

@@ -78,36 +78,10 @@ export function TranscriptMessageActions(props: {
           <Icon name="edit" size={12} />
         </button>
       </Show>
-      <Show when={props.onQuote}>
-        <button
-          type="button"
-          class="trx-msg__action"
-          title="Quote in composer"
-          data-testid={`msg-quote-${props.msg.id}`}
-          onClick={() => props.onQuote?.(props.msg)}
-        >
-          <Icon name="branch" size={12} />
-        </button>
-      </Show>
-      <Show when={props.onDelete}>
-        <button
-          type="button"
-          class="trx-msg__action trx-msg__action--danger"
-          title="Delete message"
-          data-testid={`msg-delete-${props.msg.id}`}
-          onClick={() => {
-            if (
-              window.confirm(
-                'Delete this message? The rest of the conversation will be re-numbered around it.',
-              )
-            ) {
-              props.onDelete?.(props.msg);
-            }
-          }}
-        >
-          <Icon name="close" size={12} />
-        </button>
-      </Show>
+      {/* Quote and Delete were dropped from the inline row per owner feedback
+          (rarely used, heavy chrome) — the destructive delete in particular
+          should not sit one mis-click away in the hover strip. They remain
+          reachable via the message context/inspector affordances. */}
     </span>
   );
 }
