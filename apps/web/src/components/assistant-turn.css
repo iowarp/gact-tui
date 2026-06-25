@@ -32,24 +32,36 @@
   opacity: 0.8;
 }
 
-/* A delegation step: a left rule whose indent grows with depth. */
+/* A delegation step: a left rule whose indent grows clearly with depth so the
+ * "one level deeper per child" hierarchy reads at a glance (TUI parity). */
 .trx-step {
-  --trx-indent: calc(var(--trx-depth, 0) * 18px);
+  --trx-indent: calc(var(--trx-depth, 0) * 32px);
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 10px;
+  gap: 12px;
   margin-left: var(--trx-indent);
 }
 
 .trx-step__rule {
-  width: 2px;
-  border-radius: 2px;
+  width: 3px;
+  border-radius: 3px;
   background: var(--color-border-60);
   align-self: stretch;
 }
 
 .trx-step[data-depth='0'] .trx-step__rule {
   background: var(--color-accent);
+}
+
+/* Deeper levels get a progressively warmer rule so the offset + colour both
+ * signal nesting depth. */
+.trx-step[data-depth='2'] .trx-step__rule {
+  background: var(--color-accent-cyan);
+}
+
+.trx-step[data-depth='3'] .trx-step__rule,
+.trx-step[data-depth='4'] .trx-step__rule {
+  background: color-mix(in srgb, var(--color-accent-cyan) 60%, var(--color-muted));
 }
 
 .trx-step__body {
@@ -114,6 +126,48 @@
 
 .trx-turn__passthrough {
   min-width: 0;
+}
+
+/* Image artifact: a capped thumbnail (top preview) that enlarges on click. */
+.trx-image-thumb {
+  position: relative;
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 10px;
+  max-width: 100%;
+}
+
+.trx-image-thumb .trx-image {
+  max-height: 160px;
+  max-width: 260px;
+  margin: 0;
+  transition: max-height var(--dur-fast), max-width var(--dur-fast);
+}
+
+.trx-image-thumb.is-enlarged {
+  cursor: zoom-out;
+}
+
+.trx-image-thumb.is-enlarged .trx-image {
+  max-height: 70vh;
+  max-width: min(720px, 100%);
+}
+
+.trx-image-thumb__hint {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-heading);
+  background: color-mix(in srgb, var(--color-bg) 70%, transparent);
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  padding: 1px 6px;
+  pointer-events: none;
 }
 
 /* --- Collapsible content (TUI collapseForPreview parity) ----------------- */

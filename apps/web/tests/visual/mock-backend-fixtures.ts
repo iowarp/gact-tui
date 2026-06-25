@@ -9,6 +9,7 @@ import type {
 } from '@clio/core';
 
 import earthscopeRealTrace from './fixtures/earthscope-real-trace.json' with { type: 'json' };
+import samplePlot from './fixtures/sample-plot.json' with { type: 'json' };
 
 export const NOW = '2026-06-16T12:00:00Z';
 
@@ -17,7 +18,9 @@ export type VisualCase =
   | 'earthscope'
   | 'earthscope-blocked'
   | 'fulldata'
-  | 'earthscope-real';
+  | 'earthscope-real'
+  | 'nested-depth'
+  | 'transcript-artifacts';
 
 /** The saved real clio run (1 user msg + 1 assistant msg with 12 parts: a
  *  routing decision, 5 delegations emitted twice as delegate.completed +
@@ -28,6 +31,149 @@ const earthscopeRealMessages: Message[] = (
 ).messages
   .slice()
   .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+
+/**
+ * A real 2-level delegation chain: main → data → ndp_dataset_discovery. The
+ * `data` expert (depth 1) carries reasoning prose AND a child handoff to
+ * `ndp_dataset_discovery` (depth 2, parent_id 'data'). Proves the depth
+ * indentation: the child must sit one visible level deeper than its parent.
+ */
+const nestedDepthMessages: Message[] = [
+  {
+    id: 'm-nested-user',
+    session_id: 'mock-nested',
+    role: 'user',
+    created_at: '2026-06-16T12:00:01Z',
+    parts: [
+      {
+        type: 'text',
+        text: 'Discover an EarthScope GNSS dataset for Los Angeles and stage it for analysis.',
+      },
+    ],
+  },
+  {
+    id: 'm-nested-asst',
+    session_id: 'mock-nested',
+    role: 'assistant',
+    created_at: '2026-06-16T12:00:05Z',
+    parts: [
+      {
+        type: 'routing_decision',
+        selected_agent: 'main',
+        rationale: 'Multi-step data acquisition — delegate to the data expert.',
+        heuristic: false,
+        metadata: { route_source: 'LM router' },
+      },
+      {
+        type: 'expert_handoff',
+        metadata: {
+          parent_id: 'main',
+          agent_id: 'data',
+          delegate_to: 'data',
+          status: 'completed',
+          stage: 'delegate.completed',
+        },
+        text:
+          'main -> data | completed | delegate.completed | I took ownership of data acquisition for the Los Angeles GNSS request. ' +
+          'Before staging anything I need a concrete dataset, so I delegated catalog discovery to the ' +
+          'EarthScope dataset-discovery specialist and waited for it to return a ranked candidate. ' +
+          'Once it returned MTA1 as the closest high-quality station I staged the CSV locally and ' +
+          'recorded the provenance for the downstream analysis expert.',
+      },
+      {
+        type: 'expert_handoff',
+        metadata: {
+          parent_id: 'data',
+          agent_id: 'ndp_dataset_discovery',
+          delegate_to: 'ndp_dataset_discovery',
+          status: 'completed',
+          stage: 'delegate.completed',
+        },
+        text:
+          'data -> ndp_dataset_discovery | completed | delegate.completed | Searched the National Data Platform catalog for EarthScope GNSS ' +
+          'stations within the resolved Los Angeles bounding box. Ranked 72 candidate stations by ' +
+          'distance-to-center and data freshness. The top candidate is **MTA1** (0.3 km from center, ' +
+          'December 2024 data). Returned its download URL and metadata-catalog reference to the data expert.',
+      },
+      {
+        type: 'text',
+        metadata: { stream_source: 'main' },
+        text:
+          '## Dataset staged\n\n' +
+          'I discovered and staged **MTA1**, the closest high-quality EarthScope GNSS station to ' +
+          'Los Angeles (0.3 km from center), with recent December 2024 data. The CSV is staged ' +
+          'locally and ready for displacement/uncertainty profiling.',
+      },
+    ],
+  },
+];
+
+/**
+ * One assistant turn carrying an inline IMAGE part, a long MARKDOWN text part,
+ * and a FILE_DIFF part — each must render a TOP PREVIEW + expand, the same
+ * compaction semantics as tool returns.
+ */
+const transcriptArtifactsMessages: Message[] = [
+  {
+    id: 'm-artifacts-user',
+    session_id: 'mock-artifacts',
+    role: 'user',
+    created_at: '2026-06-16T12:00:01Z',
+    parts: [{ type: 'text', text: 'Plot the station displacement and write the analysis script.' }],
+  },
+  {
+    id: 'm-artifacts-asst',
+    session_id: 'mock-artifacts',
+    role: 'assistant',
+    created_at: '2026-06-16T12:00:06Z',
+    parts: [
+      {
+        type: 'expert_handoff',
+        metadata: {
+          parent_id: 'main',
+          agent_id: 'visualization',
+          delegate_to: 'visualization',
+          status: 'completed',
+          stage: 'delegate.completed',
+        },
+        text:
+          'main -> visualization | completed | delegate.completed | Rendered the MTA1 displacement time-series. ' +
+          'The plot below shows north/east/up components over the staged window; the script and a ' +
+          'long methodology note follow.',
+      },
+      {
+        type: 'image',
+        // A 600x300 PNG — renders as a real <img> capped to a thumbnail, then
+        // enlarges on click.
+        source: {
+          kind: 'base64',
+          media_type: samplePlot.media_type,
+          data: samplePlot.data,
+        },
+        metadata: { title: 'MTA1 displacement plot' },
+      },
+      {
+        type: 'text',
+        text:
+          '## Methodology (long)\n\n' +
+          Array.from({ length: 20 }, (_, i) => `- Step ${i + 1}: processed component band ${i + 1} and removed outliers beyond 3σ.`).join('\n'),
+      },
+      {
+        type: 'file_diff',
+        path: 'analysis/mta1_plot.py',
+        edit_mode: 'whole',
+        lines_added: 24,
+        lines_removed: 0,
+        unified_diff: [
+          '--- a/analysis/mta1_plot.py',
+          '+++ b/analysis/mta1_plot.py',
+          '@@ -0,0 +1,24 @@',
+          ...Array.from({ length: 24 }, (_, i) => `+line ${i + 1} of the generated plotting script`),
+        ].join('\n'),
+      },
+    ],
+  },
+];
 
 const markdownMessages: Message[] = [
   {
@@ -472,35 +618,31 @@ export function messagesForCase(visualCase: VisualCase): Message[] {
   if (visualCase === 'earthscope-blocked') return earthscopeBlockedMessages;
   if (visualCase === 'fulldata') return fullDataMessages;
   if (visualCase === 'earthscope-real') return earthscopeRealMessages;
+  if (visualCase === 'nested-depth') return nestedDepthMessages;
+  if (visualCase === 'transcript-artifacts') return transcriptArtifactsMessages;
   return earthscopeMessages;
 }
+
+/** Session id + title per case (the mock backend routes on the session id). */
+const SESSION_META: Record<VisualCase, { id: string; title: string }> = {
+  markdown: { id: 'mock-markdown', title: 'markdown release read' },
+  'earthscope-blocked': { id: 'mock-earthscope-blocked', title: 'earthscope ndp blocked' },
+  fulldata: { id: 'mock-fulldata', title: 'full-data surfaces' },
+  'earthscope-real': { id: 'sess_a19f51d8c21b', title: 'earthscope real trace' },
+  'nested-depth': { id: 'mock-nested', title: 'nested delegation depth' },
+  'transcript-artifacts': { id: 'mock-artifacts', title: 'transcript artifacts' },
+  earthscope: { id: 'mock-earthscope', title: 'earthscope gnss los angeles' },
+};
 
 export function semanticEventsForCase(visualCase: VisualCase): SemanticEventPayload[] {
   return visualCase === 'earthscope' ? earthscopeEvents : [];
 }
 
 export function sessionForCase(visualCase: VisualCase): Session {
+  const meta = SESSION_META[visualCase];
   return {
-    id:
-      visualCase === 'markdown'
-        ? 'mock-markdown'
-        : visualCase === 'earthscope-blocked'
-          ? 'mock-earthscope-blocked'
-          : visualCase === 'fulldata'
-            ? 'mock-fulldata'
-            : visualCase === 'earthscope-real'
-              ? 'sess_a19f51d8c21b'
-              : 'mock-earthscope',
-    title:
-      visualCase === 'markdown'
-        ? 'markdown release read'
-        : visualCase === 'earthscope-blocked'
-          ? 'earthscope ndp blocked'
-          : visualCase === 'fulldata'
-            ? 'full-data surfaces'
-            : visualCase === 'earthscope-real'
-              ? 'earthscope real trace'
-              : 'earthscope gnss los angeles',
+    id: meta.id,
+    title: meta.title,
     status: 'finished',
     workspace_id: 'ws-demo',
     created_at: NOW,
