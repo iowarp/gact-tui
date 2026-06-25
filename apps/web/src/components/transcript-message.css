@@ -103,8 +103,8 @@
   padding-left: 18px;
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 14.5px;
-  line-height: 1.65;
+  font-size: 15.5px;
+  line-height: 1.7;
 }
 
 .trx-msg__body > * + * {

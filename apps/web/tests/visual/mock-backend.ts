@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Page, Route } from '@playwright/test';
 import {
   NOW,
@@ -13,6 +15,12 @@ import {
 } from './mock-backend-fixtures';
 
 const MOCK_BACKEND = 'http://mock.test';
+
+/** The real EarthScope plot PNG, served by the mock workspace file-read route so
+ *  the live-trace visual test can render the actual artifact inline. */
+const REAL_PLOT_PNG = readFileSync(
+  resolve(import.meta.dirname, 'fixtures', 'MTA1_GNSS_timeseries_displacement.png'),
+);
 
 export async function connectMockBackend(page: Page, visualCase: VisualCase): Promise<void> {
   const session = sessionForCase(visualCase);
@@ -139,6 +147,17 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
     }
     if (method === 'GET' && path === '/v1/workspaces/ws-demo/files/read') {
       const requested = url.searchParams.get('path') ?? '';
+      // The real EarthScope plot artifact (an absolute output_path emitted by the
+      // visualization tool) — serve the actual PNG bytes for inline rendering.
+      if (requested.endsWith('MTA1_GNSS_timeseries_displacement.png')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'image/png',
+          headers: { 'access-control-allow-origin': '*' },
+          body: REAL_PLOT_PNG,
+        });
+        return;
+      }
       if (requested === 'plots/validation_plot.png') {
         await route.fulfill({
           status: 200,

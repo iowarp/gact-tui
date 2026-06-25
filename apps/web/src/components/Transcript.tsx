@@ -68,6 +68,9 @@ export interface TranscriptProps {
    * true (absent capability is treated as allowed).
    */
   imagePartsSupported?: boolean;
+  /** Resolve a workspace file path to an inline image data URL — used to render
+   *  tool artifacts (e.g. a plot's output_path) inline in the transcript. */
+  readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
   /** Chronological CLIO execution ledger. When present, assistant execution
    * renders as one interleaved timeline instead of separate semantic/message
    * blocks. Shared by web and desktop. */
@@ -154,6 +157,7 @@ export function Transcript(props: TranscriptProps) {
                 matchBaseIndex={presentation.baseIndexFor(m.id)}
                 streamingPartIdx={partIdx}
                 imagePartsSupported={props.imagePartsSupported}
+                readWorkspaceImage={props.readWorkspaceImage}
               />
               <Show when={m.role === 'user' && executionTraceByTurn().get(m.id)}>
                 <ConversationExecutionTrace trace={executionTraceByTurn().get(m.id)} />

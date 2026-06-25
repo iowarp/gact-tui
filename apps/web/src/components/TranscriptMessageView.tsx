@@ -38,6 +38,8 @@ export interface MessageViewProps {
   /** Index of the part that should show the streaming cursor (or -1). */
   streamingPartIdx?: number;
   imagePartsSupported?: boolean;
+  /** Resolve a workspace file path to an inline image data URL (tool artifacts). */
+  readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
 }
 
 export function MessageView(props: MessageViewProps) {
@@ -124,6 +126,7 @@ export function MessageView(props: MessageViewProps) {
               onOpenDiff={props.onOpenDiff}
               onPinFile={props.onPinFile}
               imagePartsSupported={props.imagePartsSupported}
+              readWorkspaceImage={props.readWorkspaceImage}
               messageId={props.msg.id}
             />
           )}

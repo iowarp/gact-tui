@@ -28,6 +28,7 @@ import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
 import { CollapsibleBlock, CollapsibleText, COLLAPSE_THRESHOLD } from './CollapsibleContent.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
+import { InlineWorkspaceImage } from './InlineWorkspaceImage.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
   AssistantTurnModel,
@@ -35,6 +36,11 @@ import type {
   DelegationToolCall,
 } from './transcriptDelegationModel.js';
 import './assistant-turn.css';
+
+/** Resolve a workspace file path to an inline image data URL (tool artifacts). */
+type ReadWorkspaceImage = (
+  path: string,
+) => Promise<{ url: string; mediaType: string } | null>;
 
 /** Cap visual indentation so deep chains stay on-screen. */
 const MAX_INDENT_DEPTH = 4;
@@ -57,6 +63,7 @@ export function AssistantTurnView(props: {
   onOpenDiff?: (diff: FileDiff) => void;
   onPinFile?: (path: string) => void;
   imagePartsSupported?: boolean;
+  readWorkspaceImage?: ReadWorkspaceImage;
   messageId?: string;
 }) {
   return (
@@ -77,7 +84,11 @@ export function AssistantTurnView(props: {
 
       {/* Keyed by stable block id: a streaming delta only re-renders the block
           whose identity is unchanged but whose text grew — not the whole list. */}
-      <For each={props.model.blocks}>{(block) => <DelegationBlockView block={block} />}</For>
+      <For each={props.model.blocks}>
+        {(block) => (
+          <DelegationBlockView block={block} readWorkspaceImage={props.readWorkspaceImage} />
+        )}
+      </For>
 
       <For each={props.model.passthrough}>
         {(part) => (
@@ -94,8 +105,13 @@ export function AssistantTurnView(props: {
 
       <Show when={props.model.answer.trim()}>
         <div class="trx-turn__answer" data-testid="assistant-turn-answer">
-          {/* The final answer is prominent, but a very long answer still
-              compacts to a top preview + expand (same semantics as tools). */}
+          {/* The final answer is the HEADLINE of the turn — labelled and visually
+              distinct from the synthesis delegation task above it. A very long
+              answer still compacts to a top preview + expand. */}
+          <div class="trx-turn__answer-label">
+            <Icon name="sparkle" size={12} />
+            <span>Answer</span>
+          </div>
           <CollapsibleText text={props.model.answer} threshold={ANSWER_THRESHOLD} />
         </div>
       </Show>
@@ -108,7 +124,10 @@ export function AssistantTurnView(props: {
  * `main → expert` header, the task that was sent, the ordered tool calls, and
  * the expert's markdown result.
  */
-function DelegationBlockView(props: { block: DelegationBlock }) {
+function DelegationBlockView(props: {
+  block: DelegationBlock;
+  readWorkspaceImage?: ReadWorkspaceImage;
+}) {
   const block = () => props.block;
   const depth = () => Math.min(block().depth, MAX_INDENT_DEPTH);
   return (
@@ -147,7 +166,11 @@ function DelegationBlockView(props: { block: DelegationBlock }) {
 
         <Show when={block().tools.length > 0}>
           <ul class="trx-block__tools" data-testid="assistant-turn-tools">
-            <For each={block().tools}>{(tool) => <ToolCallView tool={tool} />}</For>
+            <For each={block().tools}>
+              {(tool) => (
+                <ToolCallView tool={tool} readWorkspaceImage={props.readWorkspaceImage} />
+              )}
+            </For>
           </ul>
         </Show>
 
@@ -161,9 +184,20 @@ function DelegationBlockView(props: { block: DelegationBlock }) {
   );
 }
 
-/** A single tool call: a "⚙ name(args)" line + a compacted "⎿ result" block. */
-function ToolCallView(props: { tool: DelegationToolCall }) {
+/**
+ * A single tool call: a "⚙ name(args) · Nms" header + a SEMANTIC result
+ * preview (resolved place / columns / stdout — never the raw command echo),
+ * with a "raw" disclosure for the full result and an inline image when the
+ * result is an image artifact (a plot's output_path).
+ */
+function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: ReadWorkspaceImage }) {
   const tool = () => props.tool;
+  const [showRaw, setShowRaw] = createSignal(false);
+  // Offer the raw body when it carries more than the semantic preview already shows.
+  const hasRaw = () => {
+    const full = tool().result.trim();
+    return full.length > 0 && full !== tool().preview.trim();
+  };
   return (
     <li class="trx-tool" data-testid="assistant-turn-tool" classList={{ 'is-err': !tool().ok }}>
       <div class="trx-tool__call">
@@ -184,13 +218,45 @@ function ToolCallView(props: { tool: DelegationToolCall }) {
           </Show>
         </span>
       </div>
-      <Show when={tool().result.trim()}>
+
+      {/* Inline image artifact (plot output_path) — capped thumbnail, enlarge on click. */}
+      <Show when={tool().imagePath}>
         <div class="trx-tool__result">
           <span class="trx-tool__result-gutter" aria-hidden="true">
             ⎿
           </span>
-          {/* Raw tool output renders as plain text (not markdown) and compacts. */}
-          <CollapsibleText text={tool().result} threshold={TOOL_RESULT_THRESHOLD} plain />
+          <InlineWorkspaceImage path={tool().imagePath!} readWorkspaceImage={props.readWorkspaceImage} />
+        </div>
+      </Show>
+
+      {/* Semantic preview (plain text) — the meaningful content, not raw JSON. */}
+      <Show when={tool().preview.trim()}>
+        <div class="trx-tool__result">
+          <span class="trx-tool__result-gutter" aria-hidden="true">
+            ⎿
+          </span>
+          <div class="trx-tool__result-body">
+            <CollapsibleText text={tool().preview} threshold={TOOL_RESULT_THRESHOLD} plain />
+            <Show when={hasRaw()}>
+              <button
+                type="button"
+                class="trx-collapse__toggle"
+                data-testid="tool-raw-toggle"
+                aria-expanded={showRaw()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowRaw((v) => !v);
+                }}
+              >
+                {showRaw() ? 'hide raw' : 'show raw'}
+              </button>
+              <Show when={showRaw()}>
+                <pre class="trx-collapse__pre trx-tool__raw" data-testid="tool-raw-body">
+                  {tool().result}
+                </pre>
+              </Show>
+            </Show>
+          </div>
         </div>
       </Show>
     </li>

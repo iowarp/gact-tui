@@ -20,7 +20,10 @@
 }
 
 .chat__pane-inner {
-  max-width: 760px;
+  /* Owner feedback: the transcript used < half the central column. Widen the
+     reading column so the chat-of-turns + tool output fill the available
+     width instead of stranding a large right gutter. */
+  max-width: 1040px;
   margin: 0 auto;
   padding: 0 32px;
   min-height: 100%;
@@ -34,7 +37,7 @@
    340px of room - let the reading column claim a chunk of it instead
    of leaving a stranded gutter on the right. */
 .chat:not(.chat--inspector-open) .chat__pane-inner {
-  max-width: 960px;
+  max-width: 1280px;
 }
 
 .chat__composer-clearance {

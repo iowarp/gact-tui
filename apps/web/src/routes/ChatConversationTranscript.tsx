@@ -61,6 +61,9 @@ export interface ChatConversationTranscriptProps {
   onPinFile?: (path: string) => void;
   onSpeakMessage?: (msg: Message) => void | Promise<void>;
   onCopyMessagePermalink?: (msg: Message) => void | Promise<void>;
+  /** Resolve a workspace file path to an inline image data URL (for tool
+   *  artifacts like plot output_path). */
+  readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
 }
 
 export function ChatConversationTranscript(props: ChatConversationTranscriptProps) {
@@ -116,6 +119,7 @@ export function ChatConversationTranscript(props: ChatConversationTranscriptProp
             streaming={props.streaming}
             scrollEl={props.transcriptScroll.scrollEl()}
             imagePartsSupported={props.caps?.capabilities?.['multimodal_image_parts'] !== false}
+            readWorkspaceImage={props.readWorkspaceImage}
             executionEvents={props.executionEvents}
             semanticEvents={props.semanticEvents}
           />
