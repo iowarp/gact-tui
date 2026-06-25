@@ -8,9 +8,26 @@ import type {
   Session,
 } from '@clio/core';
 
+import earthscopeRealTrace from './fixtures/earthscope-real-trace.json' with { type: 'json' };
+
 export const NOW = '2026-06-16T12:00:00Z';
 
-export type VisualCase = 'markdown' | 'earthscope' | 'earthscope-blocked' | 'fulldata';
+export type VisualCase =
+  | 'markdown'
+  | 'earthscope'
+  | 'earthscope-blocked'
+  | 'fulldata'
+  | 'earthscope-real';
+
+/** The saved real clio run (1 user msg + 1 assistant msg with 12 parts: a
+ *  routing decision, 5 delegations emitted twice as delegate.completed +
+ *  parent.resumed duplicates, and the final text answer). Sorted oldest-first
+ *  so the transcript shows the user prompt before the answer. */
+const earthscopeRealMessages: Message[] = (
+  earthscopeRealTrace as { messages: Message[] }
+).messages
+  .slice()
+  .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
 
 const markdownMessages: Message[] = [
   {
@@ -454,6 +471,7 @@ export function messagesForCase(visualCase: VisualCase): Message[] {
   if (visualCase === 'markdown') return markdownMessages;
   if (visualCase === 'earthscope-blocked') return earthscopeBlockedMessages;
   if (visualCase === 'fulldata') return fullDataMessages;
+  if (visualCase === 'earthscope-real') return earthscopeRealMessages;
   return earthscopeMessages;
 }
 
@@ -470,7 +488,9 @@ export function sessionForCase(visualCase: VisualCase): Session {
           ? 'mock-earthscope-blocked'
           : visualCase === 'fulldata'
             ? 'mock-fulldata'
-            : 'mock-earthscope',
+            : visualCase === 'earthscope-real'
+              ? 'sess_a19f51d8c21b'
+              : 'mock-earthscope',
     title:
       visualCase === 'markdown'
         ? 'markdown release read'
@@ -478,7 +498,9 @@ export function sessionForCase(visualCase: VisualCase): Session {
           ? 'earthscope ndp blocked'
           : visualCase === 'fulldata'
             ? 'full-data surfaces'
-            : 'earthscope gnss los angeles',
+            : visualCase === 'earthscope-real'
+              ? 'earthscope real trace'
+              : 'earthscope gnss los angeles',
     status: 'finished',
     workspace_id: 'ws-demo',
     created_at: NOW,
