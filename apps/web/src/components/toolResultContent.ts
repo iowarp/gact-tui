@@ -216,16 +216,23 @@ function imagePathFromObject(obj: Record<string, unknown>): string {
 function structuredPreview(value: unknown): string {
   if (Array.isArray(value)) {
     const n = value.length;
-    const head = isRecord(value[0]) ? Object.keys(value[0] as Record<string, unknown>).length : 0;
-    return n === 1
-      ? `1 item${head ? ` · ${head} fields` : ''}`
-      : `${n} items`;
+    // A single record element: summarise THAT record's key fields (place +
+    // lat/lon, etc.) rather than a bare shape count — the lone record IS the
+    // result. Multi-element arrays stay a count (no single record to feature).
+    if (n === 1 && isRecord(value[0])) {
+      return objectPreview(value[0] as Record<string, unknown>);
+    }
+    return n === 1 ? '1 item' : `${n} items`;
   }
   if (!isRecord(value)) return clip(String(value), 200);
-  const obj = value as Record<string, unknown>;
+  return objectPreview(value as Record<string, unknown>);
+}
+
+/** A compact "key: value · …" summary of a record — honours a backend `preview`
+ *  string, else summarises up to five scalar fields generically. */
+function objectPreview(obj: Record<string, unknown>): string {
   const preview = str(obj['preview']);
   if (preview) return clip(preview.replace(/\s+/g, ' '), 200);
-  // Otherwise summarise scalar fields generically.
   const parts: string[] = [];
   for (const [k, v] of Object.entries(obj)) {
     if (v == null) continue;
