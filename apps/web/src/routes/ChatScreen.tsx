@@ -2466,8 +2466,12 @@ function ChatLayout(props: ChatLayoutProps) {
         // Rust toggles real window fullscreen natively; the web chrome has
         // nothing to sync today.
         fullscreen: () => undefined,
-        helpDocs: () =>
-          window.open('https://github.com/iowarp/clio-agent#readme', '_blank'),
+        helpDocs: () => {
+          // Brand-supplied backend repo (docs/About). No clio default — a
+          // brand that omits backendRepository simply has no docs link.
+          const repo = brand.backendRepository?.url;
+          if (repo) window.open(repo, '_blank');
+        },
         about: () => props.onOpenSettings?.('about'),
       });
     });

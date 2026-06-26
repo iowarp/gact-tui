@@ -100,7 +100,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
   const errorHint = () => {
     const msg = error();
     if (!msg) return null;
-    if (/401|403/.test(msg)) return 'The backend rejected the credentials — paste a token from `clio-agent token issue`.';
+    if (/401|403/.test(msg)) return 'The backend rejected the credentials — paste a bearer token issued by your backend.';
     if (/404/.test(msg)) return 'That URL responded but is not a GACT backend — check the port.';
     if (/HTTP \d/.test(msg)) return 'The backend answered with an error — check its logs, then press Connect to retry.';
     return `Nothing answered at that URL — is the local backend running? Start ${brand.name}'s backend, then press Connect to retry.`;
