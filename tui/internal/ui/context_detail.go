@@ -109,7 +109,7 @@ func (c *contextFilesComponent) detailRowsWithContent(cf gact.ContextFile, conte
 		rows = appendDetailSection(rows, "Session", sessionFields...)
 	}
 	rows = appendDetailSection(rows, "Actions",
-		detailField{"Enter / click", "open this context detail and load a content preview when "+brandName()+" exposes it"},
+		detailField{"Enter / click", "open this context detail and load a content preview when " + brandName() + " exposes it"},
 		detailField{"o", "add another context file"},
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
@@ -143,7 +143,7 @@ func contextModeDescription(mode string) string {
 func contextFileStatusDescription(cf gact.ContextFile) string {
 	mode := contextModeDescription(cf.Mode)
 	if cf.Uploaded {
-		return brandName()+" uploaded attachment attached to selected session as " + mode
+		return brandName() + " uploaded attachment attached to selected session as " + mode
 	}
 	return "workspace file attached to selected session as " + mode
 }
@@ -152,13 +152,13 @@ func contextFileSourceDescription(cf gact.ContextFile) string {
 	if cf.Uploaded {
 		return "uploaded attachment (created through attachments_upload, not workspace browsing)"
 	}
-	return "workspace context file (path resolved by "+brandName()+" workspace context)"
+	return "workspace context file (path resolved by " + brandName() + " workspace context)"
 }
 
 func contextFileSessionUseDescription(cf gact.ContextFile) string {
 	mode := contextModeDescription(cf.Mode)
 	if cf.Uploaded {
-		return "copied into selected "+brandName()+" session context as " + mode
+		return "copied into selected " + brandName() + " session context as " + mode
 	}
-	return "referenced by selected "+brandName()+" session context as " + mode
+	return "referenced by selected " + brandName() + " session context as " + mode
 }

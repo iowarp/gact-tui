@@ -27,21 +27,21 @@ type ContextSegment struct {
 //   - Categories are the /context-style buckets, including the synthetic
 //     "framing" key (= used_tokens - live_tokens) when used_tokens > 0.
 type ContextState struct {
-	SessionID      string         `json:"session_id"`
-	Scope          string         `json:"scope"`
-	AsOf           *int64         `json:"as_of"`
-	WindowTokens   int            `json:"window_tokens"`
-	LiveTokens     int            `json:"live_tokens"`
-	PctUsed        *float64       `json:"pct_used"`
-	UsedTokens     *int           `json:"used_tokens"`
-	UsedPct        *float64       `json:"used_pct"`
-	AutocompactPct *float64       `json:"autocompact_pct"`
-	LiveBlockCount int            `json:"live_block_count"`
-	TokensByKind   map[string]int `json:"tokens_by_kind"`
-	Categories     map[string]int `json:"categories"`
+	SessionID      string           `json:"session_id"`
+	Scope          string           `json:"scope"`
+	AsOf           *int64           `json:"as_of"`
+	WindowTokens   int              `json:"window_tokens"`
+	LiveTokens     int              `json:"live_tokens"`
+	PctUsed        *float64         `json:"pct_used"`
+	UsedTokens     *int             `json:"used_tokens"`
+	UsedPct        *float64         `json:"used_pct"`
+	AutocompactPct *float64         `json:"autocompact_pct"`
+	LiveBlockCount int              `json:"live_block_count"`
+	TokensByKind   map[string]int   `json:"tokens_by_kind"`
+	Categories     map[string]int   `json:"categories"`
 	Segments       []ContextSegment `json:"segments"`
-	RenderText     string         `json:"render_text"`
-	RenderKeys     map[string]any `json:"render_keys"`
+	RenderText     string           `json:"render_text"`
+	RenderKeys     map[string]any   `json:"render_keys"`
 }
 
 // GetContextState issues GET /v1/sessions/{id}/context/state[?scope=<expert>].
