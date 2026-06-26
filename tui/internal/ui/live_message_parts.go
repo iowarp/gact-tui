@@ -34,9 +34,6 @@ func (c *conversationComponent) applyPartAdded(e client.SSEEvent) {
 			part.Metadata["status"] = "running"
 		}
 	}
-	if part.CallID != "" && (part.Type == gact.PartTypeToolCall || part.Type == gact.PartTypeToolResult) {
-		c.removeSyntheticSemanticToolParts(part.CallID)
-	}
 	for i := range c.messages {
 		if c.messages[i].ID == msgID {
 			for j := range c.messages[i].Parts {

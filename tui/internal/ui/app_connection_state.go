@@ -6,7 +6,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -51,11 +50,6 @@ type appConnectionState struct {
 	// session. CLIO event streams are session-scoped; a single global
 	// counter made revisits unstable by replaying the whole ring.
 	lastSeenSeqIDBySession map[string]uint64
-
-	// semanticLiveMessagesBySession preserves TUI-synthesized live
-	// semantic timeline rows while a session is still running. Backend
-	// message reloads remain authoritative.
-	semanticLiveMessagesBySession map[string][]gact.Message
 
 	// connectRetryAttempts is the count of consecutive failed connectCmd
 	// dispatches. It uses the same backoff schedule as SSE reconnect and

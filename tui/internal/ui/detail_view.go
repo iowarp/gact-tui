@@ -14,11 +14,6 @@ func partDetailText(p gact.Part) string {
 	fields = append(fields, detailField{"call", p.CallID})
 	fields = append(fields, detailField{"provenance", promotedEvidenceLabel(p)})
 	var rows []string
-	semanticEvent := map[string]any(nil)
-	if isSemanticEventPart(p) {
-		semanticEvent = mapValue(p.Metadata["raw_event"])
-		rows = appendSemanticEventDetail(rows, semanticEvent)
-	}
 	rows = appendDetailSection(rows, "Part", fields...)
 
 	typeRows, fullText := partTypeDetailRows(p)

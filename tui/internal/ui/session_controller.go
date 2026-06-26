@@ -184,11 +184,7 @@ func (c *sessionComponent) selectIndex(idx int) tea.Cmd {
 	sid := c.sessions[idx].ID
 	a.inputComposer.swapDraftFor(sid)
 
-	var seed []gact.Message
-	if a.conversation.sessionAllowsSemanticLiveCache(sid) {
-		seed = cloneMessages(a.connection.semanticLiveMessagesBySession[sid])
-	}
-	a.conversation.resetForSession(seed)
+	a.conversation.resetForSession(nil)
 	c.contextFiles = nil
 	c.contextFileSel = 0
 	c.currentStatus = c.sessions[idx].Status

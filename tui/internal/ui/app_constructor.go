@@ -9,7 +9,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
@@ -78,8 +77,7 @@ func NewWithTheme(backendURL string, theme Theme) *App {
 		},
 		connection: connectionComponent{
 			appConnectionState: appConnectionState{
-				lastSeenSeqIDBySession:        map[string]uint64{},
-				semanticLiveMessagesBySession: map[string][]gact.Message{},
+				lastSeenSeqIDBySession: map[string]uint64{},
 			},
 		},
 		execution: executionComponent{
