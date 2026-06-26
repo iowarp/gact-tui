@@ -9,7 +9,7 @@ func (c *settingsComponent) bodyPageSize() int {
 func (c *settingsComponent) tabPurpose(tab int) string {
 	switch tab {
 	case 0:
-		return "Provider/model runtime is managed through the shared "+brandName()+" provider modal."
+		return "Provider/model runtime is managed through the shared " + brandName() + " provider modal."
 	case 1:
 		return "Choose the session expert and new-session workflow defaults."
 	case 2:

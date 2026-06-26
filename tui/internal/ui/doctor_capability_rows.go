@@ -44,8 +44,8 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"commands", caps.Capabilities.Commands, capCore, capUIFull, "slash command palette and command detail"},
 		{"metrics", caps.Capabilities.Metrics, capCore, capUIFull, "metrics command/detail"},
 		// Useful but optional.
-		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary "+brandName()+" workflow"},
-		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 "+brandName()+" path"},
+		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary " + brandName() + " workflow"},
+		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 " + brandName() + " path"},
 		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "/compact uses POST /v1/sessions/{id}/summarize, refreshes backend truth, renders selected-session summary, and surfaces errors"},
 		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action POSTs /v1/sessions/{id}/attachments and merges returned context provenance"},
 		{"multimodal_image_parts", caps.Capabilities.MultimodalImageParts, capExtra, capUIGated, "decoded and preserved by the message contract; terminal image attachment workflow remains gated behind file upload/provider support"},
@@ -63,7 +63,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"tool_telemetry", caps.Capabilities.ToolTelemetry, capV02, capUIFull, "tool cache/duration evidence"},
 		// Vendor-specific (often unsupported).
 		{"lsp", caps.Capabilities.LSP, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
-		{"voice", caps.Capabilities.Voice, capVendor, capUIGated, "voice command hook exists; no "+brandName()+" voice workflow"},
+		{"voice", caps.Capabilities.Voice, capVendor, capUIGated, "voice command hook exists; no " + brandName() + " voice workflow"},
 		{"scheduled_sessions", caps.Capabilities.ScheduledSessions, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
 		{"hooks", caps.Capabilities.Hooks, capVendor, capUIGated, "CLI support exists; TUI management not primary"},
 		{"session_sharing", caps.Capabilities.SessionSharing, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
