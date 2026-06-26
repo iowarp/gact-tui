@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/internal/events"
 )
@@ -41,6 +42,12 @@ func NewReplayScript(path string) Script {
 		}
 		e.publishStatus(sessionID, "running")
 		defer e.publishStatus(sessionID, "idle")
+		// Give the just-created session's per-session SSE subscriber time to
+		// attach before we start publishing — the bus has no replay buffer, so
+		// frames sent before the client subscribes are lost. The TUI/web post
+		// the user message and open the events stream near-simultaneously; a
+		// short lead-in removes that race for deterministic replays.
+		_ = sleep(ctx, 1500*time.Millisecond)
 		for _, ev := range evts {
 			if ctx.Err() != nil {
 				return
