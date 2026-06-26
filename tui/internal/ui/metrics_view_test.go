@@ -224,7 +224,7 @@ func TestMetricsLatencyDetailPreservesExactRouteEvidence(t *testing.T) {
 	}
 	for _, want := range []string{
 		"API latency · GET /v1/sessions/{id}/messages",
-		"CLIO latency",
+		"GACT latency",
 		"operation: message history load",
 		"api route: GET /v1/sessions/{id}/messages",
 		"count: 3",

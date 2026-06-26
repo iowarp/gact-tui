@@ -1552,7 +1552,7 @@ func TestAgentBlueprintSourceRegistryEmptyStatePointsToAddSourceFlow(t *testing.
 			t.Fatalf("empty source guidance missing %q:\n%s", want, row.desc)
 		}
 	}
-	for _, unwanted := range []string{"through CLIO", "source registry unsupported", "unsupported"} {
+	for _, unwanted := range []string{"through GACT", "source registry unsupported", "unsupported"} {
 		if strings.Contains(row.desc, unwanted) {
 			t.Fatalf("empty source guidance leaked stale wording %q:\n%s", unwanted, row.desc)
 		}

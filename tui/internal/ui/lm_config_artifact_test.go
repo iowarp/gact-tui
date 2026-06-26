@@ -1796,7 +1796,7 @@ func TestLMConfigCloseGlyphIsCenteredInHeaderButton(t *testing.T) {
 	plain := ansi.Strip(a.viewLMConfig())
 	closeLine := ""
 	for _, line := range strings.Split(plain, "\n") {
-		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			closeLine = line
 			break
 		}
@@ -1818,7 +1818,7 @@ func TestLMConfigHeaderGapsOwnModalBackground(t *testing.T) {
 
 	styledLine := ""
 	for _, line := range strings.Split(a.viewLMConfig(), "\n") {
-		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			styledLine = line
 			break
 		}
@@ -2053,7 +2053,7 @@ func TestRenderLMConfigPolishArtifact(t *testing.T) {
 			APIBase:        "https://api.anthropic.com/v1",
 			SuggestedModel: "claude-sonnet-4-6",
 			RequiresAPIKey: true,
-			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY where CLIO is running.",
+			Description:    "Direct Anthropic API. Requires ANTHROPIC_API_KEY where the backend is running.",
 			Status:         "missing_key",
 			StatusMessage:  "missing ANTHROPIC_API_KEY",
 		},

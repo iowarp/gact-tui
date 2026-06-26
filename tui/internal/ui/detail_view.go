@@ -337,7 +337,7 @@ func (a *App) renderScrollableDetailModal(opts scrollableDetailOptions) scrollab
 	}
 	if a.MouseEnabled {
 		hint = strings.Replace(hint, "Up/Down scroll  ", "scroll  ", 1)
-		hint = "drag CLIO copy  Alt+drag terminal select  " + hint
+		hint = "drag app copy  Alt+drag terminal select  " + hint
 	}
 	if a.fileDetailUploadAvailable() {
 		hint = "u upload  " + hint

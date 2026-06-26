@@ -5015,32 +5015,36 @@ func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
 }
 
 func TestAgentDeployStartupTimeoutDefaults(t *testing.T) {
+	// With no brand-injected managed backend (the default, unbranded build),
+	// the managed kind falls through to the neutral 3s default — the
+	// clio-specific 60s default is gone. A branded build supplies its own
+	// StartupTimeoutSec via brandBackendJSON.
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
-		t.Fatalf("clio deploy startup timeout = %s, want 60s", got)
+	if got := defaultAgentDeployStartupTimeout("managed"); got != 3*time.Second {
+		t.Fatalf("managed deploy startup timeout = %s, want neutral 3s", got)
 	}
 	if got := defaultAgentDeployStartupTimeout("claudecode"); got != 3*time.Second {
 		t.Fatalf("claudecode deploy startup timeout = %s, want 3s", got)
 	}
 
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "25s")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 25*time.Second {
+	if got := defaultAgentDeployStartupTimeout("managed"); got != 25*time.Second {
 		t.Fatalf("env deploy startup timeout = %s, want 25s", got)
 	}
 
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "not-a-duration")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
-		t.Fatalf("invalid env deploy startup timeout = %s, want clio default 60s", got)
+	if got := defaultAgentDeployStartupTimeout("managed"); got != 3*time.Second {
+		t.Fatalf("invalid env deploy startup timeout = %s, want neutral 3s", got)
 	}
 }
 
-func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
+func TestBackendPythonEntrypointPrefersVenvPython(t *testing.T) {
 	tmp := t.TempDir()
 	scripts := filepath.Join(tmp, "Scripts")
 	if err := os.MkdirAll(scripts, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	console := filepath.Join(scripts, "clio-agent-gact.exe")
+	console := filepath.Join(scripts, "backend-agent.exe")
 	python := filepath.Join(scripts, "python.exe")
 	if err := os.WriteFile(console, []byte("stub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -5049,7 +5053,9 @@ func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gotBin, gotArgs, ok := clioPythonEntrypoint(console)
+	// The python module is brand-supplied, not hardcoded — pass it through.
+	const module = "example_backend.app"
+	gotBin, gotArgs, ok := backendPythonEntrypoint(console, module)
 	if !ok {
 		t.Fatal("expected venv python entrypoint")
 	}
@@ -5057,7 +5063,7 @@ func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
 		t.Fatalf("entrypoint bin = %q, want %q", gotBin, python)
 	}
 	if len(gotArgs) != 2 || gotArgs[0] != "-c" ||
-		!strings.Contains(gotArgs[1], "clio_agent.gact.app") {
+		!strings.Contains(gotArgs[1], module) {
 		t.Fatalf("entrypoint args = %#v", gotArgs)
 	}
 }

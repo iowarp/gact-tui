@@ -294,7 +294,7 @@ func (a *App) openMetricsCostDetail(provider string, amount float64) {
 		if total > 0 {
 			rows = append(rows, detailFieldRows("share", fmt.Sprintf("%.1f%%", amount/total*100))...)
 		}
-		rows = appendDetailSection(rows, "CLIO totals",
+		rows = appendDetailSection(rows, brandName()+" totals",
 			detailField{"total cost", fmt.Sprintf("$%.4f", total)},
 		)
 	}
@@ -309,7 +309,7 @@ func (a *App) openMetricsCostDetail(provider string, amount float64) {
 }
 
 func (a *App) openMetricsLatencyDetail(route string, stat gact.MetricsLatencyStat) {
-	rows := appendDetailSection(nil, "CLIO latency",
+	rows := appendDetailSection(nil, brandName()+" latency",
 		detailField{"operation", metricsOperationLabel(route)},
 		detailField{"api route", route},
 		detailField{"count", fmt.Sprintf("%d", stat.Count)},

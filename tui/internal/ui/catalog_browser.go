@@ -4801,9 +4801,9 @@ func agentBlueprintLifecycleActionDescription(blueprint gact.AgentBlueprintDefin
 	if !manageable {
 		fields = append(fields, "protected scope: "+firstNonEmpty(blueprint.Scope, "unknown"))
 	} else if action == "update" {
-		fields = append(fields, "refresh this installed blueprint through CLIO")
+		fields = append(fields, "refresh this installed blueprint through "+brandName())
 	} else {
-		fields = append(fields, "remove this installed blueprint through CLIO")
+		fields = append(fields, "remove this installed blueprint through "+brandName())
 	}
 	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
 		fields = append(fields, "source: "+source)

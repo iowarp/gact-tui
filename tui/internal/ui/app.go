@@ -6103,7 +6103,7 @@ func (a *App) contextFileDetailRowsWithContent(cf gact.ContextFile, content gact
 		rows = appendDetailSection(rows, "Session", sessionFields...)
 	}
 	rows = appendDetailSection(rows, "Actions",
-		detailField{"Enter / click", "open this context detail and load a content preview when CLIO exposes it"},
+		detailField{"Enter / click", "open this context detail and load a content preview when " + brandName() + " exposes it"},
 		detailField{"o", "add another context file"},
 		detailField{"Esc / Ctrl+E", "close detail"},
 	)
@@ -6228,7 +6228,7 @@ func contextModeDescription(mode string) string {
 func contextFileStatusDescription(cf gact.ContextFile) string {
 	mode := contextModeDescription(cf.Mode)
 	if cf.Uploaded {
-		return "CLIO uploaded attachment attached to selected session as " + mode
+		return brandName() + " uploaded attachment attached to selected session as " + mode
 	}
 	return "workspace file attached to selected session as " + mode
 }
@@ -6237,15 +6237,15 @@ func contextFileSourceDescription(cf gact.ContextFile) string {
 	if cf.Uploaded {
 		return "uploaded attachment (created through attachments_upload, not workspace browsing)"
 	}
-	return "workspace context file (path resolved by CLIO workspace context)"
+	return "workspace context file (path resolved by " + brandName() + " workspace context)"
 }
 
 func contextFileSessionUseDescription(cf gact.ContextFile) string {
 	mode := contextModeDescription(cf.Mode)
 	if cf.Uploaded {
-		return "copied into selected CLIO session context as " + mode
+		return "copied into selected " + brandName() + " session context as " + mode
 	}
-	return "referenced by selected CLIO session context as " + mode
+	return "referenced by selected " + brandName() + " session context as " + mode
 }
 
 func shortContextPath(path string) string {
@@ -10388,8 +10388,29 @@ func (a *App) viewConnecting() string {
 // glyph can supply one via intro_file.
 var defaultIntroLogo = []string{}
 
+// defaultBrandName is the neutral product name used when no brand is
+// configured (config `name` / GACT_BRAND_NAME). The embedding agent
+// white-labels via SetBrandName; absent that, the TUI is generic GACT.
+const defaultBrandName = "GACT"
+
+// pkgBrandName mirrors the active App's configured brand so free functions
+// (metrics, copy-mode, workspace/blueprint copy) that build user-facing text
+// without an *App receiver can still render the product name. Set by
+// SetBrandName; empty means the neutral default. A TUI process owns exactly
+// one App, so a package-level value is unambiguous.
+var pkgBrandName string
+
+// brandName is the de-clio'd product name for user-facing copy: the
+// configured brand, or the neutral default. Never a hardcoded vendor.
+func brandName() string {
+	if pkgBrandName != "" {
+		return pkgBrandName
+	}
+	return defaultBrandName
+}
+
 var defaultIntroName = func() []string {
-	out := figure.NewFigure("CLIO", "slant", true).String()
+	out := figure.NewFigure(defaultBrandName, "slant", true).String()
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
 	return lines
 }()
@@ -10404,6 +10425,7 @@ func (a *App) SetBrandName(name string) {
 		return
 	}
 	a.BrandName = name
+	pkgBrandName = name
 	out := figure.NewFigure(name, "slant", true).String()
 	a.IntroName = strings.Split(strings.TrimRight(out, "\n"), "\n")
 }
@@ -10485,10 +10507,17 @@ func (a *App) viewIntro() string {
 	if len(a.IntroLogo) > 0 {
 		logoBlock = lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render(logoStr)
 	}
+	// Short fallback when the wordmark art is wider than the terminal:
+	// the plain brand name (configured or neutral default), never a
+	// hardcoded product.
+	shortName := a.BrandName
+	if shortName == "" {
+		shortName = defaultBrandName
+	}
 	nameStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
 	nameText := strings.Join(name, "\n")
 	if a.width > 0 && lipgloss.Width(nameText) > a.width-4 {
-		nameText = "CLIO"
+		nameText = shortName
 	}
 	box := lipgloss.NewStyle().
 		Width(a.width).Height(a.height).
@@ -10509,7 +10538,7 @@ func (a *App) viewIntro() string {
 		body = lipgloss.JoinVertical(lipgloss.Center, nameBlock, "", hint)
 	}
 	if a.height > 0 && lipgloss.Height(body) > a.height {
-		body = lipgloss.JoinVertical(lipgloss.Center, nameStyle.Render("CLIO"), hint)
+		body = lipgloss.JoinVertical(lipgloss.Center, nameStyle.Render(shortName), hint)
 	}
 	return box.Render(body)
 }

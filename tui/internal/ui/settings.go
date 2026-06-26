@@ -708,7 +708,7 @@ func (a *App) viewSettings() string {
 		}
 		rows = append(rows, "")
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("New-session defaults"))
-		rows = append(rows, "  "+t.HintKey.Render("blueprint")+"  "+orPlaceholder(a.DefaultAgentBlueprintID, "CLIO default"))
+		rows = append(rows, "  "+t.HintKey.Render("blueprint")+"  "+orPlaceholder(a.DefaultAgentBlueprintID, "backend default"))
 		rows = append(rows, "  "+t.HintKey.Render("expert pack")+"  "+orPlaceholder(a.DefaultExpertPackID, "none"))
 		defaultsRow := len(rows)
 		rows = append(rows, rowLine(false, "Change defaults", "Ctrl+B or b"))
@@ -1018,7 +1018,7 @@ func (a *App) settingsBodyPageSize() int {
 func (a *App) settingsTabPurpose(tab int) string {
 	switch tab {
 	case 0:
-		return "Provider/model runtime is managed through the shared CLIO provider modal."
+		return "Provider/model runtime is managed through the shared "+brandName()+" provider modal."
 	case 1:
 		return "Choose the session expert and new-session workflow defaults."
 	case 2:

@@ -338,11 +338,11 @@ func (a *App) viewSessionSetup() string {
 
 func (a *App) sessionSetupBlueprintLabel() string {
 	if a.sessionSetup == nil || a.sessionSetup.blueprintSel <= 0 {
-		return "CLIO default"
+		return "backend default"
 	}
 	idx := a.sessionSetup.blueprintSel - 1
 	if idx < 0 || idx >= len(a.sessionSetup.blueprints) {
-		return "CLIO default"
+		return "backend default"
 	}
 	bp := a.sessionSetup.blueprints[idx]
 	return firstNonEmpty(bp.Title, bp.ID)

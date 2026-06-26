@@ -105,14 +105,14 @@ func copiedSelectionPreview(text string, limit int) string {
 
 func (a *App) mouseSelectionModeLabel() string {
 	if a.MouseEnabled {
-		return "CLIO copy"
+		return "app copy"
 	}
 	return "terminal select"
 }
 
 func (a *App) mouseSelectionModeHint() string {
 	if a.MouseEnabled {
-		return "mouse mode: CLIO copy - wheel/click enabled; drag copies visible text"
+		return "mouse mode: app copy - wheel/click enabled; drag copies visible text"
 	}
 	return "mouse mode: terminal select - drag selects text in the terminal"
 }

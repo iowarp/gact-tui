@@ -1652,7 +1652,7 @@ func TestHelpConversationCopyRowsExposeMouseSelection(t *testing.T) {
 	for _, want := range []string{
 		"y  copy selected part",
 		"Y  copy full transcript with tool evidence",
-		"Drag  CLIO copies exact visible text",
+		"Drag  app copy of exact visible text",
 		"Alt+drag  let the terminal select text",
 	} {
 		if !strings.Contains(out, want) {
@@ -3863,7 +3863,7 @@ func TestMetricsLatencyRowsOpenSharedDetail(t *testing.T) {
 	if !a.detailViewOpen || a.detailView == nil {
 		t.Fatal("metrics latency row should open shared detail")
 	}
-	for _, want := range []string{"CLIO latency", "operation: session list", "api route: GET /v1/sessions", "count: 7", "p50 latency: 1.2 ms", "p95 latency: 5.6 ms", "max latency: 9.1 ms"} {
+	for _, want := range []string{"GACT latency", "operation: session list", "api route: GET /v1/sessions", "count: 7", "p50 latency: 1.2 ms", "p95 latency: 5.6 ms", "max latency: 9.1 ms"} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("metrics latency detail missing %q:\n%s", want, a.detailView.fullText)
 		}
@@ -4510,7 +4510,7 @@ func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
 	}
 
 	out := ansi.Strip(a.viewPalette())
-	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[CLIO copy]") || !strings.Contains(out, "Switch CLIO copy / terminal select") {
+	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[app copy]") || !strings.Contains(out, "Switch app copy / terminal select") {
 		t.Fatalf("/mouse palette row should show command and current state:\n%s", out)
 	}
 
@@ -4540,7 +4540,7 @@ func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
 	if !a.MouseEnabled {
 		t.Fatal("second /mouse should re-enable mouse capture")
 	}
-	if a.transientHint != "mouse mode: CLIO copy - wheel/click enabled; drag copies visible text" {
+	if a.transientHint != "mouse mode: app copy - wheel/click enabled; drag copies visible text" {
 		t.Fatalf("hint = %q, want CLIO mouse controls confirmation", a.transientHint)
 	}
 	if saves != 2 {
@@ -6713,7 +6713,7 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"mode: read",
 		"status: workspace file attached to selected session as read",
 		"source: workspace context file",
-		"session use: referenced by selected CLIO session context as read",
+		"session use: referenced by selected GACT session context as read",
 		"size: 2.0 KiB",
 		"language: markdown",
 		"added: 2026-05-25T10:00:00Z",
@@ -6726,7 +6726,7 @@ func TestContextRowsUseSemanticHitTargets(t *testing.T) {
 		"latest activity: 2026-05-25T12:00:00Z",
 		"messages: 7",
 		"Actions",
-		"Enter / click: open this context detail and load a content preview when CLIO exposes it",
+		"Enter / click: open this context detail and load a content preview when GACT exposes it",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("context detail missing %q:\n%s", want, a.detailView.fullText)
@@ -6773,9 +6773,9 @@ func TestContextRowsDistinguishUploadedAttachments(t *testing.T) {
 	}))
 	a = model.(*App)
 	for _, want := range []string{
-		"status: CLIO uploaded attachment attached to selected session as read",
+		"status: GACT uploaded attachment attached to selected session as read",
 		"source: uploaded attachment (created through attachments_upload, not workspace browsing)",
-		"session use: copied into selected CLIO session context as read",
+		"session use: copied into selected GACT session context as read",
 	} {
 		if !strings.Contains(a.detailView.fullText, want) {
 			t.Fatalf("uploaded context detail missing %q:\n%s", want, a.detailView.fullText)
@@ -7738,7 +7738,7 @@ func TestMcpRemoveRowsUseDenseInlineMetadata(t *testing.T) {
 	if !strings.Contains(out, "two  [http]  srv_two") {
 		t.Fatalf("MCP remove row should render server id inline:\n%s", out)
 	}
-	for _, want := range []string{"Remove custom MCP connections from the current workspace.", "Bundled CLIO connections stay available and are not listed here."} {
+	for _, want := range []string{"Remove custom MCP connections from the current workspace.", "Bundled GACT connections stay available and are not listed here."} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("MCP remove modal missing operator copy %q:\n%s", want, out)
 		}

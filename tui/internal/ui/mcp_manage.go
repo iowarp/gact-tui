@@ -402,7 +402,7 @@ func (a *App) viewMcpRemove() string {
 	rows := []string{}
 	rows = append(rows,
 		t.HintLabel.Render("Remove custom MCP connections from the current workspace."),
-		t.HintLabel.Render("Bundled CLIO connections stay available and are not listed here."),
+		t.HintLabel.Render("Bundled "+brandName()+" connections stay available and are not listed here."),
 		"",
 	)
 	itemBudget := a.modalListItemBudget(6, 1, mcpRemoveMaxItems)
