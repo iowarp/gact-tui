@@ -166,7 +166,7 @@ export function projectWebExecutionTimeline(
         kind: 'report',
         agent,
         depth: depthOf(agent),
-        text: stringValue(payload['output']) || stringValue(payload['result_summary']),
+        text: stringValue(payload['output']),
         structured: payload['structured'],
       });
       continue;
