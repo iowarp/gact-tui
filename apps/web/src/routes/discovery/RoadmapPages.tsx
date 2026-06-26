@@ -515,7 +515,7 @@ export function BlueprintsPage(props: ClientPageProps) {
             id="bp-install"
             class="rmp__editor"
             type="text"
-            placeholder="src/clio_agent/agent_blueprints/builtin/data-exploration · or https://github.com/org/bp.git"
+            placeholder="path/to/agent_blueprints/builtin/data-exploration · or https://github.com/org/bp.git"
             value={pathText()}
             onInput={(e) => setPathText(e.currentTarget.value)}
             data-testid="blueprint-install-input"
