@@ -85,20 +85,20 @@ func TestDiagMouseCaptureProbeReportsSelectionState(t *testing.T) {
 	}
 }
 
-func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
+func TestDiagInstallProbeReportsMatchingAgentBinary(t *testing.T) {
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatalf("os.Executable: %v", err)
 	}
-	t.Setenv("GACT_CLIO_GACT_BIN", exe)
+	t.Setenv("GACT_INSTALL_PATH", exe)
 
 	var out bytes.Buffer
 	diagWriteInstallProbe(&out)
 	got := out.String()
 	for _, want := range []string{
 		"binary_path:",
-		"clio_gact: " + exe,
-		"clio_gact_status: matches running binary",
+		"agent_gact: " + exe,
+		"agent_gact_status: matches running binary",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("install probe missing %q:\n%s", want, got)
@@ -106,19 +106,19 @@ func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
 	}
 }
 
-func TestDiagInstallProbeReportsStaleClioBinary(t *testing.T) {
+func TestDiagInstallProbeReportsStaleAgentBinary(t *testing.T) {
 	stale := filepath.Join(t.TempDir(), "gact")
 	if err := os.WriteFile(stale, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
 		t.Fatalf("write stale binary: %v", err)
 	}
-	t.Setenv("GACT_CLIO_GACT_BIN", stale)
+	t.Setenv("GACT_INSTALL_PATH", stale)
 
 	var out bytes.Buffer
 	diagWriteInstallProbe(&out)
 	got := out.String()
 	for _, want := range []string{
-		"clio_gact: " + stale,
-		"clio_gact_status: stale (does not match running binary)",
+		"agent_gact: " + stale,
+		"agent_gact_status: stale (does not match running binary)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("install probe missing %q:\n%s", want, got)

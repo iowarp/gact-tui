@@ -20,7 +20,7 @@ import (
 // adds via `o`). Core verbs:
 //
 //	gact context list <sid>                   — print path + mode per file
-//	gact context show <sid> <path>            — preview content from CLIO
+//	gact context show <sid> <path>            — preview content from the backend
 //	gact context upload <sid> <path>          — POST local bytes as attachment
 //	gact context add  <sid> <path> [--mode]   — POST add (default mode=read)
 //	gact context rm   <sid> <path>            — DELETE remove
