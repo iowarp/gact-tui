@@ -80,6 +80,29 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	c.executionEventsBySession[sid] = append(c.executionEventsBySession[sid], record)
 }
 
+// recordedSemanticPayloads returns the payloads of recorded structural
+// semantic events for a session, newest last. These are the cleaned-up
+// backend's trajectory events (delegation / expert lifecycle / react steps);
+// the sidebar derives per-agent runtime state from them instead of from
+// synthesized transcript parts.
+func (c *executionComponent) recordedSemanticPayloads(sessionID string) []map[string]any {
+	if c.executionEventsBySession == nil {
+		return nil
+	}
+	records := c.executionEventsBySession[sessionID]
+	if len(records) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(records))
+	for _, r := range records {
+		if strings.TrimSpace(stringValue(r.Payload["event_type"])) == "" {
+			continue
+		}
+		out = append(out, r.Payload)
+	}
+	return out
+}
+
 func (c *executionComponent) turnIDForSSERecord(eventType string, pl map[string]any) string {
 	if turnID := strings.TrimSpace(stringValue(pl["turn_id"])); turnID != "" {
 		return turnID

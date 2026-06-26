@@ -75,12 +75,13 @@ func (c *conversationComponent) applySSE(e client.SSEEvent) {
 		c.applyPermissionRequested(e)
 	case "permission.resolved":
 		c.applyPermissionResolved(e)
-	case "semantic.event":
-		c.applySemanticEvent(e)
-	case "tool.call.started":
-		c.applyToolCallStarted(e)
-	case "tool.call.completed":
-		c.applyToolCallCompleted(e)
+	case "semantic.event", "tool.call.started", "tool.call.completed":
+		// Recorded into the execution timeline above (recordSSE) and rendered
+		// as the structural agent view. The cleaned-up backend stream now
+		// delivers the renderable transcript atoms (text / thinking /
+		// expert_handoff / routing_decision / tool_call / tool_result) as
+		// real message.part.* events, so we no longer synthesize transcript
+		// parts from these structural events.
 	case "subagent.started", "subagent.completed":
 		// Refresh sidebar so the new subsession appears (or its status updates).
 		c.app.sidebar.markPendingRefresh()

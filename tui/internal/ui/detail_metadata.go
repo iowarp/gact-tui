@@ -13,20 +13,6 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 	if promotedEvidenceLabel(p) != "" {
 		used["synthetic_from"] = true
 	}
-	if isSemanticEventPart(p) {
-		for _, key := range []string{
-			"semantic_event",
-			"event_type",
-			"trace_id",
-			"turn_id",
-			"status",
-			"detail_level",
-			"stream_source",
-			"raw_event",
-		} {
-			used[key] = true
-		}
-	}
 	switch p.Type {
 	case gact.PartTypeRoutingDecision:
 		for _, key := range []string{

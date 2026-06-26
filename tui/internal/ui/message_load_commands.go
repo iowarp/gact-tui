@@ -52,7 +52,7 @@ func (c *connectionComponent) handleMessagesLoaded(m messagesLoadedMsg) (tea.Mod
 	a := c.app
 	// Only apply if it's for the currently selected session.
 	if a.session.currentID() == m.sessionID {
-		a.conversation.messages = a.conversation.mergeLoadedMessagesWithSemanticLiveCache(m.sessionID, m.messages)
+		a.conversation.messages = m.messages
 		a.conversation.invalidateRenderCache()
 		a.conversation.stickyToBottom = true
 	}

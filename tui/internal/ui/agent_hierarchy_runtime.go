@@ -49,7 +49,40 @@ func (c *agentComponent) agentHierarchyRuntimeState(agentID string) agentHierarc
 			}
 		}
 	}
+	// The cleaned-up backend stream delivers the ReAct trajectory only as
+	// structural semantic events (recorded into the execution timeline), not
+	// as transcript parts. Fold in the latest recorded delegation/lifecycle
+	// state per agent so the sidebar still surfaces which experts are live.
+	best = strongerAgentHierarchyState(best, c.agentStateFromRecordedExecution(agentID, settledRunKeys))
 	return best
+}
+
+// agentStateFromRecordedExecution returns the runtime state implied by the most
+// recent recorded structural semantic event that references agentID. Latest
+// event wins (a completed expert's last event downgrades it from live), and a
+// live state whose run has already settled (per final runtime provenance) is
+// demoted to observed.
+func (c *agentComponent) agentStateFromRecordedExecution(agentID string, settled map[string]bool) agentHierarchyRuntimeState {
+	sid := c.app.session.currentID()
+	payloads := c.app.execution.recordedSemanticPayloads(sid)
+	for i := len(payloads) - 1; i >= 0; i-- {
+		pl := payloads[i]
+		state := agentStateFromSemanticEvent(agentID, pl)
+		if state == agentHierarchyStateNone {
+			continue
+		}
+		if state == agentHierarchyStateLive {
+			keys := runtimeRunKeys(stringValue(pl["trace_id"]), stringValue(pl["turn_id"]))
+			for _, key := range keys {
+				if settled[key] {
+					state = agentHierarchyStateObserved
+					break
+				}
+			}
+		}
+		return state
+	}
+	return agentHierarchyStateNone
 }
 
 func markAgentHierarchySettledRun(settled map[string]bool, keys []string) {
