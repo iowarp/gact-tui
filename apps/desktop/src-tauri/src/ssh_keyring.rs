@@ -5,7 +5,7 @@
 
 use crate::ssh_types::{TunnelError, TunnelErrorCode};
 
-const KEYRING_SERVICE: &str = "ai.iowarp.clio.desktop.ssh";
+const KEYRING_SERVICE: &str = "ai.iowarp.gact.desktop.ssh";
 
 pub(crate) fn store_passphrase(user: &str, host: &str, secret: &str) -> Result<(), TunnelError> {
     let account = format!("{user}@{host}");

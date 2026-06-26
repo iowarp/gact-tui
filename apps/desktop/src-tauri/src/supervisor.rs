@@ -24,7 +24,7 @@
 
 use std::{path::PathBuf, thread};
 
-use crate::supervisor_boot::boot_sidecar;
+use crate::supervisor_boot::{boot_attach_only, boot_sidecar};
 pub use crate::supervisor_launcher::locate_launcher;
 use crate::supervisor_state::SupervisorState;
 use crate::supervisor_types::{BackendHandle, BackendStatus};
@@ -67,6 +67,18 @@ impl Supervisor {
         let state = self.state.clone();
         thread::spawn(move || {
             boot_sidecar(state, launcher);
+        });
+    }
+
+    /// Connect-mode boot in a worker thread: attach to an already-running
+    /// backend without spawning or installing anything. Used for connect-mode
+    /// brands (the neutral default) that own no launcher — the boot path
+    /// attaches-only and surfaces a friendly "start your backend" error if
+    /// nothing answers the attach probe.
+    pub fn start_attach_only(&self) {
+        let state = self.state.clone();
+        thread::spawn(move || {
+            boot_attach_only(state);
         });
     }
 

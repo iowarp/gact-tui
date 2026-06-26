@@ -16,7 +16,7 @@ use tauri::AppHandle;
 /// boot-failure card's "Open logs" button reveals THIS file. It is
 /// truncated at the start of every boot/install/repair so it always
 /// reflects the most recent attempt (not an ever-growing transcript).
-const BOOT_LOG_FILENAME: &str = "clio-boot.log";
+const BOOT_LOG_FILENAME: &str = "backend-boot.log";
 
 /// Process-wide path of the persisted boot log. Set once at startup by
 /// [`init_boot_log`] (which has the `AppHandle` needed to resolve the OS
@@ -56,7 +56,7 @@ pub(crate) fn boot_log_path() -> Option<PathBuf> {
 pub(crate) fn reset_boot_log(phase: &str) {
     let Some(path) = boot_log_path() else { return };
     if let Ok(mut f) = File::create(&path) {
-        let _ = writeln!(f, "=== clio {phase} log ===");
+        let _ = writeln!(f, "=== backend {phase} log ===");
     }
 }
 
@@ -101,9 +101,9 @@ mod tests {
     /// tests in the same process.
     #[test]
     fn boot_log_writes_header_then_lines() {
-        let dir = env::temp_dir().join(format!("clio-boot-log-test-{}", std::process::id()));
+        let dir = env::temp_dir().join(format!("backend-boot-log-test-{}", std::process::id()));
         let _ = fs::create_dir_all(&dir);
-        let path = dir.join("clio-boot.log");
+        let path = dir.join("backend-boot.log");
 
         let saved = BOOT_LOG_PATH.lock().unwrap().clone();
         *BOOT_LOG_PATH.lock().unwrap() = Some(path.clone());
@@ -113,7 +113,7 @@ mod tests {
         boot_log_line("line two");
 
         let body = fs::read_to_string(&path).expect("boot log written");
-        assert!(body.starts_with("=== clio boot log ==="), "got: {body}");
+        assert!(body.starts_with("=== backend boot log ==="), "got: {body}");
         assert!(
             body.contains("line one") && body.contains("line two"),
             "got: {body}"
@@ -122,7 +122,7 @@ mod tests {
         // reset again truncates the prior content.
         reset_boot_log("repair");
         let body2 = fs::read_to_string(&path).expect("boot log re-written");
-        assert!(body2.starts_with("=== clio repair log ==="), "got: {body2}");
+        assert!(body2.starts_with("=== backend repair log ==="), "got: {body2}");
         assert!(
             !body2.contains("line one"),
             "reset must truncate, got: {body2}"

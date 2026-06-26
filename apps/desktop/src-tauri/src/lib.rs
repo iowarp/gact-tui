@@ -1,4 +1,4 @@
-//! CLIO Desktop Tauri shell.
+//! GACT Desktop Tauri shell.
 //!
 //! On launch we boot the bundled sidecar (clio-agent-gact via the Go
 //! launcher under `binaries/`) and expose its URL + bearer token to
@@ -6,6 +6,7 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod brand_backend;
 mod commands;
 mod gact_http;
 mod gact_http_response;
@@ -101,16 +102,22 @@ pub fn run() {
                 let _ = sidecar_setup::install_bundled_runtime_env(&resource_dir);
             }
 
-            // Locate the bundled launcher and kick off the sidecar boot —
-            // AFTER the env var above so the spawned launcher sees it. If
-            // the launcher is missing, leave the handle in Error so the
-            // frontend Splash renders a recoverable error card.
+            // Kick off the backend boot — AFTER the env var above so a spawned
+            // launcher sees it. Managed brands locate + spawn the bundled
+            // launcher (a missing one is an Error card); connect-mode brands
+            // (the neutral default) never own a launcher and attach-only to a
+            // user-run backend, surfacing a friendly "start your backend"
+            // message instead of treating the absent launcher as a failure.
             {
                 let sup = app.state::<Mutex<Supervisor>>();
                 let sup = supervisor_state::lock_recover(&sup);
-                match supervisor::locate_launcher() {
-                    Ok(launcher) => sup.start(launcher),
-                    Err(e) => sup.set_error(sidecar_setup::launcher_missing_message(&e)),
+                if brand_backend::is_managed_install() {
+                    match supervisor::locate_launcher() {
+                        Ok(launcher) => sup.start(launcher),
+                        Err(e) => sup.set_error(sidecar_setup::launcher_missing_message(&e)),
+                    }
+                } else {
+                    sup.start_attach_only();
                 }
             }
 
@@ -150,7 +157,7 @@ pub fn run() {
     // display on Linux). Panicking here gives the user an opaque backtrace; a
     // plain error line + non-zero exit is the actionable, scriptable failure.
     if let Err(e) = result {
-        eprintln!("CLIO desktop failed to start: {e}");
+        eprintln!("GACT desktop failed to start: {e}");
         std::process::exit(1);
     }
 }
