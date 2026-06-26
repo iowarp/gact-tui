@@ -170,26 +170,3 @@ window/installer identity lives in `apps/desktop/src-tauri/tauri.conf.json`:
 `plugins.updater.endpoints` + `pubkey`. Override these for your product via a
 brand-specific Tauri config passed with `tauri build --config <your.tauri.conf.json>`
 (the tracked default is neutral "GACT Desktop", connect-mode, `externalBin: []`).
-
----
-
-## 5. What changed since PR #725 (`feat/brand-source-of-truth`)
-
-That draft made `branding/clio/brand.json` the source of truth **compiled via a
-`GACT_BRAND_SRC` env var**. The landed mechanism on `develop` differs in three ways
-— please rework the PR accordingly:
-
-1. **Selection is a config file, not an env var.** There is no `GACT_BRAND_SRC`.
-   Use `apps/brand.config.local.json` (`{ profile, brandingRoot }`) — `brandingRoot`
-   may be an absolute path into your repo, achieving the same "brand lives in
-   clio-agent" goal.
-2. **The committed default is neutral, not clio.** `gen/brand-backend.json` ships as
-   connect-mode `gact`; clio values come from *your* `brand.json` at build time. The
-   generator takes `--config` / `--out`, **not** a positional `clio` argument.
-3. **The blocks you were adding are already the contract.** `backend`,
-   `backendRepository`, and `starterPrompts` are all first-class resolved fields
-   (§2). Put your real values there; everything downstream reads them.
-
-Net: keep `brand.json` as your single brand document, but hook it in through
-`brand.config.local.json` + `brandingRoot` (web/desktop) and `GACT_*` launcher env
-(TUI), instead of `GACT_BRAND_SRC`.
