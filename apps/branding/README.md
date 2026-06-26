@@ -1,5 +1,10 @@
 # Brand profiles
 
+> For the full `backend` block schema, how the document reaches each surface
+> (web / desktop / Go TUI), and step-by-step setup for an **embedding agent**
+> (e.g. clio-agent), see **[`INTEGRATION.md`](./INTEGRATION.md)**. This README is
+> the quick overview.
+
 GACT's web + desktop frontends are **brand-neutral by default**. A brand profile
 supplies the product name, wordmark, tagline, mark/logo, and theme tokens that are
 selected at **compile time** by a **config file** — explicitly **not** an
