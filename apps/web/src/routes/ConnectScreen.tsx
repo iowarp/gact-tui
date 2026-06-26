@@ -74,7 +74,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
                 type="password"
                 value={connect.token()}
                 onInput={(e) => connect.setToken(e.currentTarget.value)}
-                placeholder="paste a token issued by clio-agent token issue …"
+                placeholder="paste a token issued by your backend …"
                 data-testid="connect-token"
                 autocomplete="off"
                 spellcheck={false}
@@ -94,7 +94,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
 
           {/* Remote-backend auth failure: offer a credentials re-entry
               action (bearer / SSH token) instead of leaving a bare 401/403.
-              Scoped to remote hosts only — the local clio's model-provider
+              Scoped to remote hosts only — the local backend's model-provider
               token is maintained externally and is never re-auth'd here. */}
           <Show when={connect.reauthNeeded()}>
             <div class="connect__reauth" data-testid="connect-reauth">

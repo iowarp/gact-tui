@@ -62,7 +62,7 @@ export function createChatSessionPortabilityActions(options: ChatSessionPortabil
       const url = createObjectUrl(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `clio-session-${id}.${ext}`;
+      anchor.download = `gact-session-${id}.${ext}`;
       appendDownloadAnchor(anchor);
       clickDownloadAnchor(anchor);
       removeDownloadAnchor(anchor);
@@ -70,7 +70,7 @@ export function createChatSessionPortabilityActions(options: ChatSessionPortabil
       options.toastPush({
         tone: 'success',
         title: 'Session exported',
-        body: `clio-session-${id}.${ext}`,
+        body: `gact-session-${id}.${ext}`,
         duration: 3000,
       });
     } catch (error) {

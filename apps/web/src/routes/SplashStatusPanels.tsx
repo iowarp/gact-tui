@@ -87,13 +87,16 @@ export function SplashErrorPanel(props: {
         <p class="splash__error-msg">{props.error()}</p>
         <p class="splash__error-hint">
           {props.installFailed()
-            ? 'Automatic setup failed. You can retry, or install the backend manually and restart:'
-            : 'Install '}
-          <Show when={!props.installFailed()}>
-            the backend from the develop branch and restart:
-          </Show>
+            ? installRecipeForPlatform()
+              ? 'Automatic setup failed. You can retry, or install the backend manually and restart:'
+              : `Automatic setup failed. You can retry, or start your ${brand.name} backend manually and reload.`
+            : installRecipeForPlatform()
+              ? 'Install the backend and restart:'
+              : `Start your ${brand.name} backend and reload.`}
         </p>
-        <code class="splash__cmd">{installRecipeForPlatform()}</code>
+        <Show when={installRecipeForPlatform()}>
+          <code class="splash__cmd">{installRecipeForPlatform()}</code>
+        </Show>
         <div class="splash__error-actions">
           <button
             type="button"

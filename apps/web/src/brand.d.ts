@@ -29,6 +29,28 @@ declare module '@brand' {
       url: string;
       detail: string;
     } | null;
+    /**
+     * Managed-vs-connect backend descriptor — the SAME resolved shape the
+     * desktop supervisor embeds (apps/desktop/src-tauri/gen/brand-backend.json),
+     * so web and desktop read one brand document. The neutral default is
+     * connect-mode with no installer.
+     */
+    backend: {
+      mode: 'managed' | 'connect';
+      sidecarName: string;
+      attachPort: number;
+      attachPortEnv: string;
+      attachUrlEnv: string;
+      repoLabel: string | null;
+      install: {
+        ref: string;
+        refEnv: string;
+        forceEnv: string;
+        windowsUrl: string;
+        unixUrl: string;
+        repoLabel: string;
+      } | null;
+    };
     /** Inlined SVG logo source, or null. Overrides markGlyph when present. */
     logoSvg: string | null;
   }

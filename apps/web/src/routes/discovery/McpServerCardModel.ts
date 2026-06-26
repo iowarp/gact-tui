@@ -5,7 +5,7 @@ import type { McpServerInfo } from '@clio/core';
 import { statusTone } from '../../presentationUtils.js';
 
 export const RECONNECT_UNSUPPORTED_TITLE =
-  'Not supported by this backend (needs clio-agent with MCP reconnect)';
+  'Not supported by this backend (needs a backend with MCP reconnect)';
 
 const MCP_SERVER_TONES: Readonly<Record<string, string>> = {
   ready: 'ok',
