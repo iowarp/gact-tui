@@ -82,7 +82,7 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
 
     match probe_capabilities(&url, &token) {
         Ok(()) => {
-            boot_log_line("clio-agent answered /v1/capabilities — backend ready");
+            boot_log_line("sidecar answered /v1/capabilities — backend ready");
             Ok((
                 BackendHandle {
                     url,

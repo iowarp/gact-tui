@@ -1,4 +1,4 @@
-//! Native window menu for CLIO Desktop (1.0 item 9).
+//! Native window menu for GACT Desktop (1.0 item 9).
 //!
 //! Builds the cross-platform application/window menu (a menubar on
 //! Windows/Linux, the global app menu on macOS) and wires non-predefined

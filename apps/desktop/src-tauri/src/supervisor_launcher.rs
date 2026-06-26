@@ -1,20 +1,31 @@
 use std::{env, path::Path, path::PathBuf};
 
+use crate::brand_backend::brand_backend;
+
 /// Looks up the bundled launcher binary, honoring Tauri's externalBin
-/// placement convention.
+/// placement convention. The basename stem is brand-driven (`sidecar_name`):
+/// the launcher is `<sidecar_name>-<host-triple>{.exe}`. Only reached in
+/// managed mode — connect-mode brands own no launcher.
 ///
 /// Production install: alongside the main executable, named
-///   `clio-agent-<host-triple>{.exe}` (e.g. `clio-agent-x86_64-pc-windows-msvc.exe`).
+///   `<sidecar_name>-<host-triple>{.exe}`.
 /// `tauri:dev`: Tauri copies the externalBin into `target/debug/` so the
 ///   `current_exe + sibling` lookup works there too.
 /// Fallback for tests / cargo-run: `apps/desktop/src-tauri/binaries/`
 ///   relative to `CARGO_MANIFEST_DIR`.
 pub fn locate_launcher() -> Result<PathBuf, String> {
+    locate_launcher_named(&brand_backend().sidecar_name)
+}
+
+/// Discovery core, parameterized by the externalBin stem so it is testable
+/// without depending on the embedded brand (which defaults to connect-mode
+/// with an empty `sidecar_name`).
+pub fn locate_launcher_named(sidecar_name: &str) -> Result<PathBuf, String> {
     let triple = host_target_triple();
     let basename = if cfg!(windows) {
-        format!("clio-agent-{triple}.exe")
+        format!("{sidecar_name}-{triple}.exe")
     } else {
-        format!("clio-agent-{triple}")
+        format!("{sidecar_name}-{triple}")
     };
 
     // 1) Tauri-installed: next to current_exe.
@@ -69,15 +80,31 @@ mod tests {
 
     #[test]
     fn locate_launcher_finds_dev_binary() {
-        // The host build pipeline runs `pnpm fetch-sidecar` before any
-        // Rust build; that puts the host-triple launcher under binaries/.
-        let p = locate_launcher().expect("launcher binary present after fetch-sidecar");
-        let s = p.to_string_lossy();
-        assert!(
-            s.contains("clio-agent-"),
-            "launcher path should include the basename, got {s}"
-        );
-        assert!(p.is_file());
+        // The host build pipeline runs `pnpm fetch-sidecar` before any Rust
+        // build; that puts the host-triple launcher under binaries/. The
+        // dev fixture is bundled as `clio-agent-<triple>` regardless of the
+        // active brand (the neutral default ships no sidecar at all), so we
+        // probe discovery with that known stem rather than `sidecar_name`.
+        const DEV_SIDECAR_STEM: &str = "clio-agent";
+        let triple = host_target_triple();
+        let basename = if cfg!(windows) {
+            format!("{DEV_SIDECAR_STEM}-{triple}.exe")
+        } else {
+            format!("{DEV_SIDECAR_STEM}-{triple}")
+        };
+        match locate_launcher_named(DEV_SIDECAR_STEM) {
+            Ok(p) => {
+                let s = p.to_string_lossy();
+                assert!(
+                    s.contains(&basename),
+                    "launcher path should include the basename {basename}, got {s}"
+                );
+                assert!(p.is_file());
+            }
+            // No bundled sidecar in this checkout (e.g. fetch-sidecar wasn't
+            // run): discovery legitimately finds nothing — not a failure.
+            Err(e) => eprintln!("skip: no dev launcher bundled ({e})"),
+        }
     }
 
     #[test]

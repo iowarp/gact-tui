@@ -10,12 +10,13 @@
     "test:webview": "node --test tests/webview-e2e.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
+    "gen-brand-backend": "node scripts/gen-brand-backend.mjs",
     "build-clio-runtime": "node scripts/build-clio-runtime.mjs",
     "tauri": "tauri",
-    "tauri:dev": "pnpm fetch-sidecar && tauri dev",
-    "tauri:build": "pnpm fetch-sidecar && tauri build",
-    "tauri:build:debug": "pnpm fetch-sidecar && tauri build --debug --no-bundle",
-    "tauri:build:bundled": "pnpm fetch-sidecar && pnpm build-clio-runtime && tauri build --config src-tauri/tauri.bundled.conf.json"
+    "tauri:dev": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri dev",
+    "tauri:build": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri build",
+    "tauri:build:debug": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri build --debug --no-bundle",
+    "tauri:build:bundled": "pnpm gen-brand-backend && pnpm fetch-sidecar && pnpm build-clio-runtime && tauri build --config src-tauri/tauri.bundled.conf.json"
   },
   "dependencies": {
     "@clio/web": "workspace:*",
