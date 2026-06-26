@@ -6431,11 +6431,17 @@ func writeDiagCore(w io.Writer, verbose bool) {
 			}
 		}
 	}
-	for _, name := range []string{
+	envNames := []string{
 		"GACT_BACKEND", "GACT_THEME", "GACT_LOCALE", "GACT_VOICE_CMD",
 		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
-		"GACT_CLIO_GACT_BIN", "GACT_TUI_LATENCY_REPORT",
-	} {
+		"GACT_TUI_LATENCY_REPORT",
+	}
+	// The brand-managed backend's dev-checkout override env is brand-supplied,
+	// so surface it dynamically rather than hardcoding a clio var name.
+	if mb, ok := managedBackend(); ok && mb.SourceEnv != "" {
+		envNames = append(envNames, mb.SourceEnv)
+	}
+	for _, name := range envNames {
 		if v := os.Getenv(name); v != "" {
 			fmt.Fprintf(w, "  env %s: %s\n", name, v)
 		}
@@ -6470,7 +6476,12 @@ func diagWriteInstallProbe(w io.Writer) {
 		fmt.Fprintf(w, "  binary_status: unreadable (%v)\n", exeErr)
 	}
 	writeGactPathProbe(w, "path_gact", lookPathGact(), exeResolved)
-	writeGactPathProbe(w, "clio_gact", clioGactInstallPath(), exeResolved)
+	// Brand-managed backend probe — only when this build embeds one. No
+	// clio-specific path is hardcoded; resolution runs the same brand-driven
+	// discovery as a real spawn.
+	if _, ok := managedBackend(); ok {
+		writeGactPathProbe(w, "managed_backend", managedBackendInstallPath(), exeResolved)
+	}
 }
 
 func currentExecutablePaths() (path, resolved string, err error) {
@@ -6493,15 +6504,18 @@ func lookPathGact() string {
 	return path
 }
 
-func clioGactInstallPath() string {
-	if override := strings.TrimSpace(os.Getenv("GACT_CLIO_GACT_BIN")); override != "" {
-		return override
+// managedBackendInstallPath resolves where this build's brand-managed backend
+// binary lives, for the /doctor install probe. Returns "" when no managed
+// backend is configured or none is found on disk — the path is brand-supplied,
+// never a hardcoded vendor location.
+func managedBackendInstallPath() string {
+	if _, ok := managedBackend(); !ok {
+		return ""
 	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return filepath.Join("~", ".local", "share", "clio", "gact")
+	if p, err := adapterBinFor("managed"); err == nil {
+		return p
 	}
-	return filepath.Join(home, ".local", "share", "clio", "gact")
+	return ""
 }
 
 func writeGactPathProbe(w io.Writer, label, path, runningResolved string) {

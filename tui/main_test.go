@@ -135,20 +135,32 @@ func TestDiagMouseCaptureProbeReportsSelectionState(t *testing.T) {
 	}
 }
 
-func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
+// withBrandBackend swaps in a brand-managed backend descriptor for the test
+// and restores the original afterwards. The descriptor is normally injected at
+// compile time via -ldflags; tests set it directly.
+func withBrandBackend(t *testing.T, binary string) {
+	t.Helper()
+	old := brandBackendJSON
+	brandBackendJSON = `{"binary":"` + binary + `","installHint":"install the backend"}`
+	t.Cleanup(func() { brandBackendJSON = old })
+}
+
+func TestDiagInstallProbeReportsMatchingManagedBackend(t *testing.T) {
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatalf("os.Executable: %v", err)
 	}
-	t.Setenv("GACT_CLIO_GACT_BIN", exe)
+	// The brand-managed backend binary IS the running test binary, found on PATH.
+	withBrandBackend(t, filepath.Base(exe))
+	t.Setenv("PATH", filepath.Dir(exe)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var out bytes.Buffer
 	diagWriteInstallProbe(&out)
 	got := out.String()
 	for _, want := range []string{
 		"binary_path:",
-		"clio_gact: " + exe,
-		"clio_gact_status: matches running binary",
+		"managed_backend: " + exe,
+		"managed_backend_status: matches running binary",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("install probe missing %q:\n%s", want, got)
@@ -156,23 +168,43 @@ func TestDiagInstallProbeReportsMatchingClioBinary(t *testing.T) {
 	}
 }
 
-func TestDiagInstallProbeReportsStaleClioBinary(t *testing.T) {
-	stale := filepath.Join(t.TempDir(), "gact")
+func TestDiagInstallProbeReportsStaleManagedBackend(t *testing.T) {
+	dir := t.TempDir()
+	stale := filepath.Join(dir, "stale-backend")
 	if err := os.WriteFile(stale, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
 		t.Fatalf("write stale binary: %v", err)
 	}
-	t.Setenv("GACT_CLIO_GACT_BIN", stale)
+	withBrandBackend(t, "stale-backend")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var out bytes.Buffer
 	diagWriteInstallProbe(&out)
 	got := out.String()
 	for _, want := range []string{
-		"clio_gact: " + stale,
-		"clio_gact_status: stale (does not match running binary)",
+		"managed_backend: " + stale,
+		"managed_backend_status: stale (does not match running binary)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("install probe missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestDiagInstallProbeOmitsManagedBackendWhenUnbranded(t *testing.T) {
+	// Default (unbranded) build embeds no managed backend, so the probe must
+	// not appear — and certainly not a hardcoded clio path.
+	old := brandBackendJSON
+	brandBackendJSON = ""
+	t.Cleanup(func() { brandBackendJSON = old })
+
+	var out bytes.Buffer
+	diagWriteInstallProbe(&out)
+	got := out.String()
+	if !strings.Contains(got, "binary_path:") {
+		t.Fatalf("install probe missing binary_path:\n%s", got)
+	}
+	if strings.Contains(got, "managed_backend") {
+		t.Fatalf("unbranded build should not emit a managed_backend probe:\n%s", got)
 	}
 }
 
