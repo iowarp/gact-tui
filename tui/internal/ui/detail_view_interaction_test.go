@@ -115,7 +115,7 @@ func TestDetailViewFooterAdvertisesDragSelectionWhenMouseEnabled(t *testing.T) {
 	a.detail.ref = &bulkyPartRef{title: "Evidence", fullText: "line one\nline two"}
 
 	out := ansi.Strip(a.View().Content)
-	if !strings.Contains(out, "drag CLIO copy") {
+	if !strings.Contains(out, "drag app copy") {
 		t.Fatalf("detail footer should advertise drag selection when mouse is enabled:\n%s", out)
 	}
 	if !strings.Contains(out, "Alt+drag terminal select") {
@@ -133,7 +133,7 @@ func TestDetailViewFooterRestoresNativeSelectionWhenMouseDisabled(t *testing.T) 
 	a.detail.ref = &bulkyPartRef{title: "Evidence", fullText: "line one\nline two"}
 
 	out := ansi.Strip(a.View().Content)
-	if strings.Contains(out, "drag CLIO copy") {
+	if strings.Contains(out, "drag app copy") {
 		t.Fatalf("detail footer should not advertise in-app drag copy when mouse is disabled:\n%s", out)
 	}
 	if strings.Contains(out, "Alt+drag terminal select") {

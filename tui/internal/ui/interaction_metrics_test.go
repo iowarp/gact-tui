@@ -184,7 +184,7 @@ func TestMetricsLatencyRowsOpenSharedDetail(t *testing.T) {
 	if !a.detail.visible || a.detail.ref == nil {
 		t.Fatal("metrics latency row should open shared detail")
 	}
-	for _, want := range []string{"CLIO latency", "operation: session list", "api route: GET /v1/sessions", "count: 7", "p50 latency: 1.2 ms", "p95 latency: 5.6 ms", "max latency: 9.1 ms"} {
+	for _, want := range []string{"GACT latency", "operation: session list", "api route: GET /v1/sessions", "count: 7", "p50 latency: 1.2 ms", "p95 latency: 5.6 ms", "max latency: 9.1 ms"} {
 		if !strings.Contains(a.detail.ref.fullText, want) {
 			t.Fatalf("metrics latency detail missing %q:\n%s", want, a.detail.ref.fullText)
 		}

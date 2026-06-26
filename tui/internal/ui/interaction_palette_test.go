@@ -59,7 +59,7 @@ func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
 	}
 
 	out := ansi.Strip(a.cmdPalette.view())
-	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[CLIO copy]") || !strings.Contains(out, "Switch CLIO copy / terminal select") {
+	if !strings.Contains(out, "/mouse") || !strings.Contains(out, "[app copy]") || !strings.Contains(out, "Switch app copy / terminal select") {
 		t.Fatalf("/mouse palette row should show command and current state:\n%s", out)
 	}
 
@@ -89,7 +89,7 @@ func TestPaletteMouseCommandTogglesMouseCapture(t *testing.T) {
 	if !a.MouseEnabled {
 		t.Fatal("second /mouse should re-enable mouse capture")
 	}
-	if a.transientHint != "mouse mode: CLIO copy - wheel/click enabled; drag copies visible text" {
+	if a.transientHint != "mouse mode: app copy - wheel/click enabled; drag copies visible text" {
 		t.Fatalf("hint = %q, want CLIO mouse controls confirmation", a.transientHint)
 	}
 	if saves != 2 {

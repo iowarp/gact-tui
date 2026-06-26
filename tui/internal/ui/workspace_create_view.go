@@ -146,8 +146,8 @@ func (m *workspaceModal) createIntro() (titleMode string, intro []string) {
 		}
 	}
 	return "Folder", []string{
-		"Open an existing local folder as a CLIO workspace.",
-		"Use an absolute folder root when possible; CLIO stores this path on the workspace record.",
+		"Open an existing local folder as a "+brandName()+" workspace.",
+		"Use an absolute folder root when possible; "+brandName()+" stores this path on the workspace record.",
 	}
 }
 

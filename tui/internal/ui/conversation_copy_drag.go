@@ -74,14 +74,14 @@ func (c *clipboardComponent) finishConversationDrag(x, y int) bool {
 
 func (c *clipboardComponent) mouseSelectionModeLabel() string {
 	if c.app.MouseEnabled {
-		return "CLIO copy"
+		return "app copy"
 	}
 	return "terminal select"
 }
 
 func (c *clipboardComponent) mouseSelectionModeHint() string {
 	if c.app.MouseEnabled {
-		return "mouse mode: CLIO copy - wheel/click enabled; drag copies visible text"
+		return "mouse mode: app copy - wheel/click enabled; drag copies visible text"
 	}
 	return "mouse mode: terminal select - drag selects text in the terminal"
 }
