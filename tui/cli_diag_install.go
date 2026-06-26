@@ -22,7 +22,9 @@ func diagWriteInstallProbe(w io.Writer) {
 		fmt.Fprintf(w, "  binary_status: unreadable (%v)\n", exeErr)
 	}
 	writeGactPathProbe(w, "path_gact", lookPathGact(), exeResolved)
-	writeGactPathProbe(w, "clio_gact", clioGactInstallPath(), exeResolved)
+	if installed := agentGactInstallPath(); installed != "" {
+		writeGactPathProbe(w, "agent_gact", installed, exeResolved)
+	}
 }
 
 func currentExecutablePaths() (path, resolved string, err error) {
@@ -45,15 +47,12 @@ func lookPathGact() string {
 	return path
 }
 
-func clioGactInstallPath() string {
-	if override := strings.TrimSpace(os.Getenv("GACT_CLIO_GACT_BIN")); override != "" {
-		return override
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return filepath.Join("~", ".local", "share", "clio", "gact")
-	}
-	return filepath.Join(home, ".local", "share", "clio", "gact")
+// agentGactInstallPath returns where the embedding agent's installer placed the
+// gact binary, used by `gact diag` to flag a stale install. The path is
+// agent-supplied (GACT_INSTALL_PATH) — no vendor location is hardcoded; an
+// empty result means the probe is skipped.
+func agentGactInstallPath() string {
+	return strings.TrimSpace(os.Getenv("GACT_INSTALL_PATH"))
 }
 
 func writeGactPathProbe(w io.Writer, label, path, runningResolved string) {

@@ -129,31 +129,32 @@ func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
 
 func TestAgentDeployStartupTimeoutDefaults(t *testing.T) {
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
-		t.Fatalf("clio deploy startup timeout = %s, want 60s", got)
+	// Any external (non-built-in) kind gets the longer slow-start budget.
+	if got := defaultAgentDeployStartupTimeout("external"); got != 60*time.Second {
+		t.Fatalf("external deploy startup timeout = %s, want 60s", got)
 	}
 	if got := defaultAgentDeployStartupTimeout("claudecode"); got != 3*time.Second {
 		t.Fatalf("claudecode deploy startup timeout = %s, want 3s", got)
 	}
 
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "25s")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 25*time.Second {
+	if got := defaultAgentDeployStartupTimeout("external"); got != 25*time.Second {
 		t.Fatalf("env deploy startup timeout = %s, want 25s", got)
 	}
 
 	t.Setenv("GACT_AGENT_DEPLOY_STARTUP_TIMEOUT", "not-a-duration")
-	if got := defaultAgentDeployStartupTimeout("clio"); got != 60*time.Second {
-		t.Fatalf("invalid env deploy startup timeout = %s, want clio default 60s", got)
+	if got := defaultAgentDeployStartupTimeout("external"); got != 60*time.Second {
+		t.Fatalf("invalid env deploy startup timeout = %s, want external default 60s", got)
 	}
 }
 
-func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
+func TestPythonEntrypointUsesConfiguredModule(t *testing.T) {
 	tmp := t.TempDir()
 	scripts := filepath.Join(tmp, "Scripts")
 	if err := os.MkdirAll(scripts, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	console := filepath.Join(scripts, "clio-agent-gact.exe")
+	console := filepath.Join(scripts, "agent-gact.exe")
 	python := filepath.Join(scripts, "python.exe")
 	if err := os.WriteFile(console, []byte("stub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -162,15 +163,22 @@ func TestClioPythonEntrypointPrefersVenvPython(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gotBin, gotArgs, ok := clioPythonEntrypoint(console)
+	// An empty module means no python wrapper — the bin is run directly.
+	if _, _, ok := pythonEntrypoint(console, ""); ok {
+		t.Fatal("empty module should not produce a python entrypoint")
+	}
+
+	// A configured module (the agent supplies it via GACT_ADAPTER_PYTHON_MODULE)
+	// is imported via the sibling venv python.
+	const module = "some_agent.gact.app"
+	gotBin, gotArgs, ok := pythonEntrypoint(console, module)
 	if !ok {
 		t.Fatal("expected venv python entrypoint")
 	}
 	if gotBin != python {
 		t.Fatalf("entrypoint bin = %q, want %q", gotBin, python)
 	}
-	if len(gotArgs) != 2 || gotArgs[0] != "-c" ||
-		!strings.Contains(gotArgs[1], "clio_agent.gact.app") {
+	if len(gotArgs) != 2 || gotArgs[0] != "-c" || !strings.Contains(gotArgs[1], module) {
 		t.Fatalf("entrypoint args = %#v", gotArgs)
 	}
 }

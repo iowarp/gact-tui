@@ -91,7 +91,7 @@ func writeDiagCore(w io.Writer, verbose bool) {
 	for _, name := range []string{
 		"GACT_BACKEND", "GACT_THEME", "GACT_LOCALE", "GACT_VOICE_CMD",
 		"GACT_CONFIG", "GACT_THEME_FILE", "GACT_DETACHED_PATH",
-		"GACT_CLIO_GACT_BIN", "GACT_TUI_LATENCY_REPORT",
+		"GACT_INSTALL_PATH", "GACT_TUI_LATENCY_REPORT",
 	} {
 		if v := os.Getenv(name); v != "" {
 			fmt.Fprintf(w, "  env %s: %s\n", name, v)

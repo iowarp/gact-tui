@@ -47,7 +47,7 @@ func runAgentDeploy(args []string) int {
 	portOverride := fs.Int("port", 0, "TCP port to bind (default: kernel-picked)")
 	cwdFlag := fs.String("cwd", "", "working dir passed to the adapter (default: $PWD)")
 	hostFlag := fs.String("host", "127.0.0.1", "bind interface")
-	startupTimeout := fs.Duration("startup-timeout", 0, "wait this long for /v1/capabilities (default: 60s for clio, 3s otherwise)")
+	startupTimeout := fs.Duration("startup-timeout", 0, "wait this long for /v1/capabilities (default: 60s for external adapters, 3s for built-ins)")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--bin": true, "-bin": true,
 		"--port": true, "-port": true,
@@ -67,9 +67,10 @@ func runAgentDeploy(args []string) int {
 		return 2
 	}
 
+	spec := adapterSpecFor(kind)
 	bin := *binOverride
 	if bin == "" {
-		b, err := adapterBinFor(kind)
+		b, err := resolveAdapterBin(spec)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "gact agent deploy: %v\n", err)
 			return 1
@@ -134,22 +135,20 @@ func runAgentDeploy(args []string) int {
 		logPath = ""
 	}
 
-	// CLIO-BBBBBBBBBB12: per-kind spawn arg shapes. claudecode +
-	// future Go adapters take --cwd; clio-agent-gact's main() only
-	// supports --host + --port + --reload (CLIO doesn't model a
-	// per-deploy working directory the way the local-process Go
-	// adapters do — its file-policy comes from CLIO_ALLOWED_ROOTS).
+	// Per-adapter spawn arg shape. In-repo Go adapters accept a per-deploy
+	// --cwd; an external adapter only gets it when it opts in via
+	// GACT_ADAPTER_CWD=1 (many model their file policy out-of-band instead).
 	spawnArgs := []string{"--host", *hostFlag, "--port", fmt.Sprintf("%d", port)}
-	if kind != "clio" {
+	if spec.supportsCwd {
 		spawnArgs = append(spawnArgs, "--cwd", cwd)
 	}
 	cmdBin := bin
 	cmdArgs := spawnArgs
-	if kind == "clio" {
-		if py, pyArgs, ok := clioPythonEntrypoint(bin); ok {
-			cmdBin = py
-			cmdArgs = append(pyArgs, spawnArgs...)
-		}
+	// Python adapters whose console script isn't reliably executable launch via
+	// the venv python + the agent-configured module (GACT_ADAPTER_PYTHON_MODULE).
+	if py, pyArgs, ok := pythonEntrypoint(bin, spec.pythonModule); ok {
+		cmdBin = py
+		cmdArgs = append(pyArgs, spawnArgs...)
 	}
 	cmd := exec.Command(cmdBin, cmdArgs...)
 	cmd.Stdout = spawnOut

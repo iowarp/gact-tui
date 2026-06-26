@@ -17,7 +17,7 @@ SYNOPSIS
 
 DESCRIPTION
   gact is a terminal client for GACT-compatible agent backends. It can
-  run the interactive TUI, deploy local adapters such as CLIO, connect
+  run the interactive TUI, deploy local adapters, connect
   to a registered adapter, manage sessions, inspect logs, and call
   backend contract surfaces from scripts.
 
@@ -27,9 +27,9 @@ TOP COMMANDS
 
   gact deploy <kind> <name>
       Spawn an adapter in the background and register it locally.
-      For CLIO, the common flow is:
-          gact deploy clio myclio
-          gact connect myclio
+      A common flow is:
+          gact deploy <kind> myagent
+          gact connect myagent
 
   gact connect <name>
       Launch the TUI pointed at a deployed agent.
@@ -126,7 +126,7 @@ gact \- GACT terminal client and local agent launcher
 .SH DESCRIPTION
 .B gact
 is a terminal client for GACT-compatible agent backends. It can run the
-interactive TUI, deploy local adapters such as CLIO, connect to a registered
+interactive TUI, deploy local adapters, connect to a registered
 adapter, manage sessions, inspect logs, and call backend contract surfaces from
 scripts.
 .SH TOP COMMANDS
@@ -135,12 +135,12 @@ scripts.
 Start the interactive TUI against the configured backend.
 .TP
 .B gact deploy <kind> <name>
-Spawn an adapter in the background and register it locally. For CLIO, the
+Spawn an adapter in the background and register it locally. The
 common flow is:
 .RS
 .EX
-gact deploy clio myclio
-gact connect myclio
+gact deploy <kind> myagent
+gact connect myagent
 .EE
 .RE
 .TP
