@@ -64,7 +64,7 @@ export function createSplashBackendStartup(options: SplashBackendStartupOptions)
       options.setPhase('error');
       options.setError(
         `Sidecar did not report ready within ${TAURI_MAX_WAIT_MS / 1000}s. ` +
-          `Check the backend install (CLIO_REF=develop).`,
+          `Check that the backend is installed and running.`,
       );
     }
   }

@@ -44,7 +44,7 @@ export function TranscriptErrorPartView(props: { part: PartError }) {
         classList={{ 'trx-error__hint--recoverable': p.recoverable === true }}
         data-testid="trx-error-recoverable"
       >
-        {p.recoverable ? 'recoverable — clio can retry' : 'unrecoverable'}
+        {p.recoverable ? 'recoverable — the backend can retry' : 'unrecoverable'}
       </span>
     </PartCard>
   );

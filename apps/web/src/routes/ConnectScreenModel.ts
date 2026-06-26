@@ -63,7 +63,7 @@ export function connectErrorMessage(error: unknown): string {
 export function connectErrorHint(message: string | null, brandName: string): string | null {
   if (!message) return null;
   if (/401|403/.test(message)) {
-    return 'The backend rejected the credentials — paste a token from `clio-agent token issue`.';
+    return 'The backend rejected the credentials — paste a token issued by your backend.';
   }
   if (/404/.test(message)) return 'That URL responded but is not a GACT backend — check the port.';
   if (/HTTP \d/.test(message)) {

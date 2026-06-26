@@ -182,7 +182,7 @@ describe('Splash first-run install (one swoop)', () => {
     expect(card.textContent).toContain('failed to build wheel');
     expect(card.textContent).toContain('exited with code 1');
     // The manual one-liner is still present as the fallback.
-    expect(card.textContent).toContain('clio-agent');
+    expect(card.textContent).toContain('start your GACT backend manually');
 
     // Retry re-runs the installer (one more swoop) and returns to the
     // installing view.
@@ -257,7 +257,7 @@ describe('Splash first-run install (one swoop)', () => {
       expect(card.textContent).toContain('repair');
       expect(card.textContent).toContain('repair blew up too');
       // Manual one-liner remains the ultimate fallback.
-      expect(card.textContent).toContain('clio-agent');
+      expect(card.textContent).toContain('start your GACT backend manually');
     });
   });
 

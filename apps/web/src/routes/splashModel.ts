@@ -71,8 +71,9 @@ export function loadIntro(): string {
 
 export function demoInstallLog(): string[] {
   const runtimeDir = `%LOCALAPPDATA%\\${brand.name.toLowerCase()}\\agent\\.venv`;
+  const ref = brand.backend.install?.ref ?? 'main';
   const installSource = brand.backendRepository
-    ? `Cloning ${brand.backendRepository.label}@develop…`
+    ? `Cloning ${brand.backendRepository.label}@${ref}…`
     : `Preparing ${brand.name} agent backend…`;
   return [
     installSource,
@@ -104,18 +105,20 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * The manual install one-liner for the active brand's managed backend, derived
+ * from the unified brand document (`brand.backend.install`). Connect-mode
+ * brands (the neutral default) ship no installer, so this returns '' — the
+ * splash shows a generic "start your backend" hint instead of a clio command.
+ */
 export function installRecipeForPlatform(): string {
   if (typeof navigator === 'undefined') return '';
+  const install = brand.backend.install;
+  if (!install) return '';
   const ua = navigator.userAgent;
   const win = /Windows/i.test(navigator.platform) || /Windows/i.test(ua);
   if (win) {
-    return [
-      "$env:CLIO_REF = 'develop'; irm",
-      'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex',
-    ].join(' ');
+    return `$env:${install.refEnv} = '${install.ref}'; irm ${install.windowsUrl} | iex`;
   }
-  return [
-    'CLIO_REF=develop curl -fsSL',
-    'https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash',
-  ].join(' ');
+  return `${install.refEnv}=${install.ref} curl -fsSL ${install.unixUrl} | bash`;
 }

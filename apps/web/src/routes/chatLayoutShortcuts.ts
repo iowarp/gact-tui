@@ -2,8 +2,14 @@
  * Solid hook that installs the ChatLayout keyboard shortcuts on mount and
  * tears them down on cleanup. Exports {@link useChatLayoutShortcuts}.
  */
+import { brand } from '@brand';
 import { onCleanup, onMount } from 'solid-js';
 import { registerWindowKeydown } from '../domListeners.js';
+
+/** Docs link for the Help menu — the brand's backend repository when set,
+ *  else the neutral GACT project. Never a hardcoded vendor. */
+const HELP_DOCS_URL =
+  brand.backendRepository?.url ?? 'https://github.com/iowarp/gact-tui#readme';
 import { dispatchMenuAction } from '../menu-actions.js';
 import { onMenuAction } from '../tauri.js';
 import { cycleDensity } from './chatScreenUtils.js';
@@ -40,7 +46,7 @@ export function useChatLayoutShortcuts(options: ChatLayoutShortcutsOptions) {
         commandPalette: () => options.setPaletteOpen((open) => !open),
         keyboardShortcuts: () => options.setCheatsheetOpen((open) => !open),
         fullscreen: () => undefined,
-        helpDocs: () => window.open('https://github.com/iowarp/clio-agent#readme', '_blank'),
+        helpDocs: () => window.open(HELP_DOCS_URL, '_blank'),
         about: () => options.onOpenSettings?.('about'),
       });
     });

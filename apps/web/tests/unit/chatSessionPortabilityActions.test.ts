@@ -86,7 +86,7 @@ describe('createChatSessionPortabilityActions', () => {
     expect(h.toastPush).toHaveBeenCalledWith({
       tone: 'success',
       title: 'Session exported',
-      body: 'clio-session-s1.md',
+      body: 'gact-session-s1.md',
       duration: 3000,
     });
   });
