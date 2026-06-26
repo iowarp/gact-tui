@@ -534,7 +534,7 @@ SYNOPSIS
 
 DESCRIPTION
   gact is a terminal client for GACT-compatible agent backends. It can
-  run the interactive TUI, deploy local adapters such as CLIO, connect
+  run the interactive TUI, deploy local adapters (claudecode, or a brand-managed backend), connect
   to a registered adapter, manage sessions, inspect logs, and call
   backend contract surfaces from scripts.
 
@@ -544,9 +544,9 @@ TOP COMMANDS
 
   gact deploy <kind> <name>
       Spawn an adapter in the background and register it locally.
-      For CLIO, the common flow is:
-          gact deploy clio myclio
-          gact connect myclio
+      For a brand-managed backend, the common flow is:
+          gact deploy managed myagent
+          gact connect myagent
 
   gact connect <name>
       Launch the TUI pointed at a deployed agent.
@@ -643,7 +643,7 @@ gact \- GACT terminal client and local agent launcher
 .SH DESCRIPTION
 .B gact
 is a terminal client for GACT-compatible agent backends. It can run the
-interactive TUI, deploy local adapters such as CLIO, connect to a registered
+interactive TUI, deploy local adapters (claudecode, or a brand-managed backend), connect to a registered
 adapter, manage sessions, inspect logs, and call backend contract surfaces from
 scripts.
 .SH TOP COMMANDS
@@ -652,7 +652,7 @@ scripts.
 Start the interactive TUI against the configured backend.
 .TP
 .B gact deploy <kind> <name>
-Spawn an adapter in the background and register it locally. For CLIO, the
+Spawn an adapter in the background and register it locally. For a brand-managed backend, the
 common flow is:
 .RS
 .EX
@@ -6731,7 +6731,7 @@ func runCatalog(args []string) int {
 // adds via `o`). Core verbs:
 //
 //	gact context list <sid>                   — print path + mode per file
-//	gact context show <sid> <path>            — preview content from CLIO
+//	gact context show <sid> <path>            — preview content from the backend
 //	gact context upload <sid> <path>          — POST local bytes as attachment
 //	gact context add  <sid> <path> [--mode]   — POST add (default mode=read)
 //	gact context rm   <sid> <path>            — DELETE remove

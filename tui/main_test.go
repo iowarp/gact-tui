@@ -4994,57 +4994,12 @@ func TestCLI_AgentDeployLifecycle(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB12: gact agent deploy clio walks the same
-// deploy/list/stop/rm lifecycle as the claudecode adapter but
-// against the Python clio-agent-gact console script. Skips when
-// the script isn't on PATH (CI environments without
-// iowarp/clio-agent installed).
-func TestCLI_AgentDeployLifecycle_Clio(t *testing.T) {
-	clioBin, err := exec.LookPath("clio-agent-gact")
-	if err != nil {
-		t.Skip("clio-agent-gact not on PATH; install with `uv pip install -e /path/to/clio-agent`")
-	}
-	bin := buildGact(t)
-	tmp := t.TempDir()
-	regPath := filepath.Join(tmp, "agents.json")
-	env := map[string]string{"GACT_AGENTS_PATH": regPath}
-
-	stdout, stderr, code := runGact(t, bin, env,
-		"agent", "deploy", "clio", "testclio",
-		"--bin", clioBin)
-	if code != 0 {
-		t.Fatalf("agent deploy clio: exit %d stdout=%q stderr=%q",
-			code, stdout, stderr)
-	}
-	if !strings.Contains(stderr, "deployed testclio") {
-		t.Errorf("expected 'deployed testclio' hint on stderr: %q", stderr)
-	}
-	defer func() {
-		_, _, _ = runGact(t, bin, env, "agent", "rm", "testclio")
-	}()
-
-	// list should report kind=clio + alive=yes.
-	stdout, _, code = runGact(t, bin, env, "agent", "list", "--format", "tsv")
-	if code != 0 {
-		t.Fatalf("agent list: exit %d", code)
-	}
-	if !strings.Contains(stdout, "testclio\tclio\t") {
-		t.Errorf("list should show 'testclio\\tclio\\t...' row: %q", stdout)
-	}
-	if !strings.Contains(stdout, "started_at") {
-		t.Errorf("list should include started_at column: %q", stdout)
-	}
-	if !strings.Contains(stdout, "\tyes\t") {
-		t.Errorf("list should report alive=yes after deploy: %q", stdout)
-	}
-
-	// stop + cleanup.
-	_, stderr, code = runGact(t, bin, env, "agent", "stop", "testclio")
-	if code != 0 {
-		t.Fatalf("agent stop: exit %d stderr=%q", code, stderr)
-	}
-	time.Sleep(500 * time.Millisecond)
-}
+// NOTE: the end-to-end "deploy a real managed Python backend" lifecycle test
+// lives in the embedding agent's own repo (e.g. clio-agent), which injects its
+// brand descriptor and acts as the verification test runner. gact-tui itself is
+// vendor-neutral and embeds no managed backend by default, so there is nothing
+// to deploy here — see TestAgentDeployStartupTimeoutDefaults /
+// TestDiagInstallProbe* for the brand-driven managed-backend unit coverage.
 
 func TestAgentDeployStartupTimeoutDefaults(t *testing.T) {
 	// With no brand-injected managed backend (the default, unbranded build),
