@@ -3,10 +3,14 @@ import solid from 'vite-plugin-solid';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { brandPlugin, loadBrand, activeProfile } from './vite-plugin-brand';
+import { brandPlugin, loadBrand } from './vite-plugin-brand';
+// Brand is selected by a CONFIG FILE (apps/brand.config.json), never an env
+// var. An embedding agent overrides it WITHOUT touching tracked files via a
+// gitignored apps/brand.config.local.json that can point brandingRoot at its
+// OWN repo — so brand files live outside gact-tui. Neutral default: gact.
+import { resolveBrandConfig } from '../branding/brand-config.mjs';
 
-const BRANDING_ROOT = resolve(__dirname, '../branding');
-const PROFILE = activeProfile();
+const { profile: PROFILE, brandingRoot: BRANDING_ROOT } = resolveBrandConfig();
 
 // Build-time version stamp so a corner badge can tell the user exactly which
 // build they're running. Prefer the repo-wide `git describe` (same stamp the
@@ -40,7 +44,7 @@ const brand = loadBrand(BRANDING_ROOT, PROFILE);
 
 export default defineConfig({
   plugins: [
-    brandPlugin(BRANDING_ROOT),
+    brandPlugin(BRANDING_ROOT, PROFILE),
     solid(),
     {
       // Brand the document <title> and favicon at build time so the OS window

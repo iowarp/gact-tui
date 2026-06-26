@@ -139,24 +139,7 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
   };
 }
 
-/**
- * Resolve the active brand profile id.
- *
- * Precedence: explicit `GACT_BRAND` always wins. Otherwise the default is
- * `gact` (neutral) — EXCEPT under Vitest, where the existing unit suite is
- * authored against the CLIO product (the brand under test), so it defaults to
- * `clio` to keep those assertions valid. The visual (Playwright) build is run
- * with an explicit `GACT_BRAND=clio` via the `test:visual` script.
- */
-export function activeProfile(): string {
-  const explicit = process.env['GACT_BRAND'];
-  if (explicit) return explicit;
-  if (process.env['VITEST']) return 'clio';
-  return 'gact';
-}
-
-export function brandPlugin(brandingRoot: string): Plugin {
-  const profile = activeProfile();
+export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let resolved: ResolvedBrand | null = null;
   const jsonPath = resolve(brandingRoot, profile, 'brand.json');
 
