@@ -22,7 +22,7 @@ func (c *sessionComponent) renderSetupBlueprints(width int) ([]string, modalList
 		width:     width,
 		rowBudget: visible,
 	}, func(idx int) modalListItem {
-		title := "CLIO default"
+		title := "backend default"
 		if idx > 0 {
 			bp := s.blueprints[idx-1]
 			title = firstNonEmpty(bp.Title, bp.ID)

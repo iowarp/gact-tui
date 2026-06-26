@@ -109,7 +109,7 @@ func (c *settingsComponent) appendAgentTabRows(
 	}
 	result.rows = append(result.rows, "")
 	result.rows = append(result.rows, lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("New-session defaults"))
-	result.rows = append(result.rows, "  "+t.HintKey.Render("blueprint")+"  "+orPlaceholder(a.DefaultAgentBlueprintID, "CLIO default"))
+	result.rows = append(result.rows, "  "+t.HintKey.Render("blueprint")+"  "+orPlaceholder(a.DefaultAgentBlueprintID, "backend default"))
 	result.rows = append(result.rows, "  "+t.HintKey.Render("expert pack")+"  "+orPlaceholder(a.DefaultExpertPackID, "none"))
 	defaultsRow := len(result.rows)
 	result.rows = append(result.rows, rowLine(false, "Change defaults", "Ctrl+B or b"))

@@ -63,7 +63,7 @@ func TestPostFailed_AgentNotAvailableUsesHumanHint(t *testing.T) {
 	if a.inputComposer.input.Value() != "hi" {
 		t.Errorf("input text = %q, want hi", a.inputComposer.input.Value())
 	}
-	if !strings.Contains(a.transientHint, "CLIO agent is still starting") {
+	if !strings.Contains(a.transientHint, "the agent is still starting") {
 		t.Errorf("hint = %q, want startup-specific text", a.transientHint)
 	}
 	if strings.Contains(a.transientHint, "gact: 503") {

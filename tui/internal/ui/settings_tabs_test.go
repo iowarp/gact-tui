@@ -196,7 +196,7 @@ func TestSettings_TUIPrefsMouseToggle(t *testing.T) {
 	if !strings.Contains(out, "mouse") || !strings.Contains(out, "selection") || !strings.Contains(out, "terminal select") {
 		t.Fatalf("settings output missing mouse controls row: %q", out)
 	}
-	if !strings.Contains(out, "CLIO copy") || !strings.Contains(out, "drag-copy") || !strings.Contains(out, "Terminal select") || !strings.Contains(out, "normal drag") {
+	if !strings.Contains(out, "App copy") || !strings.Contains(out, "drag-copy") || !strings.Contains(out, "Terminal select") || !strings.Contains(out, "normal drag") {
 		t.Fatalf("settings output should explain CLIO copy versus terminal selection: %q", out)
 	}
 }

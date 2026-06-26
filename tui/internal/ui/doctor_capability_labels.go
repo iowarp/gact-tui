@@ -88,7 +88,7 @@ func capabilityDisplayName(name string) string {
 	case "skills_extraction":
 		return "Skill extraction"
 	case "x_clio_cancellation":
-		return "CLIO turn cancellation"
+		return brandName()+" turn cancellation"
 	case "x_clio_executor_cancellation":
 		return "Executor cancellation"
 	case "x_clio_text_streaming":
@@ -173,7 +173,7 @@ func capabilityMeaning(name string, bucket capBucket) string {
 	case capExtra:
 		return "optional GACT surface that improves navigation or observability"
 	case capV02:
-		return "v0.2 GACT extension used for richer CLIO evidence"
+		return "v0.2 GACT extension used for richer "+brandName()+" evidence"
 	case capVendor:
 		return "vendor-specific extension; absence is usually acceptable"
 	default:

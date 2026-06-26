@@ -20,7 +20,7 @@ func TestJapaneseLMConfigChromeRendersUnicodeText(t *testing.T) {
 	a.lmConfig.lmConfigState = lmConfigState{loading: true}
 
 	plain := ansi.Strip(a.lmConfig.view())
-	if !strings.Contains(plain, "CLIO の LM プロバイダー設定") {
+	if !strings.Contains(plain, "LM プロバイダー設定") {
 		t.Fatalf("LM config title = %q, want Japanese title", plain)
 	}
 	if !strings.Contains(plain, "/v1/providers/lm を取得中") {

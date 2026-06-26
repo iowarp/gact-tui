@@ -43,7 +43,7 @@ func TestAgentBlueprintManageModalUsesSharedTextEntrySemantics(t *testing.T) {
 
 	a.agentBlueprintManage.openModal(agentBlueprintManageSource)
 	sourceView := ansi.Strip(a.agentBlueprintManage.view())
-	for _, want := range []string{"Add marketplace source", "add source", "git URL", "CLIO stores", "refreshes"} {
+	for _, want := range []string{"Add marketplace source", "add source", "git URL", "GACT stores", "refreshes"} {
 		if !strings.Contains(sourceView, want) {
 			t.Fatalf("source modal missing %q:\n%s", want, sourceView)
 		}

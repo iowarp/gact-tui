@@ -37,7 +37,7 @@ func (m *agentBlueprintManageModal) view() string {
 		actionID = "add-source"
 		intro = []string{
 			"Enter a git URL or local marketplace directory.",
-			"CLIO stores the source, refreshes it, and lists available blueprints in this browser.",
+			brandName()+" stores the source, refreshes it, and lists available blueprints in this browser.",
 		}
 	}
 	buttons := []menuButton{{

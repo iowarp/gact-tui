@@ -71,7 +71,7 @@ func TestLMConfigCloseGlyphIsCenteredInHeaderButton(t *testing.T) {
 	plain := ansi.Strip(a.lmConfig.view())
 	closeLine := ""
 	for _, line := range strings.Split(plain, "\n") {
-		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			closeLine = line
 			break
 		}
@@ -93,7 +93,7 @@ func TestLMConfigHeaderGapsOwnModalBackground(t *testing.T) {
 
 	styledLine := ""
 	for _, line := range strings.Split(a.lmConfig.view(), "\n") {
-		if strings.Contains(line, "Choose CLIO Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
+		if strings.Contains(line, "Choose Model Provider") && strings.Contains(line, "refresh") && strings.Contains(line, "x") {
 			styledLine = line
 			break
 		}

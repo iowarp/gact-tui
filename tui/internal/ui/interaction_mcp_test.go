@@ -112,7 +112,7 @@ func TestMcpRemoveRowsUseDenseInlineMetadata(t *testing.T) {
 	if !strings.Contains(out, "two  [http]  srv_two") {
 		t.Fatalf("MCP remove row should render server id inline:\n%s", out)
 	}
-	for _, want := range []string{"Remove custom MCP connections from the current workspace.", "Bundled CLIO connections stay available and are not listed here."} {
+	for _, want := range []string{"Remove custom MCP connections from the current workspace.", "Bundled GACT connections stay available and are not listed here."} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("MCP remove modal missing operator copy %q:\n%s", want, out)
 		}

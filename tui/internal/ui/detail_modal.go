@@ -110,7 +110,7 @@ func (m *modalkit) renderScrollableDetailModal(opts scrollableDetailOptions) scr
 	}
 	if m.app.MouseEnabled {
 		hint = strings.Replace(hint, "Up/Down scroll  ", "scroll  ", 1)
-		hint = "drag CLIO copy  Alt+drag terminal select  " + hint
+		hint = "drag app copy  Alt+drag terminal select  " + hint
 	}
 	if m.app.detail.fileUploadAvailable() {
 		hint = "u upload  " + hint

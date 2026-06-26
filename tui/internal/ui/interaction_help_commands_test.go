@@ -138,7 +138,7 @@ func TestHelpConversationCopyRowsExposeMouseSelection(t *testing.T) {
 	for _, want := range []string{
 		"y  copy selected part",
 		"Y  copy full transcript with tool evidence",
-		"Drag  CLIO copies exact visible text",
+		"Drag  app copy of exact visible text",
 		"Alt+drag  let the terminal select text",
 	} {
 		if !strings.Contains(out, want) {

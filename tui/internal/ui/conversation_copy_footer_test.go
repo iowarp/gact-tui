@@ -17,7 +17,7 @@ func TestConversationFooterShowsDragCopyWhenMouseEnabled(t *testing.T) {
 		t.Fatal("missing conversation footer variants")
 	}
 	joined := strings.Join(variants[0], " | ")
-	if !strings.Contains(joined, "drag CLIO copy") {
+	if !strings.Contains(joined, "drag app copy") {
 		t.Fatalf("mouse-enabled conversation footer missing drag copy hint: %q", joined)
 	}
 	if !strings.Contains(joined, "Alt+drag terminal select") {
@@ -32,7 +32,7 @@ func TestConversationFooterPrioritizesCopyAtDemoWidth(t *testing.T) {
 	a.MouseEnabled = true
 
 	rendered := stripANSI(a.chrome.renderFooter())
-	for _, want := range []string{"y copy", "drag CLIO copy", "Alt+drag terminal select"} {
+	for _, want := range []string{"y copy", "drag app copy", "Alt+drag terminal select"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("conversation footer missing %q at demo width:\n%s", want, rendered)
 		}
@@ -46,7 +46,7 @@ func TestFooterRestoresNativeSelectionHintsWhenMouseDisabled(t *testing.T) {
 	a.MouseEnabled = false
 
 	rendered := stripANSI(a.chrome.renderFooter())
-	for _, notWant := range []string{"drag CLIO copy", "Alt+drag terminal select"} {
+	for _, notWant := range []string{"drag app copy", "Alt+drag terminal select"} {
 		if strings.Contains(rendered, notWant) {
 			t.Fatalf("mouse-disabled footer should not advertise TUI mouse capture affordance %q:\n%s", notWant, rendered)
 		}
@@ -74,7 +74,7 @@ func TestInputFooterShowsDragCopyWhenMouseEnabled(t *testing.T) {
 	hasNativeVariant := false
 	for _, variant := range variants {
 		joined := strings.Join(variant, " | ")
-		if strings.Contains(joined, "drag CLIO copy") {
+		if strings.Contains(joined, "drag app copy") {
 			hasDragVariant = true
 		}
 		if strings.Contains(joined, "Alt+drag terminal select") {
@@ -103,7 +103,7 @@ func TestInputFooterPrioritizesDragCopyAtDemoWidth(t *testing.T) {
 	a.MouseEnabled = true
 
 	rendered := stripANSI(a.chrome.renderFooter())
-	for _, want := range []string{"drag CLIO copy", "Alt+drag terminal select", "Enter send"} {
+	for _, want := range []string{"drag app copy", "Alt+drag terminal select", "Enter send"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("mouse-enabled input footer missing %q at demo width:\n%s", want, rendered)
 		}
