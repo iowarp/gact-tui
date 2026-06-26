@@ -21,7 +21,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-const wireSessionID = "sess_be7e4295c87a"
+const wireSessionID = "sess_57ac84d71ca3"
 
 // parseWireSSE reads an SSE capture file into ordered client.SSEEvent values,
 // matching the decoding the real client performs (Type from the event: line,
