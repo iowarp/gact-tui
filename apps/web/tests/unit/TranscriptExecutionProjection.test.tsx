@@ -143,7 +143,7 @@ describe('Transcript execution projection', () => {
       />
     ));
 
-    expect(screen.getAllByText('CLIO')).toHaveLength(1);
+    expect(screen.getAllByText('GACT')).toHaveLength(1);
     expect(screen.getByText(/I am initiating the workflow/)).toBeTruthy();
 
     // RENDERING_SPEC §9: the projected live turn now renders through the SAME
@@ -270,7 +270,7 @@ describe('Transcript execution projection', () => {
       />
     ));
 
-    expect(screen.getAllByText('CLIO')).toHaveLength(2);
+    expect(screen.getAllByText('GACT')).toHaveLength(2);
     const text = screen.getByTestId('transcript').textContent ?? '';
     expect(text.indexOf('first question')).toBeLessThan(text.indexOf('first answer'));
     expect(text.indexOf('first answer')).toBeLessThan(text.indexOf('second question'));
@@ -371,7 +371,7 @@ describe('Transcript execution projection', () => {
       />
     ));
 
-    expect(screen.getAllByText('CLIO')).toHaveLength(1);
+    expect(screen.getAllByText('GACT')).toHaveLength(1);
     // The visualization handoff opens a delegation block; its persisted artifact
     // evidence surfaces in the block (header agent + result), rendered through
     // the unified AssistantTurnView.

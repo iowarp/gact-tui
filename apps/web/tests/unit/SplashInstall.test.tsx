@@ -143,7 +143,7 @@ describe('Splash first-run install (one swoop)', () => {
 
     // The first-run note + log pane are present.
     const view = screen.getByTestId('splash-installing');
-    expect(view.textContent).toContain('Setting up the CLIO agent backend');
+    expect(view.textContent).toContain('Setting up the GACT agent backend');
     expect(view.textContent).toContain('800');
     expect(screen.getByTestId('splash-install-log')).toBeTruthy();
   });
