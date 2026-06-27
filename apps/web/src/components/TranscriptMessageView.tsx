@@ -2,7 +2,8 @@
  * Renders a single transcript message: header, ordered part views, status, and
  * the hover action row.
  */
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createComputed, createMemo } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import type { FileDiff, Message } from '@clio/core';
 import type { ModelOption } from './ComposerTypes.js';
 import { metadataToolDiffs } from './TranscriptToolParts.js';
@@ -11,8 +12,7 @@ import { TranscriptMessageHeader } from './TranscriptMessageHeader.js';
 import { MessageStatusPanels } from './TranscriptMessageStatus.js';
 import { TurnWorkflowBlocker, turnWorkflowBlocker } from './WorkflowState.js';
 import { AssistantTurnView } from './AssistantTurnView.js';
-import type { AssistantTurnModel } from './transcriptDelegationModel.js';
-import { buildAssistantTurnModel, reconcileTurnModel } from './transcriptDelegationModel.js';
+import { buildAssistantTurnModel, type TurnRow } from './transcriptDelegationModel.js';
 import './transcript-message.css';
 
 export interface MessageViewProps {
@@ -53,24 +53,21 @@ export function MessageView(props: MessageViewProps) {
   // flowing, indented, TUI-style view (dedupe + strip + depth) instead of the
   // flat per-part box loop. Searching disables it so the highlight loop stays
   // authoritative. User turns and plain assistant turns keep the simple path.
-  // Rebuilt per SSE delta, but identity-stabilised against the previous model so
-  // Solid's <For> only re-renders the block that actually changed (perf — see
-  // reconcileTurnModel). `prevModel` persists across the memo's recomputations.
-  let prevModel: AssistantTurnModel | null = null;
-  const turnModel = createMemo(() => {
-    if (!isAssistant() || props.searchQuery?.trim()) {
-      prevModel = null;
-      return null;
-    }
-    const next = buildAssistantTurnModel(props.msg.parts ?? []);
-    if (!next) {
-      prevModel = null;
-      return null;
-    }
-    const stable = reconcileTurnModel(prevModel, next);
-    prevModel = stable;
-    return stable;
+  //
+  // The model is a flat ORDERED ROW LOG. On every SSE delta we rebuild it and
+  // reconcile(key:'id') it INTO a store, so unchanged rows keep their object
+  // identity and the streaming text row updates in place — Solid's <For> then
+  // appends/updates exactly the changed row instead of destroying and rebuilding
+  // every row each token (append-only + incremental paint — RENDERING_SPEC).
+  const [rows, setRows] = createStore<TurnRow[]>([]);
+  createComputed(() => {
+    const model =
+      !isAssistant() || props.searchQuery?.trim()
+        ? null
+        : buildAssistantTurnModel(props.msg.parts ?? []);
+    setRows(reconcile(model?.rows ?? [], { key: 'id' }));
   });
+  const hasTurn = createMemo(() => rows.length > 0);
 
   return (
     <article
@@ -99,7 +96,7 @@ export function MessageView(props: MessageViewProps) {
       />
       <div class="trx-msg__body">
         <Show
-          when={turnModel()}
+          when={hasTurn()}
           fallback={
             <For each={props.msg.parts.filter((part) => shouldRenderPart(part, props.density))}>
               {(part, i) => (
@@ -120,17 +117,15 @@ export function MessageView(props: MessageViewProps) {
             </For>
           }
         >
-          {(model) => (
-            <AssistantTurnView
-              model={model()}
-              density={props.density}
-              onOpenDiff={props.onOpenDiff}
-              onPinFile={props.onPinFile}
-              imagePartsSupported={props.imagePartsSupported}
-              readWorkspaceImage={props.readWorkspaceImage}
-              messageId={props.msg.id}
-            />
-          )}
+          <AssistantTurnView
+            rows={rows}
+            density={props.density}
+            onOpenDiff={props.onOpenDiff}
+            onPinFile={props.onPinFile}
+            imagePartsSupported={props.imagePartsSupported}
+            readWorkspaceImage={props.readWorkspaceImage}
+            messageId={props.msg.id}
+          />
         </Show>
         <For each={metadataDiffs()}>
           {(diff) => (

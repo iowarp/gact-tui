@@ -4,6 +4,18 @@ This file is loaded into every Claude Code session that touches `apps/`. **Read 
 fully before doing anything.** It mirrors the anti-procrastination rules in the
 root `CLAUDE.md` but scopes them to the harness.
 
+## Conversation rendering — source of truth
+
+Any change to the conversation transcript (web/desktop/TUI) must match the agreed
+render. Read both before touching transcript code:
+- `apps/web/RENDERING_SPEC.md` — the rules (flat log, ● per turn, collapse tool
+  output only, depth = indentation, name-once colored headers).
+- `apps/web/CANONICAL-CONVERSATION.md` — the **entire** approved EarthScope run
+  rendered out, grounded in the real wire. This is the exact target.
+- `apps/CLIO-DEVTEAM-ISSUE-react-thought-ordering.md` — stream gaps to fix
+  backend-side (per-step thought + tool attribution not in the ordered parts),
+  NOT to paper over in the client.
+
 ## ABSOLUTE RULES (anti-procrastination)
 
 1. **No deferring.** If a design question comes up, decide it per `apps/08-decisions.md`.

@@ -1,26 +1,24 @@
 /**
- * ASSISTANT turn renderer — a FLAT, INDEXED LOG (RENDERING_SPEC.md).
+ * ASSISTANT turn renderer — an APPEND-ONLY ORDERED LOG (RENDERING_SPEC.md).
  *
- * The assistant's work is an append-only sequence of delegation BLOCKS (one per
- * expert invocation). It renders like Claude Code's own terminal log: a flat,
- * indented log, NO boxes — indentation + a gutter marker only. Each block shows:
+ * The assistant's work is a flat, append-only sequence of ROWS in wire-arrival
+ * order (see {@link AssistantTurnModel}). It renders like Claude Code's own
+ * terminal log: flat, indented by delegation depth, NO boxes — a gutter marker
+ * (`●`) on each agent turn, `⎿` on tool output. Row kinds:
  *
- *   ● parent → agent           delegation header (one line)
- *     <task>                   the task that was sent — one inline muted sub-line
- *     name(args) · Nms         each tool the expert ran
- *     ⎿ <content-typed output> rendered BY CONTENT TYPE (image / diff / table /
- *                              markdown / json / text); only this collapses
- *     <agent result>           the expert's prose, rendered as markdown IN FULL
+ *   ● parent → agent           a delegation header (+ the task sent, one sub-line)
+ *   ● <agent>  <prose>         an agent's text turn, markdown IN FULL
+ *   ● <agent>  <thinking>      an agent's reasoning step, muted, IN FULL
+ *     name(args) · Nms         a tool the agent ran …
+ *     ⎿ <content-typed output> … rendered BY CONTENT TYPE; only this collapses
  *
  * Non-negotiables (RENDERING_SPEC):
- *   - FLAT: no card boxes around messages or blocks. Indentation only.
- *   - ONLY TOOL OUTPUT COLLAPSES — task / reasoning / result / answer in FULL.
- *   - REAL DEPTH INDENTATION from metadata.depth (visible left padding per level).
+ *   - APPEND-ONLY: rows are keyed by part id; the turn is only appended to /
+ *     updated in place, never re-grouped or re-ordered.
+ *   - FLAT: no card boxes. Indentation (real delegation depth) only.
  *   - ONE consistent body font; differentiate by weight/color only.
- *   - Tool output rendered by CONTENT TYPE, never by tool name.
- *
- * PERFORMANCE: every block + tool carries a STABLE id so Solid's keyed <For>
- * only re-renders the block whose text changed during streaming.
+ *   - ONE marker PER AGENT TURN, not just per delegation.
+ *   - Tool output rendered by CONTENT TYPE, never by tool name; only it collapses.
  */
 import { For, Show, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
@@ -29,10 +27,12 @@ import { MemoMarkdown } from './MemoMarkdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
-  AssistantTurnModel,
-  DelegationBlock,
-  DelegationToolCall,
-  ReasoningBlock,
+  DelegationRow,
+  ReasoningRow,
+  RoutingRow,
+  TextRow,
+  ToolRow,
+  TurnRow,
 } from './transcriptDelegationModel.js';
 import {
   ToolResultView,
@@ -43,8 +43,16 @@ import './assistant-turn.css';
 /** Cap visual indentation so deep chains stay on-screen. */
 const MAX_INDENT_DEPTH = 6;
 
+function depthStyle(depth: number) {
+  const d = Math.min(Math.max(depth, 0), MAX_INDENT_DEPTH);
+  return { 'data-depth': d, style: { '--trx-depth': String(d) } as Record<string, string> };
+}
+
 export function AssistantTurnView(props: {
-  model: AssistantTurnModel;
+  /** The ordered append-only row log. A reconcile(key:'id') store from
+   *  MessageView, so this <For> keeps each row's DOM across SSE deltas and only
+   *  the changed/new row re-renders (incremental paint). */
+  rows: readonly TurnRow[];
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
   onPinFile?: (path: string) => void;
@@ -54,241 +62,290 @@ export function AssistantTurnView(props: {
 }) {
   return (
     <div class="trx-turn" data-testid="assistant-turn">
-      <Show when={props.model.routing}>
-        {(routing) => (
-          <div class="trx-turn__routing" data-testid="assistant-turn-routing">
-            <Icon name="branch" size={12} />
-            <span>
-              routed to <strong>{routing().selected}</strong>
-            </span>
-            <Show when={routing().source}>
-              <span class="trx-turn__routing-src">· {routing().source}</span>
-            </Show>
-          </div>
-        )}
-      </Show>
-
-      <Show when={props.model.reasoning?.length}>
-        <For each={props.model.reasoning}>
-          {(block) => <ReasoningBlockView block={block} />}
-        </For>
-      </Show>
-
-      <For each={props.model.blocks}>
-        {(block) => (
-          <DelegationBlockView block={block} readWorkspaceImage={props.readWorkspaceImage} />
-        )}
-      </For>
-
-      <For each={props.model.passthrough}>
-        {(part) => (
-          <PassthroughPartView
-            part={part}
-            density={props.density}
-            onOpenDiff={props.onOpenDiff}
-            onPinFile={props.onPinFile}
-            imagePartsSupported={props.imagePartsSupported}
-            messageId={props.messageId}
+      <For each={props.rows}>
+        {(row, i) => (
+          <TurnRowView
+            row={row}
+            showAgent={i() === 0 || owningAgent(row) !== owningAgent(props.rows[i() - 1]!)}
+            {...props}
           />
         )}
       </For>
-
-      <Show when={props.model.answer.trim()}>
-        <div class="trx-turn__answer" data-testid="assistant-turn-answer">
-          <div class="trx-turn__answer-label">
-            <Icon name="sparkle" size={13} />
-            <span>Answer</span>
-          </div>
-          {/* The final answer renders in FULL — it never collapses. */}
-          <div class="trx-turn__answer-body">
-            <MemoMarkdown text={props.model.answer} />
-          </div>
-        </div>
-      </Show>
     </div>
   );
 }
 
-/** Cap visual indentation here too. */
-const MAX_REASON_DEPTH = 6;
+/** The agent whose TURN a row belongs to: the emitter, except a delegation is
+ *  the PARENT's turn. Drives the "name shown once atop a contiguous block". */
+function owningAgent(row: TurnRow): string {
+  if (row.kind === 'delegation') return row.parent;
+  if (row.kind === 'passthrough') return '';
+  return (row as { agent?: string }).agent ?? '';
+}
 
-/**
- * A free-standing model-reasoning block (e.g. main's own thoughts) — `● <agent>`
- * marker then the reasoning as markdown, in FULL, never collapsed. FLAT, no box.
- */
-function ReasoningBlockView(props: { block: ReasoningBlock }) {
-  const block = () => props.block;
-  const depth = () => Math.min(block().depth, MAX_REASON_DEPTH);
+/** `▎<agent>` — the agent's name, shown ONCE atop its contiguous block (it
+ *  reappears only when the owning agent changes, e.g. on resume). Colored by
+ *  agent via `data-agent`; never repeated per turn. */
+function AgentHeader(props: { agent: string; depth: number }) {
   return (
-    <section
-      class="trx-block trx-block--reason"
-      data-testid="assistant-turn-reasoning"
-      data-depth={depth()}
-      data-agent={block().agent}
-      style={{ '--trx-depth': String(depth()) }}
-    >
-      <div class="trx-block__step">
-        <span class="trx-block__marker" aria-hidden="true">
-          ●
-        </span>
-        <span class="trx-block__owner">
-          <span class="trx-block__agent">{block().agent}</span>
-        </span>
+    <Show when={props.agent}>
+      <div
+        class="trx-row__agenthdr"
+        data-agent={props.agent}
+        data-testid="assistant-turn-agent"
+        {...depthStyle(props.depth)}
+      >
+        <span class="trx-row__agenthdr-name">{props.agent}</span>
       </div>
-      <div class="trx-block__result" data-testid="assistant-turn-reasoning-body">
-        <MemoMarkdown text={block().text} />
-      </div>
-    </section>
+    </Show>
   );
 }
 
-/**
- * One delegation turn-block: a depth-indented, FLAT step (no box). The `●`
- * marker, the `parent → agent` header, the inline task sub-line, the ordered
- * tool calls, and the expert's markdown result.
- */
-function DelegationBlockView(props: {
-  block: DelegationBlock;
+function TurnRowView(props: {
+  row: TurnRow;
+  showAgent: boolean;
+  density: TranscriptDensity;
+  onOpenDiff?: (diff: FileDiff) => void;
+  onPinFile?: (path: string) => void;
+  imagePartsSupported?: boolean;
+  readWorkspaceImage?: ReadWorkspaceImage;
+  messageId?: string;
+}) {
+  const row = props.row;
+  switch (row.kind) {
+    case 'delegation':
+      return <DelegationRowView row={row} showAgent={props.showAgent} />;
+    case 'text':
+      return <TextRowView row={row} showAgent={props.showAgent} />;
+    case 'reasoning':
+      return <ReasoningRowView row={row} showAgent={props.showAgent} />;
+    case 'tool':
+      return (
+        <ToolRowView
+          row={row}
+          showAgent={props.showAgent}
+          readWorkspaceImage={props.readWorkspaceImage}
+        />
+      );
+    case 'routing':
+      return <RoutingRowView row={row} />;
+    case 'passthrough':
+      return (
+        <PassthroughRowView
+          row={row}
+          density={props.density}
+          onOpenDiff={props.onOpenDiff}
+          onPinFile={props.onPinFile}
+          imagePartsSupported={props.imagePartsSupported}
+          messageId={props.messageId}
+        />
+      );
+  }
+}
+
+/** A delegation = the PARENT's turn: `● → <child>` + the task (in FULL). The
+ *  parent's name shows once via the block header (not repeated here). */
+function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
+  const row = () => props.row;
+  const isErr = () => /fail|block|error/i.test(row().status);
+  return (
+    <>
+      <Show when={props.showAgent}>
+        <AgentHeader agent={row().parent} depth={row().depth} />
+      </Show>
+      <section
+        class="trx-row trx-row--delegation"
+        data-testid="assistant-turn-step"
+        data-agent={row().agent}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head" data-testid="assistant-turn-delegation-header">
+          <span class="trx-row__marker" aria-hidden="true">
+            ●
+          </span>
+          <span class="trx-row__owner" classList={{ 'is-err': isErr() }}>
+            <span class="trx-row__arrow" aria-hidden="true">
+              →
+            </span>
+            <span class="trx-row__agent">{row().agent}</span>
+          </span>
+          <Show when={isErr()}>
+            <span class="trx-row__status is-err">{row().status}</span>
+          </Show>
+        </div>
+        <Show when={row().task}>
+          <div class="trx-row__task" data-testid="assistant-turn-task">
+            {row().task}
+          </div>
+        </Show>
+      </section>
+    </>
+  );
+}
+
+/** `●` then the agent's prose, markdown IN FULL. One ● marker per turn; the
+ *  agent name comes from the block header, not repeated on each turn. */
+function TextRowView(props: { row: TextRow; showAgent: boolean }) {
+  const row = () => props.row;
+  return (
+    <>
+      <Show when={props.showAgent}>
+        <AgentHeader agent={row().agent} depth={row().depth} />
+      </Show>
+      <section
+        class="trx-row trx-row--text"
+        data-testid="assistant-turn-text"
+        data-agent={row().agent}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head">
+          <span class="trx-row__marker" aria-hidden="true">
+            ●
+          </span>
+        </div>
+        <div class="trx-row__body" data-testid="assistant-turn-result">
+          <MemoMarkdown text={row().text} />
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** An agent's `thinking` step — same shape, muted, but still a ● turn. */
+function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean }) {
+  const row = () => props.row;
+  return (
+    <>
+      <Show when={props.showAgent}>
+        <AgentHeader agent={row().agent} depth={row().depth} />
+      </Show>
+      <section
+        class="trx-row trx-row--reason"
+        data-testid="assistant-turn-reasoning"
+        data-agent={row().agent}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head">
+          <span class="trx-row__marker trx-row__marker--dim" aria-hidden="true">
+            ●
+          </span>
+        </div>
+        <div class="trx-row__body trx-row__body--dim" data-testid="assistant-turn-reasoning-body">
+          <MemoMarkdown text={row().text} />
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** A tool turn: `● <thought>` then `name(args) · Nms` + the content-typed
+ *  result (⎿). One ● turn = the step's reasoning (clio #732) + the tool. */
+function ToolRowView(props: {
+  row: ToolRow;
+  showAgent: boolean;
   readWorkspaceImage?: ReadWorkspaceImage;
 }) {
-  const block = () => props.block;
-  const depth = () => Math.min(block().depth, MAX_INDENT_DEPTH);
-  const isErr = () => /fail|block|error/i.test(block().status);
+  const row = () => props.row;
   return (
-    <section
-      class="trx-block"
-      data-testid="assistant-turn-step"
-      data-depth={depth()}
-      data-agent={block().agent}
-      style={{ '--trx-depth': String(depth()) }}
-    >
-      <div class="trx-block__step" data-testid="assistant-turn-delegation-header">
-        <span class="trx-block__marker" aria-hidden="true">
-          ●
-        </span>
-        <span class="trx-block__owner" classList={{ 'is-err': isErr() }}>
-          <span class="trx-block__from">{block().parent}</span>
-          <span class="trx-block__arrow" aria-hidden="true">
-            →
+    <>
+      <Show when={props.showAgent}>
+        <AgentHeader agent={row().agent} depth={row().depth} />
+      </Show>
+      <div
+        class="trx-row trx-row--tool"
+        data-testid="assistant-turn-tool"
+        classList={{ 'is-err': !row().ok }}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head">
+          <span class="trx-row__marker" aria-hidden="true">
+            ●
           </span>
-          <span class="trx-block__agent">{block().agent}</span>
-        </span>
-        <Show when={isErr()}>
-          <span class="trx-block__status is-err">{block().status}</span>
-        </Show>
-      </div>
-
-      {/* The delegated task: ONE inline muted sub-line, in FULL. Not a box. */}
-      <Show when={block().task}>
-        <div class="trx-block__task" data-testid="assistant-turn-task">
-          {block().task}
+          <Show when={row().thought}>
+            <div class="trx-row__body trx-tool__thought" data-testid="assistant-turn-tool-thought">
+              <MemoMarkdown text={row().thought} />
+            </div>
+          </Show>
         </div>
-      </Show>
-
-      <Show when={block().tools.length > 0}>
-        <ul class="trx-block__tools" data-testid="assistant-turn-tools">
-          <For each={block().tools}>
-            {(tool) => (
-              <ToolCallView tool={tool} readWorkspaceImage={props.readWorkspaceImage} />
-            )}
-          </For>
-        </ul>
-      </Show>
-
-      {/* The expert's prose result — rendered in FULL, never collapsed. */}
-      <Show when={block().result.trim()}>
-        <div class="trx-block__result" data-testid="assistant-turn-result">
-          <MemoMarkdown text={block().result} />
-        </div>
-      </Show>
-    </section>
-  );
-}
-
-/**
- * A single tool call: a "name(args) · Nms" header + the result rendered BY
- * CONTENT TYPE (image / diff / table / markdown / json / text). Only the tool
- * output collapses; a "show raw" disclosure reveals the underlying body.
- */
-function ToolCallView(props: { tool: DelegationToolCall; readWorkspaceImage?: ReadWorkspaceImage }) {
-  const tool = () => props.tool;
-  return (
-    <li class="trx-tool" data-testid="assistant-turn-tool" classList={{ 'is-err': !tool().ok }}>
-      {/* The expert's reasoning BEFORE this tool call — delineates a turn
-          (reasoning → tool call → tool response), in FULL, never collapsed. */}
-      <Show when={tool().reasoning?.trim()}>
-        <div class="trx-tool__reasoning" data-testid="assistant-turn-tool-reasoning">
-          <MemoMarkdown text={tool().reasoning!} />
-        </div>
-      </Show>
-      <div class="trx-tool__call">
+        <div class="trx-tool__call">
         <Icon name="tool" size={12} />
-        <span class="trx-tool__name">{tool().name}</span>
-        <Show when={tool().argsSummary}>
-          <span class="trx-tool__args">({tool().argsSummary})</span>
+        <span class="trx-tool__name">{row().name}</span>
+        <Show when={row().argsSummary}>
+          <span class="trx-tool__args">({row().argsSummary})</span>
         </Show>
         <span class="trx-tool__meta">
-          <Show when={!tool().ok}>
+          <Show when={!row().ok}>
             <span class="trx-tool__badge is-err">failed</span>
           </Show>
-          <Show when={tool().cached}>
-            <span class="trx-tool__badge">cached</span>
-          </Show>
-          <Show when={tool().durationMs != null}>
-            <span class="trx-tool__dur">{Math.round(tool().durationMs!)}ms</span>
+          <Show when={row().durationMs != null}>
+            <span class="trx-tool__dur">{Math.round(row().durationMs!)}ms</span>
           </Show>
         </span>
       </div>
-
-      {/* Only render the result row when there is actual output — avoids a stray
-          empty `⎿` line between a tool-call header and (no) result. */}
-      <Show when={toolHasResult(tool())}>
+      <Show when={toolHasResult(row())}>
         <div class="trx-tool__result">
           <span class="trx-tool__result-gutter" aria-hidden="true">
             ⎿
           </span>
           <div class="trx-tool__result-body">
             <ToolResultView
-              content={tool().content}
-              raw={tool().result}
-              preview={tool().preview}
+              content={row().content}
+              raw={row().result}
+              preview={row().preview}
               readWorkspaceImage={props.readWorkspaceImage}
             />
           </div>
         </div>
       </Show>
-    </li>
+      </div>
+    </>
   );
 }
 
-/** Whether a tool call carries any renderable output (so we can omit the empty
- *  `⎿` result row entirely when it does not). */
-function toolHasResult(tool: DelegationToolCall): boolean {
-  if (tool.content.kind === 'image') return Boolean(tool.imagePath || tool.preview.trim());
-  if (tool.content.kind === 'table') return tool.content.columns.length > 0;
-  return Boolean(tool.preview.trim() || tool.result.trim());
+/** The orchestrator's routing decision — a subtle inline chip. */
+function RoutingRowView(props: { row: RoutingRow }) {
+  const row = () => props.row;
+  return (
+    <div class="trx-row trx-row--routing" data-testid="assistant-turn-routing" {...depthStyle(row().depth)}>
+      <Icon name="branch" size={12} />
+      <span>
+        routed to <strong>{row().selected}</strong>
+      </span>
+      <Show when={row().source}>
+        <span class="trx-row__routing-src">· {row().source}</span>
+      </Show>
+    </div>
+  );
 }
 
-/**
- * Render a passthrough part inside the flow. Image parts render as a capped
- * thumbnail that enlarges on click; other parts delegate to the per-type
- * renderer in the flat flow.
- */
-function PassthroughPartView(props: {
-  part: Part;
+/** Whether a tool row carries any renderable output (omit the empty `⎿` row). */
+function toolHasResult(row: ToolRow): boolean {
+  if (row.content.kind === 'image') return Boolean(row.imagePath || row.preview.trim());
+  if (row.content.kind === 'table') return row.content.columns.length > 0;
+  return Boolean(row.preview.trim() || row.result.trim());
+}
+
+/** A passthrough part rendered in-flow by its own per-type view. */
+function PassthroughRowView(props: {
+  row: { part: Part; depth: number };
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
   onPinFile?: (path: string) => void;
   imagePartsSupported?: boolean;
   messageId?: string;
 }) {
-  if (props.part.type === 'image') {
-    return <ImageThumbPartView part={props.part} imagePartsSupported={props.imagePartsSupported} />;
+  const part = props.row.part;
+  if (part.type === 'image') {
+    return (
+      <div class="trx-row trx-row--passthrough" {...depthStyle(props.row.depth)}>
+        <ImageThumbPartView part={part} imagePartsSupported={props.imagePartsSupported} />
+      </div>
+    );
   }
   return (
-    <div class="trx-turn__passthrough">
+    <div class="trx-row trx-row--passthrough" {...depthStyle(props.row.depth)}>
       <PartView
-        part={props.part}
+        part={part}
         density={props.density}
         onOpenDiff={props.onOpenDiff}
         onPinFile={props.onPinFile}
