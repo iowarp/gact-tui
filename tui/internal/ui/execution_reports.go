@@ -62,6 +62,14 @@ func executionExpertReportPreview(node executionTimelineNode) string {
 
 func stripExecutionControlSections(text string) string {
 	text = strings.TrimSpace(text)
+	// Models occasionally leak an unpaired reasoning tag (e.g. a closing
+	// </thinking> with no opener) into the thought text. Drop the bare tags so
+	// they never reach the transcript.
+	for _, tag := range []string{"<thinking>", "</thinking>", "<thought>", "</thought>"} {
+		text = strings.ReplaceAll(text, tag, "")
+		text = strings.ReplaceAll(text, strings.ToUpper(tag), "")
+	}
+	text = strings.TrimSpace(text)
 	for _, marker := range []string{
 		"CLIO typed workflow state:",
 		"CLIO durable typed workflow state:",

@@ -31,8 +31,15 @@ func (c *executionComponent) turnsForCurrentSession() []executionProjectedTurn {
 	if !executionEventsHaveTrajectory(events) {
 		return nil
 	}
+	// Memoize on (sessionID, len(events)): the ledger is append-only, so an
+	// unchanged length means an identical projection. This skips the O(events)
+	// graph rebuild on every steady frame and reuses it across the multiple
+	// callers in a single frame (conversation render + execution detail).
+	if c.projCacheOK && c.projCacheSID == sid && c.projCacheLen == len(events) {
+		return c.projCacheTurns
+	}
 	turns := projectExecutionTimelineTurns(events)
-	out := turns[:0]
+	out := make([]executionProjectedTurn, 0, len(turns))
 	for _, turn := range turns {
 		filtered := turn.Nodes[:0]
 		for _, node := range turn.Nodes {
@@ -47,6 +54,10 @@ func (c *executionComponent) turnsForCurrentSession() []executionProjectedTurn {
 		turn.Nodes = filtered
 		out = append(out, turn)
 	}
+	c.projCacheSID = sid
+	c.projCacheLen = len(events)
+	c.projCacheTurns = out
+	c.projCacheOK = true
 	return out
 }
 

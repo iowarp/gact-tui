@@ -3,12 +3,12 @@ package ui
 // execution_render.go renders the projected execution timeline (agents, handoffs, react steps, tool runs).
 
 import (
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
 func (c *executionComponent) renderConversation(t Theme, width int) (string, bool) {
@@ -16,6 +16,18 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, boo
 	if len(turns) == 0 {
 		return "", false
 	}
+	// Per-turn rendered-block cache, scoped to the current session. Only the
+	// turn whose nodes changed re-renders; every other block is reused from the
+	// last frame — so a streaming token costs one block render, not the whole
+	// transcript (the projected-render hot path).
+	sid := c.app.session.currentID()
+	if c.turnRenderCache == nil || c.turnRenderCacheSID != sid {
+		c.turnRenderCache = make(map[string]execTurnRender, len(turns)+1)
+		c.turnRenderCacheSID = sid
+	}
+	cache := c.turnRenderCache
+	themeSig := themeRenderSignature(t)
+
 	var rows []string
 	var prev *gact.Message
 	turnByID := map[string][]executionTimelineNode{}
@@ -34,177 +46,330 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, boo
 			continue
 		}
 		turnID := messageTurnID(m)
-		rendered := t.renderMessageInContextWithResults(m, prev, width, nil)
-		if strings.TrimSpace(rendered) != "" {
-			rows = append(rows, rendered)
-		}
 		nodes := turnByID[turnID]
 		if len(nodes) == 0 && unscopedIdx < len(unscoped) {
 			nodes = unscoped[unscopedIdx]
 			unscopedIdx++
 		}
 		if supplements := supplementsByTurn[turnID]; len(supplements) > 0 {
-			nodes = append(nodes, executionDedupSupplementNodes(nodes, supplements)...)
+			// Copy before appending: `nodes` aliases the memoized projection's
+			// backing array, so an in-place append would corrupt the cache.
+			dedup := executionDedupSupplementNodes(nodes, supplements)
+			combined := make([]executionTimelineNode, 0, len(nodes)+len(dedup))
+			combined = append(combined, nodes...)
+			combined = append(combined, dedup...)
+			nodes = combined
 		}
-		if len(nodes) > 0 {
-			msg := gact.Message{Role: gact.RoleAssistant}
-			header := t.renderMessageHeader(msg)
-			if c.turnSelected(msgIdx) {
-				header = t.renderProjectedExecutionSelectionMarker() + header
+		prevID := ""
+		if prev != nil {
+			prevID = prev.ID
+		}
+		selected := c.turnSelected(msgIdx)
+		sig := executionTurnBlockSignature(themeSig, width, m, prevID, nodes, selected)
+		if entry, ok := cache[m.ID]; ok && entry.sig == sig {
+			if entry.row != "" {
+				rows = append(rows, entry.row)
 			}
-			rows = append(rows, lipgloss.JoinVertical(lipgloss.Left,
-				header,
-				t.renderExecutionTimeline(nodes, width),
-				"",
-			))
+		} else {
+			block := c.renderProjectedTurnBlock(t, width, m, prev, nodes, selected)
+			cache[m.ID] = execTurnRender{sig: sig, row: block}
+			if block != "" {
+				rows = append(rows, block)
+			}
 		}
-		prev = &m
+		mm := m
+		prev = &mm
 	}
 	for ; unscopedIdx < len(unscoped); unscopedIdx++ {
-		msg := gact.Message{Role: gact.RoleAssistant}
-		rows = append(rows, lipgloss.JoinVertical(lipgloss.Left,
-			t.renderMessageHeader(msg),
-			t.renderExecutionTimeline(unscoped[unscopedIdx], width),
+		nodes := unscoped[unscopedIdx]
+		key := "\x00unscoped:" + strconv.Itoa(unscopedIdx)
+		sig := executionTurnBlockSignature(themeSig, width, gact.Message{}, key, nodes, false)
+		if entry, ok := cache[key]; ok && entry.sig == sig {
+			if entry.row != "" {
+				rows = append(rows, entry.row)
+			}
+			continue
+		}
+		block := lipgloss.JoinVertical(lipgloss.Left,
+			t.renderExecutionTimeline(nodes, width),
 			"",
-		))
+		)
+		cache[key] = execTurnRender{sig: sig, row: block}
+		rows = append(rows, block)
 	}
 	return strings.Join(rows, "\n"), true
+}
+
+// renderProjectedTurnBlock renders one turn's block: the user message row
+// followed by the assistant execution-timeline (header + nodes). Returns "" for
+// a turn that renders nothing. Pure given its inputs — the cache key in
+// renderConversation captures every one of them.
+func (c *executionComponent) renderProjectedTurnBlock(
+	t Theme,
+	width int,
+	m gact.Message,
+	prev *gact.Message,
+	nodes []executionTimelineNode,
+	selected bool,
+) string {
+	var parts []string
+	if rendered := t.renderMessageInContextWithResults(m, prev, width, nil); strings.TrimSpace(rendered) != "" {
+		parts = append(parts, rendered)
+	}
+	if len(nodes) > 0 {
+		timeline := t.renderExecutionTimeline(nodes, width)
+		if selected {
+			timeline = prefixFirstLine(timeline, t.renderProjectedExecutionSelectionMarker())
+		}
+		parts = append(parts, lipgloss.JoinVertical(lipgloss.Left, timeline, ""))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func prefixFirstLine(s, prefix string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return prefix + s[:i] + "\n" + s[i+1:]
+	}
+	return prefix + s
 }
 
 func (t Theme) renderProjectedExecutionSelectionMarker() string {
 	return lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▌ ")
 }
 
+// renderExecutionTimeline renders a turn's projected nodes in the canonical
+// transcript grammar (apps/web/CANONICAL-CONVERSATION.md):
+//
+//	▎agent  — a colored header, shown once atop a block and re-shown when the
+//	          root agent resumes after control returned to it.
+//	●  …    — one turn (a thought, a tool call, a delegation, or an answer).
+//	→ delegates to X  — a turn of the parent; the task is the lines below it and
+//	                    the child indents one level deeper.
+//	⤶ returns to X    — control handed back, closing the child block.
+//	⎿ …    — a tool result under its call.
+//
+// Depth is indentation only. The walk is stateful: levelAgent tracks which agent
+// currently heads each depth so a header prints once, and a drop in depth
+// synthesizes the ⤶ returns that the stream models implicitly.
 func (t Theme) renderExecutionTimeline(nodes []executionTimelineNode, width int) string {
-	var rows []string
-	for i, node := range nodes {
-		if i > 0 && executionNodeNeedsGap(nodes[i-1], node) {
-			rows = append(rows, "")
-		}
-		if rendered := t.renderExecutionNode(node, width); rendered != "" {
-			rows = append(rows, rendered)
-		}
+	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
+	for _, node := range nodes {
+		w.add(node)
 	}
-	return strings.Join(rows, "\n")
+	w.closeTo(0)
+	return strings.Join(w.trimRows(), "\n")
 }
 
-func executionNodeNeedsGap(prev, cur executionTimelineNode) bool {
-	if prev.Kind == executionNodeAssistantText || cur.Kind == executionNodeAssistantText {
-		return true
-	}
-	if prev.Kind == executionNodeExpertReport || cur.Kind == executionNodeExpertReport {
-		return true
-	}
-	return prev.Agent != cur.Agent
+type execTimelineWriter struct {
+	t          Theme
+	width      int
+	rows       []string
+	levelAgent map[int]string
+	curDepth   int
+	started    bool
 }
 
-func (t Theme) renderExecutionNode(node executionTimelineNode, width int) string {
-	indent := executionIndent(node.Depth)
-	bodyW := width - lipgloss.Width(indent)
-	if bodyW < 24 {
-		bodyW = 24
+func execHeaderIndent(d int) string {
+	if d < 0 {
+		d = 0
 	}
+	return strings.Repeat(" ", 5*d)
+}
+
+func execTurnIndent(d int) string {
+	if d < 0 {
+		d = 0
+	}
+	return strings.Repeat(" ", 5*d+2)
+}
+
+func execBodyIndent(d int) string {
+	if d < 0 {
+		d = 0
+	}
+	return strings.Repeat(" ", 5*d+5)
+}
+
+func (w *execTimelineWriter) turnMarker() string {
+	return lipgloss.NewStyle().Foreground(w.t.FgMuted).Render("●")
+}
+
+// blank appends a separator line, collapsing consecutive blanks.
+func (w *execTimelineWriter) blank() {
+	if len(w.rows) == 0 || w.rows[len(w.rows)-1] == "" {
+		return
+	}
+	w.rows = append(w.rows, "")
+}
+
+func (w *execTimelineWriter) trimRows() []string {
+	for len(w.rows) > 0 && w.rows[0] == "" {
+		w.rows = w.rows[1:]
+	}
+	for len(w.rows) > 0 && w.rows[len(w.rows)-1] == "" {
+		w.rows = w.rows[:len(w.rows)-1]
+	}
+	return w.rows
+}
+
+func (w *execTimelineWriter) classify(node executionTimelineNode) (depth int, owner string, delegation bool) {
+	switch node.Kind {
+	case executionNodeHandoff:
+		d := node.Depth - 1
+		if d < 0 {
+			d = 0
+		}
+		return d, firstNonEmpty(strings.TrimSpace(node.ParentAgent), "main"), true
+	default:
+		return node.Depth, firstNonEmpty(strings.TrimSpace(node.Agent), "main"), false
+	}
+}
+
+func (w *execTimelineWriter) add(node executionTimelineNode) {
+	depth, owner, delegation := w.classify(node)
+	if depth < 0 {
+		depth = 0
+	}
+	if w.started && depth < w.curDepth {
+		w.closeTo(depth)
+	}
+	if owner != "" && w.levelAgent[depth] != owner {
+		w.emitHeader(depth, owner)
+	}
+	if delegation {
+		w.emitDelegation(node, depth)
+		child := firstNonEmpty(strings.TrimSpace(node.Agent), "expert")
+		childDepth := depth + 1
+		// Open the child block immediately so even an empty child (its prose
+		// missing upstream — see the dev-team gap note) still renders its
+		// ▎header and a matching ⤶ returns.
+		w.emitHeader(childDepth, child)
+		w.curDepth = childDepth
+		w.started = true
+		return
+	}
+	w.emitTurns(node, depth)
+	w.curDepth = depth
+	w.started = true
+}
+
+func (w *execTimelineWriter) emitHeader(depth int, agent string) {
+	agent = firstNonEmpty(strings.TrimSpace(agent), "main")
+	w.blank()
+	bar := lipgloss.NewStyle().Foreground(agentColor(w.t, agent)).Bold(true).Render("▎")
+	w.rows = append(w.rows, execHeaderIndent(depth)+bar+renderAgentName(w.t, agent))
+	w.levelAgent[depth] = agent
+}
+
+func (w *execTimelineWriter) closeTo(depth int) {
+	for lvl := w.curDepth; lvl > depth; lvl-- {
+		parent := firstNonEmpty(w.levelAgent[lvl-1], "main")
+		marker := lipgloss.NewStyle().Foreground(w.t.FgMuted).Render("⤶ returns to ")
+		w.rows = append(w.rows, execHeaderIndent(lvl)+marker+renderAgentName(w.t, parent))
+		delete(w.levelAgent, lvl)
+	}
+	if w.curDepth > depth {
+		w.blank()
+	}
+	// The root orchestrator re-announces itself each time control returns to it;
+	// a nested expert keeps its single header across its contiguous sub-block.
+	if depth == 0 {
+		delete(w.levelAgent, 0)
+	}
+	w.curDepth = depth
+}
+
+func (w *execTimelineWriter) emitDelegation(node executionTimelineNode, depth int) {
+	child := firstNonEmpty(strings.TrimSpace(node.Agent), "expert")
+	arrow := lipgloss.NewStyle().Foreground(w.t.FgMuted).Render("→ delegates to ")
+	w.rows = append(w.rows, execTurnIndent(depth)+w.turnMarker()+"  "+arrow+renderAgentName(w.t, child))
+	question := strings.TrimSpace(node.Question)
+	if semanticPreviewIsRedacted(question) {
+		question = ""
+	}
+	if question != "" {
+		if body := executionWrapForPrefix(executionDisplayProse(question), w.width, execBodyIndent(depth)); body != "" {
+			w.rows = append(w.rows, body)
+		}
+	}
+}
+
+func (w *execTimelineWriter) emitTurns(node executionTimelineNode, depth int) {
 	switch node.Kind {
 	case executionNodeAssistantText:
-		return t.renderExecutionAgentBlock(node.Agent, node.Text, node.Depth, bodyW)
-	case executionNodeHandoff:
-		return t.renderExecutionHandoff(node, bodyW)
-	case executionNodeReactStep:
-		return t.renderExecutionReactStep(node, bodyW)
-	case executionNodeToolRun:
-		return t.renderExecutionToolRun(node, bodyW)
+		w.emitProseTurn(depth, node.Agent, node.Text)
 	case executionNodeExpertReport:
-		return t.renderExecutionExpertReport(node, bodyW)
-	default:
-		return ""
+		report := executionExpertReportPreview(node)
+		if report == "" {
+			report = executionDisplayProse(firstNonEmpty(node.Text, node.Summary))
+		}
+		if report != "" {
+			w.emitTurnText(depth, report)
+		}
+	case executionNodeReactStep:
+		w.emitReactStep(node, depth)
+	case executionNodeToolRun:
+		if node.Status == "running" {
+			return
+		}
+		w.emitToolCall(depth, node.ToolName, node.ToolArgs, node.Observation)
 	}
 }
 
-func (t Theme) renderExecutionAgentBlock(agent, text string, depth int, width int) string {
-	agent = firstNonEmpty(strings.TrimSpace(agent), "main")
-	indent := executionIndent(depth)
-	label := indent + renderAgentName(t, agent)
+func (w *execTimelineWriter) emitProseTurn(depth int, agent, text string) {
 	body := executionDisplayProse(text)
 	if executionPlaceholderAssistantText(body) {
-		return ""
+		return
 	}
 	if preview := executionAgentTextStructuredPreview(agent, body); preview != "" {
 		body = preview
 	}
 	if body == "" {
-		return label
+		return
 	}
-	body = executionWrapForPrefix(body, width, indent+"  ")
-	return lipgloss.JoinVertical(lipgloss.Left, label, body)
+	w.emitTurnText(depth, body)
 }
 
-func (t Theme) renderExecutionHandoff(node executionTimelineNode, width int) string {
-	indent := executionIndent(node.Depth)
-	parent := firstNonEmpty(node.ParentAgent, "main")
-	child := firstNonEmpty(node.Agent, "expert")
-	head := indent + lipgloss.NewStyle().Foreground(agentColor(t, child)).Bold(true).Render("↳ ") +
-		renderAgentName(t, parent) + lipgloss.NewStyle().Foreground(t.FgMuted).Render(" → ") + renderAgentName(t, child)
-	question := strings.TrimSpace(node.Question)
-	if semanticPreviewIsRedacted(question) {
-		question = ""
-	}
-	if question == "" {
-		return head
-	}
-	body := executionWrapForPrefix(executionDisplayProse(question), width, indent+"  ")
-	return lipgloss.JoinVertical(lipgloss.Left, head, body)
-}
-
-func (t Theme) renderExecutionReactStep(node executionTimelineNode, width int) string {
-	contentIndent := executionContentIndent(node.Depth)
-	var rows []string
+func (w *execTimelineWriter) emitReactStep(node executionTimelineNode, depth int) {
 	if thinking := strings.TrimSpace(node.Thinking); thinking != "" && !semanticPreviewIsRedacted(thinking) {
 		thinking = strings.TrimSpace(stripExecutionControlSections(thinking))
 		if thinking != "" {
 			if node.Reasoning != "" {
-				thinking = strings.TrimSpace(thinking) + lipgloss.NewStyle().Foreground(t.FgFaint).Render(" · Ctrl+E reasoning trace")
+				thinking += lipgloss.NewStyle().Foreground(w.t.FgFaint).Render(" · Ctrl+E reasoning trace")
 			}
-			rows = append(rows, indentText(textutil.Wrap(thinking, width-lipgloss.Width(contentIndent)), contentIndent))
+			w.emitTurnText(depth, thinking)
 		}
 	}
 	if strings.TrimSpace(node.ToolName) != "" && !node.IsFinish {
-		rows = append(rows, contentIndent+t.executionToolCallLine(node.ToolName, node.ToolArgs, width-lipgloss.Width(contentIndent)))
-		if observation := t.executionObservationPreview(node.ToolName, node.Observation); observation != "" {
-			rows = append(rows, indentText(t.executionObservationBlock(observation), contentIndent+"  "))
-		}
+		w.emitToolCall(depth, node.ToolName, node.ToolArgs, node.Observation)
 	}
 	if node.IsFinish {
 		if observation := executionFinishPreview(node); observation != "" {
-			rows = append(rows, indentText(observation, contentIndent))
+			w.emitTurnText(depth, observation)
 		}
 	}
-	return strings.Join(rows, "\n")
 }
 
-func (t Theme) renderExecutionToolRun(node executionTimelineNode, width int) string {
-	if node.Status == "running" {
-		return ""
+func (w *execTimelineWriter) emitToolCall(depth int, toolName string, args, observation any) {
+	callW := w.width - lipgloss.Width(execTurnIndent(depth)) - 3
+	if callW < 24 {
+		callW = 24
 	}
-	contentIndent := executionContentIndent(node.Depth)
-	var rows []string
-	rows = append(rows, contentIndent+t.executionToolCallLine(node.ToolName, node.ToolArgs, width-lipgloss.Width(contentIndent)))
-	if observation := t.executionObservationPreview(node.ToolName, node.Observation); observation != "" {
-		rows = append(rows, indentText(t.executionObservationBlock(observation), contentIndent+"  "))
+	call := w.t.executionToolCallLine(toolName, args, callW)
+	w.rows = append(w.rows, execTurnIndent(depth)+w.turnMarker()+"  "+call)
+	if preview := w.t.executionObservationPreview(toolName, observation); preview != "" {
+		w.rows = append(w.rows, indentText(w.t.executionObservationBlock(preview), execBodyIndent(depth)))
 	}
-	return strings.Join(rows, "\n")
 }
 
-func (t Theme) renderExecutionExpertReport(node executionTimelineNode, width int) string {
-	indent := executionIndent(node.Depth)
-	agent := firstNonEmpty(node.Agent, "expert")
-	head := indent + renderAgentName(t, agent) + lipgloss.NewStyle().Foreground(t.FgMuted).Render(" returned evidence")
-	report := executionExpertReportPreview(node)
-	if report == "" {
-		report = executionDisplayProse(firstNonEmpty(node.Text, node.Summary))
+// emitTurnText renders prose as one ● turn: the marker leads the first line and
+// continuations align under the body indent.
+func (w *execTimelineWriter) emitTurnText(depth int, text string) {
+	wrapped := executionWrapForPrefix(text, w.width, execBodyIndent(depth))
+	if strings.TrimSpace(wrapped) == "" {
+		return
 	}
-	if report == "" {
-		return head
-	}
-	body := executionWrapForPrefix(report, width, indent+"  ")
-	return lipgloss.JoinVertical(lipgloss.Left, head, body)
+	lines := strings.Split(wrapped, "\n")
+	lines[0] = execTurnIndent(depth) + w.turnMarker() + "  " + strings.TrimPrefix(lines[0], execBodyIndent(depth))
+	w.rows = append(w.rows, strings.Join(lines, "\n"))
 }

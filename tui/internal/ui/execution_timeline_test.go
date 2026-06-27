@@ -73,7 +73,7 @@ func TestProjectExecutionTimelineDedupsRepeatedHandoffAndOverlappedText(t *testi
 	if strings.Contains(rendered, "TheThe") {
 		t.Fatalf("overlapped text was not normalized:\n%s", rendered)
 	}
-	if count := strings.Count(rendered, "↳ main → synthesis"); count != 1 {
+	if count := strings.Count(rendered, "→ delegates to synthesis"); count != 1 {
 		t.Fatalf("handoff count = %d, want 1:\n%s", count, rendered)
 	}
 }
@@ -160,7 +160,7 @@ func TestProjectExecutionTimelineSuppressesNoAnswerPlaceholder(t *testing.T) {
 	if strings.Contains(rendered, "No answer yet") {
 		t.Fatalf("placeholder leaked into transcript:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "↳ main → geospatial") {
+	if !strings.Contains(rendered, "→ delegates to geospatial") {
 		t.Fatalf("real handoff was removed with placeholder:\n%s", rendered)
 	}
 }
