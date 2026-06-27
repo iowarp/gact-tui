@@ -12,7 +12,7 @@ import (
 )
 
 func (c *executionComponent) renderConversation(t Theme, width int) (string, bool) {
-	turns := c.turnsForCurrentSession()
+	turns := c.conversationTurnsForRender()
 	if len(turns) == 0 {
 		return "", false
 	}
