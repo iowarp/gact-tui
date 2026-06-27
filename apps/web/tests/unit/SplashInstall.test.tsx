@@ -18,6 +18,10 @@
  */
 import { cleanup, render, screen, waitFor } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Brand-agnostic: the Splash copy is driven by the selected brand (`brand.name`),
+// which is configurable (a `brand.config.local.json` can point it at an embedding
+// project, e.g. clio). Assert against the resolved brand, never a hardcoded name.
+import { brand } from '@brand';
 import type {
   BackendHandle,
   BackendStatus,
@@ -143,7 +147,7 @@ describe('Splash first-run install (one swoop)', () => {
 
     // The first-run note + log pane are present.
     const view = screen.getByTestId('splash-installing');
-    expect(view.textContent).toContain('Setting up the GACT agent backend');
+    expect(view.textContent).toContain(`Setting up the ${brand.name} agent backend`);
     expect(view.textContent).toContain('800');
     expect(screen.getByTestId('splash-install-log')).toBeTruthy();
   });
@@ -181,8 +185,10 @@ describe('Splash first-run install (one swoop)', () => {
     // Tail of the installer output is surfaced for triage.
     expect(card.textContent).toContain('failed to build wheel');
     expect(card.textContent).toContain('exited with code 1');
-    // The manual one-liner is still present as the fallback.
-    expect(card.textContent).toContain('start your GACT backend manually');
+    // The manual one-liner is still present as the fallback. When the platform
+    // has an install recipe (jsdom does), the hint is the brand-free
+    // "install the backend manually and restart:" variant + the command block.
+    expect(card.textContent).toContain('install the backend manually');
 
     // Retry re-runs the installer (one more swoop) and returns to the
     // installing view.
@@ -257,7 +263,7 @@ describe('Splash first-run install (one swoop)', () => {
       expect(card.textContent).toContain('repair');
       expect(card.textContent).toContain('repair blew up too');
       // Manual one-liner remains the ultimate fallback.
-      expect(card.textContent).toContain('start your GACT backend manually');
+      expect(card.textContent).toContain('install the backend manually');
     });
   });
 

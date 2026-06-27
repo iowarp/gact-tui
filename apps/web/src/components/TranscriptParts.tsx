@@ -102,7 +102,7 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
     if (!model) return <></>;
     return (
       <AssistantTurnView
-        model={model}
+        rows={model.rows}
         density={props.density}
         onOpenDiff={props.onOpenDiff}
         onPinFile={props.onPinFile}

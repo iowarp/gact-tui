@@ -6,6 +6,42 @@ Do not re-litigate anything here.**
 
 ---
 
+## ★ CANONICAL CONVERSATION RENDER (authoritative — supersedes the sketches in §9.2)
+
+The **entire** approved run is rendered out in
+**[CANONICAL-CONVERSATION.md](./CANONICAL-CONVERSATION.md)** — read that as the
+exact target. It is grounded line-by-line in the real EarthScope/LA wire capture.
+Everything below in this file is consistent with it; where an older sketch (e.g.
+§9.2's `⚙`/`STEP` sample) differs, **the canonical document wins**.
+
+### Locked structural rules (these are the corrections that took several passes)
+
+1. **Agent name = a colored header, shown ONCE atop that agent's block** (in the
+   agent's category color). It is NOT glued to each line. It **reappears** when
+   that agent *resumes* after control left it — e.g. `▎main` is shown again after
+   a `⤶ returns to main`, because main is taking a fresh turn.
+2. **`●` marks a TURN, never the agent name.** An LLM always emits text, so every
+   turn has text. Each of these is its own `●` turn: a reasoning/thought, a tool
+   call, a delegation decision, an answer. (Exactly the Claude-Code shape:
+   `● text…` then `● Bash(…)`.)
+3. **A delegation is one of the PARENT's turns.** `● → delegates to <child>` sits
+   at the parent's depth; the task the parent sent is the line(s) directly under
+   it (first-class, full prominence, not muted). The child's work indents **one
+   level** beneath that turn. Recursive to any depth.
+4. **`⤶ returns to <parent>`** closes the child block and hands control back.
+5. **Tool result indents under its call with `⎿` and shows the REAL output** via
+   the content-type path (§4) — never a `N items · M fields` count, never `ok`
+   when the tool returned data, never the content-block envelope.
+6. **Expand/collapse is for TRUNCATION ONLY.** A short result renders inline in
+   full with **no** expand control. A long result collapses to a summary line
+   with a `▾`/`▸` toggle and `expand`/`collapse` — the affordance appears *because*
+   something is cut, never by default.
+7. **Model text is always full, never collapsed** (rule §2 / §0.2). Only tool
+   output compacts.
+8. **Depth = indentation only.** No boxes, bars, or cards (§2.1).
+
+---
+
 ## 0. How I work on this (process rules — these failed before)
 
 - **Verify against REAL runs only.** Live clio at `http://127.0.0.1:17800`, a real

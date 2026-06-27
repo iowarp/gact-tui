@@ -3,6 +3,7 @@
  * (messages, status, completion, cost, running tools, semantic/execution feeds).
  */
 import { createSignal, type Accessor, type Setter } from 'solid-js';
+import { createStore, reconcile, unwrap } from 'solid-js/store';
 import type {
   Message,
   PermissionRequest,
@@ -92,7 +93,24 @@ export interface LiveTranscriptSignals {
 }
 
 export function createLiveTranscriptSignals(): LiveTranscriptSignals {
-  const [messages, setMessages] = createSignal<Message[]>([]);
+  // Messages are backed by a fine-grained store + reconcile(key:'id') rather than
+  // a plain signal. Each SSE delta produces a *new* immutable message array (see
+  // appendPart/applyTextAppend in @clio/core); reconcile diffs it INTO the store
+  // by id, so unchanged messages — and the in-flight streaming message and its
+  // already-rendered parts — keep their object identity. Solid's <For> then
+  // reconciles in place instead of destroying and recreating the whole assistant
+  // subtree (article → body → every row) on every token. This is the streaming
+  // perf fix: per-delta DOM work drops to the one new/changed row.
+  const [msgStore, setMsgStore] = createStore<{ list: Message[] }>({ list: [] });
+  const messages: Accessor<Message[]> = () => msgStore.list;
+  const setMessages = ((arg: Message[] | ((prev: Message[]) => Message[])) => {
+    const next =
+      typeof arg === 'function'
+        ? (arg as (prev: Message[]) => Message[])(unwrap(msgStore.list))
+        : arg;
+    setMsgStore('list', reconcile(next ?? [], { key: 'id' }));
+    return msgStore.list;
+  }) as Setter<Message[]>;
   const [messagesLoading, setMessagesLoading] = createSignal(false);
   const [pendingPermission, setPendingPermission] = createSignal<PermissionRequest | null>(null);
   const [status, setStatus] = createSignal<LiveConnectionStatus>('closed');

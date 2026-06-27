@@ -12,7 +12,6 @@ import { MessageView } from './TranscriptMessageView.js';
 import { createTranscriptPresentationModel } from './TranscriptPresentationModel.js';
 import { createTranscriptHashNavigation } from './TranscriptHashNavigation.js';
 import { createTranscriptVirtualization } from './TranscriptVirtualization.js';
-import { projectedTranscriptMessages } from './executionProjection.js';
 import './transcript.css';
 import './inline-markdown.css';
 
@@ -81,9 +80,13 @@ export interface TranscriptProps {
 }
 
 export function Transcript(props: TranscriptProps) {
-  const displayMessages = createMemo(() =>
-    projectedTranscriptMessages(props.messages, props.executionEvents),
-  );
+  // Render the REAL, ordered message parts directly — both live and persisted.
+  // The assistant-turn projection (one append-only ordered row log built from
+  // the parts in wire-arrival order) lives in buildAssistantTurnModel, used by
+  // MessageView. We no longer substitute a separately-projected execution_tree
+  // synthetic part (which re-grouped/re-ordered the turn and diverged from the
+  // persisted render) — that violated the append-only conversation invariant.
+  const displayMessages = createMemo(() => props.messages);
   const { virtual, vwindow, visible, offsetOfIndex } = createTranscriptVirtualization({
     messages: displayMessages,
     scrollEl: () => props.scrollEl,

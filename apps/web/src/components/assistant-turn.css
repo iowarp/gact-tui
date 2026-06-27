@@ -7,6 +7,10 @@
    * output, task, answer. Differentiate by weight/color only, never per-element
    * font-size. Nothing in the transcript is "tiny". */
   --trx-body: 14.5px;
+  /* Per-depth indent step. Font-relative + clamped so nesting scales with the
+   * body size/density and a deep chain can't blow out a narrow viewport — not a
+   * hardcoded pixel multiplier. Depth itself stays a reactive data-var. */
+  --trx-step: clamp(0.75rem, 1.4ch, 1.25rem);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -39,7 +43,7 @@
  * `content-visibility:auto` lets the browser skip layout/paint for off-screen
  * blocks so scrolling a long transcript stays smooth. */
 .trx-block {
-  --trx-indent: calc(var(--trx-depth, 0) * 22px);
+  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -487,4 +491,172 @@
   position: relative;
   -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+}
+
+/* ===========================================================================
+ * APPEND-ONLY ORDERED ROW LOG (RENDERING_SPEC).
+ * A turn is a flat list of rows (delegation / text / reasoning / tool / …) in
+ * wire-arrival order. Depth = delegation nesting (indent + faint gutter). ONE
+ * body font for ALL prose; color is reserved for LABELS (agent names, markers,
+ * tool names) — never applied to the prose body. Each agent turn carries its
+ * own `●` marker. `content-visibility:auto` keeps long transcripts smooth.
+ * ========================================================================= */
+.trx-row {
+  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: var(--trx-indent);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+.trx-row[data-depth='1'],
+.trx-row[data-depth='2'],
+.trx-row[data-depth='3'],
+.trx-row[data-depth='4'],
+.trx-row[data-depth='5'],
+.trx-row[data-depth='6'] {
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border-30);
+}
+
+/* Row head: the `● <agent>` / `● parent → agent` label line. */
+.trx-row__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.6;
+}
+.trx-row__marker {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+.trx-row__marker--dim {
+  color: var(--color-muted);
+}
+.trx-row__owner {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.trx-row__owner.is-err .trx-row__agent {
+  color: var(--color-error);
+}
+.trx-row__from {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.trx-row__arrow {
+  opacity: 0.6;
+  color: var(--color-muted);
+}
+.trx-row__agent {
+  font-weight: 700;
+  color: var(--color-heading);
+  letter-spacing: 0.01em;
+}
+.trx-row__agent--dim {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+/* `▎<agent>` — the owning agent's name, shown ONCE atop its contiguous block
+ * (reappears only when the owning agent changes / resumes). Indented to the
+ * block's depth; a thin accent bar stands in for the `▎` glyph. Never repeated
+ * per turn. data-agent is exposed for future per-agent theming. */
+.trx-row__agenthdr {
+  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
+  margin-left: var(--trx-indent);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.4;
+}
+.trx-row__agenthdr-name {
+  font-weight: 700;
+  color: var(--color-heading);
+  letter-spacing: 0.02em;
+  border-left: 2px solid var(--color-accent);
+  padding-left: 7px;
+}
+/* A header that follows its own block at the same depth shouldn't add the depth
+ * gutter twice — the rows below carry it. */
+.trx-row__agenthdr[data-depth='1'],
+.trx-row__agenthdr[data-depth='2'],
+.trx-row__agenthdr[data-depth='3'],
+.trx-row__agenthdr[data-depth='4'],
+.trx-row__agenthdr[data-depth='5'],
+.trx-row__agenthdr[data-depth='6'] {
+  padding-left: 12px;
+}
+.trx-row__status.is-err {
+  color: var(--color-error);
+  font-family: var(--font-mono);
+}
+
+/* The delegated task — one muted sub-line under the header, in full. */
+.trx-row__task {
+  margin-left: 18px;
+  color: var(--color-muted);
+  font-size: var(--trx-body);
+  line-height: 1.55;
+  min-width: 0;
+}
+
+/* The prose body — agent text / reasoning. The READABLE body color, NOT an
+ * agent/category color, and the ONE locked body font-size for every markdown
+ * element (paragraphs, lists, headings, links, inline code) so nothing renders
+ * bigger/smaller than the surrounding log. */
+.trx-row__body {
+  margin-left: 18px;
+  color: var(--color-text);
+  font-size: var(--trx-body);
+  line-height: 1.6;
+  min-width: 0;
+}
+.trx-row__body--dim {
+  color: var(--color-muted);
+}
+.trx-row__body .im,
+.trx-row__body .im__p,
+.trx-row__body .im__li,
+.trx-row__body .im__h,
+.trx-row__body .im__link,
+.trx-row__body .im__inline-code {
+  font-size: var(--trx-body);
+}
+
+/* Tool + routing rows reuse the existing .trx-tool* / icon styling; only the
+ * row wrapper needs the indent + tool layout. */
+.trx-row--tool {
+  gap: 4px;
+}
+/* The step's reasoning, shown next to the ● above its tool call (clio #732). */
+.trx-tool__thought {
+  flex: 1 1 auto;
+  margin-left: 0;
+  min-width: 0;
+}
+.trx-row--routing {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  color: var(--color-muted);
+}
+.trx-row--routing strong {
+  color: var(--color-heading);
+  font-weight: 600;
+}
+.trx-row__routing-src {
+  opacity: 0.8;
 }
