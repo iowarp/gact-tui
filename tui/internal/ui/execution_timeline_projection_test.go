@@ -9,6 +9,52 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
+// earthscopeDelegationAssistant builds an assistant message whose ordered
+// message.part.* atoms encode the main→geospatial and main→data→
+// ndp_dataset_discovery delegation run — the realistic clio transcript shape the
+// canonical render projects from (tool parts carry the fine-grained tool-owner
+// agent_id; the expert is the active delegation child).
+func earthscopeDelegationAssistant(turnID string) gact.Message {
+	seq := 0
+	next := func() int { seq++; return seq }
+	return gact.Message{
+		ID:        "msg_asst_" + turnID,
+		SessionID: "s1",
+		TurnID:    turnID,
+		Role:      gact.RoleAssistant,
+		Parts: []gact.Part{
+			{Type: gact.PartTypeText, AgentID: "main", Sequence: next(), Text: "I am initiating the process to find the nearest GNSS station to San Diego."},
+			{Type: gact.PartTypeExpertHandoff, AgentID: "main", Sequence: next(), Metadata: map[string]any{
+				"parent_id": "main", "delegate_to": "geospatial", "depth": 0,
+				"question": "Resolve San Diego to grounded coordinates.",
+			}},
+			{Type: gact.PartTypeToolCall, AgentID: "geo", Sequence: next(), CallID: "c1",
+				ToolName: "geo_geocode", Thought: "The user wants to resolve the place name to coordinates.",
+				Input: map[string]any{"query": "San Diego", "countrycodes": "us", "limit": 1}},
+			{Type: gact.PartTypeToolResult, AgentID: "geo", Sequence: next(), CallID: "c1", Metadata: map[string]any{
+				"result": "[{'display_name': 'San Diego, San Diego County, California, United States', 'lat': 32.7174, 'lon': -117.1628, 'provenance': 'osm_nominatim'}]",
+			}},
+			{Type: gact.PartTypeText, AgentID: "geospatial", Sequence: next(), Text: "The region for San Diego has been resolved to grounded coordinates."},
+			{Type: gact.PartTypeText, AgentID: "main", Sequence: next(), Text: "Geography resolved; delegating data acquisition for San Diego."},
+			{Type: gact.PartTypeExpertHandoff, AgentID: "main", Sequence: next(), Metadata: map[string]any{
+				"parent_id": "main", "delegate_to": "data", "depth": 0,
+				"question": "Discover and stage EarthScope GNSS stations near San Diego.",
+			}},
+			{Type: gact.PartTypeExpertHandoff, AgentID: "data", Sequence: next(), Metadata: map[string]any{
+				"parent_id": "data", "delegate_to": "ndp_dataset_discovery", "depth": 1,
+				"question": "Search NDP for the EarthScope station metadata catalog.",
+			}},
+			{Type: gact.PartTypeToolCall, AgentID: "ndp", Sequence: next(), CallID: "c2",
+				ToolName: "ndp_search_datasets", Thought: "Search NDP for the earthscope converted catalog.",
+				Input: map[string]any{"search_terms": []any{"earthscope", "converted"}, "limit": 10}},
+			{Type: gact.PartTypeToolResult, AgentID: "ndp", Sequence: next(), CallID: "c2", Metadata: map[string]any{
+				"result": `{"datasets":[{"title":"EarthScope Stations Dataset","resources":[{"name":"earthscope_converted_data.csv","format":"CSV"}]}],"count":1}`,
+			}},
+			{Type: gact.PartTypeText, AgentID: "data", Sequence: next(), Text: "EarthScope station metadata catalog discovered and staged."},
+		},
+	}
+}
+
 func TestRenderProjectedExecutionConversationUsesOneAssistantTurn(t *testing.T) {
 	a := NewWithTheme("", DefaultTheme())
 	a.stage = StageReady
@@ -17,17 +63,19 @@ func TestRenderProjectedExecutionConversationUsesOneAssistantTurn(t *testing.T) 
 	a.session.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
 	a.session.selected = 0
 	a.session.currentStatus = gact.StatusRunning
-	a.conversation.messages = []gact.Message{{
-		ID:        "msg_user_d8da77ab69d0",
-		SessionID: "s1",
-		Role:      gact.RoleUser,
-		Parts: []gact.Part{{
-			ID:   "part_user",
-			Type: gact.PartTypeText,
-			Text: "Find the nearest station to San Diego on earthscope, download and analyze the data and plot it",
-		}},
-	}}
-	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": executionTimelineFixtureMainGeoDataNDP()}
+	a.conversation.messages = []gact.Message{
+		{
+			ID:        "msg_user_d8da77ab69d0",
+			SessionID: "s1",
+			Role:      gact.RoleUser,
+			Parts: []gact.Part{{
+				ID:   "part_user",
+				Type: gact.PartTypeText,
+				Text: "Find the nearest station to San Diego on earthscope, download and analyze the data and plot it",
+			}},
+		},
+		earthscopeDelegationAssistant("msg_user_d8da77ab69d0"),
+	}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
 	// One user turn renders one timeline headed by the root agent; the legacy
@@ -68,6 +116,9 @@ func TestRenderProjectedExecutionConversationScopesAssistantDeltasWithoutTurnID(
 	a.session.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
 	a.session.selected = 0
 	a.session.currentStatus = gact.StatusRunning
+	// The user message carries no explicit TurnID; the assistant turn scopes to
+	// it by the user message ID. A semantic-live placeholder message is present
+	// and must be skipped (never rendered).
 	a.conversation.messages = []gact.Message{
 		{
 			ID:        "msg_user_1",
@@ -89,31 +140,8 @@ func TestRenderProjectedExecutionConversationScopesAssistantDeltasWithoutTurnID(
 				},
 			}},
 		},
-		{
-			ID:        "msg_asst_1",
-			SessionID: "s1",
-			Role:      gact.RoleAssistant,
-			Parts: []gact.Part{{
-				ID:   "asst_text",
-				Type: gact.PartTypeText,
-				Text: "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego.",
-			}},
-		},
+		earthscopeDelegationAssistant("msg_user_1"),
 	}
-	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": {
-		{
-			Sequence: 1,
-			Type:     "message.part.delta",
-			TurnID:   "msg_user_1",
-			Payload:  map[string]any{"delta": map[string]any{"text_append": "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego."}},
-		},
-		semanticEventWithTurn(2, "msg_user_1", "blueprint.delegation.started", "main", "geospatial", map[string]any{
-			"parent_id":   "main",
-			"delegate_to": "geospatial",
-			"question":    "Resolve San Diego to coordinates.",
-			"status":      "running",
-		}),
-	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
 	if !strings.Contains(rendered, "▎main") {
@@ -144,21 +172,7 @@ func TestRenderProjectedExecutionConversationUsesCanonicalTurnIDFromMessageEvent
 			Role:      gact.RoleUser,
 			Parts:     []gact.Part{{ID: "u1", Type: gact.PartTypeText, Text: "Can you find the nearest station to san diego and plot its data?"}},
 		},
-		{
-			ID:        "msg_asst_1",
-			SessionID: "s1",
-			TurnID:    "msg_user_1",
-			Role:      gact.RoleAssistant,
-			Parts: []gact.Part{{
-				ID:   "asst_text",
-				Type: gact.PartTypeText,
-				Text: "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego.",
-				Metadata: map[string]any{
-					"stream_source": "live",
-					"turn_id":       "msg_user_1",
-				},
-			}},
-		},
+		earthscopeDelegationAssistant("msg_user_1"),
 		{
 			ID:        "semantic_live_" + stableIDFragment("msg_user_1"),
 			SessionID: "s1",
@@ -176,27 +190,6 @@ func TestRenderProjectedExecutionConversationUsesCanonicalTurnIDFromMessageEvent
 			}},
 		},
 	}
-	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": {
-		{
-			Sequence: 1,
-			Type:     "message.part.delta",
-			TurnID:   "msg_user_1",
-			Payload: map[string]any{
-				"turn_id":       "msg_user_1",
-				"message_id":    "msg_asst_1",
-				"stream_source": "live",
-				"delta": map[string]any{
-					"text_append": "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego.",
-				},
-			},
-		},
-		semanticEventWithTurn(2, "msg_user_1", "blueprint.delegation.started", "main", "geospatial", map[string]any{
-			"parent_id":   "main",
-			"delegate_to": "geospatial",
-			"question":    "Resolve San Diego to coordinates.",
-			"status":      "running",
-		}),
-	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
 	if !strings.Contains(rendered, "▎main") {
@@ -221,6 +214,20 @@ func TestRenderProjectedExecutionConversationGroupsByUserTurn(t *testing.T) {
 	a.session.sessions = []gact.Session{{ID: "s1", Status: gact.StatusRunning}}
 	a.session.selected = 0
 	a.session.currentStatus = gact.StatusRunning
+	delegatingTurn := func(turnID, answer string) gact.Message {
+		return gact.Message{
+			ID:        "asst-" + turnID,
+			SessionID: "s1",
+			TurnID:    turnID,
+			Role:      gact.RoleAssistant,
+			Parts: []gact.Part{
+				{Type: gact.PartTypeExpertHandoff, AgentID: "main", Sequence: 1, Metadata: map[string]any{
+					"parent_id": "main", "delegate_to": "geospatial", "depth": 0, "question": "resolve it",
+				}},
+				{Type: gact.PartTypeText, AgentID: "geospatial", Sequence: 2, Text: answer},
+			},
+		}
+	}
 	a.conversation.messages = []gact.Message{
 		{
 			ID:        "turn-one",
@@ -228,31 +235,15 @@ func TestRenderProjectedExecutionConversationGroupsByUserTurn(t *testing.T) {
 			Role:      gact.RoleUser,
 			Parts:     []gact.Part{{ID: "u1", Type: gact.PartTypeText, Text: "first question"}},
 		},
+		delegatingTurn("turn-one", "first answer"),
 		{
 			ID:        "turn-two",
 			SessionID: "s1",
 			Role:      gact.RoleUser,
 			Parts:     []gact.Part{{ID: "u2", Type: gact.PartTypeText, Text: "second question"}},
 		},
+		delegatingTurn("turn-two", "second answer"),
 	}
-	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": {
-		{Sequence: 1, Type: "message.part.delta", TurnID: "turn-one", Payload: map[string]any{"delta": map[string]any{"text_append": "first answer"}}},
-		semanticEventWithTurn(2, "turn-one", "react.step.completed", "main", "", map[string]any{
-			"expert_id":   "main",
-			"thought":     "first turn thought",
-			"tool_name":   "finish",
-			"is_finish":   true,
-			"observation": "done",
-		}),
-		{Sequence: 3, Type: "message.part.delta", TurnID: "turn-two", Payload: map[string]any{"delta": map[string]any{"text_append": "second answer"}}},
-		semanticEventWithTurn(4, "turn-two", "react.step.completed", "main", "", map[string]any{
-			"expert_id":   "main",
-			"thought":     "second turn thought",
-			"tool_name":   "finish",
-			"is_finish":   true,
-			"observation": "done",
-		}),
-	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
 	// Each user turn renders its own timeline headed by ▎main, so two turns

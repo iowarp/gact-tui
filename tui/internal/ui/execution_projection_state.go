@@ -22,6 +22,39 @@ func (c *executionComponent) turnSelected(userMsgIdx int) bool {
 	return c.app.conversation.bodySelMsgIdx >= userMsgIdx && c.app.conversation.bodySelMsgIdx < nextUser
 }
 
+// conversationTurnsForRender projects the canonical transcript from the ordered
+// message.part.* atoms — the single persisted source that the live stream AND a
+// /messages reload both deliver — so the render is identical live and reloaded
+// (and matches the web, which renders from the same parts). This is the render
+// hot path; it is memoized on (sessionID, total part count).
+func (c *executionComponent) conversationTurnsForRender() []executionProjectedTurn {
+	sid := c.app.session.currentID()
+	if sid == "" {
+		return nil
+	}
+	messages := c.app.conversation.messages
+	if !messagesHaveExecutionTrajectory(messages) {
+		return nil
+	}
+	partCount := 0
+	for i := range messages {
+		partCount += len(messages[i].Parts)
+	}
+	if c.projCacheOK && c.projCacheSID == sid && c.projCacheLen == partCount {
+		return c.projCacheTurns
+	}
+	out := filterProjectedTurns(projectExecutionTimelineFromMessages(messages))
+	c.projCacheSID = sid
+	c.projCacheLen = partCount
+	c.projCacheTurns = out
+	c.projCacheOK = true
+	return out
+}
+
+// turnsForCurrentSession projects from the SSE semantic.event ledger. It backs
+// the Ctrl+E execution-detail drill-down, whose structured telemetry (tool
+// observations, reasoning traces, artifact descriptors) lives on those events
+// rather than the transcript parts.
 func (c *executionComponent) turnsForCurrentSession() []executionProjectedTurn {
 	sid := c.app.session.currentID()
 	if sid == "" || len(c.executionEventsBySession) == 0 {
@@ -31,14 +64,10 @@ func (c *executionComponent) turnsForCurrentSession() []executionProjectedTurn {
 	if !executionEventsHaveTrajectory(events) {
 		return nil
 	}
-	// Memoize on (sessionID, len(events)): the ledger is append-only, so an
-	// unchanged length means an identical projection. This skips the O(events)
-	// graph rebuild on every steady frame and reuses it across the multiple
-	// callers in a single frame (conversation render + execution detail).
-	if c.projCacheOK && c.projCacheSID == sid && c.projCacheLen == len(events) {
-		return c.projCacheTurns
-	}
-	turns := projectExecutionTimelineTurns(events)
+	return filterProjectedTurns(projectExecutionTimelineTurns(events))
+}
+
+func filterProjectedTurns(turns []executionProjectedTurn) []executionProjectedTurn {
 	out := make([]executionProjectedTurn, 0, len(turns))
 	for _, turn := range turns {
 		filtered := turn.Nodes[:0]
@@ -54,19 +83,14 @@ func (c *executionComponent) turnsForCurrentSession() []executionProjectedTurn {
 		turn.Nodes = filtered
 		out = append(out, turn)
 	}
-	c.projCacheSID = sid
-	c.projCacheLen = len(events)
-	c.projCacheTurns = out
-	c.projCacheOK = true
 	return out
 }
 
 func (c *executionComponent) currentSessionHasProjected() bool {
-	sid := c.app.session.currentID()
-	if sid == "" || len(c.executionEventsBySession) == 0 {
+	if c.app.session.currentID() == "" {
 		return false
 	}
-	return executionEventsHaveTrajectory(c.executionEventsBySession[sid])
+	return messagesHaveExecutionTrajectory(c.app.conversation.messages)
 }
 
 func executionEventsHaveTrajectory(events []executionTimelineEvent) bool {

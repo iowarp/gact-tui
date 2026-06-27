@@ -38,6 +38,14 @@ type Part struct {
 	Type     string         `json:"type"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 
+	// Monotonic per-turn ordering key carried by every part on the wire; the
+	// transcript renders parts in this order (falls back to array order if 0).
+	Sequence int `json:"sequence,omitempty"`
+
+	// The ReAct step thought that produced this part — present on tool_call and
+	// expert_handoff parts. The single transcript renders it as the turn's text.
+	Thought string `json:"thought,omitempty"`
+
 	// text, citation
 	Text string `json:"text,omitempty"`
 

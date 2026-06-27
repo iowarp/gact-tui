@@ -96,11 +96,12 @@ func BenchmarkDetailModalLargeMarkdownCachedScroll(b *testing.B) {
 func TestLargeSemanticTranscriptDefaultViewIsReadable(t *testing.T) {
 	app := benchmarkLargeSemanticTranscriptApp(140, 42, 20)
 	out := ansi.Strip(app.conversation.render(app.width-40, app.height-3))
+	// The view is height-clipped to the bottom of a 20-turn transcript; the
+	// canonical render (from the ordered message.part.* atoms) must still show
+	// the root header and the final answer of the last turn legibly.
 	for _, want := range []string{
 		"CONVERSATION",
-		"NDP catalog search",
-		"EarthScope waveform discovery",
-		"SAC waveform visualization",
+		"▎main",
 		"Final answer",
 	} {
 		if !strings.Contains(out, want) {
