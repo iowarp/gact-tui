@@ -7,6 +7,40 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// Single-node render helpers exercising the canonical timeline writer in
+// isolation. Production rendering goes through renderExecutionTimeline (the
+// stateful walk); these let the content-preview assertions target one node's
+// rows without the header/return chrome of a full turn.
+func (t Theme) renderExecutionAgentBlock(agent, text string, depth, width int) string {
+	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
+	w.emitHeader(depth, agent)
+	w.emitProseTurn(depth, agent, text)
+	return strings.Join(w.rows, "\n")
+}
+
+func (t Theme) renderExecutionExpertReport(node executionTimelineNode, width int) string {
+	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
+	w.emitHeader(node.Depth, firstNonEmpty(node.Agent, "expert"))
+	w.emitTurns(node, node.Depth)
+	return strings.Join(w.rows, "\n")
+}
+
+func (t Theme) renderExecutionReactStep(node executionTimelineNode, width int) string {
+	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
+	w.emitReactStep(node, node.Depth)
+	return strings.Join(w.rows, "\n")
+}
+
+func (t Theme) renderExecutionHandoff(node executionTimelineNode, width int) string {
+	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
+	depth := node.Depth - 1
+	if depth < 0 {
+		depth = 0
+	}
+	w.emitDelegation(node, depth)
+	return strings.Join(w.rows, "\n")
+}
+
 func TestRenderExecutionAgentBlockSummarizesWorkflowJSON(t *testing.T) {
 	rendered := ansi.Strip(DefaultTheme().renderExecutionAgentBlock("data", `{
   "catalog": {"status": "metadata_found"},

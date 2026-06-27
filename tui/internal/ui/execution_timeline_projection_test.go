@@ -30,22 +30,24 @@ func TestRenderProjectedExecutionConversationUsesOneAssistantTurn(t *testing.T) 
 	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": executionTimelineFixtureMainGeoDataNDP()}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
-	if count := strings.Count(rendered, "ASSISTANT"); count != 1 {
-		t.Fatalf("assistant header count = %d, want 1\n%s", count, rendered)
+	// One user turn renders one timeline headed by the root agent; the legacy
+	// "ASSISTANT" role banner is gone in favour of the ▎main canonical header.
+	if !strings.Contains(rendered, "▎main") {
+		t.Fatalf("root agent header ▎main missing\n%s", rendered)
 	}
 	for _, want := range []string{
 		"main",
-		"↳ main → geospatial",
+		"→ delegates to geospatial",
 		"The user wants to resolve the place name",
 		"Geocode location(countrycodes: us · limit: 1 · query: San Diego)",
 		"San Diego, San Diego County, California, United States",
-		"geospatial returned evidence",
-		"↳ main → data",
+		"⤶ returns to main",
+		"→ delegates to data",
 		"data",
-		"↳ data → ndp_dataset_discovery",
+		"→ delegates to ndp_dataset_discovery",
 		"NDP catalog search",
 		"earthscope_converted_data.csv",
-		"ndp_dataset_discovery returned evidence",
+		"⤶ returns to data",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered transcript missing %q:\n%s", want, rendered)
@@ -114,14 +116,14 @@ func TestRenderProjectedExecutionConversationScopesAssistantDeltasWithoutTurnID(
 	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
-	if count := strings.Count(rendered, "ASSISTANT"); count != 1 {
-		t.Fatalf("assistant header count = %d, want 1\n%s", count, rendered)
+	if !strings.Contains(rendered, "▎main") {
+		t.Fatalf("root agent header ▎main missing\n%s", rendered)
 	}
 	intro := "I am initiating the process to find the nearest GNSS station"
 	if count := strings.Count(rendered, intro); count != 1 {
 		t.Fatalf("intro count = %d, want 1\n%s", count, rendered)
 	}
-	if !strings.Contains(rendered, "↳ main → geospatial") {
+	if !strings.Contains(rendered, "→ delegates to geospatial") {
 		t.Fatalf("projected handoff missing:\n%s", rendered)
 	}
 }
@@ -197,8 +199,8 @@ func TestRenderProjectedExecutionConversationUsesCanonicalTurnIDFromMessageEvent
 	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
-	if count := strings.Count(rendered, "ASSISTANT"); count != 1 {
-		t.Fatalf("assistant header count = %d, want 1\n%s", count, rendered)
+	if !strings.Contains(rendered, "▎main") {
+		t.Fatalf("root agent header ▎main missing\n%s", rendered)
 	}
 	if count := strings.Count(rendered, "I am initiating the process to find the nearest GNSS station"); count != 1 {
 		t.Fatalf("assistant prose count = %d, want 1\n%s", count, rendered)
@@ -206,7 +208,7 @@ func TestRenderProjectedExecutionConversationUsesCanonicalTurnIDFromMessageEvent
 	if strings.Contains(rendered, "semantic_live") {
 		t.Fatalf("semantic live implementation details leaked:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "↳ main → geospatial") {
+	if !strings.Contains(rendered, "→ delegates to geospatial") {
 		t.Fatalf("projected handoff missing:\n%s", rendered)
 	}
 }
@@ -253,8 +255,10 @@ func TestRenderProjectedExecutionConversationGroupsByUserTurn(t *testing.T) {
 	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
-	if count := strings.Count(rendered, "ASSISTANT"); count != 2 {
-		t.Fatalf("assistant header count = %d, want 2\n%s", count, rendered)
+	// Each user turn renders its own timeline headed by ▎main, so two turns
+	// produce two root headers.
+	if count := strings.Count(rendered, "▎main"); count != 2 {
+		t.Fatalf("root header count = %d, want 2\n%s", count, rendered)
 	}
 	firstUser := strings.Index(rendered, "first question")
 	firstAssistant := strings.Index(rendered, "first answer")
@@ -308,10 +312,10 @@ func TestRenderProjectedExecutionConversationIncludesPersistedArtifactSupplement
 	}}
 
 	rendered := ansi.Strip(a.conversation.render(120, 90))
-	if count := strings.Count(rendered, "ASSISTANT"); count != 1 {
-		t.Fatalf("assistant header count = %d, want 1\n%s", count, rendered)
+	if !strings.Contains(rendered, "▎visualization") {
+		t.Fatalf("visualization header missing\n%s", rendered)
 	}
-	for _, want := range []string{"visualization returned evidence", "gnss_timeseries_plot", "P475.CI.LY_.20.png", "Ctrl+E full image", "columns east, north, up"} {
+	for _, want := range []string{"gnss_timeseries_plot", "P475.CI.LY_.20.png", "Ctrl+E full image", "columns east, north, up"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered transcript missing %q:\n%s", want, rendered)
 		}
