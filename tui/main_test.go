@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +14,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
+)
+
+var (
+	gactTestBinOnce sync.Once
+	gactTestBinPath string
+	gactTestBinErr  error
+	gactTestBinOut  []byte
 )
 
 func pickPort(t *testing.T) int {
@@ -89,20 +98,27 @@ func startEmulator(t *testing.T) (string, func()) {
 // buildGact compiles the gact binary into the test's temp dir.
 func buildGact(t *testing.T) string {
 	t.Helper()
-	tmp := t.TempDir()
-	bin := testBinaryPath(tmp, "gact")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build gact: %v\n%s", err, out)
+	_, file, _, _ := runtime.Caller(0)
+	repoRoot := filepath.Join(filepath.Dir(file), "..")
+	gactTestBinOnce.Do(func() {
+		gactTestBinPath = stableTestBinaryPath(t, repoRoot, "gact-tui-main")
+		cmd := exec.Command("go", "build", "-o", gactTestBinPath, ".")
+		cmd.Dir = filepath.Join(repoRoot, "tui")
+		gactTestBinOut, gactTestBinErr = cmd.CombinedOutput()
+	})
+	if gactTestBinErr != nil {
+		t.Fatalf("build gact: %v\n%s", gactTestBinErr, gactTestBinOut)
 	}
-	return bin
+	return gactTestBinPath
 }
 
 // runGact runs the gact binary with the given args and env, returns
 // stdout, stderr, and exit code.
 func runGact(t *testing.T, bin string, env map[string]string, args ...string) (string, string, int) {
 	t.Helper()
-	cmd := exec.Command(bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -111,6 +127,9 @@ func runGact(t *testing.T, bin string, env map[string]string, args ...string) (s
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		t.Fatalf("gact command timed out after 60s: %s %v\nstdout:\n%s\nstderr:\n%s", bin, args, out.String(), errBuf.String())
+	}
 	exit := 0
 	if ee, ok := err.(*exec.ExitError); ok {
 		exit = ee.ExitCode()

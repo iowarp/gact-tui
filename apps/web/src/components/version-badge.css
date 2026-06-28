@@ -1,8 +1,8 @@
 /* Fixed corner build-version badge (see VersionBadge.tsx). */
 .app-version-badge {
   position: fixed;
-  right: 8px;
-  bottom: 6px;
+  right: 14px;
+  bottom: 44px;
   z-index: 60;
   font-family: var(--font-mono);
   font-size: 10px;

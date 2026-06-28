@@ -4,14 +4,23 @@
 /* Modern chat layout: sessions sidebar · main conversation · optional
    contextual panels. Settings and command entry live in the sidebar/composer,
    not in a separate permanent rail. */
-/* Active-expert context indicator, pinned to the bottom-right corner of the
-   chat surface. Positioned out of the grid flow so it never steals a track. */
+/* Active-expert context indicator, aligned to the same reading/composer column
+   and kept in flow above the composer so it never occludes transcript rows. */
 .chat__context-footer {
-  position: fixed;
-  right: 14px;
-  bottom: 12px;
-  z-index: 40;
+  margin: 0 auto;
+  padding: 0 32px 8px;
+  width: 100%;
+  max-width: 1040px;
+  display: flex;
+  justify-content: center;
   pointer-events: auto;
+  flex: 0 0 auto;
+  background: var(--color-bg);
+  z-index: 20;
+}
+
+.chat:not(.chat--inspector-open) .chat__context-footer {
+  max-width: 1280px;
 }
 
 .chat {
@@ -125,4 +134,8 @@
     --inspector-w: 0px;
   }
 
+  .chat__context-footer {
+    max-width: none;
+    padding: 0 10px 8px;
+  }
 }

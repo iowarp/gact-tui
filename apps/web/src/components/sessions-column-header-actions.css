@@ -59,6 +59,12 @@
   background: var(--color-surface-alt);
 }
 
+.sx__new.is-active {
+  border-color: var(--color-accent-cyan);
+  color: var(--color-accent-cyan);
+  background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+}
+
 .sx__new:disabled {
   opacity: 0.5;
   cursor: not-allowed;

@@ -14,6 +14,7 @@ import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 import type { TopbarOverflowController } from './chatTopbarOverflow.js';
 import type { TranscriptSearchController } from './chatTranscriptSearch.js';
 import type { TranscriptScrollController } from './chatTranscriptScroll.js';
+import { ContextFooter } from '../components/ContextFooter.js';
 
 export interface ChatLayoutMainColumnProps {
   props: ChatLayoutProps;
@@ -146,6 +147,22 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           onPickPermMode={options.props.onPickPermMode}
           onOpenSettings={options.props.onOpenSettings}
           onAddRemote={options.props.onAddRemote}
+          renderContextFooter={() => (
+            <Show when={options.props.activeId}>
+              <div class="chat__context-footer" data-testid="chat-context-footer">
+                <ContextFooter
+                  client={options.discoveryClient}
+                  sessionId={options.props.activeId}
+                  {...(options.props.sessionBindings?.pack_id
+                    ? {
+                        activeExpert: options.props.sessionBindings.pack_id,
+                        activeExpertLabel: options.props.sessionBindings.pack_id,
+                      }
+                    : {})}
+                />
+              </div>
+            </Show>
+          )}
         />
       </Show>
     </div>

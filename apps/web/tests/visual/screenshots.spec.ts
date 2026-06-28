@@ -195,10 +195,11 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('structured-tool-results renders evidence cards instead of raw JSON logs', async ({ page }) => {
     await page.goto('/?route=chat&fixture=structured');
-    await expect(page.getByTestId('structured-tool-result').first()).toBeVisible();
-    await expect(page.getByTestId('structured-tool-result-summary').first()).toContainText('MTA1');
-    await expect(page.getByTestId('structured-tool-result-summary').first()).not.toContainText('"records"');
-    await page.getByTestId('structured-tool-result').first().scrollIntoViewIfNeeded();
+    const result = page.getByTestId('content-typed-tool-result').first();
+    await expect(result).toBeVisible();
+    await expect(result).toContainText('matched_count: 72');
+    await expect(result).not.toContainText('"records"');
+    await result.scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot('structured-tool-results'), fullPage: false });
   });
 
@@ -366,15 +367,15 @@ test.describe('CLIO harness — visual proofs', () => {
     // The old boxed renderer must NOT be present.
     await expect(page.locator('.extree, [data-testid="execution-tree"]')).toHaveCount(0);
 
-    // Agent names appear as delegation-header labels: main delegates to
-    // geospatial, then data delegates to earthscope_catalog.
+    // Agent names appear as canonical row labels: main delegates to geospatial,
+    // then data delegates to earthscope_catalog.
     const headers = turn.getByTestId('assistant-turn-delegation-header');
-    await expect(headers.locator('.trx-block__agent', { hasText: /^geospatial$/ }).first()).toBeVisible();
+    await expect(headers.locator('.trx-row__agent', { hasText: /^geospatial$/ }).first()).toBeVisible();
     await expect(
-      headers.locator('.trx-block__agent', { hasText: /^earthscope_catalog$/ }).first(),
+      headers.locator('.trx-row__agent', { hasText: /^earthscope_catalog$/ }).first(),
     ).toBeVisible();
     // The top-level delegation is owned by main.
-    await expect(turn.locator('.trx-block__from', { hasText: /^main$/ }).first()).toBeVisible();
+    await expect(turn.getByTestId('assistant-turn-agent').filter({ hasText: /^main$/ }).first()).toBeVisible();
 
     // Delegation depth: the data → earthscope_catalog block sits one level
     // deeper than the top-level main → geospatial block (depth via indentation).
@@ -384,15 +385,13 @@ test.describe('CLIO harness — visual proofs', () => {
     const catDepth = Number(await catStep.getAttribute('data-depth'));
     expect(catDepth).toBeGreaterThan(geoDepth);
 
-    // The geospatial block exposes a tool call with a content-typed result and a
-    // `show raw` disclosure (the one thing that collapses).
-    const toolCall = geoStep.getByTestId('assistant-turn-tool').first();
+    // The geospatial turn exposes a tool call with content-typed output. Short
+    // output renders inline without a raw disclosure; only truncated output
+    // gets an expander.
+    const toolCall = turn.getByTestId('assistant-turn-tool').filter({ hasText: 'ResolveRegion' }).first();
     await expect(toolCall).toBeVisible();
-    const rawToggle = toolCall.getByTestId('tool-raw-toggle').first();
-    await expect(rawToggle).toBeVisible();
-    await expect(toolCall.getByTestId('tool-raw-body')).toHaveCount(0);
-    await rawToggle.click();
-    await expect(toolCall.getByTestId('tool-raw-body')).toBeVisible();
+    await expect(toolCall.getByTestId('tool-text')).toContainText('Resolved Los Angeles');
+    await expect(toolCall.getByTestId('tool-raw-toggle')).toHaveCount(0);
 
     await page.screenshot({ path: shot('earthscope-routing-flow'), fullPage: false });
   });
@@ -403,11 +402,11 @@ test.describe('CLIO harness — visual proofs', () => {
     const blocker = page.getByTestId('turn-workflow-blocker');
     await expect(blocker).toBeVisible();
     await expect(blocker.getByText('Workflow blocker')).toBeVisible();
-    await expect(blocker.getByText(/child expert: ndp_dataset_discovery/)).toBeVisible();
-    await expect(blocker.getByText(/required tools are not available/)).toBeVisible();
+    await expect(blocker.getByText(/ndp_dataset_discovery/)).toBeVisible();
     await expect(page.getByTestId('transcript-pane')).toContainText(
       'No station time-series, CSV profile, or PNG artifact was produced.',
     );
+    await expect(page.getByTestId('transcript-pane')).toContainText(/required tools were not available/);
     await blocker.scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot('earthscope-blocked-workflow'), fullPage: false });
   });
@@ -709,7 +708,10 @@ test.describe('CLIO harness — visual proofs', () => {
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
     await withRealBackendPage(browser, async (page) => {
-      await expect(page.getByTestId('sse-status-chip')).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByTestId('sessions-connection-status')).toBeVisible({
+        timeout: 8_000,
+      });
+      await expect(page.getByTestId('sse-status-chip')).toHaveCount(0);
       await page.waitForTimeout(500);
       await page.screenshot({
         path: shot('chat-shell-real-backend'),

@@ -87,15 +87,6 @@ export function ChatTopbar(props: ChatTopbarProps) {
             session · error
           </span>
         </Show>
-        <Show when={props.sseStatus}>
-          <span class="chat__meta-item" data-testid="sse-status-chip">
-            sse · {props.sseStatus}
-            <Show when={props.sseStatus === 'reconnecting' && (props.sseReconnectInSec ?? 0) > 0}>
-              {' in '}
-              {props.sseReconnectInSec}s
-            </Show>
-          </span>
-        </Show>
         <Show when={(props.runningTools?.length ?? 0) > 0}>
           {(() => {
             const summary = runningToolsChipSummary(props.runningTools ?? []);

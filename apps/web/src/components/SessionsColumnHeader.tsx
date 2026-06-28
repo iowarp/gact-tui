@@ -56,7 +56,10 @@ export function SessionsColumnHeader(props: SessionsColumnHeaderProps) {
             </button>
           </Show>
           <Show when={props.connectionLabel}>
-            <span class={'sx__conn sx__conn--' + (props.connectionTone ?? 'idle')}>
+            <span
+              class={'sx__conn sx__conn--' + (props.connectionTone ?? 'idle')}
+              data-testid="sessions-connection-status"
+            >
               <span class="sx__conn-dot" />
               {props.connectionLabel}
             </span>
@@ -112,6 +115,20 @@ export function SessionsColumnHeader(props: SessionsColumnHeaderProps) {
             <Icon name="arrow-up-right" size={14} />
           </button>
         </Show>
+        <Show when={props.archiveEnabled}>
+          <button
+            type="button"
+            class={'sx__new sx__new--icon ' + (props.archiveView() ? 'is-active' : '')}
+            title={props.archiveView() ? 'Back to live sessions' : 'View archived sessions'}
+            aria-label={props.archiveView() ? 'Back to live sessions' : 'View archived sessions'}
+            onClick={() => props.setArchiveView((v) => !v)}
+            data-testid="sessions-archive-toggle"
+          >
+            <Show when={props.archiveView()} fallback={<Icon name="sessions" size={14} />}>
+              <Icon name="close" size={14} />
+            </Show>
+          </button>
+        </Show>
       </div>
       <div class="sx__filters">
         <Show when={shouldShowRunningOnlyFilter(props.rows, props.archiveView())}>
@@ -123,19 +140,6 @@ export function SessionsColumnHeader(props: SessionsColumnHeaderProps) {
             />
             <span>Only show running</span>
           </label>
-        </Show>
-        <Show when={props.archiveEnabled}>
-          <button
-            type="button"
-            class={'sx__archive-toggle ' + (props.archiveView() ? 'is-active' : '')}
-            onClick={() => props.setArchiveView((v) => !v)}
-            data-testid="sessions-archive-toggle"
-          >
-            <Show when={props.archiveView()} fallback={<Icon name="sessions" size={11} />}>
-              <Icon name="close" size={11} />
-            </Show>
-            <span>{props.archiveView() ? 'Back to live' : 'View archive'}</span>
-          </button>
         </Show>
       </div>
     </header>

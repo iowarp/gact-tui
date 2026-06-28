@@ -417,21 +417,22 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
     const row = page.locator('[data-testid^="session-row-"]').first();
     await row.waitFor({ state: 'visible', timeout: 8_000 });
     await row.click();
-    await expect(page.getByTestId('sse-status-chip')).toContainText('open', {
+    await expect(page.getByTestId('sessions-connection-status')).toContainText('open', {
       timeout: 15_000,
     });
+    await expect(page.getByTestId('sse-status-chip')).toHaveCount(0);
 
     // Drop the network: the established EventSource dies → error → the
     // backoff ladder schedules a reconnect (status: reconnecting in Ns).
     await ctx.setOffline(true);
-    await expect(page.getByTestId('sse-status-chip')).toContainText(/error|reconnecting/, {
+    await expect(page.getByTestId('sessions-connection-status')).toContainText(/error|reconnecting/, {
       timeout: 20_000,
     });
     await page.screenshot({ path: shot('w4-sse-drop'), fullPage: false });
 
     // Restore the network → the ladder reconnects on its own.
     await ctx.setOffline(false);
-    await expect(page.getByTestId('sse-status-chip')).toContainText('open', {
+    await expect(page.getByTestId('sessions-connection-status')).toContainText('open', {
       timeout: 45_000,
     });
     await page.screenshot({ path: shot('w4-sse-reconnected'), fullPage: false });

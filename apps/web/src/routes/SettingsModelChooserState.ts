@@ -43,6 +43,7 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
       if (!arg) return [] as ModelOption[];
       const p = props.presets().find((x) => x.id === arg.id);
       const suggested = suggestedModelOptions(p);
+      if (!p?.is_authenticated) return [] as ModelOption[];
       if (!arg.live) return suggested;
       try {
         const res = await props.client.providerModels(arg.id);
@@ -92,6 +93,13 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
   async function authenticate() {
     const p = selected();
     if (!p) return;
+    await authenticatePreset(p.id);
+  }
+
+  async function authenticatePreset(id: string) {
+    const p = findPresetById(props.presets(), id);
+    if (!p) return;
+    setSelectedId(p.id);
     await runAsyncAction(
       async () => {
         const resp = await props.client.authProvider(p.id);
@@ -124,5 +132,6 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
     setSelectedModel,
     applySelection,
     authenticate,
+    authenticatePreset,
   };
 }

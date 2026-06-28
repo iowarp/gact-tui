@@ -35,8 +35,9 @@
 
 .sx__row-kebab {
   position: absolute;
-  top: 5px;
+  top: 50%;
   right: 6px;
+  transform: translateY(-50%);
   width: 20px;
   height: 20px;
   border-radius: 6px;

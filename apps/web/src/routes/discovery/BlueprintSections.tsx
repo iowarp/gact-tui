@@ -9,10 +9,12 @@ type BlueprintRow = AgentBlueprintsResult['blueprints'][number];
 
 export interface BlueprintInstallPanelProps {
   pathText: string;
+  refText: string;
   scope: 'workspace' | 'global';
   workspaceId?: string;
   busy: boolean;
   onPathText: (value: string) => void;
+  onRefText: (value: string) => void;
   onScope: (value: 'workspace' | 'global') => void;
   onClose: () => void;
   onSubmit: (event: SubmitEvent) => void;
@@ -22,7 +24,7 @@ export function BlueprintInstallPanel(props: BlueprintInstallPanelProps) {
   return (
     <form class="rmp__install" onSubmit={props.onSubmit}>
       <label class="rmp__install-label" for="bp-install">
-        Blueprint path on the backend host or git URL
+        Blueprint source
       </label>
       <input
         id="bp-install"
@@ -32,6 +34,18 @@ export function BlueprintInstallPanel(props: BlueprintInstallPanelProps) {
         value={props.pathText}
         onInput={(e) => props.onPathText(e.currentTarget.value)}
         data-testid="blueprint-install-input"
+      />
+      <label class="rmp__install-label" for="bp-install-ref">
+        Ref
+      </label>
+      <input
+        id="bp-install-ref"
+        class="rmp__editor"
+        type="text"
+        placeholder="main, develop, tag, or commit (optional)"
+        value={props.refText}
+        onInput={(e) => props.onRefText(e.currentTarget.value)}
+        data-testid="blueprint-install-ref"
       />
       <label class="rmp__install-label" for="bp-scope">
         Scope

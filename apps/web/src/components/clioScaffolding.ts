@@ -22,13 +22,18 @@ import { findBalancedJsonEnd } from '../presentationUtils.js';
 
 /** A line that is wholly a status parenthetical the backend injected. */
 const STATUS_PAREN =
-  /^\(\s*(?:initiat|rout|delegat|dispatch|await|synthesi[sz]|in progress|invoking|preparing|continuing|resuming|finaliz|coordinat|gathering|querying)[a-z]*\b[^)]*\)\s*$/i;
+  /^\(\s*(?:initiat|rout|delegat|dispatch|await|synthesi[sz]|in progress|orchestrat|invoking|preparing|continuing|resuming|finaliz|coordinat|gathering|querying)[a-z]*\b[^)]*\)\s*$/i;
 
 /** A bare `(In progress …)` / `(awaiting …)` placeholder, anywhere on a line. */
 const IN_PROGRESS = /\(\s*(?:in progress|awaiting)\b[^)]*\)/gi;
+const BARE_IN_PROGRESS_LINE = /^\s*(?:in progress|awaiting)\s*:[^\n]*(?:\n|$)/gim;
+const NO_USER_FACING_ANSWER_LINE = /^\s*\(\s*no user-facing answer yet\b[^)]*\)\s*(?:\n|$)/gim;
 
 /** A caption introducing a display-only typed-state JSON blob. */
 const STATE_CAPTION = /(^|\n)\s*[^\n{}]{0,80}?\btyped workflow state\b[^\n{}]{0,40}:\s*\n?\s*\{/i;
+const STATE_CAPTION_LINE = /^\s*[^\n{}]{0,80}?\btyped workflow state\b[^\n{}]{0,40}:\s*$/gim;
+const RETAINED_EVIDENCE_LINE =
+  /^\s*(?:\[\.\.\.delegation output truncated; exact evidence retained below\.\.\.\]|\[exact retained evidence index\])\s*$/gim;
 
 export function stripClioScaffolding(text: string): string {
   if (!text) return '';
@@ -48,6 +53,10 @@ export function stripClioScaffolding(text: string): string {
 
   // 2) Drop inline `(In progress…)` / `(awaiting…)` placeholders.
   out = out.replace(IN_PROGRESS, '');
+  out = out.replace(BARE_IN_PROGRESS_LINE, '');
+  out = out.replace(NO_USER_FACING_ANSWER_LINE, '');
+  out = out.replace(STATE_CAPTION_LINE, '');
+  out = out.replace(RETAINED_EVIDENCE_LINE, '');
 
   // 3) Drop whole-line status parentheticals.
   out = out

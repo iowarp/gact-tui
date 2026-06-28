@@ -106,7 +106,7 @@ test.describe('CLIO settings audit-batch verification', () => {
     const { page, close } = await connect(browser);
     await page.getByTestId('sessions-settings').click();
     await page.getByTestId('settings-nav-blueprints').click();
-    await page.getByTestId('blueprint-install-toggle').click();
+    await page.getByTestId('blueprint-manual-install-toggle').click();
     await expect(page.getByTestId('blueprint-install-input')).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('126-blueprint-install'), fullPage: false });
     await close();

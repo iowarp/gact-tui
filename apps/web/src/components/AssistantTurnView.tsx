@@ -29,6 +29,7 @@ import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
   DelegationRow,
   ReasoningRow,
+  ReturnRow,
   RoutingRow,
   TextRow,
   ToolRow,
@@ -60,12 +61,19 @@ export function AssistantTurnView(props: {
   readWorkspaceImage?: ReadWorkspaceImage;
   messageId?: string;
 }) {
+  const finalTextIndex = () => {
+    for (let i = props.rows.length - 1; i >= 0; i--) {
+      if (props.rows[i]?.kind === 'text') return i;
+    }
+    return -1;
+  };
   return (
     <div class="trx-turn" data-testid="assistant-turn">
       <For each={props.rows}>
         {(row, i) => (
           <TurnRowView
             row={row}
+            isFinalAnswer={row.kind === 'text' && i() === finalTextIndex()}
             showAgent={i() === 0 || owningAgent(row) !== owningAgent(props.rows[i() - 1]!)}
             {...props}
           />
@@ -79,6 +87,7 @@ export function AssistantTurnView(props: {
  *  the PARENT's turn. Drives the "name shown once atop a contiguous block". */
 function owningAgent(row: TurnRow): string {
   if (row.kind === 'delegation') return row.parent;
+  if (row.kind === 'return') return row.agent;
   if (row.kind === 'passthrough') return '';
   return (row as { agent?: string }).agent ?? '';
 }
@@ -104,6 +113,7 @@ function AgentHeader(props: { agent: string; depth: number }) {
 function TurnRowView(props: {
   row: TurnRow;
   showAgent: boolean;
+  isFinalAnswer: boolean;
   density: TranscriptDensity;
   onOpenDiff?: (diff: FileDiff) => void;
   onPinFile?: (path: string) => void;
@@ -116,7 +126,7 @@ function TurnRowView(props: {
     case 'delegation':
       return <DelegationRowView row={row} showAgent={props.showAgent} />;
     case 'text':
-      return <TextRowView row={row} showAgent={props.showAgent} />;
+      return <TextRowView row={row} showAgent={props.showAgent} isFinalAnswer={props.isFinalAnswer} />;
     case 'reasoning':
       return <ReasoningRowView row={row} showAgent={props.showAgent} />;
     case 'tool':
@@ -129,6 +139,8 @@ function TurnRowView(props: {
       );
     case 'routing':
       return <RoutingRowView row={row} />;
+    case 'return':
+      return <ReturnRowView row={row} showAgent={props.showAgent} />;
     case 'passthrough':
       return (
         <PassthroughRowView
@@ -185,7 +197,7 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
 
 /** `●` then the agent's prose, markdown IN FULL. One ● marker per turn; the
  *  agent name comes from the block header, not repeated on each turn. */
-function TextRowView(props: { row: TextRow; showAgent: boolean }) {
+function TextRowView(props: { row: TextRow; showAgent: boolean; isFinalAnswer: boolean }) {
   const row = () => props.row;
   return (
     <>
@@ -194,7 +206,7 @@ function TextRowView(props: { row: TextRow; showAgent: boolean }) {
       </Show>
       <section
         class="trx-row trx-row--text"
-        data-testid="assistant-turn-text"
+        data-testid={props.isFinalAnswer ? 'assistant-turn-answer' : 'assistant-turn-text'}
         data-agent={row().agent}
         {...depthStyle(row().depth)}
       >
@@ -202,6 +214,11 @@ function TextRowView(props: { row: TextRow; showAgent: boolean }) {
           <span class="trx-row__marker" aria-hidden="true">
             ●
           </span>
+          <Show when={props.isFinalAnswer}>
+            <span class="trx-row__owner">
+              <span class="trx-row__agent">Answer</span>
+            </span>
+          </Show>
         </div>
         <div class="trx-row__body" data-testid="assistant-turn-result">
           <MemoMarkdown text={row().text} />
@@ -315,6 +332,41 @@ function RoutingRowView(props: { row: RoutingRow }) {
         <span class="trx-row__routing-src">· {row().source}</span>
       </Show>
     </div>
+  );
+}
+
+function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
+  const row = () => props.row;
+  return (
+    <>
+      <Show when={props.showAgent}>
+        <AgentHeader agent={row().agent} depth={row().depth} />
+      </Show>
+      <section
+        class="trx-row trx-row--return"
+        data-testid="assistant-turn-return"
+        data-agent={row().agent}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head">
+          <span class="trx-row__marker trx-row__marker--return" aria-hidden="true">
+            ↩
+          </span>
+          <span class="trx-row__owner">
+            <span class="trx-row__agent">{row().agent}</span>
+            <span class="trx-row__arrow" aria-hidden="true">
+              returns to
+            </span>
+            <span class="trx-row__agent">{row().parent}</span>
+          </span>
+        </div>
+        <Show when={row().text}>
+          <div class="trx-row__body trx-row__body--return" data-testid="assistant-turn-return-body">
+            <MemoMarkdown text={row().text} />
+          </div>
+        </Show>
+      </section>
+    </>
   );
 }
 

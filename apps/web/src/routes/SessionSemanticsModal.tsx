@@ -24,10 +24,11 @@ export function SessionSemanticsModal(props: {
   loading?: boolean;
   blueprints: SessionSemanticOption[];
   expertPacks: SessionSemanticOption[];
-  onStart: (selection: SessionSemanticsSelection) => Promise<void> | void;
+  onStart: (selection: SessionSemanticsSelection, title: string) => Promise<void> | void;
   onClose: () => void;
   onOpenSettings: () => void;
 }) {
+  const [title, setTitle] = createSignal('New session');
   const [blueprintId, setBlueprintId] = createSignal('');
   const [expertPackId, setExpertPackId] = createSignal('');
   const [busy, setBusy] = createSignal(false);
@@ -42,6 +43,7 @@ export function SessionSemanticsModal(props: {
     );
     setBlueprintId(defaults.blueprintId);
     setExpertPackId(defaults.expertPackId);
+    setTitle('New session');
     setSaveAsDefault(false);
   });
 
@@ -69,7 +71,7 @@ export function SessionSemanticsModal(props: {
     try {
       const next = selection();
       if (saveAsDefault()) saveSessionSemanticsDefaults(next);
-      await props.onStart(next);
+      await props.onStart(next, title().trim() || 'New session');
     } finally {
       setBusy(false);
     }
@@ -102,6 +104,15 @@ export function SessionSemanticsModal(props: {
         </header>
 
         <div class="semantics__body">
+          <label class="semantics__field">
+            <span>Session name</span>
+            <input
+              value={title()}
+              onInput={(e) => setTitle(e.currentTarget.value)}
+              data-testid="session-semantics-title"
+            />
+          </label>
+
           <label class="semantics__field">
             <span>Agent blueprint</span>
             <select

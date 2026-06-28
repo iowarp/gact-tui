@@ -69,8 +69,7 @@ export interface ChatLayoutProps {
   /** When set to the active session id and recent, the topbar flashes
    * a "renamed" pill so the user notices an auto-rename. */
   renamedSessionId?: string | null;
-  lastStopReason?: string;
-  onNewSession?: (selection?: SessionSemanticsSelection) => void | Promise<void>;
+  onNewSession?: (selection?: SessionSemanticsSelection, title?: string) => void | Promise<void>;
   sessionSemanticsOptions?: {
     blueprints: SessionSemanticOption[];
     expertPacks: SessionSemanticOption[];

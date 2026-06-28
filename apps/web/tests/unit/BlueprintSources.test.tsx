@@ -49,6 +49,7 @@ function makeClient(overrides: Partial<Record<keyof Client, unknown>> = {}): {
   addBlueprintSource: ReturnType<typeof vi.fn>;
   refreshBlueprintSource: ReturnType<typeof vi.fn>;
   deleteBlueprintSource: ReturnType<typeof vi.fn>;
+  installAgentBlueprint: ReturnType<typeof vi.fn>;
 } {
   const blueprintSources = vi.fn().mockResolvedValue({ sources: SOURCES });
   const addBlueprintSource = vi
@@ -59,12 +60,16 @@ function makeClient(overrides: Partial<Record<keyof Client, unknown>> = {}): {
     .mockResolvedValue({ source: { ...SOURCES[0], status: 'ready' } });
   const deleteBlueprintSource = vi.fn().mockResolvedValue(undefined);
   const agentBlueprints = vi.fn().mockResolvedValue({ blueprints: [] });
+  const validateAgentBlueprint = vi.fn().mockResolvedValue({ ok: true, errors: [], raw: {} });
+  const installAgentBlueprint = vi.fn().mockResolvedValue({ installed: [] });
   const client = {
     blueprintSources,
     addBlueprintSource,
     refreshBlueprintSource,
     deleteBlueprintSource,
     agentBlueprints,
+    validateAgentBlueprint,
+    installAgentBlueprint,
     ...overrides,
   } as unknown as Client;
   return {
@@ -73,6 +78,7 @@ function makeClient(overrides: Partial<Record<keyof Client, unknown>> = {}): {
     addBlueprintSource,
     refreshBlueprintSource,
     deleteBlueprintSource,
+    installAgentBlueprint,
   };
 }
 
@@ -93,6 +99,58 @@ describe('A3 — blueprint sources list', () => {
 
     const errRow = screen.getByTestId('blueprint-source-row-src_bbb');
     expect(errRow.textContent).toContain('path not found');
+  });
+
+  it('nests installed blueprints under their source provenance', async () => {
+    const { client } = makeClient({
+      agentBlueprints: vi.fn().mockResolvedValue({
+        blueprints: [
+          {
+            id: 'seismic-waveform-review',
+            name: 'Seismic Waveform Review',
+            metadata: {
+              install: {
+                source: 'https://github.com/iowarp/clio-agent.git',
+                source_kind: 'git',
+                ref: 'develop',
+                commit: '1234567890abcdef',
+              },
+            },
+          },
+        ],
+      }),
+    });
+    render(() => <BlueprintsPage client={client} />);
+    await settled();
+
+    const sourceChildren = screen.getByTestId('blueprint-source-blueprints-src_aaa');
+    expect(sourceChildren.textContent).toContain('Seismic Waveform Review');
+    expect(sourceChildren.textContent).toContain('seismic-waveform-review');
+    expect(sourceChildren.textContent).toContain('commit 1234567890ab');
+  });
+
+  it('prefills source/ref and installs from the source action', async () => {
+    const { client, installAgentBlueprint } = makeClient();
+    render(() => <BlueprintsPage client={client} />);
+    await settled();
+
+    fireEvent.click(screen.getByTestId('blueprint-source-install-src_aaa'));
+
+    expect((screen.getByTestId('blueprint-install-input') as HTMLInputElement).value).toBe(
+      'https://github.com/iowarp/clio-agent.git',
+    );
+    expect((screen.getByTestId('blueprint-install-ref') as HTMLInputElement).value).toBe(
+      'develop',
+    );
+    fireEvent.click(screen.getByTestId('blueprint-install-submit'));
+
+    await waitFor(() =>
+      expect(installAgentBlueprint).toHaveBeenCalledWith({
+        source: 'https://github.com/iowarp/clio-agent.git',
+        ref: 'develop',
+        scope: 'global',
+      }),
+    );
   });
 
   it('shows the empty state when there are no sources', async () => {

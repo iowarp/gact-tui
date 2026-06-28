@@ -72,7 +72,6 @@ export function createChatLayoutDerivedState(options: ChatLayoutDerivedStateOpti
     <ChatSecondaryChips
       sessionCostUsd={options.props.sessionCostUsd}
       sessionTokens={options.props.sessionTokens}
-      lastStopReason={options.props.lastStopReason}
       streamStats={options.props.streamStats}
       selectedModelId={options.props.selectedModelId}
       models={options.props.models}

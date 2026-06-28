@@ -234,13 +234,70 @@ function objectPreview(obj: Record<string, unknown>): string {
   const preview = str(obj['preview']);
   if (preview) return clip(preview.replace(/\s+/g, ' '), 200);
   const parts: string[] = [];
-  for (const [k, v] of Object.entries(obj)) {
+  for (const nested of nestedRecordPreviews(obj)) {
+    parts.push(nested);
+    if (parts.length >= 3) break;
+  }
+  const deferredStatus: string[] = [];
+  for (const [k, v] of Object.entries(obj).sort(
+    ([a], [b]) => previewKeyPriority(a) - previewKeyPriority(b),
+  )) {
     if (v == null) continue;
     if (typeof v === 'object') continue;
-    parts.push(`${k}: ${clip(String(v), 48)}`);
+    const item = `${k}: ${clip(String(v), 48)}`;
+    if (isLowSignalStatusField(k, v)) {
+      deferredStatus.push(item);
+      continue;
+    }
+    parts.push(item);
     if (parts.length >= 5) break;
   }
+  if (parts.length === 0) parts.push(...deferredStatus.slice(0, 2));
   return parts.length ? clip(parts.join(' · '), 240) : `${Object.keys(obj).length} fields`;
+}
+
+function previewKeyPriority(key: string): number {
+  const k = key.toLowerCase();
+  if (/(^|_)(local_)?(file_)?path$/.test(k) || k.endsWith('_path')) return 0;
+  if (k === 'name' || k === 'title' || k === 'label' || k === 'id') return 1;
+  if (k.includes('size') || k.includes('bytes') || k.includes('content_type')) return 2;
+  if (k === 'url' || k.endsWith('_url')) return 3;
+  if (k === 'ok' || k === 'success' || k === 'status') return 9;
+  return 4;
+}
+
+function isLowSignalStatusField(key: string, value: unknown): boolean {
+  const k = key.toLowerCase();
+  return (k === 'ok' || k === 'success') && value === true;
+}
+
+function nestedRecordPreviews(obj: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (!Array.isArray(value) || value.length === 0) continue;
+    const records = value.filter(isRecord).slice(0, 3) as Record<string, unknown>[];
+    const labels = records.map(recordLabel).filter(Boolean);
+    if (labels.length > 0) out.push(`${key}: ${labels.join(', ')}`);
+  }
+  return out;
+}
+
+function recordLabel(record: Record<string, unknown>): string {
+  const label =
+    str(record['title']) ||
+    str(record['name']) ||
+    str(record['label']) ||
+    str(record['id']) ||
+    str(record['path']) ||
+    str(record['url']);
+  const resources = Array.isArray(record['resources'])
+    ? (record['resources'] as unknown[])
+        .filter(isRecord)
+        .map((r) => recordLabel(r as Record<string, unknown>))
+        .filter(Boolean)
+    : [];
+  if (label && resources.length) return `${label} (${resources.slice(0, 2).join(', ')})`;
+  return label;
 }
 
 function clip(s: string, max: number): string {

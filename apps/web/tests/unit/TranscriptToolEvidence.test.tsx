@@ -1,13 +1,77 @@
-import { render, screen, cleanup } from '@solidjs/testing-library';
+import { render, screen, cleanup, waitFor } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Transcript } from '../../src/components/Transcript.js';
 
 afterEach(cleanup);
 
 describe('Transcript tool evidence', () => {
-  it('renders a structured JSON tool result by CONTENT TYPE (generic preview + show raw)', () => {
+  it('renders assistant text after a routing decision', () => {
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[
+          {
+            id: 'm-routed-text',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'routing_decision',
+                selected_agent: 'main',
+                heuristic: false,
+                rationale: 'Session selected Agent Blueprint expert main.',
+                metadata: { route_source: 'agent_blueprint' },
+              },
+              {
+                type: 'text',
+                text: 'alpha',
+              },
+            ],
+          },
+        ]}
+      />
+    ));
+
+    expect(screen.getByText('alpha')).toBeTruthy();
+  });
+
+  it('updates routed assistant text when the message part is reconciled after render', async () => {
+    const [text, setText] = createSignal('');
+
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[
+          {
+            id: 'm-routed-text-reconciled',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'routing_decision',
+                selected_agent: 'main',
+                heuristic: false,
+                rationale: 'Session selected Agent Blueprint expert main.',
+                metadata: { route_source: 'agent_blueprint' },
+              },
+              {
+                type: 'text',
+                text: text(),
+              },
+            ],
+          },
+        ]}
+      />
+    ));
+
+    expect(screen.queryByText('alpha')).toBeNull();
+    setText('alpha');
+    await waitFor(() => expect(screen.getByText('alpha')).toBeTruthy());
+  });
+
+  it('renders a short structured JSON tool result inline without raw disclosure', () => {
     // A structured object that is not an image/diff/table surfaces as the `json`
-    // content type: a generic collapsed preview plus a "show raw" affordance.
+    // content type: a generic preview. Short visible output should not add a
+    // raw disclosure just because the underlying JSON has more fields.
     // No backend key vocabulary, no tool-name-derived card title.
     render(() => (
       <Transcript
@@ -46,9 +110,9 @@ describe('Transcript tool evidence', () => {
     ));
 
     // The result renders by detected content type, not a coupled "records result"
-    // card. A generic key/value preview is shown and the raw body is reachable.
+    // card. A generic key/value preview is shown without noisy raw disclosure.
     expect(screen.getByText('status: filtered', { exact: false })).toBeTruthy();
-    expect(screen.getByTestId('tool-raw-toggle')).toBeTruthy();
+    expect(screen.queryByTestId('tool-raw-toggle')).toBeNull();
     // No backend-coupled card title is emitted.
     expect(screen.queryByText('records result')).toBeNull();
   });
@@ -78,12 +142,33 @@ describe('Transcript tool evidence', () => {
       />
     ));
 
-    // Detected as the `json` content type: generic preview + show raw. The path
-    // appears in the preview/raw, but there is no tool-name-derived "artifact
-    // result" title.
+    // Detected as the `json` content type: generic preview. The path appears in
+    // the preview, but there is no raw disclosure or tool-name-derived card.
     expect(screen.getByText('/tmp/clio-report/final_summary.md', { exact: false })).toBeTruthy();
-    expect(screen.getByTestId('tool-raw-toggle')).toBeTruthy();
+    expect(screen.queryByTestId('tool-raw-toggle')).toBeNull();
     expect(screen.queryByText('artifact result')).toBeNull();
+  });
+
+  it('keeps raw disclosure for genuinely long visible tool output', () => {
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={[
+          {
+            id: 'm-long-tool',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool_result',
+                output: Array.from({ length: 12 }, (_, i) => `line ${i + 1}: ${'x'.repeat(24)}`).join('\n'),
+              },
+            ],
+          },
+        ]}
+      />
+    ));
+
+    expect(screen.getByTestId('tool-raw-toggle')).toBeTruthy();
   });
 
   it('renders fs_propose_edit metadata results as reviewable diff chips', () => {

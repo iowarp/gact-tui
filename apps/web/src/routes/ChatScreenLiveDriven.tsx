@@ -136,7 +136,6 @@ export function ChatScreenLiveDriven(props: ChatScreenLiveDrivenProps) {
       streamStats={transcript.streamStats()}
       sessionCostUsd={transcript.costUsd()}
       sessionTokens={transcript.lastCompletion()?.tokens}
-      lastStopReason={transcript.lastCompletion()?.stop_reason}
       onOpenSettings={workspaceControls.openSettings}
       onAddRemote={props.onAddRemote}
       caps={props.backend.capabilities}

@@ -10,6 +10,7 @@ import type {
   SemanticEventPayload,
   UserQuestion,
 } from '@clio/core';
+import type { JSX } from 'solid-js';
 import { Client } from '@clio/core';
 import type { BackendHandle } from '../App.js';
 import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
@@ -74,6 +75,7 @@ export interface ChatConversationPaneProps {
   onPickPermMode?: (m: PermissionMode) => void | Promise<void>;
   onOpenSettings?: () => void;
   onAddRemote?: () => void;
+  renderContextFooter?: () => JSX.Element;
 }
 
 export function ChatConversationPane(props: ChatConversationPaneProps) {
@@ -140,6 +142,8 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
         onSpeakMessage={props.onSpeakMessage}
         onCopyMessagePermalink={props.onCopyMessagePermalink}
       />
+
+      {props.renderContextFooter?.()}
 
       <ChatConversationComposer
         backendUrl={props.backendUrl}

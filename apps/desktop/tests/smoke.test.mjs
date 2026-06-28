@@ -13,10 +13,10 @@ const root = resolve(__dirname, '..');
 
 test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
-  assert.equal(cfg.productName, 'CLIO Desktop');
-  assert.equal(cfg.identifier, 'ai.iowarp.clio.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build:clio/);
-  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev:clio/);
+  assert.equal(cfg.productName, 'GACT Desktop');
+  assert.equal(cfg.identifier, 'ai.iowarp.gact.desktop');
+  assert.match(cfg.build.beforeBuildCommand, /@clio\/web build/);
+  assert.match(cfg.build.beforeDevCommand, /@clio\/web dev/);
   assert.equal(cfg.build.frontendDist, '../../web/dist');
 });
 
@@ -80,16 +80,13 @@ test('default capability JSON is present', () => {
   assert.ok(Array.isArray(caps.permissions));
 });
 
-test('tauri.conf.json declares the clio-agent sidecar via externalBin', () => {
+test('tauri.conf.json is neutral and does not bundle a managed sidecar by default', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.ok(
     Array.isArray(cfg.bundle.externalBin),
-    'expected bundle.externalBin to be an array (Wave 0a)',
+    'expected bundle.externalBin to be an array',
   );
-  assert.ok(
-    cfg.bundle.externalBin.includes('binaries/clio-agent'),
-    'expected externalBin to include "binaries/clio-agent" (Wave 0a)',
-  );
+  assert.deepEqual(cfg.bundle.externalBin, []);
 });
 
 test('updater plugin config is present and consistent across variants', () => {

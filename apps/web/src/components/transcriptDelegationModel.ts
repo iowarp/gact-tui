@@ -84,6 +84,16 @@ export interface RoutingRow {
   source: string;
 }
 
+/** A child agent's structured hand-back to its parent. */
+export interface ReturnRow {
+  kind: 'return';
+  id: string;
+  depth: number;
+  agent: string;
+  parent: string;
+  text: string;
+}
+
 /** Any non-delegation, non-text part rendered by its own per-type view. */
 export interface PassthroughRow {
   kind: 'passthrough';
@@ -98,6 +108,7 @@ export type TurnRow =
   | ReasoningRow
   | ToolRow
   | RoutingRow
+  | ReturnRow
   | PassthroughRow;
 
 /** The clean ordered view-model for an assistant turn: a flat append-only log. */
@@ -120,6 +131,7 @@ interface PartLike {
   thought?: string;
   input?: unknown;
   content?: unknown;
+  output?: unknown;
   duration_ms?: number;
   selected_agent?: string;
   rationale?: string;
@@ -191,6 +203,40 @@ function summariseArgs(args: unknown): string {
     return `${k}: ${clip(val, 60)}`;
   });
   return clip(parts.join(' · '), 160);
+}
+
+function toolRowsFromHandoffMetadata(
+  tools: unknown,
+  agent: string,
+  depth: number,
+  baseId: string,
+): ToolRow[] {
+  if (!Array.isArray(tools)) return [];
+  const rows: ToolRow[] = [];
+  tools.forEach((tool, idx) => {
+    if (!tool || typeof tool !== 'object') return;
+    const rec = tool as Record<string, unknown>;
+    const resultStr = extractToolResultText(rec['result'] ?? rec['output']);
+    const analysis = analyzeToolResult(resultStr);
+    const callId = str(rec['call_id']) || str(rec['id']) || String(idx);
+    const duration = rec['duration_ms'];
+    rows.push({
+      kind: 'tool',
+      id: `tool-${baseId}-${callId}`,
+      depth,
+      agent,
+      thought: cleanProse(str(rec['thought']) || str(rec['reasoning'])),
+      name: str(rec['name']) || str(rec['tool_name']) || 'tool',
+      argsSummary: summariseArgs(rec['args'] ?? rec['input']),
+      content: analysis.content,
+      preview: analysis.preview,
+      result: analysis.full,
+      ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
+      ok: rec['ok'] !== false && rec['is_error'] !== true,
+      ...(typeof duration === 'number' ? { durationMs: duration } : {}),
+    });
+  });
+  return rows;
 }
 
 /**
@@ -334,6 +380,33 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       // doesn't actually name a distinct child (no delegation to show).
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
       const key = `${parent}->${agent}`;
+      if (stage === 'delegate.completed' || stage === 'completed') {
+        if (!seenDelegation.has(key)) {
+          seenDelegation.add(key);
+          rows.push({
+            kind: 'delegation',
+            id: `delegation-${id}`,
+            depth: depthOf(parent),
+            parent,
+            agent,
+            task:
+              cleanProse(str(part.metadata?.['question'])) ||
+              cleanProse(str(part.metadata?.['input'])) ||
+              dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+            status: str(part.status) || str(part.metadata?.['status']) || 'completed',
+          });
+        }
+        rows.push(...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id));
+        rows.push({
+          kind: 'return',
+          id: `return-${id}`,
+          depth: depthOf(agent),
+          agent,
+          parent,
+          text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+        });
+        continue;
+      }
       if (seenDelegation.has(key)) continue;
       seenDelegation.add(key);
       rows.push({
@@ -393,7 +466,9 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
 
     if (type === 'tool_result') {
       const callId = str(part.call_id) || id;
-      const resultStr = extractToolResultText(part.content ?? part.metadata?.['content']);
+      const resultStr = extractToolResultText(
+        part.content ?? part.output ?? part.metadata?.['content'] ?? part.metadata?.['output'],
+      );
       const analysis = analyzeToolResult(resultStr);
       const existing = toolByCall.get(callId);
       const durationMs =
@@ -447,12 +522,60 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
  */
 function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
   const seen = new Set<string>();
+  const priorLongChildTexts: string[] = [];
   return rows.filter((r) => {
     if (r.kind !== 'text') return true;
     const body = r.text.trim();
     if (!body) return true;
     if (seen.has(body)) return false;
+    if (r.agent === 'main' && isNearDuplicateChildAnswer(body, priorLongChildTexts)) {
+      return false;
+    }
     seen.add(body);
+    if (r.agent !== 'main' && body.length >= 500) priorLongChildTexts.push(body);
     return true;
   });
+}
+
+function isNearDuplicateChildAnswer(body: string, priorChildBodies: readonly string[]): boolean {
+  if (body.length < 500 || priorChildBodies.length === 0) return false;
+  const bodyTokens = normalizedAnswerTokens(body);
+  if (bodyTokens.size < 40) return false;
+  for (const prior of priorChildBodies) {
+    const priorTokens = normalizedAnswerTokens(prior);
+    if (priorTokens.size < 40) continue;
+    let intersection = 0;
+    for (const token of bodyTokens) {
+      if (priorTokens.has(token)) intersection += 1;
+    }
+    const smaller = Math.min(bodyTokens.size, priorTokens.size);
+    if (intersection / smaller >= 0.82) return true;
+  }
+  return false;
+}
+
+function normalizedAnswerTokens(text: string): Set<string> {
+  const normalized = text
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[a-z]:\\[^\s)`]+/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/[^a-z0-9_]+/g, ' ');
+  const stop = new Set([
+    'and',
+    'are',
+    'but',
+    'for',
+    'from',
+    'not',
+    'the',
+    'this',
+    'that',
+    'with',
+  ]);
+  return new Set(
+    normalized
+      .split(/\s+/)
+      .filter((token) => token.length >= 3 && !stop.has(token)),
+  );
 }

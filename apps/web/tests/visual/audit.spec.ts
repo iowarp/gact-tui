@@ -409,7 +409,7 @@ test.describe('CLIO audit-batch verification', () => {
     await expect(page.getByTestId('slash-palette')).toBeVisible({ timeout: 6_000 });
     const firstItem = page.locator('.slash-palette__item').first();
     await expect(firstItem).toHaveAttribute('data-testid', 'slash-palette-item-rail:doctor');
-    await expect(firstItem.locator('.slash-palette__cat')).toContainText('recent');
+    await expect(firstItem.locator('.slash-palette__cat')).toContainText(/recent/i);
     await page.screenshot({ path: shot('w3-palette-frecency'), fullPage: false });
     await close();
   });
