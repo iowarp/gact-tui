@@ -14,6 +14,7 @@
 #   aarch64-apple-darwin     -> darwin/arm64
 #   x86_64-apple-darwin      -> darwin/amd64
 #   x86_64-unknown-linux-gnu -> linux/amd64
+#   aarch64-unknown-linux-gnu -> linux/arm64
 #
 # Also probes the host for an actual `clio-agent-gact` binary and
 # writes `apps/desktop/src-tauri/sidecar.lock` with the resolved path
@@ -31,7 +32,7 @@ mkdir -p "$OUT"
 ### Supported target triples ###
 # macOS runners ship bash 3.2 which doesn't support associative arrays,
 # so the triple → (GOOS, GOARCH, ext) table is a plain case statement.
-ALL_TRIPLES="x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu"
+ALL_TRIPLES="x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu"
 
 triple_to_spec() {
   case "$1" in
@@ -39,6 +40,7 @@ triple_to_spec() {
     aarch64-apple-darwin)       echo "darwin  arm64 " ;;
     x86_64-apple-darwin)        echo "darwin  amd64 " ;;
     x86_64-unknown-linux-gnu)   echo "linux   amd64 " ;;
+    aarch64-unknown-linux-gnu)  echo "linux   arm64 " ;;
     *) echo "" ;;
   esac
 }
