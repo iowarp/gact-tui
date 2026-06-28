@@ -11,6 +11,7 @@
 #
 # Triple <-> GOOS/GOARCH map:
 #   x86_64-pc-windows-msvc   -> windows/amd64
+#   aarch64-pc-windows-msvc  -> windows/arm64
 #   aarch64-apple-darwin     -> darwin/arm64
 #   x86_64-apple-darwin      -> darwin/amd64
 #   x86_64-unknown-linux-gnu -> linux/amd64
@@ -32,11 +33,12 @@ mkdir -p "$OUT"
 ### Supported target triples ###
 # macOS runners ship bash 3.2 which doesn't support associative arrays,
 # so the triple → (GOOS, GOARCH, ext) table is a plain case statement.
-ALL_TRIPLES="x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu"
+ALL_TRIPLES="x86_64-pc-windows-msvc aarch64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu"
 
 triple_to_spec() {
   case "$1" in
     x86_64-pc-windows-msvc)     echo "windows amd64 .exe" ;;
+    aarch64-pc-windows-msvc)    echo "windows arm64 .exe" ;;
     aarch64-apple-darwin)       echo "darwin  arm64 " ;;
     x86_64-apple-darwin)        echo "darwin  amd64 " ;;
     x86_64-unknown-linux-gnu)   echo "linux   amd64 " ;;
