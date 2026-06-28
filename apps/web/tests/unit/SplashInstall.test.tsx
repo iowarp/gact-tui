@@ -185,10 +185,8 @@ describe('Splash first-run install (one swoop)', () => {
     // Tail of the installer output is surfaced for triage.
     expect(card.textContent).toContain('failed to build wheel');
     expect(card.textContent).toContain('exited with code 1');
-    // The manual one-liner is still present as the fallback. When the platform
-    // has an install recipe (jsdom does), the hint is the brand-free
-    // "install the backend manually and restart:" variant + the command block.
-    expect(card.textContent).toContain('install the backend manually');
+    // Manual connection remains the ultimate fallback.
+    expect(card.textContent).toContain('backend manually');
 
     // Retry re-runs the installer (one more swoop) and returns to the
     // installing view.
@@ -262,8 +260,8 @@ describe('Splash first-run install (one swoop)', () => {
       const card = screen.getByTestId('splash-install-failed');
       expect(card.textContent).toContain('repair');
       expect(card.textContent).toContain('repair blew up too');
-      // Manual one-liner remains the ultimate fallback.
-      expect(card.textContent).toContain('install the backend manually');
+      // Manual connection remains the ultimate fallback.
+      expect(card.textContent).toContain('backend manually');
     });
   });
 

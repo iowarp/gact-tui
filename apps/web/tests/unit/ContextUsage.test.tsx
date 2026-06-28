@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@solidjs/testing-library';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ContextState } from '@clio/core';
 import {
   autocompactMarkerPct,
@@ -10,6 +10,7 @@ import {
   usedTokensAbsolute,
 } from '../../src/components/ContextUsageModel.js';
 import { ContextUsageBar } from '../../src/components/ContextUsageBar.js';
+import { ContextFooter } from '../../src/components/ContextFooter.js';
 
 afterEach(cleanup);
 
@@ -226,5 +227,25 @@ describe('ContextUsageBar render', () => {
     ));
     expect(screen.getByTestId('context-usage-track')).toBeTruthy();
     expect(screen.queryByTestId('context-usage-marker')).toBeNull();
+  });
+});
+
+describe('ContextFooter', () => {
+  it('waits for a resolved scope before requesting context state', async () => {
+    const getContextState = vi.fn(async () => baseState());
+    render(() => (
+      <ContextFooter
+        sessionId="s1"
+        client={{
+          getContextState,
+          compactContext: vi.fn(),
+          agents: vi.fn(async () => ({ agents: [{ id: 'main', name: 'main', title: 'main' }] })),
+        }}
+      />
+    ));
+
+    expect(getContextState).not.toHaveBeenCalledWith('s1', undefined);
+    await screen.findByTestId('context-footer');
+    expect(getContextState).toHaveBeenCalledWith('s1', 'main');
   });
 });

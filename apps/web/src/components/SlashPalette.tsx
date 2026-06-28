@@ -31,15 +31,20 @@ export interface SlashPaletteProps {
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
-  { id: 'help', trigger: '/help', description: `Show what ${brand.name} can do`, category: 'meta' },
-  { id: 'doctor', trigger: '/doctor', description: 'Inspect backend health + integrations', category: 'meta' },
-  { id: 'agents', trigger: '/agents', description: 'List registered experts', category: 'discovery' },
-  { id: 'tools', trigger: '/tools', description: 'Browse MCP tool gateway', category: 'discovery' },
-  { id: 'inspect-hdf5', trigger: '/inspect hdf5', description: 'Inspect an HDF5 file', category: 'data' },
-  { id: 'inspect-parquet', trigger: '/inspect parquet', description: 'Inspect a Parquet file', category: 'data' },
-  { id: 'sessions', trigger: '/sessions', description: 'List recent sessions', category: 'navigation' },
-  { id: 'settings', trigger: '/settings', description: 'Open settings', category: 'meta' },
+  { id: 'help', trigger: '/help', description: `Show what ${brand.name} can do`, category: 'Help' },
+  { id: 'doctor', trigger: '/doctor', description: 'Inspect backend health + integrations', category: 'Diagnostics' },
+  { id: 'agents', trigger: '/agents', description: 'List registered experts', category: 'Catalog' },
+  { id: 'tools', trigger: '/tools', description: 'Browse MCP tool gateway', category: 'Catalog' },
+  { id: 'inspect-hdf5', trigger: '/inspect hdf5', description: 'Inspect an HDF5 file', category: 'Advanced' },
+  { id: 'inspect-parquet', trigger: '/inspect parquet', description: 'Inspect a Parquet file', category: 'Advanced' },
+  { id: 'settings', trigger: '/settings', description: 'Open settings', category: 'Settings' },
 ];
+
+interface CommandGroup {
+  category: string;
+  testid: string;
+  items: Array<{ command: SlashCommand; index: number }>;
+}
 
 /**
  * Cmd+K / Ctrl+K palette (Wave 4).
@@ -64,6 +69,20 @@ export function SlashPalette(props: SlashPaletteProps) {
       (c) => c.trigger,
       (c) => c.description,
     );
+  });
+
+  const groups = createMemo<CommandGroup[]>(() => {
+    const byCategory = new Map<string, CommandGroup>();
+    filtered().forEach((command, index) => {
+      const category = categoryLabel(command.category);
+      let group = byCategory.get(category);
+      if (!group) {
+        group = { category, testid: categoryTestId(category), items: [] };
+        byCategory.set(category, group);
+      }
+      group.items.push({ command, index });
+    });
+    return [...byCategory.values()];
   });
 
   // Refocus the input each time the palette opens, after the Show
@@ -122,27 +141,36 @@ export function SlashPalette(props: SlashPaletteProps) {
           data-testid="slash-palette-input"
         />
         <ul class="slash-palette__list" role="listbox">
-          <For each={filtered()}>
-            {(cmd, i) => (
-              <li
-                role="option"
-                aria-selected={i() === highlight()}
-                class={
-                  'slash-palette__item ' +
-                  (i() === highlight() ? 'is-active' : '')
-                }
-                onMouseEnter={() => setHighlight(i())}
-                onClick={() => props.onPick(cmd)}
-                data-testid={`slash-palette-item-${cmd.id}`}
-              >
-                <span class="slash-palette__trigger">{cmd.trigger}</span>
-                <span class="slash-palette__desc">{cmd.description}</span>
-                <Show when={cmd.category}>
-                  <span class={`slash-palette__cat slash-palette__cat--${cmd.category}`}>
-                    {cmd.category}
-                  </span>
-                </Show>
-              </li>
+          <For each={groups()}>
+            {(group) => (
+              <>
+                <li class="slash-palette__group" data-testid={`slash-palette-group-${group.testid}`}>
+                  {group.category}
+                </li>
+                <For each={group.items}>
+                  {(entry) => (
+                    <li
+                      role="option"
+                      aria-selected={entry.index === highlight()}
+                      class={
+                        'slash-palette__item ' +
+                        (entry.index === highlight() ? 'is-active' : '')
+                      }
+                      onMouseEnter={() => setHighlight(entry.index)}
+                      onClick={() => props.onPick(entry.command)}
+                      data-testid={`slash-palette-item-${entry.command.id}`}
+                    >
+                      <span class="slash-palette__trigger">{entry.command.trigger}</span>
+                      <span class="slash-palette__desc">{entry.command.description}</span>
+                      <span
+                        class={`slash-palette__cat slash-palette__cat--${(entry.command.category ?? 'meta').toLowerCase()}`}
+                      >
+                        {categoryLabel(entry.command.category)}
+                      </span>
+                    </li>
+                  )}
+                </For>
+              </>
             )}
           </For>
           <Show when={filtered().length === 0}>
@@ -160,3 +188,36 @@ export function SlashPalette(props: SlashPaletteProps) {
 }
 
 export { DEFAULT_COMMANDS };
+
+function categoryLabel(category: string | undefined): string {
+  switch ((category ?? '').toLowerCase()) {
+    case 'recent':
+      return 'Recent';
+    case 'jump':
+    case 'navigation':
+      return 'Navigation';
+    case 'settings':
+      return 'Settings';
+    case 'perm':
+      return 'Permissions';
+    case 'view':
+      return 'View';
+    case 'data':
+    case 'advanced':
+      return 'Advanced';
+    case 'discovery':
+    case 'catalog':
+      return 'Catalog';
+    case 'meta':
+    case 'help':
+      return 'Help';
+    case 'action':
+      return 'Actions';
+    default:
+      return category || 'Commands';
+  }
+}
+
+function categoryTestId(category: string): string {
+  return category.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'Commands';
+}

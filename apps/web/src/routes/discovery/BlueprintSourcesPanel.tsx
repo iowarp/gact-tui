@@ -3,12 +3,18 @@
  */
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { brand } from '@brand';
-import type { BlueprintSource } from '@clio/core';
+import type { AgentBlueprintsResult, BlueprintSource } from '@clio/core';
 import { runAsyncAction } from '../../asyncAction.js';
 import { Icon } from '../../components/Icon.js';
 import type { ClientPageProps } from './RoadmapTypes.js';
-import { buildAddBlueprintSourceInput } from './BlueprintSourcesPanelModel.js';
+import {
+  blueprintSourceGroups,
+  buildAddBlueprintSourceInput,
+  type BlueprintSourceGroup,
+} from './BlueprintSourcesPanelModel.js';
 import { BlueprintSourceRow } from './BlueprintSourceRow.js';
+
+type AgentBlueprintSummary = AgentBlueprintsResult['blueprints'][number];
 
 /**
  * Agent blueprint source management.
@@ -16,11 +22,15 @@ import { BlueprintSourceRow } from './BlueprintSourceRow.js';
  * Sources are the git/local registries clio scans for installable blueprints,
  * distinct from the installed blueprints listed on the host page.
  */
-export function BlueprintSourcesPanel(props: ClientPageProps) {
+export function BlueprintSourcesPanel(props: ClientPageProps & {
+  blueprints: AgentBlueprintSummary[];
+  onInstallSource: (source: string, ref?: string) => void;
+}) {
   const [data, { refetch }] = createResource(() =>
     props.client.blueprintSources().catch(() => ({ sources: [] as BlueprintSource[] })),
   );
   const sources = () => data()?.sources ?? [];
+  const groups = () => blueprintSourceGroups(sources(), props.blueprints);
 
   const [source, setSource] = createSignal('');
   const [ref, setRef] = createSignal('');
@@ -74,32 +84,47 @@ export function BlueprintSourcesPanel(props: ClientPageProps) {
     }
   }
 
-  async function remove(s: BlueprintSource) {
-    if (!confirm(`Remove blueprint source "${s.name || s.source}"?`)) return;
+  async function remove(group: BlueprintSourceGroup) {
+    const source = group.source;
+    if (!source) return;
+    if (!confirm(`Remove blueprint source "${group.name || group.sourceText}"?`)) return;
     await runSourceAction(async () => {
-      await props.client.deleteBlueprintSource(s.id);
+      await props.client.deleteBlueprintSource(source.id);
     });
   }
 
   return (
     <section class="rmp__panel" data-testid="blueprint-sources-panel">
       <header class="rmp__panel-head">
-        <h2 class="rmp__panel-title">Sources</h2>
-        <span class="rmp__panel-note">
-          git / local registries the backend scans for installable blueprints
-        </span>
+        <div>
+          <h2 class="rmp__panel-title">Sources</h2>
+          <span class="rmp__panel-note">
+            git / local registries the backend scans for installable blueprints
+          </span>
+        </div>
+        <button
+          type="button"
+          class="bps__btn"
+          title="Install from a manual path or git URL"
+          onClick={() => props.onInstallSource('')}
+          data-testid="blueprint-manual-install-toggle"
+        >
+          <Icon name="plus" size={12} />
+          <span>Manual</span>
+        </button>
       </header>
 
       <Show
-        when={!data.loading && sources().length === 0}
+        when={!data.loading && groups().length === 0}
         fallback={
           <ul class="rmp__list" data-testid="blueprint-sources-list">
-            <For each={sources()}>
-              {(s) => (
+            <For each={groups()}>
+              {(group) => (
                 <BlueprintSourceRow
-                  source={s}
-                  refreshing={!!refreshing()[s.id]}
+                  group={group}
+                  refreshing={group.source ? !!refreshing()[group.source.id] : false}
                   onRefresh={refresh}
+                  onInstall={props.onInstallSource}
                   onRemove={remove}
                 />
               )}

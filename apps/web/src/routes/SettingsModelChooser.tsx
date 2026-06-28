@@ -41,7 +41,9 @@ export function SettingsModelChooser(props: SettingsModelChooserProps) {
         <ProviderRow
           presets={props.presets()}
           selectedId={state.selectedId()}
+          busy={state.busy()}
           onSelectedId={state.setSelectedId}
+          onAuthenticate={(id) => void state.authenticatePreset(id)}
         />
 
         <ModelRow

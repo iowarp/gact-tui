@@ -5,7 +5,6 @@
 import { Show } from 'solid-js';
 import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
 import { formatCostUsd, formatDurationSeconds } from '../formatters.js';
-import { Icon } from '../components/Icon.js';
 import type { StreamStats } from '../live.js';
 import { humanTokens } from './chatScreenUtils.js';
 import type { SettingsSection } from './SettingsShell.js';
@@ -13,7 +12,6 @@ import type { SettingsSection } from './SettingsShell.js';
 export interface ChatSecondaryChipsProps {
   sessionCostUsd?: number;
   sessionTokens?: { input?: number; output?: number; total?: number };
-  lastStopReason?: string;
   streamStats?: StreamStats | null;
   selectedModelId?: string;
   models?: ModelOption[];
@@ -40,16 +38,6 @@ export function ChatSecondaryChips(props: ChatSecondaryChipsProps) {
           {humanTokens(props.sessionTokens)}
         </span>
       </Show>
-      <Show when={props.lastStopReason}>
-        <span
-          class={
-            'chat__meta-item ' + (props.lastStopReason === 'error' ? 'chat__meta-item--err' : '')
-          }
-          data-testid="stop-reason-chip"
-        >
-          {props.lastStopReason}
-        </span>
-      </Show>
       <Show
         when={
           props.streamStats &&
@@ -71,24 +59,6 @@ export function ChatSecondaryChips(props: ChatSecondaryChipsProps) {
             ~{props.streamStats?.tokensPerSec} tok/s
           </Show>
         </span>
-      </Show>
-      <Show when={props.selectedModelId && props.models?.length}>
-        {(() => {
-          const model = props.models!.find((candidate) => candidate.id === props.selectedModelId);
-          if (!model) return null;
-          return (
-            <button
-              type="button"
-              class="chat__meta-item chat__meta-item--model chat__meta-item--clickable"
-              data-testid="model-chip"
-              title={`${model.providerLabel} · ${model.modelId} — click for Settings → Models`}
-              onClick={() => props.onOpenSettings?.('providers')}
-            >
-              <Icon name="sparkle" size={10} />
-              {model.modelId}
-            </button>
-          );
-        })()}
       </Show>
       <Show when={props.permMode && props.permMode !== 'ask'}>
         <button

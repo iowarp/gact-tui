@@ -2,7 +2,7 @@
  * Renders a text part as markdown (with code blocks) inside a transcript
  * message.
  */
-import { For, Show } from 'solid-js';
+import { For, Show, createMemo } from 'solid-js';
 import type { Part } from '@clio/core';
 import { InlineMarkdown } from './InlineMarkdown.js';
 import { CommandResultCard, commandResultInfo } from './TranscriptToolParts.js';
@@ -16,11 +16,11 @@ export function TextPartView(props: {
   matchBaseIndex?: number;
   showCursor?: boolean;
 }) {
-  const text = props.part.text ?? '';
-  const commandResult = commandResultInfo(props.part, text);
-  if (commandResult && !props.searchQuery?.trim()) {
+  const text = () => props.part.text ?? '';
+  const commandResult = createMemo(() => commandResultInfo(props.part, text()));
+  if (commandResult() && !props.searchQuery?.trim()) {
     return (
-      <CommandResultCard command={commandResult.command} text={commandResult.text}>
+      <CommandResultCard command={commandResult()!.command} text={commandResult()!.text}>
         <Show when={props.showCursor}>
           <span class="trx-cursor" aria-hidden>
             ▌
@@ -29,16 +29,16 @@ export function TextPartView(props: {
       </CommandResultCard>
     );
   }
-  const workflow = splitWorkflowState(text);
-  if (workflow && !props.searchQuery?.trim()) {
+  const workflow = createMemo(() => splitWorkflowState(text()));
+  if (workflow() && !props.searchQuery?.trim()) {
     return (
       <div class="trx-text">
-        <Show when={workflow.before.trim()}>
-          <InlineMarkdown text={workflow.before.trim()} />
+        <Show when={workflow()!.before.trim()}>
+          <InlineMarkdown text={workflow()!.before.trim()} />
         </Show>
-        <WorkflowStateCard state={workflow.state} raw={workflow.raw} />
-        <Show when={workflow.after.trim()}>
-          <InlineMarkdown text={workflow.after.trim()} />
+        <WorkflowStateCard state={workflow()!.state} raw={workflow()!.raw} />
+        <Show when={workflow()!.after.trim()}>
+          <InlineMarkdown text={workflow()!.after.trim()} />
         </Show>
         <Show when={props.showCursor}>
           <span class="trx-cursor" aria-hidden>
@@ -52,7 +52,7 @@ export function TextPartView(props: {
   if (!q) {
     return (
       <div class="trx-text">
-        <InlineMarkdown text={text} />
+        <InlineMarkdown text={text()} />
         <Show when={props.showCursor}>
           <span class="trx-cursor" aria-hidden>
             ▌
@@ -64,7 +64,7 @@ export function TextPartView(props: {
   return (
     <div class="trx-text">
       <HighlightedText
-        text={text}
+        text={text()}
         query={q}
         messageId={props.messageId ?? ''}
         baseIndex={props.matchBaseIndex ?? 0}

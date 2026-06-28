@@ -13,35 +13,61 @@ import {
   presetTone,
   type ModelOption,
 } from './SettingsModelChooserModel.js';
+import './settings-model-chooser.css';
 
 export interface ProviderRowProps {
   presets: LmPreset[];
   selectedId: string;
+  busy: boolean;
   onSelectedId: (value: string) => void;
+  onAuthenticate: (value: string) => void;
 }
 
 export function ProviderRow(props: ProviderRowProps) {
   return (
     <ListRow
       testid="models-provider-row"
-      label="Provider"
-      description="The service that hosts the model."
+      label="Providers"
+      description="Pick a provider to see its setup state, then choose one of its models."
       control={
-        <select
-          class="sx-select"
-          data-testid="models-provider-select"
-          value={props.selectedId}
-          onChange={(e) => props.onSelectedId(e.currentTarget.value)}
-        >
+        <div class="models-provider-list" data-testid="models-provider-list">
           <For each={props.presets}>
             {(p) => (
-              <option value={p.id}>
-                {p.label}
-                {p.is_authenticated ? '' : ' — needs setup'}
-              </option>
+              <div
+                class="models-provider-list__row"
+                classList={{
+                  'is-active': props.selectedId === p.id,
+                  'is-disabled': !p.is_authenticated,
+                }}
+                data-testid={`models-provider-${p.id}`}
+              >
+                <button
+                  type="button"
+                  class="models-provider-list__btn"
+                  disabled={props.busy}
+                  aria-pressed={props.selectedId === p.id}
+                  onClick={() => props.onSelectedId(p.id)}
+                >
+                  <span class="models-provider-list__label">{p.label}</span>
+                  <Pill tone={presetTone(p)}>
+                    {p.is_authenticated ? 'ready' : 'awaiting configuration'}
+                  </Pill>
+                </button>
+                <Show when={!p.is_authenticated && (p.auth_method ?? 'none') === 'oauth'}>
+                  <button
+                    type="button"
+                    class="dp__card-btn"
+                    data-testid={`models-provider-setup-${p.id}`}
+                    disabled={props.busy}
+                    onClick={() => props.onAuthenticate(p.id)}
+                  >
+                    Sign in
+                  </button>
+                </Show>
+              </div>
             )}
           </For>
-        </select>
+        </div>
       }
     />
   );
@@ -59,7 +85,7 @@ export function ModelRow(props: ModelRowProps) {
   return (
     <ListRow
       testid="models-model-row"
-      label="Model"
+      label={props.selected ? `Models for ${props.selected.label}` : 'Models'}
       description={
         props.selected?.supports_live_catalog
           ? 'Live list discovered from the provider.'

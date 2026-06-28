@@ -3,11 +3,27 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 )
+
+func writeFakeRenderer(t *testing.T, dir string, name string, body string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		path := filepath.Join(dir, name+".cmd")
+		if err := os.WriteFile(path, []byte("@echo off\r\n"+body+"\r\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestFileViewerMarkdownDetailOffersRenderedAndRawModes(t *testing.T) {
 	root := t.TempDir()
@@ -106,10 +122,7 @@ func TestFileViewerLargeCSVStreamsTablePreview(t *testing.T) {
 func TestFileViewerImageDetailRendersWithChafaWhenAvailable(t *testing.T) {
 	root := t.TempDir()
 	bin := t.TempDir()
-	chafaPath := filepath.Join(bin, "chafa")
-	if err := os.WriteFile(chafaPath, []byte("#!/bin/sh\nprintf 'IMAGE PREVIEW\\n@@@\\n'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeFakeRenderer(t, bin, "chafa", "echo IMAGE PREVIEW\r\necho @@@")
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	path := filepath.Join(root, "plot.png")
 	if err := os.WriteFile(path, []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a}, 0o644); err != nil {
@@ -149,10 +162,7 @@ func TestFileViewerExternalRendererOutputUsesSharedTruncation(t *testing.T) {
 func TestFileViewerEnterOnRightSidebarImageOpensRenderedPreview(t *testing.T) {
 	root := t.TempDir()
 	bin := t.TempDir()
-	chafaPath := filepath.Join(bin, "chafa")
-	if err := os.WriteFile(chafaPath, []byte("#!/bin/sh\nprintf 'IMAGE PREVIEW FROM ENTER\\n'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeFakeRenderer(t, bin, "chafa", "echo IMAGE PREVIEW FROM ENTER")
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	if err := os.WriteFile(filepath.Join(root, "plot.png"), []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a}, 0o644); err != nil {
 		t.Fatal(err)
@@ -207,9 +217,7 @@ func TestFileViewerEnterOnRightSidebarLargeCSVOpensTablePreview(t *testing.T) {
 func TestFileViewerPDFDetailUsesInstalledTextRenderer(t *testing.T) {
 	root := t.TempDir()
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "pdftotext"), []byte("#!/bin/sh\nprintf 'PDF PREVIEW\\npage text\\n'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeFakeRenderer(t, bin, "pdftotext", "echo PDF PREVIEW\r\necho page text")
 	t.Setenv("PATH", bin)
 	path := filepath.Join(root, "report.pdf")
 	if err := os.WriteFile(path, []byte("%PDF-1.4\n"), 0o644); err != nil {
@@ -230,12 +238,8 @@ func TestFileViewerPDFDetailUsesInstalledTextRenderer(t *testing.T) {
 func TestFileViewerScientificBinaryDetailUsesAvailableRenderer(t *testing.T) {
 	root := t.TempDir()
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "h5ls"), []byte("#!/bin/sh\nprintf '/data Dataset {10, 3}\\n'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(bin, "python3"), []byte("#!/bin/sh\nprintf 'PYTHON SCIENCE PREVIEW\\nrows: 20\\n'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeFakeRenderer(t, bin, "h5ls", "echo /data Dataset {10, 3}")
+	writeFakeRenderer(t, bin, "python3", "echo PYTHON SCIENCE PREVIEW\r\necho rows: 20")
 	t.Setenv("PATH", bin)
 	h5Path := filepath.Join(root, "sample.h5")
 	parquetPath := filepath.Join(root, "sample.parquet")

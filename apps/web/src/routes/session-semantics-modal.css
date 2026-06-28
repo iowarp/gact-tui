@@ -50,7 +50,8 @@
   font-size: 12px;
 }
 
-.semantics__field select {
+.semantics__field select,
+.semantics__field input {
   width: 100%;
   background: var(--color-bg);
   border: 1px solid var(--color-border-30);
@@ -60,7 +61,8 @@
   outline: none;
 }
 
-.semantics__field select:focus {
+.semantics__field select:focus,
+.semantics__field input:focus {
   border-color: var(--color-accent-cyan);
 }
 

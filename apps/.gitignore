@@ -23,3 +23,4 @@ playwright/.cache/
 
 # Embedding agent brand override (points brandingRoot at the agent repo)
 brand.config.local.json
+.generated-branding/

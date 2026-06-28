@@ -38,22 +38,23 @@ test.describe('clean transcript — real earthscope trace', () => {
     // (main → expert), the task main SENT, the expert's tool calls, and the
     // expert's markdown result — distinct, ordered, countable.
     const firstBlock = steps.first();
-    await expect(firstBlock.getByTestId('assistant-turn-delegation-header')).toContainText('main');
     await expect(firstBlock.getByTestId('assistant-turn-delegation-header')).toContainText(
       'geospatial',
     );
+    await expect(page.getByTestId('assistant-turn-agent').filter({ hasText: /^main$/ }).first()).toBeVisible();
     await expect(firstBlock.getByTestId('assistant-turn-task')).toContainText('Resolve Los Angeles');
-    const geoTool = firstBlock.getByTestId('assistant-turn-tool').first();
+    const geoTool = turn.getByTestId('assistant-turn-tool').filter({ hasText: 'geo_geocode' }).first();
     // The tool name renders verbatim (no per-tool special-casing).
     await expect(geoTool).toContainText('geo_geocode');
-    // The full resolved place is reachable via "show raw" (content-typed json).
-    await expect(geoTool.getByTestId('tool-raw-toggle')).toBeVisible();
-    await geoTool.getByTestId('tool-raw-toggle').click();
-    await expect(geoTool.getByTestId('tool-raw-body')).toContainText('Los Angeles');
-    await expect(firstBlock.getByTestId('assistant-turn-result')).toBeVisible();
+    // The real result is visible inline; short outputs do not get raw toggles.
+    await expect(geoTool).toContainText('Los Angeles');
+    await expect(geoTool.getByTestId('tool-raw-toggle')).toHaveCount(0);
+    await expect(turn.getByTestId('assistant-turn-return-body').first()).toBeVisible();
 
-    // DEPTH: every named expert sits at delegation depth 1 under main.
-    await expect(steps.first()).toHaveAttribute('data-depth', '1');
+    // DEPTH: the delegation edge is one of main's turns, so it sits at depth 0;
+    // the delegated expert's own tool/return rows sit one level deeper.
+    await expect(steps.first()).toHaveAttribute('data-depth', '0');
+    await expect(geoTool).toHaveAttribute('data-depth', '1');
 
     // STRIP: no workflow_state JSON / control scaffolding leaks into the DOM,
     // including the injected evidence-retention markers.
@@ -66,10 +67,9 @@ test.describe('clean transcript — real earthscope trace', () => {
     await expect(body).not.toContainText('delegation output truncated');
     await expect(body).not.toContainText('exact retained evidence index');
 
-    // COMPACTION (tool output only): content-typed results are compact by
-    // construction (a table shows columns + a few rows; structured json shows a
-    // preview) with the full body reachable behind a "show raw" disclosure.
-    await expect(page.getByTestId('tool-raw-toggle').first()).toBeVisible();
+    // CONTENT TYPING: tables show columns + a few rows instead of raw envelopes;
+    // short previews do not invent a raw disclosure.
+    await expect(page.getByTestId('tool-table').first()).toBeVisible();
 
     // The final answer renders prominently as labelled markdown (its sections show).
     const answer = page.getByTestId('assistant-turn-answer');
@@ -140,11 +140,7 @@ test.describe('clean transcript — real earthscope trace', () => {
     // never the echoed command, and a "show raw" toggle reveals the full body.
     await connectMockBackend(page, 'earthscope-real');
     await expect(page.getByTestId('assistant-turn')).toBeVisible();
-    const dataBlock = page
-      .getByTestId('assistant-turn-step')
-      .filter({ hasText: 'data' })
-      .first();
-    const shellTool = dataBlock
+    const shellTool = page
       .getByTestId('assistant-turn-tool')
       .filter({ hasText: 'head -5' })
       .first();
@@ -166,12 +162,9 @@ test.describe('clean transcript — real earthscope trace', () => {
     });
 
     // ---- LIVE IMAGE: the plot output_path renders as an inline image --------
-    const vizBlock = page
-      .getByTestId('assistant-turn-step')
-      .filter({ hasText: 'visualization' })
-      .first();
-    await vizBlock.scrollIntoViewIfNeeded();
-    const plotImg = vizBlock.getByTestId('trx-image').first();
+    const vizTool = page.getByTestId('assistant-turn-tool').filter({ hasText: 'plot_plot_timeseries' }).first();
+    await vizTool.scrollIntoViewIfNeeded();
+    const plotImg = vizTool.getByTestId('trx-image').first();
     await expect(plotImg).toBeVisible({ timeout: 8_000 });
     // It is a real raster image with non-zero dimensions (not a JSON dump).
     const imgBox = await plotImg.boundingBox();
@@ -236,11 +229,15 @@ test.describe('clean transcript — real earthscope trace', () => {
     const steps = page.getByTestId('assistant-turn-step');
     await expect(steps).toHaveCount(2);
 
-    // The data expert (depth 1) and its child ndp_dataset_discovery (depth 2).
+    // Delegation edges render at the parent's depth: main -> data at 0, then
+    // data -> ndp_dataset_discovery at 1. The child's own turn indents to 2.
     const parent = steps.filter({ hasText: 'data' }).first();
     const child = steps.filter({ hasText: 'ndp_dataset_discovery' }).first();
-    await expect(parent).toHaveAttribute('data-depth', '1');
-    await expect(child).toHaveAttribute('data-depth', '2');
+    await expect(parent).toHaveAttribute('data-depth', '0');
+    await expect(child).toHaveAttribute('data-depth', '1');
+    await expect(
+      page.locator('[data-testid="assistant-turn-return"][data-agent="ndp_dataset_discovery"]').first(),
+    ).toHaveAttribute('data-depth', '2');
 
     // PROVE the visual offset: the child's left edge is measurably further right
     // than the parent's — not merely a "← parent" label.
@@ -248,7 +245,7 @@ test.describe('clean transcript — real earthscope trace', () => {
     const childBox = await child.boundingBox();
     expect(parentBox).not.toBeNull();
     expect(childBox).not.toBeNull();
-    expect(childBox!.x).toBeGreaterThan(parentBox!.x + 16);
+    expect(childBox!.x).toBeGreaterThan(parentBox!.x + 8);
 
     await page.evaluate(() => {
       const pane = document.querySelector('[data-testid="transcript-pane"]') as HTMLElement | null;

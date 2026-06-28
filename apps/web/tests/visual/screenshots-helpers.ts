@@ -35,13 +35,18 @@ export async function connectRealBackend(page: Page): Promise<void> {
   await page.route('**/v1/**', async (route) => {
     // SSE responses are unbounded, so route.fetch() would hang reading
     // the body. Let those pass through and only shim finite JSON endpoints.
-    if (route.request().url().includes('/events')) {
-      await route.continue();
-      return;
+    try {
+      if (route.request().url().includes('/events')) {
+        await route.continue();
+        return;
+      }
+      const resp = await route.fetch();
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await route.fulfill({ response: resp, headers });
+    } catch (err) {
+      if (page.isClosed()) return;
+      throw err;
     }
-    const resp = await route.fetch();
-    const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-    await route.fulfill({ response: resp, headers });
   });
   await page.goto('/?route=connect');
   await page.getByTestId('connect-url').fill(REAL_BACKEND);
@@ -59,6 +64,7 @@ export async function withRealBackendPage<T>(
     await connectRealBackend(page);
     return await run(page);
   } finally {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
     await ctx.close();
   }
 }

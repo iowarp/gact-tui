@@ -257,6 +257,16 @@
   padding: 6px 8px;
 }
 
+.trx-tool__plain {
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  color: var(--color-text);
+}
+
 /* Tool output rendered AS MARKDOWN (a prose/markdown content type). */
 .trx-tool__markdown {
   font-size: var(--trx-body);
@@ -659,4 +669,45 @@
 }
 .trx-row__routing-src {
   opacity: 0.8;
+}
+
+.trx-row--text,
+.trx-row--reason {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 0;
+}
+.trx-row--text .trx-row__head,
+.trx-row--reason .trx-row__head {
+  grid-column: 1;
+  grid-row: 1;
+}
+.trx-row--text .trx-row__body,
+.trx-row--reason .trx-row__body {
+  grid-column: 2;
+  grid-row: 1;
+  margin-left: 0;
+}
+.trx-row[data-testid='assistant-turn-answer'] {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 6px;
+}
+.trx-row[data-testid='assistant-turn-answer'] .trx-row__head {
+  grid-column: 1;
+  grid-row: 1;
+}
+.trx-row[data-testid='assistant-turn-answer'] .trx-row__body {
+  grid-column: 1;
+  grid-row: 2;
+  margin-left: 18px;
+}
+.trx-row--return {
+  gap: 4px;
+}
+.trx-row__marker--return {
+  color: var(--color-muted);
+}
+.trx-row__body--return {
+  color: var(--color-muted);
 }

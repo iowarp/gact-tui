@@ -124,11 +124,11 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     return created;
   }
 
-  async function newEmptySession(selection?: SessionSemanticsSelection) {
+  async function newEmptySession(selection?: SessionSemanticsSelection, title = 'New session') {
     try {
-      await createSessionWithSemantics('New session', selection);
+      await createSessionWithSemantics(title, selection);
     } catch (error) {
-      options.failToast('Could not create session', error, () => void newEmptySession(selection));
+      options.failToast('Could not create session', error, () => void newEmptySession(selection, title));
       throw error;
     }
   }

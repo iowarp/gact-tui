@@ -11,6 +11,7 @@
     "build:clio": "node scripts/with-brand.mjs clio build",
     "build:gact": "node scripts/with-brand.mjs gact build",
     "preview": "vite preview --port 4173",
+    "demo:earthscope-render": "node scripts/earthscope-render-demo.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

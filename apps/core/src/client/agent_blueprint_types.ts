@@ -12,6 +12,7 @@ export interface InstallAgentBlueprintInput {
   source?: string;
   path?: string;
   url?: string;
+  ref?: string;
   scope?: string;
   workspace_id?: string;
 }

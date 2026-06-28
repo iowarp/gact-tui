@@ -39,18 +39,36 @@ export function ToolResultView(props: {
 }) {
   const content = () => props.content;
   const [showRaw, setShowRaw] = createSignal(false);
+  const shouldCollapse = (text: string) => isLongText(text, TOOL_RESULT_THRESHOLD);
+  const renderedOutputIsCollapsed = () => {
+    const current = content();
+    switch (current.kind) {
+      case 'text':
+        return shouldCollapse(current.text);
+      case 'json':
+        return shouldCollapse(current.preview);
+      case 'markdown':
+        return shouldCollapse(current.text);
+      default:
+        return false;
+    }
+  };
   const hasRaw = () => {
     const full = props.raw.trim();
-    return full.length > 0 && full !== props.preview.trim() && content().kind !== 'image';
+    return (
+      full.length > 0 &&
+      full !== props.preview.trim() &&
+      content().kind !== 'image' &&
+      renderedOutputIsCollapsed()
+    );
   };
   return (
     <>
       <Switch
         fallback={
-          <CollapsibleText
+          <TextToolOutput
             text={(content() as { kind: 'text'; text: string }).text}
-            threshold={TOOL_RESULT_THRESHOLD}
-            plain
+            collapse={shouldCollapse((content() as { kind: 'text'; text: string }).text)}
           />
         }
       >
@@ -80,7 +98,7 @@ export function ToolResultView(props: {
         </Match>
         <Match when={content().kind === 'json' ? (content() as { kind: 'json'; preview: string }) : null}>
           {(json) => (
-            <CollapsibleText text={json().preview} threshold={TOOL_RESULT_THRESHOLD} plain />
+            <TextToolOutput text={json().preview} collapse={shouldCollapse(json().preview)} />
           )}
         </Match>
       </Switch>
@@ -105,6 +123,24 @@ export function ToolResultView(props: {
       </Show>
     </>
   );
+}
+
+function TextToolOutput(props: { text: string; collapse: boolean }) {
+  return (
+    <Show
+      when={props.collapse}
+      fallback={<pre class="trx-tool__plain" data-testid="tool-text">{props.text}</pre>}
+    >
+      <CollapsibleText text={props.text} threshold={TOOL_RESULT_THRESHOLD} plain />
+    </Show>
+  );
+}
+
+function isLongText(text: string, threshold: number): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const lines = trimmed.split('\n').length;
+  return lines > threshold || trimmed.length > 520;
 }
 
 /** A unified-diff body with +/- line coloring (RENDERING_SPEC §4). */

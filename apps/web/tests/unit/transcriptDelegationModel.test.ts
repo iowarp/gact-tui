@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Part } from '@clio/core';
 import { buildAssistantTurnModel, type TurnRow } from '../../src/components/transcriptDelegationModel.js';
+import { analyzeToolResult } from '../../src/components/toolResultPreview.js';
 
 /** Clean-stream part factories (the 4-atom ReAct wire: text / handoff / tool). */
 const text = (id: string, agent: string, t: string): Part =>
@@ -76,6 +77,26 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     expect(delegations[0]).toMatchObject({ parent: 'main', agent: 'geospatial', task: 'task' });
   });
 
+  it('renders explicit child return handoffs from completed delegation events', () => {
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output_summary: 'Region resolved and ready.' },
+      } as unknown as Part,
+    ];
+    const rows = buildAssistantTurnModel(parts)!.rows;
+    const returns = rows.filter((r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return');
+    expect(returns).toEqual([
+      expect.objectContaining({
+        agent: 'geospatial',
+        parent: 'main',
+        depth: 1,
+        text: 'Region resolved and ready.',
+      }),
+    ]);
+  });
+
   it('PAIRS a tool_call with its tool_result by call_id into one tool row', () => {
     const parts = [
       handoff('h', 'main', 'geo', 'delegate.started'),
@@ -141,6 +162,53 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     expect(textRows[0]!.agent).toBe('geospatial');
   });
 
+  it('DEDUPES a near-repeated parent final answer with corrupted Windows paths', () => {
+    const synthesisAnswer = `
+### Region
+Los Angeles, California. Center: 34.0536909 N, 118.242766 W; 50 km search radius.
+
+### Station selected
+Station **MTA1** selected from 72 ranked EarthScope GNSS candidates.
+
+### Data resource
+- Staged CSV: \`D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.CI.LY_.30.csv\`
+- File size: 50.4 MB
+- Total rows: 250,000
+- Source URL: https://ds2.datacollaboratory.org/Earthscope_api_dec2024/raw_csv/MTA1.CI.LY_.30.csv
+- Status: analysis_ready
+
+### Profile evidence
+Profiling analyzed 5,000 rows. East, North, and Up displacement ranges were present.
+
+### Visualization
+- PNG timeseries plot: \`D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.png\`
+
+### Freshness, coverage & provenance limitations
+The profile is scan-limited. Full-file cadence, duration, gap structure, and multi-station temporal alignment remain unverified.
+`;
+    const parentCopy = synthesisAnswer
+      .replace(
+        'D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.CI.LY_.30.csv',
+        'D:\\Libraries\\Documents\\projects\\earthscope-web-check\\D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.CI.LY_.30.csv',
+      )
+      .replace(
+        'https://ds2.datacollaboratory.org/Earthscope_api_dec2024/raw_csv/MTA1.CI.LY_.30.csv',
+        'https://ds2.datacollaboratory.org/Earthscope_api_dec2024/raw_csv/D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.CI.LY_.30.csv',
+      );
+    const parts = [
+      handoff('h', 'main', 'synthesis', 'delegate.started'),
+      text('synthesis-answer', 'synthesis', synthesisAnswer),
+      handoff('done', 'main', 'synthesis', 'delegate.completed'),
+      handoff('res', '', 'main', 'parent.resumed'),
+      text('main-copy', 'main', parentCopy),
+    ];
+    const textRows = buildAssistantTurnModel(parts)!.rows.filter(
+      (r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text',
+    );
+    expect(textRows).toHaveLength(1);
+    expect(textRows[0]!.agent).toBe('synthesis');
+  });
+
   it('keeps every row keyed by a stable, unique id', () => {
     const parts = [
       handoff('h1', 'main', 'geospatial', 'delegate.started'),
@@ -162,6 +230,28 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
     expect(textRow.agent).toBe('geospatial');
     expect(textRow.text).toContain('Los Angeles');
+  });
+
+  it('strips bare progress scaffolding from text rows', () => {
+    const rows = buildAssistantTurnModel([
+      handoff('h', 'main', 'data', 'delegate.started'),
+      text('t', 'data', 'In progress: acquiring data.\n\nCompleted:\n- catalog staged'),
+    ])!.rows;
+    const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
+    expect(textRow.text).toBe('Completed:\n- catalog staged');
+  });
+
+  it('strips generated parenthetical routing/status scaffolding from text rows', () => {
+    const rows = buildAssistantTurnModel([
+      handoff('h', 'main', 'data', 'delegate.started'),
+      text(
+        't',
+        'main',
+        '(No user-facing answer yet - work is delegated. Awaiting child expert evidence.)\n\n(Orchestration in progress - awaiting visualization and synthesis results.)\n\nRouting complete.',
+      ),
+    ])!.rows;
+    const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
+    expect(textRow.text).toBe('Routing complete.');
   });
 
   it('unwraps a content-block tool_result envelope to the real output text', () => {
@@ -201,5 +291,40 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
       'tool',
       'text',
     ]);
+  });
+});
+
+describe('tool result previews', () => {
+  it('surfaces nested dataset/resource labels before scalar counters', () => {
+    const result = analyzeToolResult(
+      JSON.stringify({
+        datasets: [
+          {
+            title: 'EarthScope Stations Dataset',
+            resources: [{ name: 'earthscope_converted_data.csv', format: 'CSV' }],
+          },
+        ],
+        count: 1,
+        total_found: 1,
+        server: 'global',
+      }),
+    );
+    expect(result.preview).toContain('EarthScope Stations Dataset');
+    expect(result.preview).toContain('earthscope_converted_data.csv');
+    expect(result.preview.indexOf('EarthScope')).toBeLessThan(result.preview.indexOf('count'));
+  });
+
+  it('prioritizes useful artifact fields over low-signal ok booleans', () => {
+    const result = analyzeToolResult(
+      JSON.stringify({
+        ok: true,
+        local_path: 'D:\\Libraries\\Documents\\projects\\earthscope-web-check\\MTA1.CI.LY_.30.csv',
+        size_bytes: 50424246,
+        content_type: 'text/csv',
+        url: 'https://example.test/MTA1.CI.LY_.30.csv',
+      }),
+    );
+    expect(result.preview.startsWith('local_path:')).toBe(true);
+    expect(result.preview).not.toContain('ok: true');
   });
 });

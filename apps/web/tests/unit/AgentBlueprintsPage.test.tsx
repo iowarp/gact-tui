@@ -63,7 +63,7 @@ describe('BlueprintsPage lifecycle', () => {
     render(() => <BlueprintsPage client={client} context={{ workspaceId: 'ws_123' }} />);
     await waitForBlueprint();
 
-    fireEvent.click(screen.getByTestId('blueprint-install-toggle'));
+    fireEvent.click(screen.getByTestId('blueprint-manual-install-toggle'));
     const scope = screen.getByTestId('blueprint-install-scope') as HTMLSelectElement;
     expect(scope.value).toBe('workspace');
     fireEvent.input(screen.getByTestId('blueprint-install-input'), {
@@ -95,7 +95,7 @@ describe('BlueprintsPage lifecycle', () => {
     render(() => <BlueprintsPage client={client} />);
     await waitForBlueprint();
 
-    fireEvent.click(screen.getByTestId('blueprint-install-toggle'));
+    fireEvent.click(screen.getByTestId('blueprint-manual-install-toggle'));
     const scope = screen.getByTestId('blueprint-install-scope') as HTMLSelectElement;
     expect(scope.value).toBe('global');
     fireEvent.input(screen.getByTestId('blueprint-install-input'), {

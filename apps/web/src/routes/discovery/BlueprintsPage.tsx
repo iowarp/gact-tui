@@ -18,6 +18,7 @@ export function BlueprintsPage(props: ClientPageProps) {
 
   const [installOpen, setInstallOpen] = createSignal(false);
   const [pathText, setPathText] = createSignal('');
+  const [refText, setRefText] = createSignal('');
   const [scope, setScope] = createSignal<'workspace' | 'global'>(
     props.context?.workspaceId ? 'workspace' : 'global',
   );
@@ -29,6 +30,12 @@ export function BlueprintsPage(props: ClientPageProps) {
     ...(props.context?.workspaceId ? { workspace_id: props.context.workspaceId } : {}),
     ...(props.context?.sessionId ? { session_id: props.context.sessionId } : {}),
   });
+
+  function openInstallSource(source: string, ref?: string) {
+    setPathText(source);
+    setRefText(ref ?? '');
+    setInstallOpen(true);
+  }
 
   async function uninstall(id: string, name: string, bpScope?: string) {
     if (!confirm(`Uninstall blueprint "${name}"? This cannot be undone.`)) return;
@@ -60,6 +67,7 @@ export function BlueprintsPage(props: ClientPageProps) {
     setError(null);
     setVerdict(null);
     const src = pathText().trim();
+    const ref = refText().trim();
     if (!src) {
       setError('Enter a blueprint path on the backend host, or a git URL.');
       return;
@@ -82,6 +90,7 @@ export function BlueprintsPage(props: ClientPageProps) {
       }
       await props.client.installAgentBlueprint({
         source: src,
+        ...(ref ? { ref } : {}),
         scope: scope(),
         ...(scope() === 'workspace' && props.context?.workspaceId
           ? { workspace_id: props.context.workspaceId }
@@ -89,6 +98,7 @@ export function BlueprintsPage(props: ClientPageProps) {
       });
       setVerdict('Installed. Refreshing blueprints.');
       setPathText('');
+      setRefText('');
       setInstallOpen(false);
       void refetch();
     } catch (e) {
@@ -104,32 +114,26 @@ export function BlueprintsPage(props: ClientPageProps) {
       title="Agent blueprints"
       subtitle="DSPy + MCP descriptor bundles the orchestrator can route into. Install one by path on the backend host or from a git URL."
       actions={
-        <>
-          <button
-            type="button"
-            class="dp-iconbtn"
-            onClick={() => setInstallOpen((v) => !v)}
-            title="Install blueprint"
-            data-testid="blueprint-install-toggle"
-          >
-            <Icon name="plus" size={14} />
-          </button>
-          <button type="button" class="dp-iconbtn" onClick={() => refetch()} title="Refresh">
-            <Icon name="regenerate" size={14} />
-          </button>
-        </>
+        <button type="button" class="dp-iconbtn" onClick={() => refetch()} title="Refresh">
+          <Icon name="regenerate" size={14} />
+        </button>
       }
       loading={data.loading}
     >
       <Show when={installOpen()}>
         <BlueprintInstallPanel
           pathText={pathText()}
+          refText={refText()}
           scope={scope()}
           workspaceId={props.context?.workspaceId}
           busy={busy()}
           onPathText={setPathText}
+          onRefText={setRefText}
           onScope={setScope}
-          onClose={() => setInstallOpen(false)}
+          onClose={() => {
+            setInstallOpen(false);
+            setRefText('');
+          }}
           onSubmit={submitInstall}
         />
       </Show>
@@ -143,7 +147,11 @@ export function BlueprintsPage(props: ClientPageProps) {
           {verdict()}
         </p>
       </Show>
-      <BlueprintSourcesPanel client={props.client} />
+      <BlueprintSourcesPanel
+        client={props.client}
+        blueprints={items()}
+        onInstallSource={openInstallSource}
+      />
       <h2 class="dp__section-title">Installed blueprints</h2>
       <Show when={!data.loading && items().length === 0}>
         <div class="dp__empty" data-testid="blueprints-empty" style="padding-block: 16px">

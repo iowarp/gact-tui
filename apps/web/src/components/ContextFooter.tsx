@@ -67,10 +67,10 @@ export function ContextFooter(props: ContextFooterProps) {
     ContextState | null,
     { sid: string; scope: string | undefined }
   >(
-    () =>
-      props.sessionId
-        ? { sid: props.sessionId, scope: effectiveScope() }
-        : null,
+    () => {
+      const scope = effectiveScope();
+      return props.sessionId && scope ? { sid: props.sessionId, scope } : null;
+    },
     async ({ sid, scope }) => {
       try {
         return await props.client.getContextState(sid, scope);

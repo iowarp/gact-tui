@@ -44,6 +44,23 @@ describe('SlashPalette', () => {
     expect(screen.queryByTestId('slash-palette-item-help')).toBeNull();
   });
 
+  it('groups commands by category and omits redundant session navigation from defaults', () => {
+    const { q, setQ } = withQuery('');
+    render(() => (
+      <SlashPalette
+        open={true}
+        query={q()}
+        commands={DEFAULT_COMMANDS}
+        onQueryChange={setQ}
+        onPick={() => undefined}
+        onClose={() => undefined}
+      />
+    ));
+    expect(screen.queryByTestId('slash-palette-group-Help')).toBeTruthy();
+    expect(screen.queryByTestId('slash-palette-group-Catalog')).toBeTruthy();
+    expect(screen.queryByTestId('slash-palette-item-sessions')).toBeNull();
+  });
+
   it('matches sparse fuzzy queries (subsequence, not substring)', () => {
     // "dctr" is a subsequence of "doctor" (d·c·t·r) but NOT a substring —
     // substring filtering would drop it; fuzzy ranking keeps it.

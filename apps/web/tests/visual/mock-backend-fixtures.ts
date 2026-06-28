@@ -238,11 +238,13 @@ const earthscopeMessages: Message[] = [
         type: 'tool_call',
         call_id: 'tc-geo',
         tool_name: 'ResolveRegion',
+        metadata: { agent_id: 'geospatial' },
         input: { location: 'Los Angeles, CA', radius_km: 50 },
       },
       {
         type: 'tool_result',
         call_id: 'tc-geo',
+        metadata: { agent_id: 'geospatial' },
         output:
           'Resolved Los Angeles, CA; center 34.0522, -118.2437; radius 50 km; confidence high.',
         duration_ms: 2025,
@@ -274,10 +276,31 @@ const earthscopeMessages: Message[] = [
         },
       },
       {
+        type: 'expert_handoff',
+        metadata: {
+          parent_id: 'main',
+          agent_id: 'data',
+          status: 'completed',
+          output_summary:
+            'Data needs a ranked EarthScope station before staging a CSV, so it delegated catalog discovery.',
+        },
+      },
+      {
         type: 'tool_call',
         call_id: 'tc-stations',
         tool_name: 'EarthScopeStationCatalog',
+        metadata: { agent_id: 'earthscope_catalog' },
         input: { network: 'GNSS', bbox: [33.7, -118.67, 34.34, -117.9] },
+      },
+      {
+        type: 'expert_handoff',
+        metadata: {
+          parent_id: 'data',
+          agent_id: 'earthscope_catalog',
+          status: 'completed',
+          output_summary:
+            'Ranked nearby GNSS stations and selected MTA1 with PKRD and ELSC as corroborating stations.',
+        },
       },
       {
         type: 'text',

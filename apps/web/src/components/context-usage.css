@@ -265,7 +265,9 @@
   background: var(--color-surface);
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  max-width: 280px;
+  width: min(100%, 1280px);
+  max-width: 1280px;
+  pointer-events: auto;
 }
 
 .ctx-footer:hover {
@@ -280,12 +282,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 180px;
 }
 
 .ctx-footer__bar {
-  width: 90px;
-  flex: 0 0 auto;
+  min-width: 120px;
+  flex: 1 1 auto;
 }
 
 .ctx-footer__pct {

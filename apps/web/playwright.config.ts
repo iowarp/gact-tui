@@ -23,7 +23,7 @@ export default defineConfig({
   webServer: {
     // Build (with the selected brand baked in) then preview, so the served
     // dist always matches BRAND regardless of any prior build.
-    command: `pnpm build && pnpm preview --port ${PORT}`,
+    command: `node tests/visual/write-brand-config.mjs ${BRAND} && pnpm build && pnpm preview --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env['CI'] && !process.env['GACT_BRAND'],
     timeout: 180_000,

@@ -17,7 +17,6 @@ export function createChatLayoutServices(props: ChatLayoutProps) {
   const topbarOverflow = createTopbarOverflow(() => [
     props.sessionCostUsd,
     props.sessionTokens,
-    props.lastStopReason,
     props.selectedModelId,
     props.permMode,
     props.sseStatus,

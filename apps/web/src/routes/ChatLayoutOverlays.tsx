@@ -84,8 +84,8 @@ export function ChatLayoutOverlays(options: ChatLayoutOverlaysProps) {
         expertPacks={options.props.sessionSemanticsOptions?.expertPacks ?? []}
         onClose={() => options.setSessionSemanticsOpen(false)}
         onOpenSettings={() => options.props.onOpenSettings?.('blueprints')}
-        onStart={async (selection) => {
-          await options.props.onNewSession?.(selection);
+        onStart={async (selection, title) => {
+          await options.props.onNewSession?.(selection, title);
           options.setSessionSemanticsOpen(false);
         }}
       />

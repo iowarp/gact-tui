@@ -94,6 +94,11 @@ describe('SettingsModelChooserModel', () => {
     expect(blockedReasonForPreset(sophia)).toBeNull();
   });
 
+  it('does not offer suggested models as selectable when a provider is blocked', () => {
+    expect(defaultSelectedModel([], anthropic)).toBe('');
+    expect(blockedReasonForPreset(anthropic)).not.toBeNull();
+  });
+
   it('maps preset status into settings pill copy', () => {
     expect(presetTone(sophia)).toBe('ok');
     expect(presetStatusLabel(sophia)).toBe('Globus token validated');
