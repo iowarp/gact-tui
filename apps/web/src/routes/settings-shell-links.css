@@ -1,0 +1,36 @@
+.settings-shell__links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-shell__links a {
+  color: var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.settings-shell__links a:hover {
+  text-decoration: underline;
+}
+
+.settings-shell__link-detail {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 760px) {
+  .settings-shell__link-detail {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+}

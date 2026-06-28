@@ -1,16 +1,15 @@
 package ui
 
+// agentBlueprintManageModal: the agent-blueprint install/validate management overlay.
+
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
 const (
@@ -19,114 +18,78 @@ const (
 	agentBlueprintManageSource   = "source"
 )
 
-type agentBlueprintManageDoneMsg struct {
-	action string
-	source string
-	result map[string]any
-	check  gact.AgentBlueprintValidationResult
-	err    error
+// agentBlueprintManageModal is the blueprint install/validate prompt's state:
+// the source input, the mode (install vs validate), and inline error/saving
+// status. lastValidatedSource lives here too but survives reset() so the
+// "validated X" hint stays visible after the prompt closes. It owns its
+// behaviour (open/close/key/insert/view) and holds an app back-ref for shared
+// services, wired centrally in wireComponents().
+type agentBlueprintManageModal struct {
+	app                 *App
+	open                bool
+	mode                string
+	input               widget.TextInput
+	err                 string
+	saving              bool
+	lastValidatedSource string
 }
 
-func (a *App) openAgentBlueprintManage(mode string) {
-	a.agentBlueprintManageOpen = true
-	a.agentBlueprintManageMode = mode
-	a.agentBlueprintManageInput = ""
-	a.agentBlueprintManageCursor = 0
-	a.agentBlueprintManageErr = ""
-	a.agentBlueprintManageSaving = false
-	if mode == agentBlueprintManageInstall && strings.TrimSpace(a.agentBlueprintLastValidatedSource) != "" {
-		a.agentBlueprintManageInput = strings.TrimSpace(a.agentBlueprintLastValidatedSource)
-		a.agentBlueprintManageCursor = len([]rune(a.agentBlueprintManageInput))
+func (m *agentBlueprintManageModal) openModal(mode string) {
+	m.open = true
+	m.mode = mode
+	m.input.SetValue("")
+	m.input.SetCursor(0)
+	m.err = ""
+	m.saving = false
+	if mode == agentBlueprintManageInstall && strings.TrimSpace(m.lastValidatedSource) != "" {
+		m.input.SetValue(strings.TrimSpace(m.lastValidatedSource))
+		m.input.SetCursor(len([]rune(m.input.Value())))
 	}
 }
 
-func (a *App) closeAgentBlueprintManage() {
-	a.agentBlueprintManageOpen = false
-	a.agentBlueprintManageMode = ""
-	a.agentBlueprintManageInput = ""
-	a.agentBlueprintManageCursor = 0
-	a.agentBlueprintManageErr = ""
-	a.agentBlueprintManageSaving = false
+// reset clears the editor but preserves lastValidatedSource, matching the
+// original close which left the last validated source intact.
+func (m *agentBlueprintManageModal) reset() {
+	*m = agentBlueprintManageModal{app: m.app, lastValidatedSource: m.lastValidatedSource}
 }
 
-func (a *App) handleAgentBlueprintManageKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if a.agentBlueprintManageSaving {
-		return a, nil
+func (m *agentBlueprintManageModal) close() { m.reset() }
+
+func (m *agentBlueprintManageModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.saving {
+		return m.app, nil
 	}
 	switch k.String() {
 	case "esc":
-		a.closeAgentBlueprintManage()
-		return a, nil
+		m.close()
+		return m.app, nil
 	case "enter":
-		source := strings.TrimSpace(a.agentBlueprintManageInput)
+		source := strings.TrimSpace(m.input.Value())
 		if source == "" {
-			a.agentBlueprintManageErr = a.agentBlueprintManageMode + " path/source is required"
-			return a, nil
+			m.err = m.mode + " path/source is required"
+			return m.app, nil
 		}
-		a.agentBlueprintManageSaving = true
-		switch a.agentBlueprintManageMode {
+		m.saving = true
+		switch m.mode {
 		case agentBlueprintManageValidate:
-			return a, validateAgentBlueprintCmd(a.c, a.runtimeScope(), source)
+			return m.app, validateAgentBlueprintCmd(m.app.c, m.app.session.runtimeScope(), source)
 		case agentBlueprintManageSource:
-			return a, addAgentBlueprintSourceCmd(a.c, source)
+			return m.app, addAgentBlueprintSourceCmd(m.app.c, source)
 		default:
-			return a, installAgentBlueprintCmd(a.c, a.runtimeScope(), source)
+			return m.app, installAgentBlueprintCmd(m.app.c, m.app.session.runtimeScope(), source)
 		}
-	case "backspace":
-		if a.agentBlueprintManageCursor == 0 {
-			return a, nil
-		}
-		runes := []rune(a.agentBlueprintManageInput)
-		runes = append(runes[:a.agentBlueprintManageCursor-1], runes[a.agentBlueprintManageCursor:]...)
-		a.agentBlueprintManageInput = string(runes)
-		a.agentBlueprintManageCursor--
-	case "delete":
-		runes := []rune(a.agentBlueprintManageInput)
-		if a.agentBlueprintManageCursor >= len(runes) {
-			return a, nil
-		}
-		runes = append(runes[:a.agentBlueprintManageCursor], runes[a.agentBlueprintManageCursor+1:]...)
-		a.agentBlueprintManageInput = string(runes)
-	case "left":
-		if a.agentBlueprintManageCursor > 0 {
-			a.agentBlueprintManageCursor--
-		}
-	case "right":
-		if a.agentBlueprintManageCursor < len([]rune(a.agentBlueprintManageInput)) {
-			a.agentBlueprintManageCursor++
-		}
-	case "home", "ctrl+a":
-		a.agentBlueprintManageCursor = 0
-	case "end", "ctrl+e":
-		a.agentBlueprintManageCursor = len([]rune(a.agentBlueprintManageInput))
-	default:
-		text := k.Text
-		if text == "" {
-			if runes := []rune(k.String()); len(runes) == 1 {
-				text = string(runes)
-			}
-		}
-		a.insertAgentBlueprintManageText(text)
 	}
-	return a, nil
+	m.input.HandleKey(k)
+	return m.app, nil
 }
 
-func (a *App) insertAgentBlueprintManageText(text string) {
+func (m *agentBlueprintManageModal) insert(text string) {
 	if text == "" {
 		return
 	}
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = strings.TrimRight(text, "\n")
-	runes := []rune(a.agentBlueprintManageInput)
-	a.agentBlueprintManageCursor = clampAgentBlueprintCursor(a.agentBlueprintManageCursor, len(runes))
-	insert := []rune(text)
-	out := make([]rune, 0, len(runes)+len(insert))
-	out = append(out, runes[:a.agentBlueprintManageCursor]...)
-	out = append(out, insert...)
-	out = append(out, runes[a.agentBlueprintManageCursor:]...)
-	a.agentBlueprintManageInput = string(out)
-	a.agentBlueprintManageCursor += len(insert)
-	a.agentBlueprintManageErr = ""
+	text = strings.TrimRight(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	m.input.Insert(text)
+	m.err = ""
 }
 
 func clampAgentBlueprintCursor(cursor, maxLen int) int {
@@ -137,111 +100,6 @@ func clampAgentBlueprintCursor(cursor, maxLen int) int {
 		return maxLen
 	}
 	return cursor
-}
-
-func installAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, source string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		result, err := c.InstallAgentBlueprint(ctx, gact.AgentBlueprintInstallRequest{
-			Source:      source,
-			Scope:       "workspace",
-			WorkspaceID: scope.WorkspaceID,
-		})
-		return agentBlueprintManageDoneMsg{action: agentBlueprintManageInstall, source: source, result: result, err: err}
-	}
-}
-
-func validateAgentBlueprintCmd(c *client.Client, scope client.RuntimeScope, path string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		result, err := c.ValidateAgentBlueprint(ctx, gact.AgentBlueprintValidateRequest{
-			Path:  path,
-			Scope: "workspace",
-		})
-		return agentBlueprintManageDoneMsg{action: agentBlueprintManageValidate, source: path, check: result, err: err}
-	}
-}
-
-func addAgentBlueprintSourceCmd(c *client.Client, source string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		row, err := c.AddAgentBlueprintSource(ctx, gact.AgentBlueprintSourceRequest{Source: source, Refresh: true})
-		return agentBlueprintSourceManagedMsg{sourceID: firstNonEmpty(row.ID, source), action: "added", source: row, err: err}
-	}
-}
-
-func (a *App) viewAgentBlueprintManage() string {
-	t := a.Theme
-	w := a.modalWidth()
-	mode := a.agentBlueprintManageMode
-	title := "Install agent blueprint"
-	verb := "install"
-	actionID := "install"
-	intro := []string{
-		"Enter a local directory, AGENT.md path, git URL, or marketplace source.",
-		"Installs into the current workspace and reloads the blueprint catalog.",
-	}
-	if mode == agentBlueprintManageInstall && strings.TrimSpace(a.agentBlueprintLastValidatedSource) != "" {
-		intro = append(intro, "Prefilled from the last successful validation; edit before installing if needed.")
-	}
-	if mode == agentBlueprintManageValidate {
-		title = "Validate agent blueprint"
-		verb = "validate"
-		actionID = "validate"
-		intro = []string{
-			"Enter a local directory or AGENT.md path.",
-			"Validation previews the parsed blueprint, agents, MCP descriptors, and errors without installing it.",
-		}
-	} else if mode == agentBlueprintManageSource {
-		title = "Add marketplace source"
-		verb = "add source"
-		actionID = "add-source"
-		intro = []string{
-			"Enter a git URL or local marketplace directory.",
-			"CLIO stores the source, refreshes it, and lists available blueprints in this browser.",
-		}
-	}
-	buttons := []menuButton{{
-		id:    "agent-blueprint-manage:" + actionID,
-		label: verb,
-		action: func(app *App) tea.Cmd {
-			_, cmd := app.handleAgentBlueprintManageKey(keyMsg("enter"))
-			return cmd
-		},
-	}, {
-		id:    "agent-blueprint-manage:cancel",
-		label: "cancel",
-		action: func(app *App) tea.Cmd {
-			app.closeAgentBlueprintManage()
-			return nil
-		},
-	}}
-	statusRows := []string{}
-	if a.agentBlueprintManageErr != "" {
-		statusRows = append(statusRows, lipgloss.NewStyle().Foreground(t.Danger).Italic(true).Render("error: "+a.agentBlueprintManageErr))
-	}
-	if a.agentBlueprintManageSaving {
-		statusRows = append(statusRows, lipgloss.NewStyle().Foreground(t.Warning).Italic(true).Render(a.spinnerChar()+" "+verb+"ing…"))
-	}
-	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:       w,
-		title:       title,
-		buttons:     buttons,
-		surfaceID:   "agent-blueprint-manage",
-		intro:       intro,
-		editor:      a.renderCursorEditor(a.agentBlueprintManageInput, a.agentBlueprintManageCursor),
-		editorID:    "agent-blueprint-manage",
-		editorValue: a.agentBlueprintManageInput,
-		cursorAction: func(app *App, cursor int) {
-			app.agentBlueprintManageCursor = cursor
-		},
-		status: statusRows,
-		footer: t.HintLabel.Render(modalKeyHint("Enter "+verb, "Esc cancel")),
-	})
-	return rendered.modal
 }
 
 func formatAgentBlueprintValidation(result gact.AgentBlueprintValidationResult) string {

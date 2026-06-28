@@ -51,35 +51,35 @@ func TestPerPart_JKWalksPartsWithinMessage(t *testing.T) {
 	a.focus = FocusBody
 	// Simulate Tab-into-body seeding: cursor on last NON-absorbed
 	// message, land on that msg's last part.
-	a.maybeInitBodyCursor()
+	a.conversation.maybeInitCursor()
 
 	// Absorbed-tool pairing merges tool1 + tool2 into asst, so the
 	// last visible message is asst (idx=0) and its addressable parts
 	// are [p_intro, p_call1, p_call2] — three blocks.
-	addr := addressablePartsOf(a.messages[a.bodySelMsgIdx])
+	addr := addressablePartsOf(a.conversation.messages[a.conversation.bodySelMsgIdx])
 	if len(addr) != 3 {
 		t.Fatalf("expected 3 addressable parts in the paired assistant msg; got %d (%v)", len(addr), addr)
 	}
 	// Seeded on last part (p_call2).
-	if a.selectedPartID() != "p_call2" {
-		t.Errorf("after seed, selectedPartID = %q, want p_call2", a.selectedPartID())
+	if a.conversation.selectedPartID() != "p_call2" {
+		t.Errorf("after seed, selectedPartID = %q, want p_call2", a.conversation.selectedPartID())
 	}
 
 	// Step up: should land on p_call1 (still same message, different block).
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	a = out.(*App)
-	if a.selectedPartID() != "p_call1" {
-		t.Errorf("after up, selectedPartID = %q, want p_call1", a.selectedPartID())
+	if a.conversation.selectedPartID() != "p_call1" {
+		t.Errorf("after up, selectedPartID = %q, want p_call1", a.conversation.selectedPartID())
 	}
-	if a.bodySelMsgIdx != 0 {
-		t.Errorf("after up within-msg, msgIdx = %d, want 0 (no cross yet)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 0 {
+		t.Errorf("after up within-msg, msgIdx = %d, want 0 (no cross yet)", a.conversation.bodySelMsgIdx)
 	}
 
 	// Step up again: land on p_intro (first part of msg 0).
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	a = out.(*App)
-	if a.selectedPartID() != "p_intro" {
-		t.Errorf("after second up, selectedPartID = %q, want p_intro", a.selectedPartID())
+	if a.conversation.selectedPartID() != "p_intro" {
+		t.Errorf("after second up, selectedPartID = %q, want p_intro", a.conversation.selectedPartID())
 	}
 
 	// Step down twice: back to p_call2.
@@ -87,8 +87,8 @@ func TestPerPart_JKWalksPartsWithinMessage(t *testing.T) {
 	a = out.(*App)
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	a = out.(*App)
-	if a.selectedPartID() != "p_call2" {
-		t.Errorf("after two downs, selectedPartID = %q, want p_call2", a.selectedPartID())
+	if a.conversation.selectedPartID() != "p_call2" {
+		t.Errorf("after two downs, selectedPartID = %q, want p_call2", a.conversation.selectedPartID())
 	}
 }
 
@@ -125,37 +125,37 @@ func TestPerPart_CtrlETargetsSelectedToolCall(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 0
-	a.bodySelPartIdx = 0 // points at p_call1 (the FIRST read)
+	a.conversation.bodySelMsgIdx = 0
+	a.conversation.bodySelPartIdx = 0 // points at p_call1 (the FIRST read)
 
 	out, _ := a.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
 	got := out.(*App)
-	if !got.detailViewOpen || got.detailView == nil {
-		t.Fatalf("Ctrl+E should open detail view; open=%v", got.detailViewOpen)
+	if !got.detail.visible || got.detail.ref == nil {
+		t.Fatalf("Ctrl+E should open detail view; open=%v", got.detail.visible)
 	}
-	if !strings.Contains(got.detailView.fullText, "FILE_ONE_MARKER") {
+	if !strings.Contains(got.detail.ref.fullText, "FILE_ONE_MARKER") {
 		t.Errorf("expected FILE_ONE content (cursor on first call); got title=%q preview=%q",
-			got.detailView.title,
-			got.detailView.fullText[:min(80, len(got.detailView.fullText))])
+			got.detail.ref.title,
+			got.detail.ref.fullText[:min(80, len(got.detail.ref.fullText))])
 	}
-	if strings.Contains(got.detailView.fullText, "FILE_TWO_MARKER") {
+	if strings.Contains(got.detail.ref.fullText, "FILE_TWO_MARKER") {
 		t.Errorf("should NOT have expanded the second read; got content with FILE_TWO")
 	}
 
 	// Close, move to the second tool_call, Ctrl+E again — should now
 	// show FILE_TWO.
-	got.detailViewOpen = false
-	got.detailView = nil
-	got.bodySelPartIdx = 1
+	got.detail.visible = false
+	got.detail.ref = nil
+	got.conversation.bodySelPartIdx = 1
 
 	out, _ = got.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
 	got = out.(*App)
-	if got.detailView == nil {
+	if got.detail.ref == nil {
 		t.Fatalf("second Ctrl+E should reopen detail view")
 	}
-	if !strings.Contains(got.detailView.fullText, "FILE_TWO_MARKER") {
+	if !strings.Contains(got.detail.ref.fullText, "FILE_TWO_MARKER") {
 		t.Errorf("cursor on second call should expand FILE_TWO; got %q",
-			got.detailView.fullText[:min(80, len(got.detailView.fullText))])
+			got.detail.ref.fullText[:min(80, len(got.detail.ref.fullText))])
 	}
 }
 
@@ -176,15 +176,15 @@ func TestPerPart_BracketKeysAreNoOp(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 0
-	a.bodySelPartIdx = 0
+	a.conversation.bodySelMsgIdx = 0
+	a.conversation.bodySelPartIdx = 0
 
 	for _, k := range []rune{'[', ']'} {
 		out, _ := a.Update(tea.KeyPressMsg{Code: k, Text: string(k)})
 		a = out.(*App)
-		if a.bodySelMsgIdx != 0 || a.bodySelPartIdx != 0 {
+		if a.conversation.bodySelMsgIdx != 0 || a.conversation.bodySelPartIdx != 0 {
 			t.Errorf("%q should be a no-op now; got msgIdx=%d partIdx=%d",
-				k, a.bodySelMsgIdx, a.bodySelPartIdx)
+				k, a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx)
 		}
 	}
 }

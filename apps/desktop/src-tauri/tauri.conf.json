@@ -1,18 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "CLIO Desktop",
+  "productName": "GACT Desktop",
   "version": "0.7.1",
-  "identifier": "ai.iowarp.clio.desktop",
+  "identifier": "ai.iowarp.gact.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/web build:clio",
-    "beforeDevCommand": "pnpm --filter @clio/web dev:clio",
+    "beforeBuildCommand": "pnpm --filter @clio/web build",
+    "beforeDevCommand": "pnpm --filter @clio/web dev",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "CLIO Desktop",
+        "title": "GACT Desktop",
         "width": 1440,
         "height": 900,
         "minWidth": 960,
@@ -23,15 +23,15 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* https://* http://*; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; script-src 'self'"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["msi", "deb", "appimage", "dmg"],
     "category": "Developer Tool",
-    "shortDescription": "CLIO Desktop — multi-backend agentic-coder UI",
-    "longDescription": "CLIO Desktop is the Tauri-shell wrapper for the @clio/web frontend. It speaks the GACT v0.2 contract, manages SSH-tunneled multi-backend access via the OS keychain, and ships native installers per platform.",
+    "shortDescription": "GACT Desktop — multi-backend agentic-coder UI",
+    "longDescription": "GACT Desktop is the Tauri-shell wrapper for the GACT web frontend. It speaks the GACT v0.2 contract, manages SSH-tunneled multi-backend access via the OS keychain, and ships native installers per platform. The neutral default connects to a user-run backend; an embedding agent's brand build adds a managed sidecar.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -39,6 +39,18 @@
       "icons/icon.png",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/clio-agent"]
+    "externalBin": [],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/iowarp/gact-tui/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQ0FBOEYyMjFFMDQzQ0YKUldUUFErQWg4cWpLZ2o3SkxUSEU2QU1kd3F3dmdYU2llbHdnZVArSzhkbnJEb1RoZTZZd09UOXEK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

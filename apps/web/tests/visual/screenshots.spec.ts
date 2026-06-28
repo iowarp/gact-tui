@@ -1,30 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { test, expect } from '@playwright/test';
 import { connectMockBackend } from './mock-backend';
-
-const screenshotDir = resolve(import.meta.dirname, '..', '..', 'screenshots');
-mkdirSync(screenshotDir, { recursive: true });
-
-function shot(name: string) {
-  return resolve(screenshotDir, `${name}.png`);
-}
-
-async function openSettingsSection(page: Page, section: string) {
-  await page.getByTestId('sessions-settings').click();
-  await page.getByTestId(`settings-nav-${section}`).click();
-}
-
-const REAL_BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17800';
-let realBackendReachable = false;
-try {
-  const r = await fetch(`${REAL_BACKEND}/v1/capabilities`, {
-    signal: AbortSignal.timeout(800),
-  });
-  realBackendReachable = r.ok;
-} catch {
-  realBackendReachable = false;
-}
+import {
+  REAL_BACKEND,
+  openSettingsSection,
+  realBackendReachable,
+  shot,
+  withRealBackendPage,
+} from './screenshots-helpers';
 
 test.describe('CLIO harness — visual proofs', () => {
   test('connect-screen renders wordmark and form', async ({ page }) => {
@@ -211,6 +193,16 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('chat-live-stream'), fullPage: false });
   });
 
+  test('structured-tool-results renders evidence cards instead of raw JSON logs', async ({ page }) => {
+    await page.goto('/?route=chat&fixture=structured');
+    const result = page.getByTestId('content-typed-tool-result').first();
+    await expect(result).toBeVisible();
+    await expect(result).toContainText('matched_count: 72');
+    await expect(result).not.toContainText('"records"');
+    await result.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: shot('structured-tool-results'), fullPage: false });
+  });
+
   test('stop-mid-stream shows the Stop affordance in the composer', async ({ page }) => {
     await page.goto('/?route=chat&fixture=streaming-busy');
     await expect(page.getByTestId('composer-stop')).toBeVisible();
@@ -345,22 +337,62 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
     await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
     await expect(page.locator('.im table').first()).toBeVisible();
-    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
+    const code = page.locator('.im__code code.hljs').first();
+    await expect(code).toBeVisible();
+    await code.scrollIntoViewIfNeeded();
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const codeEl = document.querySelector('.im__code code.hljs');
+        const composer = document.querySelector('[data-testid="composer"]');
+        if (!codeEl || !composer) return false;
+        const codeBox = codeEl.getBoundingClientRect();
+        const composerBox = composer.getBoundingClientRect();
+        return codeBox.bottom <= composerBox.top - 8;
+      });
+    }).toBe(true);
     await page.screenshot({ path: shot('markdown-read'), fullPage: false });
   });
 
-  test('EarthScope routing shows tool calls plus semantic delegation', async ({ page }) => {
+  test('EarthScope routing renders the hierarchical agent-execution tree', async ({ page }) => {
     await connectMockBackend(page, 'earthscope');
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('topbar-inspector').click();
-    await expect(page.getByTestId('toolcall-tc-geo')).toBeVisible();
-    await expect(page.locator('.im__table').getByText('MTA1')).toBeVisible();
-    await expect(page.getByTestId('workflow-state-card').first()).toBeVisible();
-    await expect(page.getByText('Station Catalog')).toBeVisible();
-    await page.getByTestId('inspector-tab-timeline').click();
-    await expect(page.getByTestId('inspector-semantic-title')).toBeVisible();
-    await expect(page.getByText('geospatial returned Los Angeles bounds.')).toBeVisible();
-    await expect(page.getByText('earthscope_catalog ranked nearby GNSS stations.')).toBeVisible();
+
+    // RENDERING_SPEC §9: the projected multi-agent turn renders through the SAME
+    // clean AssistantTurnView the persisted path uses — flat, no boxes,
+    // depth-indented delegation steps, content-typed tool output. Live ===
+    // post-reload. (The old boxed `extree` tree is gone.)
+    const turn = page.getByTestId('assistant-turn').first();
+    await expect(turn).toBeVisible();
+    await turn.scrollIntoViewIfNeeded();
+    // The old boxed renderer must NOT be present.
+    await expect(page.locator('.extree, [data-testid="execution-tree"]')).toHaveCount(0);
+
+    // Agent names appear as canonical row labels: main delegates to geospatial,
+    // then data delegates to earthscope_catalog.
+    const headers = turn.getByTestId('assistant-turn-delegation-header');
+    await expect(headers.locator('.trx-row__agent', { hasText: /^geospatial$/ }).first()).toBeVisible();
+    await expect(
+      headers.locator('.trx-row__agent', { hasText: /^earthscope_catalog$/ }).first(),
+    ).toBeVisible();
+    // The top-level delegation is owned by main.
+    await expect(turn.getByTestId('assistant-turn-agent').filter({ hasText: /^main$/ }).first()).toBeVisible();
+
+    // Delegation depth: the data → earthscope_catalog block sits one level
+    // deeper than the top-level main → geospatial block (depth via indentation).
+    const geoStep = turn.locator('[data-testid="assistant-turn-step"][data-agent="geospatial"]').first();
+    const catStep = turn.locator('[data-testid="assistant-turn-step"][data-agent="earthscope_catalog"]').first();
+    const geoDepth = Number(await geoStep.getAttribute('data-depth'));
+    const catDepth = Number(await catStep.getAttribute('data-depth'));
+    expect(catDepth).toBeGreaterThan(geoDepth);
+
+    // The geospatial turn exposes a tool call with content-typed output. Short
+    // output renders inline without a raw disclosure; only truncated output
+    // gets an expander.
+    const toolCall = turn.getByTestId('assistant-turn-tool').filter({ hasText: 'ResolveRegion' }).first();
+    await expect(toolCall).toBeVisible();
+    await expect(toolCall.getByTestId('tool-text')).toContainText('Resolved Los Angeles');
+    await expect(toolCall.getByTestId('tool-raw-toggle')).toHaveCount(0);
+
     await page.screenshot({ path: shot('earthscope-routing-flow'), fullPage: false });
   });
 
@@ -370,11 +402,11 @@ test.describe('CLIO harness — visual proofs', () => {
     const blocker = page.getByTestId('turn-workflow-blocker');
     await expect(blocker).toBeVisible();
     await expect(blocker.getByText('Workflow blocker')).toBeVisible();
-    await expect(blocker.getByText(/child expert: ndp_dataset_discovery/)).toBeVisible();
-    await expect(blocker.getByText(/required tools are not available/)).toBeVisible();
+    await expect(blocker.getByText(/ndp_dataset_discovery/)).toBeVisible();
     await expect(page.getByTestId('transcript-pane')).toContainText(
       'No station time-series, CSV profile, or PNG artifact was produced.',
     );
+    await expect(page.getByTestId('transcript-pane')).toContainText(/required tools were not available/);
     await blocker.scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot('earthscope-blocked-workflow'), fullPage: false });
   });
@@ -452,6 +484,17 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('inspector-timeline'), fullPage: false });
   });
 
+  test('full-data transcript renders telemetry, routing detail, and every part type', async ({
+    page,
+  }) => {
+    await connectMockBackend(page, 'fulldata');
+    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
+    // The v0.2 full-data surfaces must actually render, not merely be typed:
+    await expect(page.getByTestId('tool-telemetry').first()).toBeVisible();
+    await expect(page.getByTestId('app-version-badge')).toBeVisible();
+    await page.screenshot({ path: shot('full-data-transcript'), fullPage: true });
+  });
+
   test('light theme renders the chat shell on the light palette (1.0 item 1)', async ({ page }) => {
     // Seeding the mode flag is all it takes — theme.ts initTheme() applies
     // the full light palette on module load (same path a real user's
@@ -515,31 +558,12 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await openSettingsSection(page, 'agents');
+      await expect(page.getByTestId('dp-agents')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('discovery-agents'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await openSettingsSection(page, 'agents');
-    await expect(page.getByTestId('dp-agents')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('discovery-agents'), fullPage: false });
-    await ctx.close();
   });
 
   test('discovery-mcp lists the MCP servers + their tool counts', async ({ browser }) => {
@@ -547,31 +571,12 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await openSettingsSection(page, 'mcp');
+      await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('discovery-mcp'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await openSettingsSection(page, 'mcp');
-    await expect(page.getByTestId('dp-mcp-servers')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('discovery-mcp'), fullPage: false });
-    await ctx.close();
   });
 
   test('discovery-doctor renders integration statuses from /v1/health', async ({
@@ -581,32 +586,13 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await openSettingsSection(page, 'doctor');
+      await expect(page.getByTestId('dp-doctor')).toBeVisible();
+      await expect(page.getByTestId('doctor-integrations')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('discovery-doctor'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await openSettingsSection(page, 'doctor');
-    await expect(page.getByTestId('dp-doctor')).toBeVisible();
-    await expect(page.getByTestId('doctor-integrations')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('discovery-doctor'), fullPage: false });
-    await ctx.close();
   });
 
   test('settings-providers shows the active LM + Use as LM buttons', async ({ browser }) => {
@@ -614,32 +600,13 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await page.getByTestId('sessions-settings').click();
+      await page.getByTestId('settings-nav-providers').click();
+      await expect(page.getByTestId('providers-active')).toBeVisible({ timeout: 4_000 });
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: shot('settings-providers'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('sessions-settings').click();
-    await page.getByTestId('settings-nav-providers').click();
-    await expect(page.getByTestId('providers-active')).toBeVisible({ timeout: 4_000 });
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: shot('settings-providers'), fullPage: false });
-    await ctx.close();
   });
 
   test('settings-shell-about shows the About section', async ({ browser }) => {
@@ -647,34 +614,15 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      // Open Settings via rail
+      await page.getByTestId('sessions-settings').click();
+      await expect(page.getByTestId('settings-shell')).toBeVisible();
+      await page.getByTestId('settings-nav-about').click();
+      await expect(page.getByTestId('settings-about')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    // Open Settings via rail
-    await page.getByTestId('sessions-settings').click();
-    await expect(page.getByTestId('settings-shell')).toBeVisible();
-    await page.getByTestId('settings-nav-about').click();
-    await expect(page.getByTestId('settings-about')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('settings-shell-about'), fullPage: false });
-    await ctx.close();
   });
 
   test('settings theme buttons switch light/dark live (1.0 item 1)', async ({ browser }) => {
@@ -682,42 +630,25 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await page.getByTestId('sessions-settings').click();
+      await page.getByTestId('settings-nav-appearance').click();
+      await expect(page.getByTestId('settings-appearance')).toBeVisible();
+      // Click Light → the page flips to the light palette immediately.
+      await page.getByTestId('settings-theme-light').click();
+      const bgLight = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+      );
+      expect(bgLight).toBe('#f4f6fa');
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
+      // Back to Dark → overrides clear to the design-system default.
+      await page.getByTestId('settings-theme-dark').click();
+      const bgDark = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
+      );
+      expect(bgDark).toBe('#000000');
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('sessions-settings').click();
-    await page.getByTestId('settings-nav-appearance').click();
-    await expect(page.getByTestId('settings-appearance')).toBeVisible();
-    // Click Light → the page flips to the light palette immediately.
-    await page.getByTestId('settings-theme-light').click();
-    const bgLight = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
-    );
-    expect(bgLight).toBe('#f4f6fa');
-    await page.waitForTimeout(300);
-    await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
-    // Back to Dark → overrides clear to the design-system default.
-    await page.getByTestId('settings-theme-dark').click();
-    const bgDark = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
-    );
-    expect(bgDark).toBe('#000000');
-    await ctx.close();
   });
 
   test('settings-data section exports preferences (1.0 item 7)', async ({ browser }) => {
@@ -725,38 +656,21 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await page.getByTestId('sessions-settings').click();
+      await page.getByTestId('settings-nav-data').click();
+      await expect(page.getByTestId('settings-data')).toBeVisible();
+      await expect(page.getByTestId('settings-export-btn')).toBeVisible();
+      await expect(page.getByTestId('settings-import-btn')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('settings-data-section'), fullPage: false });
+      // Export triggers a real browser download of the versioned envelope.
+      const downloadP = page.waitForEvent('download');
+      await page.getByTestId('settings-export-btn').click();
+      const download = await downloadP;
+      expect(download.suggestedFilename()).toMatch(/^clio-settings-.*\.json$/);
+      await page.screenshot({ path: shot('settings-data-exported'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('sessions-settings').click();
-    await page.getByTestId('settings-nav-data').click();
-    await expect(page.getByTestId('settings-data')).toBeVisible();
-    await expect(page.getByTestId('settings-export-btn')).toBeVisible();
-    await expect(page.getByTestId('settings-import-btn')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('settings-data-section'), fullPage: false });
-    // Export triggers a real browser download of the versioned envelope.
-    const downloadP = page.waitForEvent('download');
-    await page.getByTestId('settings-export-btn').click();
-    const download = await downloadP;
-    expect(download.suggestedFilename()).toMatch(/^clio-settings-.*\.json$/);
-    await page.screenshot({ path: shot('settings-data-exported'), fullPage: false });
-    await ctx.close();
   });
 
   test('settings-shell-appearance shows theme + density choices', async ({ browser }) => {
@@ -764,32 +678,13 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await page.getByTestId('sessions-settings').click();
+      await page.getByTestId('settings-nav-appearance').click();
+      await expect(page.getByTestId('settings-appearance')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('settings-shell-appearance'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await page.getByTestId('sessions-settings').click();
-    await page.getByTestId('settings-nav-appearance').click();
-    await expect(page.getByTestId('settings-appearance')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('settings-shell-appearance'), fullPage: false });
-    await ctx.close();
   });
 
   test('discovery-metrics shows the metrics dashboard', async ({ browser }) => {
@@ -797,76 +692,31 @@ test.describe('CLIO harness — visual proofs', () => {
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run onboarding tour (W3) has its
-    // own dedicated audit test and must not block these click-throughs.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await openSettingsSection(page, 'metrics');
+      await expect(page.getByTestId('dp-metrics')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: shot('discovery-metrics'), fullPage: false });
     });
-    await page.route('**/v1/**', async (route) => {
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await openSettingsSection(page, 'metrics');
-    await expect(page.getByTestId('dp-metrics')).toBeVisible();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('discovery-metrics'), fullPage: false });
-    await ctx.close();
   });
 
   test('chat-shell-real-backend captures the live connect → chat flow', async ({
     browser,
   }) => {
-    // Browsers block cross-origin XHRs against clio-agent-gact (it doesn't
-    // emit Access-Control-Allow-Origin headers — the production CLIO
-    // Desktop sidesteps this entirely via Tauri's privileged origin).
-    // Route the requests through Playwright so we can synthesize the
-    // missing CORS header on the response and let the chat shell mount.
     test.skip(
       !realBackendReachable,
       `no clio-agent-gact on ${REAL_BACKEND} — live-backend proof skipped`,
     );
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    // Returning-user profile — the first-run tour must not cover the shell
-    // in this capture (it has its own dedicated audit test + PNG).
-    await page.addInitScript(() => {
-      window.localStorage.setItem('clio.onboarding-done.v1', '1');
+    await withRealBackendPage(browser, async (page) => {
+      await expect(page.getByTestId('sessions-connection-status')).toBeVisible({
+        timeout: 8_000,
+      });
+      await expect(page.getByTestId('sse-status-chip')).toHaveCount(0);
+      await page.waitForTimeout(500);
+      await page.screenshot({
+        path: shot('chat-shell-real-backend'),
+        fullPage: false,
+      });
     });
-    await page.route('**/v1/**', async (route) => {
-      // SSE responses are unbounded — route.fetch() would hang reading
-      // the body. Let those pass through to the browser, which will
-      // still get CORS-blocked but the chat shell will already have
-      // mounted by then. Only intercept finite JSON endpoints.
-      if (route.request().url().includes('/events')) {
-        await route.continue();
-        return;
-      }
-      const resp = await route.fetch();
-      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
-      await route.fulfill({ response: resp, headers });
-    });
-
-    await page.goto('/?route=connect');
-    await page.getByTestId('connect-url').fill(REAL_BACKEND);
-    await page.getByTestId('connect-submit').click();
-    await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByTestId('sse-status-chip')).toBeVisible({ timeout: 8_000 });
-    await page.waitForTimeout(500);
-    await page.screenshot({
-      path: shot('chat-shell-real-backend'),
-      fullPage: false,
-    });
-    await ctx.close();
   });
 });

@@ -1,98 +1,69 @@
 package ui
 
+// expertPackInstallModal: the expert-pack install/update prompt overlay.
+
 import (
 	"context"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
-func (a *App) openExpertPackInstall() {
-	a.expertPackInstallOpen = true
-	a.expertPackInstallInput = ""
-	a.expertPackInstallCursor = 0
-	a.expertPackInstallErr = ""
-	a.expertPackInstallSaving = false
+// expertPackInstallModal is the expert-pack install/update prompt's state: the
+// source input plus inline error/saving status. It owns its behaviour and holds
+// a back-reference to App for shared services.
+type expertPackInstallModal struct {
+	app    *App
+	open   bool
+	input  widget.TextInput
+	err    string
+	saving bool
 }
 
-func (a *App) closeExpertPackInstall() {
-	a.expertPackInstallOpen = false
-	a.expertPackInstallInput = ""
-	a.expertPackInstallCursor = 0
-	a.expertPackInstallErr = ""
-	a.expertPackInstallSaving = false
+func (m *expertPackInstallModal) reset() { *m = expertPackInstallModal{app: m.app} }
+
+func (m *expertPackInstallModal) close() { m.reset() }
+
+func (m *expertPackInstallModal) openModal() {
+	m.open = true
+	m.input.SetValue("")
+	m.input.SetCursor(0)
+	m.err = ""
+	m.saving = false
 }
 
-func (a *App) handleExpertPackInstallKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if a.expertPackInstallSaving {
-		return a, nil
+func (m *expertPackInstallModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.saving {
+		return m.app, nil
 	}
 	switch k.String() {
 	case "esc":
-		a.closeExpertPackInstall()
-		return a, nil
+		m.close()
+		return m.app, nil
 	case "enter":
-		source := strings.TrimSpace(a.expertPackInstallInput)
+		source := strings.TrimSpace(m.input.Value())
 		if source == "" {
-			a.expertPackInstallErr = "install source is required"
-			return a, nil
+			m.err = "install source is required"
+			return m.app, nil
 		}
-		a.expertPackInstallSaving = true
-		return a, installExpertPackCmd(a.c, a.runtimeScope(), source)
-	case "backspace":
-		if a.expertPackInstallCursor == 0 {
-			return a, nil
-		}
-		runes := []rune(a.expertPackInstallInput)
-		runes = append(runes[:a.expertPackInstallCursor-1], runes[a.expertPackInstallCursor:]...)
-		a.expertPackInstallInput = string(runes)
-		a.expertPackInstallCursor--
-	case "delete":
-		runes := []rune(a.expertPackInstallInput)
-		if a.expertPackInstallCursor >= len(runes) {
-			return a, nil
-		}
-		runes = append(runes[:a.expertPackInstallCursor], runes[a.expertPackInstallCursor+1:]...)
-		a.expertPackInstallInput = string(runes)
-	case "left":
-		if a.expertPackInstallCursor > 0 {
-			a.expertPackInstallCursor--
-		}
-	case "right":
-		if a.expertPackInstallCursor < len([]rune(a.expertPackInstallInput)) {
-			a.expertPackInstallCursor++
-		}
-	case "home", "ctrl+a":
-		a.expertPackInstallCursor = 0
-	case "end", "ctrl+e":
-		a.expertPackInstallCursor = len([]rune(a.expertPackInstallInput))
-	default:
-		text := k.Text
-		if text == "" {
-			if runes := []rune(k.String()); len(runes) == 1 {
-				text = string(runes)
-			}
-		}
-		a.insertExpertPackInstallText(text)
+		m.saving = true
+		return m.app, installExpertPackCmd(m.app.c, m.app.session.runtimeScope(), source)
 	}
-	return a, nil
+	m.input.HandleKey(k)
+	return m.app, nil
 }
 
-func (a *App) insertExpertPackInstallText(text string) {
+func (m *expertPackInstallModal) insert(text string) {
 	if text == "" {
 		return
 	}
-	a.expertPackInstallInput, a.expertPackInstallCursor = insertTextAtCursor(
-		a.expertPackInstallInput,
-		a.expertPackInstallCursor,
-		strings.TrimRight(strings.ReplaceAll(text, "\r\n", "\n"), "\n"),
-	)
-	a.expertPackInstallErr = ""
+	m.input.Insert(strings.TrimRight(strings.ReplaceAll(text, "\r\n", "\n"), "\n"))
+	m.err = ""
 }
 
 func installExpertPackCmd(c *client.Client, scope client.RuntimeScope, source string) tea.Cmd {
@@ -108,17 +79,12 @@ func installExpertPackCmd(c *client.Client, scope client.RuntimeScope, source st
 	}
 }
 
-func (a *App) viewExpertPackInstall() string {
+func (m *expertPackInstallModal) view() string {
+	a := m.app
 	t := a.Theme
-	statusRows := []string{}
-	if a.expertPackInstallErr != "" {
-		statusRows = append(statusRows, lipgloss.NewStyle().Foreground(t.Danger).Italic(true).Render("error: "+a.expertPackInstallErr))
-	}
-	if a.expertPackInstallSaving {
-		statusRows = append(statusRows, lipgloss.NewStyle().Foreground(t.Warning).Italic(true).Render(a.spinnerChar()+" installing..."))
-	}
-	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:     a.modalWidth(),
+	statusRows := a.modals.modalStatusRows(m.err, m.saving, "installing...")
+	rendered := a.modals.renderTextEntryModal(a.modals.withInputEditor(textEntryModalOptions{
+		width:     a.modals.modalWidth(),
 		title:     "Install expert pack",
 		surfaceID: "expert-pack-install",
 		intro: []string{
@@ -129,25 +95,19 @@ func (a *App) viewExpertPackInstall() string {
 			id:    "expert-pack-install:install",
 			label: "install",
 			action: func(app *App) tea.Cmd {
-				_, cmd := app.handleExpertPackInstallKey(keyMsg("enter"))
+				_, cmd := app.expertPackInstall.handleKey(keyMsg("enter"))
 				return cmd
 			},
 		}, {
 			id:    "expert-pack-install:cancel",
 			label: "cancel",
 			action: func(app *App) tea.Cmd {
-				app.closeExpertPackInstall()
+				app.expertPackInstall.close()
 				return nil
 			},
 		}},
-		editor:      a.renderCursorEditor(a.expertPackInstallInput, a.expertPackInstallCursor),
-		editorID:    "expert-pack-install",
-		editorValue: a.expertPackInstallInput,
-		cursorAction: func(app *App, cursor int) {
-			app.expertPackInstallCursor = cursor
-		},
 		status: statusRows,
 		footer: t.HintLabel.Render(modalKeyHint("Enter install", "Esc cancel")),
-	})
+	}, "expert-pack-install", &m.input))
 	return rendered.modal
 }

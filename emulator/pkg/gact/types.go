@@ -209,6 +209,11 @@ type CapabilityFlags struct {
 	XClioHookEvents                map[string]any `json:"x_clio_hook_events,omitempty"`
 	XClioFilesContent              bool           `json:"x_clio_files_content,omitempty"`
 	XClioCapabilityGaps            map[string]any `json:"x_clio_capability_gaps,omitempty"`
+	// XClioContextState gates the per-expert context usage surface
+	// (SPEC §6.9): GET /v1/sessions/{id}/context/state and POST
+	// /v1/sessions/{id}/context/compact, scoped by expert. Backends that
+	// don't advertise it return 501 for those routes.
+	XClioContextState bool `json:"x_clio_context_state,omitempty"`
 }
 
 type TransportFlags struct {

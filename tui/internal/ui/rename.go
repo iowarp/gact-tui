@@ -1,88 +1,72 @@
 package ui
 
+// renameModal: the session-rename prompt overlay.
+
 import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
-func (a *App) closeRenameModal() {
-	a.renameOpen = false
-	a.renameDraft = ""
-	a.renameCursor = 0
+// renameModal is the inline session-title editor's state: a single-line input
+// widget the overlay owns directly, rather than scattering draft/cursor
+// primitives across the root model. It owns its behaviour too (handleKey/view/
+// commit/insert) and holds a back-reference to App for shared services.
+type renameModal struct {
+	app   *App
+	open  bool
+	input widget.TextInput
 }
 
-// handleRenameKey drives the rename-session overlay. Minimal line
+func (m *renameModal) reset() { *m = renameModal{app: m.app} }
+
+func (m *renameModal) close() { m.reset() }
+
+// openModal shows the session-rename prompt seeded with the current title. The
+// caret stays where SetValue lands it; callers that want it parked at the end
+// of the line follow up with SetCursor.
+func (m *renameModal) openModal(title string) {
+	m.open = true
+	m.input.SetValue(title)
+}
+
+// handleKey drives the rename-session overlay. Minimal line
 // editor — backspace/delete, home/end, arrow keys, printable chars,
 // Enter to commit, Esc to cancel. Deliberately narrower than a full
 // textarea: single line, no multi-line paste, no rich bindings.
-func (a *App) handleRenameKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *renameModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
-		a.closeRenameModal()
-		return a, nil
+		m.close()
+		return m.app, nil
 	case "enter":
-		return a.commitRename()
-	case "backspace":
-		if a.renameCursor == 0 {
-			return a, nil
-		}
-		runes := []rune(a.renameDraft)
-		runes = append(runes[:a.renameCursor-1], runes[a.renameCursor:]...)
-		a.renameDraft = string(runes)
-		a.renameCursor--
-		return a, nil
-	case "delete":
-		runes := []rune(a.renameDraft)
-		if a.renameCursor >= len(runes) {
-			return a, nil
-		}
-		runes = append(runes[:a.renameCursor], runes[a.renameCursor+1:]...)
-		a.renameDraft = string(runes)
-		return a, nil
-	case "left":
-		if a.renameCursor > 0 {
-			a.renameCursor--
-		}
-		return a, nil
-	case "right":
-		if a.renameCursor < len([]rune(a.renameDraft)) {
-			a.renameCursor++
-		}
-		return a, nil
-	case "home", "ctrl+a":
-		a.renameCursor = 0
-		return a, nil
-	case "end", "ctrl+e":
-		a.renameCursor = len([]rune(a.renameDraft))
-		return a, nil
+		return m.commit()
 	}
-	// Printable chars (including space). We forward anything with a
-	// non-empty Text field — lipgloss/bubbles events already filter
-	// out control bytes for us.
-	if k.Text != "" {
-		a.insertRenameText(k.Text)
-	}
-	return a, nil
+	// Cursor motion, deletion, and printable insertion are handled by the
+	// shared single-line editor; paste flows through insert.
+	m.input.HandleKey(k)
+	return m.app, nil
 }
 
-func (a *App) insertRenameText(text string) {
-	a.renameDraft, a.renameCursor = insertTextAtCursor(a.renameDraft, a.renameCursor, text)
+func (m *renameModal) insert(text string) {
+	m.input.Insert(text)
 }
 
-// commitRename dispatches the PATCH /v1/sessions/{id} and closes the
+// commit dispatches the PATCH /v1/sessions/{id} and closes the
 // overlay. Empty input (after trimming) is treated as "cancel" — we
 // don't want to clobber a session title with "" by accident.
-func (a *App) commitRename() (tea.Model, tea.Cmd) {
-	title := strings.TrimSpace(a.renameDraft)
-	a.closeRenameModal()
+func (m *renameModal) commit() (tea.Model, tea.Cmd) {
+	title := strings.TrimSpace(m.input.Value())
+	m.close()
 	if title == "" {
-		a.transientHint = "rename cancelled (empty title)"
-		return a, nil
+		m.app.setHint("rename cancelled (empty title)")
+		return m.app, nil
 	}
-	sid := a.currentSessionID()
+	sid := m.app.session.currentID()
 	if sid == "" {
-		return a, nil
+		return m.app, nil
 	}
 	// Optimistically update the sidebar so the user sees the change
 	// immediately; patchSessionTitleCmd will overwrite with the
@@ -90,50 +74,36 @@ func (a *App) commitRename() (tea.Model, tea.Cmd) {
 	// optimistic value). This mirrors J6's msg-based update path —
 	// both terminate with sessionTitleRenamedMsg.
 	previousTitle := ""
-	for i := range a.sessions {
-		if a.sessions[i].ID == sid {
-			previousTitle = a.sessions[i].Title
-			a.sessions[i].Title = title
+	for i := range m.app.session.sessions {
+		if m.app.session.sessions[i].ID == sid {
+			previousTitle = m.app.session.sessions[i].Title
+			m.app.session.sessions[i].Title = title
 			break
 		}
 	}
-	return a, patchManualSessionTitleCmd(a.c, sid, title, previousTitle)
+	return m.app, patchManualSessionTitleCmd(m.app.c, sid, title, previousTitle)
 }
 
-// viewRename renders the inline rename prompt. Matches the workspace-
+// view renders the inline rename prompt. Matches the workspace-
 // switcher / settings overlay shape.
-func (a *App) viewRename() string {
-	w := a.modalWidth()
-	buttons := []menuButton{
-		{
-			id:    "rename:save",
-			label: "save",
-			action: func(app *App) tea.Cmd {
-				_, cmd := app.commitRename()
-				return cmd
-			},
+func (m *renameModal) view() string {
+	a := m.app
+	w := a.modals.modalWidth()
+	buttons := saveCancelButtons("rename:save", "rename:cancel",
+		func(app *App) tea.Cmd {
+			_, cmd := app.rename.commit()
+			return cmd
 		},
-		{
-			id:    "rename:cancel",
-			label: "cancel",
-			action: func(app *App) tea.Cmd {
-				app.closeRenameModal()
-				return nil
-			},
-		},
-	}
-	rendered := a.renderTextEntryModal(textEntryModalOptions{
-		width:       w,
-		title:       "Rename session",
-		buttons:     buttons,
-		surfaceID:   "rename",
-		editor:      a.renderCursorEditor(a.renameDraft, a.renameCursor),
-		editorID:    "rename",
-		editorValue: a.renameDraft,
-		cursorAction: func(app *App, cursor int) {
-			app.renameCursor = cursor
-		},
-		footer: a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Esc cancel", "Left/Right move", "Home/End jump")),
-	})
+		func(app *App) tea.Cmd {
+			app.rename.close()
+			return nil
+		})
+	rendered := a.modals.renderTextEntryModal(a.modals.withInputEditor(textEntryModalOptions{
+		width:     w,
+		title:     "Rename session",
+		buttons:   buttons,
+		surfaceID: "rename",
+		footer:    a.Theme.HintLabel.Render(modalKeyHint("Enter save", "Esc cancel", "Left/Right move", "Home/End jump")),
+	}, "rename", &m.input))
 	return rendered.modal
 }

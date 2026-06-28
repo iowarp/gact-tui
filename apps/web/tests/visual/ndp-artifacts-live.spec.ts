@@ -8,80 +8,28 @@
  * artifacts produced by a real NDP/EarthScope run.
  */
 
-import { test, expect, chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  BACKEND,
+  api,
+  archiveSession,
+  auditDir,
+  bootBrowser,
+  reachable,
+  shot,
+  type SessionRow,
+  type Workspace,
+  type WorkspaceFileEntry,
+} from './ndp-live-helpers';
 
-const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 const ENABLED =
   process.env['CLIO_NDP_EARTHSCOPE_ARTIFACTS_LIVE'] === '1' ||
   process.env['CLIO_NDP_EARTHSCOPE_LIVE'] === '1';
-const KEEP_LIVE_SESSIONS = process.env['CLIO_LIVE_KEEP_SESSIONS'] === '1';
 const WORKSPACE_ROOT =
   process.env['CLIO_NDP_EARTHSCOPE_WORKSPACE'] ??
   '/home/jcernuda/gact-tui/tmp/owned-clio-ndp-20260617-120216/workspace';
-
-const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
-mkdirSync(auditDir, { recursive: true });
-
-interface Workspace {
-  id: string;
-  name?: string;
-  root_path?: string;
-}
-
-interface SessionRow {
-  id: string;
-  title?: string;
-  workspace_id?: string;
-  archived?: boolean;
-}
-
-interface WorkspaceFileEntry {
-  path: string;
-  type?: string;
-  size?: number;
-}
-
-let reachable = false;
-try {
-  const r = await fetch(`${BACKEND}/v1/capabilities`, {
-    signal: AbortSignal.timeout(2000),
-  });
-  reachable = r.ok;
-} catch {
-  reachable = false;
-}
-
-function shot(slug: string): string {
-  return resolve(auditDir, `${slug}.png`);
-}
-
-async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(`${BACKEND}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!r.ok) {
-    const body = await r.text().catch(() => '');
-    throw new Error(`${init.method ?? 'GET'} ${path} failed: ${r.status} ${body}`);
-  }
-  if (r.status === 204) return undefined as T;
-  return (await r.json()) as T;
-}
-
-async function optionalApi<T>(path: string, init: RequestInit = {}): Promise<T | { error: string }> {
-  try {
-    return await api<T>(path, init);
-  } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
-}
 
 async function workspaceByRoot(): Promise<Workspace> {
   const rows = (await api<{ workspaces: Workspace[] }>('/v1/workspaces')).workspaces ?? [];
@@ -107,18 +55,6 @@ async function createSession(workspaceId: string): Promise<string> {
   });
   if (!created.id) throw new Error('create session returned no id');
   return created.id;
-}
-
-async function archiveSession(sessionId: string): Promise<SessionRow | { error: string } | { kept: true }> {
-  if (KEEP_LIVE_SESSIONS) return { kept: true };
-  return await optionalApi<SessionRow>(`/v1/sessions/${encodeURIComponent(sessionId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ archived: true }),
-  });
-}
-
-async function bootBrowser(): Promise<Browser> {
-  return await chromium.launch({ args: ['--disable-web-security'] });
 }
 
 async function openConnected(browser: Browser): Promise<{

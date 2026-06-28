@@ -1,6 +1,12 @@
-import { For, Show, createResource, createSignal, onCleanup, onMount } from 'solid-js';
+/**
+ * UI component: Server Search Panel. Renders `ServerSearchPanel` from `ServerSearchPanelProps`.
+ */
+import { For, Show, createResource, onMount } from 'solid-js';
 import type { Client } from '@clio/core';
+import { formatScore } from '../formatters.js';
+import { createDebouncedText } from '../debouncedText.js';
 import { Icon } from './Icon.js';
+import { registerWindowKeydown } from '../domListeners.js';
 import { trapFocusRef } from '../focus-trap.js';
 import './server-search-panel.css';
 
@@ -21,21 +27,11 @@ export interface ServerSearchPanelProps {
  * the client-side scan would be slow or incomplete.
  */
 export function ServerSearchPanel(props: ServerSearchPanelProps) {
-  const [query, setQuery] = createSignal('');
+  const query = createDebouncedText();
   let inputRef: HTMLInputElement | undefined;
 
-  // Debounce query to ~250 ms so each keystroke doesn't fire a fetch.
-  const [debounced, setDebounced] = createSignal('');
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function onInput(q: string) {
-    setQuery(q);
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => setDebounced(q.trim()), 250);
-  }
-
   const [data] = createResource(
-    () => (props.open && debounced() ? { sid: props.sessionId, q: debounced() } : null),
+    () => (props.open && query.debounced() ? { sid: props.sessionId, q: query.debounced() } : null),
     async (key) => {
       if (!key) return { matches: [] };
       try {
@@ -54,8 +50,7 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
         props.onClose();
       }
     };
-    window.addEventListener('keydown', onKey, true);
-    onCleanup(() => window.removeEventListener('keydown', onKey, true));
+    registerWindowKeydown(onKey, true);
   });
 
   // Focus the input on open.
@@ -86,8 +81,8 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
                 type="text"
                 class="ssp__input"
                 placeholder="Search the whole transcript on the server…"
-                value={query()}
-                onInput={(e) => onInput(e.currentTarget.value)}
+                value={query.raw()}
+                onInput={(e) => query.set(e.currentTarget.value)}
                 data-testid="server-search-input"
               />
               <button
@@ -100,7 +95,7 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
               </button>
             </header>
             <div class="ssp__meta">
-              <Show when={debounced()}>
+              <Show when={query.debounced()}>
                 <Show
                   when={!data.loading}
                   fallback={<span class="ssp__loading">searching…</span>}
@@ -108,7 +103,7 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
                   <span>{matches().length} match{matches().length === 1 ? '' : 'es'}</span>
                 </Show>
               </Show>
-              <Show when={!debounced()}>
+              <Show when={!query.debounced()}>
                 <span class="ssp__hint">type to search the backend index</span>
               </Show>
             </div>
@@ -132,7 +127,7 @@ export function ServerSearchPanel(props: ServerSearchPanelProps) {
                         <span class="ssp__hit-id">{hit.message_id}</span>
                         <Show when={hit.score != null}>
                           <span class="ssp__hit-score">
-                            {(hit.score! as number).toFixed(2)}
+                            {formatScore(hit.score! as number)}
                           </span>
                         </Show>
                       </div>

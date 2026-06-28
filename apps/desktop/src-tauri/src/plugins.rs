@@ -46,6 +46,22 @@ pub struct ExecPluginResult {
 /// for slash-command output snippets and keeps the IPC payload bounded.
 const OUTPUT_CAP_BYTES: usize = 64 * 1024;
 
+/// Join one output-reader thread, distinguishing "no reader thread" (the
+/// child never exposed that pipe → empty bytes) from "the reader thread
+/// panicked" (an error the caller must see, not an empty capture).
+fn join_reader(
+    thread: Option<thread::JoinHandle<Vec<u8>>>,
+    stream: &str,
+    path: &str,
+) -> Result<Vec<u8>, String> {
+    match thread {
+        None => Ok(Vec::new()),
+        Some(handle) => handle
+            .join()
+            .map_err(|_| format!("{stream} reader thread for `{path}` panicked")),
+    }
+}
+
 #[tauri::command]
 pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
     let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(10_000).min(60_000));
@@ -109,12 +125,12 @@ pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
         }
     };
 
-    let stdout_bytes = stdout_thread
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
-    let stderr_bytes = stderr_thread
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
+    // A reader thread panicking is distinct from a plugin that simply
+    // produced no output: `unwrap_or_default` would erase that distinction and
+    // silently report empty stdout/stderr. Surface the join failure as a real
+    // plugin error so the caller doesn't trust a truncated/empty capture.
+    let stdout_bytes = join_reader(stdout_thread, "stdout", &req.path)?;
+    let stderr_bytes = join_reader(stderr_thread, "stderr", &req.path)?;
 
     Ok(ExecPluginResult {
         status: status.code().unwrap_or(if timed_out { -1 } else { 0 }),
@@ -123,4 +139,32 @@ pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
         duration_ms: started.elapsed().as_millis() as u64,
         timed_out,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn join_reader_returns_empty_when_no_thread() {
+        let bytes = join_reader(None, "stdout", "/bin/true").expect("no-thread is not an error");
+        assert!(bytes.is_empty());
+    }
+
+    #[test]
+    fn join_reader_passes_through_collected_bytes() {
+        let handle = thread::spawn(|| b"hello".to_vec());
+        let bytes = join_reader(Some(handle), "stdout", "/bin/true").expect("clean join");
+        assert_eq!(bytes, b"hello");
+    }
+
+    #[test]
+    fn join_reader_surfaces_a_panicked_reader_as_an_error() {
+        let handle = thread::spawn(|| -> Vec<u8> { panic!("reader blew up") });
+        let err = join_reader(Some(handle), "stderr", "/usr/bin/plugin")
+            .expect_err("a panicked reader must be an error, not empty output");
+        assert!(err.contains("stderr reader thread"));
+        assert!(err.contains("/usr/bin/plugin"));
+        assert!(err.contains("panicked"));
+    }
 }

@@ -1,0 +1,39 @@
+.psetup__keyform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-accent-cyan-30);
+  background: color-mix(in srgb, var(--color-accent-cyan) 5%, transparent);
+}
+
+.psetup__keylabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.psetup__keyinput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-60);
+  background: var(--color-bg, var(--color-surface));
+  color: var(--color-heading);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.psetup__keyinput:focus {
+  outline: none;
+  border-color: var(--color-accent-cyan);
+}
+
+.psetup__keyactions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -1,48 +1,22 @@
-import { createContext, For, onCleanup, useContext, createSignal, type ParentComponent } from 'solid-js';
-import { Icon, type IconName } from './Icon.js';
+/**
+ * UI component: Toast.
+ */
+import { createContext, onCleanup, useContext, createSignal, type ParentComponent } from 'solid-js';
+import { ToastHost } from './ToastHost.js';
+import {
+  appendToastHistory,
+  appendVisibleToast,
+  createToastHistoryEntry,
+  createToastRecord,
+  findDuplicateVisibleToast,
+  TOAST_HISTORY_LIMIT,
+  type ToastHistoryEntry,
+  type ToastInput,
+  type ToastRecord,
+} from './ToastModel.js';
 import './toast.css';
 
-export type ToastTone = 'info' | 'success' | 'warn' | 'error';
-
-/** Clickable next-action on a toast — the thing that turns an error
- * notification from a dead-end into a recovery path (W3 Tier-1:
- * "every error offers a next action"). Clicking runs the callback and
- * dismisses the toast. */
-export interface ToastAction {
-  label: string;
-  onClick: () => void;
-}
-
-export interface ToastInput {
-  title: string;
-  body?: string;
-  tone?: ToastTone;
-  /** Auto-dismiss after this many ms. Defaults to 4500; 0 disables. */
-  duration?: number;
-  icon?: IconName;
-  /** Optional action button (e.g. Retry / Open settings / Reconnect now). */
-  action?: ToastAction;
-  /** Record into the notification-center history WITHOUT showing a
-   * visible toast — for ambient events that belong in the bell, not
-   * on screen (1.0 item 8). */
-  silent?: boolean;
-}
-
-interface ToastRecord extends Required<Omit<ToastInput, 'body' | 'icon' | 'action' | 'silent'>> {
-  id: number;
-  body?: string;
-  icon?: IconName;
-  action?: ToastAction;
-}
-
-export interface ToastHistoryEntry {
-  id: number;
-  title: string;
-  body?: string;
-  tone: ToastTone;
-  /** Epoch ms when the toast was pushed. */
-  pushedAt: number;
-}
+export type { ToastAction, ToastHistoryEntry, ToastInput, ToastTone } from './ToastModel.js';
 
 interface ToastApi {
   push: (input: ToastInput) => number;
@@ -76,7 +50,6 @@ export const ToastProvider: ParentComponent = (props) => {
   const [toasts, setToasts] = createSignal<ToastRecord[]>([]);
   const [history, setHistory] = createSignal<ToastHistoryEntry[]>([]);
   const [unseenCount, setUnseenCount] = createSignal(0);
-  const HISTORY_LIMIT = 50;
   let nextId = 1;
   // Per-visible-toast auto-dismiss timers, so a coalesced duplicate can
   // restart the existing toast's countdown instead of stacking a copy.
@@ -109,57 +82,30 @@ export const ToastProvider: ParentComponent = (props) => {
     timers.clear();
   });
 
-  // Cap simultaneously-visible toasts to keep the bottom-right stack
-  // from snowballing during a burst of SSE notifications. Oldest
-  // entries fall off first; pinned (duration:0) entries are exempted.
-  const MAX_VISIBLE = 5;
-
   function push(input: ToastInput): number {
     const id = nextId++;
-    const rec: ToastRecord = {
-      id,
-      title: input.title,
-      body: input.body,
-      icon: input.icon,
-      tone: input.tone ?? 'info',
-      // Toasts with an action linger longer so the user has time to click it.
-      duration: input.duration ?? (input.action ? 8000 : 4500),
-      action: input.action,
-    };
+    const rec = createToastRecord(id, input);
     // Silent entries skip the visible toast stack entirely — they exist
     // only in the bell history (1.0 item 8).
     if (!input.silent) {
       // Coalesce an identical toast that's already on screen: restart its
       // countdown rather than stacking a visual duplicate. The history list
       // below still records every occurrence.
-      const dupe = toasts().find(
-        (t) => t.tone === rec.tone && t.title === rec.title && t.body === rec.body,
-      );
+      const dupe = findDuplicateVisibleToast(toasts(), rec);
       if (dupe) {
         scheduleDismiss(dupe.id, dupe.duration);
       } else {
         setToasts((cur) => {
-          const next = [...cur, rec];
-          if (next.length <= MAX_VISIBLE) return next;
-          // Evict the oldest non-pinned entry to make room.
-          const evictIdx = next.findIndex((t) => t.duration > 0);
-          if (evictIdx === -1) return next.slice(-MAX_VISIBLE);
-          const [evicted] = next.splice(evictIdx, 1);
-          if (evicted) clearTimer(evicted.id);
-          return next;
+          const result = appendVisibleToast(cur, rec);
+          if (result.evictedId !== undefined) clearTimer(result.evictedId);
+          return result.toasts;
         });
         scheduleDismiss(id, rec.duration);
       }
     }
     // Mirror into the persistent history list (newest first, capped).
-    const histEntry: ToastHistoryEntry = {
-      id,
-      title: rec.title,
-      ...(rec.body ? { body: rec.body } : {}),
-      tone: rec.tone,
-      pushedAt: Date.now(),
-    };
-    setHistory((prev) => [histEntry, ...prev].slice(0, HISTORY_LIMIT));
+    const histEntry = createToastHistoryEntry(rec);
+    setHistory((prev) => appendToastHistory(prev, histEntry, TOAST_HISTORY_LIMIT));
     setUnseenCount((n) => n + 1);
     return id;
   }
@@ -179,60 +125,7 @@ export const ToastProvider: ParentComponent = (props) => {
       }}
     >
       {props.children}
-      <div class="toast-host" data-testid="toast-host" aria-live="polite">
-        <For each={toasts()}>
-          {(t) => (
-            <div
-              class={'toast toast--' + t.tone}
-              data-testid={`toast-${t.id}`}
-              role="status"
-            >
-              <div class="toast__icon">
-                <Icon name={t.icon ?? defaultIcon(t.tone)} size={14} />
-              </div>
-              <div class="toast__main">
-                <div class="toast__title">{t.title}</div>
-                {t.body && <div class="toast__body">{t.body}</div>}
-                {t.action && (
-                  <button
-                    type="button"
-                    class="toast__action"
-                    data-testid={`toast-action-${t.id}`}
-                    onClick={() => {
-                      t.action?.onClick();
-                      dismiss(t.id);
-                    }}
-                  >
-                    {t.action.label}
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                class="toast__close"
-                onClick={() => dismiss(t.id)}
-                aria-label="Dismiss"
-              >
-                <Icon name="close" size={10} />
-              </button>
-            </div>
-          )}
-        </For>
-      </div>
+      <ToastHost toasts={toasts()} onDismiss={dismiss} />
     </ToastContext.Provider>
   );
 };
-
-function defaultIcon(tone: ToastTone): IconName {
-  switch (tone) {
-    case 'success':
-      return 'check';
-    case 'warn':
-      return 'help';
-    case 'error':
-      return 'close';
-    case 'info':
-    default:
-      return 'sparkle';
-  }
-}

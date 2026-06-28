@@ -35,6 +35,26 @@ interface RawBrand {
     url?: string;
     detail?: string;
   } | null;
+  backend?: RawBackend;
+}
+
+/** Raw `backend` block — the managed-vs-connect descriptor shared with the
+ *  desktop supervisor (apps/desktop/scripts/gen-brand-backend.mjs). */
+interface RawBackend {
+  mode?: 'managed' | 'connect';
+  sidecarName?: string;
+  attachPort?: number;
+  attachPortEnv?: string;
+  attachUrlEnv?: string;
+  repoLabel?: string | null;
+  install?: {
+    ref?: string;
+    refEnv?: string;
+    forceEnv?: string;
+    windowsUrl?: string;
+    unixUrl?: string;
+    repoLabel?: string;
+  } | null;
 }
 
 export interface ResolvedBrand {
@@ -53,8 +73,71 @@ export interface ResolvedBrand {
     url: string;
     detail: string;
   } | null;
+  /** Managed-vs-connect backend descriptor — the SAME resolved shape the
+   *  desktop gen-script embeds, so web and desktop read one brand document. */
+  backend: ResolvedBackend;
   /** Inlined SVG source, or null when the profile has no logoSvg. */
   logoSvg: string | null;
+}
+
+export interface ResolvedBackend {
+  mode: 'managed' | 'connect';
+  sidecarName: string;
+  attachPort: number;
+  attachPortEnv: string;
+  attachUrlEnv: string;
+  repoLabel: string | null;
+  install: {
+    ref: string;
+    refEnv: string;
+    forceEnv: string;
+    windowsUrl: string;
+    unixUrl: string;
+    repoLabel: string;
+  } | null;
+}
+
+/**
+ * Default backend block — the neutral connect default. Kept literally in sync
+ * with `apps/desktop/scripts/gen-brand-backend.mjs` so web and the desktop
+ * supervisor resolve the SAME brand document identically.
+ */
+const DEFAULT_BACKEND: ResolvedBackend = {
+  mode: 'connect',
+  sidecarName: '',
+  attachPort: 17800,
+  attachPortEnv: 'GACT_PORT',
+  attachUrlEnv: 'GACT_URL',
+  repoLabel: null,
+  install: null,
+};
+
+function resolveBackend(raw: RawBackend | undefined): ResolvedBackend {
+  if (!raw) return DEFAULT_BACKEND;
+  let install: ResolvedBackend['install'];
+  if (raw.install === null) {
+    install = null;
+  } else if (raw.install === undefined) {
+    install = DEFAULT_BACKEND.install;
+  } else {
+    install = {
+      ref: raw.install.ref ?? 'main',
+      refEnv: raw.install.refEnv ?? 'GACT_REF',
+      forceEnv: raw.install.forceEnv ?? 'GACT_FORCE',
+      windowsUrl: raw.install.windowsUrl ?? '',
+      unixUrl: raw.install.unixUrl ?? '',
+      repoLabel: raw.install.repoLabel ?? 'the configured backend',
+    };
+  }
+  return {
+    mode: raw.mode ?? DEFAULT_BACKEND.mode,
+    sidecarName: raw.sidecarName ?? DEFAULT_BACKEND.sidecarName,
+    attachPort: raw.attachPort ?? DEFAULT_BACKEND.attachPort,
+    attachPortEnv: raw.attachPortEnv ?? DEFAULT_BACKEND.attachPortEnv,
+    attachUrlEnv: raw.attachUrlEnv ?? DEFAULT_BACKEND.attachUrlEnv,
+    repoLabel: raw.repoLabel ?? null,
+    install,
+  };
 }
 
 /** Default accent when a profile omits one — the design-system default. */
@@ -135,28 +218,12 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     themeTokens,
     starterPrompts: starterPrompts.length > 0 ? starterPrompts : DEFAULT_STARTER_PROMPTS,
     backendRepository,
+    backend: resolveBackend(raw.backend),
     logoSvg,
   };
 }
 
-/**
- * Resolve the active brand profile id.
- *
- * Precedence: explicit `GACT_BRAND` always wins. Otherwise the default is
- * `gact` (neutral) — EXCEPT under Vitest, where the existing unit suite is
- * authored against the CLIO product (the brand under test), so it defaults to
- * `clio` to keep those assertions valid. The visual (Playwright) build is run
- * with an explicit `GACT_BRAND=clio` via the `test:visual` script.
- */
-export function activeProfile(): string {
-  const explicit = process.env['GACT_BRAND'];
-  if (explicit) return explicit;
-  if (process.env['VITEST']) return 'clio';
-  return 'gact';
-}
-
-export function brandPlugin(brandingRoot: string): Plugin {
-  const profile = activeProfile();
+export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let resolved: ResolvedBrand | null = null;
   const jsonPath = resolve(brandingRoot, profile, 'brand.json');
 

@@ -23,7 +23,7 @@ func TestTab_SeedsBodyCursor(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusSidebar
-	a.bodySelMsgIdx = -1
+	a.conversation.bodySelMsgIdx = -1
 
 	// Tab: sidebar → body. Should seed cursor to last message (idx=2).
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
@@ -31,8 +31,8 @@ func TestTab_SeedsBodyCursor(t *testing.T) {
 	if got.focus != FocusBody {
 		t.Fatalf("after Tab, focus = %v, want FocusBody", got.focus)
 	}
-	if got.bodySelMsgIdx != 2 {
-		t.Errorf("after Tab into body, bodySelMsgIdx = %d, want 2 (last msg)", got.bodySelMsgIdx)
+	if got.conversation.bodySelMsgIdx != 2 {
+		t.Errorf("after Tab into body, bodySelMsgIdx = %d, want 2 (last msg)", got.conversation.bodySelMsgIdx)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestTab_PreservesExistingCursor(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 0 // user already navigated up
+	a.conversation.bodySelMsgIdx = 0 // user already navigated up
 
 	// Tab thrice: body → input → sidebar → body. Cursor must survive.
 	for i := 0; i < 3; i++ {
@@ -59,8 +59,8 @@ func TestTab_PreservesExistingCursor(t *testing.T) {
 	if a.focus != FocusBody {
 		t.Fatalf("after 3 tabs, focus = %v, want FocusBody", a.focus)
 	}
-	if a.bodySelMsgIdx != 0 {
-		t.Errorf("after 3 tabs, bodySelMsgIdx = %d, want 0 (preserved)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 0 {
+		t.Errorf("after 3 tabs, bodySelMsgIdx = %d, want 0 (preserved)", a.conversation.bodySelMsgIdx)
 	}
 }
 
@@ -90,21 +90,21 @@ func TestCtrlE_TargetsCursorMessage(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 0 // pointing at EARLIER, not LATEST
+	a.conversation.bodySelMsgIdx = 0 // pointing at EARLIER, not LATEST
 
 	// Ctrl+E. The Z1 path must pick EARLIER since the cursor is set.
 	out, _ := a.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
 	got := out.(*App)
-	if !got.detailViewOpen || got.detailView == nil {
-		t.Fatalf("Ctrl+E should open detail view; open=%v ref=%+v", got.detailViewOpen, got.detailView)
+	if !got.detail.visible || got.detail.ref == nil {
+		t.Fatalf("Ctrl+E should open detail view; open=%v ref=%+v", got.detail.visible, got.detail.ref)
 	}
-	if got.detailView.messageID != "EARLIER" {
+	if got.detail.ref.messageID != "EARLIER" {
 		t.Errorf("detail view targeted %q, want EARLIER (cursor message), not the latest",
-			got.detailView.messageID)
+			got.detail.ref.messageID)
 	}
-	if !strings.Contains(got.detailView.fullText, "EARLIER") {
+	if !strings.Contains(got.detail.ref.fullText, "EARLIER") {
 		t.Errorf("expanded body should contain EARLIER marker, got: %q",
-			got.detailView.fullText[:min(80, len(got.detailView.fullText))])
+			got.detail.ref.fullText[:min(80, len(got.detail.ref.fullText))])
 	}
 }
 
@@ -132,17 +132,17 @@ func TestBodyEnter_OpensDetailView(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 1 // MIDDLE
+	a.conversation.bodySelMsgIdx = 1 // MIDDLE
 
 	// Enter via handleBodyKey — same code path as Ctrl+E.
-	out, _ := a.handleBodyKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	out, _ := a.conversation.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	got := out.(*App)
-	if !got.detailViewOpen || got.detailView == nil {
-		t.Fatalf("Enter should open detail view; open=%v", got.detailViewOpen)
+	if !got.detail.visible || got.detail.ref == nil {
+		t.Fatalf("Enter should open detail view; open=%v", got.detail.visible)
 	}
-	if got.detailView.messageID != "MIDDLE" {
+	if got.detail.ref.messageID != "MIDDLE" {
 		t.Errorf("detail view targeted %q, want MIDDLE (cursor message)",
-			got.detailView.messageID)
+			got.detail.ref.messageID)
 	}
 }
 
@@ -165,12 +165,12 @@ func TestCtrlE_FallbackLatestWhenNoCursor(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusInput // not body — cursor irrelevant
-	a.bodySelMsgIdx = -1
+	a.conversation.bodySelMsgIdx = -1
 
 	out, _ := a.Update(tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl, Text: ""})
 	got := out.(*App)
-	if got.detailView == nil || got.detailView.messageID != "LATEST" {
-		t.Errorf("no-cursor Ctrl+E should fall through to LATEST; got %+v", got.detailView)
+	if got.detail.ref == nil || got.detail.ref.messageID != "LATEST" {
+		t.Errorf("no-cursor Ctrl+E should fall through to LATEST; got %+v", got.detail.ref)
 	}
 }
 
@@ -196,45 +196,45 @@ func TestBodyUpDown_MovesCursorNotJustScroll(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = 3 // start on the latest
+	a.conversation.bodySelMsgIdx = 3 // start on the latest
 
 	// up moves cursor one back.
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 2 {
-		t.Errorf("after up, bodySelMsgIdx = %d, want 2", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 2 {
+		t.Errorf("after up, bodySelMsgIdx = %d, want 2", a.conversation.bodySelMsgIdx)
 	}
 	// up again.
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 1 {
-		t.Errorf("after second up, bodySelMsgIdx = %d, want 1", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 1 {
+		t.Errorf("after second up, bodySelMsgIdx = %d, want 1", a.conversation.bodySelMsgIdx)
 	}
 	// down brings cursor forward.
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 2 {
-		t.Errorf("after down, bodySelMsgIdx = %d, want 2", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 2 {
+		t.Errorf("after down, bodySelMsgIdx = %d, want 2", a.conversation.bodySelMsgIdx)
 	}
 	// up at bottom: clamps at 0 (oldest).
 	for i := 0; i < 10; i++ {
 		out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 		a = out.(*App)
 	}
-	if a.bodySelMsgIdx != 0 {
-		t.Errorf("clamp low: bodySelMsgIdx = %d, want 0", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 0 {
+		t.Errorf("clamp low: bodySelMsgIdx = %d, want 0", a.conversation.bodySelMsgIdx)
 	}
 	// G jumps cursor to latest.
 	out, _ = a.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 3 {
-		t.Errorf("after G, bodySelMsgIdx = %d, want 3 (last)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 3 {
+		t.Errorf("after G, bodySelMsgIdx = %d, want 3 (last)", a.conversation.bodySelMsgIdx)
 	}
 	// g jumps to first.
 	out, _ = a.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 0 {
-		t.Errorf("after g, bodySelMsgIdx = %d, want 0 (first)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 0 {
+		t.Errorf("after g, bodySelMsgIdx = %d, want 0 (first)", a.conversation.bodySelMsgIdx)
 	}
 }
 
@@ -250,19 +250,19 @@ func TestBodyUpDown_SeedsCursorWhenUnset(t *testing.T) {
 	)
 	a.width, a.height = 120, 30
 	a.focus = FocusBody
-	a.bodySelMsgIdx = -1
+	a.conversation.bodySelMsgIdx = -1
 
 	// up on unset → seed to latest (idx=1).
 	out, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 1 {
-		t.Errorf("up on unset cursor: idx = %d, want 1 (latest)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 1 {
+		t.Errorf("up on unset cursor: idx = %d, want 1 (latest)", a.conversation.bodySelMsgIdx)
 	}
 
-	a.bodySelMsgIdx = -1
+	a.conversation.bodySelMsgIdx = -1
 	out, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	a = out.(*App)
-	if a.bodySelMsgIdx != 0 {
-		t.Errorf("down on unset cursor: idx = %d, want 0 (first)", a.bodySelMsgIdx)
+	if a.conversation.bodySelMsgIdx != 0 {
+		t.Errorf("down on unset cursor: idx = %d, want 0 (first)", a.conversation.bodySelMsgIdx)
 	}
 }

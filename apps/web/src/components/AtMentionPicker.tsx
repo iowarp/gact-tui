@@ -1,3 +1,6 @@
+/**
+ * UI component: At Mention Picker.
+ */
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import type { Client } from '@clio/core';
 import { fuzzyRank } from '../fuzzy.js';

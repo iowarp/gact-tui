@@ -1,0 +1,94 @@
+.settings__form {
+  padding: 24px;
+  max-width: 560px;
+}
+
+.settings__form--remote {
+  width: 100%;
+  padding: 20px 24px 18px;
+}
+
+.settings__form--remote .settings__seg {
+  margin-bottom: 14px;
+}
+
+.settings__form--remote .field {
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.settings__form--remote .field input {
+  padding: 8px 12px;
+}
+
+.settings__form--remote .settings__hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.settings__form--remote .settings__actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.settings__seg {
+  display: inline-flex;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  margin-bottom: 20px;
+  gap: 4px;
+}
+
+.settings__seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings__seg-btn.is-active {
+  background: var(--color-surface);
+  color: var(--color-heading);
+}
+
+.settings__seg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings__hint {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  border-left: 2px solid var(--color-accent-cyan-30);
+  padding-left: 12px;
+  margin-top: 12px;
+}
+
+.settings__error {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--color-error);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  margin-top: 12px;
+}
+
+.settings__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}

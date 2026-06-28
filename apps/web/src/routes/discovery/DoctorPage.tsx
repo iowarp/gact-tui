@@ -1,7 +1,21 @@
+/**
+ * Discovery surface: Doctor Page component. Key export `DoctorPageProps`.
+ */
 import { createResource, For, Show } from 'solid-js';
 import type { Client, HealthIntegration } from '@clio/core';
 import { DiscoveryPage } from '../../components/DiscoveryPage.js';
 import { Icon } from '../../components/Icon.js';
+import { SubsystemHealth } from '../../components/SubsystemHealth.js';
+import {
+  capabilityGapRows,
+  healthStatusColor,
+  healthStatusTone,
+  humanUptime,
+  lspStatusTone,
+  overallHealthMeaning,
+  overallHealthStatus,
+} from './DoctorPageModel.js';
+import './doctor-page.css';
 
 export interface DoctorPageProps {
   client: Client;
@@ -13,30 +27,9 @@ export function DoctorPage(props: DoctorPageProps) {
   const [lspData] = createResource(() => props.client.lspClients().catch(() => ({ clients: [] })));
   const integrations = () => data()?.integrations ?? [];
   const lspClients = () => lspData()?.clients ?? [];
-  const gaps = () => {
-    const raw = gapsData()?.capability_gaps ?? {};
-    return Object.entries(raw).map(([name, details]) => ({
-      name,
-      status: (details.status as string) ?? 'unknown',
-      category: (details.category as string) ?? '',
-      description: (details.description as string) ?? '',
-      advertised: details.advertised === true,
-    }));
-  };
-  const overallStatus = () => data()?.overall_status ?? (data()?.healthy ? 'healthy' : 'unknown');
-  const overallMeaning = () => {
-    switch (overallStatus()) {
-      case 'healthy':
-      case 'ready':
-        return 'All reported integrations are ready.';
-      case 'degraded':
-        return 'Some integrations need attention.';
-      case 'unavailable':
-        return 'Backend health checks are unavailable.';
-      default:
-        return 'Backend reported an unknown health state.';
-    }
-  };
+  const gaps = () => capabilityGapRows(gapsData()?.capability_gaps);
+  const overallStatus = () => overallHealthStatus(data());
+  const overallMeaning = () => overallHealthMeaning(overallStatus());
   return (
     <DiscoveryPage
       icon="doctor"
@@ -60,12 +53,13 @@ export function DoctorPage(props: DoctorPageProps) {
       emptyBody="Backend does not expose /v1/health or has no integrations registered."
     >
       <Show when={data()}>
+        <SubsystemHealth health={data()} />
         <div class="dp__stats">
           <div class="dp__stat">
             <div class="dp__stat-label">overall</div>
             <div
               class="dp__stat-value"
-              style={`color:${healthColor(overallStatus())}`}
+              style={`color:${healthStatusColor(overallStatus())}`}
             >
               {overallStatus()}
             </div>
@@ -90,14 +84,7 @@ export function DoctorPage(props: DoctorPageProps) {
               <li class="doc__row" data-testid={`doctor-lsp-${c.name}`}>
                 <span
                   class={
-                    'doc__row-pip doc__row-pip--' +
-                    (c.status === 'ready' || c.status === 'running'
-                      ? 'ok'
-                      : c.status === 'starting'
-                        ? 'warn'
-                        : c.status
-                          ? 'err'
-                          : '')
+                    'doc__row-pip doc__row-pip--' + lspStatusTone(c.status)
                   }
                 />
                 <span class="doc__row-name">{c.name}</span>
@@ -142,35 +129,14 @@ export function DoctorPage(props: DoctorPageProps) {
 function IntegrationRow(props: { i: HealthIntegration }) {
   return (
     <li class="doc__row" data-testid={`doctor-integration-${props.i.name}`}>
-      <span class={'doc__pip doc__pip--' + statusTone(props.i.status)} />
+      <span class={'doc__pip doc__pip--' + healthStatusTone(props.i.status)} />
       <div class="doc__row-main">
         <div class="doc__row-name">{props.i.name}</div>
         <Show when={props.i.detail}>
           <div class="doc__row-detail">{props.i.detail}</div>
         </Show>
       </div>
-      <span class={'dp__tag dp__tag--' + statusTone(props.i.status)}>{props.i.status}</span>
+      <span class={'dp__tag dp__tag--' + healthStatusTone(props.i.status)}>{props.i.status}</span>
     </li>
   );
-}
-
-function statusTone(s: string): 'ok' | 'warn' | 'err' | '' {
-  if (s === 'ready') return 'ok';
-  if (s === 'degraded') return 'warn';
-  if (s === 'unavailable') return 'err';
-  return '';
-}
-
-function healthColor(overall: string): string {
-  if (overall === 'healthy' || overall === 'ready') return 'var(--color-success)';
-  if (overall === 'degraded') return 'var(--color-warning)';
-  if (overall === 'unavailable') return 'var(--color-error)';
-  return 'var(--color-heading)';
-}
-
-function humanUptime(s: number): string {
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  return `${Math.floor(s / 86400)}d`;
 }

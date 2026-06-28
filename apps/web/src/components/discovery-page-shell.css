@@ -1,0 +1,16 @@
+.dp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.dp__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 40px 80px;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}

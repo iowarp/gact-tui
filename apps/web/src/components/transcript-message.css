@@ -1,0 +1,140 @@
+/* FLAT message: NO card. No border, no background, no radius around a message
+ * (RENDERING_SPEC §2). A selected message is marked only by a thin left accent
+ * rule, not a filled box. Indentation + gutter markers carry the structure. */
+.trx-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  padding-left: 10px;
+  transition: border-color var(--dur-fast);
+}
+
+.trx-msg.is-selected {
+  border-left-color: var(--color-accent);
+}
+
+/* Minimal message chrome: a small role label + relative time, no heavy avatar
+ * and no always-on action bar (owner feedback: "I do everything above that").
+ * Actions live in a hover-only strip. */
+.trx-msg__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trx-msg__role-icon {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.trx-msg--assistant .trx-msg__role-icon {
+  color: var(--color-accent-cyan);
+}
+
+.trx-msg__role {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.trx-msg__model {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+  background: var(--color-surface-alt);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-30);
+}
+
+.trx-msg__when {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+  margin-left: auto;
+}
+
+.trx-msg__actions {
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.trx-msg:hover .trx-msg__actions {
+  opacity: 1;
+}
+
+.trx-msg__action {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+
+.trx-msg__action:hover {
+  color: var(--color-heading);
+  background: var(--color-surface-alt);
+}
+
+.trx-msg__action--danger:hover {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
+
+.trx-msg__body {
+  padding-left: 18px;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.trx-msg__body > * + * {
+  margin-top: 10px;
+}
+
+/* FULL-WIDTH text (RENDERING_SPEC §6 / §9): the message body and its markdown /
+ * text containers fill the reading column. No `width: fit-content` / `max-content`
+ * / narrow `max-width` that would wrap the user prompt at ~half width and strand a
+ * large right gutter. Applies to user + assistant text uniformly. */
+.trx-msg__body,
+.trx-msg__body > .im,
+.trx-msg__body > .trx-text,
+.trx-msg__body .im,
+.trx-msg__body .im__p,
+.trx-msg__body .trx-text {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.trx-msg__body > .im,
+.trx-msg__body > .trx-text {
+  align-self: stretch;
+}
+
+.trx-msg__retry-chip {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 50%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  cursor: default;
+}

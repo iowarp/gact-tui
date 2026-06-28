@@ -9,6 +9,7 @@
  */
 
 import { brand } from '@brand';
+import { invoke } from './tauriApi.js';
 import { inTauri } from './tauri.js';
 
 export const PLUGINS_KEY = 'clio.plugins.v1';
@@ -112,7 +113,6 @@ export async function invokePlugin(
     );
   }
   const args = [...(def.args ?? []), ...extraArgs];
-  const { invoke } = await import('@tauri-apps/api/core');
   return invoke<PluginInvocationResult>('exec_plugin', {
     req: {
       path: def.path,

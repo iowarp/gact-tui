@@ -1,0 +1,47 @@
+.dp__card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.dp__card-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--color-border-30);
+  color: var(--color-heading);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+
+.dp__card-btn:hover:not(:disabled) {
+  border-color: var(--color-border-60);
+  background: var(--color-surface-alt);
+}
+
+.dp__card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dp__card-btn--primary {
+  background: var(--color-accent);
+  color: #0a0f1a;
+  border-color: var(--color-accent);
+}
+
+.dp__card-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 85%, white);
+  border-color: color-mix(in srgb, var(--color-accent) 85%, white);
+}
+
+.dp__card-btn--primary:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}

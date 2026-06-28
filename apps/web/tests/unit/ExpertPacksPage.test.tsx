@@ -142,6 +142,9 @@ describe('ExpertPacksPage lifecycle', () => {
       }),
     );
     await waitFor(() => expect(screen.getByTestId('expertpack-verdict').textContent).toContain('Updated toolkit'));
+    await waitFor(() =>
+      expect((screen.getByTestId('expertpack-delete-toolkit') as HTMLButtonElement).disabled).toBe(false),
+    );
 
     fireEvent.click(screen.getByTestId('expertpack-delete-toolkit'));
     await waitFor(() =>
@@ -152,5 +155,26 @@ describe('ExpertPacksPage lifecycle', () => {
     );
     await waitFor(() => expect(screen.getByTestId('expertpack-verdict').textContent).toContain('Deleted toolkit'));
     await waitFor(() => expect(expertPacks).toHaveBeenCalledTimes(3));
+  });
+
+  it('reports lifecycle action failures without refetching', async () => {
+    const failingUpdate = vi.fn().mockRejectedValue(new Error('update failed'));
+    const { client, expertPacks } = makeClient({
+      updateExpertPack: failingUpdate,
+    });
+    render(() => <ExpertPacksPage client={client} context={{ workspaceId: 'ws_123' }} />);
+    await waitForPack();
+
+    fireEvent.click(screen.getByTestId('expertpack-update-toolkit'));
+
+    await waitFor(() => expect(failingUpdate).toHaveBeenCalledWith('toolkit', {
+      scope: 'workspace',
+      workspace_id: 'ws_123',
+    }));
+    await waitFor(() =>
+      expect(screen.getByTestId('expertpack-error').textContent).toContain('update failed'),
+    );
+    expect(screen.queryByTestId('expertpack-verdict')).toBeNull();
+    expect(expertPacks).toHaveBeenCalledTimes(1);
   });
 });

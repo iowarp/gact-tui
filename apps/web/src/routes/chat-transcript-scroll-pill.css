@@ -1,0 +1,40 @@
+/* Sticky "jump to latest" pill when the user has scrolled up. */
+.chat__scroll-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 154px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-overlay);
+  z-index: 18;
+  transition: transform var(--dur-fast), background var(--dur-fast);
+  animation: chat-scroll-pill-in 220ms ease-out both;
+}
+
+.chat__scroll-pill:hover {
+  background: var(--color-surface-alt);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+@keyframes chat-scroll-pill-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

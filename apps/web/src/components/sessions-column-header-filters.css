@@ -1,0 +1,50 @@
+.sx__filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 0;
+  opacity: 0.82;
+}
+
+.sx__filters:empty {
+  display: none;
+}
+
+.sx__running-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.sx__running-toggle input {
+  accent-color: var(--color-accent-cyan);
+  cursor: pointer;
+}
+
+.sx__running-toggle:hover {
+  color: var(--color-text);
+}
+
+.sx__archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sx__archive-toggle:hover,
+.sx__archive-toggle.is-active {
+  color: var(--color-heading);
+}
