@@ -59,6 +59,19 @@ func TestBundledCandidatesIncludesHostLayout(t *testing.T) {
 	}
 }
 
+func TestVenvScriptDirsPrioritizesHostLayoutWithoutDuplicates(t *testing.T) {
+	got := venvScriptDirs()
+	if len(got) != 2 {
+		t.Fatalf("venvScriptDirs len = %d, want 2: %v", len(got), got)
+	}
+	if got[0] != venvScriptDir() {
+		t.Fatalf("venvScriptDirs should prioritize host script dir %q, got %v", venvScriptDir(), got)
+	}
+	if got[0] == got[1] {
+		t.Fatalf("venvScriptDirs should not duplicate entries: %v", got)
+	}
+}
+
 func TestBundledCandidatesProbesResourceLayouts(t *testing.T) {
 	dir := t.TempDir()
 	got := bundledCandidates(dir)

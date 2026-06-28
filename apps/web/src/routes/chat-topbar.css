@@ -1,0 +1,32 @@
+@import './chat-topbar-actions.css';
+@import './chat-topbar-crumbs.css';
+@import './chat-topbar-meta.css';
+
+.chat__topbar {
+  height: 52px;
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  margin-left: calc(-1 * var(--sessions-w, 300px));
+  width: calc(100% + var(--sessions-w, 300px));
+  border-bottom: 1px solid var(--color-border-30);
+  background: var(--color-bg);
+  position: relative;
+  z-index: 30;
+}
+
+.chat--no-sessions .chat__topbar {
+  margin-left: 0;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .chat__topbar {
+    height: 48px;
+    flex-basis: 48px;
+    padding: 0 10px 0 12px;
+    gap: 8px;
+  }
+}

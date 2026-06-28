@@ -1,0 +1,140 @@
+[
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-20T23:04:09.657610+00:00",
+    "id": "msg_user_07b4e62b9154",
+    "metadata": {},
+    "parts": [
+      {
+        "cached": false,
+        "call_id": "",
+        "confidence": 0.0,
+        "content": [],
+        "duration_ms": 0.0,
+        "edit_mode": "",
+        "execution_path": "",
+        "heuristic": false,
+        "id": "part_ae5d7dcff051",
+        "input": {},
+        "is_error": false,
+        "lines_added": 0,
+        "lines_removed": 0,
+        "metadata": {},
+        "new_content": "",
+        "path": "",
+        "rationale": "",
+        "selected_agent": "",
+        "status": "",
+        "text": "hi",
+        "tool_name": "",
+        "type": "text",
+        "unified_diff": ""
+      }
+    ],
+    "role": "user",
+    "session_id": "sess_0eb0973956f1",
+    "stop_reason": "",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "turn_id": "msg_user_07b4e62b9154",
+    "updated_at": "2026-06-20T23:04:09.657610+00:00"
+  },
+  {
+    "cost_usd": 0.0,
+    "created_at": "2026-06-20T23:04:47.638727+00:00",
+    "error_info": {
+      "details": {
+        "original_error": "ExceptionGroup",
+        "partial_output": false,
+        "stream_source": "batch"
+      },
+      "error": "provider_error",
+      "message": "live streaming failed before emitting output: ExceptionGroup[AuthenticationError: litellm.AuthenticationError: AuthenticationError: OpenAIException - Error: Permission denied from internal policies. This is likely due to a high-assurance timeout. Please logout by visiting https://app.globus.org/logout, and re-authenticate with the following command: 'python3 inference_auth_token.py authenticate --force'. Make sure you authenticate with an authorized identity provider: anl.gov, alcf.anl.gov, or providers with approved projects.]",
+      "recoverable": true
+    },
+    "id": "msg_asst_52d6c6f5a046",
+    "metadata": {
+      "agent_runtime": {
+        "agent_blueprint": {
+          "definition_path": "/home/jcernuda/.config/clio-agent/agent-blueprints/data-semantics/AGENT.md",
+          "id": "data-semantics",
+          "scope": "global",
+          "version": "0.1.0"
+        },
+        "agent_id": "main",
+        "commands": [],
+        "execution_mode": "blueprint_predict",
+        "fanout": {},
+        "kind": "dynamic_agent",
+        "model": {
+          "fallback_to_global": true,
+          "model_id": "google/gemma-4-31B-it",
+          "model_source": "global_active",
+          "provider_id": "argonne",
+          "provider_source": "global_active"
+        },
+        "module": {
+          "kind": "predict"
+        },
+        "pack": {
+          "definition_path": "/home/jcernuda/.config/clio-agent/agent-blueprints/data-semantics/experts/main.md",
+          "id": "data-semantics",
+          "scope": "global",
+          "version": "0.1.0"
+        },
+        "parent_id": "",
+        "prompt": {
+          "has_system_prompt": true,
+          "source": "agent_definition"
+        },
+        "skills": [
+          "route_dataset_questions"
+        ],
+        "source": "expert_pack",
+        "structured_outputs": {},
+        "title": "Data Semantics Orchestrator",
+        "tools": []
+      },
+      "prompt_resolution": {
+        "checksum": "55904869b1697fc0a41becc115c62d8b9a1fc4968019f259c219099e3711b065",
+        "composed_with_agent_body": true,
+        "id": "clio.main.planner",
+        "profile": "heavy",
+        "requested_profile": "heavy",
+        "scope": "builtin",
+        "source_path": "package://clio_agent.prompt_packs.builtin/clio.main.planner.md",
+        "status": "resolved"
+      },
+      "stream_fallback": {
+        "category": "provider_streaming_error",
+        "description": "The live provider stream failed before emitting user-visible output.",
+        "live_streaming": false,
+        "message": "ExceptionGroup[AuthenticationError: litellm.AuthenticationError: AuthenticationError: OpenAIException - Error: Permission denied from internal policies. This is likely due to a high-assurance timeout. Please logout by visiting https://app.globus.org/logout, and re-authenticate with the following command: 'python3 inference_auth_token.py authenticate --force'. Make sure you authenticate with an authorized identity provider: anl.gov, alcf.anl.gov, or providers with approved projects.]",
+        "reason": "stream_failed_before_output",
+        "recovery_actions": [
+          "retry",
+          "reconfigure",
+          "continue_without_live_streaming"
+        ],
+        "synthetic_posthoc": true
+      },
+      "stream_source": "batch"
+    },
+    "parts": [],
+    "role": "assistant",
+    "session_id": "sess_0eb0973956f1",
+    "stop_reason": "error",
+    "tokens": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0
+    },
+    "turn_id": "msg_user_07b4e62b9154",
+    "updated_at": "2026-06-20T23:04:47.638744+00:00"
+  }
+]

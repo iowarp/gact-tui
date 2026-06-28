@@ -13,19 +13,24 @@ import argparse
 import json
 import os
 import pathlib
-import pty
-import re
-import select
-import signal
-import struct
 import subprocess
 import tempfile
-import termios
 import time
 import urllib.request
 
+from tui_mouse_latency_report import read_json, validate_report
+from tui_audit_pty import PtyDriver
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+__all__ = [
+    "active_stream_manifest_fields",
+    "count_backend_latency_samples",
+    "get_backend_json",
+    "main",
+    "read_json",
+    "validate_report",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -73,10 +78,6 @@ def wait_http(url: str, timeout_s: float = 10) -> None:
             last_error = exc
         time.sleep(0.1)
     raise RuntimeError(f"backend did not become ready at {url}: {last_error}")
-
-
-def read_json(path: pathlib.Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def get_backend_json(backend: str, path: str) -> dict:
@@ -185,214 +186,6 @@ def start_emulator(port: int, session_id: str, log_path: pathlib.Path) -> tuple[
     return proc, backend, sid
 
 
-def set_pty_size(fd: int, rows: int, cols: int) -> None:
-    termios.tcsetwinsize(fd, (rows, cols))
-    packed = struct.pack("HHHH", rows, cols, 0, 0)
-    try:
-        import fcntl
-
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, packed)
-    except Exception:
-        pass
-
-
-def strip_ansi(raw: bytes) -> str:
-    text = raw.decode("utf-8", errors="replace")
-    return re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
-
-
-class PtyDriver:
-    def __init__(self, argv: list[str], env: dict[str, str], rows: int, cols: int) -> None:
-        self.master: int | None = None
-        self.proc: subprocess.Popen | None = None
-        self.buffer = bytearray()
-        master, slave = pty.openpty()
-        set_pty_size(slave, rows, cols)
-        self.master = master
-        self.proc = subprocess.Popen(
-            argv,
-            cwd=ROOT,
-            stdin=slave,
-            stdout=slave,
-            stderr=slave,
-            env=env,
-            close_fds=True,
-            start_new_session=True,
-        )
-        os.close(slave)
-        set_pty_size(master, rows, cols)
-
-    def close(self) -> None:
-        if self.master is not None:
-            try:
-                os.close(self.master)
-            except OSError:
-                pass
-            self.master = None
-
-    def read_available(self, timeout: float = 0.05) -> bytes:
-        if self.master is None:
-            return b""
-        chunks: list[bytes] = []
-        while True:
-            ready, _, _ = select.select([self.master], [], [], timeout)
-            if not ready:
-                break
-            try:
-                chunk = os.read(self.master, 65536)
-            except OSError:
-                break
-            if not chunk:
-                break
-            self.buffer.extend(chunk)
-            chunks.append(chunk)
-            timeout = 0
-        return b"".join(chunks)
-
-    def wait_screen(self, pattern: str, timeout_s: float = 10) -> None:
-        deadline = time.time() + timeout_s
-        regex = re.compile(pattern)
-        while time.time() < deadline:
-            self.read_available(0.1)
-            if regex.search(strip_ansi(bytes(self.buffer))):
-                return
-            if self.proc is not None and self.proc.poll() is not None:
-                raise RuntimeError(f"TUI exited early with code {self.proc.returncode}")
-        raise RuntimeError(f"timed out waiting for screen pattern {pattern!r}")
-
-    def send(self, data: bytes) -> None:
-        if self.master is None:
-            raise RuntimeError("PTY is closed")
-        os.write(self.master, data)
-
-    def key(self, text: str, delay: float = 0.12) -> None:
-        self.send(text.encode("utf-8"))
-        time.sleep(delay)
-        self.read_available()
-
-    def ctrl_c(self, delay: float = 0.18) -> None:
-        self.send(b"\x03")
-        time.sleep(delay)
-        self.read_available()
-
-    def escape(self, delay: float = 0.14) -> None:
-        self.send(b"\x1b")
-        time.sleep(delay)
-        self.read_available()
-
-    def click(self, x: int, y: int, delay: float = 0.16) -> None:
-        self.send(f"\x1b[<0;{x};{y}M\x1b[<0;{x};{y}m".encode("ascii"))
-        time.sleep(delay)
-        self.read_available()
-
-    def wheel_down(self, x: int, y: int, delay: float = 0.12) -> None:
-        self.send(f"\x1b[<65;{x};{y}M".encode("ascii"))
-        time.sleep(delay)
-        self.read_available()
-
-    def terminate(self, timeout_s: float = 5) -> int:
-        if self.proc is None:
-            return 0
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
-            self.read_available()
-            code = self.proc.poll()
-            if code is not None:
-                return code
-            time.sleep(0.05)
-        try:
-            os.killpg(self.proc.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        return self.proc.wait(timeout=3)
-
-
-def validate_report(report_path: pathlib.Path) -> dict:
-    report = read_json(report_path)
-    interactions = report.get("interactions")
-    if not isinstance(interactions, list):
-        raise RuntimeError("latency report missing interactions list")
-    sections = report.get("sections")
-    if not isinstance(sections, list):
-        raise RuntimeError("latency report missing section summaries")
-    click_rows = [
-        row for row in interactions
-        if isinstance(row, dict) and "click" in str(row.get("kind", ""))
-    ]
-    click_targets = {
-        str(row.get("last_hit_target", ""))
-        for row in click_rows
-        if row.get("last_hit_target")
-    }
-    click_labels = {
-        str(row.get("target_label", ""))
-        for row in click_rows
-        if row.get("target_label")
-    }
-    wheel_rows = [
-        row for row in interactions
-        if isinstance(row, dict) and "wheel" in str(row.get("kind", ""))
-    ]
-    section_summaries = [
-        {
-            "surface": str(row.get("surface", "")),
-            "sample_count": int(row.get("sample_count") or 0),
-            "click_count": int(row.get("click_count") or 0),
-            "wheel_count": int(row.get("wheel_count") or 0),
-            "key_count": int(row.get("key_count") or 0),
-            "slowest_p95_ms": float(row.get("slowest_p95_ms") or 0),
-            "slowest_max_ms": float(row.get("slowest_max_ms") or 0),
-            "target_labels": row.get("target_labels") if isinstance(row.get("target_labels"), list) else [],
-        }
-        for row in sections
-        if isinstance(row, dict)
-    ]
-    click_sections = {
-        str(row["surface"])
-        for row in section_summaries
-        if int(row.get("click_count") or 0) > 0
-    }
-    wheel_sections = {
-        str(row["surface"])
-        for row in section_summaries
-        if int(row.get("wheel_count") or 0) > 0
-    }
-    required_click_sections = {"header", "left sidebar", "conversation", "input"}
-    required_wheel_sections = {"conversation"}
-    missing_click_sections = sorted(required_click_sections - click_sections)
-    missing_wheel_sections = sorted(required_wheel_sections - wheel_sections)
-    if len(click_targets) < 2:
-        raise RuntimeError(f"expected at least two target-labeled click rows, got {click_rows!r}")
-    if not click_labels:
-        raise RuntimeError(f"expected click target labels, got {click_rows!r}")
-    if not wheel_rows:
-        raise RuntimeError("expected at least one wheel latency row")
-    if missing_click_sections:
-        raise RuntimeError(f"missing required click latency sections: {missing_click_sections}; sections={section_summaries!r}")
-    if missing_wheel_sections:
-        raise RuntimeError(f"missing required wheel latency sections: {missing_wheel_sections}; sections={section_summaries!r}")
-    return {
-        "sample_count": int(report.get("sample_count") or 0),
-        "surface_count": int(report.get("surface_count") or 0),
-        "click_section_count": len(click_sections),
-        "click_sections": sorted(click_sections),
-        "wheel_sections": sorted(wheel_sections),
-        "section_latency_summary": section_summaries,
-        "click_target_count": len(click_targets),
-        "click_targets": sorted(click_targets),
-        "click_target_labels": sorted(click_labels),
-        "wheel_rows": [
-            {
-                "surface": row.get("surface"),
-                "kind": row.get("kind"),
-                "target_label": row.get("target_label"),
-                "last_hit_target": row.get("last_hit_target"),
-            }
-            for row in wheel_rows
-        ],
-    }
-
-
 def main() -> int:
     args = parse_args()
     out_dir = (ROOT / args.out_dir).resolve()
@@ -426,9 +219,10 @@ def main() -> int:
     env["GACT_ATTACH_SESSION_ID"] = session_id
     env["TERM"] = env.get("TERM") or "xterm-256color"
     argv = [str(binary), "--backend", backend, "--no-intro"]
-    driver = PtyDriver(argv, env, args.rows, args.cols)
+    driver = PtyDriver(argv, env, args.rows, args.cols, cwd=ROOT)
     try:
-        driver.wait_screen("CONVERSATION", timeout_s=12)
+        if not driver.wait_screen("CONVERSATION", timeout_s=12):
+            raise RuntimeError("timed out waiting for screen pattern 'CONVERSATION'")
         # Hit distinct semantic targets. Coordinates are SGR 1-based cells.
         driver.click(max(2, args.cols - 28), 1)  # header help
         driver.escape()

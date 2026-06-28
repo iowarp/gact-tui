@@ -1,3 +1,6 @@
+/**
+ * UI component: Left Rail.
+ */
 import { Show } from 'solid-js';
 import { brand } from '@brand';
 import { Icon, type IconName } from './Icon.js';

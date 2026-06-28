@@ -1,0 +1,21 @@
+@media (max-width: 760px) {
+  .chat__pane {
+    padding: 16px 0 92px;
+  }
+
+  .chat__scroll-pill {
+    bottom: 112px;
+  }
+
+  .chat__pane-inner,
+  .chat:not(.chat--inspector-open) .chat__pane-inner {
+    max-width: none;
+    padding: 0 12px;
+    gap: 22px;
+  }
+
+  .chat__typing {
+    max-width: 100%;
+    width: fit-content;
+  }
+}

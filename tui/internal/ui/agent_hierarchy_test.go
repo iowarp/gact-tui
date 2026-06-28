@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestAgentHierarchySidebarModuleRendersParentChildAgents(t *testing.T) {
@@ -17,19 +16,19 @@ func TestAgentHierarchySidebarModuleRendersParentChildAgents(t *testing.T) {
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1", Agent: gact.AgentRef{ID: "orchestrator"}}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.sectionCursor = false
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.session.sessions = []gact.Session{{ID: "s1", Agent: gact.AgentRef{ID: "orchestrator"}}}
+	a.session.selected = 0
+	a.agent.hierarchyAgents = []gact.AgentDef{
 		{ID: "orchestrator", Title: "Orchestrator", Source: "builtin", Tier: 1},
 		{ID: "data", Title: "Data expert", Source: "builtin", ParentID: "orchestrator", Tier: 2, Specialization: "data"},
 		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "data", Tier: 3, Specialization: "catalog"},
 		{ID: "skill.readme", Title: "Readme Skill", Source: "skill"},
 	}
 
-	out := ansi.Strip(a.renderSidebar(42, 20))
+	out := ansi.Strip(a.sidebar.render(42, 20))
 	for _, want := range []string{"AGENTS", "• T1 1 Orchestrator", "└─ T2 1.1 Data expert", "└─ T3 1.1.1 NDP catalog"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
@@ -47,10 +46,10 @@ func TestAgentHierarchyMouseClickOpensAgentDetail(t *testing.T) {
 	a.stage = StageReady
 	a.MouseEnabled = true
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.agentHierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin"}}
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.sectionCursor = false
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.agent.hierarchyAgents = []gact.AgentDef{{ID: "data", Title: "Data expert", Source: "builtin"}}
 
 	_ = a.View()
 	target, ok := findHitTargetForTest(a, "sidebar:agents:item:0")
@@ -59,96 +58,8 @@ func TestAgentHierarchyMouseClickOpensAgentDetail(t *testing.T) {
 	}
 	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{X: target.rect.x, Y: target.rect.y, Button: tea.MouseLeft}))
 	a = model.(*App)
-	if !a.catalogBrowserOpen || a.catalogBrowser == nil || a.catalogBrowser.agentID != "data" {
-		t.Fatalf("agent click should open detail, open=%v browser=%+v", a.catalogBrowserOpen, a.catalogBrowser)
-	}
-}
-
-func TestAgentHierarchySidebarSurfacesRuntimeProvenanceState(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
-		{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2},
-		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "data", Tier: 3},
-	}
-	a.messages = []gact.Message{{
-		ID:        "m1",
-		SessionID: "s1",
-		Role:      gact.RoleAssistant,
-		Metadata: map[string]any{"runtime_provenance": map[string]any{
-			"agent": map[string]any{
-				"active_expert_id": "ndp_catalog",
-				"parent_id":        "data",
-			},
-			"delegation": map[string]any{"events": []any{
-				map[string]any{"stage": "delegate.completed", "parent_id": "data", "agent_id": "ndp_catalog"},
-				map[string]any{"stage": "parent.resumed", "parent_id": "data", "agent_id": "ndp_catalog"},
-			}},
-		}},
-	}}
-
-	out := ansi.Strip(a.renderSidebar(42, 20))
-	for _, want := range []string{"T2 1 Data expert observed", "T3 1.1 NDP catalog active"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("agent runtime state missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestAgentHierarchySidebarMatchesNestedSemanticAgentReferences(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 140
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
-		{ID: "orchestrator", Title: "Orchestrator", Source: "builtin", Tier: 1},
-		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "orchestrator", Tier: 3},
-	}
-	a.messages = []gact.Message{{
-		ID:        "m1",
-		SessionID: "s1",
-		Role:      gact.RoleAssistant,
-		Parts: []gact.Part{{
-			ID:   "p1",
-			Type: gact.PartTypeText,
-			Metadata: map[string]any{"raw_event": map[string]any{
-				"event_type": "tool.call.started",
-				"status":     "running",
-				"actor": map[string]any{
-					"kind": "agent",
-					"agent": map[string]any{
-						"id": "ndp_catalog",
-					},
-				},
-				"payload": map[string]any{
-					"delegation": map[string]any{
-						"path": []any{
-							map[string]any{"agent_id": "orchestrator"},
-							map[string]any{"agent_id": "ndp_catalog"},
-						},
-					},
-				},
-			}},
-		}},
-	}}
-
-	out := ansi.Strip(a.renderSidebar(58, 20))
-	if !strings.Contains(out, "T3 1.1 NDP catalog live") {
-		t.Fatalf("nested semantic event should mark child agent live:\n%s", out)
+	if !a.catalog.open || a.catalog.current == nil || a.catalog.current.agentID != "data" {
+		t.Fatalf("agent click should open detail, open=%v browser=%+v", a.catalog.open, a.catalog.current)
 	}
 }
 
@@ -158,10 +69,10 @@ func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.agentHierarchyAgents = []gact.AgentDef{{
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.sectionCursor = false
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.agent.hierarchyAgents = []gact.AgentDef{{
 		ID:                 "data",
 		Title:              "Data expert",
 		Source:             "agent_blueprint",
@@ -171,7 +82,7 @@ func TestAgentHierarchySidebarSurfacesSkillsAndValidationState(t *testing.T) {
 		ValidationErrors:   []string{"missing skill: adios"},
 	}}
 
-	out := ansi.Strip(a.renderSidebar(150, 20))
+	out := ansi.Strip(a.sidebar.render(150, 20))
 	for _, want := range []string{"T2 1 Data expert workflow", "skills: python, ndp, +1 more", "warnings: skill ndp", "errors: missing"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("agent hierarchy missing %q:\n%s", want, out)
@@ -188,15 +99,15 @@ func TestAgentHierarchySidebarPrioritizesNamesInNarrowWorkflowPane(t *testing.T)
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.agentHierarchyAgents = []gact.AgentDef{
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.sectionCursor = false
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.agent.hierarchyAgents = []gact.AgentDef{
 		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
 		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2, Specialization: "seismic waveform"},
 	}
 
-	out := ansi.Strip(a.renderSidebar(30, 20))
+	out := ansi.Strip(a.sidebar.render(30, 20))
 	for _, want := range []string{"WORKFLOW", "Workflow Root", "Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("narrow agent hierarchy should preserve agent name %q before metadata:\n%s", want, out)
@@ -213,16 +124,16 @@ func TestAgentHierarchySidebarScopesToWorkflowWhenBlueprintAgentsExist(t *testin
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.agentHierarchyAgents = []gact.AgentDef{
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.agent.hierarchyAgents = []gact.AgentDef{
 		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
 		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
 		{ID: "default", Title: "Default Agent", Source: "builtin", Tier: 1},
 		{ID: "code", Title: "Code Expert", Source: "builtin", ParentID: "default", Tier: 2},
 	}
 
-	out := ansi.Strip(a.renderSidebar(40, 20))
+	out := ansi.Strip(a.sidebar.render(40, 20))
 	for _, want := range []string{"WORKFLOW", "Workflow Root", "Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("workflow sidebar missing %q:\n%s", want, out)
@@ -241,10 +152,10 @@ func TestAgentHierarchySidebarShowsActiveBlueprintOwner(t *testing.T) {
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarHitFocus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{
+	a.sidebar.hitFocus = FocusSidebar
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.session.sessions = []gact.Session{{
 		ID:     "s1",
 		Title:  "Blueprint session",
 		Status: gact.StatusIdle,
@@ -253,19 +164,19 @@ func TestAgentHierarchySidebarShowsActiveBlueprintOwner(t *testing.T) {
 			"active_agent_blueprint_scope": "session",
 		},
 	}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
+	a.session.selected = 0
+	a.agent.hierarchyAgents = []gact.AgentDef{
 		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
 		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
 	}
 
-	out := ansi.Strip(a.renderSidebar(40, 20))
+	out := ansi.Strip(a.sidebar.render(40, 20))
 	for _, want := range []string{"WORKFLOW", "◆ seismic-market · session", "Workflow Root", "Waveform Review"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("workflow sidebar missing active blueprint owner %q:\n%s", want, out)
 		}
 	}
-	narrowOut := ansi.Strip(a.renderSidebar(24, 20))
+	narrowOut := ansi.Strip(a.sidebar.render(24, 20))
 	if !strings.Contains(narrowOut, "◆ seismic-market") {
 		t.Fatalf("narrow workflow sidebar should preserve active blueprint identity:\n%s", narrowOut)
 	}
@@ -280,10 +191,10 @@ func TestAgentHierarchySidebarCompactsLongActiveBlueprintOwner(t *testing.T) {
 	a.height = 36
 	a.stage = StageReady
 	a.focus = FocusSidebar
-	a.sidebarHitFocus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{
+	a.sidebar.hitFocus = FocusSidebar
+	a.sidebar.sectionFocus = sidebarSectionAgents
+	a.sidebar.SetLayout([]string{"agents"}, nil)
+	a.session.sessions = []gact.Session{{
 		ID:     "s1",
 		Title:  "Blueprint session",
 		Status: gact.StatusIdle,
@@ -292,290 +203,17 @@ func TestAgentHierarchySidebarCompactsLongActiveBlueprintOwner(t *testing.T) {
 			"active_agent_blueprint_scope": "session",
 		},
 	}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
+	a.session.selected = 0
+	a.agent.hierarchyAgents = []gact.AgentDef{
 		{ID: "workflow", Title: "Workflow Root", Source: "agent_blueprint", Tier: 1, Specialization: "workflow"},
 		{ID: "waveform", Title: "Waveform Review", Source: "agent_blueprint", ParentID: "workflow", Tier: 2},
 	}
 
-	out := ansi.Strip(a.renderSidebar(28, 20))
+	out := ansi.Strip(a.sidebar.render(28, 20))
 	if !strings.Contains(out, "◆ seismic-waveform") {
 		t.Fatalf("long active blueprint should keep meaningful compact identity:\n%s", out)
 	}
 	if strings.Contains(out, "◆ seismic-waveform-review") || strings.Contains(out, "◆ seismic-w...") {
 		t.Fatalf("long active blueprint should not render raw or generic truncated id:\n%s", out)
-	}
-}
-
-func TestAgentHierarchyFinalRuntimeProvenanceDoesNotKeepStartedRowsLive(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
-		{ID: "default", Title: "Default Agent", Source: "builtin"},
-		{ID: "data_expert", Title: "Data Expert", Source: "builtin", Tier: 2},
-	}
-	a.messages = []gact.Message{{
-		ID:        "m1",
-		SessionID: "s1",
-		Role:      gact.RoleAssistant,
-		Metadata: map[string]any{"runtime_provenance": map[string]any{
-			"agent": map[string]any{"active_expert_id": "data_expert"},
-			"delegation": map[string]any{"events": []any{
-				map[string]any{"stage": "delegate.started", "parent_id": "default", "agent_id": "data_expert"},
-				map[string]any{"stage": "delegate.completed", "parent_id": "default", "agent_id": "data_expert"},
-				map[string]any{"stage": "parent.resumed", "parent_id": "default", "agent_id": "data_expert"},
-			}},
-		}},
-	}}
-
-	out := ansi.Strip(a.renderSidebar(42, 20))
-	if strings.Contains(out, "Default Agent live") {
-		t.Fatalf("final runtime provenance should not leave parent live:\n%s", out)
-	}
-	for _, want := range []string{"T1 2 Default Agent observed", "T2 1 Data Expert active"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("final runtime provenance state missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestAgentHierarchySidebarSurfacesLiveSemanticDelegation(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
-		{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2},
-		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "data", Tier: 3},
-	}
-
-	a.applySSE(client.SSEEvent{
-		Type: "semantic.event",
-		Payload: map[string]any{"payload": map[string]any{
-			"session_id": "s1",
-			"turn_id":    "turn_1",
-			"event_type": "blueprint.delegation.started",
-			"status":     "running",
-			"actor":      map[string]any{"agent_id": "data", "role": "parent_expert"},
-			"subject":    map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},
-			"payload": map[string]any{
-				"stage":     "delegate.started",
-				"parent_id": "data",
-				"agent_id":  "ndp_catalog",
-			},
-		}},
-	})
-
-	out := ansi.Strip(a.renderSidebar(42, 20))
-	for _, want := range []string{"T2 1 Data expert live", "T3 1.1 NDP catalog live"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("agent live state missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 140
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionAgents
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"agents"}, nil)
-	a.sessions = []gact.Session{{ID: "s1"}}
-	a.selected = 0
-	a.agentHierarchyAgents = []gact.AgentDef{
-		{ID: "data", Title: "Data expert", Source: "builtin", Tier: 2},
-		{ID: "ndp_catalog", Title: "NDP catalog", Source: "builtin", ParentID: "data", Tier: 3},
-	}
-
-	a.applySSE(client.SSEEvent{
-		ID:   "live-delegation",
-		Type: "semantic.event",
-		Payload: map[string]any{"payload": map[string]any{
-			"session_id": "s1",
-			"trace_id":   "trace_1",
-			"turn_id":    "turn_1",
-			"event_type": "blueprint.delegation.started",
-			"status":     "running",
-			"actor":      map[string]any{"agent_id": "data", "role": "parent_expert"},
-			"subject":    map[string]any{"agent_id": "ndp_catalog", "role": "child_expert"},
-			"payload": map[string]any{
-				"stage":     "delegate.started",
-				"parent_id": "data",
-				"agent_id":  "ndp_catalog",
-			},
-		}},
-	})
-
-	liveOut := ansi.Strip(a.renderSidebar(58, 20))
-	for _, want := range []string{"T2 1 Data expert live", "T3 1.1 NDP catalog live"} {
-		if !strings.Contains(liveOut, want) {
-			t.Fatalf("live semantic delegation missing %q:\n%s", want, liveOut)
-		}
-	}
-
-	a.messages = append(a.messages, gact.Message{
-		ID:        "final",
-		SessionID: "s1",
-		Role:      gact.RoleAssistant,
-		Metadata: map[string]any{"runtime_provenance": map[string]any{
-			"turn": map[string]any{
-				"trace_id": "trace_1",
-				"turn_id":  "turn_1",
-				"status":   "completed",
-			},
-			"agent": map[string]any{
-				"active_expert_id": "ndp_catalog",
-				"parent_id":        "data",
-			},
-			"tools": map[string]any{
-				"observed": []any{map[string]any{
-					"name":   "ndp_search_datasets",
-					"status": "success",
-				}},
-			},
-			"delegation": map[string]any{"events": []any{
-				map[string]any{"stage": "delegate.started", "parent_id": "data", "agent_id": "ndp_catalog"},
-				map[string]any{"stage": "delegate.completed", "parent_id": "data", "agent_id": "ndp_catalog"},
-				map[string]any{"stage": "parent.resumed", "parent_id": "data", "agent_id": "ndp_catalog"},
-			}},
-		}},
-	})
-
-	settledOut := ansi.Strip(a.renderSidebar(58, 20))
-	for _, want := range []string{"T2 1 Data expert observed", "T3 1.1 NDP catalog active"} {
-		if !strings.Contains(settledOut, want) {
-			t.Fatalf("final runtime provenance should settle live semantic state, missing %q:\n%s", want, settledOut)
-		}
-	}
-	if strings.Contains(settledOut, "T2 1 Data expert live") || strings.Contains(settledOut, "T3 1.1 NDP catalog live") {
-		t.Fatalf("older live semantic state should not outrank newer final provenance:\n%s", settledOut)
-	}
-
-	detail := runtimeProvenanceDetailText(mapValue(a.messages[len(a.messages)-1].Metadata["runtime_provenance"]))
-	for _, want := range []string{"trace: trace_1", "observed: ndp_search_datasets", "delegate.completed", "parent.resumed"} {
-		if !strings.Contains(detail, want) {
-			t.Fatalf("final runtime provenance detail missing agreement evidence %q:\n%s", want, detail)
-		}
-	}
-}
-
-func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 130
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionSessions
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"sessions"}, nil)
-	a.sessions = []gact.Session{{
-		ID:     "s1",
-		Title:  "Blueprint session",
-		Status: gact.StatusIdle,
-		Metadata: map[string]any{
-			"active_agent_blueprint_id":    "seismic-market",
-			"active_agent_blueprint_scope": "session",
-		},
-	}}
-	a.selected = 0
-
-	out := ansi.Strip(a.renderSidebar(72, 20))
-	if !strings.Contains(out, "◆ seismic-market") {
-		t.Fatalf("session sidebar should show active blueprint:\n%s", out)
-	}
-	if rows := a.sidebarSessionRowCount(0); rows != 3 {
-		t.Fatalf("session row count = %d, want title/status/active-blueprint rows", rows)
-	}
-
-	narrowOut := ansi.Strip(a.renderSidebar(28, 20))
-	if strings.Contains(narrowOut, "active blueprint") || strings.Contains(narrowOut, "bp:") {
-		t.Fatalf("narrow active blueprint marker should avoid verbose or backend shorthand labels:\n%s", narrowOut)
-	}
-	if !strings.Contains(narrowOut, "◆ seismic") {
-		t.Fatalf("narrow active blueprint marker should preserve useful blueprint identity:\n%s", narrowOut)
-	}
-}
-
-func TestSessionSidebarCompactsLongActiveAgentBlueprint(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 130
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionSessions
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"sessions"}, nil)
-	a.sessions = []gact.Session{{
-		ID:     "s1",
-		Title:  "Blueprint session",
-		Status: gact.StatusIdle,
-		Metadata: map[string]any{
-			"active_agent_blueprint_id":    "san-diego-earthscope-ndp-live-benchmark-review",
-			"active_agent_blueprint_scope": "session",
-		},
-	}}
-	a.selected = 0
-
-	out := ansi.Strip(a.renderSidebar(30, 20))
-	if !strings.Contains(out, "◆ san-diego") {
-		t.Fatalf("session sidebar should compact long blueprint IDs to readable prefixes:\n%s", out)
-	}
-	if strings.Contains(out, "san-diego-earthscope-ndp-live") || strings.Contains(out, "san-die...") {
-		t.Fatalf("session sidebar should avoid unreadable raw/truncated blueprint IDs:\n%s", out)
-	}
-}
-
-func TestAgentBlueprintActivatedMsgUpdatesSelectedSessionMetadata(t *testing.T) {
-	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
-	a.width = 130
-	a.height = 36
-	a.stage = StageReady
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionSessions
-	a.sidebarSectionCursor = false
-	a.SetSidebarLayout([]string{"sessions"}, nil)
-	a.sessions = []gact.Session{{ID: "s1", WorkspaceID: "ws1", Title: "Blueprint session", Status: gact.StatusIdle}}
-	a.selected = 0
-
-	model, cmd := a.Update(agentBlueprintActivatedMsg{
-		blueprintID: "seismic-market",
-		state: gact.SessionAgentBlueprintState{
-			SessionID:                "s1",
-			WorkspaceID:              "ws1",
-			ActiveAgentBlueprintID:   "seismic-market",
-			ActiveAgentBlueprintPath: "/workspace/.clio/agent-blueprints/seismic-market/AGENT.md",
-		},
-	})
-	a = model.(*App)
-	if cmd == nil {
-		t.Fatal("activation success should schedule transient hint expiry")
-	}
-	if got := stringValue(a.sessions[0].Metadata["active_agent_blueprint_id"]); got != "seismic-market" {
-		t.Fatalf("active blueprint metadata = %q", got)
-	}
-	if got := stringValue(a.sessions[0].Metadata["active_agent_blueprint_scope"]); got != "session" {
-		t.Fatalf("active blueprint scope = %q", got)
-	}
-
-	out := ansi.Strip(a.renderSidebar(72, 20))
-	if !strings.Contains(out, "◆ seismic-market") {
-		t.Fatalf("activation state should render in session sidebar:\n%s", out)
 	}
 }

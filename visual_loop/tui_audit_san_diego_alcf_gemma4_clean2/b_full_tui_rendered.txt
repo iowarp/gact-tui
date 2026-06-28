@@ -1,0 +1,48 @@
+  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /tmp/gact-tui-audit-earthscope-san…  running  help   settings    x  
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION  ⠼ running                                                              ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: gact-tui-audit-ear… │
+│ ▌⠼ TUI audit: San Diego… ││     • Plotted Columns:  time  (x),  east ,  north ,  up  (y)                         ││ updated 2s ago                 │
+│   running · 6m ago       ││     • Plotted Rows: 2,000 points                                                     ││  ▸ .clio/                      │
+│   ◆ earthscope-gnss      ││     • Caveats: The plot represents a subset of the available data (2,000 points)     ││  ▸ .clio_agent/                │
+│ ▾ CONTEXT                ││     as per the tool's sampling for visualization; it does not imply the absence of   ││  • earthscope_conve… 149.5 KiB │
+│ (no files)               ││     gaps or noise in the full dataset                                                ││  • earthscope_statio… 33.4 KiB │
+│                          ││ ↳ main handed work to synthesis  ·  running · delegating                             ││  • P475.CI.LY_.20.csv 49.2 MiB │
+│ 1 active · 0 archived    ││ ↳ synthesis returned evidence to main  ·  completed · returned · 15026ms             ││  • P475_displacemen… 379.0 KiB │
+│                          ││     ## Region                                                                        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     San Diego, San Diego County, California, United States (Center: 32.7174202, -    ││                                │
+│                          ││     117.162772; Radius: 100 km).                                                     ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Station selected                                                              ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     Station P475 — the only station staged and analyzed.                             ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Data resource                                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • Staged CSV:  /tmp/gact-tui-audit-earthscope-san-diego-6fa6e5caac89/P475.CI.    ││                                │
+│                          ││     LY_.20.csv                                                                       ││                                │
+│                          ││     • Source URL: https://ds2.datacollaboratory.                                     ││                                │
+│                          ││     org/Earthscope_api_dec2024/raw_csv/P475.CI.LY_.20.csv                            ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Profile evidence                                                              ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     The profile analysis is complete for columns east, north, and up. This was a     ││                                │
+│                          ││     scan-limited profile.                                                            ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Visualization                                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • PNG:  /tmp/gact-tui-audit-earthscope-san-diego-                                ││                                │
+│                          ││     6fa6e5caac89/P475_displacement.png  — shows the displacement timeseries for      ││                                │
+│                          ││     the station.                                                                     ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Freshness, coverage & provenance limitations                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     The profile was scan-limited; therefore, full-file quality and data cadence      ││                                │
+│                          ││     were not verified                                                                ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────────╯│                                │
+                            ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │
+                            │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │
+                            ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                               

@@ -1,3 +1,5 @@
+@import './left-rail-nav.css';
+
 .rail {
   /* Use the surface token (not the hardcoded-feeling page bg) so the rail
      adopts the light palette instead of staying pure black in light mode. */
@@ -71,186 +73,8 @@
   width: 100%;
 }
 
-/* Scrollable middle so a long destination list never pushes Settings /
-   the collapse toggle off-screen on a short window. */
-.rail__groups {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.rail--collapsed .rail__groups {
-  align-items: center;
-}
-
-.rail__group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-}
-
-.rail--collapsed .rail__group {
-  align-items: center;
-}
-
-/* A hairline above every group except the first keeps clusters legible
-   in the collapsed (icon-only) rail where headings are hidden. */
-.rail--collapsed .rail__group + .rail__group {
-  padding-top: 6px;
-  border-top: 1px solid var(--color-border-30);
-}
-
-.rail__group-heading {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  padding: 4px 10px 2px;
-}
-
-.rail__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-}
-
-.rail--collapsed .rail__list {
-  align-items: center;
-}
-
 .rail__spacer {
   flex: 1;
-}
-
-.rail__btn {
-  position: relative;
-  height: 40px;
-  border-radius: 10px;
-  background: transparent;
-  border: none;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast);
-}
-
-.rail--collapsed .rail__btn {
-  width: 40px;
-  display: grid;
-  place-items: center;
-}
-
-.rail--expanded .rail__btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  text-align: left;
-}
-
-/* The Command-palette row carries both a label AND a ⌘K hint, so it is the
-   tightest row in the expanded rail. Trim its inner padding/gap so the label
-   ("Command palette") fits in full instead of ellipsizing to "Command pal…". */
-.rail--expanded .rail__btn--palette {
-  gap: 6px;
-  padding-left: 8px;
-  padding-right: 5px;
-}
-
-.rail__btn--palette .rail__label {
-  font-size: 12.5px;
-}
-
-.rail--expanded .rail__btn > .icon {
-  flex: 0 0 auto;
-}
-
-.rail__label {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rail__kbd {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--color-muted);
-  background: var(--color-surface-alt);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-
-.rail__btn:hover {
-  background: color-mix(in srgb, var(--color-surface-alt) 60%, transparent);
-  color: var(--color-heading);
-}
-
-/* Selected nav item: the single primary/selection color is the warm accent.
-   On the surface-colored rail the selected well uses surface-alt for contrast. */
-.rail__btn.is-active {
-  background: var(--color-surface-alt);
-  color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-select-border);
-}
-
-.rail__btn.is-active::before {
-  content: "";
-  position: absolute;
-  left: -10px;
-  top: 25%;
-  height: 50%;
-  width: 3px;
-  background: var(--color-accent);
-  border-radius: 0 3px 3px 0;
-}
-
-.rail--expanded .rail__btn.is-active::before {
-  left: -10px;
-}
-
-.rail__btn--palette {
-  color: var(--color-accent-cyan);
-}
-
-.rail__btn--toggle {
-  color: var(--color-muted);
-}
-
-.rail__badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: var(--color-bg);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-}
-
-.rail--expanded .rail__badge {
-  position: static;
-  margin-left: auto;
 }
 
 @media (max-width: 760px) {
@@ -266,17 +90,8 @@
     justify-content: center;
   }
 
-  .rail__wordmark-text,
-  .rail__group-heading,
-  .rail__label,
-  .rail__kbd {
+  .rail__wordmark-text {
     display: none;
-  }
-
-  .rail__groups,
-  .rail__group,
-  .rail__list {
-    align-items: center;
   }
 
   .rail__divider,
@@ -284,27 +99,5 @@
   .rail--collapsed .rail__divider {
     width: 24px;
     align-self: center;
-  }
-
-  .rail__btn,
-  .rail--expanded .rail__btn,
-  .rail--collapsed .rail__btn {
-    width: 40px;
-    display: grid;
-    place-items: center;
-    padding: 0;
-  }
-
-  .rail__btn.is-active::before,
-  .rail--expanded .rail__btn.is-active::before {
-    left: -8px;
-  }
-
-  .rail__badge,
-  .rail--expanded .rail__badge {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    margin-left: 0;
   }
 }

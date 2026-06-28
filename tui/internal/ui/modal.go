@@ -1,6 +1,18 @@
 package ui
 
+// modal.go declares modalkit and the modal width-kind sizing helpers shared by all modals.
+
 import "strings"
+
+// modalkit is the shared modal-rendering scaffold. It holds no state of its
+// own: every reusable modal primitive (frame, surface, header, buttons, tabs,
+// lists, text-entry, action-menu) and the width/row layout helpers hang off
+// this type and render using m.app's Theme/dimensions, registering hit targets
+// via m.app. Domain-specific overlay views stay on their own components and
+// compose these primitives through a.modals.
+type modalkit struct {
+	app *App
+}
 
 type modalWidthKind int
 
@@ -9,7 +21,7 @@ const (
 	modalWidthWide
 )
 
-func (a *App) modalWidthFor(kind modalWidthKind) int {
+func (m *modalkit) modalWidthFor(kind modalWidthKind) int {
 	w := 96
 	minW := 20
 	gutter := 8
@@ -17,21 +29,21 @@ func (a *App) modalWidthFor(kind modalWidthKind) int {
 		w = 128
 		minW = 84
 	}
-	if a.width <= 0 {
+	if m.app.width <= 0 {
 		return w
 	}
 	if kind == modalWidthWide {
-		wide := a.width * 88 / 100
+		wide := m.app.width * 88 / 100
 		if wide < w {
 			w = wide
 		}
 	}
-	if w > a.width-gutter {
-		w = a.width - gutter
+	if w > m.app.width-gutter {
+		w = m.app.width - gutter
 	}
 	if w < minW {
 		if kind == modalWidthWide {
-			return a.modalWidthFor(modalWidthStandard)
+			return m.modalWidthFor(modalWidthStandard)
 		}
 		w = minW
 	}
@@ -42,8 +54,8 @@ func (a *App) modalWidthFor(kind modalWidthKind) int {
 // modal overlays. Keeping a single source of truth prevents the
 // settings/catalog/detail/provider windows from changing size as the
 // selected tab or drill-down content changes.
-func (a *App) modalWidth() int {
-	return a.modalWidthFor(modalWidthStandard)
+func (m *modalkit) modalWidth() int {
+	return m.modalWidthFor(modalWidthStandard)
 }
 
 func modalInnerWidth(width int) int {
@@ -88,12 +100,12 @@ func modalScrollableContentWidth(width int) int {
 
 // detailModalWidth intentionally aliases the shared modal width so
 // drill-down panes do not visually jump to a different chrome size.
-func (a *App) detailModalWidth() int {
-	return a.modalWidth()
+func (m *modalkit) detailModalWidth() int {
+	return m.modalWidth()
 }
 
-func (a *App) wideModalWidth() int {
-	return a.modalWidth()
+func (m *modalkit) wideModalWidth() int {
+	return m.modalWidth()
 }
 
 func modalOverlayTop(screenH, modalH int) int {
@@ -113,8 +125,8 @@ func modalOverlayTop(screenH, modalH int) int {
 	return top
 }
 
-func (a *App) modalBodyRows(chromeRows int) int {
-	rows := a.height - chromeRows
+func (m *modalkit) modalBodyRows(chromeRows int) int {
+	rows := m.app.height - chromeRows
 	if rows < 4 {
 		return 4
 	}

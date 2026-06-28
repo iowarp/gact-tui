@@ -1,0 +1,47 @@
+.dp__card--add {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  min-height: 140px;
+  border-style: dashed;
+  border-color: var(--color-border-60);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-muted);
+  transition:
+    border-color var(--dur-fast),
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+
+.dp__card--add:hover {
+  border-color: var(--color-select-border);
+  background: var(--color-select-bg);
+  color: var(--color-accent);
+}
+
+.dp__card-add-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-surface-alt);
+  color: inherit;
+}
+
+.dp__card-add-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.dp__card-add-sub {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-muted);
+  max-width: 22ch;
+  line-height: 1.45;
+}

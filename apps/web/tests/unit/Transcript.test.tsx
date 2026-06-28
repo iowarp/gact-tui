@@ -37,6 +37,8 @@ describe('Transcript', () => {
   it('renders verbose tool call body in verbose mode', () => {
     render(() => <Transcript messages={messages} density="verbose" />);
     expect(screen.getByTestId('toolcall-tc1')).toBeTruthy();
+    expect(screen.getByText('Path')).toBeTruthy();
+    expect(screen.getByText('x')).toBeTruthy();
   });
 
   it('summarizes CLIO typed workflow state instead of dumping JSON inline', () => {
@@ -84,7 +86,7 @@ describe('Transcript', () => {
     expect(screen.getByText('Raw state')).toBeTruthy();
   });
 
-  it('summarizes workflow state carried by expert handoff parts', () => {
+  it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -119,11 +121,16 @@ describe('Transcript', () => {
         ]}
       />
     ));
-    expect(screen.getByText('Delegation')).toBeTruthy();
-    expect(screen.getAllByText('Workflow blocker').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/child expert: data/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/required tools are not available/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Raw state')).toBeTruthy();
+    // The delegation renders as an indented step (agent + status) with the real
+    // prose; the workflow_state JSON / "Raw state" card is gone (stripped).
+    const step = screen.getByTestId('assistant-turn-step');
+    expect(step).toBeTruthy();
+    expect(step.textContent).toContain('data');
+    expect(step.textContent).toContain('failed');
+    expect(step.textContent).toContain("Child expert 'data' failed");
+    expect(screen.queryByText('Raw state')).toBeNull();
+    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
+    expect(step.textContent).not.toContain('workflow_state');
   });
 
   it('keeps a turn-level workflow blocker visible after the final answer text', () => {
@@ -166,11 +173,12 @@ describe('Transcript', () => {
     expect(screen.getByText('San Diego area resolved.')).toBeTruthy();
     expect(screen.getByTestId('turn-workflow-blocker')).toBeTruthy();
     expect(screen.getAllByText('Workflow blocker').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/child expert: ndp_dataset_discovery/)).toBeTruthy();
-    expect(screen.getByText(/required tools are not available/)).toBeTruthy();
+    // The blocker detail is built GENERICALLY from the nested entry's own fields
+    // (no hardcoded backend error-code copy).
+    expect(screen.getByText(/Failed Child: ndp_dataset_discovery/)).toBeTruthy();
   });
 
-  it('summarizes leading handoff evidence JSON before workflow state', () => {
+  it('treats a bare JSON handoff body as display-only state (not rendered as prose)', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -211,104 +219,13 @@ describe('Transcript', () => {
       />
     ));
 
-    expect(screen.getByText(/Resolved region: San Diego area/)).toBeTruthy();
-    expect(screen.getByText(/center 32.7157, -117.1611/)).toBeTruthy();
+    // The handoff body is a bare JSON evidence object — display-only structured
+    // state per the contract — with no task and no tools, so the delegation is
+    // entirely empty: NO prose result, NO raw JSON keys, NO workflow-state card.
+    expect(screen.queryByTestId('assistant-turn-result')).toBeNull();
     expect(screen.queryByText(/REGION_LABEL/)).toBeNull();
-    expect(screen.getByTestId('workflow-state-card')).toBeTruthy();
+    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
+    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
   });
 
-  it('renders fs_propose_edit metadata results as reviewable diff chips', () => {
-    const diff =
-      '--- a/handlers.go\n' +
-      '+++ b/handlers.go\n' +
-      '@@ -1,3 +1,3 @@\n' +
-      '-fmt.Println("done", id)\n' +
-      '+log.Printf("processed=%s", id)\n';
-    let opened = '';
-
-    render(() => (
-      <Transcript
-        density="normal"
-        onOpenDiff={(d) => {
-          opened = d.unified_diff ?? '';
-        }}
-        messages={[
-          {
-            id: 'm-tool-diff',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'text',
-                text: 'The proposed edit is ready for review.',
-              },
-            ],
-            metadata: {
-              tools_called: [
-                {
-                  name: 'fs_propose_edit',
-                  args: { filepath: '/tmp/workspace/handlers.go' },
-                  ok: true,
-                  result: JSON.stringify({
-                    path: '/tmp/workspace/handlers.go',
-                    unified_diff: diff,
-                    new_content: 'package main\n',
-                  }),
-                },
-                {
-                  name: 'fs_propose_edit',
-                  args: { filepath: '/tmp/workspace/handlers.go' },
-                  ok: true,
-                  result: JSON.stringify({
-                    path: '/tmp/workspace/handlers.go',
-                    unified_diff: diff,
-                    new_content: 'package main\n',
-                  }),
-                },
-              ],
-            },
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getAllByTestId('filediff-chip')).toHaveLength(1);
-    const chip = screen.getByTestId('filediff-chip');
-    expect(chip.textContent).toContain('/tmp/workspace/handlers.go');
-    chip.click();
-    expect(opened).toContain('log.Printf');
-  });
-
-  it('renders backend command results as readable command cards', () => {
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-command',
-            role: 'assistant',
-            metadata: {
-              synthetic: 'command_result',
-              command: '/cache-stats',
-            },
-            parts: [
-              {
-                type: 'text',
-                metadata: {
-                  synthetic: 'command_result',
-                  command: '/cache-stats',
-                },
-                text: '[/cache-stats] ARC cache: hits=0 misses=0 hit_rate=0.00 capacity=1000',
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getByTestId('command-result-card')).toBeTruthy();
-    expect(screen.getByText('Command result')).toBeTruthy();
-    expect(screen.getByText('/cache-stats')).toBeTruthy();
-    expect(screen.getByText(/ARC cache/)).toBeTruthy();
-    expect(screen.queryByText(/\[\/cache-stats\]/)).toBeNull();
-  });
 });

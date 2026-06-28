@@ -82,7 +82,7 @@ func TestConnectCmdUsesInitialWorkspaceSelector(t *testing.T) {
 
 	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
 	a.SetInitialWorkspace("analysis")
-	msg := a.connectCmd()()
+	msg := a.connection.connectCmd()()
 	connected, ok := msg.(connectedMsg)
 	if !ok {
 		t.Fatalf("connect message = %T %#v, want connectedMsg", msg, msg)
@@ -117,7 +117,7 @@ func TestConnectCmdSurfacesUnknownInitialWorkspace(t *testing.T) {
 
 	a := NewWithTheme(srv.URL, ThemeForMode(ModeDark))
 	a.SetInitialWorkspace("missing")
-	msg := a.connectCmd()()
+	msg := a.connection.connectCmd()()
 	got, ok := msg.(errMsg)
 	if !ok {
 		t.Fatalf("connect message = %T %#v, want errMsg", msg, msg)
@@ -130,12 +130,12 @@ func TestConnectCmdSurfacesUnknownInitialWorkspace(t *testing.T) {
 func TestConnectCmdReconnectUsesCurrentWorkspace(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.SetInitialWorkspace("analysis")
-	a.wsID = "ws_visual"
-	if got := strings.TrimSpace(a.connectWorkspaceSelector()); got != "ws_visual" {
+	a.session.wsID = "ws_visual"
+	if got := strings.TrimSpace(a.connection.connectWorkspaceSelector()); got != "ws_visual" {
 		t.Fatalf("connect selector = %q, want current workspace", got)
 	}
-	a.wsID = ""
-	if got := strings.TrimSpace(a.connectWorkspaceSelector()); got != "analysis" {
+	a.session.wsID = ""
+	if got := strings.TrimSpace(a.connection.connectWorkspaceSelector()); got != "analysis" {
 		t.Fatalf("connect selector = %q, want initial workspace", got)
 	}
 }

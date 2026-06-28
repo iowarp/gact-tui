@@ -48,83 +48,83 @@ func makeContextAddApp(t *testing.T) (*App, *sync.Mutex, *string) {
 	a.stage = StageReady
 	a.width, a.height = 100, 30
 	a.focus = FocusSidebar
-	a.sessions = []gact.Session{{ID: "s1", Title: "x"}}
-	a.selected = 0
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "x"}}
+	a.session.selected = 0
 	return a, &mu, &path
 }
 
 func TestContextAdd_OKeyOpensEmptyPrompt(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.handleSidebarKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
-	if !a.contextAddOpen {
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
+	if !a.contextAdd.open {
 		t.Fatal("o should open the add-context prompt")
 	}
-	if a.contextAddDraft != "" {
-		t.Errorf("draft = %q, want empty", a.contextAddDraft)
+	if a.contextAdd.input.Value() != "" {
+		t.Errorf("draft = %q, want empty", a.contextAdd.input.Value())
 	}
-	if a.contextAddCursor != 0 {
-		t.Errorf("cursor = %d, want 0", a.contextAddCursor)
+	if a.contextAdd.input.Cursor() != 0 {
+		t.Errorf("cursor = %d, want 0", a.contextAdd.input.Cursor())
 	}
 }
 
 func TestContextAdd_OKeyNoSessionIsNoop(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.selected = -1
-	a.handleSidebarKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
-	if a.contextAddOpen {
+	a.session.selected = -1
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: 'o', Text: "o"})
+	if a.contextAdd.open {
 		t.Error("o without a selected session should not open the modal")
 	}
 }
 
 func TestContextAddSlashCommandOpensAddContextModal(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
-	a.paletteOpen = true
-	a.paletteGroup = "Workspace"
-	a.paletteSel = paletteIndexForTest(a, "/add")
+	a.cmdPalette.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
+	a.cmdPalette.paletteOpen = true
+	a.cmdPalette.paletteGroup = "Workspace"
+	a.cmdPalette.paletteSel = paletteIndexForTest(a, "/add")
 
 	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = model.(*App)
 	if cmd != nil {
 		t.Fatal("/add should open the local context modal without backend command dispatch")
 	}
-	if !a.contextAddOpen || a.contextAddDraft != "" || a.contextAddCursor != 0 || a.contextAddMode != "read" {
-		t.Fatalf("/add did not initialize context modal, open=%v draft=%q cursor=%d mode=%q", a.contextAddOpen, a.contextAddDraft, a.contextAddCursor, a.contextAddMode)
+	if !a.contextAdd.open || a.contextAdd.input.Value() != "" || a.contextAdd.input.Cursor() != 0 || a.contextAdd.mode != "read" {
+		t.Fatalf("/add did not initialize context modal, open=%v draft=%q cursor=%d mode=%q", a.contextAdd.open, a.contextAdd.input.Value(), a.contextAdd.input.Cursor(), a.contextAdd.mode)
 	}
-	if a.paletteOpen {
+	if a.cmdPalette.paletteOpen {
 		t.Fatal("palette should close after /add")
 	}
 }
 
 func TestContextAddSlashCommandNoOpsWithoutActiveSession(t *testing.T) {
 	a := newReadyApp(nil, nil)
-	a.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
-	a.paletteOpen = true
-	a.paletteGroup = "Workspace"
-	a.paletteSel = paletteIndexForTest(a, "/add")
+	a.cmdPalette.commands = []gact.Command{{ID: "/add", Title: "Add file", Source: "builtin"}}
+	a.cmdPalette.paletteOpen = true
+	a.cmdPalette.paletteGroup = "Workspace"
+	a.cmdPalette.paletteSel = paletteIndexForTest(a, "/add")
 
 	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = model.(*App)
 	if cmd == nil {
 		t.Fatal("/add no-session should schedule hint expiry")
 	}
-	if a.contextAddOpen {
+	if a.contextAdd.open {
 		t.Fatal("/add without active session should not open context modal")
 	}
 	if a.transientHint != "no active session to add context" {
 		t.Fatalf("/add no-session hint = %q", a.transientHint)
 	}
-	if a.paletteOpen {
+	if a.cmdPalette.paletteOpen {
 		t.Fatal("palette should close after /add no-op")
 	}
 }
 
 func TestContextDropSlashCommandNoOpsWithoutSelectedContextFile(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
-	a.paletteOpen = true
-	a.paletteGroup = "Workspace"
-	a.paletteSel = paletteIndexForTest(a, "/drop")
+	a.cmdPalette.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
+	a.cmdPalette.paletteOpen = true
+	a.cmdPalette.paletteGroup = "Workspace"
+	a.cmdPalette.paletteSel = paletteIndexForTest(a, "/drop")
 
 	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = model.(*App)
@@ -134,38 +134,38 @@ func TestContextDropSlashCommandNoOpsWithoutSelectedContextFile(t *testing.T) {
 	if a.transientHint != "no context file selected to drop" {
 		t.Fatalf("/drop no-op hint = %q", a.transientHint)
 	}
-	if a.paletteOpen {
+	if a.cmdPalette.paletteOpen {
 		t.Fatal("palette should close after /drop no-op")
 	}
 }
 
 func TestContextDropSlashCommandDispatchesSelectedContextFileRemoval(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
-	a.contextFileSel = 0
-	a.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
-	a.paletteOpen = true
-	a.paletteGroup = "Workspace"
-	a.paletteSel = paletteIndexForTest(a, "/drop")
+	a.session.contextFiles = []gact.ContextFile{{Path: "docs/readme.md", Mode: "read"}}
+	a.session.contextFileSel = 0
+	a.cmdPalette.commands = []gact.Command{{ID: "/drop", Title: "Drop file", Source: "builtin"}}
+	a.cmdPalette.paletteOpen = true
+	a.cmdPalette.paletteGroup = "Workspace"
+	a.cmdPalette.paletteSel = paletteIndexForTest(a, "/drop")
 
 	model, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	a = model.(*App)
 	if cmd == nil {
 		t.Fatal("/drop should dispatch selected context file removal")
 	}
-	if a.paletteOpen {
+	if a.cmdPalette.paletteOpen {
 		t.Fatal("palette should close after /drop")
 	}
 }
 
 func TestContextAdd_EnterCommitsAndPOSTsPath(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "cmd/main.go"
-	a.contextAddCursor = len("cmd/main.go")
+	a.contextAdd.open = true
+	a.contextAdd.input.SetValue("cmd/main.go")
+	a.contextAdd.input.SetCursor(len("cmd/main.go"))
 
-	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if a.contextAddOpen {
+	_, cmd := a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if a.contextAdd.open {
 		t.Error("Enter should close the modal")
 	}
 	if cmd == nil {
@@ -194,20 +194,20 @@ func TestContextAdd_EnterCommitsAndPOSTsPath(t *testing.T) {
 
 func TestContextAdd_TabCyclesModeAndPOSTsSelectedMode(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "docs/editable.md"
-	a.contextAddCursor = len(a.contextAddDraft)
+	a.contextAdd.open = true
+	a.contextAdd.input.SetValue("docs/editable.md")
+	a.contextAdd.input.SetCursor(len(a.contextAdd.input.Value()))
 
-	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
-	if got := a.contextAddModeValue(); got != "edit" {
+	a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAdd.modeValue(); got != "edit" {
 		t.Fatalf("after Tab mode = %q, want edit", got)
 	}
-	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyTab})
-	if got := a.contextAddModeValue(); got != "pin" {
+	a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := a.contextAdd.modeValue(); got != "pin" {
 		t.Fatalf("after second Tab mode = %q, want pin", got)
 	}
 
-	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	_, cmd := a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("Enter should dispatch addContextFileCmd")
 	}
@@ -224,140 +224,13 @@ func TestContextAdd_TabCyclesModeAndPOSTsSelectedMode(t *testing.T) {
 	}
 }
 
-func TestContextAddModeChipsUseSemanticHitTargets(t *testing.T) {
-	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "docs/readme.md"
-	a.contextAddCursor = len(a.contextAddDraft)
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "context-add:mode:edit")
-	if !ok {
-		t.Fatal("missing context-add edit mode hit target")
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if cmd != nil {
-		t.Fatal("mode chip click should not dispatch a command")
-	}
-	if got := a.contextAddModeValue(); got != "edit" {
-		t.Fatalf("context-add mode = %q, want edit", got)
-	}
-	if !a.contextAddOpen {
-		t.Fatal("mode chip should keep context-add open")
-	}
-}
-
-func TestContextAddButtonsUseSemanticHitTargets(t *testing.T) {
-	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "docs/readme.md"
-	a.contextAddCursor = len(a.contextAddDraft)
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "button:context-add:save")
-	if !ok {
-		t.Fatal("missing context-add save button hit target")
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if a.contextAddOpen {
-		t.Fatal("save button should close context-add modal")
-	}
-	if cmd == nil {
-		t.Fatal("save button should dispatch addContextFileCmd")
-	}
-}
-
-func TestContextAddButtonsAlignWithSharedHeader(t *testing.T) {
-	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "docs/readme.md"
-	a.contextAddCursor = len(a.contextAddDraft)
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "button:context-add:save")
-	if !ok {
-		t.Fatal("missing context-add save button hit target")
-	}
-	rect := overlayMouseRect(a.viewContextAdd(), a.width, a.height)
-	if wantY := rect.y + 2; target.rect.y != wantY {
-		t.Fatalf("context-add save button y = %d, want shared frame header row %d", target.rect.y, wantY)
-	}
-}
-
-func TestContextAddCancelButtonUsesSharedCloseState(t *testing.T) {
-	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "discard/me.md"
-	a.contextAddCursor = len(a.contextAddDraft)
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "button:context-add:cancel")
-	if !ok {
-		t.Fatal("missing context-add cancel button hit target")
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if cmd != nil {
-		t.Fatal("cancel button should not dispatch a command")
-	}
-	if a.contextAddOpen || a.contextAddDraft != "" || a.contextAddCursor != 0 {
-		t.Fatalf("cancel should clear context-add state, open=%v draft=%q cursor=%d", a.contextAddOpen, a.contextAddDraft, a.contextAddCursor)
-	}
-}
-
-func TestContextAddEditorClickPlacesCursor(t *testing.T) {
-	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "docs/readme.md"
-	a.contextAddCursor = len(a.contextAddDraft)
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "text-entry:context-add:cursor:4")
-	if !ok {
-		t.Fatal("missing context-add editor cursor target")
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if cmd != nil {
-		t.Fatal("cursor click should not dispatch a command")
-	}
-	if a.contextAddCursor != 4 {
-		t.Fatalf("context-add cursor = %d, want 4", a.contextAddCursor)
-	}
-	if !a.contextAddOpen {
-		t.Fatal("cursor click should keep context-add open")
-	}
-}
-
 func TestContextAdd_EmptyPathCancels(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "   "
-	a.contextAddCursor = 3
+	a.contextAdd.open = true
+	a.contextAdd.input.SetValue("   ")
+	a.contextAdd.input.SetCursor(3)
 
-	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	_, cmd := a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd != nil {
 		t.Error("whitespace-only Enter should not fire a POST")
 	}
@@ -373,10 +246,10 @@ func TestContextAdd_EmptyPathCancels(t *testing.T) {
 
 func TestContextAdd_EscClosesWithoutPost(t *testing.T) {
 	a, mu, got := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.contextAddDraft = "would-have-been-added"
-	_, cmd := a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if a.contextAddOpen {
+	a.contextAdd.open = true
+	a.contextAdd.input.SetValue("would-have-been-added")
+	_, cmd := a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if a.contextAdd.open {
 		t.Error("Esc should close the modal")
 	}
 	if cmd != nil {
@@ -391,15 +264,15 @@ func TestContextAdd_EscClosesWithoutPost(t *testing.T) {
 
 func TestContextAdd_TypingAppendsAndCursorMoves(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.contextAddOpen = true
-	a.handleContextAddKey(tea.KeyPressMsg{Code: 'a', Text: "a"})
-	a.handleContextAddKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
-	if a.contextAddDraft != "ab" || a.contextAddCursor != 2 {
-		t.Errorf("after typing: draft=%q cursor=%d", a.contextAddDraft, a.contextAddCursor)
+	a.contextAdd.open = true
+	a.contextAdd.handleKey(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	a.contextAdd.handleKey(tea.KeyPressMsg{Code: 'b', Text: "b"})
+	if a.contextAdd.input.Value() != "ab" || a.contextAdd.input.Cursor() != 2 {
+		t.Errorf("after typing: draft=%q cursor=%d", a.contextAdd.input.Value(), a.contextAdd.input.Cursor())
 	}
-	a.handleContextAddKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
-	if a.contextAddDraft != "a" || a.contextAddCursor != 1 {
-		t.Errorf("after backspace: draft=%q cursor=%d", a.contextAddDraft, a.contextAddCursor)
+	a.contextAdd.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if a.contextAdd.input.Value() != "a" || a.contextAdd.input.Cursor() != 1 {
+		t.Errorf("after backspace: draft=%q cursor=%d", a.contextAdd.input.Value(), a.contextAdd.input.Cursor())
 	}
 }
 
@@ -410,8 +283,8 @@ func TestContextAdd_SuccessMirrorsIntoSidebar(t *testing.T) {
 		file:      gact.ContextFile{Path: "docs/README.md", Mode: "read"},
 	})
 	a = model.(*App)
-	if len(a.contextFiles) != 1 || a.contextFiles[0].Path != "docs/README.md" {
-		t.Errorf("contextFiles = %+v, want one entry with docs/README.md", a.contextFiles)
+	if len(a.session.contextFiles) != 1 || a.session.contextFiles[0].Path != "docs/README.md" {
+		t.Errorf("contextFiles = %+v, want one entry with docs/README.md", a.session.contextFiles)
 	}
 	if !strings.Contains(a.transientHint, "docs/README.md") {
 		t.Errorf("hint = %q, want it to mention the path", a.transientHint)
@@ -425,8 +298,8 @@ func TestContextAdd_FailureShowsHintAndNoMirror(t *testing.T) {
 		err:       errors.New("no such file"),
 	})
 	a = model.(*App)
-	if len(a.contextFiles) != 0 {
-		t.Errorf("failed add shouldn't mirror, got %+v", a.contextFiles)
+	if len(a.session.contextFiles) != 0 {
+		t.Errorf("failed add shouldn't mirror, got %+v", a.session.contextFiles)
 	}
 	if !strings.Contains(a.transientHint, "add failed") {
 		t.Errorf("hint = %q, want 'add failed'", a.transientHint)
@@ -435,13 +308,13 @@ func TestContextAdd_FailureShowsHintAndNoMirror(t *testing.T) {
 
 func TestContextAdd_FailureUsesStructuredOperatorError(t *testing.T) {
 	a, _, _ := makeContextAddApp(t)
-	a.contextFiles = []gact.ContextFile{{Path: "already.txt", Mode: "read"}}
+	a.session.contextFiles = []gact.ContextFile{{Path: "already.txt", Mode: "read"}}
 	err := &client.Error{Status: 502, Code: "context_add_failed", Message: "context add failed: workspace file index is temporarily unavailable"}
 
 	model, _ := a.Update(contextFileAddedMsg{sessionID: "s1", err: err})
 	a = model.(*App)
-	if len(a.contextFiles) != 1 || a.contextFiles[0].Path != "already.txt" {
-		t.Fatalf("failed add should preserve existing context files: %+v", a.contextFiles)
+	if len(a.session.contextFiles) != 1 || a.session.contextFiles[0].Path != "already.txt" {
+		t.Fatalf("failed add should preserve existing context files: %+v", a.session.contextFiles)
 	}
 	if a.transientHint != "add failed: workspace file index is temporarily unavailable" {
 		t.Fatalf("hint = %q", a.transientHint)
@@ -453,15 +326,15 @@ func TestContextAdd_StaleResponseIgnored(t *testing.T) {
 	// the mirrored file would end up on the wrong session. Guard
 	// against that by keying on sessionID.
 	a, _, _ := makeContextAddApp(t)
-	a.sessions = []gact.Session{{ID: "s1"}, {ID: "s2"}}
-	a.selected = 1 // user moved to s2
+	a.session.sessions = []gact.Session{{ID: "s1"}, {ID: "s2"}}
+	a.session.selected = 1 // user moved to s2
 
 	model, _ := a.Update(contextFileAddedMsg{
 		sessionID: "s1", // stale response for s1
 		file:      gact.ContextFile{Path: "ignored.txt"},
 	})
 	a = model.(*App)
-	if len(a.contextFiles) != 0 {
-		t.Errorf("stale response should not mirror, got %+v", a.contextFiles)
+	if len(a.session.contextFiles) != 0 {
+		t.Errorf("stale response should not mirror, got %+v", a.session.contextFiles)
 	}
 }

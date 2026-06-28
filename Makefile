@@ -18,7 +18,11 @@ CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
 TUI_BUILD_REVISION := $(shell git rev-parse HEAD 2>/dev/null)
 TUI_BUILD_TIME     := $(shell git show -s --format=%cI HEAD 2>/dev/null)
 TUI_BUILD_DIRTY    := $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo true || echo false)
-TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildTime=$(TUI_BUILD_TIME) -X main.buildDirty=$(TUI_BUILD_DIRTY)
+# Semantic version from git tags: latest reachable v-tag + commits-since + ghash
+# (+ -dirty when the tree has uncommitted changes), e.g. v0.3.0-2098-g31c252e7.
+TUI_VERSION        := $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null)
+TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
+TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildTime=$(TUI_BUILD_TIME) -X main.buildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \

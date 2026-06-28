@@ -1,3 +1,7 @@
+@import './diff-pane-hunks.css';
+@import './diff-pane-lines.css';
+@import './diff-pane-empty.css';
+
 .diffpane {
   position: absolute;
   top: 52px;
@@ -30,6 +34,17 @@
   word-break: break-all;
 }
 
+.diffpane__meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.diffpane__editmode {
+  color: var(--color-muted);
+}
+
 .diffpane__stats {
   display: flex;
   gap: 8px;
@@ -50,136 +65,6 @@
 .diffpane__close:hover {
   color: var(--color-heading);
   border-color: var(--color-accent-cyan);
-}
-
-.diffpane__hunks {
-  list-style: none;
-  padding: 12px 16px;
-  margin: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.diffpane__hunk {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-30);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.diffpane__hunk--applied {
-  border-color: var(--color-success);
-}
-
-.diffpane__hunk--rejected {
-  border-color: var(--color-error);
-  opacity: 0.65;
-}
-
-.diffpane__hunk-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: var(--color-surface-alt);
-  border-bottom: 1px solid var(--color-border-30);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--color-muted);
-}
-
-.diffpane__hunk-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.diffpane__hunk-actions .btn {
-  padding: 4px 12px;
-  font-size: var(--text-xs);
-}
-
-.diffpane__hunk-body {
-  margin: 0;
-  padding: 6px 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.45;
-  overflow-x: auto;
-}
-
-.diffpane__line {
-  display: flex;
-  align-items: baseline;
-  padding: 0 12px 0 0;
-  white-space: pre;
-}
-
-/* Old/new line-number gutter (W3 Tier-2). */
-.diffpane__lineno {
-  flex: 0 0 38px;
-  text-align: right;
-  padding-right: 8px;
-  color: var(--color-muted);
-  opacity: 0.6;
-  user-select: none;
-  font-size: 11px;
-}
-
-.diffpane__line-sign {
-  flex: 0 0 16px;
-  text-align: center;
-  user-select: none;
-  font-weight: 600;
-}
-
-.diffpane__line-code {
-  flex: 1;
-  background: transparent;
-  font-family: inherit;
-  font-size: inherit;
-  /* hljs token colors apply on top of the add/del tint. */
-  padding: 0;
-}
-
-.diffpane__line--add {
-  /* Overridable by theme presets (light mode uses darker tint bases). */
-  background: var(--color-diff-add-bg, rgba(52, 211, 153, 0.10));
-}
-
-.diffpane__line--add .diffpane__line-sign {
-  color: var(--color-success);
-}
-
-.diffpane__line--del {
-  background: var(--color-diff-del-bg, rgba(248, 113, 113, 0.10));
-}
-
-.diffpane__line--del .diffpane__line-sign {
-  color: var(--color-error);
-}
-
-.diffpane__line--del .diffpane__line-code {
-  opacity: 0.75;
-}
-
-.diffpane__line--ctx {
-  color: var(--color-text);
-}
-
-.diffpane__nohunks {
-  padding: 18px;
-  color: var(--color-muted);
-}
-
-.diffpane__nohunks pre {
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border-30);
-  padding: 12px;
-  border-radius: var(--radius-md);
-  overflow-x: auto;
 }
 
 @media (max-width: 760px) {
@@ -211,35 +96,5 @@
 
   .diffpane__close {
     margin-left: auto;
-  }
-
-  .diffpane__hunks {
-    padding: 10px;
-  }
-
-  .diffpane__hunk-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .diffpane__hunk-actions {
-    width: 100%;
-  }
-
-  .diffpane__hunk-actions .btn {
-    flex: 1;
-  }
-
-  .diffpane__hunk-body {
-    font-size: 11px;
-  }
-
-  .diffpane__line {
-    min-width: max-content;
-  }
-
-  .diffpane__lineno {
-    flex-basis: 30px;
-    font-size: 10px;
   }
 }

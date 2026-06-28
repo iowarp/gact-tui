@@ -110,3 +110,70 @@ export function upsertMessage(messages: Message[], next: Message): Message[] {
   copy[idx] = next;
   return copy;
 }
+
+/** Total text length carried by a part — the heuristic for "more complete". */
+function partTextLength(part: Part): number {
+  if (part.type === 'text') return (part.text ?? '').length;
+  if (part.type === 'thinking') return (part.thinking ?? part.text ?? '').length;
+  return 0;
+}
+
+/**
+ * Merge a freshly-reconciled message (server-authoritative) with the local
+ * in-flight copy of the *same* message, preserving streaming mutations that
+ * may have landed after the reconcile fetch was issued.
+ *
+ * The reconciled message wins for everything (role, tokens, cost, stop_reason,
+ * error_info, …) *except* per-part streamed text: for any part present in both,
+ * whichever side carries more text is kept (a `message.part.delta` text-append
+ * that raced the fetch must not be clobbered by a stale snapshot). Local-only
+ * parts that the snapshot has not caught up to yet are appended.
+ */
+function mergeMessage(local: Message, reconciled: Message): Message {
+  const localById = new Map(local.parts.map((p) => [p.id, p]));
+  const merged: Part[] = reconciled.parts.map((rp) => {
+    const lp = rp.id != null ? localById.get(rp.id) : undefined;
+    if (!lp) return rp;
+    // Keep whichever side has more streamed text; otherwise the reconciled
+    // part is authoritative (it may carry finalised non-text fields).
+    return partTextLength(lp) > partTextLength(rp) ? lp : rp;
+  });
+  const reconciledIds = new Set(
+    reconciled.parts.map((p) => p.id).filter((id): id is string => id != null),
+  );
+  for (const lp of local.parts) {
+    if (lp.id == null || !reconciledIds.has(lp.id)) merged.push(lp);
+  }
+  return { ...reconciled, parts: merged };
+}
+
+/**
+ * Key-based MERGE of a reconciled message list into the current local feed.
+ *
+ * Used by the debounced transcript reconciler (`/v1/messages` refetch on
+ * `message.completed`/`error`/`deleted`). A wholesale `setMessages(reconciled)`
+ * replace would discard SSE mutations (e.g. `message.part.delta` text-append,
+ * a brand-new `message.created`) that arrived *during* the in-flight fetch.
+ *
+ * Semantics:
+ *  - the reconciled list is authoritative for every message it returns and
+ *    establishes ordering;
+ *  - messages present in both are merged via {@link mergeMessage} so in-flight
+ *    per-part streaming text is preserved;
+ *  - local-only messages (ids the snapshot has not caught up to yet) are kept,
+ *    appended after the reconciled list in their original relative order.
+ *
+ * Never mutates either input.
+ */
+export function mergeMessages(local: Message[], reconciled: Message[]): Message[] {
+  const localById = new Map(local.map((m) => [m.id, m]));
+  const merged = reconciled.map((rm) => {
+    const lm = localById.get(rm.id);
+    return lm ? mergeMessage(lm, rm) : rm;
+  });
+  const reconciledIds = new Set(reconciled.map((m) => m.id));
+  for (const lm of local) {
+    if (!reconciledIds.has(lm.id)) merged.push(lm);
+  }
+  return merged;
+}

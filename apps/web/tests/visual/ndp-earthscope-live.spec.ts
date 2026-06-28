@@ -13,7 +13,7 @@
  *   pnpm test:visual --grep "EarthScope marketplace"
  */
 
-import { test, expect, chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -21,10 +21,21 @@ import {
   EARTHSCOPE_GNSS_REGION_EXPECT,
   EARTHSCOPE_GNSS_REGION_PROMPT,
 } from './live-prompts.js';
+import {
+  BACKEND,
+  KEEP_LIVE_SESSIONS,
+  api,
+  archiveSession,
+  auditDir,
+  bootBrowser,
+  optionalApi,
+  reachable,
+  shot,
+  type SessionRow,
+  type Workspace,
+} from './ndp-live-helpers';
 
-const BACKEND = process.env['CLIO_GACT_URL'] ?? 'http://127.0.0.1:17801';
 const ENABLED = process.env['CLIO_NDP_EARTHSCOPE_LIVE'] === '1';
-const KEEP_LIVE_SESSIONS = process.env['CLIO_LIVE_KEEP_SESSIONS'] === '1';
 const MARKETPLACE_SOURCE =
   process.env['CLIO_MARKETPLACE_SOURCE'] ??
   process.env['CLIO_AGENT_MARKETPLACE_SOURCE'] ??
@@ -46,21 +57,6 @@ const LOCAL_CLIO_KIT_PATH =
 const USE_LOCAL_MCP_OVERRIDE =
   process.env['CLIO_NDP_EARTHSCOPE_LOCAL_MCP'] !== '0' &&
   existsSync(LOCAL_CLIO_KIT_PATH);
-
-const auditDir = resolve(import.meta.dirname, '..', '..', 'screenshots', 'audit');
-mkdirSync(auditDir, { recursive: true });
-
-interface Workspace {
-  id: string;
-  name?: string;
-  root_path?: string;
-}
-
-interface SessionRow {
-  id: string;
-  title?: string;
-  workspace_id?: string;
-}
 
 interface Message {
   role?: string;
@@ -92,46 +88,6 @@ interface ArtifactPreviewEvidence {
   outcome: 'image' | 'diagnostic';
   naturalWidth: number;
   naturalHeight: number;
-}
-
-let reachable = false;
-try {
-  const r = await fetch(`${BACKEND}/v1/capabilities`, {
-    signal: AbortSignal.timeout(2000),
-  });
-  reachable = r.ok;
-} catch {
-  reachable = false;
-}
-
-function shot(slug: string): string {
-  return resolve(auditDir, `${slug}.png`);
-}
-
-async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(`${BACKEND}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!r.ok) {
-    const body = await r.text().catch(() => '');
-    throw new Error(`${init.method ?? 'GET'} ${path} failed: ${r.status} ${body}`);
-  }
-  if (r.status === 204) return undefined as T;
-  return (await r.json()) as T;
-}
-
-async function optionalApi<T>(path: string, init: RequestInit = {}): Promise<T | { error: string }> {
-  try {
-    return await api<T>(path, init);
-  } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
 }
 
 async function ensureWorkspace(): Promise<string> {
@@ -201,18 +157,6 @@ async function bindBlueprint(sessionId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ blueprint_id: EARTHSCOPE_GNSS_REGION_BLUEPRINT }),
   });
-}
-
-async function archiveSession(sessionId: string): Promise<void> {
-  if (KEEP_LIVE_SESSIONS) return;
-  await optionalApi(`/v1/sessions/${encodeURIComponent(sessionId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ archived: true }),
-  });
-}
-
-async function bootBrowser(): Promise<Browser> {
-  return await chromium.launch({ args: ['--disable-web-security'] });
 }
 
 async function openConnected(browser: Browser): Promise<{

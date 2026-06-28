@@ -2,6 +2,18 @@ import type { GactEvent } from '../wire/events.js';
 
 export type SseHandler = (event: GactEvent) => void;
 
+export function sessionSseUrl(
+  baseUrl: string,
+  sessionId: string,
+  bearerToken?: string,
+): string {
+  const u = new URL(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/events`);
+  if (bearerToken) {
+    u.searchParams.set('auth_token', bearerToken);
+  }
+  return u.toString();
+}
+
 /**
  * Parse a single SSE block (events terminated by a blank line) into a typed
  * GactEvent envelope, or null if the block is incomplete / malformed.

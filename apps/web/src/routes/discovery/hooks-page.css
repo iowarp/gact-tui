@@ -1,9 +1,11 @@
 /*
  * Hooks page — runtime-hook status panel (read-only) + declarative-hook
- * editor layout overrides. The shared .rmp__* / .dp__* rules live in
- * components/discovery-page.css; this file adds only the hooks-specific
- * surfaces (GAP 4 runtime panel) and the 4-column editor form.
+ * editor layout overrides. Shared roadmap/editor primitives live in
+ * roadmap-page.css; this file adds only the hooks-specific surfaces
+ * (GAP 4 runtime panel) and the 4-column editor form.
  */
+
+@import './roadmap-page.css';
 
 /* GAP 4 — runtime hooks status panel. */
 .rmp__panel {
@@ -16,7 +18,8 @@
 
 .rmp__panel-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 10px;
@@ -111,6 +114,36 @@
   grid-template-columns: 1fr minmax(110px, auto) minmax(110px, auto) auto;
 }
 
+.bps__source-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+}
+
+.bps__source-head {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.bps__source-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bps__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .bps__dot {
   flex-shrink: 0;
   width: 9px;
@@ -141,7 +174,8 @@
 }
 
 .bps__status--ready,
-.bps__status--ok {
+.bps__status--ok,
+.bps__status--installed {
   background: color-mix(in srgb, var(--color-success) 14%, transparent);
   color: var(--color-success);
 }
@@ -162,13 +196,34 @@
   max-width: 220px;
 }
 
+.bps__commit {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
 .bps__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: transparent;
   border: 1px solid var(--color-border-30);
   border-radius: 4px;
-  padding: 2px;
+  padding: 3px 6px;
   color: var(--color-muted);
   cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.bps__btn--primary {
+  color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan-30);
+  background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
 }
 
 .bps__btn:hover:not(:disabled) {
@@ -179,4 +234,48 @@
 .bps__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.bps__nested-list {
+  list-style: none;
+  margin: 0 0 0 28px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bps__nested-row,
+.bps__nested-empty {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.bps__nested-empty {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+}
+
+.bps__nested-name {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.bps__nested-id,
+.bps__nested-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.bps__nested-meta {
+  margin-left: auto;
 }

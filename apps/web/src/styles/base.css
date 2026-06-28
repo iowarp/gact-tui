@@ -1,0 +1,118 @@
+@import url('../../../design/colors_and_type.css');
+@import url('https://rsms.me/inter/inter.css');
+
+/* User preference: Inter for body sans. Override the design-system
+   token so every var(--font-sans) consumer (chrome, transcript,
+   composer, inspector, settings) picks it up without shipping the
+   decorative display font in the web bundle. */
+:root {
+  --font-sans: 'Inter', 'Inter var', system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-display: var(--font-sans);
+
+  /* === Elevation (DESIGN.md: one overlay shadow + one hairline) ===
+     Every floating surface - dialog, popover, menu, toast, drawer - rides
+     these two tokens. Do NOT add a per-component box-shadow; if elevation
+     needs to change, change the token. The shadow is a pure-black drop so
+     it reads on the dark palette; theme.ts overrides --shadow-overlay for
+     the light/dim/high-contrast presets so it stays a single token contract.
+     The hairline derives from the border token so it follows the theme. */
+  --shadow-overlay: 0 24px 64px -16px rgba(0, 0, 0, 0.55);
+  --stroke-hairline: 1px solid var(--color-border-30);
+
+  /* === Selection / active semantics (design pass: ONE primary per view) ===
+     The warm brand accent is the single primary-action + selection color.
+     Selected list rows, the active nav item, and primary CTAs derive from
+     these so the treatment is consistent and theme-safe (the accent stays
+     saturated orange in light + dark, so the tint follows it). Cyan is
+     demoted to informational (code, command text, capability chips, links).
+     Tints are color-mix on the token so they ride the theme. */
+  --color-accent-warm-12: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --color-accent-warm-16: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  --color-accent-warm-30: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-warm-40: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  --color-select-bg: var(--color-accent-warm-12);
+  --color-select-border: var(--color-accent-warm-30);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: var(--color-heading);
+}
+
+::selection {
+  background: var(--color-glow-cyan);
+}
+
+/* === Custom scrollbars (subtle, theme-matched) === */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-30) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-30);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* a11y (W3 Tier-1): a single consistent keyboard-focus ring on every
+   interactive element. :focus-visible fires for keyboard nav (Tab) but not
+   mouse clicks, so it adds no noise for pointer users. Components with their
+   own focus styling (e.g. .field inputs use a border-color change) keep it
+   via higher specificity. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-cyan, #56c2d6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

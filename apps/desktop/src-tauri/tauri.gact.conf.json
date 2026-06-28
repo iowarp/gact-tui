@@ -18,7 +18,10 @@
         "fullscreen": false,
         "transparent": false
       }
-    ]
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; script-src 'self'"
+    }
   },
   "bundle": {
     "shortDescription": "GACT Desktop — multi-backend agentic-coder UI",
@@ -29,6 +32,18 @@
       "icons/128x128@2x.png",
       "icons/icon.png",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/iowarp/gact-tui/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQ0FBOEYyMjFFMDQzQ0YKUldUUFErQWg4cWpLZ2o3SkxUSEU2QU1kd3F3dmdYU2llbHdnZVArSzhkbnJEb1RoZTZZd09UOXEK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

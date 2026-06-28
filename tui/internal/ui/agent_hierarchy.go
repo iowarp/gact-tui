@@ -1,5 +1,7 @@
 package ui
 
+// agentComponent: the right-sidebar agent-hierarchy tree and next-turn-agent routing.
+
 import (
 	"context"
 	"fmt"
@@ -11,28 +13,13 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
 type agentHierarchyLoadedMsg struct {
 	agents []gact.AgentDef
 	err    string
 }
-
-type agentHierarchyRow struct {
-	agent gact.AgentDef
-	depth int
-	path  string
-}
-
-type agentHierarchyRuntimeState string
-
-const (
-	agentHierarchyStateNone     agentHierarchyRuntimeState = ""
-	agentHierarchyStateSession  agentHierarchyRuntimeState = "session"
-	agentHierarchyStateObserved agentHierarchyRuntimeState = "observed"
-	agentHierarchyStateActive   agentHierarchyRuntimeState = "active"
-	agentHierarchyStateLive     agentHierarchyRuntimeState = "live"
-)
 
 func loadAgentHierarchyCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd {
 	return func() tea.Msg {
@@ -46,134 +33,86 @@ func loadAgentHierarchyCmd(c *client.Client, scope client.RuntimeScope) tea.Cmd 
 	}
 }
 
-func (a *App) visibleAgentHierarchyRows() []agentHierarchyRow {
-	agents := make([]gact.AgentDef, 0, len(a.agentHierarchyAgents))
-	hasWorkflowAgents := false
-	for _, agent := range a.agentHierarchyAgents {
-		if agent.Source == "skill" {
-			continue
-		}
-		if isWorkflowAgent(agent) {
-			hasWorkflowAgents = true
-		}
-		agents = append(agents, agent)
-	}
-	if hasWorkflowAgents {
-		filtered := agents[:0]
-		for _, agent := range agents {
-			if isWorkflowAgent(agent) {
-				filtered = append(filtered, agent)
-			}
-		}
-		agents = filtered
-	}
-	byParent := map[string][]gact.AgentDef{}
-	topLevel := make([]gact.AgentDef, 0)
-	for _, agent := range agents {
-		parent := agentParentID(agent)
-		if parent == "" {
-			topLevel = append(topLevel, agent)
-			continue
-		}
-		byParent[parent] = append(byParent[parent], agent)
-	}
-	sortAgentsForCatalog(topLevel)
-	for parent := range byParent {
-		sortAgentsForCatalog(byParent[parent])
-	}
-	rows := make([]agentHierarchyRow, 0, len(agents))
-	seen := map[string]bool{}
-	var appendAgent func(gact.AgentDef, int, string)
-	appendAgent = func(agent gact.AgentDef, depth int, path string) {
-		if seen[agent.ID] {
-			return
-		}
-		seen[agent.ID] = true
-		rows = append(rows, agentHierarchyRow{agent: agent, depth: depth, path: path})
-		children := byParent[agent.ID]
-		for idx, child := range children {
-			childPath := itoa2(idx + 1)
-			if path != "" {
-				childPath = path + "." + childPath
-			}
-			appendAgent(child, depth+1, childPath)
-		}
-	}
-	for idx, agent := range topLevel {
-		appendAgent(agent, 0, itoa2(idx+1))
-	}
-	for idx, agent := range agents {
-		appendAgent(agent, 0, "u"+itoa2(idx+1))
-	}
-	return rows
+func (c *agentComponent) handleAgentHierarchyLoaded(m agentHierarchyLoadedMsg) (tea.Model, tea.Cmd) {
+	c.hierarchyAgents = m.agents
+	c.hierarchyErr = m.err
+	c.clampAgentHierarchySelection()
+	return c.app, nil
 }
 
-func (a *App) clampAgentHierarchySelection() {
-	rows := a.visibleAgentHierarchyRows()
+// setHierarchySel records the agent-hierarchy selection cursor. The seam for
+// cross-domain callers (sidebar key navigation) that previously poked
+// hierarchySel directly; callers stay responsible for range validity, matching
+// the former inline writes.
+func (c *agentComponent) setHierarchySel(index int) {
+	c.hierarchySel = index
+}
+
+func (c *agentComponent) clampAgentHierarchySelection() {
+	rows := c.visibleAgentHierarchyRows()
 	if len(rows) == 0 {
-		a.agentHierarchySel = 0
+		c.hierarchySel = 0
 		return
 	}
-	a.agentHierarchySel = clampSelection(a.agentHierarchySel, len(rows))
+	c.hierarchySel = clampSelection(c.hierarchySel, len(rows))
 }
 
-func (a *App) openSelectedAgentHierarchyDetail() tea.Cmd {
-	rows := a.visibleAgentHierarchyRows()
+func (c *agentComponent) openSelectedAgentHierarchyDetail() tea.Cmd {
+	rows := c.visibleAgentHierarchyRows()
 	if len(rows) == 0 {
 		return nil
 	}
-	a.agentHierarchySel = clampSelection(a.agentHierarchySel, len(rows))
-	agent := rows[a.agentHierarchySel].agent
-	a.catalogBrowserOpen = true
-	return a.openAgentDetail(agent.ID, firstNonEmpty(agent.Title, agent.ID))
+	c.hierarchySel = clampSelection(c.hierarchySel, len(rows))
+	agent := rows[c.hierarchySel].agent
+	return c.app.catalog.openAgentDetail(agent.ID, firstNonEmpty(agent.Title, agent.ID))
 }
 
-func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget int) []string {
-	t := a.Theme
-	rowsData := a.visibleAgentHierarchyRows()
-	title := agentHierarchyModuleTitle(rowsData, a.sidebarModuleTitle(sidebarModuleAgents))
+func (c *agentComponent) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget int) []string {
+	t := c.app.Theme
+	rowsData := c.visibleAgentHierarchyRows()
+	title := agentHierarchyModuleTitle(rowsData, c.app.sidebar.moduleTitle(sidebarModuleAgents))
 	disclosure := "▾ "
-	if a.sidebarAgentsCollapsed {
+	if c.sidebarAgentsCollapsed {
 		disclosure = "▸ "
 		title += fmt.Sprintf(" (%d)", len(rowsData))
 	}
 	prefix := ""
-	if a.focus == a.sidebarHitFocus && (a.sidebarSessionsCollapsed || a.sidebarSectionCursor) && a.sidebarSectionFocus == sidebarSectionAgents {
+	if c.app.focus == c.app.sidebar.hitFocus && (c.app.sidebar.sessionsCollapsed || c.app.sidebar.sectionCursor) && c.app.sidebar.sectionFocus == sidebarSectionAgents {
 		prefix = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
 	}
 	rows := []string{
 		prefix + lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(disclosure+title),
 	}
-	a.registerSidebarSectionHeaderHit(startRow, width, sidebarSectionAgents)
-	if a.sidebarAgentsCollapsed {
+	c.app.sidebar.registerSectionHeaderHit(startRow, width, sidebarSectionAgents)
+	if c.sidebarAgentsCollapsed {
 		return rows
 	}
-	if owner := a.agentHierarchyActiveBlueprintSummary(rowsData, width); owner != "" {
+	if owner := c.agentHierarchyActiveBlueprintSummary(rowsData, width); owner != "" {
 		rows = append(rows, owner)
 		if rowBudget > 1 {
 			rowBudget--
 		}
 	}
-	if a.agentHierarchyErr != "" {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(truncate("error: "+a.agentHierarchyErr, width-6)))
+	if c.hierarchyErr != "" {
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(textutil.Truncate("error: "+c.hierarchyErr, width-6)))
 		return rows
 	}
 	if len(rowsData) == 0 {
 		rows = append(rows, t.HintLabel.Render("(no agents)"))
 		return rows
 	}
-	a.clampAgentHierarchySelection()
+	c.clampAgentHierarchySelection()
 	if rowBudget < 1 {
 		rowBudget = 8
 	}
-	win := selectedItemWindow(len(rowsData), a.agentHierarchySel, rowBudget)
+	win := selectedItemWindow(len(rowsData), c.hierarchySel, rowBudget)
 	if win.start > 0 {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(fmt.Sprintf(" … %d above", win.start)))
 	}
 	for i := win.start; i < win.end; i++ {
 		row := startRow + len(rows)
-		rows = append(rows, a.renderAgentHierarchyRow(rowsData[i], width, i == a.agentHierarchySel))
-		a.registerSidebarAgentHierarchyHit(row, width, i)
+		rows = append(rows, c.renderAgentHierarchyRow(rowsData[i], width, i == c.hierarchySel))
+		c.registerSidebarAgentHierarchyHit(row, width, i)
 	}
 	if win.end < len(rowsData) {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(fmt.Sprintf(" … %d below", len(rowsData)-win.end)))
@@ -181,427 +120,24 @@ func (a *App) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget 
 	return rows
 }
 
-func (a *App) agentHierarchyActiveBlueprintSummary(rows []agentHierarchyRow, width int) string {
-	if width < 8 || a.activeAgentBlueprintID() == "" {
-		return ""
-	}
-	workflow := false
-	for _, row := range rows {
-		if isWorkflowAgent(row.agent) {
-			workflow = true
-			break
-		}
-	}
-	if !workflow {
-		return ""
-	}
-	budget := maxInt(1, width-8)
-	summary := activeAgentBlueprintIndicator(a.activeAgentBlueprintID(), a.activeAgentBlueprintScope(), budget)
-	return lipgloss.NewStyle().Foreground(a.Theme.FgMuted).Italic(true).Render(truncate(summary, budget))
-}
-
-func agentHierarchyModuleTitle(rows []agentHierarchyRow, fallback string) string {
-	for _, row := range rows {
-		if isWorkflowAgent(row.agent) {
-			return "WORKFLOW"
-		}
-	}
-	return fallback
-}
-
-func isWorkflowAgent(agent gact.AgentDef) bool {
-	return strings.TrimSpace(agent.Source) == "agent_blueprint" ||
-		strings.EqualFold(strings.TrimSpace(agent.Specialization), "workflow")
-}
-
-func (a *App) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected bool) string {
-	t := a.Theme
-	agent := row.agent
-	runtimeState := a.agentHierarchyRuntimeState(agent.ID)
-	marker := " "
-	nameStyle := t.HintLabel
-	if runtimeState == agentHierarchyStateSession || runtimeState == agentHierarchyStateActive || runtimeState == agentHierarchyStateLive {
-		marker = ">"
-		nameStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-	}
-	if selected && a.focus == a.sidebarHitFocus && a.sidebarSectionFocus == sidebarSectionAgents && !a.sidebarSectionCursor {
-		marker = lipgloss.NewStyle().Foreground(t.Secondary).Render("▌")
-		nameStyle = lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
-	}
-	indent := strings.Repeat("  ", min(row.depth, 4))
-	branch := "• "
-	if row.depth > 0 {
-		branch = "└─ "
-	}
-	contentW := width - 6
-	if contentW < 8 {
-		contentW = 8
-	}
-	title := firstNonEmpty(agent.Title, agent.ID)
-	basePrefixW := lipgloss.Width(marker + indent + branch)
-	indexLabel := agentHierarchyIndexLabel(row)
-	if indexLabel != "" {
-		indexW := lipgloss.Width(indexLabel + " ")
-		titleW := lipgloss.Width(title)
-		if contentW-basePrefixW-indexW < titleW+1 {
-			indexLabel = agentHierarchyTierLabel(row)
-			indexW = lipgloss.Width(indexLabel + " ")
-			if contentW-basePrefixW-indexW < titleW+1 {
-				indexLabel = ""
-			}
-		}
-	}
-	indexText := ""
-	if indexLabel != "" {
-		indexText = lipgloss.NewStyle().Foreground(t.FgMuted).Render(indexLabel + " ")
-	}
-	meta := agentHierarchyRowMeta(row, runtimeState)
-	prefixW := lipgloss.Width(marker + indent + branch + indexLabel + " ")
-	if meta != "" {
-		titleW := lipgloss.Width(title)
-		metaBudget := contentW - prefixW - titleW - 1
-		if metaBudget < 8 {
-			meta = ""
-		} else {
-			meta = truncate(meta, metaBudget)
-		}
-	}
-	metaStyle := lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true)
-	metaW := lipgloss.Width(meta)
-	nameBudget := contentW - prefixW - metaW - 1
-	if nameBudget < 4 {
-		nameBudget = 4
-	}
-	line := marker + indent + branch + indexText + nameStyle.Render(truncate(title, nameBudget))
-	if meta != "" {
-		line += " " + metaStyle.Render(meta)
-	}
-	return truncate(line, contentW)
-}
-
-func agentHierarchyRowMeta(row agentHierarchyRow, runtimeState agentHierarchyRuntimeState) string {
-	agent := row.agent
-	parts := make([]string, 0, 4)
-	state := firstNonEmpty(string(runtimeState), humanizeAgentLabel(agent.Specialization), agentHierarchySourceLabel(agent.Source))
-	if runtimeState == agentHierarchyStateNone && state != "" {
-		parts = append(parts, state)
-	}
-	if strings.TrimSpace(row.path) == "" && agent.Tier > 0 {
-		parts = append(parts, fmt.Sprintf("T%d", agent.Tier))
-	}
-	if runtimeState != agentHierarchyStateNone && state != "" {
-		parts = append(parts, state)
-	}
-	if len(agent.Skills) > 0 {
-		parts = append(parts, "skills: "+strings.Join(limitStrings(agent.Skills, 2), ", "))
-	}
-	if len(agent.ValidationWarnings) > 0 {
-		parts = append(parts, "warnings: "+strings.Join(agent.ValidationWarnings, "; "))
-	}
-	if len(agent.ValidationErrors) > 0 {
-		parts = append(parts, "errors: "+strings.Join(agent.ValidationErrors, "; "))
-	}
-	return strings.Join(parts, " · ")
-}
-
-func agentHierarchyIndexLabel(row agentHierarchyRow) string {
-	path := strings.TrimSpace(row.path)
-	if path == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s %s", agentHierarchyTierLabel(row), path)
-}
-
-func agentHierarchyTierLabel(row agentHierarchyRow) string {
-	tier := row.depth + 1
-	if row.agent.Tier > tier {
-		tier = row.agent.Tier
-	}
-	return fmt.Sprintf("T%d", tier)
-}
-
-func agentHierarchySourceLabel(source string) string {
-	source = strings.TrimSpace(source)
-	switch source {
-	case "agent_blueprint":
-		return "workflow"
-	case "builtin":
-		return "built-in"
-	case "":
-		return ""
-	default:
-		return humanizeAgentLabel(source)
-	}
-}
-
-func (a *App) agentHierarchyRuntimeState(agentID string) agentHierarchyRuntimeState {
-	agentID = strings.TrimSpace(agentID)
-	if agentID == "" {
-		return agentHierarchyStateNone
-	}
-	best := agentHierarchyStateNone
-	settledRunKeys := map[string]bool{}
-	if a.selected >= 0 && a.selected < len(a.sessions) && a.sessions[a.selected].Agent.ID == agentID {
-		best = strongerAgentHierarchyState(best, agentHierarchyStateSession)
-	}
-	for i := len(a.messages) - 1; i >= 0; i-- {
-		msg := a.messages[i]
-		if rp := mapValue(msg.Metadata["runtime_provenance"]); len(rp) > 0 {
-			best = strongerAgentHierarchyState(best, agentStateFromRuntimeProvenance(agentID, rp))
-			markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(rp))
-		}
-		for j := len(msg.Parts) - 1; j >= 0; j-- {
-			part := msg.Parts[j]
-			if part.Type == partTypeRuntimeProvenance {
-				markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(mapValue(part.Metadata["runtime_provenance"])))
-			}
-			state := agentStateFromPart(agentID, part)
-			if state == agentHierarchyStateLive && partRunIsSettled(part, settledRunKeys) {
-				continue
-			}
-			best = strongerAgentHierarchyState(best, state)
-			if best == agentHierarchyStateLive {
-				return best
-			}
-		}
-	}
-	return best
-}
-
-func markAgentHierarchySettledRun(settled map[string]bool, keys []string) {
-	for _, key := range keys {
-		settled[key] = true
-	}
-}
-
-func partRunIsSettled(part gact.Part, settled map[string]bool) bool {
-	if len(settled) == 0 || len(part.Metadata) == 0 {
-		return false
-	}
-	rawEvent := mapValue(part.Metadata["raw_event"])
-	keys := runtimeRunKeys(
-		firstNonEmpty(stringValue(part.Metadata["trace_id"]), stringValue(rawEvent["trace_id"])),
-		firstNonEmpty(stringValue(part.Metadata["turn_id"]), stringValue(rawEvent["turn_id"])),
-	)
-	for _, key := range keys {
-		if settled[key] {
-			return true
-		}
-	}
-	return false
-}
-
-func runtimeProvenanceRunKeys(rp map[string]any) []string {
-	if len(rp) == 0 {
-		return nil
-	}
-	turn := mapValue(rp["turn"])
-	return runtimeRunKeys(
-		firstNonEmpty(stringValue(turn["trace_id"]), stringValue(rp["trace_id"])),
-		firstNonEmpty(stringValue(turn["turn_id"]), stringValue(rp["turn_id"])),
-	)
-}
-
-func runtimeRunKeys(traceID, turnID string) []string {
-	keys := []string{}
-	if traceID = strings.TrimSpace(traceID); traceID != "" {
-		keys = append(keys, "trace:"+traceID)
-	}
-	if turnID = strings.TrimSpace(turnID); turnID != "" {
-		keys = append(keys, "turn:"+turnID)
-	}
-	return keys
-}
-
-func strongerAgentHierarchyState(a, b agentHierarchyRuntimeState) agentHierarchyRuntimeState {
-	if agentHierarchyStateRank(b) > agentHierarchyStateRank(a) {
-		return b
-	}
-	return a
-}
-
-func agentHierarchyStateRank(state agentHierarchyRuntimeState) int {
-	switch state {
-	case agentHierarchyStateLive:
-		return 4
-	case agentHierarchyStateActive:
-		return 3
-	case agentHierarchyStateObserved:
-		return 2
-	case agentHierarchyStateSession:
-		return 1
-	default:
-		return 0
-	}
-}
-
-func agentStateFromPart(agentID string, part gact.Part) agentHierarchyRuntimeState {
-	state := agentHierarchyStateNone
-	if part.Type == gact.PartTypeExpertHandoff {
-		state = strongerAgentHierarchyState(state, agentStateFromRuntimeRow(agentID, part.Metadata))
-	}
-	rawEvent := mapValue(part.Metadata["raw_event"])
-	if len(rawEvent) > 0 {
-		state = strongerAgentHierarchyState(state, agentStateFromSemanticEvent(agentID, rawEvent))
-	}
-	if part.Type == partTypeRuntimeProvenance {
-		state = strongerAgentHierarchyState(state, agentStateFromRuntimeProvenance(agentID, mapValue(part.Metadata["runtime_provenance"])))
-	}
-	return state
-}
-
-func agentStateFromSemanticEvent(agentID string, event map[string]any) agentHierarchyRuntimeState {
-	if len(event) == 0 {
-		return agentHierarchyStateNone
-	}
-	eventType := stringValue(event["event_type"])
-	status := strings.ToLower(stringValue(event["status"]))
-	actor := mapValue(event["actor"])
-	subject := mapValue(event["subject"])
-	payload := mapValue(event["payload"])
-	matchesActor := mapReferencesAgent(actor, agentID)
-	matchesSubject := mapReferencesAgent(subject, agentID)
-	matchesPayload := mapReferencesAgent(payload, agentID)
-	if !matchesActor && !matchesSubject && !matchesPayload {
-		return agentHierarchyStateNone
-	}
-	if strings.HasSuffix(eventType, ".started") || status == "running" {
-		return agentHierarchyStateLive
-	}
-	if eventType == "agent.invocation.completed" || eventType == "llm.response.completed" {
-		if matchesActor || matchesPayload {
-			return agentHierarchyStateActive
-		}
-	}
-	if eventType == "delegation.parent_resumed" || eventType == "delegation.completed" ||
-		strings.HasSuffix(eventType, ".parent_resumed") || strings.HasSuffix(eventType, ".completed") {
-		return agentHierarchyStateObserved
-	}
-	return agentHierarchyStateObserved
-}
-
-func agentStateFromRuntimeProvenance(agentID string, rp map[string]any) agentHierarchyRuntimeState {
-	if len(rp) == 0 {
-		return agentHierarchyStateNone
-	}
-	state := agentHierarchyStateNone
-	agent := mapValue(rp["agent"])
-	for _, key := range []string{"active_expert_id", "active_agent_id", "selected_agent_id", "id"} {
-		if stringValue(agent[key]) == agentID {
-			state = strongerAgentHierarchyState(state, agentHierarchyStateActive)
-		}
-	}
-	delegation := mapValue(rp["delegation"])
-	for _, row := range runtimeRowMaps(delegation["events"]) {
-		state = strongerAgentHierarchyState(state, agentStateFromFinalRuntimeRow(agentID, row))
-	}
-	return state
-}
-
-func agentStateFromFinalRuntimeRow(agentID string, row map[string]any) agentHierarchyRuntimeState {
-	if !mapReferencesAgent(row, agentID) {
-		return agentHierarchyStateNone
-	}
-	stage := strings.ToLower(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["event_type"]),
-		stringValue(row["status"]),
-	))
-	if strings.Contains(stage, "active") {
-		return agentHierarchyStateActive
-	}
-	return agentHierarchyStateObserved
-}
-
-func agentStateFromRuntimeRow(agentID string, row map[string]any) agentHierarchyRuntimeState {
-	if !mapReferencesAgent(row, agentID) {
-		return agentHierarchyStateNone
-	}
-	stage := strings.ToLower(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["event_type"]),
-		stringValue(row["status"]),
-	))
-	if strings.Contains(stage, "started") || stage == "running" || strings.Contains(stage, "tool.started") {
-		return agentHierarchyStateLive
-	}
-	if strings.Contains(stage, "active") {
-		return agentHierarchyStateActive
-	}
-	return agentHierarchyStateObserved
-}
-
-func mapReferencesAgent(m map[string]any, agentID string) bool {
-	return mapReferencesAgentDepth(m, agentID, 0)
-}
-
-func mapReferencesAgentDepth(m map[string]any, agentID string, depth int) bool {
-	if len(m) == 0 || agentID == "" {
-		return false
-	}
-	for _, key := range []string{
-		"agent_id",
-		"active_agent_id",
-		"active_expert_id",
-		"selected_agent_id",
-		"child_id",
-		"parent_id",
-		"resumed_from",
-		"dispatch_target",
-		"agent",
-		"id",
-	} {
-		if valueReferencesAgent(m[key], agentID, depth+1) {
-			return true
-		}
-	}
-	return false
-}
-
-func valueReferencesAgent(value any, agentID string, depth int) bool {
-	if agentID == "" || depth > 6 {
-		return false
-	}
-	switch v := value.(type) {
-	case string:
-		return strings.TrimSpace(v) == agentID
-	case map[string]any:
-		if mapReferencesAgentDepth(v, agentID, depth+1) {
-			return true
-		}
-		for _, nested := range v {
-			if valueReferencesAgent(nested, agentID, depth+1) {
-				return true
-			}
-		}
-	case []any:
-		for _, nested := range v {
-			if valueReferencesAgent(nested, agentID, depth+1) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (a *App) sidebarAgentHierarchyRowCount(rowBudget int) int {
-	if !a.sidebarHasEnabledModule(sidebarModuleAgents) {
+func (c *agentComponent) sidebarAgentHierarchyRowCount(rowBudget int) int {
+	if !c.app.sidebar.hasEnabledModule(sidebarModuleAgents) {
 		return 0
 	}
 	rows := 1
-	if a.sidebarAgentsCollapsed {
+	if c.sidebarAgentsCollapsed {
 		return rows
 	}
-	if a.agentHierarchyErr != "" || len(a.visibleAgentHierarchyRows()) == 0 {
+	if c.hierarchyErr != "" || len(c.visibleAgentHierarchyRows()) == 0 {
 		return rows + 1
 	}
-	visible := len(a.visibleAgentHierarchyRows())
+	visible := len(c.visibleAgentHierarchyRows())
 	if visible > rowBudget {
 		rows += rowBudget
-		if a.agentHierarchySel > 0 {
+		if c.hierarchySel > 0 {
 			rows++
 		}
-		if a.agentHierarchySel < visible-1 {
+		if c.hierarchySel < visible-1 {
 			rows++
 		}
 		return rows
@@ -609,11 +145,11 @@ func (a *App) sidebarAgentHierarchyRowCount(rowBudget int) int {
 	return rows + visible
 }
 
-func (a *App) registerSidebarAgentHierarchyHit(row int, width int, visibleIndex int) {
-	if a.hits == nil {
+func (c *agentComponent) registerSidebarAgentHierarchyHit(row int, width int, visibleIndex int) {
+	if c.app.interaction.hits == nil {
 		return
 	}
-	zone := a.sidebarHitFocus
+	zone := c.app.sidebar.hitFocus
 	if zone != FocusRightSidebar {
 		zone = FocusSidebar
 	}
@@ -623,10 +159,59 @@ func (a *App) registerSidebarAgentHierarchyHit(row int, width int, visibleIndex 
 	}
 	openAgentDetail := func(app *App) tea.Cmd {
 		app.focus = zone
-		app.sidebarSectionFocus = sidebarSectionAgents
-		app.sidebarSectionCursor = false
-		app.agentHierarchySel = visibleIndex
-		return app.openSelectedAgentHierarchyDetail()
+		app.sidebar.sectionFocus = sidebarSectionAgents
+		app.sidebar.sectionCursor = false
+		app.agent.hierarchySel = visibleIndex
+		return app.agent.openSelectedAgentHierarchyDetail()
 	}
-	a.registerSidebarContentHitActions(id, row, width, 1, openAgentDetail, openAgentDetail)
+	c.app.sidebar.registerContentHitActions(id, row, width, 1, openAgentDetail, openAgentDetail)
+}
+
+// appAgentHierarchyState groups the right-sidebar agent hierarchy tree state.
+type appAgentHierarchyState struct {
+	hierarchyAgents        []gact.AgentDef
+	hierarchyErr           string
+	hierarchySel           int
+	sidebarAgentsCollapsed bool
+}
+
+// agentComponent owns the agents domain: the right-sidebar hierarchy tree
+// (embedded appAgentHierarchyState, so callers keep reading c.hierarchy*
+// directly), the "next turn agent" selection, and a back-reference to the root
+// App for shared services (client, theme, session, catalog, conversation). It
+// gathers the former *App agent methods so the agent-hierarchy, blueprint /
+// detail actions, agent message-handlers, and catalog-agent openers all hang
+// off one component.
+type agentComponent struct {
+	app *App
+	appAgentHierarchyState
+
+	// nextTurnAgent* pin the expert that the next composed message routes to.
+	// Set from the catalog ("send to" / detail) and cleared on send. The
+	// composer reads these to paint the routing chip.
+	nextTurnAgentID    string
+	nextTurnAgentTitle string
+}
+
+// sidebarCollapsed reports whether the sidebar agent-hierarchy section is
+// collapsed. The method seam for cross-domain readers (sidebar layout, key
+// navigation, mouse hit-testing) that previously read the field directly.
+func (c *agentComponent) sidebarCollapsed() bool {
+	return c.sidebarAgentsCollapsed
+}
+
+// toggleSidebarCollapsed flips the sidebar agent-hierarchy section's collapsed
+// state and returns the new value. The sidebar controller uses the return to
+// pick the collapsed/expanded hint, so the field stays owned by agentComponent.
+func (c *agentComponent) toggleSidebarCollapsed() bool {
+	c.sidebarAgentsCollapsed = !c.sidebarAgentsCollapsed
+	return c.sidebarAgentsCollapsed
+}
+
+func (c *agentComponent) setNextTurnAgent(agentID, title string) {
+	c.nextTurnAgentID = strings.TrimSpace(agentID)
+	c.nextTurnAgentTitle = strings.TrimSpace(title)
+	label := firstNonEmpty(c.nextTurnAgentTitle, c.nextTurnAgentID)
+	c.app.setHint("next turn agent: " + label)
+	c.app.focus = FocusInput
 }

@@ -1,3 +1,6 @@
+@import './inline-markdown-code.css';
+@import './inline-markdown-blocks.css';
+
 .im {
   display: flex;
   flex-direction: column;
@@ -20,110 +23,7 @@
   color: var(--color-accent-cyan);
 }
 
-.im__code {
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border-30);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.45;
-  overflow-x: auto;
-  margin: 4px 0;
-}
-
-.im__code code {
-  background: transparent;
-  border: none;
-  padding: 0;
-  color: var(--color-text);
-}
-
-/* highlight.js token theme — mapped to the CLIO palette so code blocks stay
-   on-brand instead of importing a clashing third-party theme. */
-.im__code code.hljs {
-  display: block;
-  white-space: pre;
-}
-
-/* Line-number gutter for multi-line code blocks. The <code> becomes a
-   column of rows; each row pins a fixed, non-selectable line-number cell
-   beside a horizontally-scrolling code cell so the gutter stays put while
-   long lines scroll. Mirrors the DiffPane gutter technique. */
-.im__code code.im__code--numbered {
-  white-space: normal;
-}
-
-.im__code-row {
-  display: flex;
-  align-items: flex-start;
-  white-space: normal;
-}
-
-.im__code-lineno {
-  flex: 0 0 auto;
-  min-width: 2.2em;
-  padding-right: 12px;
-  text-align: right;
-  color: var(--color-muted);
-  opacity: 0.55;
-  user-select: none;
-  -webkit-user-select: none;
-  /* Pinned: stays at the left edge as the code cell scrolls under it. */
-  position: sticky;
-  left: 0;
-  background: var(--color-surface-alt);
-  z-index: 1;
-}
-
-.im__code-linecode {
-  flex: 1 1 auto;
-  white-space: pre;
-  min-width: 0;
-}
-.hljs-comment,
-.hljs-quote {
-  color: var(--color-muted);
-  font-style: italic;
-}
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-literal,
-.hljs-type,
-.hljs-name {
-  color: var(--color-accent-cyan);
-}
-.hljs-string,
-.hljs-attr,
-.hljs-regexp,
-.hljs-addition {
-  /* Overridable by theme presets (light mode darkens this for contrast). */
-  color: var(--color-hljs-string, #6fcf97);
-}
-.hljs-number,
-.hljs-symbol,
-.hljs-bullet {
-  color: var(--color-hljs-number, #e0a35e);
-}
-.hljs-title,
-.hljs-title.function_,
-.hljs-section,
-.hljs-built_in {
-  color: var(--color-accent-cyan, #56c2d6);
-}
-.hljs-meta,
-.hljs-tag,
-.hljs-deletion {
-  color: var(--color-muted);
-}
-.hljs-emphasis {
-  font-style: italic;
-}
-.hljs-strong {
-  font-weight: 700;
-}
-
-/* Headings + lists + links — additions for the v0.9.1 polish pass.    */
+/* Headings + lists + links - additions for the v0.9.1 polish pass. */
 .im__h {
   margin: 16px 0 6px;
   font-family: var(--font-sans);
@@ -134,14 +34,6 @@
 .im__h-1 { font-size: 18px; font-weight: 700; }
 .im__h-2 { font-size: 15px; font-weight: 700; }
 .im__h-3 { font-size: 13.5px; font-weight: 600; color: var(--color-text); }
-
-.im__list {
-  margin: 8px 0;
-  padding-left: 22px;
-}
-
-.im__list--ul { list-style: disc; }
-.im__list--ol { list-style: decimal; }
 
 .im__li {
   margin: 3px 0;
@@ -159,157 +51,9 @@
   color: var(--color-heading);
 }
 
-/* Markdown tables — kept narrow / scroll-friendly                       */
-.im__table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.im__table th,
-.im__table td {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border-30);
-  vertical-align: top;
-}
-
-.im__table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.im__table th {
-  font-weight: 600;
-  color: var(--color-heading);
-  background: var(--color-surface-alt);
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
-}
-
-.im__table td {
-  color: var(--color-text);
-}
-
-.im__quote {
-  margin: 12px 0;
-  padding: 8px 14px;
-  border-left: 3px solid var(--color-accent-cyan);
-  background: color-mix(in srgb, var(--color-accent-cyan) 6%, transparent);
-  color: var(--color-muted);
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  line-height: 1.55;
-  border-radius: 0 6px 6px 0;
-}
-
-.im__code {
-  position: relative;
-}
-
-.im__code-lang {
-  position: absolute;
-  top: 4px;
-  left: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  pointer-events: none;
-}
-
-.im__code-copy {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  padding: 2px 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
-}
-
-.im__code:hover .im__code-copy,
-.im__code-copy:focus-visible {
-  opacity: 1;
-}
-
-.im__code-copy:hover {
-  background: var(--color-surface-alt);
-  color: var(--color-heading);
-}
-
-.im__code-copy.is-copied {
-  opacity: 1;
-  color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
-}
-
 .im__strike {
   text-decoration-color: color-mix(in srgb, var(--color-muted) 70%, transparent);
   color: var(--color-muted);
-}
-
-.im__list--tasks {
-  list-style: none;
-  padding-left: 4px;
-}
-
-.im__li--task {
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.im__li--task.is-done {
-  color: var(--color-muted);
-  text-decoration: line-through;
-}
-
-.im__check {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  border: 1.5px solid var(--color-border);
-  margin-top: 4px;
-  transition: background var(--dur-fast), border-color var(--dur-fast);
-}
-
-.im__check.is-checked {
-  background: var(--color-success);
-  border-color: var(--color-success);
-  position: relative;
-}
-
-.im__check.is-checked::after {
-  content: "";
-  position: absolute;
-  inset: 2px 3px 3px 2px;
-  border-left: 1.5px solid var(--color-bg);
-  border-bottom: 1.5px solid var(--color-bg);
-  transform: rotate(-50deg);
-}
-
-.im__hr {
-  border: 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent 0%, var(--color-border-30) 50%, transparent 100%);
-  margin: 16px 0;
 }
 
 mark.im__highlight {

@@ -91,8 +91,8 @@ test.describe(`brand audit — ${PROFILE}`, () => {
     await page.goto('/?route=settings&section=blueprints');
     await expect(page.getByTestId('settings-shell')).toBeVisible();
     await expect(page.getByTestId('dp-agent-blueprints')).toBeVisible();
-    await page.getByTestId('blueprint-install-toggle').click();
-    await expect(page.getByLabel('Blueprint path on the backend host or git URL')).toBeVisible();
+    await page.getByTestId('blueprint-manual-install-toggle').click();
+    await expect(page.getByLabel('Blueprint source')).toBeVisible();
     await expect(page.locator('body')).not.toContainText('clio host');
 
     await page.goto('/?route=settings&section=expert-packs');

@@ -163,9 +163,9 @@ func TestPermissionInspectorRendersDecisionButtons(t *testing.T) {
 	a := newReadyApp([]gact.Session{{ID: "sess_1", Title: "Demo"}}, nil)
 	a.width = 140
 	a.height = 36
-	a.selected = 0
-	a.detailViewOpen = true
-	a.detailView = &bulkyPartRef{
+	a.session.selected = 0
+	a.detail.visible = true
+	a.detail.ref = &bulkyPartRef{
 		title:    "Permissions · review queue",
 		fullText: "Decision required\n  1. review shell · pending",
 	}
@@ -187,9 +187,9 @@ func TestPermissionInspectorHidesDecisionButtonsWhenQueueEmpty(t *testing.T) {
 	a := newReadyApp([]gact.Session{{ID: "sess_1", Title: "Demo"}}, nil)
 	a.width = 140
 	a.height = 36
-	a.selected = 0
-	a.detailViewOpen = true
-	a.detailView = &bulkyPartRef{
+	a.session.selected = 0
+	a.detail.visible = true
+	a.detail.ref = &bulkyPartRef{
 		title:    "Permissions · review queue",
 		fullText: "Decision required\n  no pending requests for this scope",
 	}
@@ -253,16 +253,16 @@ func TestPermissionInspectorKeyRespondsAndRefreshes(t *testing.T) {
 	defer srv.Close()
 
 	a := New(srv.URL)
-	a.sessions = []gact.Session{{ID: "sess_1", Title: "Demo"}}
-	a.selected = 0
-	a.detailViewOpen = true
-	a.detailView = &bulkyPartRef{title: "Permissions · review queue", fullText: "pending"}
-	a.pendingPermissions = []client.PermissionWire{{
+	a.session.sessions = []gact.Session{{ID: "sess_1", Title: "Demo"}}
+	a.session.selected = 0
+	a.detail.visible = true
+	a.detail.ref = &bulkyPartRef{title: "Permissions · review queue", fullText: "pending"}
+	a.session.pendingPermissions = []client.PermissionWire{{
 		PermissionRequest: gact.PermissionRequest{ID: "perm_1", SessionID: "sess_1"},
 		Status:            "pending",
 	}}
 
-	model, cmd := a.handleDetailViewKey(tea.KeyPressMsg{Code: 's', Text: "s"})
+	model, cmd := a.detail.handleKey(tea.KeyPressMsg{Code: 's', Text: "s"})
 	a = model.(*App)
 	if cmd == nil {
 		t.Fatal("permission inspector key should dispatch response command")
@@ -280,11 +280,11 @@ func TestPermissionInspectorKeyRespondsAndRefreshes(t *testing.T) {
 	if strings.Join(calls, "\n") != strings.Join(wantCalls, "\n") {
 		t.Fatalf("calls:\n%s\nwant:\n%s", strings.Join(calls, "\n"), strings.Join(wantCalls, "\n"))
 	}
-	if len(a.pendingPermissions) != 0 {
-		t.Fatalf("pending permissions should be cleared locally, got %#v", a.pendingPermissions)
+	if len(a.session.pendingPermissions) != 0 {
+		t.Fatalf("pending permissions should be cleared locally, got %#v", a.session.pendingPermissions)
 	}
-	if !a.detailViewOpen || a.detailView == nil || !strings.Contains(a.detailView.fullText, "allowed") {
-		t.Fatalf("permission inspector should remain open with refreshed content: open=%v detail=%#v", a.detailViewOpen, a.detailView)
+	if !a.detail.visible || a.detail.ref == nil || !strings.Contains(a.detail.ref.fullText, "allowed") {
+		t.Fatalf("permission inspector should remain open with refreshed content: open=%v detail=%#v", a.detail.visible, a.detail.ref)
 	}
 	if !strings.Contains(a.transientHint, "permission allow session applied") {
 		t.Fatalf("transient hint = %q", a.transientHint)

@@ -4,6 +4,8 @@
 // Enter on a plugin command execs its binary in the background.
 package ui
 
+// plugins_palette.go holds the loaded plugin commands and runs/handles plugin execution.
+
 import (
 	"context"
 	"os/exec"
@@ -45,10 +47,10 @@ type PluginsCommand struct {
 // SetPlugins flattens the discovered plugins into pluginCommand
 // tuples. Call from main after internal/plugins.Load().
 func (a *App) SetPlugins(loaded []PluginsLoaded) {
-	a.plugins = a.plugins[:0]
+	a.cmdPalette.plugins = a.cmdPalette.plugins[:0]
 	for _, p := range loaded {
 		for _, c := range p.Commands {
-			a.plugins = append(a.plugins, pluginCommand{
+			a.cmdPalette.plugins = append(a.cmdPalette.plugins, pluginCommand{
 				ID:          c.ID,
 				Title:       c.Title,
 				Description: c.Description,
@@ -60,11 +62,20 @@ func (a *App) SetPlugins(loaded []PluginsLoaded) {
 	}
 }
 
-// findPluginCommand returns the plugin command matching id, or nil.
-func (a *App) findPluginCommand(id string) *pluginCommand {
-	for i := range a.plugins {
-		if a.plugins[i].ID == id {
-			return &a.plugins[i]
+// pluginsComponent owns the slash-palette plugin domain: looking up a flattened
+// plugin command by id and surfacing a background exec's result as a transient
+// hint. The flattened command tuples live on commandPaletteComponent
+// (cmdPalette.plugins); this component reaches them via its app back-reference.
+type pluginsComponent struct {
+	app *App
+}
+
+// findCommand returns the plugin command matching id, or nil.
+func (pc *pluginsComponent) findCommand(id string) *pluginCommand {
+	plugins := pc.app.cmdPalette.plugins
+	for i := range plugins {
+		if plugins[i].ID == id {
+			return &plugins[i]
 		}
 	}
 	return nil
@@ -99,4 +110,23 @@ type pluginExecMsg struct {
 	ID     string
 	Output string
 	Err    error
+}
+
+func (pc *pluginsComponent) handleExec(m pluginExecMsg) (tea.Model, tea.Cmd) {
+	a := pc.app
+	// Surface plugin output (or failure) as a transient hint. The full
+	// output stays on the user's terminal through the captured combined
+	// buffer; the first line is enough for the toast.
+	first := m.Output
+	if i := strings.IndexByte(first, '\n'); i > 0 {
+		first = first[:i]
+	}
+	if m.Err != nil {
+		a.setHint("plugin " + m.ID + " failed: " + first)
+	} else if first != "" {
+		a.setHint("plugin " + m.ID + ": " + first)
+	} else {
+		a.setHint("plugin " + m.ID + " done")
+	}
+	return a, scheduleHintExpire(a.transientHint)
 }

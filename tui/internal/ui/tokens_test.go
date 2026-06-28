@@ -1,6 +1,10 @@
 package ui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+)
 
 func TestHumanTokens(t *testing.T) {
 	cases := []struct {
@@ -25,7 +29,7 @@ func TestHumanTokens(t *testing.T) {
 		{10000000, "10M"},
 	}
 	for _, tc := range cases {
-		if got := humanTokens(tc.in); got != tc.want {
+		if got := textutil.HumanTokens(tc.in); got != tc.want {
 			t.Errorf("humanTokens(%d) = %q, want %q", tc.in, got, tc.want)
 		}
 	}

@@ -1,5 +1,7 @@
 package ui
 
+// voice.go captures and transcribes voice input into the composer.
+
 import (
 	"bytes"
 	"context"
@@ -10,6 +12,10 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // captureVoice runs the user-supplied recording command with `sh -c` and
@@ -74,4 +80,34 @@ func voiceShellCommand(cmd string) (string, []string) {
 		return "cmd", []string{"/C", cmd}
 	}
 	return "sh", []string{"-c", cmd}
+}
+
+// transcribeCmd captures audio (via voiceCmd, if set) and POSTs it to
+// /v1/sessions/{id}/voice/transcribe, returning a voiceTranscribedMsg
+// with the recognised text. Empty voiceCmd => placeholder body so the
+// emulator's canned transcript still fires for demos.
+func transcribeCmd(c *client.Client, sessionID string, voiceCmd string) tea.Cmd {
+	return func() tea.Msg {
+		audio, err := captureVoice(voiceCmd)
+		if err != nil {
+			return errMsg{err: err, stage: "voice-capture"}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		out, err := c.VoiceTranscribe(ctx, sessionID, audio, "audio/wav")
+		if err != nil {
+			return errMsg{err: err, stage: "transcribe"}
+		}
+		return voiceTranscribedMsg{text: out.Text, durationMs: out.DurationMs}
+	}
+}
+
+type voiceTranscribedMsg struct {
+	text       string
+	durationMs int
+}
+
+func (c *inputComposerComponent) handleVoiceTranscribed(m voiceTranscribedMsg) (tea.Model, tea.Cmd) {
+	c.input.InsertString(m.text)
+	return c.app, nil
 }

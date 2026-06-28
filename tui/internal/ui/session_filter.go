@@ -1,28 +1,29 @@
 package ui
 
-import (
-	"strings"
+// session_filter.go computes session visibility under sidebar filters (archived/detached/busy/children).
 
-	tea "charm.land/bubbletea/v2"
+import (
+	"fmt"
+	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// sessionMatchesFilter reports whether the session's title contains
+// matchesFilter reports whether the session's title contains
 // the filter substring (case-insensitive). Empty filter matches
 // everything. Centralising this predicate keeps the renderer and the
 // nav code using the same rule.
-func (a *App) sessionMatchesFilter(s gact.Session) bool {
-	if a.sessionFilter == "" {
+func (c *sessionComponent) matchesFilter(s gact.Session) bool {
+	if c.app.sidebar.sessionFilter == "" {
 		return true
 	}
 	return strings.Contains(
 		strings.ToLower(s.Title),
-		strings.ToLower(a.sessionFilter),
+		strings.ToLower(c.app.sidebar.sessionFilter),
 	)
 }
 
-// visibleSessionIndexes returns the indices of a.sessions that
+// visibleIndexes returns the indices of c.sessions that
 // currently match every active filter, in sidebar order. Used by
 // the sidebar renderer (to compute "N more" indicators from the
 // visible set) and by the filter-aware selection adjusters below.
@@ -30,20 +31,20 @@ func (a *App) sessionMatchesFilter(s gact.Session) bool {
 // sessions whose id is in previouslyDetached.
 // XXXXXXXX1: respects showBusyOnly — when true, keeps only
 // sessions whose status is running or waiting_permission.
-func (a *App) visibleSessionIndexes() []int {
-	out := make([]int, 0, len(a.sessions))
+func (c *sessionComponent) visibleIndexes() []int {
+	out := make([]int, 0, len(c.sessions))
 	childrenByParent := map[string][]int{}
-	expandedParent := a.selectedChildGroupParentID()
-	for i, s := range a.sessions {
-		if a.showChildSessions && isChildSession(s) && a.sessionPassesSidebarFilters(s) {
+	expandedParent := c.selectedChildGroupParentID()
+	for i, s := range c.sessions {
+		if c.app.sidebar.showChildSessions && isChildSession(s) && c.passesSidebarFilters(s) {
 			childrenByParent[s.ParentSessionID] = append(childrenByParent[s.ParentSessionID], i)
 		}
 	}
-	for i, s := range a.sessions {
+	for i, s := range c.sessions {
 		if isChildSession(s) {
 			continue
 		}
-		if !a.sessionPassesSidebarFilters(s) {
+		if !c.passesSidebarFilters(s) {
 			continue
 		}
 		out = append(out, i)
@@ -55,8 +56,8 @@ func (a *App) visibleSessionIndexes() []int {
 	// If a backend returns a child whose parent is absent from the current
 	// page/filter, keep it visible after top-level rows instead of dropping it.
 	// This preserves evidence without letting child rows lead the main list.
-	if a.showChildSessions && expandedParent != "" {
-		for i, s := range a.sessions {
+	if c.app.sidebar.showChildSessions && expandedParent != "" {
+		for i, s := range c.sessions {
 			if !isChildSession(s) {
 				continue
 			}
@@ -72,74 +73,69 @@ func (a *App) visibleSessionIndexes() []int {
 	return out
 }
 
-func (a *App) selectedChildGroupParentID() string {
-	if !a.showChildSessions || a.selected < 0 || a.selected >= len(a.sessions) {
+func (c *sessionComponent) selectedChildGroupParentID() string {
+	if !c.app.sidebar.showChildSessions || c.selected < 0 || c.selected >= len(c.sessions) {
 		return ""
 	}
-	selected := a.sessions[a.selected]
+	selected := c.sessions[c.selected]
 	if selected.ParentSessionID != "" {
 		return selected.ParentSessionID
 	}
 	return selected.ID
 }
 
-func (a *App) sessionPassesSidebarFilters(s gact.Session) bool {
-	if !a.sessionMatchesFilter(s) {
+func (c *sessionComponent) passesSidebarFilters(s gact.Session) bool {
+	if !c.matchesFilter(s) {
 		return false
 	}
-	if a.showDetachedOnly && !a.previouslyDetached[s.ID] {
+	if c.app.sidebar.showDetachedOnly && !c.app.previouslyDetached[s.ID] {
 		return false
 	}
-	if a.showBusyOnly && s.Status != gact.StatusRunning &&
+	if c.app.sidebar.showBusyOnly && s.Status != gact.StatusRunning &&
 		s.Status != gact.StatusWaitingPermission {
 		return false
 	}
 	return true
 }
 
-// handleSidebarFilterKey drives the inline filter editor that opens
-// on `/` in sidebar focus. Kept as a narrow, single-line editor (no
-// cursor movement — the filter text is short and disposable).
-//
-// Enter commits (clears the snapshot, exits edit mode, keeps the
-// filter applied). Esc cancels (restores the pre-edit filter text
-// and exits edit mode). Printable chars append; backspace deletes
-// one rune from the end. Any other key is swallowed so arrow-key
-// presses don't accidentally navigate the sidebar while typing.
-func (a *App) handleSidebarFilterKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch k.String() {
-	case "esc", "ctrl+c":
-		a.cancelSidebarFilter()
-		return a, nil
-	case "enter":
-		a.commitSidebarFilter()
-		return a, nil
-	case "backspace":
-		if r := []rune(a.sessionFilter); len(r) > 0 {
-			a.sessionFilter = string(r[:len(r)-1])
+func archivedViewHint(showArchived bool) string {
+	if showArchived {
+		return "showing archived sessions (h to go back)"
+	}
+	return "showing active sessions"
+}
+
+func detachedOnlyHint(showDetachedOnly bool, detachedCount int) string {
+	if !showDetachedOnly {
+		return "showing all sessions"
+	}
+	if detachedCount > 0 {
+		return fmt.Sprintf("showing %d detached session(s) (d to go back)", detachedCount)
+	}
+	return "no detached sessions on this server (d to go back)"
+}
+
+func busyOnlySessionCount(sessions []gact.Session) int {
+	busyCount := 0
+	for _, s := range sessions {
+		if s.Status == gact.StatusRunning || s.Status == gact.StatusWaitingPermission {
+			busyCount++
 		}
-		return a, nil
 	}
-	if k.Text != "" {
-		a.sessionFilter += k.Text
+	return busyCount
+}
+
+func busyOnlyHint(showBusyOnly bool, busyCount int) string {
+	if !showBusyOnly {
+		return "showing all sessions"
 	}
-	return a, nil
+	if busyCount > 0 {
+		return fmt.Sprintf("showing %d busy session(s) (b to go back)", busyCount)
+	}
+	return "no busy sessions on this server (b to go back)"
 }
 
-func (a *App) commitSidebarFilter() {
-	a.sessionFilterActive = false
-	a.filterSnapshot = ""
-	a.ensureSelectedVisible()
-}
-
-func (a *App) cancelSidebarFilter() {
-	a.sessionFilter = a.filterSnapshot
-	a.sessionFilterActive = false
-	a.filterSnapshot = ""
-	a.ensureSelectedVisible()
-}
-
-// stepSelectionVisible moves a.selected by `delta` visible positions
+// stepSelectionVisible moves c.selected by `delta` visible positions
 // (positive = down, negative = up) through the filtered view, clamped
 // at the ends. Returns true if the selection actually changed.
 //
@@ -148,15 +144,15 @@ func (a *App) cancelSidebarFilter() {
 // the filter. Uses visibleSessionIndexes() once per call so the cost
 // stays O(sessions) per keystroke, which is fine at the sidebar
 // sizes we actually render (page-size clamps the visible count).
-func (a *App) stepSelectionVisible(delta int) bool {
-	vis := a.visibleSessionIndexes()
+func (c *sessionComponent) stepSelectionVisible(delta int) bool {
+	vis := c.visibleIndexes()
 	if len(vis) == 0 {
 		return false
 	}
 	// Find our current position within the visible list.
 	curVis := -1
 	for i, idx := range vis {
-		if idx == a.selected {
+		if idx == c.selected {
 			curVis = i
 			break
 		}
@@ -164,7 +160,7 @@ func (a *App) stepSelectionVisible(delta int) bool {
 	if curVis < 0 {
 		// Selected session isn't visible under the filter — jump to
 		// the first visible one.
-		a.selected = vis[0]
+		c.selected = vis[0]
 		return true
 	}
 	next := curVis + delta
@@ -174,31 +170,31 @@ func (a *App) stepSelectionVisible(delta int) bool {
 	if next > len(vis)-1 {
 		next = len(vis) - 1
 	}
-	if vis[next] == a.selected {
+	if vis[next] == c.selected {
 		return false
 	}
-	a.selected = vis[next]
+	c.selected = vis[next]
 	return true
 }
 
-// ensureSelectedVisible moves a.selected to the first visible session
+// ensureSelectedVisible moves c.selected to the first visible session
 // if the current selection isn't visible under any active filter
 // (text filter or the JJJJJJJJ1 detached-only / XXXXXXXX1 busy-only
 // toggles). Called after filter edits commit so the user isn't
 // silently pointing at a hidden session.
-func (a *App) ensureSelectedVisible() {
-	if a.selected < 0 || a.selected >= len(a.sessions) {
+func (c *sessionComponent) ensureSelectedVisible() {
+	if c.selected < 0 || c.selected >= len(c.sessions) {
 		return
 	}
-	cur := a.sessions[a.selected]
-	if (!isChildSession(cur) || a.showChildSessions) && a.sessionPassesSidebarFilters(cur) {
+	cur := c.sessions[c.selected]
+	if (!isChildSession(cur) || c.app.sidebar.showChildSessions) && c.passesSidebarFilters(cur) {
 		return
 	}
-	vis := a.visibleSessionIndexes()
+	vis := c.visibleIndexes()
 	if len(vis) == 0 {
 		// Filter hides everything — leave selection alone so clearing
 		// the filter restores focus to the previously-selected session.
 		return
 	}
-	a.selected = vis[0]
+	c.selected = vis[0]
 }

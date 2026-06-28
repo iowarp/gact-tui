@@ -37,6 +37,7 @@ func main() {
 		port           = flag.Int("port", 7777, "TCP port to listen on")
 		scenarioName   = flag.String("scenario", "default", "scenario name to load")
 		timingMode     = flag.String("timing", "realistic", "scenario timing: fast | realistic")
+		replayFile     = flag.String("replay-file", "", "stream a captured SSE wire file to each session instead of the scripted scenario")
 		seedWorkspace  = flag.Bool("seed-workspace", true, "create a default workspace at startup")
 		seedWorkspaces = flag.String("seed-workspaces", "",
 			"comma-separated list of extra workspaces to seed as "+
@@ -213,11 +214,15 @@ func main() {
 	// CLIO-BBBBBBBBBB4: wire the scenario engine to the server's
 	// synthetic memory-cache counters so /v1/memory/stats has real
 	// data. Scripts call engine.NoteMemoryHit/Miss.
-	engine := scenario.New(srv.Bus(), srv.Store(), srv.Permissions(), scenario.Config{
+	engineCfg := scenario.Config{
 		Timing:       timing,
 		OnMemoryHit:  srv.BumpMemoryHit,
 		OnMemoryMiss: srv.BumpMemoryMiss,
-	})
+	}
+	if *replayFile != "" {
+		engineCfg.Script = scenario.NewReplayScript(*replayFile)
+	}
+	engine := scenario.New(srv.Bus(), srv.Store(), srv.Permissions(), engineCfg)
 	srv.SetOnUserMessage(engine.OnUserMessage)
 	srv.SetOnCancel(engine.Cancel)
 

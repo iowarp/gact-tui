@@ -1,0 +1,593 @@
+2026/06/18 18:05:43 custom theme loaded: tokyo-night (from /home/jcernuda/.config/gact/theme.json)
+[?2026$p[?2027$p[>4m[=0;1u[?1049h[?25l[?5W[?2004h[?1003h[?1006h]2;GACT[>4;2m[=1;1u[?u]10;#c0caf5]11;#1a1b26[H[2J[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K[22;56H[1K	               GACT TUI   [22;94H[K[23;56H[1K	                                     [K[24;56H[1K	Connecting to http://127.0.0.1:17931…[K[25;56H[1K	                                     [K[26;56H[1K	      click to retry connection      [K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K]2;GACT — TUI audit: San Diego EarthScope station plot[H  GACT    ●   http://127.0.0.1:17931  workspace: tui-audit-san-diego-earthscope @ /tmp/gact-tui-audit-earthscope-san-di…  idle  help   settings    x[K
+╭──────────────────────────╮╭──────────────────────────────────────────────────────────────────────────────────────╮╭────────────────────────────────╮
+│ ▾ SESSIONS               ││ CONVERSATION                                                                         ││ ▾ FILES                        │
+│                          ││                                                                                      ││ workspace: gact-tui-audit-ear… │
+│ ▌○ TUI audit: San Diego… ││ (no messages yet — type below to send the first one)                                 ││ updated 0s ago                 │
+│   idle · 1s ago          ││                                                                                      ││ (empty)                        │
+│   ◆ earthscope-gnss      ││   @ to attach a workspace file  ·  Ctrl+G to compose in a big window                 ││                                │
+│ ▾ CONTEXT                ││   Ctrl+S settings  ·  /theme to pick a palette                                       ││                                │
+│ (no files)               ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│ 1 active · 0 archived    ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────────╯│                                │[45;28H[1K ╭──────────────────────────────────────────────────────────────────────────────────────╮│                                │[46;28H[1K │  /  > type a message — Enter to send · \<Enter> for newline                          ││                                │[47;28H[1K ╰──────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────╯
+ focus: input  drag CLIO copy · Alt+drag terminal select · Enter send · \+Enter newline  │  Ctrl+C quit                                          [K[6;12H2[46;37HFi                                                   [46;39Hnd  th e n ea res t  sta ti on  to  Sa n  Di ego  o n   ea r th sco pe ,  do wn lo ad  a [5;127H1[46;100Hnd  an a lyz e  th [2;117H ╭
+ │ ▾ FILES[4;117H │ workspace: gact-tui-audit-ea[5;117H │ updated 1s ago[6;117H │ (empty)[7;117H │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+ │
+─╮│
+[6De   ││
+─╯╰[2;117H╭─
+│ ▾ FILES [4;117H│ workspace: gact-tui-audit-ear[5;117H│ updated 1s ago [6;117H│ (empty) [7;117H│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+│ 
+╮│ [46;35H  da                                                                             ││ 
+╯╰─[46;39Hta [12;46r[46;1H
+[1;48r[45;41H  [46;29H│                                                                                      ││                                │[45;42Han d  pl ot  i [12;46r[12;1HM[1;48r[12;1H│                          ││                                                                                      ││                                │[46;35H> type a message — Enter to send · \<Enter> for newline]2;GACT — TUI audit: San Diego EarthScope station plot (running)[1;117H…  running[3;45H⠙ running                                                           [4;99H              [5;4H⠙ TUI audit: San Diego… ││ ● USER                                                                            [6;5Hrunning · 2s ago       ││ Find the nearest station to San Diego on earthscope, download and analyze the data[7;31Hand plot it                                                                       [8;33H                                                                                [9;31H                                                                                  [10;31H⠙ CLIO is planning…                                                               [3;45H⠹[5;4H⠹[10;31H⠹[3;45H⠸[5;4H⠸[6;15H3[10;31H⠸[3;45H⠼[5;4H⠼[10;31H⠼[3;45H⠴[5;4H⠴[10;31H⠴M● ASSISTANT                                                                       [10;31H↳ main started  ·  running · started[11;31H                                                                                  [12;31H                                                                                  [13;31H⠴ CLIO is planning…                                                               [3;45H⠦[5;4H⠦[13;31H⠦[5;127H0[3;45H⠧[5;4H⠧[13;31H⠧[3;45H⠇[5;4H⠇[13;31H⠇[3;45H⠏[5;4H⠏[13;31H⠏[3;45H⠋[5;4H⠋[13;31H⠋[3;45H⠙[5;4H⠙[6;15H4[13;31H⠙[3;45H⠹[5;4H⠹[13;31H⠹[3;45H⠸[5;4H⠸[13;31H⠸[3;45H⠼[5;4H⠼[13;31H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[13;31H⠴[3;45H⠦[5;4H⠦[13;31H⠦[3;45H⠧[5;4H⠧[13;31H⠧[3;45H⠇[5;4H⠇[13;31H⠇[3;45H⠏[5;4H⠏[6;15H5[13;31H⠏[3;45H⠋[5;4H⠋[13;31H⠋[3;45H⠙[5;4H⠙[13;31H⠙[3;45H⠹[5;4H⠹[13;31H⠹[5;127H0[3;45H⠸[5;4H⠸[13;31H⠸[3;45H⠼[5;4H⠼[13;31H⠼[3;45H⠴[5;4H⠴[13;31H⠴[3;45H⠦[5;4H⠦[13;31H⠦[3;45H⠧[5;4H⠧[6;15H6[13;31H⠧[3;45H⠇[5;4H⠇[13;31H⠇[3;45H⠏[5;4H⠏[13;31H⠏[3;45H⠋[5;4H⠋[13;31H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[13;31H⠙[3;45H⠹[5;4H⠹[13;31H⠹[3;45H⠸[5;4H⠸[13;31H⠸[3;45H⠼[5;4H⠼[13;31H⠼[11;43r[11;1HMMMM[1;48r[11;1H│ 1 active · 0 archived    ││ ↳ main handed work to geospatial  ·  running · delegating                            ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││ ● ASSISTANT                                                                          ││                                │
+│                          ││ ↳ main handed work to geospatial  ·  running · delegating                            ││                                │
+[2C                        [3;45H⠴[5;4H⠴[6;15H7[17;31H⠴[3;45H⠦[5;4H⠦[17;31H⠦[3;45H⠧[5;4H⠧[17;31H⠧[3;45H⠇[5;4H⠇[17;31H⠇[5;127H0[3;45H⠏[5;4H⠏[17;31H⠏[3;45H⠋[5;4H⠋[17;31H⠋[3;45H⠙[5;4H⠙[17;31H⠙[3;45H⠹[5;4H⠹[17;31H⠹[3;45H⠸[5;4H⠸[6;15H8[17;31H⠸[3;45H⠼[5;4H⠼[17;31H⠼[3;45H⠴[5;4H⠴[17;31H⠴[3;45H⠦[5;4H⠦[17;31H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[17;31H⠧[3;45H⠇[5;4H⠇[17;31H⠇[3;45H⠏[5;4H⠏[17;31H⠏[3;45H⠋[5;4H⠋[17;31H⠋[3;45H⠙[5;4H⠙[6;15H9[17;31H⠙[3;45H⠹[5;4H⠹[17;31H⠹[3;45H⠸[5;4H⠸[17;31H⠸[3;45H⠼[5;4H⠼[17;31H⠼[5;127H0[3;45H⠴[5;4H⠴[17;31H⠴[3;45H⠦[5;4H⠦[17;31H⠦[3;45H⠧[5;4H⠧[17;31H⠧[3;45H⠇[5;4H⠇[17;31H⠇[3;45H⠏[5;4H⠏[6;15H10s ago[17;31H⠏[3;45H⠋[5;4H⠋[17;31H⠋[3;45H⠙[5;4H⠙[17;31H⠙[3;45H⠹[5;4H⠹[17;31H⠹[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[17;31H⠸[3;45H⠼[5;4H⠼[17;31H⠼[3;45H⠴[5;4H⠴[17;31H⠴[3;45H⠦[5;4H⠦[17;31H⠦[3;45H⠧[5;4H⠧[6;16H1[17;31H⠧[3;45H⠇[5;4H⠇[17;31H⠇[3;45H⠏[5;4H⠏[17;31H⠏[3;45H⠋[5;4H⠋[17;31H⠋[5;127H0[3;45H⠙[5;4H⠙[17;31H⠙[3;45H⠹[5;4H⠹[17;31H⠹[3;45H⠸[5;4H⠸[17;31H⠸[3;45H⠼[5;4H⠼[17;31H⠼[3;45H⠴[5;4H⠴[6;16H2[17;31H⠴[3;45H⠦[5;4H⠦[17;31H⠦[3;45H⠧[5;4H⠧[17;31H⠧[3;45H⠇[5;4H⠇[17;31H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[17;31H⠏[12;43r[12;1HMMM[1;48r[12;1H│                          ││ ↳ geospatial returned evidence to main  ·  completed · returned · 5579ms             ││                                │
+│                          ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││                                │
+│                          ││   confidence high                                                                    ││                                │[18;43r[18;1HMMM[1;48r[18;1H│                          ││ ↳ geospatial returned evidence to main  ·  completed · returned · 5579ms             ││                                │
+│                          ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││                                │
+│                          ││   confidence high                                                                    ││                                │[3;45H⠋[5;4H⠋[23;31H⠋[3;45H⠙[5;4H⠙[23;31H⠙[3;45H⠹[5;4H⠹[23;31H⠹[3;45H⠸[5;4H⠸[6;16H3[23;31H⠸[3;45H⠼[5;4H⠼[23;31H⠼[3;45H⠴[5;4H⠴[23;31H⠴[3;45H⠦[5;4H⠦[23;31H⠦[5;127H0[3;45H⠧[5;4H⠧[23;31H⠧[3;45H⠇[5;4H⠇[23;31H⠇[3;45H⠏[5;4H⠏[23;31H⠏[3;45H⠋[5;4H⠋[23;31H⠋[3;45H⠙[5;4H⠙[6;16H4[23;31H⠙[3;45H⠹[5;4H⠹[23;31H⠹[3;45H⠸[5;4H⠸[23;31H⠸[3;45H⠼[5;4H⠼[23;31H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[23;31H⠴[3;45H⠦[5;4H⠦[23;31H⠦[3;45H⠧[5;4H⠧[23;31H⠧[3;45H⠇[5;4H⠇[23;31H⠇[3;45H⠏[5;4H⠏[6;16H5[23;31H⠏[3;45H⠋[5;4H⠋[23;31H⠋[3;45H⠙[5;4H⠙[23;31H⠙[3;45H⠹[5;4H⠹[23;31H⠹[5;127H0[21;31H*No answer yet[23;31H                                                                                  [21;46H– awaiting station di[3;45H⠸[5;4H⠸[21;67Hscovery and data staging.*[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[6;16H6[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[15;43r[15;1HM[1;48r[15;1H│                          ││ ↳ main handed work to data  ·  running · delegating                                  ││                                │[23;31H↳ main handed work to data  ·  running · delegating                               [24;31H                                                                                  [3;45H⠋[5;4H⠋[5;127H1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[6;16H7[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[6;16H8[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[6;16H9[23;31H                                                                                  [24;31HThe w
+[5D↳ main handed work to data  ·  running · delegating                               [26;31H                                                                                  [24;36Horkflow has not[Cyet obtained the[CEarthScope[3;45H⠹[5;4H⠹[24;80Hstation‑metadata catalog.[25;31HWe will now as                                                                    [26;31H↳ main handed work to data  ·  running · delegating                               [27;31H                                                                                  [22;31H  No answer yet – awaiting station discovery and data staging.                    [23;34H                                                                               [24;31H  The workflow has not yet obtained the EarthScope station‑metadata catalog. We   [25;31H  will now ask the `n                                                             [25;52Hdp_dataset_discove[3;45H⠸[5;4H⠸[25;50H ndp_dataset_discovery [Cexpert to search N[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 0[25;92HDP for the[26;31H  appropriate Eart                                                                [27;31H↳ main handed work to data  ·  running · delegating                               [28;31H                                                                                  [26;44H EarthScope GNSS[5D GNSS station me metadata dataset and[4D and stage it, retu[5D returning the[27;31H  pat                                                                             [28;31H↳ main handed work to data  ·  running · delegating                               [29;31H                                                                                  [27;36Hh to the stage[3;45H⠴[5;4H⠴[27;44H staged metadata CSV[4D CSV (`acquisition.meta[27;66H acquisition.metadata_path ).[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;15H20[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[16;43r[16;1HM[1;48r[16;1H│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │[30;31H↳ data handed work to ndp_dataset_discovery  ·  running · delegating              [31;31H                                                                                  [3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││ ● USER                                                                               ││ updated 1[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H1[17;43r[17;1HMMMMMM[1;48r[3;54H                                                           [4;31H                                                                                  [5;37H                                                                            [7;42H                                                                       [8;31H                                                                                  [9;42H                                                                       [10;67H                                              [11;88H                         [12;103H          
+[4D    [14;48H                                                                 [15;82H                               [16;99H              
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 819ms                                                                                ││                                │
+│                          ││     ndp_dataset_discovery failed during sync delegation. state:                      ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │[23;31H                                                                                  [24;42H                                                                       [25;88H                         [26;103H          
+[4D    [28;48H                                                                 [35;82H                               [36;99H              [37;31H✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[38;31H819ms
+[5D    _UnsupportedSessionAgent state:                                               [40;31H                                                                                  [41;31H    • delegation failed                                                           [42;31H    • geospatial resolved                                                         [3;45H⠧[5;4H⠧[6;23r[23;1H
+
+
+[1;48r[24;44r[24;1HMM[1;48r[5;31H      [6;3H  running · 21s ago      ││ ● ASSISTANT                                                                          ││ (empty)                       [7;5H◆ earthscope-gnss     [8;3H▾ CONTEXT            [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [20;31H↳ data returned evidence to main  ·  completed · returned · 3725ms
+│                          ││     The workflow has not yet obtained the EarthScope station‑metadata catalog. We    ││                                │
+│                          ││     will now ask the  ndp_dataset_discovery  expert to search NDP for the            ││                                │
+│                          ││     appropriate EarthScope GNSS station metadata dataset and stage it, returning     ││                                │
+│                          ││     the path to the staged metadata CSV ( acquisition.metadata_path )                ││                                │
+│                          ││                                                                                      ││                                │[19B╰──────────────────────────╯[7;44r[44;1H
+
+
+
+
+[1;48r[5;31H  resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·[6;31H  confidence high[7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [28B│                          │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 3725ms                   ││                                │
+│                          ││     The workflow has not yet obtained the EarthScope station‑metadata catalog. We    ││                                │
+│                          ││     will now ask the  ndp_dataset_discovery  expert to search NDP for the            ││                                │
+│                          ││     appropriate EarthScope GNSS station metadata dataset and stage it, returning     ││                                │
+╰──────────────────────────╯│     the path to the staged metadata CSV ( acquisition.metadata_path )                ││                                │[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[5;127H0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H2[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H3[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H4[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;16H5[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[5;127H0[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;44r[44;1H
+[1;48r[5;3H▌⠸ TUI audit: San Diego… ││   confidence high                                                                    ││ updated 0s ago[6;5Hrunning · 25s ago      ││ ↳ main handed work to data  ·  running · delegating                                  ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H6[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││   confidence high                                                                    ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H7[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H8[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││   confidence high                                                                    ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H9[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H0[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;15H30[12;30r[30;1H
+
+[1;48r[5;31H↳ data handed work to ndp_dataset_discovery  ·  running · delegating[6;31H✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[7;31H819ms                                                               [8;31H    ndp_dataset_discovery failed during sync delegation. state:                     [9;31H                                                                                  [10;35H• delegation failed                                        [11;35H• geospatial resolved[18B│                          ││                                                                                      ││                                │
+│                          ││   De                                                                                 ││                                │[30;35Hlegating t to `ndp_dataset_di[3;45H⠏[5;4H⠏[30;62Hscov[30;47H ndp_dataset_discovery  to locate	and stage[Cthe EarthScope GNSS[11;30r[30;1H
+[1;48r[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[6;31H819ms                                                                               [7;31H    ndp_dataset_discovery failed during sync delegation. state:                   [8;35H                                                           [9;35H• delegation failed[10;37Hgeospatial resolved
+[53D1 active · 0 archived   [19B│                          ││   stat                                                                               ││                                │[30;37Hion	m metadata c catalog for[4D for t[3;45H⠙[5;4H⠙[30;63Hhe[5;127H1[30;61H the 10 100 km km rad[4D radius aroun[6D around San[4D San Diego.[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;15H12[3;45H⠴[5;4H⠴[6;15H3[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 20[9;44r[44;1H
+
+[1;48r[5;31H    ndp_dataset_discovery failed during sync delegation. state:                     [6;31H                                                                                  [7;35H• delegation failed                                        [8;35H• geospatial resolved[9;3H(no files)           
+[21D                        
+[24D1 active · 0 archived   [31B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+╰──────────────────────────╯│                                                                                      ││                                │[3;45H⠋[5;4H⠋[9;43r[43;1H
+
+
+
+
+[1;48r[5;35Hthe path to the staged metadata CSV ( acquisition.metadata_path )[6;31H↳ data returned evidence to main  ·  completed · returned · 5543ms                [7;35HDelegating to  ndp_dataset_discovery  to locate and stage the EarthScope GNSS[8;35Hstation metadata catalog for the 100 km radius around San Diego[9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [28B│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 141ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • delegation failed                                                              ││                                │[44;31H    • geospatial resolved                                                         [5;44r[44;1H
+
+
+[1;48r[5;3H▌⠋ TUI audit: San Diego… ││     station metadata catalog for the 100 km radius around San Diego                  ││ updated 0s ago                [6;3H  running · 32s ago      ││                                                                                      ││ (empty)                       [7;5H◆ earthscope-gnss     [8;3H▾ CONTEXT            [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [30B│                          │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 5543ms                   ││                                │
+│                          ││     Delegating to  ndp_dataset_discovery  to locate and stage the EarthScope GNSS    ││                                │
+╰──────────────────────────╯│     station metadata catalog for the 100 km radius around San Diego                  ││                                │[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H3[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││     station metadata catalog for the 100 km radius around San Diego                  ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H4[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││     station metadata catalog for the 100 km radius around San Diego                  ││ updated 0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;16H5[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││     station metadata catalog for the 100 km radius around San Diego                  ││ updated 1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H6[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H0[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H7[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││     station metadata catalog for the 100 km radius around San Diego                  ││ updated 1[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H8[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[7;44r[44;1H
+[1;48r[5;31H                                                                                  [6;31H● ASSISTANT[7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠦[5;4H⠦[5;127H0[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H9[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;15H40[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[5;127H0[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H2[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[6;16H3[5;19r[19;1H
+
+[1;48r[3;45H⠹[5;3H▌⠹ TUI audit: San Diego… ││ ↳ main handed work to geospatial  ·  running · delegating                            ││ updated 0s ago                [6;3H  running · 43s ago      ││ ↳ geospatial returned evidence to main  ·  completed · returned · 5579ms             ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT               [9;3H(no files)           
+[21D                        
+[24D1 active · 0 archived   [7B│                          ││                                                                                      ││                                │
+│                          ││   T                                                                                  ││                                │[19;34Hhe data[5D data acquisi[19;41H acquisition pipel[6D pipeline cannot[7D cannot pro[3;45H⠸[5;4H⠸[19;73Hce[6D proceed until[6D until the Eart[5D EarthScope GNSS[3;45H⠼[5;4H⠼[19;98H GNSS station[5;19r[19;1H
+[1;48r[5;3H▌⠼ TUI audit: San Diego… ││ ↳ geospatial returned evidence to main  ·  completed · returned · 5579ms             ││ updated 0s ago[6;5Hrunning · 43s ago      ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [18;104H       
+│                          ││   station‑met                                                                        ││                                │[19;44Hadata catalog[19;49H catalog is stage[3;45H⠴[5;4H⠴[19;60H staged. T The previous[19;72H previous `ndp_da[5;127H1[19;89Htaset_d[3;45H⠦[5;4H⠦[19;96Hiscov[19;82H ndp_dataset_discovery  call[5;19r[19;1H
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││   resolved region: San Diego, CA, USA · center 32.72, -117.2 · radius 100 km ·       ││ updated 1s ago[6;5Hrunning · 43s ago      ││   confidence high                                                                    ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [8B│                          ││   fail                                                                               ││                                │[19;37Hed, so we mus[4D must retr[3;45H⠧[5;4H⠧[19;51H retry it wi with the[4D the corre[6D correct 300 km se search radius.[3;45H⠇[5;4H⠇[6;16H4[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[5;44r[44;1H
+[1;48r[5;3H▌⠹ TUI audit: San Diego… ││   confidence high                                                                    ││ updated 1s ago[6;5Hrunning · 44s ago      ││   No answer yet – awaiting station discovery and data staging.                       ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │[8;44r[44;1H
+
+
+
+
+[1;48r[5;33Happropriate EarthScope GNSS station metadata dataset and stage it, returning the[6;33Hpath to the staged metadata CSV ( acquisition.metadata_path ).[8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [28B│                          │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 111ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[5;127H2[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││   appropriate EarthScope GNSS station metadata dataset and stage it, returning the   ││ updated 0[5;44r[44;1H
+
+
+
+[1;48r[5;3H▌⠸ TUI audit: San Diego… ││   station metadata catalog for the 100 km radius around San Diego.                   ││ updated 0s ago                [6;5Hrunning · 44s ago      ││                                                                                      ││ (empty)                       [7;3H  ◆ earthscope-gnss  [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [29B│                          │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 5787ms                   ││                                │
+│                          ││     The data acquisition pipeline cannot proceed until the EarthScope GNSS           ││                                │
+╰──────────────────────────╯│     station‑metadata catalog is staged. The previous  ndp_dataset_discovery  call    ││                                │[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H5[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││   station metadata catalog for the 100 km radius around San Diego.                   ││ updated 1[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H6[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H7[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││   station metadata catalog for the 100 km radius around San Diego.                   ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H8[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[5;127H0[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;16H9[3;45H⠏[5;4H⠏[5;44r[44;1H
+[1;48r[5;3H▌⠏ TUI audit: San Diego… ││                                                                                      ││ updated 0s ago[6;5Hrunning · 49s ago      ││   The data acquisition pipeline cannot proceed until the EarthScope GNSS             ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│     failed, so we must retry it with the correct 300 km search radius                ││                                │[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;15H50[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H0[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;16H1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[6;16H2[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[5;127H0[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;16H3[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;33Hstation‑metadata catalog is staged. The previous  ndp_dataset_discovery  call[6;16H4s ago      ││   failed, so we must retry it with the correct 300 km search radius.    [7;33H                                                                             [8;33HRouti                                                             [8;38Hng t to `ndp_datas[3;45H⠇[5;4H⠇[8;54Het_discove[8;44H ndp_dataset_discovery  to retry EarthScope GNSS sta[3;45H⠏[5;4H⠏[8;96Htion metadata di[5;33Hfailed, so we must retry it with the correct 300 km search radius.           [6;33H                                                                  [7;33HRouting to  ndp_dataset_discovery  to retry EarthScope GNSS station metadata[8;33Hdiscov                                                                         [3;45H⠋[5;4H⠋[8;39Hery wi with a a 300 km radius[7D radius and[4D and sta[4D stage the re[3;45H⠙[5;4H⠙[8;80Hsultin[8;77H resulting C[5;127H2[8;89HSV.[5;127H0[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[6;16H5[3;45H⠦[5;4H⠦[5;44r[44;1H
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││                                                                                      ││ updated 0s ago[6;5Hrunning · 55s ago      ││   Routing to  ndp_dataset_discovery  to retry EarthScope GNSS station metadata       ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠧[5;4H⠧[5;44r[44;1H
+
+
+
+
+[1;48r[5;3H▌⠧ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 0s ago                [6;3H  running · 55s ago      ││ 819ms                                                                                ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [28B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 100ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+╰──────────────────────────╯│                                                                                      ││                                │[5;44r[44;1H
+
+
+
+[1;48r[5;3H▌⠧ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 0s ago                [6;5Hrunning · 55s ago      ││     • geospatial resolved                                                            ││ (empty)                       [7;3H  ◆ earthscope-gnss  [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [29B│                          │
+│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 5884ms                   ││                                │
+╰──────────────────────────╯│     Routing to  ndp_dataset_discovery  to retry EarthScope GNSS station metadata     ││                                │[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[6;16H6[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[6;16H7[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[6;16H8[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H0[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[6;16H9[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[6;15H1m ago [3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[5;127H0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[6;44r[44;1H
+[1;48r[5;37Hgeospatial resolved[6;5Hrunning · 1m ago       ││ ↳ data returned evidence to main  ·  completed · returned · 3725ms                   ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│     discovery with a 300 km radius and stage the resulting CSV                       ││                                │[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[6;15H43s ago[3;45H⠙[5;4H⠙[6;15H1m ago [3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││     • geospatial resolved                                                            ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[5;44r[44;1H
+[1;48r[5;3H▌⠙ TUI audit: San Diego… ││ ↳ data returned evidence to main  ·  completed · returned · 3725ms                   ││ updated 0s ago[6;5Hrunning · 1m ago       ││     The workflow has not yet obtained the EarthScope station‑metadata catalog. We    ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[5;44r[44;1H
+
+
+
+
+[1;48r[5;3H▌⠙ TUI audit: San Diego… ││ ↳ main handed work to data  ·  running · delegating                                  ││ updated 0s ago                [6;3H  running · 1m ago       ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [28B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 95ms                                                                                 ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+╰──────────────────────────╯│                                                                                      ││                                │[3;45H⠹[5;4H⠹[5;43r[43;1H
+
+
+
+
+
+[1;48r[5;3H▌⠹ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 0s ago                [6;3H  running · 1m ago       ││     • geospatial resolved                                                            ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          ││                                                                                      ││                                │
+│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 3577ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │[44;35H• delegation failed[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[5;127H0[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││     • delegation failed                                                              ││ updated 1[6;43r[43;1H
+[1;48r[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││     • geospatial resolved[6;5Hrunning · 1m ago       ││ ↳ data returned evidence to main  ·  completed · returned · 5543ms                   ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          ││     • delegation failed                                                              ││                                │[44;37Hgeospatial resolved[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││     • geospatial resolved                                                            ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││     • geospatial resolved                                                            ││ updated 0[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││     • geospatial resolved                                                            ││ updated 1[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;44r[44;1H
+[1;48r[3;45H⠦[5;3H▌⠦ TUI audit: San Diego… ││ ↳ data returned evidence to main  ·  completed · returned · 5543ms                   ││ updated 1s ago[6;5Hrunning · 1m ago       ││     Delegating to  ndp_dataset_discovery  to locate and stage the EarthScope GNSS    ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[5;44r[44;1H
+
+
+
+
+
+
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1s ago                [6;3H  running · 1m ago       ││                                                                                      ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [26B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 90ms                                                                                 ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[5;43r[43;1H
+
+
+
+
+
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││     station‑metadata catalog is staged. The previous  ndp_dataset_discovery  call    ││ updated 1s ago                [6;3H  running · 1m ago       ││     failed, so we must retry it with the correct 300 km search radius                ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 4132ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[5;127H0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││     station‑metadata catalog is staged. The previous  ndp_dataset_discovery  call    ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││     station‑metadata catalog is staged. The previous  ndp_dataset_discovery  call    ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;43r[43;1H
+[1;48r[5;3H▌⠋ TUI audit: San Diego… ││     failed, so we must retry it with the correct 300 km search radius                ││ updated 1s ago[6;5Hrunning · 1m ago       ││ ↳ main handed work to data  ·  running · delegating                                  ││ (empty)                       [7;3H  ◆ earthscope-gnss[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          ││     • delegation failed                                                              ││                                │[44;37Hgeospatial resolved[3;45H⠙[5;4H⠙[5;127H0[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     failed, so we must retry it with the correct 300 km search radius                ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││     failed, so we must retry it with the correct 300 km search radius                ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││     failed, so we must retry it with the correct 300 km search radius                ││ updated 20[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[12;44r[44;1H
+[1;48r[5;31H↳ main handed work to data  ·  running · delegating                               [6;31H↳ data handed work to ndp_dataset_discovery  ·  running · delegating[7;31H✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[8;31H100ms                                                                               [9;31H    _UnsupportedSessionAgent state:                                               [10;35H                               [11;35H• delegation failed[32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠦[5;4H⠦[5;44r[44;1H
+
+
+
+
+
+
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││     • geospatial resolved                                                            ││ updated 0s ago                [6;3H  running · 1m ago       ││ ↳ data returned evidence to main  ·  completed · returned · 5884ms                   ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [26B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 119ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[5;44r[44;1H
+
+
+
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││ ↳ main handed work to data  ·  running · delegating                                  ││ updated 0s ago                [6;5Hrunning · 1m ago       ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││ (empty)                       [7;3H  ◆ earthscope-gnss  [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [29B│                          │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 4621ms                   ││                                │
+│                          ││   The workflow must retry the dataset discovery step to obtain a staged EarthScope   ││                                │
+╰──────────────────────────╯│   station‑metadata CSV before any station can be ranked or a time‑series resource    ││                                │[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││ ↳ main handed work to data  ·  running · delegating                                  ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││ ↳ main handed work to data  ·  running · delegating                                  ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[5;127H0[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││ ↳ main handed work to data  ·  running · delegating                                  ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[12;44r[44;1H
+[1;48r[5;31H↳ data handed work to ndp_dataset_discovery  ·  running · delegating[6;31H✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[7;31H95ms                                                                                [8;31H    _UnsupportedSessionAgent state:                                               [9;35H                               [10;35H• delegation failed[11;37Hgeospatial resolved[32B│                          │
+╰──────────────────────────╯│   staged                                                                             ││                                │[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[5;127H0[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││ updated 1[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[11;44r[44;1H
+[1;48r[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[6;31H95ms                                                                                [7;31H    _UnsupportedSessionAgent state:                                               [8;35H                               [9;35H• delegation failed[10;37Hgeospatial resolved
+[53D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[9;44r[44;1H
+
+
+
+
+
+
+[1;48r[5;31H    CLIO typed workflow state state:                                                [6;31H                                                                                  [7;35H• delegation failed            [8;35H• geospatial resolved[9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [26B│                          │
+│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 95ms                                                                                 ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[9;43r[43;1H
+
+
+
+
+
+[1;48r[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed ·[6;31H90ms                                                                              [7;35H_UnsupportedSessionAgent state:[8;35H                     [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 4624ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[5;127H0[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H0[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 0[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[10;44r[44;1H
+
+[1;48r[5;31H    _UnsupportedSessionAgent state:                                                 [6;31H                                                                                  [7;35H• data pending                 [8;35H• delegation failed[9;37Hgeospatial resolved
+[53D                        
+[24D1 active · 0 archived   [31B│                          │
+│                          ││     • geospatial resolved                                                            ││                                │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 20[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[8;44r[44;1H
+[1;48r[5;35H                               [6;35H• data pending[7;38Helegation failed[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │[9;44r[44;1H
+
+
+
+
+
+[1;48r[9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 104ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[3;45H⠸[5;4H⠸[9;43r[43;1H
+
+
+
+
+
+[1;48r[5;31H✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 2[6;31H119ms                                                                             [7;35H_UnsupportedSessionAgent state:[8;35H                     [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 4180ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │[5;127H0[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 1[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[5;127H0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[10;44r[44;1H
+
+[1;48r[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                 [6;31H                                                                                  [7;35H• data pending                 [8;35H• delegation failed[9;37Hgeospatial resolved
+[53D                        
+[24D1 active · 0 archived   [31B│                          │
+│                          ││     • geospatial resolved                                                            ││                                │
+╰──────────────────────────╯│ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[5;127H0[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[5;127H0[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H0[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[8;44r[44;1H
+[1;48r[5;35H                               [6;35H• data pending[7;38Helegation failed[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          │
+╰──────────────────────────╯│ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │[5;44r[44;1H
+
+
+
+
+
+[1;48r[5;3H▌⠦ TUI audit: San Diego… ││   station‑metadata CSV before any station can be ranked or a time‑series resource    ││ updated 0s ago                [6;3H  running · 1m ago       ││   staged                                                                             ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [27B│                          │
+│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 98ms                                                                                 ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+╰──────────────────────────╯│     • delegation failed                                                              ││                                │[3;45H⠧[5;4H⠧[5;43r[43;1H
+
+
+
+
+
+
+[1;48r[5;3H▌⠧ TUI audit: San Diego… ││                                                                                      ││ updated 0s ago                [6;3H  running · 1m ago       ││     • data pending                                                                   ││ (empty)                       [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [26B│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 5702ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • data pending                                                                   ││                                │
+│                          ││     • delegation failed                                                              ││                                │[44;37Hgeospatial resolved[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[6;15H2[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[5;127H0[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H0[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[12;44r[44;1H
+[1;48r[5;35H• data pending[6;38Helegation failed[7;37Hgeospatial resolved[8;31H↳ data returned evidence to main  ·  completed · returned · 4624ms                [9;31H    CLIO typed workflow state state:                                              [10;35H                                [11;35H• data pending[32B│                          │
+╰──────────────────────────╯│ ↳ main handed work to synthesis  ·  running · delegating                             ││                                │[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 1[3;45H⠋[5;4H⠋[6;15H1[3;45H⠙[5;4H⠙[6;15H2[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[5;127H0[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[5;127H0[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 1[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 0[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[5;127H1[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H20[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[5;127H20[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H1[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 20[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[8;44r[44;1H
+
+
+
+
+
+
+
+
+
+
+
+
+[1;48r[3;45H⠼[5;4H⠼ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:[6;35H                   [7;37Hdata pending       [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [20B│                          │
+│                          ││ ↳ synthesis returned evidence to main  ·  completed · returned · 7766ms              ││                                │
+│                          ││     ## Region                                                                        ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     San Diego, CA, USA – resolved to a 300 km radius circle centered at 32.7157 N,   ││                                │
+│                          ││     ‑117.1611 W (high confidence, model geographic prior). An expanded search        ││                                │
+│                          ││     radius of 300 km was applied as requested.                                       ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     ## Freshness, coverage & provenance limitations                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     The EarthScope GNSS dataset discovery tool was unavailable, so the nearest       ││                                │
+│                          ││     GNSS station could not be located or staged for this region. Consequently no     ││                                │
+│                          ││     time‑series CSV, profile, or visualization is available                          ││                                │
+╰──────────────────────────╯│                                                                                      ││                                │[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦ TUI audit: San Diego… ││     _UnsupportedSessionAgent state:                                                  ││ updated 1[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[8;43r[43;1H
+[1;48r[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││                                    [6;35H• data pending[7;38Helegation failed[8;3H▾ CONTEXT [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [32B│                          ││ ↳ main handed work to data  ·  running · delegating                                  ││                                │[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H0[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏ TUI audit: San Diego… ││                                                                                      ││ updated 0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧ TUI audit: San Diego… ││                                                                                      ││ updated 1[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[5;127H0[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[12;43r[43;1H
+[1;48r[3;45H⠹[5;4H⠹ TUI audit: San Diego… ││     • data pending[6;38Helegation failed[7;37Hgeospatial resolved[8;31H↳ data returned evidence to main  ·  completed · returned · 4180ms                [9;31H    CLIO typed workflow state state:                                              [10;35H                                [11;35H• data pending[32B│                          ││ ↳ data handed work to ndp_dataset_discovery  ·  running · delegating                 ││                                │[7;43r[43;1H
+
+
+
+
+
+
+[1;48r[5;38Helegation failed                                                              ││ updated 1[6;37Hgeospatial resolved[7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [26B│                          ││ ✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · ││                                │
+│                          ││ 115ms                                                                                ││                                │
+│                          ││     _UnsupportedSessionAgent state:                                                  ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • acquisition blocked                                                            ││                                │
+│                          ││     • data pending                                                                   ││                                │
+│                          ││     • delegation failed                                                              ││                                │[44;31H    • geospatial resolved                                                         [7;44r[44;1H
+
+
+
+
+
+
+
+[1;48r[5;38Hata pending     [6;37Hdelegation failed  [7;3H  ◆ earthscope-gnss     [8;3H▾ CONTEXT               [9;3H(no files)              
+[24D                        
+[24D1 active · 0 archived   [25B│                          │
+│                          ││ ↳ data returned evidence to main  ·  completed · returned · 5294ms                   ││                                │
+│                          ││     CLIO typed workflow state state:                                                 ││                                │
+│                          ││                                                                                      ││                                │
+│                          ││     • acquisition blocked                                                            ││                                │
+│                          ││     • data pending                                                                   ││                                │
+│                          ││     • delegation failed                                                              ││                                │
+│                          ││     • geospatial resolved                                                            ││                                │
+╰──────────────────────────╯│                                                                                      ││                                │[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[5;127H0[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 1[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[5;127H0[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇[5;127H20[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧[3;45H⠇[5;4H⠇ TUI audit: San Diego… ││     • data pending                                                                   ││ updated 20[3;45H⠏[5;4H⠏[3;45H⠋[5;4H⠋[3;45H⠙[5;4H⠙[3;45H⠹[5;4H⠹[3;45H⠸[5;4H⠸[5;127H1[3;45H⠼[5;4H⠼[3;45H⠴[5;4H⠴[3;45H⠦[5;4H⠦[3;45H⠧[5;4H⠧

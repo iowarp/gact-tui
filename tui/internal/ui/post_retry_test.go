@@ -14,7 +14,7 @@ import (
 
 func TestPostFailed_RestoresTextAndShowsHint(t *testing.T) {
 	a := New("http://unused")
-	a.input.SetValue("") // start clean
+	a.inputComposer.input.SetValue("") // start clean
 
 	msg := postFailedMsg{text: "important query", err: errors.New("dial tcp: i/o timeout")}
 	model, cmd := a.Update(msg)
@@ -22,8 +22,8 @@ func TestPostFailed_RestoresTextAndShowsHint(t *testing.T) {
 	if cmd != nil {
 		t.Errorf("postFailedMsg should be fully handled in Update, got cmd=%v", cmd)
 	}
-	if a.input.Value() != "important query" {
-		t.Errorf("input text = %q, want 'important query'", a.input.Value())
+	if a.inputComposer.input.Value() != "important query" {
+		t.Errorf("input text = %q, want 'important query'", a.inputComposer.input.Value())
 	}
 	if !strings.Contains(a.transientHint, "press Enter to retry") {
 		t.Errorf("hint = %q, want a 'press Enter to retry' note", a.transientHint)
@@ -44,7 +44,7 @@ func TestPostFailed_DoesNotGoToStageError(t *testing.T) {
 
 func TestPostFailed_AgentNotAvailableUsesHumanHint(t *testing.T) {
 	a := New("http://unused")
-	a.input.SetValue("")
+	a.inputComposer.input.SetValue("")
 
 	msg := postFailedMsg{
 		text: "hi",
@@ -60,10 +60,10 @@ func TestPostFailed_AgentNotAvailableUsesHumanHint(t *testing.T) {
 	model, _ := a.Update(msg)
 	a = model.(*App)
 
-	if a.input.Value() != "hi" {
-		t.Errorf("input text = %q, want hi", a.input.Value())
+	if a.inputComposer.input.Value() != "hi" {
+		t.Errorf("input text = %q, want hi", a.inputComposer.input.Value())
 	}
-	if !strings.Contains(a.transientHint, "CLIO agent is still starting") {
+	if !strings.Contains(a.transientHint, "the agent is still starting") {
 		t.Errorf("hint = %q, want startup-specific text", a.transientHint)
 	}
 	if strings.Contains(a.transientHint, "gact: 503") {
@@ -208,7 +208,7 @@ func TestPostMessageWithMentions_AttachFailureRestoresDraftAndSkipsMessage(t *te
 
 func TestMsgPostedAck_MergesAttachedContextFiles(t *testing.T) {
 	a := newReadyApp([]gact.Session{{ID: "ses_x", Title: "demo"}}, nil)
-	a.contextFiles = []gact.ContextFile{{Path: "docs/old.md", Mode: "read"}}
+	a.session.contextFiles = []gact.ContextFile{{Path: "docs/old.md", Mode: "read"}}
 
 	model, _ := a.Update(msgPostedAck{
 		sessionID: "ses_x",
@@ -219,10 +219,10 @@ func TestMsgPostedAck_MergesAttachedContextFiles(t *testing.T) {
 	})
 	a = model.(*App)
 
-	if len(a.contextFiles) != 2 {
-		t.Fatalf("context files = %#v, want existing plus attached", a.contextFiles)
+	if len(a.session.contextFiles) != 2 {
+		t.Fatalf("context files = %#v, want existing plus attached", a.session.contextFiles)
 	}
-	if a.contextFiles[1].Path != "docs/readme.md" {
-		t.Fatalf("attached context file missing: %#v", a.contextFiles)
+	if a.session.contextFiles[1].Path != "docs/readme.md" {
+		t.Fatalf("attached context file missing: %#v", a.session.contextFiles)
 	}
 }

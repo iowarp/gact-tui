@@ -1,45 +1,53 @@
 package ui
 
+// sessionActionsModal: the per-session action menu overlay.
+
 import (
 	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
-func (a *App) openSessionActionsForIndex(index int) tea.Cmd {
-	if index < 0 || index >= len(a.sessions) {
+// sessionActionsModal is the per-session action menu's state: open flag plus
+// the selectable-list cursor.
+type sessionActionsModal struct {
+	open bool
+	sel  int
+}
+
+func (m *sessionActionsModal) reset() { *m = sessionActionsModal{} }
+
+func (c *sessionComponent) openActionsForIndex(index int) tea.Cmd {
+	if index < 0 || index >= len(c.sessions) {
 		return nil
 	}
-	a.focus = FocusSidebar
-	a.sidebarSectionFocus = sidebarSectionSessions
-	a.sidebarSectionCursor = false
+	c.app.focus = FocusSidebar
+	c.app.sidebar.setFocus(sidebarSectionSessions, false)
 	var cmd tea.Cmd
-	if index != a.selected {
-		a.selected = index
-		cmd = a.selectSession(index)
+	if index != c.selected {
+		c.selected = index
+		cmd = c.selectIndex(index)
 	}
-	a.sessionActionsOpen = true
-	a.sessionActionsSel = 0
+	c.actions.open = true
+	c.actions.sel = 0
 	return cmd
 }
 
-func (a *App) closeSessionActions() {
-	a.sessionActionsOpen = false
-	a.sessionActionsSel = 0
-}
+func (c *sessionComponent) closeActions() { c.actions.reset() }
 
-func (a *App) selectedSessionActionItems() []actionMenuItem {
-	if a.selected < 0 || a.selected >= len(a.sessions) {
+func (c *sessionComponent) actionItems() []actionMenuItem {
+	if c.selected < 0 || c.selected >= len(c.sessions) {
 		return nil
 	}
-	s := a.sessions[a.selected]
+	s := c.sessions[c.selected]
 	archiveTitle := "Archive session"
-	if a.showArchived {
+	if c.app.sidebar.showArchived {
 		archiveTitle = "Unarchive session"
 	}
 	deleteTitle := "Delete session"
-	if a.pendingDeleteSessionID == s.ID {
+	if c.app.sidebar.pendingDeleteSessionID == s.ID {
 		deleteTitle = "Confirm delete"
 	}
 	items := []actionMenuItem{
@@ -49,8 +57,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Focus the prompt for the selected session.",
 			key:         "Enter",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("enter"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("enter"))
 			},
 		},
 		{
@@ -59,8 +67,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Edit the visible title.",
 			key:         "e",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("e"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("e"))
 			},
 		},
 		{
@@ -69,8 +77,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Attach a path to this session.",
 			key:         "o",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("o"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("o"))
 			},
 		},
 		{
@@ -79,8 +87,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Show or hide nanoagent children in the sidebar.",
 			key:         "c",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("c"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("c"))
 			},
 		},
 		{
@@ -89,8 +97,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Copy this session's identifier for logs or support.",
 			key:         "y",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("y"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("y"))
 			},
 		},
 		{
@@ -99,8 +107,8 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Move the session between active and archived views.",
 			key:         "A",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("A"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("A"))
 			},
 		},
 		{
@@ -109,39 +117,34 @@ func (a *App) selectedSessionActionItems() []actionMenuItem {
 			description: "Ask for confirmation before deleting this session.",
 			key:         "x",
 			action: func(app *App) tea.Cmd {
-				app.closeSessionActions()
-				return app.routeSidebarFooterKey(keyMsg("x"))
+				app.session.closeActions()
+				return app.chrome.routeSidebarFooterKey(keyMsg("x"))
 			},
 		},
 	}
 	return items
 }
 
-func (a *App) applySessionActionSelection() tea.Cmd {
-	items := a.selectedSessionActionItems()
-	return a.applyActionMenuSelection(items, &a.sessionActionsSel, func(app *App) { app.closeSessionActions() })
-}
-
-func (a *App) handleSessionActionsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	items := a.selectedSessionActionItems()
-	if cmd, handled := a.handleActionMenuKey(k, items, &a.sessionActionsSel, func(app *App) { app.closeSessionActions() }); handled {
-		return a, cmd
+func (c *sessionComponent) handleActionsKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	items := c.actionItems()
+	if cmd, handled := c.app.modals.handleActionMenuKey(k, items, &c.actions.sel, func(app *App) { app.session.closeActions() }); handled {
+		return c.app, cmd
 	}
-	return a, nil
+	return c.app, nil
 }
 
-func (a *App) viewSessionActions() string {
-	items := a.selectedSessionActionItems()
+func (c *sessionComponent) viewActions() string {
+	items := c.actionItems()
 
 	title := "Session actions"
 	contextLine := "No session selected."
-	if a.selected >= 0 && a.selected < len(a.sessions) {
-		s := a.sessions[a.selected]
+	if c.selected >= 0 && c.selected < len(c.sessions) {
+		s := c.sessions[c.selected]
 		name := strings.TrimSpace(s.Title)
 		if name == "" {
-			name = a.localizer.t(msgSidebarUntitled, nil)
+			name = c.app.localizer.t(msgSidebarUntitled, nil)
 		}
-		title = truncate(name, 44)
+		title = textutil.Truncate(name, 44)
 		status := strings.TrimSpace(s.Status)
 		if status == "" {
 			status = "unknown"
@@ -149,13 +152,13 @@ func (a *App) viewSessionActions() string {
 		contextLine = fmt.Sprintf("%s · %s", shortID(s.ID), status)
 	}
 
-	return a.renderActionMenu(actionMenuOptions{
+	return c.app.modals.renderActionMenu(actionMenuOptions{
 		prefix:      "session-actions",
 		title:       title,
 		contextLine: contextLine,
 		items:       items,
-		selected:    &a.sessionActionsSel,
+		selected:    &c.actions.sel,
 		rowBudget:   14,
-		close:       func(app *App) { app.closeSessionActions() },
+		close:       func(app *App) { app.session.closeActions() },
 	})
 }

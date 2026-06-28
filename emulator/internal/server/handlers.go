@@ -138,6 +138,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			XClioExpertPacks:     true,
 			XClioAgentBlueprints: true,
 			XClioFilesContent:    true,
+			XClioContextState:    true,
 		},
 		Transports: gact.TransportFlags{
 			EventsSSE:       true,

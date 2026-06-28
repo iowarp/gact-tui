@@ -5,8 +5,35 @@
  * of the action ids below. ChatLayout subscribes via `onMenuAction` and
  * routes each id to the same handler its keyboard shortcut uses, so menu
  * items and keybinds can never drift apart.
+ *
+ * SINGLE SOURCE OF TRUTH: the action id list lives in `menu-actions.json`.
+ * The `MenuAction` union and {@link ALL_MENU_ACTIONS} below are derived from
+ * it, and the Rust MENU_SPEC (src-tauri/src/menu_spec.rs) embeds + asserts
+ * against the very same file — so neither side can drift.
  */
-import type { MenuAction } from './tauri.js';
+import menuActionsSpec from './menu-actions.json' with { type: 'json' };
+
+/** Native menu action ids. Authored once here as a precise literal union; the
+ * runtime list {@link ALL_MENU_ACTIONS} comes straight from the shared
+ * `menu-actions.json`, and the contract test asserts the union, the JSON, and
+ * the Rust MENU_SPEC are byte-for-byte the same set — so nothing can drift. */
+export type MenuAction =
+  | 'new-session'
+  | 'import-session'
+  | 'export-session'
+  | 'open-settings'
+  | 'toggle-inspector'
+  | 'toggle-sessions'
+  | 'cycle-density'
+  | 'command-palette'
+  | 'keyboard-shortcuts'
+  | 'fullscreen'
+  | 'help-docs'
+  | 'about';
+
+/** Every native menu action id, in menu order — read straight from the shared
+ * `menu-actions.json` single source of truth (no second hand-written list). */
+export const ALL_MENU_ACTIONS = menuActionsSpec.actions as readonly MenuAction[];
 
 export interface MenuActionHandlers {
   newSession?: () => void;
@@ -23,23 +50,6 @@ export interface MenuActionHandlers {
   helpDocs?: () => void;
   about?: () => void;
 }
-
-/** Every action id the Rust MENU_SPEC can emit — the unit test asserts
- * this list against the Rust source so the two sides stay in lockstep. */
-export const ALL_MENU_ACTIONS: readonly MenuAction[] = [
-  'new-session',
-  'import-session',
-  'export-session',
-  'open-settings',
-  'toggle-inspector',
-  'toggle-sessions',
-  'cycle-density',
-  'command-palette',
-  'keyboard-shortcuts',
-  'fullscreen',
-  'help-docs',
-  'about',
-];
 
 /**
  * Routes a native menu action to its handler. Returns true when a handler

@@ -1,0 +1,1191 @@
+INFO:     Started server process [90764]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:17931 (Press CTRL+C to quit)
+INFO:     127.0.0.1:33320 - "GET /v1/sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33332 - "GET /v1/providers/lm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33338 - "PUT /v1/providers/lm HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:02] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:02] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 17:47:02,998 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:03] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 17:47:03,203 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:03] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:05] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:06] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 17:47:06,567 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:06] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 17:47:06,940 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:06] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:33348 - "GET /v1/providers/lm/wait HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33436 - "POST /v1/workspaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:33448 - "POST /v1/sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33464 - "POST /v1/sessions/sess_12a21b1d9279/agent-blueprint HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33480 - "GET /v1/sessions/sess_12a21b1d9279/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33482 - "GET /v1/capabilities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33482 - "GET /v1/workspaces HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33482 - "GET /v1/sessions?workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33482 - "GET /v1/commands?workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33482 - "GET /v1/sessions/sess_12a21b1d9279/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33488 - "GET /v1/memory/stats?workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33490 - "GET /v1/sessions/sess_12a21b1d9279/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33498 - "GET /v1/commands?session_id=sess_12a21b1d9279&workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33516 - "GET /v1/sessions/sess_12a21b1d9279/context/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33506 - "GET /v1/agents?session_id=sess_12a21b1d9279&workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33526 - "GET /v1/sessions/sess_12a21b1d9279/messages?include_system=true&limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33532 - "GET /v1/providers/lm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33542 - "GET /v1/agents?workspace_id=ws_547bdd5b5e8b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33552 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33490 - "POST /v1/sessions/sess_12a21b1d9279/messages HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33564 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34648 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34658 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34662 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34668 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34684 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34696 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34702 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34716 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34728 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34742 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47798 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47804 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47808 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47816 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47822 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47832 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47840 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47854 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47856 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34402 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34408 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34414 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34418 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34434 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:37] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+INFO:     127.0.0.1:34448 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34456 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34458 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:40] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 17:47:40,329 - INFO - Processing request of type ListToolsRequest
+INFO:     127.0.0.1:34466 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:40] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 17:47:40,961 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 17:47:41] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:34476 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48944 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48958 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48962 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48974 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48980 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48994 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49006 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49020 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49024 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49034 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60278 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60284 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60288 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60292 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60300 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60304 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60308 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60324 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60330 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60338 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55984 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56008 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56020 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56024 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56030 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56044 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56052 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54556 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54572 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54588 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54602 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54612 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54624 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54636 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54652 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54660 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54676 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36052 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36060 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36076 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36078 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36092 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36102 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36116 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36118 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36132 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36140 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57288 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57298 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57306 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57316 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57330 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57332 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57346 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57354 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57370 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57374 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55360 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55372 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55374 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55386 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55390 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55398 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55414 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55422 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55436 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55452 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44544 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44548 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44550 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44560 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44574 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44588 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44596 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44600 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44602 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44604 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35148 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35152 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35168 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35174 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35188 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35200 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35206 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35210 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35216 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35220 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55556 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55562 - "GET /v1/permissions?session_id=sess_12a21b1d9279&status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55572 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55576 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55592 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55602 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55612 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55618 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55632 - "POST /v1/permissions/perm_9ba801d6caba HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:55644 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55660 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55668 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51316 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51324 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51332 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51336 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51348 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51356 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51360 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51374 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51376 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51392 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50974 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50976 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50986 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50994 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51010 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51026 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51036 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51046 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51062 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51076 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45340 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45352 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45362 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45370 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45374 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+2026-06-18 17:49:51,613 - INFO - Processing request of type CallToolRequest
+INFO:     127.0.0.1:45390 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45404 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45414 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45416 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45430 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38094 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38102 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38114 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38120 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38130 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38144 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38154 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38166 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38174 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38178 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46702 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46708 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46716 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46720 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46728 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46732 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46734 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46738 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46742 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46748 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43064 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43076 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43090 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43094 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43100 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43102 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43114 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43130 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43142 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43150 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46224 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46232 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46234 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46238 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46254 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46268 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46282 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46296 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46306 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46314 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43406 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43416 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43420 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43430 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43440 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43450 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43452 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43460 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43468 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43478 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50006 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50014 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50024 - "GET /v1/permissions?session_id=sess_12a21b1d9279&status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50026 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50030 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50032 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50044 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50062 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:50068 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50076 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47378 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47398 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47406 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47422 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47432 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47446 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47448 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47464 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47468 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46212 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46226 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46240 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46248 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46258 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46274 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46290 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46304 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46320 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35270 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35286 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35288 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35290 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35298 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35302 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35310 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35316 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35322 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35330 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60948 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60964 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60992 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32770 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32778 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32794 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32802 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32812 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32816 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58072 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58088 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58104 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58108 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58118 - "PUT /v1/policies HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58134 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58150 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58160 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:58172 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58174 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58190 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41546 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41560 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41566 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41580 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41590 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41598 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41612 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41618 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41634 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41638 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47350 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47356 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47372 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47386 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47388 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47404 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47416 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47426 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47432 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47440 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34212 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34216 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34222 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34224 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34232 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34244 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34252 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34264 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34272 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34284 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:34158 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34168 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34172 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34188 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34200 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34216 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34224 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34240 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34250 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34254 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52114 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52122 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52132 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52144 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52148 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52164 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /v1/permissions?session_id=sess_12a21b1d9279&status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52180 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52184 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52196 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52202 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52212 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43946 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43958 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43964 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43968 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43982 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44000 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:44002 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44016 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44028 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44346 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44362 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44366 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44374 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44390 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44396 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44400 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44402 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44404 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44412 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35222 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35226 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35230 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35232 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35240 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35244 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:35252 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35260 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35268 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35270 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55742 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55748 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55760 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55764 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55770 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55776 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55788 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55802 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55810 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55812 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52830 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52840 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52844 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52856 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52862 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52868 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52880 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52896 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:52898 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41166 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41172 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41184 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41196 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41200 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41210 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41218 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41228 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41244 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41256 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34942 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34958 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34974 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34984 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35004 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35010 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35018 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35028 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:35030 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60936 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60946 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60950 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60962 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60964 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60970 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60978 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60990 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42856 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42868 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42870 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42874 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42878 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42892 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42894 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42910 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42926 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42928 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49922 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49938 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49944 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49948 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49964 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49968 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49978 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49984 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:50006 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47786 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47794 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47808 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47820 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47834 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47844 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47860 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47870 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47884 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47898 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45798 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45810 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45816 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45820 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45834 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45836 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45854 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45866 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57830 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:57844 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57848 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57850 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57866 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57880 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57906 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49040 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49052 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49056 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49062 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49068 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49078 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49088 - "GET /v1/permissions?session_id=sess_12a21b1d9279&status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49100 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49102 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49104 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49116 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49128 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48612 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48620 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48636 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48648 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48658 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48660 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:48672 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48688 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48698 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48710 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45672 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45676 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45682 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45688 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45698 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45714 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45724 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45732 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45746 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45758 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35096 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35102 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35114 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35130 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35144 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35146 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35162 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:35178 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35194 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35200 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44262 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44264 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44274 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44286 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44292 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44298 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44310 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44324 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44326 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44328 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35542 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35548 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+WARNING | ⚑ LENIENT-ADAPTER RECOVERY coerced constructor-repr -> JSON for field(s) ['workflow_state'] (strict parse failed: Failed to parse field workflow_state with value {
+  "workflow_state": {
+    "profile": {
+      "path": "/home/jcernuda/t)
+INFO:     127.0.0.1:35560 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35566 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35570 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35584 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35590 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35606 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35620 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35630 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52822 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52834 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52838 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:52852 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52854 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52870 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52884 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52892 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52894 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52902 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52910 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50274 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50278 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50292 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50296 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50298 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50304 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50314 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50328 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50332 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50334 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54680 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54682 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54684 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54694 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54700 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54704 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:54720 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54734 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54750 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54762 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44354 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44366 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44368 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44376 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44382 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44392 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44398 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44408 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44418 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44430 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38860 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38874 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38886 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38898 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38910 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38914 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38920 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38926 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56354 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56362 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56366 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56370 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:56384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56394 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56408 - "GET /v1/sessions/sess_12a21b1d9279/messages HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56416 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+2026-06-18 17:57:04,516 - INFO - Processing request of type ListToolsRequest
+INFO:     127.0.0.1:56418 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+2026-06-18 17:57:04,565 - INFO - Processing request of type CallToolRequest
+2026-06-18 17:57:04,600 - INFO - Creating timeseries plot from /home/jcernuda/tui-audit-earthscope-san-diego/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:56422 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56434 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58766 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58772 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58788 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58802 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58816 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58836 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58844 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58858 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58872 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60642 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60650 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60658 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60670 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60680 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60696 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60698 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60712 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60720 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60728 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49982 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49998 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50014 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50028 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50032 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50034 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50044 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50056 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50064 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33966 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33974 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33980 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33984 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33988 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33996 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34012 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34018 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34032 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34044 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37666 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37680 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37684 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37694 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37698 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37702 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37718 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37726 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37732 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37738 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43820 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43838 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43842 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43852 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43856 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43868 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43870 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43876 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40284 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40292 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40296 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40312 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40324 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40338 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40340 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40348 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40364 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40376 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49348 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49364 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49370 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49388 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49404 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49406 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49412 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49422 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49432 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39308 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39320 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39326 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39338 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39342 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39346 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39352 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39362 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39364 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44478 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44482 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44498 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44504 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44506 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44516 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44528 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44532 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47516 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47532 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47540 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47556 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47566 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47574 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47590 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47604 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47612 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43758 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43762 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43774 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43788 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43794 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43804 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43808 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43816 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43830 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43832 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60218 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60220 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60228 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60230 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60238 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60242 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60246 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60248 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60262 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60276 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54808 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54822 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54826 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54840 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54862 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54872 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54884 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54890 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48820 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48828 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48844 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48862 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48868 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48876 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48886 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53344 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53360 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53376 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53386 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53400 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53414 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53420 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53430 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53440 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37354 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37360 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37368 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37390 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37406 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37416 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37428 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37442 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36846 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36860 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36868 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36872 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36874 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36892 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36898 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36912 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36928 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52410 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52412 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52414 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52424 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52430 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52436 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52452 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52458 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52462 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52476 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45658 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45660 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45668 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45676 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45690 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45702 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45716 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45728 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45738 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45740 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37338 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37350 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37356 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37364 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37366 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37380 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37384 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37388 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37390 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37394 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40654 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40670 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40682 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40686 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40702 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40710 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40712 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40714 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40730 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40744 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51058 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51062 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51072 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51074 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51090 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51104 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51108 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51116 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51130 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51144 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39824 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39840 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39856 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39858 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39870 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39878 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39882 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39898 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39910 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39912 - "GET /v1/sessions/sess_12a21b1d9279 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+socket.send() raised exception.
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [90764]

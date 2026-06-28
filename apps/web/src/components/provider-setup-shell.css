@@ -1,0 +1,51 @@
+/* Provider/model setup for first-run onboarding (task B5). Stays within the
+   existing visual tokens; this is legibility work, not a visual refresh. */
+
+.psetup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.psetup__title {
+  margin: 0 0 6px;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--color-heading);
+}
+
+.psetup__lede {
+  margin: 0 0 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.psetup__loading,
+.psetup__empty {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: 16px 0;
+}
+
+.psetup__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.psetup__error {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}

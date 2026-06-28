@@ -1,0 +1,23 @@
+.dp__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dp-iconbtn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  color: var(--color-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.dp-iconbtn:hover {
+  color: var(--color-heading);
+  border-color: var(--color-accent-cyan);
+}

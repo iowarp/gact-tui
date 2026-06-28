@@ -34,23 +34,23 @@ func makeDeleteConfirmApp(t *testing.T) (*App, *atomic.Int32) {
 	a.stage = StageReady
 	a.width, a.height = 100, 30
 	a.focus = FocusSidebar
-	a.sessions = []gact.Session{
+	a.session.sessions = []gact.Session{
 		{ID: "s1", Title: "first"},
 		{ID: "s2", Title: "second"},
 	}
-	a.selected = 0
-	a.wsID = "ws_a"
+	a.session.selected = 0
+	a.session.wsID = "ws_a"
 	return a, &deletes
 }
 
 func TestDeleteConfirm_FirstXArmsAndShowsHint(t *testing.T) {
 	a, deletes := makeDeleteConfirmApp(t)
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	if cmd != nil {
 		t.Error("first x should not dispatch a delete cmd")
 	}
-	if a.pendingDeleteSessionID != "s1" {
-		t.Errorf("pendingDeleteSessionID = %q, want s1", a.pendingDeleteSessionID)
+	if a.sidebar.pendingDeleteSessionID != "s1" {
+		t.Errorf("pendingDeleteSessionID = %q, want s1", a.sidebar.pendingDeleteSessionID)
 	}
 	if !strings.Contains(a.transientHint, "press x again") {
 		t.Errorf("hint = %q, want confirm prompt", a.transientHint)
@@ -63,14 +63,14 @@ func TestDeleteConfirm_FirstXArmsAndShowsHint(t *testing.T) {
 func TestDeleteConfirm_SecondXCommits(t *testing.T) {
 	a, deletes := makeDeleteConfirmApp(t)
 	// Arm.
-	a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	// Commit.
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	if cmd == nil {
 		t.Fatal("second x should dispatch delete cmd")
 	}
-	if a.pendingDeleteSessionID != "" {
-		t.Errorf("pendingDeleteSessionID = %q, want cleared", a.pendingDeleteSessionID)
+	if a.sidebar.pendingDeleteSessionID != "" {
+		t.Errorf("pendingDeleteSessionID = %q, want cleared", a.sidebar.pendingDeleteSessionID)
 	}
 	// Actually run the cmd so the HTTP request fires against the spy.
 	msg := cmd()
@@ -83,13 +83,13 @@ func TestDeleteConfirm_SecondXCommits(t *testing.T) {
 func TestDeleteConfirm_OtherKeyCancels(t *testing.T) {
 	a, deletes := makeDeleteConfirmApp(t)
 	// Arm via sidebar.
-	a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	a.sidebar.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	// Press a non-x key through the top-level handleKey — that's where
 	// the "any other key cancels" rule lives.
 	a.handleKey(tea.KeyPressMsg{Code: tea.KeyDown})
-	if a.pendingDeleteSessionID != "" {
+	if a.sidebar.pendingDeleteSessionID != "" {
 		t.Errorf("pendingDeleteSessionID should be cleared by non-x key, got %q",
-			a.pendingDeleteSessionID)
+			a.sidebar.pendingDeleteSessionID)
 	}
 	if deletes.Load() != 0 {
 		t.Errorf("no DELETE should fire after cancel, got %d", deletes.Load())
@@ -98,15 +98,15 @@ func TestDeleteConfirm_OtherKeyCancels(t *testing.T) {
 
 func TestDeleteConfirm_SelectSessionClearsArm(t *testing.T) {
 	a, _ := makeDeleteConfirmApp(t)
-	a.pendingDeleteSessionID = "s1"
+	a.sidebar.pendingDeleteSessionID = "s1"
 
 	// Navigating to a different session via selectSession should wipe
 	// the arm so a subsequent x on the new session isn't mis-read as
 	// a confirm of the OLD session's arm.
-	_ = a.selectSession(1)
-	if a.pendingDeleteSessionID != "" {
+	_ = a.session.selectIndex(1)
+	if a.sidebar.pendingDeleteSessionID != "" {
 		t.Errorf("selectSession should clear armed delete, got %q",
-			a.pendingDeleteSessionID)
+			a.sidebar.pendingDeleteSessionID)
 	}
 }
 
@@ -116,15 +116,15 @@ func TestDeleteConfirm_XOnDifferentSessionRearmsNotCommit(t *testing.T) {
 	// cleared by selectSession, but double-check the branch logic
 	// still works if the state desyncs for any reason).
 	a, deletes := makeDeleteConfirmApp(t)
-	a.pendingDeleteSessionID = "s1"
-	a.selected = 1 // s2 is now selected
+	a.sidebar.pendingDeleteSessionID = "s1"
+	a.session.selected = 1 // s2 is now selected
 
-	_, cmd := a.handleSidebarKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	_, cmd := a.sidebar.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	if cmd != nil {
 		t.Error("x on a different session than the armed one must arm, not commit")
 	}
-	if a.pendingDeleteSessionID != "s2" {
-		t.Errorf("pendingDeleteSessionID = %q, want s2", a.pendingDeleteSessionID)
+	if a.sidebar.pendingDeleteSessionID != "s2" {
+		t.Errorf("pendingDeleteSessionID = %q, want s2", a.sidebar.pendingDeleteSessionID)
 	}
 	if deletes.Load() != 0 {
 		t.Errorf("no DELETE should fire, got %d", deletes.Load())
@@ -133,12 +133,12 @@ func TestDeleteConfirm_XOnDifferentSessionRearmsNotCommit(t *testing.T) {
 
 func TestDeleteRefresh_SelectedDeletedPicksSessionBelow(t *testing.T) {
 	a, _ := makeDeleteConfirmApp(t)
-	a.sessions = []gact.Session{
+	a.session.sessions = []gact.Session{
 		{ID: "s1", Title: "first"},
 		{ID: "s2", Title: "second"},
 		{ID: "s3", Title: "third"},
 	}
-	a.selected = 1
+	a.session.selected = 1
 
 	model, _ := a.Update(sessionsRefreshedMsg{
 		sessions: []gact.Session{
@@ -148,22 +148,22 @@ func TestDeleteRefresh_SelectedDeletedPicksSessionBelow(t *testing.T) {
 	})
 	a = model.(*App)
 
-	if a.selected != 1 {
-		t.Fatalf("selected = %d, want 1", a.selected)
+	if a.session.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.session.selected)
 	}
-	if got := a.sessions[a.selected].ID; got != "s3" {
+	if got := a.session.sessions[a.session.selected].ID; got != "s3" {
 		t.Fatalf("selected session = %q, want s3 below deleted row", got)
 	}
 }
 
 func TestDeleteRefresh_SelectedDeletedLastPicksPrevious(t *testing.T) {
 	a, _ := makeDeleteConfirmApp(t)
-	a.sessions = []gact.Session{
+	a.session.sessions = []gact.Session{
 		{ID: "s1", Title: "first"},
 		{ID: "s2", Title: "second"},
 		{ID: "s3", Title: "third"},
 	}
-	a.selected = 2
+	a.session.selected = 2
 
 	model, _ := a.Update(sessionsRefreshedMsg{
 		sessions: []gact.Session{
@@ -173,22 +173,22 @@ func TestDeleteRefresh_SelectedDeletedLastPicksPrevious(t *testing.T) {
 	})
 	a = model.(*App)
 
-	if a.selected != 1 {
-		t.Fatalf("selected = %d, want 1", a.selected)
+	if a.session.selected != 1 {
+		t.Fatalf("selected = %d, want 1", a.session.selected)
 	}
-	if got := a.sessions[a.selected].ID; got != "s2" {
+	if got := a.session.sessions[a.session.selected].ID; got != "s2" {
 		t.Fatalf("selected session = %q, want s2 previous row", got)
 	}
 }
 
 func TestSessionsRefreshUpdatesCurrentStatusForSelectedSession(t *testing.T) {
 	a, _ := makeDeleteConfirmApp(t)
-	a.sessions = []gact.Session{
+	a.session.sessions = []gact.Session{
 		{ID: "s1", Title: "first", Status: gact.StatusRunning},
 		{ID: "s2", Title: "second", Status: gact.StatusIdle},
 	}
-	a.selected = 0
-	a.currentStatus = gact.StatusRunning
+	a.session.selected = 0
+	a.session.currentStatus = gact.StatusRunning
 
 	model, _ := a.Update(sessionsRefreshedMsg{
 		sessions: []gact.Session{
@@ -198,25 +198,25 @@ func TestSessionsRefreshUpdatesCurrentStatusForSelectedSession(t *testing.T) {
 	})
 	a = model.(*App)
 
-	if a.selected != 0 {
-		t.Fatalf("selected = %d, want 0", a.selected)
+	if a.session.selected != 0 {
+		t.Fatalf("selected = %d, want 0", a.session.selected)
 	}
-	if a.currentStatus != gact.StatusIdle {
-		t.Fatalf("currentStatus = %q, want idle after refresh", a.currentStatus)
+	if a.session.currentStatus != gact.StatusIdle {
+		t.Fatalf("currentStatus = %q, want idle after refresh", a.session.currentStatus)
 	}
 }
 
 func TestSessionsRefreshClearsCurrentStatusWhenListEmpty(t *testing.T) {
 	a, _ := makeDeleteConfirmApp(t)
-	a.currentStatus = gact.StatusRunning
+	a.session.currentStatus = gact.StatusRunning
 
 	model, _ := a.Update(sessionsRefreshedMsg{})
 	a = model.(*App)
 
-	if a.selected != -1 {
-		t.Fatalf("selected = %d, want -1", a.selected)
+	if a.session.selected != -1 {
+		t.Fatalf("selected = %d, want -1", a.session.selected)
 	}
-	if a.currentStatus != "" {
-		t.Fatalf("currentStatus = %q, want empty", a.currentStatus)
+	if a.session.currentStatus != "" {
+		t.Fatalf("currentStatus = %q, want empty", a.session.currentStatus)
 	}
 }

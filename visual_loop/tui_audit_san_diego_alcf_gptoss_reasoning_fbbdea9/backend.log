@@ -1,0 +1,671 @@
+INFO:     Started server process [13202]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:17932 (Press CTRL+C to quit)
+INFO:     127.0.0.1:35060 - "GET /v1/sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35068 - "GET /v1/providers/lm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35070 - "PUT /v1/providers/lm HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:41] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:42] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 23:25:42,397 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:42] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 23:25:42,601 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:42] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:45] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:45] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 23:25:45,977 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:46] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 23:25:46,319 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:46] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:35076 - "GET /v1/providers/lm/wait HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39892 - "POST /v1/workspaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:39908 - "PUT /v1/policies HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39916 - "GET /v1/agent-blueprints?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39932 - "POST /v1/agent-blueprints/install HTTP/1.1" 201 Created
+INFO:     127.0.0.1:39942 - "GET /v1/agent-blueprints?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:48] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:49] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 23:25:49,347 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:49] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 23:25:49,688 - INFO - Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:49] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:39944 - "GET /v1/mcp/handshake?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39960 - "POST /v1/sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39970 - "POST /v1/sessions/sess_8c276f8c099b/agent-blueprint HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39984 - "GET /v1/sessions/sess_8c276f8c099b/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39996 - "GET /v1/capabilities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39996 - "GET /v1/workspaces HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39996 - "GET /v1/sessions?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39996 - "GET /v1/commands?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39996 - "GET /v1/sessions/sess_8c276f8c099b/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59258 - "GET /v1/providers/lm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59260 - "GET /v1/memory/stats?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59262 - "GET /v1/sessions/sess_8c276f8c099b/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59288 - "GET /v1/agents?session_id=sess_8c276f8c099b&workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59292 - "GET /v1/sessions/sess_8c276f8c099b/messages?include_system=true&limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59296 - "GET /v1/agents?workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59308 - "GET /v1/sessions/sess_8c276f8c099b/context/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59322 - "GET /v1/commands?session_id=sess_8c276f8c099b&workspace_id=ws_8d1dc828f5e3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59338 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59260 - "POST /v1/sessions/sess_8c276f8c099b/messages HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59354 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59358 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59368 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59374 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59390 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59404 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      ndp, 3.0.2                                │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:58] INFO     Starting MCP server 'ndp' with     transport.py:183
+                             transport 'stdio'                                  
+INFO:     127.0.0.1:59414 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      geo, 3.4.2                                  │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:59] INFO     Starting MCP server 'geo' with     transport.py:210
+                             transport 'stdio'                                  
+2026-06-18 23:25:59,373 - INFO - Processing request of type ListToolsRequest
+INFO:     127.0.0.1:59416 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.4.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                  🖥  Server:      pandas, 3.4.2                               │
+│                  🚀 Deploy free: https://horizon.prefect.io                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:59] INFO     Starting MCP server 'pandas' with  transport.py:210
+                             transport 'stdio'                                  
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │
+│                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │
+│                                                                              │
+│                                                                              │
+│                                FastMCP 3.0.2                                 │
+│                            https://gofastmcp.com                             │
+│                                                                              │
+│                    🖥  Server:      plot, 3.0.2                               │
+│                    🚀 Deploy free: https://fastmcp.cloud                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                          🎉 Update available: 3.4.2                          │
+│                      Run: pip install --upgrade fastmcp                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[06/18/26 23:25:59] INFO     Starting MCP server 'plot' with    transport.py:183
+                             transport 'stdio'                                  
+2026-06-18 23:25:59,689 - INFO - Processing request of type ListToolsRequest
+INFO:     127.0.0.1:59430 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33428 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+2026-06-18 23:26:01,778 - INFO - Processing request of type CallToolRequest
+2026-06-18 23:26:02,284 - INFO - HTTP Request: GET https://nominatim.openstreetmap.org/search?format=json&q=San+Diego&limit=1&addressdetails=0&countrycodes=us "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:33436 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33448 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33454 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33462 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33470 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33480 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33492 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33504 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33516 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57592 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57600 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57616 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57630 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57634 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57638 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57648 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57656 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57666 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48568 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48570 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48584 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48588 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48596 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48608 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48618 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48620 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48626 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48638 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60826 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60840 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60854 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60864 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60872 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60874 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60892 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60898 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60900 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38042 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38044 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38060 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38068 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38082 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38098 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38104 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38106 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38118 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38122 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33918 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33922 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33928 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33944 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33954 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+2026-06-18 23:27:02,473 - INFO - Processing request of type CallToolRequest
+INFO:     127.0.0.1:33956 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33972 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33982 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33990 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36350 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36364 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36372 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36388 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36390 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36398 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36408 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36418 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36432 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36446 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58060 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58068 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58074 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58078 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58080 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58082 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58096 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58112 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58120 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58132 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35460 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35468 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35478 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35492 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35500 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35516 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35526 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35534 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35536 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35542 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58808 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58812 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58824 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58828 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58838 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58848 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58856 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58866 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58882 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58894 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55580 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55584 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55598 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55610 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55626 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55628 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55640 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55652 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55666 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55674 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /tmp/gact-tui-audit-earthscope-san-diego-7edcd46251d2/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:32852 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32860 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32862 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32866 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32874 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32890 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32906 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32914 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32918 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32922 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54248 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54252 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54272 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54282 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54284 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54288 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54294 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54296 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54312 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55976 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55980 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55996 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55998 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56022 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56024 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56034 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56036 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56044 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52826 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52828 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52834 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52848 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52852 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52860 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52876 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52892 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52906 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52920 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57510 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57526 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57540 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57548 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57558 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+INFO:pandas_mcp.server:Profiling CSV file: /tmp/gact-tui-audit-earthscope-san-diego-7edcd46251d2/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:57568 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57584 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57600 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57606 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+2026-06-18 23:28:54,142 - INFO - Processing request of type CallToolRequest
+2026-06-18 23:28:54,145 - INFO - Creating timeseries plot from /tmp/gact-tui-audit-earthscope-san-diego-7edcd46251d2/P475.CI.LY_.20.csv
+INFO:     127.0.0.1:57616 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39542 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39544 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39550 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39556 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39564 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39574 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39590 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39602 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39604 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39610 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39626 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39708 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39718 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39722 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39734 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39736 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39750 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39766 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39776 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39778 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39780 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48594 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48598 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48614 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48616 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48624 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48638 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48644 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48660 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48672 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48686 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56840 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56854 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56860 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56864 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56870 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56872 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56876 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56888 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56894 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56906 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35926 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35942 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35946 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35962 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35974 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35978 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35980 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35986 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36002 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36008 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43068 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43072 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43080 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43094 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43104 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43116 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43130 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43146 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43162 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43172 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58476 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58488 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58498 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58512 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58528 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58540 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58556 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58562 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58570 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58578 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49354 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49366 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49378 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49386 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49392 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49406 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49408 - "GET /v1/providers/lm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49418 - "GET /v1/sessions/sess_8c276f8c099b HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49422 - "GET /v1/sessions/sess_8c276f8c099b/messages HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49432 - "GET /v1/sessions/sess_8c276f8c099b/agent-blueprint HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13202]

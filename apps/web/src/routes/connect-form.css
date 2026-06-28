@@ -1,0 +1,43 @@
+.connect__card {
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: var(--stroke-hairline);
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(8px);
+  text-align: left;
+  box-shadow: var(--shadow-overlay);
+}
+
+.connect__hint-inline {
+  color: var(--color-muted);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.connect__advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  margin: 2px 0 4px;
+  cursor: pointer;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.connect__advanced-toggle:hover {
+  color: var(--color-heading);
+}
+
+.connect__advanced-chev {
+  transition: transform var(--dur-fast);
+}
+
+.connect__advanced-chev.is-open {
+  transform: rotate(90deg);
+}

@@ -31,8 +31,8 @@ func TestDerivedTitle_TakesFirstLineAndTruncates(t *testing.T) {
 
 func TestAutoRenameTitle_DefaultTitleTriggersRename(t *testing.T) {
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1", Title: "new session 12:34:56"}}
-	a.messages = []gact.Message{{Role: gact.RoleUser, ID: "m1"}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "new session 12:34:56"}}
+	a.conversation.messages = []gact.Message{{Role: gact.RoleUser, ID: "m1"}}
 
 	got, ok := autoRenameTitle(a, "s1", "refactor the auth middleware")
 	if !ok {
@@ -47,7 +47,7 @@ func TestAutoRenameTitle_EmptyTitleAlsoTriggers(t *testing.T) {
 	// Some backends don't set a default title at all. Empty should
 	// still trigger the rename rather than get skipped.
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1", Title: ""}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: ""}}
 	_, ok := autoRenameTitle(a, "s1", "hello")
 	if !ok {
 		t.Error("empty title should trigger rename")
@@ -56,7 +56,7 @@ func TestAutoRenameTitle_EmptyTitleAlsoTriggers(t *testing.T) {
 
 func TestAutoRenameTitle_UserAlreadyRenamedSkips(t *testing.T) {
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1", Title: "my-chosen-title"}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "my-chosen-title"}}
 	_, ok := autoRenameTitle(a, "s1", "new prompt")
 	if ok {
 		t.Error("should not overwrite a user-set title")
@@ -65,8 +65,8 @@ func TestAutoRenameTitle_UserAlreadyRenamedSkips(t *testing.T) {
 
 func TestAutoRenameTitle_SecondUserMessageSkips(t *testing.T) {
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
-	a.messages = []gact.Message{
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
+	a.conversation.messages = []gact.Message{
 		{Role: gact.RoleUser, ID: "m1"},
 		{Role: gact.RoleAssistant, ID: "m2"},
 		{Role: gact.RoleUser, ID: "m3"}, // second user message
@@ -87,7 +87,7 @@ func TestAutoRenameTitle_UnknownSessionSkips(t *testing.T) {
 
 func TestAutoRenameTitle_EmptyTextSkips(t *testing.T) {
 	a := New("http://unused")
-	a.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
 	_, ok := autoRenameTitle(a, "s1", "")
 	if ok {
 		t.Error("empty text should not trigger rename")
@@ -135,12 +135,12 @@ func TestPatchSessionTitleCmd_SendsPATCHAndMirrorsIntoSession(t *testing.T) {
 		t.Errorf("PATCH body title = %q, want the same", gotTitle)
 	}
 
-	// Feed the result through Update and verify a.sessions was updated.
+	// Feed the result through Update and verify a.session.sessions was updated.
 	a := New(srv.URL)
-	a.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
 	_, _ = a.Update(renamed)
-	if a.sessions[0].Title != "refactor the auth middleware" {
-		t.Errorf("a.sessions[0].Title = %q after Update, want new title", a.sessions[0].Title)
+	if a.session.sessions[0].Title != "refactor the auth middleware" {
+		t.Errorf("a.session.sessions[0].Title = %q after Update, want new title", a.session.sessions[0].Title)
 	}
 }
 
@@ -159,10 +159,10 @@ func TestPatchSessionTitleCmd_SwallowsErrorSilently(t *testing.T) {
 
 	// Feed through Update — should NOT modify the session title.
 	a := New(srv.URL)
-	a.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "new session x"}}
 	_, _ = a.Update(renamed)
-	if a.sessions[0].Title != "new session x" {
-		t.Errorf("title mutated on rename failure: %q", a.sessions[0].Title)
+	if a.session.sessions[0].Title != "new session x" {
+		t.Errorf("title mutated on rename failure: %q", a.session.sessions[0].Title)
 	}
 	if a.transientHint != "" {
 		t.Errorf("auto-rename failure should stay silent, hint=%q", a.transientHint)

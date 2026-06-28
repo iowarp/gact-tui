@@ -16,8 +16,8 @@ func TestConnectRetry_ConnectStageEmitsBackoffTick(t *testing.T) {
 	if a.stage != StageError {
 		t.Errorf("stage = %v, want StageError", a.stage)
 	}
-	if a.connectRetryAttempts != 1 {
-		t.Errorf("attempts = %d, want 1", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 1 {
+		t.Errorf("attempts = %d, want 1", a.connection.connectRetryAttempts)
 	}
 	if cmd == nil {
 		t.Fatal("expected a tea.Tick cmd; got nil")
@@ -33,8 +33,8 @@ func TestConnectRetry_NonConnectStageDoesNotRetry(t *testing.T) {
 	if cmd != nil {
 		t.Errorf("non-connect stage should not schedule a retry; got cmd=%v", cmd)
 	}
-	if a.connectRetryAttempts != 0 {
-		t.Errorf("attempts should stay 0, got %d", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 0 {
+		t.Errorf("attempts should stay 0, got %d", a.connection.connectRetryAttempts)
 	}
 }
 
@@ -63,15 +63,15 @@ func TestConnectRetry_RetryConnectMsgRunsConnectFromStageError(t *testing.T) {
 func TestConnectRetry_CtrlRFromStageErrorRetriesImmediately(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageError
-	a.connectRetryAttempts = 5
+	a.connection.connectRetryAttempts = 5
 
 	model, cmd := a.handleKey(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
 	a = model.(*App)
 	if a.stage != StageConnecting {
 		t.Errorf("Ctrl+R should flip to StageConnecting; got %v", a.stage)
 	}
-	if a.connectRetryAttempts != 0 {
-		t.Errorf("Ctrl+R should reset attempts; got %d", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 0 {
+		t.Errorf("Ctrl+R should reset attempts; got %d", a.connection.connectRetryAttempts)
 	}
 	if cmd == nil {
 		t.Error("Ctrl+R should dispatch a connect cmd")
@@ -82,7 +82,7 @@ func TestConnectRetry_ErrorButtonsUseSemanticHitTargets(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageError
 	a.stageError = "dial tcp: connection refused"
-	a.connectRetryAttempts = 5
+	a.connection.connectRetryAttempts = 5
 	a.MouseEnabled = true
 	a.width, a.height = 100, 30
 
@@ -100,8 +100,8 @@ func TestConnectRetry_ErrorButtonsUseSemanticHitTargets(t *testing.T) {
 	if a.stage != StageConnecting {
 		t.Fatalf("stage after retry click = %v, want connecting", a.stage)
 	}
-	if a.connectRetryAttempts != 0 {
-		t.Fatalf("retry click attempts = %d, want reset to 0", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 0 {
+		t.Fatalf("retry click attempts = %d, want reset to 0", a.connection.connectRetryAttempts)
 	}
 	if cmd == nil {
 		t.Fatal("retry click should dispatch connect command")
@@ -147,7 +147,7 @@ func TestConnectRetry_ErrorButtonsAlignWithSharedHeader(t *testing.T) {
 func TestConnectRetry_ConnectingScreenUsesSemanticRetryTarget(t *testing.T) {
 	a := New("http://unused")
 	a.stage = StageConnecting
-	a.connectRetryAttempts = 3
+	a.connection.connectRetryAttempts = 3
 	a.MouseEnabled = true
 	a.width, a.height = 100, 30
 
@@ -165,8 +165,8 @@ func TestConnectRetry_ConnectingScreenUsesSemanticRetryTarget(t *testing.T) {
 	if a.stage != StageConnecting {
 		t.Fatalf("stage after connecting retry click = %v, want connecting", a.stage)
 	}
-	if a.connectRetryAttempts != 0 {
-		t.Fatalf("connecting retry attempts = %d, want reset to 0", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 0 {
+		t.Fatalf("connecting retry attempts = %d, want reset to 0", a.connection.connectRetryAttempts)
 	}
 	if cmd == nil {
 		t.Fatal("connecting retry click should dispatch connect command")
@@ -179,13 +179,13 @@ func TestConnectRetry_AttemptsResetOnSuccessfulConnect(t *testing.T) {
 	}))
 	defer srv.Close()
 	a := New(srv.URL)
-	a.connectRetryAttempts = 7
+	a.connection.connectRetryAttempts = 7
 
 	// Synthesize a successful connect — the connectedMsg handler should
 	// reset the counter, even though we didn't go through connectCmd.
 	_, _ = a.Update(connectedMsg{})
-	if a.connectRetryAttempts != 0 {
-		t.Errorf("attempts after successful connect = %d, want 0", a.connectRetryAttempts)
+	if a.connection.connectRetryAttempts != 0 {
+		t.Errorf("attempts after successful connect = %d, want 0", a.connection.connectRetryAttempts)
 	}
 	if a.stage != StageReady {
 		t.Errorf("stage = %v, want StageReady", a.stage)

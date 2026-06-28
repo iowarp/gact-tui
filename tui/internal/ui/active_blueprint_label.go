@@ -1,10 +1,62 @@
 package ui
 
+// active_blueprint_label.go derives and formats the active agent-blueprint indicator label for the session.
+
 import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
+
+func (c *agentComponent) activeAgentBlueprintID() string {
+	if c.app.session.selected < 0 || c.app.session.selected >= len(c.app.session.sessions) {
+		return ""
+	}
+	meta := mapValue(c.app.session.sessions[c.app.session.selected].Metadata)
+	return firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_id"]),
+		stringValue(meta["agent_blueprint_id"]),
+	)
+}
+
+func (c *agentComponent) activeAgentBlueprintScope() string {
+	if c.activeAgentBlueprintID() == "" || c.app.session.selected < 0 || c.app.session.selected >= len(c.app.session.sessions) {
+		return ""
+	}
+	meta := mapValue(c.app.session.sessions[c.app.session.selected].Metadata)
+	return firstNonEmpty(
+		stringValue(meta["active_agent_blueprint_scope"]),
+		stringValue(meta["agent_blueprint_scope"]),
+		"session",
+	)
+}
+
+func (c *sessionComponent) applyAgentBlueprintState(state gact.SessionAgentBlueprintState) {
+	sessionID := strings.TrimSpace(state.SessionID)
+	if sessionID == "" && c.selected >= 0 && c.selected < len(c.sessions) {
+		sessionID = c.sessions[c.selected].ID
+	}
+	idx := c.indexByID(sessionID)
+	if idx < 0 {
+		return
+	}
+	if c.sessions[idx].Metadata == nil {
+		c.sessions[idx].Metadata = map[string]any{}
+	}
+	if state.ActiveAgentBlueprintID != "" {
+		c.sessions[idx].Metadata["active_agent_blueprint_id"] = state.ActiveAgentBlueprintID
+	}
+	if state.ActiveAgentBlueprintPath != "" {
+		c.sessions[idx].Metadata["active_agent_blueprint_path"] = state.ActiveAgentBlueprintPath
+	}
+	if state.WorkspaceID != "" {
+		c.sessions[idx].Metadata["active_agent_blueprint_workspace_id"] = state.WorkspaceID
+	}
+	c.sessions[idx].Metadata["active_agent_blueprint_scope"] = "session"
+}
 
 func activeAgentBlueprintIndicator(id, scope string, budget int) string {
 	id = strings.TrimSpace(id)
@@ -24,7 +76,7 @@ func activeAgentBlueprintIndicator(id, scope string, budget int) string {
 	}
 	labelBudget := budget - lipgloss.Width("◆ ")
 	if labelBudget < 1 {
-		return truncate("◆ "+id, budget)
+		return textutil.Truncate("◆ "+id, budget)
 	}
 	return "◆ " + compactAgentBlueprintID(id, labelBudget)
 }
@@ -54,7 +106,7 @@ func compactAgentBlueprintID(id string, budget int) string {
 			return best
 		}
 	}
-	return truncate(id, budget)
+	return textutil.Truncate(id, budget)
 }
 
 func agentBlueprintIDTokens(id string) []string {

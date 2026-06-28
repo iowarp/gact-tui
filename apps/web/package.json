@@ -11,6 +11,7 @@
     "build:clio": "node scripts/with-brand.mjs clio build",
     "build:gact": "node scripts/with-brand.mjs gact build",
     "preview": "vite preview --port 4173",
+    "demo:earthscope-render": "node scripts/earthscope-render-demo.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -19,6 +20,8 @@
   "dependencies": {
     "@clio/core": "workspace:*",
     "@tauri-apps/api": "2.1.1",
+    "@tauri-apps/plugin-process": "2.3.1",
+    "@tauri-apps/plugin-updater": "2.10.1",
     "highlight.js": "^11.11.1",
     "solid-js": "1.9.12"
   },

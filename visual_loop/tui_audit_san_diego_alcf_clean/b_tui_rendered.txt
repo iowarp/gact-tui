@@ -1,0 +1,41 @@
+CONVERSATION  ⠇ running                                                                   
+                                                                                          
+    • data pending                                                                        
+    • delegation failed                                                                   
+    • geospatial resolved                                                                 
+↳ data returned evidence to main  ·  completed · returned · 5702ms                        
+    CLIO typed workflow state state:                                                      
+                                                                                          
+    • data pending                                                                        
+    • delegation failed                                                                   
+    • geospatial resolved                                                                 
+↳ main handed work to synthesis  ·  running · delegating                                  
+↳ synthesis returned evidence to main  ·  completed · returned · 7766ms                   
+    ## Region                                                                             
+                                                                                          
+    San Diego, CA, USA – resolved to a 300 km radius circle centered at 32.7157 N,        
+    ‑117.1611 W (high confidence, model geographic prior). An expanded search             
+    radius of 300 km was applied as requested.                                            
+                                                                                          
+    ## Freshness, coverage & provenance limitations                                       
+                                                                                          
+    The EarthScope GNSS dataset discovery tool was unavailable, so the nearest            
+    GNSS station could not be located or staged for this region. Consequently no          
+    time‑series CSV, profile, or visualization is available                               
+↳ main handed work to data  ·  running · delegating                                       
+↳ data handed work to ndp_dataset_discovery  ·  running · delegating                      
+✗ ndp_dataset_discovery failed while working for data  ·  failed · delegate.failed · 115ms
+    _UnsupportedSessionAgent state:                                                       
+                                                                                          
+    • acquisition blocked                                                                 
+    • data pending                                                                        
+    • delegation failed                                                                   
+    • geospatial resolved                                                                 
+↳ data returned evidence to main  ·  completed · returned · 5294ms                        
+    CLIO typed workflow state state:                                                      
+                                                                                          
+    • acquisition blocked                                                                 
+    • data pending                                                                        
+    • delegation failed                                                                   
+    • geospatial resolved                                                                 
+                                                                                          

@@ -3,6 +3,7 @@ import {
   applyTextAppend,
   applyTextAppendAtIndex,
   appendPart,
+  mergeMessages,
   upsertMessage,
 } from '../src/store/transcript.js';
 import type { Message } from '../src/wire/types.js';
@@ -64,5 +65,98 @@ describe('transcript store', () => {
 
     const inserted = upsertMessage([baseMsg], { ...baseMsg, id: 'm2' });
     expect(inserted).toHaveLength(2);
+  });
+});
+
+describe('mergeMessages (reconcile race)', () => {
+  it('preserves an in-flight text-append that raced a stale reconcile', () => {
+    // Local feed got a `message.part.delta` (Hello, world) while the
+    // `/v1/messages` reconcile fetch was in flight; the snapshot is stale.
+    const local: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'Hello, world' }] },
+    ];
+    const reconciled: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'Hello' }] },
+    ];
+    const out = mergeMessages(local, reconciled);
+    // The longer (newer) local text wins, not the stale snapshot.
+    expect((out[0]!.parts[0] as { text: string }).text).toBe('Hello, world');
+  });
+
+  it('keeps a local-only message the snapshot has not caught up to', () => {
+    const local: Message[] = [
+      { id: 'm1', role: 'user', parts: [{ id: 'p1', type: 'text', text: 'hi' }] },
+      { id: 'm2', role: 'assistant', parts: [{ id: 'p2', type: 'text', text: 'streaming…' }] },
+    ];
+    // Reconcile only returned the first message (m2 created mid-fetch).
+    const reconciled: Message[] = [
+      { id: 'm1', role: 'user', parts: [{ id: 'p1', type: 'text', text: 'hi' }] },
+    ];
+    const out = mergeMessages(local, reconciled);
+    expect(out.map((m) => m.id)).toEqual(['m1', 'm2']);
+    expect((out[1]!.parts[0] as { text: string }).text).toBe('streaming…');
+  });
+
+  it('keeps a local-only part appended during the fetch', () => {
+    const local: Message[] = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        parts: [
+          { id: 'p1', type: 'text', text: 'done' },
+          { id: 'p2', type: 'text', text: 'newer part' },
+        ],
+      },
+    ];
+    const reconciled: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'done' }] },
+    ];
+    const out = mergeMessages(local, reconciled);
+    expect(out[0]!.parts.map((p) => p.id)).toEqual(['p1', 'p2']);
+  });
+
+  it('lets the reconciled snapshot win for finalised non-text fields', () => {
+    const local: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'answer' }] },
+    ];
+    const reconciled: Message[] = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        parts: [{ id: 'p1', type: 'text', text: 'answer' }],
+        stop_reason: 'end_turn',
+        cost_usd: 0.0021,
+      },
+    ];
+    const out = mergeMessages(local, reconciled);
+    expect(out[0]!.stop_reason).toBe('end_turn');
+    expect(out[0]!.cost_usd).toBe(0.0021);
+  });
+
+  it('respects the reconciled ordering and drops deleted messages absent locally', () => {
+    const local: Message[] = [
+      { id: 'm1', role: 'user', parts: [] },
+      { id: 'm2', role: 'assistant', parts: [] },
+    ];
+    // Server reordered + dropped m1 (e.g. message.deleted reconcile).
+    const reconciled: Message[] = [{ id: 'm2', role: 'assistant', parts: [] }];
+    const out = mergeMessages(local, reconciled);
+    // Reconciled is authoritative for what it returns; m1 stays as local-only
+    // (it was not deleted from the local feed, only absent from the snapshot).
+    expect(out.map((m) => m.id)).toEqual(['m2', 'm1']);
+  });
+
+  it('does not mutate its inputs', () => {
+    const local: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'Hi there' }] },
+    ];
+    const reconciled: Message[] = [
+      { id: 'm1', role: 'assistant', parts: [{ id: 'p1', type: 'text', text: 'Hi' }] },
+    ];
+    const localCopy = structuredClone(local);
+    const reconciledCopy = structuredClone(reconciled);
+    mergeMessages(local, reconciled);
+    expect(local).toEqual(localCopy);
+    expect(reconciled).toEqual(reconciledCopy);
   });
 });

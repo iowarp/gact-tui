@@ -99,24 +99,26 @@ function makeClient(over: Partial<Record<keyof Client, unknown>> = {}): {
 async function ready() {
   await waitFor(() => expect(screen.getByTestId('settings-models')).toBeTruthy());
   await waitFor(() =>
-    expect(screen.getByTestId('models-provider-select')).toBeTruthy(),
+    expect(screen.getByTestId('models-provider-list')).toBeTruthy(),
   );
 }
 
 describe('SettingsModels — validated dropdowns', () => {
-  it('renders the provider dropdown from lm presets (not a URL field)', async () => {
+  it('renders the provider menu from lm presets (not a URL field)', async () => {
     const { client } = makeClient();
     render(() => <SettingsModels client={client} />);
     await ready();
 
-    const select = screen.getByTestId('models-provider-select') as HTMLSelectElement;
-    const values = Array.from(select.options).map((o) => o.value);
-    expect(values).toEqual(['argonne_sophia', 'anthropic', 'openrouter']);
+    const list = screen.getByTestId('models-provider-list');
+    expect(list.textContent).toContain('ALCF Sophia (Globus Auth)');
+    expect(list.textContent).toContain('Anthropic API');
+    expect(list.textContent).toContain('OpenRouter');
     // Unauthenticated presets are flagged for the novice.
-    const anthropicOpt = Array.from(select.options).find((o) => o.value === 'anthropic');
-    expect(anthropicOpt?.textContent).toContain('needs setup');
+    expect(screen.getByTestId('models-provider-anthropic').textContent).toContain(
+      'awaiting configuration',
+    );
     // No raw backend-URL text input in the happy path.
-    expect(select.tagName).toBe('SELECT');
+    expect(screen.queryByLabelText(/api base/i)).toBeNull();
   });
 
   it('shows the active LM and the ready status pill for an authed preset', async () => {
@@ -165,9 +167,7 @@ describe('SettingsModels — validated dropdowns', () => {
     render(() => <SettingsModels client={client} />);
     await ready();
 
-    fireEvent.change(screen.getByTestId('models-provider-select'), {
-      target: { value: 'openrouter' },
-    });
+    fireEvent.click(screen.getByTestId('models-provider-openrouter').querySelector('button')!);
 
     await waitFor(() =>
       expect(screen.getByTestId('models-blocked-hint')).toBeTruthy(),

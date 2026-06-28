@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -38,10 +39,12 @@ type EventStreamScope struct {
 
 func (s EventStreamScope) path() string {
 	if s.SessionID != "" {
-		return "/v1/sessions/" + s.SessionID + "/events"
+		return "/v1/sessions/" + url.PathEscape(s.SessionID) + "/events"
 	}
 	if s.WorkspaceID != "" {
-		return "/v1/events?workspace_id=" + s.WorkspaceID
+		q := url.Values{}
+		q.Set("workspace_id", s.WorkspaceID)
+		return "/v1/events?" + q.Encode()
 	}
 	return "/v1/events"
 }
