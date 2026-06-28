@@ -11,8 +11,11 @@ name: desktop-release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['clio-desktop-v*']
   workflow_dispatch:
+
+env:
+  PNPM_VERSION: '9.15.9'
 
 jobs:
   release:
@@ -37,6 +40,8 @@ jobs:
             librsvg2-dev patchelf
 
       - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
