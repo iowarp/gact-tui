@@ -74,6 +74,7 @@ export function ChatConversationTranscript(props: ChatConversationTranscriptProp
         data-testid="transcript-pane"
         ref={props.transcriptScroll.setPaneRef}
         onScroll={props.transcriptScroll.onPaneScroll}
+        onWheel={props.transcriptScroll.onPaneWheel}
       >
         <div class="chat__pane-inner">
           <Show when={props.messages.length === 0 && !props.pendingPermission}>
