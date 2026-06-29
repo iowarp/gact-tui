@@ -2,10 +2,18 @@
  * Solid controller for transcript scroll behaviour (stick-to-bottom, jump
  * pill). Exports {@link createTranscriptScroll}.
  */
-import { createEffect, createSignal, untrack, type Accessor } from 'solid-js';
+import { createEffect, createSignal, onCleanup, untrack, type Accessor } from 'solid-js';
 import type { Message, PermissionRequest, UserQuestion } from '@clio/core';
 
-const SCROLL_BOTTOM_TOLERANCE_PX = 220;
+export const SCROLL_BOTTOM_TOLERANCE_PX = 220;
+
+export function transcriptDistanceFromBottom(el: HTMLElement): number {
+  return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
+}
+
+export function transcriptIsAtBottom(el: HTMLElement): boolean {
+  return transcriptDistanceFromBottom(el) < SCROLL_BOTTOM_TOLERANCE_PX;
+}
 
 export interface TranscriptScrollController {
   scrolledUp: Accessor<boolean>;
@@ -13,6 +21,7 @@ export interface TranscriptScrollController {
   scrollEl: Accessor<HTMLElement | undefined>;
   setPaneRef: (el: HTMLDivElement) => void;
   onPaneScroll: () => void;
+  onPaneWheel: (event: WheelEvent) => void;
   scrollToBottom: () => void;
 }
 
@@ -34,22 +43,42 @@ export function createTranscriptScroll(
   let lastMessageCount = 0;
   let lastTranscriptActivity = '';
   let hadPendingPermission = false;
+  let programmaticScroll = false;
+  let resizeObserver: ResizeObserver | undefined;
+  let pendingAutoPinFrame = 0;
 
-  function distanceFromBottom(el: HTMLElement): number {
-    return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
+  function endProgrammaticScrollSoon() {
+    window.setTimeout(() => {
+      programmaticScroll = false;
+      if (!paneEl || !transcriptIsAtBottom(paneEl)) return;
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    }, 180);
   }
 
-  function isAtBottom(el: HTMLElement): boolean {
-    return distanceFromBottom(el) < SCROLL_BOTTOM_TOLERANCE_PX;
+  function pinToBottom(behavior: ScrollBehavior = 'auto') {
+    if (!paneEl) return;
+    programmaticScroll = true;
+    paneEl.scrollTo({ top: paneEl.scrollHeight, behavior });
+    setScrolledUp(false);
+    setNewSinceScroll(0);
+    endProgrammaticScrollSoon();
+  }
+
+  function scheduleAutoPin() {
+    if (!paneEl || scrolledUp()) return;
+    if (pendingAutoPinFrame) window.cancelAnimationFrame(pendingAutoPinFrame);
+    pendingAutoPinFrame = window.requestAnimationFrame(() => {
+      pendingAutoPinFrame = 0;
+      if (!paneEl || scrolledUp()) return;
+      pinToBottom('auto');
+    });
   }
 
   function scrollToBottom() {
-    if (!paneEl) return;
-    paneEl.scrollTo({ top: paneEl.scrollHeight, behavior: 'smooth' });
-    setScrolledUp(false);
-    setNewSinceScroll(0);
+    pinToBottom('smooth');
     queueMicrotask(() => {
-      if (!paneEl || !isAtBottom(paneEl)) return;
+      if (!paneEl || !transcriptIsAtBottom(paneEl)) return;
       setScrolledUp(false);
       setNewSinceScroll(0);
     });
@@ -73,12 +102,27 @@ export function createTranscriptScroll(
 
   function onPaneScroll() {
     if (!paneEl) return;
-    const atBottom = isAtBottom(paneEl);
+    const atBottom = transcriptIsAtBottom(paneEl);
     if (atBottom) {
       setScrolledUp(false);
       setNewSinceScroll(0);
-    } else {
+    } else if (!programmaticScroll) {
       setScrolledUp(true);
+    }
+  }
+
+  function onPaneWheel(event: WheelEvent) {
+    if (!paneEl) return;
+    programmaticScroll = false;
+    if (event.deltaY < 0 && !transcriptIsAtBottom(paneEl)) {
+      setScrolledUp(true);
+      return;
+    }
+    if (event.deltaY > 0 && transcriptIsAtBottom(paneEl)) {
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    } else {
+      onPaneScroll();
     }
   }
 
@@ -90,7 +134,7 @@ export function createTranscriptScroll(
       setNewSinceScroll((n) => n + (count - lastMessageCount));
     } else if (!scrolledUp() && changed && paneEl) {
       queueMicrotask(() => {
-        if (paneEl) paneEl.scrollTop = paneEl.scrollHeight;
+        pinToBottom('auto');
       });
     }
     lastMessageCount = count;
@@ -102,9 +146,11 @@ export function createTranscriptScroll(
     queueMicrotask(() => {
       if (paneEl && !options.pendingPermission()) {
         const empty = untrack(() => options.messages().length === 0 && !options.pendingQuestion());
+        programmaticScroll = true;
         paneEl.scrollTop = empty ? 0 : paneEl.scrollHeight;
         setScrolledUp(false);
         setNewSinceScroll(0);
+        endProgrammaticScrollSoon();
       }
       const input = document.querySelector(
         '[data-testid="composer-input"]',
@@ -131,12 +177,17 @@ export function createTranscriptScroll(
     if (hadPendingPermission && !hasPending) {
       queueMicrotask(() => {
         if (!paneEl) return;
-        paneEl.scrollTop = paneEl.scrollHeight;
+        pinToBottom('auto');
         setScrolledUp(false);
         setNewSinceScroll(0);
       });
     }
     hadPendingPermission = hasPending;
+  });
+
+  onCleanup(() => {
+    resizeObserver?.disconnect();
+    if (pendingAutoPinFrame) window.cancelAnimationFrame(pendingAutoPinFrame);
   });
 
   return {
@@ -146,8 +197,16 @@ export function createTranscriptScroll(
     setPaneRef: (el) => {
       paneEl = el;
       setScrollEl(el);
+      resizeObserver?.disconnect();
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => scheduleAutoPin());
+        resizeObserver.observe(el);
+        const inner = el.firstElementChild;
+        if (inner instanceof HTMLElement) resizeObserver.observe(inner);
+      }
     },
     onPaneScroll,
+    onPaneWheel,
     scrollToBottom,
   };
 }
