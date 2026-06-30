@@ -315,7 +315,7 @@ function applyReturnAction(
     id: `return-${callId}`,
     depth: turn.depth,
     agent: turn.agentId,
-    parent: str(action.parent_agent) || parentCall?.parentAgent || 'main',
+    parent: str(action.target_agent) || str(action.parent_agent) || parentCall?.parentAgent || 'main',
     text,
     raw: rawText,
     chars: rawText.length,
