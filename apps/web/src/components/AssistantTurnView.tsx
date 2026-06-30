@@ -28,6 +28,7 @@ import { ImagePartView } from './TranscriptImagePartView.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
   DelegationRow,
+  ProviderThinking,
   ReasoningRow,
   ReturnRow,
   RoutingRow,
@@ -95,7 +96,7 @@ function owningAgent(row: TurnRow): string {
 /** `▎<agent>` — the agent's name, shown ONCE atop its contiguous block (it
  *  reappears only when the owning agent changes, e.g. on resume). Colored by
  *  agent via `data-agent`; never repeated per turn. */
-function AgentHeader(props: { agent: string; depth: number }) {
+function AgentHeader(props: { agent: string; depth: number; providerThinking?: ProviderThinking }) {
   return (
     <Show when={props.agent}>
       <div
@@ -105,8 +106,37 @@ function AgentHeader(props: { agent: string; depth: number }) {
         {...depthStyle(props.depth)}
       >
         <span class="trx-row__agenthdr-name">{props.agent}</span>
+        <Show when={props.providerThinking}>
+          {(thinking) => <ProviderThinkingDisclosure thinking={thinking()} />}
+        </Show>
       </div>
     </Show>
+  );
+}
+
+function ProviderThinkingDisclosure(props: { thinking: ProviderThinking }) {
+  const countLabel = () => {
+    if (props.thinking.tokens != null) return `${props.thinking.tokens} tokens`;
+    const chars = props.thinking.chars ?? props.thinking.text.length;
+    return `${chars} chars`;
+  };
+  return (
+    <details class="trx-provider-thinking" data-testid="assistant-turn-provider-thinking">
+      <summary>
+        <Icon
+          name="chevron-right"
+          size={12}
+          class="trx-provider-thinking__chevron"
+          label="Toggle provider thinking"
+        />
+        <span class="trx-provider-thinking__label">thinking</span>
+        <span class="trx-provider-thinking__count">({countLabel()})</span>
+        <span class="trx-provider-thinking__source">{props.thinking.source}</span>
+      </summary>
+      <div class="trx-provider-thinking__body">
+        <MemoMarkdown text={props.thinking.text} />
+      </div>
+    </details>
   );
 }
 
@@ -163,7 +193,11 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().parent} depth={row().depth} />
+        <AgentHeader
+          agent={row().parent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <section
         class="trx-row trx-row--delegation"
@@ -175,11 +209,8 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
           <span class="trx-row__marker" aria-hidden="true">
             ●
           </span>
-          <span class="trx-row__owner" classList={{ 'is-err': isErr() }}>
-            <span class="trx-row__arrow" aria-hidden="true">
-              →
-            </span>
-            <span class="trx-row__agent">{row().agent}</span>
+          <span class="trx-row__owner trx-row__owner--call" classList={{ 'is-err': isErr() }}>
+            call(<span class="trx-row__agent">{row().agent}</span>)
           </span>
           <Show when={isErr()}>
             <span class="trx-row__status is-err">{row().status}</span>
@@ -187,7 +218,10 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
         </div>
         <Show when={row().task}>
           <div class="trx-row__task" data-testid="assistant-turn-task">
-            {row().task}
+            <span class="trx-tool__result-gutter" aria-hidden="true">
+              ⎿
+            </span>
+            <span>{row().task}</span>
           </div>
         </Show>
       </section>
@@ -202,7 +236,11 @@ function TextRowView(props: { row: TextRow; showAgent: boolean; isFinalAnswer: b
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().agent} depth={row().depth} />
+        <AgentHeader
+          agent={row().agent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <section
         class="trx-row trx-row--text"
@@ -214,11 +252,6 @@ function TextRowView(props: { row: TextRow; showAgent: boolean; isFinalAnswer: b
           <span class="trx-row__marker" aria-hidden="true">
             ●
           </span>
-          <Show when={props.isFinalAnswer}>
-            <span class="trx-row__owner">
-              <span class="trx-row__agent">Answer</span>
-            </span>
-          </Show>
         </div>
         <div class="trx-row__body" data-testid="assistant-turn-result">
           <MemoMarkdown text={row().text} />
@@ -234,7 +267,11 @@ function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean }) {
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().agent} depth={row().depth} />
+        <AgentHeader
+          agent={row().agent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <section
         class="trx-row trx-row--reason"
@@ -263,10 +300,15 @@ function ToolRowView(props: {
   readWorkspaceImage?: ReadWorkspaceImage;
 }) {
   const row = () => props.row;
+  const hasThought = () => row().thought.trim().length > 0;
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().agent} depth={row().depth} />
+        <AgentHeader
+          agent={row().agent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <div
         class="trx-row trx-row--tool"
@@ -274,31 +316,19 @@ function ToolRowView(props: {
         classList={{ 'is-err': !row().ok }}
         {...depthStyle(row().depth)}
       >
-        <div class="trx-row__head">
+        <div class="trx-row__head" classList={{ 'trx-row__head--tool-call': !hasThought() }}>
           <span class="trx-row__marker" aria-hidden="true">
             ●
           </span>
-          <Show when={row().thought}>
+          <Show when={hasThought()} fallback={<ToolCallLine row={row()} />}>
             <div class="trx-row__body trx-tool__thought" data-testid="assistant-turn-tool-thought">
               <MemoMarkdown text={row().thought} />
             </div>
           </Show>
         </div>
-        <div class="trx-tool__call">
-        <Icon name="tool" size={12} />
-        <span class="trx-tool__name">{row().name}</span>
-        <Show when={row().argsSummary}>
-          <span class="trx-tool__args">({row().argsSummary})</span>
+        <Show when={hasThought()}>
+          <ToolCallLine row={row()} />
         </Show>
-        <span class="trx-tool__meta">
-          <Show when={!row().ok}>
-            <span class="trx-tool__badge is-err">failed</span>
-          </Show>
-          <Show when={row().durationMs != null}>
-            <span class="trx-tool__dur">{Math.round(row().durationMs!)}ms</span>
-          </Show>
-        </span>
-      </div>
       <Show when={toolHasResult(row())}>
         <div class="trx-tool__result">
           <span class="trx-tool__result-gutter" aria-hidden="true">
@@ -320,6 +350,27 @@ function ToolRowView(props: {
 }
 
 /** The orchestrator's routing decision — a subtle inline chip. */
+function ToolCallLine(props: { row: ToolRow }) {
+  const row = () => props.row;
+  return (
+    <div class="trx-tool__call">
+      <Icon name="tool" size={12} />
+      <span class="trx-tool__name">{row().name}</span>
+      <Show when={row().argsSummary}>
+        <span class="trx-tool__args">({row().argsSummary})</span>
+      </Show>
+      <span class="trx-tool__meta">
+        <Show when={!row().ok}>
+          <span class="trx-tool__badge is-err">failed</span>
+        </Show>
+        <Show when={row().durationMs != null}>
+          <span class="trx-tool__dur">{Math.round(row().durationMs!)}ms</span>
+        </Show>
+      </span>
+    </div>
+  );
+}
+
 function RoutingRowView(props: { row: RoutingRow }) {
   const row = () => props.row;
   return (
@@ -337,10 +388,21 @@ function RoutingRowView(props: { row: RoutingRow }) {
 
 function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
   const row = () => props.row;
+  const [open, setOpen] = createSignal(false);
+  const hasDetails = () => row().raw.trim().length > 0;
+  const responseCount = () => {
+    if (row().tokens != null) return `${row().tokens} tokens`;
+    const chars = row().chars ?? row().raw.length;
+    return `${chars} chars`;
+  };
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().agent} depth={row().depth} />
+        <AgentHeader
+          agent={row().agent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <section
         class="trx-row trx-row--return"
@@ -359,11 +421,30 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
             </span>
             <span class="trx-row__agent">{row().parent}</span>
           </span>
+          <Show when={hasDetails()}>
+            <button
+              type="button"
+              class="trx-return__toggle"
+              aria-expanded={open()}
+              data-testid="assistant-turn-return-toggle"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((v) => !v);
+              }}
+            >
+              {open() ? 'hide response' : `show response (${responseCount()})`}
+            </button>
+          </Show>
         </div>
         <Show when={row().text}>
           <div class="trx-row__body trx-row__body--return" data-testid="assistant-turn-return-body">
             <MemoMarkdown text={row().text} />
           </div>
+        </Show>
+        <Show when={open() && hasDetails()}>
+          <pre class="trx-return__raw" data-testid="assistant-turn-return-raw">
+            {row().raw}
+          </pre>
         </Show>
       </section>
     </>
