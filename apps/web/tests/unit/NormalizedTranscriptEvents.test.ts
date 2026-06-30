@@ -182,11 +182,57 @@ describe('NormalizedTranscriptEvents', () => {
     expect(state.rows).toMatchObject([
       { kind: 'delegation', agent: 'geospatial', depth: 0 },
       { kind: 'tool', agent: 'geospatial', depth: 1 },
-      { kind: 'return', agent: 'geospatial', depth: 1 },
+      { kind: 'return', agent: 'geospatial', parent: 'main', depth: 1 },
       { kind: 'delegation', agent: 'data', depth: 0 },
       { kind: 'delegation', agent: 'ndp_dataset_discovery', depth: 1 },
       { kind: 'tool', agent: 'ndp_dataset_discovery', depth: 2 },
     ]);
+  });
+
+  it('uses return target_agent as the receiving parent for nested same-turn returns', () => {
+    let state = emptyNormalizedTranscriptState();
+    const apply = (type: string, payload: Record<string, unknown>) => {
+      state = applyNormalizedTranscriptEvent(state, type, payload);
+    };
+
+    apply('turn.started', { turn_id: 'main-1', agent_id: 'main' });
+    apply('turn.action.added', {
+      turn_id: 'main-1',
+      action: {
+        kind: 'agent_call',
+        call_id: 'call-data',
+        agent_id: 'main',
+        target_agent: 'data',
+        prompt: 'Discover stations.',
+      },
+    });
+    apply('turn.action.added', {
+      turn_id: 'main-1',
+      action: {
+        kind: 'agent_call',
+        call_id: 'call-ndp',
+        agent_id: 'data',
+        target_agent: 'ndp_dataset_discovery',
+        prompt: 'Stage metadata.',
+      },
+    });
+    apply('turn.action.added', {
+      turn_id: 'main-1',
+      action: {
+        kind: 'return',
+        call_id: 'return-ndp',
+        agent_id: 'ndp_dataset_discovery',
+        target_agent: 'data',
+        summary: 'Metadata staged.',
+      },
+    });
+
+    expect(state.rows.at(-1)).toMatchObject({
+      kind: 'return',
+      agent: 'ndp_dataset_discovery',
+      parent: 'data',
+      depth: 2,
+    });
   });
 
   it('keeps same-turn text deltas as ordered agent-authored rows when part ids differ', () => {
