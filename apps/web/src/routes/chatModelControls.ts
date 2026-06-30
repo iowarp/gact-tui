@@ -4,8 +4,8 @@
  */
 import { createEffect, createMemo, createResource, createSignal, type Accessor } from 'solid-js';
 import type { Client } from '@clio/core';
-import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
-import { providersToModels } from './chatScreenUtils.js';
+import type { ModelOption, ModelProviderOption, PermissionMode } from '../components/ComposerTypes.js';
+import { providersToModelProviders, providersToModels } from './chatScreenUtils.js';
 
 export interface ChatModelControlsOptions {
   activeId: Accessor<string>;
@@ -20,7 +20,7 @@ export function createChatModelControls(options: ChatModelControlsOptions) {
     const list = providersToModels(providers);
     const lm = lmActive();
     if (lm && lm.provider && lm.model) {
-      const synthId = `${lm.provider}/${lm.model}`;
+      const synthId = `${lm.provider}:${lm.model}`;
       if (!list.some((model) => model.id === synthId)) {
         list.unshift({
           id: synthId,
@@ -32,14 +32,20 @@ export function createChatModelControls(options: ChatModelControlsOptions) {
     }
     return list;
   });
+  const modelProviders = createMemo<ModelProviderOption[]>(() =>
+    mergeActiveLmProvider(providersToModelProviders(providersData()?.providers ?? []), lmActive()),
+  );
 
   const [selectedModelId, setSelectedModelId] = createSignal<string>('');
+  const selectedModel = createMemo(() =>
+    models().find((model) => model.id === selectedModelId()),
+  );
   const [userPickedModel, setUserPickedModel] = createSignal(false);
   createEffect(() => {
     if (userPickedModel()) return;
     const lm = lmActive();
     if (lm && lm.provider && lm.model) {
-      const synthId = `${lm.provider}/${lm.model}`;
+      const synthId = `${lm.provider}:${lm.model}`;
       if (selectedModelId() !== synthId) setSelectedModelId(synthId);
       return;
     }
@@ -75,9 +81,54 @@ export function createChatModelControls(options: ChatModelControlsOptions) {
 
   return {
     models,
+    modelProviders,
     selectedModelId,
+    selectedModel,
     pickModel,
     permMode,
     pickPermMode,
   };
+}
+
+export interface ActiveLmSelection {
+  provider?: string;
+  model?: string;
+}
+
+export function mergeActiveLmProvider(
+  providers: ModelProviderOption[],
+  lm: ActiveLmSelection | null | undefined,
+): ModelProviderOption[] {
+  if (!lm?.provider || !lm.model) return providers;
+  const modelId = `${lm.provider}:${lm.model}`;
+  const provider = providers.find((item) => item.id === lm.provider);
+  if (provider) {
+    if (!provider.models.some((model) => model.id === modelId)) {
+      provider.models.unshift({
+        id: modelId,
+        providerId: lm.provider,
+        providerLabel: provider.label,
+        modelId: lm.model,
+        description: 'active model',
+        disabled: provider.disabled,
+      });
+    }
+    return providers;
+  }
+  providers.unshift({
+    id: lm.provider,
+    label: lm.provider,
+    status: 'ok',
+    statusLabel: 'ok',
+    models: [
+      {
+        id: modelId,
+        providerId: lm.provider,
+        providerLabel: lm.provider,
+        modelId: lm.model,
+        description: 'active model',
+      },
+    ],
+  });
+  return providers;
 }

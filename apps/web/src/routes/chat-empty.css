@@ -7,7 +7,7 @@
 }
 
 .chat--empty-transcript .chat__empty {
-  margin-block: 0 auto;
+  margin-block: auto;
 }
 
 .chat--empty-transcript .chat__empty-icon {

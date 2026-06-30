@@ -69,6 +69,7 @@ export function ChatScreenLiveDriven(props: ChatScreenLiveDrivenProps) {
       onUndoTurn={sessionActions.undoActive}
       onCompactSession={sessionActions.compactActive}
       models={modelControls.models()}
+      modelProviders={modelControls.modelProviders()}
       selectedModelId={modelControls.selectedModelId()}
       onPickModel={modelControls.pickModel}
       permMode={modelControls.permMode()}
@@ -125,6 +126,7 @@ export function ChatScreenLiveDriven(props: ChatScreenLiveDrivenProps) {
       onPinFile={inspectorData.pinFileToContext}
       semanticEvents={transcript.semanticEvents()}
       executionEvents={transcript.executionEvents()}
+      normalizedTranscript={transcript.normalizedTranscript()}
       semanticEventsEnabled={backendGates().semanticEventsEnabled}
       composerDisabled={false}
       renamedSessionId={renameFlash.renamedSessionId()}

@@ -3,14 +3,15 @@
  */
 import { Show, type JSX } from 'solid-js';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
-import { Icon } from './Icon.js';
-import type { ModelOption, PermissionMode } from './ComposerTypes.js';
+import type { ModelOption, ModelProviderOption, PermissionMode } from './ComposerTypes.js';
+import { ProviderModelPicker } from './ProviderModelPicker.js';
 
 export interface ComposerPickersProps {
   backendLabel?: string;
   backendSlot?: JSX.Element;
   permMode: PermissionMode;
   permItems: DropdownItem<PermissionMode>[];
+  modelProviders?: ModelProviderOption[];
   modelItems: DropdownItem<ModelOption>[];
   selectedModelId: string;
   selectedModelLabel: string;
@@ -21,18 +22,7 @@ export interface ComposerPickersProps {
 export function ComposerPickers(props: ComposerPickersProps) {
   return (
     <div class="composer__pickers">
-      <Show
-        when={props.backendSlot}
-        fallback={
-          <button type="button" class="composer__picker" data-testid="composer-backend">
-            <span class="sx__pip sx__pip--idle" style="width:6px;height:6px" />
-            {props.backendLabel ?? 'localhost'}
-            <Icon name="chevron-down" size={10} />
-          </button>
-        }
-      >
-        {props.backendSlot}
-      </Show>
+      <Show when={props.backendSlot}>{props.backendSlot}</Show>
       <Dropdown
         testid="composer-perm"
         label={props.permMode}
@@ -41,14 +31,18 @@ export function ComposerPickers(props: ComposerPickersProps) {
         selectedId={props.permMode}
         onPick={(item) => props.onPickPermMode(item.value)}
       />
-      <Dropdown
-        testid="composer-model"
-        label={props.selectedModelLabel}
-        icon="sparkle"
-        items={props.modelItems}
-        selectedId={props.selectedModelId}
-        emptyHint="No providers configured"
-        onPick={props.onPickModel}
+      <ProviderModelPicker
+        providers={props.modelProviders ?? []}
+        fallbackItems={props.modelItems}
+        selectedModelId={props.selectedModelId}
+        selectedModelLabel={props.selectedModelLabel}
+        onPickModel={(model) =>
+          props.onPickModel({
+            id: model.id,
+            label: model.modelId,
+            value: model,
+          })
+        }
       />
     </div>
   );

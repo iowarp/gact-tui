@@ -4,9 +4,13 @@
  */
 import { Client } from '@clio/core';
 import type { BackendHandle } from '../App.js';
-import { BackendPicker } from '../components/BackendPicker.js';
 import { Composer } from '../components/Composer.js';
-import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
+import type {
+  ModelOption,
+  ModelProviderOption,
+  PermissionMode,
+} from '../components/ComposerTypes.js';
+import { VersionBadge } from '../components/VersionBadge.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import { hostFromUrl } from './chatScreenUtils.js';
 
@@ -22,6 +26,7 @@ export interface ChatConversationComposerProps {
   streaming?: boolean;
   draftReloadTick: number;
   models?: ModelOption[];
+  modelProviders?: ModelProviderOption[];
   selectedModelId?: string;
   permMode?: PermissionMode;
   onSubmit?: (text: string) => Promise<void> | void;
@@ -82,9 +87,8 @@ export function ChatConversationComposer(props: ChatConversationComposerProps) {
       onPickPermMode={props.onPickPermMode}
       draftKey={props.activeId || '__new'}
       draftReloadTick={props.draftReloadTick}
-      backendSlot={
-        <BackendPicker onOpenSettings={props.onOpenSettings} onAddRemote={props.onAddRemote} />
-      }
+      modelProviders={props.modelProviders}
+      footerSlot={<VersionBadge />}
     />
   );
 }
