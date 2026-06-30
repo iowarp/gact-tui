@@ -59,6 +59,39 @@ const EXPECTED_SEQUENCES = [
       { kind: 'return', agent: 'synthesis', parent: 'main' },
     ],
   },
+  {
+    name: 'earthscope-completed-data-blocker',
+    rows: [
+      { kind: 'agent', agent: 'main' },
+      { kind: 'text', agent: 'main' },
+      { kind: 'call', target: 'geospatial' },
+      { kind: 'agent', agent: 'geospatial' },
+      { kind: 'text', agent: 'geospatial' },
+      { kind: 'tool', name: 'geo_geocode' },
+      { kind: 'return', agent: 'geospatial', parent: 'main' },
+      { kind: 'agent', agent: 'main' },
+      { kind: 'call', target: 'data' },
+      { kind: 'agent', agent: 'data' },
+      { kind: 'call', target: 'ndp_dataset_discovery' },
+      { kind: 'agent', agent: 'ndp_dataset_discovery' },
+      { kind: 'tool', name: 'ndp_search_datasets' },
+      { kind: 'tool', name: 'ndp_stage_resource' },
+      { kind: 'return', agent: 'ndp_dataset_discovery', parent: 'data' },
+      { kind: 'call', target: 'earthscope_station_catalog' },
+      { kind: 'agent', agent: 'earthscope_station_catalog' },
+      { kind: 'tool', name: 'geo_filter_points_by_radius' },
+      { kind: 'return', agent: 'earthscope_station_catalog', parent: 'data' },
+      { kind: 'agent', agent: 'data' },
+      { kind: 'call', target: 'earthscope_station_catalog' },
+      { kind: 'agent', agent: 'earthscope_station_catalog' },
+      { kind: 'tool', name: 'shell_bash' },
+      { kind: 'return', agent: 'earthscope_station_catalog', parent: 'data' },
+      { kind: 'agent', agent: 'data' },
+      { kind: 'return', agent: 'data', parent: 'main' },
+      { kind: 'agent', agent: 'main' },
+      { kind: 'answer', agent: 'main' },
+    ],
+  },
 ];
 
 function parseArgs(argv) {
@@ -116,9 +149,9 @@ function fingerprint(value) {
 const opts = parseArgs(process.argv.slice(2));
 const htmlText = await fs.readFile(opts.html, 'utf8');
 const htmlLeaks = [];
-for (const pattern of LEAK_PATTERNS) {
+for (const pattern of [/\[\[\s*##/i, /_UnsupportedSessionAgent/i, /Cannot find home/i]) {
   const match = htmlText.match(pattern);
-  if (match) htmlLeaks.push({ pattern: String(pattern), sample: match[0] });
+  if (match) htmlLeaks.push({ pattern: String(pattern), sample: match[0], surface: 'html' });
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -256,6 +289,27 @@ const report = await page.evaluate((expectedSequences) => {
     expectedSequences,
     thoughtWasInjected,
     bodySamples,
+    visibleLeaks: [...document.querySelectorAll('[data-testid="assistant-turn-result"], [data-testid="assistant-turn-return-body"], [data-testid="assistant-turn-answer"], [data-testid="assistant-turn-reasoning-body"], [data-testid="assistant-turn-tool-thought"]')]
+      .flatMap((node) => {
+        const text = textOf(node);
+        return [
+          /\[\[\s*##/i,
+          /\bworkflow_state\b/i,
+          /\btyped\s+workflow[_ ]state\b/i,
+          /\bstructured\s+state\b/i,
+          /\bacquisition\.metadata_path\b/i,
+          /\bacquisition\.analysis_ready\b/i,
+          /\bmetadata_path\b/i,
+          /\banalysis_ready\b/i,
+          /_UnsupportedSessionAgent/i,
+          /Cannot find home/i,
+        ].flatMap((pattern) => {
+          const match = text.match(pattern);
+          return match
+            ? [{ pattern: String(pattern), sample: match[0], surface: node.getAttribute('data-testid') || '' }]
+            : [];
+        });
+      }),
   };
 }, EXPECTED_SEQUENCES);
 
@@ -294,7 +348,7 @@ const result = {
     order.ok &&
     badNestedReturns.length === 0 &&
     styleFailures.length === 0,
-  htmlLeaks,
+  htmlLeaks: [...htmlLeaks, ...report.visibleLeaks],
   assetMisses,
   order,
   acceptedOrders: orders,

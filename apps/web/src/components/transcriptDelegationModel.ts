@@ -33,6 +33,7 @@ export interface ToolRow {
   id: string;
   depth: number;
   agent: string;
+  providerThinking?: ProviderThinking;
   /** The model's reasoning for THIS step, carried on the tool_call part (clio
    *  #732): one turn = thought + the tool it chose. Rendered above the call. */
   thought: string;
@@ -55,6 +56,7 @@ export interface DelegationRow {
   agent: string;
   task: string;
   status: string;
+  providerThinking?: ProviderThinking;
 }
 
 /** An agent's prose (markdown, in full). */
@@ -64,6 +66,7 @@ export interface TextRow {
   depth: number;
   agent: string;
   text: string;
+  providerThinking?: ProviderThinking;
 }
 
 /** An agent's `thinking` step (markdown, in full, muted). */
@@ -73,6 +76,15 @@ export interface ReasoningRow {
   depth: number;
   agent: string;
   text: string;
+  providerThinking?: ProviderThinking;
+}
+
+/** Provider-internal thinking/debug stream, hidden by default. */
+export interface ProviderThinking {
+  text: string;
+  source: string;
+  chars?: number;
+  tokens?: number;
 }
 
 /** The orchestrator's routing decision (kept inline, subtle). */
@@ -92,6 +104,10 @@ export interface ReturnRow {
   agent: string;
   parent: string;
   text: string;
+  raw: string;
+  chars?: number;
+  tokens?: number;
+  providerThinking?: ProviderThinking;
 }
 
 /** Any non-delegation, non-text part rendered by its own per-type view. */
@@ -121,6 +137,7 @@ interface PartLike {
   type?: string;
   id?: string;
   text?: string;
+  thinking?: string;
   agent_id?: string;
   parent_agent?: string;
   child_agent?: string;
@@ -213,12 +230,19 @@ function toolRowsFromHandoffMetadata(
 ): ToolRow[] {
   if (!Array.isArray(tools)) return [];
   const rows: ToolRow[] = [];
+  const seen = new Set<string>();
   tools.forEach((tool, idx) => {
     if (!tool || typeof tool !== 'object') return;
     const rec = tool as Record<string, unknown>;
+    if (shouldHideSupplementalTool(rec)) return;
     const resultStr = extractToolResultText(rec['result'] ?? rec['output']);
     const analysis = analyzeToolResult(resultStr);
     const callId = str(rec['call_id']) || str(rec['id']) || String(idx);
+    const name = str(rec['name']) || str(rec['tool_name']) || 'tool';
+    const argsSummary = summariseArgs(rec['args'] ?? rec['input']);
+    const comparable = `${name}\n${argsSummary}\n${analysis.full || resultStr}`;
+    if (seen.has(comparable)) return;
+    seen.add(comparable);
     const duration = rec['duration_ms'];
     rows.push({
       kind: 'tool',
@@ -226,8 +250,8 @@ function toolRowsFromHandoffMetadata(
       depth,
       agent,
       thought: cleanProse(str(rec['thought']) || str(rec['reasoning'])),
-      name: str(rec['name']) || str(rec['tool_name']) || 'tool',
-      argsSummary: summariseArgs(rec['args'] ?? rec['input']),
+      name,
+      argsSummary,
       content: analysis.content,
       preview: analysis.preview,
       result: analysis.full,
@@ -237,6 +261,16 @@ function toolRowsFromHandoffMetadata(
     });
   });
   return rows;
+}
+
+function shouldHideSupplementalTool(tool: Record<string, unknown>): boolean {
+  const name = str(tool['name']) || str(tool['tool_name']);
+  if (!name) return false;
+  if (name === 'finish') return true;
+  if (name.startsWith('clio_')) return true;
+  const telemetry = str(tool['telemetry_source']);
+  if (telemetry === 'blueprint_react_context_seed') return true;
+  return false;
 }
 
 /**
@@ -278,9 +312,24 @@ function rawResultString(result: unknown): string {
   }
 }
 
+function firstNonEmptyRaw(...values: unknown[]): unknown {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      if (value.trim()) return value;
+      continue;
+    }
+    if (value != null) return value;
+  }
+  return undefined;
+}
+
 function clip(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
+function delegationKey(parent: string, agent: string, task: string): string {
+  return `${parent}->${agent}->${task.replace(/\s+/g, ' ').trim()}`;
 }
 
 function isHandoff(part: PartLike): boolean {
@@ -349,11 +398,18 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
 
   const depthOf = buildDepthResolver(list);
   const rows: TurnRow[] = [];
+  const pendingProviderThinking = new Map<string, ProviderThinking>();
+  const takeProviderThinking = (rowAgent: string): ProviderThinking | undefined => {
+    const thinking = pendingProviderThinking.get(rowAgent);
+    if (thinking) pendingProviderThinking.delete(rowAgent);
+    return thinking;
+  };
   // Tool rows indexed by call_id so a later tool_result joins its tool_call.
   const toolByCall = new Map<string, ToolRow>();
   // Dedup delegation headers: a backend emits started + completed + resumed for
   // the same (parent → child); we keep ONE header (the first seen).
   const seenDelegation = new Set<string>();
+  const lastDelegationKeyByPair = new Map<string, string>();
 
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
@@ -379,20 +435,24 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       // Skip the structural RETURN twin (parent.resumed) and any handoff that
       // doesn't actually name a distinct child (no delegation to show).
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
-      const key = `${parent}->${agent}`;
+      const task =
+        cleanProse(str(part.metadata?.['question'])) ||
+        cleanProse(str(part.metadata?.['input'])) ||
+        dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary'])));
+      const pairKey = `${parent}->${agent}`;
+      let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
+        if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
         if (!seenDelegation.has(key)) {
           seenDelegation.add(key);
+          lastDelegationKeyByPair.set(pairKey, key);
           rows.push({
             kind: 'delegation',
             id: `delegation-${id}`,
             depth: depthOf(parent),
             parent,
             agent,
-            task:
-              cleanProse(str(part.metadata?.['question'])) ||
-              cleanProse(str(part.metadata?.['input'])) ||
-              dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+            task,
             status: str(part.status) || str(part.metadata?.['status']) || 'completed',
           });
         }
@@ -404,11 +464,20 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
           agent,
           parent,
           text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+          raw: rawResultString(
+            firstNonEmptyRaw(
+              part.metadata?.['output'],
+              part.metadata?.['workflow_state'],
+              part.metadata?.['structured'],
+              part.metadata?.['output_summary'],
+            ),
+          ),
         });
         continue;
       }
       if (seenDelegation.has(key)) continue;
       seenDelegation.add(key);
+      lastDelegationKeyByPair.set(pairKey, key);
       rows.push({
         kind: 'delegation',
         // The delegation is the PARENT's turn (its decision to hand off), so it
@@ -422,9 +491,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         // The delegated task: the question sent down, else a backend-provided
         // handoff summary (older shape). cleanProse strips clio scaffolding
         // (durable workflow_state JSON) + a leading `A -> B | status` prefix.
-        task:
-          cleanProse(str(part.metadata?.['question'])) ||
-          dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+        task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
       });
       continue;
@@ -433,14 +500,39 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     if (type === 'text') {
       const text = cleanProse(str(part.text));
       if (!text) continue;
-      rows.push({ kind: 'text', id, depth, agent, text });
+      rows.push({ kind: 'text', id, depth, agent, text, providerThinking: takeProviderThinking(agent) });
       continue;
     }
 
     if (type === 'thinking') {
-      const text = cleanProse(str(part.text));
+      const text = cleanProse(str(part.thinking) || str(part.text));
       if (!text) continue;
-      rows.push({ kind: 'reasoning', id, depth, agent, text });
+      if (str(part.metadata?.['thinking_source']) === 'provider') {
+        const prior = pendingProviderThinking.get(agent);
+        pendingProviderThinking.set(agent, {
+          text,
+          source: str(part.metadata?.['provider_source']) || 'provider',
+          chars: text.length,
+        });
+        if (prior) {
+          const combined = `${prior.text}\n${text}`;
+          pendingProviderThinking.set(agent, {
+            text: combined,
+            source: prior.source || str(part.metadata?.['provider_source']) || 'provider',
+            chars: combined.length,
+            ...(prior.tokens != null ? { tokens: prior.tokens } : {}),
+          });
+        }
+        continue;
+      }
+      rows.push({
+        kind: 'reasoning',
+        id,
+        depth,
+        agent,
+        text,
+        providerThinking: takeProviderThinking(agent),
+      });
       continue;
     }
 
@@ -451,6 +543,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         id: `tool-${callId}`,
         depth,
         agent,
+        providerThinking: takeProviderThinking(agent),
         thought: cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
         name: str(part.tool_name) || 'tool',
         argsSummary: summariseArgs(part.input ?? part.metadata?.['input']),
@@ -507,8 +600,9 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     rows.push({ kind: 'passthrough', id, depth, part: part as Part });
   }
 
-  if (rows.length === 0) return null;
-  return { rows: dedupeRepeatedText(rows) };
+  const cleanRows = filterVisibleRows(rows);
+  if (cleanRows.length === 0) return null;
+  return { rows: cleanRows };
 }
 
 /**
@@ -520,6 +614,30 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
  * this keeps the render correct regardless. Only EXACT full-body repeats are
  * dropped, so distinct orchestrator summaries (unique prose) are untouched.
  */
+function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
+  return dedupeRepeatedText(rows).filter((row, index, all) => {
+    if (row.kind === 'return') {
+      if (!row.text.trim() && !row.raw.trim()) return false;
+      if (row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
+      return true;
+    }
+    if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
+    const body = row.text.trim();
+    if (!body) return false;
+    if (isBareJsonBody(body)) return false;
+    if (isOrchestrationPlaceholder(body)) return false;
+    if (
+      row.kind === 'reasoning' &&
+      row.agent === 'main' &&
+      hasPriorAnswerRow(all, index) &&
+      isTerminalCompletionReasoning(body)
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
   const seen = new Set<string>();
   const priorLongChildTexts: string[] = [];
@@ -535,6 +653,69 @@ function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
     if (r.agent !== 'main' && body.length >= 500) priorLongChildTexts.push(body);
     return true;
   });
+}
+
+function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {
+  return rows.slice(0, beforeIndex).some((row) => {
+    if (row.kind !== 'text') return false;
+    if (row.agent !== 'synthesis' && row.agent !== 'main') return false;
+    const text = row.text.trim();
+    return text.length > 20 && !isOrchestrationPlaceholder(text) && !isBareJsonBody(text);
+  });
+}
+
+function isBareJsonBody(text: string): boolean {
+  const body = text.trim();
+  if (!body) return false;
+  const wrapped =
+    (body.startsWith('{') && body.endsWith('}')) ||
+    (body.startsWith('[') && body.endsWith(']'));
+  if (!wrapped) return false;
+  try {
+    JSON.parse(body);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isOrchestrationPlaceholder(text: string): boolean {
+  const body = text.toLowerCase();
+  if (/no user-facing answer yet/.test(body)) return true;
+  if (/awaiting .*child/.test(body)) return true;
+  if (/awaiting .*synthesis/.test(body)) return true;
+  if (/no evidence (?:yet|is available)/.test(body)) return true;
+  if (/pending .*delegation/.test(body)) return true;
+  if (/delegating to .*expert/.test(body)) return true;
+  if (/routing to synthesis/.test(body)) return true;
+  if (/routing to the .*expert/.test(body)) return true;
+  if (/before routing to synthesis/.test(body)) return true;
+  if (/before finishing/.test(body)) return true;
+  return false;
+}
+
+function isTerminalCompletionReasoning(text: string): boolean {
+  const body = text.toLowerCase();
+  const complete =
+    /task is (?:fully )?(?:complete|satisfied)/.test(body) ||
+    /all required work is complete/.test(body) ||
+    /all required work .*complete/.test(body) ||
+    /all claims .*grounded/.test(body) ||
+    /workflow is .*complete/.test(body) ||
+    /workflow has already executed/.test(body) ||
+    /both required children/.test(body) ||
+    /both required .*completed/.test(body) ||
+    /both required pipeline stages/.test(body) ||
+    /both .*children .*returned/.test(body) ||
+    /synthesis has returned/.test(body);
+  const finish =
+    /i now finish/.test(body) ||
+    /parent finishes/.test(body) ||
+    /finish on the turn/.test(body) ||
+    /carrying (?:the )?(?:synthesis'?s? )?answer/.test(body) ||
+    /no further children/.test(body) ||
+    /no downstream work/.test(body);
+  return complete || finish;
 }
 
 function isNearDuplicateChildAnswer(body: string, priorChildBodies: readonly string[]): boolean {

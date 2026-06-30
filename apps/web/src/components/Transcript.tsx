@@ -9,9 +9,11 @@ import type { ModelOption } from './ComposerTypes.js';
 import type { TranscriptDensity } from './TranscriptParts.js';
 import { TranscriptSkeleton } from './TranscriptSkeleton.js';
 import { MessageView } from './TranscriptMessageView.js';
+import { AssistantTurnView } from './AssistantTurnView.js';
 import { createTranscriptPresentationModel } from './TranscriptPresentationModel.js';
 import { createTranscriptHashNavigation } from './TranscriptHashNavigation.js';
 import { createTranscriptVirtualization } from './TranscriptVirtualization.js';
+import type { NormalizedTranscriptState } from '../NormalizedTranscriptEvents.js';
 import './transcript.css';
 import './inline-markdown.css';
 
@@ -72,6 +74,7 @@ export interface TranscriptProps {
    * renders as one interleaved timeline instead of separate semantic/message
    * blocks. Shared by web and desktop. */
   executionEvents?: ExecutionTranscriptEvent[];
+  normalizedTranscript?: NormalizedTranscriptState;
   /** v0.2 semantic-execution spine. When provided, each assistant turn gets an
    * opt-in collapsible "execution trace" strip (agent invocations, expert
    * handoffs, tool timings, memory access) keyed by `turn_id`. Additive: absent
@@ -86,6 +89,12 @@ export function Transcript(props: TranscriptProps) {
   // MessageView. We no longer substitute a separately-projected execution_tree
   // synthetic part (which re-grouped/re-ordered the turn and diverged from the
   // persisted render) — that violated the append-only conversation invariant.
+  const hasAssistantMessages = createMemo(() =>
+    props.messages.some((message) => message.role === 'assistant'),
+  );
+  const hasNormalizedTranscript = createMemo(
+    () => (props.normalizedTranscript?.rows.length ?? 0) > 0 && !hasAssistantMessages(),
+  );
   const displayMessages = createMemo(() => props.messages);
   const { virtual, vwindow, visible, offsetOfIndex } = createTranscriptVirtualization({
     messages: displayMessages,
@@ -159,6 +168,24 @@ export function Transcript(props: TranscriptProps) {
           );
         }}
       </For>
+      <Show when={hasNormalizedTranscript()}>
+        <article
+          class="trx-msg anim-rise trx-msg--assistant"
+          data-testid="normalized-transcript-message"
+        >
+          <div class="trx-msg__body">
+            <AssistantTurnView
+              rows={props.normalizedTranscript?.rows ?? []}
+              density={props.density}
+              onOpenDiff={props.onOpenDiff}
+              onPinFile={props.onPinFile}
+              imagePartsSupported={props.imagePartsSupported}
+              readWorkspaceImage={props.readWorkspaceImage}
+              messageId="normalized-transcript"
+            />
+          </div>
+        </article>
+      </Show>
       <Show when={virtual()}>
         <div
           class="trx__spacer"
