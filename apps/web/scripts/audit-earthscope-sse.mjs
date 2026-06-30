@@ -1,0 +1,264 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const NORMALIZED_TYPES = new Set([
+  'turn.started',
+  'turn.trace.delta',
+  'turn.text.delta',
+  'turn.action.added',
+  'call.result.delta',
+  'state.updated',
+  'turn.completed',
+]);
+
+const PUBLIC_LEAK_PATTERNS = [
+  /\[\[\s*##/i,
+  /\bworkflow_state\b/i,
+  /\btyped\s+workflow[_ ]state\b/i,
+  /\bstructured\s+state\b/i,
+  /\bacquisition\.metadata_path\b/i,
+  /\bacquisition\.analysis_ready\b/i,
+  /\bmetadata_path\b/i,
+  /\banalysis_ready\b/i,
+];
+
+function parseArgs(argv) {
+  const opts = { outDir: '' };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const next = () => {
+      const value = argv[++i];
+      if (!value) throw new Error(`${arg} requires a value`);
+      return value;
+    };
+    if (arg === '--out') opts.outDir = next();
+    else if (arg === '--help' || arg === '-h') {
+      console.log('Usage: node scripts/audit-earthscope-sse.mjs --out screenshots/<probe-dir>');
+      process.exit(0);
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+  if (!opts.outDir) throw new Error('--out is required');
+  opts.outDir = path.resolve(opts.outDir);
+  return opts;
+}
+
+async function readJsonl(file) {
+  try {
+    const text = await fs.readFile(file, 'utf8');
+    return text
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+function msBetween(leftIso, rightIso) {
+  const left = Date.parse(leftIso || '');
+  const right = Date.parse(rightIso || '');
+  return Number.isFinite(left) && Number.isFinite(right) ? right - left : null;
+}
+
+function eventKey(row) {
+  return `${row.event_id ?? ''}|${row.event_type ?? ''}|${row.event_occurred_at ?? ''}`;
+}
+
+function payloadText(row) {
+  const payload = row.payload || {};
+  if (typeof payload.text_append === 'string') return payload.text_append;
+  if (typeof payload.text === 'string') return payload.text;
+  if (typeof payload.action?.prompt === 'string') return payload.action.prompt;
+  if (typeof payload.action?.summary === 'string') return payload.action.summary;
+  return '';
+}
+
+function stageCounts(rows) {
+  const counts = {};
+  for (const row of rows) counts[row.stage || ''] = (counts[row.stage || ''] || 0) + 1;
+  return counts;
+}
+
+function max(values) {
+  const filtered = values.filter((value) => value != null);
+  return filtered.length ? Math.max(...filtered) : null;
+}
+
+function min(values) {
+  const filtered = values.filter((value) => value != null);
+  return filtered.length ? Math.min(...filtered) : null;
+}
+
+function orderedTiming(received, writesByKey) {
+  return received
+    .filter((row) => NORMALIZED_TYPES.has(row.event_type))
+    .map((row) => {
+      const write = writesByKey.get(eventKey(row));
+      return {
+        event_id: Number(row.event_id),
+        event_type: row.event_type,
+        action_kind: row.payload?.action?.kind || '',
+        received_at: row.received_at,
+        event_occurred_at: row.event_occurred_at,
+        sse_written_at: write?.sse_written_at || write?.iso || '',
+        eventOccurredToReceivedMs: msBetween(row.event_occurred_at, row.received_at),
+        sseWriteToReceivedMs: msBetween(write?.sse_written_at || write?.iso, row.received_at),
+      };
+    });
+}
+
+function providerBridgeTiming(providerRows, bridgeRows, emitRows) {
+  return providerRows.map((providerRow, index) => {
+    const nextProvider = providerRows[index + 1];
+    const bridgeAfter = bridgeRows.find(
+      (row) =>
+        row.ts >= providerRow.ts - 1 &&
+        (!nextProvider || row.ts < nextProvider.ts) &&
+        row.stage === 'bridge.contract_field',
+    );
+    const emitAfter = emitRows.find(
+      (row) =>
+        row.ts >= providerRow.ts - 1 &&
+        (!nextProvider || row.ts < nextProvider.ts) &&
+        row.stage === 'sse.normalized_emit',
+    );
+    return {
+      provider_iso: providerRow.iso,
+      provider_stage: providerRow.stage,
+      provider_channel: providerRow.source_channel || '',
+      model: providerRow.model || '',
+      chunk_len: providerRow.chunk_len ?? providerRow.content_len ?? providerRow.reasoning_len ?? null,
+      bridge_iso: bridgeAfter?.iso || '',
+      emit_iso: emitAfter?.iso || '',
+      providerToBridgeMs: bridgeAfter ? Math.round((bridgeAfter.ts - providerRow.ts) * 1000) : null,
+      providerToEmitMs: emitAfter ? Math.round((emitAfter.ts - providerRow.ts) * 1000) : null,
+    };
+  });
+}
+
+const opts = parseArgs(process.argv.slice(2));
+const receivedPath = path.join(opts.outDir, 'sse-received.jsonl');
+const writesPath = path.join(opts.outDir, 'backend-sse-events.jsonl');
+const auditPath = path.join(opts.outDir, 'backend-stream-audit.jsonl');
+const reportPath = path.join(opts.outDir, 'semantic-sse-audit.json');
+
+const receivedAll = await readJsonl(receivedPath);
+const sessionId = receivedAll.find((row) => row.session_id)?.session_id || '';
+const received = receivedAll.filter((row) => !sessionId || row.session_id === sessionId);
+const writes = (await readJsonl(writesPath)).filter((row) => !sessionId || row.session_id === sessionId);
+const audit = (await readJsonl(auditPath)).filter((row) => !sessionId || !row.session_id || row.session_id === sessionId);
+
+const writesByKey = new Map(writes.map((row) => [eventKey(row), row]));
+for (const row of audit.filter((item) => item.stage === 'sse.write')) {
+  if (!writesByKey.has(eventKey(row))) writesByKey.set(eventKey(row), row);
+}
+
+const missing = received.filter((row) => !writesByKey.has(eventKey(row)));
+const sequenceViolations = [];
+for (let i = 1; i < received.length; i += 1) {
+  const prior = Number(received[i - 1].event_id);
+  const current = Number(received[i].event_id);
+  if (Number.isFinite(prior) && Number.isFinite(current) && current !== 0 && prior !== 0 && current < prior) {
+    sequenceViolations.push({ index: i, prior, current });
+  }
+}
+
+const normalized = received.filter((row) => NORMALIZED_TYPES.has(row.event_type));
+const publicEvents = normalized.filter((row) =>
+  ['turn.trace.delta', 'turn.text.delta', 'turn.action.added', 'call.result.delta'].includes(row.event_type),
+);
+const leaks = [];
+for (const row of publicEvents) {
+  const text = payloadText(row);
+  for (const pattern of PUBLIC_LEAK_PATTERNS) {
+    if (pattern.test(text)) {
+      leaks.push({
+        event_id: String(row.event_id),
+        event_type: row.event_type,
+        field: row.payload?.field || '',
+        pattern: String(pattern),
+        sample: text.slice(0, 220),
+      });
+    }
+  }
+}
+
+const providerRawRows = audit.filter((row) => row.stage === 'provider.raw_event');
+const providerBatchRows = audit.filter((row) => row.stage === 'provider.batch_response');
+const lowLevelRawRows = providerRawRows.filter((row) => row.provider !== 'dspy_lm');
+const lowLevelBatchRows = providerBatchRows.filter((row) => row.provider !== 'dspy_lm');
+const lowLevelProviderRows = (lowLevelRawRows.length ? lowLevelRawRows : lowLevelBatchRows).sort(
+  (left, right) => (left.ts || 0) - (right.ts || 0),
+);
+const bridgeRows = audit.filter((row) => row.stage === 'bridge.contract_field');
+const emitRows = audit.filter((row) => row.stage === 'sse.normalized_emit');
+const normalizedTiming = orderedTiming(normalized, writesByKey);
+const actions = normalized
+  .filter((row) => row.event_type === 'turn.action.added')
+  .map((row) => ({
+    event_id: Number(row.event_id),
+    kind: row.payload?.action?.kind || '',
+    agent_id: row.payload?.action?.agent_id || '',
+    target_agent: row.payload?.action?.target_agent || '',
+    name: row.payload?.action?.name || '',
+    prompt: row.payload?.action?.prompt || '',
+    summary: row.payload?.action?.summary || '',
+  }));
+const results = normalized
+  .filter((row) => row.event_type === 'call.result.delta')
+  .map((row) => ({
+    event_id: Number(row.event_id),
+    call_id: row.payload?.call_id || '',
+    text_len: typeof row.payload?.text_append === 'string' ? row.payload.text_append.length : 0,
+  }));
+const states = normalized
+  .filter((row) => row.event_type === 'state.updated')
+  .map((row) => ({
+    event_id: Number(row.event_id),
+    visibility: row.payload?.visibility || '',
+    keys: Object.keys(row.payload?.value || {}),
+  }));
+
+const report = {
+  sessionId,
+  received: received.length,
+  sentLogRows: writes.length,
+  matched: received.length - missing.length,
+  missingCount: missing.length,
+  missing: missing.slice(0, 20).map((row) => ({
+    event_id: row.event_id,
+    event_type: row.event_type,
+    event_occurred_at: row.event_occurred_at,
+  })),
+  sequenceViolations,
+  normalizedCount: normalized.length,
+  publicLeakCount: leaks.length,
+  leaks,
+  providerRawEventCount: providerRawRows.length,
+  providerBatchResponseCount: providerBatchRows.length,
+  lowLevelProviderEventCount: lowLevelRawRows.length + lowLevelBatchRows.length,
+  providerTimingAnchorCount: lowLevelProviderRows.length,
+  providerStages: stageCounts([...providerRawRows, ...providerBatchRows]),
+  providerChannels: stageCounts([...providerRawRows, ...providerBatchRows].map((row) => ({ stage: row.source_channel || 'unknown' }))),
+  lowLevelProviderSources: stageCounts(lowLevelProviderRows.map((row) => ({ stage: row.provider || 'unknown' }))),
+  bridgeContractFieldCount: bridgeRows.length,
+  bridgeVisibleCount: bridgeRows.filter((row) => row.visible).length,
+  bridgeSuppressedCount: bridgeRows.filter((row) => row.duplicate_suppressed).length,
+  normalizedEmitCount: emitRows.length,
+  sseWriteAuditCount: audit.filter((row) => row.stage === 'sse.write').length,
+  maxSseWriteToReceivedMs: max(normalizedTiming.map((row) => row.sseWriteToReceivedMs)),
+  maxEventOccurredToReceivedMs: max(normalizedTiming.map((row) => row.eventOccurredToReceivedMs)),
+  minProviderToBridgeMs: min(providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows).map((row) => row.providerToBridgeMs)),
+  maxProviderToBridgeMs: max(providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows).map((row) => row.providerToBridgeMs)),
+  actions,
+  results,
+  states,
+  normalizedTiming,
+  providerBridgeTiming: providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows),
+};
+
+await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+console.log(JSON.stringify(report, null, 2));
