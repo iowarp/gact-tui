@@ -369,8 +369,8 @@
 
 .trx-provider-thinking > summary {
   display: inline-grid;
-  grid-template-columns: auto minmax(0, auto) minmax(0, auto);
-  column-gap: 6px;
+  grid-template-columns: auto auto minmax(0, auto) minmax(0, auto);
+  column-gap: 5px;
   align-items: baseline;
   color: var(--color-muted);
   cursor: pointer;
@@ -380,6 +380,17 @@
 
 .trx-provider-thinking > summary::-webkit-details-marker {
   display: none;
+}
+
+.trx-provider-thinking__chevron {
+  align-self: center;
+  opacity: 0.85;
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.trx-provider-thinking[open] .trx-provider-thinking__chevron {
+  transform: rotate(90deg);
 }
 
 .trx-provider-thinking__count,

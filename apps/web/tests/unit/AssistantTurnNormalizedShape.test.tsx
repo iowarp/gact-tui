@@ -69,6 +69,7 @@ describe('AssistantTurnView normalized stream shape', () => {
     expect(screen.getByTestId('assistant-turn-provider-thinking').textContent).toContain(
       'thinking(25 chars)claude_code_sdk',
     );
+    expect(screen.getByLabelText('Toggle provider thinking')).toBeTruthy();
     expect(screen.getByTestId('assistant-turn-step').textContent).toContain('call(geospatial)');
     expect(screen.getByTestId('assistant-turn-task').textContent).toContain(
       'Resolve Los Angeles',
