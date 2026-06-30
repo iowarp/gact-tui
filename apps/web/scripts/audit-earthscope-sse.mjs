@@ -92,20 +92,44 @@ function min(values) {
   return filtered.length ? Math.min(...filtered) : null;
 }
 
+function writeIso(row) {
+  return row?.sse_written_at || row?.iso || '';
+}
+
+function chooseWriteForReceived(row, writesByKey) {
+  const candidates = writesByKey.get(eventKey(row)) || [];
+  if (candidates.length <= 1) return candidates[0];
+  const receivedAt = Date.parse(row.received_at || '');
+  if (!Number.isFinite(receivedAt)) return candidates[0];
+  const scored = candidates
+    .map((candidate) => {
+      const writtenAt = Date.parse(writeIso(candidate));
+      const delta = Number.isFinite(writtenAt) ? receivedAt - writtenAt : null;
+      return { candidate, delta };
+    })
+    .filter((item) => item.delta != null);
+  if (!scored.length) return candidates[0];
+  const beforeReceive = scored
+    .filter((item) => item.delta >= 0)
+    .sort((left, right) => left.delta - right.delta);
+  if (beforeReceive.length) return beforeReceive[0].candidate;
+  return scored.sort((left, right) => Math.abs(left.delta) - Math.abs(right.delta))[0].candidate;
+}
+
 function orderedTiming(received, writesByKey) {
   return received
     .filter((row) => NORMALIZED_TYPES.has(row.event_type))
     .map((row) => {
-      const write = writesByKey.get(eventKey(row));
+      const write = chooseWriteForReceived(row, writesByKey);
       return {
         event_id: Number(row.event_id),
         event_type: row.event_type,
         action_kind: row.payload?.action?.kind || '',
         received_at: row.received_at,
         event_occurred_at: row.event_occurred_at,
-        sse_written_at: write?.sse_written_at || write?.iso || '',
+        sse_written_at: writeIso(write),
         eventOccurredToReceivedMs: msBetween(row.event_occurred_at, row.received_at),
-        sseWriteToReceivedMs: msBetween(write?.sse_written_at || write?.iso, row.received_at),
+        sseWriteToReceivedMs: msBetween(writeIso(write), row.received_at),
       };
     });
 }
@@ -151,12 +175,22 @@ const received = receivedAll.filter((row) => !sessionId || row.session_id === se
 const writes = (await readJsonl(writesPath)).filter((row) => !sessionId || row.session_id === sessionId);
 const audit = (await readJsonl(auditPath)).filter((row) => !sessionId || !row.session_id || row.session_id === sessionId);
 
-const writesByKey = new Map(writes.map((row) => [eventKey(row), row]));
+const writesByKey = new Map();
+for (const row of writes) {
+  const key = eventKey(row);
+  const existing = writesByKey.get(key) || [];
+  existing.push(row);
+  writesByKey.set(key, existing);
+}
 for (const row of audit.filter((item) => item.stage === 'sse.write')) {
-  if (!writesByKey.has(eventKey(row))) writesByKey.set(eventKey(row), row);
+  const key = eventKey(row);
+  const existing = writesByKey.get(key) || [];
+  existing.push(row);
+  writesByKey.set(key, existing);
 }
 
-const missing = received.filter((row) => !writesByKey.has(eventKey(row)));
+const missing = received.filter((row) => !(writesByKey.get(eventKey(row)) || []).length);
+const duplicateWriteCandidateCount = [...writesByKey.values()].filter((items) => items.length > 1).length;
 const sequenceViolations = [];
 for (let i = 1; i < received.length; i += 1) {
   const prior = Number(received[i - 1].event_id);
@@ -228,6 +262,7 @@ const report = {
   sentLogRows: writes.length,
   matched: received.length - missing.length,
   missingCount: missing.length,
+  duplicateWriteCandidateCount,
   missing: missing.slice(0, 20).map((row) => ({
     event_id: row.event_id,
     event_type: row.event_type,
