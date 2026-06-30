@@ -5,7 +5,7 @@
 import type { FileDiff, Message, ProviderDef, SlashCommandDef } from '@clio/core';
 import { formatCostUsd } from '../formatters.js';
 import { humanNum } from '../presentationUtils.js';
-import type { ModelOption } from '../components/ComposerTypes.js';
+import type { ModelOption, ModelProviderOption, ProviderAvailability } from '../components/ComposerTypes.js';
 import type { RailRoute } from '../components/LeftRail.js';
 import { DEFAULT_COMMANDS, type SlashCommand } from '../components/SlashPalette.js';
 import type { TranscriptDensity } from '../components/Transcript.js';
@@ -28,20 +28,32 @@ export function loadPinnedSet(key: string): Set<string> {
 }
 
 export function providersToModels(ps: ProviderDef[]): ModelOption[] {
-  const out: ModelOption[] = [];
-  for (const p of ps) {
+  return providersToModelProviders(ps).flatMap((provider) => provider.models);
+}
+
+export function providersToModelProviders(ps: ProviderDef[]): ModelProviderOption[] {
+  return ps.map((p) => {
+    const status = providerAvailability(p);
     const candidates = collectModelIds(p);
-    for (const m of candidates) {
-      out.push({
+    const label = p.name || p.id;
+    const disabled = status !== 'ok';
+    return {
+      id: p.id,
+      label,
+      status,
+      statusLabel: status,
+      disabled,
+      detail: providerStatusDetail(p, status),
+      models: candidates.map((m) => ({
         id: `${p.id}:${m}`,
         providerId: p.id,
         modelId: m,
-        providerLabel: p.name,
+        providerLabel: label,
         description: m === p.default_model ? 'provider default' : undefined,
-      });
-    }
-  }
-  return out;
+        disabled,
+      })),
+    };
+  });
 }
 
 function collectModelIds(p: ProviderDef): string[] {
@@ -55,6 +67,27 @@ function collectModelIds(p: ProviderDef): string[] {
     }
   }
   return Array.from(ms);
+}
+
+function providerAvailability(p: ProviderDef): ProviderAvailability {
+  const metadata = p.metadata ?? {};
+  const metadataStatus = String((metadata as Record<string, unknown>)['status'] ?? '').toLowerCase();
+  if (/(offline|error|failed|unavailable)/.test(metadataStatus)) return 'offline';
+  if (p.is_authenticated === false && providerNeedsSetup(p)) return 'setup';
+  if (collectModelIds(p).length === 0) return 'setup';
+  return 'ok';
+}
+
+function providerNeedsSetup(p: ProviderDef): boolean {
+  return (p.auth_methods?.length ?? 0) > 0 || (p.env_keys?.length ?? 0) > 0;
+}
+
+function providerStatusDetail(p: ProviderDef, status: ProviderAvailability): string | undefined {
+  if (status === 'ok') return undefined;
+  if (status === 'offline') return 'Provider is unavailable or failed its last status check.';
+  if (p.env_keys?.length) return `Missing configuration: ${p.env_keys.join(', ')}`;
+  if (p.auth_methods?.length) return `Authentication required: ${p.auth_methods.join(', ')}`;
+  return 'No selectable models advertised by this provider.';
 }
 
 export function platformMod(): string {

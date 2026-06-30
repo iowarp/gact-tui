@@ -14,7 +14,6 @@ import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 import type { TopbarOverflowController } from './chatTopbarOverflow.js';
 import type { TranscriptSearchController } from './chatTranscriptSearch.js';
 import type { TranscriptScrollController } from './chatTranscriptScroll.js';
-import { ContextFooter } from '../components/ContextFooter.js';
 
 export interface ChatLayoutMainColumnProps {
   props: ChatLayoutProps;
@@ -58,6 +57,7 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           overflow={options.topbarOverflow}
           activeId={options.props.activeId}
           activeTitle={options.activeRow()?.title}
+          activeBlueprint={options.activeRow()?.blueprint}
           activeStatus={options.activeRow()?.status}
           renamed={options.props.renamedSessionId === options.props.activeId}
           showSessionsColumn={options.showSessionsColumn()}
@@ -118,9 +118,11 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           selectedMessageId={options.selectedMessageId()}
           draftReloadTick={options.draftReloadTick()}
           models={options.props.models}
+          modelProviders={options.props.modelProviders}
           selectedModelId={options.props.selectedModelId}
           permMode={options.props.permMode}
           executionEvents={options.props.executionEvents}
+          normalizedTranscript={options.props.normalizedTranscript}
           semanticEvents={
             options.props.semanticEventsEnabled ? options.props.semanticEvents : undefined
           }
@@ -147,22 +149,6 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           onPickPermMode={options.props.onPickPermMode}
           onOpenSettings={options.props.onOpenSettings}
           onAddRemote={options.props.onAddRemote}
-          renderContextFooter={() => (
-            <Show when={options.props.activeId}>
-              <div class="chat__context-footer" data-testid="chat-context-footer">
-                <ContextFooter
-                  client={options.discoveryClient}
-                  sessionId={options.props.activeId}
-                  {...(options.props.sessionBindings?.pack_id
-                    ? {
-                        activeExpert: options.props.sessionBindings.pack_id,
-                        activeExpertLabel: options.props.sessionBindings.pack_id,
-                      }
-                    : {})}
-                />
-              </div>
-            </Show>
-          )}
         />
       </Show>
     </div>

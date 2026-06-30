@@ -62,6 +62,7 @@ export function createChatSessionActions(options: ChatSessionActionsOptions) {
       } catch {
         /* ignore */
       }
+      options.refetchSessions();
       options.toastPush({ tone: 'success', title: 'Session deleted', duration: 2200 });
     } catch (error) {
       options.failToast('Delete failed', error, () => void deleteSession(id));

@@ -13,9 +13,14 @@ import type {
 import type { JSX } from 'solid-js';
 import { Client } from '@clio/core';
 import type { BackendHandle } from '../App.js';
-import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
+import type {
+  ModelOption,
+  ModelProviderOption,
+  PermissionMode,
+} from '../components/ComposerTypes.js';
 import type { TranscriptDensity } from '../components/Transcript.js';
 import type { ExecutionTranscriptEvent } from '../live.js';
+import type { NormalizedTranscriptState } from '../NormalizedTranscriptEvents.js';
 import { ChatConversationComposer } from './ChatConversationComposer.js';
 import { ChatConversationTranscript } from './ChatConversationTranscript.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
@@ -45,9 +50,11 @@ export interface ChatConversationPaneProps {
   selectedMessageId: string;
   draftReloadTick: number;
   models?: ModelOption[];
+  modelProviders?: ModelProviderOption[];
   selectedModelId?: string;
   permMode?: PermissionMode;
   executionEvents?: ExecutionTranscriptEvent[];
+  normalizedTranscript?: NormalizedTranscriptState;
   semanticEvents?: SemanticEventPayload[];
   onSubmit?: (text: string) => Promise<void> | void;
   onStop?: () => void | Promise<void>;
@@ -124,6 +131,7 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
         selectedMessageId={props.selectedMessageId}
         models={props.models}
         executionEvents={props.executionEvents}
+        normalizedTranscript={props.normalizedTranscript}
         semanticEvents={props.semanticEvents}
         onSubmit={props.onSubmit}
         onPermissionDecide={props.onPermissionDecide}
@@ -157,6 +165,7 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
         streaming={props.streaming}
         draftReloadTick={props.draftReloadTick}
         models={props.models}
+        modelProviders={props.modelProviders}
         selectedModelId={props.selectedModelId}
         permMode={props.permMode}
         onSubmit={props.onSubmit}

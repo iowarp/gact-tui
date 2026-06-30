@@ -104,6 +104,7 @@ export function Composer(props: ComposerProps = {}) {
           backendSlot={props.backendSlot}
           permMode={controller.permMode()}
           permItems={controller.permItems()}
+          modelProviders={props.modelProviders}
           modelItems={controller.modelItems()}
           selectedModelId={controller.selectedModelId()}
           selectedModelLabel={controller.selectedModel()?.modelId ?? 'pick model'}
@@ -112,11 +113,16 @@ export function Composer(props: ComposerProps = {}) {
         />
       </div>
 
-      <div class="composer__hint">
+      <div class="composer__footer">
+        <div class="composer__hint">
         <span class="composer__kbd">Enter</span> to send ·{' '}
         <span class="composer__kbd">Shift + Enter</span> for newline ·{' '}
         <span class="composer__kbd">@</span> reference · <span class="composer__kbd">/</span>{' '}
         commands
+        </div>
+        <Show when={props.footerSlot}>
+          <div class="composer__footer-slot">{props.footerSlot}</div>
+        </Show>
       </div>
     </div>
   );

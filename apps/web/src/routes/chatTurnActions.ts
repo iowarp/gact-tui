@@ -3,6 +3,7 @@
  * {@link createChatTurnActions}.
  */
 import type { Client, PermissionRequest, PermissionScope, UserQuestion } from '@clio/core';
+import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
 import type { ToastInput } from '../components/Toast.js';
 import type { SettingsSection } from './SettingsShell.js';
 
@@ -10,6 +11,8 @@ export interface ChatTurnActionsOptions {
   client: Client;
   activeId: () => string;
   createSessionWithSemantics: (title: string) => Promise<{ id: string }>;
+  selectedModel?: () => ModelOption | undefined;
+  permMode?: () => PermissionMode;
   pendingPermission: () => PermissionRequest | null;
   clearPendingPermission: () => void;
   pendingQuestion: () => UserQuestion | null;
@@ -26,6 +29,7 @@ export function createChatTurnActions(options: ChatTurnActionsOptions) {
     if (!sessionId) {
       const created = await options.createSessionWithSemantics(text.slice(0, 60));
       sessionId = created.id;
+      await applyFirstTurnDefaults(sessionId);
     }
     try {
       await options.client.sendMessage(sessionId, { text });
@@ -53,6 +57,21 @@ export function createChatTurnActions(options: ChatTurnActionsOptions) {
       });
       throw error;
     }
+  }
+
+  async function applyFirstTurnDefaults(sessionId: string) {
+    const selectedModel = options.selectedModel?.();
+    const mode = options.permMode?.();
+    const patch: Parameters<Client['patchSession']>[1] = {};
+    if (selectedModel) {
+      patch.model = {
+        provider_id: selectedModel.providerId,
+        model_id: selectedModel.modelId,
+      };
+    }
+    if (mode) patch.agent = { mode };
+    if (Object.keys(patch).length === 0) return;
+    await options.client.patchSession(sessionId, patch);
   }
 
   async function decidePermission(decision: 'approve' | 'deny', scope?: PermissionScope) {

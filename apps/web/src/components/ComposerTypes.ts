@@ -14,6 +14,19 @@ export interface ModelOption {
   modelId: string;
   providerLabel: string;
   description?: string;
+  disabled?: boolean;
+}
+
+export type ProviderAvailability = 'ok' | 'setup' | 'offline';
+
+export interface ModelProviderOption {
+  id: string;
+  label: string;
+  status: ProviderAvailability;
+  statusLabel: string;
+  disabled?: boolean;
+  detail?: string;
+  models: ModelOption[];
 }
 
 export interface ComposerProps {
@@ -21,6 +34,8 @@ export interface ComposerProps {
   disabled?: boolean;
   /** When provided, replaces the static backend chip in the picker row. */
   backendSlot?: JSX.Element;
+  /** Optional right-side content in the composer footer. */
+  footerSlot?: JSX.Element;
   streaming?: boolean;
   onStop?: () => void | Promise<void>;
   mentionItems?: MentionItem[];
@@ -45,6 +60,8 @@ export interface ComposerProps {
 
   /** Live model options pulled from /v1/providers. */
   models?: ModelOption[];
+  /** Provider-grouped model options for the provider -> model flyout. */
+  modelProviders?: ModelProviderOption[];
   /** Currently-selected model id. */
   selectedModelId?: string;
   onPickModel?: (m: ModelOption) => void | Promise<void>;

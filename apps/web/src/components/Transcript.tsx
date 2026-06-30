@@ -89,13 +89,14 @@ export function Transcript(props: TranscriptProps) {
   // MessageView. We no longer substitute a separately-projected execution_tree
   // synthetic part (which re-grouped/re-ordered the turn and diverged from the
   // persisted render) — that violated the append-only conversation invariant.
-  const hasAssistantMessages = createMemo(() =>
-    props.messages.some((message) => message.role === 'assistant'),
-  );
   const hasNormalizedTranscript = createMemo(
-    () => (props.normalizedTranscript?.rows.length ?? 0) > 0 && !hasAssistantMessages(),
+    () => (props.normalizedTranscript?.rows.length ?? 0) > 0,
   );
-  const displayMessages = createMemo(() => props.messages);
+  const displayMessages = createMemo(() =>
+    hasNormalizedTranscript()
+      ? props.messages.filter((message) => message.role !== 'assistant')
+      : props.messages,
+  );
   const { virtual, vwindow, visible, offsetOfIndex } = createTranscriptVirtualization({
     messages: displayMessages,
     scrollEl: () => props.scrollEl,
