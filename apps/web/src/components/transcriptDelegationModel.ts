@@ -66,6 +66,11 @@ export interface TextRow {
   depth: number;
   agent: string;
   text: string;
+  /** The DSPy contract field this text streamed from (`signature_field_name`):
+   *  `next_thought` (a ReAct step/finish summary) vs `reasoning` (the extract
+   *  wrap-up). Used to drop the finish `next_thought` that duplicates the extract
+   *  `reasoning` (B1). Absent for non-DSPy backends. */
+  field?: string;
   providerThinking?: ProviderThinking;
 }
 
@@ -392,18 +397,42 @@ function buildDepthResolver(list: readonly PartLike[]): (agent: string) => numbe
  * Returns null for turns with no delegation/agent structure (the caller then
  * leaves the message to its normal flat rendering).
  */
-export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnModel | null {
+/**
+ * A ReAct tool_call carries the step's `next_thought` on its `thought` field —
+ * but that SAME next_thought also streams as a visible text row, so rendering
+ * both shows the answer twice. clio's own stream-audit confirms the LLM emits the
+ * next_thought ONCE (clean, `duplicate_suppressed=false`); the second copy is
+ * injected by the backend tool_observer onto `tool_call.thought`. Drop that copy
+ * when it repeats the most recent text/reasoning row from the same agent. (This
+ * is the render-side guard; clio also clears it at the source, but the render has
+ * the complete, settled parts so it is the reliable layer and fixes already-
+ * persisted sessions on reload.)
+ */
+export function dedupToolThought(rows: readonly TurnRow[], agent: string, thought: string): string {
+  const t = thought.split(/\s+/).join(' ').trim();
+  if (!t) return thought;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i]!;
+    if ((r.kind === 'text' || r.kind === 'reasoning') && r.agent === agent) {
+      const body = (r.text || '').split(/\s+/).join(' ').trim();
+      // Bidirectional containment: the tool thought can be a trimmed subset of the
+      // streamed text, or a marker-padded superset of it.
+      if (body && (body.includes(t) || t.includes(body))) return '';
+      return thought; // nearest same-agent text didn't match → a distinct thought
+    }
+  }
+  return thought;
+}
+
+export function buildAssistantTurnModel(
+  parts: readonly Part[],
+  opts?: { streaming?: boolean },
+): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
   if (!list.some(isHandoff)) return null;
 
   const depthOf = buildDepthResolver(list);
   const rows: TurnRow[] = [];
-  const pendingProviderThinking = new Map<string, ProviderThinking>();
-  const takeProviderThinking = (rowAgent: string): ProviderThinking | undefined => {
-    const thinking = pendingProviderThinking.get(rowAgent);
-    if (thinking) pendingProviderThinking.delete(rowAgent);
-    return thinking;
-  };
   // Tool rows indexed by call_id so a later tool_result joins its tool_call.
   const toolByCall = new Map<string, ToolRow>();
   // Dedup delegation headers: a backend emits started + completed + resumed for
@@ -442,6 +471,38 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       const pairKey = `${parent}->${agent}`;
       let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
+        // A (extract → return): the `dspy.extract` step IS the return synthesis — a
+        // SEPARATE LLM call after the ReAct loop that re-summarizes the finish into a
+        // typed answer. Its `reasoning` text + SDK thinking sit right before this
+        // return for the SAME agent; collapse them into the return's `thinking ▾`
+        // (hidden, not deleted, not an inline duplicate of the finish `next_thought`,
+        // which stays inline as the last flow bullet). The answer stays in the
+        // return's `text`/`show details`. Fold FIRST — before the (dedup) delegation
+        // header is pushed — so we walk back from the extract, not that header. Pop at
+        // most one reasoning text + one thinking host — never past the finish thought.
+        const foldedExtract: string[] = [];
+        {
+          const lastText = rows[rows.length - 1];
+          if (
+            lastText?.kind === 'text' &&
+            lastText.agent === agent &&
+            lastText.field === 'reasoning'
+          ) {
+            rows.pop();
+            foldedExtract.push(lastText.text);
+          }
+          const lastHost = rows[rows.length - 1];
+          if (
+            lastHost?.kind === 'reasoning' &&
+            lastHost.agent === agent &&
+            !lastHost.text.trim() &&
+            lastHost.providerThinking?.text.trim()
+          ) {
+            rows.pop();
+            foldedExtract.unshift(lastHost.providerThinking.text);
+          }
+        }
+        const extractThinking = foldedExtract.join('\n\n').trim();
         if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
         if (!seenDelegation.has(key)) {
           seenDelegation.add(key);
@@ -464,14 +525,20 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
           agent,
           parent,
           text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
-          raw: rawResultString(
-            firstNonEmptyRaw(
-              part.metadata?.['output'],
-              part.metadata?.['workflow_state'],
-              part.metadata?.['structured'],
-              part.metadata?.['output_summary'],
-            ),
-          ),
+          // The "details" raw mirrors the live return's `response`: the GENUINE
+          // structured output (empty for prose). Sourcing it from output_raw keeps
+          // reload identical to live — no falling back to workflow_state, which
+          // would surface a "details" toggle live-hidden turns don't have.
+          raw: rawResultString(firstNonEmptyRaw(part.metadata?.['output_raw'])),
+          ...(extractThinking
+            ? {
+                providerThinking: {
+                  text: extractThinking,
+                  source: 'extract',
+                  chars: extractThinking.length,
+                },
+              }
+            : {}),
         });
         continue;
       }
@@ -500,7 +567,8 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     if (type === 'text') {
       const text = cleanProse(str(part.text));
       if (!text) continue;
-      rows.push({ kind: 'text', id, depth, agent, text, providerThinking: takeProviderThinking(agent) });
+      const field = str(part.metadata?.['signature_field_name']);
+      rows.push({ kind: 'text', id, depth, agent, text, ...(field ? { field } : {}) });
       continue;
     }
 
@@ -508,31 +576,32 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       const text = cleanProse(str(part.thinking) || str(part.text));
       if (!text) continue;
       if (str(part.metadata?.['thinking_source']) === 'provider') {
-        const prior = pendingProviderThinking.get(agent);
-        pendingProviderThinking.set(agent, {
-          text,
-          source: str(part.metadata?.['provider_source']) || 'provider',
-          chars: text.length,
-        });
-        if (prior) {
-          const combined = `${prior.text}\n${text}`;
-          pendingProviderThinking.set(agent, {
-            text: combined,
-            source: prior.source || str(part.metadata?.['provider_source']) || 'provider',
-            chars: combined.length,
-            ...(prior.tokens != null ? { tokens: prior.tokens } : {}),
+        // Per-burst thinking HOST: an empty-text reasoning row whose
+        // providerThinking is the SDK thinking, attributed to THIS part's agent.
+        // Consecutive provider-thinking for the same agent accumulates into the
+        // open host (one burst); a non-thinking row closes it. Renders as the
+        // collapsed `thinking ▾`, identical to the live stream.
+        const last = rows[rows.length - 1];
+        if (last?.kind === 'reasoning' && last.agent === agent && !last.text.trim() && last.providerThinking) {
+          const combined = `${last.providerThinking.text}\n${text}`;
+          last.providerThinking = { ...last.providerThinking, text: combined, chars: combined.length };
+        } else {
+          rows.push({
+            kind: 'reasoning',
+            id: `reasoning-${id}`,
+            depth,
+            agent,
+            text: '',
+            providerThinking: {
+              text,
+              source: str(part.metadata?.['provider_source']) || 'provider',
+              chars: text.length,
+            },
           });
         }
         continue;
       }
-      rows.push({
-        kind: 'reasoning',
-        id,
-        depth,
-        agent,
-        text,
-        providerThinking: takeProviderThinking(agent),
-      });
+      rows.push({ kind: 'reasoning', id, depth, agent, text });
       continue;
     }
 
@@ -543,8 +612,11 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         id: `tool-${callId}`,
         depth,
         agent,
-        providerThinking: takeProviderThinking(agent),
-        thought: cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
+        thought: dedupToolThought(
+          rows,
+          agent,
+          cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
+        ),
         name: str(part.tool_name) || 'tool',
         argsSummary: summariseArgs(part.input ?? part.metadata?.['input']),
         content: { kind: 'text', text: '' },
@@ -600,7 +672,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     rows.push({ kind: 'passthrough', id, depth, part: part as Part });
   }
 
-  const cleanRows = filterVisibleRows(rows);
+  const cleanRows = filterVisibleRows(rows, opts);
   if (cleanRows.length === 0) return null;
   return { rows: cleanRows };
 }
@@ -614,16 +686,30 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
  * this keeps the render correct regardless. Only EXACT full-body repeats are
  * dropped, so distinct orchestrator summaries (unique prose) are untouched.
  */
-function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
-  return dedupeRepeatedText(rows).filter((row, index, all) => {
+export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean }): TurnRow[] {
+  // While a turn is still STREAMING, the body-shape/dedupe predicates judge
+  // INCOMPLETE text and wrongly drop main/synthesis rows mid-stream (so they only
+  // "pop in" once complete — the batched/stuck feel). For in-flight content apply
+  // ONLY the structural empty-text drop; the full filter runs once the message is
+  // finalized. A completed-session reload passes no opts → byte-identical output
+  // (parity preserved).
+  const streaming = opts?.streaming === true;
+  const base = streaming ? rows : dedupeRepeatedText(rows);
+  return base.filter((row, index, all) => {
     if (row.kind === 'return') {
       if (!row.text.trim() && !row.raw.trim()) return false;
-      if (row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
+      if (!streaming && row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
       return true;
     }
     if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
     const body = row.text.trim();
-    if (!body) return false;
+    if (!body) {
+      // A reasoning row that HOSTS a live thinking disclosure has empty text (the
+      // thinking lives in providerThinking) — keep it so the collapsed `thinking ▾`
+      // renders. Drop only genuinely empty rows.
+      return row.kind === 'reasoning' && !!row.providerThinking?.text.trim();
+    }
+    if (streaming) return true;
     if (isBareJsonBody(body)) return false;
     if (isOrchestrationPlaceholder(body)) return false;
     if (
@@ -639,20 +725,54 @@ function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
 }
 
 function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
-  const seen = new Set<string>();
-  const priorLongChildTexts: string[] = [];
-  return rows.filter((r) => {
-    if (r.kind !== 'text') return true;
-    const body = r.text.trim();
-    if (!body) return true;
-    if (seen.has(body)) return false;
-    if (r.agent === 'main' && isNearDuplicateChildAnswer(body, priorLongChildTexts)) {
-      return false;
+  // The turn's TERMINAL answer (last non-empty text row) is the response the turn
+  // ends on and is NEVER dropped. When an earlier row duplicates it, the EARLIER
+  // copy is dropped so the turn never ends on a bodyless thinking host (B6 — the
+  // "froze on thinking", where main's final answer, a near-dup of the earlier
+  // synthesis child, was being dropped). Otherwise the LATER duplicate is dropped
+  // (first author wins), as before.
+  let terminalIdx = -1;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i]!;
+    if (r.kind === 'text' && r.text.trim()) {
+      terminalIdx = i;
+      break;
     }
-    seen.add(body);
-    if (r.agent !== 'main' && body.length >= 500) priorLongChildTexts.push(body);
-    return true;
+  }
+  const drop = new Set<number>();
+  const firstByBody = new Map<string, number>();
+  const priorLongChild: Array<{ idx: number; body: string }> = [];
+  rows.forEach((r, i) => {
+    if (r.kind !== 'text') return;
+    const body = r.text.trim();
+    if (!body) return;
+    const first = firstByBody.get(body);
+    if (first !== undefined) {
+      // Exact repeat: drop the later copy, unless the later copy is the terminal —
+      // then drop the earlier one so the terminal survives.
+      if (i === terminalIdx) {
+        drop.add(first);
+        firstByBody.set(body, i);
+      } else {
+        drop.add(i);
+      }
+      return;
+    }
+    if (r.agent === 'main' && isNearDuplicateChildAnswer(body, priorLongChild.map((p) => p.body))) {
+      if (i === terminalIdx) {
+        // Keep the terminal main answer; drop the earlier child copy it near-dups.
+        const victim = priorLongChild.find((p) => isNearDuplicateChildAnswer(body, [p.body]));
+        if (victim) drop.add(victim.idx);
+        firstByBody.set(body, i);
+      } else {
+        drop.add(i);
+      }
+      return;
+    }
+    firstByBody.set(body, i);
+    if (r.agent !== 'main' && body.length >= 500) priorLongChild.push({ idx: i, body });
   });
+  return rows.filter((_, i) => !drop.has(i));
 }
 
 function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {

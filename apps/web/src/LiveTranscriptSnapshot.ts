@@ -17,13 +17,23 @@ export interface LiveTranscriptSnapshotSetters {
   setPendingQuestion: (question: UserQuestion | null) => void;
 }
 
+/** The first GENUINELY-pending permission. The backend `?status=pending` filter
+ *  should already exclude resolved/auto_approved rows, but filter defensively (older
+ *  backends may ignore the param) so a reload never re-opens an already-answered
+ *  request (C7). A row with no `status` is treated as pending. */
+function firstPendingPermission(
+  permissions: readonly PermissionRequest[] | undefined,
+): PermissionRequest | null {
+  return (permissions ?? []).find((p) => !p.status || p.status === 'pending') ?? null;
+}
+
 export async function fetchLiveTranscriptSnapshot(
   client: Client,
   sessionId: string,
 ): Promise<LiveTranscriptSnapshot> {
   const [messagesResult, permissionsResult, questionsResult] = await Promise.allSettled([
     client.messages(sessionId),
-    client.permissions(sessionId),
+    client.permissions(sessionId, 'pending'),
     client.sessionQuestions(sessionId, 'pending'),
   ]);
   return {
@@ -31,7 +41,7 @@ export async function fetchLiveTranscriptSnapshot(
       ? { messages: messagesResult.value.messages }
       : {}),
     ...(permissionsResult.status === 'fulfilled'
-      ? { pendingPermission: permissionsResult.value.permissions[0] ?? null }
+      ? { pendingPermission: firstPendingPermission(permissionsResult.value.permissions) }
       : {}),
     ...(questionsResult.status === 'fulfilled'
       ? { pendingQuestion: questionsResult.value.questions[0] ?? null }

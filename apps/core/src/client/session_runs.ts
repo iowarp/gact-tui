@@ -120,9 +120,13 @@ export function fetchSessionAttempts(
 export function fetchSessionPermissions(
   client: SessionRunTransport,
   sessionId: string,
+  status?: string,
 ): Promise<SessionPermissionsResult> {
-  const qs = new URLSearchParams({ session_id: sessionId }).toString();
-  return client.get(`/v1/permissions?${qs}`);
+  const params = new URLSearchParams({ session_id: sessionId });
+  // ?status=pending hides resolved/auto_approved rows so a reload does not
+  // re-surface an already-answered permission (C7).
+  if (status) params.set('status', status);
+  return client.get(`/v1/permissions?${params.toString()}`);
 }
 
 export function resolveSessionPermission(
