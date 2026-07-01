@@ -16,28 +16,8 @@
  */
 import { createEffect } from 'solid-js';
 import * as smd from 'streaming-markdown';
+import { sanitizeEmphasis } from './sanitizeEmphasis.js';
 import './inline-markdown.css';
-
-/**
- * Escape underscores that sit INSIDE a word (a word char on both sides).
- * CommonMark does not treat intraword underscores as emphasis (`shell_bash`,
- * `time_s`, `temperature_c` are literal), but smd doesn't enforce that rule — a
- * lone `_` opens an <em> that cascades everything after it into italics until the
- * next `_` (e.g. the next `shell_bash` or a `foo_bar` column name). smd honors
- * backslash escapes, so `\_` renders as a literal underscore. This is the exact
- * case the prior InlineMarkdown renderer guarded (its `time_s`/`temperature_c`
- * test). Emphasis via `*…*` / `**…**` and boundary `_…_` is unaffected.
- */
-export function escapeIntrawordUnderscores(text: string): string {
-  // Split out fenced ```blocks``` and `inline code` (kept at odd indices by the
-  // capture group) and transform ONLY the prose segments. Inside code, underscores
-  // are already literal AND backslash-escapes are not processed — escaping there
-  // would leak a visible `\` (e.g. `geo_geocode` -> `geo\_geocode`).
-  return text
-    .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
-    .map((seg, i) => (i % 2 === 0 ? seg.replace(/(?<=\w)_(?=\w)/g, '\\_') : seg))
-    .join('');
-}
 
 export function Markdown(props: { text: string; streaming?: boolean }) {
   let el!: HTMLDivElement;
@@ -53,7 +33,7 @@ export function Markdown(props: { text: string; streaming?: boolean }) {
   };
 
   createEffect(() => {
-    const text = escapeIntrawordUnderscores(props.text ?? '');
+    const text = sanitizeEmphasis(props.text ?? '');
     const streaming = props.streaming ?? false;
     // Append-only fast path when the text grew from what we already fed; otherwise
     // (text shrank, diverged, or the parser was already ended) rebuild from scratch.
