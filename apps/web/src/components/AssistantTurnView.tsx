@@ -23,7 +23,7 @@
 import { For, Show, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { MemoMarkdown, StreamingMarkdown } from './MemoMarkdown.js';
+import { MemoMarkdown } from './MemoMarkdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import type {
@@ -61,9 +61,6 @@ export function AssistantTurnView(props: {
   imagePartsSupported?: boolean;
   readWorkspaceImage?: ReadWorkspaceImage;
   messageId?: string;
-  /** True while this turn's message is still streaming — the LAST row is the one
-   *  actively growing, so it renders plain (no per-token re-parse) for smoothness. */
-  streaming?: boolean;
 }) {
   const finalTextIndex = () => {
     for (let i = props.rows.length - 1; i >= 0; i--) {
@@ -78,8 +75,7 @@ export function AssistantTurnView(props: {
           <TurnRowView
             row={row}
             isFinalAnswer={row.kind === 'text' && i() === finalTextIndex()}
-            showAgent={showAgentHeader(props.rows, i())}
-            isStreamingTail={(props.streaming ?? false) && i() === props.rows.length - 1}
+            showAgent={i() === 0 || owningAgent(row) !== owningAgent(props.rows[i() - 1]!)}
             {...props}
           />
         )}
@@ -95,24 +91,6 @@ function owningAgent(row: TurnRow): string {
   if (row.kind === 'return') return row.agent;
   if (row.kind === 'passthrough') return '';
   return (row as { agent?: string }).agent ?? '';
-}
-
-/** Whether to show the `▎<agent>` name atop this row: when it starts a new agent
- *  block. Compares against the previous HEADER-BEARING row — routing/passthrough
- *  rows render no name, so they must NOT suppress the header of the content row that
- *  follows them. This is the fix for `▎main` flashing in a beat late: a
- *  routing_decision streams first as row 0 (nameless) and, with the old immediate
- *  `rows[i-1]` compare, made main's first thinking/answer read as "same agent → no
- *  name" until the rows settled. */
-function showAgentHeader(rows: readonly TurnRow[], i: number): boolean {
-  const cur = owningAgent(rows[i]!);
-  if (!cur) return false;
-  for (let j = i - 1; j >= 0; j--) {
-    const prev = rows[j]!;
-    if (prev.kind === 'routing' || prev.kind === 'passthrough') continue;
-    return owningAgent(prev) !== cur;
-  }
-  return true;
 }
 
 /** `▎<agent>` — the agent's name, shown ONCE atop its contiguous block (it
@@ -137,21 +115,13 @@ function AgentHeader(props: { agent: string; depth: number; providerThinking?: P
 }
 
 function ProviderThinkingDisclosure(props: { thinking: ProviderThinking }) {
-  // Collapsed by default; the count in the summary ticks live as the thinking
-  // streams. The body is rendered ONLY when opened, so the growing hidden thinking
-  // is never re-parsed per delta (and opening it mid-stream shows it live).
-  const [open, setOpen] = createSignal(false);
   const countLabel = () => {
     if (props.thinking.tokens != null) return `${props.thinking.tokens} tokens`;
     const chars = props.thinking.chars ?? props.thinking.text.length;
     return `${chars} chars`;
   };
   return (
-    <details
-      class="trx-provider-thinking"
-      data-testid="assistant-turn-provider-thinking"
-      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
-    >
+    <details class="trx-provider-thinking" data-testid="assistant-turn-provider-thinking">
       <summary>
         <Icon
           name="chevron-right"
@@ -161,12 +131,11 @@ function ProviderThinkingDisclosure(props: { thinking: ProviderThinking }) {
         />
         <span class="trx-provider-thinking__label">thinking</span>
         <span class="trx-provider-thinking__count">({countLabel()})</span>
+        <span class="trx-provider-thinking__source">{props.thinking.source}</span>
       </summary>
-      <Show when={open()}>
-        <div class="trx-provider-thinking__body">
-          <MemoMarkdown text={props.thinking.text} />
-        </div>
-      </Show>
+      <div class="trx-provider-thinking__body">
+        <MemoMarkdown text={props.thinking.text} />
+      </div>
     </details>
   );
 }
@@ -181,73 +150,39 @@ function TurnRowView(props: {
   imagePartsSupported?: boolean;
   readWorkspaceImage?: ReadWorkspaceImage;
   messageId?: string;
-  isStreamingTail?: boolean;
 }) {
   const row = props.row;
-  const body = () => {
-    switch (row.kind) {
-      case 'delegation':
-        return <DelegationRowView row={row} showAgent={props.showAgent} />;
-      case 'text':
-        return (
-          <TextRowView
-            row={row}
-            showAgent={props.showAgent}
-            isFinalAnswer={props.isFinalAnswer}
-            streaming={props.isStreamingTail}
-          />
-        );
-      case 'reasoning':
-        return (
-          <ReasoningRowView row={row} showAgent={props.showAgent} streaming={props.isStreamingTail} />
-        );
-      case 'tool':
-        return (
-          <ToolRowView
-            row={row}
-            showAgent={props.showAgent}
-            readWorkspaceImage={props.readWorkspaceImage}
-          />
-        );
-      case 'routing':
-        return <RoutingRowView row={row} />;
-      case 'return':
-        return <ReturnRowView row={row} showAgent={props.showAgent} />;
-      case 'passthrough':
-        return (
-          <PassthroughRowView
-            row={row}
-            density={props.density}
-            onOpenDiff={props.onOpenDiff}
-            onPinFile={props.onPinFile}
-            imagePartsSupported={props.imagePartsSupported}
-            messageId={props.messageId}
-          />
-        );
-    }
-  };
-  // Provider thinking shows ON EVERY call/step that has it. Block-boundary rows
-  // surface it via AgentHeader (below the agent name); mid-block rows (e.g. a
-  // tool call after another tool in the same agent block) get their own
-  // disclosure here, so the chevron is per-call, not once per agent block.
-  const rowDepth = (row as { depth?: number }).depth ?? 0;
-  return (
-    <>
-      <Show when={!props.showAgent && row.kind !== 'return' && rowProviderThinking(row)}>
-        {(thinking) => (
-          <div class="trx-row__thinking-standalone" {...depthStyle(rowDepth)}>
-            <ProviderThinkingDisclosure thinking={thinking()} />
-          </div>
-        )}
-      </Show>
-      {body()}
-    </>
-  );
-}
-
-/** The provider-thinking attached to a row, if any (text/tool/delegation/return). */
-function rowProviderThinking(row: TurnRow): ProviderThinking | undefined {
-  return (row as { providerThinking?: ProviderThinking }).providerThinking;
+  switch (row.kind) {
+    case 'delegation':
+      return <DelegationRowView row={row} showAgent={props.showAgent} />;
+    case 'text':
+      return <TextRowView row={row} showAgent={props.showAgent} isFinalAnswer={props.isFinalAnswer} />;
+    case 'reasoning':
+      return <ReasoningRowView row={row} showAgent={props.showAgent} />;
+    case 'tool':
+      return (
+        <ToolRowView
+          row={row}
+          showAgent={props.showAgent}
+          readWorkspaceImage={props.readWorkspaceImage}
+        />
+      );
+    case 'routing':
+      return <RoutingRowView row={row} />;
+    case 'return':
+      return <ReturnRowView row={row} showAgent={props.showAgent} />;
+    case 'passthrough':
+      return (
+        <PassthroughRowView
+          row={row}
+          density={props.density}
+          onOpenDiff={props.onOpenDiff}
+          onPinFile={props.onPinFile}
+          imagePartsSupported={props.imagePartsSupported}
+          messageId={props.messageId}
+        />
+      );
+  }
 }
 
 /** A delegation = the PARENT's turn: `● → <child>` + the task (in FULL). The
@@ -296,12 +231,7 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
 
 /** `●` then the agent's prose, markdown IN FULL. One ● marker per turn; the
  *  agent name comes from the block header, not repeated on each turn. */
-function TextRowView(props: {
-  row: TextRow;
-  showAgent: boolean;
-  isFinalAnswer: boolean;
-  streaming?: boolean;
-}) {
+function TextRowView(props: { row: TextRow; showAgent: boolean; isFinalAnswer: boolean }) {
   const row = () => props.row;
   return (
     <>
@@ -324,19 +254,15 @@ function TextRowView(props: {
           </span>
         </div>
         <div class="trx-row__body" data-testid="assistant-turn-result">
-          <StreamingMarkdown text={row().text} streaming={props.streaming} />
+          <MemoMarkdown text={row().text} />
         </div>
       </section>
     </>
   );
 }
 
-/** An agent's `thinking`. The LIVE path emits an empty-text reasoning row whose
- *  `providerThinking` is the streaming SDK thinking — it renders ONLY as the
- *  collapsed `thinking ▾` disclosure (via the agent header, or the standalone
- *  disclosure when mid-block), no `●` body. A reasoning row WITH text (persisted
- *  DSPy reasoning) still renders the muted `●` body. */
-function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean; streaming?: boolean }) {
+/** An agent's `thinking` step — same shape, muted, but still a ● turn. */
+function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean }) {
   const row = () => props.row;
   return (
     <>
@@ -347,23 +273,21 @@ function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean; stream
           providerThinking={row().providerThinking}
         />
       </Show>
-      <Show when={row().text.trim()}>
-        <section
-          class="trx-row trx-row--reason"
-          data-testid="assistant-turn-reasoning"
-          data-agent={row().agent}
-          {...depthStyle(row().depth)}
-        >
-          <div class="trx-row__head">
-            <span class="trx-row__marker trx-row__marker--dim" aria-hidden="true">
-              ●
-            </span>
-          </div>
-          <div class="trx-row__body trx-row__body--dim" data-testid="assistant-turn-reasoning-body">
-            <StreamingMarkdown text={row().text} streaming={props.streaming} />
-          </div>
-        </section>
-      </Show>
+      <section
+        class="trx-row trx-row--reason"
+        data-testid="assistant-turn-reasoning"
+        data-agent={row().agent}
+        {...depthStyle(row().depth)}
+      >
+        <div class="trx-row__head">
+          <span class="trx-row__marker trx-row__marker--dim" aria-hidden="true">
+            ●
+          </span>
+        </div>
+        <div class="trx-row__body trx-row__body--dim" data-testid="assistant-turn-reasoning-body">
+          <MemoMarkdown text={row().text} />
+        </div>
+      </section>
     </>
   );
 }
@@ -403,28 +327,23 @@ function ToolRowView(props: {
           </Show>
         </div>
         <Show when={hasThought()}>
-          <div class="trx-tool__call-row">
-            <span class="trx-row__marker" aria-hidden="true">
-              ●
-            </span>
-            <ToolCallLine row={row()} />
-          </div>
+          <ToolCallLine row={row()} />
         </Show>
-        <Show when={toolHasResult(row())}>
-          <div class="trx-tool__result">
-            <span class="trx-tool__result-gutter" aria-hidden="true">
-              ⎿
-            </span>
-            <div class="trx-tool__result-body">
-              <ToolResultView
-                content={row().content}
-                raw={row().result}
-                preview={row().preview}
-                readWorkspaceImage={props.readWorkspaceImage}
-              />
-            </div>
+      <Show when={toolHasResult(row())}>
+        <div class="trx-tool__result">
+          <span class="trx-tool__result-gutter" aria-hidden="true">
+            ⎿
+          </span>
+          <div class="trx-tool__result-body">
+            <ToolResultView
+              content={row().content}
+              raw={row().result}
+              preview={row().preview}
+              readWorkspaceImage={props.readWorkspaceImage}
+            />
           </div>
-        </Show>
+        </div>
+      </Show>
       </div>
     </>
   );
@@ -435,6 +354,7 @@ function ToolCallLine(props: { row: ToolRow }) {
   const row = () => props.row;
   return (
     <div class="trx-tool__call">
+      <Icon name="tool" size={12} />
       <span class="trx-tool__name">{row().name}</span>
       <Show when={row().argsSummary}>
         <span class="trx-tool__args">({row().argsSummary})</span>
@@ -469,26 +389,20 @@ function RoutingRowView(props: { row: RoutingRow }) {
 function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
   const row = () => props.row;
   const [open, setOpen] = createSignal(false);
-  // A return is a COLLAPSED one-liner: `↩ child returns to parent  thinking ▾
-  // show details ▾`. Nothing is shown by default. Two independent disclosures sit
-  // on the line: "thinking" (the reasoning the child's turn used) and "show
-  // details" (the return content — the readable summary, plus the raw payload
-  // when it carries more than the summary).
-  const thinking = () => row().providerThinking;
-  const hasContent = () => row().text.trim().length > 0 || row().raw.trim().length > 0;
-  const showRaw = () => {
-    const raw = row().raw.trim();
-    return raw.length > 0 && raw !== row().text.trim();
-  };
-  const detailsCount = () => {
+  const hasDetails = () => row().raw.trim().length > 0;
+  const responseCount = () => {
     if (row().tokens != null) return `${row().tokens} tokens`;
-    const chars = row().chars ?? (row().text || row().raw).length;
+    const chars = row().chars ?? row().raw.length;
     return `${chars} chars`;
   };
   return (
     <>
       <Show when={props.showAgent}>
-        <AgentHeader agent={row().agent} depth={row().depth} />
+        <AgentHeader
+          agent={row().agent}
+          depth={row().depth}
+          providerThinking={row().providerThinking}
+        />
       </Show>
       <section
         class="trx-row trx-row--return"
@@ -507,10 +421,7 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
             </span>
             <span class="trx-row__agent">{row().parent}</span>
           </span>
-          <Show when={thinking()}>
-            {(t) => <ProviderThinkingDisclosure thinking={t()} />}
-          </Show>
-          <Show when={hasContent()}>
+          <Show when={hasDetails()}>
             <button
               type="button"
               class="trx-return__toggle"
@@ -521,21 +432,19 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
                 setOpen((v) => !v);
               }}
             >
-              {open() ? 'hide details' : `show details (${detailsCount()})`}
+              {open() ? 'hide response' : `show response (${responseCount()})`}
             </button>
           </Show>
         </div>
-        <Show when={open() && hasContent()}>
+        <Show when={row().text}>
           <div class="trx-row__body trx-row__body--return" data-testid="assistant-turn-return-body">
-            <Show when={row().text}>
-              <MemoMarkdown text={row().text} />
-            </Show>
-            <Show when={showRaw()}>
-              <pre class="trx-return__raw" data-testid="assistant-turn-return-raw">
-                {row().raw}
-              </pre>
-            </Show>
+            <MemoMarkdown text={row().text} />
           </div>
+        </Show>
+        <Show when={open() && hasDetails()}>
+          <pre class="trx-return__raw" data-testid="assistant-turn-return-raw">
+            {row().raw}
+          </pre>
         </Show>
       </section>
     </>
@@ -580,7 +489,7 @@ function PassthroughRowView(props: {
   );
 }
 
-/** Image artifact: a large collapsed preview that expands on click. */
+/** Image artifact: a capped thumbnail that enlarges to a full overlay on click. */
 function ImageThumbPartView(props: { part: Part; imagePartsSupported?: boolean }) {
   const [enlarged, setEnlarged] = createSignal(false);
   return (
@@ -591,17 +500,15 @@ function ImageThumbPartView(props: { part: Part; imagePartsSupported?: boolean }
         classList={{ 'is-enlarged': enlarged() }}
         data-testid="trx-image-thumb"
         aria-expanded={enlarged()}
-        title={enlarged() ? 'collapse image' : 'show full image'}
+        title={enlarged() ? 'click to shrink' : 'click to enlarge'}
         onClick={(e) => {
           e.stopPropagation();
           setEnlarged((v) => !v);
         }}
       >
-        <span class="trx-image-frame">
-          <ImagePartView part={props.part} imagePartsSupported={props.imagePartsSupported} />
-        </span>
+        <ImagePartView part={props.part} imagePartsSupported={props.imagePartsSupported} />
         <span class="trx-image-thumb__hint" data-testid="trx-image-thumb-hint">
-          {enlarged() ? 'collapse' : 'show full image'}
+          {enlarged() ? 'collapse' : 'click to enlarge'}
         </span>
       </button>
     </div>

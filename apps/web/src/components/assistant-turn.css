@@ -2,10 +2,7 @@
 
 .trx-turn {
   --trx-body: 14.5px;
-  --trx-gutter: 14px;
-  --trx-gap: 8px;
-  --trx-rail-gap: 10px;
-  --trx-step: calc(var(--trx-rail-gap) + var(--trx-gutter) + var(--trx-gap));
+  --trx-step: clamp(0.75rem, 1.4ch, 1.25rem);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -15,22 +12,33 @@
 }
 
 .trx-row,
-.trx-row__agenthdr,
-.trx-row__thinking-standalone {
+.trx-row__agenthdr {
   --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step));
   margin-left: var(--trx-indent);
 }
 
-/* A mid-block thinking disclosure (no agent header) aligns with the content of
-   the ● row it precedes, instead of being outdented past the marker. */
 .trx-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  padding-left: var(--trx-rail-gap);
   content-visibility: auto;
   contain-intrinsic-size: auto 80px;
+}
+
+.trx-row[data-depth='1'],
+.trx-row[data-depth='2'],
+.trx-row[data-depth='3'],
+.trx-row[data-depth='4'],
+.trx-row[data-depth='5'],
+.trx-row[data-depth='6'],
+.trx-row__agenthdr[data-depth='1'],
+.trx-row__agenthdr[data-depth='2'],
+.trx-row__agenthdr[data-depth='3'],
+.trx-row__agenthdr[data-depth='4'],
+.trx-row__agenthdr[data-depth='5'],
+.trx-row__agenthdr[data-depth='6'] {
+  padding-left: 12px;
 }
 
 .trx-row[data-depth='1'],
@@ -72,8 +80,6 @@
 }
 
 .trx-row__marker {
-  display: inline-block;
-  width: var(--trx-gutter);
   flex-shrink: 0;
   color: var(--color-accent);
 }
@@ -114,50 +120,28 @@
 .trx-tool__markdown {
   min-width: 0;
   color: var(--color-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--trx-body);
   line-height: 1.6;
-  font-weight: 400;
+}
+
+.trx-row__task,
+.trx-row__body {
+  margin-left: 18px;
 }
 
 .trx-row__task {
-  grid-column: 2;
   display: grid;
-  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
-  column-gap: var(--trx-gap);
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
   align-items: baseline;
-}
-
-.trx-row--delegation,
-.trx-row--tool {
-  display: grid;
-  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
-  column-gap: var(--trx-gap);
-  row-gap: 4px;
-  align-items: baseline;
-}
-
-.trx-row--delegation .trx-row__head {
-  display: contents;
-}
-
-.trx-row--delegation .trx-row__head > .trx-row__marker {
-  grid-column: 1;
-}
-
-.trx-row--delegation .trx-row__head > .trx-row__owner {
-  grid-column: 2;
-}
-
-.trx-row--delegation .trx-row__head > .trx-row__status {
-  grid-column: 2;
 }
 
 .trx-row--text,
 .trx-row--reason {
   display: grid;
-  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
-  column-gap: var(--trx-gap);
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 6px;
   row-gap: 0;
   align-items: baseline;
 }
@@ -167,7 +151,7 @@
   grid-column: 1;
   grid-row: 1;
   display: block;
-  min-width: var(--trx-gutter);
+  min-width: 14px;
 }
 
 .trx-row--text .trx-row__body,
@@ -182,16 +166,19 @@
 .trx-row__body .im__li,
 .trx-row__body .im__h,
 .trx-row__body .im__link,
+.trx-row__body .im__inline-code,
 .trx-tool__thought .im,
 .trx-tool__thought .im__p,
 .trx-tool__thought .im__li,
 .trx-tool__thought .im__h,
 .trx-tool__thought .im__link,
+.trx-tool__thought .im__inline-code,
 .trx-tool__markdown .im,
 .trx-tool__markdown .im__p,
 .trx-tool__markdown .im__li,
 .trx-tool__markdown .im__h,
-.trx-tool__markdown .im__link {
+.trx-tool__markdown .im__link,
+.trx-tool__markdown .im__inline-code {
   font-size: var(--trx-body);
   line-height: 1.6;
 }
@@ -215,7 +202,10 @@
 }
 
 .trx-row--tool .trx-row__head {
-  display: contents;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: baseline;
 }
 
 .trx-row--tool .trx-row__head > .trx-row__marker {
@@ -227,24 +217,11 @@
   grid-column: 2;
 }
 
-.trx-tool__call-row {
-  display: contents;
-}
-
-.trx-tool__call-row > .trx-row__marker {
-  grid-column: 1;
-}
-
-.trx-tool__call-row > .trx-tool__call {
-  grid-column: 2;
-}
-
 .trx-row__head--tool-call {
   flex-wrap: nowrap;
 }
 
 .trx-tool__call {
-  position: relative;
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -253,6 +230,12 @@
   font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.6;
+}
+
+.trx-tool__call .icon {
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--color-accent-cyan);
 }
 
 .trx-tool__name {
@@ -293,11 +276,10 @@
 }
 
 .trx-tool__result {
-  grid-column: 2;
   display: grid;
-  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
-  column-gap: var(--trx-gap);
-  align-items: baseline;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  margin-left: 8px;
 }
 
 .trx-tool__result-gutter {
@@ -383,29 +365,16 @@
   display: inline-block;
   min-width: 0;
   color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-/* Collapsed, the disclosure sits inline beside the agent name. Expanded, it
-   takes the full row (flex-basis:100% wraps it to its own line in the
-   flex-wrap agenthdr) so the reasoning body uses the FULL page width instead of
-   a cramped column. */
-.trx-row__agenthdr .trx-provider-thinking[open] {
-  flex-basis: 100%;
 }
 
 .trx-provider-thinking > summary {
   display: inline-grid;
-  grid-template-columns: auto auto minmax(0, auto);
+  grid-template-columns: auto auto minmax(0, auto) minmax(0, auto);
   column-gap: 5px;
   align-items: baseline;
   color: var(--color-muted);
   cursor: pointer;
   font: inherit;
-  line-height: inherit;
   list-style: none;
 }
 
@@ -436,56 +405,9 @@
 }
 
 .trx-provider-thinking__body {
-  /* Fill the column it sits in (reactive), same as a normal turn's text body which
-     is `minmax(0, 1fr)`. A mid-block/standalone thinking sits in the reasoning row's
-     1fr column, so this matches the answer text width and reflows with the page. */
-  width: 100%;
+  width: min(72ch, calc(100vw - 56px));
   margin-top: 4px;
-  padding-left: 10px;
-  border-left: 2px solid var(--color-border-30);
   color: var(--color-muted);
-  font: inherit;
-  white-space: normal;
-}
-
-.trx-row__thinking-standalone {
-  min-width: 0;
-  padding-left: var(--trx-step);
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  line-height: 1.6;
-  color: var(--color-muted);
-}
-
-.trx-turn .im,
-.trx-turn .im__p,
-.trx-turn .im__li,
-.trx-turn .im__h,
-.trx-turn .im__link,
-.trx-turn .im__inline-code {
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  line-height: 1.6;
-}
-
-.trx-turn strong,
-.trx-turn .im__strong {
-  color: var(--color-heading);
-  font-weight: 700;
-}
-
-.trx-turn .im__inline-code {
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
-  color: var(--color-heading);
-  padding: 0 0.2em;
-}
-
-/* Streaming text renders as plain pre-wrap (no per-token markdown re-parse) for
-   smooth append; it swaps to formatted markdown when the row finalizes. */
-.im--streaming {
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .trx-tool__diff {
@@ -585,86 +507,41 @@
 
 .trx-image-thumb {
   position: relative;
-  display: block;
-  width: 100%;
+  display: inline-block;
   max-width: 100%;
-  overflow: visible;
   border: 0;
   border-radius: 10px;
   background: transparent;
   cursor: zoom-in;
   padding: 0;
-  text-align: left;
-}
-
-.trx-image-frame {
-  position: relative;
-  display: block;
-  width: 100%;
-  max-height: min(26dvh, 26cqw);
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--color-surface);
 }
 
 .trx-image-thumb .trx-image {
-  width: 100%;
-  max-width: 100%;
-  max-height: none;
-  object-fit: cover;
-  object-position: top left;
-  height: auto;
+  max-width: 260px;
+  max-height: 160px;
   margin: 0;
-  border-radius: 10px;
-  transition: max-height var(--dur-fast), max-width var(--dur-fast), width var(--dur-fast);
-}
-
-.trx-image-thumb:not(.is-enlarged) .trx-image-frame::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: 44%;
-  background:
-    linear-gradient(
-      to bottom,
-      transparent 0%,
-      color-mix(in srgb, var(--color-bg) 44%, transparent) 48%,
-      color-mix(in srgb, var(--color-bg) 94%, transparent) 100%
-    );
-  pointer-events: none;
+  transition: max-height var(--dur-fast), max-width var(--dur-fast);
 }
 
 .trx-image-thumb.is-enlarged {
   cursor: zoom-out;
-  width: 100%;
-  max-height: none;
-  overflow: visible;
-  background: transparent;
-}
-
-.trx-image-thumb.is-enlarged .trx-image-frame {
-  max-height: none;
-  overflow: visible;
-  background: transparent;
 }
 
 .trx-image-thumb.is-enlarged .trx-image {
-  width: 100%;
-  max-width: 100%;
-  max-height: 80dvh;
-  object-fit: contain;
-  object-position: top left;
+  max-width: min(720px, 100%);
+  max-height: 70vh;
 }
 
 .trx-image-thumb__hint {
-  display: inline-flex;
-  margin-top: 6px;
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
   border: 1px solid var(--color-border-30);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-bg) 70%, transparent);
   color: var(--color-heading);
   font-family: var(--font-mono);
   font-size: var(--trx-body);
-  padding: 3px 9px;
+  padding: 1px 6px;
   pointer-events: none;
 }

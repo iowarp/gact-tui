@@ -254,10 +254,12 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     ).toBe(true);
   });
 
-  it('renders the dspy.extract (thinking + reasoning) in the FLOW, not folded onto the return', () => {
-    // The extract's SDK thinking host + `reasoning` text render like every other turn
-    // — thinking on top, streaming — NOT folded onto the return (folding bound them to
-    // the end, so the thinking could not stream in). The return is a clean one-liner.
+  it('A: folds the dspy.extract (SDK thinking + reasoning) into the return, finish next_thought stays inline', () => {
+    // The dspy.extract (its SDK thinking host + `reasoning` text) sits right before
+    // the return — it IS the return synthesis, a separate LLM call after the loop.
+    // It collapses into the return's `thinking ▾` (off the flow, NOT deleted, NOT an
+    // inline duplicate). The finish `next_thought` stays inline as the last flow
+    // bullet; the answer stays in the return's show-details.
     const parts = [
       handoff('h', 'main', 'geospatial', 'delegate.started'),
       textField('geo-nt', 'geospatial', 'Los Angeles resolved; finishing now.', 'next_thought'),
@@ -281,17 +283,18 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
     const textIds = rows.filter((r) => r.kind === 'text').map((r) => r.id);
-    // BOTH the finish next_thought and the extract reasoning render inline (they stream).
+    // finish next_thought stays inline; the extract reasoning is NOT an inline text.
     expect(textIds).toContain('geo-nt');
-    expect(textIds).toContain('geo-rz');
-    // the extract's SDK thinking is a STANDALONE host in the flow (streams on top).
+    expect(textIds).not.toContain('geo-rz');
+    // no standalone extract-thinking host leaks into the flow.
     expect(
       rows.filter((r) => r.kind === 'reasoning' && !!r.providerThinking?.text.trim()),
-    ).toHaveLength(1);
-    // the return is a clean one-liner — NO folded thinking.
+    ).toHaveLength(0);
+    // the return carries the folded extract (SDK thinking + reasoning) as `thinking ▾`.
     const ret = rows.find((r) => r.kind === 'return') as Extract<TurnRow, { kind: 'return' }>;
     expect(ret).toBeTruthy();
-    expect(ret.providerThinking).toBeFalsy();
+    expect(ret.providerThinking?.text).toContain('Los Angeles resolved to 34.05');
+    expect(ret.providerThinking?.text).toContain('YYYYY');
   });
 
   it('suppresses terminal parent completion reasoning after the synthesis answer', () => {
