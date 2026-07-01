@@ -35,9 +35,19 @@ const STATE_CAPTION_LINE = /^\s*[^\n{}]{0,80}?\btyped workflow state\b[^\n{}]{0,
 const RETAINED_EVIDENCE_LINE =
   /^\s*(?:\[\.\.\.delegation output truncated; exact evidence retained below\.\.\.\]|\[exact retained evidence index\])\s*$/gim;
 
+/** A ChatAdapter section marker `[[ ## field ## ]]`, optionally wrapped in the
+ *  backticks the model uses when it quotes the format in its own reasoning. These
+ *  are protocol tokens, never user content — the answer path already strips them
+ *  in clio's extractor; this strips them everywhere the RENDER shows text (esp.
+ *  the provider-thinking channel, which is bridged raw and leaks them). */
+const SECTION_MARKER = /`?\s*\[\[\s*##\s*[A-Za-z0-9_]+\s*##\s*\]\]\s*`?/g;
+
 export function stripClioScaffolding(text: string): string {
   if (!text) return '';
   let out = text;
+
+  // 0) Strip any leaked `[[ ## field ## ]]` section markers (thinking channel).
+  out = out.replace(SECTION_MARKER, ' ');
 
   // 1) Remove a `… typed workflow state: { … }` blob (caption + balanced JSON).
   for (let guard = 0; guard < 6; guard++) {

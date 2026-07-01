@@ -163,7 +163,8 @@ export function Transcript(props: TranscriptProps) {
             matchBaseIndex={presentation.baseIndexFor(m.id)}
             // REACTIVE: read streamingTarget() in the prop so it re-evaluates when a
             // turn starts/stops streaming (the old loop-local `partIdx` was computed
-            // once and went stale → the tail never switched to plain StreamingMarkdown).
+            // once and went stale → the tail never got flagged `streaming` for the
+            // incremental Markdown renderer to keep its parser open).
             streamingPartIdx={
               presentation.streamingTarget()?.msgId === m.id
                 ? presentation.streamingTarget()!.partIdx

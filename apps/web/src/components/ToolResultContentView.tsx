@@ -14,7 +14,7 @@
  */
 import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
 import { CollapsibleText } from './CollapsibleContent.js';
-import { MemoMarkdown } from './MemoMarkdown.js';
+import { Markdown } from './Markdown.js';
 import { InlineWorkspaceImage } from './InlineWorkspaceImage.js';
 import type { ToolResultContent } from './toolResultContent.js';
 
@@ -92,7 +92,7 @@ export function ToolResultView(props: {
         <Match when={content().kind === 'markdown' ? (content() as { kind: 'markdown'; text: string }) : null}>
           {(md) => (
             <div class="trx-tool__markdown">
-              <MemoMarkdown text={md().text} />
+              <Markdown text={md().text} />
             </div>
           )}
         </Match>

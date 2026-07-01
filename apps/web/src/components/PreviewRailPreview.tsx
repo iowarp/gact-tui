@@ -4,7 +4,7 @@
 import { Show } from 'solid-js';
 import type { ContextFileContent } from '@clio/core';
 import { Icon } from './Icon.js';
-import { InlineMarkdown } from './InlineMarkdown.js';
+import { Markdown } from './Markdown.js';
 import {
   humanSize,
   imageFailureHint,
@@ -109,7 +109,7 @@ export function PreviewRailPreview(props: PreviewRailPreviewProps) {
                   }
                 >
                   <div class="preview-rail__markdown" data-testid="preview-rail-markdown">
-                    <InlineMarkdown text={props.textBody} />
+                    <Markdown text={props.textBody} />
                   </div>
                 </Show>
               </Show>

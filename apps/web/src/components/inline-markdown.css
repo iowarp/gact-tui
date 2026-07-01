@@ -1,5 +1,8 @@
-@import './inline-markdown-code.css';
-@import './inline-markdown-blocks.css';
+/* Styling for the single incremental markdown renderer (Markdown.tsx / smd).
+ * smd emits PLAIN semantic HTML (p, h1-6, ul/ol/li, code, pre>code, a, blockquote,
+ * hr, strong, em, s, table) into a `.im` wrapper — so these rules target the tags
+ * directly. (The prior renderer emitted custom `.im__*` classes + a highlight.js
+ * code block with line numbers / copy button; that whole scheme is gone.) */
 
 .im {
   display: flex;
@@ -7,13 +10,14 @@
   gap: 8px;
 }
 
-.im__p {
+.im p {
   margin: 0;
   color: var(--color-text);
   line-height: var(--leading-relaxed);
 }
 
-.im__inline-code {
+/* Inline code (not inside a fenced block). */
+.im code {
   font-family: var(--font-mono);
   font-size: 0.92em;
   background: var(--color-surface-alt);
@@ -23,40 +27,108 @@
   color: var(--color-accent-cyan);
 }
 
-/* Headings + lists + links - additions for the v0.9.1 polish pass. */
-.im__h {
+/* Fenced code block — soft chrome: monospace panel, no lang badge / copy button. */
+.im pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.im pre code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text);
+  white-space: pre;
+}
+
+.im h1,
+.im h2,
+.im h3,
+.im h4,
+.im h5,
+.im h6 {
   margin: 16px 0 6px;
   font-family: var(--font-sans);
   color: var(--color-heading);
   letter-spacing: -0.01em;
 }
 
-.im__h-1 { font-size: 18px; font-weight: 700; }
-.im__h-2 { font-size: 15px; font-weight: 700; }
-.im__h-3 { font-size: 13.5px; font-weight: 600; color: var(--color-text); }
+.im h1 { font-size: 18px; font-weight: 700; }
+.im h2 { font-size: 15px; font-weight: 700; }
+.im h3 { font-size: 13.5px; font-weight: 600; color: var(--color-text); }
+.im h4,
+.im h5,
+.im h6 { font-size: 13px; font-weight: 600; color: var(--color-text); }
 
-.im__li {
+.im ul,
+.im ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.im li {
   margin: 3px 0;
   line-height: 1.55;
 }
 
-.im__link {
+.im a {
   color: var(--color-accent-cyan);
   text-decoration: underline;
   text-underline-offset: 2px;
   word-break: break-word;
 }
 
-.im__link:hover {
+.im a:hover {
   color: var(--color-heading);
 }
 
-.im__strike {
+.im s {
   text-decoration-color: color-mix(in srgb, var(--color-muted) 70%, transparent);
   color: var(--color-muted);
 }
 
-mark.im__highlight {
+.im blockquote {
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--color-border-30);
+  color: var(--color-muted);
+}
+
+.im hr {
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.im table {
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.im th,
+.im td {
+  border: 1px solid var(--color-border-30);
+  padding: 3px 8px;
+  text-align: left;
+}
+
+.im th {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+/* Search highlight span (see HighlightedText). */
+.im mark {
   background: color-mix(in srgb, var(--color-warning) 30%, transparent);
   color: var(--color-heading);
   padding: 0 2px;
