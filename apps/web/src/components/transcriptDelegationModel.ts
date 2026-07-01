@@ -475,38 +475,11 @@ export function buildAssistantTurnModel(
       const pairKey = `${parent}->${agent}`;
       let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
-        // A (extract → return): the `dspy.extract` step IS the return synthesis — a
-        // SEPARATE LLM call after the ReAct loop that re-summarizes the finish into a
-        // typed answer. Its `reasoning` text + SDK thinking sit right before this
-        // return for the SAME agent; collapse them into the return's `thinking ▾`
-        // (hidden, not deleted, not an inline duplicate of the finish `next_thought`,
-        // which stays inline as the last flow bullet). The answer stays in the
-        // return's `text`/`show details`. Fold FIRST — before the (dedup) delegation
-        // header is pushed — so we walk back from the extract, not that header. Pop at
-        // most one reasoning text + one thinking host — never past the finish thought.
-        const foldedExtract: string[] = [];
-        {
-          const lastText = rows[rows.length - 1];
-          if (
-            lastText?.kind === 'text' &&
-            lastText.agent === agent &&
-            lastText.field === 'reasoning'
-          ) {
-            rows.pop();
-            foldedExtract.push(lastText.text);
-          }
-          const lastHost = rows[rows.length - 1];
-          if (
-            lastHost?.kind === 'reasoning' &&
-            lastHost.agent === agent &&
-            !lastHost.text.trim() &&
-            lastHost.providerThinking?.text.trim()
-          ) {
-            rows.pop();
-            foldedExtract.unshift(lastHost.providerThinking.text);
-          }
-        }
-        const extractThinking = foldedExtract.join('\n\n').trim();
+        // The dspy.extract that precedes this return (its SDK thinking host + the
+        // `reasoning` text) renders in the flow like every other turn — thinking on
+        // top, streaming — NOT folded onto the return. Folding bound it to the return,
+        // which only exists at the very END of the turn, so it could not stream in.
+        // The return stays a clean one-liner (`↩ child returns to parent · show details`).
         if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
         if (!seenDelegation.has(key)) {
           seenDelegation.add(key);
@@ -534,15 +507,6 @@ export function buildAssistantTurnModel(
           // reload identical to live — no falling back to workflow_state, which
           // would surface a "details" toggle live-hidden turns don't have.
           raw: rawResultString(firstNonEmptyRaw(part.metadata?.['output_raw'])),
-          ...(extractThinking
-            ? {
-                providerThinking: {
-                  text: extractThinking,
-                  source: 'extract',
-                  chars: extractThinking.length,
-                },
-              }
-            : {}),
         });
         continue;
       }
