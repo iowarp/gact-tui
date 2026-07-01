@@ -30,6 +30,7 @@ export function createChatWorkspaceInspector(options: ChatWorkspaceInspectorOpti
   const sessionList = createChatSessionListState({
     backendUrl: core.backendUrl,
     sessions: () => core.live.sessions() ?? [],
+    sessionsLoading: () => core.live.sessions.loading,
     blueprintLabels,
     activeId: core.activeId,
     setActiveId: core.setActiveId,
