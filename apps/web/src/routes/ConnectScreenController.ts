@@ -13,6 +13,7 @@ import {
   connectErrorHint,
   connectErrorMessage,
   connectFailureStateForStatus,
+  isCapabilitiesPayload,
   isRemoteBackendUrl,
 } from './ConnectScreenModel.js';
 
@@ -44,6 +45,9 @@ export async function attemptConnect(
       throw Object.assign(new Error(failure.error), { failure });
     }
     const caps = await res.json();
+    if (!isCapabilitiesPayload(caps)) {
+      throw new Error('Invalid capabilities response');
+    }
     return {
       backend: { url: options.url, bearerToken: options.token, capabilities: caps },
       reauthNeeded: false,

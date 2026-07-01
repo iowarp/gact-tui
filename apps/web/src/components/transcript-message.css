@@ -97,11 +97,12 @@
 }
 
 .trx-msg__body {
+  --trx-body: 14.5px;
   padding-left: 18px;
   color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: 15.5px;
-  line-height: 1.7;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.6;
 }
 
 .trx-msg__body > * + * {
@@ -117,10 +118,17 @@
 .trx-msg__body > .trx-text,
 .trx-msg__body .im,
 .trx-msg__body .im__p,
+.trx-msg__body .im__li,
+.trx-msg__body .im__h,
+.trx-msg__body .im__link,
+.trx-msg__body .im__inline-code,
 .trx-msg__body .trx-text {
   width: auto;
   max-width: 100%;
   min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.6;
 }
 
 .trx-msg__body > .im,

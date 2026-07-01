@@ -75,6 +75,10 @@ describe('VersionBadge', () => {
     ));
     fireEvent.click(screen.getByTestId('app-version-badge'));
     await waitFor(() => expect(screen.getByTestId('update-row-backend-link')).toBeTruthy());
+    expect(screen.getByTestId('update-row-backend-link').textContent).toContain('Releases');
+    expect(screen.getByTestId('update-row-backend-link').textContent).not.toContain(
+      'github.com/iowarp/clio-agent',
+    );
     expect(screen.getByTestId('update-row-backend-link').getAttribute('href')).toBe(REPO.url);
   });
 

@@ -25,10 +25,13 @@ import {
   type SplashPhase,
   splashStartupModeFromUrl,
 } from './splashModel.js';
+import type { PureWebBackendCandidate } from './splashBackend.js';
 
 export interface SplashControllerOptions {
   onReady: (backend: FrontendHandle) => void;
   onWebFallbackNeeded: () => void;
+  pureWebCandidates?: () => readonly PureWebBackendCandidate[];
+  isRegistryHydrated?: () => boolean;
 }
 
 export function createSplashController(options: SplashControllerOptions) {
@@ -63,6 +66,8 @@ export function createSplashController(options: SplashControllerOptions) {
     onNeedsInstall: () => startInstall(),
     onReady: options.onReady,
     onWebFallbackNeeded: options.onWebFallbackNeeded,
+    pureWebCandidates: options.pureWebCandidates,
+    isRegistryHydrated: options.isRegistryHydrated,
   });
 
   onMount(() => {

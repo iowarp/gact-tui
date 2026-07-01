@@ -24,7 +24,7 @@ export type ReadWorkspaceImage = (
 ) => Promise<{ url: string; mediaType: string } | null>;
 
 /** Tool OUTPUT is the one and only thing that collapses (RENDERING_SPEC §2). */
-export const TOOL_RESULT_THRESHOLD = 6;
+export const TOOL_RESULT_THRESHOLD = 3;
 
 /**
  * Render a tool result BY ITS DETECTED CONTENT TYPE (backend-agnostic). Only the

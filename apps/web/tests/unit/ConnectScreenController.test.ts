@@ -3,7 +3,15 @@ import { attemptConnect } from '../../src/routes/ConnectScreenController.js';
 
 describe('ConnectScreenController', () => {
   it('returns a backend handle for successful capabilities probes', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(new Response('{"ok":true}', { status: 200 }));
+    const capabilities = {
+      contract_version: '1',
+      backend: { name: 'CLIO', version: '1', vendor: 'test' },
+      capabilities: {},
+      transports: {},
+      auth: { schemes: [], current: 'none' },
+      extensions: [],
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(Response.json(capabilities));
 
     await expect(
       attemptConnect({
@@ -15,7 +23,7 @@ describe('ConnectScreenController', () => {
       backend: {
         url: 'http://127.0.0.1:17800',
         bearerToken: 'secret',
-        capabilities: { ok: true },
+        capabilities,
       },
       reauthNeeded: false,
       revealAdvanced: false,

@@ -41,6 +41,22 @@ describe('Transcript', () => {
     expect(screen.getByText('x')).toBeTruthy();
   });
 
+  it('uses legacy assistant rendering only when no normalized transcript is present', () => {
+    render(() => <Transcript messages={messages} density="normal" />);
+    expect(screen.getByText('done')).toBeTruthy();
+    expect(screen.queryByTestId('normalized-transcript-message')).toBeNull();
+  });
+
+  it('renders every turn through the unified parts path — no separate normalized render', () => {
+    // UNIFIED: live and reload both render via MessageView/buildAssistantTurnModel.
+    // The user turn and the assistant turn both show; there is no separate
+    // normalized-transcript-message element (the normalized render is retired).
+    render(() => <Transcript messages={messages} density="normal" />);
+    expect(screen.getByText('hello')).toBeTruthy();
+    expect(screen.getByText('done')).toBeTruthy();
+    expect(screen.queryByTestId('normalized-transcript-message')).toBeNull();
+  });
+
   it('summarizes CLIO typed workflow state instead of dumping JSON inline', () => {
     render(() => (
       <Transcript

@@ -11,7 +11,9 @@ import type {
   UserQuestion,
 } from '@clio/core';
 import type { JSX } from 'solid-js';
+import { Show } from 'solid-js';
 import { Client } from '@clio/core';
+import { PermissionCard } from '../components/PermissionCard.js';
 import type { BackendHandle } from '../App.js';
 import type {
   ModelOption,
@@ -152,6 +154,18 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
       />
 
       {props.renderContextFooter?.()}
+
+      {/* Permission approval docks at the BOTTOM, just above the composer, so a
+          pending tool approval sits right where the user is looking (was buried at
+          the top of the scrollable transcript). */}
+      <Show when={props.pendingPermission}>
+        <div class="chat__permission-dock">
+          <PermissionCard
+            request={props.pendingPermission!}
+            onDecide={props.onPermissionDecide}
+          />
+        </div>
+      </Show>
 
       <ChatConversationComposer
         backendUrl={props.backendUrl}

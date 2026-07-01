@@ -8,7 +8,7 @@
  * `createMemo` keyed on the raw text, so an unchanged block's markdown is parsed
  * exactly once and reused until its text actually changes.
  */
-import { For, createMemo } from 'solid-js';
+import { For, Show, createMemo } from 'solid-js';
 import { MarkdownBlock } from './InlineMarkdownBlocks.js';
 import { normalizeCompactMarkdown, splitBlocks } from './InlineMarkdownModel.js';
 
@@ -20,5 +20,20 @@ export function MemoMarkdown(props: { text: string }) {
     <div class="im">
       <For each={blocks()}>{(block) => <MarkdownBlock block={block} />}</For>
     </div>
+  );
+}
+
+/**
+ * Markdown for a row that may still be STREAMING. While streaming, render the
+ * growing text as plain `pre-wrap` — a single text node that just appends — so
+ * we avoid re-parsing the whole markdown on every token (the O(n²) choppiness).
+ * The moment the row finalizes (`streaming` false) it swaps to the fully
+ * formatted {@link MemoMarkdown}.
+ */
+export function StreamingMarkdown(props: { text: string; streaming?: boolean }) {
+  return (
+    <Show when={props.streaming} fallback={<MemoMarkdown text={props.text} />}>
+      <div class="im im--streaming">{props.text}</div>
+    </Show>
   );
 }

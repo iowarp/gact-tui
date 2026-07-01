@@ -8,7 +8,6 @@ import type { RailRoute } from '../components/LeftRail.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { ChatConversationPane } from './ChatConversationPane.js';
-import { ChatTopbar } from './ChatTopbar.js';
 import { DiscoveryView } from './DiscoveryView.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 import type { TopbarOverflowController } from './chatTopbarOverflow.js';
@@ -53,32 +52,6 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           />
         }
       >
-        <ChatTopbar
-          overflow={options.topbarOverflow}
-          activeId={options.props.activeId}
-          activeTitle={options.activeRow()?.title}
-          activeBlueprint={options.activeRow()?.blueprint}
-          activeStatus={options.activeRow()?.status}
-          renamed={options.props.renamedSessionId === options.props.activeId}
-          showSessionsColumn={options.showSessionsColumn()}
-          sseStatus={options.props.sseStatus}
-          sseReconnectInSec={options.props.sseReconnectInSec}
-          runningTools={options.props.runningTools}
-          previewOpen={options.previewOpen()}
-          inspectorOpen={options.inspectorOpen()}
-          renderSecondaryChips={options.renderSecondaryChips}
-          onToggleSessions={() => {
-            if (options.showSessionsColumn()) {
-              options.setSessionsOpen(false);
-            } else {
-              options.setRailRoute('sessions');
-              options.setSessionsOpen(true);
-            }
-          }}
-          onTogglePreview={() => options.setPreviewOpen((open) => !open)}
-          onToggleInspector={() => options.setInspectorOpen((open) => !open)}
-        />
-
         <TranscriptSearch
           open={options.transcriptSearch.open()}
           query={options.transcriptSearch.query()}

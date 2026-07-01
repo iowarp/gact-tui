@@ -38,7 +38,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
 
   const selectedLabel = createMemo(() => {
     const provider = selectedProvider();
-    if (provider) return `${provider.label} / ${props.selectedModelLabel}`;
+    if (provider) return `${providerDisplayLabel(provider)} / ${props.selectedModelLabel}`;
     return props.selectedModelLabel;
   });
 
@@ -80,7 +80,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                       'is-disabled': !!provider.disabled,
                     }}
                     disabled={provider.disabled}
-                    title={provider.detail}
+                    title={providerTitle(provider)}
                     data-testid={`composer-model-provider-${provider.id}`}
                     onMouseEnter={() => setActiveProviderId(provider.id)}
                     onClick={(event) => {
@@ -88,7 +88,7 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                       if (!provider.disabled) setActiveProviderId(provider.id);
                     }}
                   >
-                    <span class="pm__provider-name">{provider.label}</span>
+                    <span class="pm__provider-name">{providerDisplayLabel(provider)}</span>
                     <span class={`pm__status pm__status--${provider.status}`}>
                       {provider.statusLabel}
                     </span>
@@ -139,6 +139,19 @@ function isSelectedModel(model: ModelOption, selectedModelId: string): boolean {
     `${model.providerId}/${model.modelId}` === selectedModelId ||
     model.modelId === selectedModelId
   );
+}
+
+function providerDisplayLabel(provider: ModelProviderOption): string {
+  return provider.shortLabel ?? compactProviderLabel(provider.label);
+}
+
+function compactProviderLabel(label: string): string {
+  return label.replace(/\s*\([^)]*\)\s*$/, '').trim() || label;
+}
+
+function providerTitle(provider: ModelProviderOption): string | undefined {
+  const values = [provider.label, provider.detail].filter((value): value is string => !!value);
+  return values.length > 0 ? values.join(' - ') : undefined;
 }
 
 function fallbackProviders(items: DropdownItem<ModelOption>[]): ModelProviderOption[] {

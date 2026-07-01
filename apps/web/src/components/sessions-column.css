@@ -3,6 +3,8 @@
 @import './sessions-column-list.css';
 
 .sx {
+  grid-column: 1;
+  grid-row: 1;
   width: 300px;
   min-width: 0;
   background: var(--color-surface);
@@ -10,17 +12,18 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-top: 52px;
+  padding-top: 0;
+  z-index: 1;
 }
 
 @media (max-width: 760px) {
   .sx {
     position: fixed;
-    inset: 0 auto 0 0;
+    inset: var(--chat-topbar-h, 54px) auto 0 0;
     z-index: 70;
     width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
-    padding-top: 48px;
+    padding-top: 0;
     border-right-color: var(--color-border-60);
     box-shadow: var(--shadow-overlay);
   }

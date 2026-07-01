@@ -61,10 +61,15 @@ export function MessageView(props: MessageViewProps) {
   // every row each token (append-only + incremental paint — RENDERING_SPEC).
   const [rows, setRows] = createStore<TurnRow[]>([]);
   createComputed(() => {
+    // streamingPartIdx >= 0 means this assistant message is still in-flight; tell
+    // the builder so the visibility filter doesn't drop main/synthesis rows on
+    // partial text (they'd only pop in when complete). Finalized messages pass
+    // streaming:false → full filter → identical to a reload.
+    const streaming = (props.streamingPartIdx ?? -1) >= 0;
     const model =
       !isAssistant() || props.searchQuery?.trim()
         ? null
-        : buildAssistantTurnModel(props.msg.parts ?? []);
+        : buildAssistantTurnModel(props.msg.parts ?? [], { streaming });
     setRows(reconcile(model?.rows ?? [], { key: 'id' }));
   });
   const hasTurn = createMemo(() => rows.length > 0);
@@ -120,6 +125,7 @@ export function MessageView(props: MessageViewProps) {
           <AssistantTurnView
             rows={rows}
             density={props.density}
+            streaming={(props.streamingPartIdx ?? -1) >= 0}
             onOpenDiff={props.onOpenDiff}
             onPinFile={props.onPinFile}
             imagePartsSupported={props.imagePartsSupported}

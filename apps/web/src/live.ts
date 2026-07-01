@@ -20,4 +20,5 @@ export type { LiveSessionsHandle, LiveStoreOptions } from './LiveSessions.js';
 export { shouldReconcileTranscriptAfterEvent } from './LiveSessionsModel.js';
 export { createLiveTranscript } from './LiveTranscript.js';
 export type { LiveTranscriptHandle } from './LiveTranscript.js';
+export type { NormalizedTranscriptState } from './NormalizedTranscriptEvents.js';
 export type { StreamStats } from './LiveStreamStats.js';

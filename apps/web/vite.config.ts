@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
-import { resolve } from 'node:path';
+import { extname, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { brandPlugin, loadBrand } from './vite-plugin-brand';
 // Brand is selected by a CONFIG FILE (apps/brand.config.json), never an env
 // var. An embedding agent overrides it WITHOUT touching tracked files via a
@@ -41,6 +41,7 @@ const APP_VERSION = resolveAppVersion();
 // Resolve the brand once at config time so we can also drive the static
 // index.html <title> + favicon (Tauri/OS document title) from the profile.
 const brand = loadBrand(BRANDING_ROOT, PROFILE);
+const brandLogoAsset = resolveBrandLogoAsset(BRANDING_ROOT, PROFILE);
 
 export default defineConfig({
   plugins: [
@@ -55,7 +56,13 @@ export default defineConfig({
           /<title>[\s\S]*?<\/title>/,
           `<title>${brand.name}</title>`,
         );
-        if (brand.logoSvg) {
+        if (brandLogoAsset) {
+          const href = `/assets/brand-logo${brandLogoAsset.ext}`;
+          out = out.replace(
+            /<link rel="icon"[^>]*>/,
+            `<link rel="icon" type="${brandLogoAsset.mime}" href="${href}" />\n    <link rel="apple-touch-icon" href="${href}" />`,
+          );
+        } else if (brand.logoSvg) {
           const dataUri =
             'data:image/svg+xml,' + encodeURIComponent(brand.logoSvg);
           out = out.replace(
@@ -64,6 +71,23 @@ export default defineConfig({
           );
         }
         return out;
+      },
+      generateBundle() {
+        if (!brandLogoAsset) return;
+        this.emitFile({
+          type: 'asset',
+          fileName: `assets/brand-logo${brandLogoAsset.ext}`,
+          source: readFileSync(brandLogoAsset.path),
+        });
+      },
+      configureServer(server) {
+        if (!brandLogoAsset) return;
+        const route = `/assets/brand-logo${brandLogoAsset.ext}`;
+        server.middlewares.use(route, (_req, res) => {
+          res.setHeader('Content-Type', brandLogoAsset.mime);
+          res.setHeader('Cache-Control', 'no-store, max-age=0');
+          res.end(readFileSync(brandLogoAsset.path));
+        });
       },
     },
     {
@@ -120,3 +144,34 @@ export default defineConfig({
     exclude: ['tests/visual/**', 'node_modules/**'],
   },
 });
+
+function resolveBrandLogoAsset(
+  brandingRoot: string,
+  profile: string,
+): { path: string; ext: string; mime: string } | null {
+  const dir = resolve(brandingRoot, profile);
+  const jsonPath = resolve(dir, 'brand.json');
+  if (!existsSync(jsonPath)) return null;
+  const raw = JSON.parse(readFileSync(jsonPath, 'utf8')) as { logoImage?: string };
+  if (!raw.logoImage) return null;
+  const path = resolve(dir, raw.logoImage);
+  if (!existsSync(path)) return null;
+  const ext = extname(path).toLowerCase() || '.png';
+  return { path, ext, mime: mimeTypeForAssetExt(ext) };
+}
+
+function mimeTypeForAssetExt(ext: string): string {
+  switch (ext) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.svg':
+      return 'image/svg+xml';
+    default:
+      return 'application/octet-stream';
+  }
+}

@@ -15,7 +15,10 @@ function ensureGeneratedClioBrand() {
       {
         name: 'CLIO',
         wordmark: 'CLIO',
-        tagline: 'Your local AI coding & data agent',
+        tagline: 'by the Gnosis Research Center',
+        taglineAccent: 'Gnosis Research Center',
+        homeUrl: 'https://iowarp.ai',
+        taglineAccentUrl: 'https://grc.iit.edu',
         markGlyph: 'C',
         logoSvg: 'logo.svg',
         accent: '#ea7b2a',

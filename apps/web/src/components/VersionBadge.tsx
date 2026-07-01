@@ -84,6 +84,7 @@ export function VersionBadge(props: {
         label: 'App shell',
         current: version(),
         latest: update?.version ?? version(),
+        ...(brand.releaseUrl ? { link: { label: 'Releases', url: brand.releaseUrl } } : {}),
         onUpdate: update
           ? async () => {
               await update.downloadAndInstall();
@@ -102,6 +103,7 @@ export function VersionBadge(props: {
       label: 'App shell',
       current: version(),
       latest: latest ?? version(),
+      ...(brand.releaseUrl ? { link: { label: 'Releases', url: brand.releaseUrl } } : {}),
       onUpdate: handle.updateAvailable()
         ? () => {
             (window.location.reload as (forceReload?: boolean) => void)(true);
@@ -150,7 +152,7 @@ export function VersionBadge(props: {
   }
 
   return (
-    <>
+    <span class="app-version-anchor">
       <button
         type="button"
         class={'app-version-badge' + (dirty() ? ' app-version-badge--dirty' : '')}
@@ -170,6 +172,6 @@ export function VersionBadge(props: {
         app={appRow()}
         backend={backend()}
       />
-    </>
+    </span>
   );
 }

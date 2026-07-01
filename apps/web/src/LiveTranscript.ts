@@ -69,6 +69,8 @@ export function createLiveTranscript(
     setSemanticEvents,
     executionEvents,
     setExecutionEvents,
+    normalizedTranscript,
+    setNormalizedTranscript,
     streamStats,
     setStreamStats,
   } = createLiveTranscriptSignals();
@@ -91,7 +93,7 @@ export function createLiveTranscript(
     streamStatsTracker.reset();
     // The semantic feed is per-session; clear it on every session switch so
     // events never bleed between conversations.
-    const feedSetters = { setSemanticEvents, setExecutionEvents };
+    const feedSetters = { setSemanticEvents, setExecutionEvents, setNormalizedTranscript };
     clearLiveTranscriptSessionFeeds(feedSetters);
     if (!id) {
       clearInactiveLiveTranscriptState({
@@ -126,6 +128,7 @@ export function createLiveTranscript(
         setPendingQuestion,
         setSemanticEvents,
         setExecutionEvents,
+        setNormalizedTranscript,
       },
       setStatus,
       setReconnectInSec,
@@ -180,6 +183,7 @@ export function createLiveTranscript(
     pendingQuestion: pending.pendingQuestion,
     semanticEvents,
     executionEvents,
+    normalizedTranscript,
     streamStats,
     refetch,
     reconnectNow: () => {

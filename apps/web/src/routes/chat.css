@@ -1,16 +1,108 @@
 @import './chat-topbar.css';
 @import './chat-empty.css';
 
-/* Modern chat layout: sessions sidebar · main conversation · optional
-   contextual panels. Settings and command entry live in the sidebar/composer,
-   not in a separate permanent rail. */
-/* Active-expert context indicator, aligned to the same reading/composer column
-   and kept in flow above the composer so it never occludes transcript rows. */
+.chat {
+  --chat-topbar-h: 72px;
+  --chat-content-w: min(78%, 96rem);
+  --preview-rail-reserve: calc(
+    var(--sessions-w, 300px) + var(--inspector-w, 0px) + 32rem
+  );
+  --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
+  --preview-rail-fit: min(clamp(18rem, 32vw, 30rem), var(--preview-rail-avail));
+  --preview-rail-w: clamp(
+    0px,
+    calc((var(--preview-rail-avail) - 18rem) * 1000),
+    var(--preview-rail-fit)
+  );
+
+  display: grid;
+  grid-template-rows: var(--chat-topbar-h) minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.chat__body {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: var(--sessions-w, 300px) 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat--inspector-open {
+  --inspector-w: 340px;
+}
+
+.chat--inspector-open .chat__body,
+.chat--preview-open .chat__body {
+  grid-template-columns: var(--sessions-w, 300px) 1fr auto;
+}
+
+.chat--inspector-open.chat--preview-open .chat__body {
+  grid-template-columns: var(--sessions-w, 300px) 1fr auto auto;
+}
+
+.chat--no-sessions {
+  --sessions-w: 0px;
+}
+
+.chat--no-sessions .chat__body {
+  grid-template-columns: 1fr;
+}
+
+.chat--no-sessions.chat--inspector-open .chat__body,
+.chat--no-sessions.chat--preview-open .chat__body {
+  grid-template-columns: 1fr auto;
+}
+
+.chat--no-sessions.chat--inspector-open.chat--preview-open .chat__body {
+  grid-template-columns: 1fr auto auto;
+}
+
+.chat--discovery {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.chat--discovery .chat__body {
+  grid-row: 1;
+  grid-template-columns: 1fr;
+}
+
+.chat__main-col {
+  --composer-h: 132px;
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-bg);
+}
+
+.chat--no-sessions .chat__main-col,
+.chat--discovery .chat__main-col {
+  grid-column: 1;
+}
+
+/* Pending tool-approval, docked just above the composer (flex 0 0 auto so it
+   doesn't scroll away with the transcript). */
+.chat__permission-dock {
+  margin: 0 auto;
+  padding: 0 32px 10px;
+  width: var(--chat-content-w, min(100%, 76vw));
+  flex: 0 0 auto;
+  background: var(--color-bg);
+}
+
 .chat__context-footer {
   margin: 0 auto;
   padding: 0 32px 8px;
-  width: 100%;
-  max-width: 1040px;
+  width: var(--chat-content-w, min(100%, 76vw));
+  max-width: none;
   display: flex;
   justify-content: center;
   pointer-events: auto;
@@ -20,121 +112,30 @@
 }
 
 .chat:not(.chat--inspector-open) .chat__context-footer {
-  max-width: 1280px;
-}
-
-.chat {
-  display: grid;
-  /* Base layout: sessions · main. Each open right-hand panel
-     (inspector and/or preview rail) appends its own trailing `auto`
-     track via the `.chat--inspector-open` / `.chat--preview-open`
-     modifiers below — so the track count always matches the number of
-     rendered children. A standalone trailing `auto` here would steal a
-     track from whichever panel is open and starve the other (the
-     "both panels open collapses the preview to a sliver" bug). */
-  grid-template-columns: var(--sessions-w, 300px) 1fr;
-  height: 100vh;
-  background: var(--color-bg);
-  min-height: 0;
-  /* Preview-rail width that YIELDS to chat: the clamp gives a comfortable
-     preferred width, but `max(0, …)` collapses it before the conversation is
-     crushed below its minimum. Mirrors the hermes rule (§4). The subtracted
-     reserve accounts for the sessions sidebar + inspector (when
-     open) + a chat minimum. */
-  --preview-rail-reserve: calc(
-    var(--sessions-w, 300px) + var(--inspector-w, 0px) + 32rem
-  );
-  /* Space left for the preview after the sidebar + inspector + a hard
-     chat minimum (32rem). */
-  --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
-  /* The preview is the lowest-priority column: it must YIELD entirely rather
-     than render a one-word-per-line sliver when space is tight. The desired
-     width when there IS room: */
-  --preview-rail-fit: min(clamp(18rem, 32vw, 30rem), var(--preview-rail-avail));
-  /* All-CSS threshold (no media query): clamp's middle term goes hugely
-     negative when avail < 18rem (the usable minimum) so the lower bound 0
-     wins and the column collapses; when avail >= 18rem it goes hugely
-     positive so the upper bound (the fitted width) wins. */
-  --preview-rail-w: clamp(
-    0px,
-    calc((var(--preview-rail-avail) - 18rem) * 1000),
-    var(--preview-rail-fit)
-  );
-}
-
-/* Both side panels can be open at once — each is its own trailing `auto`
-   grid column sized by its own content width. The preview rail's element
-   carries the clamp width (see .preview-rail in preview-rail.css), so it
-   doesn't matter which order inspector/rail land in. We only reserve the
-   inspector's width in the clamp when it is actually open.
-
-   Each modifier appends ONE trailing `auto` track. Combined, "both open"
-   resolves to `<sessions> 1fr auto auto`: sidebar · main · inspector · preview. */
-.chat--inspector-open {
-  --inspector-w: 340px;
-  grid-template-columns: var(--sessions-w, 300px) 1fr auto;
-}
-.chat--preview-open {
-  grid-template-columns: var(--sessions-w, 300px) 1fr auto;
-}
-.chat--inspector-open.chat--preview-open {
-  grid-template-columns: var(--sessions-w, 300px) 1fr auto auto;
-}
-
-/* Cmd+B focus mode removes the SessionsColumn from the DOM entirely, so its
-   grid track must be dropped (not just zeroed) — otherwise main-col would
-   land in an empty leftover track. We re-declare the column sets WITHOUT the
-   sessions track, preserving the per-panel trailing `auto` tracks so the
-   both-panels-open layout still resolves correctly. */
-.chat--no-sessions {
-  --sessions-w: 0px;
-  grid-template-columns: 1fr;
-}
-.chat--no-sessions.chat--inspector-open,
-.chat--no-sessions.chat--preview-open {
-  grid-template-columns: 1fr auto;
-}
-.chat--no-sessions.chat--inspector-open.chat--preview-open {
-  grid-template-columns: 1fr auto auto;
-}
-
-/* Discovery routes (Agents, MCP, Doctor, etc.) hide the sessions column
-   and the inspector — they're chat-specific affordances. */
-.chat--discovery {
-  grid-template-columns: 1fr;
-}
-
-/* Cmd+B focus mode: collapse the sessions column. The sessions track is
-   driven to 0 via --sessions-w (above); the SessionsColumn is also removed
-   from the DOM, so its 0px track is empty and harmless. We deliberately do
-   NOT override grid-template-columns here — that would drop a trailing track
-   and re-break the both-panels-open layout. */
-
-.chat__main-col {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--color-bg);
+  max-width: none;
 }
 
 @media (max-width: 760px) {
-  .chat,
-  .chat--inspector-open,
-  .chat--preview-open,
-  .chat--inspector-open.chat--preview-open,
-  .chat--no-sessions,
-  .chat--no-sessions.chat--inspector-open,
-  .chat--no-sessions.chat--preview-open,
-  .chat--no-sessions.chat--inspector-open.chat--preview-open,
-  .chat--discovery {
+  .chat {
+    --chat-topbar-h: 54px;
+  }
+
+  .chat__body,
+  .chat--inspector-open .chat__body,
+  .chat--preview-open .chat__body,
+  .chat--inspector-open.chat--preview-open .chat__body,
+  .chat--no-sessions .chat__body,
+  .chat--no-sessions.chat--inspector-open .chat__body,
+  .chat--no-sessions.chat--preview-open .chat__body,
+  .chat--no-sessions.chat--inspector-open.chat--preview-open .chat__body,
+  .chat--discovery .chat__body {
     grid-template-columns: minmax(0, 1fr);
     --sessions-w: 0px;
     --inspector-w: 0px;
   }
 
   .chat__context-footer {
+    width: 100%;
     max-width: none;
     padding: 0 10px 8px;
   }

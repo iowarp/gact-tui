@@ -24,7 +24,9 @@ export interface ProviderDetail {
 
 export interface ProviderModel {
   id: string;
+  name?: string;
   label?: string;
+  description?: string;
   source?: 'builtin' | 'discovered' | string;
   error?: string;
   context_length?: number;
@@ -33,6 +35,8 @@ export interface ProviderModel {
 
 export interface ProviderModelsResult {
   models: ProviderModel[];
+  source?: string;
+  error?: string;
 }
 
 export interface SetLmInput {

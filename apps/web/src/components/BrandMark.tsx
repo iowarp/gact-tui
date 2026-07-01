@@ -2,6 +2,7 @@
  * UI component: Brand Mark. Exports `BrandMark`.
  */
 import { brand } from '@brand';
+import { Show } from 'solid-js';
 
 /**
  * The product mark used across the chrome (left rail, splash, connect).
@@ -18,10 +19,17 @@ import { brand } from '@brand';
  * `class` is applied to the wrapping element so each lockup keeps its own
  * sizing/typography (rail__wordmark, splash__mark, connect__mark).
  */
-export function BrandMark(props: { class?: string }) {
+export function BrandMark(props: { class?: string; useImage?: boolean }) {
   return (
-    <div class={props.class} aria-hidden="true">
-      {brand.markGlyph}
+    <div
+      class={[props.class, props.useImage && brand.logoImage ? 'brand-mark--image' : '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden="true"
+    >
+      <Show when={props.useImage ? brand.logoImage : null} fallback={brand.markGlyph}>
+        {(src) => <img src={src()} alt="" />}
+      </Show>
     </div>
   );
 }

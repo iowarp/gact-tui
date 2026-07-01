@@ -9,7 +9,6 @@ import type { ModelOption } from './ComposerTypes.js';
 import type { TranscriptDensity } from './TranscriptParts.js';
 import { TranscriptSkeleton } from './TranscriptSkeleton.js';
 import { MessageView } from './TranscriptMessageView.js';
-import { AssistantTurnView } from './AssistantTurnView.js';
 import { createTranscriptPresentationModel } from './TranscriptPresentationModel.js';
 import { createTranscriptHashNavigation } from './TranscriptHashNavigation.js';
 import { createTranscriptVirtualization } from './TranscriptVirtualization.js';
@@ -89,14 +88,19 @@ export function Transcript(props: TranscriptProps) {
   // MessageView. We no longer substitute a separately-projected execution_tree
   // synthetic part (which re-grouped/re-ordered the turn and diverged from the
   // persisted render) — that violated the append-only conversation invariant.
-  const hasNormalizedTranscript = createMemo(
-    () => (props.normalizedTranscript?.rows.length ?? 0) > 0,
-  );
-  const displayMessages = createMemo(() =>
-    hasNormalizedTranscript()
-      ? props.messages.filter((message) => message.role !== 'assistant')
-      : props.messages,
-  );
+  // The live normalized rows go through the SAME visibility filter the persisted
+  // path applies in buildAssistantTurnModel, then reconcile(key:'id') INTO a
+  // store — so (a) reload renders the identical row set (parity: no "things
+  // changing on reload"), and (b) each SSE delta patches one row in place instead
+  // of rebuilding every row (incremental paint — RENDERING_SPEC). Mirrors
+  // TranscriptMessageView's persisted-path store.
+  // UNIFIED render: EVERY assistant turn renders through the persisted/parts path
+  // (MessageView → buildAssistantTurnModel), both LIVE and RELOAD. Live in-flight
+  // content arrives as `message.part.*` deltas grown into the parts; reload is the
+  // `/messages` snapshot — the SAME builder on the SAME shape, so live ≡ reload by
+  // construction. The normalized `turn.*` projection is retired (one builder, no
+  // divergence, fixes land once).
+  const displayMessages = createMemo(() => props.messages);
   const { virtual, vwindow, visible, offsetOfIndex } = createTranscriptVirtualization({
     messages: displayMessages,
     scrollEl: () => props.scrollEl,
@@ -138,55 +142,40 @@ export function Transcript(props: TranscriptProps) {
         />
       </Show>
       <For each={visible()}>
-        {(m) => {
-          const target = presentation.streamingTarget();
-          const partIdx = target?.msgId === m.id ? target.partIdx : -1;
-          return (
-            <MessageView
-              msg={m}
-              density={props.density}
-              onOpenDiff={props.onOpenDiff}
-              onPinFile={props.onPinFile}
-              onCopy={props.onCopy}
-              onRegenerate={props.onRegenerate}
-              onRegenerateWithNotes={props.onRegenerateWithNotes}
-              onRegenerateWithModel={props.onRegenerateWithModel}
-              models={props.models}
-              onEdit={props.onEdit}
-              onQuote={props.onQuote}
-              onSpeak={props.onSpeak}
-              onCopyPermalink={props.onCopyPermalink}
-              onDelete={props.onDelete}
-              selected={m.id === props.selectedId}
-              onSelect={props.onSelect}
-              searchQuery={props.searchQuery}
-              currentMatchKey={props.currentMatchKey}
-              matchBaseIndex={presentation.baseIndexFor(m.id)}
-              streamingPartIdx={partIdx}
-              imagePartsSupported={props.imagePartsSupported}
-              readWorkspaceImage={props.readWorkspaceImage}
-            />
-          );
-        }}
+        {(m) => (
+          <MessageView
+            msg={m}
+            density={props.density}
+            onOpenDiff={props.onOpenDiff}
+            onPinFile={props.onPinFile}
+            onCopy={props.onCopy}
+            onRegenerate={props.onRegenerate}
+            onRegenerateWithNotes={props.onRegenerateWithNotes}
+            onRegenerateWithModel={props.onRegenerateWithModel}
+            models={props.models}
+            onEdit={props.onEdit}
+            onQuote={props.onQuote}
+            onSpeak={props.onSpeak}
+            onCopyPermalink={props.onCopyPermalink}
+            onDelete={props.onDelete}
+            selected={m.id === props.selectedId}
+            onSelect={props.onSelect}
+            searchQuery={props.searchQuery}
+            currentMatchKey={props.currentMatchKey}
+            matchBaseIndex={presentation.baseIndexFor(m.id)}
+            // REACTIVE: read streamingTarget() in the prop so it re-evaluates when a
+            // turn starts/stops streaming (the old loop-local `partIdx` was computed
+            // once and went stale → the tail never switched to plain StreamingMarkdown).
+            streamingPartIdx={
+              presentation.streamingTarget()?.msgId === m.id
+                ? presentation.streamingTarget()!.partIdx
+                : -1
+            }
+            imagePartsSupported={props.imagePartsSupported}
+            readWorkspaceImage={props.readWorkspaceImage}
+          />
+        )}
       </For>
-      <Show when={hasNormalizedTranscript()}>
-        <article
-          class="trx-msg anim-rise trx-msg--assistant"
-          data-testid="normalized-transcript-message"
-        >
-          <div class="trx-msg__body">
-            <AssistantTurnView
-              rows={props.normalizedTranscript?.rows ?? []}
-              density={props.density}
-              onOpenDiff={props.onOpenDiff}
-              onPinFile={props.onPinFile}
-              imagePartsSupported={props.imagePartsSupported}
-              readWorkspaceImage={props.readWorkspaceImage}
-              messageId="normalized-transcript"
-            />
-          </div>
-        </article>
-      </Show>
       <Show when={virtual()}>
         <div
           class="trx__spacer"

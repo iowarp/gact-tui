@@ -2,7 +2,7 @@
 .chat__scroll-pill {
   position: absolute;
   left: 50%;
-  bottom: 154px;
+  bottom: calc(var(--composer-h, 132px) + 10px);
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -17,7 +17,7 @@
   font-weight: 500;
   cursor: pointer;
   box-shadow: var(--shadow-overlay);
-  z-index: 18;
+  z-index: 35;
   transition: transform var(--dur-fast), background var(--dur-fast);
   animation: chat-scroll-pill-in 220ms ease-out both;
 }

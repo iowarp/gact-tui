@@ -69,7 +69,10 @@ describe('NormalizedTranscriptEvents', () => {
       value: { workflow_state: { region: 'LA' } },
     });
 
+    // The SDK thinking (turn.trace.delta) streams as its OWN collapsed host row
+    // (empty text, live providerThinking) — NOT batched onto the next row.
     expect(state.rows.map((row) => row.kind)).toEqual([
+      'reasoning',
       'text',
       'delegation',
       'text',
@@ -77,30 +80,36 @@ describe('NormalizedTranscriptEvents', () => {
       'return',
     ]);
     expect(state.rows[0]).toMatchObject({
-      kind: 'text',
+      kind: 'reasoning',
       agent: 'main',
+      text: '',
       providerThinking: { text: 'provider aux', chars: 12 },
     });
     expect(state.rows[1]).toMatchObject({
+      kind: 'text',
+      agent: 'main',
+      text: 'Resolve geography.',
+    });
+    expect(state.rows[2]).toMatchObject({
       kind: 'delegation',
       parent: 'main',
       agent: 'geospatial',
       task: 'Resolve Los Angeles.',
       depth: 0,
     });
-    expect(state.rows[2]).toMatchObject({
+    expect(state.rows[3]).toMatchObject({
       kind: 'text',
       agent: 'geospatial',
       depth: 1,
       text: 'Need grounded coordinates.',
     });
-    expect(state.rows[3]).toMatchObject({
+    expect(state.rows[4]).toMatchObject({
       kind: 'tool',
       agent: 'geospatial',
       name: 'geo_geocode',
       preview: expect.stringContaining('Los Angeles'),
     });
-    expect(state.rows[4]).toMatchObject({
+    expect(state.rows[5]).toMatchObject({
       kind: 'return',
       agent: 'geospatial',
       parent: 'main',
@@ -109,6 +118,59 @@ describe('NormalizedTranscriptEvents', () => {
     expect(state.hiddenStateByTurn['geo-1']).toEqual({
       workflow_state: { region: 'LA' },
     });
+  });
+
+  it('streams thinking as a live host row that accumulates and folds into a return', () => {
+    let state = emptyNormalizedTranscriptState();
+    const apply = (type: string, payload: Record<string, unknown>) => {
+      state = applyNormalizedTranscriptEvent(state, type, payload);
+    };
+    apply('turn.started', { turn_id: 'g1', agent_id: 'geospatial' });
+    apply('turn.trace.delta', { turn_id: 'g1', trace_kind: 'model_aux', text_append: 'Let me ', tokens: 3 });
+    apply('turn.trace.delta', { turn_id: 'g1', trace_kind: 'model_aux', text_append: 'think.', tokens: 2 });
+    // ONE host row, accumulated in place, with the count ticking (tokens summed).
+    expect(state.rows.filter((row) => row.kind === 'reasoning')).toHaveLength(1);
+    expect(state.rows[0]).toMatchObject({
+      kind: 'reasoning',
+      text: '',
+      providerThinking: { text: 'Let me think.', tokens: 5 },
+    });
+    // A return folds the host into its `thinking ▾` and removes the standalone row.
+    apply('turn.action.added', {
+      turn_id: 'g1',
+      action: { kind: 'return', call_id: 'r1', target_agent: 'main', response: 'Resolved.' },
+    });
+    expect(state.rows.filter((row) => row.kind === 'reasoning')).toHaveLength(0);
+    expect(state.rows.find((row) => row.kind === 'return')).toMatchObject({
+      providerThinking: { text: 'Let me think.', tokens: 5 },
+    });
+  });
+
+  it('opens a fresh thinking host after a non-trace row (per-step thinking)', () => {
+    let state = emptyNormalizedTranscriptState();
+    const apply = (type: string, payload: Record<string, unknown>) => {
+      state = applyNormalizedTranscriptEvent(state, type, payload);
+    };
+    apply('turn.started', { turn_id: 'g1', agent_id: 'geospatial' });
+    apply('turn.trace.delta', { turn_id: 'g1', trace_kind: 'model_aux', text_append: 'step 1 thinking' });
+    apply('turn.text.delta', { turn_id: 'g1', field: 'thought', text_append: 'answer 1' });
+    apply('turn.trace.delta', { turn_id: 'g1', trace_kind: 'model_aux', text_append: 'step 2 thinking' });
+    expect(state.rows.map((row) => row.kind)).toEqual(['reasoning', 'text', 'reasoning']);
+  });
+
+  it('drops a live tool thought that repeats the preceding text row (●● dedup)', () => {
+    let state = emptyNormalizedTranscriptState();
+    const apply = (type: string, payload: Record<string, unknown>) => {
+      state = applyNormalizedTranscriptEvent(state, type, payload);
+    };
+    const next = 'The question provides a place name Los Angeles, so I will geocode it.';
+    apply('turn.started', { turn_id: 'g1', agent_id: 'geospatial' });
+    apply('turn.text.delta', { turn_id: 'g1', field: 'thought', text_append: next });
+    apply('turn.action.added', {
+      turn_id: 'g1',
+      action: { kind: 'tool_call', call_id: 't1', tool_name: 'geo_geocode', thought: next },
+    });
+    expect(state.rows.find((row) => row.kind === 'tool')).toMatchObject({ thought: '' });
   });
 
   it('infers nested depths from action agent ids in a single backend turn', () => {

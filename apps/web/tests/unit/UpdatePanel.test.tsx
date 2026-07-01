@@ -24,7 +24,9 @@ describe('backendRow', () => {
       latestVersion: '0.5.2',
     });
     expect(row).toBeDefined();
+    expect(row?.link?.label).toBe('Releases');
     expect(row?.link?.url).toBe(REPO.url);
+    expect(row?.link?.title).toBe(REPO.label);
     expect(row?.onUpdate).toBeUndefined();
   });
 

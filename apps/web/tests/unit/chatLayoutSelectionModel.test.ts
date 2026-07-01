@@ -53,7 +53,7 @@ describe('chatLayoutSelectionModel', () => {
       shouldShowSessionsColumn({
         railRoute: 'sessions',
         sessionsOpen: true,
-        sessionCount: 1,
+        sessionCount: 0,
         activeId: '',
       }),
     ).toBe(true);

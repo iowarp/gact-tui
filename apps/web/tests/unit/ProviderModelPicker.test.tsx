@@ -16,7 +16,8 @@ const providers: ModelProviderOption[] = [
   },
   {
     id: 'claude_code',
-    label: 'Claude Code',
+    label: 'Claude Code (subscription)',
+    shortLabel: 'Claude Code',
     status: 'ok',
     statusLabel: 'ok',
     models: [
@@ -52,10 +53,14 @@ describe('ProviderModelPicker', () => {
     expect(screen.getByTestId('composer-model-trigger').textContent).toContain(
       'Claude Code / haiku',
     );
+    expect(screen.getByTestId('composer-model-trigger').textContent).not.toContain(
+      'subscription',
+    );
 
     fireEvent.click(screen.getByTestId('composer-model-trigger'));
 
     expect(screen.getByTestId('composer-model-menu').textContent).toContain('Claude Code');
+    expect(screen.getByTestId('composer-model-menu').textContent).not.toContain('subscription');
     expect(screen.getByTestId('composer-model-menu').textContent).toContain('haiku');
     expect(screen.getByTestId('composer-model-menu').textContent).toContain('sonnet');
 

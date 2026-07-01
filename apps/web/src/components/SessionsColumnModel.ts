@@ -2,11 +2,14 @@
  * View-model / pure logic for Sessions Column: state shaping and helpers, no DOM. Key export `SessionRow`.
  */
 import type { Session, SessionStatus } from '@clio/core';
+import { presentBlueprintLabel } from '../brand-presentation.js';
 
 export interface SessionRow {
   id: string;
   title: string;
   status: SessionStatus;
+  /** Optional active blueprint label shown in the topbar as session / blueprint. */
+  blueprint?: string;
   /** Free-text preview of the most recent message body, ≤ 90 chars. */
   preview?: string;
   /** Workspace or project label — shown as a small chip in the row. */
@@ -116,8 +119,48 @@ export function sessionToRow(session: Session): SessionRow {
     title: session.title || session.id,
     status: session.status,
     updatedAt: humanWhen(session.updated_at),
+    ...(sessionBlueprintLabel(session.metadata)
+      ? { blueprint: sessionBlueprintLabel(session.metadata) }
+      : {}),
     ...(session.workspace_id ? { workspace: session.workspace_id } : {}),
   };
+}
+
+function sessionBlueprintLabel(metadata: Record<string, unknown> | undefined): string {
+  if (!metadata) return '';
+  const explicit =
+    stringValue(metadata['active_agent_blueprint_name']) ||
+    stringValue(metadata['agent_blueprint_name']) ||
+    stringValue(metadata['blueprint_name']);
+  if (explicit) {
+    const id =
+      stringValue(metadata['active_agent_blueprint_id']) ||
+      stringValue(metadata['agent_blueprint_id']) ||
+      stringValue(metadata['blueprint_id']);
+    return presentBlueprintLabel(explicit, id);
+  }
+  const id =
+    stringValue(metadata['active_agent_blueprint_id']) ||
+    stringValue(metadata['agent_blueprint_id']) ||
+    stringValue(metadata['blueprint_id']);
+  return id ? presentBlueprintLabel(humanizeBlueprintId(id), id) : '';
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function humanizeBlueprintId(id: string): string {
+  return id
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/gnss/i.test(part)) return 'GNSS';
+      if (/ndp/i.test(part)) return 'NDP';
+      if (/earthscope/i.test(part)) return 'EarthScope';
+      return part.slice(0, 1).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
 }
 
 export async function readSessionImportBlob(

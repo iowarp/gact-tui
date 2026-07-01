@@ -26,6 +26,10 @@ import {
   type LiveSessionEventHooks,
 } from './LiveSessionEvents.js';
 import { applySemanticFeedEvent, type SemanticFeedHooks } from './LiveSemanticFeed.js';
+import {
+  applyLiveNormalizedTranscriptEvent,
+  type NormalizedTranscriptHooks,
+} from './LiveNormalizedTranscriptEvents.js';
 import { applyLiveToolEvent, type ToolEventHooks } from './LiveToolEvents.js';
 import { applyLiveRefreshEvent, type RefreshEventHooks } from './LiveRefreshEvents.js';
 
@@ -80,6 +84,9 @@ export type InteractionHooks = PendingInteractionHooks;
  * `semantic.event`. */
 export type ExecutionHooks = SemanticFeedHooks;
 
+/** Provider-agnostic normalized transcript stream. */
+export type NormalizedHooks = NormalizedTranscriptHooks;
+
 /** Toast notifications + memory-refresh signal. Driven by lifecycle events
  * (provider swap/fail, summarize/compact, sub-agents, memory search, retries). */
 export type NotificationHooks = LiveNotificationHooks;
@@ -99,6 +106,7 @@ export interface ReduceHooks
     SessionHooks,
     InteractionHooks,
     ExecutionHooks,
+    NormalizedHooks,
     NotificationHooks,
     RefreshHooks {
   /** Fires when an event type matched none of the handlers. Lets callers
@@ -169,6 +177,15 @@ const EVENT_HANDLERS: Record<LiveEventType, DomainHandler> = {
 
   // Semantic feed / execution-trace projection.
   'semantic.event': applySemanticFeedEvent,
+
+  // Normalized transcript stream.
+  'turn.started': applyLiveNormalizedTranscriptEvent,
+  'turn.trace.delta': applyLiveNormalizedTranscriptEvent,
+  'turn.text.delta': applyLiveNormalizedTranscriptEvent,
+  'turn.action.added': applyLiveNormalizedTranscriptEvent,
+  'call.result.delta': applyLiveNormalizedTranscriptEvent,
+  'turn.completed': applyLiveNormalizedTranscriptEvent,
+  'state.updated': applyLiveNormalizedTranscriptEvent,
 
   // Message stream.
   'message.created': applyLiveMessageEvent,

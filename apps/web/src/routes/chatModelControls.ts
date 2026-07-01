@@ -3,9 +3,14 @@
  * permission mode). Exports {@link createChatModelControls}.
  */
 import { createEffect, createMemo, createResource, createSignal, type Accessor } from 'solid-js';
-import type { Client } from '@clio/core';
+import type { Client, ProviderDef } from '@clio/core';
 import type { ModelOption, ModelProviderOption, PermissionMode } from '../components/ComposerTypes.js';
-import { providersToModelProviders, providersToModels } from './chatScreenUtils.js';
+import {
+  type ProviderModelCatalog,
+  type ProviderModelCatalogs,
+  providersToModelProviders,
+  providersToModels,
+} from './chatScreenUtils.js';
 
 export interface ChatModelControlsOptions {
   activeId: Accessor<string>;
@@ -15,9 +20,13 @@ export interface ChatModelControlsOptions {
 export function createChatModelControls(options: ChatModelControlsOptions) {
   const [providersData] = createResource(() => options.client.providers());
   const [lmActive] = createResource(() => options.client.lmConfig().catch(() => null));
+  const [providerCatalogs] = createResource(
+    () => providersData()?.providers,
+    (providers) => loadProviderModelCatalogs(options.client, providers),
+  );
   const models = createMemo<ModelOption[]>(() => {
     const providers = providersData()?.providers ?? [];
-    const list = providersToModels(providers);
+    const list = providersToModels(providers, providerCatalogs() ?? {});
     const lm = lmActive();
     if (lm && lm.provider && lm.model) {
       const synthId = `${lm.provider}:${lm.model}`;
@@ -33,7 +42,10 @@ export function createChatModelControls(options: ChatModelControlsOptions) {
     return list;
   });
   const modelProviders = createMemo<ModelProviderOption[]>(() =>
-    mergeActiveLmProvider(providersToModelProviders(providersData()?.providers ?? []), lmActive()),
+    mergeActiveLmProvider(
+      providersToModelProviders(providersData()?.providers ?? [], providerCatalogs() ?? {}),
+      lmActive(),
+    ),
   );
 
   const [selectedModelId, setSelectedModelId] = createSignal<string>('');
@@ -90,6 +102,50 @@ export function createChatModelControls(options: ChatModelControlsOptions) {
   };
 }
 
+async function loadProviderModelCatalogs(
+  client: Client,
+  providers: ProviderDef[] | undefined,
+): Promise<ProviderModelCatalogs> {
+  if (!providers?.length) return {};
+  const entries = await Promise.all(
+    providers.map(async (provider) => {
+      try {
+        const result = await client.providerModels(provider.id, provider.api_base);
+        const models = Array.isArray(result.models)
+          ? result.models
+              .filter((model) => typeof model.id === 'string' && model.id.length > 0)
+              .map((model) => ({
+                id: model.id,
+                name: model.name ?? model.label,
+                description: model.description ?? model.error ?? undefined,
+              }))
+          : [];
+        return [
+          provider.id,
+          {
+            models,
+            source: result.source,
+            error: result.error,
+          } satisfies ProviderModelCatalog,
+        ] as const;
+      } catch (error) {
+        console.warn('providerModels failed', provider.id, error);
+        return [
+          provider.id,
+          {
+            models: [],
+            source: 'unavailable',
+            error: error instanceof Error ? error.message : 'Provider model catalog unavailable',
+          } satisfies ProviderModelCatalog,
+        ] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(
+    entries.filter(([, catalog]) => catalog.models.length > 0 || catalog.error || catalog.source === 'unavailable'),
+  );
+}
+
 export interface ActiveLmSelection {
   provider?: string;
   model?: string;
@@ -113,7 +169,7 @@ export function mergeActiveLmProvider(
         disabled: provider.disabled,
       });
     }
-    return providers;
+    return [provider, ...providers.filter((item) => item.id !== provider.id)];
   }
   providers.unshift({
     id: lm.provider,

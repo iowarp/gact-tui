@@ -2,8 +2,10 @@
  * Chat topbar: brand, session identity, and chrome actions.
  * Exports {@link ChatTopbar}.
  */
-import { Show, type JSX } from 'solid-js';
+import { For, Show, type JSX } from 'solid-js';
 import { brand } from '@brand';
+import { presentBlueprintLabel } from '../brand-presentation.js';
+import { BrandMark } from '../components/BrandMark.js';
 import { Icon } from '../components/Icon.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import type { RunningTool } from '../live.js';
@@ -31,30 +33,60 @@ export interface ChatTopbarProps {
 export function ChatTopbar(props: ChatTopbarProps) {
   void props.activeStatus;
   void props.renamed;
-  void props.showSessionsColumn;
   void props.sseStatus;
   void props.sseReconnectInSec;
   void props.runningTools;
   void props.renderSecondaryChips;
-  void props.onToggleSessions;
 
   const shortTitle = () => clipEnd(props.activeTitle?.trim() || 'No session', 28);
-  const blueprint = () => clipEnd(props.activeBlueprint?.trim() || '', 22);
+  const blueprint = () => clipEnd(presentBlueprintLabel(props.activeBlueprint?.trim() || ''), 22);
+  const taglineAccent = () => brand.taglineAccent?.trim() || '';
+  const taglineParts = () => {
+    const accent = taglineAccent();
+    if (!accent || !brand.tagline.includes(accent)) {
+      return [{ text: brand.tagline, accent: false }];
+    }
+    const [before = '', after = ''] = brand.tagline.split(accent, 2);
+    return [
+      { text: before, accent: false },
+      { text: accent, accent: true },
+      { text: after, accent: false },
+    ].filter((part) => part.text.length > 0);
+  };
 
   return (
     <header class="chat__topbar" ref={props.overflow.setTopbarRef}>
       <div class="chat__crumbs" ref={props.overflow.setCrumbsRef}>
-        <div class="chat__brand-mark" aria-label={brand.name}>
-          <Show
-            when={brand.logoImage}
-            fallback={
-              <Show when={brand.logoSvg} fallback={<span>{brand.markGlyph}</span>}>
-                <span innerHTML={brand.logoSvg ?? ''} />
-              </Show>
-            }
-          >
-            {(src) => <img src={src()} alt="" />}
-          </Show>
+        <div class="chat__brand-lockup" aria-label={brand.name}>
+          <BrandLink className="chat__brand-mark-link" href={brand.homeUrl}>
+            <BrandMark class="chat__brand-mark" useImage />
+          </BrandLink>
+          <div class="chat__brand-copy">
+            <BrandLink className="chat__brand-wordmark" href={brand.homeUrl}>
+              <For each={brand.wordmark.split('')}>{(char) => <span>{char}</span>}</For>
+            </BrandLink>
+            <Show when={brand.tagline}>
+              <span class="chat__brand-tagline">
+                <For each={taglineParts()}>
+                  {(part) => (
+                    <Show
+                      when={part.accent && brand.taglineAccentUrl}
+                      fallback={<span>{part.text}</span>}
+                    >
+                      <a
+                        class="chat__brand-tagline-link"
+                        href={brand.taglineAccentUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {part.text}
+                      </a>
+                    </Show>
+                  )}
+                </For>
+              </span>
+            </Show>
+          </div>
         </div>
       </div>
 
@@ -100,8 +132,29 @@ export function ChatTopbar(props: ChatTopbarProps) {
         >
           <Icon name="panel-right" size={14} />
         </button>
+        <button
+          type="button"
+          class={'chat__iconbtn ' + (props.showSessionsColumn ? 'is-active' : '')}
+          title="Toggle sessions column"
+          onClick={props.onToggleSessions}
+          data-testid="topbar-sessions"
+        >
+          <Icon name="panel-left" size={14} />
+        </button>
       </div>
     </header>
+  );
+}
+
+function BrandLink(props: { className: string; href: string | null; children: JSX.Element }) {
+  return (
+    <Show when={props.href} fallback={<span class={props.className}>{props.children}</span>}>
+      {(href) => (
+        <a class={props.className} href={href()} target="_blank" rel="noreferrer">
+          {props.children}
+        </a>
+      )}
+    </Show>
   );
 }
 

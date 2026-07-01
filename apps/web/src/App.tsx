@@ -16,7 +16,6 @@ import {
   createBackendRegistry,
 } from './registry.js';
 import { ToastProvider, useToast } from './components/Toast.js';
-import { VersionBadge } from './components/VersionBadge.js';
 import { createUpdateCheck } from './updateCheck.js';
 import { checkForDesktopUpdate, relaunchApp } from './tauri_update.js';
 import { hostLabel, seedFixtureBackends } from './appBootstrap.js';
@@ -140,18 +139,27 @@ export function App() {
   }
 
   function onSplashReady(b: BackendHandle) {
-    // Register the resolved backend with the registry so the picker
-    // shows it immediately. Use a stable id so duplicate boots don't
-    // pollute the list.
-    registry.add({
-      id: 'clio:local',
-      label: inTauri() ? `Local ${brand.name}` : 'localhost:17800',
-      url: b.url,
-      bearerToken: b.bearerToken,
-      kind: inTauri() ? 'local-sidecar' : 'http',
-      capabilities: b.capabilities,
-    });
-    registry.select('clio:local');
+    const existing = registry
+      .state()
+      .backends.find(
+        (backend) => backend.url === b.url && backend.bearerToken === b.bearerToken,
+      );
+    if (existing) {
+      registry.update(existing.id, { capabilities: b.capabilities, lastError: undefined });
+      registry.select(existing.id);
+    } else {
+      // Register the resolved backend with the registry so the picker
+      // shows it immediately. Use a stable id for the local sidecar/default.
+      registry.add({
+        id: 'clio:local',
+        label: inTauri() ? `Local ${brand.name}` : hostLabel(b.url),
+        url: b.url,
+        bearerToken: b.bearerToken,
+        kind: inTauri() ? 'local-sidecar' : 'http',
+        capabilities: b.capabilities,
+      });
+      registry.select('clio:local');
+    }
     setRoute({ name: 'chat', backend: b });
   }
 
@@ -230,7 +238,6 @@ export function App() {
             />
           </Match>
         </Switch>
-        <VersionBadge />
       </ToastProvider>
     </BackendRegistryProvider>
   );

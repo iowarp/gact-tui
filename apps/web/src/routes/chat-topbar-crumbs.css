@@ -1,10 +1,11 @@
 .chat__crumbs {
   grid-column: 1;
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   justify-self: start;
-  flex: 0 1 auto;
+  width: 100%;
   min-width: 0;
 }
 
@@ -65,17 +66,8 @@
 }
 
 @media (max-width: 760px) {
-  .chat__brand-mark {
-    width: 96px;
-    height: 24px;
-  }
-
   .chat__crumb {
     max-width: 56vw;
     font-size: 12.5px;
-  }
-
-  .chat__session-title {
-    max-width: 42vw;
   }
 }
