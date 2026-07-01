@@ -66,10 +66,13 @@ export function MessageView(props: MessageViewProps) {
     // partial text (they'd only pop in when complete). Finalized messages pass
     // streaming:false → full filter → identical to a reload.
     const streaming = (props.streamingPartIdx ?? -1) >= 0;
-    const model =
-      !isAssistant() || props.searchQuery?.trim()
-        ? null
-        : buildAssistantTurnModel(props.msg.parts ?? [], { streaming });
+    // Search must NOT swap to the flat per-part render (it exposed the raw routing
+    // decision + raw tool-result <pre>, i.e. the "old render on search"). Keep the
+    // canonical AssistantTurnView for assistant turns even while searching; the
+    // server-search panel's jump still works, we just drop in-transcript highlight.
+    const model = !isAssistant()
+      ? null
+      : buildAssistantTurnModel(props.msg.parts ?? [], { streaming });
     setRows(reconcile(model?.rows ?? [], { key: 'id' }));
   });
   const hasTurn = createMemo(() => rows.length > 0);
