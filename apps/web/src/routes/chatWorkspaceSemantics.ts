@@ -132,6 +132,13 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     if (blueprintLabel) options.setSessionBlueprintLabel?.(created.id, blueprintLabel);
     options.refetchSessions();
     options.setActiveId(created.id);
+    // Make the new session VISIBLE: if the sidebar is filtered to a specific
+    // workspace that isn't this session's, switch the filter to it. Otherwise you
+    // land in the session (activeId) but it's hidden from the list — the "I created
+    // a session but it opened somewhere I can't see" bug.
+    if (workspaceId && selectedWorkspaceId() !== '__all' && selectedWorkspaceId() !== workspaceId) {
+      setSelectedWorkspaceId(workspaceId);
+    }
     options.onSessionCreated?.();
     return created;
   }
