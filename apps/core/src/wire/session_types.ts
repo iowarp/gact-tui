@@ -39,6 +39,11 @@ export interface PermissionRequest {
   risk?: 'low' | 'medium' | 'high';
   reason?: string;
   created_at: string;
+  /** Lifecycle status from the backend permission ledger: 'pending' (awaiting the
+   *  user), 'resolved' (already answered), or 'auto_approved'. A reload surfaces
+   *  ONLY a genuinely-pending request as the permission card, so an already-answered
+   *  permission is never re-prompted (C7). Absent on older backends. */
+  status?: 'pending' | 'resolved' | 'auto_approved' | string;
 }
 
 /** One recorded retry of a turn (x_clio_retry_attempts). Returned by

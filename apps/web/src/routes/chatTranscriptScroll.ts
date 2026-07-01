@@ -5,7 +5,7 @@
 import { createEffect, createSignal, onCleanup, untrack, type Accessor } from 'solid-js';
 import type { Message, PermissionRequest, UserQuestion } from '@clio/core';
 
-export const SCROLL_BOTTOM_TOLERANCE_PX = 220;
+export const SCROLL_BOTTOM_TOLERANCE_PX = 24;
 
 export function transcriptDistanceFromBottom(el: HTMLElement): number {
   return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
@@ -27,6 +27,7 @@ export interface TranscriptScrollController {
 
 export interface TranscriptScrollOptions {
   messages: Accessor<Message[]>;
+  activityKey?: Accessor<string | undefined>;
   activeId: Accessor<string>;
   pendingPermission: Accessor<PermissionRequest | null>;
   pendingQuestion: Accessor<UserQuestion | null | undefined>;
@@ -40,12 +41,18 @@ export function createTranscriptScroll(
   const [scrollEl, setScrollEl] = createSignal<HTMLElement>();
 
   let paneEl: HTMLDivElement | undefined;
-  let lastMessageCount = 0;
   let lastTranscriptActivity = '';
+  let lastVisibleActivityCount = 0;
   let hadPendingPermission = false;
   let programmaticScroll = false;
   let resizeObserver: ResizeObserver | undefined;
   let pendingAutoPinFrame = 0;
+  // Just after a session switch / reload, messages + their content (images, fonts,
+  // virtualized rows) load ASYNC and keep growing scrollHeight. During this settling
+  // window, pin INSTANTLY (no smooth animation to race the programmatic-scroll
+  // window) and keep re-pinning so a reload lands at the TRUE bottom, not mid-page.
+  let settleUntil = 0;
+  const isSettling = () => Date.now() < settleUntil;
 
   function endProgrammaticScrollSoon() {
     window.setTimeout(() => {
@@ -71,7 +78,9 @@ export function createTranscriptScroll(
     pendingAutoPinFrame = window.requestAnimationFrame(() => {
       pendingAutoPinFrame = 0;
       if (!paneEl || scrolledUp()) return;
-      pinToBottom('auto');
+      // Instant while settling after a reload (no animation to race the 180ms
+      // programmatic window); smooth for live streaming increments.
+      pinToBottom(isSettling() ? 'auto' : 'smooth');
     });
   }
 
@@ -85,7 +94,8 @@ export function createTranscriptScroll(
   }
 
   function transcriptActivityKey(): string {
-    return options
+    const normalized = options.activityKey?.();
+    const messageKey = options
       .messages()
       .map((message) => {
         const partKey = message.parts
@@ -98,6 +108,14 @@ export function createTranscriptScroll(
         return `${message.id}:${message.stop_reason ?? ''}:${partKey}`;
       })
       .join('|');
+    return `${messageKey}#${normalized ?? ''}`;
+  }
+
+  function visibleActivityCount(): number {
+    const normalized = options.activityKey?.() ?? '';
+    const match = /^([^:]+):([^:]+):/.exec(normalized);
+    const parsed = match ? Number(match[2]) : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : options.messages().length;
   }
 
   function onPaneScroll() {
@@ -114,7 +132,7 @@ export function createTranscriptScroll(
   function onPaneWheel(event: WheelEvent) {
     if (!paneEl) return;
     programmaticScroll = false;
-    if (event.deltaY < 0 && !transcriptIsAtBottom(paneEl)) {
+    if (event.deltaY < 0 && paneEl.scrollHeight > paneEl.clientHeight) {
       setScrolledUp(true);
       return;
     }
@@ -127,22 +145,27 @@ export function createTranscriptScroll(
   }
 
   createEffect(() => {
-    const count = options.messages().length;
+    const visibleCount = visibleActivityCount();
     const activity = transcriptActivityKey();
     const changed = activity !== lastTranscriptActivity;
-    if (scrolledUp() && count > lastMessageCount) {
-      setNewSinceScroll((n) => n + (count - lastMessageCount));
+    if (scrolledUp() && visibleCount > lastVisibleActivityCount) {
+      setNewSinceScroll((n) => n + (visibleCount - lastVisibleActivityCount));
     } else if (!scrolledUp() && changed && paneEl) {
       queueMicrotask(() => {
-        pinToBottom('auto');
+        pinToBottom(isSettling() ? 'auto' : 'smooth');
       });
     }
-    lastMessageCount = count;
+    lastVisibleActivityCount = visibleCount;
     lastTranscriptActivity = activity;
   });
 
   createEffect(() => {
     void options.activeId();
+    // A session switch / reload loads messages ASYNC — open a settling window so the
+    // activity effect + ResizeObserver keep pinning to the true bottom INSTANTLY as
+    // late content grows scrollHeight (C8: reload used to land mid-transcript because
+    // a single smooth pin raced the async layout and then latched `scrolledUp`).
+    settleUntil = Date.now() + 800;
     queueMicrotask(() => {
       if (paneEl && !options.pendingPermission()) {
         const empty = untrack(() => options.messages().length === 0 && !options.pendingQuestion());
@@ -177,7 +200,7 @@ export function createTranscriptScroll(
     if (hadPendingPermission && !hasPending) {
       queueMicrotask(() => {
         if (!paneEl) return;
-        pinToBottom('auto');
+        pinToBottom('smooth');
         setScrolledUp(false);
         setNewSinceScroll(0);
       });
