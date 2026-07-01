@@ -27,6 +27,15 @@ export interface ChatSessionListStateOptions {
   blueprintLabels?: Accessor<Record<string, string>>;
   activeId: Accessor<string>;
   setActiveId: (id: string) => void;
+  /**
+   * Whether the sessions resource is currently (re)fetching. The stale-id
+   * recovery effect must NOT clear `activeId` while this is true: creating a
+   * session sets `activeId` to the new id and kicks a refetch, and until that
+   * refetch lands the new id is transiently absent from the list. Clearing then
+   * strands the just-created session (you type into it and a second, prompt-named
+   * session gets created instead).
+   */
+  sessionsLoading?: Accessor<boolean>;
   patchSessionMetadata: (id: string, pinned: boolean) => Promise<unknown>;
   toastPush: (input: ToastInput) => number;
 }
@@ -86,8 +95,14 @@ export function createChatSessionListState(options: ChatSessionListStateOptions)
     // Stale-id recovery only. Do not auto-select the first session:
     // that races with composer draft persistence and can wipe the text
     // the user is typing as the sessions resource resolves.
+    //
+    // Skip entirely while the resource is (re)fetching: a freshly created
+    // session sets `activeId` and refetches, and the new id is absent from the
+    // list until that refetch resolves. Clearing in that window is the
+    // "new session opens as a second, prompt-named session I can't see" bug.
     if (
       options.activeId() &&
+      !options.sessionsLoading?.() &&
       list.length > 0 &&
       !list.some((row) => row.id === options.activeId())
     ) {
