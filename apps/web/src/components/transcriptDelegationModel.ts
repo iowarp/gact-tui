@@ -429,6 +429,10 @@ export function buildAssistantTurnModel(
   opts?: { streaming?: boolean },
 ): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
+  // Turns with NO delegation keep the flat per-part rendering (which carries the
+  // richer verbose tool-call body / telemetry / command-card views). Building a model
+  // here would route tool-only turns through the collapsed AssistantTurnView and lose
+  // that detail — the turn-1 header/thinking flash is fixed elsewhere, not by this.
   if (!list.some(isHandoff)) return null;
 
   const depthOf = buildDepthResolver(list);
@@ -658,7 +662,12 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
   // finalized. A completed-session reload passes no opts → byte-identical output
   // (parity preserved).
   const streaming = opts?.streaming === true;
-  const base = streaming ? rows : dedupeRepeatedText(rows);
+  // #48: NO client-side text dedup. It was born from a wrong reading of the
+  // dspy.extract/response semantics (treating the extract answer as a duplicate of
+  // the finish next_thought) and ran ONLY when settled — dropping real content and
+  // making a reloaded turn diverge from the live one. Build identically live/settled;
+  // any genuine backend double-emit is fixed at the SOURCE, not hidden here.
+  const base = rows;
   return base.filter((row, index, all) => {
     if (row.kind === 'return') {
       if (!row.text.trim() && !row.raw.trim()) return false;
@@ -686,57 +695,6 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
     }
     return true;
   });
-}
-
-function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
-  // The turn's TERMINAL answer (last non-empty text row) is the response the turn
-  // ends on and is NEVER dropped. When an earlier row duplicates it, the EARLIER
-  // copy is dropped so the turn never ends on a bodyless thinking host (B6 — the
-  // "froze on thinking", where main's final answer, a near-dup of the earlier
-  // synthesis child, was being dropped). Otherwise the LATER duplicate is dropped
-  // (first author wins), as before.
-  let terminalIdx = -1;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i]!;
-    if (r.kind === 'text' && r.text.trim()) {
-      terminalIdx = i;
-      break;
-    }
-  }
-  const drop = new Set<number>();
-  const firstByBody = new Map<string, number>();
-  const priorLongChild: Array<{ idx: number; body: string }> = [];
-  rows.forEach((r, i) => {
-    if (r.kind !== 'text') return;
-    const body = r.text.trim();
-    if (!body) return;
-    const first = firstByBody.get(body);
-    if (first !== undefined) {
-      // Exact repeat: drop the later copy, unless the later copy is the terminal —
-      // then drop the earlier one so the terminal survives.
-      if (i === terminalIdx) {
-        drop.add(first);
-        firstByBody.set(body, i);
-      } else {
-        drop.add(i);
-      }
-      return;
-    }
-    if (r.agent === 'main' && isNearDuplicateChildAnswer(body, priorLongChild.map((p) => p.body))) {
-      if (i === terminalIdx) {
-        // Keep the terminal main answer; drop the earlier child copy it near-dups.
-        const victim = priorLongChild.find((p) => isNearDuplicateChildAnswer(body, [p.body]));
-        if (victim) drop.add(victim.idx);
-        firstByBody.set(body, i);
-      } else {
-        drop.add(i);
-      }
-      return;
-    }
-    firstByBody.set(body, i);
-    if (r.agent !== 'main' && body.length >= 500) priorLongChild.push({ idx: i, body });
-  });
-  return rows.filter((_, i) => !drop.has(i));
 }
 
 function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {
@@ -802,45 +760,3 @@ function isTerminalCompletionReasoning(text: string): boolean {
   return complete || finish;
 }
 
-function isNearDuplicateChildAnswer(body: string, priorChildBodies: readonly string[]): boolean {
-  if (body.length < 500 || priorChildBodies.length === 0) return false;
-  const bodyTokens = normalizedAnswerTokens(body);
-  if (bodyTokens.size < 40) return false;
-  for (const prior of priorChildBodies) {
-    const priorTokens = normalizedAnswerTokens(prior);
-    if (priorTokens.size < 40) continue;
-    let intersection = 0;
-    for (const token of bodyTokens) {
-      if (priorTokens.has(token)) intersection += 1;
-    }
-    const smaller = Math.min(bodyTokens.size, priorTokens.size);
-    if (intersection / smaller >= 0.82) return true;
-  }
-  return false;
-}
-
-function normalizedAnswerTokens(text: string): Set<string> {
-  const normalized = text
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, ' ')
-    .replace(/[a-z]:\\[^\s)`]+/g, ' ')
-    .replace(/`[^`]*`/g, ' ')
-    .replace(/[^a-z0-9_]+/g, ' ');
-  const stop = new Set([
-    'and',
-    'are',
-    'but',
-    'for',
-    'from',
-    'not',
-    'the',
-    'this',
-    'that',
-    'with',
-  ]);
-  return new Set(
-    normalized
-      .split(/\s+/)
-      .filter((token) => token.length >= 3 && !stop.has(token)),
-  );
-}

@@ -43,7 +43,7 @@ const thinking = (id: string, agent: string, t: string): Part =>
 const kinds = (rows: TurnRow[]) => rows.map((r) => r.kind);
 
 describe('buildAssistantTurnModel — ordered append-only row log', () => {
-  it('returns null for a turn with no delegation structure', () => {
+  it('returns null for a turn with no delegation structure (keeps the flat per-part render)', () => {
     expect(buildAssistantTurnModel([text('t', 'main', 'hi')])).toBeNull();
   });
 
@@ -158,7 +158,7 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     expect(rows.some((r) => r.kind === 'routing')).toBe(false);
   });
 
-  it('DEDUPES a verbatim-repeated text body (clio #736: parent reprints the child answer)', () => {
+  it('does NOT dedup a verbatim-repeated text body — the client preserves content; a real backend #736 double-emit is fixed at source, not hidden here (#48)', () => {
     const answer = 'Resolved region: **Los Angeles** — center 34.05, −118.24';
     const parts = [
       handoff('h', 'main', 'geospatial', 'delegate.started'),
@@ -170,14 +170,13 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     const textRows = buildAssistantTurnModel(parts)!.rows.filter(
       (r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text',
     );
-    // The answer renders ONCE (no #736 double). The TERMINAL copy (main's delivery,
-    // the row the turn ends on) is kept; the earlier child copy is dropped — so the
-    // turn never ends on a bodyless host (B6) and the orchestrator's answer shows.
-    expect(textRows).toHaveLength(1);
-    expect(textRows[0]!.agent).toBe('main');
+    // No client-side dedup: BOTH copies render, in wire order. If clio genuinely
+    // double-emits (#736), that is fixed in the agent, not silently hidden here.
+    expect(textRows).toHaveLength(2);
+    expect(textRows.map((r) => r.agent)).toEqual(['geospatial', 'main']);
   });
 
-  it('DEDUPES a near-repeated parent final answer with corrupted Windows paths', () => {
+  it('does NOT near-dedup a parent final answer — no client-side near-duplicate detection (#48)', () => {
     const synthesisAnswer = `
 ### Region
 Los Angeles, California. Center: 34.0536909 N, 118.242766 W; 50 km search radius.
@@ -220,14 +219,13 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     const textRows = buildAssistantTurnModel(parts)!.rows.filter(
       (r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text',
     );
-    // B6: the TERMINAL answer (main's — the row the turn ends on) is kept; the
-    // earlier synthesis near-duplicate is dropped. Previously the terminal (main)
-    // copy was dropped, stranding the turn on the preceding thinking host.
-    expect(textRows).toHaveLength(1);
-    expect(textRows[0]!.agent).toBe('main');
+    // No client-side near-dedup: both the synthesis answer and main's near-duplicate
+    // restatement render. The turn still ENDS on main's terminal answer.
+    expect(textRows).toHaveLength(2);
+    expect(textRows.at(-1)!.agent).toBe('main');
   });
 
-  it('B6: keeps the main terminal answer after a thinking host (never ends on the host)', () => {
+  it('keeps the main terminal answer after a thinking host (never ends on the host), preserving the earlier copy too', () => {
     // Real EarthScope shape: synthesis returns its report, main resumes, emits a big
     // provider-thinking burst, then re-states the report as its terminal answer. The
     // dedup must keep main's TERMINAL text — not strand the turn on the empty host.
@@ -248,7 +246,8 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     const rows = buildAssistantTurnModel(parts)!.rows;
     // The turn ENDS on main's terminal answer, not on the thinking host.
     expect(rows.at(-1)).toMatchObject({ kind: 'text', agent: 'main', id: 'main-answer' });
-    expect(rows.filter((r) => r.kind === 'text')).toHaveLength(1);
+    // No dedup: BOTH the synthesis report and main's terminal restatement render.
+    expect(rows.filter((r) => r.kind === 'text')).toHaveLength(2);
     // The thinking host is still present (kept, not merged away).
     expect(
       rows.some((r) => r.kind === 'reasoning' && !!r.providerThinking?.text.trim()),
