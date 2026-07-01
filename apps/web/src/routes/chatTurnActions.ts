@@ -81,7 +81,14 @@ export function createChatTurnActions(options: ChatTurnActionsOptions) {
       await options.client.resolvePermission(pending.id, decision, scope);
       options.clearPendingPermission();
     } catch (error) {
-      console.error('resolvePermission failed', error);
+      // Never swallow silently: a failed resolve is exactly the "dead button"
+      // symptom. Surface it (with the real error + a retry) and KEEP the card so
+      // the user can act, instead of a console.error nobody sees.
+      options.failToast(
+        decision === 'deny' ? 'Deny failed' : 'Approval failed',
+        error,
+        () => void decidePermission(decision, scope),
+      );
     }
   }
 
