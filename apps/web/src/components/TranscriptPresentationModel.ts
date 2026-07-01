@@ -5,6 +5,7 @@
 import { createMemo, type Accessor } from 'solid-js';
 import type { Message } from '@clio/core';
 import { countOccurrences, shouldRenderPart, type TranscriptDensity } from './TranscriptParts.js';
+import { messageSearchTexts } from './transcriptDelegationModel.js';
 
 export interface StreamingTarget {
   msgId: string;
@@ -30,10 +31,8 @@ export function createTranscriptPresentationModel(options: {
     let total = 0;
     for (const message of options.messages()) {
       baseByMessage.set(message.id, total);
-      for (const part of message.parts) {
-        if (part.type === 'text' && part.text) {
-          total += countOccurrences(part.text.toLowerCase(), q);
-        }
+      for (const text of messageSearchTexts(message)) {
+        total += countOccurrences(text.toLowerCase(), q);
       }
     }
     return baseByMessage;

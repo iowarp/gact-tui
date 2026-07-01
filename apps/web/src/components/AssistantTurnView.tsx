@@ -20,12 +20,13 @@
  *   - ONE marker PER AGENT TURN, not just per delegation.
  *   - Tool output rendered by CONTENT TYPE, never by tool name; only it collapses.
  */
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
 import { MemoMarkdown, StreamingMarkdown } from './MemoMarkdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
-import { PartView, type TranscriptDensity } from './TranscriptParts.js';
+import { countOccurrences, PartView, type TranscriptDensity } from './TranscriptParts.js';
+import { HighlightedText } from './TranscriptTextPartView.js';
 import type {
   DelegationRow,
   ProviderThinking,
@@ -64,6 +65,17 @@ export function AssistantTurnView(props: {
   /** True while this turn's message is still streaming — the LAST row is the one
    *  actively growing, so it renders plain (no per-token re-parse) for smoothness. */
   streaming?: boolean;
+  /** 'user' renders text rows plainly (no `●`, no agent header). Default 'assistant'. */
+  role?: 'user' | 'assistant';
+  /** In-transcript search state. When searchQuery is set, text rows render the
+   *  match-highlighting <mark> spans (keyed for autoscroll) instead of markdown —
+   *  the SINGLE render path keeps search working without swapping views. */
+  searchQuery?: string;
+  currentMatchKey?: string;
+  /** Global match index of THIS message's first match (from the presentation
+   *  model). Per-text-row bases accumulate from here so `${msgId}:${idx}` keys
+   *  line up with the search controller's global count. */
+  matchBaseIndex?: number;
 }) {
   const finalTextIndex = () => {
     for (let i = props.rows.length - 1; i >= 0; i--) {
@@ -71,8 +83,26 @@ export function AssistantTurnView(props: {
     }
     return -1;
   };
+  // Per-text-row search base: the running global match index at the START of each
+  // text row, so its highlighted spans key from the right offset (aligned with the
+  // message-level base + prior text rows' match counts). Only text rows are search
+  // targets (reasoning/tool output aren't counted), mirroring the search counter.
+  const q = () => props.searchQuery?.trim().toLowerCase() ?? '';
+  const textRowBase = createMemo(() => {
+    const map = new Map<string, number>();
+    const needle = q();
+    if (!needle) return map;
+    let acc = props.matchBaseIndex ?? 0;
+    for (const row of props.rows) {
+      if (row.kind === 'text') {
+        map.set(row.id, acc);
+        acc += countOccurrences(row.text.toLowerCase(), needle);
+      }
+    }
+    return map;
+  });
   return (
-    <div class="trx-turn" data-testid="assistant-turn">
+    <div class="trx-turn" data-testid={props.role === 'user' ? 'user-turn' : 'assistant-turn'}>
       <For each={props.rows}>
         {(row, i) => (
           <TurnRowView
@@ -80,6 +110,9 @@ export function AssistantTurnView(props: {
             isFinalAnswer={row.kind === 'text' && i() === finalTextIndex()}
             showAgent={showAgentHeader(props.rows, i())}
             isStreamingTail={(props.streaming ?? false) && i() === props.rows.length - 1}
+            searchQuery={props.searchQuery}
+            currentMatchKey={props.currentMatchKey}
+            matchBase={row.kind === 'text' ? (textRowBase().get(row.id) ?? 0) : 0}
             {...props}
           />
         )}
@@ -182,6 +215,9 @@ function TurnRowView(props: {
   readWorkspaceImage?: ReadWorkspaceImage;
   messageId?: string;
   isStreamingTail?: boolean;
+  searchQuery?: string;
+  currentMatchKey?: string;
+  matchBase?: number;
 }) {
   const row = props.row;
   const body = () => {
@@ -195,6 +231,10 @@ function TurnRowView(props: {
             showAgent={props.showAgent}
             isFinalAnswer={props.isFinalAnswer}
             streaming={props.isStreamingTail}
+            searchQuery={props.searchQuery}
+            currentMatchKey={props.currentMatchKey}
+            matchBase={props.matchBase}
+            messageId={props.messageId}
           />
         );
       case 'reasoning':
@@ -295,14 +335,44 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
 }
 
 /** `●` then the agent's prose, markdown IN FULL. One ● marker per turn; the
- *  agent name comes from the block header, not repeated on each turn. */
+ *  agent name comes from the block header, not repeated on each turn. A USER row
+ *  renders plainly (no `●`, no header) — the same path, minus the agent chrome.
+ *  While searching, the body renders match-highlighting <mark>s (keyed for
+ *  autoscroll) instead of markdown, exactly as the pre-unification flat path did. */
 function TextRowView(props: {
   row: TextRow;
   showAgent: boolean;
   isFinalAnswer: boolean;
   streaming?: boolean;
+  searchQuery?: string;
+  currentMatchKey?: string;
+  matchBase?: number;
+  messageId?: string;
 }) {
   const row = () => props.row;
+  const q = () => props.searchQuery?.trim() ?? '';
+  const bodyContent = () => (
+    <Show
+      when={q()}
+      fallback={<StreamingMarkdown text={row().text} streaming={props.streaming} />}
+    >
+      <HighlightedText
+        text={row().text}
+        query={q()}
+        messageId={props.messageId ?? ''}
+        baseIndex={props.matchBase ?? 0}
+        currentMatchKey={props.currentMatchKey ?? ''}
+      />
+    </Show>
+  );
+  // USER prompt: plain prose, no agent header, no `●` gutter marker.
+  if (row().isUser) {
+    return (
+      <div class="trx-text" data-testid="user-turn-text">
+        {bodyContent()}
+      </div>
+    );
+  }
   return (
     <>
       <Show when={props.showAgent}>
@@ -324,7 +394,7 @@ function TextRowView(props: {
           </span>
         </div>
         <div class="trx-row__body" data-testid="assistant-turn-result">
-          <StreamingMarkdown text={row().text} streaming={props.streaming} />
+          {bodyContent()}
         </div>
       </section>
     </>
@@ -443,8 +513,18 @@ function ToolCallLine(props: { row: ToolRow }) {
         <Show when={!row().ok}>
           <span class="trx-tool__badge is-err">failed</span>
         </Show>
-        <Show when={row().durationMs != null}>
-          <span class="trx-tool__dur">{Math.round(row().durationMs!)}ms</span>
+        <Show when={row().cached || row().durationMs != null}>
+          {/* Tool telemetry (capabilities.tool_telemetry): cache badge + rounded
+              duration, TUI parity — carried on the unified tool row so unification
+              doesn't drop it. */}
+          <span class="trx-tool__telemetry" data-testid="tool-telemetry">
+            <Show when={row().cached}>
+              <span class="trx-tool__badge trx-tool__badge--cached">cached</span>
+            </Show>
+            <Show when={row().durationMs != null}>
+              <span class="trx-tool__dur">{Math.round(row().durationMs!)}ms</span>
+            </Show>
+          </span>
         </Show>
       </span>
     </div>

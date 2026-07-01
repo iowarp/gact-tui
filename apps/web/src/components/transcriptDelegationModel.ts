@@ -22,7 +22,7 @@
  * hardcoded expert-name list. Each row + tool carries a STABLE id (the part id)
  * so Solid's keyed <For> appends/updates in place and never rebuilds the turn.
  */
-import type { Part } from '@clio/core';
+import type { Message, Part } from '@clio/core';
 import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
 import { stripClioScaffolding } from './clioScaffolding.js';
@@ -45,6 +45,10 @@ export interface ToolRow {
   imagePath?: string;
   ok: boolean;
   durationMs?: number;
+  /** Tool-telemetry (capabilities.tool_telemetry): the result was served from
+   *  cache (clio ships `cached` on tool_result parts). Rendered as an inline
+   *  `cached` badge in the tool footer — TUI parity, not dropped by unification. */
+  cached?: boolean;
 }
 
 /** A `parent → agent` delegation header row. */
@@ -66,6 +70,9 @@ export interface TextRow {
   depth: number;
   agent: string;
   text: string;
+  /** True when this row is the USER's prompt (rendered plainly — no `●` marker,
+   *  no agent header — through the same single AssistantTurnView path). */
+  isUser?: boolean;
   /** The DSPy contract field this text streamed from (`signature_field_name`):
    *  `next_thought` (a ReAct step/finish summary) vs `reasoning` (the extract
    *  wrap-up). Used to drop the finish `next_thought` that duplicates the extract
@@ -157,6 +164,7 @@ interface PartLike {
   duration_ms?: number;
   selected_agent?: string;
   rationale?: string;
+  cached?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -263,6 +271,7 @@ function toolRowsFromHandoffMetadata(
       ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
       ok: rec['ok'] !== false && rec['is_error'] !== true,
       ...(typeof duration === 'number' ? { durationMs: duration } : {}),
+      ...(rec['cached'] === true ? { cached: true } : {}),
     });
   });
   return rows;
@@ -335,10 +344,6 @@ function clip(s: string, max: number): string {
 
 function delegationKey(parent: string, agent: string, task: string): string {
   return `${parent}->${agent}->${task.replace(/\s+/g, ' ').trim()}`;
-}
-
-function isHandoff(part: PartLike): boolean {
-  return part.type === 'expert_handoff';
 }
 
 /** Agent of a part — the emitter. `expert_handoff` headers belong to the CHILD
@@ -424,16 +429,40 @@ export function dedupToolThought(rows: readonly TurnRow[], agent: string, though
   return thought;
 }
 
+/**
+ * Project a USER turn into the same ordered row log. A user message is its prompt
+ * prose (rendered plainly — no `●` marker, no agent header) plus any attachments
+ * (images / documents) as passthrough rows. Kept trivially simple: no delegation,
+ * tool-pairing, or scaffolding-stripping applies to what the user typed.
+ */
+function buildUserTurnModel(list: readonly PartLike[]): AssistantTurnModel | null {
+  const rows: TurnRow[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const part = list[i];
+    if (!part) continue;
+    const id = str(part.id) || `row-${i}`;
+    if (part.type === 'text') {
+      const text = str(part.text);
+      if (!text) continue;
+      rows.push({ kind: 'text', id, depth: 0, agent: '', text, isUser: true });
+      continue;
+    }
+    rows.push({ kind: 'passthrough', id, depth: 0, part: part as Part });
+  }
+  return rows.length > 0 ? { rows } : null;
+}
+
 export function buildAssistantTurnModel(
   parts: readonly Part[],
-  opts?: { streaming?: boolean },
+  opts?: { streaming?: boolean; role?: 'user' | 'assistant' },
 ): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
-  // Turns with NO delegation keep the flat per-part rendering (which carries the
-  // richer verbose tool-call body / telemetry / command-card views). Building a model
-  // here would route tool-only turns through the collapsed AssistantTurnView and lose
-  // that detail — the turn-1 header/thinking flash is fixed elsewhere, not by this.
-  if (!list.some(isHandoff)) return null;
+  // TOTAL builder (the single render path): EVERY turn — user prompts, delegation
+  // turns, single-agent turns, tool-only turns, and turns still streaming their
+  // first token — is projected into the ordered row log and rendered through
+  // AssistantTurnView. There is no flat per-part fallback anymore: one builder,
+  // one renderer, so live ≡ reload and search never swaps to a different view.
+  if (opts?.role === 'user') return buildUserTurnModel(list);
 
   const depthOf = buildDepthResolver(list);
   const rows: TurnRow[] = [];
@@ -533,6 +562,13 @@ export function buildAssistantTurnModel(
     }
 
     if (type === 'text') {
+      // A synthetic slash-command result (e.g. `/cache-stats`) is a distinct card,
+      // not model prose — route it through its own view as a passthrough row so the
+      // single render path still shows it, styled as a command-result card.
+      if (str(part.metadata?.['synthetic']) === 'command_result') {
+        rows.push({ kind: 'passthrough', id, depth, part: part as Part });
+        continue;
+      }
       const text = cleanProse(str(part.text));
       if (!text) continue;
       const field = str(part.metadata?.['signature_field_name']);
@@ -607,6 +643,7 @@ export function buildAssistantTurnModel(
       const durationMs =
         typeof part.duration_ms === 'number' ? part.duration_ms : undefined;
       const ok = part.status !== 'error' && part.metadata?.['is_error'] !== true;
+      const cached = part.cached === true || part.metadata?.['cached'] === true;
       if (existing) {
         existing.content = analysis.content;
         existing.preview = analysis.preview;
@@ -614,6 +651,7 @@ export function buildAssistantTurnModel(
         if (analysis.imagePath) existing.imagePath = analysis.imagePath;
         existing.ok = ok;
         if (durationMs != null) existing.durationMs = durationMs;
+        if (cached) existing.cached = true;
       } else {
         // Orphan result (no preceding call) — still render it as a tool row.
         rows.push({
@@ -630,6 +668,7 @@ export function buildAssistantTurnModel(
           ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
           ok,
           ...(durationMs != null ? { durationMs } : {}),
+          ...(cached ? { cached: true } : {}),
         });
       }
       continue;
@@ -643,6 +682,26 @@ export function buildAssistantTurnModel(
   const cleanRows = filterVisibleRows(rows, opts);
   if (cleanRows.length === 0) return null;
   return { rows: cleanRows };
+}
+
+/**
+ * The ordered text strings a message renders, for in-transcript search. Search
+ * highlighting + match navigation MUST index the SAME text the single render path
+ * shows (cleaned prose rows), not the raw wire parts — otherwise a match key would
+ * point at an occurrence that scaffolding-stripping removed, and autoscroll would
+ * miss. Both the match counter and the per-row base index derive from this, so
+ * `${messageId}:${globalMatchIndex}` keys line up with the rendered `<mark>`s.
+ */
+export function messageSearchTexts(msg: Message): string[] {
+  const model = buildAssistantTurnModel(msg.parts ?? [], {
+    role: msg.role === 'assistant' ? 'assistant' : 'user',
+  });
+  if (!model) return [];
+  const out: string[] = [];
+  for (const row of model.rows) {
+    if (row.kind === 'text' && row.text) out.push(row.text);
+  }
+  return out;
 }
 
 /**
