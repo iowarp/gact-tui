@@ -79,7 +79,7 @@ export function TextPartView(props: {
   );
 }
 
-function HighlightedText(props: {
+export function HighlightedText(props: {
   text: string;
   query: string;
   messageId: string;

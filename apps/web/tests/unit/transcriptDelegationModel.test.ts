@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { Part } from '@clio/core';
-import { buildAssistantTurnModel, type TurnRow } from '../../src/components/transcriptDelegationModel.js';
+import type { Message, Part } from '@clio/core';
+import {
+  buildAssistantTurnModel,
+  messageSearchTexts,
+  type TurnRow,
+} from '../../src/components/transcriptDelegationModel.js';
 import { analyzeToolResult } from '../../src/components/toolResultPreview.js';
 
 /** Clean-stream part factories (the 4-atom ReAct wire: text / handoff / tool). */
@@ -43,8 +47,14 @@ const thinking = (id: string, agent: string, t: string): Part =>
 const kinds = (rows: TurnRow[]) => rows.map((r) => r.kind);
 
 describe('buildAssistantTurnModel — ordered append-only row log', () => {
-  it('returns null for a turn with no delegation structure (keeps the flat per-part render)', () => {
-    expect(buildAssistantTurnModel([text('t', 'main', 'hi')])).toBeNull();
+  it('builds a model for a no-delegation turn too (TOTAL builder — the single render path)', () => {
+    // The builder is total: a plain single-agent turn projects to a text row and
+    // renders through AssistantTurnView like every other turn (no flat fallback).
+    const model = buildAssistantTurnModel([text('t', 'main', 'hi')]);
+    expect(model).not.toBeNull();
+    expect(model!.rows).toEqual([
+      expect.objectContaining({ kind: 'text', agent: 'main', text: 'hi', depth: 0 }),
+    ]);
   });
 
   it('preserves WIRE ARRIVAL ORDER (geospatial before data, never regrouped)', () => {
@@ -638,6 +648,66 @@ The task is complete. I now finish and carry the synthesis answer to the user.
     expect(tool.preview).not.toContain('agent_id');
     expect(tool.preview).not.toContain('live_call_d3cc');
     expect(tool.result).not.toContain('"type": "text"');
+  });
+
+  it('projects a USER turn to plain text rows (isUser, no agent) through the same builder', () => {
+    const model = buildAssistantTurnModel([text('u', '', 'find the LA stations')], {
+      role: 'user',
+    })!;
+    expect(model.rows).toEqual([
+      expect.objectContaining({ kind: 'text', isUser: true, text: 'find the LA stations', depth: 0 }),
+    ]);
+    // User prompt is NOT scaffolding-stripped or agent-attributed.
+    expect((model.rows[0] as Extract<TurnRow, { kind: 'text' }>).agent).toBe('');
+  });
+
+  it('routes a synthetic command_result text part to a passthrough row (command card)', () => {
+    const part = {
+      type: 'text',
+      id: 'cmd',
+      agent_id: 'main',
+      text: '[/cache-stats] ARC cache: hits=0 misses=0',
+      metadata: { synthetic: 'command_result', command: '/cache-stats' },
+    } as unknown as Part;
+    const rows = buildAssistantTurnModel([part])!.rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.kind).toBe('passthrough');
+  });
+
+  it('carries tool telemetry (cached + duration) onto the paired tool row', () => {
+    const parts = [
+      toolCall('tc', 'main', 'c1', 'read_file', {}),
+      {
+        type: 'tool_result',
+        id: 'tr',
+        agent_id: 'main',
+        call_id: 'c1',
+        output: 'ok',
+        cached: true,
+        duration_ms: 1234.6,
+      } as unknown as Part,
+    ];
+    const tool = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'tool' }> => r.kind === 'tool',
+    )!;
+    expect(tool.cached).toBe(true);
+    expect(tool.durationMs).toBe(1234.6);
+  });
+
+  it('messageSearchTexts returns the CLEANED, rendered text (so highlight keys align)', () => {
+    const msg: Message = {
+      id: 'm',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'text',
+          text: 'Evidence is ready.\n\nCLIO typed workflow state:\n{"workflow_state":{}}',
+        } as unknown as Part,
+      ],
+    } as unknown as Message;
+    // The display-only workflow-state blob is stripped, so search indexes only the
+    // prose the render actually shows.
+    expect(messageSearchTexts(msg)).toEqual(['Evidence is ready.']);
   });
 
   it('emits row kinds in order: text, delegation, tool, text', () => {
