@@ -17,7 +17,6 @@ import type {
 } from '@clio/core';
 import type {
   ExecutionTranscriptEvent,
-  NormalizedTranscriptState,
   RunningTool,
   StreamStats,
 } from '../live.js';
@@ -157,8 +156,6 @@ export interface ChatLayoutProps {
   /** Transcript projection ledger: assistant deltas and semantic execution
    * events in receive order. Shared by web and desktop. */
   executionEvents?: ExecutionTranscriptEvent[];
-  /** Provider-agnostic normalized transcript render model. */
-  normalizedTranscript?: NormalizedTranscriptState;
   /** Capability gate for the semantic trace (x_clio_semantic_events). */
   semanticEventsEnabled?: boolean;
 }

@@ -95,7 +95,6 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           selectedModelId={options.props.selectedModelId}
           permMode={options.props.permMode}
           executionEvents={options.props.executionEvents}
-          normalizedTranscript={options.props.normalizedTranscript}
           semanticEvents={
             options.props.semanticEventsEnabled ? options.props.semanticEvents : undefined
           }

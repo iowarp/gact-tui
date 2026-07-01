@@ -31,7 +31,6 @@ type LiveTranscriptSessionSignals = Pick<
   | 'setPendingQuestion'
   | 'setSemanticEvents'
   | 'setExecutionEvents'
-  | 'setNormalizedTranscript'
 > & {
   /**
    * Plain-value setter for the pending-permission signal. The transcript root
@@ -98,7 +97,6 @@ export function startLiveTranscriptSession(
       setSemanticEvents: signals.setSemanticEvents,
       semanticFeedCap: SEMANTIC_FEED_CAP,
       setExecutionEvents: signals.setExecutionEvents,
-      setNormalizedTranscript: signals.setNormalizedTranscript,
       sessionEvents,
       onNotification: sessionEvents?.onNotification,
       onFrameChanged: sessionEvents?.onFrameChanged,

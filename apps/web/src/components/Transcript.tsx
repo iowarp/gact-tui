@@ -12,7 +12,6 @@ import { MessageView } from './TranscriptMessageView.js';
 import { createTranscriptPresentationModel } from './TranscriptPresentationModel.js';
 import { createTranscriptHashNavigation } from './TranscriptHashNavigation.js';
 import { createTranscriptVirtualization } from './TranscriptVirtualization.js';
-import type { NormalizedTranscriptState } from '../NormalizedTranscriptEvents.js';
 import './transcript.css';
 import './inline-markdown.css';
 
@@ -73,7 +72,6 @@ export interface TranscriptProps {
    * renders as one interleaved timeline instead of separate semantic/message
    * blocks. Shared by web and desktop. */
   executionEvents?: ExecutionTranscriptEvent[];
-  normalizedTranscript?: NormalizedTranscriptState;
   /** v0.2 semantic-execution spine. When provided, each assistant turn gets an
    * opt-in collapsible "execution trace" strip (agent invocations, expert
    * handoffs, tool timings, memory access) keyed by `turn_id`. Additive: absent

@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   ExecutionTranscriptEvent,
   MessageCompletion,
-  NormalizedTranscriptState,
   RunningTool,
 } from '../../src/live.js';
-import { emptyNormalizedTranscriptState } from '../../src/NormalizedTranscriptEvents.js';
 import {
   clearInactiveLiveTranscriptState,
   clearLiveTranscriptSessionFeeds,
@@ -31,11 +29,6 @@ function createState() {
   let execution: ExecutionTranscriptEvent[] = [
     { sequence: 1, type: 'message.part.delta', payload: {} },
   ];
-  let normalized: NormalizedTranscriptState = {
-    ...emptyNormalizedTranscriptState(),
-    rows: [{ kind: 'text', id: 'n1', depth: 0, agent: 'main', text: 'hello' }],
-    activityKey: '1:1:1',
-  };
 
   const setters: LiveTranscriptInactiveSetters = {
     setMessages: (next) => {
@@ -82,10 +75,6 @@ function createState() {
       execution = next as ExecutionTranscriptEvent[];
       return execution;
     },
-    setNormalizedTranscript: (next) => {
-      normalized = next as NormalizedTranscriptState;
-      return normalized;
-    },
   };
 
   return {
@@ -103,7 +92,6 @@ function createState() {
         question,
         semantic,
         execution,
-        normalized,
       };
     },
   };
@@ -117,7 +105,6 @@ describe('LiveTranscriptModel', () => {
 
     expect(harness.state.semantic).toEqual([]);
     expect(harness.state.execution).toEqual([]);
-    expect(harness.state.normalized.rows).toEqual([]);
     expect(harness.state.messages).toEqual([{ id: 'm1', role: 'assistant', parts: [] }]);
     expect(harness.state.status).toBe('open');
   });
@@ -139,7 +126,6 @@ describe('LiveTranscriptModel', () => {
       question: null,
       semantic: [],
       execution: [],
-      normalized: emptyNormalizedTranscriptState(),
     });
   });
 });

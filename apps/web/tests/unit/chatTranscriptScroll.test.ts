@@ -122,14 +122,13 @@ describe('chatTranscriptScroll', () => {
     vi.useRealTimers();
   });
 
-  it('counts normalized visible activity while paused without counting every token', async () => {
+  it('counts NEW MESSAGES while paused without counting every streamed token', async () => {
     vi.useFakeTimers();
     await createRoot(async (dispose) => {
-      const [activityKey, setActivityKey] = createSignal('1:1:1');
+      const [messages, setMessages] = createSignal<Message[]>([message('m1', 'short')]);
       const pane = makePane();
       const controller = createTranscriptScroll({
-        messages: () => [message('m1', 'short')],
-        activityKey,
+        messages,
         activeId: () => 'sess_1',
         pendingPermission: () => null,
         pendingQuestion: () => null,
@@ -140,15 +139,18 @@ describe('chatTranscriptScroll', () => {
       pane.scrollTop = 100;
       controller.onPaneWheel(new WheelEvent('wheel', { deltaY: -120 }));
 
-      setActivityKey('2:2:2');
+      // Tokens growing the SAME message (its text lengthens) must NOT bump the
+      // new-since-scroll counter — that counts unread MESSAGES, not tokens.
+      setMessages([message('m1', 'short but now much longer as tokens stream in')]);
+      await flush();
+      expect(controller.newSinceScroll()).toBe(0);
+
+      // A brand-new message bumps it by one.
+      setMessages((prev) => [...prev, message('m2', 'second')]);
       await flush();
       expect(controller.newSinceScroll()).toBe(1);
 
-      setActivityKey('3:2:2');
-      await flush();
-      expect(controller.newSinceScroll()).toBe(1);
-
-      setActivityKey('4:3:3');
+      setMessages((prev) => [...prev, message('m3', 'third')]);
       await flush();
       expect(controller.newSinceScroll()).toBe(2);
       expect(pane.scrollTop).toBe(100);

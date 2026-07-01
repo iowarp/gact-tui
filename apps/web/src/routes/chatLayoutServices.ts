@@ -26,7 +26,6 @@ export function createChatLayoutServices(props: ChatLayoutProps) {
   const transcriptSearch = createTranscriptSearch(() => props.messages);
   const transcriptScroll = createTranscriptScroll({
     messages: () => props.messages,
-    activityKey: () => props.normalizedTranscript?.activityKey,
     activeId: () => props.activeId,
     pendingPermission: () => props.pendingPermission,
     pendingQuestion: () => props.pendingQuestion,
