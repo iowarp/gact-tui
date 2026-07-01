@@ -20,11 +20,13 @@ import { analyzeToolResult } from './components/toolResultPreview.js';
 import type {
   DelegationRow,
   ProviderThinking,
+  ReasoningRow,
   ReturnRow,
   TextRow,
   ToolRow,
   TurnRow,
 } from './components/transcriptDelegationModel.js';
+import { dedupToolThought } from './components/transcriptDelegationModel.js';
 
 export type NormalizedTranscriptEventType =
   | 'turn.started'
@@ -48,6 +50,11 @@ export interface NormalizedTranscriptState extends NormalizedTranscriptModel {
   firstRowIdByTurn: Record<string, string>;
   rowTurnById: Record<string, string>;
   latestTextRowIdByPart: Record<string, string>;
+  /** Trace (provider thinking) accumulated since the LAST row of a turn was
+   * created, keyed by turn_id. Consumed by the next row so each call/step shows
+   * the reasoning that led to it (per-call thinking), not the whole turn's trace
+   * duplicated onto every row. */
+  pendingThinkingByTurn: Record<string, { text: string; tokens?: number }>;
   revision: number;
   visibleActivityCount: number;
 }
@@ -86,6 +93,7 @@ export function emptyNormalizedTranscriptState(): NormalizedTranscriptState {
     firstRowIdByTurn: {},
     rowTurnById: {},
     latestTextRowIdByPart: {},
+    pendingThinkingByTurn: {},
     revision: 0,
     visibleActivityCount: 0,
   };
@@ -171,14 +179,50 @@ function applyTraceDelta(
   payload: TranscriptTraceDeltaPayload,
 ) {
   if (payload.trace_kind !== 'model_aux') return;
-  const turn = turnForAgentPayload(state, ensureTurn(state, payload.turn_id), payload.agent_id);
   const append = raw(payload.text_append);
-  if (!append) return;
-  turn.traceText += append;
+  if (!str(payload.turn_id) || !append) return;
+  const turn = ensureTurn(state, payload.turn_id);
+  turn.traceText += append; // cumulative trace (compat)
   if (typeof payload.tokens === 'number') {
     turn.traceTokens = (turn.traceTokens ?? 0) + payload.tokens;
   }
-  attachThinkingToFirstTurnRow(state, turn.turnId);
+  // Stream the SDK thinking as a LIVE, collapsed `thinking ▾` HOST row: an
+  // empty-text reasoning row (no ● body) whose providerThinking is the live
+  // thinking. Created on the first delta of a burst and appended in place after,
+  // so the count ticks per delta and the body streams when opened. A non-trace row
+  // (text/tool) closes the burst, so the next trace opens a fresh host.
+  const latest = state.rows.at(-1);
+  const host =
+    latest?.kind === 'reasoning' && latest.agent === turn.agentId && !latest.text.trim()
+      ? (latest as ReasoningRow)
+      : undefined;
+  if (host?.providerThinking) {
+    const text = host.providerThinking.text + append;
+    host.providerThinking = {
+      ...host.providerThinking,
+      text,
+      chars: text.length,
+      ...(typeof payload.tokens === 'number'
+        ? { tokens: (host.providerThinking.tokens ?? 0) + payload.tokens }
+        : {}),
+    };
+    state.visibleActivityCount += 1;
+  } else {
+    const row: ReasoningRow = {
+      kind: 'reasoning',
+      id: `reasoning-${turn.turnId}-${turn.agentId}-${state.rows.length}`,
+      depth: turn.depth,
+      agent: turn.agentId,
+      text: '',
+      providerThinking: {
+        text: append,
+        source: 'provider',
+        chars: append.length,
+        ...(typeof payload.tokens === 'number' ? { tokens: payload.tokens } : {}),
+      },
+    };
+    pushVisibleRow(state, turn.turnId, row);
+  }
 }
 
 function applyTextDelta(
@@ -208,7 +252,6 @@ function applyTextDelta(
       depth: turn.depth,
       agent: turn.agentId,
       text: append,
-      ...(thinkingForTurn(turn) ? { providerThinking: thinkingForTurn(turn) } : {}),
     };
     state.latestTextRowIdByPart[rowIdBase] = row.id;
     pushVisibleRow(state, turn.turnId, row);
@@ -251,7 +294,6 @@ function applyAgentCallAction(
     agent: targetAgent,
     task: str(action.prompt) || str(action.task) || str(action.next_task),
     status: str(action.status) || 'observed',
-    ...(thinkingForTurn(turn) ? { providerThinking: thinkingForTurn(turn) } : {}),
   };
   state.calls[callId] = {
     callId,
@@ -279,14 +321,15 @@ function applyToolCallAction(
     id: `tool-${callId}`,
     depth: turn.depth,
     agent: turn.agentId,
-    thought: str(action.thought),
+    // P1.3 dedup: drop the tool thought when it repeats a preceding text row —
+    // parity with the persisted path's buildAssistantTurnModel.
+    thought: dedupToolThought(state.rows, turn.agentId, str(action.thought)),
     name: str(action.tool_name) || str(action.name) || 'tool',
     argsSummary: summariseArgs(action.input ?? action.args),
     content: analysis.content,
     preview: analysis.preview,
     result: analysis.full,
     ok: action.is_error !== true,
-    ...(thinkingForTurn(turn) ? { providerThinking: thinkingForTurn(turn) } : {}),
   };
   state.calls[callId] = {
     callId,
@@ -306,10 +349,23 @@ function applyReturnAction(
   turn: NormalizedTurn,
   action: TranscriptAction,
 ) {
-  const callId = str(action.call_id) || `return-${turn.turnId}-${state.rows.length}`;
+  const explicitCallId = str(action.call_id);
+  // Dedup: the backend can describe one handoff on more than one channel; render
+  // a given return exactly once (keyed on its call_id).
+  if (explicitCallId) {
+    const existing = state.calls[explicitCallId];
+    if (existing?.kind === 'return' && state.rows.some((candidate) => candidate.id === existing.rowId)) {
+      return;
+    }
+  }
+  const callId = explicitCallId || `return-${turn.turnId}-${state.rows.length}`;
   const parentCall = turn.parentCallId ? state.calls[turn.parentCallId] : undefined;
   const text = str(action.summary) || str(action.text) || str(action.response);
   const rawText = str(action.response) || text;
+  // Fold the agent's last live thinking host into the return's `thinking ▾` (the
+  // reasoning that led to the return), removing the standalone host row so the
+  // thinking shows on the return one-liner, not as a separate row above it.
+  const thinking = foldThinkingHost(state, turn.agentId);
   const row: ReturnRow = {
     kind: 'return',
     id: `return-${callId}`,
@@ -320,7 +376,7 @@ function applyReturnAction(
     raw: rawText,
     chars: rawText.length,
     ...(typeof action.tokens === 'number' ? { tokens: action.tokens } : {}),
-    ...(thinkingForTurn(turn) ? { providerThinking: thinkingForTurn(turn) } : {}),
+    ...(thinking ? { providerThinking: thinking } : {}),
   };
   state.calls[callId] = {
     callId,
@@ -411,23 +467,30 @@ function pushVisibleRow(
   state.visibleActivityCount += 1;
 }
 
-function attachThinkingToFirstTurnRow(state: NormalizedTranscriptState, turnId: string) {
-  const turn = state.turns[turnId];
-  const rowId = state.firstRowIdByTurn[turnId];
-  if (!turn || !rowId) return;
-  const thinking = thinkingForTurn(turn);
-  const row = state.rows.find((candidate) => candidate.id === rowId);
-  if (row && 'providerThinking' in row && thinking) row.providerThinking = thinking;
-}
-
-function thinkingForTurn(turn: NormalizedTurn): ProviderThinking | undefined {
-  if (!turn.traceText) return undefined;
-  return {
-    text: turn.traceText,
-    source: 'model_aux',
-    chars: turn.traceText.length,
-    ...(turn.traceTokens != null ? { tokens: turn.traceTokens } : {}),
-  };
+/** Fold the agent's most-recent LIVE thinking host (an empty-text reasoning row)
+ * into a return, removing the standalone host row so the thinking renders on the
+ * return one-liner. Searches back from the latest row, not crossing a prior
+ * return/delegation boundary. */
+function foldThinkingHost(
+  state: NormalizedTranscriptState,
+  agentId: string,
+): ProviderThinking | undefined {
+  for (let i = state.rows.length - 1; i >= 0; i--) {
+    const row = state.rows[i]!;
+    if (
+      row.kind === 'reasoning' &&
+      row.agent === agentId &&
+      !row.text.trim() &&
+      row.providerThinking
+    ) {
+      const folded = row.providerThinking;
+      state.rows.splice(i, 1);
+      delete state.rowTurnById[row.id];
+      return folded;
+    }
+    if (row.kind === 'return' || row.kind === 'delegation') break;
+  }
+  return undefined;
 }
 
 function cloneState(state: NormalizedTranscriptState): NormalizedTranscriptState {
@@ -441,6 +504,7 @@ function cloneState(state: NormalizedTranscriptState): NormalizedTranscriptState
     firstRowIdByTurn: { ...state.firstRowIdByTurn },
     rowTurnById: { ...state.rowTurnById },
     latestTextRowIdByPart: { ...state.latestTextRowIdByPart },
+    pendingThinkingByTurn: { ...state.pendingThinkingByTurn },
     revision: state.revision,
     visibleActivityCount: state.visibleActivityCount,
   };

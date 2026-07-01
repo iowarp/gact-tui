@@ -2,10 +2,12 @@
  * Top-level chat layout: composes the sessions column, main column, side
  * panels and overlays. Exports {@link ChatLayout}.
  */
+import { Show } from 'solid-js';
 import { ChatLayoutOverlays } from './ChatLayoutOverlays.js';
 import { ChatLayoutMainColumn } from './ChatLayoutMainColumn.js';
 import { ChatLayoutSessionsColumn } from './ChatLayoutSessionsColumn.js';
 import { ChatLayoutSidePanels } from './ChatLayoutSidePanels.js';
+import { ChatTopbar } from './ChatTopbar.js';
 import { createChatLayoutModel } from './chatLayoutModel.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 
@@ -77,56 +79,86 @@ export function ChatLayout(props: ChatLayoutProps) {
       }
       data-testid="chat-screen"
     >
-      <ChatLayoutSessionsColumn
-        props={props}
-        discoveryClient={discoveryClient}
-        showSessionsColumn={showSessionsColumn}
-        connectionTone={connectionTone}
-        isNarrowViewport={isNarrowViewport}
-        selectFromSessionsColumn={selectFromSessionsColumn}
-        openSessionSemanticsPicker={openSessionSemanticsPicker}
-        setSessionsOpen={setSessionsOpen}
-      />
+      <Show when={onChat()}>
+        <ChatTopbar
+          overflow={topbarOverflow}
+          activeId={props.activeId}
+          activeTitle={activeRow()?.title}
+          activeBlueprint={activeRow()?.blueprint}
+          activeStatus={activeRow()?.status}
+          renamed={props.renamedSessionId === props.activeId}
+          showSessionsColumn={showSessionsColumn()}
+          sseStatus={props.sseStatus}
+          sseReconnectInSec={props.sseReconnectInSec}
+          runningTools={props.runningTools}
+          previewOpen={previewOpen()}
+          inspectorOpen={inspectorOpen()}
+          renderSecondaryChips={secondaryChips}
+          onToggleSessions={() => {
+            if (showSessionsColumn()) {
+              setSessionsOpen(false);
+            } else {
+              setRailRoute('sessions');
+              setSessionsOpen(true);
+            }
+          }}
+          onTogglePreview={() => setPreviewOpen((open) => !open)}
+          onToggleInspector={() => setInspectorOpen((open) => !open)}
+        />
+      </Show>
 
-      <ChatLayoutMainColumn
-        props={props}
-        discoveryClient={discoveryClient}
-        onChat={onChat}
-        railRoute={railRoute}
-        setRailRoute={setRailRoute}
-        topbarOverflow={topbarOverflow}
-        transcriptSearch={transcriptSearch}
-        transcriptScroll={transcriptScroll}
-        activeRow={activeRow}
-        showSessionsColumn={showSessionsColumn}
-        previewOpen={previewOpen}
-        setPreviewOpen={setPreviewOpen}
-        inspectorOpen={inspectorOpen}
-        setInspectorOpen={setInspectorOpen}
-        setSessionsOpen={setSessionsOpen}
-        selectedMessageId={selectedMessageId}
-        setSelectedMessageId={setSelectedMessageId}
-        draftReloadTick={draftReloadTick}
-        setPaletteOpen={setPaletteOpen}
-        setActiveDiff={setActiveDiff}
-        renderSecondaryChips={secondaryChips}
-      />
+      <div class="chat__body">
+        <ChatLayoutSessionsColumn
+          props={props}
+          discoveryClient={discoveryClient}
+          showSessionsColumn={showSessionsColumn}
+          connectionTone={connectionTone}
+          isNarrowViewport={isNarrowViewport}
+          selectFromSessionsColumn={selectFromSessionsColumn}
+          openSessionSemanticsPicker={openSessionSemanticsPicker}
+          setSessionsOpen={setSessionsOpen}
+        />
 
-      <ChatLayoutSidePanels
-        props={props}
-        discoveryClient={discoveryClient}
-        onChat={onChat}
-        inspectorOpen={inspectorOpen}
-        setInspectorOpen={setInspectorOpen}
-        previewOpen={previewOpen}
-        setPreviewOpen={setPreviewOpen}
-        previewPath={previewPath}
-        setPreviewPath={setPreviewPath}
-        previewWorkspaceId={previewWorkspaceId}
-        inspectorTarget={inspectorTarget}
-        toolCallsForInspector={toolCallsForInspector}
-        setActiveDiff={setActiveDiff}
-      />
+        <ChatLayoutMainColumn
+          props={props}
+          discoveryClient={discoveryClient}
+          onChat={onChat}
+          railRoute={railRoute}
+          setRailRoute={setRailRoute}
+          topbarOverflow={topbarOverflow}
+          transcriptSearch={transcriptSearch}
+          transcriptScroll={transcriptScroll}
+          activeRow={activeRow}
+          showSessionsColumn={showSessionsColumn}
+          previewOpen={previewOpen}
+          setPreviewOpen={setPreviewOpen}
+          inspectorOpen={inspectorOpen}
+          setInspectorOpen={setInspectorOpen}
+          setSessionsOpen={setSessionsOpen}
+          selectedMessageId={selectedMessageId}
+          setSelectedMessageId={setSelectedMessageId}
+          draftReloadTick={draftReloadTick}
+          setPaletteOpen={setPaletteOpen}
+          setActiveDiff={setActiveDiff}
+          renderSecondaryChips={secondaryChips}
+        />
+
+        <ChatLayoutSidePanels
+          props={props}
+          discoveryClient={discoveryClient}
+          onChat={onChat}
+          inspectorOpen={inspectorOpen}
+          setInspectorOpen={setInspectorOpen}
+          previewOpen={previewOpen}
+          setPreviewOpen={setPreviewOpen}
+          previewPath={previewPath}
+          setPreviewPath={setPreviewPath}
+          previewWorkspaceId={previewWorkspaceId}
+          inspectorTarget={inspectorTarget}
+          toolCallsForInspector={toolCallsForInspector}
+          setActiveDiff={setActiveDiff}
+        />
+      </div>
 
       <ChatLayoutOverlays
         props={props}

@@ -46,7 +46,7 @@ export interface UpdateRow {
    * Informational link shown when there is no in-shell update action (web
    * backend row). Rendered instead of the Update button.
    */
-  link?: { label: string; url: string };
+  link?: { label: string; url: string; title?: string };
 }
 
 export interface UpdatePanelProps {
@@ -83,7 +83,11 @@ export function backendRow(args: {
     row.onUpdate = args.onUpdate;
   } else {
     // Web cannot install host software — surface the repo instead.
-    row.link = { label: args.repository.label, url: args.repository.url };
+    row.link = {
+      label: 'Releases',
+      url: args.repository.url,
+      title: args.repository.label,
+    };
   }
   return row;
 }
@@ -122,11 +126,13 @@ function Row(props: { row: UpdateRow; testid: string }) {
       <div class="update-panel__row-main">
         <span class="update-panel__row-label">{props.row.label}</span>
         <span class="update-panel__row-versions">
+          <span class="update-panel__ver-label">installed</span>
           <span class="update-panel__ver" data-testid={`${props.testid}-current`}>
             {props.row.current ?? '—'}
           </span>
           <Show when={state() === 'available'}>
             <Icon name="arrow-up-right" size={12} class="update-panel__ver-arrow" />
+            <span class="update-panel__ver-label">latest release</span>
             <span class="update-panel__ver update-panel__ver--latest">
               {props.row.latest ?? '—'}
             </span>
@@ -142,6 +148,7 @@ function Row(props: { row: UpdateRow; testid: string }) {
             <a
               class="update-panel__link"
               href={link().url}
+              title={link().title ?? link().url}
               target="_blank"
               rel="noreferrer"
               data-testid={`${props.testid}-link`}
@@ -207,7 +214,7 @@ export function UpdatePanel(props: UpdatePanelProps) {
         data-testid="update-panel"
       >
         <header class="update-panel__head">
-          <span class="update-panel__title">Updates</span>
+          <span class="update-panel__title">Updates (release pages)</span>
           <button
             type="button"
             class="update-panel__close"

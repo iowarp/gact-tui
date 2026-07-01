@@ -1,7 +1,8 @@
 /* Empty-conversation state. */
 .chat__empty {
+  width: min(100%, 560px);
   text-align: center;
-  margin-block: auto;
+  margin: auto;
   padding: 24px;
   color: var(--color-muted);
 }
@@ -62,7 +63,7 @@
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--color-muted);
-  max-width: 480px;
+  width: min(100%, 520px);
   margin: 0 auto 24px;
   line-height: 1.55;
 }
@@ -71,7 +72,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  max-width: 520px;
+  width: min(100%, 520px);
   margin: 0 auto;
   text-align: left;
 }
@@ -104,9 +105,13 @@
 }
 
 .chat__empty-tip {
-  margin-top: 24px;
+  display: block;
+  width: min(100%, 520px);
+  margin: 24px auto 0;
+  text-align: center;
   font-family: var(--font-sans);
   font-size: 12.5px;
+  line-height: 1.5;
   color: var(--color-muted);
 }
 
@@ -140,6 +145,8 @@
 @media (max-width: 760px) {
   .chat__empty {
     padding: 44px 12px 24px;
+    width: min(100%, 560px);
+    margin-inline: auto;
   }
 
   .chat__empty-prompts {

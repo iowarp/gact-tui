@@ -18,6 +18,10 @@ import type {
 import type { StreamStats } from './LiveStreamStats.js';
 import type { LiveConnectionStatus } from './LiveReconnect.js';
 import type { LivePendingInteractionsHandle } from './LivePendingInteractionsHandle.js';
+import {
+  emptyNormalizedTranscriptState,
+  type NormalizedTranscriptState,
+} from './NormalizedTranscriptEvents.js';
 
 export interface LiveTranscriptHandle {
   messages: Accessor<Message[]>;
@@ -45,6 +49,8 @@ export interface LiveTranscriptHandle {
    * handoff parts, ReAct steps, expert extracts, and tool events. This is
    * the transcript highway; semanticEvents remains the Inspector feed. */
   executionEvents: Accessor<ExecutionTranscriptEvent[]>;
+  /** Provider-agnostic transcript stream folded into render rows. */
+  normalizedTranscript: Accessor<NormalizedTranscriptState>;
   /** TTFT + token-rate of the most recent turn (null before the first turn). */
   streamStats: Accessor<StreamStats | null>;
   /** Force-refetch the message list (e.g. after undo/rewind). */
@@ -88,6 +94,8 @@ export interface LiveTranscriptSignals {
   setSemanticEvents: Setter<SemanticEventPayload[]>;
   executionEvents: Accessor<ExecutionTranscriptEvent[]>;
   setExecutionEvents: Setter<ExecutionTranscriptEvent[]>;
+  normalizedTranscript: Accessor<NormalizedTranscriptState>;
+  setNormalizedTranscript: Setter<NormalizedTranscriptState>;
   streamStats: Accessor<StreamStats | null>;
   setStreamStats: Setter<StreamStats | null>;
 }
@@ -121,6 +129,8 @@ export function createLiveTranscriptSignals(): LiveTranscriptSignals {
   const [pendingQuestion, setPendingQuestion] = createSignal<UserQuestion | null>(null);
   const [semanticEvents, setSemanticEvents] = createSignal<SemanticEventPayload[]>([]);
   const [executionEvents, setExecutionEvents] = createSignal<ExecutionTranscriptEvent[]>([]);
+  const [normalizedTranscript, setNormalizedTranscript] =
+    createSignal<NormalizedTranscriptState>(emptyNormalizedTranscriptState());
   const [streamStats, setStreamStats] = createSignal<StreamStats | null>(null);
 
   return {
@@ -146,6 +156,8 @@ export function createLiveTranscriptSignals(): LiveTranscriptSignals {
     setSemanticEvents,
     executionEvents,
     setExecutionEvents,
+    normalizedTranscript,
+    setNormalizedTranscript,
     streamStats,
     setStreamStats,
   };

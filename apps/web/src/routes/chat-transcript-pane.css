@@ -3,8 +3,8 @@
   flex: 1;
   overflow-y: auto;
   background: var(--color-bg);
-  padding: 24px 0 184px;
-  scroll-padding-bottom: 184px;
+  padding: 24px 0 18px;
+  scroll-padding-bottom: 18px;
 }
 
 .chat--no-sessions .chat__pane {
@@ -23,7 +23,8 @@
   /* Owner feedback: the transcript used < half the central column. Widen the
      reading column so the chat-of-turns + tool output fill the available
      width instead of stranding a large right gutter. */
-  max-width: 1040px;
+  width: var(--chat-content-w, min(100%, 76vw));
+  max-width: none;
   margin: 0 auto;
   padding: 0 32px;
   min-height: 100%;
@@ -33,14 +34,19 @@
   transition: max-width var(--dur-base) var(--ease-out);
 }
 
+.chat--empty-transcript .chat__pane-inner {
+  align-items: center;
+  justify-content: center;
+}
+
 /* When the inspector is collapsed the chat__main-col has the extra
    340px of room - let the reading column claim a chunk of it instead
    of leaving a stranded gutter on the right. */
 .chat:not(.chat--inspector-open) .chat__pane-inner {
-  max-width: 1280px;
+  max-width: none;
 }
 
 .chat__composer-clearance {
-  flex: 0 0 144px;
+  flex: 0 0 16px;
   pointer-events: none;
 }

@@ -1994,3 +1994,39 @@ Implications:
   persistence across `page.reload()`) can't provide. Not a clio block;
   deferred to a desktop-shell reload test where the backend is
   persisted.
+
+---
+
+## Session note — transcript finish-turn render + reload polish
+
+**The core realignment (with the user, grounded in `runtime.py` + real parts):**
+A DSPy blueprint expert's finish is TWO LLM calls — the ReAct **finish step**
+(`self.react`, produces `next_thought` = full answer + `next_tool_name="finish"`)
+and the **`dspy.extract`** step (`self.extract`, produces `reasoning` + typed
+`answer`). The extract IS the return synthesis; its near-duplicate of the finish
+`next_thought` is EXPECTED, not a bug. So we do NOT suppress/delete it and do NOT
+touch the agent (the extract produces the typed `output_summary`/`workflow_state`).
+
+- **A (render, done):** `transcriptDelegationModel.ts` — the extract (its SDK
+  thinking host + `reasoning` text) folds INTO the return (`thinking ▾` +
+  `show details`), collapsed; the finish `next_thought` stays inline as the last
+  flow bullet. Fixes the duplicate answer + the "two thinkings" leak with no agent
+  change. Reverted the earlier `_suppress_duplicate_finish_thought` (backend) and
+  `dropDuplicateFinishThought` (web) — those DELETED the extract, which is wrong.
+- **B2 (clio source, done, uncommitted):** `gact/turn.py` — the contract-prose
+  cleaner ran per streamed chunk; its multi-line regexes matched chunk boundaries
+  and truncated real answer text ("d MTA1…", "The acquis…"). Now cleaned ONCE on
+  the whole buffered part in `_close_streamed_part`. Picked up on next clio start.
+- **C7 (done):** reload filters permissions to genuinely-pending (`?status=pending`
+  + client status guard) — no more re-prompting answered permissions.
+- **C8 (done):** reload opens a settling window and pins the transcript to the true
+  bottom instantly as async content loads — lands at the bottom, not mid-page.
+- **B6 (done):** dedup never drops the turn's terminal answer.
+
+**Gates:** 973 web tests, typecheck, lint, `@clio/web build` — all green.
+**Committed:** web fixes = `85e07a6c` (gact-tui develop). clio B2 lives in the
+source (turn.py hunk entangled with pre-session audit WIP — left uncommitted; the
+restart picks up the source, no commit needed for it to take effect).
+**To see the fold:** hard-refresh `:4173` (already serving the new bundle).
+**Open (user decision):** whether to also scrub DSPy field-names/schema out of the
+extract's *thinking* content (currently collapsed in the return's `thinking ▾`).

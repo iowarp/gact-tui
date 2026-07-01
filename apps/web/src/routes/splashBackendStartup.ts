@@ -7,6 +7,7 @@ import { getBackend } from '../tauri.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
 import {
   createSplashBackendHandle,
+  type PureWebBackendCandidate,
   probePureWebBackend as probePureWebBackendEndpoint,
 } from './splashBackend.js';
 import {
@@ -26,6 +27,8 @@ export interface SplashBackendStartupOptions {
   onNeedsInstall: () => void;
   onReady: (backend: FrontendHandle) => void;
   onWebFallbackNeeded: () => void;
+  pureWebCandidates?: () => readonly PureWebBackendCandidate[];
+  isRegistryHydrated?: () => boolean;
 }
 
 export function createSplashBackendStartup(options: SplashBackendStartupOptions) {
@@ -71,9 +74,12 @@ export function createSplashBackendStartup(options: SplashBackendStartupOptions)
 
   async function probePureWebBackend() {
     options.setPhase('probing');
-    const url = await probePureWebBackendEndpoint();
-    if (url) {
-      await handoff(url, '');
+    await waitForRegistryHydration();
+    const result = await probePureWebBackendEndpoint({
+      candidates: options.pureWebCandidates?.(),
+    });
+    if (result) {
+      await handoff(result.url, result.token, result.capabilities);
       return;
     }
     if (!options.isCancelled()) {
@@ -81,9 +87,17 @@ export function createSplashBackendStartup(options: SplashBackendStartupOptions)
     }
   }
 
-  async function handoff(url: string, token: string) {
+  async function waitForRegistryHydration() {
+    if (!options.isRegistryHydrated) return;
+    const deadline = Date.now() + 2_000;
+    while (!options.isCancelled() && !options.isRegistryHydrated() && Date.now() < deadline) {
+      await sleep(25);
+    }
+  }
+
+  async function handoff(url: string, token: string, capabilities?: FrontendHandle['capabilities']) {
     try {
-      const backend = await createSplashBackendHandle(url, token);
+      const backend = await createSplashBackendHandle(url, token, capabilities);
       options.setPhase('ready');
       options.onReady(backend);
     } catch (e) {

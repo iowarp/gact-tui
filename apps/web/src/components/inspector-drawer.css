@@ -80,10 +80,16 @@
   color: var(--color-muted);
   width: 24px;
   height: 24px;
+  padding: 0;
   border-radius: 6px;
   cursor: pointer;
   display: grid;
   place-items: center;
+  line-height: 1;
+}
+
+.inspector__close .icon {
+  display: block;
 }
 
 .inspector__close:hover {

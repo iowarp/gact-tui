@@ -33,6 +33,7 @@ import { inTauri, tauriFetch } from './tauri.js';
 
 export interface BackendRegistry {
   state: Accessor<BackendRegistryState>;
+  hydrated: Accessor<boolean>;
   current: Accessor<BackendEntry | null>;
   add: (entry: BackendEntry) => void;
   remove: (id: string) => void;
@@ -55,10 +56,12 @@ export function createBackendRegistry(
 ): BackendRegistry {
   const persistence = opts.persistence ?? new LocalStoragePersistence();
   const [state, setState] = createSignal<BackendRegistryState>(EMPTY_REGISTRY);
+  const [hydrated, setHydrated] = createSignal(false);
 
   onMount(async () => {
     const hydrated = await persistence.load();
     setState(hydrated);
+    setHydrated(true);
   });
 
   function commit(next: BackendRegistryState) {
@@ -99,6 +102,7 @@ export function createBackendRegistry(
 
   return {
     state,
+    hydrated,
     current: () => reduceCurrent(state()),
     add,
     remove,

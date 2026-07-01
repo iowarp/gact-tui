@@ -11,10 +11,15 @@ import type {
   RunningTool,
 } from './LiveReducer.js';
 import type { LiveConnectionStatus } from './LiveReconnect.js';
+import {
+  emptyNormalizedTranscriptState,
+  type NormalizedTranscriptState,
+} from './NormalizedTranscriptEvents.js';
 
 export interface LiveTranscriptFeedSetters {
   setSemanticEvents: Setter<SemanticEventPayload[]>;
   setExecutionEvents: Setter<ExecutionTranscriptEvent[]>;
+  setNormalizedTranscript: Setter<NormalizedTranscriptState>;
 }
 
 export interface LiveTranscriptInactiveSetters extends LiveTranscriptFeedSetters {
@@ -32,6 +37,7 @@ export interface LiveTranscriptInactiveSetters extends LiveTranscriptFeedSetters
 export function clearLiveTranscriptSessionFeeds(setters: LiveTranscriptFeedSetters) {
   setters.setSemanticEvents([]);
   setters.setExecutionEvents([]);
+  setters.setNormalizedTranscript(emptyNormalizedTranscriptState());
 }
 
 export function clearInactiveLiveTranscriptState(setters: LiveTranscriptInactiveSetters) {

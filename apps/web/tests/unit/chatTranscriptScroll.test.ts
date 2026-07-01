@@ -48,6 +48,10 @@ describe('chatTranscriptScroll', () => {
     expect(transcriptDistanceFromBottom(pane)).toBe(0);
     expect(transcriptIsAtBottom(pane)).toBe(true);
 
+    pane.scrollTop = 470;
+    expect(transcriptDistanceFromBottom(pane)).toBe(30);
+    expect(transcriptIsAtBottom(pane)).toBe(false);
+
     pane.scrollTop = 0;
     expect(transcriptDistanceFromBottom(pane)).toBe(500);
     expect(transcriptIsAtBottom(pane)).toBe(false);
@@ -65,6 +69,8 @@ describe('chatTranscriptScroll', () => {
         pendingQuestion: () => null,
       });
       controller.setPaneRef(pane);
+      await flush();
+      vi.runOnlyPendingTimers();
       pane.scrollTop = 500;
       controller.onPaneScroll();
 
@@ -110,6 +116,75 @@ describe('chatTranscriptScroll', () => {
       expect(pane.scrollTop).toBe(1500);
       expect(controller.scrolledUp()).toBe(false);
       expect(controller.newSinceScroll()).toBe(0);
+      vi.runOnlyPendingTimers();
+      dispose();
+    });
+    vi.useRealTimers();
+  });
+
+  it('counts normalized visible activity while paused without counting every token', async () => {
+    vi.useFakeTimers();
+    await createRoot(async (dispose) => {
+      const [activityKey, setActivityKey] = createSignal('1:1:1');
+      const pane = makePane();
+      const controller = createTranscriptScroll({
+        messages: () => [message('m1', 'short')],
+        activityKey,
+        activeId: () => 'sess_1',
+        pendingPermission: () => null,
+        pendingQuestion: () => null,
+      });
+      controller.setPaneRef(pane);
+      await flush();
+      vi.runOnlyPendingTimers();
+      pane.scrollTop = 100;
+      controller.onPaneWheel(new WheelEvent('wheel', { deltaY: -120 }));
+
+      setActivityKey('2:2:2');
+      await flush();
+      expect(controller.newSinceScroll()).toBe(1);
+
+      setActivityKey('3:2:2');
+      await flush();
+      expect(controller.newSinceScroll()).toBe(1);
+
+      setActivityKey('4:3:3');
+      await flush();
+      expect(controller.newSinceScroll()).toBe(2);
+      expect(pane.scrollTop).toBe(100);
+      vi.runOnlyPendingTimers();
+      dispose();
+    });
+    vi.useRealTimers();
+  });
+
+  it('breaks follow mode on upward wheel even when currently pinned', async () => {
+    vi.useFakeTimers();
+    await createRoot(async (dispose) => {
+      const [messages, setMessages] = createSignal<Message[]>([message('m1', 'short')]);
+      const pane = makePane();
+      const controller = createTranscriptScroll({
+        messages,
+        activeId: () => 'sess_1',
+        pendingPermission: () => null,
+        pendingQuestion: () => null,
+      });
+      controller.setPaneRef(pane);
+      await flush();
+      vi.runOnlyPendingTimers();
+      pane.scrollTop = 500;
+      controller.onPaneScroll();
+
+      controller.onPaneWheel(new WheelEvent('wheel', { deltaY: -120 }));
+      expect(controller.scrolledUp()).toBe(true);
+
+      (pane as unknown as { __setScrollHeight: (value: number) => void }).__setScrollHeight(1500);
+      setMessages([message('m1', 'short'), message('m2', 'new while paused')]);
+      await flush();
+
+      expect(controller.scrolledUp()).toBe(true);
+      expect(controller.newSinceScroll()).toBe(1);
+      expect(pane.scrollTop).toBe(500);
       vi.runOnlyPendingTimers();
       dispose();
     });

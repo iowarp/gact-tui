@@ -2,9 +2,10 @@
  * Session-defaults settings section: default blueprint/expert-pack pickers.
  * Exports {@link SessionDefaultsSection}.
  */
-import { createEffect, createResource, createSignal, For } from 'solid-js';
+import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
 import { Client } from '@clio/core';
 import { Icon } from '../components/Icon.js';
+import { blueprintControlLabel, showExpertPackPicker } from '../brand-presentation.js';
 import { SectionHeading } from '../components/SettingsPrimitives.js';
 import { useToast } from '../components/Toast.js';
 import {
@@ -40,13 +41,13 @@ export function SessionDefaultsSection(props: { client: Client; context?: Settin
       data.expertPacks,
     );
     setBlueprintId(defaults.blueprintId);
-    setExpertPackId(defaults.expertPackId);
+    setExpertPackId(showExpertPackPicker() ? defaults.expertPackId : '');
   });
 
   function save() {
     saveSessionSemanticsDefaults({
       blueprintId: blueprintId(),
-      expertPackId: expertPackId(),
+      expertPackId: showExpertPackPicker() ? expertPackId() : '',
     });
     toast.push({
       tone: 'success',
@@ -77,9 +78,7 @@ export function SessionDefaultsSection(props: { client: Client; context?: Settin
           </div>
           <div>
             <h1 class="dp__title">Session defaults</h1>
-            <p class="dp__subtitle">
-              Choose the blueprint and expert pack applied to new sessions.
-            </p>
+            <p class="dp__subtitle">Choose the default semantics applied to new sessions.</p>
           </div>
         </div>
         <button
@@ -100,33 +99,37 @@ export function SessionDefaultsSection(props: { client: Client; context?: Settin
         />
         <div class="settings-shell__form-grid">
           <label class="settings-shell__field">
-            <span>Agent blueprint</span>
+            <span>{blueprintControlLabel()}</span>
             <select
               value={blueprintId()}
               onChange={(e) => setBlueprintId(e.currentTarget.value)}
               disabled={catalog.loading}
               data-testid="session-default-blueprint"
             >
-              <option value="">Default agent</option>
+              <Show when={data().blueprints.length === 0}>
+                <option value="">No installed blueprints</option>
+              </Show>
               <For each={data().blueprints}>
                 {(bp) => <option value={bp.id}>{bp.label}</option>}
               </For>
             </select>
           </label>
-          <label class="settings-shell__field">
-            <span>Expert pack</span>
-            <select
-              value={expertPackId()}
-              onChange={(e) => setExpertPackId(e.currentTarget.value)}
-              disabled={catalog.loading}
-              data-testid="session-default-expert-pack"
-            >
-              <option value="">No expert pack</option>
-              <For each={data().expertPacks}>
-                {(pack) => <option value={pack.id}>{pack.label}</option>}
-              </For>
-            </select>
-          </label>
+          <Show when={showExpertPackPicker()}>
+            <label class="settings-shell__field">
+              <span>Expert pack</span>
+              <select
+                value={expertPackId()}
+                onChange={(e) => setExpertPackId(e.currentTarget.value)}
+                disabled={catalog.loading}
+                data-testid="session-default-expert-pack"
+              >
+                <option value="">No expert pack</option>
+                <For each={data().expertPacks}>
+                  {(pack) => <option value={pack.id}>{pack.label}</option>}
+                </For>
+              </select>
+            </label>
+          </Show>
         </div>
         <div class="settings__actions">
           <button

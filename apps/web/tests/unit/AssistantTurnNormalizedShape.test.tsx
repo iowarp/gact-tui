@@ -59,15 +59,14 @@ describe('AssistantTurnView normalized stream shape', () => {
         parent: 'main',
         depth: 1,
         text: 'Resolved region: Los Angeles.',
-        raw: 'Resolved region: Los Angeles.',
-        chars: 29,
+        raw: 'Resolved region: Los Angeles.\ncenter: 34.05, -118.24; radius_km: 50',
       },
     ];
 
     render(() => <AssistantTurnView rows={rows} density="normal" />);
 
     expect(screen.getByTestId('assistant-turn-provider-thinking').textContent).toContain(
-      'thinking(25 chars)claude_code_sdk',
+      'thinking(25 chars)',
     );
     expect(screen.getByLabelText('Toggle provider thinking')).toBeTruthy();
     expect(screen.getByTestId('assistant-turn-step').textContent).toContain('call(geospatial)');
@@ -82,12 +81,12 @@ describe('AssistantTurnView normalized stream shape', () => {
       'display_name: Los Angeles',
     );
 
+    // raw carries MORE than the rendered body, so the "details" disclosure is
+    // offered and reveals the raw payload (when raw only repeats text, it's hidden).
     const toggle = screen.getByTestId('assistant-turn-return-toggle');
-    expect(toggle.textContent).toContain('show response (29 chars)');
+    expect(toggle.textContent).toContain('details');
     fireEvent.click(toggle);
-    expect(screen.getByTestId('assistant-turn-return-raw').textContent).toContain(
-      'Resolved region: Los Angeles.',
-    );
+    expect(screen.getByTestId('assistant-turn-return-raw').textContent).toContain('radius_km: 50');
 
     expect(screen.queryByText('workflow_state')).toBeNull();
     expect(screen.queryByText('[[ ##')).toBeNull();

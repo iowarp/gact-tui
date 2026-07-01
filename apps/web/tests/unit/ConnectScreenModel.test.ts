@@ -7,6 +7,7 @@ import {
   connectFailureStateForStatus,
   connectErrorHint,
   isAuthFailure,
+  isCapabilitiesPayload,
   isRemoteBackendUrl,
   normalizedBackendBaseUrl,
   shouldRequestRemoteReauth,
@@ -33,6 +34,14 @@ describe('ConnectScreenModel', () => {
     expect(isRemoteBackendUrl('http://[::1]:17800')).toBe(false);
     expect(isRemoteBackendUrl('https://clio-staging.example.com')).toBe(true);
     expect(isRemoteBackendUrl('not a url')).toBe(false);
+  });
+
+  it('recognizes GACT-shaped capabilities payloads', () => {
+    expect(isCapabilitiesPayload({ contract_version: '1' })).toBe(true);
+    expect(isCapabilitiesPayload({ backend: { name: 'CLIO' } })).toBe(true);
+    expect(isCapabilitiesPayload({ capabilities: {} })).toBe(true);
+    expect(isCapabilitiesPayload({ ok: true })).toBe(false);
+    expect(isCapabilitiesPayload(null)).toBe(false);
   });
 
   it('requests reauth only for remote auth failures', () => {

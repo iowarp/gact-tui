@@ -3,6 +3,7 @@
  * and filters/resolves the active workspace.
  */
 import type { SessionRow, WorkspaceOption } from '../components/SessionsColumn.js';
+import { presentBlueprintLabel } from '../brand-presentation.js';
 import type { SessionSemanticOption } from '../session-semantics.js';
 
 export interface WorkspaceApiRow {
@@ -11,7 +12,9 @@ export interface WorkspaceApiRow {
   root_path: string;
 }
 
-export function workspaceOptionsFromRows(workspaces: readonly WorkspaceApiRow[]): WorkspaceOption[] {
+export function workspaceOptionsFromRows(
+  workspaces: readonly WorkspaceApiRow[],
+): WorkspaceOption[] {
   return workspaces.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
@@ -57,7 +60,7 @@ export function semanticOptionsFromResult(
   };
   return (value[key] ?? []).map((item) => ({
     id: item.id,
-    label: item.name ?? item.id,
+    label: presentBlueprintLabel(item.name ?? item.id, item.id),
     ...(item.description ? { description: item.description } : {}),
   }));
 }

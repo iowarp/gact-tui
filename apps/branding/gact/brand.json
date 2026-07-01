@@ -8,6 +8,7 @@
   "themeTokens": {
     "--color-accent": "#5b8def"
   },
+  "releaseUrl": "https://github.com/iowarp/gact-tui/releases",
   "starterPrompts": [
     {
       "eyebrow": "Inspect",

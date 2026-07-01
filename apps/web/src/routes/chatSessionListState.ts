@@ -13,6 +13,7 @@ export interface LiveSessionLike {
   title: string;
   status: SessionRow['status'];
   project?: string;
+  blueprint?: string;
   updatedAt: string;
   preview?: string;
   metaPinned?: boolean;
@@ -23,6 +24,7 @@ export interface LiveSessionLike {
 export interface ChatSessionListStateOptions {
   backendUrl: string;
   sessions: Accessor<LiveSessionLike[] | undefined>;
+  blueprintLabels?: Accessor<Record<string, string>>;
   activeId: Accessor<string>;
   setActiveId: (id: string) => void;
   patchSessionMetadata: (id: string, pinned: boolean) => Promise<unknown>;
@@ -61,11 +63,13 @@ export function createChatSessionListState(options: ChatSessionListStateOptions)
   const rows = createMemo<SessionRow[]>(() => {
     const sessions = options.sessions() ?? [];
     const pins = pinnedIds();
+    const blueprintLabels = options.blueprintLabels?.() ?? {};
     return sessions.map((row) => ({
       id: row.id,
       title: row.title,
       status: row.status,
       workspace: row.project,
+      blueprint: row.blueprint || blueprintLabels[row.id],
       updatedAt: row.updatedAt,
       preview: row.preview,
       // The row is pinned if either local state or the server says so.

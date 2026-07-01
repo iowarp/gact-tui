@@ -22,6 +22,7 @@ export type ProviderAvailability = 'ok' | 'setup' | 'offline';
 export interface ModelProviderOption {
   id: string;
   label: string;
+  shortLabel?: string;
   status: ProviderAvailability;
   statusLabel: string;
   disabled?: boolean;

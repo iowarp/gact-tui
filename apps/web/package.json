@@ -13,6 +13,7 @@
     "preview": "vite preview --port 4173",
     "demo:record": "node scripts/record-web-demo.mjs",
     "demo:earthscope-render": "node scripts/earthscope-render-demo.mjs",
+    "probe:earthscope-sse": "node scripts/probe-earthscope-sse.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

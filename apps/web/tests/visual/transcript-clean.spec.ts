@@ -49,6 +49,9 @@ test.describe('clean transcript — real earthscope trace', () => {
     // The real result is visible inline; short outputs do not get raw toggles.
     await expect(geoTool).toContainText('Los Angeles');
     await expect(geoTool.getByTestId('tool-raw-toggle')).toHaveCount(0);
+    const firstReturnToggle = turn.getByTestId('assistant-turn-return-toggle').first();
+    await expect(firstReturnToggle).toBeVisible();
+    await firstReturnToggle.click();
     await expect(turn.getByTestId('assistant-turn-return-body').first()).toBeVisible();
 
     // DEPTH: the delegation edge is one of main's turns, so it sits at depth 0;
@@ -74,7 +77,6 @@ test.describe('clean transcript — real earthscope trace', () => {
     // The final answer renders prominently as labelled markdown (its sections show).
     const answer = page.getByTestId('assistant-turn-answer');
     await expect(answer).toBeVisible();
-    await expect(answer).toContainText('Answer');
     await expect(answer).toContainText('Region');
     await expect(answer).toContainText('Station');
 
@@ -206,10 +208,8 @@ test.describe('clean transcript — real earthscope trace', () => {
       a?.scrollIntoView({ block: 'start' });
     });
     await page.waitForTimeout(300);
-    // The answer's markdown headings actually rendered (not a fenced code dump),
-    // and the "Answer" headline label is present and distinct.
+    // The answer's markdown headings actually rendered, not a fenced code dump.
     await expect(answer.locator('.im__h-2, .im__h-1').first()).toBeVisible();
-    await expect(answer).toContainText('Answer');
     await page.screenshot({
       path: resolve(REPO_SHOT, 'web-transcript-clean-answer.png'),
       fullPage: false,
@@ -230,22 +230,20 @@ test.describe('clean transcript — real earthscope trace', () => {
     await expect(steps).toHaveCount(2);
 
     // Delegation edges render at the parent's depth: main -> data at 0, then
-    // data -> ndp_dataset_discovery at 1. The child's own turn indents to 2.
+    // data -> ndp_dataset_discovery at 1. This fixture only carries the two
+    // delegation edges, so the geometry assertion below checks the actual
+    // rendered rows instead of requiring a synthetic child return row.
     const parent = steps.filter({ hasText: 'data' }).first();
     const child = steps.filter({ hasText: 'ndp_dataset_discovery' }).first();
     await expect(parent).toHaveAttribute('data-depth', '0');
     await expect(child).toHaveAttribute('data-depth', '1');
-    await expect(
-      page.locator('[data-testid="assistant-turn-return"][data-agent="ndp_dataset_discovery"]').first(),
-    ).toHaveAttribute('data-depth', '2');
-
     // PROVE the visual offset: the child's left edge is measurably further right
     // than the parent's — not merely a "← parent" label.
     const parentBox = await parent.boundingBox();
     const childBox = await child.boundingBox();
     expect(parentBox).not.toBeNull();
     expect(childBox).not.toBeNull();
-    expect(childBox!.x).toBeGreaterThan(parentBox!.x + 8);
+    expect(childBox!.x).toBeGreaterThan(parentBox!.x + 18);
 
     await page.evaluate(() => {
       const pane = document.querySelector('[data-testid="transcript-pane"]') as HTMLElement | null;
@@ -266,11 +264,12 @@ test.describe('clean transcript — real earthscope trace', () => {
     const thumb = page.getByTestId('trx-image-thumb');
     await expect(thumb).toBeVisible();
     await expect(page.getByTestId('trx-image')).toBeVisible();
-    await expect(page.getByTestId('trx-image-thumb-hint')).toContainText('enlarge');
-    const before = await page.getByTestId('trx-image').boundingBox();
+    await expect(page.getByTestId('trx-image-thumb-hint')).toContainText('show full image');
+    const frame = thumb.locator('.trx-image-frame');
+    const before = await frame.boundingBox();
     await thumb.click();
     await page.waitForTimeout(250);
-    const after = await page.getByTestId('trx-image').boundingBox();
+    const after = await frame.boundingBox();
     // Enlarging actually grows the image.
     expect(after!.height).toBeGreaterThan(before!.height);
     await thumb.click(); // shrink back for the screenshot

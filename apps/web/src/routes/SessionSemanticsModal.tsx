@@ -4,6 +4,7 @@
  */
 import { createEffect, createSignal, For, onMount, Show } from 'solid-js';
 import { Icon } from '../components/Icon.js';
+import { blueprintControlLabel, showExpertPackPicker } from '../brand-presentation.js';
 import { registerWindowKeydown } from '../domListeners.js';
 import { trapFocusRef } from '../focus-trap.js';
 import {
@@ -41,8 +42,8 @@ export function SessionSemanticsModal(props: {
       props.blueprints,
       props.expertPacks,
     );
-    setBlueprintId(defaults.blueprintId);
-    setExpertPackId(defaults.expertPackId);
+    setBlueprintId(defaults.blueprintId || props.blueprints[0]?.id || '');
+    setExpertPackId(showExpertPackPicker() ? defaults.expertPackId : '');
     setTitle('New session');
     setSaveAsDefault(false);
   });
@@ -59,7 +60,7 @@ export function SessionSemanticsModal(props: {
   });
 
   const selection = (): SessionSemanticsSelection =>
-    buildSessionSemanticsSelection(blueprintId(), expertPackId());
+    buildSessionSemanticsSelection(blueprintId(), showExpertPackPicker() ? expertPackId() : '');
   const blueprintDescription = () =>
     selectedSessionSemanticDescription(props.blueprints, blueprintId());
   const expertPackDescription = () =>
@@ -84,14 +85,13 @@ export function SessionSemanticsModal(props: {
         class="semantics"
         role="dialog"
         aria-modal="true"
-        aria-label="Session semantics"
+        aria-label="New session"
         ref={trapFocusRef}
         data-testid="session-semantics-modal"
       >
         <header class="semantics__head">
           <div>
             <span class="eyebrow">New session</span>
-            <h2>Session semantics</h2>
           </div>
           <button
             type="button"
@@ -114,13 +114,15 @@ export function SessionSemanticsModal(props: {
           </label>
 
           <label class="semantics__field">
-            <span>Agent blueprint</span>
+            <span>{blueprintControlLabel()}</span>
             <select
               value={blueprintId()}
               onChange={(e) => setBlueprintId(e.currentTarget.value)}
               data-testid="session-semantics-blueprint"
             >
-              <option value="">Default agent</option>
+              <Show when={props.blueprints.length === 0}>
+                <option value="">No installed blueprints</option>
+              </Show>
               <For each={props.blueprints}>{(bp) => <option value={bp.id}>{bp.label}</option>}</For>
             </select>
           </label>
@@ -128,21 +130,23 @@ export function SessionSemanticsModal(props: {
             {(desc) => <p class="semantics__desc">{desc()}</p>}
           </Show>
 
-          <label class="semantics__field">
-            <span>Expert pack</span>
-            <select
-              value={expertPackId()}
-              onChange={(e) => setExpertPackId(e.currentTarget.value)}
-              data-testid="session-semantics-expert-pack"
-            >
-              <option value="">No expert pack</option>
-              <For each={props.expertPacks}>
-                {(pack) => <option value={pack.id}>{pack.label}</option>}
-              </For>
-            </select>
-          </label>
-          <Show when={expertPackDescription()}>
-            {(desc) => <p class="semantics__desc">{desc()}</p>}
+          <Show when={showExpertPackPicker()}>
+            <label class="semantics__field">
+              <span>Expert pack</span>
+              <select
+                value={expertPackId()}
+                onChange={(e) => setExpertPackId(e.currentTarget.value)}
+                data-testid="session-semantics-expert-pack"
+              >
+                <option value="">No expert pack</option>
+                <For each={props.expertPacks}>
+                  {(pack) => <option value={pack.id}>{pack.label}</option>}
+                </For>
+              </select>
+            </label>
+            <Show when={expertPackDescription()}>
+              {(desc) => <p class="semantics__desc">{desc()}</p>}
+            </Show>
           </Show>
 
           <label class="semantics__check">

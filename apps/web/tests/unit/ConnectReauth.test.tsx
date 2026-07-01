@@ -15,7 +15,12 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  BackendRegistryProvider,
+  createBackendRegistry,
+} from '../../src/registry.js';
 import { ConnectScreen } from '../../src/routes/ConnectScreen.js';
+import { InMemoryPersistence } from '@clio/core';
 
 afterEach(() => {
   cleanup();
@@ -32,7 +37,43 @@ function stubFetchStatus(status: number) {
 
 function mount() {
   const onConnected = vi.fn();
-  render(() => <ConnectScreen onConnected={onConnected} />);
+  render(() => (
+    (() => {
+      const registry = createBackendRegistry();
+      return (
+        <BackendRegistryProvider registry={registry}>
+          <ConnectScreen onConnected={onConnected} />
+        </BackendRegistryProvider>
+      );
+    })()
+  ));
+  return { onConnected };
+}
+
+function mountWithSavedBackend() {
+  const onConnected = vi.fn();
+  const persistence = new InMemoryPersistence({
+    currentId: 'saved',
+    backends: [
+      {
+        id: 'saved',
+        label: 'Saved 17801',
+        url: 'http://127.0.0.1:17801',
+        bearerToken: '',
+        kind: 'http',
+      },
+    ],
+  });
+  render(() => (
+    (() => {
+      const registry = createBackendRegistry({ persistence });
+      return (
+        <BackendRegistryProvider registry={registry}>
+          <ConnectScreen onConnected={onConnected} />
+        </BackendRegistryProvider>
+      );
+    })()
+  ));
   return { onConnected };
 }
 
@@ -42,6 +83,19 @@ function setUrl(value: string) {
 }
 
 describe('ConnectScreen remote reauth', () => {
+  it('removes saved backend choices from the connect list', async () => {
+    mountWithSavedBackend();
+
+    await waitFor(() => {
+      expect(screen.getByText('Saved 17801')).toBeTruthy();
+    });
+    screen.getByTestId('connect-choice-remove-saved').click();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Saved 17801')).toBeNull();
+    });
+  });
+
   it('offers Re-enter credentials on a 401 from a REMOTE backend', async () => {
     stubFetchStatus(401);
     mount();

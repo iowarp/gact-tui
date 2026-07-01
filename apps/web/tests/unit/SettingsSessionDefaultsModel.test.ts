@@ -35,7 +35,7 @@ describe('SettingsSessionDefaultsModel', () => {
     ).toEqual([
       {
         id: 'earthscope-gnss-region',
-        label: 'EarthScope GNSS',
+        label: 'EarthScope',
         description: 'Pulls station time series.',
       },
       { id: 'fallback-blueprint', label: 'fallback-blueprint' },
@@ -54,7 +54,7 @@ describe('SettingsSessionDefaultsModel', () => {
         { status: 'rejected', reason: new Error('offline') },
       ),
     ).toEqual({
-      blueprints: [{ id: 'earthscope-gnss-region', label: 'EarthScope GNSS' }],
+      blueprints: [{ id: 'earthscope-gnss-region', label: 'EarthScope' }],
       expertPacks: [],
     });
   });

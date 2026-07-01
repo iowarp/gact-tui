@@ -10,8 +10,8 @@
   padding: 12px 32px 24px;
   /* Same dimension as the transcript/answer reading column (chat__pane-inner)
      so the input box is not a narrow strip under a wide conversation. */
-  max-width: 1040px;
-  width: 100%;
+  width: var(--chat-content-w, min(100%, 76vw));
+  max-width: none;
   background: var(--color-bg);
   flex: 0 0 auto;
   position: relative;
@@ -20,7 +20,7 @@
 
 /* Match the transcript's widened column when the inspector is collapsed. */
 .chat:not(.chat--inspector-open) .composer {
-  max-width: 1280px;
+  max-width: none;
 }
 
 .composer__shell {
@@ -74,13 +74,28 @@
   margin-bottom: 8px;
 }
 
+.composer__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
 .composer__hint {
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--color-muted);
   text-align: right;
-  margin-top: 6px;
   letter-spacing: 0.02em;
+  min-width: 0;
+}
+
+.composer__footer-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: max-content;
 }
 
 .composer__kbd {
@@ -106,7 +121,7 @@
     padding: 9px 10px;
   }
 
-  .composer__hint {
+  .composer__footer {
     display: none;
   }
 }
