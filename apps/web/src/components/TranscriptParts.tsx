@@ -22,7 +22,7 @@ import type { JSX } from 'solid-js';
 import { ThinkingPartView } from './TranscriptPartViews.js';
 import { FileDiffPartView } from './TranscriptFileDiffPartView.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
-import { ExpertHandoffPartView, RoutingDecisionPartView } from './TranscriptRoutingPartViews.js';
+import { ExpertHandoffPartView } from './TranscriptRoutingPartViews.js';
 import { TextPartView } from './TranscriptTextPartView.js';
 import { ToolCallPartView, ToolResultPartView } from './TranscriptToolParts.js';
 import { DocumentPartView } from './TranscriptDocumentPartView.js';
@@ -45,21 +45,19 @@ export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
 export function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   if (density === 'verbose') return true;
   if (density === 'summary') {
-    // summary keeps the answer + diffs + images, plus the routing decision so
-    // a read-back still shows which expert handled the turn and how it routed.
-    // The hierarchical execution tree is the projected turn itself, so it must
-    // survive summary density too (else the projected message renders empty).
+    // summary keeps the answer + diffs + images. The hierarchical execution tree
+    // is the projected turn itself, so it must survive summary density too (else
+    // the projected message renders empty). The flat routing_decision view is
+    // retired — AssistantTurnView renders routing via its own inline chip.
     return (
       part.type === 'text' ||
       part.type === 'file_diff' ||
       part.type === 'image' ||
-      part.type === 'routing_decision' ||
       (part.type as string) === 'execution_tree'
     );
   }
-  // normal density: hide thinking; show routing_decision so the user
-  // can see which expert handled the turn.
-  return part.type !== 'thinking';
+  // normal density: hide thinking + the retired flat routing_decision view.
+  return part.type !== 'thinking' && part.type !== 'routing_decision';
 }
 
 /** Props threaded from the message view into each per-type part renderer. */
@@ -139,8 +137,10 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
       onPinFile={props.onPinFile}
     />
   ),
-  // routing_decision — clio's chosen expert + rationale (TUI detail_view parity).
-  routing_decision: (p) => <RoutingDecisionPartView part={p} />,
+  // routing_decision — the flat "LM-routed" card is retired; AssistantTurnView
+  // renders routing via its own subtle inline chip (RoutingRowView). Render
+  // nothing here so no turn type (incl. verbose) shows the old flat card.
+  routing_decision: () => null,
   // expert_handoff — clio delegated the turn to a sub-expert (emitted as a Part,
   // not a standalone event, so it must be rendered here or it's silently dropped).
   expert_handoff: (p) => <ExpertHandoffPartView part={p} />,

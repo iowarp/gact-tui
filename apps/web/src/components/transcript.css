@@ -153,56 +153,6 @@
 .trx-routing__src { color: var(--color-border); }
 .trx-routing__why { color: var(--color-text); opacity: 0.85; }
 
-/* v0.2 routing detail (capabilities.agent_routing): heuristic-vs-LM label,
- * router confidence, execution-path chip — TUI parity (render_part_workflow.go). */
-.trx-routing__meta {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 1px;
-}
-.trx-routing__tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--color-border-30);
-  background: var(--color-surface);
-  color: var(--color-muted);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-}
-.trx-routing__tag--lm {
-  color: var(--color-accent-cyan);
-  border-color: var(--color-accent-cyan-30);
-}
-.trx-routing__tag--path {
-  color: var(--color-accent);
-  border-color: var(--color-border-60);
-}
-.trx-routing__confidence {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.trx-routing__confidence-bar {
-  display: inline-block;
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-30);
-  overflow: hidden;
-}
-.trx-routing__confidence-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--color-success);
-}
-.trx-routing__confidence-pct {
-  color: var(--color-muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
+/* (Retired: the flat routing_decision card's meta/tag/confidence styles.
+ * AssistantTurnView renders routing via its own inline chip; the flat
+ * RoutingDecisionPartView + these classes were deleted.) */
