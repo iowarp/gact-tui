@@ -6,7 +6,7 @@ import { For, Show, type JSX } from 'solid-js';
 import type { PartToolCall, PartToolResult } from '@clio/core';
 import { toolInputRows } from '../presentation.js';
 import { Icon } from './Icon.js';
-import { InlineMarkdown } from './InlineMarkdown.js';
+import { Markdown } from './Markdown.js';
 import { toolResultBody } from './TranscriptToolPartsModel.js';
 import { PartCard } from './TranscriptPartCard.js';
 import { analyzeToolResult } from './toolResultPreview.js';
@@ -150,7 +150,7 @@ export function CommandResultCard(props: {
       }
     >
       <div class="trx-command-result__body">
-        <InlineMarkdown text={props.text} />
+        <Markdown text={props.text} />
         {props.children}
       </div>
     </PartCard>

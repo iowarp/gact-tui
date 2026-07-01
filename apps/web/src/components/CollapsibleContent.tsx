@@ -6,7 +6,7 @@
  * multi-line block that would otherwise dominate the transcript.
  */
 import { Show, children, createMemo, createSignal, type JSX } from 'solid-js';
-import { MemoMarkdown } from './MemoMarkdown.js';
+import { Markdown } from './Markdown.js';
 
 /** Default preview budget — matches the TUI's CollapseThreshold sweet spot. */
 export const COLLAPSE_THRESHOLD = 6;
@@ -49,7 +49,7 @@ export function CollapsibleText(props: {
         when={!props.plain}
         fallback={<pre class="trx-collapse__pre">{shown()}</pre>}
       >
-        <MemoMarkdown text={shown()} />
+        <Markdown text={shown()} />
       </Show>
       <Show when={split().hidden > 0}>
         <button

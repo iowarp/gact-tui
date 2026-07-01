@@ -216,7 +216,7 @@ test.describe('clean transcript — real earthscope trace', () => {
     });
     await page.waitForTimeout(300);
     // The answer's markdown headings actually rendered, not a fenced code dump.
-    await expect(answer.locator('.im__h-2, .im__h-1').first()).toBeVisible();
+    await expect(answer.locator('.im h2, .im h1').first()).toBeVisible();
     await page.screenshot({
       path: resolve(REPO_SHOT, 'web-transcript-clean-answer.png'),
       fullPage: false,

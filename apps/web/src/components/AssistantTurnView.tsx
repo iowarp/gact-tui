@@ -23,7 +23,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
-import { MemoMarkdown, StreamingMarkdown } from './MemoMarkdown.js';
+import { Markdown } from './Markdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
 import { countOccurrences, PartView, type TranscriptDensity } from './TranscriptParts.js';
 import { HighlightedText } from './TranscriptTextPartView.js';
@@ -197,7 +197,7 @@ function ProviderThinkingDisclosure(props: { thinking: ProviderThinking }) {
       </summary>
       <Show when={open()}>
         <div class="trx-provider-thinking__body">
-          <MemoMarkdown text={props.thinking.text} />
+          <Markdown text={props.thinking.text} />
         </div>
       </Show>
     </details>
@@ -354,7 +354,7 @@ function TextRowView(props: {
   const bodyContent = () => (
     <Show
       when={q()}
-      fallback={<StreamingMarkdown text={row().text} streaming={props.streaming} />}
+      fallback={<Markdown text={row().text} streaming={props.streaming} />}
     >
       <HighlightedText
         text={row().text}
@@ -430,7 +430,7 @@ function ReasoningRowView(props: { row: ReasoningRow; showAgent: boolean; stream
             </span>
           </div>
           <div class="trx-row__body trx-row__body--dim" data-testid="assistant-turn-reasoning-body">
-            <StreamingMarkdown text={row().text} streaming={props.streaming} />
+            <Markdown text={row().text} streaming={props.streaming} />
           </div>
         </section>
       </Show>
@@ -468,7 +468,7 @@ function ToolRowView(props: {
           </span>
           <Show when={hasThought()} fallback={<ToolCallLine row={row()} />}>
             <div class="trx-row__body trx-tool__thought" data-testid="assistant-turn-tool-thought">
-              <MemoMarkdown text={row().thought} />
+              <Markdown text={row().thought} />
             </div>
           </Show>
         </div>
@@ -608,7 +608,7 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
         <Show when={open() && hasContent()}>
           <div class="trx-row__body trx-row__body--return" data-testid="assistant-turn-return-body">
             <Show when={row().text}>
-              <MemoMarkdown text={row().text} />
+              <Markdown text={row().text} />
             </Show>
             <Show when={showRaw()}>
               <pre class="trx-return__raw" data-testid="assistant-turn-return-raw">

@@ -319,30 +319,27 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('attach-hybrid-menu'), fullPage: false });
   });
 
-  test('code blocks render with syntax highlighting (W3 Tier-1)', async ({ page }) => {
+  test('fenced code renders as a monospace code block', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal');
-    // hljs tokenises the fenced code; assert real tokens rendered (not just
-    // the .hljs wrapper) so the proof is highlighting, not plain text.
-    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
-    await expect(
-      page.locator('.im__code .hljs-keyword, .im__code .hljs-string, .im__code .hljs-built_in').first(),
-    ).toBeVisible({ timeout: 4_000 });
+    // The single incremental renderer (smd) emits a plain <pre><code> code block
+    // (soft chrome: no lang badge / copy button / syntax highlighting).
+    await expect(page.locator('.im pre code').first()).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
   });
 
   test('markdown file reads render as structured markdown', async ({ page }) => {
     await connectMockBackend(page, 'markdown');
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
-    await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
-    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
+    await expect(page.locator('.im h1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
+    await page.locator('.im h1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
+    await expect(page.locator('.im h1').filter({ hasText: 'Release Readiness' })).toBeVisible();
     await expect(page.locator('.im table').first()).toBeVisible();
-    const code = page.locator('.im__code code.hljs').first();
+    const code = page.locator('.im pre code').first();
     await expect(code).toBeVisible();
     await code.scrollIntoViewIfNeeded();
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const codeEl = document.querySelector('.im__code code.hljs');
+        const codeEl = document.querySelector('.im pre code');
         const composer = document.querySelector('[data-testid="composer"]');
         if (!codeEl || !composer) return false;
         const codeBox = codeEl.getBoundingClientRect();
