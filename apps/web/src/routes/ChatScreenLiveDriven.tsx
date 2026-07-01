@@ -126,7 +126,6 @@ export function ChatScreenLiveDriven(props: ChatScreenLiveDrivenProps) {
       onPinFile={inspectorData.pinFileToContext}
       semanticEvents={transcript.semanticEvents()}
       executionEvents={transcript.executionEvents()}
-      normalizedTranscript={transcript.normalizedTranscript()}
       semanticEventsEnabled={backendGates().semanticEventsEnabled}
       composerDisabled={false}
       renamedSessionId={renameFlash.renamedSessionId()}

@@ -17,7 +17,6 @@ import { Icon } from '../components/Icon.js';
 import { Transcript, type TranscriptDensity } from '../components/Transcript.js';
 import { UserQuestionCard } from '../components/UserQuestionCard.js';
 import type { ExecutionTranscriptEvent } from '../live.js';
-import type { NormalizedTranscriptState } from '../NormalizedTranscriptEvents.js';
 import { EmptyState } from './EmptyState.js';
 import type { TranscriptScrollController } from './chatTranscriptScroll.js';
 import './chat-conversation-transcript.css';
@@ -40,7 +39,6 @@ export interface ChatConversationTranscriptProps {
   selectedMessageId: string;
   models?: ModelOption[];
   executionEvents?: ExecutionTranscriptEvent[];
-  normalizedTranscript?: NormalizedTranscriptState;
   semanticEvents?: SemanticEventPayload[];
   onSubmit?: (text: string) => Promise<void> | void;
   onPermissionDecide?: (decision: 'approve' | 'deny', scope?: PermissionScope) => void;
@@ -116,7 +114,6 @@ export function ChatConversationTranscript(props: ChatConversationTranscriptProp
             imagePartsSupported={props.caps?.capabilities?.['multimodal_image_parts'] !== false}
             readWorkspaceImage={props.readWorkspaceImage}
             executionEvents={props.executionEvents}
-            normalizedTranscript={props.normalizedTranscript}
             semanticEvents={props.semanticEvents}
           />
           <Show when={props.streaming && props.messages.length > 0}>

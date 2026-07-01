@@ -168,7 +168,14 @@ test.describe('clean transcript — real earthscope trace', () => {
     await vizTool.scrollIntoViewIfNeeded();
     const plotImg = vizTool.getByTestId('trx-image').first();
     await expect(plotImg).toBeVisible({ timeout: 8_000 });
-    // It is a real raster image with non-zero dimensions (not a JSON dump).
+    // It is a real raster image with non-zero dimensions (not a JSON dump). The
+    // <img loading="lazy"> decodes asynchronously, so wait for the raster to load
+    // (naturalHeight > 0) before measuring its laid-out box.
+    await expect
+      .poll(() => plotImg.evaluate((el) => (el as HTMLImageElement).naturalHeight), {
+        timeout: 8_000,
+      })
+      .toBeGreaterThan(0);
     const imgBox = await plotImg.boundingBox();
     expect(imgBox).not.toBeNull();
     expect(imgBox!.height).toBeGreaterThan(40);

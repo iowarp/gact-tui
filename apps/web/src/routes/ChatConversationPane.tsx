@@ -22,7 +22,6 @@ import type {
 } from '../components/ComposerTypes.js';
 import type { TranscriptDensity } from '../components/Transcript.js';
 import type { ExecutionTranscriptEvent } from '../live.js';
-import type { NormalizedTranscriptState } from '../NormalizedTranscriptEvents.js';
 import { ChatConversationComposer } from './ChatConversationComposer.js';
 import { ChatConversationTranscript } from './ChatConversationTranscript.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
@@ -56,7 +55,6 @@ export interface ChatConversationPaneProps {
   selectedModelId?: string;
   permMode?: PermissionMode;
   executionEvents?: ExecutionTranscriptEvent[];
-  normalizedTranscript?: NormalizedTranscriptState;
   semanticEvents?: SemanticEventPayload[];
   onSubmit?: (text: string) => Promise<void> | void;
   onStop?: () => void | Promise<void>;
@@ -133,7 +131,6 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
         selectedMessageId={props.selectedMessageId}
         models={props.models}
         executionEvents={props.executionEvents}
-        normalizedTranscript={props.normalizedTranscript}
         semanticEvents={props.semanticEvents}
         onSubmit={props.onSubmit}
         onPermissionDecide={props.onPermissionDecide}

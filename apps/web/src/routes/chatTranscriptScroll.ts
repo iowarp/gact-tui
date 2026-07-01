@@ -27,7 +27,6 @@ export interface TranscriptScrollController {
 
 export interface TranscriptScrollOptions {
   messages: Accessor<Message[]>;
-  activityKey?: Accessor<string | undefined>;
   activeId: Accessor<string>;
   pendingPermission: Accessor<PermissionRequest | null>;
   pendingQuestion: Accessor<UserQuestion | null | undefined>;
@@ -93,9 +92,12 @@ export function createTranscriptScroll(
     });
   }
 
+  // Activity is derived entirely from the rendered messages: a key that changes
+  // whenever any message's parts grow (streaming tokens) or a turn settles, so the
+  // stick-to-bottom effect re-pins on every delta. This is the single source now
+  // that the parallel normalized `turn.*` stream is gone.
   function transcriptActivityKey(): string {
-    const normalized = options.activityKey?.();
-    const messageKey = options
+    return options
       .messages()
       .map((message) => {
         const partKey = message.parts
@@ -108,14 +110,10 @@ export function createTranscriptScroll(
         return `${message.id}:${message.stop_reason ?? ''}:${partKey}`;
       })
       .join('|');
-    return `${messageKey}#${normalized ?? ''}`;
   }
 
   function visibleActivityCount(): number {
-    const normalized = options.activityKey?.() ?? '';
-    const match = /^([^:]+):([^:]+):/.exec(normalized);
-    const parsed = match ? Number(match[2]) : Number.NaN;
-    return Number.isFinite(parsed) ? parsed : options.messages().length;
+    return options.messages().length;
   }
 
   function onPaneScroll() {
