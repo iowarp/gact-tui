@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runReplay imports a session export blob and (optionally) attaches
@@ -35,7 +34,7 @@ func runReplay(args []string) {
 		os.Exit(2)
 	}
 	src := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 
 	var r io.Reader
 	if src == "-" {

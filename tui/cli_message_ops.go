@@ -11,7 +11,6 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runDelete DELETEs /v1/sessions/{id}. Exits 0 on 204; 1 on
@@ -29,7 +28,7 @@ func runDelete(args []string) int {
 		return 2
 	}
 	sid := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -83,7 +82,7 @@ func runDiffList(args []string) int {
 		return 2
 	}
 	sid := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -130,7 +129,7 @@ func runDiffApplyReject(args []string, apply bool) int {
 	for i := 1; i < fs.NArg(); i++ {
 		paths = append(paths, fs.Arg(i))
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -186,7 +185,7 @@ func runSearch(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact search: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

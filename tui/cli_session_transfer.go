@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 func runExport(args []string) int {
@@ -44,7 +43,7 @@ func runExport(args []string) int {
 		return 2
 	}
 	sessionID := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -94,7 +93,7 @@ func runExportAll(dir, wsID, backendFlag string) int {
 		fmt.Fprintf(os.Stderr, "gact export: mkdir %s: %v\n", dir, err)
 		return 1
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), backendFlag, defaultBackend)
+	finalBackend := resolveCLIBackend(backendFlag)
 	c := client.New(finalBackend)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -182,7 +181,7 @@ func runImport(args []string) int {
 		return 2
 	}
 	src := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 
 	var r io.Reader
 	if src == "-" {
