@@ -49,6 +49,13 @@ func executionNodesSignature(nodes []executionTimelineNode) uint64 {
 		writeUint(uint64(len(n.Thinking)))
 		writeUint(uint64(len(n.Reasoning)))
 		writeUint(uint64(len(n.Summary)))
+		// Source address feeds the hit blocks cached with the rendered row, so
+		// a re-indexed transcript (reload, delete) must flip the signature.
+		if n.Src.Valid {
+			writeUint(uint64(n.Src.MsgIdx))
+			writeUint(uint64(n.Src.AddrIdx))
+			writeStr(n.Src.PartID)
+		}
 		// Observation/ToolArgs/Structured are display-only payloads that change
 		// in lockstep with the identifying fields above (same react step), so
 		// their presence is folded as a bool rather than deep-hashed.
@@ -61,19 +68,34 @@ func executionNodesSignature(nodes []executionTimelineNode) uint64 {
 		if n.Structured != nil {
 			writeStr("s")
 		}
+		if n.HasRawDetail {
+			writeStr("d")
+		}
+		if n.Part != nil {
+			writeStr("p")
+			writeStr(string(n.Part.Type))
+			writeUint(uint64(len(n.Part.Text)))
+			writeStr(n.Part.Path)
+			if n.Part.Applied {
+				writeStr("applied")
+			}
+		}
 	}
 	return h.Sum64()
 }
 
 // executionTurnBlockSignature folds every input of one rendered turn block (the
-// user row + its execution timeline) into a cache key.
+// user row + its execution timeline) into a cache key. msgIdx pins the user
+// message's position (the hit blocks cached with the row address it) and
+// selKey pins the in-block part selection (empty when the cursor is elsewhere).
 func executionTurnBlockSignature(
 	themeSig uint64,
 	width int,
 	m gact.Message,
+	msgIdx int,
 	prevID string,
 	nodes []executionTimelineNode,
-	selected bool,
+	selKey string,
 ) uint64 {
 	var h maphash.Hash
 	h.SetSeed(conversationRenderHashSeed)
@@ -90,11 +112,10 @@ func executionTurnBlockSignature(
 	writeUint(uint64(width))
 	writeStr(m.ID)
 	writeStr(m.Role)
+	writeUint(uint64(msgIdx + 1))
 	writeUint(conversationContentSignal(m))
 	writeStr(prevID)
 	writeUint(executionNodesSignature(nodes))
-	if selected {
-		writeStr("sel")
-	}
+	writeStr(selKey)
 	return h.Sum64()
 }

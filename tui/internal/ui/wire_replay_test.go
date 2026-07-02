@@ -102,7 +102,7 @@ func TestReplayEarthScopeWireRendersAgentView(t *testing.T) {
 	projected := a.execution.currentSessionHasProjected()
 	if projected {
 		b.WriteString("true ===\n")
-		view, ok := a.execution.renderConversation(theme, width)
+		view, _, ok := a.execution.renderConversation(theme, width)
 		b.WriteString("renderConversation ok=" + boolStr(ok) + "\n\n")
 		b.WriteString(ansi.Strip(view))
 	} else {

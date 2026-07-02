@@ -52,7 +52,7 @@ func TestRenderReloadMessagesOnly(t *testing.T) {
 		out += "false  → flat transcript render ===\n\n"
 	}
 	// Unclipped execution render so the full structure is readable (no viewport).
-	if projected, ok := a.execution.renderConversation(DefaultTheme(), 116); ok {
+	if projected, _, ok := a.execution.renderConversation(DefaultTheme(), 116); ok {
 		out += ansi.Strip(projected)
 	} else {
 		out += ansi.Strip(a.conversation.render(120, 5000))

@@ -32,14 +32,18 @@ type executionComponent struct {
 	executionEventsBySession map[string][]executionTimelineEvent
 	executionEventSeq        int
 
-	// projCache memoizes the projected+filtered turns for the current session.
-	// The ledger is append-only, so (sessionID, len(events)) uniquely keys the
-	// projection — this avoids re-running projectExecutionTimelineTurns (an
-	// O(events) graph build) on every frame / keystroke / SSE token.
-	projCacheSID   string
-	projCacheLen   int
-	projCacheTurns []executionProjectedTurn
-	projCacheOK    bool
+	// projCache memoizes the projected+filtered turns for the current session,
+	// keyed by (sessionID, part count, content size). The content-size term
+	// catches message.part.delta appends, which grow a part's text in place
+	// without changing the part count. This avoids re-running the O(parts)
+	// projection on every frame / keystroke / SSE token.
+	projCacheSID        string
+	projCacheLen        int
+	projCacheContentLen int
+	projCacheMsgCount   int
+	projCacheEpoch      uint64
+	projCacheTurns      []executionProjectedTurn
+	projCacheOK         bool
 
 	// turnRenderCache memoizes each rendered turn block (the user row + its
 	// execution timeline) by a cheap per-turn signature, keyed by the owning
@@ -53,9 +57,13 @@ type executionComponent struct {
 
 // execTurnRender is one cached rendered turn block plus the signature of the
 // inputs that produced it; a signature mismatch re-renders just that block.
+// blocks are the block-relative part hit regions (fullStart/detailStart are
+// relative to the block's first line; the assembly loop offsets copies by the
+// block's position in the joined body each frame).
 type execTurnRender struct {
-	sig uint64
-	row string
+	sig    uint64
+	row    string
+	blocks []conversationPartHitBlock
 }
 
 // nextSeq advances and returns the monotonic per-App execution event sequence.

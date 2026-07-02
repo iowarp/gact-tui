@@ -33,6 +33,19 @@ func executionDisplayProse(text string) string {
 	return flowExecutionProse(text)
 }
 
+// executionDisplayProseFull is executionDisplayProse WITHOUT the semantic
+// summary truncation: control-contract markers are still stripped, but the
+// prose keeps its full length. The unified transcript render (#233) uses it
+// for assistant text parts \u2014 the web renders the same rows in full, and the
+// flat render this replaced never truncated them.
+func executionDisplayProseFull(text string) string {
+	text = stripExecutionControlSections(stripSemanticControlMarkers(text))
+	text = strings.ReplaceAll(text, "\u00a0", " ")
+	text = strings.ReplaceAll(text, "**", "")
+	text = strings.ReplaceAll(text, "`", "")
+	return flowExecutionProse(text)
+}
+
 func flowExecutionProse(text string) string {
 	var out []string
 	var paragraph []string
