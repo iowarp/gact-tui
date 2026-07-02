@@ -14,7 +14,7 @@ capability is verified end-to-end through the TUI against the live CLIO.
   builtin slash-commands in the palette so the user can discover them
   without remembering the magic string. Each routes to its
   `catalogBrowser` modal as before.
-- `SCREENSHOTS.md` index — every PNG under `screenshots/` paired with
+- `SCREENSHOTS.md` index (now `screenshots/README.md`) — every PNG under `screenshots/` paired with
   the capability it proves and the tape that produced it.
 - `screenshots/clio_diff.png` — real CLIO diff path rendered inline.
 - `screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers

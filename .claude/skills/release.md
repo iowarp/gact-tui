@@ -62,7 +62,7 @@ cat ../brand.config.local.json   # profile:clio, brandingRoot -> clio-agent/bran
 
 ## 3. Prepare the release
 1. Bump versions (web `package.json`, desktop Tauri conf, Go module tags as applicable).
-2. Update `STATUS.md` / `apps/STATUS.md` "Current state"; move done items out of blockers.
+2. Update the release tracking issue / PR description with the current state; durable status lives in issues and PRs (root STATUS.md is archived under docs/archive/).
 3. Refresh required screenshots (`apps/web/screenshots/` — see `apps/CLAUDE.md` list) and
    TUI screenshots (`tui-screenshot` skill).
 4. Regenerate `apps/RELEASE-READINESS.md` if blockers changed.

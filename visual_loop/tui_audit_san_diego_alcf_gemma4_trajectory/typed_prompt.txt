@@ -1,1 +1,0 @@
-Find the nearest station to San Diego on earthscope, download and analyze the data and plot it
