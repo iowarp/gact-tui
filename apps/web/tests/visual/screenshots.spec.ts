@@ -23,7 +23,10 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('sessions-column')).toHaveCount(0);
+    // Conversation-first: the sessions rail renders its empty state (no session
+    // rows) while the main pane leads with the start-a-conversation invitation.
+    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
+    await expect(page.locator('[data-testid^="session-row-"]')).toHaveCount(0);
     await expect(page.getByTestId('transcript-pane')).toBeVisible();
     await expect(page.getByTestId('transcript-pane')).toContainText(/Pick a session or start fresh/i);
     await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
@@ -195,10 +198,17 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('structured-tool-results renders evidence cards instead of raw JSON logs', async ({ page }) => {
     await page.goto('/?route=chat&fixture=structured');
-    const result = page.getByTestId('content-typed-tool-result').first();
+    // The unified renderer detects the JSON result's content type and renders it
+    // as flattened scalar evidence (key: value) rather than dumping raw JSON —
+    // the nested `records` array is dropped from the preview.
+    const result = page
+      .getByTestId('assistant-turn-tool')
+      .filter({ hasText: 'matched_count' })
+      .first();
     await expect(result).toBeVisible();
-    await expect(result).toContainText('matched_count: 72');
-    await expect(result).not.toContainText('"records"');
+    const evidence = result.getByTestId('tool-text');
+    await expect(evidence).toContainText('matched_count: 72');
+    await expect(evidence).not.toContainText('"records"');
     await result.scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot('structured-tool-results'), fullPage: false });
   });
@@ -505,7 +515,7 @@ test.describe('CLIO harness — visual proofs', () => {
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
     );
-    expect(bg).toBe('#f4f6fa');
+    expect(bg).toBe('#f7f9fc');
     await page.waitForTimeout(300);
     await page.screenshot({ path: shot('light-theme-chat'), fullPage: false });
     // Code blocks + diffs restyle through the override tokens too.
@@ -636,7 +646,7 @@ test.describe('CLIO harness — visual proofs', () => {
       const bgLight = await page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
       );
-      expect(bgLight).toBe('#f4f6fa');
+      expect(bgLight).toBe('#f7f9fc');
       await page.waitForTimeout(300);
       await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
       // Back to Dark → overrides clear to the design-system default.

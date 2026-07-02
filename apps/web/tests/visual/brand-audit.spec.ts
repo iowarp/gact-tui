@@ -45,7 +45,14 @@ test.describe(`brand audit — ${PROFILE}`, () => {
   test('connect screen shows the brand wordmark + lockup', async ({ page }) => {
     await page.goto('/?route=connect');
     await expect(page.getByTestId('connect-screen')).toBeVisible();
-    await expect(page.getByText(`Welcome to ${EXPECTED_NAME}`)).toBeVisible();
+    // The connect screen brands via the wordmark + lockup block (mark + wordmark),
+    // matching the splash surface. (The old "Welcome to <brand>" heading became the
+    // functional "Connect to backend" title when the backend-choices redesign landed.)
+    await expect(page.locator('.connect__wordmark')).toContainText(EXPECTED_NAME);
+    await expect(page.locator('.connect__wordmark')).not.toContainText(
+      EXPECTED_NAME === 'GACT' ? 'CLIO' : 'GACT',
+    );
+    await expect(page.locator('.connect__mark')).toBeVisible();
     await page.screenshot({ path: shot('connect'), fullPage: false });
   });
 
