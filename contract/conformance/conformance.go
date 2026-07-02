@@ -123,6 +123,18 @@ type Options struct {
 	SkipIntegrationHealth bool // capabilities.integration_health (§3.4) — /v1/health has overall_status + integrations[]
 	SkipToolTelemetry     bool // capabilities.tool_telemetry (§4.5) — no endpoint to hit; asserted via the capabilities self-report + presence of the capability flag
 
+	// CLIO-232: drift-class checks (SPEC §15.8). These assert the
+	// reconciliation drift classes that actually bit clients — see
+	// drift_checks.go. The SSE/rollback/compact ones mutate the
+	// session (title PATCH, message rollback, ledger compaction), so
+	// Run() additionally gates them on the session being suite-created
+	// (opts.SessionID == "") — a caller-pinned session is never
+	// touched.
+	SkipCapabilityTruth  bool // §3.3 — advertised single-route capabilities must have their route (probed via 404/501 distinction)
+	SkipSSEDrift         bool // §7.1/§7.3a — Last-Event-ID replay returns real events (heartbeats must not evict); flat message.created; session.updated = full Session
+	SkipRollbackEnvelope bool // §6.2 — undo/rewind response envelope keys
+	SkipCompactFocus     bool // §6.25 — POST /compact accepts {focus}
+
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
 
@@ -284,6 +296,25 @@ func Run(t Reporter, baseURL string, opts Options) {
 		if !opts.SkipToolTelemetry && caps.ToolTelemetry {
 			t.Run("V0_2_ToolTelemetry", func(t Reporter) { checkToolTelemetry(t, c) })
 		}
+	}
+
+	// CLIO-232: drift-class checks (SPEC §15.8). Run last — the
+	// rollback check deletes the newest message and compact rewrites
+	// the ledger, so nothing downstream may depend on the transcript.
+	// suiteOwnsSession gates every mutating drift check: they only
+	// run against a session this suite created itself.
+	suiteOwnsSession := sid != "" && opts.SessionID == ""
+	if sid != "" && !opts.SkipCapabilityTruth {
+		t.Run("Drift_CapabilityTruth", func(t Reporter) { checkCapabilityTruth(t, c, sid) })
+	}
+	if suiteOwnsSession && !opts.SkipSSEDrift && !opts.SkipSSE && !opts.SkipPostMessage {
+		t.Run("Drift_SSEReplayAndShapes", func(t Reporter) { checkSSEDrift(t, c, sid, opts.SSEBudget) })
+	}
+	if suiteOwnsSession && !opts.SkipCompactFocus {
+		t.Run("Drift_CompactFocus", func(t Reporter) { checkCompactFocus(t, c, sid) })
+	}
+	if suiteOwnsSession && !opts.SkipRollbackEnvelope {
+		t.Run("Drift_RollbackEnvelope", func(t Reporter) { checkRollbackEnvelope(t, c, sid) })
 	}
 }
 
