@@ -1,13 +1,22 @@
 # GACT v0.2 — Generic Agentic-Coder TUI Contract
 
-> **Reconciliation note (2026-06-07).** This document was reconciled
+> **Reconciliation note (2026-07-01).** This document was reconciled
 > to the *actually-implemented* GACT v0.2 wire, using as ground truth
 > the reference backend `clio-agent-gact` (iowarp/clio-agent) at
-> `develop @ f647db1` (source: `src/clio_agent/gact/{app.py,types.py,
-> events.py,semantic_events.py,agent_blueprints.py,expert_packs.py}`)
-> plus a live `GET /v1/capabilities` capture from a running clio with
-> a model wired. Where the prose disagreed with the implementation,
-> the implementation won. `contract_version` is unchanged (**`0.2`**).
+> `develop @ 3527143` (source: `src/clio_agent/gact/` — routes,
+> `types.py`, `events.py`, `turn.py`, `permission_gate.py`,
+> `semantic_events.py`, and the Phase-0 truthfulness fixes clio
+> #756/#759/#760/#761/#782/#789) plus six per-area truth reports
+> read directly against that source (iowarp/gact-tui#232). Where the
+> prose disagreed with the implementation, the implementation won.
+> `contract_version` is unchanged (**`0.2`**).
+>
+> **Owner's direction (gact-tui#232): this spec is descriptive —
+> reality leads.** When the reference backend and the prose diverge,
+> the backend's wire is the contract and the prose gets rewritten to
+> match it. Aspirational surface is kept only when explicitly marked
+> as not-implemented or PROPOSED; nothing in this document may
+> silently promise behavior clio does not exhibit.
 >
 > This is a **descriptive** reconciliation: it documents what is built,
 > not new protocol. Two classes of content are marked inline:
@@ -24,7 +33,7 @@
 >   emit (e.g. the global `/v1/events` stream, `session.agent_routed` /
 >   `memory.cache.updated` / `integration.status_changed` events,
 >   `POST /v1/sessions/{id}/summarize`). These are flagged
->   **[NOT IMPLEMENTED in clio f647db1]** at their definition so an
+>   **[NOT IMPLEMENTED in clio 3527143]** at their definition so an
 >   adapter author knows not to depend on them against clio today.
 >
 > See §15 (Implementation status) for the consolidated drift list.
@@ -111,7 +120,12 @@ consumers have an authority for the values.
   "contract_version": "0.2",
   "backend": {
     "name": "clio-agent-gact",        // e.g. "clio-agent-gact" / "crush" / "claudecode"
-    "version": "0.1.0",               // backend build version (NOT the contract version)
+    "version": "<package version>",   // backend build version (NOT the contract version).
+                                      // clio reports the installed clio-agent package
+                                      // version via importlib.metadata (currently 0.5.x);
+                                      // the same value appears in /v1/health's
+                                      // api-integration detail and the SSE
+                                      // server.connected payload's `server_version`.
     "vendor": "iowarp",               // e.g. "iowarp" / "charmbracelet"
     "homepage": "https://github.com/iowarp/clio-agent"   // optional
   },
@@ -135,8 +149,8 @@ consumers have an authority for the values.
     "session_branching": true,        // fork support (§6.2 /fork)
     "session_sharing": true,          // §6.15b — /v1/sessions/{id}/share + /v1/shared/{token}
     "session_export": true,           // §6.2 export/import
-    "session_summary": true,          // user-facing TLDR — but see status note below ⚠
-    "attachments_upload": true,       // base64 byte upload — but see status note below ⚠
+    "session_summary": false,         // /summarize not implemented (truthful since clio #760 / Phase 0)
+    "attachments_upload": false,      // /attachments not implemented (truthful since clio #760 / Phase 0)
     "multimodal_image_parts": true,   // §4.5 — POST /messages accepts/preserves `image` parts
     "cost_tracking": true,
     "thinking_blocks": true,          // extended thinking content blocks
@@ -158,8 +172,8 @@ consumers have an authority for the values.
     "x_clio_cancellation": "best_effort",          // "none" | "best_effort" | "hard"
     "x_clio_executor_cancellation": false,
     "x_clio_text_streaming": "best_effort_live",   // "none" | "batch" | "best_effort_live"
-    "x_clio_synthetic_posthoc_streaming": false,
-    "x_clio_stream_fallback_reasons": { /* map<reason, {category, recovery_actions, ...}> */ },
+    "x_clio_synthetic_posthoc_streaming": false,   // AUTHORITATIVE: clio never replays synthetic deltas post-hoc
+    "x_clio_stream_fallback_reasons": { /* map<reason, row> — see note below */ },
     "x_clio_direct_delete_permissions": true,
     "x_clio_prompt_registry": true,                // §6.20 — /v1/prompts
     "x_clio_expert_packs": true,                   // §6.22 — /v1/expert-packs
@@ -170,8 +184,8 @@ consumers have an authority for the values.
     "x_clio_semantic_events": true,                // §7.6 — the semantic.event SSE spine
     "x_clio_semantic_trace_backend": "none",       // "none" | "file" | "factory"
     "x_clio_semantic_trace_detail": "semantic",    // "off" | "metadata" | "semantic" | "full_debug"
-    "x_clio_hook_backend": "local_python",
-    "x_clio_hook_events": { /* map of hook event names → metadata */ },
+    "x_clio_hook_backend": "local_python",         // "local_python" | "none" | "factory" | "unavailable" (init failure)
+    "x_clio_hook_events": { /* map<hook_event_name, int handler_count> */ },
     "x_clio_capability_gaps": { /* map<feature, {...}>; mirrors GET /v1/capability-gaps */ }
   },
   "transports": {
@@ -186,15 +200,26 @@ consumers have an authority for the values.
 }
 ```
 
-> ⚠ **`session_summary` and `attachments_upload` are advertised `true`
-> but the dedicated routes (`POST /v1/sessions/{id}/summarize`,
-> `POST /v1/sessions/{id}/attachments`) are NOT registered in clio
-> f647db1** — both return `404`. Summarization is reachable via
-> `POST /v1/sessions/{id}/compact` (§6.25). Treat these two flags as
-> over-claimed by the reference backend; see §15. Clients SHOULD probe
-> rather than trust these two flags.
+The flag map is **truthful** as of clio #760/#782 (Phase 0):
+`session_summary` and `attachments_upload` are now advertised `false`
+because their routes (`POST /v1/sessions/{id}/summarize`,
+`POST /v1/sessions/{id}/attachments`) are not registered. Summarization
+is reachable via `POST /v1/sessions/{id}/compact` (§6.25).
 
-A capability set to `false` (or absent) means the corresponding endpoints MUST return `404 Not Found` or `501 Not Implemented`. The TUI MUST hide UI affordances tied to that capability. The reverse direction is NOT guaranteed by clio today for the two flags above — see the warning.
+A capability set to `false` (or absent) means the corresponding endpoints MUST return `404 Not Found` or `501 Not Implemented`. The TUI MUST hide UI affordances tied to that capability. The rule now holds **unconditionally in both directions** for the reference backend: a flag advertised `true` has its route registered, and a flag advertised `false` 404s. The conformance suite probes this (capability↔route truth).
+
+**`x_clio_stream_fallback_reasons`** is a map of the 13 reason keys the
+backend may attach to a batch-fallback part (`no_stream_listener`,
+`stream_disabled`, `provider_no_stream`, `stream_setup_error`,
+`stream_read_error`, `stream_empty`, `stream_parse_error`,
+`stream_timeout`, `fields_missing`, `tool_only_turn`, `retry_path`,
+`finalize_repair`, `unknown`). Each row carries
+`{category, synthetic_posthoc, live_streaming, recovery_actions,
+description}`. Note the per-row `synthetic_posthoc: true` values are
+legacy metadata — the authoritative top-level
+`x_clio_synthetic_posthoc_streaming` is `false` (clio never replays
+synthetic deltas after the fact; a fallback part arrives whole with
+`stream_source: "batch"`, §7.4).
 
 ### 3.3.1 `GET /v1/capability-gaps` (vendor)
 
@@ -203,6 +228,22 @@ the backend recognises but cannot currently serve (with structured
 reasons/recovery hints). This is the long-form of the
 `x_clio_capability_gaps` flag. Optional; generic clients ignore it.
 
+Response wrapper: `{"capability_gaps": map<feature, row>}`. Each row is
+
+```json
+{
+  "status": "not_implemented",       // gap status
+  "advertised": false,               // whether the caps map claims it
+  "category": "optional",            // gap classification
+  "description": "…",
+  "client_behavior": "…",            // what a client should do instead
+  "recovery_actions": ["…"],
+  "related_endpoints": ["…"]         // OR "related_commands" for CLI gaps
+}
+```
+
+Current rows (clio 3527143): `voice`, `lsp`, `optimizer_command`.
+
 ### 3.4 `GET /v1/health`
 
 Returns 200 with `{"healthy": true, "uptime_s": <int>}` if the backend can serve requests. Used for connection probing.
@@ -210,7 +251,7 @@ Returns 200 with `{"healthy": true, "uptime_s": <int>}` if the backend can serve
 **v0.2 extension** (`capabilities.integration_health == true`): the response MAY include an `integrations` array and a coarse `overall_status` field:
 
 ```json
-// Implemented (clio f647db1) — live shape
+// Implemented (clio 3527143) — live shape
 {
   "healthy": true,
   "uptime_s": 1234,
@@ -225,7 +266,7 @@ Returns 200 with `{"healthy": true, "uptime_s": <int>}` if the backend can serve
 }
 ```
 
-Integrations are backend-specific — a backend MAY expose any combination of names the TUI can display tabularly. clio f647db1 reports `api` (HTTP surface), `sessions` (session store), `agent` (the built agent/runtime), `memory` (ARC/memory backend), and `lm` (model provider). Unknown names MUST render as a generic row without special handling.
+Integrations are backend-specific — a backend MAY expose any combination of names the TUI can display tabularly. clio 3527143 reports `api` (HTTP surface), `sessions` (session store), `agent` (the built agent/runtime), `memory` (ARC/memory backend), and `lm` (model provider). Unknown names MUST render as a generic row without special handling.
 
 `overall_status` is the worst status across integrations (ready if all ready; degraded if any degraded and none unavailable; unavailable if any unavailable). Used by the TUI to colour a single top-level health chip.
 
@@ -264,10 +305,11 @@ A **Session** is a conversation thread within a workspace.
 The shape below reflects the implemented `Session` (clio
 `types.py:Session`). Note the reference backend **flattens** the
 cumulative token rollups to top-level `tokens_input` / `tokens_output`
-(not a nested `tokens` object as v0.1 sketched), omits unpopulated
-optional fields rather than emitting `null`, and surfaces session
-**mode** as three distinct fields (`mode`, `edit_mode`, `routing_mode`)
-rather than the single free-form `agent.mode` v0.1 imagined.
+(not a nested `tokens` object as v0.1 sketched), **serializes
+zero-values** (`""` / `0` / `{}` defaults — never `null`, never
+omitted), and surfaces session **mode** as three distinct fields
+(`mode`, `edit_mode`, `routing_mode`) rather than the single free-form
+`agent.mode` v0.1 imagined.
 
 ```json
 {
@@ -309,9 +351,21 @@ rather than the single free-form `agent.mode` v0.1 imagined.
 
 `status` semantics: `waiting_user` means the turn is blocked on a
 user-question (§6.23); `cancelled` is a terminal post-cancel state
-(§6.2 `/cancel`).
+(§6.2 `/cancel`). **`waiting_permission` is declared in the enum but
+NEVER emitted by clio** — while a permission request is pending the
+session stays `running`; clients watch `permission.requested` (§6.11)
+instead. All other values are live.
 
-Forks: `POST /v1/sessions/{id}/fork` with `{at_message_id?: string, title?: string}` returns a new session with `parent_session_id` set.
+Forks: `POST /v1/sessions/{id}/fork` with `{at_message_id?: string,
+title?: string}` returns **201** with a new session whose
+`parent_session_id` is set. `at_message_id` truncation is *inclusive*
+(the named message is the last one copied); an unknown id silently
+copies **all** messages. Context files are copied. `mode`, `edit_mode`,
+`routing_mode`, `model`, `agent`, and `metadata` are **NOT inherited**
+— the fork is created with store defaults (`chat`/`diff`/`auto`, agent
+`main`, empty model/metadata). No SSE event is emitted for a fork.
+(Whether non-inheritance is desirable is an open question; it is the
+implemented behavior and is codified here. See §6.2.)
 
 `mode` / `edit_mode` / `routing_mode` are settable at creation
 (`POST /v1/sessions`) and updatable via `PATCH /v1/sessions/{id}`.
@@ -377,7 +431,7 @@ Extended `AgentDef` shape (all new fields optional; see §6.5 for the base shape
 
 `keywords` are the intent tokens the tier-1 orchestrator matches against. Exposed so the TUI can show *why* a given agent was picked (heuristic routing) or render a searchable agent picker.
 
-Backends with `agent_routing = true` SHOULD emit a `routing_decision` part (§4.5) as the first part of an assistant message that was routed. The decision references `AgentDef.id`. **[NOT IMPLEMENTED in clio f647db1: the companion `session.agent_routed` SSE event is NOT emitted.]** clio surfaces routing two ways instead: the `routing_decision` part (which additionally carries an `execution_path` field, see §4.5) and the `semantic.event` spine (§7.6, e.g. `agent.invocation.started`). A client wanting live routing badges from clio listens to `semantic.event`, not `session.agent_routed`.
+Backends with `agent_routing = true` SHOULD emit a `routing_decision` part (§4.5) as the first part of an assistant message that was routed. The decision references `AgentDef.id`. **[NOT IMPLEMENTED in clio 3527143: the companion `session.agent_routed` SSE event is NOT emitted.]** clio surfaces routing two ways instead: the `routing_decision` part (which additionally carries an `execution_path` field, see §4.5) and the `semantic.event` spine (§7.6, e.g. `agent.invocation.started`). A client wanting live routing badges from clio listens to `semantic.event`, not `session.agent_routed`.
 
 The implemented `AgentDef` (clio `types.py:AgentDef`) carries more than the sketch above — including `parent_id`, `prompt_id`/`prompt_profile`, `default_provider`/`default_model`, `skills[]`, `commands[]`, `capability_refs[]`, `enabled`, `validation_errors[]`, and a `source` value of `"expert_pack"` in addition to the v0.1 set. See §6.5 for the full shape.
 
@@ -391,6 +445,9 @@ A **Message** is a turn in a session, owned by a role.
 {
   "id": "msg_...",
   "session_id": "sess_...",
+  "turn_id": "msg_...",              // implemented (clio): the originating USER message id of
+                                     // the turn this message belongs to. Durable (persisted +
+                                     // served on reload); empty string outside a turn.
   "role": "user" | "assistant" | "system" | "tool",
   // System messages live in the message stream like any other. Backends
   // that store the system prompt only in session config simply never emit
@@ -411,9 +468,17 @@ A **Message** is a turn in a session, owned by a role.
 > `types.py:Message`) carries a **nested** `tokens` block (unlike the
 > flattened `Session`), and does **not** carry a per-message `model`
 > field — the active model lives on the `Session`. `stop_reason` is an
-> open string; v0.1's enumerated set (`end_turn`/`tool_use`/`max_tokens`/
-> `cancelled`/`error`/`permission_denied`) is advisory, not closed —
+> open string; the values clio actually emits are
+> **`end_turn` | `error` | `cancelled` | `blocked`** (the latter for a
+> pre-message-hook veto). v0.1's enumerated set (`tool_use`/
+> `max_tokens`/`permission_denied`) is advisory, not closed —
 > clients MUST tolerate other values.
+>
+> Messages and their parts serialize via `to_wire()` — parts use
+> `exclude_defaults` but always keep `id`/`type`/`agent_id`; the
+> message envelope uses `exclude_none`. `GET /messages` and the SSE
+> stream use the same projection, so a reload matches the live stream
+> byte-for-byte.
 
 While streaming, a message's `parts` array grows; clients MUST accept partial messages and update them via SSE deltas (§7.4).
 
@@ -446,10 +511,10 @@ The content of a message is an ordered list of typed parts. The discriminator is
 | `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
 | `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?` |
 | `resource` | Embedded MCP resource | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64) |
-| `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. |
+| `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
 | `error` | In-stream error | `code: string`, `message: string`, `recoverable: bool` (v0.1 shape; v0.2 backends prefer `Message.error_info`, §14) |
-| `compaction` | Marks where prior history was summarized away | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered) |
+| `compaction` | Marks where prior history was summarized away | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[NOT EMITTED by clio 3527143]** — clio's `/compact` (§6.25) instead REPLACES the ledger with one synthetic assistant `text` message flagged `metadata.synthetic: "compact_summary"`; there is no `compaction` part type on clio's wire. Valid for other backends. |
 
 > **Implemented part shape (clio `types.py:Part`).** The reference
 > backend models `Part` as a **single flat struct** with all of the
@@ -461,6 +526,14 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > flat `unified_diff`/`new_content`/`status` rather than nested objects.
 > The nested-`source` / `before`/`after` shapes in the table are the
 > v0.1 sketch and are NOT what clio emits.
+>
+> **Vendor part metadata clients depend on** (clio): streamed parts
+> carry `metadata.stream_source` (`"live"` | `"batch"`) and
+> `metadata.signature_field_name` (the internal contract field the
+> text belongs to — e.g. `answer`, `reasoning`, `next_thought`).
+> Provider-native reasoning arrives as `type: "thinking"` parts with
+> `metadata: {thinking_source: "provider", provider_source: "...",
+> default_collapsed: true}`.
 
 **Streaming deltas** for parts are sent via SSE events (§7.4).
 
@@ -487,28 +560,49 @@ A **Tool** is something the agent can call. Tools come from three sources: built
     "idempotentHint": false,
     "openWorldHint": false
   },
-  "permission_default": "ask"        // "allow" | "ask" | "deny" — backend's current policy for this tool
+  "permission_default": "ask"        // "allow" | "ask" | "deny"
 }
 ```
+
+> **Implemented (clio).** `permission_default` is a constant `"ask"`
+> placeholder on every catalog row — it is **never consulted by the
+> enforcement gate**. Whether a call actually prompts is decided by the
+> destructive-substring classifier + the policy list (§6.11), not this
+> field. Treat it as advisory display metadata against clio.
 
 ### 4.7 PermissionRequest
 
+Implemented shape (clio `permission_gate.py`) — the row is THIN:
+
 ```json
 {
-  "id": "perm_...",
+  "id": "perm_<12hex>",
   "session_id": "sess_...",
-  "subsession_id": "sess_...|null",
   "tool_call": {
-    "call_id": "string",
     "tool_name": "string",
-    "server_id": "string|null",
-    "input": {},
-    "annotations": {}
+    "input": {}
   },
   "summary": "string",               // human-readable preview ("Run: rm -rf /tmp/x")
-  "created_at": "..."
+  "created_at": "...",
+  "status": "pending"                // lifecycle — see below
 }
 ```
+
+There is **no** `subsession_id`, `call_id`, `server_id`, or
+`annotations` on clio's wire (those were v0.1 sketch fields).
+
+Rows gain fields on resolution:
+
+- `status`: `pending` | `resolved` (user-resolved) | `auto_approved` /
+  `auto_denied` (policy / mode / direct-route resolutions) | `timeout`
+  (600 s interactive timeout — resolved as deny, **no
+  `permission.resolved` event is emitted for timeouts**).
+- `action`: `allow` | `deny` | `allow_session` | `allow_workspace`.
+- `resolved_at`: RFC 3339.
+- `reason?`: set on auto-resolutions (`policy_deny`, `policy_allow`,
+  `session_mode_readonly`, `user_requested_*`, …).
+- `policy?`: the derived sticky policy attached when the resolution was
+  `allow_session` / `allow_workspace` (§6.11).
 
 Replied to via `POST /v1/permissions/{id}` with body `{"action": "allow"|"deny"|"allow_session"|"allow_workspace"}`.
 
@@ -527,10 +621,20 @@ The active scheme is reported as `capabilities.auth.current`. The TUI uses this 
 
 For SSE streams, the bearer token MAY also be passed as a query parameter `?auth_token=...` since some browsers do not allow custom headers on `EventSource`. Backends supporting bearer auth MUST also accept `?auth_token=...`.
 
-> **Implemented (clio f647db1).** The reference backend reports
+> **Implemented (clio 3527143).** The reference backend reports
 > `{"schemes": ["trust_socket"], "current": "trust_socket"}` — it does
 > not implement `bearer` today. Clients SHOULD read `auth.schemes`
 > rather than assume `bearer` is available.
+>
+> **What clio's `trust_socket` actually means (descriptive):** it is
+> **unauthenticated TCP**, default bind `127.0.0.1:8100` — NOT a Unix
+> socket. There is no bearer header and no `?auth_token` support on
+> REST or SSE; identity is implicit in transport reachability
+> (whoever can reach the port is the user). Browser access is gated
+> only by the CORS origin allowlist (default
+> `localhost:3000/4173/5173`, `allow_credentials=false`). Operators
+> MUST NOT bind a non-loopback interface without an external auth
+> layer (reverse proxy, tunnel, firewall).
 
 ---
 
@@ -546,7 +650,7 @@ the §14 `ErrorInfo` envelope inside the same `error` key, so the inner
 object gains fields rather than changing shape:
 
 ```json
-// Implemented (clio f647db1) — every 4xx/5xx
+// Implemented (clio 3527143) — every 4xx/5xx
 {
   "error": {
     "error": "not_found",            // machine-readable taxonomy tag (§14.2). v0.1 called this `code`.
@@ -563,6 +667,20 @@ object gains fields rather than changing shape:
 > conformance suite (§checkStructuredErrors) accepts both during the
 > transition.
 
+Carve-outs and caveats (clio 3527143):
+
+- `GET /v1/health` returns **503 with the HealthResponse body** (not an
+  ErrorEnvelope) when `overall_status = "unavailable"` — the only
+  non-envelope 4xx/5xx on the surface.
+- `retry_after_s` is **never emitted** by clio today (always omitted
+  via `exclude_none`).
+- **404 tag inconsistency**: most session-lookup 404s currently emit
+  `error: "internal_error"` (legacy), while newer routes (compact,
+  rewind target, questions, attempts, message/file lookups) emit
+  `error: "not_found"`. **`not_found` is the canonical tag** — new code
+  MUST use it — but clients MUST tolerate the legacy `internal_error`
+  emissions on 404 until clio finishes migrating (§14.2).
+
 Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 permission, 404 not-found, 409 conflict, 422 invalid state, 429 rate limit, 500 internal, 501 not implemented.
 
 ### §6.1 Workspaces
@@ -577,67 +695,137 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 
 > **Drift note.** clio's `CreateWorkspaceRequest` requires `name` and
 > takes `storage_root` (not `config`); the implemented `Workspace` adds
-> a `storage_root` field. `POST` returns `201`. Workspace-scoped file
-> routes (`/v1/workspaces/{id}/files`, `/files/read`, `/repo_map`) are in
+> a `storage_root` field. `POST` returns `201`. Workspace wire rows
+> always include a **derived `storage_root`**. `PATCH` accepts
+> `{name?, root_path?, metadata?}` plus `config` as a metadata alias,
+> and **merges** metadata (no key removal); a malformed body is
+> ignored. `DELETE` returns **409 `permission_error` for `ws_default`**
+> (the implicit default workspace is undeletable), runs the
+> direct-destructive-action permission policy (§6.11 — a policy `deny`
+> auto-denies with 403) and records a resolved audit row in
+> `/v1/permissions`; otherwise `204`. Workspace-scoped file routes
+> (`/v1/workspaces/{id}/files`, `/files/read`, `/repo_map`) are in
 > §6.9.
 
 ### §6.2 Sessions
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/sessions` | query: `workspace_id?, parent_session_id?, archived?, limit?, before?` | `{sessions: Session[], next_cursor?}` |
-| POST | `/v1/sessions` | `{workspace_id, title?, agent?, model?, parent_session_id?, fork_at_message_id?}` | `Session` |
-| GET | `/v1/sessions/{id}` | — | `Session` |
-| PATCH | `/v1/sessions/{id}` | `{title?, archived?, agent?, model?}` | `Session` |
-| DELETE | `/v1/sessions/{id}` | — | `204` |
-| POST | `/v1/sessions/{id}/fork` | `{at_message_id?, title?}` | `Session` (new) |
-| POST | `/v1/sessions/{id}/cancel` | — | `204` (cancels in-flight run) |
-| POST | `/v1/sessions/{id}/summarize` | `{auto?, instructions?}` | **[NOT IMPLEMENTED in clio f647db1 — returns 404 despite `session_summary=true`. Use `/compact` (§6.25).]** |
-| GET | `/v1/sessions/{id}/export` | — | `application/json` blob (full session w/ messages) |
-| POST | `/v1/sessions/import` | session blob | `Session` |
-| POST | `/v1/sessions/{id}/undo` | `{count?: int}` | `{reverted_messages: string[]}` (also in §6.10) |
-| POST | `/v1/sessions/{id}/rewind` | `{to_message_id, include_target?}` | `{deleted_messages: string[]}` (also in §6.10) |
+| GET | `/v1/sessions` | query: `workspace_id?` (default scope `ws_default`), `include_all_workspaces?: bool`, `archived?: bool` (omitted = active-only, `true` = archived-only, `false` = active-only) | `{sessions: Session[]}` newest-first by `created_at`. **No `next_cursor`/`limit`/`before`/`parent_session_id`** (not implemented — `parent_session_id` reserved for future use; clio silently ignores it, so a subsession UI filtering on it would see ALL sessions) |
+| POST | `/v1/sessions` | `{workspace_id? = "ws_default", title?, model?, agent?, mode? = "chat", edit_mode? = "diff", routing_mode? = "auto", metadata?}` — no `parent_session_id`/`fork_at_message_id` (forking is `/fork`) | `Session`, `200`. Unknown workspace → 404 (legacy tag `internal_error`). **No `session.created` event** is emitted |
+| GET | `/v1/sessions/{id}` | query: `workspace_id?` — on mismatch → **403 `permission_error`** with `details.scope: "other_workspace"` | `Session` |
+| PATCH | `/v1/sessions/{id}` | `{title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?, archived?}` — `metadata` **merges shallowly** (never replaces; e.g. `metadata.pinned` survives unrelated patches) | `Session`; publishes `session.updated` with the **full Session object** as payload (§7.3a) |
+| DELETE | `/v1/sessions/{id}` | — | `204`. Policy-gated (§6.11 direct destructive action: policy deny → **403 `permission_error`**; auto-approved deletes are audited as resolved rows in `/v1/permissions`). Cascades: messages, context-file ledger, ARC footprint, workspace mirror. **No `session.deleted` event today** — see the PROPOSED note below |
+| POST | `/v1/sessions/{id}/fork` | `{at_message_id?, title?}` (malformed JSON tolerated as `{}`) | `Session` (new), **201**. `at_message_id` truncation is **inclusive**; an unknown id silently copies all messages. Context files copied. `mode`/`edit_mode`/`routing_mode`/`model`/`agent`/`metadata` **NOT inherited** (fork gets store defaults). No SSE event |
+| POST | `/v1/sessions/{id}/cancel` | — | **204 always** (idle race tolerated). Best-effort: cooperative flag + event, 0.1 s grace, then asyncio task cancel. Session flips to `cancelled` **immediately** (even when idle). See the cancellation note below |
+| POST | `/v1/sessions/{id}/summarize` | `{auto?, instructions?}` | **[NOT IMPLEMENTED in clio 3527143 — returns 404; `session_summary` is truthfully advertised `false`. Use `/compact` (§6.25).]** |
+| GET | `/v1/sessions/{id}/export` | — | `application/json` blob `{version: "1", session, workspace, messages, context_files}` |
+| POST | `/v1/sessions/import` | export blob | `Session` — creates a **fresh** session carrying only `title` + `metadata` (modes/model/rollups recomputed or dropped); malformed messages are skipped silently |
+| POST | `/v1/sessions/{id}/undo` | `{count?: int}` (alias key `message_count` also read; `count < 1` → 422; non-object body → 422; invalid JSON tolerated as `{count: 1}`) | rollback envelope — see below (also §6.10) |
+| POST | `/v1/sessions/{id}/rewind` | target key `message_id` (canonical) \| `target_message_id` \| `to_message_id`; `include_target?: bool = false`; unknown target → **404 `not_found`** | rollback envelope with `operation: "rewind"` — see below (also §6.10) |
 
-> **Drift note.** Implemented `POST /v1/sessions` accepts
-> `{workspace_id, title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?}`
-> (clio `CreateSessionRequest`) — note `mode`/`edit_mode`/`routing_mode`
-> instead of `fork_at_message_id` (forking is its own `/fork` route).
-> `PATCH /v1/sessions/{id}` accepts
-> `{title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?, archived?}`.
-> clio's list/create responses are `{sessions: [...]}` / `Session` with
-> **no `next_cursor`** (pagination not implemented).
+**Rollback envelope (undo/rewind response).** Both routes return the
+same eight-key envelope:
+
+```json
+{
+  "session_id": "sess_...",
+  "operation": "undo",                       // "undo" | "rewind"
+  "deleted_message_ids": ["msg_...", ...],   // canonical — read this one
+  "deleted_messages": ["msg_...", ...],      // alias of deleted_message_ids (IDs, not objects)
+  "reverted_message_ids": ["msg_...", ...],  // alias of deleted_message_ids
+  "message_count": 2,
+  "memory_scope": "gact_visible_transcript_only",
+  "session": { /* full Session */ }
+}
+```
+
+The key `reverted_messages` does **NOT exist** on the wire (a v0.1
+sketch that never shipped). `target_message_id`/`include_target` are
+NOT in the rewind HTTP response — they appear only in the
+`session.rewind` event payload and `metadata.last_rollback`. Undo
+counts **messages** (any role), not turns; `count > len` deletes
+everything without error. Both routes: **409 `conflict`** while the
+session is `running`/`waiting_permission`; the destructive-action
+policy guard applies (403 possible). Side effects: session status
+forced `idle`; `metadata.last_rollback` stamped
+`{operation, deleted_message_ids, target_message_id, include_target,
+memory_scope, occurred_at}`. Event order after commit: per-message
+`message.deleted {message_id, session_id, operation}` → `session.undo`
+/ `session.rewind` → `session.updated` (full Session) — §7.3a.
+
+**Cancellation (clio, best-effort).** `POST /cancel` sets a
+cooperative cancel flag + per-turn event (polled at planner/expert/tool
+boundaries), records a cancellation attempt
+`{id: "canc_…", requested_at, in_flight, cooperative_signal_sent,
+asyncio_task_cancel_scheduled, asyncio_task_cancel_sent,
+hard_abort_supported: false, upstream_abort: "not_supported",
+executor_work_may_continue}`, then after a **0.1 s grace** hard-cancels
+the asyncio task if still running. The resulting
+`session.status_changed` carries vendor extras:
+`execution_cancellation: "none" | "cooperative_pending" |
+"turn_boundary" | "best_effort"`, `executor_work_may_continue`, and the
+`cancellation_attempt` summary. **There is no `session.cancelled`
+event type** — the transition rides `session.status_changed`.
+
+> **PROPOSED addition — `session.deleted` event.** DELETE currently
+> emits nothing, so a session deleted by another client is
+> unobservable (lists are workspace+archive filtered, so refetch
+> inference is unreliable). Per the owner's decision on
+> iowarp/gact-tui#232, a broadcast `session.deleted`
+> `{session_id, workspace_id}` event is the agreed fix so clients can
+> drop per-session state deterministically — tracked as a clio issue;
+> **not current behavior**, do not depend on it yet.
 
 ### §6.3 Messages
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/sessions/{id}/messages` | query: `before?, limit?, include_system?: bool` (cursor pagination, newest-first) | `{messages: Message[], next_cursor?}` |
-| GET | `/v1/sessions/{id}/messages/{msg_id}` | — | `Message` |
-| POST | `/v1/sessions/{id}/messages` | `{parts: Part[], text?, model?, agent?, agent_id?, metadata?}` | `{message_id, accepted_at}` (clio returns `200`, not `202`) |
+| GET | `/v1/sessions/{id}/messages` | query params **NOT honored** (`before`/`limit`/`include_system` silently ignored) | `{messages: Message[] newest-first, next_cursor: null (always)}` — the full ledger, unbounded. May include one **live in-flight assistant message** (`metadata: {live: true, status: "running"}`) while a turn is streaming |
+| GET | `/v1/sessions/{id}/messages/{msg_id}` | — | `Message`; 404 `not_found` |
+| POST | `/v1/sessions/{id}/messages` | `{parts: Part[], text?, model?, agent?, agent_id?, metadata?}` | `{message_id, accepted_at}`, HTTP **200** |
 | DELETE | `/v1/sessions/{id}/messages/{msg_id}` | — | `204` |
 | DELETE | `/v1/messages/{msg_id}` | query: `session_id?` | `204` (clio also exposes this session-less delete alias) |
-| PATCH | `/v1/sessions/{id}/messages/{msg_id}/parts/{part_id}` | partial part | **[NOT IMPLEMENTED in clio f647db1.]** |
-| GET | `/v1/sessions/{id}/messages/search` | query: `q` | `{matches: SearchMatch[]}` (gated by `search_messages`; clio takes `q` only, no cursor) |
+| PATCH | `/v1/sessions/{id}/messages/{msg_id}/parts/{part_id}` | partial part | **[NOT IMPLEMENTED in clio 3527143.]** |
+| GET | `/v1/sessions/{id}/messages/search` | query: `q` | `{matches: SearchMatch[]}` (gated by `search_messages`; clio takes `q` only, no cursor; empty `q` → `{matches: []}`) |
 
 > **Drift note.** `POST /messages` body: clio accepts either
 > `parts: Part[]` or a convenience `text: string`, plus a per-turn
-> agent override via `agent: AgentRef` or `agent_id: string`. It returns
-> the ack synchronously with HTTP `200` (the spec said `202`); the
-> assistant turn still streams asynchronously over SSE (§7). `image`
-> parts in the body are preserved when `multimodal_image_parts=true`.
+> agent override via `agent: AgentRef` or `agent_id: string`. The ack
+> is a synchronous HTTP **200** `{message_id, accepted_at}` (the v0.1
+> sketch said `202`); the user message, its `message.created` event,
+> and `session.status_changed(running)` are all published **before**
+> the ack returns. The assistant turn then streams asynchronously over
+> SSE (§7). `image` parts in the body are preserved when
+> `multimodal_image_parts=true`.
+>
+> **No concurrency guard**: posting while the session is `running`
+> starts a second concurrent turn (the newest turn wins the in-flight
+> tracking). The `prev_status` in the resulting
+> `session.status_changed` is hardcoded `"idle"`.
+>
+> **POST error paths** (clio): 404 session-not-found (legacy tag
+> `internal_error`); 503 `provider_configuring` while LM config is in
+> flight; 503 `agent_not_available` with `details.agent_status ∈
+> {starting, failed, not_configured}` + `details.recovery_actions[]`;
+> 501 unsupported model ref (a per-message or session model override
+> that doesn't match the active model — a stale *session* override is
+> silently cleared instead when an active model exists); 501 for image
+> parts without vision support; 422 when the body has neither text nor
+> image parts.
+>
+> Messages serialize via `to_wire()` (§4.4) — reload is byte-identical
+> to the live stream.
 
 ```json
-// SearchMatch
+// SearchMatch (implemented — no created_at)
 {
   "message_id": "msg_...",
   "part_id": "part_...",
   "snippet": "...{q}... with surrounding context",
-  "score": 0.87,
-  "created_at": "..."
+  "score": 0.87
 }
 ```
-
-`POST /messages` returns 202 immediately. The actual streaming response (assistant message being produced) is delivered via SSE on the events channel (§7). This is the Crush pattern.
 
 ### §6.4 Subsessions
 
@@ -767,16 +955,42 @@ Otherwise omit; TUI hides LSP UI.
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/sessions/{id}/context/files` | — | `{files: ContextFile[]}` |
-| POST | `/v1/sessions/{id}/context/files` | `{path, mode: "edit"\|"read"\|"pin"}` | `ContextFile` |
-| DELETE | `/v1/sessions/{id}/context/files` | `{path}` | `204` |
+| POST | `/v1/sessions/{id}/context/files` | `{path (optionally "@"-prefixed → source:"mention"), mode? = "read", workspace_id?, size?, last_modified?, language?}` — upserts by path | `ContextFile` |
+| DELETE | `/v1/sessions/{id}/context/files` | `{path}` | `204` (idempotent; matches `path`/`display_path`/`resolved_path`) |
 | GET | `/v1/workspaces/{id}/files` | — | `{entries: FileEntry[]}` (workspace tree) |
-| GET | `/v1/workspaces/{id}/files/read` | query: `path` | file content (clio returns the raw bytes) |
-| GET | `/v1/workspaces/{id}/repo_map` | — | `{tree: RepoMapNode, tokens: int}` |
+| GET | `/v1/workspaces/{id}/files/read` | query: `path` | file content — see serving rules below |
+| GET | `/v1/workspaces/{id}/repo_map` | — | `{tree: RepoMapNode, tokens: int, truncated: bool}` |
 
-`ContextFile` = `{path, mode, added_at, last_modified, size, language?}`. `RepoMapNode` is recursive (file or directory) with per-node code outline (function/class names) where backend supports tree-sitter.
+Implemented shapes (clio):
+
+- **`ContextFile`** = `{path, display_path, resolved_path,
+  workspace_id, source: "mention"|"api", mode, added_at,
+  last_modified, size, language}`. **Absolute paths are accepted
+  verbatim (NOT workspace-bounded)**; relative paths are bounded (403
+  `path_outside_workspace` on escape). `read`/`pin` modes require an
+  existing regular file (404 / 422 `context_file_error` with
+  `recovery_actions`); `edit` does not. Context files persist across
+  restarts (`context_files.json`).
+- **`FileEntry`** = `{path (relative to root_path, native separators),
+  type: "file"|"dir", size?: int, modified?: ISO-8601 Z}`. The walk is
+  capped at **5000 entries**, skips VCS/cache/build/vendor dirs, and
+  excludes symlinks unless the file policy allows them. A missing root
+  returns `{entries: []}` — not an error.
+- **`RepoMapNode`** = `{name, path (/-normalized, root path ""), type,
+  children?, size?}`; `tokens` = Σ max(1, size/4); `truncated: true`
+  when the 5000-entry cap was hit. **clio serves NO tree-sitter code
+  outlines** — nodes are plain name/path/type/size. (Outlines remain
+  valid for backends that support them.)
+- **`/files/read` serving rules**: textual files (`text/*` MIME,
+  JSON/XML/JS/YAML/sh/TOML, or sniffed UTF-8) are served **decoded**
+  as `text/plain; charset=utf-8`; binary files are served as raw bytes
+  with the real guessed content type (else
+  `application/octet-stream`). Errors: 400 `invalid_path`, 403
+  `path_outside_workspace`, 404 `not_found`, 413 `file_too_large`
+  (policy `max_file_size_bytes`), 500 `read_failed`.
 
 > **Drift note.** `PATCH /v1/sessions/{id}/context/files` is **[NOT
-> IMPLEMENTED in clio f647db1]** — to change a file's mode, DELETE +
+> IMPLEMENTED in clio 3527143]** — to change a file's mode, DELETE +
 > re-POST. The old "context file content" route is gone in favor of the
 > workspace-scoped `/v1/workspaces/{id}/files` + `/files/read`. clio
 > also adds two **vendor** context-introspection routes (gated by
@@ -784,8 +998,8 @@ Otherwise omit; TUI hides LSP UI.
 >
 > | Method | Path | Response |
 > |---|---|---|
-> | GET | `/v1/sessions/{id}/context/frames` (query `limit?`) | `{frames: ContextFrame[]}` — per-turn assembled-context snapshots (what was actually fed to the model: items with `kind`, `included`, `reason`, `tokens_estimated`) |
-> | GET | `/v1/sessions/{id}/context/frames/{frame_id}` | `ContextFrame` |
+> | GET | `/v1/sessions/{id}/context/frames` (query `limit?` — clamped to 1..200, default 50) | `{frames: ContextFrame[]}` — per-turn assembled-context snapshots (what was actually fed to the model: items with `kind`, `included`, `reason`, `tokens_estimated`) |
+> | GET | `/v1/sessions/{id}/context/frames/{frame_id}` | `{frame: ContextFrame}` (wrapped, not a bare ContextFrame) |
 > | GET | `/v1/sessions/{id}/context/policy` | `SessionContextPolicy` — effective memory/context policy (memory scope, cross-session-read availability, consent flags) |
 > | GET | `/v1/sessions/{id}/context/state` (query `scope?=<expert>`) | `ContextStateResponse` — per-expert context-usage snapshot (token fullness, auto-compaction line, `/context-style` category buckets) |
 > | POST | `/v1/sessions/{id}/context/compact` (query `scope?=<expert>`) | `ContextStateResponse` — LLM-summarizes the live working set into one summary segment, then returns the updated state |
@@ -838,44 +1052,139 @@ Otherwise omit; TUI hides LSP UI.
 
 ### §6.10 Diffs
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/v1/sessions/{id}/diffs` | `{diffs: FileDiff[]}` (proposed-but-not-applied) |
-| GET | `/v1/sessions/{id}/messages/{msg_id}/diffs` | `{diffs: FileDiff[]}` (per-message) |
-| POST | `/v1/sessions/{id}/diffs/apply` | `{paths?: string[]}` | `{applied: string[]}` |
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/v1/sessions/{id}/diffs` | — | `{diffs: FileDiff[]}` — **ALL** diff rows for the session (statuses `pending`/`applied`/`rejected`/`apply_failed`), not just proposed-but-not-applied |
+| GET | `/v1/sessions/{id}/messages/{msg_id}/diffs` | — | `{diffs: FileDiff[]}` (per-message; unknown message → 404 `not_found`) |
+| POST | `/v1/sessions/{id}/diffs/apply` | `{paths?: string[]}` | `{applied: string[], write_errors?: {path: string}}` |
 | POST | `/v1/sessions/{id}/diffs/reject` | `{paths?: string[]}` | `{rejected: string[]}` |
-| POST | `/v1/sessions/{id}/undo` | `{count?: int}` | `{reverted_messages: string[]}` |
-| POST | `/v1/sessions/{id}/rewind` | `{to_message_id: string, include_target?: bool}` | `{deleted_messages: string[]}` (MMM7) |
+| POST | `/v1/sessions/{id}/undo` | `{count?: int}` | rollback envelope (§6.2) |
+| POST | `/v1/sessions/{id}/rewind` | `{message_id \| target_message_id \| to_message_id, include_target?: bool}` | rollback envelope (§6.2) (MMM7) |
 
-`/rewind` deletes every message after `to_message_id` in the named session. With `include_target=true`, it also deletes that message itself. Different from `/undo` (which counts backward from the tail) — useful when the user has scrolled and wants to fork off a known checkpoint.
+Implemented diff row shape (clio):
+
+```json
+{
+  "path": "src/main.go",
+  "applied": false,          // DERIVED compat bool: status == "applied"
+  "status": "pending",       // canonical: pending | applied | rejected | apply_failed
+  "unified_diff": "...",     // optional
+  "part_id": "part_...",     // optional
+  "message_id": "msg_..."    // optional
+}
+```
+
+`new_content`/`edit_mode`/`lines_added`/`lines_removed` appear **only
+on the `file_diff` Part** (§4.5), never in diff rows. Diff rows are
+**in-memory only** — they do not survive a server restart (the
+`file_diff` parts in messages do).
+
+**Apply semantics** (clio): only `status == "pending"` rows are
+targeted (omitted/empty `paths` = all pending). Applied / rejected /
+`apply_failed` rows are silently skipped — **a failed write cannot be
+retried via this endpoint**. A failed write flips the row to
+`apply_failed` and emits `file.diff.write_failed`; `write_errors`
+values are error-repr strings. Rows without `new_content` are marked
+applied **without a disk write** (legacy path). The write is a
+whole-file replacement gated by workspace root + file policy +
+permission policy (auto-audited in `/v1/permissions` with reason
+`user_clicked_apply` — no interactive prompt) and refused under
+`session.mode` `plan`/`architect`. 200 even when nothing matched.
+
+`/rewind` deletes every message after the target in the named session.
+With `include_target=true`, it also deletes that message itself.
+Different from `/undo` (which counts backward from the tail) — useful
+when the user has scrolled and wants to fork off a known checkpoint.
+Full body/response semantics in §6.2.
 
 ### §6.11 Permissions
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/permissions` | query: `session_id?, status=pending\|all` | `{permissions: PermissionRequest[]}` |
-| GET | `/v1/permissions/{id}` | — | `PermissionRequest` **[NOT IMPLEMENTED in clio f647db1 — clio exposes only the list + the reply POST.]** |
-| POST | `/v1/permissions/{id}` | `{action: "allow"\|"deny"\|"allow_session"\|"allow_workspace"}` | `204` |
+| GET | `/v1/permissions` | query: `session_id?`, `status?` (any status value or `all`; default all), `limit` (default 100, max 500) | `{permissions: PermissionRequest[] (desc by created_at), metadata: {session_id, status, limit, total, returned, truncated, total_before_filters, total_after_session_filter}}` |
+| GET | `/v1/permissions/{id}` | — | `PermissionRequest` **[NOT IMPLEMENTED in clio 3527143 — clio exposes only the list + the reply POST.]** |
+| POST | `/v1/permissions/{id}` | `{action: "allow"\|"deny"\|"allow_session"\|"allow_workspace"}` | `204`. **Idempotent**: POST on an already-resolved row is a silent 204 (no event re-emit). 404/422 currently use the legacy tag `internal_error` (clio inconsistency; target taxonomy `not_found`/`bad_request` — §14.2) |
 | GET | `/v1/policies` | — | `{policies: Policy[]}` |
-| PUT | `/v1/policies` | `{policies: Policy[]}` | `{policies: Policy[]}` |
+| PUT | `/v1/policies` | `{policies: Policy[]}` | `{policies: Policy[]}` — **atomic validation**: 400 if the body is not `{policies: [...]}`; 422 rejecting the WHOLE update if any row is invalid, with `details: {policy_errors[], allowed_scopes, allowed_actions}` |
 
-> clio additionally advertises `x_clio_direct_delete_permissions=true`:
-> a destructive delete tool-call may be auto-permitted under policy
-> rather than always prompting. Vendor knob; generic clients ignore it.
-
-Backends MAY implement policies as simple per-tool toggles, or as rich rule engines (Gemini-style TOML with folder trust + shell safety). The contract specifies the data shape, not the evaluator.
+**Sticky grants** (clio #759, Phase 0): resolving with `allow_session`
+/ `allow_workspace` additionally derives a sticky allow policy
+`{scope, scope_id, tool_name_pattern: <exact tool>, path_pattern?:
+<exact path>, action: "allow", created_from_permission_id}`, appends it
+to `/v1/policies`, and **persists it to disk**
+(`permission_policies.json` — survives restart). The derived policy is
+attached to the resolved row as `.policy`.
 
 ```json
-// Policy
+// Policy (implemented)
 {
   "scope": "workspace|session",
-  "scope_id": "...",
-  "tool_name_pattern": "shell|edit|*",
-  "path_pattern": "/src/**|*",
-  "action": "allow|deny|ask",
-  "annotations_filter": { "destructiveHint": false }   // optional, applies only to matching annotations
+  "scope_id": "...",                 // empty = wildcard within scope
+  "tool_name_pattern": "shell|edit|*",   // fnmatch glob, default "*"
+  "path_pattern": "/src/**|*",           // fnmatch glob, optional
+  "action": "allow|allow_session|allow_workspace|deny|ask"
 }
 ```
+
+Policy semantics (clio's evaluator, descriptive):
+
+- Action enum is `allow | allow_session | allow_workspace | deny |
+  ask` — `allow_session`/`allow_workspace` enforce identically to
+  `allow`. The v0.1 `annotations_filter` key is **not evaluated**
+  (stored if sent, ignored).
+- Matching: **first match wins in list order**; empty `scope_id`
+  matches every session/workspace in scope; the path is extracted from
+  args `filepath|path|output_path|target_path` and matched both raw
+  and resolved.
+- Action `ask` matches but merely falls through to the rest of the
+  gate (it does NOT defeat the safe-shell fast-allow below).
+- Policies are consulted **ONLY for destructive-classified tool calls
+  and direct destructive routes** — non-destructive tools bypass
+  policies entirely (a `deny` policy on a non-destructive tool is
+  unenforced).
+
+**Gate semantics (clio, vendor-descriptive).** A tool call is
+destructive-classified when its lowercase name contains one of
+`delete | remove | rm_ | drop | destroy | exec | shell | write`.
+The gate then runs in order:
+
+1. user `pre_tool` hook veto → deny with NO row and NO event;
+2. non-destructive → fast-allow (policies never consulted);
+3. session `mode` ∈ {`plan`, `architect`} → auto-deny: `auto_denied`
+   row + `permission.resolved` with reason `session_mode_readonly`, NO
+   `permission.requested`;
+4. policy deny → `auto_denied` row + resolved event, reason
+   `policy_deny`;
+5. policy allow (any allow action) → `auto_approved` row + resolved
+   event, reason `policy_<action>`;
+6. safe-shell diagnostic fast-allow (read-only diagnostic chains and
+   tmp-file text-reshape pipelines) → allow with NO row/event;
+7. otherwise interactive: `pending` row + `permission.requested` +
+   the turn blocks for up to **600 s**. On timeout the row's status
+   becomes `timeout`, the call is denied, and **NO
+   `permission.resolved` event is emitted** — clients must not wait on
+   a resolved event for timeouts.
+
+**Session status during a pending permission**: the session stays
+`running` (clio never enters `waiting_permission`, §4.2) — pendency is
+observable only via `permission.requested` +
+`GET /v1/permissions?status=pending`.
+
+> **`x_clio_direct_delete_permissions=true`** (vendor): 12+ direct
+> DELETE-ish routes (sessions, workspaces, messages, agents, hooks,
+> MCP servers, schedules, diffs, catalog, …) run the same policy guard
+> with synthetic tool names namespaced `gact.*` (e.g.
+> `gact.session.delete`). Policy deny ⇒ `auto_denied` audit row + 403
+> `permission_error` with `details: {reason: "policy_deny",
+> recovery_actions: ["change_policy", "retry", "exit"]}`; otherwise an
+> `auto_approved` audit row (reason `policy_allow` or
+> `user_requested_*`) + `permission.resolved` event — **never an
+> interactive prompt**. Consequence: clients WILL receive
+> `permission.resolved` events with no matching `permission.requested`
+> (every auto/direct resolution) — a client keying resolved→requested
+> must tolerate unmatched ids.
+
+Backends MAY implement policies as simple per-tool toggles, or as rich rule engines (Gemini-style TOML with folder trust + shell safety). The contract specifies the data shape, not the evaluator.
 
 ### §6.12 Providers & Models
 
@@ -976,7 +1285,7 @@ If `capabilities.voice = true`:
 
 ### §6.15 Scheduled sessions (optional)
 
-If `capabilities.scheduled_sessions = true`. Implemented in clio f647db1
+If `capabilities.scheduled_sessions = true`. Implemented in clio 3527143
 as session-scoped schedules:
 
 | Method | Path | Body | Response |
@@ -1200,10 +1509,53 @@ Optional.
 | POST | `/v1/sessions/{id}/questions/{qid}/answer` | `AnswerUserQuestionRequest` | `UserQuestion` |
 | POST | `/v1/sessions/{id}/questions/{qid}/cancel` | — | `UserQuestion` |
 
-`UserQuestion` = `{id, session_id, prompt, status (pending/answered/
-cancelled/expired), kind (freeform/choice/confirmation), options[], …,
-answer, selected_options[]}`. Lifecycle is mirrored on SSE via the
-`user_question.*` events (§7.3).
+Implemented `UserQuestion` (clio `types.py:UserQuestion`):
+
+```json
+{
+  "id": "ques_<12hex>",
+  "session_id": "sess_...",
+  "prompt": "string",
+  "status": "pending",               // pending | answered | cancelled | expired
+  "kind": "freeform",                // freeform | choice | confirmation
+  "options": [{"label": "", "value": "", "description": ""}],
+  "created_at": "...", "updated_at": "...", "expires_at": "",
+  "source": "orchestrator",
+  "turn_id": "", "attempt_id": "",
+  "answer": "", "selected_options": [],
+  "answer_metadata": {}, "metadata": {}
+}
+```
+
+Semantics (clio, descriptive):
+
+- **`expired` is declared but inert** — never set; `expires_at` is
+  stored, not enforced; there is no `user_question.expired` event.
+- `kind: "confirmation"` with no options auto-injects Yes/No options.
+- `POST /questions`: 422 `bad_request` on empty prompt; always flips
+  the session to `waiting_user` + stamps
+  `metadata.pending_user_question_id`; emits `user_question.created`
+  with the full row.
+- `POST .../answer`: 404 `not_found` unknown/wrong-session; **409**
+  (tag `bad_request`) if not pending; **422** (tag `bad_request`) if
+  any `selected_options` entry is outside the question's option
+  value/label set (only enforced when the question has options).
+- **Ask-user turn lifecycle**: an orchestrator-raised question ends
+  the turn **WITHOUT a `message.completed` event** — the boundary is
+  `session.status_changed → waiting_user` (whose payload includes
+  `pending_user_question_id`). Answering the last pending question
+  whose `metadata.resume_on_answer` is set stages a NEW turn with a
+  server-synthesized `"[Answer to agent question]"` user message
+  (visible in `GET /messages`) and emits `user_question.resumed`
+  `{question_id, session_id, queued_user_message_id, source_turn_id}`
+  **BEFORE** `user_question.answered`.
+- `POST .../cancel` on a non-pending question still 200s and re-emits
+  `user_question.cancelled` with the row as-is.
+
+Lifecycle is mirrored on SSE via the `user_question.*` events (§7.3):
+`created`/`answered`/`cancelled` carry the full UserQuestion dump;
+`resumed` carries the 4-key dict above. Orchestrator-raised questions
+also produce a `semantic.event`.
 
 ## §6.24 Turn retry / attempts (vendor — `x_clio_retry_attempts`)
 
@@ -1212,18 +1564,67 @@ re-typing the user message. Optional.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/sessions/{id}/attempts` | — | `{attempts: [TurnAttempt]}` |
-| POST | `/v1/sessions/{id}/messages/{msg_id}/retry` | `RetryTurnRequest` `{notes?, execute?, model?, provider_id?, model_id?}` | `TurnAttempt` |
+| GET | `/v1/sessions/{id}/attempts` | — | `{attempts: [TurnAttempt]}` (unknown session → 404 `not_found`) |
+| POST | `/v1/sessions/{id}/messages/{msg_id}/retry` | `RetryTurnRequest` `{notes?, execute?, model?, provider_id?, model_id?}` | `TurnAttempt`, HTTP **202** |
+
+Implemented `TurnAttempt`:
+
+```json
+{
+  "id": "att_...",
+  "session_id": "sess_...",
+  "source_message_id": "msg_...",    // the USER message being retried
+  "status": "recorded",              // recorded | queued | running | completed | failed | cancelled
+  "notes": "", "model": {}, "warning": "", "metadata": {}
+}
+```
+
+Semantics (clio):
+
+- `execute: false` records the attempt only (`status: "recorded"`).
+- Pointing `msg_id` at an **assistant** message resolves back to the
+  source user message of that turn.
+- `notes` are appended to the re-run prompt as a `"[Retry notes]"`
+  block.
+- A `model` override that doesn't match the active model produces a
+  `warning` (when recorded) or a **422 unsupported-model error** (when
+  executing).
+- An execute request blocked from running settles the attempt as
+  `status: "failed"` with `metadata.execution_blocked_reason`.
+- Lifecycle rides SSE as `turn.retry_requested` /
+  `turn.retry_running` / `turn.retry_completed` / `turn.retry_failed`
+  / `turn.retry_cancelled`, each with the full TurnAttempt as payload
+  (§7.3a).
 
 ## §6.25 Compaction
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/v1/sessions/{id}/compact` | `{auto?, instructions?}` | compaction result; inserts a `compaction` part (§4.5) and emits `session.compacted` (§7.3) |
+| POST | `/v1/sessions/{id}/compact` | `{focus?: string}` (malformed body tolerated) | 200 `{session_id, compacted: true, event_id: "mem_evt_...", archived_count: int, summary: string}` — or 200 `{session_id, compacted: false, reason}` when there is nothing to compact |
+
+Errors: 404 `not_found` (unknown session — note: this route uses the
+canonical tag), 503 `agent_unavailable` (no LM agent bound), 502
+`upstream_error` (summarization failed), 500 `memory_update_failed`
+(ARC store failure).
+
+Behavior (clio 3527143, descriptive):
+
+- The transcript source is the text parts of the **last 50 messages**.
+- On success the visible ledger is **REPLACED by ONE synthetic
+  assistant `text` message** (`msg_compact_*`) whose single part
+  carries `metadata.synthetic: "compact_summary"` +
+  `memory_event_id`. **There is no `compaction` part type** on clio's
+  wire (§4.5, §10 item 3).
+- The original messages are archived **in-memory only**
+  (process-lifetime); the ARC conversation is replaced with the
+  summary when ARC is configured.
+- Emits `session.compacted` with payload `{event_id, archived_count,
+  summary_chars, summary_message_id, version: 1}` (§7.3a) plus a
+  `memory.compacted` semantic event (semantic spine only, §7.6).
 
 This is the implemented path for both history compaction and the
-user-facing summary (the `session_summary` flag's intended `/summarize`
-route is not registered — see §6.2).
+user-facing summary (the `/summarize` route is not registered and
+`session_summary` is truthfully advertised `false` — see §6.2).
 
 ---
 
@@ -1231,24 +1632,51 @@ route is not registered — see §6.2).
 
 ### §7.1 Subscription
 
-**Implemented (clio f647db1): SSE is session-scoped only.**
+**Implemented (clio 3527143): SSE is session-scoped only.**
 
 - `GET /v1/sessions/{id}/events` — events for one session.
 
 > **Drift note.** The v0.1 sketch also defined a global
 > `GET /v1/events?workspace_id=...` workspace-wide stream. That route is
-> **[NOT IMPLEMENTED in clio f647db1]** (returns `404`). A client driving
+> **[NOT IMPLEMENTED in clio 3527143]** (returns `404`). A client driving
 > clio subscribes per session. The global stream remains valid spec
 > surface for backends that want it, but MUST NOT be assumed present —
 > read it as optional and probe.
 
-On connect clio sends `server.connected` immediately, then a
-`session.snapshot` event (authoritative `{session_id, status, updated_at,
-authoritative: true}`) so the client can reconcile state, then live
-events. A `server.heartbeat` is emitted every 15 seconds. Reconnection
-uses standard SSE `Last-Event-ID`; the bus replays buffered events newer
-than that id (bounded history per session), so a client that connects
-right after POSTing a message still receives that turn's events.
+**Connection preamble.** On connect clio sends `server.connected`
+immediately, then a `session.snapshot` event (authoritative
+`{session_id, status, updated_at, authoritative: true}`) so the client
+can reconcile state, then replayed + live events. The preamble always
+carries **`id: 0`**, is re-sent on every (re)connect, and is NOT part
+of the replay timeline. All real event ids are **≥ 1, strictly
+ascending per session but non-contiguous** (ids come from a single
+process-global counter shared across sessions and global events).
+Response headers: `Cache-Control: no-cache`,
+`Connection: keep-alive`, `X-Accel-Buffering: no`.
+
+**Replay (`Last-Event-ID`).** Reconnection uses standard SSE
+`Last-Event-ID` (unparseable → treated as 0). Replay yields only
+events with `id > Last-Event-ID` from a per-session buffer bounded at
+**256 non-transient events**, merged with global (`session_id = ""`)
+events, ordered by id. Replayed events keep their original `id` and
+`occurred_at` and carry **`replay: true`** in the envelope (§7.2);
+live duplicates of already-replayed ids are suppressed, so
+replay-vs-live duplication cannot occur. Resume beyond the 256-event
+window is NOT gap-free — clients recover via `GET /messages` refetch.
+Slow consumers may lose events silently (subscriber queue depth 256,
+drop-on-full) — same recovery.
+
+**Heartbeats are TRANSIENT.** A `server.heartbeat` (`{}` payload) is
+emitted at least every 15 seconds per attached connection (multiple
+clients on one session may observe more). Heartbeats are delivered to
+live subscribers only — they are **never recorded in replay history**
+(so an idle hour cannot evict real events from the resume window; clio
+#761) and never counted as turn progress.
+
+**Global events.** Events published with `session_id = ""`
+(`lm.provider.changed`/`lm.provider.failed`, `mcp.server.error`/
+`mcp.server.reconnected`) fan out to EVERY live session stream and
+appear in every session's replay merge.
 
 ### §7.2 Event envelope
 
@@ -1257,54 +1685,89 @@ Every SSE event has the shape:
 ```
 event: <event_type>
 id: <monotonic event id>
-data: { "type": "<event_type>", "occurred_at": "...", "payload": { ... } }
+data: { "type": "<event_type>", "occurred_at": "...", "payload": { ... }, "replay": true? }
 ```
 
 The `event:` line and `data.type` are redundant on purpose — clients SHOULD use `data.type` (it survives JSON-only inspection) and may use `event:` for native SSE listener routing.
+
+`replay?: true` is present **only** on events re-delivered from the
+replay buffer (§7.1); live events omit the key.
 
 ### §7.3 Event taxonomy
 
 Event types are namespaced by resource. Unknown types MUST be tolerated and ignored by clients that don't recognize them.
 
-#### §7.3a Implemented event set (clio f647db1)
+#### §7.3a Implemented event set (clio 3527143)
 
 These are the wire event `type` values the reference backend actually
 publishes on `GET /v1/sessions/{id}/events`. The message-streaming core
 (`server.*`, `session.status_changed`, `message.*`) matches the v0.1
 sketch; the rest reflect clio's resource model.
 
-| Type | When emitted | Notes |
+| Type | When emitted | Payload |
 |---|---|---|
-| `server.connected` | On stream open | `{server_version}` |
-| `server.heartbeat` | Every 15s | `{}` |
-| `session.snapshot` | Right after `server.connected` | `{session_id, status, updated_at, authoritative}` |
-| `session.status_changed` | status transition | `{session_id, status, prev_status?}` |
-| `session.updated` | session metadata changed | — |
-| `session.compacted` | history compacted (a `compaction` part inserted) | §6.25 |
-| `session.cleared` | session history cleared | — |
-| `session.active_pack` | active expert pack changed (§6.22) | vendor |
-| `session.active_agent_blueprint` | active blueprint changed (§6.21) | vendor |
-| `message.created` | new message frame | `{message: Message}` |
-| `message.part.added` | new part appended | `{message_id, part: Part}` |
-| `message.part.delta` | streaming part delta | `{message_id, part_id, delta}` (§7.5) |
-| `message.part.completed` | part finalized | `{message_id, part_id}` |
-| `message.completed` | message done | `{message_id, stop_reason, tokens, cost_usd}` |
-| `message.deleted` | message removed | `{message_id}` |
-| `tool.call.started` / `tool.call.completed` | tool exec start/finish | `{call_id, tool_name, server_id?}` / `{call_id, is_error}` |
-| `tool.started` | bundled-gateway tool started | vendor |
+| `server.connected` | On stream open (id 0, preamble) | `{server_version}` |
+| `server.heartbeat` | ≥ every 15s per attached connection; TRANSIENT (never replayed, §7.1) | `{}` |
+| `session.snapshot` | Right after `server.connected` (id 0, preamble) | `{session_id, status, updated_at, authoritative: true}` |
+| `session.status_changed` | status transition | `{session_id, status, prev_status?, updated_at, reason?, pending_user_question_id?}`; on `/cancel` additionally `{execution_cancellation: "cooperative_pending"\|"none"\|"turn_boundary"\|"best_effort", executor_work_may_continue, cancellation_attempt}`. **No `session.cancelled` event type exists** |
+| `session.updated` | PATCH `/v1/sessions/{id}` and after undo/rewind (only) | payload IS the **full Session object** (model_dump; zero-values present) |
+| `session.compacted` | `/compact` succeeded (§6.25) | `{event_id, archived_count, summary_chars, summary_message_id, version: 1}` |
+| `session.cleared` | `/clear` backend command wiped the ledger (policy-guarded) | `{session_id}` |
+| `session.undo` / `session.rewind` | rollback committed (§6.2) — after per-message `message.deleted`, before `session.updated` | `{session_id, deleted_message_ids, target_message_id, include_target}` (`target_message_id: ""` / `include_target: false` for undo) |
+| `message.created` | new message frame (user msg, streamed assistant frame, finalize assistant frame, tool-observer frame) | payload IS the **flat wire Message** (`Message.to_wire()`) — **NOT** `{message: Message}`. Assistant frames arrive with `parts: []` and a `turn_id`. No `role: "tool"` messages are emitted (tool results are `tool_result` parts on the assistant message) |
+| `message.part.added` | new part appended | `{turn_id, message_id, stream_source: "live"\|"batch", part}` |
+| `message.part.delta` | streaming part delta | `{turn_id, message_id, part_id, stream_source: "live", signature_field_name, delta: {text_append}}` — thinking parts ALSO use `text_append` (§7.5) |
+| `message.part.completed` | part finalized | `{turn_id, message_id, part_id, stream_source, final_text, stream_fallback?}` — **`final_text` is authoritative**: clients MUST replace buffered deltas with it. A streamed part whose text cleans to empty is dropped and never receives `part.completed` |
+| `message.completed` | turn settled | `{turn_id, message_id, stop_reason: end_turn\|error\|cancelled\|blocked, tokens, cost_usd, error_info?, metadata?}` — exactly one per turn EXCEPT the ask-user pause (none, §6.23). Turn failures surface as `error_info` here + `session.status_changed(error)`; there is no `message.error` event |
+| `message.deleted` | message removed | `{message_id, session_id, operation?}` (`operation` = `undo`\|`rewind` on rollback) |
+| `tool.call.started` | tool exec start | `{call_id, tool, args, telemetry_source}` (key is `tool`, not `tool_name`) |
+| `tool.call.completed` | tool exec finish | `{call_id, tool, ok, duration_ms, cached, telemetry_source, error?, result? (bounded), execution_cancellation?, executor_work_may_continue?}` (key is `ok`, not `is_error`) |
 | `tool.selection.invalid` | router picked an unavailable tool | vendor |
-| `permission.requested` / `permission.resolved` | approval lifecycle | `{permission}` / `{permission_id, action}` |
+| `permission.requested` | interactive gate blocked (§6.11) | payload IS the **flat PermissionRequest row** (§4.7) — NOT `{permission: ...}`. Replayed copies may show post-resolution `status`/`action` (the payload is mutated by reference) |
+| `permission.resolved` | resolution (user or auto) | `{permission_id, action, session_id, reason?}` — arrives WITHOUT a matching `requested` event for all auto/direct resolutions |
 | `subagent.started` / `subagent.completed` | subsession lifecycle | §4.3 |
-| `agent.invocation.started` / `agent.invocation.completed` | agent loop boundaries | vendor |
-| `turn.started` / `turn.completed` / `turn.failed` | turn lifecycle | vendor |
-| `turn.retry_requested` | a retry was queued (§6.24) | vendor |
+| `turn.started` / `turn.completed` | normalized transcript channel (see §7.3c) | `{turn_id, agent_id}` / `{turn_id}`. **`turn.failed` is NOT a bus event** (semantic.event only, §7.6) |
+| `turn.retry_requested` / `turn.retry_running` / `turn.retry_completed` / `turn.retry_failed` / `turn.retry_cancelled` | retry lifecycle (§6.24) | full TurnAttempt (flat) |
 | `context.file.added` / `context.file.removed` | session context files (§6.9) | — |
-| `context.frame.created` / `context.frame.completed` | per-turn context frame (§6.9) | vendor |
-| `file.diff.applied` / `file.diff.rejected` / `file.diff.write_failed` | diff apply lifecycle (§6.10) | — |
-| `memory.compacted` / `memory.policy_summary` / `memory.search.completed` | memory subsystem | vendor |
-| `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | — |
-| `user_question.created` / `.answered` / `.cancelled` / `.resumed` | ask-user lifecycle (§6.23) | vendor |
+| `file.diff.applied` / `file.diff.rejected` | diff apply lifecycle (§6.10) | `{session_id, path, part_id, message_id}` |
+| `file.diff.write_failed` | diff write failed (§6.10) | `{session_id, path, part_id, message_id, error}` |
+| `memory.search.completed` | memory search served | vendor |
+| `memory_search_sessions.completed` / `.denied`, `memory_read_session_summary.completed` / `.denied`, `memory_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
+| `arc.op` | context mutations (allow-listed ids/kinds/token_count only) | vendor |
+| `agent.reasoning.delta` | throttled (≥1 s) liveness ping while the model reasons | `{stream_source: "reasoning"}` — carries NO text; vendor |
+| `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | global (`session_id: ""`, broadcast to all streams) |
+| `mcp.server.error` / `mcp.server.reconnected` | MCP server health transitions | global (`session_id: ""`, broadcast to all streams) |
+| `user_question.created` / `.answered` / `.cancelled` / `.resumed` | ask-user lifecycle (§6.23) | full UserQuestion; `.resumed` = `{question_id, session_id, queued_user_message_id, source_turn_id}` |
 | `semantic.event` | the semantic-execution spine | §7.6 (vendor; `x_clio_semantic_events`) |
+
+Removed from this table vs earlier drafts because clio does **not**
+publish them on the bus (they are read via REST or ride
+`semantic.event` / synthetic system `message.created` frames):
+`tool.started`, `agent.invocation.started/completed`,
+`context.frame.created/completed`, `memory.compacted`,
+`memory.policy_summary`, `session.active_pack`,
+`session.active_agent_blueprint`.
+
+There is no `file.diff.proposed` event — a diff proposal arrives as a
+batch `message.part.added` (`file_diff` part) plus a `semantic.event`
+`artifact.proposed` `{path, unified_diff, new_content, edit_mode,
+lines_added, lines_removed}`.
+
+#### §7.3c Normalized transcript channel (vendor, PROVISIONAL)
+
+clio double-publishes a normalized `turn.*` transcript channel on the
+same bus alongside `message.*`: `turn.started {turn_id, agent_id}`,
+`turn.completed {turn_id}`, `turn.text.delta {turn_id, agent_id,
+part_id, field: answer|thought, text_append}`, `turn.trace.delta
+{turn_id, trace_id, trace_kind: "model_aux", agent_id, part_id,
+text_append}`, `turn.action.added {turn_id, action: {kind:
+agent_call|return|tool_call, ...}}`, `call.result.delta {call_id,
+content_type, text_append, value_append?}`, and `state.updated
+{turn_id, value, visibility: "hidden"}`.
+
+**Status: provisional — codify-or-deprecate is tracked in
+iowarp/gact-tui#232.** It currently has zero client consumers; do NOT
+build on it until #232 resolves.
 
 #### §7.3b Specified-but-not-emitted by clio
 
@@ -1317,56 +1780,99 @@ offers an alternative, it is noted.
 |---|---|---|
 | `server.disposed` | not emitted | — |
 | `workspace.updated` | not emitted | — |
-| `session.created` / `session.deleted` | not emitted | discover via REST list |
+| `session.created` | not emitted | discover via REST list |
+| `session.deleted` | **not emitted — PROPOSED addition** (owner decision on iowarp/gact-tui#232: to be added as a broadcast `{session_id, workspace_id}`; tracked as a clio issue). Until then, session deletion by another client is unobservable | REST list refetch (unreliable — lists are workspace+archive filtered) |
 | `session.summarized` | not emitted | `session.compacted` (§6.25) |
-| `message.error` | not emitted | `Message.error_info` (§14) / `turn.failed` |
+| `message.error` | not emitted | `message.completed.error_info` (§14) + `session.status_changed(error)` |
 | `tool.call.progress` | not emitted | — |
-| `mcp.server.status` / `mcp.*.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted | poll `/v1/mcp/servers` |
+| `mcp.server.status` / `mcp.*.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a) | poll `/v1/mcp/servers` |
 | `file.changed` | not emitted | — |
-| `diff.generated` | not emitted | `file.diff.*` cover apply/reject |
+| `diff.generated` | not emitted | `file.diff.*` cover apply/reject; proposal = batch `message.part.added` + semantic `artifact.proposed` |
 | `cost.updated` | not emitted | rollups arrive on `message.completed` |
 | `notification` | not emitted | — |
+| `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 
 ### §7.4 Streaming a message
 
-The canonical flow for an assistant turn:
+The implemented flow for an assistant turn (clio 3527143 — note flat
+`message.created` payloads throughout):
 
 ```
-session.status_changed     { status: "running" }
-message.created            { message: { id, role: "assistant", parts: [], ... } }
-message.part.added         { part: { id: p1, type: "thinking", thinking: "" } }
-message.part.delta         { part_id: p1, delta: { text_append: "Let me think..." } }
-message.part.delta         { part_id: p1, delta: { text_append: " about this." } }
-message.part.completed     { part_id: p1 }
-message.part.added         { part: { id: p2, type: "text", text: "" } }
-message.part.delta         { part_id: p2, delta: { text_append: "Here's what..." } }
+session.status_changed     { session_id, status: "running", prev_status: "idle" }
+message.created            { id: mu, role: "user", parts: [...], turn_id: mu, ... }        [flat wire Message]
+message.created            { id: ma, role: "assistant", parts: [], turn_id: mu, ... }      [on first chunk / first tool part]
+message.part.added         { turn_id, message_id: ma, stream_source: "live",
+                             part: { id: p1, type: "thinking"|"text", ... } }
+message.part.delta         { turn_id, message_id: ma, part_id: p1, stream_source: "live",
+                             signature_field_name, delta: { text_append: "..." } }
+...                        [text parts close at every runtime boundary:
+                            tool call, expert switch, field switch]
+message.part.completed     { turn_id, message_id: ma, part_id: p1, stream_source: "live",
+                             final_text: "<authoritative cleaned text>" }
+message.part.added         { ..., part: { type: "tool_call", call_id: "c1", ... } }        [COMPLETE — inputs are never streamed]
+permission.requested       { id, session_id, tool_call: {tool_name, input}, summary,
+                             created_at, status: "pending" }                               [flat row; only if the gate blocks]
+permission.resolved        { permission_id, action: "allow", session_id }
+tool.call.started          { call_id: "c1", tool, args, telemetry_source }
+tool.call.completed        { call_id: "c1", tool, ok, duration_ms, cached, ... }
+message.part.added         { ..., part: { type: "tool_result", call_id: "c1", ... } }      [on the assistant message — NO role:"tool" frames]
 ...
-message.part.completed     { part_id: p2 }
-message.part.added         { part: { id: p3, type: "tool_call", call_id: "c1", tool_name: "edit_file", input: {} } }
-message.part.delta         { part_id: p3, delta: { input_json_append: "{\"path\":" } }
-message.part.delta         { part_id: p3, delta: { input_json_append: "\"main.go\"}" } }
-message.part.completed     { part_id: p3 }
-permission.requested       { permission: {...} }                      [if permission needed]
-permission.resolved        { permission_id, action: "allow" }         [user responded]
-tool.call.started          { call_id: "c1", tool_name: "edit_file" }
-tool.call.completed        { call_id: "c1", is_error: false }
-message.created            { message: { id: ..., role: "tool", parts: [{type: "tool_result", call_id: "c1", content: [...]}] } }
-... (assistant continues with another message)
-message.completed          { message_id: <last assistant>, stop_reason: "end_turn", tokens: {...}, cost_usd: ... }
-session.status_changed     { status: "idle" }
+message.part.completed     { ..., final_text }                                             [finalize may RE-emit part.completed with the
+                                                                                            parsed clean final_text for a streamed part]
+message.part.added         { ..., stream_source: "batch", part: {...} }                    [batch fallback: whole part, no deltas,
+message.part.completed     { ..., stream_source: "batch", final_text, stream_fallback }     then completed]
+message.completed          { turn_id, message_id: ma, stop_reason: "end_turn",
+                             tokens: {...}, cost_usd, metadata: {...} }
+session.status_changed     { session_id, status: "idle", prev_status: "running", updated_at }
 ```
+
+Per expert/field text segment: one `part.added` + N `part.delta` + one
+`part.completed(final_text)`. Batch (non-streamed) parts get
+`part.added` + `part.completed` with `stream_source: "batch"` (+
+`stream_fallback` reason, §3.3) at finalize — **no synthetic post-hoc
+deltas are ever replayed** (`x_clio_synthetic_posthoc_streaming:
+false`).
+
+#### §7.4a Turn lifecycle invariant (clio #756)
+
+**Every turn terminates.** A crash inside finalize itself settles via
+a last-resort path (`_settle_failed_finalize`): a persisted
+empty-parts assistant message with `stop_reason: "error"` and
+`error_info.error: "finalize_error"` (`details.reason:
+"turn_finalize_error"`, `details.stage: "finalize"`), a
+`message.completed(stop_reason: "error")` event, the retry attempt
+marked `failed`, and `session.status_changed → error`. The settle is
+skipped only if the session already left `running`. Clients can
+therefore rely on: after `session.status_changed(running)`, a terminal
+`message.completed` + terminal `session.status_changed` always arrive
+— except the ask-user pause, whose boundary is
+`session.status_changed → waiting_user` (§6.23).
+
+Related terminal envelopes: the no-progress watchdog
+(`CLIO_GACT_TURN_TIMEOUT_S`; per-session progress heartbeat +
+process-global LM-activity liveness, clio #761) aborts a stalled turn
+with `error_info.error: "provider_timeout"` (`recoverable: true`,
+`stop_reason: "error"`) and keeps partial streamed text as the answer.
+Empty-output turns settle as `error_info.error: "empty_response"`.
 
 ### §7.5 Delta shapes
 
-| Part type | Delta keys |
+| Part type | Delta keys (clio) |
 |---|---|
 | `text` | `text_append: string` |
-| `thinking` | `thinking_append: string`, `signature?: string` (set on completion) |
-| `tool_call` | `input_json_append: string` (concatenate, parse on completion), `annotations?` |
+| `thinking` | `text_append: string` — clio streams thinking parts with `text_append`, NOT `thinking_append` |
+| `tool_call` | never streamed by clio — `tool_call` parts arrive complete via `part.added` |
 | Other | backend-defined; clients tolerate unknown delta shapes |
+
+`thinking_append` and `input_json_append` are **never emitted by
+clio**; they remain valid delta keys for other backends only. Delta
+events carry the vendor fields `stream_source` and
+`signature_field_name` (§4.5) — provider-native thinking parts stream
+as `type: "thinking"` with `metadata: {thinking_source: "provider",
+provider_source, default_collapsed: true}`.
 
 ### §7.6 Semantic events (vendor — `x_clio_semantic_events`)
 
@@ -1398,19 +1904,29 @@ Envelope (clio `semantic_events.py:SemanticEvent.to_dict`):
 }
 ```
 
-Observed `event_type` values include: `turn.started` / `turn.completed`
-/ `turn.failed`, `tool.call.started` / `tool.call.completed` /
-`tool.selection.invalid`, `agent.invocation.started` /
-`agent.invocation.completed`, `subagent.started` / `subagent.completed`,
-`memory.compacted` / `memory.search.completed`. The set is open.
+**Served allow-list.** The semantic spine captures far more than it
+serves. Only these `event_type` values reach the SSE wire:
+`react.step.completed`, `expert.extract.completed`,
+`expert.response.completed`, `expert.lifecycle.started`,
+`(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
+`.failed`, `memory.search.completed` — **PLUS any event whose `status`
+is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
+else (turn/agent/hook lifecycle, `tool.call.*` mirrors,
+`lm.token.delta`, `memory.compacted`, `arc.op`) is captured on the
+durable trace/ARC/hooks but NOT served over SSE. The captured set is
+open.
 
 **Detail levels** (`x_clio_semantic_trace_detail`, also per-event):
-`off` suppresses the event; `metadata` emits envelope fields but empty
-payloads; `semantic` (default) emits payloads with sensitive keys
-(prompts, inputs, outputs, secrets, transcripts, …) redacted to
-`"[redacted]:N chars"`; `full_debug` emits raw payloads. Durable tracing
-is controlled by `x_clio_semantic_trace_backend` (`none`/`file`/
-`factory`).
+`off` suppresses SSE + hooks but never durable capture; `metadata`
+emits envelope fields but empty payloads; `semantic` (default) emits
+payloads where **only genuine credentials** (keys matching
+`api_key`/`token`/`password`/`secret`/…) are redacted to
+`"[redacted]:N chars"` — session content (text, reasoning, prompts,
+results) passes through, and reasoning is explicitly kept on
+`react.step.completed` and `expert.extract.completed`; `full_debug`
+emits raw payloads. `lm.token.delta` is always captured at `off`
+detail and never appears on the wire. Durable tracing is controlled by
+`x_clio_semantic_trace_backend` (`none`/`file`/`factory`).
 
 > **Note for generic clients.** `semantic.event` is the clio answer to
 > the unimplemented `session.agent_routed` / `memory.cache.updated`
@@ -1492,7 +2008,7 @@ The 10 questions raised during design review are decided here. Several are expli
 
 2. **System messages: in the message stream as `role: "system"`.** Default included; suppressible via `?include_system=false`. Backends that store the system prompt only in session config simply never emit one. See §4.4.
 
-3. **Compaction: both a part type and an event.** The `compaction` part type (§4.5) lives in the message history for archaeological reasons (the user can see "history was compacted here, summary: X"). The `session.compacted` event (§7.3) lets the TUI react in real time.
+3. **Compaction: an event, plus a visible marker in history.** The `session.compacted` event (§7.3) lets the TUI react in real time. The original design paired it with a `compaction` part type (§4.5) as the in-history marker; **the reference backend does not emit that part** — clio instead replaces the ledger with one synthetic assistant `text` message flagged `metadata.synthetic: "compact_summary"` (§6.25), which serves the same archaeological purpose. The part type remains valid for backends that keep pre-compaction history inline.
 
 4. **Search: yes, `GET /v1/sessions/{id}/messages/search?q=...`** (§6.3). Gated by `capabilities.search_messages`. Simple full-text shape, returns matches with snippets. Backend ranks however it wants.
 
@@ -1538,21 +2054,60 @@ v0.2 adds a **typed error taxonomy** used by backends reporting `capabilities.st
 
 `error`, `message`, and `recoverable` are required. `details` is always an object (possibly empty) — clients treat it as display-only metadata and never rely on specific keys.
 
-### 14.2 Canonical error types
+### 14.2 Emitted error types (clio 3527143) + target set
+
+The taxonomy below documents the tags the reference backend
+**actually emits**, split into the two tiers where they appear. Tags
+are an open set; the TUI treats unknown types as `internal_error` for
+rendering while preserving the original in round-trips. Backends MAY
+add vendor-specific types prefixed `x_<vendor>_`.
+
+**Tier A — HTTP response tags** (§6.0 envelope on 4xx/5xx):
+
+| `error` | HTTP | Meaning |
+|---|---|---|
+| `not_found` | 404 | Resource missing — **canonical** for all resource-missing 404s |
+| `validation_error` | 400/422 | Body/param failed validation |
+| `bad_request` | 400/409/422 | Malformed or state-invalid request (question routes, §6.23) |
+| `conflict` | 409 | State conflict (e.g. rollback while `running`) |
+| `permission_error` | 401/403 | Policy/scope rejected the request (incl. `details.scope: "other_workspace"`, direct-destructive `policy_deny`) |
+| `unsupported` | 405/501 | Method or model/vision capability not supported |
+| `not_implemented` | 501 | Endpoint recognised but not implemented |
+| `agent_not_available` | 503 | No agent built (`details.agent_status`, `details.recovery_actions[]`) |
+| `provider_configuring` | 503 | LM config in flight — retry after `/v1/providers/lm/wait` |
+| `arc_unavailable` / `compaction_unavailable` / `dependency_missing` / `upstream_unavailable` | 503 | Readiness family — a dependency is down |
+| `agent_unavailable` / `upstream_error` / `memory_update_failed` | 503/502/500 | `/compact` pipeline errors (§6.25) |
+| `internal_error` | 5xx (and legacy 404/422) | Unclassified failure. **Legacy**: many session-lookup 404s and a few 422s still emit this tag — clients must tolerate it where `not_found`/`validation_error` is meant (§6.0) |
+| `request_error` | any | Fallback wrapper for unclassified request failures |
+
+**Tier B — turn-settlement tags** (`message.error_info` /
+`message.completed.error_info`):
 
 | `error` | Meaning | TUI default rendering |
 |---|---|---|
 | `provider_error` | Upstream LM / model provider failed (timeout, auth, rate-limit) | Red toast, offer retry, surface provider name |
+| `provider_timeout` | No-progress watchdog aborted a stalled turn (clio #761); partial streamed text kept; `recoverable: true` | Offer retry |
+| `finalize_error` | Finalize itself crashed; settled by the §7.4a invariant (`details.reason: "turn_finalize_error"`, `details.stage: "finalize"`); `recoverable: true` | Offer retry |
+| `empty_response` | Model produced no usable output | Offer retry |
+| `cancelled` | User cancelled (§6.2 `/cancel`); details carry `execution_cancellation`, `executor_work_may_continue`, `cancellation_attempt` | Silent; show the session settled `cancelled` |
+| `permission_error` | Pre-message hook veto (`stop_reason: "blocked"`) or gate denial killed the turn | Modal with what was blocked |
+| `tool_error` | Tool invocation returned an error dict or raised | Inline under the tool row, don't kill the turn |
 | `routing_error` | Tier-1 orchestrator (§4.3.1) couldn't classify the query | Transient warning; backend typically falls back gracefully |
 | `agent_error` | A tier-2 agent's loop failed | Red per-turn badge, keep session open |
-| `tool_error` | Tool invocation returned an error dict or raised | Inline under the tool row, don't kill the turn |
-| `permission_error` | Backend's file/path/capability policy rejected the request | Modal with policy name + which op was blocked |
 | `config_error` | Env/config invalid (missing API key, bad endpoint) | Route to Settings / `/v1/health` doctor view |
-| `cancelled` | User cancelled (§6.11 / Ctrl+C) | Silent; just show the session returned to idle |
-| `rate_limited` | Soft-limit backoff, not a hard failure | Transient; auto-retry after `retry_after_s` |
-| `internal_error` | Unclassified backend failure | Generic red toast; backends MUST NOT leak stack traces via `message` |
+| `rate_limited` | Soft-limit backoff, not a hard failure | Transient; auto-retry after `retry_after_s` (never emitted by clio today) |
 
-Backends MAY add vendor-specific types prefixed `x_<vendor>_`. The TUI treats unknown types as `internal_error` for rendering while preserving the original in round-trips.
+**`details.recovery_actions[]` convention**: error `details` MAY carry
+a `recovery_actions: string[]` list of machine-readable next steps
+(e.g. `["change_policy", "retry", "exit"]`, `["configure_model"]`).
+Display-only; clients MUST NOT branch on specific values.
+
+**Target coherent set (normative for new code).** New clio code MUST
+emit `not_found` for every resource-missing 404, `validation_error` /
+`bad_request` for 400/422, and MUST NOT mint new uses of
+`internal_error` for classifiable failures. The legacy
+`internal_error`-on-404 emissions above are grandfathered for clients
+to tolerate, not a license to add more.
 
 ### 14.3 `recoverable` semantics
 
@@ -1581,19 +2136,22 @@ Without those four, there is no useful TUI to render.
 
 ---
 
-## §15 Implementation status — reconciliation drift list (clio f647db1)
+## §15 Implementation status — remaining drift list (clio 3527143)
 
-Consolidated record of where the reference backend
-(`clio-agent-gact`, iowarp/clio-agent @ develop `f647db1`, plus a live
-`/v1/capabilities`) diverges from the prose above. The implementation is
-authoritative; this list exists so adapter and client authors know what
-to depend on.
+Consolidated record of what **remains known-divergent** after the
+2026-07 reconciliation (iowarp/gact-tui#232). The implementation is
+authoritative; this list exists so adapter and client authors know
+what to depend on. Items resolved by Phase 0 (capability
+truthfulness, heartbeat transience, the `replay` flag, the finalize
+error envelope, sticky-grant persistence) are now **documented
+behavior above, not drift**.
 
 ### 15.1 Endpoints — present but renamed/reshaped vs v0.1 sketch
 - **SSE is session-scoped only**: `GET /v1/sessions/{id}/events`. The
   global `GET /v1/events` is **not implemented** (§7.1).
 - **Summarization is `/compact`**: `POST /v1/sessions/{id}/compact`
-  (§6.25). The `/summarize` route is not registered (§6.2).
+  (§6.25). The `/summarize` route is not registered; `session_summary`
+  is truthfully `false` (§6.2).
 - **Tool catalog** is `GET /v1/tools` (unified) + `/v1/catalog/tools`
   alias; `Tool` list rows omit `input_schema`/`annotations` (§6.6).
 - **LM config** is the `GET`/`PUT /v1/providers/lm` singleton, not the
@@ -1602,10 +2160,14 @@ to depend on.
   convenience field + per-turn `agent`/`agent_id` (§6.3).
 - **Error discriminator key is `error`** (the §14 tag), not `code` (§6.0).
 
-### 15.2 Endpoints — specified but NOT implemented in clio
+### 15.2 Endpoints / params — specified but NOT implemented in clio
 - `GET /v1/events` (global stream) — §7.1
-- `POST /v1/sessions/{id}/summarize` — §6.2 (caps over-claims `session_summary`)
-- `POST /v1/sessions/{id}/attachments` — caps over-claims `attachments_upload`
+- `POST /v1/sessions/{id}/summarize`, `POST /v1/sessions/{id}/attachments`
+  — routes absent AND flags truthfully `false` (§3.3)
+- Pagination everywhere: `GET /v1/sessions` ignores
+  `parent_session_id`/`limit`/`before` (reserved); `GET /messages`
+  ignores `before`/`limit`/`include_system` and always returns
+  `next_cursor: null` (§6.2, §6.3)
 - `PATCH /v1/sessions/{id}/context/files` — §6.9
 - `PATCH /v1/sessions/{id}/messages/{id}/parts/{id}` — §6.3
 - `GET /v1/permissions/{id}` — §6.11
@@ -1624,64 +2186,90 @@ to depend on.
 - Scheduled sessions + sharing (§6.15, §6.15b)
 - `DELETE /v1/messages/{id}` session-less alias (§6.3)
 
-### 15.4 Shape drift (implementation wins)
+### 15.4 Shape drift (implementation wins — now codified above)
 - `Session`: flattened `tokens_input`/`tokens_output`; boolean
-  `archived` (no `archived_at`); adds `mode`/`edit_mode`/`routing_mode`;
-  status enum adds `waiting_user`,`cancelled`; empty-string optionals,
-  not `null` (§4.2).
-- `Message`: nested `tokens`; **no per-message `model`**; `stop_reason`
-  open string (§4.4).
+  `archived`; adds `mode`/`edit_mode`/`routing_mode`; status enum adds
+  `waiting_user`/`cancelled` (and `waiting_permission` is never
+  emitted); zero-values serialized, never `null` (§4.2).
+- `Message`: nested `tokens`; **no per-message `model`**; adds
+  `turn_id`; `stop_reason` open string with observed set
+  `end_turn|error|cancelled|blocked` (§4.4).
 - `Part`: single flat struct; `image` uses flat `data`/`url`/`media_type`;
   `file_diff` uses `unified_diff`/`new_content`/`status`/`edit_mode`/
   `lines_added`/`lines_removed`; `routing_decision` adds `execution_path`
   (§4.5).
+- `PermissionRequest`: thin row + lifecycle fields; no
+  `subsession_id`/`call_id`/`server_id`/`annotations` (§4.7).
 - `AgentDef`: flat `default_provider`/`default_model`; `parameters` is an
   object; adds many fields incl. `capability_refs`, `source:"expert_pack"`
   (§6.5).
 - Error body wraps `ErrorInfo` (`error`/`message`/`details`/`recoverable`/
-  `retry_after_s`) (§6.0/§14).
+  `retry_after_s` — the latter never emitted) (§6.0/§14).
+- Rollback responses use the eight-key envelope; `reverted_messages`
+  does not exist (§6.2).
 
 ### 15.5 SSE events
-- Implemented set in §7.3a; specified-but-not-emitted in §7.3b.
+- Implemented set + exact payloads in §7.3a; specified-but-not-emitted
+  in §7.3b; provisional normalized channel in §7.3c.
+- `message.created` payloads are **flat** wire Messages (codified —
+  the `{message: ...}` nesting was v0.1 sketch only).
+- Heartbeat transience and the `replay: true` flag are documented
+  behavior (§7.1/§7.2), not drift.
 - The three v0.2 events (`session.agent_routed`, `memory.cache.updated`,
   `integration.status_changed`) are **not emitted**; clio's higher-level
   story is the `semantic.event` spine (§7.6) plus polling for caps/health.
 
 ### 15.6 Capabilities envelope
-- Full implemented flag map in §3.3 (incl. all `x_clio_*` vendor flags).
-- `backend.version` is the build version (`0.1.0`), distinct from
-  `contract_version` (`0.2`).
-- `auth.schemes = ["trust_socket"]` only; no `bearer` (§5).
+- Full implemented flag map in §3.3 (incl. all `x_clio_*` vendor
+  flags); truthful in both directions since Phase 0.
+- `backend.version` is the installed package version (dynamic,
+  currently 0.5.x), distinct from `contract_version` (`0.2`).
+- `auth.schemes = ["trust_socket"]` only; no `bearer`; trust_socket
+  means unauthenticated loopback TCP (§5).
 - `extensions = []`.
 
-### 15.7 Suspected clio-side inconsistencies (worth a clio issue)
-1. **`session_summary` and `attachments_upload` advertised `true` with
-   no backing route** (both `404`). Either register the routes or drop
-   the flags. (§3.3, §6.2)
-2. `backend.version` is `0.1.0` while the wire is GACT `0.2` and the
-   product is past 0.7 — likely a stale hardcoded value, harmless but
-   confusing for diagnostics.
+### 15.7 Known clio-side inconsistencies (documented as-is; clio issues)
+1. **Legacy `internal_error` on 404/422** in older session/permission
+   routes while newer routes emit `not_found`/`bad_request`. Canonical
+   target codified in §14.2; clients must tolerate both.
+2. **`waiting_permission` declared but never emitted** (§4.2) —
+   pendency is only observable via `permission.requested` + the
+   permissions list.
+3. **Permission timeout emits no `permission.resolved` event** and a
+   late reply is a silent no-op (§6.11).
+4. **`file_diff` Part.status frozen at `"pending"`** in the persisted
+   message; `GET /diffs` + `file.diff.*` are authoritative (§4.5/§6.10).
+5. **No concurrency guard on `POST /messages`** — a second post while
+   `running` starts a concurrent turn; `prev_status` is hardcoded
+   `"idle"` (§6.3).
+6. **No `session.deleted` event** — PROPOSED addition per the #232
+   owner decision (§6.2, §7.3b).
+7. **UserQuestion `expired` status is inert** — declared, never set,
+   `expires_at` unenforced (§6.23).
+8. **Per-connection heartbeat tasks** — N attached clients observe up
+   to N heartbeats per 15 s window (§7.1). Harmless (transient).
+9. **Normalized `turn.*` transcript channel double-published with zero
+   consumers** — codify-or-deprecate tracked in #232 (§7.3c).
+10. **Fork inherits nothing** (modes/model/metadata reset to defaults)
+    — codified as implemented behavior, flagged as a candidate future
+    change (§6.2).
 
 ### 15.8 Conformance fixtures
-`contract/conformance/{conformance.go,v0_2.go,...}` were reviewed and
-remain **consistent** with the reconciled spec (they assert the v0.2
-caps flags, `/v1/agents?tier=2`, `/v1/memory/stats`, integration health,
-and the structured-error envelope — all of which hold). The
-structured-error check already accepts both `code` and `error`
-discriminators. **No fixture changes were made**; left as-is to avoid
-disturbing conformance tooling.
+`contract/conformance/` asserts the v0.2 caps flags,
+`/v1/agents?tier=2`, `/v1/memory/stats`, integration health, and the
+structured-error envelope. The structured-error check accepts both
+`code` and `error` discriminators.
 
-> ⚠ **One fixture is stale vs the implemented `file_diff` shape.**
-> `checkDiffs` (conformance.go) requires each diff row to carry an
-> `applied` (bool) key, but clio's `file_diff` Part uses `status`
-> (`pending`/`applied`/`rejected`/`apply_failed`), not `applied` — see
-> §4.5. The check only passes today because the probed session has an
-> empty `diffs` list; it would error against a clio session with pending
-> diffs. **Left as a follow-up** (a fix risks the emulator, which may
-> still emit `applied` — verify the emulator's diff shape before
-> changing the assertion). Other optional follow-ups: assert SSE is
-> session-scoped, and probe the over-claimed
-> `session_summary`/`attachments_upload` flags.
+The previously-flagged `checkDiffs` staleness is resolved: **clio now
+serves both `applied` (derived bool, `status == "applied"`) and
+`status` on diff rows** (§6.10), so the fixture's `applied` assertion
+is satisfied against real sessions.
+
+The suite additionally asserts the #232 drift classes: flat
+`message.created` payloads, capability↔route truth for single-route
+flags, `session.updated` carrying the full Session, the §6.2 rollback
+envelope keys, `/compact` accepting `{focus}`, and Last-Event-ID
+replay returning real events (heartbeats must not evict history).
 
 ---
 
