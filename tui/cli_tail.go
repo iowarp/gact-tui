@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runTail streams SSE events for a session (or workspace) to stdout
@@ -66,7 +65,7 @@ func runTail(args []string) int {
 		return 2
 	}
 
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 
 	// Signal handling: Ctrl+C cleanly closes the stream.

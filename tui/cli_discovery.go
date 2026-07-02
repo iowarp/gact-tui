@@ -10,7 +10,6 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runModels handles `gact models list [--provider PID] [--format tsv|json]`.
@@ -45,7 +44,7 @@ func runModels(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact models: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -131,7 +130,7 @@ func runWorkspaces(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact workspaces: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

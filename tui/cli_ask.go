@@ -11,7 +11,6 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runAsk is `run` + extract: posts a user message, waits for idle,
@@ -55,7 +54,7 @@ func runAsk(args []string) int {
 		return 2
 	}
 
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 
 	// Snapshot the message count BEFORE sending so we know which

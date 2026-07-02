@@ -50,7 +50,7 @@ func runList(args []string) int {
 		}
 	}
 
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

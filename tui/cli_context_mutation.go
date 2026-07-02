@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 func runContextUpload(args []string) int {
@@ -57,7 +56,7 @@ func runContextUpload(args []string) int {
 		}
 		mimeType = http.DetectContentType(data[:sniffLen])
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -97,7 +96,7 @@ func runContextAdd(args []string) int {
 	}
 	sid := fs.Arg(0)
 	path := fs.Arg(1)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -121,7 +120,7 @@ func runContextRm(args []string) int {
 	}
 	sid := fs.Arg(0)
 	path := fs.Arg(1)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

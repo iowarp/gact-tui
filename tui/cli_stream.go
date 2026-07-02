@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runStream is `gact tail` with a human-friendly one-liner format:
@@ -59,7 +58,7 @@ func runStream(args []string) int {
 		return 2
 	}
 
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

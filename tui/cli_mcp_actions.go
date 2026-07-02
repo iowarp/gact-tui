@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 func runMcpResourceRead(args []string) int {
@@ -23,7 +22,7 @@ func runMcpResourceRead(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp resource-read <server-id> <uri>")
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -60,7 +59,7 @@ func runMcpReconnect(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp reconnect <server-id>")
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

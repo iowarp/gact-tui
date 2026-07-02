@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/contract/conformance"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runConformance runs the contract/conformance suite against the
@@ -32,7 +31,7 @@ func runConformance(args []string) int {
 	})); err != nil {
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	opts := conformance.Options{WorkspaceID: *wsID}
 	for _, s := range strings.Split(*skip, ",") {
 		switch strings.TrimSpace(s) {

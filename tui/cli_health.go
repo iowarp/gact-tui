@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runPing hits /v1/health and exits 0 on 200, non-zero otherwise.
@@ -22,7 +21,7 @@ func runPing(args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

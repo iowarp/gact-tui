@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runRewind POSTs /v1/sessions/{id}/rewind, deleting every message
@@ -35,7 +34,7 @@ func runRewind(args []string) int {
 	}
 	sid := fs.Arg(0)
 	toMid := fs.Arg(1)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -77,7 +76,7 @@ func runUndo(args []string) int {
 		return 2
 	}
 	sid := fs.Arg(0)
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
