@@ -79,14 +79,17 @@ ping: build-tui ## Probe the running backend (set $(PORT) to override).
 list: build-tui ## List sessions on the running backend.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) list
 
-INTRO_SRC ?= logo/logo-vide-basic.gif  ## Source GIF for the intro animation; override with `make intro-logo-anim INTRO_SRC=logo/other.gif`.
+# No intro source GIF is tracked in this repo (the historical
+# logo/logo-video.gif is gone); callers must supply one:
+# `make intro-logo-anim INTRO_SRC=path/to/logo.gif`.
+INTRO_SRC ?=
 
 intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from $(INTRO_SRC) using chafa.
 	@if ! command -v chafa >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then \
 		echo "chafa + imagemagick required"; exit 1; \
 	fi
-	@if [ ! -f $(INTRO_SRC) ]; then \
-		echo "source GIF $(INTRO_SRC) not found; set INTRO_SRC=..."; exit 1; \
+	@if [ -z "$(INTRO_SRC)" ] || [ ! -f "$(INTRO_SRC)" ]; then \
+		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see apps/branding for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
 	fi
 	@rm -rf /tmp/gact-intro-frames && mkdir -p /tmp/gact-intro-frames
 	convert $(INTRO_SRC) -coalesce /tmp/gact-intro-frames/f%02d.png
