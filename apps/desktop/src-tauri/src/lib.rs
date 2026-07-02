@@ -138,9 +138,10 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 if let Some(state) = window.app_handle().try_state::<Mutex<Supervisor>>() {
-                    if let Ok(s) = state.lock() {
-                        s.shutdown();
-                    }
+                    // lock_recover, not plain lock(): a poisoned mutex here
+                    // would silently skip child reaping and leak the sidecar
+                    // process tree on exit.
+                    supervisor_state::lock_recover(&state).shutdown();
                 }
                 if let Some(tm) = window.app_handle().try_state::<TunnelManager>() {
                     tm.shutdown_all();
