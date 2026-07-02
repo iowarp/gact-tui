@@ -1,10 +1,10 @@
 /**
- * Secondary status chip row under the topbar (running tools, stream stats,
- * cost). Exports {@link ChatSecondaryChips}.
+ * Secondary status chip row under the topbar.
+ * Exports {@link ChatSecondaryChips}.
  */
 import { Show } from 'solid-js';
 import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
-import { formatCostUsd, formatDurationSeconds } from '../formatters.js';
+import { formatCostUsd } from '../formatters.js';
 import type { StreamStats } from '../live.js';
 import { humanTokens } from './chatScreenUtils.js';
 import type { SettingsSection } from './SettingsShell.js';
@@ -21,6 +21,8 @@ export interface ChatSecondaryChipsProps {
 }
 
 export function ChatSecondaryChips(props: ChatSecondaryChipsProps) {
+  const ttftMs = () => props.streamStats?.ttftMs;
+  const tokensPerSec = () => props.streamStats?.tokensPerSec;
   return (
     <>
       <Show when={(props.sessionCostUsd ?? 0) > 0}>
@@ -38,25 +40,11 @@ export function ChatSecondaryChips(props: ChatSecondaryChipsProps) {
           {humanTokens(props.sessionTokens)}
         </span>
       </Show>
-      <Show
-        when={
-          props.streamStats &&
-          (props.streamStats.ttftMs != null || props.streamStats.tokensPerSec != null)
-        }
-      >
-        <span
-          class="chat__meta-item"
-          data-testid="stream-stats-chip"
-          title="Time-to-first-token · output token rate of the most recent turn"
-        >
-          <Show when={props.streamStats?.ttftMs != null}>
-            ttft {formatDurationSeconds(props.streamStats?.ttftMs ?? 0)}s
-          </Show>
-          <Show when={props.streamStats?.ttftMs != null && props.streamStats?.tokensPerSec != null}>
-            {' · '}
-          </Show>
-          <Show when={props.streamStats?.tokensPerSec != null}>
-            ~{props.streamStats?.tokensPerSec} tok/s
+      <Show when={ttftMs() != null}>
+        <span class="chat__meta-item" data-testid="stream-stats-chip">
+          {Math.round(ttftMs() ?? 0)}ms TTFT
+          <Show when={tokensPerSec() != null}>
+            {` · ${Math.round(tokensPerSec() ?? 0)} tok/s`}
           </Show>
         </span>
       </Show>
@@ -67,11 +55,11 @@ export function ChatSecondaryChips(props: ChatSecondaryChipsProps) {
             'chat__meta-item chat__meta-item--clickable chat__meta-item--' +
             (props.permMode === 'bypass' || props.permMode === 'auto' ? 'err' : 'warn')
           }
-          title={`Permission mode: ${props.permMode} — click to change`}
+          title={`Permission mode: ${props.permMode} - click to change`}
           onClick={() => void props.onPickPermMode?.('ask')}
           data-testid="perm-mode-chip"
         >
-          perm · {props.permMode}
+          perm - {props.permMode}
         </button>
       </Show>
     </>

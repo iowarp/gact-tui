@@ -7,7 +7,9 @@ import { brand } from '@brand';
 import { BrandMark } from '../components/BrandMark.js';
 import { inTauri } from '../tauri.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
+import { useBackendRegistry } from '../registry.js';
 import { createSplashController } from './splashController.js';
+import { pureWebBackendCandidates } from './splashBackend.js';
 import { SplashErrorPanel, SplashInstallPanel, SplashProbePanel } from './SplashStatusPanels.js';
 import './splash.css';
 
@@ -34,7 +36,12 @@ export interface SplashScreenProps {
 }
 
 export function SplashScreen(props: SplashScreenProps) {
-  const controller = createSplashController(props);
+  const registry = useBackendRegistry();
+  const controller = createSplashController({
+    ...props,
+    pureWebCandidates: () => pureWebBackendCandidates(registry.state()),
+    isRegistryHydrated: registry.hydrated,
+  });
 
   return (
     <div class="splash" data-testid="splash-screen">

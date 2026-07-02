@@ -1,9 +1,11 @@
-/* Fixed corner build-version badge (see VersionBadge.tsx). */
+.app-version-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .app-version-badge {
-  position: fixed;
-  right: 14px;
-  bottom: 44px;
-  z-index: 60;
+  position: static;
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { THEME_MODE_KEY, THEME_TOKENS_KEY } from '../../src/theme.js';
+import { THEME_MODE_KEY, THEME_PRESETS, THEME_TOKENS_KEY } from '../../src/theme.js';
 import {
   appearanceStateForMode,
   appearanceStateForPreset,
@@ -58,11 +58,13 @@ describe('SettingsAppearanceModel', () => {
       mode: 'light',
     });
     expect(appearanceStateForMode('dark')).toEqual({
-      presetId: 'default',
+      presetId: 'dim',
       mode: 'dark',
-      tokens: {},
+      tokens: THEME_PRESETS.dim!.tokens,
     });
     expect(appearanceStateForMode('light').presetId).toBe('light');
+    expect(appearanceStateForMode('auto', false).presetId).toBe('dim');
+    expect(appearanceStateForMode('auto', true).presetId).toBe('light');
   });
 
   it('loads active preset, persists mode, and clears only clio preferences', () => {
@@ -72,6 +74,7 @@ describe('SettingsAppearanceModel', () => {
       'other.foo': '2',
     });
     expect(loadActivePreset(storage)).toBe('dim');
+    expect(loadActivePreset(memoryStorage())).toBe('dim');
     persistThemeMode('auto', storage);
     expect(storage.getItem(THEME_MODE_KEY)).toBe('auto');
 

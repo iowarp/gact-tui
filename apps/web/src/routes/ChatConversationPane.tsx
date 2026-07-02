@@ -11,9 +11,15 @@ import type {
   UserQuestion,
 } from '@clio/core';
 import type { JSX } from 'solid-js';
+import { Show } from 'solid-js';
 import { Client } from '@clio/core';
+import { PermissionCard } from '../components/PermissionCard.js';
 import type { BackendHandle } from '../App.js';
-import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
+import type {
+  ModelOption,
+  ModelProviderOption,
+  PermissionMode,
+} from '../components/ComposerTypes.js';
 import type { TranscriptDensity } from '../components/Transcript.js';
 import type { ExecutionTranscriptEvent } from '../live.js';
 import { ChatConversationComposer } from './ChatConversationComposer.js';
@@ -45,6 +51,7 @@ export interface ChatConversationPaneProps {
   selectedMessageId: string;
   draftReloadTick: number;
   models?: ModelOption[];
+  modelProviders?: ModelProviderOption[];
   selectedModelId?: string;
   permMode?: PermissionMode;
   executionEvents?: ExecutionTranscriptEvent[];
@@ -145,6 +152,18 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
 
       {props.renderContextFooter?.()}
 
+      {/* Permission approval docks at the BOTTOM, just above the composer, so a
+          pending tool approval sits right where the user is looking (was buried at
+          the top of the scrollable transcript). */}
+      <Show when={props.pendingPermission}>
+        <div class="chat__permission-dock">
+          <PermissionCard
+            request={props.pendingPermission!}
+            onDecide={props.onPermissionDecide}
+          />
+        </div>
+      </Show>
+
       <ChatConversationComposer
         backendUrl={props.backendUrl}
         voiceCapable={props.voiceCapable}
@@ -157,6 +176,7 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
         streaming={props.streaming}
         draftReloadTick={props.draftReloadTick}
         models={props.models}
+        modelProviders={props.modelProviders}
         selectedModelId={props.selectedModelId}
         permMode={props.permMode}
         onSubmit={props.onSubmit}

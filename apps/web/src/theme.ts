@@ -28,6 +28,11 @@ export const THEME_PRESET_KEY = 'clio.theme.preset.v1';
 export const THEME_MODE_KEY = 'clio.theme.mode.v1';
 
 export type ThemeMode = 'dark' | 'light' | 'auto';
+export type ThemePresetMode = Exclude<ThemeMode, 'auto'>;
+
+export const DEFAULT_THEME_MODE: ThemeMode = 'auto';
+export const DEFAULT_DARK_PRESET_ID = 'dim';
+export const DEFAULT_LIGHT_PRESET_ID = 'light';
 
 export function loadThemeTokens(): Record<string, string> {
   if (typeof localStorage === 'undefined') return {};
@@ -58,17 +63,19 @@ export function applyThemeTokens(tokens: Record<string, string>) {
 }
 
 export function loadThemeMode(): ThemeMode {
-  if (typeof localStorage === 'undefined') return 'dark';
+  if (typeof localStorage === 'undefined') return DEFAULT_THEME_MODE;
   const raw = localStorage.getItem(THEME_MODE_KEY);
-  return raw === 'light' || raw === 'auto' ? raw : 'dark';
+  return raw === 'dark' || raw === 'light' || raw === 'auto' ? raw : DEFAULT_THEME_MODE;
 }
 
 /** OS preference → preset id (auto mode). */
 function osPresetId(): string {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'default';
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return DEFAULT_DARK_PRESET_ID;
+  }
   return window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'light'
-    : 'default';
+    ? DEFAULT_LIGHT_PRESET_ID
+    : DEFAULT_DARK_PRESET_ID;
 }
 
 /** Applies a preset's tokens and persists them through the shared store. */
@@ -112,11 +119,11 @@ export function setThemeMode(mode: ThemeMode) {
     autoListener = null;
   }
   if (mode === 'dark') {
-    applyPresetTokens('default');
+    applyPresetTokens(DEFAULT_DARK_PRESET_ID);
     return;
   }
   if (mode === 'light') {
-    applyPresetTokens('light');
+    applyPresetTokens(DEFAULT_LIGHT_PRESET_ID);
     return;
   }
   // auto — apply per current OS scheme + follow changes live.
@@ -166,13 +173,15 @@ export function initTheme() {
     // Falling back to the full light palette also makes a bare
     // `clio.theme.mode.v1 = light` flag sufficient (e.g. test seeding).
     const stored = loadThemeTokens();
-    applyThemeTokens(
-      Object.keys(stored).length > 0 ? stored : LIGHT_THEME_TOKENS,
-    );
+    applyThemeTokens(Object.keys(stored).length > 0 ? stored : LIGHT_THEME_TOKENS);
     return;
   }
-  // Dark: tokens were persisted by the last preset/editor write — re-apply.
-  applyThemeTokens(loadThemeTokens());
+  // Dark: re-apply stored edits, or the dim preset when only the mode flag
+  // exists.
+  const stored = loadThemeTokens();
+  applyThemeTokens(
+    Object.keys(stored).length > 0 ? stored : (THEME_PRESETS[DEFAULT_DARK_PRESET_ID]?.tokens ?? {}),
+  );
 }
 
 initTheme();

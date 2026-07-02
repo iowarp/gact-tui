@@ -39,15 +39,17 @@ export function InlineWorkspaceImage(props: {
             classList={{ 'is-enlarged': enlarged() }}
             data-testid="trx-image-thumb"
             aria-expanded={enlarged()}
-            title={enlarged() ? 'click to shrink' : 'click to enlarge'}
+            title={enlarged() ? 'collapse image' : 'show full image'}
             onClick={(e) => {
               e.stopPropagation();
               setEnlarged((v) => !v);
             }}
           >
-            <img class="trx-image" src={img().url} alt={fileName()} loading="lazy" data-testid="trx-image" />
+            <span class="trx-image-frame">
+              <img class="trx-image" src={img().url} alt={fileName()} loading="lazy" data-testid="trx-image" />
+            </span>
             <span class="trx-image-thumb__hint" data-testid="trx-image-thumb-hint">
-              {enlarged() ? 'collapse' : 'click to enlarge'}
+              {enlarged() ? 'collapse' : 'show full image'}
             </span>
           </button>
         )}

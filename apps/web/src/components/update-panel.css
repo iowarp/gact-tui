@@ -1,4 +1,4 @@
-/* Update popover opened from the corner version badge (see UpdatePanel.tsx). */
+/* Update popover opened from the composer footer version badge. */
 .update-panel__backdrop {
   position: fixed;
   inset: 0;
@@ -7,9 +7,9 @@
 }
 
 .update-panel {
-  position: fixed;
-  right: 8px;
-  bottom: 28px;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
   z-index: 81;
   width: min(380px, calc(100vw - 16px));
   display: flex;
@@ -94,6 +94,12 @@
 
 .update-panel__ver--latest {
   color: var(--color-success);
+}
+
+.update-panel__ver-label {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
 }
 
 .update-panel__ver-arrow {

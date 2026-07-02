@@ -4,7 +4,7 @@
  */
 import { For, Show, createMemo } from 'solid-js';
 import type { Part } from '@clio/core';
-import { InlineMarkdown } from './InlineMarkdown.js';
+import { Markdown } from './Markdown.js';
 import { CommandResultCard, commandResultInfo } from './TranscriptToolParts.js';
 import { WorkflowStateCard, splitWorkflowState } from './WorkflowState.js';
 
@@ -34,11 +34,11 @@ export function TextPartView(props: {
     return (
       <div class="trx-text">
         <Show when={workflow()!.before.trim()}>
-          <InlineMarkdown text={workflow()!.before.trim()} />
+          <Markdown text={workflow()!.before.trim()} />
         </Show>
         <WorkflowStateCard state={workflow()!.state} raw={workflow()!.raw} />
         <Show when={workflow()!.after.trim()}>
-          <InlineMarkdown text={workflow()!.after.trim()} />
+          <Markdown text={workflow()!.after.trim()} />
         </Show>
         <Show when={props.showCursor}>
           <span class="trx-cursor" aria-hidden>
@@ -52,7 +52,7 @@ export function TextPartView(props: {
   if (!q) {
     return (
       <div class="trx-text">
-        <InlineMarkdown text={text()} />
+        <Markdown text={text()} />
         <Show when={props.showCursor}>
           <span class="trx-cursor" aria-hidden>
             ▌
@@ -79,7 +79,7 @@ export function TextPartView(props: {
   );
 }
 
-function HighlightedText(props: {
+export function HighlightedText(props: {
   text: string;
   query: string;
   messageId: string;

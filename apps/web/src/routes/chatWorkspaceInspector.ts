@@ -3,6 +3,7 @@
  * {@link createChatWorkspaceInspector}.
  */
 import type { SettingsContext, SettingsSection } from './SettingsShell.js';
+import { createSignal } from 'solid-js';
 import type { ChatLiveCore } from './chatLiveCore.js';
 import { createChatSessionInspectorData } from './chatSessionInspectorData.js';
 import { createChatSessionListState } from './chatSessionListState.js';
@@ -24,10 +25,13 @@ export interface ChatWorkspaceInspectorOptions {
 
 export function createChatWorkspaceInspector(options: ChatWorkspaceInspectorOptions) {
   const { core } = options;
+  const [blueprintLabels, setBlueprintLabels] = createSignal<Record<string, string>>({});
 
   const sessionList = createChatSessionListState({
     backendUrl: core.backendUrl,
     sessions: () => core.live.sessions() ?? [],
+    sessionsLoading: () => core.live.sessions.loading,
+    blueprintLabels,
     activeId: core.activeId,
     setActiveId: core.setActiveId,
     patchSessionMetadata: (id, pinned) =>
@@ -46,6 +50,8 @@ export function createChatWorkspaceInspector(options: ChatWorkspaceInspectorOpti
     activeId: core.activeId,
     setActiveId: core.setActiveId,
     refetchSessions: core.live.refetch,
+    setSessionBlueprintLabel: (sessionId, label) =>
+      setBlueprintLabels((prev) => ({ ...prev, [sessionId]: label })),
     onSessionCreated: () => void inspectorData.refetchBindings(),
     onOpenSettings: options.onOpenSettings,
     failToast: core.failToast,

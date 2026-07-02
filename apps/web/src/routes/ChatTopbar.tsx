@@ -1,18 +1,21 @@
 /**
- * Chat topbar: session crumbs, model/permission controls and status chips.
+ * Chat topbar: brand, session identity, and chrome actions.
  * Exports {@link ChatTopbar}.
  */
-import { Show, type JSX } from 'solid-js';
+import { For, Show, type JSX } from 'solid-js';
+import { brand } from '@brand';
+import { presentBlueprintLabel } from '../brand-presentation.js';
+import { BrandMark } from '../components/BrandMark.js';
 import { Icon } from '../components/Icon.js';
 import { NotificationCenter } from '../components/NotificationCenter.js';
 import type { RunningTool } from '../live.js';
 import type { TopbarOverflowController } from './chatTopbarOverflow.js';
-import { runningToolsChipSummary } from './ChatTopbarModel.js';
 
 export interface ChatTopbarProps {
   overflow: TopbarOverflowController;
   activeId: string;
   activeTitle?: string;
+  activeBlueprint?: string;
   activeStatus?: string;
   renamed: boolean;
   showSessionsColumn: boolean;
@@ -28,115 +31,87 @@ export interface ChatTopbarProps {
 }
 
 export function ChatTopbar(props: ChatTopbarProps) {
-  const topbarNarrow = props.overflow.narrow;
-  const overflowOpen = props.overflow.overflowOpen;
-  const setOverflowOpen = props.overflow.setOverflowOpen;
+  void props.activeStatus;
+  void props.renamed;
+  void props.sseStatus;
+  void props.sseReconnectInSec;
+  void props.runningTools;
+  void props.renderSecondaryChips;
+
+  const shortTitle = () => clipEnd(props.activeTitle?.trim() || 'No session', 28);
+  const blueprint = () => clipEnd(presentBlueprintLabel(props.activeBlueprint?.trim() || ''), 22);
+  const taglineAccent = () => brand.taglineAccent?.trim() || '';
+  const taglineParts = () => {
+    const accent = taglineAccent();
+    if (!accent || !brand.tagline.includes(accent)) {
+      return [{ text: brand.tagline, accent: false }];
+    }
+    const [before = '', after = ''] = brand.tagline.split(accent, 2);
+    return [
+      { text: before, accent: false },
+      { text: accent, accent: true },
+      { text: after, accent: false },
+    ].filter((part) => part.text.length > 0);
+  };
 
   return (
     <header class="chat__topbar" ref={props.overflow.setTopbarRef}>
       <div class="chat__crumbs" ref={props.overflow.setCrumbsRef}>
-        <button
-          type="button"
-          class="chat__iconbtn chat__sidebar-open"
-          title={props.showSessionsColumn ? 'Hide sessions' : 'Show sessions'}
-          aria-label={props.showSessionsColumn ? 'Hide sessions' : 'Show sessions'}
-          data-testid="topbar-sessions"
-          onClick={props.onToggleSessions}
-        >
-          <Icon name="menu" size={15} />
-        </button>
-        <span
-          class="chat__crumb chat__crumb-head"
-          title={props.activeId ? `Session ${props.activeId} — click to copy` : 'No session'}
-          onClick={() => {
-            if (!props.activeId || typeof navigator === 'undefined') return;
-            if (navigator.clipboard) {
-              void navigator.clipboard.writeText(props.activeId);
-            }
-          }}
-          style="cursor: pointer"
-        >
-          {props.activeTitle ?? 'No session'}
-        </span>
-        <Show when={props.renamed}>
-          <span
-            class="chat__rename-pill"
-            data-testid="chat-renamed-pill"
-            title="The backend just updated this session's title"
-          >
-            renamed
-          </span>
-        </Show>
-      </div>
-      <div class="chat__meta" ref={props.overflow.setMetaRef}>
-        <Show when={props.activeStatus === 'waiting_permission'}>
-          <span
-            class="chat__meta-item chat__meta-item--warn"
-            data-testid="session-status-chip"
-            title="Session is paused waiting for your approval on a tool call"
-          >
-            waiting · permission
-          </span>
-        </Show>
-        <Show when={props.activeStatus === 'error'}>
-          <span
-            class="chat__meta-item chat__meta-item--err"
-            data-testid="session-status-chip"
-            title="Session entered an error state"
-          >
-            session · error
-          </span>
-        </Show>
-        <Show when={(props.runningTools?.length ?? 0) > 0}>
-          {(() => {
-            const summary = runningToolsChipSummary(props.runningTools ?? []);
-            if (!summary) return null;
-            return (
-              <span
-                class="chat__meta-item chat__meta-item--running"
-                data-testid="running-tools-chip"
-                title={summary.title}
-              >
-                <span class="chat__running-dot" aria-hidden />
-                running · {summary.visibleNames}
-                <Show when={summary.progressPercent != null}> {summary.progressPercent}%</Show>
-                <Show when={summary.overflowCount > 0}>
-                  {' +'}
-                  {summary.overflowCount}
-                </Show>
+        <div class="chat__brand-lockup" aria-label={brand.name}>
+          <BrandLink className="chat__brand-mark-link" href={brand.homeUrl}>
+            <BrandMark class="chat__brand-mark" useImage />
+          </BrandLink>
+          <div class="chat__brand-copy">
+            <BrandLink className="chat__brand-wordmark" href={brand.homeUrl}>
+              <For each={brand.wordmark.split('')}>{(char) => <span>{char}</span>}</For>
+            </BrandLink>
+            <Show when={brand.tagline}>
+              <span class="chat__brand-tagline">
+                <For each={taglineParts()}>
+                  {(part) => (
+                    <Show
+                      when={part.accent && brand.taglineAccentUrl}
+                      fallback={<span>{part.text}</span>}
+                    >
+                      <a
+                        class="chat__brand-tagline-link"
+                        href={brand.taglineAccentUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {part.text}
+                      </a>
+                    </Show>
+                  )}
+                </For>
               </span>
-            );
-          })()}
-        </Show>
-        <div
-          ref={props.overflow.setSecondaryRef}
-          class={'chat__secondary' + (topbarNarrow() ? ' chat__secondary--collapsed' : '')}
-          aria-hidden={topbarNarrow()}
-        >
-          {props.renderSecondaryChips()}
-        </div>
-        <Show when={topbarNarrow()}>
-          <div class="chat__overflow-anchor">
-            <button
-              type="button"
-              class={
-                'chat__meta-item chat__meta-item--clickable' + (overflowOpen() ? ' is-active' : '')
-              }
-              data-testid="topbar-overflow"
-              title="More session info"
-              aria-expanded={overflowOpen()}
-              onClick={() => setOverflowOpen((open) => !open)}
-            >
-              ⋯
-            </button>
-            <Show when={overflowOpen()}>
-              <div class="chat__overflow-menu" data-testid="topbar-overflow-menu" role="menu">
-                {props.renderSecondaryChips()}
-              </div>
             </Show>
           </div>
-        </Show>
+        </div>
       </div>
+
+      <button
+        type="button"
+        class="chat__session-title"
+        title={
+          props.activeId
+            ? `${props.activeTitle ?? props.activeId}${props.activeBlueprint ? ` / ${props.activeBlueprint}` : ''} - click to copy session id`
+            : 'No session'
+        }
+        onClick={() => {
+          if (!props.activeId || typeof navigator === 'undefined') return;
+          if (navigator.clipboard) void navigator.clipboard.writeText(props.activeId);
+        }}
+      >
+        <span class="chat__session-name">{shortTitle()}</span>
+        <Show when={blueprint()}>
+          <span class="chat__session-sep">/</span>
+          <span class="chat__session-blueprint">{blueprint()}</span>
+        </Show>
+      </button>
+
+      <div class="chat__topbar-measure" ref={props.overflow.setMetaRef} aria-hidden />
+
       <div class="chat__topbar-actions" ref={props.overflow.setActionsRef}>
         <NotificationCenter />
         <button
@@ -157,7 +132,32 @@ export function ChatTopbar(props: ChatTopbarProps) {
         >
           <Icon name="panel-right" size={14} />
         </button>
+        <button
+          type="button"
+          class={'chat__iconbtn ' + (props.showSessionsColumn ? 'is-active' : '')}
+          title="Toggle sessions column"
+          onClick={props.onToggleSessions}
+          data-testid="topbar-sessions"
+        >
+          <Icon name="panel-left" size={14} />
+        </button>
       </div>
     </header>
   );
+}
+
+function BrandLink(props: { className: string; href: string | null; children: JSX.Element }) {
+  return (
+    <Show when={props.href} fallback={<span class={props.className}>{props.children}</span>}>
+      {(href) => (
+        <a class={props.className} href={href()} target="_blank" rel="noreferrer">
+          {props.children}
+        </a>
+      )}
+    </Show>
+  );
+}
+
+function clipEnd(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}...`;
 }

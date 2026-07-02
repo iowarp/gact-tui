@@ -10,6 +10,7 @@ export interface SidebarSession {
   title: string;
   status: SessionStatus;
   project: string;
+  blueprint?: string;
   updatedAt: string;
   /** Epoch ms — last time this row was touched by SSE (drives row pulse). */
   bumpedAt?: number;

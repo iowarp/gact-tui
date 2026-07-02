@@ -5,7 +5,8 @@
 import { For, Show, type Accessor } from 'solid-js';
 import { Icon } from '../components/Icon.js';
 import { SectionHeading } from '../components/SettingsPrimitives.js';
-import { THEME_PRESETS, type ThemeMode } from '../theme.js';
+import { type ThemeMode } from '../theme.js';
+import { presetEntriesForThemeMode } from './SettingsAppearanceModel.js';
 
 const ACCENT_TOKENS = [
   { key: '--color-accent', label: 'Accent (orange)', defaultColor: '#ea7b2a' },
@@ -26,10 +27,7 @@ export function SettingsThemePanel(props: {
 }) {
   return (
     <>
-      <SectionHeading
-        title="Theme"
-        hint="Choose a fixed palette or follow the operating system."
-      />
+      <SectionHeading title="Theme" hint="Choose a fixed palette or follow the operating system." />
       <div class="settings-shell__choices">
         <For each={['dark', 'light', 'auto'] as const}>
           {(t) => (
@@ -48,10 +46,10 @@ export function SettingsThemePanel(props: {
 
       <SectionHeading
         title="Presets"
-        hint="Apply a full palette, then fine-tune individual colors below."
+        hint="Apply a palette for the selected theme mode, then fine-tune colors below."
       />
       <div class="settings-shell__choices" data-testid="settings-theme-presets">
-        <For each={Object.entries(THEME_PRESETS)}>
+        <For each={presetEntriesForThemeMode(props.theme())}>
           {([id, preset]) => (
             <button
               type="button"

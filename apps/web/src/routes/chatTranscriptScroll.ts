@@ -2,10 +2,18 @@
  * Solid controller for transcript scroll behaviour (stick-to-bottom, jump
  * pill). Exports {@link createTranscriptScroll}.
  */
-import { createEffect, createSignal, untrack, type Accessor } from 'solid-js';
+import { createEffect, createSignal, onCleanup, untrack, type Accessor } from 'solid-js';
 import type { Message, PermissionRequest, UserQuestion } from '@clio/core';
 
-const SCROLL_BOTTOM_TOLERANCE_PX = 220;
+export const SCROLL_BOTTOM_TOLERANCE_PX = 24;
+
+export function transcriptDistanceFromBottom(el: HTMLElement): number {
+  return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
+}
+
+export function transcriptIsAtBottom(el: HTMLElement): boolean {
+  return transcriptDistanceFromBottom(el) < SCROLL_BOTTOM_TOLERANCE_PX;
+}
 
 export interface TranscriptScrollController {
   scrolledUp: Accessor<boolean>;
@@ -13,6 +21,7 @@ export interface TranscriptScrollController {
   scrollEl: Accessor<HTMLElement | undefined>;
   setPaneRef: (el: HTMLDivElement) => void;
   onPaneScroll: () => void;
+  onPaneWheel: (event: WheelEvent) => void;
   scrollToBottom: () => void;
 }
 
@@ -31,30 +40,62 @@ export function createTranscriptScroll(
   const [scrollEl, setScrollEl] = createSignal<HTMLElement>();
 
   let paneEl: HTMLDivElement | undefined;
-  let lastMessageCount = 0;
   let lastTranscriptActivity = '';
+  let lastVisibleActivityCount = 0;
   let hadPendingPermission = false;
+  let programmaticScroll = false;
+  let resizeObserver: ResizeObserver | undefined;
+  let pendingAutoPinFrame = 0;
+  // Just after a session switch / reload, messages + their content (images, fonts,
+  // virtualized rows) load ASYNC and keep growing scrollHeight. During this settling
+  // window, pin INSTANTLY (no smooth animation to race the programmatic-scroll
+  // window) and keep re-pinning so a reload lands at the TRUE bottom, not mid-page.
+  let settleUntil = 0;
+  const isSettling = () => Date.now() < settleUntil;
 
-  function distanceFromBottom(el: HTMLElement): number {
-    return Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
+  function endProgrammaticScrollSoon() {
+    window.setTimeout(() => {
+      programmaticScroll = false;
+      if (!paneEl || !transcriptIsAtBottom(paneEl)) return;
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    }, 180);
   }
 
-  function isAtBottom(el: HTMLElement): boolean {
-    return distanceFromBottom(el) < SCROLL_BOTTOM_TOLERANCE_PX;
+  function pinToBottom(behavior: ScrollBehavior = 'auto') {
+    if (!paneEl) return;
+    programmaticScroll = true;
+    paneEl.scrollTo({ top: paneEl.scrollHeight, behavior });
+    setScrolledUp(false);
+    setNewSinceScroll(0);
+    endProgrammaticScrollSoon();
+  }
+
+  function scheduleAutoPin() {
+    if (!paneEl || scrolledUp()) return;
+    if (pendingAutoPinFrame) window.cancelAnimationFrame(pendingAutoPinFrame);
+    pendingAutoPinFrame = window.requestAnimationFrame(() => {
+      pendingAutoPinFrame = 0;
+      if (!paneEl || scrolledUp()) return;
+      // Instant while settling after a reload (no animation to race the 180ms
+      // programmatic window); smooth for live streaming increments.
+      pinToBottom(isSettling() ? 'auto' : 'smooth');
+    });
   }
 
   function scrollToBottom() {
-    if (!paneEl) return;
-    paneEl.scrollTo({ top: paneEl.scrollHeight, behavior: 'smooth' });
-    setScrolledUp(false);
-    setNewSinceScroll(0);
+    pinToBottom('smooth');
     queueMicrotask(() => {
-      if (!paneEl || !isAtBottom(paneEl)) return;
+      if (!paneEl || !transcriptIsAtBottom(paneEl)) return;
       setScrolledUp(false);
       setNewSinceScroll(0);
     });
   }
 
+  // Activity is derived entirely from the rendered messages: a key that changes
+  // whenever any message's parts grow (streaming tokens) or a turn settles, so the
+  // stick-to-bottom effect re-pins on every delta. This is the single source now
+  // that the parallel normalized `turn.*` stream is gone.
   function transcriptActivityKey(): string {
     return options
       .messages()
@@ -71,40 +112,66 @@ export function createTranscriptScroll(
       .join('|');
   }
 
+  function visibleActivityCount(): number {
+    return options.messages().length;
+  }
+
   function onPaneScroll() {
     if (!paneEl) return;
-    const atBottom = isAtBottom(paneEl);
+    const atBottom = transcriptIsAtBottom(paneEl);
     if (atBottom) {
       setScrolledUp(false);
       setNewSinceScroll(0);
-    } else {
+    } else if (!programmaticScroll) {
       setScrolledUp(true);
     }
   }
 
+  function onPaneWheel(event: WheelEvent) {
+    if (!paneEl) return;
+    programmaticScroll = false;
+    if (event.deltaY < 0 && paneEl.scrollHeight > paneEl.clientHeight) {
+      setScrolledUp(true);
+      return;
+    }
+    if (event.deltaY > 0 && transcriptIsAtBottom(paneEl)) {
+      setScrolledUp(false);
+      setNewSinceScroll(0);
+    } else {
+      onPaneScroll();
+    }
+  }
+
   createEffect(() => {
-    const count = options.messages().length;
+    const visibleCount = visibleActivityCount();
     const activity = transcriptActivityKey();
     const changed = activity !== lastTranscriptActivity;
-    if (scrolledUp() && count > lastMessageCount) {
-      setNewSinceScroll((n) => n + (count - lastMessageCount));
+    if (scrolledUp() && visibleCount > lastVisibleActivityCount) {
+      setNewSinceScroll((n) => n + (visibleCount - lastVisibleActivityCount));
     } else if (!scrolledUp() && changed && paneEl) {
       queueMicrotask(() => {
-        if (paneEl) paneEl.scrollTop = paneEl.scrollHeight;
+        pinToBottom(isSettling() ? 'auto' : 'smooth');
       });
     }
-    lastMessageCount = count;
+    lastVisibleActivityCount = visibleCount;
     lastTranscriptActivity = activity;
   });
 
   createEffect(() => {
     void options.activeId();
+    // A session switch / reload loads messages ASYNC — open a settling window so the
+    // activity effect + ResizeObserver keep pinning to the true bottom INSTANTLY as
+    // late content grows scrollHeight (C8: reload used to land mid-transcript because
+    // a single smooth pin raced the async layout and then latched `scrolledUp`).
+    settleUntil = Date.now() + 800;
     queueMicrotask(() => {
       if (paneEl && !options.pendingPermission()) {
         const empty = untrack(() => options.messages().length === 0 && !options.pendingQuestion());
+        programmaticScroll = true;
         paneEl.scrollTop = empty ? 0 : paneEl.scrollHeight;
         setScrolledUp(false);
         setNewSinceScroll(0);
+        endProgrammaticScrollSoon();
       }
       const input = document.querySelector(
         '[data-testid="composer-input"]',
@@ -131,12 +198,17 @@ export function createTranscriptScroll(
     if (hadPendingPermission && !hasPending) {
       queueMicrotask(() => {
         if (!paneEl) return;
-        paneEl.scrollTop = paneEl.scrollHeight;
+        pinToBottom('smooth');
         setScrolledUp(false);
         setNewSinceScroll(0);
       });
     }
     hadPendingPermission = hasPending;
+  });
+
+  onCleanup(() => {
+    resizeObserver?.disconnect();
+    if (pendingAutoPinFrame) window.cancelAnimationFrame(pendingAutoPinFrame);
   });
 
   return {
@@ -146,8 +218,16 @@ export function createTranscriptScroll(
     setPaneRef: (el) => {
       paneEl = el;
       setScrollEl(el);
+      resizeObserver?.disconnect();
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => scheduleAutoPin());
+        resizeObserver.observe(el);
+        const inner = el.firstElementChild;
+        if (inner instanceof HTMLElement) resizeObserver.observe(inner);
+      }
     },
     onPaneScroll,
+    onPaneWheel,
     scrollToBottom,
   };
 }

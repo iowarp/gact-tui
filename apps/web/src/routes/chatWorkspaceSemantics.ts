@@ -6,6 +6,7 @@ import { createEffect, createMemo, createResource, type Accessor } from 'solid-j
 import type { Client } from '@clio/core';
 import type { SessionRow, WorkspaceOption } from '../components/SessionsColumn.js';
 import { createPersistedString } from '../persisted.js';
+import { showExpertPackPicker } from '../brand-presentation.js';
 import {
   loadSessionSemanticsDefaults,
   sanitizeSessionSemantics,
@@ -26,6 +27,7 @@ export interface ChatWorkspaceSemanticsOptions {
   activeId: Accessor<string>;
   setActiveId: (id: string) => void;
   refetchSessions: () => void;
+  setSessionBlueprintLabel?: (sessionId: string, label: string) => void;
   onSessionCreated?: () => void;
   onOpenSettings?: (section?: SettingsSection, context?: SettingsContext) => void;
   failToast: (title: string, error: unknown, retry?: () => void) => void;
@@ -108,7 +110,15 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     const defaults = loadSessionSemanticsDefaults();
     const available = sessionSemanticsOptions();
     if (!available) return defaults;
-    return sanitizeSessionSemantics(defaults, available.blueprints, available.expertPacks);
+    const sanitized = sanitizeSessionSemantics(
+      defaults,
+      available.blueprints,
+      available.expertPacks,
+    );
+    return {
+      ...sanitized,
+      expertPackId: showExpertPackPicker() ? sanitized.expertPackId : '',
+    };
   }
 
   async function createSessionWithSemantics(title: string, selection = defaultSessionSemantics()) {
@@ -118,8 +128,17 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
       ...(workspaceId ? { workspace_id: workspaceId } : {}),
     });
     await applySessionSemantics(created.id, selection);
+    const blueprintLabel = labelForSelection(selection.blueprintId);
+    if (blueprintLabel) options.setSessionBlueprintLabel?.(created.id, blueprintLabel);
     options.refetchSessions();
     options.setActiveId(created.id);
+    // Make the new session VISIBLE: if the sidebar is filtered to a specific
+    // workspace that isn't this session's, switch the filter to it. Otherwise you
+    // land in the session (activeId) but it's hidden from the list — the "I created
+    // a session but it opened somewhere I can't see" bug.
+    if (workspaceId && selectedWorkspaceId() !== '__all' && selectedWorkspaceId() !== workspaceId) {
+      setSelectedWorkspaceId(workspaceId);
+    }
     options.onSessionCreated?.();
     return created;
   }
@@ -128,7 +147,11 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     try {
       await createSessionWithSemantics(title, selection);
     } catch (error) {
-      options.failToast('Could not create session', error, () => void newEmptySession(selection, title));
+      options.failToast(
+        'Could not create session',
+        error,
+        () => void newEmptySession(selection, title),
+      );
       throw error;
     }
   }
@@ -146,6 +169,12 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     options.onOpenSettings?.(section, settingsContext());
   };
 
+  function labelForSelection(blueprintId: string): string {
+    if (!blueprintId) return '';
+    const option = sessionSemanticsOptions()?.blueprints.find((bp) => bp.id === blueprintId);
+    return option?.label || humanizeBlueprintId(blueprintId);
+  }
+
   return {
     workspaces,
     selectedWorkspaceId,
@@ -159,4 +188,17 @@ export function createChatWorkspaceSemantics(options: ChatWorkspaceSemanticsOpti
     newEmptySession,
     openSettings,
   };
+}
+
+function humanizeBlueprintId(id: string): string {
+  return id
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/gnss/i.test(part)) return 'GNSS';
+      if (/ndp/i.test(part)) return 'NDP';
+      if (/earthscope/i.test(part)) return 'EarthScope';
+      return part.slice(0, 1).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
 }

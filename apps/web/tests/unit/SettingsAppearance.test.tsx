@@ -29,6 +29,7 @@ describe('AppearanceSection', () => {
     expect(screen.getByText('#ff0000')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('theme-tokens-reset-all'));
-    expect(localStorage.getItem(THEME_TOKENS_KEY)).toBeNull();
+    expect(localStorage.getItem(THEME_TOKENS_KEY)).toContain('#f7f9fc');
+    expect(localStorage.getItem(THEME_TOKENS_KEY)).not.toContain('#ff0000');
   });
 });

@@ -12,6 +12,12 @@ declare module '@brand' {
     wordmark: string;
     /** One-line product description. */
     tagline: string;
+    /** Optional substring of tagline rendered with the brand accent. */
+    taglineAccent: string;
+    /** Optional product/home URL for brand lockups. */
+    homeUrl: string | null;
+    /** Optional URL for the accented tagline substring. */
+    taglineAccentUrl: string | null;
     /** Single-character fallback mark. */
     markGlyph: string;
     /** Primary accent CSS color, or null to use the design-system default. */
@@ -23,12 +29,20 @@ declare module '@brand' {
       eyebrow: string;
       label: string;
     }>;
+    /** Presentation labels for session semantics controls. */
+    sessionSemantics: {
+      blueprintLabel: string;
+      showExpertPackPicker: boolean;
+      blueprintDisplayNames: Record<string, string>;
+    };
     /** Optional backend repository surfaced in About / install diagnostics. */
     backendRepository: {
       label: string;
       url: string;
       detail: string;
     } | null;
+    /** Brand-scoped release page shown from the version/update menu. */
+    releaseUrl: string | null;
     /**
      * Managed-vs-connect backend descriptor — the SAME resolved shape the
      * desktop supervisor embeds (apps/desktop/src-tauri/gen/brand-backend.json),
@@ -53,6 +67,8 @@ declare module '@brand' {
     };
     /** Inlined SVG logo source, or null. Overrides markGlyph when present. */
     logoSvg: string | null;
+    /** Inlined logo data URL, or null. Preferred for chrome when present. */
+    logoImage: string | null;
   }
   export const brand: Brand;
   export default brand;

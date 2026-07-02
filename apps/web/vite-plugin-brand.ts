@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { extname, resolve, dirname } from 'node:path';
 import type { Plugin } from 'vite';
 
 /**
@@ -7,12 +7,13 @@ import type { Plugin } from 'vite';
  *
  * Resolves the virtual module `@brand` to the selected brand profile, chosen
  * via the `GACT_BRAND` env var (default `gact`). The profile lives at
- * `apps/branding/<profile>/brand.json`; an optional `logoSvg` path is read and
- * inlined as a string so the app never has to fetch an asset at runtime.
+ * `apps/branding/<profile>/brand.json`; optional logo paths are read and
+ * inlined so the app never has to fetch an asset at runtime.
  *
  * The exposed `brand` object is fully resolved (defaults applied), so the app
  * can read `brand.name`, `brand.wordmark`, `brand.markGlyph`, `brand.accent`,
- * `brand.themeTokens`, `brand.logoSvg` without any optional-field juggling.
+ * `brand.themeTokens`, `brand.logoSvg`, `brand.logoImage` without any
+ * optional-field juggling.
  */
 
 const VIRTUAL_ID = '@brand';
@@ -22,19 +23,29 @@ interface RawBrand {
   name: string;
   wordmark?: string;
   tagline?: string;
+  taglineAccent?: string;
+  homeUrl?: string;
+  taglineAccentUrl?: string;
   markGlyph?: string;
   logoSvg?: string;
+  logoImage?: string;
   accent?: string;
   themeTokens?: Record<string, string>;
   starterPrompts?: Array<{
     eyebrow?: string;
     label?: string;
   }>;
+  sessionSemantics?: {
+    blueprintLabel?: string;
+    showExpertPackPicker?: boolean;
+    blueprintDisplayNames?: Record<string, string>;
+  };
   backendRepository?: {
     label?: string;
     url?: string;
     detail?: string;
   } | null;
+  releaseUrl?: string;
   backend?: RawBackend;
 }
 
@@ -61,6 +72,9 @@ export interface ResolvedBrand {
   name: string;
   wordmark: string;
   tagline: string;
+  taglineAccent: string;
+  homeUrl: string | null;
+  taglineAccentUrl: string | null;
   markGlyph: string;
   accent: string | null;
   themeTokens: Record<string, string>;
@@ -68,16 +82,24 @@ export interface ResolvedBrand {
     eyebrow: string;
     label: string;
   }>;
+  sessionSemantics: {
+    blueprintLabel: string;
+    showExpertPackPicker: boolean;
+    blueprintDisplayNames: Record<string, string>;
+  };
   backendRepository: {
     label: string;
     url: string;
     detail: string;
   } | null;
+  releaseUrl: string | null;
   /** Managed-vs-connect backend descriptor — the SAME resolved shape the
    *  desktop gen-script embeds, so web and desktop read one brand document. */
   backend: ResolvedBackend;
   /** Inlined SVG source, or null when the profile has no logoSvg. */
   logoSvg: string | null;
+  /** Inlined bitmap/vector data URL, or null when the profile has no logoImage. */
+  logoImage: string | null;
 }
 
 export interface ResolvedBackend {
@@ -188,6 +210,18 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     logoSvg = readFileSync(svgPath, 'utf8');
   }
 
+  let logoImage: string | null = null;
+  if (raw.logoImage) {
+    const imagePath = resolve(dir, raw.logoImage);
+    if (!existsSync(imagePath)) {
+      throw new Error(
+        `[brand] profile "${profile}" references logoImage "${raw.logoImage}" ` +
+          `but ${imagePath} does not exist.`,
+      );
+    }
+    logoImage = `data:${mimeTypeForLogo(imagePath)};base64,${readFileSync(imagePath).toString('base64')}`;
+  }
+
   const themeTokens: Record<string, string> = { ...(raw.themeTokens ?? {}) };
   if (raw.accent && !themeTokens['--color-accent']) {
     themeTokens['--color-accent'] = raw.accent;
@@ -208,19 +242,66 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
           detail: String(raw.backendRepository.detail ?? 'backend').trim(),
         }
       : null;
+  const releaseUrl =
+    typeof raw.releaseUrl === 'string' && raw.releaseUrl.trim()
+      ? raw.releaseUrl.trim()
+      : backendRepository
+        ? `${backendRepository.url.replace(/\/+$/, '')}/releases`
+        : null;
 
   return {
     name: raw.name,
     wordmark: raw.wordmark ?? raw.name,
     tagline: raw.tagline ?? '',
+    taglineAccent: raw.taglineAccent ?? '',
+    homeUrl: raw.homeUrl ?? null,
+    taglineAccentUrl: raw.taglineAccentUrl ?? null,
     markGlyph: raw.markGlyph ?? raw.name.charAt(0).toUpperCase(),
     accent: raw.accent ?? DEFAULT_ACCENT,
     themeTokens,
     starterPrompts: starterPrompts.length > 0 ? starterPrompts : DEFAULT_STARTER_PROMPTS,
+    sessionSemantics: {
+      blueprintLabel:
+        typeof raw.sessionSemantics?.blueprintLabel === 'string' &&
+        raw.sessionSemantics.blueprintLabel.trim()
+          ? raw.sessionSemantics.blueprintLabel.trim()
+          : 'Agent blueprint',
+      showExpertPackPicker: raw.sessionSemantics?.showExpertPackPicker ?? true,
+      blueprintDisplayNames: normalizeDisplayNames(raw.sessionSemantics?.blueprintDisplayNames),
+    },
     backendRepository,
+    releaseUrl,
     backend: resolveBackend(raw.backend),
     logoSvg,
+    logoImage,
   };
+}
+
+function normalizeDisplayNames(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const displayNames: Record<string, string> = {};
+  for (const [key, label] of Object.entries(value as Record<string, unknown>)) {
+    const normalizedKey = key.trim();
+    const normalizedLabel = typeof label === 'string' ? label.trim() : '';
+    if (normalizedKey && normalizedLabel) displayNames[normalizedKey] = normalizedLabel;
+  }
+  return displayNames;
+}
+
+function mimeTypeForLogo(path: string): string {
+  switch (extname(path).toLowerCase()) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.svg':
+      return 'image/svg+xml';
+    default:
+      return 'application/octet-stream';
+  }
 }
 
 export function brandPlugin(brandingRoot: string, profile: string): Plugin {
@@ -243,10 +324,7 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
       if (id !== RESOLVED_ID) return null;
       const b = get();
       // Emit a typed module so the app imports a real `brand` object.
-      return (
-        `export const brand = ${JSON.stringify(b)};\n` +
-        `export default brand;\n`
-      );
+      return `export const brand = ${JSON.stringify(b)};\n` + `export default brand;\n`;
     },
     config() {
       const b = get();
@@ -261,7 +339,10 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
       // Hot-invalidate the virtual module when the profile JSON changes in dev.
       server.watcher.add(jsonPath);
       server.watcher.on('change', (file) => {
-        if (resolve(file) === jsonPath || dirname(resolve(file)) === resolve(brandingRoot, profile)) {
+        if (
+          resolve(file) === jsonPath ||
+          dirname(resolve(file)) === resolve(brandingRoot, profile)
+        ) {
           resolved = null;
           const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
           if (mod) server.reloadModule(mod);

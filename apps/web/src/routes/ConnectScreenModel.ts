@@ -16,6 +16,17 @@ export function bearerAuthHeaders(token: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export function isCapabilitiesPayload(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.contract_version === 'string' ||
+    typeof candidate.backend === 'object' ||
+    typeof candidate.capabilities === 'object' ||
+    typeof candidate.transports === 'object'
+  );
+}
+
 export function isRemoteBackendUrl(url: string): boolean {
   let host: string;
   try {

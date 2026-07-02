@@ -23,7 +23,10 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('empty-chat fixture starts as a conversation-first workspace', async ({ page }) => {
     await page.goto('/?route=chat&fixture=empty-sidebar');
-    await expect(page.getByTestId('sessions-column')).toHaveCount(0);
+    // Conversation-first: the sessions rail renders its empty state (no session
+    // rows) while the main pane leads with the start-a-conversation invitation.
+    await expect(page.getByTestId('sidebar-empty')).toBeVisible();
+    await expect(page.locator('[data-testid^="session-row-"]')).toHaveCount(0);
     await expect(page.getByTestId('transcript-pane')).toBeVisible();
     await expect(page.getByTestId('transcript-pane')).toContainText(/Pick a session or start fresh/i);
     await page.screenshot({ path: shot('empty-chat-first-run'), fullPage: false });
@@ -195,10 +198,17 @@ test.describe('CLIO harness — visual proofs', () => {
 
   test('structured-tool-results renders evidence cards instead of raw JSON logs', async ({ page }) => {
     await page.goto('/?route=chat&fixture=structured');
-    const result = page.getByTestId('content-typed-tool-result').first();
+    // The unified renderer detects the JSON result's content type and renders it
+    // as flattened scalar evidence (key: value) rather than dumping raw JSON —
+    // the nested `records` array is dropped from the preview.
+    const result = page
+      .getByTestId('assistant-turn-tool')
+      .filter({ hasText: 'matched_count' })
+      .first();
     await expect(result).toBeVisible();
-    await expect(result).toContainText('matched_count: 72');
-    await expect(result).not.toContainText('"records"');
+    const evidence = result.getByTestId('tool-text');
+    await expect(evidence).toContainText('matched_count: 72');
+    await expect(evidence).not.toContainText('"records"');
     await result.scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot('structured-tool-results'), fullPage: false });
   });
@@ -319,30 +329,27 @@ test.describe('CLIO harness — visual proofs', () => {
     await page.screenshot({ path: shot('attach-hybrid-menu'), fullPage: false });
   });
 
-  test('code blocks render with syntax highlighting (W3 Tier-1)', async ({ page }) => {
+  test('fenced code renders as a monospace code block', async ({ page }) => {
     await page.goto('/?route=chat&fixture=normal');
-    // hljs tokenises the fenced code; assert real tokens rendered (not just
-    // the .hljs wrapper) so the proof is highlighting, not plain text.
-    await expect(page.locator('.im__code code.hljs').first()).toBeVisible();
-    await expect(
-      page.locator('.im__code .hljs-keyword, .im__code .hljs-string, .im__code .hljs-built_in').first(),
-    ).toBeVisible({ timeout: 4_000 });
+    // The single incremental renderer (smd) emits a plain <pre><code> code block
+    // (soft chrome: no lang badge / copy button / syntax highlighting).
+    await expect(page.locator('.im pre code').first()).toBeVisible({ timeout: 4_000 });
     await page.screenshot({ path: shot('code-syntax-highlight'), fullPage: false });
   });
 
   test('markdown file reads render as structured markdown', async ({ page }) => {
     await connectMockBackend(page, 'markdown');
     await expect(page.getByTestId('chat-screen')).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
-    await page.locator('.im__h-1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
-    await expect(page.locator('.im__h-1').filter({ hasText: 'Release Readiness' })).toBeVisible();
+    await expect(page.locator('.im h1').filter({ hasText: 'Release Readiness' })).toHaveCount(1);
+    await page.locator('.im h1').filter({ hasText: 'Release Readiness' }).scrollIntoViewIfNeeded();
+    await expect(page.locator('.im h1').filter({ hasText: 'Release Readiness' })).toBeVisible();
     await expect(page.locator('.im table').first()).toBeVisible();
-    const code = page.locator('.im__code code.hljs').first();
+    const code = page.locator('.im pre code').first();
     await expect(code).toBeVisible();
     await code.scrollIntoViewIfNeeded();
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const codeEl = document.querySelector('.im__code code.hljs');
+        const codeEl = document.querySelector('.im pre code');
         const composer = document.querySelector('[data-testid="composer"]');
         if (!codeEl || !composer) return false;
         const codeBox = codeEl.getBoundingClientRect();
@@ -508,7 +515,7 @@ test.describe('CLIO harness — visual proofs', () => {
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
     );
-    expect(bg).toBe('#f4f6fa');
+    expect(bg).toBe('#f7f9fc');
     await page.waitForTimeout(300);
     await page.screenshot({ path: shot('light-theme-chat'), fullPage: false });
     // Code blocks + diffs restyle through the override tokens too.
@@ -639,7 +646,7 @@ test.describe('CLIO harness — visual proofs', () => {
       const bgLight = await page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
       );
-      expect(bgLight).toBe('#f4f6fa');
+      expect(bgLight).toBe('#f7f9fc');
       await page.waitForTimeout(300);
       await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
       // Back to Dark → overrides clear to the design-system default.

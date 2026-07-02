@@ -19,12 +19,9 @@ import type {
   PartUnknown,
 } from '@clio/core';
 import type { JSX } from 'solid-js';
-import { ThinkingPartView } from './TranscriptPartViews.js';
 import { FileDiffPartView } from './TranscriptFileDiffPartView.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
-import { ExpertHandoffPartView, RoutingDecisionPartView } from './TranscriptRoutingPartViews.js';
 import { TextPartView } from './TranscriptTextPartView.js';
-import { ToolCallPartView, ToolResultPartView } from './TranscriptToolParts.js';
 import { DocumentPartView } from './TranscriptDocumentPartView.js';
 import { SubagentCallPartView, SubagentResultPartView } from './TranscriptSubagentParts.js';
 import { ResourceLinkPartView, ResourcePartView } from './TranscriptResourceParts.js';
@@ -35,30 +32,22 @@ import { TranscriptErrorPartView } from './TranscriptErrorPartView.js';
 import { TranscriptCompactionPartView } from './TranscriptCompactionPartView.js';
 import { TranscriptRedactedThinkingPartView } from './TranscriptRedactedThinkingPartView.js';
 import { UnknownPartView } from './TranscriptUnknownPartView.js';
-import { AssistantTurnView } from './AssistantTurnView.js';
-import { buildTurnModelFromNodes } from './executionTurnModel.js';
-import type { PartExecutionTree } from './executionProjectionModel.js';
 import './transcript-new-parts.css';
 
 export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
 
+// NOTE: assistant CONTENT (text / thinking / tool_call / tool_result /
+// expert_handoff / routing_decision / the old execution_tree) is rendered
+// exclusively by the single AssistantTurnView path (buildAssistantTurnModel).
+// PartView is now only the LEAF dispatcher for PASSTHROUGH parts (images, diffs,
+// documents, resources, citations, …) and synthetic command-result text.
 export function shouldRenderPart(part: Part, density: TranscriptDensity): boolean {
   if (density === 'verbose') return true;
   if (density === 'summary') {
-    // summary keeps the answer + diffs + images, plus the routing decision so
-    // a read-back still shows which expert handled the turn and how it routed.
-    // The hierarchical execution tree is the projected turn itself, so it must
-    // survive summary density too (else the projected message renders empty).
-    return (
-      part.type === 'text' ||
-      part.type === 'file_diff' ||
-      part.type === 'image' ||
-      part.type === 'routing_decision' ||
-      (part.type as string) === 'execution_tree'
-    );
+    // summary keeps the answer + diffs + images.
+    return part.type === 'text' || part.type === 'file_diff' || part.type === 'image';
   }
-  // normal density: hide thinking; show routing_decision so the user
-  // can see which expert handled the turn.
+  // normal density: hide standalone thinking.
   return part.type !== 'thinking';
 }
 
@@ -86,32 +75,13 @@ export interface PartViewProps {
  */
 type PartRenderer = (part: Part, props: PartViewProps) => JSX.Element;
 
-// Registry: part.type -> its concrete view. Replaces the former if-else chain.
-// Each entry narrows `part` to the type implied by its key (the union is
-// keyed on `.type`, so the cast is sound) and may read extra props.
-// `execution_tree` is a synthetic part carrying the projected multi-agent
-// execution nodes; it is not in the wire `Part` union, hence the dual cast.
+// Registry: part.type -> its concrete LEAF view (passthrough + command-result
+// text). Assistant content types (text prose / thinking / tool_call /
+// tool_result / expert_handoff / routing_decision) are NOT here — they render
+// through AssistantTurnView, the single path.
 const PART_RENDERERS: Record<string, PartRenderer> = {
-  // LIVE execution turn (RENDERING_SPEC §9): the projected execution nodes are
-  // converted to the SAME clean AssistantTurnModel the persisted path uses and
-  // rendered through AssistantTurnView — flat, no boxes, depth-indented,
-  // content-typed tool output, full model text. Live === post-reload.
-  execution_tree: (p, props) => {
-    const tree = p as unknown as PartExecutionTree;
-    const model = buildTurnModelFromNodes(tree.nodes);
-    if (!model) return <></>;
-    return (
-      <AssistantTurnView
-        rows={model.rows}
-        density={props.density}
-        onOpenDiff={props.onOpenDiff}
-        onPinFile={props.onPinFile}
-        imagePartsSupported={props.imagePartsSupported}
-        readWorkspaceImage={props.readWorkspaceImage}
-        messageId={props.messageId}
-      />
-    );
-  },
+  // Synthetic slash-command result: a distinct card, routed here as a passthrough
+  // row by buildAssistantTurnModel (regular prose renders through AssistantTurnView).
   text: (p, props) => (
     <TextPartView
       part={p as Extract<Part, { type: 'text' }>}
@@ -122,16 +92,6 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
       showCursor={props.showCursor}
     />
   ),
-  thinking: (p) => <ThinkingPartView part={p} />,
-  tool_call: (p, props) => (
-    <ToolCallPartView part={p as Extract<Part, { type: 'tool_call' }>} density={props.density} />
-  ),
-  tool_result: (p, props) => (
-    <ToolResultPartView
-      part={p as Extract<Part, { type: 'tool_result' }>}
-      searchQuery={props.searchQuery}
-    />
-  ),
   file_diff: (p, props) => (
     <FileDiffPartView
       part={p as Extract<Part, { type: 'file_diff' }>}
@@ -139,11 +99,6 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
       onPinFile={props.onPinFile}
     />
   ),
-  // routing_decision — clio's chosen expert + rationale (TUI detail_view parity).
-  routing_decision: (p) => <RoutingDecisionPartView part={p} />,
-  // expert_handoff — clio delegated the turn to a sub-expert (emitted as a Part,
-  // not a standalone event, so it must be rendered here or it's silently dropped).
-  expert_handoff: (p) => <ExpertHandoffPartView part={p} />,
   // Inline image parts (1.0 item 2). base64/url render directly; backend file
   // references show an honest placeholder until fetched.
   image: (p, props) => <ImagePartView part={p} imagePartsSupported={props.imagePartsSupported} />,

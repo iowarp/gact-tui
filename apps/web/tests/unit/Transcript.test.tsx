@@ -34,14 +34,65 @@ describe('Transcript', () => {
     expect(screen.getByTestId('transcript').getAttribute('data-density')).toBe('summary');
   });
 
-  it('renders verbose tool call body in verbose mode', () => {
+  it('renders the tool call through the unified tool row (name + args)', () => {
+    // UNIFIED render: a tool_call becomes a ToolRow rendered by AssistantTurnView —
+    // `name(args)` inline, not the retired flat per-arg verbose body. The tool name
+    // and its argument value are both visible.
     render(() => <Transcript messages={messages} density="verbose" />);
-    expect(screen.getByTestId('toolcall-tc1')).toBeTruthy();
-    expect(screen.getByText('Path')).toBeTruthy();
-    expect(screen.getByText('x')).toBeTruthy();
+    const tool = screen.getByTestId('assistant-turn-tool');
+    expect(tool).toBeTruthy();
+    expect(tool.textContent).toContain('ReadFile');
+    expect(tool.textContent).toContain('x');
   });
 
-  it('summarizes CLIO typed workflow state instead of dumping JSON inline', () => {
+  it('uses legacy assistant rendering only when no normalized transcript is present', () => {
+    render(() => <Transcript messages={messages} density="normal" />);
+    expect(screen.getByText('done')).toBeTruthy();
+    expect(screen.queryByTestId('normalized-transcript-message')).toBeNull();
+  });
+
+  it('renders every turn through the unified parts path — no separate normalized render', () => {
+    // UNIFIED: live and reload both render via MessageView/buildAssistantTurnModel.
+    // The user turn and the assistant turn both show; there is no separate
+    // normalized-transcript-message element (the normalized render is retired).
+    render(() => <Transcript messages={messages} density="normal" />);
+    expect(screen.getByText('hello')).toBeTruthy();
+    expect(screen.getByText('done')).toBeTruthy();
+    expect(screen.queryByTestId('normalized-transcript-message')).toBeNull();
+  });
+
+  it('highlights search matches in the unified render (no swap to a flat view)', () => {
+    // The single render path keeps search highlighting: matches wrap in keyed
+    // <mark> spans, and the current match carries tx-match--current for autoscroll.
+    const searched: Message[] = [
+      { id: 'u', role: 'user', parts: [{ type: 'text', text: 'resolve Los Angeles' }] },
+      {
+        id: 'a',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Los Angeles resolved to 34.05, -118.24.' }],
+      },
+    ];
+    render(() => (
+      <Transcript
+        density="normal"
+        messages={searched}
+        searchQuery="Angeles"
+        currentMatchKey="a:1"
+      />
+    ));
+    const marks = document.querySelectorAll('mark.tx-match');
+    // One match in the user prompt, one in the assistant answer.
+    expect(marks.length).toBe(2);
+    // The keyed current match (global index 1 = the assistant occurrence) is marked.
+    const current = document.querySelector('mark.tx-match--current');
+    expect(current).toBeTruthy();
+    expect(current!.getAttribute('data-match-key')).toBe('a:1');
+  });
+
+  it('strips display-only typed workflow state, keeping only the prose', () => {
+    // UNIFIED render: `CLIO typed workflow state: { … }` is backend display-only
+    // machine state, stripped by cleanProse (same as the handoff path) — the prose
+    // is kept, the JSON blob and the retired workflow-state card are gone.
     render(() => (
       <Transcript
         density="normal"
@@ -61,14 +112,6 @@ describe('Transcript', () => {
                         local_path: '/tmp/run/MTA1.csv',
                         size_bytes: 50424246,
                       },
-                      station_catalog: {
-                        status: 'ranked',
-                        candidate_count: 72,
-                      },
-                      artifact: {
-                        status: 'ready',
-                        path: '/tmp/run/MTA1_plot.png',
-                      },
                     },
                   }),
               },
@@ -79,11 +122,9 @@ describe('Transcript', () => {
     ));
 
     expect(screen.getByText('Evidence is ready.')).toBeTruthy();
-    expect(screen.getByTestId('workflow-state-card')).toBeTruthy();
-    expect(screen.getByText('Acquisition')).toBeTruthy();
-    expect(screen.getByText('Station Catalog')).toBeTruthy();
-    expect(screen.getByText('Artifact')).toBeTruthy();
-    expect(screen.getByText('Raw state')).toBeTruthy();
+    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
+    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
+    expect(screen.queryByText(/typed workflow state/)).toBeNull();
   });
 
   it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {

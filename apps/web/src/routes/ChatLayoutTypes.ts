@@ -15,8 +15,16 @@ import type {
   TurnAttempt,
   UserQuestion,
 } from '@clio/core';
-import type { ExecutionTranscriptEvent, RunningTool, StreamStats } from '../live.js';
-import type { ModelOption, PermissionMode } from '../components/ComposerTypes.js';
+import type {
+  ExecutionTranscriptEvent,
+  RunningTool,
+  StreamStats,
+} from '../live.js';
+import type {
+  ModelOption,
+  ModelProviderOption,
+  PermissionMode,
+} from '../components/ComposerTypes.js';
 import type { BackendHandle } from '../App.js';
 import type { SessionBindings } from '../components/InspectorBindings.js';
 import type { ContextFrameRow } from '../components/InspectorFrames.js';
@@ -99,6 +107,7 @@ export interface ChatLayoutProps {
   onCompactSession?: () => void | Promise<void>;
   /** Composer wiring (LiveDriven path only). */
   models?: ModelOption[];
+  modelProviders?: ModelProviderOption[];
   selectedModelId?: string;
   onPickModel?: (m: ModelOption) => void | Promise<void>;
   permMode?: PermissionMode;

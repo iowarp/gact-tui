@@ -57,11 +57,10 @@ export function shouldShowSessionsColumn(input: {
   sessionCount: number;
   activeId: string;
 }): boolean {
-  return (
-    input.railRoute === 'sessions' &&
-    input.sessionsOpen &&
-    hasSessionInventory(input.sessionsLoading, input.sessionCount, input.activeId)
-  );
+  void input.sessionsLoading;
+  void input.sessionCount;
+  void input.activeId;
+  return input.railRoute === 'sessions' && input.sessionsOpen;
 }
 
 export function previewWorkspaceIdForSession(input: {

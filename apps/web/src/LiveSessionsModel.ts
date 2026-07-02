@@ -5,6 +5,7 @@
  */
 import type { Session, SessionStatus } from '@clio/core';
 import type { SidebarSession } from './components/Sidebar.js';
+import { presentBlueprintLabel } from './brand-presentation.js';
 
 export function shouldReconcileTranscriptAfterEvent(
   ev: { type?: string; payload?: Record<string, unknown> },
@@ -39,9 +40,46 @@ export function toSidebarSession(s: Session): SidebarSession {
     status: s.status as SessionStatus,
     project,
     updatedAt: humanizeUpdatedAt(s.updated_at),
+    ...(sessionBlueprintLabel(meta) ? { blueprint: sessionBlueprintLabel(meta) } : {}),
     ...(metaPinned ? { metaPinned: true } : {}),
     ...(s.parent_session_id ? { parentId: s.parent_session_id } : {}),
   };
+}
+
+function sessionBlueprintLabel(metadata: Record<string, unknown>): string {
+  const explicit =
+    stringValue(metadata['active_agent_blueprint_name']) ||
+    stringValue(metadata['agent_blueprint_name']) ||
+    stringValue(metadata['blueprint_name']);
+  if (explicit) {
+    const id =
+      stringValue(metadata['active_agent_blueprint_id']) ||
+      stringValue(metadata['agent_blueprint_id']) ||
+      stringValue(metadata['blueprint_id']);
+    return presentBlueprintLabel(explicit, id);
+  }
+  const id =
+    stringValue(metadata['active_agent_blueprint_id']) ||
+    stringValue(metadata['agent_blueprint_id']) ||
+    stringValue(metadata['blueprint_id']);
+  return id ? presentBlueprintLabel(humanizeBlueprintId(id), id) : '';
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function humanizeBlueprintId(id: string): string {
+  return id
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/gnss/i.test(part)) return 'GNSS';
+      if (/ndp/i.test(part)) return 'NDP';
+      if (/earthscope/i.test(part)) return 'EarthScope';
+      return part.slice(0, 1).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
 }
 
 export function workspaceLabel(s: Pick<Session, 'workspace_id' | 'metadata'>): string {

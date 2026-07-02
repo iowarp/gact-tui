@@ -86,8 +86,8 @@ export class SessionCoordinationClient extends SessionMemoryClient {
    * session. The frontend uses this for the initial fetch; subsequent
    * arrivals come over SSE as `permission.requested` events.
    */
-  permissions(sessionId: string): Promise<SessionPermissionsResult> {
-    return fetchSessionPermissions(this, sessionId);
+  permissions(sessionId: string, status?: string): Promise<SessionPermissionsResult> {
+    return fetchSessionPermissions(this, sessionId, status);
   }
 
   /**

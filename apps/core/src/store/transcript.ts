@@ -93,9 +93,14 @@ export function applyPartCompleted(
  * the message is not in the list.
  */
 export function appendPart(messages: Message[], messageId: string, part: Part): Message[] {
-  return messages.map((m) =>
-    m.id === messageId ? { ...m, parts: [...m.parts, part] } : m,
-  );
+  return messages.map((m) => {
+    if (m.id !== messageId) return m;
+    const idx = m.parts.findIndex((existing) => existing.id === part.id);
+    if (idx === -1) return { ...m, parts: [...m.parts, part] };
+    const parts = m.parts.slice();
+    parts[idx] = part;
+    return { ...m, parts };
+  });
 }
 
 /**
