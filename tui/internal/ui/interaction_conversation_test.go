@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
@@ -36,6 +37,53 @@ func TestConversationPartsUseSemanticHitTargets(t *testing.T) {
 	}
 	if a.conversation.bodySelMsgIdx != 1 || a.conversation.bodySelPartIdx != 0 {
 		t.Fatalf("body cursor = msg %d part %d, want msg 1 part 0", a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx)
+	}
+}
+
+// TestProjectedConversationPartsKeepSemanticHitTargets pins #233 phase 1: the
+// parts-only projected transcript (the delegation-session render) must expose
+// the same part-level hit targets the retired flat per-message render had —
+// a click selects the part, the ▌ cursor paints on it, and a second click on
+// the selected part opens the detail modal.
+func TestProjectedConversationPartsKeepSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 60 // tall enough that the whole projected turn (and the ▌ cursor's first line) is on screen
+	a.stage = StageReady
+	a.session.sessions = []gact.Session{{ID: "s1", Title: "demo", Status: gact.StatusIdle}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
+		{ID: "msg_user_1", SessionID: "s1", Role: gact.RoleUser,
+			Parts: []gact.Part{{ID: "u1", Type: gact.PartTypeText, Text: "find the nearest station"}}},
+		earthscopeDelegationAssistant("msg_user_1"),
+	}
+
+	_ = a.View()
+	// The assistant's opening prose (addressable part 0 of message 1) must be
+	// clickable in the projected render.
+	target, ok := findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("missing part hit target for projected assistant prose")
+	}
+	a, _ = updateTranscriptLeftClickAndReleaseForTest(a, target.rect.x, target.rect.y)
+	if a.focus != FocusBody {
+		t.Fatalf("focus = %v, want body", a.focus)
+	}
+	if a.conversation.bodySelMsgIdx != 1 || a.conversation.bodySelPartIdx != 0 {
+		t.Fatalf("body cursor = msg %d part %d, want msg 1 part 0",
+			a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx)
+	}
+	plain := ansi.Strip(a.View().Content)
+	if !strings.Contains(plain, "▌ ") {
+		t.Fatalf("selected-part cursor missing from projected render:\n%s", plain)
+	}
+	target, ok = findHitTargetForTest(a, "conversation:part:1:0")
+	if !ok {
+		t.Fatal("part hit target lost after selection")
+	}
+	a, _ = updateTranscriptLeftClickAndReleaseForTest(a, target.rect.x, target.rect.y)
+	if !a.detail.visible || a.detail.ref == nil {
+		t.Fatal("second click on selected projected part should open detail")
 	}
 }
 
