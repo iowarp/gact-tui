@@ -25,7 +25,10 @@ type executionComponent struct {
 	// CLIO's semantic highway and assistant deltas into one chronological
 	// execution transcript. It is bounded per session (drop-oldest at
 	// executionLedgerMaxEvents), emptied on session.cleared, and pruned
-	// when a session disappears from the refreshed session list (#231).
+	// only when the backend confirms a session's deletion. Refreshed
+	// session lists never drive pruning: they are filtered views
+	// (workspace-scoped, archived-filtered), so absence from one does not
+	// mean the session is gone (#231).
 	executionEventsBySession map[string][]executionTimelineEvent
 	executionEventSeq        int
 

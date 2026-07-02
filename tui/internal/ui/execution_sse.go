@@ -103,21 +103,27 @@ func (c *executionComponent) clearSessionLedger(sessionID string) {
 	delete(c.executionEventsBySession, sessionID)
 }
 
-// pruneClosedSessionLedgers drops ledgers whose session no longer exists in
-// the authoritative refreshed session list (deleted/closed sessions), so
-// closed sessions do not pin their execution events in memory (#231).
-func (c *executionComponent) pruneClosedSessionLedgers(sessions []gact.Session) {
-	if len(c.executionEventsBySession) == 0 {
+// dropDeletedSessionLedger drops the execution-event ledger of a session the
+// backend confirmed deleted, recording a structured execution.ledger.pruned
+// audit event for the drop. Confirmed deletion (and session.cleared, via
+// clearSessionLedger) are the only prune triggers: refreshed session lists
+// are filtered views (workspace-scoped, and archived-filtered when the
+// archived sidebar view is on), so a session's absence from one never proves
+// it was deleted — and pruning on such lists would irreversibly destroy live
+// sessions' ledgers, because lastSeenSeqIDBySession suppresses SSE replay on
+// revisit (#231).
+func (c *executionComponent) dropDeletedSessionLedger(sessionID string) {
+	events, ok := c.executionEventsBySession[sessionID]
+	if !ok {
 		return
 	}
-	alive := make(map[string]struct{}, len(sessions))
-	for _, s := range sessions {
-		alive[s.ID] = struct{}{}
-	}
-	for sid := range c.executionEventsBySession {
-		if _, ok := alive[sid]; !ok {
-			delete(c.executionEventsBySession, sid)
-		}
+	delete(c.executionEventsBySession, sessionID)
+	if c.app.audit != nil {
+		c.app.audit.RecordReceived("execution.ledger.pruned", map[string]any{
+			"reason":     "session_deleted",
+			"session_id": sessionID,
+			"dropped":    len(events),
+		})
 	}
 }
 
