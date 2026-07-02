@@ -82,22 +82,68 @@ function applySessionUpdated(
   payload: Record<string, unknown>,
   hooks: LiveSessionEventHooks,
 ) {
-  const sid = payload.session_id as string;
-  if (!sid || !hooks.sessionEvents) return;
-  const changed = (payload.changed_fields as string[]) ?? [];
-  hooks.sessionEvents.patch(sid, {
+  const sink = hooks.sessionEvents;
+  // Two wire shapes exist (iowarp/gact-tui#225): the envelope form
+  // `{ session_id, changed_fields }` and clio's, which publishes the FULL
+  // Session object (`id`, no `session_id`, no `changed_fields`).
+  const sid = (payload.session_id as string | undefined) ?? (payload.id as string | undefined);
+  if (!sid || !sink) {
+    if (!sid) {
+      console.warn('[live] session.updated dropped', {
+        reason: 'session_updated_missing_id',
+        payload_keys: Object.keys(payload),
+      });
+    }
+    return;
+  }
+  const bump = {
     updatedAt: 'just now',
     bumpedAt: (hooks.now ?? Date.now)(),
-  });
-  if (changed.includes('title')) {
-    hooks.sessionEvents.refetch?.();
-    hooks.sessionEvents.onTitleChanged?.(sid);
+  } satisfies Partial<SidebarSession>;
+  let titleChanged = ((payload.changed_fields as string[]) ?? []).includes('title');
+  if (isFullSessionPayload(payload)) {
+    // The full-Session payload IS the update: apply it wholesale and derive
+    // the title change by comparing against the current sidebar row.
+    const next = toSidebarSession(payload as unknown as Session);
+    if (sink.setRaw) {
+      sink.setRaw((prev) =>
+        prev.map((row) => {
+          if (row.id !== sid) return row;
+          if (row.title !== next.title) titleChanged = true;
+          return { ...row, ...next, ...bump };
+        }),
+      );
+    } else {
+      // Degraded: without list access the previous title is unknown, so a
+      // backend rename can't be detected (no toast) — fields still apply.
+      console.warn('[live] session.updated applied without rename detection', {
+        reason: 'session_updated_sink_missing_setraw',
+        session_id: sid,
+      });
+      sink.patch(sid, { ...next, ...bump });
+    }
+  } else {
+    sink.patch(sid, bump);
+  }
+  if (titleChanged) {
+    sink.refetch?.();
+    sink.onTitleChanged?.(sid);
     hooks.onNotification?.({
       level: 'info',
       title: 'Session renamed',
       body: `Backend updated the title of session ${sid.slice(0, 8)}.`,
     });
   }
+}
+
+/** A clio-shaped `session.updated` payload: the Session object itself. */
+function isFullSessionPayload(payload: Record<string, unknown>): boolean {
+  return (
+    !('session_id' in payload) &&
+    typeof payload.id === 'string' &&
+    typeof payload.title === 'string' &&
+    typeof payload.status === 'string'
+  );
 }
 
 function applySessionDeleted(
