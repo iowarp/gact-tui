@@ -27,6 +27,13 @@
   transform: translateX(-50%) translateY(-1px);
 }
 
+/* When the per-expert context footer is docked above the composer, lift the
+   pill clear of it — otherwise the centered pill overlaps the centered footer
+   band and swallows clicks meant for the footer. */
+.chat__main-col:has(.chat__context-footer) .chat__scroll-pill {
+  bottom: calc(var(--composer-h, 132px) + 48px);
+}
+
 @keyframes chat-scroll-pill-in {
   from {
     opacity: 0;
