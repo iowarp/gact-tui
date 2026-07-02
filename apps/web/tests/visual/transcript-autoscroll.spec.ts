@@ -200,6 +200,11 @@ test('transcript autoscroll pins during streaming and pauses on user scroll', as
   await pane.hover();
   await page.mouse.wheel(0, -900);
   await expect(page.getByTestId('scroll-to-bottom')).toBeVisible();
+  // The scroll-to-bottom pill is driven by the synchronously-set `scrolledUp`
+  // signal, which flips ahead of the browser actually applying the wheel scroll.
+  // Wait for the scroll position to settle before capturing the paused offset so
+  // the "position holds during streaming" assertion below is deterministic.
+  await expect.poll(() => bottomDistance(page)).toBeGreaterThan(300);
   const pausedTop = await scrollTop(page);
 
   await emitSse(page, 'message.part.delta', {
