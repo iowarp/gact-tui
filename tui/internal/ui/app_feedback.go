@@ -88,6 +88,22 @@ func (c *chromeComponent) handleErr(m errMsg) (tea.Model, tea.Cmd) {
 		a.setHint("cancel failed: " + operatorErrorMessage(m.err))
 		return a, scheduleHintExpire(a.transientHint)
 	}
+	// Issue #227: SSE stream failures — open ("sse") or mid-stream
+	// ("sse-read") — are as transient as a clean remote close, so they
+	// must NOT dead-end in the fatal StageError modal. Route them into
+	// the exact backoff-reconnect path sseClosedMsg takes, and surface
+	// the reason as a toast (the footer's "(reconnecting…)" badge keeps
+	// showing while the backoff runs) so the user still sees why.
+	if m.stage == "sse" || m.stage == "sse-read" {
+		writeTUIAuditReceived("tui.sse_reconnect", map[string]any{
+			"reason": "sse_stream_error",
+			"stage":  m.stage,
+			"error":  operatorErrorMessage(m.err),
+		})
+		a.setHint("stream error: " + operatorErrorMessage(m.err))
+		_, reconnect := a.connection.handleSSEClosed(sseClosedMsg{})
+		return a, tea.Batch(reconnect, scheduleHintExpire(a.transientHint))
+	}
 	a.stage = StageError
 	a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
 	// Connect-stage failures are usually transient (backend booting,
