@@ -71,6 +71,49 @@ func TestSessionToGact_PrefersExplicitWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestTranslateCrushEvent_MessageCreatedIsFlat(t *testing.T) {
+	raw := []byte(`{"type":"message","payload":{"type":"created","payload":{"id":"msg_1","session_id":"ses_1","role":"assistant"}}}`)
+	ev, payload, sid, ok := translateCrushEvent(raw, "")
+	if !ok {
+		t.Fatal("translateCrushEvent rejected a valid envelope")
+	}
+	if ev != "message.created" {
+		t.Fatalf("event = %q, want message.created", ev)
+	}
+	if sid != "ses_1" {
+		t.Errorf("sid = %q, want ses_1", sid)
+	}
+	// Codified wire shape (clio gact/types.py + emulator + claudecode: 3 of 4
+	// implementations): message.created payload IS the message resource, flat —
+	// never nested under a "message" key.
+	if _, nested := payload["message"]; nested {
+		t.Fatalf("payload nests the message under %q: %+v", "message", payload)
+	}
+	if payload["id"] != "msg_1" {
+		t.Errorf("payload[id] = %v, want msg_1", payload["id"])
+	}
+	if payload["role"] != "assistant" {
+		t.Errorf("payload[role] = %v, want assistant", payload["role"])
+	}
+	if payload["session_id"] != "ses_1" {
+		t.Errorf("payload[session_id] = %v, want ses_1", payload["session_id"])
+	}
+}
+
+func TestTranslateCrushEvent_MessageCreatedBackfillsSessionID(t *testing.T) {
+	// A Crush message resource that (unusually) lacks session_id still needs
+	// one on the flat payload so per-session consumers can route it; the
+	// stream's session filter is the only remaining source.
+	raw := []byte(`{"type":"message","payload":{"type":"created","payload":{"id":"msg_2","role":"user"}}}`)
+	ev, payload, _, ok := translateCrushEvent(raw, "ses_fallback")
+	if !ok || ev != "message.created" {
+		t.Fatalf("event = %q ok=%v", ev, ok)
+	}
+	if payload["session_id"] != "ses_fallback" {
+		t.Errorf("payload[session_id] = %v, want ses_fallback", payload["session_id"])
+	}
+}
+
 func TestSessionsToGact_PreservesOrder(t *testing.T) {
 	in := []CrushSession{{ID: "a"}, {ID: "b"}, {ID: "c"}}
 	out := SessionsToGact(in, "ws_x")
