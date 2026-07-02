@@ -113,6 +113,13 @@ func (c *conversationComponent) applySSE(e client.SSEEvent) {
 		// carries session_id so we can ignore hits for other sessions.
 		if pl != nil {
 			sid, _ := pl["session_id"].(string)
+			if sid != "" {
+				// The backend wiped this session's history — the execution
+				// ledger must go with it or Ctrl+E drill-down keeps showing
+				// pre-/clear events (#231). Applies to non-current sessions
+				// too (a subagent session can be cleared while unselected).
+				c.app.execution.clearSessionLedger(sid)
+			}
 			if sid != "" && sid == c.app.session.currentID() {
 				c.clearMessages()
 				c.scrollOffset = 0

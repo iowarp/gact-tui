@@ -13,7 +13,8 @@ import (
 )
 
 // reloadSessionsCmd is used after subagent.started so the new sub-session
-// shows up in the sidebar without the user having to refresh manually.
+// shows up in the sidebar without the user having to refresh manually, and
+// after a confirmed session deletion so the deleted row disappears.
 func reloadSessionsCmd(c *client.Client, wsID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -61,19 +62,27 @@ func duplicateSessionCmd(c *client.Client, wsID string, src gact.Session) tea.Cm
 	}
 }
 
-func deleteSessionCmd(c *client.Client, wsID, sessionID string) tea.Cmd {
+// sessionDeletedMsg reports that DELETE /v1/sessions/{id} succeeded. It
+// deliberately carries the deleted session's id rather than a session list:
+// list payloads are filtered (workspace-scoped, archived-filtered) and so can
+// never prove a session was deleted — only this signal can (#231).
+type sessionDeletedMsg struct {
+	sessionID string
+}
+
+// deleteSessionCmd deletes the session on the backend and reports the
+// confirmed deletion. The sidebar re-list is issued by the sessionDeletedMsg
+// handler as a follow-up command, so the deletion signal (which also prunes
+// the session's execution ledger) is delivered even if the re-list
+// subsequently fails.
+func deleteSessionCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := c.DeleteSession(ctx, sessionID); err != nil {
 			return errMsg{err: err, stage: "delete-session"}
 		}
-		// Re-list sessions in the workspace.
-		sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: wsID})
-		if err != nil {
-			return errMsg{err: err, stage: "list-sessions"}
-		}
-		return sessionsRefreshedMsg{sessions: sessions}
+		return sessionDeletedMsg{sessionID: sessionID}
 	}
 }
 
