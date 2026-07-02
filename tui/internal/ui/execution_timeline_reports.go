@@ -39,7 +39,7 @@ func (p *executionTimelineProjector) applyDelegationCompleted(payload map[string
 	}
 }
 
-// applyExpertResponse projects an “expert.response.completed“ atom — the
+// applyExpertResponse projects an `expert.response.completed` atom — the
 // per-expert LM output capture that closes the nested-expert gap (a child
 // whose answer never streamed as transcript text). It is a LOWER-precedence
 // report than expert.extract.completed: an agent the extract already reported

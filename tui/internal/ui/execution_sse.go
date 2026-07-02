@@ -98,10 +98,10 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 // contract/SPEC.md §7.6 "Served allow-list" is source of truth (clio
 // semantic_events.py: SSE_UI_EVENT_TYPES): the ReAct trajectory atoms
 // (react step / extract / expert response / expert lifecycle), the delegation
-// atom on BOTH its prefixes (“blueprint.delegation.*“ for Agent Blueprint
-// experts, plain “delegation.*“ for expert-pack / prompt-agent delegations),
+// atom on BOTH its prefixes (`blueprint.delegation.*` for Agent Blueprint
+// experts, plain `delegation.*` for expert-pack / prompt-agent delegations),
 // and memory.search.completed. Everything else (turn/agent/hook lifecycle,
-// the “tool.call.*“ mirrors, “lm.token.delta“, memory bookkeeping) never
+// the `tool.call.*` mirrors, `lm.token.delta`, memory bookkeeping) never
 // reaches the wire — except through the failed-status gate below.
 var semanticLedgerEventTypes = map[string]bool{
 	"react.step.completed":                true,
