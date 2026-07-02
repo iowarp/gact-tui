@@ -81,3 +81,7 @@ __pycache__/
 # no root image is tracked — verified 2026-07)
 /*.png
 /*.gif
+
+# Curated replay fixtures inside otherwise-ignored run dirs (referenced by tracked .tape files)
+!visual_loop/tui_audit_san_diego_alcf_execution_projection_v12/b_full_tui_rendered.txt
+!visual_loop/tui_audit_san_diego_alcf_execution_projection_v13/b_expanded_artifact_rendered.txt
