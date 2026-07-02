@@ -25,6 +25,9 @@ func (w *workspaceModal) resetScopedUIState() {
 func (c *sessionComponent) handleRefreshed(m sessionsRefreshedMsg) (tea.Model, tea.Cmd) {
 	prevID := c.currentID()
 	c.sessions = m.sessions
+	// m.sessions is the authoritative list; any execution ledger keyed by a
+	// session that is gone (deleted/closed) would otherwise leak forever (#231).
+	c.app.execution.pruneClosedSessionLedgers(m.sessions)
 	c.sortByActivity()
 	if len(c.sessions) == 0 {
 		c.selected = -1

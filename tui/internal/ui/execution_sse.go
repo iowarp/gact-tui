@@ -77,7 +77,48 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	if c.executionEventsBySession == nil {
 		c.executionEventsBySession = map[string][]executionTimelineEvent{}
 	}
-	c.executionEventsBySession[sid] = append(c.executionEventsBySession[sid], record)
+	events := append(c.executionEventsBySession[sid], record)
+	if len(events) > executionLedgerMaxEvents {
+		dropped := len(events) - executionLedgerTrimTarget
+		kept := make([]executionTimelineEvent, executionLedgerTrimTarget)
+		copy(kept, events[dropped:])
+		events = kept
+		if c.app.audit != nil {
+			c.app.audit.RecordReceived("execution.ledger.trimmed", map[string]any{
+				"reason":     "execution_ledger_cap",
+				"session_id": sid,
+				"dropped":    dropped,
+				"kept":       len(kept),
+				"cap":        executionLedgerMaxEvents,
+			})
+		}
+	}
+	c.executionEventsBySession[sid] = events
+}
+
+// clearSessionLedger drops a session's execution-event ledger. Called when the
+// backend reports session.cleared so the Ctrl+E drill-down cannot reflect
+// pre-/clear state (#231).
+func (c *executionComponent) clearSessionLedger(sessionID string) {
+	delete(c.executionEventsBySession, sessionID)
+}
+
+// pruneClosedSessionLedgers drops ledgers whose session no longer exists in
+// the authoritative refreshed session list (deleted/closed sessions), so
+// closed sessions do not pin their execution events in memory (#231).
+func (c *executionComponent) pruneClosedSessionLedgers(sessions []gact.Session) {
+	if len(c.executionEventsBySession) == 0 {
+		return
+	}
+	alive := make(map[string]struct{}, len(sessions))
+	for _, s := range sessions {
+		alive[s.ID] = struct{}{}
+	}
+	for sid := range c.executionEventsBySession {
+		if _, ok := alive[sid]; !ok {
+			delete(c.executionEventsBySession, sid)
+		}
+	}
 }
 
 // recordedSemanticPayloads returns the payloads of recorded structural
