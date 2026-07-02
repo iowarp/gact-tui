@@ -129,23 +129,27 @@ func chdirForTest(t *testing.T, dir string) func() {
 	}
 }
 
-func TestRequestCompactCmdUsesSessionSummarizeEndpoint(t *testing.T) {
-	var sawSummarize bool
+// requestCompactCmd must call the route CLIO actually serves:
+// POST /v1/sessions/{id}/compact (issue #224). The legacy /summarize
+// route is only a reported fallback for backends without /compact.
+func TestRequestCompactCmdUsesSessionCompactEndpoint(t *testing.T) {
+	var sawCompact bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/sessions/s1/compact" {
-			t.Fatalf("requestCompactCmd should not call stale compact endpoint")
+		if r.URL.Path == "/v1/sessions/s1/summarize" {
+			t.Fatalf("requestCompactCmd must not call /summarize when /compact is served")
 		}
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/s1/summarize":
-			sawSummarize = true
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/s1/compact":
+			sawCompact = true
 			var req map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				t.Fatalf("decode summarize request: %v", err)
+				t.Fatalf("decode compact request: %v", err)
 			}
-			if req["auto"] != true {
-				t.Fatalf("summarize auto = %#v, want true", req["auto"])
+			if _, ok := req["instructions"]; ok {
+				t.Fatalf("compact body must not carry the legacy instructions key: %#v", req)
 			}
-			w.WriteHeader(http.StatusNoContent)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("{}"))
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/sessions/s1":
 			_ = json.NewEncoder(w).Encode(gact.Session{
 				ID:      "s1",
@@ -166,8 +170,11 @@ func TestRequestCompactCmdUsesSessionSummarizeEndpoint(t *testing.T) {
 	if got.err != nil || got.session.ID != "s1" || got.session.Summary == "" {
 		t.Fatalf("summary message = %#v", got)
 	}
-	if !sawSummarize {
-		t.Fatal("summarize endpoint was not called")
+	if got.fallback != "" {
+		t.Fatalf("fallback = %q, want empty when /compact is served", got.fallback)
+	}
+	if !sawCompact {
+		t.Fatal("compact endpoint was not called")
 	}
 }
 
