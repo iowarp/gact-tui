@@ -195,7 +195,7 @@ gact log "$SID" | grep -i "tool"
 
 **Emulator** (Phase A complete — 21/21 tasks). Race-clean, ≥75% coverage on
 HTTP layer, end-to-end binary tests cover the full streaming + permission
-flow. See [`emulator/`](../emulator) and `STATUS.md`.
+flow. See [`emulator/`](../emulator) and [`docs/archive/STATUS.md`](archive/STATUS.md).
 
 | SPEC § | Capability | Status |
 |---|---|---|
@@ -269,8 +269,7 @@ gact-tui/
 ├── notes/                    # distilled reference for bubbletea/lipgloss/etc.
 ├── .claude/skills/           # tui-screenshot + tui-test workflows
 ├── screenshots/              # VHS-rendered visual record of states
-├── PLAN.md                   # ordered task queue
-├── STATUS.md                 # iteration log + decisions
+├── docs/archive/             # historical work-logs (PLAN.md, STATUS.md, ...)
 └── CLAUDE.md                 # project rules for Claude sessions
 ```
 
