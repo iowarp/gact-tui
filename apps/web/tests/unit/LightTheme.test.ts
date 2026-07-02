@@ -87,35 +87,36 @@ describe('Light theme (1.0 item 1)', () => {
 
   it('setThemeMode(light) applies the light bg and persists', () => {
     setThemeMode('light');
-    expect(overrideCss()).toContain('--color-bg: #f4f6fa');
+    expect(overrideCss()).toContain('--color-bg: #f7f9fc');
     expect(localStorage.getItem(THEME_MODE_KEY)).toBe('light');
-    expect(localStorage.getItem(THEME_TOKENS_KEY)).toContain('#f4f6fa');
+    expect(localStorage.getItem(THEME_TOKENS_KEY)).toContain('#f7f9fc');
   });
 
-  it('setThemeMode(dark) clears the overrides back to the design system', () => {
+  it('setThemeMode(dark) applies the dim preset and persists', () => {
     setThemeMode('light');
     expect(overrideCss()).not.toBe('');
     setThemeMode('dark');
-    expect(overrideCss()).toBe('');
+    expect(overrideCss()).toContain('--color-bg: #101216');
     expect(localStorage.getItem(THEME_MODE_KEY)).toBe('dark');
+    expect(localStorage.getItem(THEME_TOKENS_KEY)).toContain('#101216');
   });
 
   it('auto mode follows the OS scheme and switches live', () => {
     const os = stubMatchMedia(true); // OS prefers light
     setThemeMode('auto');
-    expect(overrideCss()).toContain('--color-bg: #f4f6fa');
-    // OS flips to dark → overrides clear without any further calls.
+    expect(overrideCss()).toContain('--color-bg: #f7f9fc');
+    // OS flips to dark and applies the dim preset without any further calls.
     os.flip(false);
-    expect(overrideCss()).toBe('');
+    expect(overrideCss()).toContain('--color-bg: #101216');
     // …and back to light.
     os.flip(true);
-    expect(overrideCss()).toContain('--color-bg: #f4f6fa');
+    expect(overrideCss()).toContain('--color-bg: #f7f9fc');
   });
 
   it('initTheme re-applies light mode from a bare mode flag', () => {
     localStorage.setItem(THEME_MODE_KEY, 'light');
     initTheme();
-    expect(overrideCss()).toContain('--color-bg: #f4f6fa');
+    expect(overrideCss()).toContain('--color-bg: #f7f9fc');
   });
 
   it('initTheme preserves manual token edits layered on light', () => {
@@ -126,6 +127,6 @@ describe('Light theme (1.0 item 1)', () => {
     );
     initTheme();
     expect(overrideCss()).toContain('--color-accent: #ff0000');
-    expect(overrideCss()).toContain('--color-bg: #f4f6fa');
+    expect(overrideCss()).toContain('--color-bg: #f7f9fc');
   });
 });

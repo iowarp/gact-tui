@@ -1,0 +1,132 @@
+﻿{
+    "messages":  [
+                     {
+                         "id":  "msg_asst_f34784c0d24d",
+                         "session_id":  "sess_37ffbee4216d",
+                         "turn_id":  "msg_user_6420e02a2a98",
+                         "role":  "assistant",
+                         "created_at":  "2026-06-27T20:08:07.551638+00:00",
+                         "updated_at":  "2026-06-27T20:08:07.551638+00:00",
+                         "parts":  [
+
+                                   ],
+                         "tokens":  {
+                                        "input":  0,
+                                        "output":  0,
+                                        "cache_read":  0,
+                                        "cache_write":  0
+                                    },
+                         "cost_usd":  0.0,
+                         "stop_reason":  "error",
+                         "error_info":  {
+                                            "error":  "agent_error",
+                                            "message":  "agent.forward raised: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.APIConnectionError: claude_code_transport=\u0027sdk\u0027 requires the claude-agent-sdk package (install the \u0027claude-code\u0027 extra).\nTraceback (most recent call last):\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 269, in complete\n    import claude_agent_sdk  # noqa: F401,PLC0415\n    ^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \u0027claude_agent_sdk\u0027\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\.venv\\Lib\\site-packages\\litellm\\litellm_core_utils\\streaming_handler.py\", line 1804, in __anext__\n    async for chunk in self.completion_stream:\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 498, in astreaming\n    response = await asyncio.to_thread(\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\jaime\\AppData\\Roaming\\uv\\python\\cpython-3.12.0-windows-x86_64-none\\Lib\\asyncio\\threads.py\", line 25, in to_thread\n    return await loop.run_in_executor(None, func_call)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\jaime\\AppData\\Roaming\\uv\\python\\cpython-3.12.0-windows-x86_64-none\\Lib\\concurrent\\futures\\thread.py\", line 58, in run\n    result = self.fn(*self.args, **self.kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 391, in completion\n    text, usage = runner(prompt=prompt, model=clean_model, timeout=timeout_s, cwd=cwd)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 318, in _run_sdk\n    return _SDK_SESSION.complete(prompt=prompt, model=model, timeout=timeout, cwd=cwd)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 271, in complete\n    raise ClaudeCodeCLIUnavailableError(\nclio_agent.providers.claude_code_litellm.ClaudeCodeCLIUnavailableError: claude_code_transport=\u0027sdk\u0027 requires the claude-agent-sdk package (install the \u0027claude-code\u0027 extra).\n Original exception: APIConnectionError: litellm.APIConnectionError: claude_code_transport=\u0027sdk\u0027 requires the claude-agent-sdk package (install the \u0027claude-code\u0027 extra).\nTraceback (most recent call last):\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 269, in complete\n    import claude_agent_sdk  # noqa: F401,PLC0415\n    ^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named \u0027claude_agent_sdk\u0027\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\.venv\\Lib\\site-packages\\litellm\\litellm_core_utils\\streaming_handler.py\", line 1804, in __anext__\n    async for chunk in self.completion_stream:\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 498, in astreaming\n    response = await asyncio.to_thread(\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\jaime\\AppData\\Roaming\\uv\\python\\cpython-3.12.0-windows-x86_64-none\\Lib\\asyncio\\threads.py\", line 25, in to_thread\n    return await loop.run_in_executor(None, func_call)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\jaime\\AppData\\Roaming\\uv\\python\\cpython-3.12.0-windows-x86_64-none\\Lib\\concurrent\\futures\\thread.py\", line 58, in run\n    result = self.fn(*self.args, **self.kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 391, in completion\n    text, usage = runner(prompt=prompt, model=clean_model, timeout=timeout_s, cwd=cwd)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 318, in _run_sdk\n    return _SDK_SESSION.complete(prompt=prompt, model=model, timeout=timeout, cwd=cwd)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Libraries\\Documents\\projects\\clio-agent\\src\\clio_agent\\providers\\claude_code_litellm.py\", line 271, in complete\n    raise ClaudeCodeCLIUnavailableError(\nclio_agent.providers.claude_code_litellm.ClaudeCodeCLIUnavailableError: claude_code_transport=\u0027sdk\u0027 requires the claude-agent-sdk package (install the \u0027claude-code\u0027 extra).\n",
+                                            "details":  {
+                                                            "original_error":  "MidStreamFallbackError"
+                                                        },
+                                            "recoverable":  true
+                                        },
+                         "metadata":  {
+                                          "stream_source":  "batch",
+                                          "stream_fallback":  {
+                                                                  "reason":  "provider_streaming_unsupported",
+                                                                  "category":  "provider_streaming_limitation",
+                                                                  "synthetic_posthoc":  true,
+                                                                  "live_streaming":  false,
+                                                                  "recovery_actions":  [
+                                                                                           "continue_without_live_streaming",
+                                                                                           "reconfigure"
+                                                                                       ],
+                                                                  "description":  "The configured provider does not expose a live streaming contract."
+                                                              },
+                                          "agent_runtime":  {
+                                                                "kind":  "dynamic_agent",
+                                                                "agent_id":  "main",
+                                                                "source":  "expert_pack",
+                                                                "title":  "Data Semantics Orchestrator",
+                                                                "execution_mode":  "blueprint_predict",
+                                                                "module":  {
+                                                                               "kind":  "predict"
+                                                                           },
+                                                                "tools":  [
+
+                                                                          ],
+                                                                "structured_outputs":  {
+
+                                                                                       },
+                                                                "fanout":  {
+
+                                                                           },
+                                                                "prompt":  {
+                                                                               "source":  "agent_definition",
+                                                                               "has_system_prompt":  true
+                                                                           },
+                                                                "model":  {
+                                                                              "provider_id":  "claude_code",
+                                                                              "model_id":  "haiku",
+                                                                              "provider_source":  "global_active",
+                                                                              "model_source":  "global_active",
+                                                                              "fallback_to_global":  true
+                                                                          },
+                                                                "agent_blueprint":  {
+                                                                                        "id":  "data-semantics",
+                                                                                        "version":  "0.1.0",
+                                                                                        "scope":  "global",
+                                                                                        "definition_path":  "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\data-semantics\\AGENT.md"
+                                                                                    },
+                                                                "parent_id":  "",
+                                                                "skills":  [
+                                                                               "route_dataset_questions"
+                                                                           ],
+                                                                "commands":  [
+
+                                                                             ],
+                                                                "pack":  {
+                                                                             "id":  "data-semantics",
+                                                                             "version":  "0.1.0",
+                                                                             "scope":  "global",
+                                                                             "definition_path":  "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\data-semantics\\experts\\main.md"
+                                                                         }
+                                                            },
+                                          "prompt_resolution":  {
+                                                                    "id":  "clio.main.planner",
+                                                                    "profile":  "heavy",
+                                                                    "requested_profile":  "heavy",
+                                                                    "scope":  "builtin",
+                                                                    "source_path":  "package://clio_agent.prompt_packs.builtin/clio.main.planner.md",
+                                                                    "checksum":  "55904869b1697fc0a41becc115c62d8b9a1fc4968019f259c219099e3711b065",
+                                                                    "status":  "resolved",
+                                                                    "composed_with_agent_body":  true
+                                                                }
+                                      }
+                     },
+                     {
+                         "id":  "msg_user_6420e02a2a98",
+                         "session_id":  "sess_37ffbee4216d",
+                         "turn_id":  "msg_user_6420e02a2a98",
+                         "role":  "user",
+                         "created_at":  "2026-06-27T20:07:32.340013+00:00",
+                         "updated_at":  "2026-06-27T20:07:32.340013+00:00",
+                         "parts":  [
+                                       {
+                                           "id":  "part_987e00ef2148",
+                                           "type":  "text",
+                                           "text":  "Find the nearest EarthScope GNSS station to Los Angeles, stage its time-series CSV, profile it, and create a displacement time-series plot.",
+                                           "agent_id":  ""
+                                       }
+                                   ],
+                         "tokens":  {
+                                        "input":  0,
+                                        "output":  0,
+                                        "cache_read":  0,
+                                        "cache_write":  0
+                                    },
+                         "cost_usd":  0.0,
+                         "stop_reason":  "",
+                         "metadata":  {
+
+                                      }
+                     }
+                 ],
+    "next_cursor":  null
+}
