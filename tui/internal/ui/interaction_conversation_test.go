@@ -375,3 +375,60 @@ func TestConversationDiffActionsUseSemanticHitTargets(t *testing.T) {
 		t.Fatalf("reject paths = %#v, want src/main.go", gotPaths)
 	}
 }
+
+// TestConversationDiffHitTargetsStableAcrossFrames pins the #233 cache-aliasing
+// regression: renderConversation's appendRow offset diffActions rows in place
+// on the slice cachedTurnBlockRender returned, but that slice aliases the
+// cached execTurnRender.blocks — ranging copies the block struct, not its
+// diffActions backing array. A pending file_diff in a NON-FIRST turn block
+// (nonzero body offset) therefore had its apply/reject hit targets drift by
+// the block's offset on every cached frame, so clicks missed after frame one.
+// Rendering the same state across consecutive frames must yield identical
+// hit-target geometry.
+func TestConversationDiffHitTargetsStableAcrossFrames(t *testing.T) {
+	before := "package main\nfunc main() {}\n"
+	after := "package main\nfunc main() { println(\"hi\") }\n"
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 60
+	a.stage = StageReady
+	a.session.sessions = []gact.Session{{ID: "sess_1", Title: "demo", Status: gact.StatusIdle}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
+		{ID: "u1", Role: gact.RoleUser,
+			Parts: []gact.Part{{ID: "u1p", Type: gact.PartTypeText, Text: "first question"}}},
+		{ID: "a1", Role: gact.RoleAssistant,
+			Parts: []gact.Part{{ID: "a1p", Type: gact.PartTypeText, Text: "first answer"}}},
+		{ID: "u2", Role: gact.RoleUser,
+			Parts: []gact.Part{{ID: "u2p", Type: gact.PartTypeText, Text: "now edit the file"}}},
+		{ID: "a2", Role: gact.RoleAssistant, Parts: []gact.Part{
+			{ID: "a2p", Type: gact.PartTypeText, Text: "editing"},
+			{ID: "diff_1", Type: gact.PartTypeFileDiff, Path: "src/main.go", Before: &before, After: &after},
+		}},
+	}
+
+	type frameGeom struct {
+		applyX, applyY, rejectX, rejectY int
+	}
+	var frames []frameGeom
+	for i := 0; i < 3; i++ {
+		_ = a.View()
+		applyTarget, ok := findHitTargetForTest(a, "conversation:diff:apply:src/main.go")
+		if !ok {
+			t.Fatalf("frame %d: missing diff apply hit target (rows drifted?) — previous frames: %+v", i+1, frames)
+		}
+		rejectTarget, ok := findHitTargetForTest(a, "conversation:diff:reject:src/main.go")
+		if !ok {
+			t.Fatalf("frame %d: missing diff reject hit target (rows drifted?) — previous frames: %+v", i+1, frames)
+		}
+		frames = append(frames, frameGeom{
+			applyX: applyTarget.rect.x, applyY: applyTarget.rect.y,
+			rejectX: rejectTarget.rect.x, rejectY: rejectTarget.rect.y,
+		})
+	}
+	for i := 1; i < len(frames); i++ {
+		if frames[i] != frames[0] {
+			t.Fatalf("diff hit targets drifted across frames: frame 1 = %+v, frame %d = %+v", frames[0], i+1, frames[i])
+		}
+	}
+}

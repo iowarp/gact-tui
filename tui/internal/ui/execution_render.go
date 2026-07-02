@@ -73,8 +73,19 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, []c
 			if b.detailStart >= 0 {
 				b.detailStart += fullLine
 			}
-			for j := range b.diffActions {
-				b.diffActions[j].row += fullLine
+			if len(b.diffActions) > 0 {
+				// b is a struct copy, but its diffActions slice still shares a
+				// backing array with the cached block (cachedTurnBlockRender
+				// returns the cache entry's slice). Offset a fresh copy — an
+				// in-place `b.diffActions[j].row += fullLine` would compound
+				// into the cache on every frame and drift the diff apply/reject
+				// hit targets off their rendered rows.
+				offset := make([]conversationDiffActionHit, len(b.diffActions))
+				for j, action := range b.diffActions {
+					action.row += fullLine
+					offset[j] = action
+				}
+				b.diffActions = offset
 			}
 			blocks = append(blocks, b)
 		}
@@ -177,7 +188,11 @@ func (c *executionComponent) turnNodesWithSupplements(nodes, supplements []execu
 // cachedTurnBlockRender renders one turn block (optional user row + execution
 // timeline) through the per-turn cache. msgIdx is the user message's index
 // (-1 for an unanchored, timeline-only block). Returned blocks are
-// block-relative copies safe for the caller to offset.
+// block-relative but ALIAS the cache entry — the slice is returned without
+// copying. Ranging over it copies each struct, so offsetting the copy's value
+// fields (fullStart, detailStart) is safe; the diffActions slice inside each
+// block still shares the cached backing array and must be copied before any
+// mutation, or the offsets compound in the cache across frames.
 func (c *executionComponent) cachedTurnBlockRender(
 	t Theme,
 	themeSig uint64,
