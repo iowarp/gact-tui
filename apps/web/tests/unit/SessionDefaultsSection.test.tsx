@@ -1,5 +1,22 @@
 import { render, screen, cleanup, fireEvent, waitFor } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Pin the brand so this section renders deterministically regardless of the ambient
+// brand profile (CI builds neutral gact; a local build may select clio). This fixes
+// the blueprint display label ("EarthScope") and hides the expert-pack picker.
+vi.mock('@brand', () => ({
+  brand: {
+    sessionSemantics: {
+      blueprintLabel: 'Agent blueprint',
+      showExpertPackPicker: false,
+      blueprintDisplayNames: {
+        'earthscope-gnss-region': 'EarthScope',
+        'EarthScope GNSS': 'EarthScope',
+      },
+    },
+  },
+}));
+
 import type { Client } from '@clio/core';
 import { ToastProvider } from '../../src/components/Toast.js';
 import { SessionDefaultsSection } from '../../src/routes/SettingsShell.js';
