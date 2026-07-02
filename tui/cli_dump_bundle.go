@@ -66,7 +66,7 @@ func runDumpBundle(args []string) int {
 
 	// metrics.json - best-effort; if backend is offline we still want
 	// the rest of the bundle.
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

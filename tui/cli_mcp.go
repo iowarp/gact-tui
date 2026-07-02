@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
 // runMcp dispatches per-server MCP detail subcommands. `gact catalog
@@ -60,7 +59,7 @@ func runMcpList(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp list [--format tsv|json]")
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -132,7 +131,7 @@ func runMcpTools(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp tools: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -167,7 +166,7 @@ func runMcpResources(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp resources: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -202,7 +201,7 @@ func runMcpPrompts(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp prompts: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := config.Resolve(nil, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := resolveCLIBackend(*backend)
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
