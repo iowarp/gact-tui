@@ -7,6 +7,7 @@ import { Client, type FileDiff } from '@clio/core';
 import type { RailRoute } from '../components/LeftRail.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
+import { ContextFooter } from '../components/ContextFooter.js';
 import { ChatConversationPane } from './ChatConversationPane.js';
 import { DiscoveryView } from './DiscoveryView.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
@@ -121,6 +122,22 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           onPickPermMode={options.props.onPickPermMode}
           onOpenSettings={options.props.onOpenSettings}
           onAddRemote={options.props.onAddRemote}
+          renderContextFooter={() => (
+            <Show when={options.props.activeId}>
+              <div class="chat__context-footer" data-testid="chat-context-footer">
+                <ContextFooter
+                  client={options.discoveryClient}
+                  sessionId={options.props.activeId}
+                  {...(options.props.sessionBindings?.pack_id
+                    ? {
+                        activeExpert: options.props.sessionBindings.pack_id,
+                        activeExpertLabel: options.props.sessionBindings.pack_id,
+                      }
+                    : {})}
+                />
+              </div>
+            </Show>
+          )}
         />
       </Show>
     </div>
