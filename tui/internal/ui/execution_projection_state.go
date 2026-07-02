@@ -4,48 +4,50 @@ package ui
 
 import (
 	"strings"
-
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
-
-func (c *executionComponent) turnSelected(userMsgIdx int) bool {
-	if c.app.focus != FocusBody || c.app.conversation.bodySelMsgIdx < 0 || userMsgIdx < 0 {
-		return false
-	}
-	nextUser := len(c.app.conversation.messages)
-	for i := userMsgIdx + 1; i < len(c.app.conversation.messages); i++ {
-		if c.app.conversation.messages[i].Role == gact.RoleUser {
-			nextUser = i
-			break
-		}
-	}
-	return c.app.conversation.bodySelMsgIdx >= userMsgIdx && c.app.conversation.bodySelMsgIdx < nextUser
-}
 
 // conversationTurnsForRender projects the canonical transcript from the ordered
 // message.part.* atoms — the single persisted source that the live stream AND a
 // /messages reload both deliver — so the render is identical live and reloaded
-// (and matches the web, which renders from the same parts). This is the render
-// hot path; it is memoized on (sessionID, total part count).
+// (and matches the web, which renders from the same parts). The projection is
+// TOTAL (#233): every turn projects, plain single-agent turns included. This is
+// the render hot path; it is memoized on (sessionID, message/part counts,
+// content size, epoch/revision) — the content-size term catches
+// message.part.delta text appends (which grow a part in place without changing
+// the part count) and the epoch/revision terms reuse the conversation's
+// existing invalidation primitives (bumpMessageEpoch for in-place SSE edits,
+// invalidateRenderCache for whole-list swaps).
 func (c *executionComponent) conversationTurnsForRender() []executionProjectedTurn {
 	sid := c.app.session.currentID()
 	if sid == "" {
 		return nil
 	}
-	messages := c.app.conversation.messages
-	if !messagesHaveExecutionTrajectory(messages) {
-		return nil
-	}
+	conv := c.app.conversation
+	messages := conv.messages
 	partCount := 0
+	contentLen := 0
 	for i := range messages {
 		partCount += len(messages[i].Parts)
+		for j := range messages[i].Parts {
+			p := &messages[i].Parts[j]
+			contentLen += len(p.Text) + len(p.Thinking) + len(p.Content) + len(p.Input) + len(p.Metadata)
+		}
 	}
-	if c.projCacheOK && c.projCacheSID == sid && c.projCacheLen == partCount {
+	epochSum := conv.conversationRenderRevision
+	for _, epoch := range conv.msgRenderEpoch {
+		epochSum += epoch
+	}
+	if c.projCacheOK && c.projCacheSID == sid && c.projCacheLen == partCount &&
+		c.projCacheContentLen == contentLen && c.projCacheMsgCount == len(messages) &&
+		c.projCacheEpoch == epochSum {
 		return c.projCacheTurns
 	}
 	out := filterProjectedTurns(projectExecutionTimelineFromMessages(messages))
 	c.projCacheSID = sid
 	c.projCacheLen = partCount
+	c.projCacheContentLen = contentLen
+	c.projCacheMsgCount = len(messages)
+	c.projCacheEpoch = epochSum
 	c.projCacheTurns = out
 	c.projCacheOK = true
 	return out
@@ -96,7 +98,7 @@ func (c *executionComponent) currentSessionHasProjected() bool {
 func executionEventsHaveTrajectory(events []executionTimelineEvent) bool {
 	for _, event := range events {
 		switch event.Type {
-		case "react.step.completed", "expert.extract.completed", "blueprint.delegation.started":
+		case "react.step.completed", "expert.extract.completed", "blueprint.delegation.started", "delegation.started":
 			return true
 		}
 	}
@@ -117,6 +119,8 @@ func executionNodeIsEmpty(node executionTimelineNode) bool {
 		return strings.TrimSpace(node.Text) == "" && node.Structured == nil
 	case executionNodeToolRun:
 		return strings.TrimSpace(node.ToolName) == "" && node.Observation == nil
+	case executionNodePassthrough:
+		return node.Part == nil
 	default:
 		return true
 	}
