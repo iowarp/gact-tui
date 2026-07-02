@@ -361,3 +361,178 @@ func assertNodeTextContains(t *testing.T, node executionTimelineNode, want strin
 		t.Fatalf("node text missing %q: %#v", want, node)
 	}
 }
+
+// TestProjectExecutionTimelinePlainDelegationPrefixMatchesBlueprint pins #233
+// allow-list parity: the delegation atom rides TWO prefixes depending on the
+// runtime (“blueprint.delegation.*“ vs plain “delegation.*“ — SPEC.md
+// §7.6) and both must project to the SAME rows.
+func TestProjectExecutionTimelinePlainDelegationPrefixMatchesBlueprint(t *testing.T) {
+	eventsFor := func(prefix string) []executionTimelineEvent {
+		return []executionTimelineEvent{
+			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
+				"parent_id":   "main",
+				"delegate_to": "geospatial",
+				"question":    "Resolve San Diego to coordinates.",
+				"status":      "running",
+			}),
+			semanticEventWithTurn(2, "turn-one", prefix+".completed", "geospatial", "main", map[string]any{
+				"agent_id":       "geospatial",
+				"parent_id":      "main",
+				"output_summary": "Region resolved to grounded coordinates.",
+				"status":         "completed",
+			}),
+		}
+	}
+	blueprint := projectExecutionTimeline(eventsFor("blueprint.delegation"))
+	plain := projectExecutionTimeline(eventsFor("delegation"))
+	signaturesOf := func(nodes []executionTimelineNode) string {
+		var got []string
+		for _, node := range nodes {
+			got = append(got, nodeSignature(node))
+		}
+		return strings.Join(got, "\n")
+	}
+	if signaturesOf(plain) != signaturesOf(blueprint) {
+		t.Fatalf("plain delegation.* projects differently from blueprint.delegation.*\nblueprint:\n%s\n\nplain:\n%s",
+			signaturesOf(blueprint), signaturesOf(plain))
+	}
+	rendered := ansi.Strip(DefaultTheme().renderExecutionTimeline(plain, 100))
+	for _, want := range []string{"→ delegates to geospatial", "Resolve San Diego to coordinates.", "Region resolved to grounded coordinates."} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("plain-prefix delegation render missing %q:\n%s", want, rendered)
+		}
+	}
+}
+
+// TestProjectExecutionTimelineParentResumedReturnsControl pins that a
+// delegation.parent_resumed event (either prefix) hands the text stream back
+// to the parent: deltas after the resume attribute to the parent, not the
+// child, and the resume itself adds no row (the render synthesizes ⤶ from the
+// depth drop).
+func TestProjectExecutionTimelineParentResumedReturnsControl(t *testing.T) {
+	for _, prefix := range []string{"blueprint.delegation", "delegation"} {
+		events := []executionTimelineEvent{
+			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
+				"parent_id":   "main",
+				"delegate_to": "geospatial",
+				"question":    "Resolve the region.",
+				"status":      "running",
+			}),
+			semanticEventWithTurn(2, "turn-one", prefix+".parent_resumed", "main", "geospatial", map[string]any{
+				"resumed_from": "geospatial",
+				"output":       "Region resolved.",
+			}),
+			deltaEvent(3, "Continuing with data acquisition."),
+		}
+		nodes := projectExecutionTimeline(events)
+		var got []string
+		for _, node := range nodes {
+			got = append(got, nodeSignature(node))
+		}
+		want := []string{"handoff:main->geospatial", "text:main"}
+		if strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Fatalf("prefix %s: node order mismatch\nwant:\n%s\n\ngot:\n%s",
+				prefix, strings.Join(want, "\n"), strings.Join(got, "\n"))
+		}
+	}
+}
+
+// TestProjectExecutionTimelineDelegationFailedRendersFailureReport pins that a
+// failed delegation (either prefix) still produces the child's report row,
+// carrying the failed status — errors are first-class (SPEC.md §7.6).
+func TestProjectExecutionTimelineDelegationFailedRendersFailureReport(t *testing.T) {
+	for _, prefix := range []string{"blueprint.delegation", "delegation"} {
+		events := []executionTimelineEvent{
+			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
+				"parent_id":   "main",
+				"delegate_to": "geospatial",
+				"question":    "Resolve the region.",
+				"status":      "running",
+			}),
+			semanticEventWithTurn(2, "turn-one", prefix+".failed", "geospatial", "main", map[string]any{
+				"agent_id":  "geospatial",
+				"parent_id": "main",
+				"status":    "failed",
+				"error":     "ToolTimeout",
+				"message":   "geo_geocode timed out",
+			}),
+		}
+		nodes := projectExecutionTimeline(events)
+		if len(nodes) != 2 {
+			t.Fatalf("prefix %s: want handoff + failure report, got %d nodes: %#v", prefix, len(nodes), nodes)
+		}
+		report := nodes[1]
+		if report.Kind != executionNodeExpertReport || report.Agent != "geospatial" {
+			t.Fatalf("prefix %s: failure report node wrong: %#v", prefix, report)
+		}
+		if report.Status != "failed" {
+			t.Fatalf("prefix %s: report status = %q, want failed", prefix, report.Status)
+		}
+	}
+}
+
+// TestProjectExecutionTimelineExpertResponseFillsNestedGap pins the
+// expert.response.completed atom (#233): a nested expert whose answer never
+// streamed gets its answer as a report row; an expert whose extract already
+// reported — or whose answer merely duplicates streamed prose — adds nothing.
+func TestProjectExecutionTimelineExpertResponseFillsNestedGap(t *testing.T) {
+	responseEvent := func(seq int, agent, answer string) executionTimelineEvent {
+		return semanticEventWithTurn(seq, "turn-one", "expert.response.completed", agent, "", map[string]any{
+			"answer":    answer,
+			"reasoning": "[redacted]:120 chars",
+		})
+	}
+
+	// Nested expert with no extract and no streamed prose → report row.
+	nodes := projectExecutionTimeline([]executionTimelineEvent{
+		semanticEventWithTurn(1, "turn-one", "blueprint.delegation.started", "main", "station_network_analysis", map[string]any{
+			"parent_id":   "main",
+			"delegate_to": "station_network_analysis",
+			"question":    "Assess suitability.",
+			"status":      "running",
+		}),
+		responseEvent(2, "station_network_analysis", "MTA1 is well positioned within the 155-station network."),
+	})
+	var got []string
+	for _, node := range nodes {
+		got = append(got, nodeSignature(node))
+	}
+	want := []string{"handoff:main->station_network_analysis", "report:station_network_analysis->"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("nested response node order mismatch\nwant:\n%s\n\ngot:\n%s",
+			strings.Join(want, "\n"), strings.Join(got, "\n"))
+	}
+	assertNodeTextContains(t, nodes[1], "MTA1 is well positioned")
+	if strings.Contains(nodes[1].Reasoning, "[redacted]") {
+		t.Fatalf("redacted reasoning must not be kept: %#v", nodes[1])
+	}
+
+	// Extract already reported the expert → the response adds nothing.
+	nodes = projectExecutionTimeline([]executionTimelineEvent{
+		semanticEventWithTurn(1, "turn-one", "expert.extract.completed", "geospatial", "", map[string]any{
+			"output":         "Region resolved to grounded coordinates.",
+			"expert_span_id": "span_1",
+		}),
+		responseEvent(2, "geospatial", "Region resolved to grounded coordinates."),
+	})
+	reports := 0
+	for _, node := range nodes {
+		if node.Kind == executionNodeExpertReport {
+			reports++
+		}
+	}
+	if reports != 1 {
+		t.Fatalf("extract + response should keep ONE report, got %d: %#v", reports, nodes)
+	}
+
+	// Answer already streamed as prose → the response adds nothing.
+	nodes = projectExecutionTimeline([]executionTimelineEvent{
+		deltaEvent(1, "The nearest station is MTA1 at 0.3 km."),
+		responseEvent(2, "main", "The nearest station is MTA1 at 0.3 km."),
+	})
+	for _, node := range nodes {
+		if node.Kind == executionNodeExpertReport {
+			t.Fatalf("streamed answer must not duplicate as a report: %#v", nodes)
+		}
+	}
+}

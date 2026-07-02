@@ -64,12 +64,10 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 		}
 	case "semantic.event":
 		eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
-		switch eventType {
-		case "expert.lifecycle.started", "blueprint.delegation.started", "blueprint.delegation.completed", "expert.extract.completed", "react.step.completed", "tool.call.started", "tool.call.completed":
-			record.Type = eventType
-		default:
+		if !semanticEventReachesLedger(eventType, stringValue(pl["status"])) {
 			return
 		}
+		record.Type = eventType
 	case "tool.call.started", "tool.call.completed":
 	default:
 		return
@@ -94,6 +92,46 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 		}
 	}
 	c.executionEventsBySession[sid] = events
+}
+
+// semanticLedgerEventTypes mirrors the server's UI/SSE serving allow-list —
+// contract/SPEC.md §7.6 "Served allow-list" is source of truth (clio
+// semantic_events.py: SSE_UI_EVENT_TYPES): the ReAct trajectory atoms
+// (react step / extract / expert response / expert lifecycle), the delegation
+// atom on BOTH its prefixes (“blueprint.delegation.*“ for Agent Blueprint
+// experts, plain “delegation.*“ for expert-pack / prompt-agent delegations),
+// and memory.search.completed. Everything else (turn/agent/hook lifecycle,
+// the “tool.call.*“ mirrors, “lm.token.delta“, memory bookkeeping) never
+// reaches the wire — except through the failed-status gate below.
+var semanticLedgerEventTypes = map[string]bool{
+	"react.step.completed":                true,
+	"expert.extract.completed":            true,
+	"expert.response.completed":           true,
+	"expert.lifecycle.started":            true,
+	"blueprint.delegation.started":        true,
+	"blueprint.delegation.completed":      true,
+	"blueprint.delegation.parent_resumed": true,
+	"blueprint.delegation.failed":         true,
+	"delegation.started":                  true,
+	"delegation.completed":                true,
+	"delegation.parent_resumed":           true,
+	"delegation.failed":                   true,
+	"memory.search.completed":             true,
+}
+
+// semanticEventReachesLedger reports whether a semantic event belongs in the
+// execution ledger: the §7.6 served allow-list PLUS the unconditional pass for
+// failure/cancellation statuses (errors are first-class and are never
+// filtered out of the served stream — SPEC.md §7.6, clio _SSE_ALWAYS_STATUSES).
+func semanticEventReachesLedger(eventType, status string) bool {
+	if semanticLedgerEventTypes[eventType] {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "failed", "error", "cancelled":
+		return true
+	}
+	return false
 }
 
 // clearSessionLedger drops a session's execution-event ledger. Called when the

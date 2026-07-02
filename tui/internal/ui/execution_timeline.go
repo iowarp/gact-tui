@@ -52,15 +52,28 @@ func (p *executionTimelineProjector) apply(event executionTimelineEvent) {
 	case "expert.lifecycle.started":
 		p.flushText()
 		p.applyExpertLifecycleStarted(event.Payload)
-	case "blueprint.delegation.started":
+	// The delegation atom rides TWO prefixes depending on the runtime —
+	// ``blueprint.delegation.*`` for Agent Blueprint experts, plain
+	// ``delegation.*`` for expert-pack / prompt-agent delegations. Both are
+	// the SAME atom (contract/SPEC.md §7.6) and project identically.
+	case "blueprint.delegation.started", "delegation.started":
 		p.flushText()
 		p.applyDelegationStarted(event.Payload)
-	case "blueprint.delegation.completed":
+	case "blueprint.delegation.completed", "delegation.completed",
+		"blueprint.delegation.failed", "delegation.failed":
+		// A failed delegation still produces the child's report row — the
+		// payload carries status/error, and errors are first-class (§7.6).
 		p.flushText()
 		p.applyDelegationCompleted(event.Payload)
+	case "blueprint.delegation.parent_resumed", "delegation.parent_resumed":
+		p.flushText()
+		p.applyDelegationParentResumed(event.Payload)
 	case "expert.extract.completed":
 		p.flushText()
 		p.applyExpertExtract(event.Payload)
+	case "expert.response.completed":
+		p.flushText()
+		p.applyExpertResponse(event.Payload)
 	case "react.step.completed":
 		p.flushText()
 		p.applyReactStep(event.Payload)
@@ -95,6 +108,16 @@ func (p *executionTimelineProjector) applyDelegationStarted(payload map[string]a
 	p.nodes = append(p.nodes, node)
 	if agent != "" {
 		p.currentTextAgent = agent
+	}
+}
+
+// applyDelegationParentResumed hands the text stream back to the parent when
+// a delegation resume arrives (actor = the resuming parent). No row is added:
+// the renderer synthesizes the ⤶ return from the depth drop, and the child's
+// deliverable already arrived on delegation.completed / expert.extract.
+func (p *executionTimelineProjector) applyDelegationParentResumed(payload map[string]any) {
+	if parent := executionActorAgentID(payload); parent != "" {
+		p.currentTextAgent = parent
 	}
 }
 
