@@ -1,4 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// Pin the brand so these unit tests are deterministic regardless of the ambient
+// brand profile (CI builds the neutral gact brand; a local build may select clio).
+// presentBlueprintLabel/showExpertPackPicker run for real against this fixed data.
+vi.mock('@brand', () => ({
+  brand: {
+    sessionSemantics: {
+      blueprintLabel: 'Agent blueprint',
+      showExpertPackPicker: false,
+      blueprintDisplayNames: {
+        'earthscope-gnss-region': 'EarthScope',
+        'EarthScope GNSS': 'EarthScope',
+      },
+    },
+  },
+}));
+
 import {
   sessionDefaultOptions,
   sessionDefaultsCatalogFromSettled,
