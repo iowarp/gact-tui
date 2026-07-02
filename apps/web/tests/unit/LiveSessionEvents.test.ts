@@ -132,4 +132,79 @@ describe('LiveSessionEvents', () => {
   it('returns false for non-session events', () => {
     expect(applyLiveSessionEvent('message.completed', {}, makeHooks().hooks)).toBe(false);
   });
+
+  // Regression for iowarp/gact-tui#225: clio publishes session.updated with the
+  // FULL Session object (`id`, no `session_id`, no `changed_fields`). The reducer
+  // must treat that payload as the update instead of dropping it.
+  it('applies clio full-Session session.updated payloads and detects renames (#225)', () => {
+    const existing: SidebarSession = {
+      id: 'sess_abc123456',
+      title: 'Old title',
+      status: 'idle',
+      project: 'ws_geo',
+      updatedAt: '5m',
+    };
+    const sessionEvents = makeSink([existing]);
+    const h = makeHooks(sessionEvents.sink);
+
+    const payload = {
+      id: 'sess_abc123456',
+      title: 'Renamed by backend',
+      status: 'running',
+      workspace_id: 'ws_geo',
+      created_at: '2026-06-20T11:00:00.000Z',
+      updated_at: '2026-06-30T12:00:00.000Z',
+      mode: 'plan',
+    };
+
+    expect(applyLiveSessionEvent('session.updated', payload, h.hooks)).toBe(true);
+
+    const row = sessionEvents.rows.find((r) => r.id === 'sess_abc123456');
+    expect(row?.title).toBe('Renamed by backend');
+    expect(row?.status).toBe('running');
+    expect(row?.updatedAt).toBe('just now');
+    expect(row?.bumpedAt).toBe(123);
+    // Title changed relative to the current row → rename side effects fire.
+    expect(sessionEvents.onTitleChanged).toHaveBeenCalledWith('sess_abc123456');
+    expect(h.notifications).toEqual([
+      {
+        level: 'info',
+        title: 'Session renamed',
+        body: 'Backend updated the title of session sess_abc.',
+      },
+    ]);
+  });
+
+  it('applies clio full-Session updates without rename side effects when the title is unchanged (#225)', () => {
+    const existing: SidebarSession = {
+      id: 'sess_abc123456',
+      title: 'Same title',
+      status: 'idle',
+      project: 'ws_geo',
+      updatedAt: '5m',
+    };
+    const sessionEvents = makeSink([existing]);
+    const h = makeHooks(sessionEvents.sink);
+
+    applyLiveSessionEvent(
+      'session.updated',
+      {
+        id: 'sess_abc123456',
+        title: 'Same title',
+        status: 'idle',
+        workspace_id: 'ws_geo',
+        created_at: '2026-06-20T11:00:00.000Z',
+        updated_at: '2026-06-30T12:00:00.000Z',
+        mode: 'auto',
+      },
+      h.hooks,
+    );
+
+    const row = sessionEvents.rows.find((r) => r.id === 'sess_abc123456');
+    expect(row?.updatedAt).toBe('just now');
+    expect(row?.bumpedAt).toBe(123);
+    expect(sessionEvents.onTitleChanged).not.toHaveBeenCalled();
+    expect(sessionEvents.refetch).not.toHaveBeenCalled();
+    expect(h.notifications).toEqual([]);
+  });
 });
