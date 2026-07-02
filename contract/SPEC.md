@@ -209,11 +209,15 @@ is reachable via `POST /v1/sessions/{id}/compact` (§6.25).
 A capability set to `false` (or absent) means the corresponding endpoints MUST return `404 Not Found` or `501 Not Implemented`. The TUI MUST hide UI affordances tied to that capability. The rule now holds **unconditionally in both directions** for the reference backend: a flag advertised `true` has its route registered, and a flag advertised `false` 404s. The conformance suite probes this (capability↔route truth).
 
 **`x_clio_stream_fallback_reasons`** is a map of the 13 reason keys the
-backend may attach to a batch-fallback part (`no_stream_listener`,
-`stream_disabled`, `provider_no_stream`, `stream_setup_error`,
-`stream_read_error`, `stream_empty`, `stream_parse_error`,
-`stream_timeout`, `fields_missing`, `tool_only_turn`, `retry_path`,
-`finalize_repair`, `unknown`). Each row carries
+backend may attach to a batch-fallback part (from
+`gact/runtime/capabilities.py::_STREAM_FALLBACK_REASON_DEFINITIONS`):
+`stream_disabled_guided_output`, `stream_disabled_live_streaming`,
+`streaming_dependency_unavailable`, `agent_not_available`,
+`agent_not_streamable`, `stream_setup_failed`,
+`stream_failed_before_output`, `stream_no_prediction`,
+`stream_completed_without_chunks`, `provider_streaming_unsupported`,
+`sync_execution_path`, `dynamic_prompt_stream_unavailable`,
+`dynamic_tool_stream_unavailable`. Each row carries
 `{category, synthetic_posthoc, live_streaming, recovery_actions,
 description}`. Note the per-row `synthetic_posthoc: true` values are
 legacy metadata — the authoritative top-level
@@ -232,17 +236,21 @@ Response wrapper: `{"capability_gaps": map<feature, row>}`. Each row is
 
 ```json
 {
-  "status": "not_implemented",       // gap status
+  "status": "unsupported",           // gap status: "unsupported" | "unavailable"
   "advertised": false,               // whether the caps map claims it
   "category": "optional",            // gap classification
   "description": "…",
   "client_behavior": "…",            // what a client should do instead
   "recovery_actions": ["…"],
-  "related_endpoints": ["…"]         // OR "related_commands" for CLI gaps
+  "related_endpoints": ["…"],        // and/or "related_commands" (a row may carry both)
 }
 ```
 
-Current rows (clio 3527143): `voice`, `lsp`, `optimizer_command`.
+Current rows (clio 3527143): `voice` (`unsupported`, advertised false),
+`lsp` (`unsupported`, advertised false), `optimizer_command`
+(`unavailable`, advertised **true** — the command surface exists but
+execution is stubbed; it carries both `related_endpoints` and
+`related_commands`).
 
 ### 3.4 `GET /v1/health`
 
