@@ -1,5 +1,22 @@
 import { render, screen, cleanup, fireEvent, waitFor } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Pin the brand so this section renders deterministically regardless of the ambient
+// brand profile (CI builds neutral gact; a local build may select clio). This fixes
+// the blueprint display label ("EarthScope") and hides the expert-pack picker.
+vi.mock('@brand', () => ({
+  brand: {
+    sessionSemantics: {
+      blueprintLabel: 'Agent blueprint',
+      showExpertPackPicker: false,
+      blueprintDisplayNames: {
+        'earthscope-gnss-region': 'EarthScope',
+        'EarthScope GNSS': 'EarthScope',
+      },
+    },
+  },
+}));
+
 import type { Client } from '@clio/core';
 import { ToastProvider } from '../../src/components/Toast.js';
 import { SessionDefaultsSection } from '../../src/routes/SettingsShell.js';
@@ -60,8 +77,9 @@ describe('SessionDefaultsSection', () => {
       const select = screen.getByTestId(
         'session-default-blueprint',
       ) as HTMLSelectElement;
-      if (select.options.length < 2) throw new Error('blueprints not loaded yet');
-      expect(select.value).toBe('');
+      if (select.options.length < 1) throw new Error('blueprints not loaded yet');
+      expect(select.value).toBe('earthscope-gnss-region');
+      expect(select.options[0]?.textContent).toBe('EarthScope');
       return select;
     });
     expect(agentBlueprints).toHaveBeenCalledWith({
@@ -71,11 +89,9 @@ describe('SessionDefaultsSection', () => {
       workspace_id: 'ws_earthscope',
     });
 
+    expect(screen.queryByTestId('session-default-expert-pack')).toBeNull();
     fireEvent.change(blueprintSelect, {
       target: { value: 'earthscope-gnss-region' },
-    });
-    fireEvent.change(screen.getByTestId('session-default-expert-pack'), {
-      target: { value: 'ndp-tools' },
     });
     fireEvent.click(screen.getByTestId('session-defaults-save'));
 
@@ -84,7 +100,7 @@ describe('SessionDefaultsSection', () => {
         'earthscope-gnss-region',
       ),
     );
-    expect(localStorage.getItem(SESSION_DEFAULT_EXPERT_PACK_KEY)).toBe('ndp-tools');
+    expect(localStorage.getItem(SESSION_DEFAULT_EXPERT_PACK_KEY)).toBeNull();
   });
 
   it('clears stale saved defaults when the current catalogs do not contain them', async () => {
@@ -99,10 +115,7 @@ describe('SessionDefaultsSection', () => {
       ) as HTMLSelectElement;
       expect(select.value).toBe('');
     });
-    const expertPackSelect = screen.getByTestId(
-      'session-default-expert-pack',
-    ) as HTMLSelectElement;
-    expect(expertPackSelect.value).toBe('');
+    expect(screen.queryByTestId('session-default-expert-pack')).toBeNull();
 
     fireEvent.click(screen.getByTestId('session-defaults-save'));
     expect(localStorage.getItem(SESSION_DEFAULT_BLUEPRINT_KEY)).toBeNull();

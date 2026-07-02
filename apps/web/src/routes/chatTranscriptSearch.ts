@@ -4,6 +4,7 @@
  */
 import { createEffect, createMemo, createSignal, type Accessor, type Setter } from 'solid-js';
 import type { Message } from '@clio/core';
+import { messageSearchTexts } from '../components/transcriptDelegationModel.js';
 
 export interface TranscriptSearchController {
   open: Accessor<boolean>;
@@ -28,14 +29,12 @@ export function createTranscriptSearch(messages: Accessor<Message[]>): Transcrip
     if (!q) return 0;
     let count = 0;
     for (const message of messages()) {
-      for (const part of message.parts) {
-        if (part.type === 'text' && part.text) {
-          const lower = part.text.toLowerCase();
-          let index = lower.indexOf(q);
-          while (index !== -1) {
-            count += 1;
-            index = lower.indexOf(q, index + q.length);
-          }
+      for (const text of messageSearchTexts(message)) {
+        const lower = text.toLowerCase();
+        let index = lower.indexOf(q);
+        while (index !== -1) {
+          count += 1;
+          index = lower.indexOf(q, index + q.length);
         }
       }
     }
@@ -50,15 +49,13 @@ export function createTranscriptSearch(messages: Accessor<Message[]>): Transcrip
     const target = ((currentIndex() % total) + total) % total;
     let seen = 0;
     for (const message of messages()) {
-      for (const part of message.parts) {
-        if (part.type === 'text' && part.text) {
-          const lower = part.text.toLowerCase();
-          let index = lower.indexOf(q);
-          while (index !== -1) {
-            if (seen === target) return `${message.id}:${seen}`;
-            seen += 1;
-            index = lower.indexOf(q, index + q.length);
-          }
+      for (const text of messageSearchTexts(message)) {
+        const lower = text.toLowerCase();
+        let index = lower.indexOf(q);
+        while (index !== -1) {
+          if (seen === target) return `${message.id}:${seen}`;
+          seen += 1;
+          index = lower.indexOf(q, index + q.length);
         }
       }
     }

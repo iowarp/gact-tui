@@ -238,6 +238,10 @@ function objectPreview(obj: Record<string, unknown>): string {
     parts.push(nested);
     if (parts.length >= 3) break;
   }
+  for (const nested of nestedScalarArrayPreviews(obj)) {
+    parts.push(nested);
+    if (parts.length >= 4) break;
+  }
   const deferredStatus: string[] = [];
   for (const [k, v] of Object.entries(obj).sort(
     ([a], [b]) => previewKeyPriority(a) - previewKeyPriority(b),
@@ -278,6 +282,19 @@ function nestedRecordPreviews(obj: Record<string, unknown>): string[] {
     const records = value.filter(isRecord).slice(0, 3) as Record<string, unknown>[];
     const labels = records.map(recordLabel).filter(Boolean);
     if (labels.length > 0) out.push(`${key}: ${labels.join(', ')}`);
+  }
+  return out;
+}
+
+function nestedScalarArrayPreviews(obj: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (!Array.isArray(value) || value.length === 0) continue;
+    if (value.some((item) => item != null && typeof item === 'object')) continue;
+    const sample = value.slice(0, 5).map((item) => scalarCell(item)).filter(Boolean);
+    if (sample.length === 0) continue;
+    const suffix = value.length > sample.length ? ` +${value.length - sample.length}` : '';
+    out.push(`${key}: ${sample.join(', ')}${suffix}`);
   }
   return out;
 }

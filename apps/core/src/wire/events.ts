@@ -26,6 +26,13 @@ import type {
   ToolCallCompletedPayload,
   ToolCallProgressPayload,
   ToolCallStartedPayload,
+  TranscriptActionAddedPayload,
+  TranscriptCallResultDeltaPayload,
+  TranscriptStateUpdatedPayload,
+  TranscriptTextDeltaPayload,
+  TranscriptTraceDeltaPayload,
+  TranscriptTurnCompletedPayload,
+  TranscriptTurnStartedPayload,
   UserQuestionEventPayload,
 } from './event_payloads.js';
 
@@ -75,6 +82,13 @@ export type GactEvent =
   | (EventEnvelope<PermissionResolvedPayload> & { type: 'permission.resolved' })
   | (EventEnvelope<CostUpdatedPayload> & { type: 'cost.updated' })
   | (EventEnvelope<SemanticEventPayload> & { type: 'semantic.event' })
+  | (EventEnvelope<TranscriptTurnStartedPayload> & { type: 'turn.started' })
+  | (EventEnvelope<TranscriptTraceDeltaPayload> & { type: 'turn.trace.delta' })
+  | (EventEnvelope<TranscriptTextDeltaPayload> & { type: 'turn.text.delta' })
+  | (EventEnvelope<TranscriptActionAddedPayload> & { type: 'turn.action.added' })
+  | (EventEnvelope<TranscriptCallResultDeltaPayload> & { type: 'call.result.delta' })
+  | (EventEnvelope<TranscriptTurnCompletedPayload> & { type: 'turn.completed' })
+  | (EventEnvelope<TranscriptStateUpdatedPayload> & { type: 'state.updated' })
   | (EventEnvelope<ContextFrameEventPayload> & { type: 'context.frame.created' })
   | (EventEnvelope<ContextFrameEventPayload> & { type: 'context.frame.completed' })
   | (EventEnvelope<UserQuestionEventPayload> & { type: 'user_question.created' })
@@ -115,6 +129,13 @@ export const RELEVANT_EVENTS = [
   'permission.resolved',
   'cost.updated',
   'semantic.event',
+  'turn.started',
+  'turn.trace.delta',
+  'turn.text.delta',
+  'turn.action.added',
+  'call.result.delta',
+  'turn.completed',
+  'state.updated',
   'context.frame.created',
   'context.frame.completed',
   'user_question.created',

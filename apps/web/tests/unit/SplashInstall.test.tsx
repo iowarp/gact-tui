@@ -28,6 +28,8 @@ import type {
   InstallFailure,
   InstallProgressHandlers,
 } from '../../src/tauri.js';
+import { InMemoryPersistence } from '@clio/core';
+import { BackendRegistryProvider, createBackendRegistry } from '../../src/registry.js';
 
 // --- Mock the Tauri bridge -------------------------------------------------
 // Mutable handles the tests drive: the next backend status getBackend()
@@ -128,8 +130,15 @@ beforeEach(() => {
 function mount() {
   const onReady = vi.fn();
   const onWebFallbackNeeded = vi.fn();
+  // SplashScreen reads useBackendRegistry() (for pure-web backend candidates), so
+  // it must mount under a provider — same as the real app shell.
+  const registry = createBackendRegistry({
+    persistence: new InMemoryPersistence({ backends: [], currentId: null }),
+  });
   render(() => (
-    <SplashScreen onReady={onReady} onWebFallbackNeeded={onWebFallbackNeeded} />
+    <BackendRegistryProvider registry={registry}>
+      <SplashScreen onReady={onReady} onWebFallbackNeeded={onWebFallbackNeeded} />
+    </BackendRegistryProvider>
   ));
   return { onReady, onWebFallbackNeeded };
 }

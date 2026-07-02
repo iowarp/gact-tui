@@ -69,6 +69,7 @@ export function ChatScreenLiveDriven(props: ChatScreenLiveDrivenProps) {
       onUndoTurn={sessionActions.undoActive}
       onCompactSession={sessionActions.compactActive}
       models={modelControls.models()}
+      modelProviders={modelControls.modelProviders()}
       selectedModelId={modelControls.selectedModelId()}
       onPickModel={modelControls.pickModel}
       permMode={modelControls.permMode()}

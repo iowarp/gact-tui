@@ -122,9 +122,9 @@ test('overnight real UI renders a real markdown table list and code block', asyn
     );
 
     const assistant = page.locator('.trx-msg--assistant').last();
-    const table = page.locator('.trx-msg--assistant .im__table').last();
-    const list = page.locator('.trx-msg--assistant .im__list').last();
-    const code = page.locator('.trx-msg--assistant .im__code').last();
+    const table = page.locator('.trx-msg--assistant .im table').last();
+    const list = page.locator('.trx-msg--assistant .im :is(ul, ol)').last();
+    const code = page.locator('.trx-msg--assistant .im pre').last();
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(list).toBeVisible({ timeout: 10_000 });
     await expect(code).toBeVisible({ timeout: 10_000 });

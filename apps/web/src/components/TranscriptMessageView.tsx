@@ -7,7 +7,7 @@ import { createStore, reconcile } from 'solid-js/store';
 import type { FileDiff, Message } from '@clio/core';
 import type { ModelOption } from './ComposerTypes.js';
 import { metadataToolDiffs } from './TranscriptToolParts.js';
-import { PartView, shouldRenderPart, type TranscriptDensity } from './TranscriptParts.js';
+import { PartView, type TranscriptDensity } from './TranscriptParts.js';
 import { TranscriptMessageHeader } from './TranscriptMessageHeader.js';
 import { MessageStatusPanels } from './TranscriptMessageStatus.js';
 import { TurnWorkflowBlocker, turnWorkflowBlocker } from './WorkflowState.js';
@@ -49,22 +49,28 @@ export function MessageView(props: MessageViewProps) {
   const turnBlocker = createMemo(() =>
     isAssistant() ? turnWorkflowBlocker(props.msg.parts ?? []) : null,
   );
-  // For assistant turns carrying delegation/handoff structure, render the
-  // flowing, indented, TUI-style view (dedupe + strip + depth) instead of the
-  // flat per-part box loop. Searching disables it so the highlight loop stays
-  // authoritative. User turns and plain assistant turns keep the simple path.
+  // THE SINGLE RENDER PATH. Every turn — user prompts and assistant turns, with
+  // or without delegation, live or reloaded, searching or not — is projected by
+  // buildAssistantTurnModel into one ordered append-only ROW LOG and rendered by
+  // AssistantTurnView. There is no flat per-part fallback: one builder, one
+  // renderer, so search never swaps views, and live ≡ reload by construction.
   //
-  // The model is a flat ORDERED ROW LOG. On every SSE delta we rebuild it and
-  // reconcile(key:'id') it INTO a store, so unchanged rows keep their object
-  // identity and the streaming text row updates in place — Solid's <For> then
-  // appends/updates exactly the changed row instead of destroying and rebuilding
-  // every row each token (append-only + incremental paint — RENDERING_SPEC).
+  // On every SSE delta we rebuild the model and reconcile(key:'id') it INTO a
+  // store, so unchanged rows keep their object identity and the streaming text row
+  // updates in place — Solid's <For> then appends/updates exactly the changed row
+  // instead of destroying and rebuilding every row each token (append-only +
+  // incremental paint — RENDERING_SPEC).
   const [rows, setRows] = createStore<TurnRow[]>([]);
   createComputed(() => {
-    const model =
-      !isAssistant() || props.searchQuery?.trim()
-        ? null
-        : buildAssistantTurnModel(props.msg.parts ?? []);
+    // streamingPartIdx >= 0 means this assistant message is still in-flight; tell
+    // the builder so the visibility filter doesn't drop main/synthesis rows on
+    // partial text (they'd only pop in when complete). Finalized messages pass
+    // streaming:false → full filter → identical to a reload.
+    const streaming = (props.streamingPartIdx ?? -1) >= 0;
+    const model = buildAssistantTurnModel(props.msg.parts ?? [], {
+      streaming,
+      role: isAssistant() ? 'assistant' : 'user',
+    });
     setRows(reconcile(model?.rows ?? [], { key: 'id' }));
   });
   const hasTurn = createMemo(() => rows.length > 0);
@@ -95,36 +101,20 @@ export function MessageView(props: MessageViewProps) {
         onCopyPermalink={props.onCopyPermalink}
       />
       <div class="trx-msg__body">
-        <Show
-          when={hasTurn()}
-          fallback={
-            <For each={props.msg.parts.filter((part) => shouldRenderPart(part, props.density))}>
-              {(part, i) => (
-                <PartView
-                  part={part}
-                  density={props.density}
-                  onOpenDiff={props.onOpenDiff}
-                  onPinFile={props.onPinFile}
-                  searchQuery={props.searchQuery}
-                  messageId={props.msg.id}
-                  currentMatchKey={props.currentMatchKey}
-                  matchBaseIndex={props.matchBaseIndex}
-                  showCursor={i() === props.streamingPartIdx}
-                  imagePartsSupported={props.imagePartsSupported}
-                  readWorkspaceImage={props.readWorkspaceImage}
-                />
-              )}
-            </For>
-          }
-        >
+        <Show when={hasTurn()}>
           <AssistantTurnView
             rows={rows}
+            role={isAssistant() ? 'assistant' : 'user'}
             density={props.density}
+            streaming={(props.streamingPartIdx ?? -1) >= 0}
             onOpenDiff={props.onOpenDiff}
             onPinFile={props.onPinFile}
             imagePartsSupported={props.imagePartsSupported}
             readWorkspaceImage={props.readWorkspaceImage}
             messageId={props.msg.id}
+            searchQuery={props.searchQuery}
+            currentMatchKey={props.currentMatchKey}
+            matchBaseIndex={props.matchBaseIndex}
           />
         </Show>
         <For each={metadataDiffs()}>

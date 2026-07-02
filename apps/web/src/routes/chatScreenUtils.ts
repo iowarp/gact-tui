@@ -5,12 +5,26 @@
 import type { FileDiff, Message, ProviderDef, SlashCommandDef } from '@clio/core';
 import { formatCostUsd } from '../formatters.js';
 import { humanNum } from '../presentationUtils.js';
-import type { ModelOption } from '../components/ComposerTypes.js';
+import type { ModelOption, ModelProviderOption, ProviderAvailability } from '../components/ComposerTypes.js';
 import type { RailRoute } from '../components/LeftRail.js';
 import { DEFAULT_COMMANDS, type SlashCommand } from '../components/SlashPalette.js';
 import type { TranscriptDensity } from '../components/Transcript.js';
 import type { SettingsSection } from './SettingsShell.js';
 export { messageToText, sessionToMarkdown } from './chatSessionMarkdown.js';
+
+export interface ProviderModelCatalogEntry {
+  id: string;
+  name?: string;
+  description?: string;
+}
+
+export interface ProviderModelCatalog {
+  models: ProviderModelCatalogEntry[];
+  source?: string;
+  error?: string;
+}
+
+export type ProviderModelCatalogs = Record<string, ProviderModelCatalog>;
 
 export const DEFAULT_COMMAND_IDS = new Set(DEFAULT_COMMANDS.map((c) => c.id));
 
@@ -27,25 +41,54 @@ export function loadPinnedSet(key: string): Set<string> {
   return new Set();
 }
 
-export function providersToModels(ps: ProviderDef[]): ModelOption[] {
-  const out: ModelOption[] = [];
-  for (const p of ps) {
-    const candidates = collectModelIds(p);
-    for (const m of candidates) {
-      out.push({
+export function providersToModels(
+  ps: ProviderDef[],
+  catalogs: ProviderModelCatalogs = {},
+): ModelOption[] {
+  return providersToModelProviders(ps, catalogs).flatMap((provider) => provider.models);
+}
+
+export function providersToModelProviders(
+  ps: ProviderDef[],
+  catalogs: ProviderModelCatalogs = {},
+): ModelProviderOption[] {
+  return ps.map((p) => {
+    const catalog = catalogs[p.id];
+    const status = providerAvailability(p, catalog);
+    const candidates = collectModelIds(p, catalog);
+    const label = p.name || p.id;
+    const disabled = status !== 'ok';
+    return {
+      id: p.id,
+      label,
+      shortLabel: compactProviderLabel(label),
+      status,
+      statusLabel: status,
+      disabled,
+      detail: providerStatusDetail(p, status),
+      models: candidates.map((m) => ({
         id: `${p.id}:${m}`,
         providerId: p.id,
         modelId: m,
-        providerLabel: p.name,
-        description: m === p.default_model ? 'provider default' : undefined,
-      });
-    }
-  }
-  return out;
+        providerLabel: label,
+        description: modelDescription(m, catalog?.models ?? [], p.default_model),
+        disabled,
+      })),
+    };
+  }).sort(compareProviders);
 }
 
-function collectModelIds(p: ProviderDef): string[] {
+function collectModelIds(
+  p: ProviderDef,
+  catalog: ProviderModelCatalog | undefined,
+): string[] {
   const ms = new Set<string>();
+  if (catalog?.error || catalog?.source === 'unavailable') return [];
+  if (catalog && catalog.models.length > 0) {
+    for (const model of catalog.models) if (model.id) ms.add(model.id);
+    if (p.default_model) ms.add(p.default_model);
+    return Array.from(ms);
+  }
   if (p.default_model) ms.add(p.default_model);
   const meta = p.metadata ?? {};
   for (const key of ['models', 'available_models']) {
@@ -55,6 +98,77 @@ function collectModelIds(p: ProviderDef): string[] {
     }
   }
   return Array.from(ms);
+}
+
+function modelDescription(
+  modelId: string,
+  catalog: ProviderModelCatalogEntry[],
+  defaultModel: string | undefined,
+): string | undefined {
+  const description = catalog.find((model) => model.id === modelId)?.description;
+  if (description) return description;
+  return modelId === defaultModel ? 'provider default' : undefined;
+}
+
+export function compactProviderLabel(label: string): string {
+  return label.replace(/\s*\([^)]*\)\s*$/, '').trim() || label;
+}
+
+function providerAvailability(
+  p: ProviderDef,
+  catalog: ProviderModelCatalog | undefined,
+): ProviderAvailability {
+  const metadata = p.metadata ?? {};
+  const metadataStatus = String((metadata as Record<string, unknown>)['status'] ?? '').toLowerCase();
+  if (/(offline|error|failed|unavailable)/.test(metadataStatus)) return 'offline';
+  if (catalog?.error || catalog?.source === 'unavailable') return 'offline';
+  if (p.is_authenticated === false && providerNeedsSetup(p)) return 'setup';
+  if (collectModelIds(p, catalog).length === 0) return 'setup';
+  return 'ok';
+}
+
+function providerNeedsSetup(p: ProviderDef): boolean {
+  return (p.auth_methods?.length ?? 0) > 0 || (p.env_keys?.length ?? 0) > 0;
+}
+
+function providerStatusDetail(p: ProviderDef, status: ProviderAvailability): string | undefined {
+  if (status === 'ok') return undefined;
+  if (status === 'offline') return 'Provider is unavailable or failed its last model check.';
+  if (p.env_keys?.length) return `Missing configuration: ${p.env_keys.join(', ')}`;
+  if (p.auth_methods?.length) return `Authentication required: ${p.auth_methods.join(', ')}`;
+  return 'No selectable models advertised by this provider.';
+}
+
+const PROVIDER_ORDER = [
+  'claude_code',
+  'codex',
+  'anthropic',
+  'openai',
+  'openrouter',
+  'lm_studio',
+  'ollama',
+  'argonne_sophia',
+  'argonne_metis',
+  'argonne_local_vllm',
+] as const;
+
+function compareProviders(a: ModelProviderOption, b: ModelProviderOption): number {
+  const order = providerRank(a.id) - providerRank(b.id);
+  if (order !== 0) return order;
+  const status = statusRank(a.status) - statusRank(b.status);
+  if (status !== 0) return status;
+  return a.label.localeCompare(b.label);
+}
+
+function statusRank(status: ProviderAvailability): number {
+  if (status === 'ok') return 0;
+  if (status === 'setup') return 1;
+  return 2;
+}
+
+function providerRank(id: string): number {
+  const index = PROVIDER_ORDER.indexOf(id as (typeof PROVIDER_ORDER)[number]);
+  return index === -1 ? PROVIDER_ORDER.length : index;
 }
 
 export function platformMod(): string {

@@ -2,12 +2,19 @@
  * Connect route: backend URL/token entry and capabilities probe. Exports
  * {@link ConnectScreen}.
  */
-import { Show } from 'solid-js';
+import { createMemo, For, Show, type JSX } from 'solid-js';
+import type { BackendEntry } from '@clio/core';
 import { brand } from '@brand';
 import type { BackendHandle } from '../App.js';
 import { Icon } from '../components/Icon.js';
 import { BrandMark } from '../components/BrandMark.js';
+import { useBackendRegistry } from '../registry.js';
 import { createConnectScreenController } from './ConnectScreenController.js';
+import { normalizedBackendBaseUrl } from './ConnectScreenModel.js';
+import {
+  pureWebBackendCandidates,
+  type PureWebBackendCandidate,
+} from './splashBackend.js';
 import './connect.css';
 
 export interface ConnectScreenProps {
@@ -16,21 +23,114 @@ export interface ConnectScreenProps {
 
 export function ConnectScreen(props: ConnectScreenProps) {
   const connect = createConnectScreenController({ onConnected: props.onConnected });
+  const registry = useBackendRegistry();
+  const backendChoices = createMemo(() =>
+    pureWebBackendCandidates(registry.state()).map((candidate) => ({
+      ...candidate,
+      savedBackend: candidateSavedBackend(candidate, registry.state().backends),
+      label: candidateLabel(candidate, registry.state().backends),
+    })).filter((choice) => choice.savedBackend),
+  );
+  const taglineAccent = () => brand.taglineAccent?.trim() || '';
+  const taglineParts = () => {
+    const accent = taglineAccent();
+    if (!accent || !brand.tagline.includes(accent)) {
+      return [{ text: brand.tagline, accent: false }];
+    }
+    const [before = '', after = ''] = brand.tagline.split(accent, 2);
+    return [
+      { text: before, accent: false },
+      { text: accent, accent: true },
+      { text: after, accent: false },
+    ].filter((part) => part.text.length > 0);
+  };
 
   return (
     <div class="connect" data-testid="connect-screen-bg">
       <main class="connect__main" data-testid="connect-screen">
         <div class="connect__brand">
-          <BrandMark class="connect__mark" />
-          <span class="connect__wordmark">{brand.wordmark}</span>
+          <BrandLink className="connect__mark-link" href={brand.homeUrl}>
+            <BrandMark class="connect__mark" useImage />
+          </BrandLink>
+          <div class="connect__brand-copy">
+            <BrandLink className="connect__wordmark" href={brand.homeUrl}>
+              <For each={brand.wordmark.split('')}>
+                {(char) => <span>{char}</span>}
+              </For>
+            </BrandLink>
+            <Show when={brand.tagline}>
+              <span class="connect__tagline">
+                <For each={taglineParts()}>
+                  {(part) => (
+                    <Show
+                      when={part.accent && brand.taglineAccentUrl}
+                      fallback={<span>{part.text}</span>}
+                    >
+                      <a
+                        class="connect__tagline-link"
+                        href={brand.taglineAccentUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {part.text}
+                      </a>
+                    </Show>
+                  )}
+                </For>
+              </span>
+            </Show>
+          </div>
         </div>
-        <h1 class="connect__title">Welcome to {brand.name}</h1>
-        <p class="connect__lede">
-          {brand.tagline ? brand.tagline + '. ' : ''}Connect to get started —
-          it defaults to the local backend running on this machine.
-        </p>
+        <h1 class="connect__title">Connect to backend</h1>
+        <p class="connect__lede">Choose a backend URL or retry.</p>
 
         <div class="connect__card">
+          <div class="connect__choices" aria-label="Backend choices">
+            <For each={backendChoices()}>
+              {(choice) => (
+                <div
+                  class={
+                    'connect__choice ' +
+                    (normalizedBackendBaseUrl(connect.url()) ===
+                    normalizedBackendBaseUrl(choice.url)
+                      ? 'is-selected'
+                      : '')
+                  }
+                  data-testid={`connect-choice-${normalizedBackendBaseUrl(choice.url).replace(/[^a-z0-9]+/gi, '-')}`}
+                >
+                  <button
+                    type="button"
+                    class="connect__choice-main"
+                    onClick={() => {
+                      connect.setUrl(choice.url);
+                      connect.setToken(choice.token);
+                    }}
+                  >
+                    <span class="connect__choice-label">{choice.label}</span>
+                    <span class="connect__choice-url">{normalizedBackendBaseUrl(choice.url)}</span>
+                  </button>
+                  <Show when={choice.savedBackend}>
+                    {(backend) => (
+                      <button
+                        type="button"
+                        class="connect__choice-remove"
+                        aria-label={`Remove ${backend().label}`}
+                        title="Remove saved backend"
+                        data-testid={`connect-choice-remove-${backend().id}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          registry.remove(backend().id);
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </Show>
+                </div>
+              )}
+            </For>
+          </div>
+
           <div class="field">
             <label for="conn-url">Backend URL</label>
             <input
@@ -138,5 +238,45 @@ export function ConnectScreen(props: ConnectScreenProps) {
         </div>
       </main>
     </div>
+  );
+}
+
+function candidateLabel(
+  candidate: PureWebBackendCandidate,
+  savedBackends: readonly BackendEntry[],
+): string {
+  const saved = candidateSavedBackend(candidate, savedBackends);
+  if (saved) return saved.label;
+  const normalized = normalizedBackendBaseUrl(candidate.url);
+  if (normalized.includes('127.0.0.1') || normalized.includes('localhost')) {
+    return 'Local backend';
+  }
+  return 'Backend';
+}
+
+function candidateSavedBackend(
+  candidate: PureWebBackendCandidate,
+  savedBackends: readonly BackendEntry[],
+): BackendEntry | undefined {
+  const normalized = normalizedBackendBaseUrl(candidate.url);
+  return savedBackends.find(
+    (backend) =>
+      normalizedBackendBaseUrl(backend.url) === normalized &&
+      backend.bearerToken === candidate.token,
+  );
+}
+
+function BrandLink(props: { className: string; href: string | null; children: JSX.Element }) {
+  return (
+    <Show
+      when={props.href}
+      fallback={<span class={props.className}>{props.children}</span>}
+    >
+      {(href) => (
+        <a class={props.className} href={href()} target="_blank" rel="noreferrer">
+          {props.children}
+        </a>
+      )}
+    </Show>
   );
 }

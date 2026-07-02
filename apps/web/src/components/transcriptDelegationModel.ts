@@ -22,7 +22,7 @@
  * hardcoded expert-name list. Each row + tool carries a STABLE id (the part id)
  * so Solid's keyed <For> appends/updates in place and never rebuilds the turn.
  */
-import type { Part } from '@clio/core';
+import type { Message, Part } from '@clio/core';
 import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
 import { stripClioScaffolding } from './clioScaffolding.js';
@@ -33,6 +33,7 @@ export interface ToolRow {
   id: string;
   depth: number;
   agent: string;
+  providerThinking?: ProviderThinking;
   /** The model's reasoning for THIS step, carried on the tool_call part (clio
    *  #732): one turn = thought + the tool it chose. Rendered above the call. */
   thought: string;
@@ -44,6 +45,10 @@ export interface ToolRow {
   imagePath?: string;
   ok: boolean;
   durationMs?: number;
+  /** Tool-telemetry (capabilities.tool_telemetry): the result was served from
+   *  cache (clio ships `cached` on tool_result parts). Rendered as an inline
+   *  `cached` badge in the tool footer — TUI parity, not dropped by unification. */
+  cached?: boolean;
 }
 
 /** A `parent → agent` delegation header row. */
@@ -55,6 +60,7 @@ export interface DelegationRow {
   agent: string;
   task: string;
   status: string;
+  providerThinking?: ProviderThinking;
 }
 
 /** An agent's prose (markdown, in full). */
@@ -64,6 +70,15 @@ export interface TextRow {
   depth: number;
   agent: string;
   text: string;
+  /** True when this row is the USER's prompt (rendered plainly — no `●` marker,
+   *  no agent header — through the same single AssistantTurnView path). */
+  isUser?: boolean;
+  /** The DSPy contract field this text streamed from (`signature_field_name`):
+   *  `next_thought` (a ReAct step/finish summary) vs `reasoning` (the extract
+   *  wrap-up). Used to drop the finish `next_thought` that duplicates the extract
+   *  `reasoning` (B1). Absent for non-DSPy backends. */
+  field?: string;
+  providerThinking?: ProviderThinking;
 }
 
 /** An agent's `thinking` step (markdown, in full, muted). */
@@ -73,6 +88,15 @@ export interface ReasoningRow {
   depth: number;
   agent: string;
   text: string;
+  providerThinking?: ProviderThinking;
+}
+
+/** Provider-internal thinking/debug stream, hidden by default. */
+export interface ProviderThinking {
+  text: string;
+  source: string;
+  chars?: number;
+  tokens?: number;
 }
 
 /** The orchestrator's routing decision (kept inline, subtle). */
@@ -92,6 +116,10 @@ export interface ReturnRow {
   agent: string;
   parent: string;
   text: string;
+  raw: string;
+  chars?: number;
+  tokens?: number;
+  providerThinking?: ProviderThinking;
 }
 
 /** Any non-delegation, non-text part rendered by its own per-type view. */
@@ -121,6 +149,7 @@ interface PartLike {
   type?: string;
   id?: string;
   text?: string;
+  thinking?: string;
   agent_id?: string;
   parent_agent?: string;
   child_agent?: string;
@@ -135,6 +164,7 @@ interface PartLike {
   duration_ms?: number;
   selected_agent?: string;
   rationale?: string;
+  cached?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -213,12 +243,19 @@ function toolRowsFromHandoffMetadata(
 ): ToolRow[] {
   if (!Array.isArray(tools)) return [];
   const rows: ToolRow[] = [];
+  const seen = new Set<string>();
   tools.forEach((tool, idx) => {
     if (!tool || typeof tool !== 'object') return;
     const rec = tool as Record<string, unknown>;
+    if (shouldHideSupplementalTool(rec)) return;
     const resultStr = extractToolResultText(rec['result'] ?? rec['output']);
     const analysis = analyzeToolResult(resultStr);
     const callId = str(rec['call_id']) || str(rec['id']) || String(idx);
+    const name = str(rec['name']) || str(rec['tool_name']) || 'tool';
+    const argsSummary = summariseArgs(rec['args'] ?? rec['input']);
+    const comparable = `${name}\n${argsSummary}\n${analysis.full || resultStr}`;
+    if (seen.has(comparable)) return;
+    seen.add(comparable);
     const duration = rec['duration_ms'];
     rows.push({
       kind: 'tool',
@@ -226,17 +263,28 @@ function toolRowsFromHandoffMetadata(
       depth,
       agent,
       thought: cleanProse(str(rec['thought']) || str(rec['reasoning'])),
-      name: str(rec['name']) || str(rec['tool_name']) || 'tool',
-      argsSummary: summariseArgs(rec['args'] ?? rec['input']),
+      name,
+      argsSummary,
       content: analysis.content,
       preview: analysis.preview,
       result: analysis.full,
       ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
       ok: rec['ok'] !== false && rec['is_error'] !== true,
       ...(typeof duration === 'number' ? { durationMs: duration } : {}),
+      ...(rec['cached'] === true ? { cached: true } : {}),
     });
   });
   return rows;
+}
+
+function shouldHideSupplementalTool(tool: Record<string, unknown>): boolean {
+  const name = str(tool['name']) || str(tool['tool_name']);
+  if (!name) return false;
+  if (name === 'finish') return true;
+  if (name.startsWith('clio_')) return true;
+  const telemetry = str(tool['telemetry_source']);
+  if (telemetry === 'blueprint_react_context_seed') return true;
+  return false;
 }
 
 /**
@@ -278,13 +326,24 @@ function rawResultString(result: unknown): string {
   }
 }
 
+function firstNonEmptyRaw(...values: unknown[]): unknown {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      if (value.trim()) return value;
+      continue;
+    }
+    if (value != null) return value;
+  }
+  return undefined;
+}
+
 function clip(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
 }
 
-function isHandoff(part: PartLike): boolean {
-  return part.type === 'expert_handoff';
+function delegationKey(parent: string, agent: string, task: string): string {
+  return `${parent}->${agent}->${task.replace(/\s+/g, ' ').trim()}`;
 }
 
 /** Agent of a part — the emitter. `expert_handoff` headers belong to the CHILD
@@ -343,9 +402,67 @@ function buildDepthResolver(list: readonly PartLike[]): (agent: string) => numbe
  * Returns null for turns with no delegation/agent structure (the caller then
  * leaves the message to its normal flat rendering).
  */
-export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnModel | null {
+/**
+ * A ReAct tool_call carries the step's `next_thought` on its `thought` field —
+ * but that SAME next_thought also streams as a visible text row, so rendering
+ * both shows the answer twice. clio's own stream-audit confirms the LLM emits the
+ * next_thought ONCE (clean, `duplicate_suppressed=false`); the second copy is
+ * injected by the backend tool_observer onto `tool_call.thought`. Drop that copy
+ * when it repeats the most recent text/reasoning row from the same agent. (This
+ * is the render-side guard; clio also clears it at the source, but the render has
+ * the complete, settled parts so it is the reliable layer and fixes already-
+ * persisted sessions on reload.)
+ */
+export function dedupToolThought(rows: readonly TurnRow[], agent: string, thought: string): string {
+  const t = thought.split(/\s+/).join(' ').trim();
+  if (!t) return thought;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i]!;
+    if ((r.kind === 'text' || r.kind === 'reasoning') && r.agent === agent) {
+      const body = (r.text || '').split(/\s+/).join(' ').trim();
+      // Bidirectional containment: the tool thought can be a trimmed subset of the
+      // streamed text, or a marker-padded superset of it.
+      if (body && (body.includes(t) || t.includes(body))) return '';
+      return thought; // nearest same-agent text didn't match → a distinct thought
+    }
+  }
+  return thought;
+}
+
+/**
+ * Project a USER turn into the same ordered row log. A user message is its prompt
+ * prose (rendered plainly — no `●` marker, no agent header) plus any attachments
+ * (images / documents) as passthrough rows. Kept trivially simple: no delegation,
+ * tool-pairing, or scaffolding-stripping applies to what the user typed.
+ */
+function buildUserTurnModel(list: readonly PartLike[]): AssistantTurnModel | null {
+  const rows: TurnRow[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const part = list[i];
+    if (!part) continue;
+    const id = str(part.id) || `row-${i}`;
+    if (part.type === 'text') {
+      const text = str(part.text);
+      if (!text) continue;
+      rows.push({ kind: 'text', id, depth: 0, agent: '', text, isUser: true });
+      continue;
+    }
+    rows.push({ kind: 'passthrough', id, depth: 0, part: part as Part });
+  }
+  return rows.length > 0 ? { rows } : null;
+}
+
+export function buildAssistantTurnModel(
+  parts: readonly Part[],
+  opts?: { streaming?: boolean; role?: 'user' | 'assistant' },
+): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
-  if (!list.some(isHandoff)) return null;
+  // TOTAL builder (the single render path): EVERY turn — user prompts, delegation
+  // turns, single-agent turns, tool-only turns, and turns still streaming their
+  // first token — is projected into the ordered row log and rendered through
+  // AssistantTurnView. There is no flat per-part fallback anymore: one builder,
+  // one renderer, so live ≡ reload and search never swaps to a different view.
+  if (opts?.role === 'user') return buildUserTurnModel(list);
 
   const depthOf = buildDepthResolver(list);
   const rows: TurnRow[] = [];
@@ -354,6 +471,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
   // Dedup delegation headers: a backend emits started + completed + resumed for
   // the same (parent → child); we keep ONE header (the first seen).
   const seenDelegation = new Set<string>();
+  const lastDelegationKeyByPair = new Map<string, string>();
 
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
@@ -379,20 +497,29 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       // Skip the structural RETURN twin (parent.resumed) and any handoff that
       // doesn't actually name a distinct child (no delegation to show).
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
-      const key = `${parent}->${agent}`;
+      const task =
+        cleanProse(str(part.metadata?.['question'])) ||
+        cleanProse(str(part.metadata?.['input'])) ||
+        dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary'])));
+      const pairKey = `${parent}->${agent}`;
+      let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
+        // The dspy.extract that precedes this return (its SDK thinking host + the
+        // `reasoning` text) renders in the flow like every other turn — thinking on
+        // top, streaming — NOT folded onto the return. Folding bound it to the return,
+        // which only exists at the very END of the turn, so it could not stream in.
+        // The return stays a clean one-liner (`↩ child returns to parent · show details`).
+        if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
         if (!seenDelegation.has(key)) {
           seenDelegation.add(key);
+          lastDelegationKeyByPair.set(pairKey, key);
           rows.push({
             kind: 'delegation',
             id: `delegation-${id}`,
             depth: depthOf(parent),
             parent,
             agent,
-            task:
-              cleanProse(str(part.metadata?.['question'])) ||
-              cleanProse(str(part.metadata?.['input'])) ||
-              dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+            task,
             status: str(part.status) || str(part.metadata?.['status']) || 'completed',
           });
         }
@@ -404,11 +531,17 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
           agent,
           parent,
           text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+          // The "details" raw mirrors the live return's `response`: the GENUINE
+          // structured output (empty for prose). Sourcing it from output_raw keeps
+          // reload identical to live — no falling back to workflow_state, which
+          // would surface a "details" toggle live-hidden turns don't have.
+          raw: rawResultString(firstNonEmptyRaw(part.metadata?.['output_raw'])),
         });
         continue;
       }
       if (seenDelegation.has(key)) continue;
       seenDelegation.add(key);
+      lastDelegationKeyByPair.set(pairKey, key);
       rows.push({
         kind: 'delegation',
         // The delegation is the PARENT's turn (its decision to hand off), so it
@@ -422,24 +555,56 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         // The delegated task: the question sent down, else a backend-provided
         // handoff summary (older shape). cleanProse strips clio scaffolding
         // (durable workflow_state JSON) + a leading `A -> B | status` prefix.
-        task:
-          cleanProse(str(part.metadata?.['question'])) ||
-          dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+        task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
       });
       continue;
     }
 
     if (type === 'text') {
+      // A synthetic slash-command result (e.g. `/cache-stats`) is a distinct card,
+      // not model prose — route it through its own view as a passthrough row so the
+      // single render path still shows it, styled as a command-result card.
+      if (str(part.metadata?.['synthetic']) === 'command_result') {
+        rows.push({ kind: 'passthrough', id, depth, part: part as Part });
+        continue;
+      }
       const text = cleanProse(str(part.text));
       if (!text) continue;
-      rows.push({ kind: 'text', id, depth, agent, text });
+      const field = str(part.metadata?.['signature_field_name']);
+      rows.push({ kind: 'text', id, depth, agent, text, ...(field ? { field } : {}) });
       continue;
     }
 
     if (type === 'thinking') {
-      const text = cleanProse(str(part.text));
+      const text = cleanProse(str(part.thinking) || str(part.text));
       if (!text) continue;
+      if (str(part.metadata?.['thinking_source']) === 'provider') {
+        // Per-burst thinking HOST: an empty-text reasoning row whose
+        // providerThinking is the SDK thinking, attributed to THIS part's agent.
+        // Consecutive provider-thinking for the same agent accumulates into the
+        // open host (one burst); a non-thinking row closes it. Renders as the
+        // collapsed `thinking ▾`, identical to the live stream.
+        const last = rows[rows.length - 1];
+        if (last?.kind === 'reasoning' && last.agent === agent && !last.text.trim() && last.providerThinking) {
+          const combined = `${last.providerThinking.text}\n${text}`;
+          last.providerThinking = { ...last.providerThinking, text: combined, chars: combined.length };
+        } else {
+          rows.push({
+            kind: 'reasoning',
+            id: `reasoning-${id}`,
+            depth,
+            agent,
+            text: '',
+            providerThinking: {
+              text,
+              source: str(part.metadata?.['provider_source']) || 'provider',
+              chars: text.length,
+            },
+          });
+        }
+        continue;
+      }
       rows.push({ kind: 'reasoning', id, depth, agent, text });
       continue;
     }
@@ -451,7 +616,11 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         id: `tool-${callId}`,
         depth,
         agent,
-        thought: cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
+        thought: dedupToolThought(
+          rows,
+          agent,
+          cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
+        ),
         name: str(part.tool_name) || 'tool',
         argsSummary: summariseArgs(part.input ?? part.metadata?.['input']),
         content: { kind: 'text', text: '' },
@@ -474,6 +643,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
       const durationMs =
         typeof part.duration_ms === 'number' ? part.duration_ms : undefined;
       const ok = part.status !== 'error' && part.metadata?.['is_error'] !== true;
+      const cached = part.cached === true || part.metadata?.['cached'] === true;
       if (existing) {
         existing.content = analysis.content;
         existing.preview = analysis.preview;
@@ -481,6 +651,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
         if (analysis.imagePath) existing.imagePath = analysis.imagePath;
         existing.ok = ok;
         if (durationMs != null) existing.durationMs = durationMs;
+        if (cached) existing.cached = true;
       } else {
         // Orphan result (no preceding call) — still render it as a tool row.
         rows.push({
@@ -497,6 +668,7 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
           ...(analysis.imagePath ? { imagePath: analysis.imagePath } : {}),
           ok,
           ...(durationMs != null ? { durationMs } : {}),
+          ...(cached ? { cached: true } : {}),
         });
       }
       continue;
@@ -507,8 +679,29 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
     rows.push({ kind: 'passthrough', id, depth, part: part as Part });
   }
 
-  if (rows.length === 0) return null;
-  return { rows: dedupeRepeatedText(rows) };
+  const cleanRows = filterVisibleRows(rows, opts);
+  if (cleanRows.length === 0) return null;
+  return { rows: cleanRows };
+}
+
+/**
+ * The ordered text strings a message renders, for in-transcript search. Search
+ * highlighting + match navigation MUST index the SAME text the single render path
+ * shows (cleaned prose rows), not the raw wire parts — otherwise a match key would
+ * point at an occurrence that scaffolding-stripping removed, and autoscroll would
+ * miss. Both the match counter and the per-row base index derive from this, so
+ * `${messageId}:${globalMatchIndex}` keys line up with the rendered `<mark>`s.
+ */
+export function messageSearchTexts(msg: Message): string[] {
+  const model = buildAssistantTurnModel(msg.parts ?? [], {
+    role: msg.role === 'assistant' ? 'assistant' : 'user',
+  });
+  if (!model) return [];
+  const out: string[] = [];
+  for (const row of model.rows) {
+    if (row.kind === 'text' && row.text) out.push(row.text);
+  }
+  return out;
 }
 
 /**
@@ -520,62 +713,109 @@ export function buildAssistantTurnModel(parts: readonly Part[]): AssistantTurnMo
  * this keeps the render correct regardless. Only EXACT full-body repeats are
  * dropped, so distinct orchestrator summaries (unique prose) are untouched.
  */
-function dedupeRepeatedText(rows: TurnRow[]): TurnRow[] {
-  const seen = new Set<string>();
-  const priorLongChildTexts: string[] = [];
-  return rows.filter((r) => {
-    if (r.kind !== 'text') return true;
-    const body = r.text.trim();
-    if (!body) return true;
-    if (seen.has(body)) return false;
-    if (r.agent === 'main' && isNearDuplicateChildAnswer(body, priorLongChildTexts)) {
+export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean }): TurnRow[] {
+  // While a turn is still STREAMING, the body-shape/dedupe predicates judge
+  // INCOMPLETE text and wrongly drop main/synthesis rows mid-stream (so they only
+  // "pop in" once complete — the batched/stuck feel). For in-flight content apply
+  // ONLY the structural empty-text drop; the full filter runs once the message is
+  // finalized. A completed-session reload passes no opts → byte-identical output
+  // (parity preserved).
+  const streaming = opts?.streaming === true;
+  // #48: NO client-side text dedup. It was born from a wrong reading of the
+  // dspy.extract/response semantics (treating the extract answer as a duplicate of
+  // the finish next_thought) and ran ONLY when settled — dropping real content and
+  // making a reloaded turn diverge from the live one. Build identically live/settled;
+  // any genuine backend double-emit is fixed at the SOURCE, not hidden here.
+  const base = rows;
+  return base.filter((row, index, all) => {
+    if (row.kind === 'return') {
+      if (!row.text.trim() && !row.raw.trim()) return false;
+      if (!streaming && row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
+      return true;
+    }
+    if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
+    const body = row.text.trim();
+    if (!body) {
+      // A reasoning row that HOSTS a live thinking disclosure has empty text (the
+      // thinking lives in providerThinking) — keep it so the collapsed `thinking ▾`
+      // renders. Drop only genuinely empty rows.
+      return row.kind === 'reasoning' && !!row.providerThinking?.text.trim();
+    }
+    if (streaming) return true;
+    if (isBareJsonBody(body)) return false;
+    if (isOrchestrationPlaceholder(body)) return false;
+    if (
+      row.kind === 'reasoning' &&
+      row.agent === 'main' &&
+      hasPriorAnswerRow(all, index) &&
+      isTerminalCompletionReasoning(body)
+    ) {
       return false;
     }
-    seen.add(body);
-    if (r.agent !== 'main' && body.length >= 500) priorLongChildTexts.push(body);
     return true;
   });
 }
 
-function isNearDuplicateChildAnswer(body: string, priorChildBodies: readonly string[]): boolean {
-  if (body.length < 500 || priorChildBodies.length === 0) return false;
-  const bodyTokens = normalizedAnswerTokens(body);
-  if (bodyTokens.size < 40) return false;
-  for (const prior of priorChildBodies) {
-    const priorTokens = normalizedAnswerTokens(prior);
-    if (priorTokens.size < 40) continue;
-    let intersection = 0;
-    for (const token of bodyTokens) {
-      if (priorTokens.has(token)) intersection += 1;
-    }
-    const smaller = Math.min(bodyTokens.size, priorTokens.size);
-    if (intersection / smaller >= 0.82) return true;
+function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {
+  return rows.slice(0, beforeIndex).some((row) => {
+    if (row.kind !== 'text') return false;
+    if (row.agent !== 'synthesis' && row.agent !== 'main') return false;
+    const text = row.text.trim();
+    return text.length > 20 && !isOrchestrationPlaceholder(text) && !isBareJsonBody(text);
+  });
+}
+
+function isBareJsonBody(text: string): boolean {
+  const body = text.trim();
+  if (!body) return false;
+  const wrapped =
+    (body.startsWith('{') && body.endsWith('}')) ||
+    (body.startsWith('[') && body.endsWith(']'));
+  if (!wrapped) return false;
+  try {
+    JSON.parse(body);
+    return true;
+  } catch {
+    return false;
   }
+}
+
+function isOrchestrationPlaceholder(text: string): boolean {
+  const body = text.toLowerCase();
+  if (/no user-facing answer yet/.test(body)) return true;
+  if (/awaiting .*child/.test(body)) return true;
+  if (/awaiting .*synthesis/.test(body)) return true;
+  if (/no evidence (?:yet|is available)/.test(body)) return true;
+  if (/pending .*delegation/.test(body)) return true;
+  if (/delegating to .*expert/.test(body)) return true;
+  if (/routing to synthesis/.test(body)) return true;
+  if (/routing to the .*expert/.test(body)) return true;
+  if (/before routing to synthesis/.test(body)) return true;
+  if (/before finishing/.test(body)) return true;
   return false;
 }
 
-function normalizedAnswerTokens(text: string): Set<string> {
-  const normalized = text
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, ' ')
-    .replace(/[a-z]:\\[^\s)`]+/g, ' ')
-    .replace(/`[^`]*`/g, ' ')
-    .replace(/[^a-z0-9_]+/g, ' ');
-  const stop = new Set([
-    'and',
-    'are',
-    'but',
-    'for',
-    'from',
-    'not',
-    'the',
-    'this',
-    'that',
-    'with',
-  ]);
-  return new Set(
-    normalized
-      .split(/\s+/)
-      .filter((token) => token.length >= 3 && !stop.has(token)),
-  );
+function isTerminalCompletionReasoning(text: string): boolean {
+  const body = text.toLowerCase();
+  const complete =
+    /task is (?:fully )?(?:complete|satisfied)/.test(body) ||
+    /all required work is complete/.test(body) ||
+    /all required work .*complete/.test(body) ||
+    /all claims .*grounded/.test(body) ||
+    /workflow is .*complete/.test(body) ||
+    /workflow has already executed/.test(body) ||
+    /both required children/.test(body) ||
+    /both required .*completed/.test(body) ||
+    /both required pipeline stages/.test(body) ||
+    /both .*children .*returned/.test(body) ||
+    /synthesis has returned/.test(body);
+  const finish =
+    /i now finish/.test(body) ||
+    /parent finishes/.test(body) ||
+    /finish on the turn/.test(body) ||
+    /carrying (?:the )?(?:synthesis'?s? )?answer/.test(body) ||
+    /no further children/.test(body) ||
+    /no downstream work/.test(body);
+  return complete || finish;
 }
+

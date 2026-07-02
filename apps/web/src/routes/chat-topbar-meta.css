@@ -1,6 +1,7 @@
 .chat__meta {
   display: inline-flex;
   align-items: center;
+  justify-self: end;
   gap: 10px;
   padding: 0 12px;
   margin-left: 8px;

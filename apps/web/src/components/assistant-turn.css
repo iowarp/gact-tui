@@ -1,236 +1,308 @@
-/* Flowing, indented ASSISTANT turn layout — replaces the per-part box wall.
- * Mirrors the TUI: depth indentation via a left rule, compacted long content,
- * a prominent final answer. No hardcoded colors — design tokens only. */
+/* Assistant transcript rows: flat, append-only, indented by agent depth. */
 
 .trx-turn {
-  /* LOCKED typography: one body size for ALL transcript text — reasoning, tool
-   * output, task, answer. Differentiate by weight/color only, never per-element
-   * font-size. Nothing in the transcript is "tiny". */
   --trx-body: 14.5px;
-  /* Per-depth indent step. Font-relative + clamped so nesting scales with the
-   * body size/density and a deep chain can't blow out a narrow viewport — not a
-   * hardcoded pixel multiplier. Depth itself stays a reactive data-var. */
-  --trx-step: clamp(0.75rem, 1.4ch, 1.25rem);
+  --trx-gutter: 14px;
+  --trx-gap: 8px;
+  --trx-rail-gap: 10px;
+  --trx-step: calc(var(--trx-rail-gap) + var(--trx-gutter) + var(--trx-gap));
   display: flex;
   flex-direction: column;
   gap: 14px;
+  color: var(--color-text);
   font-size: var(--trx-body);
+  line-height: 1.6;
 }
 
-/* Subtle routing line kept out of the main flow. FLAT — no chip box. */
-.trx-turn__routing {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  color: var(--color-muted);
+.trx-row,
+.trx-row__agenthdr,
+.trx-row__thinking-standalone {
+  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step));
+  margin-left: var(--trx-indent);
 }
 
-.trx-turn__routing strong {
-  color: var(--color-heading);
-  font-weight: 600;
-}
-
-.trx-turn__routing-src {
-  opacity: 0.8;
-}
-
-/* A delegation BLOCK: a turn in the chat-of-turns log. NO box — a flat,
- * indented step. Delegation DEPTH is signalled purely by left indentation
- * (Claude-Code style), not by borders or surfaces.
- * `content-visibility:auto` lets the browser skip layout/paint for off-screen
- * blocks so scrolling a long transcript stays smooth. */
-.trx-block {
-  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
+/* A mid-block thinking disclosure (no agent header) aligns with the content of
+   the ● row it precedes, instead of being outdented past the marker. */
+.trx-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  /* REAL, visible depth indentation: each delegation level is pushed in by a
-   * clear left margin, with a faint gutter rule on nested levels so the nesting
-   * reads at a glance (Claude-Code style). No box. */
-  margin-left: var(--trx-indent);
-  padding-left: 0;
+  gap: 6px;
+  min-width: 0;
+  padding-left: var(--trx-rail-gap);
   content-visibility: auto;
-  contain-intrinsic-size: auto 120px;
+  contain-intrinsic-size: auto 80px;
 }
 
-.trx-block[data-depth='1'],
-.trx-block[data-depth='2'],
-.trx-block[data-depth='3'],
-.trx-block[data-depth='4'],
-.trx-block[data-depth='5'],
-.trx-block[data-depth='6'] {
-  padding-left: 12px;
+.trx-row[data-depth='1'],
+.trx-row[data-depth='2'],
+.trx-row[data-depth='3'],
+.trx-row[data-depth='4'],
+.trx-row[data-depth='5'],
+.trx-row[data-depth='6'] {
   border-left: 1px solid var(--color-border-30);
 }
 
-/* The step line: `● main → agent: <task>` — one natural flowing line, no box. */
-.trx-block__step {
+.trx-row__agenthdr {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.4;
+}
+
+.trx-row__agenthdr-name {
+  border-left: 2px solid var(--color-accent);
+  padding-left: 7px;
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+.trx-row__head {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+  font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.6;
-  color: var(--color-text);
 }
 
-.trx-block__marker {
-  color: var(--color-accent);
+.trx-row__marker {
+  display: inline-block;
+  width: var(--trx-gutter);
   flex-shrink: 0;
+  color: var(--color-accent);
 }
 
-.trx-block__owner {
+.trx-row__marker--dim,
+.trx-row__marker--return {
+  color: var(--color-muted);
+}
+
+.trx-row__owner,
+.trx-row__owner--call {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.trx-block__owner.is-err .trx-block__agent {
-  color: var(--color-error);
-}
-
-.trx-block__from {
-  color: var(--color-muted);
-}
-
-.trx-block__arrow {
-  opacity: 0.6;
-  color: var(--color-muted);
-}
-
-.trx-block__agent {
-  font-weight: 700;
-  color: var(--color-heading);
-  letter-spacing: 0.01em;
-}
-
-/* The task delegated — one muted sub-line under the owner, in full. No box,
- * no label. Indented to align under the `●` marker glyph. */
-.trx-block__task {
-  margin-left: 18px;
-  color: var(--color-muted);
-  font-size: var(--trx-body);
-  line-height: 1.55;
   min-width: 0;
+  font-weight: 700;
 }
 
-.trx-block__status {
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-}
-
-.trx-block__status.is-err {
+.trx-row__owner.is-err .trx-row__agent,
+.trx-row__owner--call.is-err .trx-row__agent,
+.trx-row__status.is-err {
   color: var(--color-error);
 }
 
-/* A free-standing reasoning block (main's thoughts). Same flat step layout as a
- * delegation block; the markdown body sits under the `●` marker, in full. */
-.trx-block--reason .trx-block__result {
-  margin-top: 2px;
+.trx-row__agent {
+  color: var(--color-heading);
+  font-weight: 700;
 }
 
-/* The expert's per-step reasoning shown directly above a tool call — the thought
- * when requesting that tool (turn delineation). In FULL, never collapsed; quiet
- * but not muted, so it reads as the model's own text. */
-.trx-tool__reasoning {
+.trx-row__arrow,
+.trx-row__status {
+  color: var(--color-muted);
+}
+
+.trx-row__task,
+.trx-row__body,
+.trx-tool__thought,
+.trx-tool__markdown {
+  min-width: 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.6;
-  color: var(--color-text);
-  min-width: 0;
-  margin-bottom: 2px;
+  font-weight: 400;
 }
 
-/* Ordered tool calls the expert ran — indented under the step line. */
-.trx-block__tools {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  margin-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.trx-row__task {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
+  column-gap: var(--trx-gap);
+  align-items: baseline;
 }
 
-.trx-tool {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.trx-row--delegation,
+.trx-row--tool {
+  display: grid;
+  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
+  column-gap: var(--trx-gap);
+  row-gap: 4px;
+  align-items: baseline;
+}
+
+.trx-row--delegation .trx-row__head {
+  display: contents;
+}
+
+.trx-row--delegation .trx-row__head > .trx-row__marker {
+  grid-column: 1;
+}
+
+.trx-row--delegation .trx-row__head > .trx-row__owner {
+  grid-column: 2;
+}
+
+.trx-row--delegation .trx-row__head > .trx-row__status {
+  grid-column: 2;
+}
+
+.trx-row--text,
+.trx-row--reason {
+  display: grid;
+  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
+  column-gap: var(--trx-gap);
+  row-gap: 0;
+  align-items: baseline;
+}
+
+.trx-row--text .trx-row__head,
+.trx-row--reason .trx-row__head {
+  grid-column: 1;
+  grid-row: 1;
+  display: block;
+  min-width: var(--trx-gutter);
+}
+
+.trx-row--text .trx-row__body,
+.trx-row--reason .trx-row__body {
+  grid-column: 2;
+  grid-row: 1;
+  margin-left: 0;
+}
+
+.trx-row__body .im,
+.trx-row__body .im__p,
+.trx-row__body .im__li,
+.trx-row__body .im__h,
+.trx-row__body .im__link,
+.trx-tool__thought .im,
+.trx-tool__thought .im__p,
+.trx-tool__thought .im__li,
+.trx-tool__thought .im__h,
+.trx-tool__thought .im__link,
+.trx-tool__markdown .im,
+.trx-tool__markdown .im__p,
+.trx-tool__markdown .im__li,
+.trx-tool__markdown .im__h,
+.trx-tool__markdown .im__link {
+  font-size: var(--trx-body);
+  line-height: 1.6;
+}
+
+.trx-row__body > .im > :first-child,
+.trx-row__task > .im > :first-child,
+.trx-tool__thought > .im > :first-child,
+.trx-tool__markdown > .im > :first-child {
+  margin-top: 0;
+}
+
+.trx-row__body > .im > :last-child,
+.trx-row__task > .im > :last-child,
+.trx-tool__thought > .im > :last-child,
+.trx-tool__markdown > .im > :last-child {
+  margin-bottom: 0;
+}
+
+.trx-row--tool {
+  gap: 4px;
+}
+
+.trx-row--tool .trx-row__head {
+  display: contents;
+}
+
+.trx-row--tool .trx-row__head > .trx-row__marker {
+  grid-column: 1;
+}
+
+.trx-row--tool .trx-row__head > .trx-tool__thought,
+.trx-row--tool .trx-row__head > .trx-tool__call {
+  grid-column: 2;
+}
+
+.trx-tool__call-row {
+  display: contents;
+}
+
+.trx-tool__call-row > .trx-row__marker {
+  grid-column: 1;
+}
+
+.trx-tool__call-row > .trx-tool__call {
+  grid-column: 2;
+}
+
+.trx-row__head--tool-call {
+  flex-wrap: nowrap;
 }
 
 .trx-tool__call {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 6px;
+  min-width: 0;
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--trx-body);
-  color: var(--color-text);
-  min-width: 0;
-}
-
-.trx-tool__call .icon {
-  color: var(--color-accent-cyan);
-  flex-shrink: 0;
-  align-self: center;
+  line-height: 1.6;
 }
 
 .trx-tool__name {
-  font-weight: 600;
   color: var(--color-heading);
+  font-weight: 600;
 }
 
 .trx-tool__args {
-  color: var(--color-muted);
+  min-width: 0;
   overflow: hidden;
+  color: var(--color-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
 }
 
 .trx-tool__meta {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
   flex-shrink: 0;
-}
-
-.trx-tool__dur {
   color: var(--color-muted);
 }
 
 .trx-tool__badge {
-  font-size: 0.82em;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-muted);
   border: 1px solid var(--color-border-30);
   border-radius: 999px;
   padding: 0 6px;
+  color: var(--color-muted);
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.trx-tool__badge.is-err {
+.trx-tool__badge.is-err,
+.trx-row--tool.is-err .trx-tool__name {
   color: var(--color-error);
-  border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
 }
 
 .trx-tool__result {
+  grid-column: 2;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px;
-  margin-left: 8px;
+  grid-template-columns: var(--trx-gutter) minmax(0, 1fr);
+  column-gap: var(--trx-gap);
+  align-items: baseline;
 }
 
 .trx-tool__result-gutter {
-  font-family: var(--font-mono);
   color: var(--color-muted);
+  font-family: var(--font-mono);
   line-height: 1.55;
 }
 
@@ -241,46 +313,188 @@
   min-width: 0;
 }
 
-/* Raw tool result, revealed by the "show raw" disclosure. An opt-in code view,
- * not an always-on card — kept quiet so the flow stays flat. */
-.trx-tool__raw {
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 4px 0 0;
-  max-height: 280px;
-  overflow: auto;
-  background: color-mix(in srgb, var(--color-surface-alt) 60%, transparent);
-  border-radius: 4px;
-  padding: 6px 8px;
-}
-
-.trx-tool__plain {
+.trx-tool__plain,
+.trx-tool__raw,
+.trx-return__raw,
+.trx-collapse__pre {
+  margin: 0;
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0;
-  color: var(--color-text);
 }
 
-/* Tool output rendered AS MARKDOWN (a prose/markdown content type). */
-.trx-tool__markdown {
+.trx-tool__raw,
+.trx-return__raw {
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-surface-alt) 70%, transparent);
+  padding: 8px 10px;
+}
+
+.trx-return__raw {
+  margin: 6px 0 0 24px;
+}
+
+.trx-return__toggle,
+.trx-collapse__toggle {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-accent-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--trx-body);
+  padding: 1px 4px;
+}
+
+.trx-return__toggle:hover,
+.trx-return__toggle:focus-visible,
+.trx-collapse__toggle:hover,
+.trx-collapse__toggle:focus-visible {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+  outline: none;
+}
+
+.trx-row--routing {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+}
+
+.trx-row--routing strong {
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.trx-row__routing-src {
+  opacity: 0.8;
+}
+
+.trx-provider-thinking {
+  display: inline-block;
+  min-width: 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Collapsed, the disclosure sits inline beside the agent name. Expanded, it
+   takes the full row (flex-basis:100% wraps it to its own line in the
+   flex-wrap agenthdr) so the reasoning body uses the FULL page width instead of
+   a cramped column. */
+.trx-row__agenthdr .trx-provider-thinking[open] {
+  flex-basis: 100%;
+}
+
+.trx-provider-thinking > summary {
+  display: inline-grid;
+  grid-template-columns: auto auto minmax(0, auto);
+  column-gap: 5px;
+  align-items: baseline;
+  color: var(--color-muted);
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  list-style: none;
+}
+
+.trx-provider-thinking > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trx-provider-thinking__chevron {
+  align-self: center;
+  opacity: 0.85;
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.trx-provider-thinking[open] .trx-provider-thinking__chevron {
+  transform: rotate(90deg);
+}
+
+.trx-provider-thinking__count,
+.trx-provider-thinking__source {
+  opacity: 0.85;
+}
+
+.trx-provider-thinking__source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trx-provider-thinking__body {
+  /* Fill the column it sits in (reactive), same as a normal turn's text body which
+     is `minmax(0, 1fr)`. A mid-block/standalone thinking sits in the reasoning row's
+     1fr column, so this matches the answer text width and reflows with the page. */
+  width: 100%;
+  margin-top: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border-30);
+  color: var(--color-muted);
+  font: inherit;
+  white-space: normal;
+}
+
+.trx-row__thinking-standalone {
+  min-width: 0;
+  padding-left: var(--trx-step);
+  font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.6;
-  min-width: 0;
+  color: var(--color-muted);
 }
 
-/* Tool output rendered as a DIFF — +/- line coloring, FLAT (no card). */
+.trx-turn .im,
+.trx-turn .im__p,
+.trx-turn .im__li,
+.trx-turn .im__h,
+.trx-turn .im__link,
+.trx-turn .im__inline-code {
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: 1.6;
+}
+
+.trx-turn strong,
+.trx-turn .im__strong {
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+.trx-turn .im__inline-code {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-heading);
+  padding: 0 0.2em;
+}
+
+/* Streaming text renders as plain pre-wrap (no per-token markdown re-parse) for
+   smooth append; it swaps to formatted markdown when the row finalizes. */
+.im--streaming {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .trx-tool__diff {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--trx-body);
   line-height: 1.5;
-  margin: 0;
-  overflow-x: auto;
   white-space: pre;
 }
 
@@ -305,11 +519,6 @@
   color: var(--color-muted);
 }
 
-.trx-diff-line.is-ctx {
-  color: var(--color-text);
-}
-
-/* Tool output rendered as a small TABLE of columns (+ a few sample rows). */
 .trx-tool__table-wrap {
   min-width: 0;
   overflow-x: auto;
@@ -317,16 +526,16 @@
 
 .trx-tool__table {
   border-collapse: collapse;
-  font-size: var(--trx-body);
   font-family: var(--font-mono);
+  font-size: var(--trx-body);
 }
 
 .trx-tool__table th,
 .trx-tool__table td {
-  text-align: left;
-  padding: 2px 10px 2px 0;
-  vertical-align: top;
   border-bottom: 1px solid var(--color-border-30);
+  padding: 2px 10px 2px 0;
+  text-align: left;
+  vertical-align: top;
   white-space: nowrap;
 }
 
@@ -335,157 +544,24 @@
   font-weight: 600;
 }
 
-.trx-tool__col-type {
-  margin-left: 6px;
+.trx-tool__col-type,
+.trx-tool__table-note {
   color: var(--color-muted);
-  font-weight: 400;
 }
 
-.trx-tool__table td {
-  color: var(--color-text);
+.trx-tool__col-type {
+  margin-left: 6px;
+  font-weight: 400;
 }
 
 .trx-tool__table-note {
   margin-top: 4px;
-  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: var(--trx-body);
 }
 
-/* Inline image artifact (a plot's output_path rendered as a thumbnail). */
-.trx-tool__image {
-  min-width: 0;
-}
-
-.trx-tool__image-loading,
-.trx-tool__image-missing {
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  color: var(--color-muted);
-}
-
-.trx-tool.is-err .trx-tool__name {
-  color: var(--color-error);
-}
-
-/* The expert's reasoning / prose result, rendered as markdown — indented under
- * the step, in full, no box. */
-.trx-block__result {
-  margin-left: 18px;
-  color: var(--color-text);
-  font-size: var(--trx-body);
-  line-height: 1.65;
-}
-
-/* The final answer — `● Answer` then full markdown. No box, no separator rule;
- * a quiet accent label and the same body size as everything else. */
-.trx-turn__answer {
-  color: var(--color-text);
-  font-size: var(--trx-body);
-  line-height: 1.7;
-  margin-top: 4px;
-}
-
-.trx-turn__answer-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--color-accent-cyan);
-  margin-bottom: 6px;
-}
-
-.trx-turn__answer-body {
-  min-width: 0;
-}
-
-.trx-turn__passthrough {
-  min-width: 0;
-}
-
-/* Image artifact: a capped thumbnail (top preview) that enlarges on click. */
-.trx-image-thumb {
-  position: relative;
-  display: inline-block;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: zoom-in;
-  border-radius: 10px;
-  max-width: 100%;
-}
-
-.trx-image-thumb .trx-image {
-  max-height: 160px;
-  max-width: 260px;
-  margin: 0;
-  transition: max-height var(--dur-fast), max-width var(--dur-fast);
-}
-
-.trx-image-thumb.is-enlarged {
-  cursor: zoom-out;
-}
-
-.trx-image-thumb.is-enlarged .trx-image {
-  max-height: 70vh;
-  max-width: min(720px, 100%);
-}
-
-.trx-image-thumb__hint {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  color: var(--color-heading);
-  background: color-mix(in srgb, var(--color-bg) 70%, transparent);
-  border: 1px solid var(--color-border-30);
-  border-radius: 6px;
-  padding: 1px 6px;
-  pointer-events: none;
-}
-
-/* --- Collapsible content (TUI collapseForPreview parity) ----------------- */
-
-.trx-collapse {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.trx-collapse__pre {
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-  color: var(--color-text);
-}
-
-.trx-collapse__toggle {
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  color: var(--color-accent-cyan);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 1px 4px;
-  cursor: pointer;
-  transition: color var(--dur-fast), background var(--dur-fast);
-}
-
-.trx-collapse__toggle:hover {
-  color: var(--color-heading);
-  background: var(--color-surface-alt);
-}
-
+.trx-collapse,
 .trx-collapse-block {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -497,217 +573,98 @@
 }
 
 .trx-collapse-block__body.is-clamped {
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
 }
 
-/* ===========================================================================
- * APPEND-ONLY ORDERED ROW LOG (RENDERING_SPEC).
- * A turn is a flat list of rows (delegation / text / reasoning / tool / …) in
- * wire-arrival order. Depth = delegation nesting (indent + faint gutter). ONE
- * body font for ALL prose; color is reserved for LABELS (agent names, markers,
- * tool names) — never applied to the prose body. Each agent turn carries its
- * own `●` marker. `content-visibility:auto` keeps long transcripts smooth.
- * ========================================================================= */
-.trx-row {
-  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-left: var(--trx-indent);
-  content-visibility: auto;
-  contain-intrinsic-size: auto 80px;
-}
-.trx-row[data-depth='1'],
-.trx-row[data-depth='2'],
-.trx-row[data-depth='3'],
-.trx-row[data-depth='4'],
-.trx-row[data-depth='5'],
-.trx-row[data-depth='6'] {
-  padding-left: 12px;
-  border-left: 1px solid var(--color-border-30);
+.trx-turn__passthrough {
+  min-width: 0;
 }
 
-/* Row head: the `● <agent>` / `● parent → agent` label line. */
-.trx-row__head {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  line-height: 1.6;
+.trx-image-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: zoom-in;
+  padding: 0;
+  text-align: left;
 }
-.trx-row__marker {
-  color: var(--color-accent);
-  flex-shrink: 0;
+
+.trx-image-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-height: min(26dvh, 26cqw);
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--color-surface);
 }
-.trx-row__marker--dim {
-  color: var(--color-muted);
+
+.trx-image-thumb .trx-image {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  object-fit: cover;
+  object-position: top left;
+  height: auto;
+  margin: 0;
+  border-radius: 10px;
+  transition: max-height var(--dur-fast), max-width var(--dur-fast), width var(--dur-fast);
 }
-.trx-row__owner {
+
+.trx-image-thumb:not(.is-enlarged) .trx-image-frame::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 44%;
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--color-bg) 44%, transparent) 48%,
+      color-mix(in srgb, var(--color-bg) 94%, transparent) 100%
+    );
+  pointer-events: none;
+}
+
+.trx-image-thumb.is-enlarged {
+  cursor: zoom-out;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+}
+
+.trx-image-thumb.is-enlarged .trx-image-frame {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+}
+
+.trx-image-thumb.is-enlarged .trx-image {
+  width: 100%;
+  max-width: 100%;
+  max-height: 80dvh;
+  object-fit: contain;
+  object-position: top left;
+}
+
+.trx-image-thumb__hint {
   display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.trx-row__owner.is-err .trx-row__agent {
-  color: var(--color-error);
-}
-.trx-row__from {
-  color: var(--color-muted);
-  font-weight: 700;
-}
-.trx-row__arrow {
-  opacity: 0.6;
-  color: var(--color-muted);
-}
-.trx-row__agent {
-  font-weight: 700;
+  margin-top: 6px;
+  border: 1px solid var(--color-border-30);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-heading);
-  letter-spacing: 0.01em;
-}
-.trx-row__agent--dim {
-  color: var(--color-muted);
-  font-weight: 600;
-}
-
-/* `▎<agent>` — the owning agent's name, shown ONCE atop its contiguous block
- * (reappears only when the owning agent changes / resumes). Indented to the
- * block's depth; a thin accent bar stands in for the `▎` glyph. Never repeated
- * per turn. data-agent is exposed for future per-agent theming. */
-.trx-row__agenthdr {
-  --trx-indent: calc(var(--trx-depth, 0) * var(--trx-step, 1.1ch));
-  margin-left: var(--trx-indent);
-  margin-top: 2px;
-  display: flex;
-  align-items: center;
   font-family: var(--font-mono);
   font-size: var(--trx-body);
-  line-height: 1.4;
-}
-.trx-row__agenthdr-name {
-  font-weight: 700;
-  color: var(--color-heading);
-  letter-spacing: 0.02em;
-  border-left: 2px solid var(--color-accent);
-  padding-left: 7px;
-}
-/* A header that follows its own block at the same depth shouldn't add the depth
- * gutter twice — the rows below carry it. */
-.trx-row__agenthdr[data-depth='1'],
-.trx-row__agenthdr[data-depth='2'],
-.trx-row__agenthdr[data-depth='3'],
-.trx-row__agenthdr[data-depth='4'],
-.trx-row__agenthdr[data-depth='5'],
-.trx-row__agenthdr[data-depth='6'] {
-  padding-left: 12px;
-}
-.trx-row__status.is-err {
-  color: var(--color-error);
-  font-family: var(--font-mono);
-}
-
-/* The delegated task — one muted sub-line under the header, in full. */
-.trx-row__task {
-  margin-left: 18px;
-  color: var(--color-muted);
-  font-size: var(--trx-body);
-  line-height: 1.55;
-  min-width: 0;
-}
-
-/* The prose body — agent text / reasoning. The READABLE body color, NOT an
- * agent/category color, and the ONE locked body font-size for every markdown
- * element (paragraphs, lists, headings, links, inline code) so nothing renders
- * bigger/smaller than the surrounding log. */
-.trx-row__body {
-  margin-left: 18px;
-  color: var(--color-text);
-  font-size: var(--trx-body);
-  line-height: 1.6;
-  min-width: 0;
-}
-.trx-row__body--dim {
-  color: var(--color-muted);
-}
-.trx-row__body .im,
-.trx-row__body .im__p,
-.trx-row__body .im__li,
-.trx-row__body .im__h,
-.trx-row__body .im__link,
-.trx-row__body .im__inline-code {
-  font-size: var(--trx-body);
-}
-
-/* Tool + routing rows reuse the existing .trx-tool* / icon styling; only the
- * row wrapper needs the indent + tool layout. */
-.trx-row--tool {
-  gap: 4px;
-}
-/* The step's reasoning, shown next to the ● above its tool call (clio #732). */
-.trx-tool__thought {
-  flex: 1 1 auto;
-  margin-left: 0;
-  min-width: 0;
-}
-.trx-row--routing {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: var(--trx-body);
-  color: var(--color-muted);
-}
-.trx-row--routing strong {
-  color: var(--color-heading);
-  font-weight: 600;
-}
-.trx-row__routing-src {
-  opacity: 0.8;
-}
-
-.trx-row--text,
-.trx-row--reason {
-  display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  column-gap: 6px;
-  row-gap: 0;
-}
-.trx-row--text .trx-row__head,
-.trx-row--reason .trx-row__head {
-  grid-column: 1;
-  grid-row: 1;
-}
-.trx-row--text .trx-row__body,
-.trx-row--reason .trx-row__body {
-  grid-column: 2;
-  grid-row: 1;
-  margin-left: 0;
-}
-.trx-row[data-testid='assistant-turn-answer'] {
-  grid-template-columns: minmax(0, 1fr);
-  row-gap: 6px;
-}
-.trx-row[data-testid='assistant-turn-answer'] .trx-row__head {
-  grid-column: 1;
-  grid-row: 1;
-}
-.trx-row[data-testid='assistant-turn-answer'] .trx-row__body {
-  grid-column: 1;
-  grid-row: 2;
-  margin-left: 18px;
-}
-.trx-row--return {
-  gap: 4px;
-}
-.trx-row__marker--return {
-  color: var(--color-muted);
-}
-.trx-row__body--return {
-  color: var(--color-muted);
+  padding: 3px 9px;
+  pointer-events: none;
 }

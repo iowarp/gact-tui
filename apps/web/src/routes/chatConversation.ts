@@ -62,10 +62,17 @@ export function createChatConversation(options: ChatConversationOptions) {
     toastPush: core.toastPush,
   });
 
+  const modelControls = createChatModelControls({
+    activeId: core.activeId,
+    client: core.live.client,
+  });
+
   const turnActions = createChatTurnActions({
     client: core.live.client,
     activeId: core.activeId,
     createSessionWithSemantics: workspaceControls.createSessionWithSemantics,
+    selectedModel: modelControls.selectedModel,
+    permMode: modelControls.permMode,
     pendingPermission: transcript.pendingPermission,
     clearPendingPermission: transcript.clearPendingPermission,
     pendingQuestion: transcript.pendingQuestion,
@@ -74,11 +81,6 @@ export function createChatConversation(options: ChatConversationOptions) {
     toastPush: core.toastPush,
     failToast: core.failToast,
     onOpenSettings: options.onOpenSettings,
-  });
-
-  const modelControls = createChatModelControls({
-    activeId: core.activeId,
-    client: core.live.client,
   });
 
   const messageActions = createChatMessageActions({

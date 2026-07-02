@@ -8,15 +8,18 @@ import { Icon } from './Icon.js';
 export function ThinkingPartView(props: { part: Part }) {
   const p = props.part as Part & { thinking?: string; text?: string };
   const body = p.thinking ?? p.text ?? '';
-  const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
-  const label =
-    wordCount > 0 ? `Thought for ~${wordCount} word${wordCount === 1 ? '' : 's'}` : 'Thinking';
+  const charCount = body.length;
   return (
     <details class="trx-thinking">
       <summary>
-        <Icon name="sparkle" size={12} />
-        <span>{label}</span>
-        <span class="trx-thinking__hint">click to expand</span>
+        <Icon
+          name="chevron-right"
+          size={12}
+          class="trx-provider-thinking__chevron"
+          label="Toggle thinking"
+        />
+        <span class="trx-thinking__label">thinking</span>
+        <span class="trx-thinking__count">({charCount} chars)</span>
       </summary>
       <pre>{body}</pre>
     </details>

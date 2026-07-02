@@ -7,14 +7,13 @@ import { Client, type FileDiff } from '@clio/core';
 import type { RailRoute } from '../components/LeftRail.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
+import { ContextFooter } from '../components/ContextFooter.js';
 import { ChatConversationPane } from './ChatConversationPane.js';
-import { ChatTopbar } from './ChatTopbar.js';
 import { DiscoveryView } from './DiscoveryView.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
 import type { TopbarOverflowController } from './chatTopbarOverflow.js';
 import type { TranscriptSearchController } from './chatTranscriptSearch.js';
 import type { TranscriptScrollController } from './chatTranscriptScroll.js';
-import { ContextFooter } from '../components/ContextFooter.js';
 
 export interface ChatLayoutMainColumnProps {
   props: ChatLayoutProps;
@@ -54,31 +53,6 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           />
         }
       >
-        <ChatTopbar
-          overflow={options.topbarOverflow}
-          activeId={options.props.activeId}
-          activeTitle={options.activeRow()?.title}
-          activeStatus={options.activeRow()?.status}
-          renamed={options.props.renamedSessionId === options.props.activeId}
-          showSessionsColumn={options.showSessionsColumn()}
-          sseStatus={options.props.sseStatus}
-          sseReconnectInSec={options.props.sseReconnectInSec}
-          runningTools={options.props.runningTools}
-          previewOpen={options.previewOpen()}
-          inspectorOpen={options.inspectorOpen()}
-          renderSecondaryChips={options.renderSecondaryChips}
-          onToggleSessions={() => {
-            if (options.showSessionsColumn()) {
-              options.setSessionsOpen(false);
-            } else {
-              options.setRailRoute('sessions');
-              options.setSessionsOpen(true);
-            }
-          }}
-          onTogglePreview={() => options.setPreviewOpen((open) => !open)}
-          onToggleInspector={() => options.setInspectorOpen((open) => !open)}
-        />
-
         <TranscriptSearch
           open={options.transcriptSearch.open()}
           query={options.transcriptSearch.query()}
@@ -118,6 +92,7 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           selectedMessageId={options.selectedMessageId()}
           draftReloadTick={options.draftReloadTick()}
           models={options.props.models}
+          modelProviders={options.props.modelProviders}
           selectedModelId={options.props.selectedModelId}
           permMode={options.props.permMode}
           executionEvents={options.props.executionEvents}

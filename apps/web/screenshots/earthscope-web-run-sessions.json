@@ -1,0 +1,331 @@
+{
+  "sessions": [
+    {
+      "id": "sess_a3621d6a84e7",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "error",
+      "created_at": "2026-06-27T20:31:55.761214+00:00",
+      "updated_at": "2026-06-27T20:33:24.996202+00:00",
+      "message_count": 2,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    },
+    {
+      "id": "sess_b1a48d539dcc",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "idle",
+      "created_at": "2026-06-27T20:30:50.941677+00:00",
+      "updated_at": "2026-06-27T20:30:50.966679+00:00",
+      "message_count": 0,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    },
+    {
+      "id": "sess_4fb73030a274",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "Find the nearest EarthScope GNSS station to Los Angeles, sta",
+      "status": "error",
+      "created_at": "2026-06-27T20:18:08.323490+00:00",
+      "updated_at": "2026-06-27T20:18:41.942571+00:00",
+      "message_count": 2,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {},
+      "archived": false
+    },
+    {
+      "id": "sess_c86ea75a0d7c",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "idle",
+      "created_at": "2026-06-27T20:18:08.177978+00:00",
+      "updated_at": "2026-06-27T20:18:08.208061+00:00",
+      "message_count": 0,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    },
+    {
+      "id": "sess_765828543163",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "Find the nearest EarthScope GNSS station to Los Angeles, sta",
+      "status": "error",
+      "created_at": "2026-06-27T20:14:20.419658+00:00",
+      "updated_at": "2026-06-27T20:14:56.191944+00:00",
+      "message_count": 2,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {},
+      "archived": false
+    },
+    {
+      "id": "sess_8d1a1527fb38",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "idle",
+      "created_at": "2026-06-27T20:14:20.184533+00:00",
+      "updated_at": "2026-06-27T20:14:20.217407+00:00",
+      "message_count": 0,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    },
+    {
+      "id": "sess_37ffbee4216d",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "Find the nearest EarthScope GNSS station to Los Angeles, sta",
+      "status": "error",
+      "created_at": "2026-06-27T20:07:32.203880+00:00",
+      "updated_at": "2026-06-27T20:08:07.693865+00:00",
+      "message_count": 2,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {},
+      "archived": false
+    },
+    {
+      "id": "sess_06b65ac7cfd9",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "idle",
+      "created_at": "2026-06-27T20:07:31.985033+00:00",
+      "updated_at": "2026-06-27T20:07:32.011365+00:00",
+      "message_count": 0,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    },
+    {
+      "id": "sess_6aa10a8e619b",
+      "workspace_id": "ws_14327e617cf9",
+      "title": "New session",
+      "status": "idle",
+      "created_at": "2026-06-27T19:59:51.190186+00:00",
+      "updated_at": "2026-06-27T19:59:51.207819+00:00",
+      "message_count": 0,
+      "parent_session_id": "",
+      "model": {
+        "provider_id": "",
+        "model_id": "",
+        "variant": ""
+      },
+      "agent": {
+        "id": "main",
+        "mode": ""
+      },
+      "tokens_input": 0,
+      "tokens_output": 0,
+      "cost_usd": 0,
+      "mode": "chat",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "metadata": {
+        "active_agent_blueprint_checksum": "1546ddd0639ec16c483cd6d16730f963108bacdc18136e0eaa51b6a81caf3abe",
+        "active_agent_blueprint_commit": "6b90f03697fe0ae3a138a7b98c9e61fadf615e89",
+        "active_agent_blueprint_definition_path": "C:\\Users\\jaime\\AppData\\Local\\clio-agent\\agent-blueprints\\earthscope-gnss-region\\AGENT.md",
+        "active_agent_blueprint_id": "earthscope-gnss-region",
+        "active_agent_blueprint_installed_at": "2026-06-27T19:41:51.771464+00:00",
+        "active_agent_blueprint_path": "",
+        "active_agent_blueprint_ref": "main",
+        "active_agent_blueprint_scope": "global",
+        "active_agent_blueprint_source": "D:\\Libraries\\Documents\\projects\\clio-agent\\external\\clio-agent-marketplace",
+        "active_agent_blueprint_source_kind": "path",
+        "active_agent_blueprint_version": "0.1.0",
+        "active_expert_pack_id": "",
+        "active_expert_pack_path": ""
+      },
+      "archived": false
+    }
+  ]
+}
