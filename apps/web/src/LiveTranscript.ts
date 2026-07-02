@@ -150,6 +150,17 @@ export function createLiveTranscript(
     const id = activeSessionId();
     if (!id) return;
     const snapshot = await fetchLiveTranscriptSnapshot(client, id);
+    // Stale-fetch guard (iowarp/gact-tui#226): the user may have switched
+    // sessions while this fetch was in flight; the shared signals now belong
+    // to the new session, so the old snapshot must be discarded.
+    if (activeSessionId() !== id) {
+      console.warn('[live] stale refetch snapshot discarded', {
+        reason: 'refetch_session_switched',
+        fetched_session_id: id,
+        active_session_id: activeSessionId(),
+      });
+      return;
+    }
     // The transcript owns the message feed; the pending sub-handle reconciles
     // its own permission/question fields from the same snapshot.
     //
