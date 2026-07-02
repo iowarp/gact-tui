@@ -30,7 +30,6 @@ import {
   loadIntroSplash,
   persistThemeMode,
   persistThemeTokens,
-  removeThemeTokens,
   saveIntroSplash,
   updateThemeToken,
 } from './SettingsAppearanceModel.js';
@@ -60,9 +59,11 @@ export function AppearanceSection() {
   }
 
   function resetTokens() {
-    setTokens({});
-    removeThemeTokens();
-    applyThemeTokens({});
+    const state = appearanceStateForMode(theme());
+    setActivePreset(state.presetId);
+    setTokens(state.tokens);
+    persistThemeTokens(state.tokens);
+    applyThemeTokens(state.tokens);
   }
 
   const [activePreset, setActivePreset] = createSignal<string>(loadActivePreset());

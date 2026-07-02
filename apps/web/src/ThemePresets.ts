@@ -12,15 +12,15 @@
  * dark values are CSS fallbacks in the stylesheets).
  */
 export const LIGHT_THEME_TOKENS: Record<string, string> = {
-  '--color-bg': '#f4f6fa',
+  '--color-bg': '#f7f9fc',
   '--color-surface': '#ffffff',
-  '--color-surface-alt': '#e8edf4',
+  '--color-surface-alt': '#eef3f8',
   '--color-heading': '#101b30',
-  '--color-text': '#33506b',
-  '--color-muted': '#5e7286',
-  '--color-border': '#9eb1c7',
-  '--color-border-30': 'rgba(78, 110, 144, 0.30)',
-  '--color-border-60': 'rgba(78, 110, 144, 0.60)',
+  '--color-text': '#1f334a',
+  '--color-muted': '#465b72',
+  '--color-border': '#8ca3bd',
+  '--color-border-30': 'rgba(70, 91, 114, 0.30)',
+  '--color-border-60': 'rgba(70, 91, 114, 0.60)',
   '--color-glow-cyan': 'rgba(6, 122, 135, 0.30)',
   '--color-accent': '#c75f14',
   '--color-accent-cyan': '#067a87',
@@ -49,18 +49,21 @@ export const LIGHT_THEME_TOKENS: Record<string, string> = {
  */
 export const THEME_PRESETS: Record<
   string,
-  { label: string; tokens: Record<string, string> }
+  { label: string; mode: 'dark' | 'light'; tokens: Record<string, string> }
 > = {
   default: {
     label: 'Default',
+    mode: 'dark',
     tokens: {},
   },
   light: {
     label: 'Light',
+    mode: 'light',
     tokens: LIGHT_THEME_TOKENS,
   },
   'high-contrast': {
     label: 'High contrast',
+    mode: 'dark',
     tokens: {
       '--color-bg': '#000000',
       '--color-surface': '#0a0a0a',
@@ -80,6 +83,7 @@ export const THEME_PRESETS: Record<
   },
   dim: {
     label: 'Dim',
+    mode: 'dark',
     tokens: {
       '--color-bg': '#101216',
       '--color-surface': '#16181d',

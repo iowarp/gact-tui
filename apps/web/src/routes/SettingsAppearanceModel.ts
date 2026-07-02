@@ -4,11 +4,14 @@
  */
 import { SPLASH_INTRO_KEY } from './splashModel.js';
 import {
+  DEFAULT_DARK_PRESET_ID,
+  DEFAULT_LIGHT_PRESET_ID,
   THEME_MODE_KEY,
   THEME_PRESET_KEY,
   THEME_PRESETS,
   THEME_TOKENS_KEY,
   type ThemeMode,
+  type ThemePresetMode,
 } from '../theme.js';
 
 export interface AppearanceThemeState {
@@ -77,17 +80,39 @@ export function appearanceStateForPreset(id: string): AppearanceThemeState | nul
   return {
     presetId: id,
     tokens: preset.tokens,
-    mode: id === 'light' ? 'light' : 'dark',
+    mode: preset.mode,
   };
 }
 
-export function appearanceStateForMode(mode: ThemeMode): AppearanceThemeState {
-  const presetId = mode === 'light' ? 'light' : 'default';
+export function appearanceStateForMode(
+  mode: ThemeMode,
+  prefersLight = prefersLightScheme(),
+): AppearanceThemeState {
+  const presetMode = presetModeForThemeMode(mode, prefersLight);
+  const presetId = presetMode === 'light' ? DEFAULT_LIGHT_PRESET_ID : DEFAULT_DARK_PRESET_ID;
   return {
     presetId,
     mode,
     tokens: THEME_PRESETS[presetId]?.tokens ?? {},
   };
+}
+
+export function presetModeForThemeMode(
+  mode: ThemeMode,
+  prefersLight = prefersLightScheme(),
+): ThemePresetMode {
+  if (mode === 'auto') return prefersLight ? 'light' : 'dark';
+  return mode;
+}
+
+export function presetEntriesForThemeMode(
+  mode: ThemeMode,
+  prefersLight = prefersLightScheme(),
+): Array<[string, (typeof THEME_PRESETS)[string]]> {
+  const presetMode = presetModeForThemeMode(mode, prefersLight);
+  return Object.entries(THEME_PRESETS).filter(
+    ([id, preset]) => preset.mode === presetMode && id !== 'default',
+  );
 }
 
 export function persistThemeMode(
@@ -103,11 +128,11 @@ export function persistThemeMode(
 }
 
 export function loadActivePreset(storage: Storage | undefined = safeLocalStorage()): string {
-  if (!storage) return 'default';
+  if (!storage) return DEFAULT_DARK_PRESET_ID;
   try {
-    return storage.getItem(THEME_PRESET_KEY) ?? 'default';
+    return storage.getItem(THEME_PRESET_KEY) ?? DEFAULT_DARK_PRESET_ID;
   } catch {
-    return 'default';
+    return DEFAULT_DARK_PRESET_ID;
   }
 }
 
@@ -125,4 +150,10 @@ export function clearClioPreferences(storage: Storage, prefix = 'clio.'): number
 
 function safeLocalStorage(): Storage | undefined {
   return typeof localStorage === 'undefined' ? undefined : localStorage;
+}
+
+function prefersLightScheme(): boolean {
+  return (
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: light)').matches
+  );
 }
