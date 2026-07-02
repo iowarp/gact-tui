@@ -14,16 +14,20 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
-// runSummarize triggers POST /v1/sessions/{id}/summarize and prints
-// the resulting Session.Summary to stdout. The endpoint may be a
-// no-op + placeholder for backends that don't implement actual
-// summarisation (the emulator stamps a "[auto-summary placeholder]"
-// string); real backends produce real summaries asynchronously.
+// runSummarize triggers POST /v1/sessions/{id}/compact (with the
+// --instructions text mapped into the `focus` body key — the contract
+// CLIO serves, issue #224) and prints the resulting Session.Summary to
+// stdout. Backends that predate /compact (the emulator) are reached via
+// the client's legacy /summarize fallback, which is reported on stderr.
+// The endpoint may be a no-op + placeholder for backends that don't
+// implement actual summarisation (the emulator stamps a
+// "[auto-summary placeholder]" string); real backends produce real
+// summaries asynchronously.
 func runSummarize(args []string) int {
 	fs := flag.NewFlagSet("summarize", flag.ContinueOnError)
 	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	auto := fs.Bool("auto", true, "request automatic summary if backend supports it")
-	instructions := fs.String("instructions", "", "custom summarizer prompt (MMM6, optional)")
+	auto := fs.Bool("auto", true, "deprecated: only the legacy /summarize fallback ever read this; ignored")
+	instructions := fs.String("instructions", "", "focus prompt for the compaction (sent as `focus`)")
 	known := map[string]bool{
 		"--backend":      true,
 		"-backend":       true,
@@ -44,9 +48,16 @@ func runSummarize(args []string) int {
 	c := client.New(finalBackend)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := c.SummarizeSession(ctx, sid, *auto, *instructions); err != nil {
+	_ = *auto // deprecated flag kept for CLI compatibility; no backend reads it
+	fallback, err := c.CompactSession(ctx, sid, *instructions)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact summarize: %v\n", err)
 		return 1
+	}
+	if fallback != "" {
+		// Structured degradation warning: the backend lacked /compact and
+		// the legacy /summarize route was used instead.
+		fmt.Fprintf(os.Stderr, "gact summarize: warning: degraded path reason=%s\n", fallback)
 	}
 	// Re-fetch to read the updated summary back.
 	s, err := c.GetSession(ctx, sid)

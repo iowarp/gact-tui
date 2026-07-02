@@ -59,28 +59,34 @@ func patchRoutingModeCmd(c *client.Client, sessionID, mode string) tea.Cmd {
 	}
 }
 
-// requestCompactCmd asks the backend to summarize the current session.
-// CLIO's current GACT surface is /summarize; older /compact wiring was
-// provisional and would truthfully fail on current CLIO.
+// requestCompactCmd asks the backend to compact the current session.
+// CLIO's GACT surface is POST /v1/sessions/{id}/compact with an optional
+// `focus` key (it never served /summarize — issue #224); the client falls
+// back to the legacy /summarize route only when /compact 404s (e.g. the
+// emulator) and reports that degradation via a structured fallback reason.
 func requestCompactCmd(c *client.Client, sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		if err := c.SummarizeSession(ctx, sessionID, true, ""); err != nil {
+		fallback, err := c.CompactSession(ctx, sessionID, "")
+		if err != nil {
 			return sessionSummarizedMsg{sessionID: sessionID, err: err}
 		}
 		session, err := c.GetSession(ctx, sessionID)
 		if err != nil {
 			return sessionSummarizedMsg{sessionID: sessionID, err: err}
 		}
-		return sessionSummarizedMsg{sessionID: sessionID, session: session}
+		return sessionSummarizedMsg{sessionID: sessionID, session: session, fallback: fallback}
 	}
 }
 
 type sessionSummarizedMsg struct {
 	sessionID string
 	session   gact.Session
-	err       error
+	// fallback carries the client's structured degradation reason when the
+	// backend lacked /compact and the legacy /summarize route was used.
+	fallback string
+	err      error
 }
 
 func (c *sessionComponent) handleSummarized(m sessionSummarizedMsg) (tea.Model, tea.Cmd) {
@@ -95,11 +101,17 @@ func (c *sessionComponent) handleSummarized(m sessionSummarizedMsg) (tea.Model, 
 			c.selected = selected
 		}
 	}
+	// Surface degraded paths instead of hiding them: when the client had
+	// to use the legacy /summarize route the hint says so, with the reason.
+	suffix := ""
+	if m.fallback != "" {
+		suffix = " [fallback=" + m.fallback + "]"
+	}
 	summary := strings.TrimSpace(m.session.Summary)
 	if summary == "" {
-		c.app.setHint("summary completed")
+		c.app.setHint("summary completed" + suffix)
 	} else {
-		c.app.setHint("summary: " + textutil.Truncate(strings.Join(strings.Fields(summary), " "), 120))
+		c.app.setHint("summary: " + textutil.Truncate(strings.Join(strings.Fields(summary), " "), 120) + suffix)
 	}
 	return c.app, tea.Batch(scheduleHintExpire(c.app.transientHint), reloadSessionsCmd(c.app.c, c.wsID))
 }
