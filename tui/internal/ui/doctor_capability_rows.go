@@ -46,7 +46,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		// Useful but optional.
 		{"session_branching", caps.Capabilities.SessionBranching, capExtra, capUIGated, "decoded and gated; no primary " + brandName() + " workflow"},
 		{"session_export", caps.Capabilities.SessionExport, capExtra, capUIGated, "decoded and gated; export UI not a 1.0 " + brandName() + " path"},
-		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "/compact uses POST /v1/sessions/{id}/summarize, refreshes backend truth, renders selected-session summary, and surfaces errors"},
+		{"session_summary", caps.Capabilities.SessionSummary, capExtra, capUIFull, "/compact uses POST /v1/sessions/{id}/compact (focus key; legacy /summarize fallback), refreshes backend truth, renders selected-session summary, and surfaces errors"},
 		{"attachments_upload", caps.Capabilities.AttachmentsUpload, capExtra, capUIFull, "file detail upload action POSTs /v1/sessions/{id}/attachments and merges returned context provenance"},
 		{"multimodal_image_parts", caps.Capabilities.MultimodalImageParts, capExtra, capUIGated, "decoded and preserved by the message contract; terminal image attachment workflow remains gated behind file upload/provider support"},
 		{"cost_tracking", caps.Capabilities.CostTracking, capExtra, capUIFull, "header/footer cost chips and detail rows"},

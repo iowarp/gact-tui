@@ -144,7 +144,7 @@ func TestDoctorCapabilityRowsNameCurrentCLIORoutes(t *testing.T) {
 	}
 	for name, wants := range map[string][]string{
 		"mcp":                    {"POST /v1/mcp/servers/{id}/reconnect"},
-		"session_summary":        {"POST /v1/sessions/{id}/summarize"},
+		"session_summary":        {"POST /v1/sessions/{id}/compact", "focus"},
 		"attachments_upload":     {"POST", "/v1/sessions/{id}/attachments"},
 		"multimodal_image_parts": {"image", "provider"},
 		"x_clio_cancellation":    {"Ctrl+X", "/cancel", "POST /v1/sessions/{id}/cancel", "#104"},
