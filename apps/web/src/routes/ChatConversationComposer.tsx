@@ -4,6 +4,7 @@
  */
 import { Client } from '@clio/core';
 import type { BackendHandle } from '../App.js';
+import { BackendPicker } from '../components/BackendPicker.js';
 import { Composer } from '../components/Composer.js';
 import type {
   ModelOption,
@@ -47,6 +48,12 @@ export function ChatConversationComposer(props: ChatConversationComposerProps) {
   return (
     <Composer
       backendLabel={hostFromUrl(props.backendUrl)}
+      backendSlot={
+        <BackendPicker
+          onOpenSettings={props.onOpenSettings}
+          onAddRemote={props.onAddRemote}
+        />
+      }
       disabled={props.composerDisabled}
       streaming={props.streaming}
       onStop={props.onStop}
