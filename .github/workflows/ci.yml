@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    # Pure media/doc changes don't affect any built or tested code.
+    paths-ignore:
+      - "**.png"
+      - "**.gif"
+      - "**.md"
+      - "screenshots/**"
+      - "docs/**"
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - "**.png"
+      - "**.gif"
+      - "**.md"
+      - "screenshots/**"
+      - "docs/**"
 
 jobs:
   build-test:
@@ -59,3 +72,39 @@ jobs:
           make dev-install
           make verify-dev-install
           gact version
+
+  python-adapter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/claude-agent-sdk-server
+    steps:
+      - uses: actions/checkout@v4
+
+      # Per-job path filter: only exercise the adapter when its
+      # directory changed (GitHub has no native per-job `paths`).
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            adapter:
+              - "adapters/claude-agent-sdk-server/**"
+
+      - uses: actions/setup-python@v5
+        if: steps.changes.outputs.adapter == 'true'
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.changes.outputs.adapter == 'true'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.adapter == 'true'
+        run: uv sync
+
+      # Hermetic subset only: the test_smoke_*.py files require a real
+      # `claude` CLI install (they self-skip without it). test_bridge.py
+      # and test_endpoints.py are deterministic and offline.
+      - name: Run hermetic tests
+        if: steps.changes.outputs.adapter == 'true'
+        run: uv run pytest tests/test_bridge.py tests/test_endpoints.py

@@ -19,7 +19,7 @@ then write thin adapters for each backend. If your agent speaks
 canonical reference implementation is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
 a scientific-data agent that supports **28 of 30** v0.2 capabilities
 end-to-end (only LSP + voice intentionally out). See
-[`SCREENSHOTS.md`](SCREENSHOTS.md) for live captures of every advertised
+[`screenshots/README.md`](screenshots/README.md) for live captures of every advertised
 feature working through the TUI. **Extendable** (drop in a new adapter), **modifiable**
 (lipgloss themes + Bubbletea components all the way down), **scriptable**
 (~70 CLI subcommands alongside the interactive TUI).
