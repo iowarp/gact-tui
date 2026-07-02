@@ -77,7 +77,54 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	if c.executionEventsBySession == nil {
 		c.executionEventsBySession = map[string][]executionTimelineEvent{}
 	}
-	c.executionEventsBySession[sid] = append(c.executionEventsBySession[sid], record)
+	events := append(c.executionEventsBySession[sid], record)
+	if len(events) > executionLedgerMaxEvents {
+		dropped := len(events) - executionLedgerTrimTarget
+		kept := make([]executionTimelineEvent, executionLedgerTrimTarget)
+		copy(kept, events[dropped:])
+		events = kept
+		if c.app.audit != nil {
+			c.app.audit.RecordReceived("execution.ledger.trimmed", map[string]any{
+				"reason":     "execution_ledger_cap",
+				"session_id": sid,
+				"dropped":    dropped,
+				"kept":       len(kept),
+				"cap":        executionLedgerMaxEvents,
+			})
+		}
+	}
+	c.executionEventsBySession[sid] = events
+}
+
+// clearSessionLedger drops a session's execution-event ledger. Called when the
+// backend reports session.cleared so the Ctrl+E drill-down cannot reflect
+// pre-/clear state (#231).
+func (c *executionComponent) clearSessionLedger(sessionID string) {
+	delete(c.executionEventsBySession, sessionID)
+}
+
+// dropDeletedSessionLedger drops the execution-event ledger of a session the
+// backend confirmed deleted, recording a structured execution.ledger.pruned
+// audit event for the drop. Confirmed deletion (and session.cleared, via
+// clearSessionLedger) are the only prune triggers: refreshed session lists
+// are filtered views (workspace-scoped, and archived-filtered when the
+// archived sidebar view is on), so a session's absence from one never proves
+// it was deleted — and pruning on such lists would irreversibly destroy live
+// sessions' ledgers, because lastSeenSeqIDBySession suppresses SSE replay on
+// revisit (#231).
+func (c *executionComponent) dropDeletedSessionLedger(sessionID string) {
+	events, ok := c.executionEventsBySession[sessionID]
+	if !ok {
+		return
+	}
+	delete(c.executionEventsBySession, sessionID)
+	if c.app.audit != nil {
+		c.app.audit.RecordReceived("execution.ledger.pruned", map[string]any{
+			"reason":     "session_deleted",
+			"session_id": sessionID,
+			"dropped":    len(events),
+		})
+	}
 }
 
 // recordedSemanticPayloads returns the payloads of recorded structural
