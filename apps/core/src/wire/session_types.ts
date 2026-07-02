@@ -1,12 +1,27 @@
+/**
+ * Session lifecycle status — clio types.py `Session.status` (#232).
+ */
 export type SessionStatus =
   | 'idle'
   | 'running'
   | 'waiting_permission'
+  | 'waiting_user'
   | 'error'
+  | 'cancelled'
+  /**
+   * @deprecated Never emitted by clio (`Session.status` has no 'finished').
+   * Kept only because apps/web still branches on it (Sidebar /
+   * SessionListItemModel status pips, LiveSessionEvents terminal-status
+   * check, demo fixtures). Remove together with those consumers (#232).
+   */
   | 'finished';
 
-export type EditMode = 'diff' | 'whole' | 'architect' | string;
-export type RoutingMode = 'auto' | 'manual' | string;
+/** clio types.py `Session.edit_mode` — 'architect' was never a wire value
+ *  (it is a session `mode`, not an edit_mode); 'patch' was missing. */
+export type EditMode = 'diff' | 'whole' | 'patch' | string;
+/** clio types.py `Session.routing_mode` — 'manual' was invented; the wire
+ *  vocabulary is auto/chat/experts/reasoning_only. */
+export type RoutingMode = 'auto' | 'chat' | 'experts' | 'reasoning_only' | string;
 export type SessionMode = 'chat' | 'plan' | string;
 
 export interface Session {

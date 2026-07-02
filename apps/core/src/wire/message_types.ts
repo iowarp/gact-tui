@@ -159,8 +159,8 @@ export interface PartResource extends PartBase {
 }
 
 export type FileDiffStatus = 'pending' | 'applied' | 'rejected' | 'apply_failed';
-/** file_diff edit mode (SPEC §4.5) — distinct from the session-level EditMode
- *  (diff/whole/architect) in session_types.ts. */
+/** file_diff edit mode (SPEC §4.5) — same vocabulary as the session-level
+ *  EditMode (diff/whole/patch) in session_types.ts, but scoped to one part. */
 export type FileDiffEditMode = 'diff' | 'whole' | 'patch';
 
 /**
