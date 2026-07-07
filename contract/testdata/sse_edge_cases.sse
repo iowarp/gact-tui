@@ -1,0 +1,30 @@
+: Shared SSE edge-case fixture for the Go (tui/internal/client) and TS
+: (apps/core) parser tests. Exercises WHATWG field-parsing rules: no-space
+: fields, with-space fields, multi-line data accumulation, comments, unknown
+: fields, and id-less events. Decodes to exactly four events, in order:
+:   1. id=1 message.created        payload.n=1
+:   2. id=2 message.part.delta     payload.text="hi"
+:   3. id=3 message.completed      payload.ok=true   (data split across 3 lines)
+:   4. id=""  server.heartbeat     payload={}        (no id:, no event:)
+: A trailing comment-only block must NOT dispatch an event.
+: Keep this file LF-only (see .gitattributes); the parsers strip CR anyway.
+id:1
+event:message.created
+data:{"type":"message.created","occurred_at":"t1","payload":{"n":1}}
+
+id: 2
+event: message.part.delta
+data: {"type":"message.part.delta","occurred_at":"t2","payload":{"text":"hi"}}
+
+: a comment inside a block is ignored; the data below is split over 3 lines
+id:3
+data:{"type":"message.completed",
+data:"occurred_at":"t3",
+data:"payload":{"ok":true}}
+
+retry: 5000
+x-unknown-field: ignored
+data: {"type":"server.heartbeat","occurred_at":"t4","payload":{}}
+
+: a lone comment with no data must not produce an event
+

@@ -18,6 +18,8 @@ export type { SseBridgeDebugState, SseDebugRecorder } from './tauri_sse_debug.js
 interface SseBridgeMessage {
   kind: 'open' | 'event' | 'error' | 'closed';
   data?: string;
+  /** The SSE `id:` value for this event, when present (for Last-Event-ID). */
+  id?: string;
   message?: string;
 }
 
@@ -27,8 +29,8 @@ export interface SseBridgeHandle {
 
 export interface SseBridgeHandlers {
   onOpen: () => void;
-  /** Raw SSE `data:` payload (a JSON envelope) for one event. */
-  onData: (data: string) => void;
+  /** Raw SSE `data:` payload (a JSON envelope) plus the event `id:` if any. */
+  onData: (data: string, id?: string) => void;
   onError: (message?: string) => void;
   onClosed: () => void;
 }
@@ -60,7 +62,7 @@ function dispatchSseBridgeMessage(
           eventCount: state.eventCount,
           lastMessage: m.data.slice(0, 240),
         });
-        handlers.onData(m.data);
+        handlers.onData(m.data, m.id);
       }
       break;
     case 'error':
@@ -83,8 +85,8 @@ function dispatchSseBridgeMessage(
  * the token travels in the sseUrl query string per SPEC §7). See
  * `apps/SECURITY.md` + issue #111.
  *
- * Pure-web build: callers should guard via `inTauri()` and fall back to
- * `new EventSource(...)`.
+ * Pure-web build: callers should guard via `inTauri()` and fall back to the
+ * fetch-based reader (`openSseFetchStream` via `openLiveTranscriptBrowserStream`).
  *
  * Pass `recordDebug` (e.g. from `createSseDebugRecorder()`) to capture bridge
  * telemetry; omit it to run the bridge silently (the default in tests).
@@ -93,6 +95,7 @@ export async function openTauriSse(
   url: string,
   handlers: SseBridgeHandlers,
   recordDebug?: SseDebugRecorder,
+  lastEventId?: string,
 ): Promise<SseBridgeHandle> {
   if (!inTauri()) {
     throw new Error('openTauriSse() called outside Tauri shell');
@@ -113,9 +116,14 @@ export async function openTauriSse(
   ch.onmessage = (m) => {
     record({ url, state: `channel-${m.kind}` });
   };
+  // clio reads the resume cursor only from the Last-Event-ID header; the
+  // Rust bridge already forwards this headers map on the request, so no
+  // command-signature change is needed.
+  const headers: Record<string, string> = {};
+  if (lastEventId) headers['Last-Event-ID'] = lastEventId;
   const id = await invoke<number>('gact_sse_open', {
     url,
-    headers: {},
+    headers,
     onEvent: ch,
     clientId,
   });

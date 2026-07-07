@@ -1,5 +1,5 @@
 import { createRoot, createSignal } from 'solid-js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Client, Message } from '@clio/core';
 import { createLiveTranscript } from '../../src/LiveTranscript.js';
 
@@ -31,45 +31,46 @@ function textOf(m: Message | undefined): string {
 }
 
 /**
- * Capturing EventSource stub: records the per-event-name listeners the
- * transcript registers so the test can dispatch a real `message.part.delta`
- * SSE event straight into the reducer (the same path the live stream uses).
+ * Controllable fetch/ReadableStream SSE stub. The browser transport now uses a
+ * fetch-based reader (not EventSource), so instead of capturing per-event-name
+ * listeners we push SSE event blocks into the response body's stream and let
+ * the reader loop drive them through the reducer — the same path the live
+ * stream uses.
  */
-const listeners = new Map<string, (e: MessageEvent) => void>();
+const encoder = new TextEncoder();
+let sseController: ReadableStreamDefaultController<Uint8Array> | null = null;
 
-class CapturingEventSource {
-  onopen: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  constructor(_url: string) {
-    listeners.clear();
-  }
-  addEventListener(name: string, fn: (e: MessageEvent) => void): void {
-    listeners.set(name, fn);
-  }
-  removeEventListener(name: string): void {
-    listeners.delete(name);
-  }
-  close(): void {}
+function installFetchStub(): void {
+  sseController = null;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          sseController = controller;
+        },
+      }),
+    })) as unknown as typeof fetch,
+  );
 }
 
-function dispatchSse(type: string, payload: unknown): void {
-  const fn = listeners.get(type);
-  if (!fn) throw new Error(`no listener for SSE event ${type}`);
+/** Push one SSE event block into the stream and let the reader process it. */
+async function dispatchSse(type: string, payload: unknown): Promise<void> {
+  if (!sseController) throw new Error('SSE stream not open');
   const envelope = { type, occurred_at: new Date().toISOString(), payload };
-  fn({ data: JSON.stringify(envelope) } as MessageEvent);
+  sseController.enqueue(encoder.encode(`data: ${JSON.stringify(envelope)}\n\n`));
+  await new Promise((r) => setTimeout(r, 0));
 }
-
-let originalEventSource: typeof EventSource | undefined;
 
 beforeEach(() => {
-  originalEventSource = globalThis.EventSource;
-  (globalThis as { EventSource: unknown }).EventSource =
-    CapturingEventSource as unknown as typeof EventSource;
+  installFetchStub();
 });
 
 afterEach(() => {
-  (globalThis as { EventSource: unknown }).EventSource = originalEventSource;
-  listeners.clear();
+  vi.unstubAllGlobals();
+  sseController = null;
 });
 
 interface Harness {
@@ -118,7 +119,7 @@ describe('createLiveTranscript().refetch (merge-not-replace)', () => {
 
       // A live SSE delta appends ", world" to p1. This mutates the local feed
       // ahead of the server (the snapshot below is stale for it).
-      dispatchSse('message.part.delta', {
+      await dispatchSse('message.part.delta', {
         message_id: 'm1',
         part_id: 'p1',
         delta: { text_append: ', world' },

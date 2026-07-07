@@ -38,6 +38,16 @@ export function openLiveTranscriptConnection(
   let bridge: SseBridgeHandle | null = null;
   let bridgeGen = 0;
   let disposed = false;
+  // Last SSE id observed on this connection. Echoed as Last-Event-ID on every
+  // (re)connect so the server resumes from where we left off. Only updated
+  // from events that actually carried an id: — the client never invents one,
+  // and it does no dedup (replay integrity is server-owned).
+  let lastEventId: string | undefined;
+
+  function recordData(data: string, id?: string) {
+    if (id) lastEventId = id;
+    options.onData(data);
+  }
 
   const reconnectScheduler = createLiveReconnectScheduler({
     backoffSeconds: LIVE_RECONNECT_BACKOFF_SECONDS,
@@ -66,7 +76,8 @@ export function openLiveTranscriptConnection(
   function openEventSource() {
     browserStream = openLiveTranscriptBrowserStream({
       sseUrl: options.sseUrl,
-      onData: options.onData,
+      lastEventId,
+      onData: recordData,
       onOpen: () => {
         reconnectScheduler.resetAttempts();
         options.setStatus('open');
@@ -99,6 +110,7 @@ export function openLiveTranscriptConnection(
       openLiveTranscriptTauriStream({
         sseUrl: options.sseUrl,
         generation: bridgeGen,
+        lastEventId,
         isStale: (generation) => generation !== bridgeGen || disposed,
         setHandle: (handle) => {
           bridge = handle;
@@ -107,7 +119,7 @@ export function openLiveTranscriptConnection(
           reconnectScheduler.resetAttempts();
           options.setStatus('open');
         },
-        onData: options.onData,
+        onData: recordData,
         onFailure: () => {
           options.onConnectionLost();
           options.setStatus('error');

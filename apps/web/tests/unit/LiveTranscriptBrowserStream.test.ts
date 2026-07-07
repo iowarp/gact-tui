@@ -1,50 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LIVE_SSE_EVENT_TYPES } from '../../src/LiveConnectionConfig.js';
-import {
-  openLiveTranscriptBrowserStream,
-} from '../../src/LiveTranscriptBrowserStream.js';
+import { openLiveTranscriptBrowserStream } from '../../src/LiveTranscriptBrowserStream.js';
 
-class FakeEventSource {
-  static instances: FakeEventSource[] = [];
+// The browser stream now uses a fetch/ReadableStream reader (not EventSource)
+// so it can send the Last-Event-ID header clio reads for resume.
 
-  onopen: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  closed = false;
-  listeners = new Map<string, EventListener[]>();
-
-  constructor(readonly url: string) {
-    FakeEventSource.instances.push(this);
-  }
-
-  addEventListener(name: string, listener: EventListener) {
-    this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
-  }
-
-  removeEventListener(name: string, listener: EventListener) {
-    this.listeners.set(
-      name,
-      (this.listeners.get(name) ?? []).filter((candidate) => candidate !== listener),
-    );
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(name: string, data: string) {
-    for (const listener of this.listeners.get(name) ?? []) {
-      listener({ data } as MessageEvent);
-    }
-  }
-}
-
-function installFakeEventSource() {
-  FakeEventSource.instances = [];
-  const original = globalThis.EventSource;
-  vi.stubGlobal('EventSource', FakeEventSource);
-  return () => {
-    vi.stubGlobal('EventSource', original);
-  };
+function streamFrom(chunks: string[]): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  let i = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (i < chunks.length) {
+        controller.enqueue(enc.encode(chunks[i]!));
+        i += 1;
+      } else {
+        controller.close();
+      }
+    },
+  });
 }
 
 afterEach(() => {
@@ -52,61 +24,89 @@ afterEach(() => {
 });
 
 describe('openLiveTranscriptBrowserStream', () => {
-  it('opens EventSource with configured URL and wires connection callbacks', () => {
-    installFakeEventSource();
+  it('opens the SSE URL, forwards data + id, and signals open', async () => {
+    let capturedUrl: string | undefined;
+    let capturedInit: RequestInit | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: unknown, init?: RequestInit) => {
+        capturedUrl = String(url);
+        capturedInit = init;
+        return {
+          ok: true,
+          status: 200,
+          body: streamFrom(['id: 12\ndata: {"type":"message.created"}\n\n']),
+        } as unknown as Response;
+      }) as unknown as typeof fetch,
+    );
+
     const onOpen = vi.fn();
-    const onError = vi.fn();
-
-    openLiveTranscriptBrowserStream({
-      sseUrl: '/v1/sessions/s1/events',
-      onOpen,
-      onError,
-      onData: vi.fn(),
+    const onData = vi.fn();
+    await new Promise<void>((resolve) => {
+      openLiveTranscriptBrowserStream({
+        sseUrl: '/v1/sessions/s1/events',
+        onOpen,
+        onError: () => resolve(),
+        onData,
+      });
     });
 
-    const source = FakeEventSource.instances[0];
-    expect(source?.url).toBe('/v1/sessions/s1/events');
-    source?.onopen?.();
-    source?.onerror?.();
+    expect(capturedUrl).toBe('/v1/sessions/s1/events');
+    expect((capturedInit?.headers as Record<string, string>)['Accept']).toBe('text/event-stream');
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onData).toHaveBeenCalledWith('{"type":"message.created"}', '12');
   });
 
-  it('routes every configured SSE event type to onData', () => {
-    installFakeEventSource();
-    const onData = vi.fn();
+  it('echoes the last seen id as Last-Event-ID on connect', async () => {
+    let capturedInit: RequestInit | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        capturedInit = init;
+        return { ok: true, status: 200, body: streamFrom([]) } as unknown as Response;
+      }) as unknown as typeof fetch,
+    );
 
-    openLiveTranscriptBrowserStream({
-      sseUrl: '/events',
-      onOpen: vi.fn(),
-      onError: vi.fn(),
-      onData,
+    await new Promise<void>((resolve) => {
+      openLiveTranscriptBrowserStream({
+        sseUrl: '/events',
+        lastEventId: '99',
+        onOpen: vi.fn(),
+        onError: () => resolve(),
+        onData: vi.fn(),
+      });
     });
 
-    const source = FakeEventSource.instances[0];
-    for (const name of LIVE_SSE_EVENT_TYPES) {
-      source?.emit(name, `payload:${name}`);
-    }
-
-    expect(onData).toHaveBeenCalledTimes(LIVE_SSE_EVENT_TYPES.length);
-    expect(onData).toHaveBeenCalledWith(`payload:${LIVE_SSE_EVENT_TYPES[0]}`);
+    expect((capturedInit?.headers as Record<string, string>)['Last-Event-ID']).toBe('99');
   });
 
-  it('removes listeners and closes source on close', () => {
-    installFakeEventSource();
-    const onData = vi.fn();
+  it('aborts the request on close', async () => {
+    let capturedInit: RequestInit | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        capturedInit = init;
+        // Never-closing stream so close() is what tears it down.
+        return {
+          ok: true,
+          status: 200,
+          body: new ReadableStream<Uint8Array>({ pull() {} }),
+        } as unknown as Response;
+      }) as unknown as typeof fetch,
+    );
+
+    const onError = vi.fn();
     const stream = openLiveTranscriptBrowserStream({
       sseUrl: '/events',
       onOpen: vi.fn(),
-      onError: vi.fn(),
-      onData,
+      onError,
+      onData: vi.fn(),
     });
-    const source = FakeEventSource.instances[0];
-
+    await new Promise((r) => setTimeout(r, 0));
     stream.close();
-    source?.emit(LIVE_SSE_EVENT_TYPES[0], 'after-close');
 
-    expect(source?.closed).toBe(true);
-    expect(onData).not.toHaveBeenCalled();
+    expect((capturedInit?.signal as AbortSignal | undefined)?.aborted).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onError).not.toHaveBeenCalled();
   });
 });
