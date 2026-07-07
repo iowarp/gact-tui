@@ -9,7 +9,7 @@
  * writes to `window.__gactSseDebug`).
  */
 
-import { createChannel, invoke, listen } from './tauriApi.js';
+import { invoke, listen } from './tauriApi.js';
 import { inTauri } from './tauri_runtime.js';
 import type { SseDebugRecorder } from './tauri_sse_debug.js';
 
@@ -79,7 +79,8 @@ function dispatchSseBridgeMessage(
 /**
  * Open an SSE stream through the Rust `gact_sse_open` bridge instead of
  * a raw browser `EventSource`. Rust reads the stream (no WebView CORS
- * layer) and forwards each event's data over a Tauri Channel. This is
+ * layer) and forwards each event's data over the keyed global `gact:sse`
+ * Tauri event (filtered by `client_id`). This is
  * what makes desktop live-streaming independent of clio's CORS headers
  * — and lets the bearer token ride along (EventSource can't set headers;
  * the token travels in the sseUrl query string per SPEC §7). See
@@ -105,17 +106,14 @@ export async function openTauriSse(
   record({ url, state: 'importing', eventCount: 0 });
   record({ url, state: 'invoking', eventCount: 0 });
   const clientId = `sse-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  // The keyed global `gact:sse` event (filtered by client_id) is the sole
+  // transport: the Rust bridge emits every message there. An earlier build
+  // also mirrored messages over a per-command Tauri Channel, which caused
+  // double delivery; that Channel is gone on both sides.
   const unlisten = await listen<SseBridgeEventPayload>('gact:sse', (event) => {
     if (event.payload.client_id !== clientId) return;
     dispatchSseBridgeMessage(url, handlers, record, debugState, event.payload.message);
   });
-  const ch = await createChannel<SseBridgeMessage>();
-  // Linux WebKit CI proved Rust can send over Channel while the frontend
-  // callback never fires. Keep the Channel for command compatibility, but
-  // consume the keyed Tauri event above as the live transcript transport.
-  ch.onmessage = (m) => {
-    record({ url, state: `channel-${m.kind}` });
-  };
   // clio reads the resume cursor only from the Last-Event-ID header; the
   // Rust bridge already forwards this headers map on the request, so no
   // command-signature change is needed.
@@ -124,7 +122,6 @@ export async function openTauriSse(
   const id = await invoke<number>('gact_sse_open', {
     url,
     headers,
-    onEvent: ch,
     clientId,
   });
   record({ url, state: 'handle-ready' });
