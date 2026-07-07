@@ -57,14 +57,19 @@ fn streams_real_clio_events_through_the_parser() {
         .and_then(|j| j.get("id").and_then(|v| v.as_str()).map(String::from))
         .expect("session id in response");
 
-    let events: Arc<Mutex<Vec<(String, Option<String>)>>> = Arc::new(Mutex::new(Vec::new()));
+    // Record (kind, data, id) so we can assert the parser surfaces the SSE
+    // `id:` value the frontend needs for Last-Event-ID resume.
+    let events: Arc<Mutex<Vec<(String, Option<String>, Option<String>)>>> =
+        Arc::new(Mutex::new(Vec::new()));
     let stop = Arc::new(AtomicBool::new(false));
     let url = format!("{base}/v1/sessions/{sid}/events");
     let ev2 = events.clone();
     let stop2 = stop.clone();
     let reader = thread::spawn(move || {
         run_stream(&url, &HashMap::new(), &stop2, |m| {
-            ev2.lock().unwrap().push((m.kind.clone(), m.data.clone()));
+            ev2.lock()
+                .unwrap()
+                .push((m.kind.clone(), m.data.clone(), m.id.clone()));
         });
     });
 
@@ -82,8 +87,8 @@ fn streams_real_clio_events_through_the_parser() {
     for _ in 0..40 {
         {
             let g = events.lock().unwrap();
-            got_open = g.iter().any(|(k, _)| k == "open");
-            got_event = g.iter().any(|(k, d)| {
+            got_open = g.iter().any(|(k, _, _)| k == "open");
+            got_event = g.iter().any(|(k, d, _)| {
                 k == "event"
                     && d.as_deref()
                         .map(|s| s.contains("\"type\""))
@@ -103,6 +108,15 @@ fn streams_real_clio_events_through_the_parser() {
         got_event,
         "bridge should forward at least one parsed SSE event with a type field"
     );
+    // clio numbers every SSE event with an `id:` line so clients can resume;
+    // the parser must surface at least one so the frontend can echo it as
+    // Last-Event-ID.
+    let got_id = events
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|(k, _, id)| k == "event" && id.as_deref().map(|s| !s.is_empty()).unwrap_or(false));
+    assert!(got_id, "bridge should surface an SSE id: for resume");
 }
 
 /// HARDENING: setting the stop flag must terminate the reader thread

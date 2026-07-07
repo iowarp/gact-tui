@@ -39,57 +39,57 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
   const messages = messagesForCase(visualCase);
   const semanticEvents = semanticEventsForCase(visualCase);
 
+  // The web transcript now reads SSE through a fetch/ReadableStream reader
+  // (not `EventSource`), so the live stream is mocked by overriding
+  // `window.fetch` for the `/events` URL and returning a `text/event-stream`
+  // response whose body streams the semantic frames and then STAYS OPEN — the
+  // same lifecycle as the old never-closing EventSource mock. Holding the
+  // stream open matters: if the body ended, the reader would schedule a
+  // reconnect + reconcile, re-rendering the transcript mid-test. All other
+  // requests fall through to the intercepting route below.
   await page.addInitScript(
     (payload) => {
-      const NativeEventSource = window.EventSource;
-
-      class MockEventSource extends EventTarget {
-        static readonly CONNECTING = 0;
-        static readonly OPEN = 1;
-        static readonly CLOSED = 2;
-
-        readonly CONNECTING = 0;
-        readonly OPEN = 1;
-        readonly CLOSED = 2;
-        readonly url: string;
-        readonly withCredentials = false;
-        readyState = MockEventSource.CONNECTING;
-        onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
-        onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
-        onerror: ((this: EventSource, ev: Event) => unknown) | null = null;
-
-        constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
-          super();
-          this.url = String(url);
-          if (!this.url.startsWith(payload.baseUrl)) {
-            return new NativeEventSource(url, eventSourceInitDict) as unknown as MockEventSource;
-          }
-          window.setTimeout(() => {
-            if (this.readyState === MockEventSource.CLOSED) return;
-            this.readyState = MockEventSource.OPEN;
-            const open = new Event('open');
-            this.dispatchEvent(open);
-            this.onopen?.call(this as unknown as EventSource, open);
-            for (const semantic of payload.semanticEvents) {
-              const frame = {
-                type: 'semantic.event',
-                occurred_at: semantic.occurred_at ?? payload.now,
-                payload: semantic,
-              };
-              const ev = new MessageEvent('semantic.event', {
-                data: JSON.stringify(frame),
-              });
-              this.dispatchEvent(ev);
+      const nativeFetch = window.fetch.bind(window);
+      const encoder = new TextEncoder();
+      window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.startsWith(payload.baseUrl) && url.includes('/events')) {
+          let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              streamController = controller;
+              for (const semantic of payload.semanticEvents) {
+                const frame = {
+                  type: 'semantic.event',
+                  occurred_at: semantic.occurred_at ?? payload.now,
+                  payload: semantic,
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(frame)}\n\n`));
+              }
+              // Intentionally left open — mirrors EventSource staying connected.
+            },
+          });
+          init?.signal?.addEventListener('abort', () => {
+            try {
+              streamController?.close();
+            } catch {
+              /* already closed */
             }
-          }, 50);
+          });
+          return Promise.resolve(
+            new Response(stream, {
+              status: 200,
+              headers: { 'content-type': 'text/event-stream' },
+            }),
+          );
         }
-
-        close() {
-          this.readyState = MockEventSource.CLOSED;
-        }
-      }
-
-      window.EventSource = MockEventSource as unknown as typeof EventSource;
+        return nativeFetch(input, init);
+      }) as typeof window.fetch;
     },
     { baseUrl: MOCK_BACKEND, now: NOW, semanticEvents },
   );
@@ -128,9 +128,8 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
     if (method === 'GET' && path === `/v1/sessions/${session.id}/messages`) {
       return json(route, { messages });
     }
-    if (method === 'GET' && path === `/v1/sessions/${session.id}/events`) {
-      return json(route, {});
-    }
+    // `/v1/sessions/{id}/events` is handled by the window.fetch override above
+    // (it never reaches the network), so no route branch is needed here.
     if (method === 'GET' && path === '/v1/workspaces') {
       return json(route, {
         workspaces: [{ id: 'ws-demo', name: 'NDP demo', root_path: '/tmp/ndp-demo' }],

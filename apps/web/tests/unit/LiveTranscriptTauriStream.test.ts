@@ -12,7 +12,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function createHarness(options: { stale?: boolean } = {}) {
+function createHarness(options: { stale?: boolean; lastEventId?: string } = {}) {
   const bridgeOpen = deferred<SseBridgeHandle>();
   let handlers: SseBridgeHandlers | null = null;
   let stale = options.stale ?? false;
@@ -21,14 +21,17 @@ function createHarness(options: { stale?: boolean } = {}) {
   const onOpen = vi.fn();
   const onData = vi.fn();
   const onFailure = vi.fn();
-  const openBridge = vi.fn((_: string, nextHandlers: SseBridgeHandlers) => {
-    handlers = nextHandlers;
-    return bridgeOpen.promise;
-  });
+  const openBridge = vi.fn(
+    (_: string, nextHandlers: SseBridgeHandlers, _lastEventId?: string) => {
+      handlers = nextHandlers;
+      return bridgeOpen.promise;
+    },
+  );
 
   openLiveTranscriptTauriStream({
     sseUrl: '/events',
     generation: 4,
+    lastEventId: options.lastEventId,
     isStale: (generation) => stale || generation !== 4,
     setHandle: (next) => {
       handle = next;
@@ -60,20 +63,25 @@ function createHarness(options: { stale?: boolean } = {}) {
 }
 
 describe('openLiveTranscriptTauriStream', () => {
-  it('opens the bridge and forwards open/data callbacks while fresh', async () => {
+  it('opens the bridge and forwards open/data (with id) callbacks while fresh', async () => {
     const harness = createHarness();
     const handle = { close: harness.close };
 
-    expect(harness.openBridge).toHaveBeenCalledWith('/events', expect.any(Object));
+    expect(harness.openBridge).toHaveBeenCalledWith('/events', expect.any(Object), undefined);
     harness.handlers.onOpen();
-    harness.handlers.onData('payload');
+    harness.handlers.onData('payload', 'id-9');
     harness.bridgeOpen.resolve(handle);
     await harness.bridgeOpen.promise;
 
     expect(harness.onOpen).toHaveBeenCalledTimes(1);
-    expect(harness.onData).toHaveBeenCalledWith('payload');
+    expect(harness.onData).toHaveBeenCalledWith('payload', 'id-9');
     expect(harness.handle).toBe(handle);
     expect(harness.close).not.toHaveBeenCalled();
+  });
+
+  it('forwards lastEventId to the bridge for Last-Event-ID resume', () => {
+    const harness = createHarness({ lastEventId: '42' });
+    expect(harness.openBridge).toHaveBeenCalledWith('/events', expect.any(Object), '42');
   });
 
   it('deduplicates bridge errors and clears the active handle', () => {

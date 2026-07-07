@@ -75,54 +75,56 @@ async function installAutoscrollBackend(page: Page) {
 
   await page.addInitScript(() => {
     window.localStorage.setItem('clio.onboarding-done.v1', '1');
-    const NativeEventSource = window.EventSource;
-    const streams = new Set<EventTarget>();
 
-    class TestEventSource extends EventTarget {
-      static readonly CONNECTING = 0;
-      static readonly OPEN = 1;
-      static readonly CLOSED = 2;
+    // The transcript reads SSE via a fetch/ReadableStream reader now, so mock
+    // the `/events` stream at window.fetch: return a text/event-stream body
+    // that STAYS OPEN, and let `__clio-test-sse` enqueue frames on demand so
+    // the test drives streaming deltas at will (the same control the old
+    // EventSource stub gave). Other requests fall through to the route below.
+    const nativeFetch = window.fetch.bind(window);
+    const encoder = new TextEncoder();
+    const controllers = new Set<ReadableStreamDefaultController<Uint8Array>>();
 
-      readonly CONNECTING = 0;
-      readonly OPEN = 1;
-      readonly CLOSED = 2;
-      readonly url: string;
-      readonly withCredentials = false;
-      readyState = TestEventSource.CONNECTING;
-      onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
-      onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
-      onerror: ((this: EventSource, ev: Event) => unknown) | null = null;
-
-      constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
-        super();
-        this.url = String(url);
-        if (!this.url.startsWith('http://autoscroll.mock')) {
-          return new NativeEventSource(url, eventSourceInitDict) as unknown as TestEventSource;
-        }
-        streams.add(this);
-        window.setTimeout(() => {
-          if (this.readyState === TestEventSource.CLOSED) return;
-          this.readyState = TestEventSource.OPEN;
-          const open = new Event('open');
-          this.dispatchEvent(open);
-          this.onopen?.call(this as unknown as EventSource, open);
-        }, 0);
+    window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.startsWith('http://autoscroll.mock') && url.includes('/events')) {
+        let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            streamController = controller;
+            controllers.add(controller);
+          },
+          cancel() {
+            if (streamController) controllers.delete(streamController);
+          },
+        });
+        init?.signal?.addEventListener('abort', () => {
+          if (!streamController) return;
+          controllers.delete(streamController);
+          try {
+            streamController.close();
+          } catch {
+            /* already closed */
+          }
+        });
+        return Promise.resolve(
+          new Response(stream, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          }),
+        );
       }
-
-      close() {
-        this.readyState = TestEventSource.CLOSED;
-        streams.delete(this);
-      }
-    }
+      return nativeFetch(input, init);
+    }) as typeof window.fetch;
 
     window.addEventListener('__clio-test-sse', (raw) => {
       const detail = (raw as CustomEvent<{ type: string; data: string }>).detail;
-      for (const stream of streams) {
-        stream.dispatchEvent(new MessageEvent(detail.type, { data: detail.data }));
+      const block = encoder.encode(`data: ${detail.data}\n\n`);
+      for (const controller of controllers) {
+        controller.enqueue(block);
       }
     });
-
-    window.EventSource = TestEventSource as unknown as typeof EventSource;
   });
 
   await page.route(`${MOCK_BACKEND}/**`, async (route) => {
