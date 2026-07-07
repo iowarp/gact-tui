@@ -83,9 +83,8 @@ runtime and boots offline.
 ### Uninstall
 
 Apps & features → CLIO Desktop → Uninstall. Tray icon is removed on
-exit; the OS keychain entries under `ai.iowarp.clio.desktop.ssh` are
-left behind by default — clear them via Credential Manager if you
-also stored SSH passphrases.
+exit. CLIO Desktop stores no credentials in the OS keychain, so there
+is nothing to clean up in Credential Manager.
 
 ---
 
@@ -102,14 +101,14 @@ also stored SSH passphrases.
    - The dialog now says "macOS cannot verify the developer of …" →
      click **Open**.
    - From this point onwards a regular double-click works.
-4. Grant the keychain prompt if you intend to add an SSH-tunneled
-   backend; the entries land under service
-   `ai.iowarp.clio.desktop.ssh`.
+4. SSH-tunneled backends authenticate through `ssh` itself (ssh-agent
+   or an unencrypted key file) — the app triggers no keychain prompt
+   and stores no keychain entries.
 
 ### Uninstall
 
-`rm -rf "/Applications/CLIO Desktop.app"` plus the OS keychain
-cleanup (above).
+`rm -rf "/Applications/CLIO Desktop.app"`. No keychain cleanup is
+needed — the app stores no keychain entries.
 
 ---
 
@@ -146,16 +145,16 @@ sudo apt install libwebkit2gtk-4.1-0 libsoup-3.0-0 libayatana-appindicator3-1 li
 sudo dnf install webkit2gtk4.1 libsoup3 libappindicator-gtk3 librsvg2 dbus-libs
 ```
 
-The SSH-tunnel feature shells out to `ssh` and stores passphrases via
-the secret-service / KWallet bridge (the `keyring` crate's
-`linux-native` backend). Install `gnome-keyring` or `kwalletmanager`
-if your DE doesn't already ship one.
+The SSH-tunnel feature shells out to `ssh` and delegates
+authentication to it (ssh-agent or an unencrypted key file). No
+passphrases are stored, so no secret-service / KWallet setup is
+required.
 
 ### Uninstall
 
 `sudo apt remove clio-desktop` / `sudo rpm -e clio-desktop` / delete
-the AppImage. As above, clear the secret-service / KWallet entries if
-you stored SSH passphrases.
+the AppImage. The app stores no secrets, so there is nothing to clear
+from secret-service / KWallet.
 
 ---
 
