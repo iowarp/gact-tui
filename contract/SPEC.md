@@ -2424,4 +2424,67 @@ replay returning real events (heartbeats must not evict history).
 
 ---
 
+## Appendix A — Transitional client presentation filters (non-normative)
+
+This appendix is **non-normative**. It inventories the prose/shape heuristics
+that BOTH shipped clients (the web app and the TUI) currently apply to model
+output before rendering. None of these are part of the wire contract: a
+conformant server is expected to emit a byte-clean transcript, and a conformant
+client is expected to render it **verbatim**. Each filter exists ONLY because
+today's reference backend (clio) still leaks presentation chrome, placeholder
+text, machine state, or duplicated reasoning onto the stream.
+
+**Direction of travel (clio #832 — "the server owns the clean stream").** The
+server, not the client, must de-duplicate and clean the transcript; the client
+renders what it receives. Every row below therefore carries a **deletion
+condition**: once the server stops emitting the corresponding artifact, the
+filter is **deleted, not weakened**. They are centralized so that removal is one
+auditable step per client — the web filters live in
+`apps/web/src/components/presentationFilters.ts`; the TUI filters live in
+`tui/internal/ui/live_message_normalization.go` (nine normalization stages) and
+`tui/internal/ui/execution_supplements.go`
+(`executionPlaceholderAssistantText`). This table is the shared registry those
+file headers cross-link back to.
+
+Do NOT add new client-side dedup, and do NOT weaken these to paper over a
+freshly-observed backend leak — fix the leak at the server and retire the row.
+
+### Web client (`apps/web`)
+
+| Filter | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
+| --- | --- | --- | --- | --- |
+| `stripClioScaffolding` | prose + format | leaked ChatAdapter section markers `[[ ## field ## ]]`; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence truncation markers | Backend glues status chrome and display-only machine state inline into answer/reasoning prose | Server never emits status parentheticals, section markers, or typed-state captions in a `text`/`reasoning` part |
+| `isOrchestrationPlaceholder` | prose | `no user-facing answer yet`; `awaiting …child`; `awaiting …synthesis`; `no evidence yet` / `no evidence is available`; `pending …delegation`; `delegating to …expert`; `routing to synthesis`; `routing to the …expert`; `before routing to synthesis`; `before finishing` | Orchestrator emits placeholder answer text before children return | Server withholds a `text` part until it has real answer content |
+| `isTerminalCompletionReasoning` | prose | completion phrasings (`task is (fully) complete/satisfied`, `all required work …complete`, `all claims …grounded`, `workflow …complete`/`already executed`, `both required children/pipeline stages …returned`, `synthesis has returned`) plus finish phrasings (`i now finish`, `parent finishes`, `finish on the turn`, `carrying …answer`, `no further children`, `no downstream work`) | The parent's terminal "I'm done" reasoning would render as prose after the answer already showed | Server does not surface the finish-turn `next_thought` as a visible `reasoning` part |
+| `isBareJsonBody` | format | a body that is wholly a `JSON.parse`-able object/array | Handoff/summary bodies sometimes arrive as bare machine state, not prose | Server tags structured state as its own (non-`text`) part instead of inlining raw JSON |
+| `hasPriorAnswerRow` | structural (feeds the two above) | a prior `main`/`synthesis` `text` row > 20 chars that is not itself a placeholder/bare-JSON | Gate so completion-reasoning/synthesis-return drops only apply once a real answer has rendered | Retired together with the predicates it guards |
+| `dedupToolThought` | structural/prose | a `tool_call.thought` whose whitespace-normalized body is bidirectionally contained in the nearest same-agent `text`/`reasoning` row | Backend `tool_observer` copies the step `next_thought` onto the tool call, so it renders twice | Server emits each `next_thought` once (`duplicate_suppressed` at source) |
+| `filterVisibleRows` | composer / gate | — (orchestrates the predicates above) | Applies the prose/shape predicates ONLY once a turn is finalized (streaming applies just the structural empty-row drop), and drops empty rows + a `synthesis` return row that repeats a prior answer | Retired when the predicates it composes are all retired |
+
+### TUI client (`tui/internal/ui`)
+
+| Filter (stage) | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
+| --- | --- | --- | --- | --- |
+| `normalizeMessageCompactionSummaries` | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"` | Recast an inline compaction summary as a typed compaction part | Server emits compaction as its own part type, never inline text |
+| `normalizeMessageAdapterSections` | format | a `text` part containing `[[ ## ` ChatAdapter section markers | Split adapter-formatted text back into typed parts | Server never ships raw ChatAdapter section markup in `text` |
+| `normalizeMessageExpertHandoffs` | structural | `expert_handoffs` metadata rows | Synthesize handoff parts/rows the stream did not carry as parts | Server emits handoffs as first-class parts |
+| `normalizeMessageWorkflowState` | structural | `workflow_state` metadata | Surface display-only typed workflow state as a synthetic part | Server emits workflow state as a typed (non-text) part |
+| `normalizeMessageReasoningLog` | structural | `reasoning_log` metadata rows | Materialize a reasoning log the stream carried only as metadata | Server emits reasoning as `reasoning` parts |
+| `normalizeMessageErrorInfo` | structural | `error_info` metadata | Materialize structured error info as a part | Server emits errors via the §14 error envelope/parts |
+| `normalizeMessagePartialAnswerLabels` | structural | on an errored turn, `text` parts after an `error` part | Flag post-error text as `partial_after_error` so it renders as partial | Server labels partial answers at the source |
+| `normalizeMessageToolEvidence` | structural | `tools_called` / tool-evidence metadata | Materialize tool evidence rows from metadata | Server emits tool calls/results as parts |
+| `normalizeMessageRuntimeProvenance` | structural | runtime-provenance metadata | Summarize runtime provenance from metadata | Server emits provenance as a typed part or omits it |
+| `executionPlaceholderAssistantText` | prose | `no answer yet`; `awaiting geospatial resolution`; `awaiting data acquisition`; `awaiting synthesis` (after stripping semantic control contracts) | Detect placeholder assistant text so it is not treated as a real answer | Server withholds placeholder answer text |
+
+Most TUI stages are **structural** (metadata-keyed synthesizers that reconstruct
+parts the stream carried only as message metadata) rather than prose heuristics;
+they are inventoried here because they, too, are transitional shims that
+disappear once the server emits the corresponding first-class parts. The genuine
+prose heuristics — the ones that read model wording — are
+`normalizeMessageCompactionSummaries`, `normalizeMessageAdapterSections`, and
+`executionPlaceholderAssistantText` (TUI) and every web row except
+`hasPriorAnswerRow`/`filterVisibleRows`.
+
+---
+
 *End of GACT v0.2 spec.*

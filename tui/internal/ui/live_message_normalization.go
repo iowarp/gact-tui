@@ -1,6 +1,13 @@
 package ui
 
 // live_message_normalization.go normalizes message presentation (compaction summaries, partial-answer labels, visibility).
+//
+// These nine normalization stages are TRANSITIONAL prose/shape heuristics
+// inventoried alongside the web client's filters in contract/SPEC.md Appendix
+// ("Transitional client presentation filters (non-normative)"). Each carries a
+// documented deletion condition: they exist only while the server still leaks
+// presentation chrome onto the clean stream (clio #832). Do not weaken or delete
+// them here piecemeal — deletion is a single server-driven, auditable step.
 
 import (
 	"fmt"
