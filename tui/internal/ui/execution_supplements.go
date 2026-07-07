@@ -1,6 +1,12 @@
 package ui
 
 // execution_supplements.go derives supplemental execution nodes from assistant messages and de-duplicates them.
+//
+// executionPlaceholderAssistantText (below) is a TRANSITIONAL prose heuristic
+// inventoried in contract/SPEC.md Appendix ("Transitional client presentation
+// filters (non-normative)") next to the web client's equivalents. It exists only
+// while the server still emits placeholder answer text (clio #832); its deletion
+// condition is recorded there.
 
 import (
 	"strings"
