@@ -536,3 +536,163 @@ func TestProjectExecutionTimelineExpertResponseFillsNestedGap(t *testing.T) {
 		}
 	}
 }
+
+// TestProjectExecutionTimelineFromMessagesProviderThinkingDisclosure covers #233
+// box 3 (web parity) end-to-end from the message-parts projection — the single
+// path both the live stream and a /messages reload feed:
+//   - a thinking part with metadata.thinking_source == "provider" flags the node
+//     ProviderThinking (text preserved for the detail view);
+//   - a thinking part WITHOUT that metadata (regular ReAct next_thought) does not;
+//   - the transcript collapses the provider block to one `thinking · N chars ·
+//     Ctrl+E` row (never the prose) while the regular thought still spills inline;
+//   - the render is byte-identical across two projections (live ≡ reload);
+//   - Ctrl+E detail surfaces the full provider-thinking text, and nothing for the
+//     regular thought.
+func TestProjectExecutionTimelineFromMessagesProviderThinkingDisclosure(t *testing.T) {
+	providerText := "The user wants the nearest EarthScope station to San Diego. " +
+		"I will resolve coordinates, search the catalog, then stage and plot the data."
+	reactText := "I need to search the NDP catalog for the station metadata first."
+	messages := []gact.Message{
+		{ID: "u1", SessionID: "s1", Role: gact.RoleUser},
+		{ID: "a1", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{
+			{ID: "p1", Type: gact.PartTypeThinking, Sequence: 1, Thinking: providerText,
+				Metadata: map[string]any{"thinking_source": "provider", "provider_source": "claude_code_sdk"}},
+			{ID: "p2", Type: gact.PartTypeThinking, Sequence: 2, Thinking: reactText},
+		}},
+	}
+
+	turns := filterProjectedTurns(projectExecutionTimelineFromMessages(messages))
+	if len(turns) != 1 {
+		t.Fatalf("want one projected turn, got %d: %#v", len(turns), turns)
+	}
+	nodes := turns[0].Nodes
+	if len(nodes) != 2 {
+		t.Fatalf("want two react-step nodes, got %d: %#v", len(nodes), nodes)
+	}
+	provider, regular := nodes[0], nodes[1]
+	if !provider.ProviderThinking || provider.Thinking != providerText {
+		t.Fatalf("provider thinking node not flagged / text not preserved: %#v", provider)
+	}
+	if regular.ProviderThinking {
+		t.Fatalf("regular ReAct thought must NOT be flagged as provider thinking: %#v", regular)
+	}
+
+	rendered := ansi.Strip(DefaultTheme().renderExecutionTimeline(nodes, 120))
+	wantSummary := "thinking · " + strconv.Itoa(len(providerText)) + " chars · Ctrl+E"
+	if !strings.Contains(rendered, wantSummary) {
+		t.Fatalf("collapsed provider summary %q missing:\n%s", wantSummary, rendered)
+	}
+	if strings.Contains(rendered, "nearest EarthScope station") {
+		t.Fatalf("provider thinking prose leaked into the transcript:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "I need to search the NDP catalog") {
+		t.Fatalf("regular ReAct thought was not rendered inline:\n%s", rendered)
+	}
+
+	// live ≡ reload: the same parts projected again render byte-identically.
+	reload := ansi.Strip(DefaultTheme().renderExecutionTimeline(
+		filterProjectedTurns(projectExecutionTimelineFromMessages(messages))[0].Nodes, 120))
+	if reload != rendered {
+		t.Fatalf("live vs reload render diverged\nlive:\n%s\n\nreload:\n%s", rendered, reload)
+	}
+
+	// Ctrl+E detail resolves the full provider-thinking text; the regular thought
+	// (no observation/reasoning) contributes no detail ref.
+	app := NewWithTheme("", DefaultTheme())
+	refs := app.execution.artifactDetailsForNode("turn-1", provider)
+	if len(refs) != 1 || refs[0].fullText != providerText {
+		t.Fatalf("provider thinking detail ref wrong: %#v", refs)
+	}
+	if !strings.HasPrefix(refs[0].title, "Thinking") {
+		t.Fatalf("provider thinking detail title = %q, want Thinking prefix", refs[0].title)
+	}
+	if got := app.execution.artifactDetailsForNode("turn-1", regular); len(got) != 0 {
+		t.Fatalf("regular ReAct thought must contribute no detail ref, got: %#v", got)
+	}
+}
+
+// TestCtrlEOpensProviderThinkingThroughProductionPath drives the REAL Ctrl+E
+// flow (detailViewModal.openModal → openArtifactForSelection) with both the
+// transcript message parts AND the SSE semantic-event ledger populated — the
+// captured-session shape where provider thinking streams alongside delegation
+// semantic events, so the ledger has trajectory and the turn also carries a
+// tool-observation ref. It pins #233 box 3's acceptance at the production
+// entry point:
+//   - cursor on the disclosure row → the modal opens the full thinking prose
+//     (the ledger never records thinking parts; the ref must come from the
+//     message-parts projection);
+//   - cursor elsewhere in the turn → the turn's last ledger ref (the tool
+//     observation) still wins, exactly as before the disclosure existed;
+//   - a /messages reload (parts present, ledger empty) keeps the thinking
+//     reachable at turn level.
+func TestCtrlEOpensProviderThinkingThroughProductionPath(t *testing.T) {
+	providerText := "The user wants the nearest EarthScope station to San Diego. " +
+		"I will resolve coordinates, search the catalog, then stage and plot the data."
+	a := NewWithTheme("", DefaultTheme())
+	a.session.sessions = []gact.Session{{ID: "s1"}}
+	a.session.selected = 0
+	a.conversation.messages = []gact.Message{
+		{ID: "msg_user_1", SessionID: "s1", Role: gact.RoleUser, Parts: []gact.Part{
+			{ID: "p_q", Type: gact.PartTypeText, Text: "Plot the nearest EarthScope station to San Diego."},
+		}},
+		{ID: "msg_asst_1", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{
+			{ID: "p_think", Type: gact.PartTypeThinking, Sequence: 1, Thinking: providerText,
+				Metadata: map[string]any{"thinking_source": "provider", "provider_source": "claude_code_sdk"}},
+			{ID: "p_ans", Type: gact.PartTypeText, Sequence: 2, Text: "Here is the station plot."},
+		}},
+	}
+	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": {
+		semanticEventWithTurn(1, "msg_user_1", "blueprint.delegation.started", "main", "geospatial", map[string]any{
+			"parent_id":   "main",
+			"delegate_to": "geospatial",
+			"question":    "Resolve San Diego.",
+			"status":      "running",
+		}),
+		semanticEventWithTurn(2, "msg_user_1", "react.step.completed", "geospatial", "", map[string]any{
+			"expert_id":   "geospatial",
+			"step_index":  0,
+			"tool_name":   "geo_geocode",
+			"observation": `{"lat": 32.7174202, "lon": -117.162772}`,
+		}),
+	}}
+
+	// Cursor on the disclosure row: the thinking part is the assistant
+	// message's first addressable part (provider thinking is addressable).
+	a.conversation.bodySelMsgIdx = 1
+	a.conversation.bodySelPartIdx = 0
+	a.detail.openModal()
+	if a.detail.ref == nil {
+		t.Fatalf("Ctrl+E on the disclosure row opened nothing")
+	}
+	if a.detail.ref.fullText != providerText {
+		t.Fatalf("Ctrl+E on the disclosure row opened %q instead of the thinking prose:\n%s",
+			a.detail.ref.title, a.detail.ref.fullText)
+	}
+	if !strings.HasPrefix(a.detail.ref.title, "Thinking") {
+		t.Fatalf("disclosure detail title = %q, want Thinking prefix", a.detail.ref.title)
+	}
+	a.detail.close()
+
+	// Cursor on the answer text instead: the turn's last ledger ref (the tool
+	// observation) still wins — the disclosure changes nothing for other rows.
+	a.conversation.bodySelPartIdx = 1
+	a.detail.openModal()
+	if a.detail.ref == nil {
+		t.Fatalf("Ctrl+E off the disclosure row opened nothing")
+	}
+	if !strings.Contains(a.detail.ref.fullText, "32.7174202") {
+		t.Fatalf("turn-level Ctrl+E pick changed: opened %q, want the geo_geocode observation:\n%s",
+			a.detail.ref.title, a.detail.ref.fullText)
+	}
+	a.detail.close()
+
+	// Reload shape: same transcript parts, no live ledger (a fresh TUI that
+	// only ran GET /messages). The thinking must stay reachable at turn level.
+	a.execution.executionEventsBySession = nil
+	a.conversation.bodySelMsgIdx = -1
+	a.conversation.bodySelPartIdx = -1
+	a.detail.openModal()
+	if a.detail.ref == nil || a.detail.ref.fullText != providerText {
+		t.Fatalf("reloaded session lost the provider-thinking detail: %#v", a.detail.ref)
+	}
+}

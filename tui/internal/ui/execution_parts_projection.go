@@ -83,6 +83,17 @@ func projectExecutionTimelineFromMessages(messages []gact.Message) []executionPr
 	return turns
 }
 
+// isProviderThinkingPart reports whether a thinking part carries provider-native
+// reasoning (metadata.thinking_source == "provider", e.g. the Claude Code SDK)
+// rather than a ReAct next_thought. Shared by the parts projection (which flags
+// the node ProviderThinking), the part cursor (which makes the disclosure row
+// addressable), and the Ctrl+E detail resolution.
+func isProviderThinkingPart(p gact.Part) bool {
+	return p.Type == gact.PartTypeThinking &&
+		stringValue(p.Metadata["thinking_source"]) == "provider" &&
+		strings.TrimSpace(p.Thinking) != ""
+}
+
 // messagesHaveExecutionTrajectory reports whether the transcript contains a
 // sub-agent delegation. The transcript render no longer gates on it (#233 —
 // the parts projection is total); it remains the render-dump/replay marker for
@@ -164,12 +175,19 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 				continue
 			}
 			agent := resolveExpert(p.AgentID)
+			// Provider-native reasoning (Claude Code SDK et al.) carries
+			// metadata.thinking_source == "provider". Web renders it ONLY as a
+			// collapsed disclosure (transcriptDelegationModel.ts:582); the TUI
+			// mirrors that by flagging the node so the renderer emits one muted
+			// summary line instead of the full prose. Regular ReAct next_thought
+			// (no such metadata) keeps rendering inline.
 			nodes = append(nodes, executionTimelineNode{
-				Kind:     executionNodeReactStep,
-				Agent:    agent,
-				Depth:    depthOf(agent),
-				Thinking: text,
-				Src:      src,
+				Kind:             executionNodeReactStep,
+				Agent:            agent,
+				Depth:            depthOf(agent),
+				Thinking:         text,
+				ProviderThinking: isProviderThinkingPart(p),
+				Src:              src,
 			})
 
 		case gact.PartTypeExpertHandoff:

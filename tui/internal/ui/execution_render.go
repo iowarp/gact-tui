@@ -10,6 +10,7 @@ package ui
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
 
@@ -566,7 +567,14 @@ func (w *execTimelineWriter) emitProseTurn(depth int, agent, text string) {
 }
 
 func (w *execTimelineWriter) emitReactStep(node executionTimelineNode, depth int) {
-	if thinking := strings.TrimSpace(node.Thinking); thinking != "" && !semanticPreviewIsRedacted(thinking) {
+	if node.ProviderThinking {
+		// Provider-native reasoning is never spilled inline (web parity): one
+		// muted disclosure row whose char count ticks up as the thinking streams;
+		// the full text lives in the Ctrl+E detail view.
+		if line := w.providerThinkingDisclosure(node); line != "" {
+			w.emitTurnText(depth, line)
+		}
+	} else if thinking := strings.TrimSpace(node.Thinking); thinking != "" && !semanticPreviewIsRedacted(thinking) {
 		thinking = strings.TrimSpace(stripExecutionControlSections(thinking))
 		if thinking != "" {
 			if node.Reasoning != "" {
@@ -583,6 +591,20 @@ func (w *execTimelineWriter) emitReactStep(node executionTimelineNode, depth int
 			w.emitTurnText(depth, observation)
 		}
 	}
+}
+
+// providerThinkingDisclosure renders the single muted summary row that stands in
+// for a provider-thinking block — `thinking · <N> chars · Ctrl+E` — mirroring the
+// web ProviderThinkingDisclosure summary (AssistantTurnView.tsx:188-196). The
+// count is the rune length of the full thinking text, so it grows as the block
+// streams; the prose itself is only ever shown in the Ctrl+E detail view.
+func (w *execTimelineWriter) providerThinkingDisclosure(node executionTimelineNode) string {
+	text := strings.TrimSpace(node.Thinking)
+	if text == "" {
+		return ""
+	}
+	label := "thinking · " + strconv.Itoa(utf8.RuneCountInString(text)) + " chars · Ctrl+E"
+	return lipgloss.NewStyle().Foreground(w.t.FgFaint).Render(label)
 }
 
 func (w *execTimelineWriter) emitToolCall(depth int, toolName string, args, observation any, hasRawDetail bool) {
