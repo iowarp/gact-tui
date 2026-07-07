@@ -44,6 +44,20 @@ matching `Options.Skip*` flag.
 | `Diffs` | `diffs` | `GET /v1/sessions/{id}/diffs` | 200 + non-nil `diffs` array, each entry has required `{path, applied}` (BBBBBB1) |
 | `Messages_Diffs` | `diffs` | `GET /v1/sessions/{id}/messages/{msg_id}/diffs` | same shape as `Diffs`, gated on first message id (CCCCCC1) |
 
+### Drift-class checks (SPEC §15.8, CLIO-232)
+
+These assert the reconciliation drift classes that actually bit clients.
+The mutating ones (`Drift_SSEReplayAndShapes`, `Drift_CompactFocus`,
+`Drift_RollbackEnvelope`) run only against a suite-created session.
+
+| Section | Asserts |
+|---|---|
+| `Drift_CapabilityTruth` | §3.3 — every advertised single-route capability has its route (probed via 404/501 distinction) |
+| `Drift_EventVocabulary` | §7.7 — every event type observed on the live SSE stream is declared in the normative §7.7 vocabulary block; custom `x.{vendor}.*` types (§8.4) exempt. Opt-in via `Options.SpecPath` (empty ⇒ skipped) |
+| `Drift_SSEReplayAndShapes` | §7.1/§7.3a — Last-Event-ID replay returns real events (heartbeats don't evict); flat `message.created`; `session.updated` = full Session |
+| `Drift_CompactFocus` | §6.25 — `POST /compact` accepts a `{focus}` body |
+| `Drift_RollbackEnvelope` | §6.2 — undo/rewind response envelope keys (`reverted_messages` never existed on the reconciled wire) |
+
 501 from an un-skipped section counts as a failure. Silently tolerating
 501 would defeat the purpose — if the backend doesn't implement a
 section, skip it explicitly via `Options`.

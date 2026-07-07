@@ -51,7 +51,15 @@ func TestConformance_AgainstEmulator(t *testing.T) {
 		t.Fatalf("emulator never became healthy: %v", err)
 	}
 
-	Run(FromTest(t), url, Options{})
+	// Point the vocabulary drift check at the repo's SPEC.md so the
+	// emulator (which emits session.agent_routed, user_question.expired,
+	// cost.updated, notification, session.cleared, subagent.*) is held to
+	// the §7.7 block in CI.
+	specPath, err := filepath.Abs("../SPEC.md")
+	if err != nil {
+		t.Fatalf("resolve SPEC.md path: %v", err)
+	}
+	Run(FromTest(t), url, Options{SpecPath: specPath})
 }
 
 // findEmulatorBinary resolves the emulator-server path. Checks common

@@ -159,79 +159,6 @@ export interface TranscriptTurnStartedPayload {
   [k: string]: unknown;
 }
 
-export interface TranscriptTraceDeltaPayload {
-  turn_id: string;
-  trace_id: string;
-  trace_kind: 'model_aux' | string;
-  text_append: string;
-  agent_id?: string;
-  part_id?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptTextDeltaPayload {
-  turn_id: string;
-  agent_id?: string;
-  part_id?: string;
-  field: 'thought' | 'answer';
-  text_append: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptActionAddedPayload {
-  turn_id: string;
-  action: TranscriptAction;
-  [k: string]: unknown;
-}
-
-export type TranscriptAction =
-  | TranscriptAgentCallAction
-  | TranscriptToolCallAction
-  | TranscriptReturnAction
-  | (Record<string, unknown> & { kind?: string; type?: string; call_id?: string });
-
-export interface TranscriptAgentCallAction {
-  kind: 'agent_call';
-  call_id: string;
-  target_agent: string;
-  prompt?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptToolCallAction {
-  kind: 'tool_call';
-  call_id: string;
-  tool_name: string;
-  input?: unknown;
-  thought?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptReturnAction {
-  kind: 'return';
-  call_id: string;
-  target_agent?: string;
-  parent_agent?: string;
-  text?: string;
-  response?: string;
-  summary?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptCallResultDeltaPayload {
-  call_id: string;
-  content_type?: string;
-  text_append?: string;
-  value_append?: unknown;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
 export interface TranscriptTurnCompletedPayload {
   turn_id: string;
   tokens?: { input?: number; output?: number; total?: number };
@@ -369,11 +296,68 @@ export interface LmProviderFailedPayload {
 }
 
 /**
- * `memory.compacted` — the memory subsystem compacted stored session context
- * (SPEC §7, vendor). Distinct from `session.compacted`, which is the
- * transcript-level compaction that produces a compaction Part.
+ * `session.cleared` — the `/clear` backend command wiped the session
+ * ledger (policy-guarded, SPEC §7.3a). Carries only the session id.
  */
-export interface MemoryCompactedPayload {
+export interface SessionClearedPayload {
   session_id: string;
+}
+
+/**
+ * `session.undo` / `session.rewind` — a rollback was committed (SPEC §6.2 /
+ * §7.3a). Emitted after the per-message `message.deleted` events and before
+ * the authoritative `session.updated`. For `undo`, `target_message_id` is
+ * `""` and `include_target` is `false`.
+ */
+export interface SessionRollbackPayload {
+  session_id: string;
+  deleted_message_ids: string[];
+  target_message_id: string;
+  include_target: boolean;
   [k: string]: unknown;
 }
+
+/**
+ * `message.deleted` — a message was removed (SPEC §7.3a). `operation` is
+ * `undo` | `rewind` on a rollback; absent for a direct delete.
+ */
+export interface MessageDeletedPayload {
+  message_id: string;
+  session_id: string;
+  operation?: 'undo' | 'rewind' | string;
+  [k: string]: unknown;
+}
+
+/**
+ * `file.diff.applied` / `file.diff.rejected` / `file.diff.write_failed` —
+ * the diff apply lifecycle (SPEC §6.10 / §7.3a). `error` is present only on
+ * `write_failed`.
+ */
+export interface FileDiffAppliedPayload {
+  session_id: string;
+  path: string;
+  part_id: string;
+  message_id: string;
+  error?: string;
+  [k: string]: unknown;
+}
+
+/**
+ * `turn.retry_requested` / `.retry_running` / `.retry_completed` /
+ * `.retry_failed` / `.retry_cancelled` — the retry lifecycle (SPEC §6.24).
+ * The payload is the full flat TurnAttempt; kept as an open record so the
+ * wire layer does not pin the attempt shape.
+ */
+export interface TurnRetryPayload {
+  [k: string]: unknown;
+}
+
+/**
+ * `OpaqueEventPayload` — vendor / opaque event payloads the client tolerates
+ * but does not model: `arc.op`, `agent.reasoning.delta`, `subagent.*`,
+ * `tool.selection.invalid`, `context.file.*`, the memory-tool audit sextet,
+ * and every spec-only `mcp.*` / `file.changed` / `diff.generated` /
+ * `session.agent_routed` / `workspace.updated` type. House style: a loose
+ * record with a trailing index signature.
+ */
+export type OpaqueEventPayload = Record<string, unknown>;
