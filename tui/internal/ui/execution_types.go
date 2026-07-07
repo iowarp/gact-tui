@@ -38,6 +38,13 @@ type executionTimelineNode struct {
 	Status      string
 	Summary     string
 	Structured  any
+	// ProviderThinking marks a react-step node whose Thinking is provider-native
+	// reasoning (metadata.thinking_source == "provider", e.g. the Claude Code
+	// SDK) rather than a ReAct next_thought. The renderer collapses it to a
+	// single muted `thinking · N chars · Ctrl+E` disclosure row (web parity:
+	// ProviderThinkingDisclosure) instead of spilling the full prose inline; the
+	// full text stays on Thinking for the Ctrl+E detail view.
+	ProviderThinking bool
 	// HasRawDetail marks a tool node whose result carries a raw payload
 	// (metadata.raw_result) beyond the inline preview; the renderer paints the
 	// `detail: raw · Ctrl+E expand` affordance line (flat-render parity).

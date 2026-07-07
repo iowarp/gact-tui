@@ -15,7 +15,14 @@ func addressablePartsOf(m gact.Message) []int {
 	for i, p := range m.Parts {
 		switch p.Type {
 		case gact.PartTypeThinking:
-			continue
+			// Provider-native thinking renders as a one-row disclosure
+			// (`thinking · N chars · Ctrl+E` — #233 box 3), so the row is
+			// addressable: the cursor can land on it and Ctrl+E opens the full
+			// prose. Regular ReAct next_thought renders inline inside its step
+			// and stays cursor-transparent.
+			if !isProviderThinkingPart(p) {
+				continue
+			}
 		case gact.PartTypeText:
 			if strings.TrimSpace(p.Text) == "" {
 				continue
