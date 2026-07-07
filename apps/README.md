@@ -74,6 +74,30 @@ Full sequence in [FIRST-RUN.md](FIRST-RUN.md).
 
 ---
 
+## Backend ports & default host
+
+Two different servers, two different default ports — don't conflate them:
+
+| Port | Server | Role |
+|---|---|---|
+| **17800** | `clio-agent` (clio) | The shipped product backend the web + desktop UIs talk to. The web app's default backend URL lives in one place, `apps/web/src/backendDefaults.ts`. |
+| **7777** | the emulator / gact TUI | The Go emulator default (`emulator/cmd/emulator-server/main.go`) and the TUI's dev default (`tui/main.go`) — a separate contract-conformance server, **not** the product backend. Changing the TUI's dev default is an owner decision and is intentionally left unchanged. |
+
+**Host split (`127.0.0.1` vs `localhost`).** `backendDefaults.ts` exports
+the default at port 17800 in both host forms and preserves each existing
+call site's host rather than flipping everything to one:
+
+- `DEFAULT_BACKEND_URL` — `http://127.0.0.1:17800` (connect form, fixture
+  seeds).
+- `DEFAULT_BACKEND_URL_LOCALHOST` — `http://localhost:17800` (pure-web
+  splash probe, remote-backend wizard prefill).
+
+The pure-web candidate list (`routes/splashBackend.ts`) probes both forms
+in order, and both are pinned by tests, so the two host forms are kept
+distinct on purpose.
+
+---
+
 ## Build from source
 
 ```sh
