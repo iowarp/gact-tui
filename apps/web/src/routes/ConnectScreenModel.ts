@@ -2,7 +2,10 @@
  * Pure connect-screen helpers: backend URL normalisation, the capabilities
  * endpoint, bearer auth headers, and the local-vs-remote host check.
  */
-export const DEFAULT_CONNECT_URL = 'http://127.0.0.1:17800';
+import { DEFAULT_BACKEND_URL } from '../backendDefaults.js';
+
+/** Re-export of the shared default (loopback-IP host form). */
+export const DEFAULT_CONNECT_URL = DEFAULT_BACKEND_URL;
 
 export function normalizedBackendBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
