@@ -54,10 +54,10 @@ func wireConfigCallbacks(app *ui.App, startBackend string, backendFlag, themeFla
 		if err != nil {
 			return "", err
 		}
-		nextTheme := config.Resolve(newCfg.Theme, os.Getenv("GACT_THEME"), *themeFlag, defaultTheme)
+		nextTheme := config.Resolve(newCfg.Theme, os.Getenv("GACT_THEME"), *themeFlag, config.DefaultTheme)
 		nextLocale := config.Resolve(newCfg.Locale, os.Getenv("GACT_LOCALE"), "", "en")
 		nextVoice := config.Resolve(newCfg.VoiceCommand, os.Getenv("GACT_VOICE_CMD"), *voiceCmdFlag, "")
-		nextBackend := config.Resolve(newCfg.BackendURL, os.Getenv("GACT_BACKEND"), *backendFlag, defaultBackend)
+		nextBackend := config.Resolve(newCfg.BackendURL, os.Getenv("GACT_BACKEND"), *backendFlag, config.DefaultBackend)
 		app.Theme = ui.ThemeForMode(ui.ParseThemeMode(nextTheme))
 		app.SetLocale(nextLocale)
 		app.VoiceCommand = nextVoice

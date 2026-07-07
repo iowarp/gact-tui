@@ -19,6 +19,14 @@ import (
 	"path/filepath"
 )
 
+// DefaultBackend and DefaultTheme are the built-in defaults at the bottom
+// of the resolution precedence (defaults < config file < env < flags).
+// Shared by the CLI (internal/cli) and the interactive TUI entry point.
+const (
+	DefaultBackend = "http://localhost:7777"
+	DefaultTheme   = "dark"
+)
+
 // Config is the on-disk shape. Fields are pointers so we can tell
 // "absent from file" from "explicitly set to zero" — important for
 // layering with env vars and flags.
