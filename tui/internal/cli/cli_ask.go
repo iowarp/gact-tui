@@ -23,24 +23,22 @@ import (
 // Exits 0 on a non-empty reply, 1 if no assistant text appeared
 // after the wait, 2 on bad args.
 func runAsk(args []string) int {
-	fs := flag.NewFlagSet("ask", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
-	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--timeout": true, "-timeout": true,
-		"--interval": true, "-interval": true,
+	var interval *time.Duration
+	cc, rest, code := newCmdCtx("ask", args,
+		withTimeout(5*time.Minute, "abandon wait after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			interval = fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact ask <session_id> <question|-> [--timeout DUR] [--interval DUR]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	question := fs.Arg(1)
+	sid := rest[0]
+	question := rest[1]
 	if question == "-" {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -54,8 +52,7 @@ func runAsk(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 
 	// Snapshot the message count BEFORE sending so we know which
 	// assistant messages are "new" replies vs pre-existing context.
@@ -81,7 +78,7 @@ func runAsk(args []string) int {
 	}
 	postCancel()
 
-	deadline := time.Now().Add(*timeout)
+	deadline := time.Now().Add(cc.timeout)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		s, err := c.GetSession(ctx, sid)

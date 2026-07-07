@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runContext dispatches the `gact context <verb>` subcommand family
@@ -52,26 +51,25 @@ func runContext(args []string) int {
 }
 
 func runContextList(args []string) int {
-	fs := flag.NewFlagSet("context list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	// PPPP1: --format json emits the raw ContextFile array for jq
-	// pipelines. Default tsv kept for back-compat.
-	format := fs.String("format", "tsv", "tsv | json")
-	// AAAAA1: --mode filters to one of read|edit|pin. Empty = all.
-	modeFilter := fs.String("mode", "", "filter by mode: read|edit|pin; empty = all")
-	// AAAAA1: --glob filters by Go path.Match against the entry's
-	// path (with basename fallback like ZZZZ1).
-	glob := fs.String("glob", "", "filter by Go path.Match pattern (e.g. '*.go'); basename fallback")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-		"--mode": true, "-mode": true,
-		"--glob": true, "-glob": true,
+	var (
+		format     *string
+		modeFilter *string
+		glob       *string
+	)
+	cc, rest, code := newCmdCtx("context list", args, withFlags(func(fs *flag.FlagSet) {
+		// PPPP1: --format json emits the raw ContextFile array for jq
+		// pipelines. Default tsv kept for back-compat.
+		format = fs.String("format", "tsv", "tsv | json")
+		// AAAAA1: --mode filters to one of read|edit|pin. Empty = all.
+		modeFilter = fs.String("mode", "", "filter by mode: read|edit|pin; empty = all")
+		// AAAAA1: --glob filters by Go path.Match against the entry's
+		// path (with basename fallback like ZZZZ1).
+		glob = fs.String("glob", "", "filter by Go path.Match pattern (e.g. '*.go'); basename fallback")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact context list <session_id> [--format tsv|json] [--mode read|edit|pin] [--glob PATTERN] [--backend URL]")
 		return 2
 	}
@@ -91,9 +89,8 @@ func runContextList(args []string) int {
 			return 2
 		}
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	files, err := c.ListContextFiles(ctx, sid)

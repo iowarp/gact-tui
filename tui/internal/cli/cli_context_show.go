@@ -12,21 +12,17 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func runContextShow(args []string) int {
-	fs := flag.NewFlagSet("context show", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "text | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
+	var format *string
+	cc, rest, code := newCmdCtx("context show", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "text | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact context show <session_id> <path> [--format text|json] [--backend URL]")
 		return 2
 	}
@@ -34,10 +30,9 @@ func runContextShow(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact context show: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
-	sid := fs.Arg(0)
-	filePath := fs.Arg(1)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	filePath := rest[1]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	content, err := c.ContextFileContent(ctx, sid, filePath)
