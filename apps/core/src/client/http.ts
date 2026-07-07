@@ -5,7 +5,7 @@ import {
 } from './session_voice.js';
 import { sessionSseUrl } from './sse.js';
 import { SessionOperationsClient } from './session_operations_client.js';
-export { HttpError, type ClientOptions } from './transport.js';
+export { HttpError, TransportTimeoutError, type ClientOptions } from './transport.js';
 export type { HookEvent, HookRow } from './hooks.js';
 
 /**

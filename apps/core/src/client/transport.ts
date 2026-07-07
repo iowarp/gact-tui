@@ -1,6 +1,6 @@
-import { HttpError } from './http_error.js';
+import { HttpError, TransportTimeoutError } from './http_error.js';
 
-export { HttpError } from './http_error.js';
+export { HttpError, TransportTimeoutError } from './http_error.js';
 export { bytesToBase64, normalizeWorkspaceMediaType } from './workspace_media.js';
 
 export interface ClientOptions {
@@ -14,6 +14,17 @@ export interface ClientOptions {
    * Return `null`/`undefined` to send no header.
    */
   getLocale?: () => string | null | undefined;
+  /**
+   * Per-request timeout in milliseconds for the shared HTTP transport
+   * (JSON GET/POST/PUT/DELETE and `response()`), applied to every call.
+   * Defaults to 30_000 (30s). Pass `0` or `Infinity` to disable — no timer
+   * is armed and the caller's own signal (if any) governs cancellation.
+   *
+   * Note: this covers only the request/response transport. SSE streams open
+   * their own long-lived fetch with a dedicated AbortController and are never
+   * subject to this timeout.
+   */
+  timeoutMs?: number;
 }
 
 export class HttpTransport {
@@ -92,6 +103,35 @@ export class HttpTransport {
     new Headers(init.headers).forEach((value, key) => {
       headers[key] = value;
     });
-    return await this.fetchImpl(url, { ...init, headers });
+
+    const callerSignal = init.signal ?? undefined;
+    const timeoutMs = this.options.timeoutMs ?? 30_000;
+    // 0 / Infinity (or any non-positive/non-finite value) disables the timer;
+    // the caller's own signal, if present, still governs cancellation.
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return await this.fetchImpl(url, { ...init, headers, signal: callerSignal });
+    }
+
+    const timeoutController = new AbortController();
+    const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+    // Compose the timeout with the caller's signal so either can cancel; when
+    // no caller signal is supplied, the timeout signal stands alone.
+    const signal = callerSignal
+      ? AbortSignal.any([callerSignal, timeoutController.signal])
+      : timeoutController.signal;
+
+    try {
+      return await this.fetchImpl(url, { ...init, headers, signal });
+    } catch (err) {
+      // Distinguish a timeout-driven abort from a caller-driven one: only the
+      // former becomes the typed TransportTimeoutError; a caller abort re-throws
+      // its original AbortError untouched.
+      if (timeoutController.signal.aborted && !(callerSignal?.aborted ?? false)) {
+        throw new TransportTimeoutError(url, timeoutMs);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
