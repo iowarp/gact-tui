@@ -1367,9 +1367,7 @@ shape.
 ### Drift 3 — Part deltas key by `part_id`, not `part_index`
 `message.part.delta` carries `{message_id, part_id, delta: {text_append}}`
 per SPEC §7.4. The harness reducer expected `part_index` flat on the
-envelope. `applyTextAppend` now takes `partId`; the index-based variant
-lives at `applyTextAppendAtIndex` for fixture data that pre-dates the
-spec-aligned Part `id` field.
+envelope. `applyTextAppend` now takes `partId`.
 
 The wider GactEvent taxonomy now matches SPEC §7.3 (server.connected,
 session.created/updated/deleted/status_changed/summarized/compacted,
