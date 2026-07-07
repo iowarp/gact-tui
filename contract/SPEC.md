@@ -549,6 +549,22 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > Provider-native reasoning arrives as `type: "thinking"` parts with
 > `metadata: {thinking_source: "provider", provider_source: "...",
 > default_collapsed: true}`.
+>
+> **Delegation / expert-handoff return envelope** (clio): the terminal
+> part of a delegated (sub)agent's turn carries the `expert_handoff`
+> envelope on `metadata` — the vendor fields a transcript client reads to
+> render a `↩ child returns to parent` row. Keys: `agent_id`; `stage`
+> (e.g. `"delegate.completed"` | `"parent.resumed"`); `status` (e.g.
+> `"completed"`); `resumed_from` (the stage a parent resumed from, when
+> applicable); `output` (the terminal deliverable, a copy of the `answer`
+> text); `output_summary` (the cleaned one-line summary of `output`);
+> `output_raw` (the structured child result — JSON for data/analysis
+> returns, empty for prose returns); and `workflow_state` (the typed
+> workflow dictionary, also surfaced on the message per §4.4). The
+> remaining keys (`delegate_to`, `question`, `thought`, `depth`,
+> `duration_ms`, `pack_id`, `provider_id`, `model_id`, …) are routing /
+> bookkeeping. Generic clients ignore the envelope; it is a clio vendor
+> extension.
 
 **Streaming deltas** for parts are sent via SSE events (§7.4).
 
