@@ -18,11 +18,11 @@ func runTUI() {
 		fmt.Fprintf(os.Stderr, "gact: warning — failed to read %s: %v\n", cfgPath, cfgErr)
 	}
 
-	backend := flag.String("backend", defaultBackend,
+	backend := flag.String("backend", config.DefaultBackend,
 		"GACT backend URL (env: GACT_BACKEND, config: backend_url)")
 	workspace := flag.String("workspace", "",
 		"startup workspace id, exact name, or root path (env: GACT_WORKSPACE, config: workspace)")
-	theme := flag.String("theme", defaultTheme,
+	theme := flag.String("theme", config.DefaultTheme,
 		"colour theme (env: GACT_THEME, config: theme) — use --list-themes to see options")
 	voiceCmd := flag.String("voice-cmd", "",
 		"shell cmd that writes audio/wav to stdout (env: GACT_VOICE_CMD, config: voice_command)")
@@ -42,9 +42,9 @@ func runTUI() {
 		return
 	}
 
-	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, defaultBackend)
+	finalBackend := config.Resolve(cfg.BackendURL, os.Getenv("GACT_BACKEND"), *backend, config.DefaultBackend)
 	finalWorkspace := config.Resolve(cfg.Workspace, os.Getenv("GACT_WORKSPACE"), *workspace, "")
-	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, defaultTheme)
+	finalTheme := config.Resolve(cfg.Theme, os.Getenv("GACT_THEME"), *theme, config.DefaultTheme)
 
 	// Load a user-supplied custom theme if present at ~/.config/gact/theme.json.
 	// Failures are non-fatal: the TUI still boots with the resolved theme.

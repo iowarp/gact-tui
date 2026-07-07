@@ -22,7 +22,7 @@ TUI_BUILD_DIRTY    := $(shell test -n "$$(git status --porcelain --untracked-fil
 # (+ -dirty when the tree has uncommitted changes), e.g. v0.3.0-2098-g31c252e7.
 TUI_VERSION        := $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null)
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
-TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildTime=$(TUI_BUILD_TIME) -X main.buildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
+TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
 .PHONY: help build build-emulator build-tui test test-race \
         run-emulator run-tui ping list \
