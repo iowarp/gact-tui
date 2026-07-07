@@ -38,9 +38,8 @@ export function findBalancedJsonEnd(text: string, start: number): number {
  *
  * - The presentation default rounds numbers via {@link formatNumber}, humanizes
  *   booleans (`yes`/`no`), and joins the first four array entries.
- * - The execution-projection variant
- *   ({@link import('./components/executionProjectionHelpers.js').stringValue})
- *   passes `rawScalar: true` to render numbers/booleans with full-precision
+ * - The execution-projection variant passes `rawScalar: true` to render
+ *   numbers/booleans with full-precision
  *   `String(value)` (full-precision numbers, `true`/`false`) and collapses
  *   arrays/objects to an empty string, which the report copy relies on.
  */

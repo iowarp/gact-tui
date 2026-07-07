@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyTextAppend,
-  applyTextAppendAtIndex,
   appendPart,
   mergeMessages,
   upsertMessage,
@@ -37,11 +36,6 @@ describe('transcript store', () => {
     };
     const out = applyTextAppend([msg], 'm1', 'p2', '…');
     expect((out[0]!.parts[0] as { thinking?: string }).thinking).toBe('pondering…');
-  });
-
-  it('index-based fallback still works for fixture data', () => {
-    const out = applyTextAppendAtIndex([baseMsg], 'm1', 0, ', world');
-    expect((out[0]!.parts[0] as { text: string }).text).toBe('Hello, world');
   });
 
   it('appends a new part', () => {

@@ -6,8 +6,7 @@ import type { Message, Part } from '../wire/types.js';
  * Tolerates unknown ids by returning the messages array unchanged.
  *
  * Per SPEC §7.4 `message.part.delta`, the payload identifies the part by
- * id. The legacy index-based variant lives at `applyTextAppendAtIndex`
- * for fixtures that don't carry stable ids.
+ * id.
  */
 export function applyTextAppend(
   messages: Message[],
@@ -19,33 +18,6 @@ export function applyTextAppend(
     if (m.id !== messageId) return m;
     const parts: Part[] = m.parts.map((p) => {
       if (p.id !== partId) return p;
-      if (p.type === 'text') {
-        return { ...p, text: (p.text ?? '') + textAppend };
-      }
-      if (p.type === 'thinking') {
-        const cur = p.thinking ?? p.text ?? '';
-        return { ...p, thinking: cur + textAppend };
-      }
-      return p;
-    });
-    return { ...m, parts };
-  });
-}
-
-/**
- * Index-based variant for fixture data that pre-dates the spec-aligned
- * part `id` field. Falls back to no-op when out of range.
- */
-export function applyTextAppendAtIndex(
-  messages: Message[],
-  messageId: string,
-  partIndex: number,
-  textAppend: string,
-): Message[] {
-  return messages.map((m) => {
-    if (m.id !== messageId) return m;
-    const parts: Part[] = m.parts.map((p, i) => {
-      if (i !== partIndex) return p;
       if (p.type === 'text') {
         return { ...p, text: (p.text ?? '') + textAppend };
       }
