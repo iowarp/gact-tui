@@ -1,11 +1,18 @@
 //! SSH tunnel manager (Wave 3).
 //!
 //! Spawns `ssh -L <local_port>:127.0.0.1:<remote_port> <user>@<host>` for
-//! a backend whose `kind` is `ssh-tunnel`, parses the early child output
-//! to detect the standard "Permission denied" / "Connection closed" /
-//! "Authentication failed" patterns, and stores the key passphrase in
-//! the OS keychain via the `keyring` crate (Windows Credential Manager
-//! / macOS Keychain / kwallet|secret-service on Linux).
+//! a backend whose `kind` is `ssh-tunnel`, then hands the child to the
+//! reaper. The child's stdin is `/dev/null` and its stdout/stderr are
+//! inherited, so this module does NOT parse the child's output — there
+//! is no "Permission denied" / "Authentication failed" detection here.
+//! A failure surfaces the same way it would at a terminal: the `ssh`
+//! process exits and the forwarded local port never starts serving.
+//!
+//! Authentication is delegated entirely to `ssh` itself: an unencrypted
+//! key (`-i <key_path>`) or an agent-provided identity (ssh-agent). This
+//! process supplies no passphrase — an encrypted key with no agent loaded
+//! cannot be unlocked here and the tunnel will fail to come up. Wiring an
+//! `SSH_ASKPASS` helper for that case is tracked as follow-up work.
 //!
 //! The tunnel handle's lifecycle is the same shape as the sidecar
 //! supervisor: spawn → poll for ready → store the Child for reaping
@@ -14,13 +21,12 @@
 //! IMPORTANT: this module assumes `ssh` is on PATH. The Tauri shell
 //! exposes a `tunnel_open` command that surfaces the typed error to
 //! the frontend so the AddRemote wizard can render an actionable
-//! message ("install OpenSSH client" / "wrong passphrase" / etc.).
+//! message (e.g. "install OpenSSH client").
 
 use std::{process::Child, sync::Mutex, time::Duration};
 
 use crate::net_util::pick_free_port;
 use crate::ssh_command::{build_ssh_forward_command, ssh_available};
-use crate::ssh_keyring::store_passphrase;
 use crate::ssh_types::{TunnelError, TunnelErrorCode, TunnelHandle, TunnelRequest};
 
 pub struct TunnelManager {
@@ -36,8 +42,9 @@ impl TunnelManager {
         }
     }
 
-    /// Spawns an `ssh -L` tunnel and (if a passphrase is given) records
-    /// it in the OS keychain under `(KEYRING_SERVICE, user@host)`.
+    /// Spawns an `ssh -L` tunnel. Authentication is left to `ssh`
+    /// (agent identity or unencrypted `-i` key); no passphrase is
+    /// supplied by this process.
     ///
     /// Returns immediately once the child is alive; callers can poll
     /// the local URL for /v1/capabilities like they do with the sidecar.
@@ -53,10 +60,6 @@ impl TunnelManager {
             code: TunnelErrorCode::PortAllocation,
             message: format!("port allocation failed: {e}"),
         })?;
-
-        if let Some(secret) = req.passphrase.as_deref() {
-            store_passphrase(&req.user, &req.host, secret)?;
-        }
 
         let mut cmd = build_ssh_forward_command(&req, local_port);
         let child = cmd.spawn().map_err(|e| TunnelError {

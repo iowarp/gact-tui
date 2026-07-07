@@ -130,14 +130,16 @@ implemented scheme.
   ```
   No agent forwarding (`-A`), no X11 (`-X`), no `StrictHostKeyChecking
   no`. The user's `~/.ssh/known_hosts` is the authoritative source.
-- The key passphrase, if provided, is written to the **OS keychain**
-  via the `keyring` crate. The `keyring` features are restricted to
-  `windows-native`, `apple-native`, `linux-native` — no in-memory or
-  in-process fallback; if the keychain is unavailable the spawn fails
-  with `KeychainWriteFailed` and the user is shown an error card.
-- Service identifier: `ai.iowarp.clio.desktop.ssh`. Account:
-  `user@host`. Uninstall the app does **not** wipe these; clear them
-  with the OS-native credentials tool.
+  The `-i <key_path>` flag is included only when a key path was
+  provided in the wizard.
+- Authentication is delegated entirely to `ssh` itself: an
+  agent-provided identity (ssh-agent) or an unencrypted key file
+  (`-i <key_path>`). The app supplies no passphrase and stores **no**
+  SSH secrets anywhere — nothing is written to the OS keychain. An
+  encrypted key with no agent loaded cannot be unlocked by the app;
+  the tunnel simply fails to come up, exactly as it would at a
+  terminal. Wiring an `SSH_ASKPASS` helper for that case is tracked
+  as follow-up work.
 
 ## File access
 

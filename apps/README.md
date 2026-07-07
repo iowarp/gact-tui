@@ -48,8 +48,8 @@ Tagged releases live at
 - **Cmd+K / Ctrl+K** slash palette, **@-mention** picker for files /
   agents / tools.
 - Multi-backend picker — register a remote backend over HTTP or open
-  an SSH tunnel from the desktop shell (`ssh -L` with passphrase
-  stored in the OS keychain).
+  an SSH tunnel from the desktop shell (`ssh -L`, authenticating via
+  ssh-agent or an unencrypted key file; no secrets are stored).
 - Tray icon + OS notifications when a run finishes and the window is
   unfocused.
 

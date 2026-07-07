@@ -38,7 +38,7 @@ the supervisor reports the failure as an actionable error card.
 | Launcher binary (per triple)            | Bundled next to the executable, named `clio-agent-<triple>{.exe}`                       |
 | `clio-agent-gact` server (Python)       | `~/.local/share/clio/clio-agent/.venv/` on Linux + macOS; `%LOCALAPPDATA%\clio\clio-agent\.venv\` on Windows |
 | Frontend registry (multiple backends)   | Browser `localStorage` key `clio.backends.v1`                                          |
-| SSH passphrases                         | OS keychain — Windows Credential Manager / macOS Keychain / Linux secret-service-or-kwallet, service `ai.iowarp.clio.desktop.ssh`, account `user@host` |
+| SSH passphrases                         | Not stored — SSH auth is delegated to `ssh` itself (ssh-agent identity or unencrypted `-i` key); the app never handles or persists passphrases |
 | Sidecar logs                            | stdout/stderr of the Tauri parent process; visible if launched from a terminal         |
 
 The frontend itself stores **no** bearer tokens for the bundled

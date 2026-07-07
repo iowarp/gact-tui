@@ -53,7 +53,6 @@ mod tests {
             user: "alice".into(),
             remote_port: 8910,
             key_path: "/tmp/id_ed25519".into(),
-            passphrase: None,
         };
 
         let cmd = build_ssh_forward_command(&req, 4567);
@@ -91,7 +90,6 @@ mod tests {
             user: "alice".into(),
             remote_port: 8910,
             key_path: String::new(),
-            passphrase: None,
         };
 
         let cmd = build_ssh_forward_command(&req, 4567);
