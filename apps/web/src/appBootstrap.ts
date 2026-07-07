@@ -5,6 +5,7 @@
 import { brand } from '@brand';
 import type { Capabilities } from '@clio/core';
 import type { BackendRegistry } from './registry.js';
+import { DEFAULT_BACKEND_URL } from './backendDefaults.js';
 
 export function hostLabel(u: string): string {
   try {
@@ -69,7 +70,7 @@ export function seedFixtureBackends(registry: BackendRegistry) {
   registry.add({
     id: 'clio:local',
     label: `Local ${brand.name}`,
-    url: 'http://127.0.0.1:17800',
+    url: DEFAULT_BACKEND_URL,
     bearerToken: 'demo-token',
     kind: 'local-sidecar',
     capabilities: synthCapabilities(),

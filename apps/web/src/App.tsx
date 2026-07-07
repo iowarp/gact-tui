@@ -111,7 +111,8 @@ export function App() {
 
   // Default route is the Splash. Inside Tauri it polls the Rust supervisor
   // until the bundled sidecar reports ready; in a pure browser it auto-
-  // probes http://localhost:17800/v1/capabilities. The connect form only
+  // probes the default backend (backendDefaults.ts, :17800)
+  // /v1/capabilities. The connect form only
   // appears as a fallback when the pure-web probe fails — it is NEVER the
   // default route. (Per the product correction in
   // memory/feedback_clio_desktop_sidecar.md and Wave 0 in apps/PLAN.md.)

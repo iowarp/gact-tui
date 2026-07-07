@@ -4,9 +4,11 @@
  */
 import { brand } from '@brand';
 import type { InstallFailure } from '../tauri.js';
+import { DEFAULT_BACKEND_URL_LOCALHOST } from '../backendDefaults.js';
 
 export const SPLASH_INTRO_KEY = 'clio.splash.intro.v1';
-export const PURE_WEB_DEFAULT_BACKEND = 'http://localhost:17800';
+/** Re-export of the shared default (hostname host form). */
+export const PURE_WEB_DEFAULT_BACKEND = DEFAULT_BACKEND_URL_LOCALHOST;
 export const PURE_WEB_PROBE_TIMEOUT_MS = 2_500;
 export const TAURI_POLL_INTERVAL_MS = 250;
 export const TAURI_MAX_WAIT_MS = 30_000;
