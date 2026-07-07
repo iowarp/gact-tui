@@ -52,12 +52,13 @@ pub(crate) fn run_stream<F: FnMut(SseMessage)>(
         match reader.read_line(&mut line) {
             Ok(0) => break, // EOF — server closed the stream
             Ok(_) => {
-                if let Some(data) = parser.push_line(&line) {
-                    emit(SseMessage::event(data));
+                if let Some(ev) = parser.push_line(&line) {
+                    emit(SseMessage::event(ev.data, ev.id));
                 }
-                // event:/id:/retry:/`:`-comment lines carry no payload the
-                // reducer needs (it reads `type` from the data JSON), so
-                // they're ignored.
+                // event:/retry:/`:`-comment lines carry no payload the reducer
+                // needs (it reads `type` from the data JSON); the `id:` value
+                // is captured by the accumulator and surfaced on `SseMessage`
+                // so the frontend can resume via Last-Event-ID.
             }
             Err(e) => {
                 emit(SseMessage::error(format!("sse read: {e}")));
