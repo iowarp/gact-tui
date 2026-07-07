@@ -17,20 +17,17 @@ import (
 // transport / API error. Symmetric with the TUI's Ctrl+X but reachable
 // from shell scripts.
 func runCancel(args []string) int {
-	fs := flag.NewFlagSet("cancel", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("cancel", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact cancel <session_id> [--backend URL]")
 		return 2
 	}
-	sid := fs.Arg(0)
+	sid := rest[0]
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := c.CancelSession(ctx, sid); err != nil {
@@ -45,24 +42,22 @@ func runCancel(args []string) int {
 // id once accepted, then blocks. Honours the same --timeout /
 // --interval flags as wait.
 func runRun(args []string) int {
-	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
-	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--timeout": true, "-timeout": true,
-		"--interval": true, "-interval": true,
+	var interval *time.Duration
+	cc, rest, code := newCmdCtx("run", args,
+		withTimeout(5*time.Minute, "abandon wait after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			interval = fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact run <session_id> <text|-> [--backend URL] [--timeout DUR] [--interval DUR]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	text := fs.Arg(1)
+	sid := rest[0]
+	text := rest[1]
 	if text == "-" {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -76,8 +71,7 @@ func runRun(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 
 	postCtx, postCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := c.PostMessage(postCtx, sid, client.PostMessageRequest{
@@ -90,7 +84,7 @@ func runRun(args []string) int {
 	}
 	fmt.Println(resp.MessageID)
 
-	deadline := time.Now().Add(*timeout)
+	deadline := time.Now().Add(cc.timeout)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		s, err := c.GetSession(ctx, sid)
@@ -103,7 +97,7 @@ func runRun(args []string) int {
 			return 0
 		}
 		if time.Now().After(deadline) {
-			fmt.Fprintf(os.Stderr, "gact run: timeout after %s (status=%s)\n", *timeout, s.Status)
+			fmt.Fprintf(os.Stderr, "gact run: timeout after %s (status=%s)\n", cc.timeout, s.Status)
 			return 2
 		}
 		time.Sleep(*interval)
@@ -122,19 +116,19 @@ func runRun(args []string) int {
 //	  gact wait "$SID" && \
 //	  gact tail "$SID" | head -20
 func runWait(args []string) int {
-	fs := flag.NewFlagSet("wait", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon after this long")
-	interval := fs.Duration("interval", 500*time.Millisecond, "poll cadence")
-	anyOf := fs.String("any-of", "", "comma-separated session ids; return on first idle (YYY1)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--timeout": true, "-timeout": true,
-		"--interval": true, "-interval": true,
-		"--any-of": true, "-any-of": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		interval *time.Duration
+		anyOf    *string
+	)
+	cc, rest, code := newCmdCtx("wait", args,
+		withTimeout(5*time.Minute, "abandon after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			interval = fs.Duration("interval", 500*time.Millisecond, "poll cadence")
+			anyOf = fs.String("any-of", "", "comma-separated session ids; return on first idle (YYY1)")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
 
 	// Build the list of sids to watch. --any-of comma-list takes
@@ -146,18 +140,17 @@ func runWait(args []string) int {
 				sids = append(sids, s)
 			}
 		}
-	} else if fs.NArg() == 1 {
-		sids = []string{fs.Arg(0)}
+	} else if len(rest) == 1 {
+		sids = []string{rest[0]}
 	}
 	if len(sids) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: gact wait <session_id> | --any-of sid1,sid2,... [--timeout DUR] [--interval DUR]")
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 
-	deadline := time.Now().Add(*timeout)
+	deadline := time.Now().Add(cc.timeout)
 	for {
 		// Poll each sid in this round; first to land idle wins.
 		// Single-id path stays trivially equivalent to the old
@@ -181,7 +174,7 @@ func runWait(args []string) int {
 		}
 		if time.Now().After(deadline) {
 			fmt.Fprintf(os.Stderr, "gact wait: timeout after %s (none of %d sessions idle)\n",
-				*timeout, len(sids))
+				cc.timeout, len(sids))
 			return 2
 		}
 		time.Sleep(*interval)
@@ -196,18 +189,16 @@ func runWait(args []string) int {
 //
 // Exits 0 on 202 Accepted; prints the returned message_id to stdout.
 func runSend(args []string) int {
-	fs := flag.NewFlagSet("send", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("send", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact send <session_id> <text|-> [--backend URL]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	text := fs.Arg(1)
+	sid := rest[0]
+	text := rest[1]
 	if text == "-" {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -221,8 +212,7 @@ func runSend(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
