@@ -135,6 +135,14 @@ type Options struct {
 	SkipRollbackEnvelope bool // §6.2 — undo/rewind response envelope keys
 	SkipCompactFocus     bool // §6.25 — POST /compact accepts {focus}
 
+	// SpecPath points at a contract/SPEC.md to enforce the §7.7 wire
+	// event-vocabulary drift class (Drift_EventVocabulary): every event
+	// type observed on the live SSE stream must be declared in §7.7
+	// (custom x.{vendor}.* types exempt). Empty ⇒ the section is skipped,
+	// so the `gact conformance` CLI and adapter callers that don't ship
+	// the SPEC stay backward-compatible.
+	SpecPath string
+
 	// HTTPTimeout bounds each RPC (not SSE). Default 10 s.
 	HTTPTimeout time.Duration
 
@@ -306,6 +314,11 @@ func Run(t Reporter, baseURL string, opts Options) {
 	suiteOwnsSession := sid != "" && opts.SessionID == ""
 	if sid != "" && !opts.SkipCapabilityTruth {
 		t.Run("Drift_CapabilityTruth", func(t Reporter) { checkCapabilityTruth(t, c, sid) })
+	}
+	if sid != "" && opts.SpecPath != "" && !opts.SkipSSE && !opts.SkipPostMessage {
+		t.Run("Drift_EventVocabulary", func(t Reporter) {
+			checkEventVocabulary(t, c, sid, wsID, opts.SpecPath, opts.SSEBudget)
+		})
 	}
 	if suiteOwnsSession && !opts.SkipSSEDrift && !opts.SkipSSE && !opts.SkipPostMessage {
 		t.Run("Drift_SSEReplayAndShapes", func(t Reporter) { checkSSEDrift(t, c, sid, opts.SSEBudget) })

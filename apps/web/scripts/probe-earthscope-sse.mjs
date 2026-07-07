@@ -156,18 +156,10 @@ function summarize(received, backendWrites, backendAudit) {
   }
 
   const deltas = received.filter((row) =>
-    ['turn.trace.delta', 'turn.text.delta', 'call.result.delta'].includes(row.event_type),
+    ['message.part.delta'].includes(row.event_type),
   );
   const normalized = received.filter((row) =>
-    [
-      'turn.started',
-      'turn.trace.delta',
-      'turn.text.delta',
-      'turn.action.added',
-      'call.result.delta',
-      'state.updated',
-      'turn.completed',
-    ].includes(row.event_type),
+    ['turn.started', 'state.updated', 'turn.completed'].includes(row.event_type),
   );
   const receiveLags = received
     .map((row) => msBetween(row.event_occurred_at, row.received_at))
@@ -202,9 +194,16 @@ function summarize(received, backendWrites, backendAudit) {
     max_delta_interarrival_ms: interarrival.length ? Math.max(...interarrival) : null,
     public_marker_leak_count: publicMarkerLeaks.length,
     completed: received.some((row) => row.event_type === 'turn.completed'),
-    has_trace_delta: received.some((row) => row.event_type === 'turn.trace.delta'),
-    has_text_delta: received.some((row) => row.event_type === 'turn.text.delta'),
-    has_tool_result_delta: received.some((row) => row.event_type === 'call.result.delta'),
+    has_trace_delta: received.some(
+      (row) =>
+        row.event_type === 'message.part.delta' &&
+        String(row.payload?.signature_field_name || '').startsWith('provider_thinking:'),
+    ),
+    has_text_delta: received.some(
+      (row) =>
+        row.event_type === 'message.part.delta' &&
+        !String(row.payload?.signature_field_name || '').startsWith('provider_thinking:'),
+    ),
   };
 }
 

@@ -3,21 +3,27 @@ name: CI
 on:
   push:
     branches: [main, develop]
-    # Pure media/doc changes don't affect any built or tested code.
-    paths-ignore:
-      - "**.png"
-      - "**.gif"
-      - "**.md"
-      - "screenshots/**"
-      - "docs/**"
+    # Pure media/doc changes don't affect any built or tested code — but
+    # contract/SPEC.md IS the source the Go/TS vocabulary gates enforce, so
+    # re-include it (ordered negation: last matching pattern wins).
+    paths:
+      - "**"
+      - "!**.png"
+      - "!**.gif"
+      - "!**.md"
+      - "!screenshots/**"
+      - "!docs/**"
+      - "contract/SPEC.md"
   pull_request:
     branches: [main, develop]
-    paths-ignore:
-      - "**.png"
-      - "**.gif"
-      - "**.md"
-      - "screenshots/**"
-      - "docs/**"
+    paths:
+      - "**"
+      - "!**.png"
+      - "!**.gif"
+      - "!**.md"
+      - "!screenshots/**"
+      - "!docs/**"
+      - "contract/SPEC.md"
 
 jobs:
   build-test:

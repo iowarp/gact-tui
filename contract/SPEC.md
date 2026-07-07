@@ -11,6 +11,13 @@
 > prose disagreed with the implementation, the implementation won.
 > `contract_version` is unchanged (**`0.2`**).
 >
+> **Addendum (2026-07-06).** Transcript wire vocabulary re-verified
+> against clio `develop @ e921eec` (iowarp/clio-agent#833): the
+> normalized `turn.text.delta` / `turn.trace.delta` / `turn.action.added`
+> / `call.result.delta` content twins were retired and are no longer
+> emitted; `message.part.*` (+ `message.created` / `message.completed`)
+> is the sole transcript vocabulary. See §7.3c.
+>
 > **Owner's direction (gact-tui#232): this spec is descriptive —
 > reality leads.** When the reference backend and the prose diverge,
 > the backend's wire is the contract and the prose gets rewritten to
@@ -1537,8 +1544,10 @@ Implemented `UserQuestion` (clio `types.py:UserQuestion`):
 
 Semantics (clio, descriptive):
 
-- **`expired` is declared but inert** — never set; `expires_at` is
-  stored, not enforced; there is no `user_question.expired` event.
+- **`expired` is declared but inert** — clio never sets it; `expires_at`
+  is stored, not enforced; **clio emits no `user_question.expired`
+  event**. (The event type is still valid spec surface: the emulator
+  emits it and the web keeps a listener — §7.3b.)
 - `kind: "confirmation"` with no options auto-injects Yes/No options.
 - `POST /questions`: 422 `bad_request` on empty prompt; always flips
   the session to `waiting_user` + stamps
@@ -1734,7 +1743,8 @@ sketch; the rest reflect clio's resource model.
 | `permission.requested` | interactive gate blocked (§6.11) | payload IS the **flat PermissionRequest row** (§4.7) — NOT `{permission: ...}`. Replayed copies may show post-resolution `status`/`action` (the payload is mutated by reference) |
 | `permission.resolved` | resolution (user or auto) | `{permission_id, action, session_id, reason?}` — arrives WITHOUT a matching `requested` event for all auto/direct resolutions |
 | `subagent.started` / `subagent.completed` | subsession lifecycle | §4.3 |
-| `turn.started` / `turn.completed` | normalized transcript channel (see §7.3c) | `{turn_id, agent_id}` / `{turn_id}`. **`turn.failed` is NOT a bus event** (semantic.event only, §7.6) |
+| `turn.started` / `turn.completed` | dual-namespace turn lifecycle (§7.3c) | `{turn_id, agent_id}` / `{turn_id}`. **`turn.failed` is NOT a bus event** (semantic.event only, §7.6) |
+| `state.updated` | turn state change (dual-namespace lifecycle, §7.3c) | `{turn_id, value, visibility: "hidden"}` |
 | `turn.retry_requested` / `turn.retry_running` / `turn.retry_completed` / `turn.retry_failed` / `turn.retry_cancelled` | retry lifecycle (§6.24) | full TurnAttempt (flat) |
 | `context.file.added` / `context.file.removed` | session context files (§6.9) | — |
 | `file.diff.applied` / `file.diff.rejected` | diff apply lifecycle (§6.10) | `{session_id, path, part_id, message_id}` |
@@ -1761,21 +1771,23 @@ batch `message.part.added` (`file_diff` part) plus a `semantic.event`
 `artifact.proposed` `{path, unified_diff, new_content, edit_mode,
 lines_added, lines_removed}`.
 
-#### §7.3c Normalized transcript channel (vendor, PROVISIONAL)
+#### §7.3c Normalized transcript channel — RETIRED (clio e921eec)
 
-clio double-publishes a normalized `turn.*` transcript channel on the
-same bus alongside `message.*`: `turn.started {turn_id, agent_id}`,
-`turn.completed {turn_id}`, `turn.text.delta {turn_id, agent_id,
-part_id, field: answer|thought, text_append}`, `turn.trace.delta
-{turn_id, trace_id, trace_kind: "model_aux", agent_id, part_id,
-text_append}`, `turn.action.added {turn_id, action: {kind:
-agent_call|return|tool_call, ...}}`, `call.result.delta {call_id,
-content_type, text_append, value_append?}`, and `state.updated
-{turn_id, value, visibility: "hidden"}`.
+The normalized channel's four *content* twins — `turn.text.delta`,
+`turn.trace.delta`, `turn.action.added`, and `call.result.delta` — were
+**retired in clio `e921eec` (iowarp/clio-agent#833)** and are no longer
+emitted on the bus. They were a provisional double-publish alongside
+`message.*` that never gained a single client consumer (no reducer,
+store, or Go code ever read them). `message.part.*` (+
+`message.created` / `message.completed`) is the **sole transcript wire
+vocabulary** (§7.3a, §7.4). Clients MUST NOT declare or depend on the
+retired types.
 
-**Status: provisional — codify-or-deprecate is tracked in
-iowarp/gact-tui#232.** It currently has zero client consumers; do NOT
-build on it until #232 resolves.
+The three *lifecycle* events `turn.started` / `turn.completed` /
+`state.updated` **remain** as dual-namespace lifecycle events —
+conservatively kept server-side because their semantic twins feed ARC.
+They carry `{turn_id, agent_id}` / `{turn_id}` / `{turn_id, value,
+visibility: "hidden"}` respectively and are listed in §7.3a.
 
 #### §7.3b Specified-but-not-emitted by clio
 
@@ -1793,13 +1805,15 @@ offers an alternative, it is noted.
 | `session.summarized` | not emitted | `session.compacted` (§6.25) |
 | `message.error` | not emitted | `message.completed.error_info` (§14) + `session.status_changed(error)` |
 | `tool.call.progress` | not emitted | — |
-| `mcp.server.status` / `mcp.*.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a) | poll `/v1/mcp/servers` |
+| `mcp.server.status` / `mcp.tools.list_changed` / `mcp.prompts.list_changed` / `mcp.resources.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a). Concrete names per the MCP notification mapping (§9.2) | poll `/v1/mcp/servers` |
 | `file.changed` | not emitted | — |
 | `diff.generated` | not emitted | `file.diff.*` cover apply/reject; proposal = batch `message.part.added` + semantic `artifact.proposed` |
 | `cost.updated` | not emitted | rollups arrive on `message.completed` |
 | `notification` | not emitted | — |
 | `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
+| `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
+| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; the web keeps forward-compat listeners (`LiveConnectionConfig.ts`) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 
@@ -1940,6 +1954,111 @@ detail and never appears on the wire. Durable tracing is controlled by
 > the unimplemented `session.agent_routed` / `memory.cache.updated`
 > events (§7.3b). It is NOT part of the generic GACT contract — treat it
 > as an opt-in vendor stream keyed off `x_clio_semantic_events`.
+
+### §7.7 Machine-checked wire event vocabulary (normative)
+
+The single source of truth for the SSE event-`type` vocabulary is the
+fenced block below. Every line is `<event.type> <implemented|spec-only>`
+(grammar `/^([a-z][a-z0-9_.]*) (implemented|spec-only)$/`, one entry per
+line, blank lines and `#` comments ignored): `implemented` = the
+reference backend (clio) publishes the type on the bus today (§7.3a);
+`spec-only` = valid spec surface that clio does not emit (§7.3b) but
+another backend (e.g. the emulator) or a forward-compat client may
+legitimately carry. The block is `§7.3a ∪ §7.3b` restricted to the
+concrete event *types* — the semantic-spine `event_type` vocabulary
+(§7.6) and the never-a-bus-type rows (`turn.failed`,
+`memory.cache.updated`, `integration.status_changed`) are deliberately
+absent. Custom `x.{vendor}.*` types (§8.4) are out of scope and exempt.
+
+This block is enforced in both directions by two tests, so a client type
+missing from the spec — or a spec type no client declares — fails CI:
+
+- `apps/core/tests/spec_vocabulary.test.ts` asserts set-equality with
+  the TypeScript `WIRE_EVENT_TYPES` canonical array, which is itself
+  compile-time-equal to the `GactEvent` discriminated union (`satisfies`
+  + an `AssertNever` exhaustiveness guard).
+- `contract/conformance/vocabulary_checks.go` (`Drift_EventVocabulary`)
+  asserts every observed live `data.type` on the SSE stream is present
+  in this block.
+
+```wire-vocabulary
+# implemented — clio publishes these on the bus today (§7.3a)
+agent.reasoning.delta implemented
+arc.op implemented
+context.file.added implemented
+context.file.removed implemented
+file.diff.applied implemented
+file.diff.rejected implemented
+file.diff.write_failed implemented
+lm.provider.changed implemented
+lm.provider.failed implemented
+mcp.server.error implemented
+mcp.server.reconnected implemented
+memory.search.completed implemented
+memory_read_context_frame.completed implemented
+memory_read_context_frame.denied implemented
+memory_read_session_summary.completed implemented
+memory_read_session_summary.denied implemented
+memory_search_sessions.completed implemented
+memory_search_sessions.denied implemented
+message.completed implemented
+message.created implemented
+message.deleted implemented
+message.part.added implemented
+message.part.completed implemented
+message.part.delta implemented
+permission.requested implemented
+permission.resolved implemented
+semantic.event implemented
+server.connected implemented
+server.heartbeat implemented
+session.cleared implemented
+session.compacted implemented
+session.rewind implemented
+session.snapshot implemented
+session.status_changed implemented
+session.undo implemented
+session.updated implemented
+state.updated implemented
+subagent.completed implemented
+subagent.started implemented
+tool.call.completed implemented
+tool.call.started implemented
+tool.selection.invalid implemented
+turn.completed implemented
+turn.retry_cancelled implemented
+turn.retry_completed implemented
+turn.retry_failed implemented
+turn.retry_requested implemented
+turn.retry_running implemented
+turn.started implemented
+user_question.answered implemented
+user_question.cancelled implemented
+user_question.created implemented
+user_question.resumed implemented
+# spec-only — valid surface clio does not emit today (§7.3b)
+context.frame.completed spec-only
+context.frame.created spec-only
+cost.updated spec-only
+diff.generated spec-only
+file.changed spec-only
+mcp.log spec-only
+mcp.prompts.list_changed spec-only
+mcp.resources.list_changed spec-only
+mcp.resources.updated spec-only
+mcp.server.status spec-only
+mcp.tools.list_changed spec-only
+message.error spec-only
+notification spec-only
+server.disposed spec-only
+session.agent_routed spec-only
+session.created spec-only
+session.deleted spec-only
+session.summarized spec-only
+tool.call.progress spec-only
+user_question.expired spec-only
+workspace.updated spec-only
+```
 
 ---
 
@@ -2218,7 +2337,10 @@ behavior above, not drift**.
 
 ### 15.5 SSE events
 - Implemented set + exact payloads in §7.3a; specified-but-not-emitted
-  in §7.3b; provisional normalized channel in §7.3c.
+  in §7.3b. The provisional normalized `turn.*` content channel was
+  **retired** in clio `e921eec` (#833) — `message.part.*` is the sole
+  transcript vocabulary; only the `turn.started` / `turn.completed` /
+  `state.updated` lifecycle events survive (§7.3c).
 - `message.created` payloads are **flat** wire Messages (codified —
   the `{message: ...}` nesting was v0.1 sketch only).
 - Heartbeat transience and the `replay: true` flag are documented
@@ -2256,8 +2378,13 @@ behavior above, not drift**.
    `expires_at` unenforced (§6.23).
 8. **Per-connection heartbeat tasks** — N attached clients observe up
    to N heartbeats per 15 s window (§7.1). Harmless (transient).
-9. **Normalized `turn.*` transcript channel double-published with zero
-   consumers** — codify-or-deprecate tracked in #232 (§7.3c).
+9. **Normalized `turn.*` transcript content channel** — **RESOLVED
+   (clio #833)**: the four content twins (`turn.text.delta` /
+   `turn.trace.delta` / `turn.action.added` / `call.result.delta`) were
+   retired in clio `e921eec` with zero consumers ever built; clients
+   purged the declared surface (gact-tui#232). `message.part.*` is the
+   sole transcript vocabulary; `turn.started` / `turn.completed` /
+   `state.updated` remain as lifecycle events (§7.3c).
 10. **Fork inherits nothing** (modes/model/metadata reset to defaults)
     — codified as implemented behavior, flagged as a candidate future
     change (§6.2).
