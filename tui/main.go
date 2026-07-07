@@ -13,15 +13,15 @@ package main
 
 import (
 	"os"
-)
 
-const (
-	defaultBackend = "http://localhost:7777"
-	defaultTheme   = "dark"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/cli"
 )
 
 func main() {
-	if dispatchCLI(os.Args[1:]) {
+	// The CLI subcommands (internal/cli) can hand off to the interactive TUI
+	// (attach/replay/agent); inject runTUI so cli does not import package main.
+	cli.RunTUI = runTUI
+	if cli.Dispatch(os.Args[1:]) {
 		return
 	}
 	runTUI()

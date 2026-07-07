@@ -20,6 +20,17 @@ import (
 // directly — use Resolve()/Dirty().
 var Release string
 
+// BuildRevision, BuildTime, and BuildDirty are the detailed VCS build stamp
+// injected by the Makefile via -ldflags -X (buildRevision/buildTime/buildDirty).
+// They drive the `revision:`/`built:` lines of `gact version` and `gact diag`.
+// A plain `go build` leaves them empty and the version surfaces fall back to
+// runtime/debug.ReadBuildInfo.
+var (
+	BuildRevision string
+	BuildTime     string
+	BuildDirty    string
+)
+
 // Contract is the GACT protocol version this build speaks.
 const Contract = "0.2"
 
