@@ -22,33 +22,32 @@ import (
 // users want JSON, they should use `gact export <sid>` which already
 // returns the raw blob.
 func runLog(args []string) int {
-	fs := flag.NewFlagSet("log", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	limit := fs.Int("limit", 100, "max messages to print")
-	since := fs.Duration("since", 0, "only print messages with created_at within the last DUR (e.g. 5m, 1h); 0 = unset")
-	// MMMM1: --format json emits NDJSON (one message per line) so
-	// callers can pipe to jq. Default stays text for back-compat.
-	format := fs.String("format", "text", "text | json (NDJSON, one message per line)")
-	// VVVVVVVV1: --role filter narrows to one or more roles
-	// (comma-separated). Accepted: user|assistant|tool|system. Empty
-	// = show everything (back-compat).
-	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
-	// BBBBBBBBB1: --grep PATTERN drops messages whose flattened text
-	// doesn't match the regex (case-insensitive by default — prepend
-	// `(?-i)` to override). Composes with --role/--since/--limit.
-	grep := fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--limit": true, "-limit": true,
-		"--since": true, "-since": true,
-		"--format": true, "-format": true,
-		"--role": true, "-role": true,
-		"--grep": true, "-grep": true,
+	var (
+		limit  *int
+		since  *time.Duration
+		format *string
+		role   *string
+		grep   *string
+	)
+	cc, rest, code := newCmdCtx("log", args, withFlags(func(fs *flag.FlagSet) {
+		limit = fs.Int("limit", 100, "max messages to print")
+		since = fs.Duration("since", 0, "only print messages with created_at within the last DUR (e.g. 5m, 1h); 0 = unset")
+		// MMMM1: --format json emits NDJSON (one message per line) so
+		// callers can pipe to jq. Default stays text for back-compat.
+		format = fs.String("format", "text", "text | json (NDJSON, one message per line)")
+		// VVVVVVVV1: --role filter narrows to one or more roles
+		// (comma-separated). Accepted: user|assistant|tool|system. Empty
+		// = show everything (back-compat).
+		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
+		// BBBBBBBBB1: --grep PATTERN drops messages whose flattened text
+		// doesn't match the regex (case-insensitive by default — prepend
+		// `(?-i)` to override). Composes with --role/--since/--limit.
+		grep = fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact log <session_id> [--limit N] [--since DUR] [--role user,assistant,...] [--grep REGEX] [--format text|json] [--backend URL]")
 		return 2
 	}
@@ -87,10 +86,9 @@ func runLog(args []string) int {
 			}
 		}
 	}
-	sid := fs.Arg(0)
+	sid := rest[0]
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -15,14 +15,18 @@ import (
 )
 
 func runExport(args []string) int {
-	fs := flag.NewFlagSet("export", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	out := fs.String("o", "-", "output file path; '-' for stdout")
-	all := fs.Bool("all", false, "export every session; writes one JSON per session into --out dir")
-	wsID := fs.String("workspace", "", "with --all, restrict to one workspace")
-	knownFlags := map[string]bool{"-o": true, "--backend": true, "-backend": true, "--workspace": true, "-workspace": true}
-	if err := fs.Parse(reorderFlagsFirst(args, knownFlags)); err != nil {
-		return 2
+	var (
+		out  *string
+		all  *bool
+		wsID *string
+	)
+	cc, rest, code := newCmdCtx("export", args, withFlags(func(fs *flag.FlagSet) {
+		out = fs.String("o", "-", "output file path; '-' for stdout")
+		all = fs.Bool("all", false, "export every session; writes one JSON per session into --out dir")
+		wsID = fs.String("workspace", "", "with --all, restrict to one workspace")
+	}))
+	if cc == nil {
+		return code
 	}
 
 	// V1: bulk export path. Takes --out as a directory (created if
@@ -34,17 +38,16 @@ func runExport(args []string) int {
 			fmt.Fprintln(os.Stderr, "gact export --all requires -o DIR (cannot dump to stdout)")
 			return 2
 		}
-		return runExportAll(*out, *wsID, *backend)
+		return runExportAll(cc.client, *out, *wsID)
 	}
 
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact export <session_id> [-o path] [--backend URL]\n"+
 			"   or: gact export --all -o DIR [--workspace WS_ID] [--backend URL]")
 		return 2
 	}
-	sessionID := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sessionID := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -88,13 +91,11 @@ func runExport(args []string) int {
 // pool size is fixed: chosen because it pairs with the same constant
 // used by `gact tasks summary` (FFFF1) — 8 is enough to saturate a
 // LAN backend without DoSing it.
-func runExportAll(dir, wsID, backendFlag string) int {
+func runExportAll(c *client.Client, dir, wsID string) int {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "gact export: mkdir %s: %v\n", dir, err)
 		return 1
 	}
-	finalBackend := resolveCLIBackend(backendFlag)
-	c := client.New(finalBackend)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -170,18 +171,15 @@ func runExportAll(dir, wsID, backendFlag string) int {
 // runImport implements `gact import <file|->` reading a session blob and
 // POSTing it to the backend's /v1/sessions/import endpoint.
 func runImport(args []string) int {
-	fs := flag.NewFlagSet("import", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	knownFlags := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, knownFlags)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("import", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact import <file|-> [--backend URL]")
 		return 2
 	}
-	src := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
+	src := rest[0]
 
 	var r io.Reader
 	if src == "-" {
@@ -204,7 +202,7 @@ func runImport(args []string) int {
 		fmt.Fprintln(os.Stderr, "gact import: missing 'format' field — not a GACT export blob")
 		return 1
 	}
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

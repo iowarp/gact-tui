@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runMetrics fetches /v1/metrics and prints a human-readable summary
@@ -16,15 +14,15 @@ import (
 // total cost). With --format=json, prints the raw response so
 // monitoring scrapers can parse it.
 func runMetrics(args []string) int {
-	fs := flag.NewFlagSet("metrics", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "output format: text | json")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	var format *string
+	cc, _, code := newCmdCtx("metrics", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "output format: text | json")
+	}))
+	if cc == nil {
+		return code
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

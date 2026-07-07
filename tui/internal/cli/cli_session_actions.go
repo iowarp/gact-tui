@@ -72,16 +72,19 @@ func runFork(args []string) int {
 //	SID=$(gact new --title "scratch")
 //	gact ask "$SID" "what does main.go do?"
 func runNew(args []string) int {
-	fs := flag.NewFlagSet("new", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "workspace id; defaults to first listed")
-	title := fs.String("title", "", "session title; defaults to current UTC time")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	var (
+		wsID  *string
+		title *string
+	)
+	cc, _, code := newCmdCtx("new", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "workspace id; defaults to first listed")
+		title = fs.String("title", "", "session title; defaults to current UTC time")
+	}))
+	if cc == nil {
+		return code
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

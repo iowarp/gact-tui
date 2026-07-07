@@ -10,24 +10,21 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func runContextUpload(args []string) int {
-	fs := flag.NewFlagSet("context upload", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	mode := fs.String("mode", "read", "context mode: read | edit | pin")
-	format := fs.String("format", "tsv", "tsv | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--mode": true, "-mode": true,
-		"--format": true, "-format": true,
+	var (
+		mode   *string
+		format *string
+	)
+	cc, rest, code := newCmdCtx("context upload", args, withFlags(func(fs *flag.FlagSet) {
+		mode = fs.String("mode", "read", "context mode: read | edit | pin")
+		format = fs.String("format", "tsv", "tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact context upload <session_id> <local_path> [--mode read|edit|pin] [--format tsv|json] [--backend URL]")
 		return 2
 	}
@@ -41,8 +38,8 @@ func runContextUpload(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact context upload: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	sid := fs.Arg(0)
-	localPath := fs.Arg(1)
+	sid := rest[0]
+	localPath := rest[1]
 	data, err := os.ReadFile(localPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact context upload: read %s: %v\n", localPath, err)
@@ -56,8 +53,7 @@ func runContextUpload(args []string) int {
 		}
 		mimeType = http.DetectContentType(data[:sniffLen])
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	cf, err := c.UploadAttachment(ctx, sid, filepath.Base(localPath), mimeType, *mode, data)
@@ -80,24 +76,20 @@ func runContextUpload(args []string) int {
 }
 
 func runContextAdd(args []string) int {
-	fs := flag.NewFlagSet("context add", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	mode := fs.String("mode", "read", "context mode: read | edit | pin")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--mode": true, "-mode": true,
+	var mode *string
+	cc, rest, code := newCmdCtx("context add", args, withFlags(func(fs *flag.FlagSet) {
+		mode = fs.String("mode", "read", "context mode: read | edit | pin")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact context add <session_id> <path> [--mode read|edit|pin]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	path := fs.Arg(1)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	path := rest[1]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err := c.AddContextFile(ctx, sid, path, *mode); err != nil {
@@ -108,20 +100,17 @@ func runContextAdd(args []string) int {
 }
 
 func runContextRm(args []string) int {
-	fs := flag.NewFlagSet("context rm", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("context rm", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact context rm <session_id> <path> [--backend URL]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	path := fs.Arg(1)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	path := rest[1]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.RemoveContextFile(ctx, sid, path); err != nil {

@@ -21,22 +21,21 @@ import (
 //	gact tail --workspace ws_default   # workspace-scoped stream
 //	gact tail SID | jq '.type'         # filter on event type
 func runTail(args []string) int {
-	fs := flag.NewFlagSet("tail", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "workspace-scoped stream (when no session_id)")
-	filter := fs.String("filter", "", "comma-separated event types to keep (e.g. permission.requested,tool.call.completed); empty = all")
-	// TTTT1: --format text reuses the runStream `streamRow()`
-	// human-readable formatter. Default kept as json (NDJSON) for
-	// back-compat with existing scripting callers.
-	format := fs.String("format", "json", "json (NDJSON) | text (one human-readable line per event, like `gact stream`)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--workspace": true, "-workspace": true,
-		"--filter": true, "-filter": true,
-		"--format": true, "-format": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		wsID   *string
+		filter *string
+		format *string
+	)
+	cc, rest, code := newCmdCtx("tail", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "workspace-scoped stream (when no session_id)")
+		filter = fs.String("filter", "", "comma-separated event types to keep (e.g. permission.requested,tool.call.completed); empty = all")
+		// TTTT1: --format text reuses the runStream `streamRow()`
+		// human-readable formatter. Default kept as json (NDJSON) for
+		// back-compat with existing scripting callers.
+		format = fs.String("format", "json", "json (NDJSON) | text (one human-readable line per event, like `gact stream`)")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "json" && *format != "text" {
 		fmt.Fprintf(os.Stderr, "gact tail: unknown format %q (want json|text)\n", *format)
@@ -54,9 +53,9 @@ func runTail(args []string) int {
 	}
 
 	scope := client.EventStreamScope{WorkspaceID: *wsID}
-	if fs.NArg() == 1 {
-		scope.SessionID = fs.Arg(0)
-	} else if fs.NArg() > 1 {
+	if len(rest) == 1 {
+		scope.SessionID = rest[0]
+	} else if len(rest) > 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact tail [session_id] [--workspace WS_ID] [--backend URL]")
 		return 2
 	}
@@ -65,8 +64,7 @@ func runTail(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 
 	// Signal handling: Ctrl+C cleanly closes the stream.
 	ctx, cancel := context.WithCancel(context.Background())

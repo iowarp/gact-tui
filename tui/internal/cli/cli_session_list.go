@@ -14,24 +14,34 @@ import (
 )
 
 func runList(args []string) int {
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "only sessions in this workspace")
-	parentID := fs.String("parent", "", "only sub-sessions of this session id")
-	status := fs.String("status", "", "filter by status (idle|running|waiting|error)")
-	archived := fs.Bool("archived", false, "include archived sessions")
-	limit := fs.Int("limit", 0, "truncate to first N rows after filtering (0 = no limit)")
-	format := fs.String("format", "tsv", "output format: tsv | json")
-	// FFFFFFFFF1: --detached-only filters to sessions present in the
-	// local registry (filtered to the current backend) — mirrors
-	// YYYYYYYY1 on `gact dashboard`.
-	detachedOnly := fs.Bool("detached-only", false, "show only sessions in the local detached registry")
-	// FFFFFFFFF1: --sort mirrors KKKKKKKK1 on `gact dashboard`.
-	// Default preserves backend order so existing scripts aren't
-	// reordered silently.
-	sortBy := fs.String("sort", "", "sort by: newest | oldest | status | tokens | backend (default: backend order)")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	var (
+		wsID         *string
+		parentID     *string
+		status       *string
+		archived     *bool
+		limit        *int
+		format       *string
+		detachedOnly *bool
+		sortBy       *string
+	)
+	cc, _, code := newCmdCtx("list", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "only sessions in this workspace")
+		parentID = fs.String("parent", "", "only sub-sessions of this session id")
+		status = fs.String("status", "", "filter by status (idle|running|waiting|error)")
+		archived = fs.Bool("archived", false, "include archived sessions")
+		limit = fs.Int("limit", 0, "truncate to first N rows after filtering (0 = no limit)")
+		format = fs.String("format", "tsv", "output format: tsv | json")
+		// FFFFFFFFF1: --detached-only filters to sessions present in the
+		// local registry (filtered to the current backend) — mirrors
+		// YYYYYYYY1 on `gact dashboard`.
+		detachedOnly = fs.Bool("detached-only", false, "show only sessions in the local detached registry")
+		// FFFFFFFFF1: --sort mirrors KKKKKKKK1 on `gact dashboard`.
+		// Default preserves backend order so existing scripts aren't
+		// reordered silently.
+		sortBy = fs.String("sort", "", "sort by: newest | oldest | status | tokens | backend (default: backend order)")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *status != "" {
 		switch *status {
@@ -50,8 +60,7 @@ func runList(args []string) int {
 		}
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

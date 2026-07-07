@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runCatalog browses the catalog endpoints from the shell:
@@ -26,15 +24,14 @@ func runCatalog(args []string) int {
 		return 2
 	}
 	kind := args[0]
-	rest := args[1:]
-	fs := flag.NewFlagSet("catalog "+kind, flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "output format: tsv | json")
-	if err := fs.Parse(rest); err != nil {
-		return 2
+	var format *string
+	cc, _, code := newCmdCtx("catalog "+kind, args[1:], withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "output format: tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
