@@ -47,3 +47,21 @@ export class HttpError extends Error {
 function shorten(s: string): string {
   return s.length <= 200 ? s : `${s.slice(0, 200)}…`;
 }
+
+/**
+ * Raised when a shared-transport HTTP request exceeds its configured timeout
+ * (see `ClientOptions.timeoutMs`, default 30s). Distinct from a caller-driven
+ * `AbortError`: the caller's own signal aborting is re-thrown untouched, while
+ * a timeout surfaces this typed error so UI paths can present a "server not
+ * responding" message instead of a generic abort.
+ */
+export class TransportTimeoutError extends Error {
+  override name = 'TransportTimeoutError';
+
+  constructor(
+    public url: string,
+    public timeoutMs: number,
+  ) {
+    super(`HTTP request to ${url} timed out after ${timeoutMs}ms`);
+  }
+}

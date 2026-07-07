@@ -1,4 +1,4 @@
-export { Client, type ClientOptions } from './http.js';
+export { Client, TransportTimeoutError, type ClientOptions } from './http.js';
 export {
   type SseHandler,
   parseSseBlock,
