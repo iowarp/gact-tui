@@ -64,10 +64,103 @@ describe('Markdown (smd incremental renderer)', () => {
     // The same <h1> node is still present (not torn down + rebuilt).
     expect(container.querySelector('h1')).toBe(headingBefore);
   });
+
+  // --- #222: inline-code across streaming chunk boundaries ---
+  // The transcript streams cumulative text. A backtick code span (e.g. a Windows
+  // path with backslashes) can arrive split ACROSS chunks — the opening backtick in
+  // one delta, the closing backtick in a later one. The renderer must not drop the
+  // span's content nor the spaces around it, streaming or settled.
+  const BS = String.fromCharCode(92); // a single backslash
+  const path = `C:${BS}Users${BS}alice${BS}notes.txt`;
+
+  it('#222 whole: renders a backtick path span with backslashes intact (settled)', () => {
+    const { container } = render(() => <Markdown text={`Open \`${path}\` please`} />);
+    expect(container.querySelector('.im code')?.textContent).toBe(path);
+    // Surrounding words + their spaces survive.
+    expect(container.textContent).toBe(`Open ${path} please`);
+  });
+
+  it('#222 chunked: a code span split mid-span across streaming chunks, then settled', () => {
+    const [get, setText] = createAppendable('Open `C:');
+    const [streaming, setStreaming] = createAppendable(true as boolean);
+    const { container } = render(() => <Markdown text={get()} streaming={streaming()} />);
+    // Cumulative deltas whose boundaries fall INSIDE the still-open code span.
+    setText(`Open \`C:${BS}Us`);
+    setText(`Open \`C:${BS}Users${BS}alice`);
+    setText(`Open \`C:${BS}Users${BS}alice${BS}notes.txt`);
+    setText(`Open \`C:${BS}Users${BS}alice${BS}notes.txt\``);
+    setText(`Open \`C:${BS}Users${BS}alice${BS}notes.txt\` please`);
+    // Settle (stream ends).
+    setStreaming(false);
+    expect(container.querySelector('.im code')?.textContent).toBe(path);
+    expect(container.textContent).toBe(`Open ${path} please`);
+  });
+
+  it('#222 mid-stream: an open (unterminated) code span shows its chars, not dropped', () => {
+    const [get, setText] = createAppendable('open `C:');
+    const { container } = render(() => <Markdown text={get()} streaming />);
+    // Grow the span while it is still OPEN (no closing backtick yet). The live tail
+    // must surface the code characters so far — they must not vanish waiting for the
+    // close.
+    setText(`open \`C:${BS}Users${BS}alice`);
+    expect(container.textContent).toContain(`C:${BS}Users${BS}alice`);
+  });
+
+  it('#222 chunked: an inline code span with an underscore survives split streaming', () => {
+    const [get, setText] = createAppendable('run `shell');
+    const [streaming, setStreaming] = createAppendable(true as boolean);
+    const { container } = render(() => <Markdown text={get()} streaming={streaming()} />);
+    setText('run `shell_ba');
+    setText('run `shell_bash');
+    setText('run `shell_bash`');
+    setText('run `shell_bash` now');
+    setStreaming(false);
+    // The code content is exactly the identifier — no spurious backslash leaked in
+    // from the emphasis sanitizer treating the still-open span as prose.
+    expect(container.querySelector('.im code')?.textContent).toBe('shell_bash');
+    expect(container.textContent).toBe('run shell_bash now');
+    expect(container.textContent).not.toContain(BS);
+  });
+
+  // The issue's exact reported shapes. Broken render "ate" the surrounding spaces —
+  // "I will callpandas_profile_csvwith this exact path" — and dropped everything up to
+  // the last backtick. These feed the span split mid-token, then settle.
+  it('#222 exact shape: tool-name span keeps its surrounding spaces (issue DoD)', () => {
+    const [get, setText] = createAppendable('I will call `pandas');
+    const [streaming, setStreaming] = createAppendable(true as boolean);
+    const { container } = render(() => <Markdown text={get()} streaming={streaming()} />);
+    setText('I will call `pandas_profile');
+    setText('I will call `pandas_profile_csv`');
+    setText('I will call `pandas_profile_csv` with this exact path');
+    setStreaming(false);
+    expect(container.querySelector('.im code')?.textContent).toBe('pandas_profile_csv');
+    // The spaces on BOTH sides of the span survive (the reported bug ate them).
+    expect(container.textContent).toBe('I will call pandas_profile_csv with this exact path');
+  });
+
+  it('#222 exact shape: two path spans with backslashes + underscore survive chunked', () => {
+    const csvPath = `D:${BS}Libraries${BS}Documents${BS}projects${BS}ndp-demo-workspace${BS}MTA1.CI.LY_.30.csv`;
+    const full = `authorizes this file at \`acquisition.local_path\` = \`${csvPath}\`, confirming`;
+    const [get, setText] = createAppendable('authorizes this file at `acq');
+    const [streaming, setStreaming] = createAppendable(true as boolean);
+    const { container } = render(() => <Markdown text={get()} streaming={streaming()} />);
+    // Chunk boundaries fall inside both code spans.
+    setText('authorizes this file at `acquisition.local_path` = `D:' + BS + 'Lib');
+    setText(`authorizes this file at \`acquisition.local_path\` = \`${csvPath.slice(0, -8)}`);
+    setText(`authorizes this file at \`acquisition.local_path\` = \`${csvPath}\`, conf`);
+    setText(full);
+    setStreaming(false);
+    const codes = container.querySelectorAll('.im code');
+    expect(Array.from(codes).map((c) => c.textContent)).toEqual(['acquisition.local_path', csvPath]);
+    // Whole rendered line matches the backend text, spans + surrounding spaces intact.
+    expect(container.textContent).toBe(
+      `authorizes this file at acquisition.local_path = ${csvPath}, confirming`,
+    );
+  });
 });
 
 import { createSignal } from 'solid-js';
-function createAppendable(initial: string): [() => string, (v: string) => void] {
+function createAppendable<T>(initial: T): [() => T, (v: T) => void] {
   const [v, set] = createSignal(initial);
-  return [v, set];
+  return [v as () => T, set as (v: T) => void];
 }
