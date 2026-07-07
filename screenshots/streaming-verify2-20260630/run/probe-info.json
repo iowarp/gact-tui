@@ -1,8 +1,0 @@
-{
-  "backend": "http://127.0.0.1:17801",
-  "workspace_id": "ws_ndp_demo",
-  "session_id": "sess_508054b5d5fb",
-  "blueprint": "earthscope-gnss-region",
-  "query": "Find the nearest EarthScope GNSS station to Los Angeles, stage its time-series CSV, profile it, and create a displacement time-series plot.",
-  "started_at": "2026-06-30T23:15:35.127Z"
-}

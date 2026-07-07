@@ -57,9 +57,21 @@ tui/coverage.txt
 *.webm
 *.mp4
 
-# Allow committed screenshots
+# Committed screenshots: curated .png baselines + the index only. Run dumps
+# and raw captures under screenshots/ are CI artifacts, never tracked — the
+# ignore rules enforce the media policy so a stray run can't re-bleed in.
 !screenshots/
+screenshots/**
+!screenshots/**/
 !screenshots/**/*.png
+!screenshots/**/README.md
+!screenshots/**/.gitkeep
+# Belt-and-suspenders: run-dump artifact types stay ignored regardless.
+screenshots/**/*.jsonl
+screenshots/**/*.log
+screenshots/**/*.json
+screenshots/**/*.html
+screenshots/**/*.txt
 .clio_agent/
 
 # Backup files
@@ -82,6 +94,6 @@ __pycache__/
 /*.png
 /*.gif
 
-# Curated replay fixtures inside otherwise-ignored run dirs (referenced by tracked .tape files)
-!visual_loop/tui_audit_san_diego_alcf_execution_projection_v12/b_full_tui_rendered.txt
-!visual_loop/tui_audit_san_diego_alcf_execution_projection_v13/b_expanded_artifact_rendered.txt
+# Curated replay fixtures now live in visual_loop/fixtures/ (outside the
+# ignored tui_audit_*/ run dirs, referenced by tracked .tape files), so they
+# no longer need per-file negations.
