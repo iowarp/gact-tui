@@ -500,7 +500,7 @@ function ToolRowView(props: {
   );
 }
 
-/** The orchestrator's routing decision — a subtle inline chip. */
+/** A tool invocation line — name, argument summary, and telemetry badges. */
 function ToolCallLine(props: { row: ToolRow }) {
   const row = () => props.row;
   return (
