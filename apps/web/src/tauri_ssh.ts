@@ -10,7 +10,6 @@ export interface TunnelRequest {
   user: string;
   remote_port: number;
   key_path: string;
-  passphrase?: string;
 }
 
 export interface TunnelHandle {

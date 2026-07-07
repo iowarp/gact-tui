@@ -1,7 +1,7 @@
 //! Shared data types for the SSH tunnel subsystem.
 //!
 //! The request/handle/error structs (and error taxonomy) exchanged
-//! across the tunnel manager, command builder, keyring, and frontend IPC.
+//! across the tunnel manager, command builder, and frontend IPC.
 
 use serde::{Deserialize, Serialize};
 
@@ -11,9 +11,6 @@ pub struct TunnelRequest {
     pub user: String,
     pub remote_port: u16,
     pub key_path: String,
-    /// Optional passphrase — when provided we route it through the OS
-    /// keychain so subsequent reconnects don't prompt the user.
-    pub passphrase: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,7 +37,6 @@ impl std::error::Error for TunnelError {}
 pub enum TunnelErrorCode {
     SshNotInstalled,
     PortAllocation,
-    KeychainWriteFailed,
     SpawnFailed,
 }
 

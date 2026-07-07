@@ -26,7 +26,6 @@ mod sse_stream;
 mod sse_stream_tests;
 mod ssh;
 mod ssh_command;
-mod ssh_keyring;
 mod ssh_types;
 mod supervisor;
 mod supervisor_attach;

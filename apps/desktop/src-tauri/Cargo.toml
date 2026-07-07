@@ -29,8 +29,6 @@ rand = "0.8"
 ureq = { version = "2.10", default-features = false }
 hex = "0.4"
 libc = "0.2"
-# Wave 3: SSH tunnel + OS keychain
-keyring = { version = "3.6", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
 
 [features]
 default = ["custom-protocol"]
