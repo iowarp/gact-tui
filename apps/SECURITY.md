@@ -61,7 +61,8 @@ it is filed here against the auth model rather than as a UI defect.
   through Rust so the WebView never depends on clio's CORS. SSE now
   streams through the `gact_sse_open`/`gact_sse_close` bridge
   (`src/sse_bridge.rs`): Rust reads the stream and forwards each event
-  over a Tauri Channel, and the bearer token rides in the sseUrl query
+  over the keyed global `gact:sse` Tauri event (filtered by
+  `client_id`), and the bearer token rides in the sseUrl query
   string (an `EventSource` can't send headers). The pure-web build still
   uses `EventSource`. Verified by a live integration test
   (`sse_bridge::tests::streams_real_clio_events_through_the_parser`) and
