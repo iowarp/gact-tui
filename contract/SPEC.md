@@ -1544,8 +1544,10 @@ Implemented `UserQuestion` (clio `types.py:UserQuestion`):
 
 Semantics (clio, descriptive):
 
-- **`expired` is declared but inert** — never set; `expires_at` is
-  stored, not enforced; there is no `user_question.expired` event.
+- **`expired` is declared but inert** — clio never sets it; `expires_at`
+  is stored, not enforced; **clio emits no `user_question.expired`
+  event**. (The event type is still valid spec surface: the emulator
+  emits it and the web keeps a listener — §7.3b.)
 - `kind: "confirmation"` with no options auto-injects Yes/No options.
 - `POST /questions`: 422 `bad_request` on empty prompt; always flips
   the session to `waiting_user` + stamps
@@ -1803,13 +1805,15 @@ offers an alternative, it is noted.
 | `session.summarized` | not emitted | `session.compacted` (§6.25) |
 | `message.error` | not emitted | `message.completed.error_info` (§14) + `session.status_changed(error)` |
 | `tool.call.progress` | not emitted | — |
-| `mcp.server.status` / `mcp.*.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a) | poll `/v1/mcp/servers` |
+| `mcp.server.status` / `mcp.tools.list_changed` / `mcp.prompts.list_changed` / `mcp.resources.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a). Concrete names per the MCP notification mapping (§9.2) | poll `/v1/mcp/servers` |
 | `file.changed` | not emitted | — |
 | `diff.generated` | not emitted | `file.diff.*` cover apply/reject; proposal = batch `message.part.added` + semantic `artifact.proposed` |
 | `cost.updated` | not emitted | rollups arrive on `message.completed` |
 | `notification` | not emitted | — |
 | `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
+| `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
+| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; the web keeps forward-compat listeners (`LiveConnectionConfig.ts`) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 
@@ -1950,6 +1954,111 @@ detail and never appears on the wire. Durable tracing is controlled by
 > the unimplemented `session.agent_routed` / `memory.cache.updated`
 > events (§7.3b). It is NOT part of the generic GACT contract — treat it
 > as an opt-in vendor stream keyed off `x_clio_semantic_events`.
+
+### §7.7 Machine-checked wire event vocabulary (normative)
+
+The single source of truth for the SSE event-`type` vocabulary is the
+fenced block below. Every line is `<event.type> <implemented|spec-only>`
+(grammar `/^([a-z][a-z0-9_.]*) (implemented|spec-only)$/`, one entry per
+line, blank lines and `#` comments ignored): `implemented` = the
+reference backend (clio) publishes the type on the bus today (§7.3a);
+`spec-only` = valid spec surface that clio does not emit (§7.3b) but
+another backend (e.g. the emulator) or a forward-compat client may
+legitimately carry. The block is `§7.3a ∪ §7.3b` restricted to the
+concrete event *types* — the semantic-spine `event_type` vocabulary
+(§7.6) and the never-a-bus-type rows (`turn.failed`,
+`memory.cache.updated`, `integration.status_changed`) are deliberately
+absent. Custom `x.{vendor}.*` types (§8.4) are out of scope and exempt.
+
+This block is enforced in both directions by two tests, so a client type
+missing from the spec — or a spec type no client declares — fails CI:
+
+- `apps/core/tests/spec_vocabulary.test.ts` asserts set-equality with
+  the TypeScript `WIRE_EVENT_TYPES` canonical array, which is itself
+  compile-time-equal to the `GactEvent` discriminated union (`satisfies`
+  + an `AssertNever` exhaustiveness guard).
+- `contract/conformance/vocabulary_checks.go` (`Drift_EventVocabulary`)
+  asserts every observed live `data.type` on the SSE stream is present
+  in this block.
+
+```wire-vocabulary
+# implemented — clio publishes these on the bus today (§7.3a)
+agent.reasoning.delta implemented
+arc.op implemented
+context.file.added implemented
+context.file.removed implemented
+file.diff.applied implemented
+file.diff.rejected implemented
+file.diff.write_failed implemented
+lm.provider.changed implemented
+lm.provider.failed implemented
+mcp.server.error implemented
+mcp.server.reconnected implemented
+memory.search.completed implemented
+memory_read_context_frame.completed implemented
+memory_read_context_frame.denied implemented
+memory_read_session_summary.completed implemented
+memory_read_session_summary.denied implemented
+memory_search_sessions.completed implemented
+memory_search_sessions.denied implemented
+message.completed implemented
+message.created implemented
+message.deleted implemented
+message.part.added implemented
+message.part.completed implemented
+message.part.delta implemented
+permission.requested implemented
+permission.resolved implemented
+semantic.event implemented
+server.connected implemented
+server.heartbeat implemented
+session.cleared implemented
+session.compacted implemented
+session.rewind implemented
+session.snapshot implemented
+session.status_changed implemented
+session.undo implemented
+session.updated implemented
+state.updated implemented
+subagent.completed implemented
+subagent.started implemented
+tool.call.completed implemented
+tool.call.started implemented
+tool.selection.invalid implemented
+turn.completed implemented
+turn.retry_cancelled implemented
+turn.retry_completed implemented
+turn.retry_failed implemented
+turn.retry_requested implemented
+turn.retry_running implemented
+turn.started implemented
+user_question.answered implemented
+user_question.cancelled implemented
+user_question.created implemented
+user_question.resumed implemented
+# spec-only — valid surface clio does not emit today (§7.3b)
+context.frame.completed spec-only
+context.frame.created spec-only
+cost.updated spec-only
+diff.generated spec-only
+file.changed spec-only
+mcp.log spec-only
+mcp.prompts.list_changed spec-only
+mcp.resources.list_changed spec-only
+mcp.resources.updated spec-only
+mcp.server.status spec-only
+mcp.tools.list_changed spec-only
+message.error spec-only
+notification spec-only
+server.disposed spec-only
+session.agent_routed spec-only
+session.created spec-only
+session.deleted spec-only
+session.summarized spec-only
+tool.call.progress spec-only
+user_question.expired spec-only
+workspace.updated spec-only
+```
 
 ---
 
