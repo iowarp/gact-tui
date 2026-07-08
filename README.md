@@ -220,7 +220,7 @@ Current coverage (from `go test -cover`):
 | `emulator/internal/server` | 67.5% |
 
 All tests pass. Screenshot-driven UI changes re-record via `vhs` tapes
-in `tui/screenshot_*.tape` — the `.claude/skills/tui-screenshot.md`
+in `tui/testdata/tapes/screenshot_*.tape` — the `.claude/skills/tui-screenshot.md`
 workflow is documented.
 
 ## Project layout
