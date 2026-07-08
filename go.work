@@ -7,6 +7,6 @@ use (
 	./adapters/opencode
 	./contract/conformance
 	./emulator
-	./loop-test
+	./examples/loop-test
 	./tui
 )
