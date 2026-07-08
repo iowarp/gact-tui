@@ -439,7 +439,7 @@ for GACT/CLIO backends.
 Current direction:
 
 - keep rendering changes tied to the timeline projection model in
-  `codex-proposal-representation.md`
+  `docs/archive/codex-proposal-representation.md`
 - split endpoint domains out of the typed client when `client.go` mixes
   unrelated API surfaces
 - preserve the package-level `client.Client` API while moving route clusters to
@@ -1484,7 +1484,7 @@ Desktop seams:
 - Large live orchestration files (`ChatScreenLiveDriven.tsx`,
   `chatLayoutModel.tsx`, `ChatLayout.tsx`) remain central and high-risk.
 - Full visual correctness for the TUI execution timeline is governed by
-  `codex-proposal-representation.md`; web/desktop should adapt those semantics
+  `docs/archive/codex-proposal-representation.md`; web/desktop should adapt those semantics
   to their medium rather than copying terminal key hints literally.
 - Existing generated visual/audit artifacts are intentionally dirty in the
   worktree. They are evidence from prior TUI capture work, not source cleanup.
@@ -1497,7 +1497,7 @@ This rework is not complete just because files are smaller. Completion requires:
 - web route/controller files separate behavior from large presentational blocks
 - desktop command/supervisor code keeps clear native boundaries
 - TUI execution rendering follows the timeline projection model in
-  `codex-proposal-representation.md`
+  `docs/archive/codex-proposal-representation.md`
 - package validation and relevant visual checks pass for the changed surfaces
 - the remaining large files have documented reasons for staying large or a
   concrete next seam
