@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 )
 
 func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) string {
@@ -50,5 +51,5 @@ func summarizeToolResultText(toolName string, rawText string) string {
 	if err := json.Unmarshal([]byte(rawText), &payload); err != nil {
 		return summarizeNonJSONToolResultText(toolName, rawText)
 	}
-	return summarizeToolResult(toolName, payload)
+	return presentation.SummarizeToolResult(toolName, payload)
 }

@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation.go summarizes raw tool-result payloads into concise display text.
 
@@ -9,12 +9,12 @@ import (
 	"strings"
 )
 
-func toolEvidenceResultText(toolName string, raw any) string {
+func ToolEvidenceResultText(toolName string, raw any) string {
 	if raw == nil {
 		return ""
 	}
 	if result, ok := raw.(map[string]any); ok {
-		if summary := summarizeErrorResult(result); summary != "" {
+		if summary := SummarizeErrorResult(result); summary != "" {
 			return summary
 		}
 		if stdout, ok := result["stdout"].(string); ok && strings.TrimSpace(stdout) != "" {
@@ -24,7 +24,7 @@ func toolEvidenceResultText(toolName string, raw any) string {
 			return strings.TrimSpace(errorText)
 		}
 	}
-	if summary := summarizeToolResult(toolName, raw); summary != "" {
+	if summary := SummarizeToolResult(toolName, raw); summary != "" {
 		return summary
 	}
 	if text := valuefmt.CompactJSON(raw); text != "" {
@@ -33,7 +33,7 @@ func toolEvidenceResultText(toolName string, raw any) string {
 	return fmt.Sprint(raw)
 }
 
-func summarizeToolResult(toolName string, raw any) string {
+func SummarizeToolResult(toolName string, raw any) string {
 	result, ok := raw.(map[string]any)
 	if !ok {
 		return ""
@@ -46,7 +46,7 @@ func summarizeToolResult(toolName string, raw any) string {
 			return text
 		}
 	}
-	if text := summarizeErrorResult(result); text != "" {
+	if text := SummarizeErrorResult(result); text != "" {
 		return text
 	}
 	lowerTool := strings.ToLower(toolName)
@@ -110,7 +110,7 @@ func summarizeJSONPreviewToolResult(toolName string, preview string) string {
 	if err := json.Unmarshal([]byte(preview), &parsed); err != nil {
 		return ""
 	}
-	if text := summarizeToolResult(toolName, parsed); text != "" {
+	if text := SummarizeToolResult(toolName, parsed); text != "" {
 		return text
 	}
 	if obj, ok := parsed.(map[string]any); ok {
@@ -119,29 +119,29 @@ func summarizeJSONPreviewToolResult(toolName string, preview string) string {
 	return ""
 }
 
-func summarizeErrorResult(result map[string]any) string {
+func SummarizeErrorResult(result map[string]any) string {
 	errorPayload, ok := result["error"].(map[string]any)
 	if !ok {
 		return ""
 	}
 	var rows []string
 	rows = append(rows, "error result:")
-	if code := firstStringValue(errorPayload, "code", "type"); code != "" {
+	if code := FirstStringValue(errorPayload, "code", "type"); code != "" {
 		rows = append(rows, "code: "+code)
 	}
-	if message := firstStringValue(errorPayload, "message", "error"); message != "" {
+	if message := FirstStringValue(errorPayload, "message", "error"); message != "" {
 		rows = append(rows, "message: "+valuefmt.ShortenKnownPaths(message))
 	}
-	if nextAction := firstStringValue(errorPayload, "next_action", "recovery"); nextAction != "" {
+	if nextAction := FirstStringValue(errorPayload, "next_action", "recovery"); nextAction != "" {
 		rows = append(rows, "next action: "+valuefmt.ShortenKnownPaths(nextAction))
 	}
-	if path := firstStringValue(errorPayload, "path", "filepath", "file"); path != "" {
+	if path := FirstStringValue(errorPayload, "path", "filepath", "file"); path != "" {
 		rows = append(rows, "path: "+valuefmt.ShortenPathForInline(path))
 	}
-	if field := firstStringValue(errorPayload, "field"); field != "" {
+	if field := FirstStringValue(errorPayload, "field"); field != "" {
 		rows = append(rows, "field: "+field)
 	}
-	if tool := firstStringValue(errorPayload, "tool"); tool != "" {
+	if tool := FirstStringValue(errorPayload, "tool"); tool != "" {
 		rows = append(rows, "tool: "+tool)
 	}
 	return strings.Join(rows, "\n")
@@ -149,20 +149,20 @@ func summarizeErrorResult(result map[string]any) string {
 
 func summarizeStatusRows(result map[string]any) []string {
 	var rows []string
-	if status := firstStringValue(result, "status", "state"); status != "" {
+	if status := FirstStringValue(result, "status", "state"); status != "" {
 		rows = append(rows, "status: "+status)
 	} else if meta, ok := result["_meta"].(map[string]any); ok {
-		if status := firstStringValue(meta, "status", "state"); status != "" {
+		if status := FirstStringValue(meta, "status", "state"); status != "" {
 			rows = append(rows, "status: "+status)
 		}
 	}
-	if errText := firstStringValue(result, "error"); errText != "" {
+	if errText := FirstStringValue(result, "error"); errText != "" {
 		rows = append(rows, "error: "+errText)
 	} else if ok, hasOK := result["success"].(bool); hasOK && !ok {
-		if message := firstStringValue(result, "message"); message != "" {
+		if message := FirstStringValue(result, "message"); message != "" {
 			rows = append(rows, "error: "+message)
 		}
-	} else if message := firstStringValue(result, "message"); message != "" {
+	} else if message := FirstStringValue(result, "message"); message != "" {
 		rows = append(rows, "message: "+message)
 	}
 	return rows

@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_ndp.go summarizes NDP catalog tool results.
 

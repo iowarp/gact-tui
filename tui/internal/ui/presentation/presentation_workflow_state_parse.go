@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_workflow_state_parse.go parses embedded workflow-state JSON out of free text.
 
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func summarizeEmbeddedWorkflowStateText(text string) string {
+func SummarizeEmbeddedWorkflowStateText(text string) string {
 	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
 	if text == "" {
 		return ""
@@ -20,21 +20,21 @@ func summarizeEmbeddedWorkflowStateText(text string) string {
 		"workflow state:",
 	}
 	for _, label := range labels {
-		idx := indexFold(text, label)
+		idx := IndexFold(text, label)
 		if idx < 0 {
 			continue
 		}
 		before := strings.TrimSpace(text[:idx])
 		raw := strings.TrimSpace(text[idx+len(label):])
-		state, ok := parseWorkflowStateJSON(raw)
+		state, ok := ParseWorkflowStateJSON(raw)
 		if !ok {
 			continue
 		}
-		summary := workflowStateSummary(state)
+		summary := WorkflowStateSummary(state)
 		if summary == "" {
 			continue
 		}
-		stateSummary := workflowStateBlockFromSummary(summary)
+		stateSummary := WorkflowStateBlockFromSummary(summary)
 		if before == "" {
 			return stateSummary
 		}
@@ -43,7 +43,7 @@ func summarizeEmbeddedWorkflowStateText(text string) string {
 	return ""
 }
 
-func parseWorkflowStateJSON(text string) (map[string]any, bool) {
+func ParseWorkflowStateJSON(text string) (map[string]any, bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, false
@@ -52,7 +52,7 @@ func parseWorkflowStateJSON(text string) (map[string]any, bool) {
 	if start < 0 {
 		return nil, false
 	}
-	end := matchingJSONObjectEnd(text[start:])
+	end := MatchingJSONObjectEnd(text[start:])
 	if end < 0 {
 		return nil, false
 	}
@@ -66,7 +66,7 @@ func parseWorkflowStateJSON(text string) (map[string]any, bool) {
 	return payload, len(payload) > 0
 }
 
-func matchingJSONObjectEnd(text string) int {
+func MatchingJSONObjectEnd(text string) int {
 	depth := 0
 	inString := false
 	escaped := false
@@ -97,6 +97,6 @@ func matchingJSONObjectEnd(text string) int {
 	return -1
 }
 
-func indexFold(text, needle string) int {
+func IndexFold(text, needle string) int {
 	return strings.Index(strings.ToLower(text), strings.ToLower(needle))
 }

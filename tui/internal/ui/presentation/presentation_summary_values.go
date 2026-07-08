@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_summary_values.go provides scalar/numeric/named-item value extractors for tool-result summaries.
 
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func firstStringValue(result map[string]any, keys ...string) string {
+func FirstStringValue(result map[string]any, keys ...string) string {
 	for _, key := range keys {
 		if value := strings.TrimSpace(valuefmt.StringValue(result[key])); value != "" {
 			return value
@@ -22,13 +22,13 @@ func summarizeNumericFields(result map[string]any, keys []string) string {
 	var bits []string
 	for _, key := range keys {
 		if value, ok := valuefmt.FloatValue(result[key]); ok {
-			bits = append(bits, fmt.Sprintf("%s: %s", key, formatCompactFloat(value)))
+			bits = append(bits, fmt.Sprintf("%s: %s", key, FormatCompactFloat(value)))
 		}
 	}
 	return strings.Join(bits, " · ")
 }
 
-func formatCompactFloat(value float64) string {
+func FormatCompactFloat(value float64) string {
 	if value == float64(int64(value)) {
 		return fmt.Sprintf("%.0f", value)
 	}
@@ -37,23 +37,23 @@ func formatCompactFloat(value float64) string {
 
 func summarizeColumnNames(result map[string]any) string {
 	for _, key := range []string{"columns", "schema", "fields"} {
-		if text := summarizeNamedItems(result, key); text != "" {
+		if text := SummarizeNamedItems(result, key); text != "" {
 			return text
 		}
 	}
 	return ""
 }
 
-func summarizeNamedItems(result map[string]any, keys ...string) string {
+func SummarizeNamedItems(result map[string]any, keys ...string) string {
 	for _, key := range keys {
-		if text := summarizeAnyItems(result[key]); text != "" {
+		if text := SummarizeAnyItems(result[key]); text != "" {
 			return text
 		}
 	}
 	return ""
 }
 
-func summarizeAnyItems(raw any) string {
+func SummarizeAnyItems(raw any) string {
 	switch value := raw.(type) {
 	case nil:
 		return ""
@@ -71,7 +71,7 @@ func summarizeAnyItems(raw any) string {
 		return strings.Join(items, ", ")
 	case map[string]any:
 		if nested, ok := value["items"]; ok {
-			return summarizeAnyItems(nested)
+			return SummarizeAnyItems(nested)
 		}
 		items := make([]string, 0, min(len(value), 5))
 		keys := make([]string, 0, len(value))
@@ -86,7 +86,7 @@ func summarizeAnyItems(raw any) string {
 				continue
 			}
 			if itemMap, ok := item.(map[string]any); ok {
-				if dtype := firstStringValue(itemMap, "dtype", "type", "data_type"); dtype != "" {
+				if dtype := FirstStringValue(itemMap, "dtype", "type", "data_type"); dtype != "" {
 					label += " " + dtype
 				}
 			}
@@ -114,14 +114,14 @@ func appendSummaryItem(items []string, item any) []string {
 		}
 	case map[string]any:
 		name := valuefmt.FirstNonEmpty(
-			firstStringValueFold(typed, "station", "station_id", "site", "site_id", "id", "name", "path", "column", "dataset", "variable", "title"),
+			FirstStringValueFold(typed, "station", "station_id", "site", "site_id", "id", "name", "path", "column", "dataset", "variable", "title"),
 			"(unnamed)",
 		)
-		if dtype := firstStringValueFold(typed, "dtype", "type", "data_type"); dtype != "" {
+		if dtype := FirstStringValueFold(typed, "dtype", "type", "data_type"); dtype != "" {
 			name += " " + dtype
 		}
 		if distance, ok := valuefmt.FirstNumericValue(typed, "distance_km", "distance"); ok {
-			name += " (" + formatCompactFloat(distance) + " km)"
+			name += " (" + FormatCompactFloat(distance) + " km)"
 		}
 		return append(items, name)
 	default:
@@ -133,7 +133,7 @@ func appendSummaryItem(items []string, item any) []string {
 	return items
 }
 
-func firstStringValueFold(result map[string]any, keys ...string) string {
+func FirstStringValueFold(result map[string]any, keys ...string) string {
 	if len(result) == 0 {
 		return ""
 	}

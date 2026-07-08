@@ -3,6 +3,7 @@ package ui
 // execution_observation_known.go builds tool-specific (geocode/NDP/ranking) execution observation previews.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"regexp"
 	"strings"
@@ -158,12 +159,12 @@ func executionPointRankingPreview(obj map[string]any, threshold int) string {
 			break
 		}
 		point := valuefmt.MapValue(raw)
-		id := firstStringValueFold(point, "site", "station", "station_id", "id", "name")
+		id := presentation.FirstStringValueFold(point, "site", "station", "station_id", "id", "name")
 		if id == "" {
 			continue
 		}
 		if distance, ok := valuefmt.FirstNumericValue(point, "distance_km", "distance"); ok {
-			rows = append(rows, id+" "+formatCompactFloat(distance)+" km")
+			rows = append(rows, id+" "+presentation.FormatCompactFloat(distance)+" km")
 		} else {
 			rows = append(rows, id)
 		}

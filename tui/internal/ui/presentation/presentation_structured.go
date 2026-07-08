@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_structured.go summarizes structured-evidence tool results (coordinates, evidence counts/samples).
 
@@ -13,7 +13,7 @@ import (
 func summarizeStructuredEvidenceResult(result map[string]any) string {
 	var rows []string
 	rows = append(rows, summarizeStatusRows(result)...)
-	if label := firstStringValue(result, "region", "region_name", "name", "label", "title"); label != "" {
+	if label := FirstStringValue(result, "region", "region_name", "name", "label", "title"); label != "" {
 		rows = append(rows, "scope: "+label)
 	}
 	if location := summarizeCoordinateScope(result); location != "" {
@@ -25,13 +25,13 @@ func summarizeStructuredEvidenceResult(result map[string]any) string {
 	if samples := summarizeEvidenceSamples(result); samples != "" {
 		rows = append(rows, samples)
 	}
-	if bounds := summarizeNamedItems(result, "bbox", "bounds", "bounding_box"); bounds != "" {
+	if bounds := SummarizeNamedItems(result, "bbox", "bounds", "bounding_box"); bounds != "" {
 		rows = append(rows, "bounds: "+bounds)
 	}
-	if summary := firstStringValue(result, "summary", "message", "description"); summary != "" {
+	if summary := FirstStringValue(result, "summary", "message", "description"); summary != "" {
 		rows = append(rows, "summary: "+textutil.Truncate(strings.Join(strings.Fields(summary), " "), 220))
 	}
-	if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path", "filepath"); artifact != "" {
+	if artifact := FirstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path", "filepath"); artifact != "" {
 		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 	}
 	if len(rows) == 0 {
@@ -48,10 +48,10 @@ func summarizeCoordinateScope(result map[string]any) string {
 		return ""
 	}
 	if center == "" {
-		return "radius " + formatCompactFloat(radius) + " km"
+		return "radius " + FormatCompactFloat(radius) + " km"
 	}
 	if hasRadius {
-		return center + " · radius " + formatCompactFloat(radius) + " km"
+		return center + " · radius " + FormatCompactFloat(radius) + " km"
 	}
 	return center
 }
@@ -61,13 +61,13 @@ func summarizeCoordinatePair(result map[string]any) string {
 		lat, hasLat := valuefmt.FirstNumericValue(center, "lat", "latitude", "center_lat")
 		lon, hasLon := valuefmt.FirstNumericValue(center, "lon", "lng", "longitude", "center_lon")
 		if hasLat && hasLon {
-			return formatCompactFloat(lat) + ", " + formatCompactFloat(lon)
+			return FormatCompactFloat(lat) + ", " + FormatCompactFloat(lon)
 		}
 	}
 	lat, hasLat := valuefmt.FirstNumericValue(result, "center_lat", "lat", "latitude")
 	lon, hasLon := valuefmt.FirstNumericValue(result, "center_lon", "lon", "lng", "longitude")
 	if hasLat && hasLon {
-		return formatCompactFloat(lat) + ", " + formatCompactFloat(lon)
+		return FormatCompactFloat(lat) + ", " + FormatCompactFloat(lon)
 	}
 	return ""
 }
@@ -85,7 +85,7 @@ func summarizeEvidenceCounts(result map[string]any) string {
 		{"skipped", []string{"skipped_invalid", "skipped_count"}},
 	} {
 		if value, ok := valuefmt.FirstNumericValue(result, pair.keys...); ok {
-			bits = append(bits, pair.label+": "+formatCompactFloat(value))
+			bits = append(bits, pair.label+": "+FormatCompactFloat(value))
 		}
 	}
 	return strings.Join(bits, " · ")
