@@ -21,14 +21,14 @@ write a thin adapter per backend. If your agent speaks [**GACT v0.2**](contract/
 
 The canonical backend is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
 a scientific-data agent that drives 28 of 30 v0.2 capabilities end-to-end. See
-[`screenshots/README.md`](screenshots/README.md) for live captures of every
-advertised feature.
+[`docs/FEATURES.md`](docs/FEATURES.md) for live captures of every advertised
+feature (curated screenshots live under [`docs/screenshots/`](docs/screenshots/)).
 
 |  |  |
 |---|---|
-| ![streaming](screenshots/02-streaming.png) | ![tool demarcation](screenshots/25-tool-demarcation.png) |
+| ![streaming](docs/screenshots/02-streaming.png) | ![tool demarcation](docs/screenshots/25-tool-demarcation.png) |
 | Mid-stream — running badge, thinking + tool call | Claude-Code-style `ToolName(arg)` headers + `⎿` continuation |
-| ![compose](screenshots/45-compose-typing.png) | ![file picker](screenshots/49-file-picker-filtered.png) |
+| ![compose](docs/screenshots/45-compose-typing.png) | ![file picker](docs/screenshots/49-file-picker-filtered.png) |
 | `Ctrl+G` long-form compose modal | `@` fuzzy workspace-file picker |
 
 ## Quick tour
@@ -164,8 +164,10 @@ All tests pass in CI. UI changes re-record their VHS tapes under
 ## Contributing
 
 Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`).
-Run `make test-race` before pushing; UI changes need a fresh screenshot in
-`screenshots/`. See [`CLAUDE.md`](CLAUDE.md) for the full working rules.
+Run `make test-race` before pushing; UI changes are proven with a tape-rendered
+capture — curated doc screenshots live under `docs/screenshots/` (see the media
+policy in [`CLAUDE.md`](CLAUDE.md)). See [`CLAUDE.md`](CLAUDE.md) for the full
+working rules.
 
 ## License
 
