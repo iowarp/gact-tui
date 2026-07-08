@@ -12,9 +12,9 @@ render. Read both before touching transcript code:
   output only, depth = indentation, name-once colored headers).
 - `apps/web/CANONICAL-CONVERSATION.md` — the **entire** approved EarthScope run
   rendered out, grounded in the real wire. This is the exact target.
-- `apps/CLIO-DEVTEAM-ISSUE-react-thought-ordering.md` — stream gaps to fix
-  backend-side (per-step thought + tool attribution not in the ordered parts),
-  NOT to paper over in the client.
+
+Known stream gaps (per-step thought + tool attribution not in the ordered parts)
+are fixed backend-side, **NOT** papered over in the client.
 
 ## ABSOLUTE RULES (anti-procrastination)
 

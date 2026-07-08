@@ -72,7 +72,7 @@ are in the release branch:
 
 Full W4 matrix (SSE drop/reconnect, concurrent turns, large transcript,
 supervisor SPAWN, shutdown reaping, ssh tunnel forward/reaping/bad-host against
-the real homelab): see `STATUS.md` wave board — all PROVEN.
+the real homelab): all PROVEN on the tracking issues.
 
 ---
 
