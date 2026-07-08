@@ -60,21 +60,11 @@ tui/coverage.txt
 *.webm
 *.mp4
 
-# Committed screenshots: curated .png baselines + the index only. Run dumps
-# and raw captures under screenshots/ are CI artifacts, never tracked — the
-# ignore rules enforce the media policy so a stray run can't re-bleed in.
-!screenshots/
-screenshots/**
-!screenshots/**/
-!screenshots/**/*.png
-!screenshots/**/README.md
-!screenshots/**/.gitkeep
-# Belt-and-suspenders: run-dump artifact types stay ignored regardless.
-screenshots/**/*.jsonl
-screenshots/**/*.log
-screenshots/**/*.json
-screenshots/**/*.html
-screenshots/**/*.txt
+# Screenshots live ONLY in docs/screenshots/ (media policy in CLAUDE.md,
+# enforced by scripts/check_media_policy.py — iowarp/gact-tui#235). The old
+# scattered screenshots/ tree is deleted; ignore it so a stray run can't
+# re-introduce committed captures outside the one sanctioned folder.
+screenshots/
 .clio_agent/
 
 # Backup files
