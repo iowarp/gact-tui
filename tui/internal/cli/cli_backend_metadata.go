@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runCapabilities prints the backend's contract version, identity, and
@@ -20,18 +19,18 @@ import (
 // off). The TUI Connect screen already calls this on startup; this
 // just exposes it from the shell.
 func runCapabilities(args []string) int {
-	fs := flag.NewFlagSet("capabilities", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "text | json")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	var format *string
+	cc, _, code := newCmdCtx("capabilities", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "text | json")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "text" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact capabilities: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	caps, err := c.Capabilities(ctx)
@@ -111,18 +110,14 @@ func capabilityFlagValueEnabled(value reflect.Value) bool {
 //
 //	gact agent show <id> [--format text|json]
 func runAgentShow(args []string) int {
-	rest := args
-	fs := flag.NewFlagSet("agent show", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "text | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
+	var format *string
+	cc, rest, code := newCmdCtx("agent show", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "text | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact agent show <id> [--format text|json]")
 		return 2
 	}
@@ -130,11 +125,10 @@ func runAgentShow(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact agent show: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	a, err := c.GetAgent(ctx, fs.Arg(0))
+	a, err := c.GetAgent(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact agent show: %v\n", err)
 		return 1

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runTasks dispatches `gact tasks <verb>` for session tasks.
@@ -38,22 +37,18 @@ func runTasks(args []string) int {
 }
 
 func runTasksList(args []string) int {
-	fs := flag.NewFlagSet("tasks list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	statusFilter := fs.String("status", "", "comma-separated status filter: pending|running|completed|failed")
-	known := map[string]bool{
-		"--backend": true,
-		"-backend":  true,
-		"--format":  true,
-		"-format":   true,
-		"--status":  true,
-		"-status":   true,
+	var (
+		format       *string
+		statusFilter *string
+	)
+	cc, rest, code := newCmdCtx("tasks list", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "tsv | json")
+		statusFilter = fs.String("status", "", "comma-separated status filter: pending|running|completed|failed")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact tasks list <session-id> [--status pending,running,...] [--format tsv|json]")
 		return 2
 	}
@@ -76,11 +71,10 @@ func runTasksList(args []string) int {
 			}
 		}
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tasks, err := c.ListSessionTasks(ctx, fs.Arg(0))
+	tasks, err := c.ListSessionTasks(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact tasks list: %v\n", err)
 		return 1
@@ -110,26 +104,20 @@ func runTasksList(args []string) int {
 }
 
 func runTasksAdd(args []string) int {
-	fs := flag.NewFlagSet("tasks add", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	status := fs.String("status", "pending", "initial status: pending|running|completed|failed")
-	known := map[string]bool{
-		"--backend": true,
-		"-backend":  true,
-		"--status":  true,
-		"-status":   true,
+	var status *string
+	cc, rest, code := newCmdCtx("tasks add", args, withFlags(func(fs *flag.FlagSet) {
+		status = fs.String("status", "pending", "initial status: pending|running|completed|failed")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() < 2 {
+	if len(rest) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact tasks add <session-id> <title> [--status ...]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	title := strings.Join(fs.Args()[1:], " ")
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	title := strings.Join(rest[1:], " ")
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	created, err := c.CreateSessionTask(ctx, sid, gact.SessionTask{
@@ -144,22 +132,18 @@ func runTasksAdd(args []string) int {
 }
 
 func runTasksSet(args []string) int {
-	fs := flag.NewFlagSet("tasks set", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	title := fs.String("title", "", "new title (empty = unchanged)")
-	status := fs.String("status", "", "new status (empty = unchanged)")
-	known := map[string]bool{
-		"--backend": true,
-		"-backend":  true,
-		"--title":   true,
-		"-title":    true,
-		"--status":  true,
-		"-status":   true,
+	var (
+		title  *string
+		status *string
+	)
+	cc, rest, code := newCmdCtx("tasks set", args, withFlags(func(fs *flag.FlagSet) {
+		title = fs.String("title", "", "new title (empty = unchanged)")
+		status = fs.String("status", "", "new status (empty = unchanged)")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact tasks set <task-id> [--title T] [--status S]")
 		return 2
 	}
@@ -167,11 +151,10 @@ func runTasksSet(args []string) int {
 		fmt.Fprintln(os.Stderr, "gact tasks set: at least one of --title or --status required")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if _, err := c.PatchTask(ctx, fs.Arg(0), gact.SessionTask{
+	if _, err := c.PatchTask(ctx, rest[0], gact.SessionTask{
 		Title: *title, Status: *status,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "gact tasks set: %v\n", err)
@@ -181,21 +164,18 @@ func runTasksSet(args []string) int {
 }
 
 func runTasksRm(args []string) int {
-	fs := flag.NewFlagSet("tasks rm", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("tasks rm", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact tasks rm <task-id>")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := c.DeleteTask(ctx, fs.Arg(0)); err != nil {
+	if err := c.DeleteTask(ctx, rest[0]); err != nil {
 		fmt.Fprintf(os.Stderr, "gact tasks rm: %v\n", err)
 		return 1
 	}

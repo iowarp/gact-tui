@@ -25,16 +25,16 @@ import (
 // Single command for "I'm filing a bug, attach this directory". Beats
 // chaining diag + export --all + version + manual paste.
 func runDumpBundle(args []string) int {
-	fs := flag.NewFlagSet("dump-bundle", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	out := fs.String("o", "gact-bundle", "output directory")
-	since := fs.Duration("since", 0, "include only sessions with UpdatedAt within the last DUR (EEEE1)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true, "-o": true,
-		"--since": true, "-since": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		out   *string
+		since *time.Duration
+	)
+	cc, _, code := newCmdCtx("dump-bundle", args, withFlags(func(fs *flag.FlagSet) {
+		out = fs.String("o", "gact-bundle", "output directory")
+		since = fs.Duration("since", 0, "include only sessions with UpdatedAt within the last DUR (EEEE1)")
+	}))
+	if cc == nil {
+		return code
 	}
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "gact dump-bundle: mkdir %s: %v\n", *out, err)
@@ -66,8 +66,7 @@ func runDumpBundle(args []string) int {
 
 	// metrics.json - best-effort; if backend is offline we still want
 	// the rest of the bundle.
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		m, err := c.Metrics(ctx)

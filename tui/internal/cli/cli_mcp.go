@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runMcp dispatches per-server MCP detail subcommands. `gact catalog
@@ -50,17 +48,16 @@ func runMcp(args []string) int {
 // prompts,logging"), last_error. JSON mode dumps the array as-is
 // for downstream tooling. (JJJJ1)
 func runMcpList(args []string) int {
-	fs, backend, format := mcpFlagSet("mcp list")
-	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var format *string
+	cc, rest, code := newCmdCtx("mcp list", args, mcpFormatFlag(&format))
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 0 {
+	if len(rest) != 0 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp list [--format tsv|json]")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	servers, err := c.ListMcpServers(ctx)
@@ -110,20 +107,21 @@ func runMcpList(args []string) int {
 	return 0
 }
 
-func mcpFlagSet(name string) (*flag.FlagSet, *string, *string) {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	return fs, backend, format
+// mcpFormatFlag registers the shared `--format tsv|json` flag used by
+// every `gact mcp` subcommand, capturing the parsed value into dst.
+func mcpFormatFlag(dst **string) cmdOpt {
+	return withFlags(func(fs *flag.FlagSet) {
+		*dst = fs.String("format", "tsv", "tsv | json")
+	})
 }
 
 func runMcpTools(args []string) int {
-	fs, backend, format := mcpFlagSet("mcp tools")
-	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var format *string
+	cc, rest, code := newCmdCtx("mcp tools", args, mcpFormatFlag(&format))
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp tools <server-id> [--format tsv|json]")
 		return 2
 	}
@@ -131,11 +129,10 @@ func runMcpTools(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp tools: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tools, err := c.McpServerTools(ctx, fs.Arg(0))
+	tools, err := c.McpServerTools(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact mcp tools: %v\n", err)
 		return 1
@@ -153,12 +150,12 @@ func runMcpTools(args []string) int {
 }
 
 func runMcpResources(args []string) int {
-	fs, backend, format := mcpFlagSet("mcp resources")
-	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var format *string
+	cc, rest, code := newCmdCtx("mcp resources", args, mcpFormatFlag(&format))
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp resources <server-id> [--format tsv|json]")
 		return 2
 	}
@@ -166,11 +163,10 @@ func runMcpResources(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp resources: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	rs, err := c.McpServerResources(ctx, fs.Arg(0))
+	rs, err := c.McpServerResources(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact mcp resources: %v\n", err)
 		return 1
@@ -188,12 +184,12 @@ func runMcpResources(args []string) int {
 }
 
 func runMcpPrompts(args []string) int {
-	fs, backend, format := mcpFlagSet("mcp prompts")
-	known := map[string]bool{"--backend": true, "-backend": true, "--format": true, "-format": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var format *string
+	cc, rest, code := newCmdCtx("mcp prompts", args, mcpFormatFlag(&format))
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp prompts <server-id> [--format tsv|json]")
 		return 2
 	}
@@ -201,11 +197,10 @@ func runMcpPrompts(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact mcp prompts: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ps, err := c.McpServerPrompts(ctx, fs.Arg(0))
+	ps, err := c.McpServerPrompts(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact mcp prompts: %v\n", err)
 		return 1

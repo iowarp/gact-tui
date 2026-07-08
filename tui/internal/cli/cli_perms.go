@@ -56,19 +56,16 @@ func runPerms(args []string) int {
 		return 2
 	}
 
-	fs := flag.NewFlagSet("perms "+verb, flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
-		return 2
+	cc, pos, code := newCmdCtx("perms "+verb, rest)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(pos) != 1 {
 		fmt.Fprintf(os.Stderr, "usage: gact perms %s <perm-id> [--backend URL]\n", verb)
 		return 2
 	}
-	pid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	pid := pos[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.RespondPermission(ctx, pid, action); err != nil {
@@ -81,23 +78,22 @@ func runPerms(args []string) int {
 // runPermsList prints pending permissions for a session as
 // tab-separated `id  status  action  summary` rows.
 func runPermsList(args []string) int {
-	fs := flag.NewFlagSet("perms list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	pending := fs.Bool("pending", false, "only pending; default lists every state")
-	// OOOOO1: --format json emits the raw PermissionWire array with
-	// the full ToolCall payload (input args + annotations) intact —
-	// the TSV view loses that. Default tsv preserved for back-compat
-	// with the existing perms-list scripting + the test harness.
-	format := fs.String("format", "tsv", "tsv | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--pending": true, "-pending": true,
-		"--format": true, "-format": true,
+	var (
+		pending *bool
+		format  *string
+	)
+	cc, rest, code := newCmdCtx("perms list", args, withFlags(func(fs *flag.FlagSet) {
+		pending = fs.Bool("pending", false, "only pending; default lists every state")
+		// OOOOO1: --format json emits the raw PermissionWire array with
+		// the full ToolCall payload (input args + annotations) intact —
+		// the TSV view loses that. Default tsv preserved for back-compat
+		// with the existing perms-list scripting + the test harness.
+		format = fs.String("format", "tsv", "tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact perms list <session_id> [--pending] [--format tsv|json] [--backend URL]")
 		return 2
 	}
@@ -105,9 +101,8 @@ func runPermsList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact perms list: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	perms, err := c.ListPermissions(ctx, sid, *pending)
