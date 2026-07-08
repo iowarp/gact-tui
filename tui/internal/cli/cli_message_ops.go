@@ -17,19 +17,16 @@ import (
 // transport / API error. Pairs with `gact new` so shell scripts
 // can clean up scratch sessions.
 func runDelete(args []string) int {
-	fs := flag.NewFlagSet("delete", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("delete", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact delete <session_id> [--backend URL]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.DeleteSession(ctx, sid); err != nil {
@@ -71,19 +68,16 @@ func runDiff(args []string) int {
 }
 
 func runDiffList(args []string) int {
-	fs := flag.NewFlagSet("diff list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("diff list", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact diff list <session_id>")
 		return 2
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	msgs, _, err := c.ListMessages(ctx, client.MessageFilter{SessionID: sid, Limit: 10000})
@@ -114,23 +108,18 @@ func runDiffApplyReject(args []string, apply bool) int {
 	if !apply {
 		verb = "reject"
 	}
-	fs := flag.NewFlagSet("diff "+verb, flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("diff "+verb, args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() < 1 {
+	if len(rest) < 1 {
 		fmt.Fprintf(os.Stderr, "usage: gact diff %s <session_id> [paths...]\n", verb)
 		return 2
 	}
-	sid := fs.Arg(0)
+	sid := rest[0]
 	var paths []string
-	for i := 1; i < fs.NArg(); i++ {
-		paths = append(paths, fs.Arg(i))
-	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	paths = append(paths, rest[1:]...)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var (
@@ -165,28 +154,24 @@ func runDiffApplyReject(args []string, apply bool) int {
 // `--format json` pretty-prints the raw match objects (mid, part_id,
 // snippet, score).
 func runSearch(args []string) int {
-	fs := flag.NewFlagSet("search", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
+	var format *string
+	cc, rest, code := newCmdCtx("search", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() < 2 {
+	if len(rest) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact search <session_id> <query>")
 		return 2
 	}
-	sid := fs.Arg(0)
-	query := strings.Join(fs.Args()[1:], " ")
+	sid := rest[0]
+	query := strings.Join(rest[1:], " ")
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact search: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	matches, err := c.SearchMessages(ctx, sid, query)

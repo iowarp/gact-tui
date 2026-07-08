@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runHooks dispatches the hooks CLI:
@@ -37,23 +36,18 @@ func runHooks(args []string) int {
 }
 
 func runHooksList(args []string) int {
-	fs := flag.NewFlagSet("hooks list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	eventFilter := fs.String("event", "", "filter to one event type (exact); empty = all")
-	scopeFilter := fs.String("scope", "", "filter by scope kind: global|session|workspace; empty = all")
-	known := map[string]bool{
-		"--backend": true,
-		"-backend":  true,
-		"--format":  true,
-		"-format":   true,
-		"--event":   true,
-		"-event":    true,
-		"--scope":   true,
-		"-scope":    true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		format      *string
+		eventFilter *string
+		scopeFilter *string
+	)
+	cc, _, code := newCmdCtx("hooks list", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "tsv | json")
+		eventFilter = fs.String("event", "", "filter to one event type (exact); empty = all")
+		scopeFilter = fs.String("scope", "", "filter by scope kind: global|session|workspace; empty = all")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact hooks list: unknown format %q\n", *format)
@@ -65,8 +59,7 @@ func runHooksList(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact hooks list: unknown --scope %q (want global|session|workspace)\n", *scopeFilter)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	hooks, err := c.ListHooks(ctx)
@@ -122,29 +115,22 @@ func runHooksList(args []string) int {
 }
 
 func runHooksAdd(args []string) int {
-	fs := flag.NewFlagSet("hooks add", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	event := fs.String("event", "", "event type to match (e.g. tool.call.completed; * matches all)")
-	cmdPath := fs.String("command", "", "shell command to exec on match (event JSON on stdin)")
-	url := fs.String("url", "", "URL to POST event JSON to on match")
-	sid := fs.String("session", "", "scope: session id (optional)")
-	wsID := fs.String("workspace", "", "scope: workspace id (optional)")
-	known := map[string]bool{
-		"--backend":   true,
-		"-backend":    true,
-		"--event":     true,
-		"-event":      true,
-		"--command":   true,
-		"-command":    true,
-		"--url":       true,
-		"-url":        true,
-		"--session":   true,
-		"-session":    true,
-		"--workspace": true,
-		"-workspace":  true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		event   *string
+		cmdPath *string
+		url     *string
+		sid     *string
+		wsID    *string
+	)
+	cc, _, code := newCmdCtx("hooks add", args, withFlags(func(fs *flag.FlagSet) {
+		event = fs.String("event", "", "event type to match (e.g. tool.call.completed; * matches all)")
+		cmdPath = fs.String("command", "", "shell command to exec on match (event JSON on stdin)")
+		url = fs.String("url", "", "URL to POST event JSON to on match")
+		sid = fs.String("session", "", "scope: session id (optional)")
+		wsID = fs.String("workspace", "", "scope: workspace id (optional)")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *event == "" {
 		fmt.Fprintln(os.Stderr, "gact hooks add: --event required")
@@ -154,8 +140,7 @@ func runHooksAdd(args []string) int {
 		fmt.Fprintln(os.Stderr, "gact hooks add: --command or --url required")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	created, err := c.CreateHook(ctx, gact.Hook{
@@ -174,21 +159,18 @@ func runHooksAdd(args []string) int {
 }
 
 func runHooksRm(args []string) int {
-	fs := flag.NewFlagSet("hooks rm", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("hooks rm", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact hooks rm <hook-id>")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := c.DeleteHook(ctx, fs.Arg(0)); err != nil {
+	if err := c.DeleteHook(ctx, rest[0]); err != nil {
 		fmt.Fprintf(os.Stderr, "gact hooks rm: %v\n", err)
 		return 1
 	}

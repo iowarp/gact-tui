@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runRepoMap fetches the workspace repo map and renders it as a tree
@@ -20,17 +19,14 @@ import (
 //	gact repo-map ws_default            # tree view, with token cost
 //	gact repo-map ws_default --format json
 func runRepoMap(args []string) int {
-	fs := flag.NewFlagSet("repo-map", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tree", "tree | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
+	var format *string
+	cc, rest, code := newCmdCtx("repo-map", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tree", "tree | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact repo-map <workspace_id> [--format tree|json]")
 		return 2
 	}
@@ -38,9 +34,8 @@ func runRepoMap(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact repo-map: unknown format %q (want tree|json)\n", *format)
 		return 2
 	}
-	wsID := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	wsID := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	rm, err := c.WorkspaceRepoMap(ctx, wsID)
@@ -116,24 +111,23 @@ func runFiles(args []string) int {
 }
 
 func runFilesList(args []string) int {
-	fs := flag.NewFlagSet("files list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	// ZZZZ1: --glob applies a Go path.Match pattern to entry.Path
-	// (the relative-to-workspace-root path the backend already
-	// returns). Empty = no filter (back-compat). We deliberately use
-	// path.Match (forward-slash, no recursion across `/`) rather
-	// than filepath.Match so behavior is portable across hosts.
-	glob := fs.String("glob", "", "filter to entries whose path matches this Go path.Match pattern (e.g. '*.go', 'cmd/*')")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-		"--glob": true, "-glob": true,
+	var (
+		format *string
+		glob   *string
+	)
+	cc, rest, code := newCmdCtx("files list", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "tsv | json")
+		// ZZZZ1: --glob applies a Go path.Match pattern to entry.Path
+		// (the relative-to-workspace-root path the backend already
+		// returns). Empty = no filter (back-compat). We deliberately use
+		// path.Match (forward-slash, no recursion across `/`) rather
+		// than filepath.Match so behavior is portable across hosts.
+		glob = fs.String("glob", "", "filter to entries whose path matches this Go path.Match pattern (e.g. '*.go', 'cmd/*')")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact files list <workspace_id> [--format tsv|json] [--glob PATTERN]")
 		return 2
 	}
@@ -147,9 +141,8 @@ func runFilesList(args []string) int {
 			return 2
 		}
 	}
-	wsID := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	wsID := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	entries, err := c.ListWorkspaceFiles(ctx, wsID)
@@ -193,20 +186,17 @@ func runFilesList(args []string) int {
 }
 
 func runFilesRead(args []string) int {
-	fs := flag.NewFlagSet("files read", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("files read", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact files read <workspace_id> <path>")
 		return 2
 	}
-	wsID := fs.Arg(0)
-	path := fs.Arg(1)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	wsID := rest[0]
+	path := rest[1]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	body, err := c.ReadWorkspaceFile(ctx, wsID, path)

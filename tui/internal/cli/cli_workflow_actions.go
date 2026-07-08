@@ -23,28 +23,23 @@ import (
 // "[auto-summary placeholder]" string); real backends produce real
 // summaries asynchronously.
 func runSummarize(args []string) int {
-	fs := flag.NewFlagSet("summarize", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	auto := fs.Bool("auto", true, "deprecated: only the legacy /summarize fallback ever read this; ignored")
-	instructions := fs.String("instructions", "", "focus prompt for the compaction (sent as `focus`)")
-	known := map[string]bool{
-		"--backend":      true,
-		"-backend":       true,
-		"--auto":         true,
-		"-auto":          true,
-		"--instructions": true,
-		"-instructions":  true,
+	var (
+		auto         *bool
+		instructions *string
+	)
+	cc, rest, code := newCmdCtx("summarize", args, withFlags(func(fs *flag.FlagSet) {
+		auto = fs.Bool("auto", true, "deprecated: only the legacy /summarize fallback ever read this; ignored")
+		instructions = fs.String("instructions", "", "focus prompt for the compaction (sent as `focus`)")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact summarize <session_id> [--auto=false] [--instructions \"...\"] [--backend URL]")
 		return 2
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_ = *auto // deprecated flag kept for CLI compatibility; no backend reads it
@@ -85,30 +80,27 @@ func runSummarize(args []string) int {
 // --keep prevents the cleanup delete (useful when you want to drop
 // into the TUI afterwards via the printed session id on stderr).
 func runQuick(args []string) int {
-	fs := flag.NewFlagSet("quick", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "workspace id; defaults to first listed")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
-	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
-	keep := fs.Bool("keep", false, "skip the cleanup delete; print sid to stderr")
-	known := map[string]bool{
-		"--backend":   true,
-		"-backend":    true,
-		"--workspace": true,
-		"-workspace":  true,
-		"--timeout":   true,
-		"-timeout":    true,
-		"--interval":  true,
-		"-interval":   true,
+	var (
+		wsID     *string
+		interval *time.Duration
+		keep     *bool
+	)
+	cc, rest, code := newCmdCtx("quick", args,
+		withTimeout(5*time.Minute, "abandon wait after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			wsID = fs.String("workspace", "", "workspace id; defaults to first listed")
+			interval = fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
+			keep = fs.Bool("keep", false, "skip the cleanup delete; print sid to stderr")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact quick <question|-> [--workspace WS_ID] [--timeout DUR] [--keep]")
 		return 2
 	}
-	question := fs.Arg(0)
+	question := rest[0]
 	if question == "-" {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -122,8 +114,7 @@ func runQuick(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 
 	if *wsID == "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -175,7 +166,7 @@ func runQuick(args []string) int {
 	}
 	postCancel()
 
-	deadline := time.Now().Add(*timeout)
+	deadline := time.Now().Add(cc.timeout)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		s, err := c.GetSession(ctx, sid)

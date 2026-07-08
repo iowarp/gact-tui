@@ -20,18 +20,17 @@ import (
 //	1 — at least one section failed
 //	2 — bad usage
 func runConformance(args []string) int {
-	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "workspace id (default: first listed)")
-	skip := fs.String("skip", "", "comma-separated section names to skip (Health,Capabilities,Workspaces,Sessions,CreateSession,PostMessage,SSE,Commands,Tools,Metrics)")
-	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
-		"--backend": true, "-backend": true,
-		"--workspace": true, "-workspace": true,
-		"--skip": true, "-skip": true,
-	})); err != nil {
-		return 2
+	var (
+		wsID *string
+		skip *string
+	)
+	cc, _, code := newCmdCtx("conformance", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "workspace id (default: first listed)")
+		skip = fs.String("skip", "", "comma-separated section names to skip (Health,Capabilities,Workspaces,Sessions,CreateSession,PostMessage,SSE,Commands,Tools,Metrics)")
+	}))
+	if cc == nil {
+		return code
 	}
-	finalBackend := resolveCLIBackend(*backend)
 	opts := conformance.Options{WorkspaceID: *wsID}
 	for _, s := range strings.Split(*skip, ",") {
 		switch strings.TrimSpace(s) {
@@ -68,9 +67,9 @@ func runConformance(args []string) int {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "gact conformance  backend=%s\n", finalBackend)
+	fmt.Fprintf(os.Stderr, "gact conformance  backend=%s\n", cc.backend)
 	r := conformance.NewCLIReporter(func(line string) { fmt.Println(line) })
-	conformance.Run(r, finalBackend, opts)
+	conformance.Run(r, cc.backend, opts)
 	if failed := r.FailedSections(); len(failed) > 0 {
 		fmt.Fprintf(os.Stderr, "FAIL: %d section(s)\n", len(failed))
 		for _, f := range failed {

@@ -20,33 +20,32 @@ import (
 // small goroutine pool, aggregates results. Useful for "did I ever
 // mention X anywhere?" (WWW1).
 func runGrep(args []string) int {
-	fs := flag.NewFlagSet("grep", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
-	format := fs.String("format", "tsv", "tsv | json")
-	// VVVV1: --limit caps the output. Default 0 means unlimited
-	// (back-compat). Truncation happens AFTER sorting so the kept
-	// rows are still the lexicographically-smallest sids.
-	limit := fs.Int("limit", 0, "max hits to print (0 = unlimited)")
-	// DDDDDDDDD1: --role filter mirrors VVVVVVVV1 on log/follow.
-	// Applies AFTER the cross-session search gathers hits, so the
-	// keep-set filters the role-decorated rows built from midRoles.
-	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--workspace": true, "-workspace": true,
-		"--format": true, "-format": true,
-		"--limit": true, "-limit": true,
-		"--role": true, "-role": true,
+	var (
+		wsID   *string
+		format *string
+		limit  *int
+		role   *string
+	)
+	cc, rest, code := newCmdCtx("grep", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "limit to one workspace; empty = all")
+		format = fs.String("format", "tsv", "tsv | json")
+		// VVVV1: --limit caps the output. Default 0 means unlimited
+		// (back-compat). Truncation happens AFTER sorting so the kept
+		// rows are still the lexicographically-smallest sids.
+		limit = fs.Int("limit", 0, "max hits to print (0 = unlimited)")
+		// DDDDDDDDD1: --role filter mirrors VVVVVVVV1 on log/follow.
+		// Applies AFTER the cross-session search gathers hits, so the
+		// keep-set filters the role-decorated rows built from midRoles.
+		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() < 1 {
+	if len(rest) < 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact grep <query> [--workspace WS_ID] [--role user,assistant,...] [--format tsv|json] [--limit N]")
 		return 2
 	}
-	query := strings.Join(fs.Args(), " ")
+	query := strings.Join(rest, " ")
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact grep: unknown format %q\n", *format)
 		return 2
@@ -71,8 +70,7 @@ func runGrep(args []string) int {
 			}
 		}
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})

@@ -19,23 +19,23 @@ import (
 // turns serially (each timed send→idle), reports p50/p90/p99/avg/
 // total, deletes the session.
 func runBench(args []string) int {
-	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	n := fs.Int("n", 5, "number of turns per goroutine")
-	concurrent := fs.Int("concurrent", 1, "number of parallel goroutines (XXX1)")
-	message := fs.String("message", "say hello in one word", "message body for each turn")
-	wsID := fs.String("workspace", "", "workspace id (default: first listed)")
-	timeout := fs.Duration("timeout", 5*time.Minute, "per-turn timeout")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"-n": true, "--n": true,
-		"--concurrent": true, "-concurrent": true,
-		"--message": true, "-message": true,
-		"--workspace": true, "-workspace": true,
-		"--timeout": true, "-timeout": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var (
+		n          *int
+		concurrent *int
+		message    *string
+		wsID       *string
+	)
+	cc, _, code := newCmdCtx("bench", args,
+		withTimeout(5*time.Minute, "per-turn timeout"),
+		withFlags(func(fs *flag.FlagSet) {
+			n = fs.Int("n", 5, "number of turns per goroutine")
+			concurrent = fs.Int("concurrent", 1, "number of parallel goroutines (XXX1)")
+			message = fs.String("message", "say hello in one word", "message body for each turn")
+			wsID = fs.String("workspace", "", "workspace id (default: first listed)")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
 	if *n < 1 {
 		fmt.Fprintln(os.Stderr, "gact bench: -n must be >= 1")
@@ -46,8 +46,7 @@ func runBench(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if *wsID == "" {
 		wss, err := c.ListWorkspaces(ctx)
@@ -79,7 +78,7 @@ func runBench(args []string) int {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx] = runBenchWorker(c, *wsID, *n, *message, *timeout, idx)
+			results[idx] = runBenchWorker(c, *wsID, *n, *message, cc.timeout, idx)
 		}(w)
 	}
 	wg.Wait()
@@ -113,7 +112,7 @@ func runBench(args []string) int {
 	avg := sum / time.Duration(len(durations))
 
 	fmt.Printf("gact bench  backend=%s  n=%d  concurrent=%d  message=%q\n",
-		finalBackend, *n, *concurrent, *message)
+		cc.backend, *n, *concurrent, *message)
 	fmt.Printf("  total:    %s\n", totalElapsed.Round(time.Millisecond))
 	fmt.Printf("  samples:  %d\n", len(durations))
 	fmt.Printf("  avg:      %s\n", avg.Round(time.Millisecond))

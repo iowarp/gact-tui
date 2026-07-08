@@ -3,30 +3,24 @@ package cli
 import (
 	"context"
 	"encoding/base64"
-	"flag"
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func runMcpResourceRead(args []string) int {
-	fs := flag.NewFlagSet("mcp resource-read", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("mcp resource-read", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp resource-read <server-id> <uri>")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	contents, err := c.McpResourceRead(ctx, fs.Arg(0), fs.Arg(1))
+	contents, err := c.McpResourceRead(ctx, rest[0], rest[1])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact mcp resource-read: %v\n", err)
 		return 1
@@ -49,21 +43,18 @@ func runMcpResourceRead(args []string) int {
 }
 
 func runMcpReconnect(args []string) int {
-	fs := flag.NewFlagSet("mcp reconnect", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	known := map[string]bool{"--backend": true, "-backend": true}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("mcp reconnect", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact mcp reconnect <server-id>")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := c.McpReconnect(ctx, fs.Arg(0)); err != nil {
+	if err := c.McpReconnect(ctx, rest[0]); err != nil {
 		fmt.Fprintf(os.Stderr, "gact mcp reconnect: %v\n", err)
 		return 1
 	}
