@@ -138,7 +138,7 @@ A `Reset all preferences` button in Settings → Appearance wipes
 every `clio.*` localStorage key (drafts, pins, inspector tab,
 density, active session, …) after a confirm dialog and reloads.
 
-### Open blockers (see STATUS.md)
+### Open blockers
 
 1. ALCF / Globus token-cache reload — needs a re-test against the
    develop branch now that upstream merged the token-path work.

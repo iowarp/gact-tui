@@ -197,5 +197,4 @@ Each lands as it lands. v0.3 won't bump until the additions are coherent enough 
 
 - Spec: [`contract/SPEC.md`](../contract/SPEC.md)
 - TUI behaviour: [`docs/FEATURES.md`](FEATURES.md)
-- CLIO integration plan: [`docs/archive/PLAN.md`](archive/PLAN.md) phase `CLIO-BBBBBBBBBB`
 - CLIO-side surface: [iowarp/clio-agent docs/tui/](https://github.com/iowarp/clio-agent/tree/tui-integration/docs/tui)

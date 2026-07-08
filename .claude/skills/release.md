@@ -38,8 +38,8 @@ cd /d/Libraries/Documents/projects/clio-agent
 
 ## 2. Branding (mechanism changed this iteration — config file, not env var)
 
-The old `GACT_BRAND_SRC` env var is **gone** (see `apps/branding/NOTICE-brand-mechanism-changed.md`
-— PR #725 must be redone against this). The new model:
+The old `GACT_BRAND_SRC` env var is **gone** (PR #725 must be redone against this).
+The new model:
 
 - Brand selection is a **generated config file**: `apps/brand.config.local.json`
   `{ "profile": "clio", "brandingRoot": "D:\\...\\clio-agent\\branding" }`.
@@ -62,7 +62,7 @@ cat ../brand.config.local.json   # profile:clio, brandingRoot -> clio-agent/bran
 
 ## 3. Prepare the release
 1. Bump versions (web `package.json`, desktop Tauri conf, Go module tags as applicable).
-2. Update the release tracking issue / PR description with the current state; durable status lives in issues and PRs (root STATUS.md is archived under docs/archive/).
+2. Update the release tracking issue / PR description with the current state; durable status lives in issues and PRs.
 3. Refresh required screenshots (`apps/web/screenshots/` — see `apps/CLAUDE.md` list) and
    TUI screenshots (`tui-screenshot` skill).
 4. Regenerate `apps/RELEASE-READINESS.md` if blockers changed.
