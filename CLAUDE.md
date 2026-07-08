@@ -12,13 +12,14 @@ for development and testing.
 
 ## Repo layout (as it actually is)
 
-Go workspace — `go.work` has **seven modules**:
+Go workspace — `go.work` has **eight modules**:
 
 - `emulator/` — HTTP server implementing the GACT contract, scriptable scenarios for tests
 - `tui/` — Bubbletea TUI client; `internal/{client,config,intro,plugins,ui,version}`
 - `adapters/opencode`, `adapters/crush`, `adapters/goose`, `adapters/claudecode` — Go adapters
   that translate other agent backends onto the GACT wire contract
 - `contract/conformance` — conformance test suite for the spec
+- `loop-test/` — minimal Bubbletea+VHS proof-of-concept, in the workspace so CI builds/tests it
 
 Not in `go.work`:
 
@@ -35,7 +36,6 @@ Not in `go.work`:
   UI-touching work must add or refresh a screenshot here.
 - `docs/` — feature docs; `docs/archive/` holds historical work-logs (PLAN.md, STATUS.md, ...)
 - `research/` — read-only clones for reference. **Do not modify.**
-- `loop-test/` — minimal Bubbletea+VHS proof-of-concept, kept as a reference template
 
 ## Status and reporting
 
