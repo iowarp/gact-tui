@@ -7,7 +7,8 @@
 // has no image decoder or chafa dep.
 //
 // Current asset: iowarp_logo.gif (80 frames, 762x718). Swap by
-// running `make intro-logo-anim SRC=logo/<new-asset>.gif`.
+// running `make intro-logo-anim INTRO_SRC=<path-to-new-asset>.gif`
+// (brand assets live under apps/design/assets/brand/).
 package intro
 
 import (

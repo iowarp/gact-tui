@@ -36,6 +36,8 @@ Not in `go.work`:
   UI-touching work must add or refresh a screenshot here.
 - `docs/` — feature docs; `docs/archive/` holds historical work-logs (PLAN.md, STATUS.md, ...)
 - `research/` — read-only clones for reference. **Do not modify.**
+- `ref/` — small static design-reference images (target renderings, competitor
+  diffs) used when reasoning about the TUI's look. Not a build input.
 
 ## Status and reporting
 
@@ -57,6 +59,24 @@ The nine-reviewer audit and its fix program are tracked in umbrella issue
    seam-named file clusters that exist (e.g. `catalog_browser_*`, `conversation_*`,
    `command_palette_*`) —
    do not add new god files or grow unrelated code into existing ones.
+
+## Media policy
+
+Git history is heavy with full-screen PNG churn, so what may be committed is
+tightly scoped:
+
+- **Tracked:** VHS `.tape` sources (`tui/testdata/tapes/`) and the curated
+  screenshot baselines they produce (`screenshots/`, indexed by
+  `screenshots/README.md`). Brand assets live under
+  `apps/design/assets/brand/` (mechanism in `apps/branding/`).
+- **New screenshot media goes through Git LFS.** `.gitattributes` routes
+  `screenshots/**/*.png` and `screenshots/**/*.gif` through `filter=lfs`, so
+  new baselines are stored as LFS pointers, not plain pack blobs. Existing
+  blobs stay plain until the one-time history rewrite (owner runbook, tracked
+  in [#235](https://github.com/iowarp/gact-tui/issues/235)).
+- **Never committed:** run outputs — raw captures, session dumps, audit logs,
+  `.jsonl`/`.log`/`.html`/`.txt` under `screenshots/`, and `visual_loop/`
+  harness output. These are CI artifacts and are `.gitignore`-d.
 
 ## Build / test quickstart
 
