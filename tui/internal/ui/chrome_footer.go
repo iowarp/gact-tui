@@ -59,7 +59,7 @@ func (c *chromeComponent) renderFooter() string {
 		right += c.renderFooterContextIndicator(*c.app.session.footerContext) + "  "
 	}
 
-	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): memory cache-hit-rate chip.
+	// Memory cache-hit-rate chip (v0.2 §6.19).
 	// Gated on capabilities.memory so v0.1 backends render nothing.
 	// A non-zero memoryStats.Cache (either hits or misses) means we've
 	// actually seen stats; until then, don't show the chip.

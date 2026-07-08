@@ -18,14 +18,13 @@ import (
 // the local detached-sessions registry (Ctrl+Z exits write to it) and
 // prints one row per detached session so the user can find what they
 // walked away from without having to remember opaque sess_xxxx ids.
-// (AAAAAAAA1)
 func runDetached(args []string) int {
 	fs := flag.NewFlagSet("detached", flag.ContinueOnError)
 	rm := fs.String("rm", "", "remove entries for these session ids (comma-separated) from the registry")
 	probe := fs.Bool("probe", false, "probe each backend, mark sessions that no longer exist")
-	pruneDead := fs.Bool("prune-dead", false, "probe + remove every entry whose backend no longer has the session (GGGGGGGG1)")
+	pruneDead := fs.Bool("prune-dead", false, "probe + remove every entry whose backend no longer has the session")
 	format := fs.String("format", "pretty", "pretty | tsv | json")
-	watch := fs.Bool("watch", false, "re-render every --interval (UUUUUUUU1)")
+	watch := fs.Bool("watch", false, "re-render every --interval")
 	interval := fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
 	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{
 		"--rm": true, "-rm": true,
@@ -37,7 +36,7 @@ func runDetached(args []string) int {
 	})); err != nil {
 		return 2
 	}
-	// UUUUUUUU1: --watch is a read-mode loop; it has no meaning
+	// --watch is a read-mode loop; it has no meaning
 	// combined with write-mode flags. Reject fast so the user sees
 	// the conflict instead of silently ignoring one of them.
 	if *watch && (*rm != "" || *pruneDead) {
@@ -63,8 +62,8 @@ func runDetached(args []string) int {
 	}
 	if *rm != "" {
 		// `--rm` removes by sid across all backends — the user
-		// thinks in sids, not (backend, sid) pairs. NNNNNNNN1:
-		// accepts a comma-separated list for batch cleanup.
+		// thinks in sids, not (backend, sid) pairs. Accepts a
+		// comma-separated list for batch cleanup.
 		sids := strings.Split(*rm, ",")
 		total := 0
 		for _, sid := range sids {
@@ -82,7 +81,7 @@ func runDetached(args []string) int {
 		fmt.Fprintf(os.Stderr, "removed %d entr(y/ies) for %s\n", total, *rm)
 		return 0
 	}
-	// UUUUUUUU1: renderOnce captures the load + probe + render path
+	// renderOnce captures the load + probe + render path
 	// so --watch can call it per tick. Returns a non-zero exit on
 	// fatal errors (read path only); render-only errors are surfaced
 	// to stderr but don't abort the watch loop.
@@ -105,7 +104,7 @@ func runDetached(args []string) int {
 				liveness[i] = &alive
 			}
 		}
-		// GGGGGGGG1: --prune-dead removes every entry whose probe came
+		// --prune-dead removes every entry whose probe came
 		// back negative. Done after the probe pass so the rendered table
 		// (below) shows the survivors with their (alive=yes) column,
 		// confirming what's left. The dead rows themselves are dropped
@@ -165,7 +164,7 @@ func runDetached(args []string) int {
 				fmt.Println("(no detached sessions — Ctrl+Z in the TUI records one here)")
 				return 0
 			}
-			// BBBBBBBB2: reorder so dead entries sink to the bottom when
+			// Reorder so dead entries sink to the bottom when
 			// --probe is set — the user's next reattach target is almost
 			// always one of the live ones. Stable sort preserves the
 			// newest-first ordering within each group.
@@ -228,9 +227,9 @@ func runDetached(args []string) int {
 	if !*watch {
 		return renderOnce()
 	}
-	// UUUUUUUU1: watch loop. ANSI clear-screen + cursor-home between
+	// Watch loop. ANSI clear-screen + cursor-home between
 	// frames so each render replaces the previous in place. Mirrors
-	// the BBBB1 dashboard --watch pattern. Ctrl+C exits via default
+	// the dashboard --watch pattern. Ctrl+C exits via default
 	// SIGINT handling since there's no tea program to intercept.
 	tick := time.NewTicker(*interval)
 	defer tick.Stop()

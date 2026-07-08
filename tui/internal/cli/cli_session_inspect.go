@@ -20,7 +20,7 @@ import (
 // struct for jq pipelines. Useful when scripts need to check status,
 // model, or message_count without parsing `gact list` TSV.
 //
-// OOOO1: --include CSV pulls in extra sections. Supported tokens:
+// --include CSV pulls in extra sections. Supported tokens:
 //
 //	tasks  — session tasks (GET /v1/sessions/{id}/tasks)
 //	hooks  — hooks scoped to this session (filtered from ListHooks)
@@ -57,7 +57,7 @@ func runInfo(args []string) int {
 		case "hooks":
 			wantHooks = true
 		case "perms":
-			// NNNNN1: --include perms pulls every permission request
+			// --include perms pulls every permission request
 			// the session has seen (pending + resolved). Useful for
 			// "what did I allow/deny in this session?" audits without
 			// chaining info + perms list.
@@ -116,7 +116,7 @@ func runInfo(args []string) int {
 			}
 		}
 	}
-	// JJJJJJJJJ1: read-only probe of the local detached registry so
+	// Read-only probe of the local detached registry so
 	// `gact info <sid>` shows the same "did I walk away from this?"
 	// flag the dashboard / list / sidebar already surface. Soft-
 	// fails to false on missing registry.
@@ -184,7 +184,7 @@ func runInfo(args []string) int {
 	if s.Summary != "" {
 		fmt.Printf("summary:       %s\n", s.Summary)
 	}
-	// JJJJJJJJJ1: surface whether this session appears in the local
+	// Surface whether this session appears in the local
 	// detached registry. Always printed (yes/no) so scripts parsing
 	// `gact info` get a deterministic field.
 	if isDetached {

@@ -10,7 +10,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
-// ZZZZZZZZZ1: quit-confirm modal. User feedback: "ctrl+c should have
+// Quit-confirm modal. User feedback: "ctrl+c should have
 // a confirmation window, close? yes no detach".
 //
 // Three options (left→right):

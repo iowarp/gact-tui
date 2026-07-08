@@ -36,7 +36,7 @@ func (c *conversationComponent) renderNoSessionBody(t Theme) string {
 		"  "+t.HintKey.Render("Ctrl+Z")+t.HintLabel.Render(" "+c.app.localizer.t(msgConversationDetachPrefix, nil)+" ")+
 			t.HintKey.Render("gact attach <sid>")+t.HintLabel.Render(" "+c.app.localizer.t(msgConversationReattaches, nil)),
 	)
-	// EEEEEEEE1: when the user has detached sessions on this backend,
+	// When the user has detached sessions on this backend,
 	// surface that on the empty-state callout so the resume path is
 	// discoverable on a fresh TUI start.
 	var resumeHint string

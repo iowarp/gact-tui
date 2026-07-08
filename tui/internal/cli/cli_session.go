@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-// PPPPPPPPP1: `gact session <verb>` is an alias layer over the
+// `gact session <verb>` is an alias layer over the
 // existing top-level session CRUD commands. No new behavior; just a
 // discoverable namespace symmetric with `gact agent *`.
 func runSession(args []string) int {

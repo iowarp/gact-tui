@@ -13,10 +13,10 @@ import (
 )
 
 // writeDiagTo writes the terse diag report to an arbitrary writer.
-// Used by dump-bundle (TTTTTTTT1). Use writeDiagToVerbose (runDiag)
+// Used by dump-bundle. Use writeDiagToVerbose (runDiag)
 // for the stdout path — it adds custom-theme + config-load rows.
 //
-// IIIIIIIII1: both variants share writeDiagCore so future rows
+// Both variants share writeDiagCore so future rows
 // (new env vars, new counters) land in one place automatically.
 func writeDiagTo(w io.Writer) { writeDiagCore(w, false) }
 
@@ -97,9 +97,9 @@ func writeDiagCore(w io.Writer, verbose bool) {
 			fmt.Fprintf(w, "  env %s: %s\n", name, v)
 		}
 	}
-	// HHHHHHHHH1: one-line summary of the local detached registry
-	// (AAAAAAAA1) so bug reports on resume/attach UX carry the
-	// state without a separate `gact detached` run.
+	// One-line summary of the local detached registry so bug
+	// reports on resume/attach UX carry the state without a
+	// separate `gact detached` run.
 	if regPath, err := config.DetachedPath(); err == nil {
 		fmt.Fprintf(w, "  detached_path: %s\n", regPath)
 		if reg, err := config.LoadDetached(regPath); err == nil {

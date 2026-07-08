@@ -19,7 +19,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	a.wireComponents()
 	tuiTrace := a.metrics.beginInteractionTrace(msg)
 	updateStarted := time.Now()
-	// LLLLLLLL1: snapshot the hint going INTO this Update cycle.
+	// Snapshot the hint going INTO this Update cycle.
 	// If a branch below assigns a different non-empty value we
 	// stamp transientHintAt after switch returns. This means the
 	// "first seen" time tracks the Update that actually set the

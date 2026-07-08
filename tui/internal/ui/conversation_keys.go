@@ -28,7 +28,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 		c.app.detail.openModal()
 		return c.app, nil
 	case "up", "k":
-		// TTTTTTTTT1: up/k walks the body cursor one addressable part
+		// Up/k walks the body cursor one addressable part
 		// backward, crossing message boundaries. User feedback:
 		// "selector goes conversation turn to conversation turn
 		// instead of logical block to logical block". When an
@@ -54,7 +54,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case "pgdown", "pagedown", "ctrl+d":
 		c.reattachBottom()
 	case "g":
-		// g jumps the cursor to the first addressable block. TTTTTTTTT1:
+		// g jumps the cursor to the first addressable block. It
 		// also lands on the first part of that message so the per-block
 		// marker is immediately meaningful.
 		if len(c.messages) > 0 {
@@ -69,7 +69,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 			c.scrollToSelectedMessage()
 		}
 	case "n":
-		// Y1 + TTTTTTTTT1: n/N advance the part cursor the same way
+		// n/N advance the part cursor the same way
 		// j/k do. Kept as a second binding because the keyboard map
 		// long-documented n/N as body-cursor nav.
 		if len(c.messages) == 0 {
@@ -81,7 +81,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 			return c.app, nil
 		}
 		c.stepPartCursor(-1)
-		// XXXXXXXXX1: `[` / `]` removed — user feedback: "i also dont
+		// `[` / `]` removed — user feedback: "i also dont
 		// see the value with the message selector and global turn
 		// selector rather just have the message selector". The
 		// part-by-part j/k is the single selector now; message-jump
@@ -123,7 +123,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 			return fmt.Sprintf("copied %d chars to clipboard", chars)
 		}))
 	case "Y":
-		// PPPPPPPP1: yank the FULL conversation as role-prefixed
+		// Yank the FULL conversation as role-prefixed
 		// markdown so the user can paste an entire turn into a bug
 		// report, another LLM, or a teammate. Complements `y` which
 		// takes a single message.
@@ -196,7 +196,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 			if c.bodySelMsgIdx >= len(c.messages) {
 				c.bodySelMsgIdx = len(c.messages) - 1
 			}
-			// TTTTTTTTT1: re-clamp the part index against the new
+			// Re-clamp the part index against the new
 			// selected message's addressable-parts list.
 			if c.bodySelMsgIdx >= 0 {
 				addr := addressablePartsOf(c.messages[c.bodySelMsgIdx])

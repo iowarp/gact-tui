@@ -62,9 +62,9 @@ func (c *conversationComponent) resetForSession(seed []gact.Message) {
 	c.invalidateRenderCache()
 	c.scrollOffset = 0
 	c.stickyToBottom = true
-	c.searchHitMessageID = "" // V3 marker doesn't travel across sessions
-	c.bodySelMsgIdx = -1      // Y1 cursor resets to off on session switch
-	c.bodySelPartIdx = -1     // TTTTTTTTT1: part cursor resets too
+	c.searchHitMessageID = "" // search-hit marker doesn't travel across sessions
+	c.bodySelMsgIdx = -1      // body cursor resets to off on session switch
+	c.bodySelPartIdx = -1     // part cursor resets too
 }
 
 // clearForCommand wipes the transcript and snaps the viewport back to the

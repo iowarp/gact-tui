@@ -11,7 +11,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/config"
 )
 
-// OOOOOOOOO1: local agent process manager. `gact agent deploy` spawns
+// Local agent process manager. `gact agent deploy` spawns
 // an adapter binary detached on a free port, records (name, kind, pid,
 // port) in ~/.config/gact/agents.json; `gact connect <name>` reads the
 // entry, sets GACT_BACKEND, and runs the TUI.
@@ -23,7 +23,8 @@ func runAgent(args []string) int {
 	verb, rest := args[0], args[1:]
 	switch verb {
 	case "show":
-		// Backend-side agent metadata lookup — pre-OOOOOOOOO1 behaviour.
+		// Backend-side agent metadata lookup — the older behaviour from
+		// before the local agent process manager existed.
 		return runAgentShow(rest)
 	case "deploy":
 		return runAgentDeploy(rest)

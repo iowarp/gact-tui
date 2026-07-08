@@ -53,7 +53,7 @@ func indent(s, prefix string) string {
 
 // flattenMessageForGrep joins every text-bearing part in a message
 // (text, thinking, tool_call name + serialized input, tool_result
-// flattened content) into a single string so `--grep` (BBBBBBBBB1)
+// flattened content) into a single string so `--grep`
 // can match any of them. Returns ("", false) when the message has
 // no grep-able content — caller treats that as "doesn't match".
 func flattenMessageForGrep(m gact.Message) (string, bool) {

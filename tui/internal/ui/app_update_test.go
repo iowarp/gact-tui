@@ -54,7 +54,7 @@ func TestPickAttachIndex(t *testing.T) {
 			wantIdx:     0,
 			wantMissing: true,
 		},
-		// RRRRRRRR1: id-prefix match resolves an 8-char shortened sid.
+		// id-prefix match resolves an 8-char shortened sid.
 		{
 			name:   "match by id prefix",
 			attach: "sess_b",
@@ -64,7 +64,7 @@ func TestPickAttachIndex(t *testing.T) {
 			},
 			wantIdx: 1,
 		},
-		// RRRRRRRR1: substring title, case-insensitive.
+		// substring title, case-insensitive.
 		{
 			name:   "match by title substring (case-insensitive)",
 			attach: "REFACTOR",
@@ -74,7 +74,7 @@ func TestPickAttachIndex(t *testing.T) {
 			},
 			wantIdx: 1,
 		},
-		// RRRRRRRR1: precedence - exact id beats prefix beats title sub.
+		// precedence - exact id beats prefix beats title sub.
 		{
 			name:   "exact id wins over title substring",
 			attach: "sess_b",
@@ -84,7 +84,7 @@ func TestPickAttachIndex(t *testing.T) {
 			},
 			wantIdx: 1,
 		},
-		// RRRRRRRR1: exact title wins over id prefix when both match.
+		// exact title wins over id prefix when both match.
 		{
 			name:   "exact title beats id prefix",
 			attach: "alpha",

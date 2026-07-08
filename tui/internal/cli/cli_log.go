@@ -32,14 +32,14 @@ func runLog(args []string) int {
 	cc, rest, code := newCmdCtx("log", args, withFlags(func(fs *flag.FlagSet) {
 		limit = fs.Int("limit", 100, "max messages to print")
 		since = fs.Duration("since", 0, "only print messages with created_at within the last DUR (e.g. 5m, 1h); 0 = unset")
-		// MMMM1: --format json emits NDJSON (one message per line) so
+		// --format json emits NDJSON (one message per line) so
 		// callers can pipe to jq. Default stays text for back-compat.
 		format = fs.String("format", "text", "text | json (NDJSON, one message per line)")
-		// VVVVVVVV1: --role filter narrows to one or more roles
+		// --role filter narrows to one or more roles
 		// (comma-separated). Accepted: user|assistant|tool|system. Empty
 		// = show everything (back-compat).
 		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
-		// BBBBBBBBB1: --grep PATTERN drops messages whose flattened text
+		// --grep PATTERN drops messages whose flattened text
 		// doesn't match the regex (case-insensitive by default — prepend
 		// `(?-i)` to override). Composes with --role/--since/--limit.
 		grep = fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
@@ -55,7 +55,7 @@ func runLog(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact log: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
-	// BBBBBBBBB1: compile the regex up-front so a bad pattern errors
+	// Compile the regex up-front so a bad pattern errors
 	// fast instead of silently producing an empty log. Default to
 	// case-insensitive; callers who need case-sensitive can prefix
 	// the pattern with `(?-i)`.
@@ -68,7 +68,7 @@ func runLog(args []string) int {
 		}
 		grepRE = re
 	}
-	// VVVVVVVV1: validate + build the role keep-set up front so a
+	// Validate + build the role keep-set up front so a
 	// typo in --role errors fast instead of silently returning an
 	// empty log.
 	var keepRole map[string]bool
@@ -97,7 +97,7 @@ func runLog(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact log: %v\n", err)
 		return 1
 	}
-	// TTT1: --since drops messages older than the cutoff. Computed
+	// --since drops messages older than the cutoff. Computed
 	// once vs each message's CreatedAt; missing timestamps survive
 	// (unprintable to filter).
 	if *since > 0 {
@@ -110,7 +110,7 @@ func runLog(args []string) int {
 		}
 		msgs = filtered
 	}
-	// VVVVVVVV1: drop messages whose role isn't in the keep-set.
+	// Drop messages whose role isn't in the keep-set.
 	// Applied after --since so both filters stack cleanly.
 	if keepRole != nil {
 		kept := msgs[:0]
@@ -121,7 +121,7 @@ func runLog(args []string) int {
 		}
 		msgs = kept
 	}
-	// BBBBBBBBB1: drop messages whose flattened text doesn't match
+	// Drop messages whose flattened text doesn't match
 	// the --grep regex. Uses the same messageText() helper the
 	// clipboard path uses so the search target matches what the
 	// user actually sees in the rendered log (text + thinking, tool

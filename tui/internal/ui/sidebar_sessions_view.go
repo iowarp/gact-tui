@@ -18,7 +18,7 @@ func (c *sidebarComponent) renderSessionsModuleRows(width, height, baseRow int) 
 	// render loop work off the same subset.
 	visIdx := c.app.session.visibleIndexes()
 
-	// JJJJJJJJ1 + XXXXXXXX1: surface the active sidebar filter in
+	// Surface the active sidebar filter (detached-only / busy-only) in
 	// the title so the narrower view is visible even after the
 	// transient hint fades. Two mutually-non-exclusive filters —
 	// if both d and b were on, stacked suffix.
@@ -131,7 +131,7 @@ func (c *sidebarComponent) renderSessionsModuleRows(width, height, baseRow int) 
 			taskBadge = "  " + lipgloss.NewStyle().Foreground(t.Warning).Italic(true).
 				Render(fmt.Sprintf("(%d tasks)", n))
 		}
-		// BBBBBBBB1: ↩ marker for sessions the user has previously
+		// ↩ marker for sessions the user has previously
 		// detached from (loaded from the local detached.json registry
 		// at startup). Tells the user "this is one I walked away
 		// from" without leaving the TUI to run `gact detached`.
@@ -163,7 +163,7 @@ func (c *sidebarComponent) renderSessionsModuleRows(width, height, baseRow int) 
 			titleBudget = 6
 		}
 		titleLine := prefix + titleStyle.Render(textutil.Truncate(title, titleBudget)) + detachBadge + taskBadge
-		// HHHHHHHH1: append humanized "Nm ago" to the status line so
+		// Append humanized "Nm ago" to the status line so
 		// users can tell which sessions are stale at c.app glance. Sits
 		// next to the status word in the same muted italic — same
 		// row, no extra vertical space. Zero UpdatedAt (fresh sessions

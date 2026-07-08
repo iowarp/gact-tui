@@ -147,7 +147,7 @@ func (a *App) wireComponents() {
 // detached.json registry. Called by main.go before p.Run() so the
 // sidebar marker can paint as soon as sessions arrive. Soft-fails:
 // a missing or unreadable registry is not a TUI startup failure,
-// the marker just won't appear. (BBBBBBBB1)
+// the marker just won't appear.
 func (a *App) LoadDetachedRegistry(records []DetachedRegistryEntry) {
 	a.previouslyDetached = map[string]bool{}
 	for _, r := range records {

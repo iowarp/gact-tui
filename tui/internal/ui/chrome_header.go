@@ -101,7 +101,7 @@ func (c *chromeComponent) renderHeaderForWidth(width int) string {
 			return app.metrics.openLoad()
 		}
 	}
-	// DDDDDDDD1: detached-count chip — always-visible reminder that
+	// Detached-count chip — always-visible reminder that
 	// the user has Ctrl+Z-walked-away sessions on this backend that
 	// they can `gact attach` (or pick from the sidebar's ↩ rows).
 	// Hidden when the count is 0 to avoid noise on a fresh install.

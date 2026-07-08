@@ -9,7 +9,7 @@ import (
 
 // detachedSysProcAttr returns the SysProcAttr needed to spawn a
 // child in a new process group so the parent (gact) exiting with
-// Ctrl+C doesn't drag the adapter down too. (OOOOOOOOO1)
+// Ctrl+C doesn't drag the adapter down too.
 func detachedSysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setsid: true}
 }

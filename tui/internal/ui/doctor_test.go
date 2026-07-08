@@ -10,7 +10,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: doctor modal renders integrations[] as a
+// Doctor modal renders integrations[] as a
 // per-row status table with colour-coded status cells.
 func TestDoctor_RendersIntegrationsTable(t *testing.T) {
 	a := newReadyApp(nil, nil)
@@ -75,7 +75,7 @@ func TestDoctorHealthFooterAdvertisesClickableDetails(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: loading state shows a placeholder while the
+// Loading state shows a placeholder while the
 // fetch is in flight.
 func TestDoctor_LoadingStateShowsSpinnerText(t *testing.T) {
 	a := newReadyApp(nil, nil)
@@ -89,7 +89,7 @@ func TestDoctor_LoadingStateShowsSpinnerText(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: fetch failure surfaces the error + a retry hint.
+// Fetch failure surfaces the error + a retry hint.
 func TestDoctor_FetchErrorRendersMessage(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width, a.height = 120, 40
@@ -105,7 +105,7 @@ func TestDoctor_FetchErrorRendersMessage(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: Esc closes the modal; r triggers a refetch
+// Esc closes the modal; r triggers a refetch
 // (non-nil cmd).
 func TestDoctor_EscCloses(t *testing.T) {
 	a := newReadyApp(nil, nil)
@@ -123,7 +123,7 @@ func TestDoctor_EscCloses(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: modal doesn't render when closed (defensive —
+// Modal doesn't render when closed (defensive —
 // stops overlay stack from painting empty boxes).
 func TestDoctor_ClosedRendersEmpty(t *testing.T) {
 	a := newReadyApp(nil, nil)

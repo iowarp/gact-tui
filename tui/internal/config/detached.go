@@ -14,7 +14,7 @@ import (
 // TUI writes one of these on Ctrl+Z (clean detach) so the user can
 // later list "sessions I walked away from but did not stop". The
 // backend doesn't track this — from its perspective every session
-// is just a session — so the registry lives client-side. (AAAAAAAA1)
+// is just a session — so the registry lives client-side.
 type DetachedRecord struct {
 	SessionID  string    `json:"session_id"`
 	Title      string    `json:"title,omitempty"`

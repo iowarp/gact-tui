@@ -7,7 +7,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: routing_decision part renders as an action row
+// routing_decision part renders as an action row
 // with selected_agent, heuristic/LM indicator, and confidence,
 // followed by a dimmed rationale line.
 func TestRender_RoutingDecision_ShapedCorrectly(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRender_RoutingDecision_ShapedCorrectly(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: LM-routed decisions render with the "LM-routed"
+// LM-routed decisions render with the "LM-routed"
 // tag instead of "heuristic".
 func TestRender_RoutingDecision_LMRoutedTag(t *testing.T) {
 	p := gact.NewRoutingDecisionPart("research_expert",
@@ -46,7 +46,7 @@ func TestRender_RoutingDecision_LMRoutedTag(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: empty rationale collapses to the badge row alone
+// Empty rationale collapses to the badge row alone
 // (no second line of empty italics).
 func TestRender_RoutingDecision_NoRationale(t *testing.T) {
 	p := gact.NewRoutingDecisionPart("code_expert", "", 0.9, true)
@@ -69,7 +69,7 @@ func TestRender_RoutingDecision_HidesInternalCleanupRows(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: when a routing_decision part is present in an
+// When a routing_decision part is present in an
 // assistant message, the full-message render places it at the top
 // (before the answer text).
 func TestRender_MessageWithRoutingDecisionPutsItFirst(t *testing.T) {

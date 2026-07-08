@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// TestCLI_Completion covers II2: each shell mode prints a script
-// with at least the canonical "completion" entry. KKKKKKKKK1 adds
-// assertions for `detached` + `resume` subcommands so future
-// additions don't silently drop off the completion list.
+// TestCLI_Completion checks that each shell mode prints a script
+// with at least the canonical "completion" entry, plus assertions
+// for the `detached` + `resume` subcommands so future additions
+// don't silently drop off the completion list.
 func TestCLI_Completion(t *testing.T) {
 	bin := buildGact(t)
 	for _, shell := range []string{"bash", "zsh", "fish"} {
