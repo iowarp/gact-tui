@@ -24,9 +24,9 @@ func runMan(args []string) int {
 	}
 	switch strings.ToLower(*format) {
 	case "text", "":
-		fmt.Print(gactManualText)
+		fmt.Print(manualText())
 	case "roff", "man":
-		fmt.Print(gactManualRoff)
+		fmt.Print(manualRoff())
 	default:
 		fmt.Fprintf(os.Stderr, "gact man: unsupported format %q (expected text or roff)\n", *format)
 		return 2
@@ -57,7 +57,7 @@ func installUnixManPage() int {
 		return 1
 	}
 	target := filepath.Join(dir, "gact.1")
-	if err := os.WriteFile(target, []byte(gactManualRoff), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte(manualRoff()), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "gact man --install: write %s: %v\n", target, err)
 		return 1
 	}
