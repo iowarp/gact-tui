@@ -266,7 +266,7 @@ gact-tui/
 │   ├── opencode/             # OpenCode upstream → GACT v0.1
 │   ├── crush/                # Crush upstream → GACT v0.1
 │   └── claudecode/           # Claude Code (via stream-json) → GACT v0.1
-├── notes/                    # distilled reference for bubbletea/lipgloss/etc.
+├── docs/reference/           # distilled reference for bubbletea/lipgloss/etc.
 ├── .claude/skills/           # tui-screenshot + tui-test workflows
 ├── screenshots/              # VHS-rendered visual record of states
 ├── docs/archive/             # superseded planning logs + design briefs
