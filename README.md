@@ -21,8 +21,8 @@ write a thin adapter per backend. If your agent speaks [**GACT v0.2**](contract/
 
 The canonical backend is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
 a scientific-data agent that drives 28 of 30 v0.2 capabilities end-to-end. See
-[`screenshots/README.md`](screenshots/README.md) for live captures of every
-advertised feature.
+[`docs/FEATURES.md`](docs/FEATURES.md) for live captures of every advertised
+feature (curated screenshots live under [`docs/screenshots/`](docs/screenshots/)).
 
 |  |  |
 |---|---|
@@ -164,8 +164,10 @@ All tests pass in CI. UI changes re-record their VHS tapes under
 ## Contributing
 
 Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`).
-Run `make test-race` before pushing; UI changes need a fresh screenshot in
-`screenshots/`. See [`CLAUDE.md`](CLAUDE.md) for the full working rules.
+Run `make test-race` before pushing; UI changes are proven with a tape-rendered
+capture — curated doc screenshots live under `docs/screenshots/` (see the media
+policy in [`CLAUDE.md`](CLAUDE.md)). See [`CLAUDE.md`](CLAUDE.md) for the full
+working rules.
 
 ## License
 

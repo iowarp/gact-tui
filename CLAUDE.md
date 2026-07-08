@@ -29,8 +29,10 @@ Not in `go.work`:
 - `apps/` — pnpm workspace (packages: `core`, `web`, `desktop`) plus `design/` and `branding/`
   (brand mechanism — see `apps/branding/README.md`)
 - `.claude/skills/` — reusable workflows (`tui-screenshot`, `tui-test`, `release`, ...)
-- `screenshots/` — curated VHS-produced captures (`screenshots/README.md` is the index).
-  UI-touching work must add or refresh a screenshot here.
+- `docs/screenshots/` — the sole home for committed doc screenshots (a curated
+  handful, regenerated from the `tui/testdata/tapes/` VHS sources). UI-touching
+  work is proven by re-rendering a tape; commit a fresh capture here only when a
+  doc needs to embed it. See the Media policy section below (#235).
 - `docs/` — all documentation, indexed by `docs/README.md`. Feature docs at the top;
   `docs/reference/` holds the distilled bubbletea/lipgloss/bubbles/ultraviolet/testing/
   pitfalls cheatsheets; `docs/ref/` holds small static design-reference images (target

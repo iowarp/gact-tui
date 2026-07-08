@@ -296,7 +296,9 @@ For UI changes, the canonical workflow is captured in
 
 1. Build the TUI binary
 2. Run a `.tape` file via VHS
-3. Inspect the resulting PNG in `screenshots/`
+3. Inspect the resulting PNG
 
-Screenshots are committed to the repo as a visual changelog. New work
-that touches the UI should add a fresh screenshot demonstrating it.
+The `.tape` sources under `tui/testdata/tapes/` are the source of truth —
+screenshots are regenerated on demand, not committed as a gallery. When a doc
+needs to embed a capture, curate it into `docs/screenshots/` (the sole committed
+screenshot home — see the media policy in the root `CLAUDE.md`, #235).
