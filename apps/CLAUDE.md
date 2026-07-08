@@ -18,12 +18,12 @@ are fixed backend-side, **NOT** papered over in the client.
 
 ## ABSOLUTE RULES (anti-procrastination)
 
-1. **No deferring.** If a design question comes up, decide it per `apps/08-decisions.md`.
+1. **No deferring.** If a design question comes up, decide it per `docs/archive/apps-design/08-decisions.md`.
    Record the choice on the relevant GitHub issue and move on. Do not write
    "TBD" or "open question" in the tree — track open blockers as GitHub issues.
 
 2. **No over-research.** Research is done — see `apps/research/`. The design system
-   is in `apps/design/`. Decisions are in `apps/08-decisions.md`. Build now.
+   is in `apps/design/`. Decisions are in `docs/archive/apps-design/08-decisions.md`. Build now.
 
 3. **Difficult-first.** When the harness can be made more robust without scope creep,
    make it more robust. Examples: prefer typed reducers over `any`, prefer Playwright
@@ -49,7 +49,7 @@ are fixed backend-side, **NOT** papered over in the client.
 
 8. **No scope creep upward.** Do not modify `tui/`, `emulator/`, `adapters/`,
    `contract/`, or `apps/design/`. If a refactor "would be cleaner first" — note it
-   in `apps/PLAN.md`, do not do it.
+   in `docs/archive/apps-PLAN.md`, do not do it.
 
 9. **Real implementations only.** Stub endpoints that return placeholder data are
    fine when wrapped in a fixture flag (`?fixture=…`); endpoints that pretend to
@@ -69,8 +69,10 @@ apps/
 ├── research/   READ-ONLY       — reference research
 ├── CLAUDE.md   (this file)
 ├── HARNESS.md  — visual loop, tests, CI, commit conventions, screenshot policy
-├── PLAN.md     — task queue (durable status lives in GitHub issues)
 └── README.md   — folder rationale and doc read-order
+
+(The historical `PLAN.md` / `CHANGELOG.md` / `RELEASE-READINESS.md` planning docs
+were archived to `docs/archive/apps-*.md`.)
 ```
 
 ## Required commands (all must exit 0 before stopping)

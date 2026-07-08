@@ -115,7 +115,7 @@ export function App() {
   // /v1/capabilities. The connect form only
   // appears as a fallback when the pure-web probe fails — it is NEVER the
   // default route. (Per the product correction in
-  // memory/feedback_clio_desktop_sidecar.md and Wave 0 in apps/PLAN.md.)
+  // memory/feedback_clio_desktop_sidecar.md and Wave 0 in docs/archive/apps-PLAN.md.)
   const initialRoute = initialRouteFromUrl(window.location.href);
   const [route, setRoute] = createSignal<Route>(initialRoute.route);
   if (initialRoute.seedFixtureBackends) {
