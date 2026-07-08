@@ -47,6 +47,14 @@ jobs:
             exit 1
           fi
 
+      # Ratchet guards against re-accretion: per-file Go line counts over
+      # tui/ emulator/ adapters/ and the frozen tui/internal/ui package count
+      # (iowarp/gact-tui#234). Warn-only until 2026-09-01 (see the script's
+      # FLIP-TO-ENFORCING note), so `|| true` keeps the wave green while the
+      # backlog is worked down; drop `|| true` (or add --enforce) to flip.
+      - name: Size / ui-package ratchet (warn-only)
+        run: python3 scripts/check_go_file_size.py || true
+
       # The repo root is a go.work workspace, not a module, so
       # `go <cmd> ./...` from the root doesn't span the members.
       # Run vet / build / test inside each workspace module instead;
