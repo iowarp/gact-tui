@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ func TestPairToolResults_HappyPath(t *testing.T) {
 		{Role: gact.RoleTool, Parts: []gact.Part{{Type: gact.PartTypeToolResult, CallID: "c3"}}},
 		{Role: gact.RoleAssistant, Parts: []gact.Part{{Type: gact.PartTypeText, Text: "done"}}},
 	}
-	inline, absorbed := pairToolResults(msgs)
+	inline, absorbed := render.PairToolResults(msgs)
 	if got := len(inline[0]); got != 3 {
 		t.Errorf("inline[0]: want 3 results, got %d", got)
 	}
@@ -53,7 +54,7 @@ func TestPairToolResults_UnpairedToolStaysVisible(t *testing.T) {
 		}},
 		{Role: gact.RoleTool, Parts: []gact.Part{{Type: gact.PartTypeToolResult, CallID: "stranger"}}},
 	}
-	inline, absorbed := pairToolResults(msgs)
+	inline, absorbed := render.PairToolResults(msgs)
 	if len(inline[0]) != 0 {
 		t.Errorf("expected no results paired, got %d", len(inline[0]))
 	}

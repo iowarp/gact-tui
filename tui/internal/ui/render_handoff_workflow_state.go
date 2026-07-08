@@ -3,6 +3,7 @@ package ui
 // render_handoff_workflow_state.go handles embedded workflow-state within handoff output and stage/status labels.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -71,7 +72,7 @@ func attachWorkflowStateSummary(output string, p gact.Part) string {
 	if strings.Contains(output, workflowSummary) {
 		return output
 	}
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(output)) {
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(output)) {
 		return output + "\n\n" + workflowStateBlockFromSummary(workflowSummary)
 	}
 	if stateBlock := workflowStateBlockFromSummary(workflowSummary); stateBlock != "" {
@@ -89,7 +90,7 @@ func expertHandoffOutputIsRich(output string) bool {
 	if strings.Contains(lower, "state:") || strings.Contains(lower, "workflow_state") {
 		return false
 	}
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(text)) {
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(text)) {
 		return true
 	}
 	if strings.Count(text, "\n") >= 2 {

@@ -1,4 +1,4 @@
-package ui
+package render
 
 // render_handoff_markdown.go expands and truncates markdown tables inside handoff text.
 
@@ -8,7 +8,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
-func expandInlineMarkdownTables(text string) string {
+func ExpandInlineMarkdownTables(text string) string {
 	text = strings.TrimSpace(text)
 	if text == "" || strings.Contains(text, "\n|") || !strings.Contains(text, "|") {
 		return text
@@ -116,7 +116,7 @@ func markdownSeparatorCell(text string) bool {
 	return text == ""
 }
 
-func truncateMarkdownBlock(text string, maxChars, maxLines int) string {
+func TruncateMarkdownBlock(text string, maxChars, maxLines int) string {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""

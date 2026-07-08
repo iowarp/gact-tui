@@ -1,5 +1,9 @@
 package ui
 
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
+)
+
 // scrollToSelectedMessage shifts scrollOffset so the selected message
 // sits inside the visible window. Uses the same bottom-anchored math
 // jumpToMessage does.
@@ -36,7 +40,7 @@ func (c *conversationComponent) selectedPartIsBottomBlock() bool {
 	if c.bodySelMsgIdx < 0 || c.bodySelMsgIdx >= len(c.messages) {
 		return false
 	}
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	lastVisible := -1
 	for i := len(c.messages) - 1; i >= 0; i-- {
 		if absorbed[i] {
@@ -71,7 +75,7 @@ func (c *conversationComponent) reattachBottom() {
 // Skip past any absorbed tool messages so the
 // cursor lands on a row the renderer actually paints — otherwise the
 // highlight is invisible because the index targets a message that
-// pairToolResults swallowed into its assistant parent.
+// render.PairToolResults swallowed into its assistant parent.
 func (c *conversationComponent) maybeInitCursor() {
 	if c.app.focus != FocusBody {
 		return
@@ -105,7 +109,7 @@ func (c *conversationComponent) snapToVisibleMsg(idx, dir int) int {
 	if len(c.messages) == 0 {
 		return -1
 	}
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	if dir == 0 {
 		dir = -1
 	}
