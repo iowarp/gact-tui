@@ -7,6 +7,10 @@
 
 GO        ?= go
 GO_TEST_FLAGS ?= -timeout=20m
+# Go modules, derived from go.work so the test/test-race/vet targets can
+# never drift out of sync with the workspace (each `./path` becomes a module
+# to chdir into). Adding a module to go.work is enough to include it here.
+GO_MODULES := $(shell grep -oE '\./[^ ]+' go.work)
 EMULATOR_BIN ?= emulator/emulator-server
 TUI_BIN      ?= tui/gact
 PORT      ?= 7777
@@ -24,7 +28,7 @@ TUI_VERSION        := $(shell git describe --tags --match 'v[0-9]*' --always --d
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
 TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
-.PHONY: help build build-emulator build-tui test test-race \
+.PHONY: help build build-emulator build-tui test test-race adapter-py-test \
         run-emulator run-tui ping list \
         screenshots clean fmt vet install dev-install verify-dev-install \
         install-for-clio verify-clio-install uninstall \
@@ -42,27 +46,25 @@ build-tui: ## Build $(TUI_BIN).
 	cd tui && $(GO) build -ldflags '$(TUI_LDFLAGS)' -o $(notdir $(TUI_BIN)) .
 
 test: ## Run unit + integration tests for every module.
-	cd emulator && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd tui && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd contract/conformance && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/opencode && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/crush && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/goose && $(GO) test $(GO_TEST_FLAGS) ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> test $$mod"; \
+		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) ./... ) || exit $$?; \
+	done
 
 test-race: ## Run tests under -race for every module.
-	cd emulator && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd tui && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd contract/conformance && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/opencode && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/crush && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/claudecode && $(GO) test $(GO_TEST_FLAGS) -race ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> test -race $$mod"; \
+		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) -race ./... ) || exit $$?; \
+	done
 
 vet: ## go vet every module.
-	cd emulator && $(GO) vet ./...
-	cd tui && $(GO) vet ./...
-	cd contract/conformance && $(GO) vet ./...
-	cd adapters/opencode && $(GO) vet ./...
-	cd adapters/crush && $(GO) vet ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> vet $$mod"; \
+		( cd $$mod && $(GO) vet ./... ) || exit $$?; \
+	done
+
+adapter-py-test: ## Run the Python claude-agent-sdk-server adapter tests.
+	cd adapters/claude-agent-sdk-server && uv run pytest tests/test_bridge.py tests/test_endpoints.py
 
 fmt: ## gofmt every module's source tree.
 	$(GO) fmt ./emulator/... ./tui/... ./contract/... ./adapters/...
