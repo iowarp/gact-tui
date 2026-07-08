@@ -105,11 +105,13 @@ intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from 
 		> tui/internal/intro/intro-static.ansi
 	@echo "wrote tui/internal/intro/intro-anim.ansi ($$(grep -c $$'\f' tui/internal/intro/intro-anim.ansi) frames) + intro-static.ansi (fallback)"
 
-screenshots: build-tui ## Render every VHS tape under tui/ into screenshots/.
+screenshots: build-tui ## Render every VHS tape under tui/testdata/tapes/ into screenshots/.
 	@if ! command -v vhs >/dev/null 2>&1; then \
 		echo "vhs not installed; see https://github.com/charmbracelet/vhs"; exit 1; \
 	fi
-	cd tui && for tape in *.tape; do \
+	# Run VHS from the repo root so tapes with a repo-relative `Output
+	# screenshots/<name>.gif` land in the top-level screenshots/ directory.
+	for tape in tui/testdata/tapes/*.tape; do \
 		echo "rendering $$tape"; \
 		GACT_BACKEND=http://localhost:$(PORT) vhs $$tape; \
 	done
