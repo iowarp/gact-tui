@@ -66,8 +66,8 @@ vet: ## go vet every module.
 adapter-py-test: ## Run the Python claude-agent-sdk-server adapter tests.
 	cd adapters/claude-agent-sdk-server && uv run pytest tests/test_bridge.py tests/test_endpoints.py
 
-check-size: ## Ratchet guard: Go file sizes + tui/internal/ui package growth (warn-only until 2026-09-01).
-	python3 scripts/check_go_file_size.py
+check-size: ## Ratchet guard: Go file sizes + tui/internal/ui package growth (enforcing).
+	python3 scripts/check_go_file_size.py --enforce
 
 fmt: ## gofmt every module's source tree.
 	$(GO) fmt ./emulator/... ./tui/... ./contract/... ./adapters/...
