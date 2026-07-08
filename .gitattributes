@@ -12,10 +12,6 @@
 *.mp4  binary
 *.ico  binary
 
-# Git LFS — NEW media under screenshots/ only. Media policy: the only
-# committed captures are curated baselines, and from now on they are
-# stored via LFS rather than as plain blobs in the pack. Existing
-# blobs stay plain until the one-time history rewrite (owner runbook,
-# tracked in iowarp/gact-tui#235); these rules govern new additions.
-screenshots/**/*.png filter=lfs diff=lfs merge=lfs -text
-screenshots/**/*.gif filter=lfs diff=lfs merge=lfs -text
+# No Git LFS. Doc images are a curated handful of small plain blobs under
+# docs/screenshots/ (see the media policy in CLAUDE.md); screenshots are
+# tape-regenerated and not committed elsewhere.

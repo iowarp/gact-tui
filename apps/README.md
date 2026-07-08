@@ -37,7 +37,7 @@ Tagged releases live at
 
 ## What you get
 
-![multi-backend picker](web/screenshots/multi-backend-picker.png)
+![multi-backend picker](../docs/screenshots/multi-backend-picker.png)
 
 - A chat shell with sessions, sidebar, transcript with verbose / normal
   / summary density, and a composer that streams responses token by

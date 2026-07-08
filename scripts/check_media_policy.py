@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Enforce the repo media policy: eval/run artifacts must never be tracked.
+"""Enforce the repo media policy: doc images live ONLY in ``docs/screenshots/``.
 
-Git history here was bloated by committed *run artifacts* -- audit-session
-dumps, raw captures, logs -- not by the curated screenshot baselines. ``.gitignore``
-already lists these patterns, but ``git add -f`` walks straight past it, so the
-mistake can (and did) recur. This check re-asserts the denylist as a CI gate:
-if a tracked path matches an artifact pattern, the build fails.
+Git history here was bloated by full-screen PNG churn scattered across
+``screenshots/``, ``apps/web/screenshots/``, and ``tui/screenshots/``. Those
+folders were consolidated into a single curated home, ``docs/screenshots/``
+(iowarp/gact-tui#235). This check enforces two things as a CI gate:
 
-What is allowed (NOT flagged): curated ``screenshots/**`` PNG/GIF baselines
-(routed through Git LFS by ``.gitattributes``), brand/design art under
-``apps/design`` / ``apps/branding``, and doc images under ``docs/``. Marketing
-and website media are fine; the output of a test run is not.
+1. **Screenshots have exactly one home.** Any tracked ``.png``/``.gif``/
+   ``.webm``/``.mp4`` must sit under an allowed prefix — ``docs/screenshots/``
+   (the curated doc images), the branding/design dirs, functional build assets
+   (desktop app icons), or visual-test fixtures. A new image anywhere else
+   (including a re-introduced ``screenshots/`` tree) fails the build.
+2. **Run artifacts are never tracked.** Audit-session dumps, raw captures, and
+   logs (``.jsonl``/``.log``/``.html``/``.txt``) are regenerable CI output.
+   ``.gitignore`` lists them, but ``git add -f`` walks past it, so the denylist
+   is re-asserted here.
 
 Run locally::
 
@@ -25,15 +29,29 @@ import re
 import subprocess
 import sys
 
+# Directory prefixes where committed images (png/gif/webm/mp4) are allowed.
+# docs/screenshots/ is the SOLE home for doc screenshots; the rest are brand /
+# design art, functional build assets, and visual-test fixtures — not doc media.
+_ALLOWED_IMAGE_PREFIXES: tuple[str, ...] = (
+    "docs/screenshots/",              # curated doc images (sole screenshot home)
+    "apps/design/",                   # brand + design assets
+    "apps/branding/",                 # branding mechanism assets
+    "docs/ref/",                      # small static design-reference images
+    "ref/",                           # design reference
+    "logo/",                          # logo art
+    "apps/desktop/src-tauri/icons/",  # functional desktop app icons (build input)
+    "apps/web/tests/",                # visual-test fixtures (build input)
+)
+
+_IMAGE_RE = re.compile(r"\.(png|gif|webm|mp4|jpe?g)$", re.IGNORECASE)
+
 # Each entry is (compiled pattern, human reason). A tracked path matching any of
 # these is a policy violation. Patterns mirror the .gitignore artifact rules so
 # a forced add can't slip an eval artifact past them.
 _ARTIFACT_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(^|/)tui_audit_[^/]*/"), "visual-audit run-output directory (regenerable)"),
     (re.compile(r"^visual_loop/.*\.(png|gif|jpe?g|jsonl|log)$"), "visual_loop harness output (regenerable)"),
-    (re.compile(r"^screenshots/.*\.(jsonl|log|json|html|txt)$"), "run dump under screenshots/ (not a curated baseline)"),
-    (re.compile(r"^apps/web/screenshots/.*\.(jsonl|log|json|html|txt|webm|mp4)$"), "apps/web CI run dump (curated .png set is allowlisted in .gitignore)"),
-    (re.compile(r"^[^/]+\.(png|gif|webm|mp4)$"), "stray media at the repo root (no root media is tracked)"),
+    (re.compile(r"(^|/)screenshots/.*\.(jsonl|log|json|html|txt)$"), "run dump under a screenshots/ tree (not a curated baseline)"),
     (re.compile(r"(^|/)(tui_audit|audit-run|capture)[^/]*\.(png|gif|jsonl|log)$"), "capture/audit run artifact"),
 ]
 
@@ -43,10 +61,18 @@ def violations(paths: list[str]) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for p in paths:
         norm = p.replace("\\", "/")
+        matched = False
         for pat, reason in _ARTIFACT_RULES:
             if pat.search(norm):
                 out.append((p, reason))
+                matched = True
                 break
+        if matched:
+            continue
+        # Any tracked image must live under an allowed prefix; docs/screenshots/
+        # is the only home for doc screenshots.
+        if _IMAGE_RE.search(norm) and not norm.startswith(_ALLOWED_IMAGE_PREFIXES):
+            out.append((p, "image outside docs/screenshots/ or an allowed branding/asset dir"))
     return out
 
 
@@ -64,12 +90,17 @@ def _selftest() -> int:
         "screenshots/foo/dump.jsonl",
         "apps/web/screenshots/audit/run.log",
         "stray.png",
+        "screenshots/02-streaming.png",         # old scattered home is now forbidden
+        "apps/web/screenshots/connect-screen.png",  # ditto
+        "tui/screenshots/tui-agentview-top.png",    # ditto
     ]
     should_pass = [
-        "screenshots/02-streaming.png",
-        "apps/web/screenshots/connect-screen.png",  # curated, allowlisted in .gitignore
+        "docs/screenshots/02-streaming.png",     # the sole curated screenshot home
+        "docs/screenshots/multi-backend-picker.png",
         "apps/design/assets/brand/Banner.png",
         "docs/ref/ours.png",
+        "apps/desktop/src-tauri/icons/icon.png",  # functional desktop app icon
+        "apps/web/tests/visual/fixtures/MTA1_GNSS_timeseries_displacement.png",  # visual-test fixture
         "tui/testdata/tapes/x.tape",
         "README.md",
     ]
@@ -96,13 +127,16 @@ def main(argv: list[str] | None = None) -> int:
     if not found:
         print("OK: no tracked eval/run artifacts; media policy holds.")
         return 0
-    print("::error::media policy: tracked eval/run artifacts must be removed (git history keeps them):")
+    print("::error::media policy violations (doc images live only in docs/screenshots/):")
     for path, reason in found:
         print(f"  {path} — {reason}")
     print(
-        "\nThese are regenerable CI/run outputs. Remove them from tracking "
-        "(git rm --cached) and rely on .gitignore; curated baselines live under "
-        "screenshots/ (LFS) and design/doc art under apps/design, apps/branding, docs/."
+        "\nCurated doc screenshots live under docs/screenshots/ (the sole home); "
+        "brand/design art under apps/design, apps/branding, docs/ref; functional "
+        "build assets under apps/desktop/src-tauri/icons and apps/web/tests. "
+        "Run/eval outputs are regenerable — remove them from tracking (git rm "
+        "--cached) and rely on .gitignore. Screenshots are tape-regenerated, not "
+        "committed elsewhere; no Git LFS."
     )
     return 1
 

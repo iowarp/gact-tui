@@ -18,9 +18,9 @@ Current lineup: **dark** (default) · **light** (Gruvbox-inspired cream) ·
 
 | | |
 |---|---|
-| ![dracula](../screenshots/61-dracula-convo.png) | ![solarized-light](../screenshots/60-solarized-light-convo.png) |
+| ![dracula](screenshots/61-dracula-convo.png) | ![solarized-light](screenshots/60-solarized-light-convo.png) |
 | Dracula in action | Solarized-light, conversation pane |
-| ![theme picker](../screenshots/54-themes-list.png) | ![tokyo-night](../screenshots/59-theme-tokyo-night.png) |
+| ![theme picker](screenshots/54-themes-list.png) | ![tokyo-night](screenshots/59-theme-tokyo-night.png) |
 | Settings > Theme picker — ↑/↓ previews live | Tokyo Night |
 
 ### Custom theme

@@ -64,18 +64,24 @@ The nine-reviewer audit and its fix program are tracked in umbrella issue
 Git history is heavy with full-screen PNG churn, so what may be committed is
 tightly scoped:
 
-- **Tracked:** VHS `.tape` sources (`tui/testdata/tapes/`) and the curated
-  screenshot baselines they produce (`screenshots/`, indexed by
-  `screenshots/README.md`). Brand assets live under
-  `apps/design/assets/brand/` (mechanism in `apps/branding/`).
-- **New screenshot media goes through Git LFS.** `.gitattributes` routes
-  `screenshots/**/*.png` and `screenshots/**/*.gif` through `filter=lfs`, so
-  new baselines are stored as LFS pointers, not plain pack blobs. Existing
-  blobs stay plain until the one-time history rewrite (owner runbook, tracked
-  in [#235](https://github.com/iowarp/gact-tui/issues/235)).
+- **Doc images live ONLY in `docs/screenshots/`.** A curated handful of small
+  plain-blob PNGs, referenced by `README.md`, `CHANGELOG.md`, `apps/README.md`,
+  and `docs/FEATURES.md`. This is the single home for any committed screenshot
+  ([#235](https://github.com/iowarp/gact-tui/issues/235) consolidated the
+  formerly scattered `screenshots/`, `apps/web/screenshots/`, and
+  `tui/screenshots/` folders here).
+- **Screenshots are tape-regenerated, not committed elsewhere.** VHS `.tape`
+  sources (`tui/testdata/tapes/`) are the source of truth; running them
+  produces captures on demand. Do not re-introduce a `screenshots/` tree or
+  commit raw captures next to the code.
+- **Brand assets** live under `apps/design/assets/brand/` (mechanism in
+  `apps/branding/`); small static design-reference images live under
+  `docs/ref/`. Functional app icons (`apps/desktop/src-tauri/icons/`) and
+  visual-test fixtures (`apps/web/tests/`) are build inputs, not doc media.
+- **No Git LFS.** Images are small plain blobs; `.gitattributes` keeps
+  `*.png`/`*.gif` marked `binary` but routes nothing through `filter=lfs`.
 - **Never committed:** run outputs — raw captures, session dumps, audit logs,
-  `.jsonl`/`.log`/`.html`/`.txt` under `screenshots/`. These are CI artifacts
-  and are `.gitignore`-d.
+  `.jsonl`/`.log`/`.html`/`.txt`. These are CI artifacts and are `.gitignore`-d.
 
 ## Build / test quickstart
 

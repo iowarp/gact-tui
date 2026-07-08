@@ -26,9 +26,9 @@ advertised feature.
 
 |  |  |
 |---|---|
-| ![streaming](screenshots/02-streaming.png) | ![tool demarcation](screenshots/25-tool-demarcation.png) |
+| ![streaming](docs/screenshots/02-streaming.png) | ![tool demarcation](docs/screenshots/25-tool-demarcation.png) |
 | Mid-stream — running badge, thinking + tool call | Claude-Code-style `ToolName(arg)` headers + `⎿` continuation |
-| ![compose](screenshots/45-compose-typing.png) | ![file picker](screenshots/49-file-picker-filtered.png) |
+| ![compose](docs/screenshots/45-compose-typing.png) | ![file picker](docs/screenshots/49-file-picker-filtered.png) |
 | `Ctrl+G` long-form compose modal | `@` fuzzy workspace-file picker |
 
 ## Quick tour

@@ -40,8 +40,8 @@ capability is verified end-to-end through the TUI against the live CLIO.
   `catalogBrowser` modal as before.
 - `SCREENSHOTS.md` index (now `screenshots/README.md`) — every PNG under `screenshots/` paired with
   the capability it proves and the tape that produced it.
-- `screenshots/clio_diff.png` — real CLIO diff path rendered inline.
-- `screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers
+- `docs/screenshots/clio_diff.png` — real CLIO diff path rendered inline.
+- `docs/screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers
   visible in the `/mcp` modal.
 
 ### Notes
