@@ -10,7 +10,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: the footer shows an ARC memory hit-rate chip when the
+// The footer shows an ARC memory hit-rate chip when the
 // backend advertises capabilities.memory AND memoryStats has at
 // least one hit-or-miss recorded.
 func TestFooter_MemoryChip_RendersWhenCapAndStats(t *testing.T) {
@@ -68,7 +68,7 @@ func TestFooter_MemoryChipUsesSemanticHitTarget(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: v0.1 backends (capabilities.memory = false) see
+// v0.1 backends (capabilities.memory = false) see
 // no chip.
 func TestFooter_MemoryChip_HiddenWhenCapFalse(t *testing.T) {
 	a := newReadyApp(nil, nil)
@@ -84,7 +84,7 @@ func TestFooter_MemoryChip_HiddenWhenCapFalse(t *testing.T) {
 	}
 }
 
-// CLIO-BBBBBBBBBB4: zero-stats (fresh session before first fetch)
+// Zero-stats (fresh session before first fetch)
 // hides the chip even when the capability is on.
 func TestFooter_MemoryChip_HiddenWithZeroStats(t *testing.T) {
 	a := newReadyApp(nil, nil)

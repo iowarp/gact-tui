@@ -12,7 +12,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-// CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats
+// memoryStatsMsg carries a fresh /v1/memory/stats
 // snapshot. Fired after connect + after every session.status_changed
 // -> idle event for backends with capabilities.memory = true.
 type memoryStatsMsg struct {

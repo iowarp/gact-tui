@@ -64,8 +64,8 @@ func TestCLI_ListFilters(t *testing.T) {
 	}
 }
 
-// FFFFFFFFF1: `gact list` gains --detached-only + --sort that
-// mirror dashboard (YYYYYYYY1 + KKKKKKKK1).
+// `gact list` gains --detached-only + --sort that
+// mirror the same flags on dashboard.
 func TestCLI_ListDetachedOnlyAndSort(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()

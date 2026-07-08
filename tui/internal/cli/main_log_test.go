@@ -70,7 +70,7 @@ func TestCLI_LogJSON(t *testing.T) {
 	}
 }
 
-// VVVVVVVV1: `gact log --role` drops messages whose role isn't in
+// `gact log --role` drops messages whose role isn't in
 // the keep-set. Accepts comma-separated list; an unknown role
 // errors fast instead of silently empty-logging.
 func TestCLI_LogRoleFilter(t *testing.T) {
@@ -128,7 +128,7 @@ func TestCLI_LogRoleFilter(t *testing.T) {
 	}
 }
 
-// BBBBBBBBB1: `gact log --grep` drops messages whose flattened text
+// `gact log --grep` drops messages whose flattened text
 // doesn't match the regex. Case-insensitive by default.
 func TestCLI_LogGrepFilter(t *testing.T) {
 	url, stop := startEmulator(t)

@@ -90,8 +90,8 @@ func TestCLI_GrepLimit(t *testing.T) {
 	}
 }
 
-// DDDDDDDDD1: `gact grep --role` narrows hits to one or more roles.
-// Mirrors VVVVVVVV1/WWWWWWWW1 on log+follow.
+// `gact grep --role` narrows hits to one or more roles.
+// Mirrors the --role filter on log+follow.
 func TestCLI_GrepRoleFilter(t *testing.T) {
 	url, stop := startEmulator(t)
 	defer stop()

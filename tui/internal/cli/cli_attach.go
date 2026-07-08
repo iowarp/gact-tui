@@ -12,12 +12,12 @@ import (
 
 // runAttach: `gact attach [<name|sid>]` — launch the TUI pre-selected
 // on a session. With no argument, defaults to the most recently
-// Ctrl+Z-detached session on the current backend (CCCCCCCC1). Exits
+// Ctrl+Z-detached session on the current backend. Exits
 // via os.Exit when done. Env var GACT_ATTACH_SESSION_ID is the
 // bridge into runTUI's setup so the flag-parse path doesn't need
 // new flags.
 func runAttach(args []string) {
-	// AAAAAAAAA1: extract --print-only (no value) ahead of the target
+	// Extract --print-only (no value) ahead of the target
 	// arg so the two usages compose cleanly:
 	//   gact attach <name>           — launch TUI
 	//   gact attach <name> --print-only  — print sid only, no TUI
@@ -41,7 +41,7 @@ func runAttach(args []string) {
 	if len(args) == 1 {
 		target = args[0]
 	} else {
-		// CCCCCCCC1: no-arg path. Look up the most-recent detach for
+		// No-arg path. Look up the most-recent detach for
 		// the current backend (env > config > built-in default — same
 		// resolution runTUI uses) and attach there. Friction-killer
 		// for the common loop: gact → work → Ctrl+Z → `gact attach`.
@@ -52,7 +52,7 @@ func runAttach(args []string) {
 		}
 		target = sid
 	}
-	// AAAAAAAAA1: --print-only short-circuits the TUI launch so
+	// --print-only short-circuits the TUI launch so
 	// scripts can resolve the target sid without running bubbletea.
 	// For a no-arg invocation, defaultAttachTarget already printed
 	// the `attaching to most-recent detach: ...` hint to stderr; the
@@ -75,8 +75,8 @@ func runAttach(args []string) {
 // the SessionID of the most-recent record matching the current
 // backend that the backend can still confirm exists. Probes each
 // candidate newest-first and skips dead entries — a registry left
-// over from a backend restart shouldn't crash the TUI on attach
-// (FFFFFFFF1). Returns a typed error when nothing applies so the
+// over from a backend restart shouldn't crash the TUI on attach.
+// Returns a typed error when nothing applies so the
 // caller can exit with a helpful message instead of an opaque
 // attach-failed crash later.
 //

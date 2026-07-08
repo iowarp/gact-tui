@@ -104,8 +104,9 @@ func capabilityFlagValueEnabled(value reflect.Value) bool {
 }
 
 // runAgentShow is the SPEC §6.5 "agent metadata lookup" command that
-// the original `gact agent` family exposed. OOOOOOOOO1 folded it
-// under a unified `gact agent <verb>` dispatcher; this helper stays
+// the original `gact agent` family exposed. The local agent process
+// manager folded it under a unified `gact agent <verb>` dispatcher;
+// this helper stays
 // as the show-specific body.
 //
 //	gact agent show <id> [--format text|json]

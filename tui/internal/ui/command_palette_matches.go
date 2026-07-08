@@ -28,7 +28,7 @@ func (p *commandPaletteComponent) matches() []gact.Command {
 	// current backend's capabilities don't support (/doctor for
 	// backends that don't advertise integration_health, etc.) so
 	// the user doesn't see greyed-out entries they can't actually
-	// run. CLIO-BBBBBBBBBB17.
+	// run.
 	seen := map[string]bool{}
 	for _, c := range all {
 		seen[c.ID] = true
@@ -37,7 +37,7 @@ func (p *commandPaletteComponent) matches() []gact.Command {
 	// are filtered through help.commandSupported (the single source of
 	// truth shared with the help cheatsheet) so unsupported surfaces are
 	// simply not shown rather than offered-then-rejected with a transient
-	// "unsupported by this backend" hint. CLIO-BBBBBBBBBB17.
+	// "unsupported by this backend" hint.
 	for _, c := range p.builtinCommands() {
 		if !p.app.help.commandSupported(c.ID) {
 			continue

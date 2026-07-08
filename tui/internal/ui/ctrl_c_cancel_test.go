@@ -38,7 +38,7 @@ func TestCtrlC_CancelsRunningSession(t *testing.T) {
 	a.c = client.New(srv.URL)
 	a.session.currentStatus = gact.StatusRunning
 
-	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. First press opens
+	// Ctrl+C now opens a confirm modal. First press opens
 	// with "close" highlighted (the original quit-everything option);
 	// second press accepts and fires the cancel+quit fan-out.
 	out, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl, Text: ""})
@@ -94,7 +94,7 @@ func TestCtrlC_NoCancelWhenIdle(t *testing.T) {
 	a.c = client.New(srv.URL)
 	a.session.currentStatus = gact.StatusIdle
 
-	// ZZZZZZZZZ1: double-Ctrl+C preserves the old "quit immediately"
+	// Double-Ctrl+C preserves the old "quit immediately"
 	// UX. The first press opens the modal, the second accepts and
 	// runs the close path — which on an idle session must NOT POST
 	// /cancel.

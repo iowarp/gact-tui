@@ -29,11 +29,11 @@ func runGrep(args []string) int {
 	cc, rest, code := newCmdCtx("grep", args, withFlags(func(fs *flag.FlagSet) {
 		wsID = fs.String("workspace", "", "limit to one workspace; empty = all")
 		format = fs.String("format", "tsv", "tsv | json")
-		// VVVV1: --limit caps the output. Default 0 means unlimited
+		// --limit caps the output. Default 0 means unlimited
 		// (back-compat). Truncation happens AFTER sorting so the kept
 		// rows are still the lexicographically-smallest sids.
 		limit = fs.Int("limit", 0, "max hits to print (0 = unlimited)")
-		// DDDDDDDDD1: --role filter mirrors VVVVVVVV1 on log/follow.
+		// --role filter mirrors the --role filter on log/follow.
 		// Applies AFTER the cross-session search gathers hits, so the
 		// keep-set filters the role-decorated rows built from midRoles.
 		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
@@ -54,7 +54,7 @@ func runGrep(args []string) int {
 		fmt.Fprintln(os.Stderr, "gact grep: --limit must be >= 0")
 		return 2
 	}
-	// DDDDDDDDD1: build + validate the role keep-set up front.
+	// Build + validate the role keep-set up front.
 	var keepRole map[string]bool
 	if *role != "" {
 		keepRole = map[string]bool{}
@@ -133,7 +133,7 @@ func runGrep(args []string) int {
 		}(sess)
 	}
 	wg.Wait()
-	// DDDDDDDDD1: drop hits whose role isn't in the keep-set. Runs
+	// Drop hits whose role isn't in the keep-set. Runs
 	// after the parallel search finishes — before sort + limit so
 	// the kept rows are the lexicographically-first post-filter.
 	if keepRole != nil {

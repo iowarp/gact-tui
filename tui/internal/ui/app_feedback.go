@@ -23,7 +23,7 @@ const (
 	// footer flicker on routine sub-second reconnect blips while
 	// keeping real outages visible within a second.
 	sseBadgeMinDelay = 800 * time.Millisecond
-	// LLLLLLLL1: min dwell before a transient hint is eligible for
+	// Min dwell before a transient hint is eligible for
 	// keystroke-clear. Prevents the "hint set by background event
 	// between two keystrokes disappears on the user's next key"
 	// flicker. Same 800ms floor as the reconnect badge so the two
@@ -67,7 +67,7 @@ func (c *chromeComponent) handleErr(m errMsg) (tea.Model, tea.Cmd) {
 		a.cmdPalette.searchMatches = nil
 		return a, nil
 	}
-	// CLIO-BBBBBBBBBB4: memory stats are decorative; a failure
+	// Memory stats are decorative; a failure
 	// just hides the chip until the next refresh.
 	if m.stage == "memory_stats" {
 		return a, nil
@@ -218,7 +218,7 @@ type appFeedbackState struct {
 }
 
 // setHint records a transient operator toast. The "first seen" stamp
-// (transientHintAt) that drives the LLLLLLLL1 keystroke-clear dwell is
+// (transientHintAt) that drives the keystroke-clear dwell is
 // applied centrally in App.Update's deferred closure, which compares the
 // hint before and after the cycle — so this setter is a pure field write
 // and intentionally does NOT stamp transientHintAt itself. Routing every

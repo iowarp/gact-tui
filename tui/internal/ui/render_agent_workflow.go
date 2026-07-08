@@ -11,7 +11,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// CLIO-BBBBBBBBBB4: agentColor picks a palette slot based on a tier-2
+// agentColor picks a palette slot based on a tier-2
 // agent id. Lightweight hint — the spec lets backends carry a free-
 // form `specialization` string, which we hash into one of three
 // accent colours. Unknown ids fall back to the Secondary accent so a
@@ -192,8 +192,8 @@ func pluralS(n int) string {
 	return "s"
 }
 
-// markSelectedBlock renders a per-part body-cursor marker. WWWWWWWWW1:
-// previously only the first line got a `▸ ` prefix, which shifted its
+// markSelectedBlock renders a per-part body-cursor marker.
+// Previously only the first line got a `▸ ` prefix, which shifted its
 // indentation by 2 cols while continuation rows stayed at col 0 —
 // wrapped text reads ragged. Fix: prefix the first line with `▸ ` and
 // every continuation line with two matching spaces so the whole

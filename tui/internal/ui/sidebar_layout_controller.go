@@ -2,7 +2,7 @@ package ui
 
 // pageSize returns the number of session entries that fit in the
 // visible sidebar pane — used by PgUp/PgDn so the jump matches what the
-// user sees. RRRRRRRRR1: reuses the same budget math as renderSidebar
+// user sees. Reuses the same budget math as renderSidebar
 // so keyboard paging stays aligned with what's rendered (previously
 // drifted by 1-2 rows depending on context-file count + R2 footer,
 // causing PgDn to jump past the last visible session).

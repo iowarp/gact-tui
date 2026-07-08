@@ -87,7 +87,7 @@ func indentWithGlyph(s, glyph, cont string) string {
 	return strings.Join(out, "\n")
 }
 
-// UUUUUUUUU1: unifiedDiffView renders a real hunk-aware diff
+// unifiedDiffView renders a real hunk-aware diff
 // (Myers/LCS via go-udiff) instead of the primitive row-aligned diff
 // simpleDiff produces. Output mirrors `git diff --no-color` in
 // structure:

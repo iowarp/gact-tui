@@ -124,7 +124,7 @@ func (c *conversationComponent) render(width, height int) string {
 			rows = append(rows, "", thinkLine)
 		}
 		body = strings.Join(rows, "\n")
-		// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
+		// One-shot scroll adjustment — if a nav handler
 		// flagged pendingPartScroll, find the ▌ marker in the full
 		// body and bump scrollOffset so it falls within the viewport
 		// (ideally at ~1/3 from top for context). Clear the flag so

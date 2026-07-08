@@ -126,7 +126,7 @@ func (c *sidebarComponent) render(width, height int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	// RRRRRRRRR1: safety clamp — budget math above can still be off
+	// Safety clamp — budget math above can still be off
 	// by one on edge cases (certain session-count × context-file
 	// combinations), and lipgloss.Height(h) pads but doesn't
 	// truncate, so an over-tall body would draw past the border and

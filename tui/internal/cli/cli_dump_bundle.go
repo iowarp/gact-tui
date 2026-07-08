@@ -31,7 +31,7 @@ func runDumpBundle(args []string) int {
 	)
 	cc, _, code := newCmdCtx("dump-bundle", args, withFlags(func(fs *flag.FlagSet) {
 		out = fs.String("o", "gact-bundle", "output directory")
-		since = fs.Duration("since", 0, "include only sessions with UpdatedAt within the last DUR (EEEE1)")
+		since = fs.Duration("since", 0, "include only sessions with UpdatedAt within the last DUR")
 	}))
 	if cc == nil {
 		return code
@@ -89,7 +89,7 @@ func runDumpBundle(args []string) int {
 	// detached.json - local Ctrl+Z-detach registry. Best-effort:
 	// missing/unreadable file just doesn't add the entry. Useful for
 	// bug reports about resume / re-attach UX where the registry's
-	// state is the load-bearing context. (TTTTTTTT1)
+	// state is the load-bearing context.
 	if regPath, err := config.DetachedPath(); err == nil {
 		if reg, err := config.LoadDetached(regPath); err == nil {
 			f, ferr := os.Create(filepath.Join(*out, "detached.json"))
@@ -114,7 +114,7 @@ func runDumpBundle(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact dump-bundle: list sessions: %v (continuing)\n", err)
 	}
-	// EEEE1: --since filter - drop sessions whose UpdatedAt is older
+	// --since filter - drop sessions whose UpdatedAt is older
 	// than the cutoff. Sessions with zero UpdatedAt always survive
 	// (defensive against backends that don't stamp).
 	if *since > 0 {
@@ -129,7 +129,7 @@ func runDumpBundle(args []string) int {
 			*since, len(filtered), len(sessions))
 		sessions = filtered
 	}
-	// RRRR1: same 8-wide bounded fanout as runExportAll (QQQQ1) so a
+	// Same 8-wide bounded fanout as runExportAll so a
 	// big bundle doesn't pay sessions x RTT.
 	const dumpWorkers = 8
 	type dumpResult struct {

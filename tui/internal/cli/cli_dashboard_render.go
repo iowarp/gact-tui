@@ -15,11 +15,11 @@ import (
 // renderDashboardOnce runs a single dashboard fetch+print. Extracted
 // from runDashboard so --watch can call it on each tick. Returns
 // the exit code (non-zero on backend error). When keep is non-nil,
-// only sessions whose status is in the set are rendered (YYYY1).
-// CCCCCCCC2: cross-references the local detached.json registry so
+// only sessions whose status is in the set are rendered.
+// Cross-references the local detached.json registry so
 // pretty/tsv output marks sessions the user has previously
 // Ctrl+Z-detached from with `↩` in a new DET column. Same source of
-// truth the TUI sidebar uses (BBBBBBBB1).
+// truth the TUI sidebar's detach marker uses.
 func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]bool, sortBy string, detachedOnly bool) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -43,7 +43,7 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 	// backend order within tied keys (e.g. same UpdatedAt).
 	sortSessions(sessions, sortBy)
 
-	// CCCCCCCC2: build the detach lookup once per render. Soft-fails
+	// Build the detach lookup once per render. Soft-fails
 	// to an empty set so a missing/malformed registry just leaves
 	// the column blank instead of breaking the dashboard.
 	detached := map[string]bool{}
@@ -56,7 +56,7 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 			}
 		}
 	}
-	// YYYYYYYY1: --detached-only drops every session whose id isn't
+	// --detached-only drops every session whose id isn't
 	// in the registry. Applied AFTER the detach lookup is built and
 	// AFTER sort — preserves stable ordering within the surviving
 	// subset.
@@ -71,7 +71,7 @@ func renderDashboardOnce(c *client.Client, wsID, format string, keep map[string]
 	}
 
 	if format == "json" {
-		// SSSSSSSS1: emit decorated rows so jq pipelines can see the
+		// Emit decorated rows so jq pipelines can see the
 		// detached marker too — the pretty/tsv formats already carry
 		// it as a DET column. Each row is the original Session
 		// flattened in, plus a top-level `detached` bool.

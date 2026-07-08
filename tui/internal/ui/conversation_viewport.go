@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// VVVVVVVVV1: adjustScrollForSelectedPart finds the ▸ marker in the
+// adjustScrollForSelectedPart finds the ▸ marker in the
 // rendered body and re-anchors scrollOffset so the marker lands
 // within the viewport. Called one-shot from the View path when a nav
 // handler has flagged pendingPartScroll — the base
