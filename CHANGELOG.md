@@ -4,6 +4,30 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.9.4] — 2026-07-07
+
+The lab-demo release. Pairs with the current CLIO backend and the GACT
+protocol as it stands after the P0 hardening wave and the protocol-
+convergence work that followed the 0.2 line.
+
+### Added
+- Config-aware CLI backend resolution: `resolveCLIBackend` reads
+  `config.json` and surfaces a structured `reason` (e.g.
+  `config_load_error`) instead of failing silently (#230).
+
+### Changed
+- SSE parsing brought to WHATWG conformance — leading-space stripping
+  and multi-line `data:` accumulation handled per spec, replacing the
+  ad-hoc line parser (#252).
+
+### Notes
+- **Gap 0.2.2 – 0.9.3 is not retro-documented.** The project versioned
+  ahead of this changelog across the P0 wave and protocol convergence;
+  those intermediate releases were not captured here at the time. For
+  the per-tag detail, see the GitHub releases. This entry revives the
+  changelog at the current tag (`v0.9.4`) rather than fabricating the
+  intervening history.
+
 ## [0.2.1] — 2026-04-27
 
 The "lab-ready" release. Pairs with clio-agent v0.3.1 — every advertised
