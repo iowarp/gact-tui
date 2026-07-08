@@ -18,7 +18,9 @@ coverage.html
 loop-test/hello
 loop-test/hello.gif
 loop-test/screenshot.png
-loop-test/testdata/
+loop-test/loop-test
+# Note: loop-test/testdata/ holds the committed teatest golden fixtures
+# (required for `go test` to pass in CI) — do NOT ignore it.
 
 # Claude Code session-only state
 .claude/scheduled_tasks.lock
