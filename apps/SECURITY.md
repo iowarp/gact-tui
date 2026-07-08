@@ -70,7 +70,7 @@ it is filed here against the auth model rather than as a UI defect.
   the desktop's dependence on clio CORS for live streaming; (a) and (b)
   remain open for the REST/attach-token side.
 
-See `apps/05-open-questions.md` Q4 (auth model) — this finding is the
+See `docs/archive/apps-design/05-open-questions.md` Q4 (auth model) — this finding is the
 concrete cross-origin consequence of `trust_socket` being the only
 implemented scheme.
 

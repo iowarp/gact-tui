@@ -4,7 +4,7 @@ Prepare and verify a release of the gact-tui stack (TUI + web + desktop) and, wh
 needed, the CLIO-branded build that pulls branding from the **clio-agent** repo.
 
 > **The release tag is a HUMAN action.** Everything here PREPARES and VERIFIES; do not
-> push a tag or publish. See `apps/RELEASE-READINESS.md` and
+> push a tag or publish. See `docs/archive/apps-RELEASE-READINESS.md` and
 > `docs/TUI_ONE_ZERO_RELEASE_CHECKLIST.md` — the CI matrix builds cross-platform on the
 > tag. 0.9 = lab demo, 1.0 = public (memory `project_09_release_plan`).
 
@@ -65,7 +65,7 @@ cat ../brand.config.local.json   # profile:clio, brandingRoot -> clio-agent/bran
 2. Update the release tracking issue / PR description with the current state; durable status lives in issues and PRs.
 3. Refresh required screenshots (`apps/web/screenshots/` — see `apps/CLAUDE.md` list) and
    TUI screenshots (`tui-screenshot` skill).
-4. Regenerate `apps/RELEASE-READINESS.md` if blockers changed.
+4. Regenerate `docs/archive/apps-RELEASE-READINESS.md` if blockers changed.
 5. Commit each change conventionally (`feat:`/`fix:`/`chore:`/`docs:`), **self excluded**
    per global CLAUDE.md. Branch first if on `main`/`develop` default per project rules.
 

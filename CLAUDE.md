@@ -28,14 +28,15 @@ Not in `go.work`:
 - `adapters/claude-agent-sdk-server/` — Python adapter (uv-managed, pytest tests)
 - `apps/` — pnpm workspace (packages: `core`, `web`, `desktop`) plus `design/` and `branding/`
   (brand mechanism — see `apps/branding/README.md`)
-- `notes/` — distilled reference for bubbletea, lipgloss, bubbles, ultraviolet, testing, pitfalls
 - `.claude/skills/` — reusable workflows (`tui-screenshot`, `tui-test`, `release`, ...)
 - `screenshots/` — curated VHS-produced captures (`screenshots/README.md` is the index).
   UI-touching work must add or refresh a screenshot here.
-- `docs/` — feature docs; `docs/archive/` holds superseded planning logs + design briefs
+- `docs/` — all documentation, indexed by `docs/README.md`. Feature docs at the top;
+  `docs/reference/` holds the distilled bubbletea/lipgloss/bubbles/ultraviolet/testing/
+  pitfalls cheatsheets; `docs/ref/` holds small static design-reference images (target
+  renderings, competitor diffs — not a build input); `docs/archive/` holds historical
+  work-logs and the superseded `apps/` design series.
 - `research/` — read-only clones for reference. **Do not modify.**
-- `ref/` — small static design-reference images (target renderings, competitor
-  diffs) used when reasoning about the TUI's look. Not a build input.
 
 ## Status and reporting
 

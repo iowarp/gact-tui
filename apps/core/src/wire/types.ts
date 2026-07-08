@@ -3,7 +3,7 @@
  * Authoritative source: contract/SPEC.md in the repository root.
  *
  * This is a subset sufficient for the harness — full coverage lands as
- * post-harness work tracked in apps/PLAN.md.
+ * post-harness work tracked in docs/archive/apps-PLAN.md.
  */
 
 export * from './message_types.js';
