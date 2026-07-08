@@ -26,20 +26,20 @@ func runFollow(args []string) int {
 		since  *time.Duration
 	)
 	cc, rest, code := newCmdCtx("follow", args, withFlags(func(fs *flag.FlagSet) {
-		// NNNN1: --format json emits NDJSON (one message per line) for
+		// --format json emits NDJSON (one message per line) for
 		// both the snapshot and streamed messages. Default text mode
 		// unchanged.
 		format = fs.String("format", "text", "text | json (NDJSON)")
-		// WWWWWWWW1: --role filter mirrors VVVVVVVV1's `gact log --role`.
+		// --role filter mirrors `gact log --role`.
 		// Applied to both the snapshot and every streamed message so
 		// `gact follow <sid> --role assistant` tails just the model's
 		// replies.
 		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
-		// CCCCCCCCC1: --grep regex filter mirrors BBBBBBBBB1's
-		// `gact log --grep`. Applied to both the snapshot + every
+		// --grep regex filter mirrors `gact log --grep`.
+		// Applied to both the snapshot + every
 		// streamed message.
 		grep = fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
-		// EEEEEEEEE1: --since DUR trims the initial snapshot to messages
+		// --since DUR trims the initial snapshot to messages
 		// created within the last DUR. Streamed messages are live so the
 		// cutoff doesn't apply to them.
 		since = fs.Duration("since", 0, "trim snapshot to messages created within the last DUR (e.g. 5m, 1h); 0 = unset")
@@ -55,7 +55,7 @@ func runFollow(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact follow: unknown format %q (want text|json)\n", *format)
 		return 2
 	}
-	// WWWWWWWW1: build + validate the keep-set up front so a typo
+	// Build + validate the keep-set up front so a typo
 	// errors fast instead of silently producing an empty stream.
 	var keepRole map[string]bool
 	if *role != "" {
@@ -72,7 +72,7 @@ func runFollow(args []string) int {
 			}
 		}
 	}
-	// CCCCCCCCC1: compile the regex up-front so a bad pattern
+	// Compile the regex up-front so a bad pattern
 	// errors fast before we subscribe to SSE.
 	var grepRE *regexp.Regexp
 	if *grep != "" {
@@ -119,8 +119,8 @@ func runFollow(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact follow: list: %v\n", err)
 		return 1
 	}
-	// EEEEEEEEE1: --since DUR drops snapshot messages older than the
-	// cutoff before emit. Mirrors TTT1 `gact log --since`. Zero-
+	// --since DUR drops snapshot messages older than the
+	// cutoff before emit. Mirrors `gact log --since`. Zero-
 	// CreatedAt survives (defensive against backends that don't
 	// stamp). Streamed messages are live so the cutoff doesn't
 	// apply to them — seen-tracking below still uses the full

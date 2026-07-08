@@ -14,7 +14,7 @@ import (
 // deploy` writes one of these so `gact connect <name>` later knows
 // where to find the running adapter. Backend-side there's no
 // concept of "named agent" — the registry lives per-user per-
-// machine. (OOOOOOOOO1)
+// machine.
 type AgentRecord struct {
 	Name      string    `json:"name"`
 	Kind      string    `json:"kind"` // "claudecode", "opencode", "crush", "goose", ...

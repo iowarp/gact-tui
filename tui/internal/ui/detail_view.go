@@ -41,7 +41,7 @@ func (m *detailViewModal) view() string {
 		return ""
 	}
 	a := m.app
-	// YYYYYYYYY1: use the wider detail-specific width so file content
+	// Use the wider detail-specific width so file content
 	// (the main payload of this modal) doesn't wrap at 72 cols.
 	ref := m.ref
 	closeLabel := "x"

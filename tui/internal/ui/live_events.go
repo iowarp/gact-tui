@@ -169,7 +169,7 @@ func (c *conversationComponent) applySSEBatch(events []client.SSEEvent) tea.Cmd 
 		c.app.fileViewer.refreshFromWorkspace()
 	}
 	cmds := []tea.Cmd{waitForSSE(c.app.connection.sseEvents, c.app.connection.sseErrs)}
-	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled back to idle
+	// When a turn just settled back to idle (v0.2 §6.19)
 	// AND the backend has memory, refresh the cache stats. Piggy-backs on the
 	// status_changed event loop — one fetch per turn completion, no extra
 	// polling.

@@ -27,9 +27,9 @@ func (c *sessionComponent) matchesFilter(s gact.Session) bool {
 // currently match every active filter, in sidebar order. Used by
 // the sidebar renderer (to compute "N more" indicators from the
 // visible set) and by the filter-aware selection adjusters below.
-// JJJJJJJJ1: respects showDetachedOnly — when true, keeps only
+// Respects showDetachedOnly — when true, keeps only
 // sessions whose id is in previouslyDetached.
-// XXXXXXXX1: respects showBusyOnly — when true, keeps only
+// Respects showBusyOnly — when true, keeps only
 // sessions whose status is running or waiting_permission.
 func (c *sessionComponent) visibleIndexes() []int {
 	out := make([]int, 0, len(c.sessions))
@@ -179,7 +179,7 @@ func (c *sessionComponent) stepSelectionVisible(delta int) bool {
 
 // ensureSelectedVisible moves c.selected to the first visible session
 // if the current selection isn't visible under any active filter
-// (text filter or the JJJJJJJJ1 detached-only / XXXXXXXX1 busy-only
+// (text filter or the detached-only / busy-only
 // toggles). Called after filter edits commit so the user isn't
 // silently pointing at a hidden session.
 func (c *sessionComponent) ensureSelectedVisible() {

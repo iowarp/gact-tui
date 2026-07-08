@@ -45,7 +45,7 @@ func TestHandleBodyKey_YWithNothingToCopyShowsHint(t *testing.T) {
 	}
 }
 
-// PPPPPPPP1: body-focus Shift+Y copies the FULL conversation as
+// Body-focus Shift+Y copies the FULL conversation as
 // role-prefixed markdown — useful for pasting into a bug report,
 // another LLM, or a teammate.
 func TestHandleBodyKey_CapitalYCopiesFullConversation(t *testing.T) {
@@ -93,7 +93,7 @@ func TestHandleBodyKey_CapitalYEmptyConversationShowsHint(t *testing.T) {
 	}
 }
 
-// OOOOOOOO1: sidebar-focus `y` copies the selected session's sid
+// Sidebar-focus `y` copies the selected session's sid
 // instead of the body-y's last-assistant text. Split on focus so
 // the two yank flows don't collide.
 func TestHandleSidebarKey_YCopiesSessionID(t *testing.T) {
@@ -117,7 +117,7 @@ func TestHandleSidebarKey_YCopiesSessionID(t *testing.T) {
 	}
 }
 
-// OOOOOOOO1: with no session selected (index -1 or out of range),
+// With no session selected (index -1 or out of range),
 // sidebar `y` is a no-op toast — doesn't crash or copy garbage.
 func TestHandleSidebarKey_YNoSessionShowsHint(t *testing.T) {
 	mu, got, _ := withClipboardSpy(t)

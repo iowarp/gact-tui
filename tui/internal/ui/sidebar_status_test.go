@@ -10,8 +10,8 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// XXXXXXXX1: `b` in sidebar focus toggles busy-only view
-// (running + waiting_permission). Parallels the JJJJJJJJ1 `d`
+// `b` in sidebar focus toggles busy-only view
+// (running + waiting_permission). Parallels the `d`
 // detached toggle and can stack with it.
 func TestSidebar_BusyOnlyToggle(t *testing.T) {
 	a := newReadyApp([]gact.Session{
@@ -78,7 +78,7 @@ func TestSidebar_BusyOnlyToggle(t *testing.T) {
 	}
 }
 
-// JJJJJJJJ1: `d` in sidebar focus toggles detached-only view.
+// `d` in sidebar focus toggles detached-only view.
 // Narrows visibleSessionIndexes to sessions in previouslyDetached
 // and changes the sidebar title to "SESSIONS · detached".
 func TestSidebar_DetachedOnlyToggle(t *testing.T) {
@@ -144,7 +144,7 @@ func TestSidebar_DetachedOnlyToggle(t *testing.T) {
 	}
 }
 
-// HHHHHHHH1: sidebar status line now appends a humanized "Nm ago"
+// Sidebar status line now appends a humanized "Nm ago"
 // age so users can tell freshness at a glance. Sessions without
 // UpdatedAt (backend hasn't filled it yet) show just the status.
 func TestSidebar_StatusLineShowsAge(t *testing.T) {
@@ -180,7 +180,7 @@ func TestSidebar_StatusLineShowsAge(t *testing.T) {
 	}
 }
 
-// RRRRRRRRR1: sidebar rendering must never exceed the pane's
+// Sidebar rendering must never exceed the pane's
 // inner height. Before the fix, certain (sessions × contextFiles)
 // combinations budgeted past `height-2` — the rendered string
 // had more newlines than the pane, lipgloss would still paint
@@ -234,7 +234,7 @@ func TestSidebar_NeverExceedsPaneHeight(t *testing.T) {
 	}
 }
 
-// DDDDDDDD1: header carries a `↩ N` chip when the user has
+// Header carries a `↩ N` chip when the user has
 // detached sessions on the current backend. Hidden when N=0.
 func TestHeader_DetachedChip(t *testing.T) {
 	a := newReadyApp([]gact.Session{
@@ -259,7 +259,7 @@ func TestHeader_DetachedChip(t *testing.T) {
 	}
 }
 
-// BBBBBBBB1: sidebar shows ↩ marker when the user previously
+// Sidebar shows ↩ marker when the user previously
 // detached from a session (loaded from the local registry at
 // startup). Filters by backend so cross-backend entries don't
 // leak into the wrong sidebar.
@@ -296,7 +296,7 @@ func TestSidebar_DetachedMarker(t *testing.T) {
 	}
 }
 
-// BBBBBBBB1: deleting a marked session (x/x in the sidebar) prunes
+// Deleting a marked session (x/x in the sidebar) prunes
 // the in-memory set and fires the prune callback so the registry
 // stays in sync.
 func TestSidebar_DeletePrunesDetached(t *testing.T) {

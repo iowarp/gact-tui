@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// UUUUUUUUU1: the file_diff renderer must produce a real hunk-aware
+// The file_diff renderer must produce a real hunk-aware
 // unified diff (Crush / Claude-Code style — "this is what we
 // changed") for non-trivial changes. Asserts the hallmarks: a `@@`
 // hunk header, at least one `+` insertion row, at least one `-`
@@ -64,7 +64,7 @@ func TestUnifiedDiffView_HasHunkHeaderAndContext(t *testing.T) {
 	}
 }
 
-// UUUUUUUUU1: tiny diffs (≤ 6 total lines) route through simpleDiff so
+// Tiny diffs (≤ 6 total lines) route through simpleDiff so
 // the hunk header isn't more noise than signal for a one-liner. This
 // test pins that short-circuit so a future refactor doesn't
 // accidentally always go through the hunk path.

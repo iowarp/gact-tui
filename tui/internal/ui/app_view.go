@@ -83,7 +83,7 @@ func (c *connectionComponent) sseHealthDot() string {
 // only emits the escape sequence when the string actually changes.
 // U2: appends a status suffix for running / waiting_permission so
 // tab-switchers can tell at a glance which pane needs attention.
-// MMMMMMMM1: appends `[↩N]` when the user has detached sessions on
+// Appends `[↩N]` when the user has detached sessions on
 // this backend so an unfocused terminal tab still reminds them
 // resumable work exists.
 func (c *chromeComponent) windowTitle() string {

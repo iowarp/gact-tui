@@ -7,7 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// CLIO-BBBBBBBBBB4 (v0.2 §3.4): /doctor modal. Reads the backend's
+// /doctor modal (v0.2 §3.4). Reads the backend's
 // /v1/health response and renders the integrations[] array as a
 // per-subsystem status table. Colour-coded: ready=green,
 // degraded=amber, unavailable=red. Unknown statuses render muted.

@@ -25,11 +25,11 @@ type connectedMsg struct {
 
 // Init returns the initial Cmd: connect.
 func (a *App) Init() tea.Cmd {
-	// JJJ1: defer the connect handshake until the splash dismisses.
+	// Defer the connect handshake until the splash dismisses.
 	// Without this, connectedMsg can arrive before the user sees the
 	// splash and flip straight to StageReady.
 	if a.stage == StageIntro {
-		// MMMMMMMMM1: start the frame-advance tick as soon as the
+		// Start the frame-advance tick as soon as the
 		// splash renders, so the animation runs while the user
 		// reads "press any key to continue".
 		return a.ticker.introTickCmd()
@@ -61,7 +61,7 @@ func connectCmd(c *client.Client, workspaceSelector string) tea.Cmd {
 		// capability. Backends that don't model workspaces (e.g.
 		// clio-agent-gact) advertise workspaces=false and 501 on
 		// the endpoint; the TUI used to blow up on the error
-		// before gating. CLIO-BBBBBBBBBB14.
+		// before gating.
 		var wss []gact.Workspace
 		if caps.Capabilities.Workspaces {
 			wss, err = c.ListWorkspaces(ctx)

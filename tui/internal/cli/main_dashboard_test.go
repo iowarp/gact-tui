@@ -156,7 +156,7 @@ func TestCLI_Dashboard(t *testing.T) {
 	}
 }
 
-// KKKKKKKK1: `gact dashboard --sort` reorders rows. Default
+// `gact dashboard --sort` reorders rows. Default
 // "newest" puts the most-recently-updated row at the top;
 // "oldest" flips it. An unknown sort key errors out fast
 // instead of silently rendering undefined order.

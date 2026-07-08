@@ -31,11 +31,11 @@ func runList(args []string) int {
 		archived = fs.Bool("archived", false, "include archived sessions")
 		limit = fs.Int("limit", 0, "truncate to first N rows after filtering (0 = no limit)")
 		format = fs.String("format", "tsv", "output format: tsv | json")
-		// FFFFFFFFF1: --detached-only filters to sessions present in the
+		// --detached-only filters to sessions present in the
 		// local registry (filtered to the current backend) — mirrors
-		// YYYYYYYY1 on `gact dashboard`.
+		// --detached-only on `gact dashboard`.
 		detachedOnly = fs.Bool("detached-only", false, "show only sessions in the local detached registry")
-		// FFFFFFFFF1: --sort mirrors KKKKKKKK1 on `gact dashboard`.
+		// --sort mirrors --sort on `gact dashboard`.
 		// Default preserves backend order so existing scripts aren't
 		// reordered silently.
 		sortBy = fs.String("sort", "", "sort by: newest | oldest | status | tokens | backend (default: backend order)")
@@ -75,7 +75,7 @@ func runList(args []string) int {
 	}
 	if *status != "" {
 		// Translate user-friendly "waiting" alias to server status
-		// `waiting_permission`. Same fix applied to dashboard (YYYY1).
+		// `waiting_permission`. Same fix applied to dashboard.
 		want := *status
 		if want == "waiting" {
 			want = "waiting_permission"
@@ -88,7 +88,7 @@ func runList(args []string) int {
 		}
 		sessions = filtered
 	}
-	// FFFFFFFFF1: --detached-only narrows to sessions present in the
+	// --detached-only narrows to sessions present in the
 	// local registry (filtered to current backend). Built once per
 	// invocation — soft-fails silently on missing registry so an
 	// unconfigured CI environment doesn't error out.
@@ -111,10 +111,10 @@ func runList(args []string) int {
 		}
 		sessions = filtered
 	}
-	// FFFFFFFFF1: --sort reorders rows. Default (empty) preserves
+	// --sort reorders rows. Default (empty) preserves
 	// backend order so existing TSV-consuming scripts aren't broken
 	// by the new flag. Reuses the sortSessions helper from the
-	// dashboard path (KKKKKKKK1).
+	// dashboard path.
 	if *sortBy != "" {
 		sortSessions(sessions, *sortBy)
 	}
@@ -122,7 +122,7 @@ func runList(args []string) int {
 		sessions = sessions[:*limit]
 	}
 
-	// GGGGGGGGG1: build the detach lookup once per invocation so the
+	// Build the detach lookup once per invocation so the
 	// output can carry a per-row marker. Soft-fails silently — an
 	// unreadable registry just leaves the column blank (TSV) or
 	// `false` (JSON). Reuses the same map built for --detached-only
@@ -141,8 +141,8 @@ func runList(args []string) int {
 
 	switch *format {
 	case "json":
-		// GGGGGGGGG1: decorate each row with `detached` bool —
-		// mirrors SSSSSSSS1 on dashboard. Additive change; existing
+		// Decorate each row with `detached` bool —
+		// mirrors the dashboard's decorated rows. Additive change; existing
 		// fields unchanged.
 		type decorated struct {
 			gact.Session
@@ -159,7 +159,7 @@ func runList(args []string) int {
 			return 1
 		}
 	case "tsv", "":
-		// GGGGGGGGG1: append a 5th column with "yes"/"" for
+		// Append a 5th column with "yes"/"" for
 		// detached-registry presence. Callers that slice columns
 		// 1..4 with awk/cut stay correct; callers that count from
 		// -1 with cut pick up the new marker.

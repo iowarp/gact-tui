@@ -25,18 +25,18 @@ func runDashboard(args []string) int {
 	cc, _, code := newCmdCtx("dashboard", args, withFlags(func(fs *flag.FlagSet) {
 		wsID = fs.String("workspace", "", "limit to one workspace; empty = all")
 		format = fs.String("format", "pretty", "pretty | tsv | json")
-		watch = fs.Bool("watch", false, "re-render every --interval (BBBB1)")
+		watch = fs.Bool("watch", false, "re-render every --interval")
 		interval = fs.Duration("interval", 2*time.Second, "refresh cadence in --watch mode")
-		// YYYY1: --status filters rows to one status (or comma-list).
+		// --status filters rows to one status (or comma-list).
 		// Empty = all (back-compat). Validation runs client-side so a
 		// typo errors fast instead of returning a silently-empty board.
 		statusFilter = fs.String("status", "", "comma-separated status filter: idle|running|waiting|error")
-		// KKKKKKKK1: --sort controls row ordering. Default newest-first
+		// --sort controls row ordering. Default newest-first
 		// so "what was I just working on?" answers itself at the top.
 		sortBy = fs.String("sort", "newest", "sort by: newest | oldest | status | tokens | backend")
-		// YYYYYYYY1: --detached-only filters rows to sessions in the
+		// --detached-only filters rows to sessions in the
 		// local registry (filtered to current backend). Mirrors the
-		// sidebar JJJJJJJJ1 `d` toggle on the CLI side — lets scripts
+		// sidebar `d` detached-only toggle on the CLI side — lets scripts
 		// query "what detached work is still alive".
 		detachedOnly = fs.Bool("detached-only", false, "show only sessions in the local detached registry")
 	}))
@@ -81,7 +81,7 @@ func runDashboard(args []string) int {
 		return renderDashboardOnce(c, *wsID, *format, keep, *sortBy, *detachedOnly)
 	}
 
-	// BBBB1: watch loop. ANSI clear-screen + cursor-home between
+	// Watch loop. ANSI clear-screen + cursor-home between
 	// frames so each render replaces the previous in place. Caller
 	// uses Ctrl+C to exit.
 	ctx, cancel := context.WithCancel(context.Background())

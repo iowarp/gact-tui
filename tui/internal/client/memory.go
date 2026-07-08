@@ -9,7 +9,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// MemoryStats calls GET /v1/memory/stats (v0.2 §6.19 — CLIO-BBBBBBBBBB4).
+// MemoryStats calls GET /v1/memory/stats (v0.2 §6.19).
 // sessionID is optional; pass "" for global-only stats. Backends without
 // capabilities.memory return 501 — the caller should gate on that flag.
 func (c *Client) MemoryStats(ctx context.Context, sessionID string) (gact.MemoryStats, error) {

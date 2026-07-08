@@ -20,7 +20,7 @@ type appOverlayState struct {
 	// Help overlay
 	help helpModal
 
-	// ZZZZZZZZZ1: Ctrl+C confirmation overlay. User feedback: "ctrl+c
+	// Ctrl+C confirmation overlay. User feedback: "ctrl+c
 	// should have a confirmation window, close? yes no detach". Opens
 	// a small 3-option modal on first Ctrl+C; the selected option
 	// fires on Enter. Second Ctrl+C while open accepts the current
@@ -55,7 +55,7 @@ type appOverlayState struct {
 	// it while the modal is closed.
 	lmProviderInfo *client.LMProviderInfo
 
-	// Doctor overlay (v0.2 §3.4 - CLIO-BBBBBBBBBB4): /doctor system-readiness
+	// Doctor overlay (v0.2 §3.4): /doctor system-readiness
 	// view. A self-owning component (state + behaviour + app back-ref).
 	doctor doctorComponent
 

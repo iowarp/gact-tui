@@ -9,7 +9,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// TTTTTTTTT1: the body cursor must walk *parts*, not whole messages.
+// The body cursor must walk *parts*, not whole messages.
 // User feedback: "you are currently making your selector go
 // conversation turn to conversation turn instead of logical block to
 // logical block. what happens if an agent reads two large files?"
@@ -92,7 +92,7 @@ func TestPerPart_JKWalksPartsWithinMessage(t *testing.T) {
 	}
 }
 
-// TTTTTTTTT1: when the body cursor sits on a specific tool_call, Ctrl+E
+// When the body cursor sits on a specific tool_call, Ctrl+E
 // must expand THAT call's tool_result — not the first bulky in the
 // message and not the latest in the conversation. Gives the user the
 // promised "each read gets its own expand" behaviour.
@@ -159,7 +159,7 @@ func TestPerPart_CtrlETargetsSelectedToolCall(t *testing.T) {
 	}
 }
 
-// XXXXXXXXX1: `[` / `]` removed per user feedback — the per-part
+// `[` / `]` removed per user feedback — the per-part
 // cursor is the only selector now. This test pins that the keys are
 // no-ops (don't move the cursor) so a future re-add of message-jump
 // nav gets a hard nudge to update the tests + docs.

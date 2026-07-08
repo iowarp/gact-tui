@@ -10,10 +10,10 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// VVVVVVVVV1: adjustScrollForSelectedPart must bump scrollOffset so
+// adjustScrollForSelectedPart must bump scrollOffset so
 // the ▸ marker falls within the visible viewport. This is the scroll
 // fix for the "selected block scrolled above the fold" wart flagged
-// as a follow-up on TTTTTTTTT1 — walking the part cursor up through
+// as a follow-up on the per-part cursor work — walking the part cursor up through
 // a long multi-tool message left the marker invisible.
 //
 // Fixture: a body with 50 lines where the marker sits on row 8 (near
@@ -78,7 +78,7 @@ func TestAdjustScrollForSelectedPart_UsesCurrentSelectionMarker(t *testing.T) {
 	}
 }
 
-// VVVVVVVVV1: when the marker is ALREADY in the upper 2/3 of the
+// When the marker is ALREADY in the upper 2/3 of the
 // viewport the adjustment should be a no-op (no UI jitter as the
 // user walks through adjacent parts that happen to be on-screen).
 func TestAdjustScrollForSelectedPart_NoOpWhenVisible(t *testing.T) {
@@ -108,7 +108,7 @@ func TestAdjustScrollForSelectedPart_NoOpWhenVisible(t *testing.T) {
 	}
 }
 
-// VVVVVVVVV1: no marker → no scroll change. Covers the "cursor off"
+// No marker → no scroll change. Covers the "cursor off"
 // and "selected part has empty rendering" cases.
 func TestAdjustScrollForSelectedPart_NoMarkerIsNoOp(t *testing.T) {
 	body := "line 1\nline 2\nline 3\n"
