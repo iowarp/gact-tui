@@ -11,6 +11,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentBlueprintManageDoneMsg struct {
@@ -72,6 +73,6 @@ func addAgentBlueprintSourceCmd(c *client.Client, source string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		row, err := c.AddAgentBlueprintSource(ctx, gact.AgentBlueprintSourceRequest{Source: source, Refresh: true})
-		return agentBlueprintSourceManagedMsg{sourceID: firstNonEmpty(row.ID, source), action: "added", source: row, err: err}
+		return agentBlueprintSourceManagedMsg{sourceID: valuefmt.FirstNonEmpty(row.ID, source), action: "added", source: row, err: err}
 	}
 }

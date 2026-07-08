@@ -10,6 +10,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentQuestionAnsweredMsg struct {
@@ -108,7 +109,7 @@ func (m *askUserModal) applyUserQuestionCreated(e client.SSEEvent) {
 	if q.ID == "" {
 		return
 	}
-	sid := firstNonEmpty(q.SessionID, a.session.currentID())
+	sid := valuefmt.FirstNonEmpty(q.SessionID, a.session.currentID())
 	if sid == "" || a.conversation.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}

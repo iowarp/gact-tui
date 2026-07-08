@@ -1,9 +1,13 @@
 package ui
 
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+)
+
 // settings.go provides settings-modal helpers: page size, tab purpose, selection seeding, and prefs persistence.
 
 func (c *settingsComponent) bodyPageSize() int {
-	return minInt(24, c.app.modals.modalBodyRows(14))
+	return valuefmt.MinInt(24, c.app.modals.modalBodyRows(14))
 }
 
 func (c *settingsComponent) tabPurpose(tab int) string {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func partDetailText(p gact.Part) string {
@@ -27,7 +28,7 @@ func partDetailText(p gact.Part) string {
 }
 
 func humanizePartKind(kind string) string {
-	kind = humanizeAgentLabel(kind)
+	kind = valuefmt.HumanizeAgentLabel(kind)
 	if kind == "" {
 		return "unknown"
 	}

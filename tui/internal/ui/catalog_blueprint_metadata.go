@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintInstallMetadata(blueprint gact.AgentBlueprintDefinition) map[string]any {
-	install := mapValue(blueprint.Metadata["install"])
+	install := valuefmt.MapValue(blueprint.Metadata["install"])
 	if len(install) > 0 {
 		return install
 	}
@@ -33,19 +34,19 @@ func agentBlueprintDisplayMetadata(blueprint gact.AgentBlueprintDefinition) map[
 func agentBlueprintProvenanceLine(blueprint gact.AgentBlueprintDefinition) string {
 	install := agentBlueprintInstallMetadata(blueprint)
 	parts := make([]string, 0, 5)
-	if kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"])); kind != "" {
+	if kind := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source_kind"]), valuefmt.StringValue(install["kind"])); kind != "" {
 		parts = append(parts, "source: "+kind)
 	}
-	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+	if source := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"])); source != "" {
 		parts = append(parts, "from: "+source)
 	}
-	if ref := stringValue(install["ref"]); ref != "" {
+	if ref := valuefmt.StringValue(install["ref"]); ref != "" {
 		parts = append(parts, "ref: "+ref)
 	}
-	if commit := shortHash(stringValue(install["commit"])); commit != "" {
+	if commit := shortHash(valuefmt.StringValue(install["commit"])); commit != "" {
 		parts = append(parts, "commit: "+commit)
 	}
-	if checksum := shortHash(stringValue(install["checksum"])); checksum != "" {
+	if checksum := shortHash(valuefmt.StringValue(install["checksum"])); checksum != "" {
 		parts = append(parts, "checksum: "+checksum)
 	}
 	return strings.Join(parts, " · ")
@@ -57,17 +58,17 @@ func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBl
 		return rows
 	}
 	fields := []detailField{
-		{"source url", firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))},
-		{"source type", firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]))},
-		{"ref", stringValue(install["ref"])},
-		{"commit", stringValue(install["commit"])},
-		{"checksum", stringValue(install["checksum"])},
-		{"status", stringValue(install["status"])},
-		{"status message", firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"]))},
-		{"trust", firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"]))},
-		{"installed", stringValue(install["installed_at"])},
-		{"last synced", firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"]))},
-		{"installed scope", firstNonEmpty(stringValue(install["scope"]), blueprint.Scope)},
+		{"source url", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"]))},
+		{"source type", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source_kind"]), valuefmt.StringValue(install["kind"]))},
+		{"ref", valuefmt.StringValue(install["ref"])},
+		{"commit", valuefmt.StringValue(install["commit"])},
+		{"checksum", valuefmt.StringValue(install["checksum"])},
+		{"status", valuefmt.StringValue(install["status"])},
+		{"status message", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["status_message"]), valuefmt.StringValue(install["message"]))},
+		{"trust", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["trust"]), valuefmt.StringValue(install["trust_policy"]))},
+		{"installed", valuefmt.StringValue(install["installed_at"])},
+		{"last synced", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["last_sync"]), valuefmt.StringValue(install["last_synced_at"]), valuefmt.StringValue(install["synced_at"]))},
+		{"installed scope", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["scope"]), blueprint.Scope)},
 	}
 	hasValue := false
 	for _, field := range fields {
@@ -87,7 +88,7 @@ func appendAgentBlueprintProvenanceSection(rows []string, blueprint gact.AgentBl
 	}
 	errors := appendUniqueStrings(nil, stringListFromAny(install["errors"])...)
 	errors = appendUniqueStrings(errors, stringListFromAny(install["validation_errors"])...)
-	if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+	if errText := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["error"]), valuefmt.StringValue(install["last_error"])); errText != "" {
 		errors = appendUniqueStrings(errors, errText)
 	}
 	if len(errors) > 0 {
@@ -100,25 +101,25 @@ func agentBlueprintLifecycleActionDescription(blueprint gact.AgentBlueprintDefin
 	install := agentBlueprintInstallMetadata(blueprint)
 	fields := make([]string, 0, 6)
 	if !manageable {
-		fields = append(fields, "protected scope: "+firstNonEmpty(blueprint.Scope, "unknown"))
+		fields = append(fields, "protected scope: "+valuefmt.FirstNonEmpty(blueprint.Scope, "unknown"))
 	} else if action == "update" {
 		fields = append(fields, "refresh this installed blueprint through "+brandName())
 	} else {
 		fields = append(fields, "remove this installed blueprint through "+brandName())
 	}
-	if source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"])); source != "" {
+	if source := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"])); source != "" {
 		fields = append(fields, "source: "+source)
 	}
-	if status := stringValue(install["status"]); status != "" {
+	if status := valuefmt.StringValue(install["status"]); status != "" {
 		fields = append(fields, "status: "+status)
 	}
-	if message := firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])); message != "" {
+	if message := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["status_message"]), valuefmt.StringValue(install["message"])); message != "" {
 		fields = append(fields, "status message: "+message)
 	}
-	if syncedAt := firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])); syncedAt != "" {
+	if syncedAt := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["last_sync"]), valuefmt.StringValue(install["last_synced_at"]), valuefmt.StringValue(install["synced_at"])); syncedAt != "" {
 		fields = append(fields, "last synced: "+syncedAt)
 	}
-	if trust := firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])); trust != "" {
+	if trust := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["trust"]), valuefmt.StringValue(install["trust_policy"])); trust != "" {
 		fields = append(fields, "trust: "+trust)
 	}
 	if len(fields) == 0 {
@@ -158,7 +159,7 @@ func stringListFromAny(value any) []string {
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, item := range v {
-			if s := stringValue(item); s != "" {
+			if s := valuefmt.StringValue(item); s != "" {
 				out = append(out, s)
 			}
 		}

@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -26,7 +27,7 @@ func toolEvidenceResultText(toolName string, raw any) string {
 	if summary := summarizeToolResult(toolName, raw); summary != "" {
 		return summary
 	}
-	if text := compactJSON(raw); text != "" {
+	if text := valuefmt.CompactJSON(raw); text != "" {
 		return text
 	}
 	return fmt.Sprint(raw)
@@ -37,7 +38,7 @@ func summarizeToolResult(toolName string, raw any) string {
 	if !ok {
 		return ""
 	}
-	if preview := strings.TrimSpace(stringValue(result["preview"])); preview != "" {
+	if preview := strings.TrimSpace(valuefmt.StringValue(result["preview"])); preview != "" {
 		if text := summarizeJSONPreviewToolResult(toolName, preview); text != "" {
 			if truncated, ok := result["truncated"].(bool); ok && truncated {
 				text += "\n[raw detail truncated by backend]"
@@ -129,13 +130,13 @@ func summarizeErrorResult(result map[string]any) string {
 		rows = append(rows, "code: "+code)
 	}
 	if message := firstStringValue(errorPayload, "message", "error"); message != "" {
-		rows = append(rows, "message: "+shortenKnownPaths(message))
+		rows = append(rows, "message: "+valuefmt.ShortenKnownPaths(message))
 	}
 	if nextAction := firstStringValue(errorPayload, "next_action", "recovery"); nextAction != "" {
-		rows = append(rows, "next action: "+shortenKnownPaths(nextAction))
+		rows = append(rows, "next action: "+valuefmt.ShortenKnownPaths(nextAction))
 	}
 	if path := firstStringValue(errorPayload, "path", "filepath", "file"); path != "" {
-		rows = append(rows, "path: "+shortenPathForInline(path))
+		rows = append(rows, "path: "+valuefmt.ShortenPathForInline(path))
 	}
 	if field := firstStringValue(errorPayload, "field"); field != "" {
 		rows = append(rows, "field: "+field)

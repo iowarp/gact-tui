@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 //go:embed locale/*.json
@@ -106,10 +107,10 @@ func availableLanguageOptions() []languageOption {
 		source := strings.TrimSpace(catalog["__meta.translation_source"])
 		opt := languageOption{
 			Locale:      locale,
-			NativeName:  firstNonEmpty(catalog["__meta.native_name"], catalog[string(msgLanguageNativeName)], locale),
-			EnglishName: firstNonEmpty(catalog["__meta.english_name"], locale),
+			NativeName:  valuefmt.FirstNonEmpty(catalog["__meta.native_name"], catalog[string(msgLanguageNativeName)], locale),
+			EnglishName: valuefmt.FirstNonEmpty(catalog["__meta.english_name"], locale),
 			Source:      source,
-			Direction:   firstNonEmpty(catalog["__meta.text_direction"], "ltr"),
+			Direction:   valuefmt.FirstNonEmpty(catalog["__meta.text_direction"], "ltr"),
 			Machine:     strings.Contains(strings.ToLower(source), "machine"),
 		}
 		out = append(out, opt)
@@ -174,15 +175,6 @@ func loadLocaleCatalog(locale string) (map[string]string, bool) {
 		return nil, false
 	}
 	return catalog, true
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func (l Localizer) t(id messageID, values map[string]string) string {

@@ -4,13 +4,14 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"sort"
 	"strings"
 )
 
 func firstStringValue(result map[string]any, keys ...string) string {
 	for _, key := range keys {
-		if value := strings.TrimSpace(stringValue(result[key])); value != "" {
+		if value := strings.TrimSpace(valuefmt.StringValue(result[key])); value != "" {
 			return value
 		}
 	}
@@ -20,7 +21,7 @@ func firstStringValue(result map[string]any, keys ...string) string {
 func summarizeNumericFields(result map[string]any, keys []string) string {
 	var bits []string
 	for _, key := range keys {
-		if value, ok := floatValue(result[key]); ok {
+		if value, ok := valuefmt.FloatValue(result[key]); ok {
 			bits = append(bits, fmt.Sprintf("%s: %s", key, formatCompactFloat(value)))
 		}
 	}
@@ -112,14 +113,14 @@ func appendSummaryItem(items []string, item any) []string {
 			return append(items, text)
 		}
 	case map[string]any:
-		name := firstNonEmpty(
+		name := valuefmt.FirstNonEmpty(
 			firstStringValueFold(typed, "station", "station_id", "site", "site_id", "id", "name", "path", "column", "dataset", "variable", "title"),
 			"(unnamed)",
 		)
 		if dtype := firstStringValueFold(typed, "dtype", "type", "data_type"); dtype != "" {
 			name += " " + dtype
 		}
-		if distance, ok := firstNumericValue(typed, "distance_km", "distance"); ok {
+		if distance, ok := valuefmt.FirstNumericValue(typed, "distance_km", "distance"); ok {
 			name += " (" + formatCompactFloat(distance) + " km)"
 		}
 		return append(items, name)
@@ -137,7 +138,7 @@ func firstStringValueFold(result map[string]any, keys ...string) string {
 		return ""
 	}
 	for _, key := range keys {
-		if text := strings.TrimSpace(stringValue(result[key])); text != "" {
+		if text := strings.TrimSpace(valuefmt.StringValue(result[key])); text != "" {
 			return text
 		}
 	}
@@ -149,7 +150,7 @@ func firstStringValueFold(result map[string]any, keys ...string) string {
 		if !lowerKeys[strings.ToLower(strings.TrimSpace(key))] {
 			continue
 		}
-		if text := strings.TrimSpace(stringValue(value)); text != "" {
+		if text := strings.TrimSpace(valuefmt.StringValue(value)); text != "" {
 			return text
 		}
 	}

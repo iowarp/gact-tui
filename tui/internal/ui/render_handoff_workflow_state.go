@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func embeddedWorkflowStateDominates(text string) bool {
@@ -56,9 +57,9 @@ func stripEmbeddedWorkflowStateBlock(text string) string {
 }
 
 func attachWorkflowStateSummary(output string, p gact.Part) string {
-	workflowSummary := strings.TrimSpace(stringValue(p.Metadata["workflow_summary"]))
+	workflowSummary := strings.TrimSpace(valuefmt.StringValue(p.Metadata["workflow_summary"]))
 	if workflowSummary == "" {
-		workflowSummary = workflowStateSummary(mapValue(p.Metadata["workflow_state"]))
+		workflowSummary = workflowStateSummary(valuefmt.MapValue(p.Metadata["workflow_state"]))
 	}
 	if workflowSummary == "" {
 		return output

@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *conversationComponent) applyPartAdded(e client.SSEEvent) {
@@ -20,7 +21,7 @@ func (c *conversationComponent) applyPartAdded(e client.SSEEvent) {
 	if msgID == "" || partRaw == nil {
 		return
 	}
-	if sid := c.replaySessionID(stringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
+	if sid := c.replaySessionID(valuefmt.StringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}
 	defer c.bumpMessageEpoch(msgID)
@@ -30,7 +31,7 @@ func (c *conversationComponent) applyPartAdded(e client.SSEEvent) {
 		if part.Metadata == nil {
 			part.Metadata = map[string]any{}
 		}
-		if strings.TrimSpace(stringValue(part.Metadata["status"])) == "" {
+		if strings.TrimSpace(valuefmt.StringValue(part.Metadata["status"])) == "" {
 			part.Metadata["status"] = "running"
 		}
 	}
@@ -61,7 +62,7 @@ func (c *conversationComponent) applyPartDelta(e client.SSEEvent) {
 	if msgID == "" || partID == "" {
 		return
 	}
-	if sid := c.replaySessionID(stringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
+	if sid := c.replaySessionID(valuefmt.StringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}
 	defer c.bumpMessageEpoch(msgID)
@@ -82,7 +83,7 @@ func (c *conversationComponent) applyPartDelta(e client.SSEEvent) {
 				}
 				c.messages[i].Parts[j].Metadata["stream_source"] = v
 			}
-			if v := strings.TrimSpace(stringValue(pl["turn_id"])); v != "" {
+			if v := strings.TrimSpace(valuefmt.StringValue(pl["turn_id"])); v != "" {
 				if c.messages[i].Parts[j].Metadata == nil {
 					c.messages[i].Parts[j].Metadata = map[string]any{}
 				}
@@ -117,7 +118,7 @@ func (c *conversationComponent) applyPartCompleted(e client.SSEEvent) {
 	}
 	msgID, _ := pl["message_id"].(string)
 	partID, _ := pl["part_id"].(string)
-	if sid := c.replaySessionID(stringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
+	if sid := c.replaySessionID(valuefmt.StringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}
 	defer c.bumpMessageEpoch(msgID)

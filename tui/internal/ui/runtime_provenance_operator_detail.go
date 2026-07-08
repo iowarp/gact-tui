@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ func appendRuntimeOperatorView(rows []string, rp map[string]any) []string {
 	if route := runtimeProvenanceRouteSummary(rp); route != "" {
 		fields = append(fields, detailField{"active path", route})
 	}
-	if workflow := runtimeScalar(mapValue(rp["blueprint"])["id"]); workflow != "" {
+	if workflow := runtimeScalar(valuefmt.MapValue(rp["blueprint"])["id"]); workflow != "" {
 		fields = append(fields, detailField{"workflow", workflow})
 	}
 	if tools := runtimeProvenanceToolSummary(rp); tools != "" {
@@ -36,7 +37,7 @@ func appendRuntimeOperatorView(rows []string, rp map[string]any) []string {
 func runtimeProvenanceOperatorRows(raw any, preferred ...string) string {
 	rows := runtimeRowMaps(raw)
 	if len(rows) == 0 {
-		if m := mapValue(raw); len(m) > 0 {
+		if m := valuefmt.MapValue(raw); len(m) > 0 {
 			rows = runtimeRowMaps(firstNonEmptyAny(m["rows"], m["items"], m["artifacts"], m["errors"]))
 		}
 	}
@@ -46,7 +47,7 @@ func runtimeProvenanceOperatorRows(raw any, preferred ...string) string {
 		}
 		return runtimeScalar(raw)
 	}
-	out := make([]string, 0, minInt(len(rows), 3))
+	out := make([]string, 0, valuefmt.MinInt(len(rows), 3))
 	for _, row := range rows {
 		value := ""
 		for _, key := range preferred {

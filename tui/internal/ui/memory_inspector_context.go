@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 	items := contextFrameItems(latest)
 	messageItems, fileItems, errorItems := 0, 0, 0
 	for _, item := range items {
-		switch stringValue(item["kind"]) {
+		switch valuefmt.StringValue(item["kind"]) {
 		case "message":
 			messageItems++
 		case "context_file":
@@ -23,24 +24,24 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 		}
 	}
 	rows = appendDetailSection(rows, "Context frame",
-		detailField{"frame id", stringValue(latest["id"])},
-		detailField{"status", stringValue(latest["status"])},
-		detailField{"turn", firstNonEmpty(stringValue(latest["turn_id"]), stringValue(latest["user_message_id"]))},
-		detailField{"assistant message", stringValue(latest["assistant_message_id"])},
+		detailField{"frame id", valuefmt.StringValue(latest["id"])},
+		detailField{"status", valuefmt.StringValue(latest["status"])},
+		detailField{"turn", valuefmt.FirstNonEmpty(valuefmt.StringValue(latest["turn_id"]), valuefmt.StringValue(latest["user_message_id"]))},
+		detailField{"assistant message", valuefmt.StringValue(latest["assistant_message_id"])},
 		detailField{"estimated tokens", scalarText(latest["tokens_estimated"])},
 		detailField{"items", fmt.Sprintf("%d messages · %d files · %d excluded", messageItems, fileItems, errorItems)},
 	)
-	if agent := mapValue(latest["agent"]); len(agent) > 0 {
+	if agent := valuefmt.MapValue(latest["agent"]); len(agent) > 0 {
 		if summary := contextMapSummary(agent, "id", "mode", "routing_mode", "session_mode", "edit_mode"); summary != "" {
 			rows = append(rows, detailFieldRows("agent", summary)...)
 		}
 	}
-	if prompt := mapValue(latest["prompt"]); len(prompt) > 0 {
+	if prompt := valuefmt.MapValue(latest["prompt"]); len(prompt) > 0 {
 		if summary := contextMapSummary(prompt, "id", "profile", "source", "checksum"); summary != "" {
 			rows = append(rows, detailFieldRows("prompt", summary)...)
 		}
 	}
-	if model := mapValue(latest["model"]); len(model) > 0 {
+	if model := valuefmt.MapValue(latest["model"]); len(model) > 0 {
 		if summary := contextMapSummary(model, "provider_id", "model_id", "variant"); summary != "" {
 			rows = append(rows, detailFieldRows("model", summary)...)
 		}
@@ -51,23 +52,23 @@ func appendContextFrameRows(rows []string, frames []map[string]any) []string {
 			rows = append(rows, detailFieldRows("more items", fmt.Sprintf("%d hidden", len(displayItems)-i))...)
 			break
 		}
-		label := firstNonEmpty(stringValue(item["kind"]), "item")
-		if source := firstNonEmpty(stringValue(item["display_path"]), stringValue(item["path"]), stringValue(item["source_id"])); source != "" {
+		label := valuefmt.FirstNonEmpty(valuefmt.StringValue(item["kind"]), "item")
+		if source := valuefmt.FirstNonEmpty(valuefmt.StringValue(item["display_path"]), valuefmt.StringValue(item["path"]), valuefmt.StringValue(item["source_id"])); source != "" {
 			label += " · " + source
 		}
 		body := []string{
 			"included: " + scalarText(item["included"]),
-			"reason: " + stringValue(item["reason"]),
+			"reason: " + valuefmt.StringValue(item["reason"]),
 			"tokens: " + scalarText(item["tokens_estimated"]),
 		}
-		if role := stringValue(item["role"]); role != "" {
+		if role := valuefmt.StringValue(item["role"]); role != "" {
 			body = append(body, "role: "+role)
 		}
 		rows = append(rows, detailFieldRows(label, strings.Join(body, "\n"))...)
 	}
-	if metadata := mapValue(latest["metadata"]); len(metadata) > 0 {
+	if metadata := valuefmt.MapValue(latest["metadata"]); len(metadata) > 0 {
 		rows = append(rows, detailFieldRows("frame metadata", contextMapSummary(metadata, "retained_context_source", "token_estimate", "context_file_injected_chars"))...)
-		if detailErr := stringValue(metadata["detail_error"]); detailErr != "" {
+		if detailErr := valuefmt.StringValue(metadata["detail_error"]); detailErr != "" {
 			rows = append(rows, detailFieldRows("detail error", detailErr)...)
 		}
 	}
@@ -89,11 +90,11 @@ func contextFrameDisplayItems(items []map[string]any) []map[string]any {
 	})
 	appendMatching(func(item map[string]any) bool {
 		included, ok := item["included"].(bool)
-		return stringValue(item["kind"]) == "context_file" && (!ok || included)
+		return valuefmt.StringValue(item["kind"]) == "context_file" && (!ok || included)
 	})
 	appendMatching(func(item map[string]any) bool {
 		included, ok := item["included"].(bool)
-		return !((ok && !included) || stringValue(item["kind"]) == "context_file")
+		return !((ok && !included) || valuefmt.StringValue(item["kind"]) == "context_file")
 	})
 	return out
 }
@@ -102,7 +103,7 @@ func contextFrameItems(frame map[string]any) []map[string]any {
 	raw, _ := frame["items"].([]any)
 	out := make([]map[string]any, 0, len(raw))
 	for _, item := range raw {
-		if row := mapValue(item); len(row) > 0 {
+		if row := valuefmt.MapValue(item); len(row) > 0 {
 			out = append(out, row)
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // firstNonNil returns the first non-nil value, or nil.
@@ -46,7 +47,7 @@ func semanticPreviewIsInlineRedaction(text string) bool {
 // semanticToolPayload unwraps the nested "payload" envelope some semantic
 // events carry, falling back to the event payload itself.
 func semanticToolPayload(payload map[string]any) map[string]any {
-	if nested := mapValue(payload["payload"]); len(nested) > 0 {
+	if nested := valuefmt.MapValue(payload["payload"]); len(nested) > 0 {
 		return nested
 	}
 	return payload

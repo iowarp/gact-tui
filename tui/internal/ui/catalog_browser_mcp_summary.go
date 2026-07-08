@@ -7,6 +7,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func formatMcpServerSummary(server gact.McpServer) string {
@@ -14,7 +15,7 @@ func formatMcpServerSummary(server gact.McpServer) string {
 	if len(capabilities) == 0 {
 		capabilities = append(capabilities, "none advertised")
 	}
-	displayName := firstNonEmpty(server.Name, server.ID)
+	displayName := valuefmt.FirstNonEmpty(server.Name, server.ID)
 	status := strings.TrimSpace(server.Status)
 	if status == "" {
 		status = "unknown"
@@ -40,8 +41,8 @@ func formatMcpServerSummary(server gact.McpServer) string {
 		detailField{"transport", server.Transport},
 		detailField{"MCP protocol", server.ProtocolVersion},
 		detailField{"version", server.Version},
-		detailField{"live tools", stringValue(server.ServerInfo["live_tools_count"])},
-		detailField{"live latency", stringValue(server.ServerInfo["live_latency_ms"])},
+		detailField{"live tools", valuefmt.StringValue(server.ServerInfo["live_tools_count"])},
+		detailField{"live latency", valuefmt.StringValue(server.ServerInfo["live_latency_ms"])},
 	)
 	if len(server.ServerInfo) > 0 {
 		if summary := contextMapSummary(server.ServerInfo, "name", "version", "title"); summary != "" {
@@ -60,7 +61,7 @@ func mcpLiveHealthSummary(server gact.McpServer) string {
 		return "reachable"
 	}
 	if server.LastError != "" {
-		return "unreachable: " + compactCatalogText(server.LastError)
+		return "unreachable: " + valuefmt.CompactCatalogText(server.LastError)
 	}
 	return "unreachable"
 }
@@ -78,7 +79,7 @@ func mcpServerDetailInlineSummary(server gact.McpServer) string {
 		parts = append(parts, strings.Join(caps, ", "))
 	}
 	if server.LastError != "" {
-		parts = append(parts, "error "+compactCatalogText(server.LastError))
+		parts = append(parts, "error "+valuefmt.CompactCatalogText(server.LastError))
 	}
 	if len(parts) == 0 {
 		return "MCP connection overview"
@@ -138,7 +139,7 @@ func mcpServerCatalogDescription(server gact.McpServer) string {
 		parts = append(parts, "offers "+strings.Join(caps, ", "))
 	}
 	if server.LastError != "" {
-		parts = append(parts, "needs attention: "+compactCatalogText(server.LastError))
+		parts = append(parts, "needs attention: "+valuefmt.CompactCatalogText(server.LastError))
 	}
 	if len(parts) == 0 {
 		return "no connection metadata"

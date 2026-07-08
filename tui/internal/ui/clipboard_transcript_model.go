@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func messageTranscriptText(msgs []gact.Message, msgIdx int) (string, bool) {
@@ -96,7 +97,7 @@ func semanticPartCopyText(msgs []gact.Message, msgIdx int, p gact.Part) (string,
 		}
 		return "--- before ---\n" + before + "\n\n+++ after +++\n" + after, true
 	case gact.PartTypeError:
-		text := "Error: " + firstNonEmpty(p.Code, "error")
+		text := "Error: " + valuefmt.FirstNonEmpty(p.Code, "error")
 		if strings.TrimSpace(p.Message) != "" {
 			text += "\n" + strings.TrimSpace(p.Message)
 		}
@@ -110,12 +111,12 @@ func semanticPartCopyText(msgs []gact.Message, msgIdx int, p gact.Part) (string,
 
 func expertHandoffCopyText(p gact.Part) string {
 	md := p.Metadata
-	agent := firstNonEmpty(stringValue(md["agent_id"]), stringValue(md["expert"]), "expert")
-	parent := firstNonEmpty(stringValue(md["parent_id"]), stringValue(md["parent"]))
-	stage := firstNonEmpty(stringValue(md["stage"]), stringValue(md["dispatch_target"]))
-	status := firstNonEmpty(stringValue(md["status"]), "observed")
+	agent := valuefmt.FirstNonEmpty(valuefmt.StringValue(md["agent_id"]), valuefmt.StringValue(md["expert"]), "expert")
+	parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(md["parent_id"]), valuefmt.StringValue(md["parent"]))
+	stage := valuefmt.FirstNonEmpty(valuefmt.StringValue(md["stage"]), valuefmt.StringValue(md["dispatch_target"]))
+	status := valuefmt.FirstNonEmpty(valuefmt.StringValue(md["status"]), "observed")
 	head := plainExpertHandoffNarrative(parent, agent, stage, status)
-	if selected := stringValue(md["selected_agent"]); selected != "" && strings.Contains(strings.ToLower(stage), "agent.invocation.completed") {
+	if selected := valuefmt.StringValue(md["selected_agent"]); selected != "" && strings.Contains(strings.ToLower(stage), "agent.invocation.completed") {
 		head = agent + " selected " + selected
 	}
 	meta := []string{}
@@ -125,7 +126,7 @@ func expertHandoffCopyText(p gact.Part) string {
 	if stageLabel := expertHandoffStageLabel(stage); stageLabel != "" {
 		meta = append(meta, stageLabel)
 	}
-	if duration, ok := floatValue(md["duration_ms"]); ok && duration > 0 {
+	if duration, ok := valuefmt.FloatValue(md["duration_ms"]); ok && duration > 0 {
 		meta = append(meta, fmt.Sprintf("%.0fms", duration))
 	}
 	if len(meta) > 0 {

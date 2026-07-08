@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *executionComponent) openSemanticDetailForSelection() bool {
@@ -75,33 +76,33 @@ func executionSemanticEventLine(event executionTimelineEvent) string {
 	}
 	switch event.Type {
 	case "react.step.completed":
-		payload := mapValue(event.Payload["payload"])
-		if tool := stringValue(payload["tool_name"]); tool != "" {
+		payload := valuefmt.MapValue(event.Payload["payload"])
+		if tool := valuefmt.StringValue(payload["tool_name"]); tool != "" {
 			parts = append(parts, tool)
 		}
 	case "blueprint.delegation.started", "blueprint.delegation.completed":
-		payload := mapValue(event.Payload["payload"])
-		if child := firstNonEmpty(stringValue(payload["delegate_to"]), stringValue(payload["agent_id"])); child != "" {
+		payload := valuefmt.MapValue(event.Payload["payload"])
+		if child := valuefmt.FirstNonEmpty(valuefmt.StringValue(payload["delegate_to"]), valuefmt.StringValue(payload["agent_id"])); child != "" {
 			parts = append(parts, "→ "+child)
 		}
 	case "tool.call.started", "tool.call.completed":
 		payload := semanticToolPayload(event.Payload)
-		if tool := firstNonEmpty(stringValue(payload["tool"]), stringValue(payload["tool_name"])); tool != "" {
+		if tool := valuefmt.FirstNonEmpty(valuefmt.StringValue(payload["tool"]), valuefmt.StringValue(payload["tool_name"])); tool != "" {
 			parts = append(parts, tool)
 		}
 	}
-	if summary := strings.TrimSpace(stringValue(event.Payload["summary"])); summary != "" && !semanticPreviewIsRedacted(summary) {
+	if summary := strings.TrimSpace(valuefmt.StringValue(event.Payload["summary"])); summary != "" && !semanticPreviewIsRedacted(summary) {
 		parts = append(parts, textutil.Truncate(strings.Join(strings.Fields(summary), " "), 120))
 	}
 	return strings.Join(parts, "  ")
 }
 
 func executionEventAgent(event executionTimelineEvent) string {
-	payload := mapValue(event.Payload["payload"])
-	return firstNonEmpty(
-		stringValue(payload["expert_id"]),
-		stringValue(payload["parent_id"]),
-		stringValue(mapValue(event.Payload["actor"])["agent_id"]),
+	payload := valuefmt.MapValue(event.Payload["payload"])
+	return valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(payload["expert_id"]),
+		valuefmt.StringValue(payload["parent_id"]),
+		valuefmt.StringValue(valuefmt.MapValue(event.Payload["actor"])["agent_id"]),
 	)
 }
 

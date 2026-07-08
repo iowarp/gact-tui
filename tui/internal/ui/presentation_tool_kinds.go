@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeTableLikeResult(label string, result map[string]any) string {
@@ -73,11 +74,11 @@ func summarizeContainerResult(label string, result map[string]any) string {
 
 func summarizeShellResult(result map[string]any) string {
 	rows := summarizeStatusRows(result)
-	if code, ok := floatValue(result["exit_code"]); ok {
+	if code, ok := valuefmt.FloatValue(result["exit_code"]); ok {
 		rows = append(rows, fmt.Sprintf("exit_code: %.0f", code))
 	}
 	for _, key := range []string{"stdout", "stderr", "error"} {
-		if text := strings.TrimSpace(stringValue(result[key])); text != "" {
+		if text := strings.TrimSpace(valuefmt.StringValue(result[key])); text != "" {
 			rows = append(rows, key+": "+textutil.Truncate(strings.Join(strings.Fields(text), " "), 220))
 		}
 	}
@@ -90,7 +91,7 @@ func summarizeShellResult(result map[string]any) string {
 func summarizeVisualizationResult(result map[string]any) string {
 	rows := summarizeStatusRows(result)
 	if path := firstStringValue(result, "output_path", "artifact_path", "artifact", "value", "path", "file", "file_path"); path != "" {
-		rows = append(rows, "artifact: "+shortenPathForInline(path))
+		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(path))
 	}
 	if chart := firstStringValue(result, "chart_type", "plot_type", "type"); chart != "" {
 		rows = append(rows, "chart: "+chart)

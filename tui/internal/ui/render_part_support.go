@@ -9,13 +9,14 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func routingDecisionIsInternalCleanup(p gact.Part) bool {
-	text := strings.ToLower(strings.Join(strings.Fields(firstNonEmpty(
+	text := strings.ToLower(strings.Join(strings.Fields(valuefmt.FirstNonEmpty(
 		p.Rationale,
-		stringValue(p.Metadata["route_reason"]),
-		stringValue(p.Metadata["summary"]),
+		valuefmt.StringValue(p.Metadata["route_reason"]),
+		valuefmt.StringValue(p.Metadata["summary"]),
 	)), " "))
 	return strings.Contains(text, "removed retained evidence scaffolding") ||
 		strings.Contains(text, "retained evidence scaffolding from final dynamic answer")
@@ -36,9 +37,9 @@ func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
 	allowFreeform := false
 	var choices []gact.AgentQuestionChoice
 	if q != nil {
-		agent = firstNonEmpty(q.AgentID, q.Source)
+		agent = valuefmt.FirstNonEmpty(q.AgentID, q.Source)
 		category = q.Category
-		expected = firstNonEmpty(q.ExpectedAnswerType, q.Kind)
+		expected = valuefmt.FirstNonEmpty(q.ExpectedAnswerType, q.Kind)
 		allowFreeform = q.AllowFreeform
 		choices = q.Options
 		if len(choices) == 0 {
@@ -69,7 +70,7 @@ func (t Theme) renderAgentQuestionPart(p gact.Part, wrapW int) string {
 		for _, choice := range choices {
 			label := strings.TrimSpace(choice.Label)
 			if label == "" {
-				label = firstNonEmpty(choice.Value, choice.ID)
+				label = valuefmt.FirstNonEmpty(choice.Value, choice.ID)
 			}
 			if label != "" {
 				labels = append(labels, label)
@@ -149,7 +150,7 @@ func promotedEvidenceLabel(p gact.Part) string {
 	if p.Metadata == nil {
 		return ""
 	}
-	switch stringValue(p.Metadata["synthetic_from"]) {
+	switch valuefmt.StringValue(p.Metadata["synthetic_from"]) {
 	case "tools_called_metadata":
 		return "trace metadata"
 	case "expert_handoffs_metadata":
@@ -195,7 +196,7 @@ func summarizeAssistantInlineText(text string) string {
 func shortenKnownPathsPreservingLines(text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
-		lines[i] = shortenKnownPaths(line)
+		lines[i] = valuefmt.ShortenKnownPaths(line)
 	}
 	return strings.Join(lines, "\n")
 }

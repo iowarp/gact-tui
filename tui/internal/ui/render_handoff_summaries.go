@@ -10,6 +10,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeExpertHandoffOutput(output string) string {
@@ -41,8 +42,8 @@ func summarizeExpertHandoffOutput(output string) string {
 	if (strings.Contains(output, "member=") || strings.Contains(output, ".SAC")) && strings.Contains(output, " - ") {
 		output = strings.SplitN(output, " - ", 2)[0]
 	}
-	output = shortenKnownPaths(output)
-	segments := splitSummarySegments(output)
+	output = valuefmt.ShortenKnownPaths(output)
+	segments := valuefmt.SplitSummarySegments(output)
 	if len(segments) == 0 {
 		return textutil.Truncate(output, 260)
 	}
@@ -51,23 +52,23 @@ func summarizeExpertHandoffOutput(output string) string {
 }
 
 func expertHandoffOutputSummary(p gact.Part) string {
-	if expertHandoffStarted(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["status"])) {
+	if expertHandoffStarted(valuefmt.StringValue(p.Metadata["stage"]), valuefmt.StringValue(p.Metadata["status"])) {
 		startOutputs := []string{
-			summarizeExpertHandoffInput(stringValue(p.Metadata["input_summary"])),
-			summarizeExpertHandoffInput(stringValue(p.Metadata["input"])),
+			summarizeExpertHandoffInput(valuefmt.StringValue(p.Metadata["input_summary"])),
+			summarizeExpertHandoffInput(valuefmt.StringValue(p.Metadata["input"])),
 		}
 		return bestExpertHandoffSummary(startOutputs)
 	}
-	if local := summarizeExpertHandoffOutput(stringValue(p.Metadata["local_output_summary"])); local != "" &&
+	if local := summarizeExpertHandoffOutput(valuefmt.StringValue(p.Metadata["local_output_summary"])); local != "" &&
 		!strings.Contains(strings.ToLower(local), "state:") {
 		return attachWorkflowStateSummary(local, p)
 	}
 	outputs := []string{
-		stringValue(p.Metadata["return_output_summary"]),
-		stringValue(p.Metadata["result_summary"]),
-		stringValue(p.Metadata["observation_summary"]),
-		stringValue(p.Metadata["output_summary"]),
-		stringValue(p.Metadata["summary"]),
+		valuefmt.StringValue(p.Metadata["return_output_summary"]),
+		valuefmt.StringValue(p.Metadata["result_summary"]),
+		valuefmt.StringValue(p.Metadata["observation_summary"]),
+		valuefmt.StringValue(p.Metadata["output_summary"]),
+		valuefmt.StringValue(p.Metadata["summary"]),
 		expertHandoffErrorSummary(p.Metadata["error"]),
 		p.Text,
 	}
@@ -165,37 +166,6 @@ func summarizeStructuredHandoffOutput(output string) string {
 	return summarizeStructuredHandoffObjectStatus(obj)
 }
 
-func splitSummarySegments(output string) []string {
-	var segments []string
-	for _, raw := range strings.Split(output, " - ") {
-		text := strings.TrimSpace(raw)
-		if text == "" {
-			continue
-		}
-		if (strings.Contains(text, "member=") || strings.Contains(text, ".SAC")) && len(segments) > 0 {
-			continue
-		}
-		if strings.Contains(text, ": ") && len(text) > 120 {
-			parts := strings.Split(text, ". ")
-			for _, part := range parts {
-				part = strings.TrimSpace(part)
-				if part != "" {
-					segments = append(segments, part)
-				}
-				if len(segments) >= 3 {
-					return segments
-				}
-			}
-			continue
-		}
-		segments = append(segments, text)
-		if len(segments) >= 3 {
-			break
-		}
-	}
-	return segments
-}
-
 func expertHandoffErrorSummary(raw any) string {
 	switch errValue := raw.(type) {
 	case nil:
@@ -207,7 +177,7 @@ func expertHandoffErrorSummary(raw any) string {
 		if nested, ok := errValue["error"].(map[string]any); ok {
 			return summarizeErrorResult(map[string]any{"error": nested})
 		}
-		return compactJSON(errValue)
+		return valuefmt.CompactJSON(errValue)
 	case string:
 		text := strings.TrimSpace(errValue)
 		if text == "" {
@@ -219,8 +189,8 @@ func expertHandoffErrorSummary(raw any) string {
 				return summary
 			}
 		}
-		return shortenKnownPaths(text)
+		return valuefmt.ShortenKnownPaths(text)
 	default:
-		return shortenKnownPaths(fmt.Sprint(errValue))
+		return valuefmt.ShortenKnownPaths(fmt.Sprint(errValue))
 	}
 }

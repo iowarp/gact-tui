@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *commandPaletteComponent) executeCommand(cmd gact.Command) tea.Cmd {
@@ -15,7 +16,7 @@ func (c *commandPaletteComponent) executeCommand(cmd gact.Command) tea.Cmd {
 		return c.app.catalog.openKind(kind)
 	}
 	if cmd.Status != "" && cmd.Status != "available" {
-		reason := firstNonEmpty(cmd.DisabledReason, cmd.Error, "command unavailable")
+		reason := valuefmt.FirstNonEmpty(cmd.DisabledReason, cmd.Error, "command unavailable")
 		c.app.setHint(cmd.ID + ": " + reason)
 		return scheduleHintExpire(c.app.transientHint)
 	}

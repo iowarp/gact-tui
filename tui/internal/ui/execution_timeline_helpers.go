@@ -3,6 +3,7 @@ package ui
 // execution_timeline_helpers.go provides execution-timeline value/depth/key helpers shared by the projector.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strconv"
 	"strings"
 )
@@ -13,11 +14,11 @@ func executionReactStepSpanIDs(events []executionTimelineEvent) map[string]bool 
 		if event.Type != "react.step.completed" {
 			continue
 		}
-		nested := mapValue(event.Payload["payload"])
-		if span := strings.TrimSpace(stringValue(nested["step_span_id"])); span != "" {
+		nested := valuefmt.MapValue(event.Payload["payload"])
+		if span := strings.TrimSpace(valuefmt.StringValue(nested["step_span_id"])); span != "" {
 			out[span] = true
 		}
-		if span := strings.TrimSpace(stringValue(event.Payload["parent_span_id"])); span != "" {
+		if span := strings.TrimSpace(valuefmt.StringValue(event.Payload["parent_span_id"])); span != "" {
 			out[span] = true
 		}
 	}
@@ -89,21 +90,21 @@ func timelineAgentDepth(agent string) int {
 }
 
 func executionPayloadBody(payload map[string]any) map[string]any {
-	return mapValue(payload["payload"])
+	return valuefmt.MapValue(payload["payload"])
 }
 
 func executionActorAgentID(payload map[string]any) string {
-	return strings.TrimSpace(stringValue(mapValue(payload["actor"])["agent_id"]))
+	return strings.TrimSpace(valuefmt.StringValue(valuefmt.MapValue(payload["actor"])["agent_id"]))
 }
 
 func executionSubjectAgentID(payload map[string]any) string {
-	return strings.TrimSpace(stringValue(mapValue(payload["subject"])["agent_id"]))
+	return strings.TrimSpace(valuefmt.StringValue(valuefmt.MapValue(payload["subject"])["agent_id"]))
 }
 
 func executionExpertID(payload map[string]any) string {
 	nested := executionPayloadBody(payload)
-	return strings.TrimSpace(firstNonEmpty(
-		stringValue(nested["expert_id"]),
+	return strings.TrimSpace(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(nested["expert_id"]),
 		executionActorAgentID(payload),
 	))
 }

@@ -1,5 +1,9 @@
 package ui
 
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+)
+
 // conversation_input_view.go renders the conversation/input pane composite.
 
 func (c *inputComposerComponent) renderPane(width, inputTextW, inputH, msgH, hintH int) string {
@@ -8,7 +12,7 @@ func (c *inputComposerComponent) renderPane(width, inputTextW, inputH, msgH, hin
 	c.input.SetWidth(inputTextW)
 	placeholderWidth := inputTextW - 2
 	if a.MouseEnabled {
-		placeholderWidth = minInt(placeholderWidth, 56)
+		placeholderWidth = valuefmt.MinInt(placeholderWidth, 56)
 	}
 	c.input.Placeholder = c.localizedPlaceholder(placeholderWidth)
 
@@ -30,7 +34,7 @@ func (c *inputComposerComponent) renderPane(width, inputTextW, inputH, msgH, hin
 	}
 	inputView := c.input.View()
 	if a.agent.nextTurnAgentID != "" {
-		label := firstNonEmpty(a.agent.nextTurnAgentTitle, a.agent.nextTurnAgentID)
+		label := valuefmt.FirstNonEmpty(a.agent.nextTurnAgentTitle, a.agent.nextTurnAgentID)
 		inputView = t.HintLabel.Render("agent for next turn: ") +
 			t.HintKey.Render(label) + "\n" + inputView
 	}

@@ -9,16 +9,17 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *agentComponent) activeAgentBlueprintID() string {
 	if c.app.session.selected < 0 || c.app.session.selected >= len(c.app.session.sessions) {
 		return ""
 	}
-	meta := mapValue(c.app.session.sessions[c.app.session.selected].Metadata)
-	return firstNonEmpty(
-		stringValue(meta["active_agent_blueprint_id"]),
-		stringValue(meta["agent_blueprint_id"]),
+	meta := valuefmt.MapValue(c.app.session.sessions[c.app.session.selected].Metadata)
+	return valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(meta["active_agent_blueprint_id"]),
+		valuefmt.StringValue(meta["agent_blueprint_id"]),
 	)
 }
 
@@ -26,10 +27,10 @@ func (c *agentComponent) activeAgentBlueprintScope() string {
 	if c.activeAgentBlueprintID() == "" || c.app.session.selected < 0 || c.app.session.selected >= len(c.app.session.sessions) {
 		return ""
 	}
-	meta := mapValue(c.app.session.sessions[c.app.session.selected].Metadata)
-	return firstNonEmpty(
-		stringValue(meta["active_agent_blueprint_scope"]),
-		stringValue(meta["agent_blueprint_scope"]),
+	meta := valuefmt.MapValue(c.app.session.sessions[c.app.session.selected].Metadata)
+	return valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(meta["active_agent_blueprint_scope"]),
+		valuefmt.StringValue(meta["agent_blueprint_scope"]),
 		"session",
 	)
 }

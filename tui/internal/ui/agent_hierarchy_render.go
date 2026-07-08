@@ -7,6 +7,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *agentComponent) agentHierarchyActiveBlueprintSummary(rows []agentHierarchyRow, width int) string {
@@ -60,7 +61,7 @@ func (c *agentComponent) renderAgentHierarchyRow(row agentHierarchyRow, width in
 	if contentW < 8 {
 		contentW = 8
 	}
-	title := firstNonEmpty(agent.Title, agent.ID)
+	title := valuefmt.FirstNonEmpty(agent.Title, agent.ID)
 	basePrefixW := lipgloss.Width(marker + indent + branch)
 	indexLabel := agentHierarchyIndexLabel(row)
 	if indexLabel != "" {

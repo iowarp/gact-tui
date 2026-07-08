@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func normalizeMessageAdapterSections(m *gact.Message) {
@@ -78,7 +79,7 @@ func adapterSectionsToParts(source gact.Part, sections []adapterSection) []gact.
 		if adapterSectionIsEmpty(section.text) {
 			continue
 		}
-		partID := firstNonEmpty(source.ID, "adapter_text") + "_" + stableIDFragment(section.name)
+		partID := valuefmt.FirstNonEmpty(source.ID, "adapter_text") + "_" + stableIDFragment(section.name)
 		switch section.name {
 		case "reasoning", "next_thought", "thought":
 			parts = append(parts, gact.Part{
@@ -142,7 +143,7 @@ func adapterSectionTitle(name string) string {
 	case "artifacts":
 		return "Artifacts"
 	default:
-		return humanizeAgentLabel(name)
+		return valuefmt.HumanizeAgentLabel(name)
 	}
 }
 

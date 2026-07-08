@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func normalizeMessageExpertHandoffs(m *gact.Message) {
@@ -112,64 +113,64 @@ func isNoisyExpertHandoff(row map[string]any) bool {
 	if len(row) == 0 {
 		return false
 	}
-	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(row["status"]), "observed")))
+	status := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(valuefmt.StringValue(row["status"]), "observed")))
 	if status == "failed" || status == "failure" || status == "error" {
 		return false
 	}
-	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["dispatch_target"]),
-		stringValue(row["event_type"]),
+	stage := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["stage"]),
+		valuefmt.StringValue(row["dispatch_target"]),
+		valuefmt.StringValue(row["event_type"]),
 	)))
 	switch stage {
 	case "parent.resumed", "parent_resumed", "blueprint.delegation.parent_resumed":
 		return true
 	}
-	summary := strings.ToLower(strings.TrimSpace(firstNonEmpty(
-		stringValue(row["output_summary"]),
-		stringValue(row["summary"]),
-		stringValue(row["text"]),
+	summary := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["output_summary"]),
+		valuefmt.StringValue(row["summary"]),
+		valuefmt.StringValue(row["text"]),
 	)))
 	return strings.Contains(summary, " resumed after ") && !strings.Contains(summary, "error")
 }
 
 func isRedundantDirectToolHandoff(row map[string]any) bool {
-	stage := strings.ToLower(strings.TrimSpace(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["dispatch_target"]),
+	stage := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["stage"]),
+		valuefmt.StringValue(row["dispatch_target"]),
 	)))
 	if stage != "direct_tool" {
 		return false
 	}
-	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(row["status"]), "observed")))
+	status := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(valuefmt.StringValue(row["status"]), "observed")))
 	if status != "success" && status != "ok" {
 		return false
 	}
-	return firstNonEmpty(
-		stringValue(row["output_summary"]),
-		stringValue(row["summary"]),
-		stringValue(row["error"]),
+	return valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["output_summary"]),
+		valuefmt.StringValue(row["summary"]),
+		valuefmt.StringValue(row["error"]),
 	) == ""
 }
 
 func expertHandoffSummary(row map[string]any) string {
-	agent := firstNonEmpty(
-		stringValue(row["agent_id"]),
-		stringValue(row["expert"]),
+	agent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["agent_id"]),
+		valuefmt.StringValue(row["expert"]),
 		"expert",
 	)
-	parent := firstNonEmpty(
-		stringValue(row["parent_id"]),
-		stringValue(row["parent"]),
+	parent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["parent_id"]),
+		valuefmt.StringValue(row["parent"]),
 	)
-	stage := firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["dispatch_target"]),
+	stage := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["stage"]),
+		valuefmt.StringValue(row["dispatch_target"]),
 	)
-	status := firstNonEmpty(stringValue(row["status"]), "observed")
-	output := firstNonEmpty(
-		stringValue(row["output_summary"]),
-		stringValue(row["summary"]),
+	status := valuefmt.FirstNonEmpty(valuefmt.StringValue(row["status"]), "observed")
+	output := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["output_summary"]),
+		valuefmt.StringValue(row["summary"]),
 	)
 	route := agent
 	if parent != "" {

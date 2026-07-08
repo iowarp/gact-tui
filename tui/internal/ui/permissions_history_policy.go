@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func permissionPolicyConflictRows(policies []gact.Policy) []string {
@@ -15,7 +16,7 @@ func permissionPolicyConflictRows(policies []gact.Policy) []string {
 	seen := map[string]string{}
 	for _, p := range policies {
 		key := strings.Join([]string{
-			firstNonEmpty(p.Scope, "policy"),
+			valuefmt.FirstNonEmpty(p.Scope, "policy"),
 			p.ScopeID,
 			p.ToolNamePattern,
 			p.PathPattern,
@@ -23,7 +24,7 @@ func permissionPolicyConflictRows(policies []gact.Policy) []string {
 		action := strings.ToLower(strings.TrimSpace(p.Action))
 		prev, ok := seen[key]
 		if ok && prev != "" && action != "" && prev != action {
-			out = append(out, fmt.Sprintf("%s %s on tool %s path %s", permissionPolicyActionLabel(prev), permissionPolicyActionLabel(action), firstNonEmpty(p.ToolNamePattern, "*"), firstNonEmpty(p.PathPattern, "*")))
+			out = append(out, fmt.Sprintf("%s %s on tool %s path %s", permissionPolicyActionLabel(prev), permissionPolicyActionLabel(action), valuefmt.FirstNonEmpty(p.ToolNamePattern, "*"), valuefmt.FirstNonEmpty(p.PathPattern, "*")))
 			continue
 		}
 		if !ok {
@@ -36,11 +37,11 @@ func permissionPolicyConflictRows(policies []gact.Policy) []string {
 func permissionHistoryRows(perms []client.PermissionWire) []string {
 	rows := []string{}
 	for _, p := range perms {
-		status := strings.ToLower(firstNonEmpty(p.Status, string(p.Action)))
+		status := strings.ToLower(valuefmt.FirstNonEmpty(p.Status, string(p.Action)))
 		if status == "" || status == "pending" {
 			continue
 		}
-		label := firstNonEmpty(p.ToolCall.ToolName, "unknown tool") + " · " + permissionDisplayStatus(p)
+		label := valuefmt.FirstNonEmpty(p.ToolCall.ToolName, "unknown tool") + " · " + permissionDisplayStatus(p)
 		rows = append(rows, detailFieldRows(label, permissionRequestBody(p))...)
 		if len(rows) >= 10 {
 			rows = append(rows, detailFieldRows("truncated", "additional resolved requests hidden")...)
@@ -51,7 +52,7 @@ func permissionHistoryRows(perms []client.PermissionWire) []string {
 }
 
 func permissionDisplayStatus(p client.PermissionWire) string {
-	status := strings.ToLower(strings.TrimSpace(firstNonEmpty(p.Status, string(p.Action))))
+	status := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(p.Status, string(p.Action))))
 	action := strings.ToLower(strings.TrimSpace(string(p.Action)))
 	switch {
 	case status == "resolved" && action == string(gact.PermDeny):
@@ -67,7 +68,7 @@ func permissionDisplayStatus(p client.PermissionWire) string {
 	case status == "deny":
 		return "denied"
 	default:
-		return firstNonEmpty(status, action, "resolved")
+		return valuefmt.FirstNonEmpty(status, action, "resolved")
 	}
 }
 
@@ -80,7 +81,7 @@ func permissionPolicyActionLabel(action string) string {
 	case "deny":
 		return "denied automatically"
 	default:
-		return firstNonEmpty(action, "policy")
+		return valuefmt.FirstNonEmpty(action, "policy")
 	}
 }
 

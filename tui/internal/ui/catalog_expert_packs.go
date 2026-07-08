@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func expertPackCatalogItems(packs []gact.ExpertPackDefinition) []catalogItem {
@@ -35,17 +36,17 @@ func expertPackCatalogItems(packs []gact.ExpertPackDefinition) []catalogItem {
 		if packs[i].Scope != packs[j].Scope {
 			return packs[i].Scope < packs[j].Scope
 		}
-		return firstNonEmpty(packs[i].Title, packs[i].ID) < firstNonEmpty(packs[j].Title, packs[j].ID)
+		return valuefmt.FirstNonEmpty(packs[i].Title, packs[i].ID) < valuefmt.FirstNonEmpty(packs[j].Title, packs[j].ID)
 	})
 	items := make([]catalogItem, 0, len(packs))
 	for _, pack := range packs {
-		status := firstNonEmpty(pack.Scope, "pack")
+		status := valuefmt.FirstNonEmpty(pack.Scope, "pack")
 		if !pack.Enabled || len(pack.ValidationErrors) > 0 {
 			status = "invalid"
 		}
 		items = append(items, catalogItem{
 			id:         pack.ID,
-			title:      firstNonEmpty(pack.Title, pack.ID),
+			title:      valuefmt.FirstNonEmpty(pack.Title, pack.ID),
 			desc:       expertPackDescription(pack),
 			inlineDesc: expertPackInlineSummary(pack),
 			statusTag:  status,
@@ -57,7 +58,7 @@ func expertPackCatalogItems(packs []gact.ExpertPackDefinition) []catalogItem {
 func expertPackDescription(pack gact.ExpertPackDefinition) string {
 	parts := make([]string, 0, 6)
 	if pack.Description != "" && len(pack.ValidationErrors) == 0 {
-		parts = append(parts, compactCatalogText(pack.Description))
+		parts = append(parts, valuefmt.CompactCatalogText(pack.Description))
 	}
 	parts = append(parts, expertPackStatusText(pack))
 	if pack.Scope != "" {
@@ -105,7 +106,7 @@ func expertPackDetailItems(detail gact.ExpertPackDetail) []catalogItem {
 	}
 	items := []catalogItem{activation, {
 		id:         "pack/" + pack.ID,
-		title:      "Workflow pack · " + firstNonEmpty(pack.Title, pack.ID),
+		title:      "Workflow pack · " + valuefmt.FirstNonEmpty(pack.Title, pack.ID),
 		desc:       formatExpertPackSummary(pack, detail.Agents),
 		inlineDesc: expertPackInlineSummary(pack),
 	}}
@@ -149,7 +150,7 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition, agents []gact.Agent
 		activation = reason
 	}
 	rows := appendDetailSection(nil, "Operator summary",
-		detailField{"workflow", firstNonEmpty(pack.Description, firstNonEmpty(pack.Title, pack.ID))},
+		detailField{"workflow", valuefmt.FirstNonEmpty(pack.Description, valuefmt.FirstNonEmpty(pack.Title, pack.ID))},
 		detailField{"status", expertPackStatusText(pack)},
 		detailField{"activation", activation},
 		detailField{"session scope", sessionDefaultDescription()},
@@ -167,14 +168,14 @@ func formatExpertPackSummary(pack gact.ExpertPackDefinition, agents []gact.Agent
 		{"root", pack.Root},
 		{"definition", pack.DefinitionPath},
 	}
-	if install := mapValue(pack.Metadata["install"]); len(install) > 0 {
+	if install := valuefmt.MapValue(pack.Metadata["install"]); len(install) > 0 {
 		sourceFields = append(sourceFields,
-			detailField{"source", firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))},
-			detailField{"source kind", stringValue(install["source_kind"])},
-			detailField{"ref", stringValue(install["ref"])},
-			detailField{"commit", stringValue(install["commit"])},
-			detailField{"last synced", firstNonEmpty(stringValue(install["last_synced_at"]), stringValue(install["synced_at"]))},
-			detailField{"trust", stringValue(install["trust"])},
+			detailField{"source", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"]))},
+			detailField{"source kind", valuefmt.StringValue(install["source_kind"])},
+			detailField{"ref", valuefmt.StringValue(install["ref"])},
+			detailField{"commit", valuefmt.StringValue(install["commit"])},
+			detailField{"last synced", valuefmt.FirstNonEmpty(valuefmt.StringValue(install["last_synced_at"]), valuefmt.StringValue(install["synced_at"]))},
+			detailField{"trust", valuefmt.StringValue(install["trust"])},
 		)
 	}
 	rows = appendDetailSection(rows, "Source evidence", sourceFields...)

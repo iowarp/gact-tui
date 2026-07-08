@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
@@ -143,19 +144,19 @@ func formatAgentBlueprintValidationWithSource(result gact.AgentBlueprintValidati
 	if len(result.MCPDescriptors) > 0 {
 		rows = append(rows, "", "MCP descriptors")
 		for _, descriptor := range result.MCPDescriptors {
-			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintMCPDescription(descriptor))
+			rows = append(rows, "- "+valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["name"]), valuefmt.StringValue(descriptor["id"]))+": "+agentBlueprintMCPDescription(descriptor))
 		}
 	}
 	if len(result.HookDescriptors) > 0 {
 		rows = append(rows, "", "Packaged hooks")
 		for _, descriptor := range result.HookDescriptors {
-			rows = append(rows, "- "+firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))+": "+agentBlueprintHookDescription(descriptor))
+			rows = append(rows, "- "+valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["title"]), valuefmt.StringValue(descriptor["name"]), valuefmt.StringValue(descriptor["id"]))+": "+agentBlueprintHookDescription(descriptor))
 		}
 	}
 	if len(result.Agents) > 0 {
 		rows = append(rows, "", "Experts")
 		for _, agent := range result.Agents {
-			rows = append(rows, "- "+firstNonEmpty(agent.Title, agent.ID)+": "+agentCatalogDescription(agent, result.Agents))
+			rows = append(rows, "- "+valuefmt.FirstNonEmpty(agent.Title, agent.ID)+": "+agentCatalogDescription(agent, result.Agents))
 		}
 	}
 	return strings.Join(rows, "\n")

@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
@@ -41,7 +42,7 @@ func (m *agentWriteModal) handleDone(msg agentWriteDoneMsg) (tea.Model, tea.Cmd)
 		case catalogKindAgents:
 			cmd = loadCatalogBrowserCmd(a.c, catalogKindAgents, a.session.runtimeScope())
 		case catalogKindAgentDetail:
-			cmd = a.catalog.openAgentDetail(msg.agent.ID, firstNonEmpty(msg.agent.Title, msg.agent.ID))
+			cmd = a.catalog.openAgentDetail(msg.agent.ID, valuefmt.FirstNonEmpty(msg.agent.Title, msg.agent.ID))
 		}
 	}
 	return a, tea.Batch(scheduleHintExpire(a.transientHint), cmd)

@@ -4,6 +4,7 @@ package ui
 
 import (
 	"encoding/json"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -59,7 +60,7 @@ func parseWorkflowStateJSON(text string) (map[string]any, bool) {
 	if err := json.Unmarshal([]byte(text[start:start+end]), &payload); err != nil {
 		return nil, false
 	}
-	if state := mapValue(payload["workflow_state"]); len(state) > 0 {
+	if state := valuefmt.MapValue(payload["workflow_state"]); len(state) > 0 {
 		return state, true
 	}
 	return payload, len(payload) > 0

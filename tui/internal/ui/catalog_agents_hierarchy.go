@@ -7,6 +7,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentCatalogItems(agents []gact.AgentDef, kind catalogBrowserKind) []catalogItem {
@@ -140,7 +141,7 @@ func prependCatalogDetailSummary(prefix, text string) string {
 }
 
 func stripLeadingAgentTierSummary(text string) string {
-	parts := strings.Split(compactCatalogText(text), " · ")
+	parts := strings.Split(valuefmt.CompactCatalogText(text), " · ")
 	if len(parts) == 0 {
 		return ""
 	}

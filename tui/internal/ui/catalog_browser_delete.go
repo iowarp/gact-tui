@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *catalogComponent) agentDeleteArmed() bool {
@@ -116,7 +117,7 @@ func (c *catalogComponent) confirmOrDeleteExpertPack() tea.Cmd {
 		return deleteExpertPackCmd(a.c, a.session.runtimeScope(), packID)
 	}
 	cb.pendingDeleteExpertPackID = cb.expertPackID
-	label := firstNonEmpty(cb.expertPackID, "this expert pack")
+	label := valuefmt.FirstNonEmpty(cb.expertPackID, "this expert pack")
 	a.setHint("press d or Enter again to confirm deleting " + label + " (any other key cancels)")
 	return scheduleHintExpire(a.transientHint)
 }
@@ -133,7 +134,7 @@ func (c *agentComponent) confirmOrDeleteAgent() tea.Cmd {
 		return deleteAgentCmd(c.app.c, agentID)
 	}
 	cb.pendingDeleteAgentID = cb.agentID
-	label := firstNonEmpty(cb.agentID, "this expert")
+	label := valuefmt.FirstNonEmpty(cb.agentID, "this expert")
 	c.app.setHint("press d or Enter again to confirm deleting " + label + " (any other key cancels)")
 	return scheduleHintExpire(c.app.transientHint)
 }
@@ -164,7 +165,7 @@ func (c *agentComponent) confirmOrDeleteAgentBlueprint() tea.Cmd {
 		return deleteAgentBlueprintCmd(c.app.c, c.app.session.runtimeScope(), blueprintID)
 	}
 	cb.pendingDeleteBlueprintID = cb.blueprintID
-	label := firstNonEmpty(cb.blueprintID, "this blueprint")
+	label := valuefmt.FirstNonEmpty(cb.blueprintID, "this blueprint")
 	c.app.setHint("press d or Enter again to confirm deleting " + label + " (any other key cancels)")
 	return scheduleHintExpire(c.app.transientHint)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/widget"
 )
 
@@ -96,7 +97,7 @@ func (m *askUserModal) view() string {
 	if prompt == "" {
 		prompt = "Agent needs user input before continuing."
 	}
-	source := firstNonEmpty(q.Source, q.AgentID, q.Category)
+	source := valuefmt.FirstNonEmpty(q.Source, q.AgentID, q.Category)
 	intro := []string{a.Theme.HintLabel.Render(textutil.Wrap(prompt, modalBodyContentWidth(w)))}
 	if source != "" {
 		intro = append(intro, a.Theme.HintLabel.Render("Asked by "+source))
@@ -146,7 +147,7 @@ func (m *askUserModal) renderChoiceRow() (string, []modalCellHit) {
 	options := make([]modalInlineOption, 0, len(choices))
 	for i, choice := range choices {
 		i := i
-		label := firstNonEmpty(choice.Label, choice.Value, choice.ID)
+		label := valuefmt.FirstNonEmpty(choice.Label, choice.Value, choice.ID)
 		options = append(options, modalInlineOption{
 			id:     "ask-user:choice:" + itoa2(i),
 			label:  label,
@@ -168,7 +169,7 @@ func questionOptions(q gact.AgentQuestion) []gact.AgentQuestionChoice {
 }
 
 func questionOptionValue(choice gact.AgentQuestionChoice) string {
-	return firstNonEmpty(choice.Value, choice.ID, choice.Label)
+	return valuefmt.FirstNonEmpty(choice.Value, choice.ID, choice.Label)
 }
 
 func firstString(values []string) string {

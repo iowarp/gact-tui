@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // --- View -----------------------------------------------------------------
@@ -200,7 +201,7 @@ func (a *App) viewErrorModal() string {
 }
 
 func (m *modalkit) paletteBodyPageSize() int {
-	return minInt(22, m.modalBodyRows(10))
+	return valuefmt.MinInt(22, m.modalBodyRows(10))
 }
 
 func (m *modalkit) paletteBodyPageSizeForRows(rows []string) int {

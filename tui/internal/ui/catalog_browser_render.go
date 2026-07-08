@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // view renders the modal: title + rows + hint bar.
@@ -53,7 +54,7 @@ func (c *catalogComponent) view() string {
 			isDisabled := item.disabled || (c.current.kind == catalogKindTools &&
 				c.disabledTools != nil && c.disabledTools[item.id])
 			idx := i
-			description := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+			description := valuefmt.CompactCatalogText(valuefmt.FirstNonEmpty(item.inlineDesc, item.desc))
 			inlineMeta := ""
 			if c.current.kind == catalogKindTools ||
 				c.current.kind == catalogKindPrompts ||

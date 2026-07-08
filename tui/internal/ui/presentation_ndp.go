@@ -4,20 +4,21 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
 func summarizeNDPCatalogResult(result map[string]any) string {
 	var rows []string
 	featureRows := summarizeFeatureCollectionRows(result)
-	if status := stringValue(result["status"]); status != "" {
+	if status := valuefmt.StringValue(result["status"]); status != "" {
 		rows = append(rows, "status: "+status)
 	} else if meta, ok := result["_meta"].(map[string]any); ok {
-		if status := stringValue(meta["status"]); status != "" {
+		if status := valuefmt.StringValue(meta["status"]); status != "" {
 			rows = append(rows, "status: "+status)
 		}
 	}
-	if count, ok := floatValue(result["count"]); ok && len(featureRows) == 0 {
+	if count, ok := valuefmt.FloatValue(result["count"]); ok && len(featureRows) == 0 {
 		rows = append(rows, fmt.Sprintf("count: %.0f", count))
 	}
 	if ds, ok := result["datasets"].(map[string]any); ok {
@@ -47,19 +48,19 @@ func summarizeNDPItems(label string, items []any) []string {
 		if !ok {
 			continue
 		}
-		title := firstNonEmpty(
-			stringValue(item["title"]),
-			stringValue(item["name"]),
-			stringValue(item["id"]),
+		title := valuefmt.FirstNonEmpty(
+			valuefmt.StringValue(item["title"]),
+			valuefmt.StringValue(item["name"]),
+			valuefmt.StringValue(item["id"]),
 		)
 		if title == "" {
 			title = "(untitled)"
 		}
 		var bits []string
-		if org := stringValue(item["owner_org"]); org != "" {
+		if org := valuefmt.StringValue(item["owner_org"]); org != "" {
 			bits = append(bits, "org: "+org)
 		}
-		if n, ok := floatValue(item["resource_count"]); ok {
+		if n, ok := valuefmt.FloatValue(item["resource_count"]); ok {
 			bits = append(bits, fmt.Sprintf("resources: %.0f", n))
 		}
 		if formats := compactStringItems(item["resource_formats"]); formats != "" {

@@ -9,16 +9,17 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func semanticEventPartID(e client.SSEEvent, eventType, turnID string) string {
 	if e.ID != "" {
 		return "semantic_event_" + stableIDFragment(e.ID)
 	}
-	if pl := eventPayload(e); stringValue(pl["event_id"]) != "" {
-		return "semantic_event_" + stableIDFragment(stringValue(pl["event_id"]))
+	if pl := eventPayload(e); valuefmt.StringValue(pl["event_id"]) != "" {
+		return "semantic_event_" + stableIDFragment(valuefmt.StringValue(pl["event_id"]))
 	}
-	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+stringValue(e.Payload["occurred_at"]))
+	return "semantic_event_" + stableIDFragment(eventType+"_"+turnID+"_"+valuefmt.StringValue(e.Payload["occurred_at"]))
 }
 
 func promoteMessagePartEventMetadata(part *gact.Part, pl map[string]any) {
@@ -26,7 +27,7 @@ func promoteMessagePartEventMetadata(part *gact.Part, pl map[string]any) {
 		return
 	}
 	for _, key := range []string{"turn_id", "stream_source"} {
-		if value := strings.TrimSpace(stringValue(pl[key])); value != "" {
+		if value := strings.TrimSpace(valuefmt.StringValue(pl[key])); value != "" {
 			if part.Metadata == nil {
 				part.Metadata = map[string]any{}
 			}

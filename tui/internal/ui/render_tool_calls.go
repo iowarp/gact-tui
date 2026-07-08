@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func toolCallWithResultStatusSuppressed(p gact.Part, inlineResults map[string]gact.Part) gact.Part {
@@ -64,7 +65,7 @@ func toolCallStatusLabel(p gact.Part) string {
 	if p.Metadata == nil {
 		return ""
 	}
-	status := strings.ToLower(strings.TrimSpace(stringValue(p.Metadata["status"])))
+	status := strings.ToLower(strings.TrimSpace(valuefmt.StringValue(p.Metadata["status"])))
 	switch status {
 	case "running", "started", "pending":
 		return "running now"
@@ -81,7 +82,7 @@ func toolCallStatusLabel(p gact.Part) string {
 func toolCallSummary(p gact.Part) string {
 	if len(p.Input) == 0 {
 		if p.Metadata != nil {
-			preview := strings.TrimSpace(stringValue(p.Metadata["args_preview"]))
+			preview := strings.TrimSpace(valuefmt.StringValue(p.Metadata["args_preview"]))
 			if semanticPreviewIsInlineRedaction(preview) {
 				return ""
 			}
@@ -103,11 +104,11 @@ func toolCallSummary(p gact.Part) string {
 		}
 	case "read", "read_file", "cat":
 		if v, ok := p.Input["path"].(string); ok {
-			primary = shortenPathForInline(v)
+			primary = valuefmt.ShortenPathForInline(v)
 		}
 	case "write", "write_file", "edit", "edit_file":
 		if v, ok := p.Input["path"].(string); ok {
-			primary = shortenPathForInline(v)
+			primary = valuefmt.ShortenPathForInline(v)
 		}
 	case "grep", "search":
 		if v, ok := p.Input["pattern"].(string); ok {

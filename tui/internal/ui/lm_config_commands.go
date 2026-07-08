@@ -13,6 +13,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type lmConfigFetchedMsg struct {
@@ -78,7 +79,7 @@ func lmConfigSaveCmd(c *client.Client, req client.LMProviderRequest) tea.Cmd {
 			}
 		}
 		if err == nil && info != nil && strings.EqualFold(strings.TrimSpace(info.State), "error") {
-			err = fmt.Errorf("provider configuration failed: %s", firstNonEmpty(info.Error, info.StatusMessage, "unknown error"))
+			err = fmt.Errorf("provider configuration failed: %s", valuefmt.FirstNonEmpty(info.Error, info.StatusMessage, "unknown error"))
 		}
 		lmConfigNormalizeInfo(info)
 		return lmConfigSavedMsg{info: info, err: err}
