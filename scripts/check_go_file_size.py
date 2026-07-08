@@ -21,13 +21,14 @@ clio-agent ``check_silent_fallbacks.py::BASELINE_TOTAL``). When a file shrinks
 under the cap, or the ``ui`` package sheds files, the same PR that shrank it
 lowers the number here. Ratchet-down reports are advisory: they never fail.
 
-Warn-then-enforce: by default this check is **advisory** -- it prints offenders
-and exits 0 so CI stays green while the backlog is worked down. Pass
-``--enforce`` (or set the flip date below) to make offenders fail the build.
+Warn-then-enforce: run bare, this check is **advisory** -- it prints offenders
+and exits 0. CI and ``make check-size`` pass ``--enforce`` so offenders fail the
+build.
 
-    FLIP-TO-ENFORCING: on or after 2026-09-01, wire the CI step / ``make
-    check-size`` target to pass ``--enforce`` (or delete this note and make
-    ``--enforce`` the default). Until then the guard only warns.
+    FLIPPED TO ENFORCING 2026-07-08 (ahead of the original 2026-09-01 grace
+    date -- the backlog was already clear). The CI step and ``make check-size``
+    pass ``--enforce``; a new oversized Go file or a baselined file that regrows
+    now fails the build. Baselines only ratchet down.
 
 Run locally::
 
