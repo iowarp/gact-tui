@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -17,7 +18,7 @@ func summarizeExpertHandoffOutput(output string) string {
 		return ""
 	}
 	if containsFormattedWorkflowStateSummary(output) {
-		return truncateMarkdownBlock(output, 1200, 18)
+		return render.TruncateMarkdownBlock(output, 1200, 18)
 	}
 	if stripped := stripEmbeddedWorkflowStateBlock(output); stripped != "" && stripped != output {
 		output = stripped
@@ -32,9 +33,9 @@ func summarizeExpertHandoffOutput(output string) string {
 	if summary := summarizeStructuredHandoffOutput(compact); summary != "" {
 		return summary
 	}
-	output = expandInlineMarkdownTables(output)
+	output = render.ExpandInlineMarkdownTables(output)
 	if looksLikeMarkdownBlock(output) {
-		return truncateMarkdownBlock(output, 1200, 18)
+		return render.TruncateMarkdownBlock(output, 1200, 18)
 	}
 	output = compact
 	if (strings.Contains(output, "member=") || strings.Contains(output, ".SAC")) && strings.Contains(output, " - ") {
@@ -119,7 +120,7 @@ func expertHandoffSummaryScore(raw string, summary string) int {
 	rawLower := strings.ToLower(raw)
 	lower := strings.ToLower(summary)
 	score := 0
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(summary)) {
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(summary)) {
 		score += 6
 	}
 	for _, token := range []string{

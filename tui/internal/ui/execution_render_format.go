@@ -3,6 +3,7 @@ package ui
 // execution_render_format.go formats execution prose, tool-call lines, observation blocks, and indentation.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -93,7 +94,7 @@ func executionProseLineIsBoundary(line string) bool {
 }
 
 func (t Theme) executionToolCallLine(toolName string, args any, width int) string {
-	name := firstNonEmpty(toolDisplayName(toolName), toolName, "tool")
+	name := firstNonEmpty(render.ToolDisplayName(toolName), toolName, "tool")
 	nameStyle := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true)
 	if argsText := executionArgsPreview(args); argsText != "" {
 		plain := name + "(" + argsText + ")"

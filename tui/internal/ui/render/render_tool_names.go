@@ -1,15 +1,15 @@
-package ui
+package render
 
 // render_tool_names.go formats tool display names.
 
 import "strings"
 
-// capitalizeToolName renders the tool name in CamelCase for the
+// CapitalizeToolName renders the tool name in CamelCase for the
 // Claude-Code-style header (e.g. "bash" -> "Bash", "read_file" ->
 // "ReadFile", "web_search" -> "WebSearch"). Matches how Claude Code
 // displays tool calls so users who've seen both UIs get consistent
 // visual vocabulary.
-func capitalizeToolName(name string) string {
+func CapitalizeToolName(name string) string {
 	if name == "" {
 		return "Tool"
 	}
@@ -23,7 +23,7 @@ func capitalizeToolName(name string) string {
 	return strings.Join(parts, "")
 }
 
-func toolDisplayName(name string) string {
+func ToolDisplayName(name string) string {
 	tool := strings.ToLower(strings.TrimSpace(name))
 	switch {
 	case strings.Contains(tool, "geo_geocode") || strings.Contains(tool, "geocode"):
@@ -59,5 +59,5 @@ func toolDisplayName(name string) string {
 	case strings.Contains(tool, "csv"):
 		return "CSV data analysis"
 	}
-	return capitalizeToolName(name)
+	return CapitalizeToolName(name)
 }

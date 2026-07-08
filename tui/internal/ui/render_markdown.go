@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"image/color"
 	"strings"
 	"sync"
@@ -71,7 +72,7 @@ func renderMarkdown(s string, t Theme, width int) string {
 }
 
 func renderMarkdownOrWrap(s string, t Theme, width int) string {
-	s = expandInlineMarkdownTables(s)
+	s = render.ExpandInlineMarkdownTables(s)
 	if looksLikeMarkdownBlock(s) {
 		return renderMarkdown(s, t, width)
 	}

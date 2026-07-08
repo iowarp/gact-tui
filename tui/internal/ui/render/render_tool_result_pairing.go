@@ -1,10 +1,10 @@
-package ui
+package render
 
 // render_tool_result_pairing.go pairs tool results to their calls across messages.
 
 import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 
-// pairToolResults walks a slice of messages and, for each assistant message
+// PairToolResults walks a slice of messages and, for each assistant message
 // that contains tool_call parts, builds a map from call_id to tool_result Part
 // by absorbing the consecutive role=tool messages that follow.
 //
@@ -14,7 +14,7 @@ import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 //
 // Pairing is by Part.CallID. Unpaired tool results stay visible standalone so
 // the transcript never silently loses output.
-func pairToolResults(msgs []gact.Message) (map[int]map[string]gact.Part, map[int]bool) {
+func PairToolResults(msgs []gact.Message) (map[int]map[string]gact.Part, map[int]bool) {
 	inlineResults := map[int]map[string]gact.Part{}
 	absorbed := map[int]bool{}
 	for i := range msgs {

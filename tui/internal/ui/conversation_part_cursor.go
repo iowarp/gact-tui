@@ -3,6 +3,7 @@ package ui
 // conversation_part_cursor.go tracks the selected addressable part and steps the part cursor.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -86,7 +87,7 @@ func (c *conversationComponent) stepPartCursorSelection(dir int) bool {
 		return true
 	}
 
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	msgIdx := c.bodySelMsgIdx
 	partIdx := c.bodySelPartIdx
 	addr := addressablePartsOf(c.messages[msgIdx])

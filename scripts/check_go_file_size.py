@@ -11,9 +11,10 @@ Ported from clio-agent's ``scripts/check_file_size.py`` (iowarp/clio-agent#714,
    exceed its *recorded* line count -- it can shrink but never regrow.
 
 2. **Package file-count freeze** for the flat ``tui/internal/ui`` package
-   (iowarp/gact-tui#234). The 626-file mega-package may not grow; every new
+   (iowarp/gact-tui#234). The flat mega-package may not grow; every new
    ``ui`` file must instead land in an extracted subpackage. The freeze count
-   ratchets DOWN as clusters are extracted (e.g. slice U2 -> render/).
+   ratchets DOWN as clusters are extracted (e.g. slice U2 -> render/, which
+   shed the first render-primitive leaves and lowered the freeze to 623).
 
 Both baselines may only ratchet **DOWN** (house precedent:
 clio-agent ``check_silent_fallbacks.py::BASELINE_TOTAL``). When a file shrinks
@@ -67,7 +68,7 @@ SIZE_BASELINE: dict[str, int] = {
 # locale/, testdata/ -- are excluded; they are the extraction precedent). This
 # number is a FREEZE: it may only ratchet DOWN as clusters are extracted.
 UI_PACKAGE_DIR = "tui/internal/ui"
-UI_PACKAGE_FREEZE = 626
+UI_PACKAGE_FREEZE = 623
 
 
 class SizeFailure(NamedTuple):

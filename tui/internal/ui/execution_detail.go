@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,7 +150,7 @@ func (c *executionComponent) artifactDetailsForNode(turnID string, node executio
 		}
 	}
 	if reasoning := strings.TrimSpace(node.Reasoning); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
-		title := firstNonEmpty(toolDisplayName(node.ToolName), node.ToolName, "reasoning")
+		title := firstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, "reasoning")
 		refs = append(refs, bulkyPartRef{
 			messageID: "execution:" + turnID,
 			partID:    executionNodeDetailID(node, "reasoning"),
@@ -311,7 +312,7 @@ func executionJSONOutputRef(turnID string, node executionTimelineNode, title str
 	return bulkyPartRef{
 		messageID: "execution:" + turnID,
 		partID:    executionNodeDetailID(node, "output"),
-		title:     title + " · " + firstNonEmpty(toolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
+		title:     title + " · " + firstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
 		fullText:  text,
 	}, true
 }
