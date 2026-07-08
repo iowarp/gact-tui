@@ -28,8 +28,6 @@ Not in `go.work`:
 - `adapters/claude-agent-sdk-server/` — Python adapter (uv-managed, pytest tests)
 - `apps/` — pnpm workspace (packages: `core`, `web`, `desktop`) plus `design/` and `branding/`
   (brand mechanism — see `apps/branding/README.md`)
-- `visual_loop/` — Python visual-audit harness (`.tape` sources, checker scripts). Run outputs
-  (`tui_audit_*/` dirs, logs, session dumps) are untracked and regenerable — never commit them.
 - `notes/` — distilled reference for bubbletea, lipgloss, bubbles, ultraviolet, testing, pitfalls
 - `.claude/skills/` — reusable workflows (`tui-screenshot`, `tui-test`, `release`, ...)
 - `screenshots/` — curated VHS-produced captures (`screenshots/README.md` is the index).
@@ -75,8 +73,8 @@ tightly scoped:
   blobs stay plain until the one-time history rewrite (owner runbook, tracked
   in [#235](https://github.com/iowarp/gact-tui/issues/235)).
 - **Never committed:** run outputs — raw captures, session dumps, audit logs,
-  `.jsonl`/`.log`/`.html`/`.txt` under `screenshots/`, and `visual_loop/`
-  harness output. These are CI artifacts and are `.gitignore`-d.
+  `.jsonl`/`.log`/`.html`/`.txt` under `screenshots/`. These are CI artifacts
+  and are `.gitignore`-d.
 
 ## Build / test quickstart
 
