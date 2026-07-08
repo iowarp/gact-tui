@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/x/ansi"
-
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestProjectExecutionTimelineInterleavesMainGeoDataNDP(t *testing.T) {
@@ -320,7 +320,7 @@ func semanticEventWithTurn(sequence int, turnID string, eventType string, actor 
 		TurnID:   turnID,
 		Payload: map[string]any{
 			"event_type": eventType,
-			"status":     firstNonEmpty(stringValue(payload["status"]), "completed"),
+			"status":     valuefmt.FirstNonEmpty(valuefmt.StringValue(payload["status"]), "completed"),
 			"summary":    semanticTestSummary(eventType, actor, subject),
 			"actor":      map[string]any{"agent_id": actor},
 			"subject":    map[string]any{"agent_id": subject},

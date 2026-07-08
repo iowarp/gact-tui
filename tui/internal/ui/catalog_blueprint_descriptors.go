@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintMCPDescription(descriptor map[string]any) string {
 	fields := make([]detailField, 0, 16)
-	if command := stringValue(descriptor["command"]); command != "" {
+	if command := valuefmt.StringValue(descriptor["command"]); command != "" {
 		fields = append(fields, detailField{"server command", command})
 	}
 	if args := stringListFromAny(descriptor["args"]); len(args) > 0 {
@@ -40,21 +41,21 @@ func agentBlueprintMCPDescription(descriptor map[string]any) string {
 
 func agentBlueprintMCPInlineSummary(descriptor map[string]any) string {
 	parts := make([]string, 0, 6)
-	if command := stringValue(descriptor["command"]); command != "" {
+	if command := valuefmt.StringValue(descriptor["command"]); command != "" {
 		parts = append(parts, "calls "+command)
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, enabledStateLabel(enabled))
 	}
-	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+	if trust := valuefmt.MapValue(descriptor["trust"]); len(trust) > 0 {
 		if trusted := scalarText(trust["trusted"]); strings.EqualFold(trusted, "false") {
 			parts = append(parts, "needs approval")
 		}
 	}
-	if transport := firstNonEmpty(stringValue(descriptor["transport"]), stringValue(mapValue(descriptor["runtime"])["transport"])); transport != "" {
+	if transport := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["transport"]), valuefmt.StringValue(valuefmt.MapValue(descriptor["runtime"])["transport"])); transport != "" {
 		parts = append(parts, transport)
 	}
-	if serverID := firstNonEmpty(stringValue(descriptor["server_id"]), stringValue(mapValue(descriptor["runtime"])["server_id"])); serverID != "" {
+	if serverID := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["server_id"]), valuefmt.StringValue(valuefmt.MapValue(descriptor["runtime"])["server_id"])); serverID != "" {
 		parts = append(parts, serverID)
 	}
 	if len(stringListFromAny(descriptor["validation_errors"])) > 0 {
@@ -69,7 +70,7 @@ func appendDescriptorMetadataFields(fields []detailField, key string, value any)
 	if text := descriptorMetadataValueText(value); text != "" {
 		return append(fields, detailField{descriptorMetadataLabel(key, ""), text})
 	}
-	m := mapValue(value)
+	m := valuefmt.MapValue(value)
 	if len(m) == 0 {
 		return fields
 	}

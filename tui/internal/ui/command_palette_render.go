@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // view renders the slash-command palette as a centered modal.
@@ -55,7 +56,7 @@ func (c *commandPaletteComponent) view() string {
 	listStartRow := len(rows)
 	itemBudget := c.app.modals.modalListItemBudget(6, 1, 16)
 	if c.useCommandGrid() {
-		itemBudget = minInt(itemBudget, 8)
+		itemBudget = valuefmt.MinInt(itemBudget, 8)
 	}
 	itemCount := len(matches)
 	if groupOverview {

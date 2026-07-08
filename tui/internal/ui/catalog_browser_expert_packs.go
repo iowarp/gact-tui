@@ -11,6 +11,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type expertPackActivatedMsg struct {
@@ -96,22 +97,22 @@ func expertPackManagedLabel(m expertPackManagedMsg) string {
 	}
 	for _, key := range []string{"installed", "updated", "deleted", "pack"} {
 		row, _ := m.result[key].(map[string]any)
-		if label := firstNonEmpty(
-			stringValue(row["id"]),
-			stringValue(row["pack_id"]),
-			stringValue(row["source"]),
-			stringValue(row["path"]),
-			stringValue(row["url"]),
+		if label := valuefmt.FirstNonEmpty(
+			valuefmt.StringValue(row["id"]),
+			valuefmt.StringValue(row["pack_id"]),
+			valuefmt.StringValue(row["source"]),
+			valuefmt.StringValue(row["path"]),
+			valuefmt.StringValue(row["url"]),
 		); label != "" {
 			return label
 		}
 	}
-	return firstNonEmpty(
-		stringValue(m.result["id"]),
-		stringValue(m.result["pack_id"]),
-		stringValue(m.result["source"]),
-		stringValue(m.result["path"]),
-		stringValue(m.result["url"]),
+	return valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(m.result["id"]),
+		valuefmt.StringValue(m.result["pack_id"]),
+		valuefmt.StringValue(m.result["source"]),
+		valuefmt.StringValue(m.result["path"]),
+		valuefmt.StringValue(m.result["url"]),
 		"source",
 	)
 }

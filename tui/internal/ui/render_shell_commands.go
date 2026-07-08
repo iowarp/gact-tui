@@ -2,7 +2,10 @@ package ui
 
 // render_shell_commands.go summarizes shell-command intent and extracts redirect/path tokens.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func summarizeShellCommandIntent(command string) string {
 	command = strings.TrimSpace(command)
@@ -13,9 +16,9 @@ func summarizeShellCommandIntent(command string) string {
 	if dest := shellRedirectDestination(command); dest != "" {
 		switch {
 		case strings.Contains(lower, "cut "), strings.Contains(lower, "awk "), strings.Contains(lower, "sed "):
-			return "prepare " + shortenPathForInline(dest)
+			return "prepare " + valuefmt.ShortenPathForInline(dest)
 		default:
-			return "write " + shortenPathForInline(dest)
+			return "write " + valuefmt.ShortenPathForInline(dest)
 		}
 	}
 	fields := strings.Fields(command)
@@ -29,7 +32,7 @@ func summarizeShellCommandIntent(command string) string {
 		return "check current folder"
 	case "head", "tail", "cat":
 		if path := lastShellPathToken(fields); path != "" {
-			return "preview " + shortenPathForInline(path)
+			return "preview " + valuefmt.ShortenPathForInline(path)
 		}
 	case "python", "python3":
 		return "run Python analysis"

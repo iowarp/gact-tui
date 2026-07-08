@@ -13,6 +13,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // ledgerDeltaSSE builds a recordable message.part.delta SSE event for sid.
@@ -48,7 +49,7 @@ func TestExecutionLedgerStaysBounded(t *testing.T) {
 	}
 	last := events[len(events)-1]
 	wantText := "tok" + strconv.Itoa(total-1)
-	if got := stringValue(mapValue(last.Payload["delta"])["text_append"]); got != wantText {
+	if got := valuefmt.StringValue(valuefmt.MapValue(last.Payload["delta"])["text_append"]); got != wantText {
 		t.Fatalf("drop-oldest should keep newest event: last text = %q, want %q", got, wantText)
 	}
 }

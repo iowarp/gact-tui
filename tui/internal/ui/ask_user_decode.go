@@ -6,27 +6,28 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func decodeUserQuestionPayload(pl map[string]any) gact.UserQuestion {
 	q := gact.UserQuestion{
-		ID:        stringValue(pl["id"]),
-		SessionID: stringValue(pl["session_id"]),
-		Prompt:    stringValue(pl["prompt"]),
-		Status:    firstNonEmpty(stringValue(pl["status"]), "pending"),
-		Kind:      stringValue(pl["kind"]),
-		Source:    stringValue(pl["source"]),
-		TurnID:    stringValue(pl["turn_id"]),
-		AttemptID: stringValue(pl["attempt_id"]),
-		Answer:    stringValue(pl["answer"]),
-		Metadata:  mapValue(pl["metadata"]),
+		ID:        valuefmt.StringValue(pl["id"]),
+		SessionID: valuefmt.StringValue(pl["session_id"]),
+		Prompt:    valuefmt.StringValue(pl["prompt"]),
+		Status:    valuefmt.FirstNonEmpty(valuefmt.StringValue(pl["status"]), "pending"),
+		Kind:      valuefmt.StringValue(pl["kind"]),
+		Source:    valuefmt.StringValue(pl["source"]),
+		TurnID:    valuefmt.StringValue(pl["turn_id"]),
+		AttemptID: valuefmt.StringValue(pl["attempt_id"]),
+		Answer:    valuefmt.StringValue(pl["answer"]),
+		Metadata:  valuefmt.MapValue(pl["metadata"]),
 	}
 	q.Options = decodeQuestionOptions(pl["options"])
 	if len(q.Options) == 0 {
 		q.Options = decodeQuestionOptions(pl["choices"])
 	}
 	q.SelectedOptions = questionStringList(pl["selected_options"])
-	q.AnswerMetadata = mapValue(pl["answer_metadata"])
+	q.AnswerMetadata = valuefmt.MapValue(pl["answer_metadata"])
 	q.CreatedAt = parseQuestionTime(pl["created_at"])
 	q.UpdatedAt = parseQuestionTime(pl["updated_at"])
 	if expires := parseQuestionTime(pl["expires_at"]); !expires.IsZero() {
@@ -47,10 +48,10 @@ func decodeQuestionOptions(raw any) []gact.UserQuestionOption {
 			continue
 		}
 		out = append(out, gact.UserQuestionOption{
-			ID:          stringValue(m["id"]),
-			Label:       stringValue(m["label"]),
-			Value:       stringValue(m["value"]),
-			Description: stringValue(m["description"]),
+			ID:          valuefmt.StringValue(m["id"]),
+			Label:       valuefmt.StringValue(m["label"]),
+			Value:       valuefmt.StringValue(m["value"]),
+			Description: valuefmt.StringValue(m["description"]),
 		})
 	}
 	return out
@@ -63,7 +64,7 @@ func questionStringList(raw any) []string {
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, item := range v {
-			if text := stringValue(item); text != "" {
+			if text := valuefmt.StringValue(item); text != "" {
 				out = append(out, text)
 			}
 		}
@@ -74,7 +75,7 @@ func questionStringList(raw any) []string {
 }
 
 func parseQuestionTime(raw any) time.Time {
-	text := stringValue(raw)
+	text := valuefmt.StringValue(raw)
 	if text == "" {
 		return time.Time{}
 	}

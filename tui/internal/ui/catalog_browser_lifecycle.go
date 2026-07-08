@@ -2,11 +2,14 @@ package ui
 
 // catalog_browser_lifecycle.go opens/closes catalog sub-views (detail/source/kind) and handles wheel scrolling.
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+)
 
 func (c *catalogComponent) openExpertPackDetail(packID, packTitle string) tea.Cmd {
 	parent := c.current
-	title := firstNonEmpty(packTitle, packID)
+	title := valuefmt.FirstNonEmpty(packTitle, packID)
 	c.current = &catalogBrowserState{
 		kind:         catalogKindExpertPackDetail,
 		title:        "Expert Pack · " + title,
@@ -19,7 +22,7 @@ func (c *catalogComponent) openExpertPackDetail(packID, packTitle string) tea.Cm
 
 func (c *catalogComponent) openBlueprintDetail(blueprintID, blueprintTitle string) tea.Cmd {
 	parent := c.current
-	title := firstNonEmpty(blueprintTitle, blueprintID)
+	title := valuefmt.FirstNonEmpty(blueprintTitle, blueprintID)
 	c.current = &catalogBrowserState{
 		kind:        catalogKindAgentBlueprintDetail,
 		title:       "Agent Blueprint · " + title,
@@ -43,7 +46,7 @@ func (c *catalogComponent) openSourceBrowser() tea.Cmd {
 
 func (c *catalogComponent) openPromptDetail(promptID, promptTitle string) tea.Cmd {
 	parent := c.current
-	title := stripPromptRowPrefix(firstNonEmpty(promptTitle, promptID))
+	title := stripPromptRowPrefix(valuefmt.FirstNonEmpty(promptTitle, promptID))
 	c.current = &catalogBrowserState{
 		kind:     catalogKindPromptDetail,
 		title:    "Prompt · " + title,

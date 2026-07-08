@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func workflowStateSummary(state map[string]any) string {
@@ -17,7 +18,7 @@ func workflowStateSummary(state map[string]any) string {
 
 func workflowStateSummaryLines(state map[string]any) []string {
 	keys := sortedWorkflowStateKeys(state)
-	parts := make([]string, 0, minInt(4, len(keys)))
+	parts := make([]string, 0, valuefmt.MinInt(4, len(keys)))
 	for _, key := range keys {
 		text := workflowStateValueSummary(key, state[key])
 		if text == "" {
@@ -67,7 +68,7 @@ func splitWorkflowStateSummaryParts(summary string) []string {
 	if len(parts) > 1 {
 		return parts
 	}
-	return splitSummarySegments(summary)
+	return valuefmt.SplitSummarySegments(summary)
 }
 
 func workflowStateValueSummary(key string, value any) string {
@@ -82,9 +83,9 @@ func workflowStateValueSummary(key string, value any) string {
 		if len(v) == 0 {
 			return ""
 		}
-		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(v), "item")
+		return valuefmt.HumanizeAgentLabel(key) + "=" + valuefmt.PluralizeCount(len(v), "item")
 	default:
-		text := strings.TrimSpace(stringValue(value))
+		text := strings.TrimSpace(valuefmt.StringValue(value))
 		if text == "" {
 			text = strings.TrimSpace(fmt.Sprint(value))
 		}
@@ -100,10 +101,10 @@ func workflowStateMapSummary(key string, values map[string]any) string {
 		return ""
 	}
 	parts := make([]string, 0, 3)
-	if status := firstNonEmpty(
-		stringValue(values["status"]),
-		stringValue(values["state"]),
-		stringValue(values["stage"]),
+	if status := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(values["status"]),
+		valuefmt.StringValue(values["state"]),
+		valuefmt.StringValue(values["stage"]),
 	); status != "" {
 		parts = append(parts, status)
 	}
@@ -121,9 +122,9 @@ func workflowStateMapSummary(key string, values map[string]any) string {
 		}
 	}
 	if len(parts) == 0 {
-		return humanizeAgentLabel(key) + "=" + pluralizeCount(len(values), "field")
+		return valuefmt.HumanizeAgentLabel(key) + "=" + valuefmt.PluralizeCount(len(values), "field")
 	}
-	return humanizeAgentLabel(key) + " " + strings.Join(parts, ", ")
+	return valuefmt.HumanizeAgentLabel(key) + " " + strings.Join(parts, ", ")
 }
 
 func workflowStateFieldSummary(field, text string) string {
@@ -133,9 +134,9 @@ func workflowStateFieldSummary(field, text string) string {
 		return ""
 	}
 	label := workflowStateFieldLabel(field)
-	value := compactCatalogText(text)
+	value := valuefmt.CompactCatalogText(text)
 	if workflowStateFieldIsPath(field) {
-		value = shortenKnownPaths(value)
+		value = valuefmt.ShortenKnownPaths(value)
 		if strings.Contains(value, "/") {
 			value = filepath.Base(value)
 		}
@@ -171,7 +172,7 @@ func workflowStateFieldLabel(field string) string {
 	case "local_path", "staged_path", "filepath", "file", "path":
 		return "file"
 	default:
-		return humanizeAgentLabel(field)
+		return valuefmt.HumanizeAgentLabel(field)
 	}
 }
 
@@ -189,11 +190,11 @@ func workflowStateLeafText(value any) string {
 	case nil:
 		return ""
 	case map[string]any:
-		if name := firstNonEmpty(
-			stringValue(v["name"]),
-			stringValue(v["path"]),
-			stringValue(v["id"]),
-			stringValue(v["status"]),
+		if name := valuefmt.FirstNonEmpty(
+			valuefmt.StringValue(v["name"]),
+			valuefmt.StringValue(v["path"]),
+			valuefmt.StringValue(v["id"]),
+			valuefmt.StringValue(v["status"]),
 		); name != "" {
 			return name
 		}
@@ -202,9 +203,9 @@ func workflowStateLeafText(value any) string {
 		if len(v) == 0 {
 			return ""
 		}
-		return pluralizeCount(len(v), "item")
+		return valuefmt.PluralizeCount(len(v), "item")
 	default:
-		text := strings.TrimSpace(stringValue(value))
+		text := strings.TrimSpace(valuefmt.StringValue(value))
 		if text == "" {
 			text = strings.TrimSpace(fmt.Sprint(value))
 		}

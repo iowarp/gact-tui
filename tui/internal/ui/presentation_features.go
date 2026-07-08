@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeFeatureCollectionResult(result map[string]any) string {
@@ -31,7 +32,7 @@ func summarizeFeatureCollectionRows(result map[string]any) []string {
 	}
 	count := len(items)
 	for _, key := range []string{"count", "record_count", "feature_count", "total", "total_count"} {
-		if value, ok := floatValue(result[key]); ok {
+		if value, ok := valuefmt.FloatValue(result[key]); ok {
 			count = int(value)
 			break
 		}
@@ -44,7 +45,7 @@ func summarizeFeatureCollectionRows(result map[string]any) []string {
 		}
 		if i == 0 {
 			if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path"); artifact != "" {
-				rows = append(rows, "artifact: "+shortenPathForInline(artifact))
+				rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 			}
 		}
 	}
@@ -88,7 +89,7 @@ func summarizeFeatureRecord(raw any) string {
 		return textutil.Truncate(strings.Join(strings.Fields(fmt.Sprint(raw)), " "), 180)
 	}
 	fields := featureRecordFields(record)
-	title := firstNonEmpty(
+	title := valuefmt.FirstNonEmpty(
 		firstStringValue(fields, "IncidentName", "incident_name", "name", "Name", "title", "Title", "headline", "Headline", "event", "Event", "areaDesc", "AreaDesc"),
 		firstStringValue(fields, "id", "ID", "OBJECTID", "objectid"),
 		"(unnamed)",
@@ -143,10 +144,10 @@ func featureRecordFields(record map[string]any) map[string]any {
 func firstScalarValue(result map[string]any, keys ...string) string {
 	for _, key := range keys {
 		value := result[key]
-		if text := strings.TrimSpace(stringValue(value)); text != "" {
+		if text := strings.TrimSpace(valuefmt.StringValue(value)); text != "" {
 			return text
 		}
-		if number, ok := floatValue(value); ok {
+		if number, ok := valuefmt.FloatValue(value); ok {
 			return formatCompactFloat(number)
 		}
 	}

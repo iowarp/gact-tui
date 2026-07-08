@@ -1,5 +1,9 @@
 package ui
 
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+)
+
 // interaction_modal_window.go windows long modal lists to a scroll viewport and clips/indexes them.
 
 func (c *interactionComponent) registerWindowedModalListHits(rendered scrollableModalFrameRender, col int, width int, list modalListRender) {
@@ -23,7 +27,7 @@ func clipModalListToWindow(list modalListRender, win scrollWindow) modalListRend
 			continue
 		}
 		hitStart := maxInt(hit.row, win.start)
-		hitEnd := minInt(hit.row+hit.height, win.end)
+		hitEnd := valuefmt.MinInt(hit.row+hit.height, win.end)
 		if hitEnd <= hitStart {
 			continue
 		}

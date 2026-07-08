@@ -11,6 +11,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // addContextFileCmd POSTs the file to /v1/sessions/{id}/context/files.
@@ -102,7 +103,7 @@ func (c *contextFilesComponent) handleUploaded(m contextFileUploadedMsg) (tea.Mo
 	if a.session.currentID() == m.sessionID {
 		a.session.mergeContextFiles([]gact.ContextFile{m.file})
 	}
-	label := firstNonEmpty(m.file.Path, filepath.Base(m.localPath))
+	label := valuefmt.FirstNonEmpty(m.file.Path, filepath.Base(m.localPath))
 	a.setHint("uploaded " + label + " to context")
 	return a, nil
 }

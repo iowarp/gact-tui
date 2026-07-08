@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -21,7 +22,7 @@ func (t Theme) renderExecutionAgentBlock(agent, text string, depth, width int) s
 
 func (t Theme) renderExecutionExpertReport(node executionTimelineNode, width int) string {
 	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
-	w.emitHeader(node.Depth, firstNonEmpty(node.Agent, "expert"))
+	w.emitHeader(node.Depth, valuefmt.FirstNonEmpty(node.Agent, "expert"))
 	w.emitTurns(node, node.Depth)
 	return strings.Join(w.rows, "\n")
 }

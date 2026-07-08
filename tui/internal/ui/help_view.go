@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // helpModal is the tabbed help overlay: which tab is active, how far its body
@@ -122,7 +123,7 @@ func (m *helpModal) view() string {
 		maxInt(1, helpListColumns(helpTabs[idx].title, helpWidth)),
 	)
 	if helpTabs[idx].title == "Commands" {
-		pageSize = minInt(maxInt(6, len(helpList.rows)), a.modals.modalBodyRows(14))
+		pageSize = valuefmt.MinInt(maxInt(6, len(helpList.rows)), a.modals.modalBodyRows(14))
 	}
 	hintStyle := lipgloss.NewStyle().Italic(true).Foreground(t.FgMuted)
 	title := a.localizer.t(msgHelpTitle, nil)
@@ -171,9 +172,9 @@ func (m *helpModal) bodyPageSizeForTab(title string, itemCount int, columns int)
 		if rows < 6 {
 			rows = 6
 		}
-		return minInt(rows, maxRows)
+		return valuefmt.MinInt(rows, maxRows)
 	}
-	return minInt(8, maxRows)
+	return valuefmt.MinInt(8, maxRows)
 }
 
 func (m *helpModal) currentBodyPageSize() int {

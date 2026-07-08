@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []catalogItem {
@@ -15,7 +16,7 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 		if blueprints[i].Scope != blueprints[j].Scope {
 			return blueprints[i].Scope < blueprints[j].Scope
 		}
-		return firstNonEmpty(blueprints[i].Title, blueprints[i].ID) < firstNonEmpty(blueprints[j].Title, blueprints[j].ID)
+		return valuefmt.FirstNonEmpty(blueprints[i].Title, blueprints[i].ID) < valuefmt.FirstNonEmpty(blueprints[j].Title, blueprints[j].ID)
 	})
 	items := make([]catalogItem, 0, len(blueprints))
 	providerGroups := map[string][]gact.AgentBlueprintDefinition{}
@@ -34,7 +35,7 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 		})
 		group := append([]gact.AgentBlueprintDefinition(nil), sourceGroups[summary.key]...)
 		sort.SliceStable(group, func(i, j int) bool {
-			return firstNonEmpty(group[i].Title, group[i].ID) < firstNonEmpty(group[j].Title, group[j].ID)
+			return valuefmt.FirstNonEmpty(group[i].Title, group[i].ID) < valuefmt.FirstNonEmpty(group[j].Title, group[j].ID)
 		})
 		for idx, blueprint := range group {
 			items = append(items, agentBlueprintCatalogItem(blueprint, treePrefix(idx, len(group))))
@@ -61,7 +62,7 @@ func agentBlueprintCatalogItems(blueprints []gact.AgentBlueprintDefinition) []ca
 	for _, key := range providerKeys {
 		group := append([]gact.AgentBlueprintDefinition(nil), providerGroups[key]...)
 		sort.SliceStable(group, func(i, j int) bool {
-			return firstNonEmpty(group[i].Title, group[i].ID) < firstNonEmpty(group[j].Title, group[j].ID)
+			return valuefmt.FirstNonEmpty(group[i].Title, group[i].ID) < valuefmt.FirstNonEmpty(group[j].Title, group[j].ID)
 		})
 		items = append(items, agentBlueprintProviderCatalogItem(key, group))
 		for idx, blueprint := range group {
@@ -82,7 +83,7 @@ func displayValidationErrors(errors []string) []string {
 }
 
 func displayValidationError(errText string) string {
-	text := compactCatalogText(errText)
+	text := valuefmt.CompactCatalogText(errText)
 	text = strings.ReplaceAll(text, "_", " ")
 	lower := strings.ToLower(text)
 	switch {
@@ -128,10 +129,10 @@ func agentBlueprintMarketplaceState(blueprint gact.AgentBlueprintDefinition) str
 		return ""
 	}
 	install := agentBlueprintInstallMetadata(blueprint)
-	if firstNonEmpty(stringValue(install["installed_at"]), stringValue(install["status"]), stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])) != "" {
+	if valuefmt.FirstNonEmpty(valuefmt.StringValue(install["installed_at"]), valuefmt.StringValue(install["status"]), valuefmt.StringValue(install["last_sync"]), valuefmt.StringValue(install["last_synced_at"]), valuefmt.StringValue(install["synced_at"])) != "" {
 		return "installed"
 	}
-	switch strings.ToLower(strings.TrimSpace(firstNonEmpty(stringValue(install["scope"]), blueprint.Scope))) {
+	switch strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(valuefmt.StringValue(install["scope"]), blueprint.Scope))) {
 	case "workspace", "global", "session", "user":
 		return "installed"
 	default:

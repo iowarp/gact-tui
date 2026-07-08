@@ -2,7 +2,10 @@ package ui
 
 // render_tool_result_pseudo.go summarizes non-JSON pseudo-structured tool result text.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func summarizeNonJSONToolResultText(toolName string, rawText string) string {
 	lowerTool := strings.ToLower(strings.TrimSpace(toolName))
@@ -13,7 +16,7 @@ func summarizeNonJSONToolResultText(toolName string, rawText string) string {
 }
 
 func summarizePseudoGeocodeResult(rawText string) string {
-	name := firstNonEmpty(
+	name := valuefmt.FirstNonEmpty(
 		pseudoFieldString(rawText, "display_name"),
 		pseudoFieldString(rawText, "name"),
 	)

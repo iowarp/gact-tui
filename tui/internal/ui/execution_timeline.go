@@ -3,6 +3,7 @@ package ui
 // execution_timeline.go projects execution-timeline events into ordered timeline nodes.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"sort"
 	"strings"
 )
@@ -45,8 +46,8 @@ func (p *executionTimelineProjector) apply(event executionTimelineEvent) {
 	switch event.Type {
 	case "message.part.delta":
 		p.switchTextAgent(executionMessageTextAgent(event.Payload, p.currentTextAgent))
-		delta := mapValue(event.Payload["delta"])
-		p.appendText(stringValue(delta["text_append"]))
+		delta := valuefmt.MapValue(event.Payload["delta"])
+		p.appendText(valuefmt.StringValue(delta["text_append"]))
 	case "message.part.added":
 		p.applyPartAdded(event)
 	case "expert.lifecycle.started":

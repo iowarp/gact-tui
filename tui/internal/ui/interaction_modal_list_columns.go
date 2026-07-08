@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (m *modalkit) renderModalListColumns(items []modalListItem, opts modalListOptions) modalListRender {
@@ -45,9 +46,9 @@ func (m *modalkit) renderModalListColumns(items []modalListItem, opts modalListO
 		rowBudget = (len(items) + columns - 1) / columns
 	}
 	rowsNeeded := (len(items) + columns - 1) / columns
-	rowsToRender := minInt(rowBudget, rowsNeeded)
+	rowsToRender := valuefmt.MinInt(rowBudget, rowsNeeded)
 	rows := make([]string, 0, rowsToRender)
-	hits := make([]modalListHit, 0, minInt(len(items), rowsToRender*columns))
+	hits := make([]modalListHit, 0, valuefmt.MinInt(len(items), rowsToRender*columns))
 	gapText := lipgloss.NewStyle().Background(m.app.Theme.BgSubtle).Render(strings.Repeat(" ", gap))
 	cellStyle := lipgloss.NewStyle().Background(m.app.Theme.BgSubtle).Width(columnWidth)
 	for row := 0; row < rowsToRender; row++ {

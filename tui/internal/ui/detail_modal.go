@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type scrollableDetailOptions struct {
@@ -50,7 +51,7 @@ func (m *modalkit) renderScrollableDetailModal(opts scrollableDetailOptions) scr
 	}
 
 	wrapped := m.app.conversation.cachedDetailWrappedContent(opts.content, innerW)
-	page = compactModalBodyRows(wrapped, page, minInt(8, page))
+	page = compactModalBodyRows(wrapped, page, valuefmt.MinInt(8, page))
 	lines := strings.Split(wrapped, "\n")
 	title := opts.title
 	closeID := opts.closeID

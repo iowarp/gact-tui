@@ -7,6 +7,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *conversationComponent) applyMessageCompleted(e client.SSEEvent) {
@@ -14,7 +15,7 @@ func (c *conversationComponent) applyMessageCompleted(e client.SSEEvent) {
 	if !ok {
 		return
 	}
-	if sid := c.replaySessionID(stringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
+	if sid := c.replaySessionID(valuefmt.StringValue(pl["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}
 	msgID, _ := pl["message_id"].(string)
@@ -46,11 +47,11 @@ func (c *conversationComponent) settleTerminalMessageCompletion(e client.SSEEven
 	if !ok {
 		return
 	}
-	stopReason := strings.TrimSpace(stringValue(pl["stop_reason"]))
+	stopReason := strings.TrimSpace(valuefmt.StringValue(pl["stop_reason"]))
 	if !messageCompletedStopReasonSettlesSession(stopReason) {
 		return
 	}
-	sid := c.replaySessionID(stringValue(pl["session_id"]))
+	sid := c.replaySessionID(valuefmt.StringValue(pl["session_id"]))
 	if sid == "" {
 		sid = c.app.session.currentID()
 	}
@@ -146,7 +147,7 @@ func (c *conversationComponent) applyMessageCreated(e client.SSEEvent) {
 	if !ok {
 		return
 	}
-	if sid := c.replaySessionID(stringValue(mp["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
+	if sid := c.replaySessionID(valuefmt.StringValue(mp["session_id"])); c.shouldIgnoreSessionReplay(sid, e) {
 		return
 	}
 	m := decodeMessage(mp)

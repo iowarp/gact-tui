@@ -14,6 +14,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentHierarchyLoadedMsg struct {
@@ -64,7 +65,7 @@ func (c *agentComponent) openSelectedAgentHierarchyDetail() tea.Cmd {
 	}
 	c.hierarchySel = clampSelection(c.hierarchySel, len(rows))
 	agent := rows[c.hierarchySel].agent
-	return c.app.catalog.openAgentDetail(agent.ID, firstNonEmpty(agent.Title, agent.ID))
+	return c.app.catalog.openAgentDetail(agent.ID, valuefmt.FirstNonEmpty(agent.Title, agent.ID))
 }
 
 func (c *agentComponent) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget int) []string {
@@ -211,7 +212,7 @@ func (c *agentComponent) toggleSidebarCollapsed() bool {
 func (c *agentComponent) setNextTurnAgent(agentID, title string) {
 	c.nextTurnAgentID = strings.TrimSpace(agentID)
 	c.nextTurnAgentTitle = strings.TrimSpace(title)
-	label := firstNonEmpty(c.nextTurnAgentTitle, c.nextTurnAgentID)
+	label := valuefmt.FirstNonEmpty(c.nextTurnAgentTitle, c.nextTurnAgentID)
 	c.app.setHint("next turn agent: " + label)
 	c.app.focus = FocusInput
 }

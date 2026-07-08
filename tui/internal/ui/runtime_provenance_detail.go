@@ -3,6 +3,7 @@ package ui
 // runtime_provenance_detail.go builds the detailed runtime-provenance text (tools/skills/delegation/context).
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -12,16 +13,16 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 		detailField{"workflow", runtimeProvenanceInlineSummary(rp)},
 	)
 	rows = appendRuntimeMapSection(rows, "Turn", runtimeProvenanceTurnMap(rp), "trace_id", "turn_id", "status")
-	rows = appendRuntimeMapSection(rows, "Workspace", mapValue(rp["workspace"]), "workspace_id", "root_path", "scope")
-	rows = appendRuntimeMapSection(rows, "Agent", mapValue(rp["agent"]), "selected_agent_id", "active_agent_id", "active_expert_id", "route_source", "route_reason", "source", "tier", "parent_id")
-	rows = appendRuntimeMapSection(rows, "Workflow", mapValue(rp["blueprint"]), "id", "version", "scope")
-	rows = appendRuntimeMapSection(rows, "Provider", mapValue(rp["provider"]), "provider_id", "model_id", "model", "source")
-	rows = appendRuntimeMapSection(rows, "Prompt", mapValue(rp["prompt"]), "prompt_id", "profile", "source", "source_path", "checksum")
-	rows = appendRuntimeToolsSection(rows, mapValue(rp["tools"]))
-	rows = appendRuntimeSkillsSection(rows, mapValue(rp["skills"]))
-	rows = appendRuntimeDelegationSection(rows, mapValue(rp["delegation"]))
-	rows = appendRuntimeMapSection(rows, "Memory", mapValue(rp["memory"]), "policy", "policy_summary", "search_count", "context_frame_count")
-	rows = appendRuntimeContextSection(rows, mapValue(rp["context"]))
+	rows = appendRuntimeMapSection(rows, "Workspace", valuefmt.MapValue(rp["workspace"]), "workspace_id", "root_path", "scope")
+	rows = appendRuntimeMapSection(rows, "Agent", valuefmt.MapValue(rp["agent"]), "selected_agent_id", "active_agent_id", "active_expert_id", "route_source", "route_reason", "source", "tier", "parent_id")
+	rows = appendRuntimeMapSection(rows, "Workflow", valuefmt.MapValue(rp["blueprint"]), "id", "version", "scope")
+	rows = appendRuntimeMapSection(rows, "Provider", valuefmt.MapValue(rp["provider"]), "provider_id", "model_id", "model", "source")
+	rows = appendRuntimeMapSection(rows, "Prompt", valuefmt.MapValue(rp["prompt"]), "prompt_id", "profile", "source", "source_path", "checksum")
+	rows = appendRuntimeToolsSection(rows, valuefmt.MapValue(rp["tools"]))
+	rows = appendRuntimeSkillsSection(rows, valuefmt.MapValue(rp["skills"]))
+	rows = appendRuntimeDelegationSection(rows, valuefmt.MapValue(rp["delegation"]))
+	rows = appendRuntimeMapSection(rows, "Memory", valuefmt.MapValue(rp["memory"]), "policy", "policy_summary", "search_count", "context_frame_count")
+	rows = appendRuntimeContextSection(rows, valuefmt.MapValue(rp["context"]))
 	rows = appendRuntimeAnyRowsSection(rows, "Artifacts", rp["artifacts"], "path", "output_path", "artifact", "kind", "type", "status", "size_bytes", "exists", "sha256")
 	rows = appendRuntimeAnyRowsSection(rows, "Errors", rp["errors"], "code", "type", "message", "stage", "recoverable", "agent_id", "tool_name")
 	return strings.Join(rows, "\n")

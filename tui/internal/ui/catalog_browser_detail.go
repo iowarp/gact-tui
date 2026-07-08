@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type catalogDetailLoadedMsg struct {
@@ -44,7 +45,7 @@ func loadToolDetailCmd(c *client.Client, scope client.RuntimeScope, toolID strin
 		}
 		agents, _ := c.ListAgentsScoped(ctx, scope)
 		return catalogDetailLoadedMsg{
-			title: "Tool · " + firstNonEmpty(tool.Title, tool.Name, tool.ID),
+			title: "Tool · " + valuefmt.FirstNonEmpty(tool.Title, tool.Name, tool.ID),
 			text:  formatToolDetailWithAgents(tool, agents),
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentBlueprintSourceSummary struct {
@@ -37,9 +38,9 @@ func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) (
 			continue
 		}
 		install := agentBlueprintInstallMetadata(blueprint)
-		source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
-		kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
-		ref := stringValue(install["ref"])
+		source := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"]))
+		kind := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source_kind"]), valuefmt.StringValue(install["kind"]), "source")
+		ref := valuefmt.StringValue(install["ref"])
 		summary := byKey[key]
 		if summary == nil {
 			summary = &agentBlueprintSourceSummary{
@@ -47,31 +48,31 @@ func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) (
 				source:      source,
 				kind:        kind,
 				ref:         ref,
-				commit:      stringValue(install["commit"]),
-				checksum:    stringValue(install["checksum"]),
-				status:      stringValue(install["status"]),
-				statusMsg:   firstNonEmpty(stringValue(install["status_message"]), stringValue(install["message"])),
-				trust:       firstNonEmpty(stringValue(install["trust"]), stringValue(install["trust_policy"])),
-				installedAt: stringValue(install["installed_at"]),
-				syncedAt:    firstNonEmpty(stringValue(install["last_sync"]), stringValue(install["last_synced_at"]), stringValue(install["synced_at"])),
-				scope:       firstNonEmpty(stringValue(install["scope"]), blueprint.Scope),
+				commit:      valuefmt.StringValue(install["commit"]),
+				checksum:    valuefmt.StringValue(install["checksum"]),
+				status:      valuefmt.StringValue(install["status"]),
+				statusMsg:   valuefmt.FirstNonEmpty(valuefmt.StringValue(install["status_message"]), valuefmt.StringValue(install["message"])),
+				trust:       valuefmt.FirstNonEmpty(valuefmt.StringValue(install["trust"]), valuefmt.StringValue(install["trust_policy"])),
+				installedAt: valuefmt.StringValue(install["installed_at"]),
+				syncedAt:    valuefmt.FirstNonEmpty(valuefmt.StringValue(install["last_sync"]), valuefmt.StringValue(install["last_synced_at"]), valuefmt.StringValue(install["synced_at"])),
+				scope:       valuefmt.FirstNonEmpty(valuefmt.StringValue(install["scope"]), blueprint.Scope),
 			}
 			byKey[key] = summary
 		}
 		groups[key] = append(groups[key], blueprint)
-		blueprintName := firstNonEmpty(blueprint.Title, blueprint.ID)
+		blueprintName := valuefmt.FirstNonEmpty(blueprint.Title, blueprint.ID)
 		summary.blueprints = append(summary.blueprints, blueprintName)
 		if state := agentBlueprintMarketplaceState(blueprint); state != "" {
 			summary.states = appendUniqueStrings(summary.states, blueprintName+" ("+state+")")
 		}
-		if scope := firstNonEmpty(stringValue(install["scope"]), blueprint.Scope); scope != "" {
+		if scope := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["scope"]), blueprint.Scope); scope != "" {
 			summary.scope = strings.Join(appendUniqueStrings(splitCommaList(summary.scope), scope), ", ")
 		}
 		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["warnings"])...)
 		summary.warnings = appendUniqueStrings(summary.warnings, stringListFromAny(install["validation_warnings"])...)
 		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["errors"])...)
 		summary.errors = appendUniqueStrings(summary.errors, stringListFromAny(install["validation_errors"])...)
-		if errText := firstNonEmpty(stringValue(install["error"]), stringValue(install["last_error"])); errText != "" {
+		if errText := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["error"]), valuefmt.StringValue(install["last_error"])); errText != "" {
 			summary.errors = appendUniqueStrings(summary.errors, errText)
 		}
 		if len(blueprint.ValidationErrors) > 0 {
@@ -98,11 +99,11 @@ func agentBlueprintSourceSummaries(blueprints []gact.AgentBlueprintDefinition) (
 
 func agentBlueprintSourceKey(blueprint gact.AgentBlueprintDefinition) string {
 	install := agentBlueprintInstallMetadata(blueprint)
-	source := firstNonEmpty(stringValue(install["source"]), stringValue(install["url"]), stringValue(install["path"]))
+	source := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source"]), valuefmt.StringValue(install["url"]), valuefmt.StringValue(install["path"]))
 	if source == "" {
 		return ""
 	}
-	kind := firstNonEmpty(stringValue(install["source_kind"]), stringValue(install["kind"]), "source")
-	ref := stringValue(install["ref"])
+	kind := valuefmt.FirstNonEmpty(valuefmt.StringValue(install["source_kind"]), valuefmt.StringValue(install["kind"]), "source")
+	ref := valuefmt.StringValue(install["ref"])
 	return strings.Join([]string{kind, source, ref}, "\x00")
 }

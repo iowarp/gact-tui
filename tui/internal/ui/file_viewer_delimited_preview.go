@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/csv"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"io"
 	"os"
 	"strings"
@@ -54,12 +55,12 @@ func previewDelimitedRecords(r *csv.Reader, ext string, limit int) (string, erro
 	}
 	widths := make([]int, len(header))
 	for i, h := range header {
-		widths[i] = minInt(displayCellWidth(h), maxDelimitedPreviewCellWidth)
+		widths[i] = valuefmt.MinInt(displayCellWidth(h), maxDelimitedPreviewCellWidth)
 	}
 	for _, row := range rows {
 		for i := range header {
 			if i < len(row) {
-				widths[i] = maxInt(widths[i], minInt(displayCellWidth(row[i]), maxDelimitedPreviewCellWidth))
+				widths[i] = maxInt(widths[i], valuefmt.MinInt(displayCellWidth(row[i]), maxDelimitedPreviewCellWidth))
 			}
 		}
 	}

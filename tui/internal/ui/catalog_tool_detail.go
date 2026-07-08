@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
 	summary := []detailField{
-		{"name", firstNonEmpty(tool.Name, tool.ID)},
+		{"name", valuefmt.FirstNonEmpty(tool.Name, tool.ID)},
 		{"comes from", toolProviderLabel(tool)},
 	}
 	if tool.ServerID != "" {

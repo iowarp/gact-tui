@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeEmbeddedStructuredHandoffText(output string) string {
@@ -67,7 +68,7 @@ func summarizeStructuredHandoffObject(obj map[string]any) string {
 	if summary := summarizeStructuredHandoffObjectStatus(obj); summary != "" {
 		return summary
 	}
-	if state := mapValue(obj["workflow_state"]); len(state) > 0 {
+	if state := valuefmt.MapValue(obj["workflow_state"]); len(state) > 0 {
 		if summary := workflowStateBlockSummary(state); summary != "" {
 			return summary
 		}
@@ -90,13 +91,13 @@ func summarizeStructuredHandoffObjectStatus(obj map[string]any) string {
 		rows = append(rows, "status: "+code)
 	}
 	if message := firstStringValue(obj, "message", "summary"); message != "" {
-		rows = append(rows, "message: "+shortenKnownPaths(message))
+		rows = append(rows, "message: "+valuefmt.ShortenKnownPaths(message))
 	}
 	if details, ok := obj["details"].(map[string]any); ok {
 		if stage := firstStringValue(details, "stage"); stage != "" {
 			rows = append(rows, "stage: "+stage)
 		}
-		if stepLimit, ok := floatValue(details["step_limit"]); ok {
+		if stepLimit, ok := valuefmt.FloatValue(details["step_limit"]); ok {
 			rows = append(rows, fmt.Sprintf("step limit: %.0f", stepLimit))
 		}
 		if actions := summarizeNamedItems(details, "recovery_actions"); actions != "" {
@@ -110,12 +111,12 @@ func summarizeStructuredHandoffObjectStatus(obj map[string]any) string {
 }
 
 func summarizeRegionResolutionObject(obj map[string]any) string {
-	label := firstNonEmpty(
+	label := valuefmt.FirstNonEmpty(
 		firstStringValue(obj, "REGION_LABEL", "region_label", "label", "location", "place"),
 	)
-	lat, hasLat := firstNumericValue(obj, "CENTER_LAT", "center_lat", "lat", "latitude")
-	lon, hasLon := firstNumericValue(obj, "CENTER_LON", "center_lon", "lon", "longitude")
-	radius, hasRadius := firstNumericValue(obj, "RADIUS_KM", "radius_km", "radius")
+	lat, hasLat := valuefmt.FirstNumericValue(obj, "CENTER_LAT", "center_lat", "lat", "latitude")
+	lon, hasLon := valuefmt.FirstNumericValue(obj, "CENTER_LON", "center_lon", "lon", "longitude")
+	radius, hasRadius := valuefmt.FirstNumericValue(obj, "RADIUS_KM", "radius_km", "radius")
 	confidence := firstStringValue(obj, "CONFIDENCE", "confidence")
 	if label == "" && !hasLat && !hasLon && !hasRadius && confidence == "" {
 		return ""
@@ -136,15 +137,6 @@ func summarizeRegionResolutionObject(obj map[string]any) string {
 		parts = append(parts, "confidence "+confidence)
 	}
 	return strings.Join(parts, " · ")
-}
-
-func firstNumericValue(result map[string]any, keys ...string) (float64, bool) {
-	for _, key := range keys {
-		if value, ok := floatValue(result[key]); ok {
-			return value, true
-		}
-	}
-	return 0, false
 }
 
 func summarizeGenericStructuredObject(obj map[string]any) string {
@@ -194,9 +186,9 @@ func genericStructuredValueSummary(key string, raw any) string {
 		}
 		lower := strings.ToLower(key)
 		if strings.Contains(lower, "path") || strings.Contains(lower, "file") {
-			return shortenPathForInline(text)
+			return valuefmt.ShortenPathForInline(text)
 		}
-		return textutil.Truncate(shortenKnownPaths(text), 80)
+		return textutil.Truncate(valuefmt.ShortenKnownPaths(text), 80)
 	case bool:
 		if value {
 			return "yes"
@@ -218,7 +210,7 @@ func genericStructuredValueSummary(key string, raw any) string {
 			return status
 		}
 		if summary := firstStringValue(value, "summary", "message", "description"); summary != "" {
-			return textutil.Truncate(shortenKnownPaths(summary), 80)
+			return textutil.Truncate(valuefmt.ShortenKnownPaths(summary), 80)
 		}
 		if len(value) > 0 {
 			return fmt.Sprintf("%d fields", len(value))

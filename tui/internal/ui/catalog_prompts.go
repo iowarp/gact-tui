@@ -10,6 +10,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func promptCatalogItems(prompts []gact.PromptDefinition, scope client.RuntimeScope) []catalogItem {
@@ -70,7 +71,7 @@ func promptCatalogItems(prompts []gact.PromptDefinition, scope client.RuntimeSco
 	for _, key := range keys {
 		group := append([]gact.PromptDefinition(nil), groups[key]...)
 		sort.SliceStable(group, func(i, j int) bool {
-			return firstNonEmpty(group[i].Title, group[i].ID) < firstNonEmpty(group[j].Title, group[j].ID)
+			return valuefmt.FirstNonEmpty(group[i].Title, group[i].ID) < valuefmt.FirstNonEmpty(group[j].Title, group[j].ID)
 		})
 		items = append(items, promptProviderCatalogItem(key, group))
 		for idx, p := range group {
@@ -87,7 +88,7 @@ func promptCatalogItem(p gact.PromptDefinition, prefix string) catalogItem {
 	}
 	return catalogItem{
 		id:         p.ID,
-		title:      prefix + stripPromptRowPrefix(firstNonEmpty(p.Title, p.ID)),
+		title:      prefix + stripPromptRowPrefix(valuefmt.FirstNonEmpty(p.Title, p.ID)),
 		desc:       promptDefinitionDescription(p),
 		inlineDesc: promptDefinitionInlineSummary(p),
 		statusTag:  status,
@@ -99,13 +100,13 @@ func promptProviderCatalogItem(key string, prompts []gact.PromptDefinition) cata
 	return catalogItem{
 		id:         "provider/" + key,
 		title:      "Provider · " + label,
-		desc:       fmt.Sprintf("%s prompt source with %s available in this session.", label, pluralizeCount(len(prompts), "prompt")),
-		inlineDesc: pluralizeCount(len(prompts), "prompt"),
+		desc:       fmt.Sprintf("%s prompt source with %s available in this session.", label, valuefmt.PluralizeCount(len(prompts), "prompt")),
+		inlineDesc: valuefmt.PluralizeCount(len(prompts), "prompt"),
 	}
 }
 
 func promptProviderGroupKey(p gact.PromptDefinition) string {
-	scope := compactStatusTag(firstNonEmpty(p.Scope, "workspace"))
+	scope := compactStatusTag(valuefmt.FirstNonEmpty(p.Scope, "workspace"))
 	switch scope {
 	case "builtin", "built-in", "built_in":
 		return "built-in"
@@ -142,9 +143,9 @@ func promptDefinitionDescription(p gact.PromptDefinition) string {
 		parts = append(parts, "default profile: "+p.DefaultProfile)
 	}
 	if len(p.ValidationErrors) > 0 {
-		parts = append(parts, "validation: "+pluralizeCount(len(p.ValidationErrors), "validation error")+" - "+strings.Join(p.ValidationErrors, "; "))
+		parts = append(parts, "validation: "+valuefmt.PluralizeCount(len(p.ValidationErrors), "validation error")+" - "+strings.Join(p.ValidationErrors, "; "))
 	}
-	if desc := compactCatalogText(p.Description); desc != "" {
+	if desc := valuefmt.CompactCatalogText(p.Description); desc != "" {
 		parts = append(parts, "description: "+desc)
 	}
 	return strings.Join(parts, " · ")
@@ -157,7 +158,7 @@ func promptDefinitionInlineSummary(p gact.PromptDefinition) string {
 	}
 	profiles := sortedPromptProfiles(p.Profiles)
 	if len(profiles) > 0 {
-		parts = append(parts, pluralizeCount(len(profiles), "profile"))
+		parts = append(parts, valuefmt.PluralizeCount(len(profiles), "profile"))
 	}
 	if p.DefaultProfile != "" {
 		if strings.EqualFold(strings.TrimSpace(p.DefaultProfile), "default") {
@@ -167,7 +168,7 @@ func promptDefinitionInlineSummary(p gact.PromptDefinition) string {
 		}
 	}
 	if len(p.ValidationErrors) > 0 {
-		parts = append(parts, pluralizeCount(len(p.ValidationErrors), "validation issue"))
+		parts = append(parts, valuefmt.PluralizeCount(len(p.ValidationErrors), "validation issue"))
 	}
 	if len(parts) == 0 {
 		return "runtime prompt"
@@ -207,7 +208,7 @@ func promptProfileDescription(name string, p gact.PromptProfile, isDefault bool)
 	if isDefault {
 		parts = append(parts, "current default")
 	}
-	if scope := firstNonEmpty(p.Scope, ""); scope != "" {
+	if scope := valuefmt.FirstNonEmpty(p.Scope, ""); scope != "" {
 		parts = append(parts, scope+" profile")
 	}
 	if p.Provider != "" {
@@ -220,7 +221,7 @@ func promptProfileDescription(name string, p gact.PromptProfile, isDefault bool)
 		parts = append(parts, "source: "+shortPathLabel(p.SourcePath))
 	}
 	if len(parts) == 0 {
-		parts = append(parts, firstNonEmpty(compactCatalogText(p.Text), name+" profile"))
+		parts = append(parts, valuefmt.FirstNonEmpty(valuefmt.CompactCatalogText(p.Text), name+" profile"))
 	}
 	return strings.Join(parts, " · ")
 }

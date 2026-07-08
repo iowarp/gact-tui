@@ -2,7 +2,10 @@ package ui
 
 // presentation_sac.go detects and summarizes SAC tool results.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func looksLikeSACResult(result map[string]any) bool {
 	if firstStringValue(result, "archive_path", "sac_path", "sac_file", "kstnm", "kcmpnm") != "" {
@@ -23,7 +26,7 @@ func looksLikeSACResult(result map[string]any) bool {
 func summarizeSACResult(result map[string]any) string {
 	rows := summarizeStatusRows(result)
 	if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "value"); artifact != "" {
-		rows = append(rows, "artifact: "+shortenPathForInline(artifact))
+		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 	}
 	if stats := summarizeNumericFields(result, []string{
 		"sac_trace_count", "trace_count", "traces_plotted", "traces_analyzed", "traces", "events", "event_count", "station_count", "npts", "sample_rate_hz", "sampling_rate", "delta", "duration_s", "duration", "magnitude", "min_magnitude", "min", "max", "mean",
@@ -31,7 +34,7 @@ func summarizeSACResult(result map[string]any) string {
 		rows = append(rows, stats)
 	}
 	if path := firstStringValue(result, "path", "file", "file_path", "filepath", "archive_path", "sac_path", "sac_file"); path != "" {
-		rows = append(rows, "file: "+shortenPathForInline(path))
+		rows = append(rows, "file: "+valuefmt.ShortenPathForInline(path))
 	}
 	if network := firstStringValue(result, "network", "network_code"); network != "" {
 		rows = append(rows, "network: "+network)
@@ -55,7 +58,7 @@ func summarizeSACResult(result map[string]any) string {
 		rows = append(rows, "event_time: "+eventTime)
 	}
 	if members := summarizeNamedItems(result, "members", "sample_members", "files", "trace_files", "selected_traces", "traces_sampled"); members != "" {
-		rows = append(rows, "members: "+shortenKnownPaths(members))
+		rows = append(rows, "members: "+valuefmt.ShortenKnownPaths(members))
 	}
 	if len(rows) == 0 {
 		return ""
