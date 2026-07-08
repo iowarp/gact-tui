@@ -30,8 +30,13 @@ are fixed backend-side, **NOT** papered over in the client.
    over manual checks, prefer locked Tauri capabilities over open ones.
 
 4. **Visual verification is mandatory.** If you change anything in `apps/web/`, you
-   MUST end the session with refreshed PNGs in `apps/web/screenshots/`. Use
-   `pnpm --filter @clio/web test:visual`. Don't describe the change — show it.
+   MUST end the session having run `pnpm --filter @clio/web test:visual` and reviewed
+   the captures it renders. Those captures are **regenerable output** — they land under
+   `apps/web/screenshots/` (git-ignored) and CI uploads them as a workflow artifact;
+   **do not commit them.** The only committed screenshot home is `docs/screenshots/`
+   (media policy in the root `CLAUDE.md`, enforced by
+   `scripts/check_media_policy.py` — iowarp/gact-tui#235). Don't describe the
+   change — show it via the rendered capture.
 
 5. **Tests must pass.** Never commit failing tests. Never `it.skip` to make a build
    green. If a test won't pass, file the blocker as a GitHub issue and pick a
@@ -90,36 +95,18 @@ pnpm --filter @clio/web test:visual    # against the gact emulator running on :7
 
 ## Visual proof requirements
 
-`apps/web/screenshots/` must contain (at minimum) these PNGs after any UI-touching
-commit. The first six are the original harness baselines; the next fourteen
-landed with the v0.9.0 cut:
+`pnpm --filter @clio/web test:visual` must pass for any UI-touching commit. It
+renders the surface captures (connect screen, streaming chat, permission cards,
+density modes, slash palette, remote-backend wizard, multi-backend picker, …)
+under `apps/web/screenshots/` and asserts each surface's critical testids. Those
+captures are **regenerable output**: the directory is git-ignored and CI uploads
+the renders as a workflow artifact for review — **do not commit them.** The test
+passing is the proof; a green run means every required surface rendered.
 
-Baselines:
-- `connect-screen.png`
-- `empty-sidebar.png`
-- `chat-streaming.png`
-- `permission-card.png`
-- `density-verbose.png`
-- `density-summary.png`
-
-v0.9.0 additions:
-- `starting-clio-splash.png`
-- `chat-live-stream.png`
-- `permission-allow-once.png`
-- `permission-deny.png`
-- `diff-pane-open.png`
-- `diff-per-hunk-apply.png`
-- `density-keybind-verbose.png`
-- `density-keybind-summary.png`
-- `slash-palette.png`
-- `at-mention-picker.png`
-- `stop-mid-stream.png`
-- `settings-backends.png`
-- `add-remote-ssh-wizard.png`
-- `multi-backend-picker.png`
-
-Filenames are stable across sessions. Replacing the PNG with a fresher render is
-expected; renaming or removing one is not.
+Committed screenshots (the small curated set the docs embed) live only under
+`docs/screenshots/` — the sole tracked screenshot home, enforced by
+`scripts/check_media_policy.py` (iowarp/gact-tui#235). Never add a tracked image
+under `apps/web/screenshots/`; the media guard fails the build if you do.
 
 ## Personal note from the original harness session
 
