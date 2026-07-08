@@ -108,7 +108,7 @@ git push origin clio-desktop-v0.9.1
 
 ## Pre-push checklist (eyeball before running the above)
 
-- [ ] `apps/STATUS.md` wave board shows W0–W5 all EXIT-MET
+- [ ] Wave board (W0–W5) shows all EXIT-MET on the tracking issues
 - [ ] Latest `feat/apps-harness` CI run is green (ci + tauri-debug jobs)
 - [ ] The 4 clio-agent PRs (#522 summarize, #523 MCP reconnect, #527
       attachments, #530 event-bus globals) are reviewed/merged or explicitly
