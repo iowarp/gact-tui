@@ -59,8 +59,9 @@ jobs:
       # Media policy (iowarp/gact-tui#235): the history bloat came from committed
       # eval/run artifacts (audit dumps, raw captures, logs), not the curated
       # baselines. .gitignore lists them, but `git add -f` walks past it — so
-      # re-assert the denylist as a hard CI gate. Curated screenshots/ (LFS) and
-      # apps/design | apps/branding | docs/ media stay allowed.
+      # re-assert the denylist as a hard CI gate. Curated images under
+      # docs/screenshots/ and apps/design | apps/branding | docs/ media stay
+      # allowed (no LFS — small plain blobs only).
       - name: Media policy (no tracked eval/run artifacts)
         run: python3 scripts/check_media_policy.py
 
