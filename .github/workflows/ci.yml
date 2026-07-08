@@ -56,6 +56,14 @@ jobs:
       - name: Size / ui-package ratchet (enforcing)
         run: python3 scripts/check_go_file_size.py --enforce
 
+      # Media policy (iowarp/gact-tui#235): the history bloat came from committed
+      # eval/run artifacts (audit dumps, raw captures, logs), not the curated
+      # baselines. .gitignore lists them, but `git add -f` walks past it — so
+      # re-assert the denylist as a hard CI gate. Curated screenshots/ (LFS) and
+      # apps/design | apps/branding | docs/ media stay allowed.
+      - name: Media policy (no tracked eval/run artifacts)
+        run: python3 scripts/check_media_policy.py
+
       # The repo root is a go.work workspace, not a module, so
       # `go <cmd> ./...` from the root doesn't span the members.
       # Run vet / build / test inside each workspace module instead;
