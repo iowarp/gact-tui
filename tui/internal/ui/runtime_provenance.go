@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 const partTypeRuntimeProvenance = "runtime_provenance"
@@ -16,7 +17,7 @@ func normalizeMessageRuntimeProvenance(m *gact.Message) {
 	if m == nil || m.Role != gact.RoleAssistant || messageHasPartType(m, partTypeRuntimeProvenance) {
 		return
 	}
-	rp := mapValue(m.Metadata["runtime_provenance"])
+	rp := valuefmt.MapValue(m.Metadata["runtime_provenance"])
 	if len(rp) == 0 {
 		return
 	}
@@ -32,12 +33,12 @@ func normalizeMessageRuntimeProvenance(m *gact.Message) {
 }
 
 func hasRuntimeProvenance(m gact.Message) bool {
-	return len(mapValue(m.Metadata["runtime_provenance"])) > 0
+	return len(valuefmt.MapValue(m.Metadata["runtime_provenance"])) > 0
 }
 
 func runtimeProvenanceInlineSummary(rp map[string]any) string {
 	parts := []string{"runtime provenance"}
-	if trace := stringValue(runtimeProvenanceTurnMap(rp)["trace_id"]); trace != "" {
+	if trace := valuefmt.StringValue(runtimeProvenanceTurnMap(rp)["trace_id"]); trace != "" {
 		parts = append(parts, "trace "+trace)
 	}
 	if route := runtimeProvenanceRouteSummary(rp); route != "" {
@@ -53,14 +54,14 @@ func runtimeProvenanceInlineSummary(rp map[string]any) string {
 }
 
 func runtimeProvenanceRouteSummary(rp map[string]any) string {
-	agent := mapValue(rp["agent"])
-	active := firstNonEmpty(
-		stringValue(agent["active_expert_id"]),
-		stringValue(agent["active_agent_id"]),
-		stringValue(agent["selected_agent_id"]),
-		stringValue(agent["id"]),
+	agent := valuefmt.MapValue(rp["agent"])
+	active := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(agent["active_expert_id"]),
+		valuefmt.StringValue(agent["active_agent_id"]),
+		valuefmt.StringValue(agent["selected_agent_id"]),
+		valuefmt.StringValue(agent["id"]),
 	)
-	parent := firstNonEmpty(stringValue(agent["parent_id"]), stringValue(agent["root_id"]))
+	parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(agent["parent_id"]), valuefmt.StringValue(agent["root_id"]))
 	if active == "" {
 		return ""
 	}
@@ -71,7 +72,7 @@ func runtimeProvenanceRouteSummary(rp map[string]any) string {
 }
 
 func runtimeProvenanceToolSummary(rp map[string]any) string {
-	tools := mapValue(rp["tools"])
+	tools := valuefmt.MapValue(rp["tools"])
 	names := orderedRuntimeNames(tools["observed"])
 	if len(names) == 0 {
 		names = orderedRuntimeNames(tools["declared"])
@@ -86,17 +87,17 @@ func runtimeProvenanceToolSummary(rp map[string]any) string {
 }
 
 func runtimeProvenanceDelegationSummary(rp map[string]any) string {
-	delegation := mapValue(rp["delegation"])
+	delegation := valuefmt.MapValue(rp["delegation"])
 	rows := runtimeRowMaps(delegation["events"])
 	if len(rows) == 0 {
 		return ""
 	}
-	out := make([]string, 0, minInt(len(rows), 3))
+	out := make([]string, 0, valuefmt.MinInt(len(rows), 3))
 	for _, row := range rows {
-		stage := firstNonEmpty(stringValue(row["stage"]), stringValue(row["event_type"]))
+		stage := valuefmt.FirstNonEmpty(valuefmt.StringValue(row["stage"]), valuefmt.StringValue(row["event_type"]))
 		stage = expertHandoffStageLabel(stage)
-		parent := stringValue(row["parent_id"])
-		agent := firstNonEmpty(stringValue(row["agent_id"]), stringValue(row["child_id"]))
+		parent := valuefmt.StringValue(row["parent_id"])
+		agent := valuefmt.FirstNonEmpty(valuefmt.StringValue(row["agent_id"]), valuefmt.StringValue(row["child_id"]))
 		if parent != "" && agent != "" {
 			out = append(out, parent+" -> "+agent+" "+stage)
 		} else if agent != "" || stage != "" {
@@ -130,10 +131,10 @@ func orderedRuntimeNames(raw any) []string {
 					out = append(out, row)
 				}
 			case map[string]any:
-				name := firstNonEmpty(
-					stringValue(row["name"]),
-					stringValue(row["tool_name"]),
-					stringValue(row["id"]),
+				name := valuefmt.FirstNonEmpty(
+					valuefmt.StringValue(row["name"]),
+					valuefmt.StringValue(row["tool_name"]),
+					valuefmt.StringValue(row["id"]),
 				)
 				if name != "" {
 					out = append(out, name)
@@ -154,7 +155,7 @@ func runtimeRowMaps(raw any) []map[string]any {
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		if m := mapValue(row); len(m) > 0 {
+		if m := valuefmt.MapValue(row); len(m) > 0 {
 			out = append(out, m)
 		}
 	}
@@ -165,7 +166,7 @@ func runtimeProvenanceTurnMap(rp map[string]any) map[string]any {
 	if len(rp) == 0 {
 		return nil
 	}
-	turn := mapValue(rp["turn"])
+	turn := valuefmt.MapValue(rp["turn"])
 	out := make(map[string]any, len(turn)+2)
 	for key, value := range turn {
 		out[key] = value

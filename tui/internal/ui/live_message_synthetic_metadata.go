@@ -8,13 +8,14 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func normalizeMessageWorkflowState(m *gact.Message) {
 	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_workflow_state") {
 		return
 	}
-	state := mapValue(m.Metadata["workflow_state"])
+	state := valuefmt.MapValue(m.Metadata["workflow_state"])
 	if len(state) == 0 {
 		return
 	}
@@ -60,16 +61,16 @@ func normalizeMessageReasoningLog(m *gact.Message) {
 	totalChars := 0
 	models := []string{}
 	for _, raw := range rows {
-		row := mapValue(raw)
+		row := valuefmt.MapValue(raw)
 		if len(row) == 0 {
 			continue
 		}
 		if n, ok := intValue(row["reasoning_chars"]); ok {
 			totalChars += n
 		} else {
-			totalChars += len(stringValue(row["reasoning"]))
+			totalChars += len(valuefmt.StringValue(row["reasoning"]))
 		}
-		if model := stringValue(row["model"]); model != "" && !stringInSlice(models, model) {
+		if model := valuefmt.StringValue(row["model"]); model != "" && !stringInSlice(models, model) {
 			models = append(models, model)
 		}
 	}

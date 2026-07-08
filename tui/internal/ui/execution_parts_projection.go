@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // sourcedPart is one transcript part plus its address in the conversation
@@ -63,12 +64,12 @@ func projectExecutionTimelineFromMessages(messages []gact.Message) []executionPr
 	for msgIdx, m := range messages {
 		switch m.Role {
 		case gact.RoleUser:
-			currentTurnID = firstNonEmpty(messageTurnID(m), m.ID)
+			currentTurnID = valuefmt.FirstNonEmpty(messageTurnID(m), m.ID)
 		case gact.RoleAssistant, gact.RoleTool:
 			if isSemanticLiveMessage(m) {
 				continue
 			}
-			tid := firstNonEmpty(messageTurnID(m), currentTurnID, m.ID)
+			tid := valuefmt.FirstNonEmpty(messageTurnID(m), currentTurnID, m.ID)
 			appendParts(tid, msgIdx, m)
 		}
 	}
@@ -90,7 +91,7 @@ func projectExecutionTimelineFromMessages(messages []gact.Message) []executionPr
 // addressable), and the Ctrl+E detail resolution.
 func isProviderThinkingPart(p gact.Part) bool {
 	return p.Type == gact.PartTypeThinking &&
-		stringValue(p.Metadata["thinking_source"]) == "provider" &&
+		valuefmt.StringValue(p.Metadata["thinking_source"]) == "provider" &&
 		strings.TrimSpace(p.Thinking) != ""
 }
 
@@ -160,7 +161,7 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			if text == "" {
 				continue
 			}
-			agent := resolveExpert(firstNonEmpty(p.AgentID, stringValue(p.Metadata["agent_id"])))
+			agent := resolveExpert(valuefmt.FirstNonEmpty(p.AgentID, valuefmt.StringValue(p.Metadata["agent_id"])))
 			nodes = append(nodes, executionTimelineNode{
 				Kind:  executionNodeAssistantText,
 				Agent: agent,
@@ -191,8 +192,8 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			})
 
 		case gact.PartTypeExpertHandoff:
-			parent := firstNonEmpty(stringValue(p.Metadata["parent_id"]), stringValue(p.Metadata["parent"]), strings.TrimSpace(p.AgentID), "main")
-			child := firstNonEmpty(stringValue(p.Metadata["delegate_to"]), stringValue(p.Metadata["agent_id"]))
+			parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["parent_id"]), valuefmt.StringValue(p.Metadata["parent"]), strings.TrimSpace(p.AgentID), "main")
+			child := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["delegate_to"]), valuefmt.StringValue(p.Metadata["agent_id"]))
 			if child == "" {
 				continue
 			}
@@ -224,14 +225,14 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 				continue
 			}
 			seenHandoff[key] = true
-			question := strings.TrimSpace(stringValue(p.Metadata["question"]))
+			question := strings.TrimSpace(valuefmt.StringValue(p.Metadata["question"]))
 			nodes = append(nodes, executionTimelineNode{
 				Kind:        executionNodeHandoff,
 				Agent:       child,
 				ParentAgent: parent,
 				Depth:       pd + 1,
 				Question:    question,
-				Thinking:    firstNonEmpty(p.Thought, stringValue(p.Metadata["thought"])),
+				Thinking:    valuefmt.FirstNonEmpty(p.Thought, valuefmt.StringValue(p.Metadata["thought"])),
 				Src:         src,
 			})
 
@@ -242,7 +243,7 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 				Kind:     executionNodeReactStep,
 				Agent:    current,
 				Depth:    depthOf(current),
-				Thinking: firstNonEmpty(p.Thought, stringValue(p.Metadata["thought"])),
+				Thinking: valuefmt.FirstNonEmpty(p.Thought, valuefmt.StringValue(p.Metadata["thought"])),
 				ToolName: p.ToolName,
 				CallID:   p.CallID,
 				Src:      src,

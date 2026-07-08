@@ -2,7 +2,10 @@ package ui
 
 // lm_config_layout.go computes the LM-config modal layout (grid widths, body rows, modal width).
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 type lmConfigLayout struct {
 	bodyRows     int
@@ -92,9 +95,9 @@ func (c *lmConfigComponent) layout(innerW int, bodyRows int) lmConfigLayout {
 		return lmConfigLayout{
 			bodyRows:     bodyRows,
 			providerRows: clampInt(cellBodyRows, 1, providerCount),
-			selectedRows: maxInt(1, minInt(cellBodyRows, c.providerDetailsRowCount())),
+			selectedRows: maxInt(1, valuefmt.MinInt(cellBodyRows, c.providerDetailsRowCount())),
 			modelRows:    clampInt(cellBodyRows, 1, modelCount),
-			configRows:   maxInt(1, minInt(cellBodyRows, configCount)),
+			configRows:   maxInt(1, valuefmt.MinInt(cellBodyRows, configCount)),
 			gridGapRows:  gridGapRows,
 			buttonRows:   buttonRows,
 		}

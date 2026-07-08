@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func TestSessionSidebarSurfacesActiveAgentBlueprintScope(t *testing.T) {
@@ -100,10 +101,10 @@ func TestAgentBlueprintActivatedMsgUpdatesSelectedSessionMetadata(t *testing.T) 
 	if cmd == nil {
 		t.Fatal("activation success should schedule transient hint expiry")
 	}
-	if got := stringValue(a.session.sessions[0].Metadata["active_agent_blueprint_id"]); got != "seismic-market" {
+	if got := valuefmt.StringValue(a.session.sessions[0].Metadata["active_agent_blueprint_id"]); got != "seismic-market" {
 		t.Fatalf("active blueprint metadata = %q", got)
 	}
-	if got := stringValue(a.session.sessions[0].Metadata["active_agent_blueprint_scope"]); got != "session" {
+	if got := valuefmt.StringValue(a.session.sessions[0].Metadata["active_agent_blueprint_scope"]); got != "session" {
 		t.Fatalf("active blueprint scope = %q", got)
 	}
 

@@ -15,6 +15,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // contextExpert is one selectable lane in the Context overlay. ID is the scope
@@ -59,7 +60,7 @@ func (c *contextViewComponent) openModal() tea.Cmd {
 func (c *contextViewComponent) rebuildExperts() {
 	experts := []contextExpert{{id: "", title: "session (default)"}}
 	for _, row := range c.app.agent.visibleAgentHierarchyRows() {
-		title := firstNonEmpty(row.agent.Title, row.agent.ID)
+		title := valuefmt.FirstNonEmpty(row.agent.Title, row.agent.ID)
 		experts = append(experts, contextExpert{id: row.agent.ID, title: title})
 	}
 	c.experts = experts

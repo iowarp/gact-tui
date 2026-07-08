@@ -10,6 +10,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (t Theme) renderRoutingDecisionPart(p gact.Part, wrapW int) string {
@@ -17,14 +18,14 @@ func (t Theme) renderRoutingDecisionPart(p gact.Part, wrapW int) string {
 		return ""
 	}
 	glyph := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true).Render("▸ ")
-	parent := firstNonEmpty(
-		stringValue(p.Metadata["parent_id"]),
-		stringValue(p.Metadata["parent_agent"]),
-		stringValue(p.Metadata["source_agent"]),
+	parent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["parent_id"]),
+		valuefmt.StringValue(p.Metadata["parent_agent"]),
+		valuefmt.StringValue(p.Metadata["source_agent"]),
 		"orchestrator",
 	)
-	headText := renderAgentName(t, firstNonEmpty(parent, "orchestrator")) + " selected " +
-		renderAgentName(t, firstNonEmpty(p.SelectedAgent, "agent"))
+	headText := renderAgentName(t, valuefmt.FirstNonEmpty(parent, "orchestrator")) + " selected " +
+		renderAgentName(t, valuefmt.FirstNonEmpty(p.SelectedAgent, "agent"))
 	parts := []string{glyph + headText}
 	if p.Heuristic {
 		parts = append(parts, lipgloss.NewStyle().Foreground(t.FgMuted).Render("heuristic"))
@@ -46,20 +47,20 @@ func (t Theme) renderRoutingDecisionPart(p gact.Part, wrapW int) string {
 }
 
 func (t Theme) renderExpertHandoffPart(p gact.Part, wrapW int) string {
-	agent := firstNonEmpty(
-		stringValue(p.Metadata["agent_id"]),
-		stringValue(p.Metadata["expert"]),
+	agent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["agent_id"]),
+		valuefmt.StringValue(p.Metadata["expert"]),
 		"expert",
 	)
-	parent := firstNonEmpty(
-		stringValue(p.Metadata["parent_id"]),
-		stringValue(p.Metadata["parent"]),
+	parent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["parent_id"]),
+		valuefmt.StringValue(p.Metadata["parent"]),
 	)
-	stage := firstNonEmpty(
-		stringValue(p.Metadata["stage"]),
-		stringValue(p.Metadata["dispatch_target"]),
+	stage := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["stage"]),
+		valuefmt.StringValue(p.Metadata["dispatch_target"]),
 	)
-	status := firstNonEmpty(stringValue(p.Metadata["status"]), "observed")
+	status := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["status"]), "observed")
 	failed := expertHandoffFailed(status, p.Metadata)
 	routeColor := agentColor(t, agent)
 	glyphText := "↳ "
@@ -75,14 +76,14 @@ func (t Theme) renderExpertHandoffPart(p gact.Part, wrapW int) string {
 	}
 	glyph := lipgloss.NewStyle().Foreground(routeColor).Bold(true).Render(glyphText)
 	headText := renderAgentHandoffNarrative(t, parent, agent, stage, status, failed)
-	if selected := stringValue(p.Metadata["selected_agent"]); !failed && strings.Contains(strings.ToLower(stage), "agent.invocation.completed") && selected != "" {
+	if selected := valuefmt.StringValue(p.Metadata["selected_agent"]); !failed && strings.Contains(strings.ToLower(stage), "agent.invocation.completed") && selected != "" {
 		headText = renderAgentName(t, agent) + " selected " + renderAgentName(t, selected)
 	}
 	head := prefix + glyph + headText
 	var meta []string
 	semanticEvent := p.Metadata != nil && p.Metadata["stream_source"] == "semantic_event"
 	if failed {
-		meta = append(meta, firstNonEmpty(status, "failed"))
+		meta = append(meta, valuefmt.FirstNonEmpty(status, "failed"))
 	}
 	if !semanticEvent {
 		if stageLabel := expertHandoffStageLabel(stage); stageLabel != "" &&

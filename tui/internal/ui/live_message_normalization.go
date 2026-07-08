@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func normalizeMessagePresentation(m *gact.Message) {
@@ -89,7 +90,7 @@ func shouldRenderConversationMessage(m gact.Message) bool {
 	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
 		return true
 	}
-	if len(mapValue(m.Metadata["workflow_state"])) > 0 {
+	if len(valuefmt.MapValue(m.Metadata["workflow_state"])) > 0 {
 		return true
 	}
 	if rows, ok := m.Metadata["reasoning_log"].([]any); ok && len(rows) > 0 {

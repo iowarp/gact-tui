@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -84,8 +85,8 @@ func (c *fileViewerComponent) renderChafaImage(path string) (string, error) {
 	if width <= 0 {
 		width = 80
 	}
-	width = minInt(width, 96)
-	height := maxInt(10, minInt(28, maxInt(1, c.app.height-18)))
+	width = valuefmt.MinInt(width, 96)
+	height := maxInt(10, valuefmt.MinInt(28, maxInt(1, c.app.height-18)))
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "chafa",

@@ -7,6 +7,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func catalogBrowserUsesGuidanceEmptyState(kind catalogBrowserKind, items []catalogItem) bool {
@@ -43,7 +44,7 @@ func (c *catalogComponent) renderEmptyGuidanceRows(items []catalogItem, width in
 			}
 		}
 		rows = append(rows, textutil.Truncate(line, width))
-		guidance := compactCatalogText(firstNonEmpty(item.inlineDesc, item.desc))
+		guidance := valuefmt.CompactCatalogText(valuefmt.FirstNonEmpty(item.inlineDesc, item.desc))
 		for _, wrapped := range textutil.WrapPlainRows(guidance, width-4, "") {
 			if strings.TrimSpace(wrapped) == "" {
 				continue
@@ -79,11 +80,11 @@ func (c *catalogComponent) contextLine(kind catalogBrowserKind) string {
 	default:
 		return ""
 	}
-	workspace := firstNonEmpty(c.app.chrome.headerWorkspaceLabel(), strings.TrimSpace(c.app.session.wsID), "default workspace")
+	workspace := valuefmt.FirstNonEmpty(c.app.chrome.headerWorkspaceLabel(), strings.TrimSpace(c.app.session.wsID), "default workspace")
 	session := "no session selected"
 	if c.app.session.selected >= 0 && c.app.session.selected < len(c.app.session.sessions) {
 		s := c.app.session.sessions[c.app.session.selected]
-		session = firstNonEmpty(strings.TrimSpace(s.Title), strings.TrimSpace(s.ID), "selected session")
+		session = valuefmt.FirstNonEmpty(strings.TrimSpace(s.Title), strings.TrimSpace(s.ID), "selected session")
 	}
 	workflow := "no active workflow blueprint"
 	if id := c.app.agent.activeAgentBlueprintID(); id != "" {

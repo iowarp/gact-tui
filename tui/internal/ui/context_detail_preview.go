@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *contextFilesComponent) appendPreviewRows(rows []string, cf gact.ContextFile, content gact.ContextFileContent, contentErr error) []string {
@@ -35,8 +36,8 @@ func (c *contextFilesComponent) appendPreviewRows(rows []string, cf gact.Context
 		)
 	}
 
-	path := firstNonEmpty(content.Path, cf.Path)
-	displayPath := firstNonEmpty(content.DisplayPath, path)
+	path := valuefmt.FirstNonEmpty(content.Path, cf.Path)
+	displayPath := valuefmt.FirstNonEmpty(content.DisplayPath, path)
 	contentFields := []detailField{
 		{"path", path},
 		{"display path", displayPath},

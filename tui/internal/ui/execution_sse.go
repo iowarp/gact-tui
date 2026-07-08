@@ -7,6 +7,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *executionComponent) recordSSE(e client.SSEEvent) {
@@ -14,7 +15,7 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	if len(pl) == 0 {
 		return
 	}
-	sid := c.app.conversation.replaySessionID(stringValue(pl["session_id"]))
+	sid := c.app.conversation.replaySessionID(valuefmt.StringValue(pl["session_id"]))
 	if sid == "" {
 		sid = c.app.session.currentID()
 	}
@@ -30,19 +31,19 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	record.TurnID = c.turnIDForSSERecord(e.Type, pl)
 	switch e.Type {
 	case "message.created":
-		if role := strings.TrimSpace(stringValue(pl["role"])); role == gact.RoleUser {
+		if role := strings.TrimSpace(valuefmt.StringValue(pl["role"])); role == gact.RoleUser {
 			record.Type = "turn.user_message"
-			record.TurnID = firstNonEmpty(stringValue(pl["turn_id"]), stringValue(pl["id"]))
+			record.TurnID = valuefmt.FirstNonEmpty(valuefmt.StringValue(pl["turn_id"]), valuefmt.StringValue(pl["id"]))
 		} else {
 			return
 		}
 	case "message.part.delta":
-		delta := mapValue(pl["delta"])
-		if strings.TrimSpace(stringValue(delta["text_append"])) == "" {
+		delta := valuefmt.MapValue(pl["delta"])
+		if strings.TrimSpace(valuefmt.StringValue(delta["text_append"])) == "" {
 			return
 		}
 	case "message.part.added":
-		partRaw := mapValue(pl["part"])
+		partRaw := valuefmt.MapValue(pl["part"])
 		part := decodePart(partRaw)
 		record.Part = &part
 		switch part.Type {
@@ -52,7 +53,7 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 			// prose node and makes live vs reload ordering diverge. Batch
 			// providers still need the full part because they may emit no
 			// deltas.
-			if strings.TrimSpace(stringValue(pl["stream_source"])) == "live" {
+			if strings.TrimSpace(valuefmt.StringValue(pl["stream_source"])) == "live" {
 				return
 			}
 			if strings.TrimSpace(part.Text) == "" {
@@ -63,8 +64,8 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 			return
 		}
 	case "semantic.event":
-		eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
-		if !semanticEventReachesLedger(eventType, stringValue(pl["status"])) {
+		eventType := valuefmt.FirstNonEmpty(valuefmt.StringValue(pl["event_type"]), e.Type)
+		if !semanticEventReachesLedger(eventType, valuefmt.StringValue(pl["status"])) {
 			return
 		}
 		record.Type = eventType
@@ -180,7 +181,7 @@ func (c *executionComponent) recordedSemanticPayloads(sessionID string) []map[st
 	}
 	out := make([]map[string]any, 0, len(records))
 	for _, r := range records {
-		if strings.TrimSpace(stringValue(r.Payload["event_type"])) == "" {
+		if strings.TrimSpace(valuefmt.StringValue(r.Payload["event_type"])) == "" {
 			continue
 		}
 		out = append(out, r.Payload)
@@ -189,12 +190,12 @@ func (c *executionComponent) recordedSemanticPayloads(sessionID string) []map[st
 }
 
 func (c *executionComponent) turnIDForSSERecord(eventType string, pl map[string]any) string {
-	if turnID := strings.TrimSpace(stringValue(pl["turn_id"])); turnID != "" {
+	if turnID := strings.TrimSpace(valuefmt.StringValue(pl["turn_id"])); turnID != "" {
 		return turnID
 	}
 	switch eventType {
 	case "message.part.delta", "message.part.added", "message.part.completed":
-		if turnID := c.turnIDForMessage(stringValue(pl["message_id"])); turnID != "" {
+		if turnID := c.turnIDForMessage(valuefmt.StringValue(pl["message_id"])); turnID != "" {
 			return turnID
 		}
 	}
@@ -206,7 +207,7 @@ func messageTurnID(msg gact.Message) string {
 		return turnID
 	}
 	if msg.Metadata != nil {
-		if turnID := strings.TrimSpace(stringValue(msg.Metadata["turn_id"])); turnID != "" {
+		if turnID := strings.TrimSpace(valuefmt.StringValue(msg.Metadata["turn_id"])); turnID != "" {
 			return turnID
 		}
 	}

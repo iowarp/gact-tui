@@ -12,6 +12,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // renderDoctorCapabilities tabulates every spec capability as
@@ -93,12 +94,12 @@ func renderCapabilityGaps(gaps map[string]gact.CapabilityGap, t Theme, innerW in
 	}
 	for _, name := range names {
 		gap := gaps[name]
-		status := firstNonEmpty(gap.Status, "unknown")
+		status := valuefmt.FirstNonEmpty(gap.Status, "unknown")
 		style := lipgloss.NewStyle().Foreground(t.Warning)
 		if status == "unsupported" {
 			style = lipgloss.NewStyle().Foreground(t.Danger)
 		}
-		rows = append(rows, textutil.PadRight(name, nameW)+textutil.PadRight(style.Render(status), statusW)+textutil.Truncate(firstNonEmpty(gap.ClientBehavior, gap.Category, "not specified"), behaviorW))
+		rows = append(rows, textutil.PadRight(name, nameW)+textutil.PadRight(style.Render(status), statusW)+textutil.Truncate(valuefmt.FirstNonEmpty(gap.ClientBehavior, gap.Category, "not specified"), behaviorW))
 		if len(gap.RelatedCommands) > 0 {
 			rows = append(rows, "  commands: "+strings.Join(gap.RelatedCommands, ", "))
 		}

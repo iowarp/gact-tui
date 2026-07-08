@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
@@ -65,9 +66,9 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		items = append(items, agentItem)
 	}
 	for _, descriptor := range detail.MCPDescriptors {
-		id := stringValue(descriptor["id"])
-		title := firstNonEmpty(stringValue(descriptor["name"]), id)
-		status := firstNonEmpty(stringValue(descriptor["status"]), "mcp")
+		id := valuefmt.StringValue(descriptor["id"])
+		title := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["name"]), id)
+		status := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["status"]), "mcp")
 		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 			status = "invalid"
 		}
@@ -80,9 +81,9 @@ func agentBlueprintDetailItems(detail gact.AgentBlueprintDetail) []catalogItem {
 		})
 	}
 	for _, descriptor := range detail.HookDescriptors {
-		id := stringValue(descriptor["id"])
+		id := valuefmt.StringValue(descriptor["id"])
 		title := agentBlueprintHookTitle(descriptor)
-		status := firstNonEmpty(stringValue(descriptor["status"]), "hook")
+		status := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["status"]), "hook")
 		if errors := stringListFromAny(descriptor["validation_errors"]); len(errors) > 0 {
 			status = "invalid"
 		}
@@ -121,7 +122,7 @@ func sessionDefaultDescription() string {
 func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string {
 	workflow := nonRepeatingCatalogDescription(blueprint.Description, blueprint.Title, blueprint.ID)
 	if workflow == "" {
-		workflow = firstNonEmpty(blueprint.Title, blueprint.ID)
+		workflow = valuefmt.FirstNonEmpty(blueprint.Title, blueprint.ID)
 	}
 	rows := appendDetailSection(nil, "Operator summary",
 		detailField{"workflow", workflow},
@@ -137,7 +138,7 @@ func formatAgentBlueprintSummary(blueprint gact.AgentBlueprintDefinition) string
 		detailField{"scope", blueprint.Scope},
 		detailField{"enabled", fmt.Sprintf("%t", blueprint.Enabled)},
 		detailField{"blueprint root", blueprint.Root},
-		detailField{"definition file", firstNonEmpty(blueprint.DefinitionPath, blueprint.RootPath)},
+		detailField{"definition file", valuefmt.FirstNonEmpty(blueprint.DefinitionPath, blueprint.RootPath)},
 	)
 	rows = appendAgentBlueprintProvenanceSection(rows, blueprint)
 	if len(blueprint.ValidationErrors) > 0 {

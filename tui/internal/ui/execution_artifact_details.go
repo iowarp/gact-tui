@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +36,7 @@ func executionArtifactPaths(raw any) []string {
 		switch typed := value.(type) {
 		case map[string]any:
 			for _, key := range []string{"path", "local_path", "output_path", "artifact_path", "plot_path", "file_path", "metadata_path"} {
-				if path := strings.TrimSpace(stringValue(typed[key])); path != "" && executionPathLooksLikeArtifact(path) {
+				if path := strings.TrimSpace(valuefmt.StringValue(typed[key])); path != "" && executionPathLooksLikeArtifact(path) {
 					out = append(out, path)
 				}
 			}

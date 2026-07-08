@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func TestAgentHierarchySidebarSurfacesRuntimeProvenanceState(t *testing.T) {
@@ -259,7 +260,7 @@ func TestAgentHierarchyFinalRuntimeProvenanceSettlesPriorLiveSemanticDelegation(
 		t.Fatalf("older live semantic state should not outrank newer final provenance:\n%s", settledOut)
 	}
 
-	detail := runtimeProvenanceDetailText(mapValue(a.conversation.messages[len(a.conversation.messages)-1].Metadata["runtime_provenance"]))
+	detail := runtimeProvenanceDetailText(valuefmt.MapValue(a.conversation.messages[len(a.conversation.messages)-1].Metadata["runtime_provenance"]))
 	for _, want := range []string{"trace: trace_1", "observed: ndp_search_datasets", "delegate.completed", "parent.resumed"} {
 		if !strings.Contains(detail, want) {
 			t.Fatalf("final runtime provenance detail missing agreement evidence %q:\n%s", want, detail)

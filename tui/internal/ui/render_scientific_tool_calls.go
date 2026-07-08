@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ func scientificToolCallSummary(tool string, input map[string]any) string {
 		}
 		if key == "path" || key == "file" || key == "filepath" ||
 			key == "output_path" || key == "artifact_path" {
-			text = shortenPathForInline(text)
+			text = valuefmt.ShortenPathForInline(text)
 		}
 		label, formatted := scientificToolCallArgLabelAndValue(key, text)
 		bits = append(bits, label+": "+formatted)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentHierarchyRow struct {
@@ -85,7 +86,7 @@ func isWorkflowAgent(agent gact.AgentDef) bool {
 func agentHierarchyRowMeta(row agentHierarchyRow, runtimeState agentHierarchyRuntimeState) string {
 	agent := row.agent
 	parts := make([]string, 0, 4)
-	state := firstNonEmpty(string(runtimeState), humanizeAgentLabel(agent.Specialization), agentHierarchySourceLabel(agent.Source))
+	state := valuefmt.FirstNonEmpty(string(runtimeState), valuefmt.HumanizeAgentLabel(agent.Specialization), agentHierarchySourceLabel(agent.Source))
 	if runtimeState == agentHierarchyStateNone && state != "" {
 		parts = append(parts, state)
 	}
@@ -133,6 +134,6 @@ func agentHierarchySourceLabel(source string) string {
 	case "":
 		return ""
 	default:
-		return humanizeAgentLabel(source)
+		return valuefmt.HumanizeAgentLabel(source)
 	}
 }

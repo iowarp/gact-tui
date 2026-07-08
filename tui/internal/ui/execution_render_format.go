@@ -8,6 +8,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionProseWrapWidth(width int) int {
@@ -94,7 +95,7 @@ func executionProseLineIsBoundary(line string) bool {
 }
 
 func (t Theme) executionToolCallLine(toolName string, args any, width int) string {
-	name := firstNonEmpty(render.ToolDisplayName(toolName), toolName, "tool")
+	name := valuefmt.FirstNonEmpty(render.ToolDisplayName(toolName), toolName, "tool")
 	nameStyle := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true)
 	if argsText := executionArgsPreview(args); argsText != "" {
 		plain := name + "(" + argsText + ")"

@@ -19,6 +19,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 const wireSessionID = "sess_57ac84d71ca3"
@@ -137,11 +138,11 @@ func dumpTranscriptParts(a *App) string {
 	for _, m := range a.conversation.messages {
 		b.WriteString("message " + m.ID + " role=" + m.Role + " parts=" + strconv.Itoa(len(m.Parts)) + "\n")
 		for _, p := range m.Parts {
-			agent := stringValue(p.Metadata["agent_id"])
+			agent := valuefmt.StringValue(p.Metadata["agent_id"])
 			if agent == "" {
 				agent = p.AgentID
 			}
-			preview := firstNonEmpty(p.Text, p.Thinking)
+			preview := valuefmt.FirstNonEmpty(p.Text, p.Thinking)
 			preview = strings.ReplaceAll(preview, "\n", " ")
 			if len(preview) > 80 {
 				preview = preview[:80]

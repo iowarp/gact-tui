@@ -9,12 +9,13 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionArgsPreview(args any) string {
-	obj := mapValue(args)
+	obj := valuefmt.MapValue(args)
 	if len(obj) == 0 {
-		if text := strings.TrimSpace(stringValue(args)); text != "" && !semanticPreviewIsRedacted(text) {
+		if text := strings.TrimSpace(valuefmt.StringValue(args)); text != "" && !semanticPreviewIsRedacted(text) {
 			return textutil.Truncate(strings.Join(strings.Fields(text), " "), 140)
 		}
 		return ""
@@ -63,7 +64,7 @@ func (t Theme) executionObservationPreview(toolName string, observation any) str
 		return preview
 	}
 	text := toolEvidenceResultText(toolName, observation)
-	if raw := strings.TrimSpace(stringValue(observation)); raw != "" {
+	if raw := strings.TrimSpace(valuefmt.StringValue(observation)); raw != "" {
 		if preview := executionSpecificTextObservationPreview(toolName, raw); preview != "" {
 			return preview
 		}
@@ -154,7 +155,7 @@ func summaryLooksLikeRawJSON(text string) bool {
 }
 
 func executionFinishPreview(node executionTimelineNode) string {
-	text := strings.TrimSpace(firstNonEmpty(stringValue(node.Observation), node.Summary))
+	text := strings.TrimSpace(valuefmt.FirstNonEmpty(valuefmt.StringValue(node.Observation), node.Summary))
 	if executionObservationIsNoise(text) || semanticPreviewIsRedacted(text) {
 		return ""
 	}

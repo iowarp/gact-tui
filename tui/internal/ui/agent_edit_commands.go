@@ -10,6 +10,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentLoadedForEditMsg struct {
@@ -41,7 +42,7 @@ func (c *agentComponent) handleAgentEdited(m agentEditedMsg) (tea.Model, tea.Cmd
 		c.app.agentEdit.err = operatorErrorMessage(m.err)
 		return c.app, nil
 	}
-	agentID := firstNonEmpty(m.agent.ID, c.app.agentEdit.original)
+	agentID := valuefmt.FirstNonEmpty(m.agent.ID, c.app.agentEdit.original)
 	c.app.agentEdit.close()
 	c.app.setHint("updated expert " + agentID)
 	var cmd tea.Cmd

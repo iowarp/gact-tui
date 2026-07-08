@@ -2,13 +2,16 @@ package ui
 
 // execution_timeline_reports.go applies expert-extract and delegation-completed events to the timeline projector.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func (p *executionTimelineProjector) applyExpertExtract(payload map[string]any) {
 	nested := executionPayloadBody(payload)
 	node := executionExpertExtractNodeFromPayload(payload)
 	agent := node.Agent
-	key := "extract:" + agent + ":" + stringValue(nested["expert_span_id"])
+	key := "extract:" + agent + ":" + valuefmt.StringValue(nested["expert_span_id"])
 	if p.seenReports[key] {
 		return
 	}
@@ -48,7 +51,7 @@ func (p *executionTimelineProjector) applyDelegationCompleted(payload map[string
 func (p *executionTimelineProjector) applyExpertResponse(payload map[string]any) {
 	nested := executionPayloadBody(payload)
 	agent := executionExpertID(payload)
-	answer := strings.TrimSpace(stringValue(nested["answer"]))
+	answer := strings.TrimSpace(valuefmt.StringValue(nested["answer"]))
 	if agent == "" || answer == "" || semanticPreviewIsRedacted(answer) {
 		return
 	}
@@ -72,9 +75,9 @@ func (p *executionTimelineProjector) applyExpertResponse(payload map[string]any)
 		Agent:   agent,
 		Depth:   timelineAgentDepth(agent),
 		Text:    answer,
-		Summary: stringValue(payload["summary"]),
+		Summary: valuefmt.StringValue(payload["summary"]),
 	}
-	if reasoning := strings.TrimSpace(stringValue(nested["reasoning"])); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
+	if reasoning := strings.TrimSpace(valuefmt.StringValue(nested["reasoning"])); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
 		node.Reasoning = reasoning
 	}
 	p.nodes = append(p.nodes, node)

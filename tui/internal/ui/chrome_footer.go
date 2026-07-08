@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *chromeComponent) renderFooter() string {
@@ -130,7 +131,7 @@ const footerContextIndicatorLabel = "ctx "
 // unscoped) so the user knows which lane the bar reflects.
 func (c *chromeComponent) renderFooterContextIndicator(cs client.ContextState) string {
 	t := c.app.Theme
-	expert := firstNonEmpty(c.app.agent.nextTurnAgentTitle, cs.Scope)
+	expert := valuefmt.FirstNonEmpty(c.app.agent.nextTurnAgentTitle, cs.Scope)
 	if expert == "" {
 		expert = "session"
 	}

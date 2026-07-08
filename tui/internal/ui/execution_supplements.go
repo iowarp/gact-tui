@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *executionComponent) assistantSupplementNodesByTurn() map[string][]executionTimelineNode {
@@ -22,7 +23,7 @@ func (c *executionComponent) assistantSupplementNodesByTurn() map[string][]execu
 		case gact.RoleUser:
 			currentTurnID = messageTurnID(msg)
 		case gact.RoleAssistant:
-			turnID := firstNonEmpty(messageTurnID(msg), currentTurnID)
+			turnID := valuefmt.FirstNonEmpty(messageTurnID(msg), currentTurnID)
 			if turnID == "" {
 				continue
 			}
@@ -69,12 +70,12 @@ func executionAssistantSupplementNodes(msg gact.Message) []executionTimelineNode
 }
 
 func executionExpertHandoffSupplementNode(part gact.Part) executionTimelineNode {
-	agent := firstNonEmpty(
-		stringValue(part.Metadata["agent_id"]),
-		stringValue(part.Metadata["delegate_to"]),
+	agent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(part.Metadata["agent_id"]),
+		valuefmt.StringValue(part.Metadata["delegate_to"]),
 		"expert",
 	)
-	parent := firstNonEmpty(stringValue(part.Metadata["parent_id"]), stringValue(part.Metadata["parent"]))
+	parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["parent_id"]), valuefmt.StringValue(part.Metadata["parent"]))
 	text := strings.TrimSpace(part.Text)
 	node := executionTimelineNode{
 		Kind:        executionNodeExpertReport,
@@ -103,12 +104,12 @@ func executionExpertHandoffSupplementNode(part gact.Part) executionTimelineNode 
 }
 
 func executionImagePartPreview(part gact.Part) string {
-	title := firstNonEmpty(part.Title, stringValue(part.Metadata["title"]), "image artifact")
-	path := firstNonEmpty(part.URI, stringValue(part.Metadata["path"]), stringValue(part.Metadata["artifact_path"]))
+	title := valuefmt.FirstNonEmpty(part.Title, valuefmt.StringValue(part.Metadata["title"]), "image artifact")
+	path := valuefmt.FirstNonEmpty(part.URI, valuefmt.StringValue(part.Metadata["path"]), valuefmt.StringValue(part.Metadata["artifact_path"]))
 	if path == "" {
 		return title
 	}
-	return title + "\n" + shortenPathForInline(path) + "\nCtrl+E full image"
+	return title + "\n" + valuefmt.ShortenPathForInline(path) + "\nCtrl+E full image"
 }
 
 func executionSupplementCarriesArtifact(text string) bool {
@@ -170,7 +171,7 @@ func executionDedupSupplementNodes(existing, supplements []executionTimelineNode
 }
 
 func executionNodeComparableText(node executionTimelineNode) string {
-	return firstNonEmpty(node.Text, node.Summary, node.Question, node.Thinking)
+	return valuefmt.FirstNonEmpty(node.Text, node.Summary, node.Question, node.Thinking)
 }
 
 func normalizeExecutionComparable(text string) string {

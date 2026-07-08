@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *sessionComponent) renderSetupBlueprints(width int) ([]string, modalListRender) {
@@ -17,7 +18,7 @@ func (c *sessionComponent) renderSetupBlueprints(width int) ([]string, modalList
 	for i := 0; i < len(s.blueprints)+1; i++ {
 		indexes = append(indexes, i)
 	}
-	visible := minInt(7, maxInt(4, len(indexes)))
+	visible := valuefmt.MinInt(7, maxInt(4, len(indexes)))
 	list, _ := c.app.modals.renderWindowedIndexModalList(indexes, s.blueprintSel, visible, 7, modalListOptions{
 		width:     width,
 		rowBudget: visible,
@@ -25,7 +26,7 @@ func (c *sessionComponent) renderSetupBlueprints(width int) ([]string, modalList
 		title := "backend default"
 		if idx > 0 {
 			bp := s.blueprints[idx-1]
-			title = firstNonEmpty(bp.Title, bp.ID)
+			title = valuefmt.FirstNonEmpty(bp.Title, bp.ID)
 		}
 		prefix := "○ "
 		if idx == s.blueprintSel {
@@ -54,7 +55,7 @@ func (c *sessionComponent) renderSetupPacks(width int) ([]string, modalListRende
 	for i := 0; i < len(s.packs)+1; i++ {
 		indexes = append(indexes, i)
 	}
-	visible := minInt(7, maxInt(4, len(indexes)))
+	visible := valuefmt.MinInt(7, maxInt(4, len(indexes)))
 	list, _ := c.app.modals.renderWindowedIndexModalList(indexes, s.packSel, visible, 7, modalListOptions{
 		width:     width,
 		rowBudget: visible,
@@ -62,7 +63,7 @@ func (c *sessionComponent) renderSetupPacks(width int) ([]string, modalListRende
 		title := "None"
 		if idx > 0 {
 			pack := s.packs[idx-1]
-			title = firstNonEmpty(pack.Title, pack.ID)
+			title = valuefmt.FirstNonEmpty(pack.Title, pack.ID)
 		}
 		prefix := "○ "
 		if idx == s.packSel {

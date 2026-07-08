@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (m *helpModal) renderCommandAreaColumns(keys []helpKey, width int) modalListRender {
@@ -92,7 +93,7 @@ func splitHelpCommandGroups(groups []helpCommandGroup, columns int) [][]helpComm
 	columnGroups := make([][]helpCommandGroup, columns)
 	perColumn := (len(groups) + columns - 1) / columns
 	for i, group := range groups {
-		col := minInt(columns-1, i/perColumn)
+		col := valuefmt.MinInt(columns-1, i/perColumn)
 		columnGroups[col] = append(columnGroups[col], group)
 	}
 	return columnGroups
@@ -141,7 +142,7 @@ func (m *helpModal) renderCommandAreaBox(group string, entries []helpCommandEntr
 		borderStyle.Render("┌") + paletteTileFit(title, topInnerW) + borderStyle.Render("┐"),
 	}
 	hits := make([]modalListHit, 0, len(entries))
-	labelW := maxInt(12, minInt(21, innerW-1))
+	labelW := maxInt(12, valuefmt.MinInt(21, innerW-1))
 	for idx, entry := range entries {
 		command := entry.key
 		label := textutil.Truncate(command, labelW)

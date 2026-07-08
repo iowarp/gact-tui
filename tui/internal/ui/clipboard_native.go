@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/atotto/clipboard"
 )
 
@@ -58,7 +59,7 @@ func writeNativeClipboard(text string) error {
 	fallbackNames := "wl-copy, xclip, xsel, pbcopy, clip.exe, powershell.exe, termux-clipboard-set, atotto/clipboard"
 	if clipboardPreferredCommand != nil {
 		cmd := *clipboardPreferredCommand
-		path := firstNonEmpty(cmd.path, cmd.name)
+		path := valuefmt.FirstNonEmpty(cmd.path, cmd.name)
 		tried = append(tried, cmd.name)
 		if err := clipboardRunCommand(path, cmd.args, text); err == nil {
 			return nil

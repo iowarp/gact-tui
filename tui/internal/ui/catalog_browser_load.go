@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // loadCatalogBrowserCmd dispatches the right fetch based on kind.
@@ -28,7 +29,7 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			for _, s := range servers {
 				items = append(items, catalogItem{
 					id:         s.ID,
-					title:      firstNonEmpty(s.Name, s.ID),
+					title:      valuefmt.FirstNonEmpty(s.Name, s.ID),
 					desc:       mcpServerCatalogDescription(s),
 					inlineDesc: mcpSourceInlineSummary(s, 0),
 					statusTag:  mcpConnectionStatusTag(s),

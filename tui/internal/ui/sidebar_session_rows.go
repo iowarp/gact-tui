@@ -2,7 +2,10 @@ package ui
 
 // sidebar_session_rows.go computes per-session sidebar row counts and summary/activation text.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func (c *sidebarComponent) sessionRowCount(sessionIndex int) int {
 	if sessionIndex < 0 || sessionIndex >= len(c.app.session.sessions) {
@@ -44,10 +47,10 @@ func (c *sidebarComponent) sessionActiveBlueprintID(sessionIndex int) string {
 	if isChildSession(s) {
 		return ""
 	}
-	meta := mapValue(s.Metadata)
-	blueprintID := firstNonEmpty(
-		stringValue(meta["active_agent_blueprint_id"]),
-		stringValue(meta["agent_blueprint_id"]),
+	meta := valuefmt.MapValue(s.Metadata)
+	blueprintID := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(meta["active_agent_blueprint_id"]),
+		valuefmt.StringValue(meta["agent_blueprint_id"]),
 	)
 	if blueprintID == "" {
 		return ""
@@ -60,7 +63,7 @@ func (c *sidebarComponent) sessionActivationText(sessionIndex int, budget int) s
 	if blueprintID == "" {
 		return ""
 	}
-	meta := mapValue(c.app.session.sessions[sessionIndex].Metadata)
-	scope := stringValue(meta["active_agent_blueprint_scope"])
+	meta := valuefmt.MapValue(c.app.session.sessions[sessionIndex].Metadata)
+	scope := valuefmt.StringValue(meta["active_agent_blueprint_scope"])
 	return activeAgentBlueprintIndicator(blueprintID, scope, budget)
 }

@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *lmConfigComponent) renderProviderDetails(innerW int, visibleRows int) string {
@@ -51,7 +52,7 @@ func (c *lmConfigComponent) renderProviderDetailsRowsAndHits(innerW int, visible
 		if start >= visibleRows {
 			return 0
 		}
-		return minInt(len(rows), visibleRows) - start
+		return valuefmt.MinInt(len(rows), visibleRows) - start
 	}
 	if p.RequiresAPIKey {
 		start := len(rows)

@@ -2,12 +2,15 @@ package ui
 
 // catalog_blueprint_hook_descriptors.go formats agent-blueprint hook descriptor titles, summaries, and field labels.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func agentBlueprintHookDescription(descriptor map[string]any) string {
 	fields := make([]detailField, 0, 12)
 	for _, key := range []string{"event", "source", "scope", "agent_blueprint_id", "definition_path", "installed_path", "checksum"} {
-		if value := stringValue(descriptor[key]); value != "" {
+		if value := valuefmt.StringValue(descriptor[key]); value != "" {
 			if key == "event" {
 				value = agentBlueprintHookEventLabel(value)
 			} else if key == "source" {
@@ -16,17 +19,17 @@ func agentBlueprintHookDescription(descriptor map[string]any) string {
 			fields = append(fields, detailField{agentBlueprintHookFieldLabel(key), value})
 		}
 	}
-	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
-		if policy := stringValue(trust["policy"]); policy != "" {
+	if trust := valuefmt.MapValue(descriptor["trust"]); len(trust) > 0 {
+		if policy := valuefmt.StringValue(trust["policy"]); policy != "" {
 			fields = append(fields, detailField{"trust policy", policy})
 		}
 		if trusted := scalarText(trust["trusted"]); trusted != "" {
 			fields = append(fields, detailField{"trusted", trusted})
 		}
-		if source := stringValue(trust["source"]); source != "" {
+		if source := valuefmt.StringValue(trust["source"]); source != "" {
 			fields = append(fields, detailField{"trust source", source})
 		}
-	} else if trust := stringValue(descriptor["trust"]); trust != "" {
+	} else if trust := valuefmt.StringValue(descriptor["trust"]); trust != "" {
 		fields = append(fields, detailField{"trust", trust})
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
@@ -44,21 +47,21 @@ func agentBlueprintHookDescription(descriptor map[string]any) string {
 
 func agentBlueprintHookInlineSummary(descriptor map[string]any) string {
 	parts := make([]string, 0, 6)
-	if event := stringValue(descriptor["event"]); event != "" {
+	if event := valuefmt.StringValue(descriptor["event"]); event != "" {
 		parts = append(parts, agentBlueprintHookEventLabel(event))
 	}
 	if enabled := scalarText(descriptor["enabled"]); enabled != "" {
 		parts = append(parts, enabledStateLabel(enabled))
 	}
-	if trust := mapValue(descriptor["trust"]); len(trust) > 0 {
+	if trust := valuefmt.MapValue(descriptor["trust"]); len(trust) > 0 {
 		if trusted := scalarText(trust["trusted"]); strings.EqualFold(trusted, "false") {
 			parts = append(parts, "needs approval")
 		}
 	}
-	if scope := stringValue(descriptor["scope"]); scope != "" {
+	if scope := valuefmt.StringValue(descriptor["scope"]); scope != "" {
 		parts = append(parts, scope)
 	}
-	if source := stringValue(descriptor["source"]); source != "" {
+	if source := valuefmt.StringValue(descriptor["source"]); source != "" {
 		parts = append(parts, "provided by "+operatorSourceValueLabel(source))
 	}
 	if len(stringListFromAny(descriptor["validation_errors"])) > 0 {
@@ -70,10 +73,10 @@ func agentBlueprintHookInlineSummary(descriptor map[string]any) string {
 }
 
 func agentBlueprintHookTitle(descriptor map[string]any) string {
-	if event := stringValue(descriptor["event"]); event != "" {
+	if event := valuefmt.StringValue(descriptor["event"]); event != "" {
 		return agentBlueprintHookEventLabel(event)
 	}
-	title := firstNonEmpty(stringValue(descriptor["title"]), stringValue(descriptor["name"]), stringValue(descriptor["id"]))
+	title := valuefmt.FirstNonEmpty(valuefmt.StringValue(descriptor["title"]), valuefmt.StringValue(descriptor["name"]), valuefmt.StringValue(descriptor["id"]))
 	if title == "" {
 		return "Message automation"
 	}
@@ -87,7 +90,7 @@ func agentBlueprintHookEventLabel(event string) string {
 	case "post_message":
 		return "After each assistant response"
 	default:
-		return humanizeAgentLabel(event)
+		return valuefmt.HumanizeAgentLabel(event)
 	}
 }
 

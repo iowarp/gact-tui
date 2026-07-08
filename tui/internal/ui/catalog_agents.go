@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int) catalogItem {
@@ -16,13 +17,13 @@ func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int)
 	if depth > 0 {
 		title = agentTreePrefix(depth) + title
 	}
-	status := firstNonEmpty(agent.Source, "agent")
+	status := valuefmt.FirstNonEmpty(agent.Source, "agent")
 	if !agent.Enabled || len(agent.ValidationErrors) > 0 {
 		status = "invalid"
 	} else if len(agent.ValidationWarnings) > 0 {
 		status = "warning"
 	} else if agent.Source == "skill" && len(agent.Tools) > 0 {
-		status = pluralizeCount(len(agent.Tools), "tool")
+		status = valuefmt.PluralizeCount(len(agent.Tools), "tool")
 	} else {
 		status = operatorSourceValueLabel(status)
 	}
@@ -38,32 +39,32 @@ func agentCatalogItem(agent gact.AgentDef, allAgents []gact.AgentDef, depth int)
 func agentCatalogInlineSummary(agent gact.AgentDef, allAgents []gact.AgentDef) string {
 	parts := make([]string, 0, 5)
 	if agent.Source == "skill" {
-		if desc := compactCatalogText(agent.Description); desc != "" {
+		if desc := valuefmt.CompactCatalogText(agent.Description); desc != "" {
 			parts = append(parts, desc)
 		}
 	}
 	if agent.Specialization != "" {
-		parts = append(parts, humanizeAgentLabel(agent.Specialization))
+		parts = append(parts, valuefmt.HumanizeAgentLabel(agent.Specialization))
 	}
 	if parent := agentParentID(agent); parent != "" {
 		parts = append(parts, "reports to "+agentTitleByID(allAgents, parent))
 	}
 	if len(agent.Tools) > 0 {
-		parts = append(parts, pluralizeCount(len(agent.Tools), "tool"))
+		parts = append(parts, valuefmt.PluralizeCount(len(agent.Tools), "tool"))
 	}
 	if len(agent.Skills) > 0 {
-		parts = append(parts, pluralizeCount(len(agent.Skills), "skill"))
+		parts = append(parts, valuefmt.PluralizeCount(len(agent.Skills), "skill"))
 	}
 	if len(agent.Commands) > 0 {
-		parts = append(parts, pluralizeCount(len(agent.Commands), "command"))
+		parts = append(parts, valuefmt.PluralizeCount(len(agent.Commands), "command"))
 	}
 	if len(agent.ValidationErrors) > 0 {
-		parts = append(parts, pluralizeCount(len(agent.ValidationErrors), "error"))
+		parts = append(parts, valuefmt.PluralizeCount(len(agent.ValidationErrors), "error"))
 	} else if len(agent.ValidationWarnings) > 0 {
-		parts = append(parts, pluralizeCount(len(agent.ValidationWarnings), "warning"))
+		parts = append(parts, valuefmt.PluralizeCount(len(agent.ValidationWarnings), "warning"))
 	}
 	if len(parts) == 0 {
-		if desc := compactCatalogText(agent.Description); desc != "" {
+		if desc := valuefmt.CompactCatalogText(agent.Description); desc != "" {
 			parts = append(parts, desc)
 		}
 	}
@@ -76,7 +77,7 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 		parts = append(parts, "tier "+itoa2(agent.Tier))
 	}
 	if agent.Specialization != "" {
-		parts = append(parts, "role "+humanizeAgentLabel(agent.Specialization))
+		parts = append(parts, "role "+valuefmt.HumanizeAgentLabel(agent.Specialization))
 	}
 	if parent := agentParentID(agent); parent != "" {
 		parts = append(parts, "reports to "+agentTitleByID(allAgents, parent))
@@ -116,10 +117,10 @@ func agentCatalogDescription(agent gact.AgentDef, allAgents []gact.AgentDef) str
 	}
 	if agent.DefaultModel != nil && agent.DefaultModel.ModelID != "" {
 		parts = append(parts, "model: "+agent.DefaultModel.ModelID)
-	} else if firstNonEmpty(agent.DefaultModelName, agent.DefaultProvider) != "" {
-		parts = append(parts, "model: "+firstNonEmpty(agent.DefaultModelName, agent.DefaultProvider))
+	} else if valuefmt.FirstNonEmpty(agent.DefaultModelName, agent.DefaultProvider) != "" {
+		parts = append(parts, "model: "+valuefmt.FirstNonEmpty(agent.DefaultModelName, agent.DefaultProvider))
 	}
-	if desc := compactCatalogText(agent.Description); desc != "" {
+	if desc := valuefmt.CompactCatalogText(agent.Description); desc != "" {
 		parts = append(parts, desc)
 	}
 	return strings.Join(parts, " · ")
@@ -136,12 +137,8 @@ func sortAgentsForCatalog(agents []gact.AgentDef) {
 			}
 			return agents[i].Tier < agents[j].Tier
 		}
-		return firstNonEmpty(agents[i].Title, agents[i].ID) < firstNonEmpty(agents[j].Title, agents[j].ID)
+		return valuefmt.FirstNonEmpty(agents[i].Title, agents[i].ID) < valuefmt.FirstNonEmpty(agents[j].Title, agents[j].ID)
 	})
-}
-
-func compactCatalogText(text string) string {
-	return strings.Join(strings.Fields(text), " ")
 }
 
 func childAgentsOf(agents []gact.AgentDef, parentID string) []gact.AgentDef {
@@ -155,7 +152,7 @@ func childAgentsOf(agents []gact.AgentDef, parentID string) []gact.AgentDef {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return firstNonEmpty(out[i].Title, out[i].ID) < firstNonEmpty(out[j].Title, out[j].ID)
+		return valuefmt.FirstNonEmpty(out[i].Title, out[i].ID) < valuefmt.FirstNonEmpty(out[j].Title, out[j].ID)
 	})
 	return out
 }
@@ -168,7 +165,7 @@ func toolsForAgent(agent gact.AgentDef, tools []gact.Tool) []gact.Tool {
 	out := make([]gact.Tool, 0)
 	seen := map[string]bool{}
 	for _, tool := range tools {
-		toolID := firstNonEmpty(tool.ID, tool.Name)
+		toolID := valuefmt.FirstNonEmpty(tool.ID, tool.Name)
 		if toolID == "" || seen[toolID] {
 			continue
 		}
@@ -186,7 +183,7 @@ func toolsForAgent(agent gact.AgentDef, tools []gact.Tool) []gact.Tool {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return firstNonEmpty(out[i].Name, out[i].ID) < firstNonEmpty(out[j].Name, out[j].ID)
+		return valuefmt.FirstNonEmpty(out[i].Name, out[i].ID) < valuefmt.FirstNonEmpty(out[j].Name, out[j].ID)
 	})
 	return out
 }

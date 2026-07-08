@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func formatMemoryInspector(stats gact.MemoryStats) string {
@@ -54,7 +55,7 @@ func memoryInspectorContextBar(theme Theme, cs client.ContextState) string {
 	barW := 48
 	denom := contextBarDenominator(cs, total)
 	rows := []string{
-		"Context usage (" + firstNonEmpty(cs.Scope, "session") + ")",
+		"Context usage (" + valuefmt.FirstNonEmpty(cs.Scope, "session") + ")",
 		"  " + contextHeaderText(cs),
 		"  " + renderContextBar(theme, barW, segs, denom, cs.AutocompactPct),
 	}
@@ -138,7 +139,7 @@ func formatMemoryInspectorWithTools(stats gact.MemoryStats, messages []gact.Mess
 			if i >= 5 {
 				break
 			}
-			label := firstNonEmpty(hit.SessionTitle, hit.SessionID)
+			label := valuefmt.FirstNonEmpty(hit.SessionTitle, hit.SessionID)
 			if len(hit.MatchTerms) > 0 {
 				label += " · terms: " + strings.Join(hit.MatchTerms, ", ")
 			}
@@ -184,14 +185,7 @@ func metadataString(metadata map[string]any, key string) string {
 	if len(metadata) == 0 {
 		return ""
 	}
-	return stringValue(metadata[key])
-}
-
-func mapValue(v any) map[string]any {
-	if m, ok := v.(map[string]any); ok {
-		return m
-	}
-	return nil
+	return valuefmt.StringValue(metadata[key])
 }
 
 func scalarText(v any) string {

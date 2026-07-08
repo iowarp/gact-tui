@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionMessageTextAgent(payload map[string]any, fallback string) string {
@@ -118,9 +119,9 @@ func (p *executionTimelineProjector) applyPartAdded(event executionTimelineEvent
 	if part.Type != gact.PartTypeExpertHandoff {
 		return
 	}
-	parent := firstNonEmpty(stringValue(part.Metadata["parent_id"]), stringValue(part.Metadata["parent"]))
-	agent := firstNonEmpty(stringValue(part.Metadata["agent_id"]), stringValue(part.Metadata["delegate_to"]))
-	question := strings.TrimSpace(stringValue(part.Metadata["question"]))
+	parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["parent_id"]), valuefmt.StringValue(part.Metadata["parent"]))
+	agent := valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["agent_id"]), valuefmt.StringValue(part.Metadata["delegate_to"]))
+	question := strings.TrimSpace(valuefmt.StringValue(part.Metadata["question"]))
 	if parent != "" && agent != "" && question != "" {
 		key := handoffKey(parent, agent)
 		p.handoffQuestions[key] = question

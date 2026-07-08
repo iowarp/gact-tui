@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,8 +121,8 @@ func providerThinkingDetailRef(turnID string, node executionTimelineNode) (bulky
 	}
 	return bulkyPartRef{
 		messageID: "execution:" + turnID,
-		partID:    executionNodeDetailID(node, firstNonEmpty(node.Src.PartID, "thinking")),
-		title:     "Thinking · " + firstNonEmpty(node.Agent, "assistant"),
+		partID:    executionNodeDetailID(node, valuefmt.FirstNonEmpty(node.Src.PartID, "thinking")),
+		title:     "Thinking · " + valuefmt.FirstNonEmpty(node.Agent, "assistant"),
 		fullText:  thinking,
 	}, true
 }
@@ -150,11 +151,11 @@ func (c *executionComponent) artifactDetailsForNode(turnID string, node executio
 		}
 	}
 	if reasoning := strings.TrimSpace(node.Reasoning); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
-		title := firstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, "reasoning")
+		title := valuefmt.FirstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, "reasoning")
 		refs = append(refs, bulkyPartRef{
 			messageID: "execution:" + turnID,
 			partID:    executionNodeDetailID(node, "reasoning"),
-			title:     "Reasoning trace · " + firstNonEmpty(node.Agent, title),
+			title:     "Reasoning trace · " + valuefmt.FirstNonEmpty(node.Agent, title),
 			fullText:  reasoning,
 		})
 	}
@@ -173,10 +174,10 @@ func (c *executionComponent) observationDetailRefs(turnID string, node execution
 	if observation == nil {
 		return nil
 	}
-	obj := mapValue(observation)
+	obj := valuefmt.MapValue(observation)
 	if len(obj) == 0 {
 		if parsed, ok := parseLooseJSON(observation); ok {
-			obj = mapValue(parsed)
+			obj = valuefmt.MapValue(parsed)
 		}
 	}
 	lowerTool := strings.ToLower(toolName)
@@ -209,13 +210,13 @@ func (c *executionComponent) expertReportDetailRefs(turnID string, node executio
 			}
 		}
 	}
-	text := strings.TrimSpace(stripSemanticControlContracts(firstNonEmpty(node.Text, node.Summary)))
+	text := strings.TrimSpace(stripSemanticControlContracts(valuefmt.FirstNonEmpty(node.Text, node.Summary)))
 	if text != "" {
 		if preview, hidden := collapseForPreview(text, c.app.Theme.CollapseThreshold); hidden > 0 || strings.Contains(preview, "Ctrl+E") {
 			refs = append(refs, bulkyPartRef{
 				messageID: "execution:" + turnID,
 				partID:    executionNodeDetailID(node, "report"),
-				title:     firstNonEmpty(node.Agent, "expert") + " report",
+				title:     valuefmt.FirstNonEmpty(node.Agent, "expert") + " report",
 				fullText:  text,
 			})
 		}
@@ -297,7 +298,7 @@ func (c *executionComponent) shellDiffRef(turnID string, node executionTimelineN
 }
 
 func executionJSONOutputRef(turnID string, node executionTimelineNode, title string, value any) (bulkyPartRef, bool) {
-	text := strings.TrimSpace(stringValue(value))
+	text := strings.TrimSpace(valuefmt.StringValue(value))
 	if parsed, ok := parseLooseJSON(value); ok {
 		if payload, err := json.MarshalIndent(parsed, "", "  "); err == nil {
 			text = string(payload)
@@ -312,7 +313,7 @@ func executionJSONOutputRef(turnID string, node executionTimelineNode, title str
 	return bulkyPartRef{
 		messageID: "execution:" + turnID,
 		partID:    executionNodeDetailID(node, "output"),
-		title:     title + " · " + firstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
+		title:     title + " · " + valuefmt.FirstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
 		fullText:  text,
 	}, true
 }

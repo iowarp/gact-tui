@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeStructuredEvidenceResult(result map[string]any) string {
@@ -31,7 +32,7 @@ func summarizeStructuredEvidenceResult(result map[string]any) string {
 		rows = append(rows, "summary: "+textutil.Truncate(strings.Join(strings.Fields(summary), " "), 220))
 	}
 	if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path", "filepath"); artifact != "" {
-		rows = append(rows, "artifact: "+shortenPathForInline(artifact))
+		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 	}
 	if len(rows) == 0 {
 		return ""
@@ -42,7 +43,7 @@ func summarizeStructuredEvidenceResult(result map[string]any) string {
 
 func summarizeCoordinateScope(result map[string]any) string {
 	center := summarizeCoordinatePair(result)
-	radius, hasRadius := firstNumericValue(result, "radius_km", "radius", "search_radius_km")
+	radius, hasRadius := valuefmt.FirstNumericValue(result, "radius_km", "radius", "search_radius_km")
 	if center == "" && !hasRadius {
 		return ""
 	}
@@ -56,15 +57,15 @@ func summarizeCoordinateScope(result map[string]any) string {
 }
 
 func summarizeCoordinatePair(result map[string]any) string {
-	if center := mapValue(result["center"]); len(center) > 0 {
-		lat, hasLat := firstNumericValue(center, "lat", "latitude", "center_lat")
-		lon, hasLon := firstNumericValue(center, "lon", "lng", "longitude", "center_lon")
+	if center := valuefmt.MapValue(result["center"]); len(center) > 0 {
+		lat, hasLat := valuefmt.FirstNumericValue(center, "lat", "latitude", "center_lat")
+		lon, hasLon := valuefmt.FirstNumericValue(center, "lon", "lng", "longitude", "center_lon")
 		if hasLat && hasLon {
 			return formatCompactFloat(lat) + ", " + formatCompactFloat(lon)
 		}
 	}
-	lat, hasLat := firstNumericValue(result, "center_lat", "lat", "latitude")
-	lon, hasLon := firstNumericValue(result, "center_lon", "lon", "lng", "longitude")
+	lat, hasLat := valuefmt.FirstNumericValue(result, "center_lat", "lat", "latitude")
+	lon, hasLon := valuefmt.FirstNumericValue(result, "center_lon", "lon", "lng", "longitude")
 	if hasLat && hasLon {
 		return formatCompactFloat(lat) + ", " + formatCompactFloat(lon)
 	}
@@ -83,7 +84,7 @@ func summarizeEvidenceCounts(result map[string]any) string {
 		{"rows", []string{"rows", "row_count"}},
 		{"skipped", []string{"skipped_invalid", "skipped_count"}},
 	} {
-		if value, ok := firstNumericValue(result, pair.keys...); ok {
+		if value, ok := valuefmt.FirstNumericValue(result, pair.keys...); ok {
 			bits = append(bits, pair.label+": "+formatCompactFloat(value))
 		}
 	}

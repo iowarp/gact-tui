@@ -11,6 +11,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type promptSavedMsg struct {
@@ -53,18 +54,18 @@ func loadPromptDetailCmd(c *client.Client, promptID string, scope client.Runtime
 		}
 		items := []catalogItem{{
 			id:         "prompt/" + def.ID,
-			title:      "Definition · " + stripPromptRowPrefix(firstNonEmpty(def.Title, def.ID)),
+			title:      "Definition · " + stripPromptRowPrefix(valuefmt.FirstNonEmpty(def.Title, def.ID)),
 			desc:       promptDefinitionDescription(def),
 			inlineDesc: promptDefinitionInlineSummary(def),
-			statusTag:  firstNonEmpty(def.Scope, "prompt"),
+			statusTag:  valuefmt.FirstNonEmpty(def.Scope, "prompt"),
 		}}
-		defaultProfile := firstNonEmpty(def.DefaultProfile, "default")
+		defaultProfile := valuefmt.FirstNonEmpty(def.DefaultProfile, "default")
 		profiles := sortedPromptProfiles(def.Profiles)
 		for _, profile := range profiles {
 			p := def.Profiles[profile]
-			status := firstNonEmpty(p.Scope, def.Scope)
+			status := valuefmt.FirstNonEmpty(p.Scope, def.Scope)
 			if profile == def.DefaultProfile {
-				status = firstNonEmpty(status, "builtin") + " default"
+				status = valuefmt.FirstNonEmpty(status, "builtin") + " default"
 			}
 			items = append(items, catalogItem{
 				id:        "profile/" + profile,
@@ -170,7 +171,7 @@ func (c *catalogComponent) promptDefaultProfile() string {
 	if c.current == nil {
 		return "default"
 	}
-	return firstNonEmpty(c.current.promptProfile, "default")
+	return valuefmt.FirstNonEmpty(c.current.promptProfile, "default")
 }
 
 func (c *catalogComponent) renderPromptDefaultProfile() tea.Cmd {

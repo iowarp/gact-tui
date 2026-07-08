@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func formatPermissionsInspector(perms []client.PermissionWire, policies []gact.Policy, sessionID string) string {
@@ -19,7 +20,7 @@ func formatPermissionsInspector(perms []client.PermissionWire, policies []gact.P
 	pendingRows := make([]client.PermissionWire, 0, len(perms))
 	pending, allowed, denied, destructive, openWorld := 0, 0, 0, 0, 0
 	for _, p := range perms {
-		switch strings.ToLower(firstNonEmpty(p.Status, string(p.Action))) {
+		switch strings.ToLower(valuefmt.FirstNonEmpty(p.Status, string(p.Action))) {
 		case "pending":
 			pending++
 			pendingRows = append(pendingRows, p)
@@ -71,7 +72,7 @@ func formatPermissionsInspector(perms []client.PermissionWire, policies []gact.P
 		rows = append(rows, detailFieldRows("policy conflict", conflict)...)
 	}
 	for i, p := range policies {
-		label := fmt.Sprintf("%d. %s requests · %s", i+1, firstNonEmpty(p.Scope, "policy"), permissionPolicyActionLabel(p.Action))
+		label := fmt.Sprintf("%d. %s requests · %s", i+1, valuefmt.FirstNonEmpty(p.Scope, "policy"), permissionPolicyActionLabel(p.Action))
 		body := []string{}
 		if p.ToolNamePattern != "" {
 			body = append(body, "tool: "+p.ToolNamePattern)
@@ -116,7 +117,7 @@ func appendPermissionOperatorDecision(rows []string, pendingRows []client.Permis
 }
 
 func permissionDecisionHeadline(p client.PermissionWire) string {
-	tool := firstNonEmpty(p.ToolCall.ToolName, "requested tool")
+	tool := valuefmt.FirstNonEmpty(p.ToolCall.ToolName, "requested tool")
 	risk := permissionSafetyHints(p.ToolCall.Annotations)
 	if risk == "none supplied" {
 		return tool + " needs approval before running"
@@ -146,8 +147,8 @@ func pluralSuffix(n int) string {
 }
 
 func permissionDecisionLabel(index int, p client.PermissionWire) string {
-	status := firstNonEmpty(p.Status, string(p.Action), "pending")
-	tool := firstNonEmpty(p.ToolCall.ToolName, "unknown tool")
+	status := valuefmt.FirstNonEmpty(p.Status, string(p.Action), "pending")
+	tool := valuefmt.FirstNonEmpty(p.ToolCall.ToolName, "unknown tool")
 	risk := permissionSafetyHints(p.ToolCall.Annotations)
 	if risk == "none supplied" {
 		return fmt.Sprintf("%d. %s · %s", index+1, tool, status)
@@ -194,7 +195,7 @@ func permissionTraceSummary(p client.PermissionWire, scopeSessionID string) stri
 }
 
 func permissionToolCallSummary(call gact.PermissionToolCall) string {
-	tool := firstNonEmpty(call.ToolName, "tool")
+	tool := valuefmt.FirstNonEmpty(call.ToolName, "tool")
 	summary := toolCallSummary(gact.Part{
 		Type:     gact.PartTypeToolCall,
 		ToolName: tool,

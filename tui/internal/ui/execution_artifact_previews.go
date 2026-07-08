@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionStagedResourcePreview(obj map[string]any, threshold int) string {
@@ -59,7 +60,7 @@ func executionPlotObservationPreview(obj map[string]any) string {
 	if path == "" {
 		return ""
 	}
-	rows := []string{shortenPathForInline(path)}
+	rows := []string{valuefmt.ShortenPathForInline(path)}
 	if plotType := executionFirstScalarValue(obj, "plot_type", "chart_type"); plotType != "" {
 		rows = append(rows, "chart "+plotType)
 	}
@@ -79,7 +80,7 @@ func executionPlotObservationPreview(obj map[string]any) string {
 func executionPathWithSize(path, size string) string {
 	line := filepath.Base(path)
 	if strings.TrimSpace(line) == "" {
-		line = shortenPathForInline(path)
+		line = valuefmt.ShortenPathForInline(path)
 	}
 	if size != "" {
 		line += " · " + size + " bytes"
@@ -192,7 +193,7 @@ func executionFirstNonEmptyLines(path string, limit int) []string {
 }
 
 func executionArtifactPreview(raw any) string {
-	obj := mapValue(raw)
+	obj := valuefmt.MapValue(raw)
 	if len(obj) == 0 {
 		return ""
 	}
@@ -201,7 +202,7 @@ func executionArtifactPreview(raw any) string {
 		return ""
 	}
 	var rows []string
-	rows = append(rows, shortenPathForInline(path))
+	rows = append(rows, valuefmt.ShortenPathForInline(path))
 	if size := firstStringValue(obj, "size_bytes", "bytes"); size != "" {
 		rows[0] += " · " + size + " bytes"
 	}

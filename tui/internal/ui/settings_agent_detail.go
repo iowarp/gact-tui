@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *agentComponent) agentDetailLines(ag gact.AgentDef, width int) []string {
@@ -174,7 +175,7 @@ func bulletLines(items []string) []string {
 func agentCapabilityRefLines(refs []gact.AgentCapabilityRef) []string {
 	out := make([]string, 0, len(refs))
 	for _, ref := range refs {
-		label := firstNonEmpty(ref.Title, ref.ID)
+		label := valuefmt.FirstNonEmpty(ref.Title, ref.ID)
 		if label == "" {
 			continue
 		}

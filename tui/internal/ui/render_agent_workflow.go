@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // agentColor picks a palette slot based on a tier-2
@@ -101,14 +102,14 @@ func (t Theme) renderSemanticReactThought(p gact.Part, width int) string {
 	if thought == "" {
 		return ""
 	}
-	agent := firstNonEmpty(stringValue(p.Metadata["agent_id"]), "expert")
+	agent := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["agent_id"]), "expert")
 	thought = strings.TrimSpace(stripExecutionControlSections(thought))
 	if thought == "" || semanticPreviewIsRedacted(thought) {
 		return ""
 	}
 	prefix := strings.Repeat("  ", clampWorkflowDepth(semanticReactStepDepth(agent, p.Metadata)+1))
 	body := executionDisplayProse(thought)
-	if reasoning := strings.TrimSpace(stringValue(p.Metadata["reasoning"])); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
+	if reasoning := strings.TrimSpace(valuefmt.StringValue(p.Metadata["reasoning"])); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
 		body += lipgloss.NewStyle().Foreground(t.FgFaint).Render(" · Ctrl+E reasoning trace")
 	}
 	return executionWrapForPrefix(body, width, prefix)
@@ -116,7 +117,7 @@ func (t Theme) renderSemanticReactThought(p gact.Part, width int) string {
 
 func expertHandoffDepth(parent, agent string, metadata map[string]any) int {
 	if metadata != nil {
-		if depth, ok := firstNumericValue(metadata, "depth", "tier"); ok {
+		if depth, ok := valuefmt.FirstNumericValue(metadata, "depth", "tier"); ok {
 			return clampWorkflowDepth(int(depth))
 		}
 	}
@@ -133,7 +134,7 @@ func expertHandoffDepth(parent, agent string, metadata map[string]any) int {
 
 func semanticReactStepDepth(agent string, metadata map[string]any) int {
 	if metadata != nil {
-		if depth, ok := firstNumericValue(metadata, "depth", "tier"); ok {
+		if depth, ok := valuefmt.FirstNumericValue(metadata, "depth", "tier"); ok {
 			return clampWorkflowDepth(int(depth))
 		}
 	}
@@ -150,14 +151,14 @@ func semanticReactStepDepth(agent string, metadata map[string]any) int {
 }
 
 func toolPartWorkflowPrefix(p gact.Part) string {
-	agent := firstNonEmpty(
-		stringValue(p.Metadata["agent_id"]),
-		stringValue(p.Metadata["expert"]),
-		stringValue(p.Metadata["tool_owner_agent"]),
+	agent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["agent_id"]),
+		valuefmt.StringValue(p.Metadata["expert"]),
+		valuefmt.StringValue(p.Metadata["tool_owner_agent"]),
 	)
-	parent := firstNonEmpty(
-		stringValue(p.Metadata["parent_id"]),
-		stringValue(p.Metadata["parent"]),
+	parent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["parent_id"]),
+		valuefmt.StringValue(p.Metadata["parent"]),
 	)
 	if agent == "" && parent == "" {
 		return ""

@@ -13,9 +13,9 @@ import (
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
-
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // renderConversation renders the whole conversation body from the parts-only
@@ -46,7 +46,7 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, []c
 	anchored := map[string]bool{}
 	for _, m := range messages {
 		if m.Role == gact.RoleUser {
-			anchored[firstNonEmpty(messageTurnID(m), m.ID)] = true
+			anchored[valuefmt.FirstNonEmpty(messageTurnID(m), m.ID)] = true
 		}
 	}
 
@@ -139,7 +139,7 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, []c
 
 		switch m.Role {
 		case gact.RoleUser:
-			turnID := firstNonEmpty(messageTurnID(m), m.ID)
+			turnID := valuefmt.FirstNonEmpty(messageTurnID(m), m.ID)
 			lastUserTurnID = turnID
 			emittedTurn[turnID] = true
 			nodes := c.turnNodesWithSupplements(turnByID[turnID], supplementsByTurn[turnID])
@@ -153,7 +153,7 @@ func (c *executionComponent) renderConversation(t Theme, width int) (string, []c
 			// Assistant content renders inside its turn's timeline. Only a turn
 			// no user message anchors (assistant-first transcripts, batch
 			// imports) emits its timeline standalone at this position.
-			tid := firstNonEmpty(messageTurnID(m), lastUserTurnID, m.ID)
+			tid := valuefmt.FirstNonEmpty(messageTurnID(m), lastUserTurnID, m.ID)
 			if anchored[tid] || emittedTurn[tid] {
 				continue
 			}
@@ -400,9 +400,9 @@ func (w *execTimelineWriter) classify(node executionTimelineNode) (depth int, ow
 		if d < 0 {
 			d = 0
 		}
-		return d, firstNonEmpty(strings.TrimSpace(node.ParentAgent), "main"), true
+		return d, valuefmt.FirstNonEmpty(strings.TrimSpace(node.ParentAgent), "main"), true
 	default:
-		return node.Depth, firstNonEmpty(strings.TrimSpace(node.Agent), "main"), false
+		return node.Depth, valuefmt.FirstNonEmpty(strings.TrimSpace(node.Agent), "main"), false
 	}
 }
 
@@ -421,7 +421,7 @@ func (w *execTimelineWriter) add(node executionTimelineNode) {
 		startRow, startLine := len(w.rows), w.lines
 		w.emitDelegation(node, depth)
 		w.recordNodeSpan(node, startRow, startLine)
-		child := firstNonEmpty(strings.TrimSpace(node.Agent), "expert")
+		child := valuefmt.FirstNonEmpty(strings.TrimSpace(node.Agent), "expert")
 		childDepth := depth + 1
 		// Open the child block immediately so even an empty child (its prose
 		// missing upstream — see the dev-team gap note) still renders its
@@ -473,7 +473,7 @@ func (w *execTimelineWriter) recordNodeSpan(node executionTimelineNode, startRow
 }
 
 func (w *execTimelineWriter) emitHeader(depth int, agent string) {
-	agent = firstNonEmpty(strings.TrimSpace(agent), "main")
+	agent = valuefmt.FirstNonEmpty(strings.TrimSpace(agent), "main")
 	w.blank()
 	bar := lipgloss.NewStyle().Foreground(agentColor(w.t, agent)).Bold(true).Render("▎")
 	w.push(execHeaderIndent(depth) + bar + renderAgentName(w.t, agent))
@@ -482,7 +482,7 @@ func (w *execTimelineWriter) emitHeader(depth int, agent string) {
 
 func (w *execTimelineWriter) closeTo(depth int) {
 	for lvl := w.curDepth; lvl > depth; lvl-- {
-		parent := firstNonEmpty(w.levelAgent[lvl-1], "main")
+		parent := valuefmt.FirstNonEmpty(w.levelAgent[lvl-1], "main")
 		marker := lipgloss.NewStyle().Foreground(w.t.FgMuted).Render("⤶ returns to ")
 		w.push(execHeaderIndent(lvl) + marker + renderAgentName(w.t, parent))
 		delete(w.levelAgent, lvl)
@@ -499,7 +499,7 @@ func (w *execTimelineWriter) closeTo(depth int) {
 }
 
 func (w *execTimelineWriter) emitDelegation(node executionTimelineNode, depth int) {
-	child := firstNonEmpty(strings.TrimSpace(node.Agent), "expert")
+	child := valuefmt.FirstNonEmpty(strings.TrimSpace(node.Agent), "expert")
 	arrow := lipgloss.NewStyle().Foreground(w.t.FgMuted).Render("→ delegates to ")
 	w.push(execTurnIndent(depth) + w.turnMarker() + "  " + arrow + renderAgentName(w.t, child))
 	question := strings.TrimSpace(node.Question)
@@ -520,7 +520,7 @@ func (w *execTimelineWriter) emitTurns(node executionTimelineNode, depth int) {
 	case executionNodeExpertReport:
 		report := executionExpertReportPreview(node)
 		if report == "" {
-			report = executionDisplayProse(firstNonEmpty(node.Text, node.Summary))
+			report = executionDisplayProse(valuefmt.FirstNonEmpty(node.Text, node.Summary))
 		}
 		if report != "" {
 			w.emitTurnText(depth, report)

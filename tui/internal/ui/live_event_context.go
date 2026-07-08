@@ -8,6 +8,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func sameSessionOrUnknown(a, b string) bool {
@@ -73,7 +74,7 @@ func (c *conversationComponent) replaySessionID(sessionID string) string {
 
 func (c *conversationComponent) eventSessionID(e client.SSEEvent) string {
 	pl := eventPayload(e)
-	if sid := strings.TrimSpace(stringValue(pl["session_id"])); sid != "" {
+	if sid := strings.TrimSpace(valuefmt.StringValue(pl["session_id"])); sid != "" {
 		return sid
 	}
 	return c.app.session.currentID()
@@ -89,7 +90,7 @@ func sessionStatusIsTerminal(status string) bool {
 }
 
 func sseOccurredAt(e client.SSEEvent) (time.Time, bool) {
-	raw := strings.TrimSpace(stringValue(e.Payload["occurred_at"]))
+	raw := strings.TrimSpace(valuefmt.StringValue(e.Payload["occurred_at"]))
 	if raw == "" {
 		return time.Time{}, false
 	}
