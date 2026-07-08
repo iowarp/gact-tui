@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_features.go summarizes GeoJSON FeatureCollection tool results.
 
@@ -27,7 +27,7 @@ func summarizeFeatureCollectionRows(result map[string]any) []string {
 		return nil
 	}
 	var rows []string
-	if source := firstStringValue(result, "source", "layer", "dataset", "service", "name", "title"); source != "" {
+	if source := FirstStringValue(result, "source", "layer", "dataset", "service", "name", "title"); source != "" {
 		rows = append(rows, "source: "+source)
 	}
 	count := len(items)
@@ -44,7 +44,7 @@ func summarizeFeatureCollectionRows(result map[string]any) []string {
 			rows = append(rows, "sample: "+line)
 		}
 		if i == 0 {
-			if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path"); artifact != "" {
+			if artifact := FirstStringValue(result, "output_path", "artifact_path", "artifact", "path", "file", "file_path"); artifact != "" {
 				rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 			}
 		}
@@ -90,8 +90,8 @@ func summarizeFeatureRecord(raw any) string {
 	}
 	fields := featureRecordFields(record)
 	title := valuefmt.FirstNonEmpty(
-		firstStringValue(fields, "IncidentName", "incident_name", "name", "Name", "title", "Title", "headline", "Headline", "event", "Event", "areaDesc", "AreaDesc"),
-		firstStringValue(fields, "id", "ID", "OBJECTID", "objectid"),
+		FirstStringValue(fields, "IncidentName", "incident_name", "name", "Name", "title", "Title", "headline", "Headline", "event", "Event", "areaDesc", "AreaDesc"),
+		FirstStringValue(fields, "id", "ID", "OBJECTID", "objectid"),
 		"(unnamed)",
 	)
 	var bits []string
@@ -148,7 +148,7 @@ func firstScalarValue(result map[string]any, keys ...string) string {
 			return text
 		}
 		if number, ok := valuefmt.FloatValue(value); ok {
-			return formatCompactFloat(number)
+			return FormatCompactFloat(number)
 		}
 	}
 	return ""

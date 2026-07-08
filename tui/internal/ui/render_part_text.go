@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 )
 
 func (t Theme) renderAssistantTextPart(p gact.Part, width int) string {
@@ -23,7 +24,7 @@ func (t Theme) renderAssistantTextPart(p gact.Part, width int) string {
 
 func (t Theme) renderTextPart(p gact.Part, wrapW int) string {
 	text := p.Text
-	if summary := summarizeEmbeddedWorkflowStateText(text); summary != "" && embeddedWorkflowStateDominates(text) {
+	if summary := presentation.SummarizeEmbeddedWorkflowStateText(text); summary != "" && embeddedWorkflowStateDominates(text) {
 		text = summary
 	}
 	return withStreamProvenanceNote(t, p, renderMarkdownOrWrap(text, t, wrapW))

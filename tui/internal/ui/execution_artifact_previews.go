@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
@@ -67,7 +68,7 @@ func executionPlotObservationPreview(obj map[string]any) string {
 	if x := executionFirstScalarValue(obj, "x_column"); x != "" {
 		rows = append(rows, "x "+x)
 	}
-	if y := summarizeNamedItems(obj, "y_columns", "y_column"); y != "" {
+	if y := presentation.SummarizeNamedItems(obj, "y_columns", "y_column"); y != "" {
 		rows = append(rows, "y "+y)
 	}
 	if n := executionFirstScalarValue(obj, "data_points"); n != "" {
@@ -197,13 +198,13 @@ func executionArtifactPreview(raw any) string {
 	if len(obj) == 0 {
 		return ""
 	}
-	path := firstStringValue(obj, "local_path", "path", "output_path", "artifact_path")
+	path := presentation.FirstStringValue(obj, "local_path", "path", "output_path", "artifact_path")
 	if path == "" {
 		return ""
 	}
 	var rows []string
 	rows = append(rows, valuefmt.ShortenPathForInline(path))
-	if size := firstStringValue(obj, "size_bytes", "bytes"); size != "" {
+	if size := presentation.FirstStringValue(obj, "size_bytes", "bytes"); size != "" {
 		rows[0] += " · " + size + " bytes"
 	}
 	return strings.Join(rows, "\n")

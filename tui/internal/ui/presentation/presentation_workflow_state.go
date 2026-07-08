@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_workflow_state.go summarizes workflow-state maps into compact display lines.
 
@@ -12,12 +12,12 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
-func workflowStateSummary(state map[string]any) string {
+func WorkflowStateSummary(state map[string]any) string {
 	return strings.Join(workflowStateSummaryLines(state), " · ")
 }
 
 func workflowStateSummaryLines(state map[string]any) []string {
-	keys := sortedWorkflowStateKeys(state)
+	keys := SortedWorkflowStateKeys(state)
 	parts := make([]string, 0, valuefmt.MinInt(4, len(keys)))
 	for _, key := range keys {
 		text := workflowStateValueSummary(key, state[key])
@@ -32,11 +32,11 @@ func workflowStateSummaryLines(state map[string]any) []string {
 	return parts
 }
 
-func workflowStateBlockSummary(state map[string]any) string {
-	return workflowStateBlockFromSummary(workflowStateSummary(state))
+func WorkflowStateBlockSummary(state map[string]any) string {
+	return WorkflowStateBlockFromSummary(WorkflowStateSummary(state))
 }
 
-func workflowStateBlockFromSummary(summary string) string {
+func WorkflowStateBlockFromSummary(summary string) string {
 	parts := splitWorkflowStateSummaryParts(summary)
 	if len(parts) == 0 {
 		return ""
@@ -216,7 +216,7 @@ func workflowStateLeafText(value any) string {
 	}
 }
 
-func sortedWorkflowStateKeys(values map[string]any) []string {
+func SortedWorkflowStateKeys(values map[string]any) []string {
 	keys := make([]string, 0, len(values))
 	for key := range values {
 		keys = append(keys, key)

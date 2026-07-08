@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_tool_kinds.go summarizes table/container/shell/visualization tool-result kinds.
 
@@ -12,14 +12,14 @@ import (
 
 func summarizeTableLikeResult(label string, result map[string]any) string {
 	rows := summarizeStatusRows(result)
-	if path := firstStringValue(result, "path", "file", "file_path", "dataset_path"); path != "" {
+	if path := FirstStringValue(result, "path", "file", "file_path", "dataset_path"); path != "" {
 		rows = append(rows, "file: "+path)
 	}
-	if table := firstStringValue(result, "table", "dataset", "name"); table != "" {
+	if table := FirstStringValue(result, "table", "dataset", "name"); table != "" {
 		rows = append(rows, "dataset: "+table)
 	}
-	dtype := firstStringValue(result, "dtype", "type", "data_type")
-	if column := firstStringValue(result, "column", "column_name", "field", "variable"); column != "" {
+	dtype := FirstStringValue(result, "dtype", "type", "data_type")
+	if column := FirstStringValue(result, "column", "column_name", "field", "variable"); column != "" {
 		line := "column: " + column
 		if dtype != "" {
 			line += " · type: " + dtype
@@ -32,7 +32,7 @@ func summarizeTableLikeResult(label string, result map[string]any) string {
 	if stats != "" {
 		rows = append(rows, stats)
 	}
-	if dtype != "" && firstStringValue(result, "column", "column_name", "field", "variable") == "" {
+	if dtype != "" && FirstStringValue(result, "column", "column_name", "field", "variable") == "" {
 		rows = append(rows, "type: "+dtype)
 	}
 	if cols := summarizeColumnNames(result); cols != "" {
@@ -47,22 +47,22 @@ func summarizeTableLikeResult(label string, result map[string]any) string {
 
 func summarizeContainerResult(label string, result map[string]any) string {
 	rows := summarizeStatusRows(result)
-	if path := firstStringValue(result, "path", "file", "file_path"); path != "" {
+	if path := FirstStringValue(result, "path", "file", "file_path"); path != "" {
 		rows = append(rows, "file: "+path)
 	}
-	if datasets := summarizeNamedItems(result, "datasets", "dataset_paths", "groups"); datasets != "" {
+	if datasets := SummarizeNamedItems(result, "datasets", "dataset_paths", "groups"); datasets != "" {
 		rows = append(rows, "datasets: "+datasets)
 	}
-	if variables := summarizeNamedItems(result, "variables", "variable_names"); variables != "" {
+	if variables := SummarizeNamedItems(result, "variables", "variable_names"); variables != "" {
 		rows = append(rows, "variables: "+variables)
 	}
-	if attrs := summarizeNamedItems(result, "attributes", "attrs"); attrs != "" {
+	if attrs := SummarizeNamedItems(result, "attributes", "attrs"); attrs != "" {
 		rows = append(rows, "attributes: "+attrs)
 	}
-	if shape := summarizeNamedItems(result, "shape", "dims", "dimensions"); shape != "" {
+	if shape := SummarizeNamedItems(result, "shape", "dims", "dimensions"); shape != "" {
 		rows = append(rows, "shape: "+shape)
 	}
-	if dtype := firstStringValue(result, "dtype", "type", "data_type"); dtype != "" {
+	if dtype := FirstStringValue(result, "dtype", "type", "data_type"); dtype != "" {
 		rows = append(rows, "type: "+dtype)
 	}
 	if len(rows) == 0 {
@@ -90,19 +90,19 @@ func summarizeShellResult(result map[string]any) string {
 
 func summarizeVisualizationResult(result map[string]any) string {
 	rows := summarizeStatusRows(result)
-	if path := firstStringValue(result, "output_path", "artifact_path", "artifact", "value", "path", "file", "file_path"); path != "" {
+	if path := FirstStringValue(result, "output_path", "artifact_path", "artifact", "value", "path", "file", "file_path"); path != "" {
 		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(path))
 	}
-	if chart := firstStringValue(result, "chart_type", "plot_type", "type"); chart != "" {
+	if chart := FirstStringValue(result, "chart_type", "plot_type", "type"); chart != "" {
 		rows = append(rows, "chart: "+chart)
 	}
-	if x := firstStringValue(result, "x_column", "x", "x_axis"); x != "" {
+	if x := FirstStringValue(result, "x_column", "x", "x_axis"); x != "" {
 		rows = append(rows, "x: "+x)
 	}
-	if y := firstStringValue(result, "y_column", "y", "y_axis"); y != "" {
+	if y := FirstStringValue(result, "y_column", "y", "y_axis"); y != "" {
 		rows = append(rows, "y: "+y)
 	}
-	if summary := firstStringValue(result, "title", "summary", "description"); summary != "" {
+	if summary := FirstStringValue(result, "title", "summary", "description"); summary != "" {
 		rows = append(rows, "summary: "+textutil.Truncate(strings.Join(strings.Fields(summary), " "), 180))
 	}
 	if len(rows) == 0 {

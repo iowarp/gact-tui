@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
@@ -19,14 +20,14 @@ func normalizeMessageWorkflowState(m *gact.Message) {
 	if len(state) == 0 {
 		return
 	}
-	summary := workflowStateSummary(state)
+	summary := presentation.WorkflowStateSummary(state)
 	if summary == "" {
 		return
 	}
 	metadata := map[string]any{
 		"synthetic_from": "workflow_state_metadata",
 		"workflow_state": state,
-		"state_keys":     sortedWorkflowStateKeys(state),
+		"state_keys":     presentation.SortedWorkflowStateKeys(state),
 		"output_summary": summary,
 		"summary":        summary,
 	}

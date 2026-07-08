@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
@@ -25,7 +26,7 @@ func summarizeExpertHandoffOutput(output string) string {
 		output = stripped
 	}
 	compact := strings.TrimSpace(strings.Join(strings.Fields(output), " "))
-	if summary := summarizeEmbeddedWorkflowStateText(compact); summary != "" {
+	if summary := presentation.SummarizeEmbeddedWorkflowStateText(compact); summary != "" {
 		return summary
 	}
 	if summary := summarizeEmbeddedStructuredHandoffText(compact); summary != "" {
@@ -87,7 +88,7 @@ func summarizeExpertHandoffInput(input string) string {
 		"CLIO durable typed workflow state:",
 		"Retained typed workflow state:",
 	} {
-		if idx := indexFold(input, marker); idx > 0 {
+		if idx := presentation.IndexFold(input, marker); idx > 0 {
 			input = strings.TrimSpace(input[:idx])
 		}
 	}
@@ -171,11 +172,11 @@ func expertHandoffErrorSummary(raw any) string {
 	case nil:
 		return ""
 	case map[string]any:
-		if summary := summarizeErrorResult(errValue); summary != "" {
+		if summary := presentation.SummarizeErrorResult(errValue); summary != "" {
 			return summary
 		}
 		if nested, ok := errValue["error"].(map[string]any); ok {
-			return summarizeErrorResult(map[string]any{"error": nested})
+			return presentation.SummarizeErrorResult(map[string]any{"error": nested})
 		}
 		return valuefmt.CompactJSON(errValue)
 	case string:
@@ -185,7 +186,7 @@ func expertHandoffErrorSummary(raw any) string {
 		}
 		var payload map[string]any
 		if err := json.Unmarshal([]byte(text), &payload); err == nil {
-			if summary := summarizeErrorResult(payload); summary != "" {
+			if summary := presentation.SummarizeErrorResult(payload); summary != "" {
 				return summary
 			}
 		}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
@@ -96,11 +97,11 @@ func adapterSectionsToParts(source gact.Part, sections []adapterSection) []gact.
 				Metadata: adapterSectionMetadata(source, section.name),
 			})
 		case "workflow_state":
-			state, ok := parseWorkflowStateJSON(section.text)
+			state, ok := presentation.ParseWorkflowStateJSON(section.text)
 			if !ok || len(state) == 0 {
 				continue
 			}
-			summary := workflowStateSummary(state)
+			summary := presentation.WorkflowStateSummary(state)
 			if summary == "" {
 				continue
 			}
