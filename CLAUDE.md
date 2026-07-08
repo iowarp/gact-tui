@@ -32,7 +32,7 @@ Not in `go.work`:
 - `.claude/skills/` — reusable workflows (`tui-screenshot`, `tui-test`, `release`, ...)
 - `screenshots/` — curated VHS-produced captures (`screenshots/README.md` is the index).
   UI-touching work must add or refresh a screenshot here.
-- `docs/` — feature docs; `docs/archive/` holds historical work-logs (PLAN.md, STATUS.md, ...)
+- `docs/` — feature docs; `docs/archive/` holds superseded planning logs + design briefs
 - `research/` — read-only clones for reference. **Do not modify.**
 - `ref/` — small static design-reference images (target renderings, competitor
   diffs) used when reasoning about the TUI's look. Not a build input.

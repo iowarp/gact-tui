@@ -37,8 +37,8 @@ test.describe('OVERNIGHT GOAL — live-turn audit surfaces', () => {
   // event with `title` in `changed_fields` after a turn. The autorename
   // pill is wired to exactly that event, so it cannot fire end-to-end
   // here. Empirically confirmed: 3 turns across 3 fresh sessions, zero
-  // `session.updated` events (only `session.status_changed`). See
-  // STATUS.md "Honest verification matrix". This test pins the REAL
+  // `session.updated` events (only `session.status_changed`).
+  // This test pins the REAL
   // post-turn behavior — no pill — so a future clio that does autorename
   // will flip it red and tell us to re-enable the positive assertion.
   test('no autorename pill — clio derives title at creation (#110 #116)', async () => {

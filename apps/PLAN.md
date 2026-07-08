@@ -13,7 +13,7 @@ no bearer-token paste, no setup. The harness currently ships a connect screen
 as the default route. That is wrong product framing and must be corrected
 before any of the wire-up work below.
 
-**Architectural note (logged in STATUS.md):** the GACT-conformant server is
+**Architectural note:** the GACT-conformant server is
 `clio-agent-gact` from the `iowarp/clio-agent` **develop** branch — _not_ the
 default `clio-agent-api` shipped on PyPI today (which speaks a different
 contract). Bundling a Python interpreter + native deps into the Tauri
@@ -115,8 +115,8 @@ upstream's `clio` installer pattern.
 
 ## vNext — CLOSED by the 1.0 closure run (2026-06-02)
 
-Every item from the deferred W3 backlog landed with live proof (see
-`STATUS.md` → "1.0 CLOSURE" board): light theme + auto mode, inline
+Every item from the deferred W3 backlog landed with live proof
+(1.0 closure run, 2026-06-02): light theme + auto mode, inline
 file/image previews (backend = clio PR #533), retry-attempt edit history,
 retry-with-notes/model menu, inspector timeline, transcript virtualization
 (1000-msg proven), settings import/export, notification search, native
@@ -143,9 +143,8 @@ Remaining follow-ups discovered during that run (not 1.0 blockers):
 clio's semantic execution event spine (#534) + hooks + workspace-management
 provenance (#479/#480/#482) are fully supported: blocked-turn rendering,
 semantic timeline in the Inspector, hooks editor wire fix + runtime-hook
-status panel, capability typing, and binding provenance. See `STATUS.md` →
-"CLIO #534 SUPPORT BOARD" (7/7 gaps DONE with live proof) and
-`web/tests/visual/534-events.spec.ts`.
+status panel, capability typing, and binding provenance (7/7 gaps DONE with
+live proof; see `web/tests/visual/534-events.spec.ts`).
 
 ## Pending for v1.0
 

@@ -12,15 +12,15 @@ render. Read both before touching transcript code:
   output only, depth = indentation, name-once colored headers).
 - `apps/web/CANONICAL-CONVERSATION.md` — the **entire** approved EarthScope run
   rendered out, grounded in the real wire. This is the exact target.
-- `apps/CLIO-DEVTEAM-ISSUE-react-thought-ordering.md` — stream gaps to fix
-  backend-side (per-step thought + tool attribution not in the ordered parts),
-  NOT to paper over in the client.
+
+Known stream gaps (per-step thought + tool attribution not in the ordered parts)
+are fixed backend-side, **NOT** papered over in the client.
 
 ## ABSOLUTE RULES (anti-procrastination)
 
 1. **No deferring.** If a design question comes up, decide it per `apps/08-decisions.md`.
-   Document the choice in `apps/STATUS.md` "Current state" and move on. Do not write
-   "TBD" or "open question" anywhere except `apps/STATUS.md` "Open blockers".
+   Record the choice on the relevant GitHub issue and move on. Do not write
+   "TBD" or "open question" in the tree — track open blockers as GitHub issues.
 
 2. **No over-research.** Research is done — see `apps/research/`. The design system
    is in `apps/design/`. Decisions are in `apps/08-decisions.md`. Build now.
@@ -34,7 +34,7 @@ render. Read both before touching transcript code:
    `pnpm --filter @clio/web test:visual`. Don't describe the change — show it.
 
 5. **Tests must pass.** Never commit failing tests. Never `it.skip` to make a build
-   green. If a test won't pass, document the blocker in `apps/STATUS.md` and pick a
+   green. If a test won't pass, file the blocker as a GitHub issue and pick a
    different task.
 
 6. **Commit and push before stopping.** Every session ends with `git push`. Even
@@ -42,10 +42,10 @@ render. Read both before touching transcript code:
    `git status` shows anything modified at the end of a session, you have not
    stopped correctly.
 
-7. **No early-stopping.** "I finished a task" is not a reason to stop. Pick the next
-   item from `apps/PLAN.md` and keep working until you hit a real blocker (network
-   down, native toolchain broken, Tauri WebView2 missing). Even then, document it in
-   `apps/STATUS.md` and try the next-next task.
+7. **No early-stopping.** "I finished a task" is not a reason to stop. Move to the next
+   piece of open work and keep going until you hit a real blocker (network
+   down, native toolchain broken, Tauri WebView2 missing). Even then, file it as a
+   GitHub issue and try the next task.
 
 8. **No scope creep upward.** Do not modify `tui/`, `emulator/`, `adapters/`,
    `contract/`, or `apps/design/`. If a refactor "would be cleaner first" — note it
@@ -69,8 +69,7 @@ apps/
 ├── research/   READ-ONLY       — reference research
 ├── CLAUDE.md   (this file)
 ├── HARNESS.md  — visual loop, tests, CI, commit conventions, screenshot policy
-├── STATUS.md   — current state; update at session end
-├── PLAN.md     — ordered task queue; pick the top unfinished item
+├── PLAN.md     — task queue (durable status lives in GitHub issues)
 └── README.md   — folder rationale and doc read-order
 ```
 
@@ -122,8 +121,8 @@ expected; renaming or removing one is not.
 
 ## Personal note from the original harness session
 
-The user is asleep. They will be disappointed in the morning if `apps/STATUS.md`
-says "I planned more" or "I researched more". They will be happy if it says
+The user is asleep. They will be disappointed in the morning if the session ends
+with "I planned more" or "I researched more". They will be happy if it ends with
 "Wired SSE delta reduction, screenshots show streaming render, here are the
 open questions for human review."
 

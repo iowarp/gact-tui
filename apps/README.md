@@ -131,7 +131,6 @@ the artifacts + SHA256 sums to the matching GitHub Release.
 - [INSTALL.md](INSTALL.md) — per-OS install + unsigned trust prompts
 - [FIRST-RUN.md](FIRST-RUN.md) — sidecar lifecycle, port + token, state
 - [SECURITY.md](SECURITY.md) — bearer storage, CSP, allowlist, SSH keys
-- [STATUS.md](STATUS.md) — current build state
 - [PLAN.md](PLAN.md) — ordered queue of follow-up work
 - [HARNESS.md](HARNESS.md) — visual loop, CI shape, commit conventions
 - [CLAUDE.md](CLAUDE.md) — session rules for AI coders working here
