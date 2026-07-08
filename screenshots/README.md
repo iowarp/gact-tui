@@ -4,6 +4,14 @@ Every screenshot below is a real CLIO turn through the gact-tui binary
 against the live `clio-agent-gact` server (port 17800 in this repo's
 dev setup). No emulator stubs.
 
+> **Media policy.** The only things committed here are curated `.png`
+> baselines (each produced by a `.tape` in `tui/testdata/tapes/` — see the
+> Driver tape column) plus this index. New `.png`/`.gif` baselines are stored
+> via **Git LFS** (`.gitattributes` routes `screenshots/**/*.png` and
+> `screenshots/**/*.gif` through `filter=lfs`). Run outputs — raw captures,
+> session dumps, `.jsonl`/`.log`/`.html`/`.txt` — are CI artifacts, never
+> committed, and are `.gitignore`-d.
+
 | Screenshot | What it proves | Driver tape |
 |---|---|---|
 | `clio_doctor_health.png` | Doctor → Health tab — every integration (api / sessions / agent / arc / lm) shows ready with detail | `tui/testdata/tapes/screenshot_clio_doctor_full.tape` |
