@@ -15,7 +15,7 @@ state — before trusting it.
 - Before declaring a TUI task complete.
 
 ## Inputs required
-- `$APP_DIR`: absolute path to a Go module containing a Bubbletea main package (e.g. `/home/jcernuda/tui/loop-test`).
+- `$APP_DIR`: absolute path to a Go module containing a Bubbletea main package (e.g. `/home/jcernuda/tui/examples/loop-test`).
 - `$SCRIPT`: one-line description of what to do in the app (e.g. `press Tab then type "hello"`). For simplest case: just run and screenshot the initial screen.
 - `$WAIT_FOR` (optional): a string that should appear on screen before taking the screenshot. If omitted, use a fixed sleep.
 

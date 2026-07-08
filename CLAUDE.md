@@ -19,7 +19,7 @@ Go workspace — `go.work` has **eight modules**:
 - `adapters/opencode`, `adapters/crush`, `adapters/goose`, `adapters/claudecode` — Go adapters
   that translate other agent backends onto the GACT wire contract
 - `contract/conformance` — conformance test suite for the spec
-- `loop-test/` — minimal Bubbletea+VHS proof-of-concept, in the workspace so CI builds/tests it
+- `examples/loop-test/` — minimal Bubbletea+VHS proof-of-concept, in the workspace so CI builds/tests it
 
 Not in `go.work`:
 

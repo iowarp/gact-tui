@@ -42,11 +42,11 @@ COPY emulator/ ./emulator/
 COPY contract/ ./contract/
 COPY adapters/ ./adapters/
 
-# loop-test is a CI-only screenshot/loop harness, intentionally excluded from the
+# examples/loop-test is a CI-only screenshot/loop harness, intentionally excluded from the
 # build context via .dockerignore. It is a go.work member (adopted in #235/H3) but
 # the image never builds it, so drop it from the workspace here — otherwise
 # `go build` fails resolving a module whose sources aren't in the context.
-RUN go work edit -dropuse ./loop-test
+RUN go work edit -dropuse ./examples/loop-test
 
 # Static-ish build of just the TUI command. CGO off keeps the binary portable
 # across the slim runtime base.

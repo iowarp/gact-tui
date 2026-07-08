@@ -15,11 +15,11 @@ coverage.txt
 coverage.html
 
 # Loop-test artifacts (kept for reference but binaries/screenshots regenerated)
-loop-test/hello
-loop-test/hello.gif
-loop-test/screenshot.png
-loop-test/loop-test
-# Note: loop-test/testdata/ holds the committed teatest golden fixtures
+examples/loop-test/hello
+examples/loop-test/hello.gif
+examples/loop-test/screenshot.png
+examples/loop-test/loop-test
+# Note: examples/loop-test/testdata/ holds the committed teatest golden fixtures
 # (required for `go test` to pass in CI) — do NOT ignore it.
 
 # Claude Code session-only state
