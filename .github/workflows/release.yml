@@ -11,7 +11,28 @@ on:
       - "v*"
 
 jobs:
+  changelog-gate:
+    # A v* tag must have a matching heading in CHANGELOG.md before we
+    # cut a release. Keeps the changelog honest: no tag without an entry.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require a CHANGELOG entry for the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          # Accept "## [0.9.4]" or "## 0.9.4" (with optional trailing text).
+          if ! grep -qE "^## +\[?${version//./\\.}\]?( |$)" CHANGELOG.md; then
+            echo "No CHANGELOG.md heading for version ${version} (tag ${TAG})." >&2
+            echo "Add a '## [${version}]' section before tagging the release." >&2
+            exit 1
+          fi
+          echo "CHANGELOG.md has an entry for ${version}."
+
   build:
+    needs: changelog-gate
     runs-on: ubuntu-latest
     strategy:
       matrix:
