@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
@@ -45,7 +46,7 @@ func executionStructuredMapPreview(agent string, obj map[string]any) string {
 					rows = append(rows, "Ctrl+E full image")
 				}
 			}
-			if columns := summarizeNamedItems(artifact, "columns", "y_columns"); columns != "" {
+			if columns := presentation.SummarizeNamedItems(artifact, "columns", "y_columns"); columns != "" {
 				rows = append(rows, "columns "+columns)
 			}
 			if status := executionFirstScalarValue(artifact, "status"); status != "" && status != "completed" {

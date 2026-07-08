@@ -69,7 +69,7 @@ SIZE_BASELINE: dict[str, int] = {
 # locale/, testdata/ -- are excluded; they are the extraction precedent). This
 # number is a FREEZE: it may only ratchet DOWN as clusters are extracted.
 UI_PACKAGE_DIR = "tui/internal/ui"
-UI_PACKAGE_FREEZE = 623
+UI_PACKAGE_FREEZE = 614
 
 
 class SizeFailure(NamedTuple):

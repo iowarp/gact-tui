@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
@@ -63,7 +64,7 @@ func (t Theme) executionObservationPreview(toolName string, observation any) str
 	if preview := executionSpecificObservationPreview(toolName, observation, t.CollapseThreshold); preview != "" {
 		return preview
 	}
-	text := toolEvidenceResultText(toolName, observation)
+	text := presentation.ToolEvidenceResultText(toolName, observation)
 	if raw := strings.TrimSpace(valuefmt.StringValue(observation)); raw != "" {
 		if preview := executionSpecificTextObservationPreview(toolName, raw); preview != "" {
 			return preview
@@ -76,7 +77,7 @@ func (t Theme) executionObservationPreview(toolName string, observation any) str
 		if preview := executionSpecificObservationPreview(toolName, parsed, t.CollapseThreshold); preview != "" {
 			return preview
 		}
-		if summary := toolEvidenceResultText(toolName, parsed); summary != "" {
+		if summary := presentation.ToolEvidenceResultText(toolName, parsed); summary != "" {
 			text = summary
 		}
 		if artifact := executionArtifactPreview(parsed); artifact != "" && (summaryLooksLikeRawJSON(text) || text == "") {
@@ -110,16 +111,16 @@ func executionFirstScalarValue(result map[string]any, keys ...string) string {
 				return text
 			}
 		case float64:
-			return formatCompactFloat(typed)
+			return presentation.FormatCompactFloat(typed)
 		case float32:
-			return formatCompactFloat(float64(typed))
+			return presentation.FormatCompactFloat(float64(typed))
 		case int:
 			return fmt.Sprintf("%d", typed)
 		case int64:
 			return fmt.Sprintf("%d", typed)
 		case json.Number:
 			if f, err := typed.Float64(); err == nil {
-				return formatCompactFloat(f)
+				return presentation.FormatCompactFloat(f)
 			}
 			if text := strings.TrimSpace(typed.String()); text != "" {
 				return text

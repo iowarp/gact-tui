@@ -1,4 +1,4 @@
-package ui
+package presentation
 
 // presentation_sac.go detects and summarizes SAC tool results.
 
@@ -8,11 +8,11 @@ import (
 )
 
 func looksLikeSACResult(result map[string]any) bool {
-	if firstStringValue(result, "archive_path", "sac_path", "sac_file", "kstnm", "kcmpnm") != "" {
+	if FirstStringValue(result, "archive_path", "sac_path", "sac_file", "kstnm", "kcmpnm") != "" {
 		return true
 	}
-	if firstStringValue(result, "network", "network_code", "station", "channel") != "" &&
-		firstStringValue(result, "start_time", "event_time", "origin_time") != "" {
+	if FirstStringValue(result, "network", "network_code", "station", "channel") != "" &&
+		FirstStringValue(result, "start_time", "event_time", "origin_time") != "" {
 		return true
 	}
 	for _, key := range []string{"trace_count", "sac_trace_count", "traces_analyzed", "traces_plotted"} {
@@ -25,7 +25,7 @@ func looksLikeSACResult(result map[string]any) bool {
 
 func summarizeSACResult(result map[string]any) string {
 	rows := summarizeStatusRows(result)
-	if artifact := firstStringValue(result, "output_path", "artifact_path", "artifact", "value"); artifact != "" {
+	if artifact := FirstStringValue(result, "output_path", "artifact_path", "artifact", "value"); artifact != "" {
 		rows = append(rows, "artifact: "+valuefmt.ShortenPathForInline(artifact))
 	}
 	if stats := summarizeNumericFields(result, []string{
@@ -33,31 +33,31 @@ func summarizeSACResult(result map[string]any) string {
 	}); stats != "" {
 		rows = append(rows, stats)
 	}
-	if path := firstStringValue(result, "path", "file", "file_path", "filepath", "archive_path", "sac_path", "sac_file"); path != "" {
+	if path := FirstStringValue(result, "path", "file", "file_path", "filepath", "archive_path", "sac_path", "sac_file"); path != "" {
 		rows = append(rows, "file: "+valuefmt.ShortenPathForInline(path))
 	}
-	if network := firstStringValue(result, "network", "network_code"); network != "" {
+	if network := FirstStringValue(result, "network", "network_code"); network != "" {
 		rows = append(rows, "network: "+network)
 	}
-	if station := firstStringValue(result, "station", "kstnm"); station != "" {
+	if station := FirstStringValue(result, "station", "kstnm"); station != "" {
 		rows = append(rows, "station: "+station)
 	}
-	if channel := firstStringValue(result, "channel", "kcmpnm", "component"); channel != "" {
+	if channel := FirstStringValue(result, "channel", "kcmpnm", "component"); channel != "" {
 		rows = append(rows, "channel: "+channel)
 	}
-	if location := firstStringValue(result, "location", "location_code"); location != "" {
+	if location := FirstStringValue(result, "location", "location_code"); location != "" {
 		rows = append(rows, "location: "+location)
 	}
-	if start := firstStringValue(result, "start_time", "start", "time_start"); start != "" {
+	if start := FirstStringValue(result, "start_time", "start", "time_start"); start != "" {
 		rows = append(rows, "start: "+start)
 	}
-	if end := firstStringValue(result, "end_time", "end", "time_end"); end != "" {
+	if end := FirstStringValue(result, "end_time", "end", "time_end"); end != "" {
 		rows = append(rows, "end: "+end)
 	}
-	if eventTime := firstStringValue(result, "event_time", "origin_time", "time"); eventTime != "" {
+	if eventTime := FirstStringValue(result, "event_time", "origin_time", "time"); eventTime != "" {
 		rows = append(rows, "event_time: "+eventTime)
 	}
-	if members := summarizeNamedItems(result, "members", "sample_members", "files", "trace_files", "selected_traces", "traces_sampled"); members != "" {
+	if members := SummarizeNamedItems(result, "members", "sample_members", "files", "trace_files", "selected_traces", "traces_sampled"); members != "" {
 		rows = append(rows, "members: "+valuefmt.ShortenKnownPaths(members))
 	}
 	if len(rows) == 0 {

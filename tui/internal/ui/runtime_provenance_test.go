@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 )
 
 func sampleRuntimeProvenance() map[string]any {
@@ -127,7 +128,7 @@ func TestWorkflowStateMetadataPromotesEvidencePart(t *testing.T) {
 }
 
 func TestWorkflowStateSummaryNamesNestedStatusAndEvidence(t *testing.T) {
-	summary := workflowStateSummary(map[string]any{
+	summary := presentation.WorkflowStateSummary(map[string]any{
 		"geospatial": map[string]any{
 			"status": "resolved",
 			"region": "San Diego",
