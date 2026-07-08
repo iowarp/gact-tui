@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -202,7 +203,7 @@ func permissionToolCallSummary(call gact.PermissionToolCall) string {
 	if summary == "" {
 		return tool
 	}
-	return capitalizeToolName(tool) + "(" + summary + ")"
+	return render.CapitalizeToolName(tool) + "(" + summary + ")"
 }
 
 func permissionSafetyHints(ann gact.ToolAnnotations) string {

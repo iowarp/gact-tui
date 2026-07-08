@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 	"testing"
 
@@ -68,7 +69,7 @@ func TestLiveParquetToolResultRendersSemanticPreview(t *testing.T) {
 		}},
 	}
 	messages := []gact.Message{assistant, toolMsg}
-	inline, _ := pairToolResults(messages)
+	inline, _ := render.PairToolResults(messages)
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(assistant, nil, 120, inline[0]))
 	for _, want := range []string{
@@ -137,7 +138,7 @@ func TestLiveNWSFeatureToolResultRendersSemanticPreview(t *testing.T) {
 		}},
 	}
 	messages := []gact.Message{assistant, toolMsg}
-	inline, _ := pairToolResults(messages)
+	inline, _ := render.PairToolResults(messages)
 
 	out := ansi.Strip(DefaultTheme().renderMessageInContextWithResults(assistant, nil, 160, inline[0]))
 	for _, want := range []string{

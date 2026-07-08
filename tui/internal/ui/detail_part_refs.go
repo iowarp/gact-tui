@@ -5,6 +5,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -15,7 +16,7 @@ import (
 // cases:
 //
 //   - the selected part is a tool_call: drill forward through sibling
-//     tool messages (pairToolResults-style) to find the matching
+//     tool messages (render.PairToolResults-style) to find the matching
 //     tool_result. Expands the *output*, not the call header; that's
 //     what the user wants to see when there are two bulky reads.
 //   - the selected part is a tool_result / text / file_diff: expand
@@ -44,7 +45,7 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 	switch p.Type {
 	case gact.PartTypeToolCall:
 		// Find the matching tool_result in the same message or the
-		// following sibling tool messages. Mirrors pairToolResults.
+		// following sibling tool messages. Mirrors render.PairToolResults.
 		callRef := toolCallDetailRef(m.ID, p)
 		if p.CallID == "" {
 			return callRef, true
@@ -188,7 +189,7 @@ func partDetailRef(messageID string, p gact.Part) bulkyPartRef {
 	case gact.PartTypeToolResult:
 		title = "tool result"
 		if p.ToolName != "" {
-			title = toolDisplayName(p.ToolName) + " result"
+			title = render.ToolDisplayName(p.ToolName) + " result"
 		}
 	case gact.PartTypeText:
 		title = "message text"

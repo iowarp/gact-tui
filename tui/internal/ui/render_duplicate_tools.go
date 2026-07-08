@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -86,7 +87,7 @@ func (t Theme) renderDuplicateToolNotice(toolName string, repeat int) string {
 	if repeat <= 0 {
 		return ""
 	}
-	name := capitalizeToolName(toolName)
+	name := render.CapitalizeToolName(toolName)
 	text := fmt.Sprintf("↻ %s repeated %d more time%s with the same call/result", name, repeat, plural(repeat))
 	return lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render("   " + text)
 }

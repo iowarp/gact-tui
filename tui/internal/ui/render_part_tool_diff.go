@@ -4,6 +4,7 @@ package ui
 
 import (
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
@@ -16,7 +17,7 @@ func (t Theme) renderToolCallPart(p gact.Part, wrapW int) string {
 		toolWrapW = 20
 	}
 	summary := toolCallSummary(p)
-	toolName := toolDisplayName(p.ToolName)
+	toolName := render.ToolDisplayName(p.ToolName)
 	headText := toolName + "(" + summary + ")"
 	if lipgloss.Width(headText) > toolWrapW {
 		keep := toolWrapW - lipgloss.Width(toolName) - 3

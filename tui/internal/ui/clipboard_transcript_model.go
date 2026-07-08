@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -170,7 +171,7 @@ func plainExpertHandoffNarrative(parent, agent, stage, status string) string {
 }
 
 func toolCallCopyText(p gact.Part) string {
-	name := toolDisplayName(p.ToolName)
+	name := render.ToolDisplayName(p.ToolName)
 	summary := toolCallSummary(p)
 	rows := []string{"Tool call: " + name}
 	if strings.TrimSpace(p.ToolName) != "" && strings.TrimSpace(p.ToolName) != name {

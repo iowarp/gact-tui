@@ -3,6 +3,7 @@ package ui
 // semantic_text_summaries.go classifies and humanizes semantic event text/types.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
@@ -63,7 +64,7 @@ func stripSemanticControlContracts(text string) string {
 		return ""
 	}
 	if looksLikeMarkdownBlock(text) {
-		return truncateMarkdownBlock(text, 1200, 18)
+		return render.TruncateMarkdownBlock(text, 1200, 18)
 	}
 	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
 	return textutil.Truncate(text, 320)
