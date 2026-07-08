@@ -80,8 +80,32 @@ screenshots/**/*.txt
 # Backup files
 *.bak
 
-# Regenerated CI screenshot outputs (baselines live in root screenshots/)
-apps/web/screenshots/
+# Regenerated CI screenshot dumps under apps/web/screenshots/ are ignored
+# (audit/, 0.8.4-audit/, overnight-real-*, earthscope-*, ad-hoc .html/.json
+# captures), but the named visual-regression baselines mandated by
+# apps/CLAUDE.md's "Visual proof requirements" are tracked — a contributor
+# following rule #4 must be able to commit a refreshed baseline.
+apps/web/screenshots/**
+!apps/web/screenshots/connect-screen.png
+!apps/web/screenshots/empty-sidebar.png
+!apps/web/screenshots/chat-streaming.png
+!apps/web/screenshots/permission-card.png
+!apps/web/screenshots/density-verbose.png
+!apps/web/screenshots/density-summary.png
+!apps/web/screenshots/starting-clio-splash.png
+!apps/web/screenshots/chat-live-stream.png
+!apps/web/screenshots/permission-allow-once.png
+!apps/web/screenshots/permission-deny.png
+!apps/web/screenshots/diff-pane-open.png
+!apps/web/screenshots/diff-per-hunk-apply.png
+!apps/web/screenshots/density-keybind-verbose.png
+!apps/web/screenshots/density-keybind-summary.png
+!apps/web/screenshots/slash-palette.png
+!apps/web/screenshots/at-mention-picker.png
+!apps/web/screenshots/stop-mid-stream.png
+!apps/web/screenshots/settings-backends.png
+!apps/web/screenshots/add-remote-ssh-wizard.png
+!apps/web/screenshots/multi-backend-picker.png
 
 # Python bytecode
 __pycache__/
