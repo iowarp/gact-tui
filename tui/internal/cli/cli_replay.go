@@ -20,21 +20,18 @@ import (
 // runAttach does, then calls runTUI. Without --attach: prints the
 // new sid and exits 0 (same as `gact import`).
 func runReplay(args []string) {
-	fs := flag.NewFlagSet("replay", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	attach := fs.Bool("attach", false, "launch the TUI on the imported session after import")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
+	var attach *bool
+	cc, rest, code := newCmdCtx("replay", args, withFlags(func(fs *flag.FlagSet) {
+		attach = fs.Bool("attach", false, "launch the TUI on the imported session after import")
+	}))
+	if cc == nil {
+		os.Exit(code)
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		os.Exit(2)
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact replay <export-file|-> [--attach]")
 		os.Exit(2)
 	}
-	src := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
+	src := rest[0]
 
 	var r io.Reader
 	if src == "-" {
@@ -57,7 +54,7 @@ func runReplay(args []string) {
 		fmt.Fprintln(os.Stderr, "gact replay: missing 'format' field — not a GACT export blob")
 		os.Exit(1)
 	}
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	created, err := c.ImportSession(ctx, blob)

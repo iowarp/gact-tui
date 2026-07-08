@@ -29,19 +29,18 @@ import (
 // "--- hooks ---" headers. In JSON mode the response is wrapped:
 // {"session": {...}, "tasks": [...], "hooks": [...]}.
 func runInfo(args []string) int {
-	fs := flag.NewFlagSet("info", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "text | json")
-	include := fs.String("include", "", "comma-separated extras: tasks,hooks")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-		"--include": true, "-include": true,
+	var (
+		format  *string
+		include *string
+	)
+	cc, rest, code := newCmdCtx("info", args, withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "text | json")
+		include = fs.String("include", "", "comma-separated extras: tasks,hooks")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact info <session_id> [--format text|json] [--include tasks,hooks,perms]")
 		return 2
 	}
@@ -68,9 +67,8 @@ func runInfo(args []string) int {
 			return 2
 		}
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	s, err := c.GetSession(ctx, sid)

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runPermsRules dispatches `gact perms rules <subverb>` for MMM4
@@ -41,25 +40,21 @@ func runPermsRules(args []string) int {
 }
 
 func runPermsRulesList(args []string) int {
-	fs := flag.NewFlagSet("perms rules list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	// Default kept as json for back-compat with existing scripting
-	// callers (this verb predates --format). New TSV view added per
-	// KKKK1 — opt in with --format tsv for human-scannable output.
-	format := fs.String("format", "json", "json | tsv")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
+	var format *string
+	cc, _, code := newCmdCtx("perms rules list", args, withFlags(func(fs *flag.FlagSet) {
+		// Default kept as json for back-compat with existing scripting
+		// callers (this verb predates --format). New TSV view added per
+		// KKKK1 — opt in with --format tsv for human-scannable output.
+		format = fs.String("format", "json", "json | tsv")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "json" && *format != "tsv" {
 		fmt.Fprintf(os.Stderr, "gact perms rules list: unknown format %q (want json|tsv)\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	policies, err := c.ListPolicies(ctx)
@@ -105,16 +100,15 @@ func runPermsRulesList(args []string) int {
 }
 
 func runPermsRulesSet(args []string) int {
-	fs := flag.NewFlagSet("perms rules set", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
-		return 2
+	cc, rest, code := newCmdCtx("perms rules set", args)
+	if cc == nil {
+		return code
 	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact perms rules set <json-file|->")
 		return 2
 	}
-	src := fs.Arg(0)
+	src := rest[0]
 	var r io.Reader
 	if src == "-" {
 		r = os.Stdin
@@ -134,8 +128,7 @@ func runPermsRulesSet(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact perms rules set: parse: %v\n", err)
 		return 1
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	out, err := c.PutPolicies(ctx, body.Policies)
@@ -148,13 +141,11 @@ func runPermsRulesSet(args []string) int {
 }
 
 func runPermsRulesClear(args []string) int {
-	fs := flag.NewFlagSet("perms rules clear", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	if err := fs.Parse(reorderFlagsFirst(args, map[string]bool{"--backend": true, "-backend": true})); err != nil {
-		return 2
+	cc, _, code := newCmdCtx("perms rules clear", args)
+	if cc == nil {
+		return code
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err := c.PutPolicies(ctx, []gact.Policy{}); err != nil {

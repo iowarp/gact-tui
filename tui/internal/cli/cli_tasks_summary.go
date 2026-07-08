@@ -15,20 +15,14 @@ import (
 // runTasksSummary aggregates task counts across every session in the
 // workspace. It prints per-session TSV rows and a TOTAL footer.
 func runTasksSummary(args []string) int {
-	fs := flag.NewFlagSet("tasks summary", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	wsID := fs.String("workspace", "", "limit to one workspace; empty = all")
-	known := map[string]bool{
-		"--backend":   true,
-		"-backend":    true,
-		"--workspace": true,
-		"-workspace":  true,
+	var wsID *string
+	cc, _, code := newCmdCtx("tasks summary", args, withFlags(func(fs *flag.FlagSet) {
+		wsID = fs.String("workspace", "", "limit to one workspace; empty = all")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	sessions, err := c.ListSessions(ctx, client.SessionFilter{WorkspaceID: *wsID})

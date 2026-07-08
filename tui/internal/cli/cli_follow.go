@@ -19,36 +19,35 @@ import (
 // renders any newly-completed assistant/tool messages until Ctrl+C.
 // (ZZZ1)
 func runFollow(args []string) int {
-	fs := flag.NewFlagSet("follow", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	// NNNN1: --format json emits NDJSON (one message per line) for
-	// both the snapshot and streamed messages. Default text mode
-	// unchanged.
-	format := fs.String("format", "text", "text | json (NDJSON)")
-	// WWWWWWWW1: --role filter mirrors VVVVVVVV1's `gact log --role`.
-	// Applied to both the snapshot and every streamed message so
-	// `gact follow <sid> --role assistant` tails just the model's
-	// replies.
-	role := fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
-	// CCCCCCCCC1: --grep regex filter mirrors BBBBBBBBB1's
-	// `gact log --grep`. Applied to both the snapshot + every
-	// streamed message.
-	grep := fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
-	// EEEEEEEEE1: --since DUR trims the initial snapshot to messages
-	// created within the last DUR. Streamed messages are live so the
-	// cutoff doesn't apply to them.
-	since := fs.Duration("since", 0, "trim snapshot to messages created within the last DUR (e.g. 5m, 1h); 0 = unset")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-		"--role": true, "-role": true,
-		"--grep": true, "-grep": true,
-		"--since": true, "-since": true,
+	var (
+		format *string
+		role   *string
+		grep   *string
+		since  *time.Duration
+	)
+	cc, rest, code := newCmdCtx("follow", args, withFlags(func(fs *flag.FlagSet) {
+		// NNNN1: --format json emits NDJSON (one message per line) for
+		// both the snapshot and streamed messages. Default text mode
+		// unchanged.
+		format = fs.String("format", "text", "text | json (NDJSON)")
+		// WWWWWWWW1: --role filter mirrors VVVVVVVV1's `gact log --role`.
+		// Applied to both the snapshot and every streamed message so
+		// `gact follow <sid> --role assistant` tails just the model's
+		// replies.
+		role = fs.String("role", "", "comma-separated role filter: user|assistant|tool|system")
+		// CCCCCCCCC1: --grep regex filter mirrors BBBBBBBBB1's
+		// `gact log --grep`. Applied to both the snapshot + every
+		// streamed message.
+		grep = fs.String("grep", "", "regex: drop messages whose flattened text doesn't match (case-insensitive)")
+		// EEEEEEEEE1: --since DUR trims the initial snapshot to messages
+		// created within the last DUR. Streamed messages are live so the
+		// cutoff doesn't apply to them.
+		since = fs.Duration("since", 0, "trim snapshot to messages created within the last DUR (e.g. 5m, 1h); 0 = unset")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact follow <session_id> [--role user,assistant,...] [--grep REGEX] [--since DUR] [--format text|json]")
 		return 2
 	}
@@ -105,9 +104,8 @@ func runFollow(args []string) int {
 		}
 		printLogMessage(m)
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	sid := rest[0]
+	c := cc.client
 
 	// 1. Snapshot the existing log so the user lands on the latest
 	//    state, not an empty pane. ListMessages returns newest-first;

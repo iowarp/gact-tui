@@ -21,25 +21,23 @@ import (
 // Prints the new session id to stdout. Exits 1 on backend failure,
 // 2 on bad args.
 func runFork(args []string) int {
-	fs := flag.NewFlagSet("fork", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	atMid := fs.String("at", "", "fork at this message id (default: tail)")
-	title := fs.String("title", "", "child session title; defaults to 'fork of <parent>'")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--at": true, "-at": true,
-		"--title": true, "-title": true,
+	var (
+		atMid *string
+		title *string
+	)
+	cc, rest, code := newCmdCtx("fork", args, withFlags(func(fs *flag.FlagSet) {
+		atMid = fs.String("at", "", "fork at this message id (default: tail)")
+		title = fs.String("title", "", "child session title; defaults to 'fork of <parent>'")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact fork <parent-session-id> [--at MID] [--title T]")
 		return 2
 	}
-	parentID := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	parentID := rest[0]
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	parent, err := c.GetSession(ctx, parentID)

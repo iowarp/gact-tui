@@ -19,22 +19,19 @@ import (
 // Mime type defaults to audio/wav (matches scripts/voice-record.sh
 // output) and is overridable via --mime. (PPP1)
 func runVoice(args []string) int {
-	fs := flag.NewFlagSet("voice", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	mime := fs.String("mime", "audio/wav", "audio MIME type (e.g. audio/wav, audio/webm)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--mime": true, "-mime": true,
+	var mime *string
+	cc, rest, code := newCmdCtx("voice", args, withFlags(func(fs *flag.FlagSet) {
+		mime = fs.String("mime", "audio/wav", "audio MIME type (e.g. audio/wav, audio/webm)")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact voice <session_id> <audio-file|->")
 		return 2
 	}
-	sid := fs.Arg(0)
-	src := fs.Arg(1)
+	sid := rest[0]
+	src := rest[1]
 	var audio []byte
 	if src == "-" {
 		b, err := io.ReadAll(os.Stdin)
@@ -55,8 +52,7 @@ func runVoice(args []string) int {
 		fmt.Fprintln(os.Stderr, "gact voice: empty audio")
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	resp, err := c.VoiceTranscribe(ctx, sid, audio, *mime)
@@ -79,30 +75,28 @@ func runVoice(args []string) int {
 //
 // `name` may also be a literal sess_id; the resolver short-circuits.
 func runTell(args []string) int {
-	fs := flag.NewFlagSet("tell", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon wait after this long")
-	interval := fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
-	wsID := fs.String("workspace", "", "workspace id for new sessions (default: first listed)")
-	async := fs.Bool("async", false, "fire-and-return: post the message and exit; print sid + msg_id without waiting for the assistant reply (LLL8)")
-	// `known` only lists flags that take a value; bool flags like
-	// --async are intentionally omitted so reorderFlagsFirst won't
-	// gobble the next positional as their value.
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--timeout": true, "-timeout": true,
-		"--interval": true, "-interval": true,
-		"--workspace": true, "-workspace": true,
+	var (
+		interval *time.Duration
+		wsID     *string
+		async    *bool
+	)
+	cc, rest, code := newCmdCtx("tell", args,
+		withTimeout(5*time.Minute, "abandon wait after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			interval = fs.Duration("interval", 500*time.Millisecond, "wait poll cadence")
+			wsID = fs.String("workspace", "", "workspace id for new sessions (default: first listed)")
+			async = fs.Bool("async", false, "fire-and-return: post the message and exit; print sid + msg_id without waiting for the assistant reply (LLL8)")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 2 {
+	if len(rest) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gact tell <name|sess_id> <message|->")
 		return 2
 	}
-	name := fs.Arg(0)
-	msg := fs.Arg(1)
+	name := rest[0]
+	msg := rest[1]
 	if msg == "-" {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -116,8 +110,7 @@ func runTell(args []string) int {
 		return 2
 	}
 
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -184,7 +177,7 @@ func runTell(args []string) int {
 		return 0
 	}
 
-	deadline := time.Now().Add(*timeout)
+	deadline := time.Now().Add(cc.timeout)
 	for {
 		pollCtx, pollCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		s, err := c.GetSession(pollCtx, sid)

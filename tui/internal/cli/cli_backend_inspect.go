@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runWatch polls GetSession every --interval and prints one TSV row
@@ -18,23 +17,23 @@ import (
 // surfaces transitions, useful for "what's the agent doing?" tail.
 // Stops after status hits idle and stays idle for one extra interval.
 func runWatch(args []string) int {
-	fs := flag.NewFlagSet("watch", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	interval := fs.Duration("interval", time.Second, "polling cadence")
-	timeout := fs.Duration("timeout", 5*time.Minute, "abandon after this long")
-	// SSSS1: --format json emits one NDJSON record per state change
-	// for jq pipelines. Default tsv kept for back-compat.
-	format := fs.String("format", "tsv", "tsv | json (NDJSON, one record per state change)")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--interval": true, "-interval": true,
-		"--timeout": true, "-timeout": true,
-		"--format": true, "-format": true,
+	var (
+		interval *time.Duration
+		format   *string
+	)
+	cc, rest, code := newCmdCtx("watch", args,
+		withTimeout(5*time.Minute, "abandon after this long"),
+		withFlags(func(fs *flag.FlagSet) {
+			interval = fs.Duration("interval", time.Second, "polling cadence")
+			// SSSS1: --format json emits one NDJSON record per state change
+			// for jq pipelines. Default tsv kept for back-compat.
+			format = fs.String("format", "tsv", "tsv | json (NDJSON, one record per state change)")
+		}),
+	)
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(args, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact watch <session_id> [--interval DUR] [--timeout DUR] [--format tsv|json]")
 		return 2
 	}
@@ -42,10 +41,9 @@ func runWatch(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact watch: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	sid := fs.Arg(0)
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	sid := rest[0]
+	c := cc.client
+	ctx, cancel := context.WithTimeout(context.Background(), cc.timeout)
 	defer cancel()
 	prevStatus, prevMessages, prevTokens := "", -1, -1
 	sawActivity := false
@@ -129,18 +127,14 @@ func runTool(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact tool: unknown verb %q (want show — list is `gact catalog tools`)\n", verb)
 		return 2
 	}
-	rest := args[1:]
-	fs := flag.NewFlagSet("tool show", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "text", "text | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
+	var format *string
+	cc, rest, code := newCmdCtx("tool show", args[1:], withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "text", "text | json")
+	}))
+	if cc == nil {
+		return code
 	}
-	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
-		return 2
-	}
-	if fs.NArg() != 1 {
+	if len(rest) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: gact tool show <id> [--format text|json]")
 		return 2
 	}
@@ -148,11 +142,10 @@ func runTool(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact tool show: unknown format %q\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	t, err := c.GetTool(ctx, fs.Arg(0))
+	t, err := c.GetTool(ctx, rest[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gact tool show: %v\n", err)
 		return 1

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 // runModels handles `gact models list [--provider PID] [--format tsv|json]`.
@@ -27,25 +26,22 @@ func runModels(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact models: unknown verb %q (want list)\n", verb)
 		return 2
 	}
-	rest := args[1:]
-	fs := flag.NewFlagSet("models list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	provider := fs.String("provider", "", "limit to one provider id")
-	format := fs.String("format", "tsv", "tsv | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--provider": true, "-provider": true,
-		"--format": true, "-format": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
-		return 2
+	var (
+		provider *string
+		format   *string
+	)
+	cc, _, code := newCmdCtx("models list", args[1:], withFlags(func(fs *flag.FlagSet) {
+		provider = fs.String("provider", "", "limit to one provider id")
+		format = fs.String("format", "tsv", "tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact models: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	type row struct {
@@ -115,23 +111,18 @@ func runWorkspaces(args []string) int {
 		fmt.Fprintf(os.Stderr, "gact workspaces: unknown verb %q (want list)\n", verb)
 		return 2
 	}
-	rest := args[1:]
-	fs := flag.NewFlagSet("workspaces list", flag.ContinueOnError)
-	backend := fs.String("backend", defaultBackend, "GACT backend URL")
-	format := fs.String("format", "tsv", "tsv | json")
-	known := map[string]bool{
-		"--backend": true, "-backend": true,
-		"--format": true, "-format": true,
-	}
-	if err := fs.Parse(reorderFlagsFirst(rest, known)); err != nil {
-		return 2
+	var format *string
+	cc, _, code := newCmdCtx("workspaces list", args[1:], withFlags(func(fs *flag.FlagSet) {
+		format = fs.String("format", "tsv", "tsv | json")
+	}))
+	if cc == nil {
+		return code
 	}
 	if *format != "tsv" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "gact workspaces: unknown format %q (want tsv|json)\n", *format)
 		return 2
 	}
-	finalBackend := resolveCLIBackend(*backend)
-	c := client.New(finalBackend)
+	c := cc.client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wss, err := c.ListWorkspaces(ctx)
