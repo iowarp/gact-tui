@@ -4,6 +4,45 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.9.5] — 2026-07-09
+
+The parity-and-convergence release. Closes the two protocol-convergence
+epics — #233 (the TUI renders at parity with the web client off the same
+wire) and #232 (spec follows reality; conformance makes drift
+CI-impossible) — validated end-to-end against the live CLIO backend
+running EarthScope.
+
+### Changed
+- **TUI renders the server's clean stream verbatim.** The orchestration
+  "placeholder" chrome the client used to synthesize is stripped at web
+  parity, so a delegation turn renders the same nested
+  `main → expert → tool → returns` grammar the web client shows, with no
+  client-side scaffolding (#233, #300).
+
+### Removed
+- **Client-side `workflow_state` part fabricator deleted.** clio never
+  emits `workflow_state` at message level (it rides real `expert_handoff`
+  parts), so the synthetic evidence part the TUI fabricated was pure
+  client invention — now gone. `reasoning_log` promotion is retained (the
+  server *does* emit it message-level with no backing part for
+  reasoning-capable models) (#233, #301).
+
+### Contract
+- **`GET /messages` pagination is now a normative contract.** `limit`
+  absent → full ledger; `limit<=0` or non-numeric → 422; unknown `before`
+  → 404; `before` resolves against the unfiltered ledger before system
+  rows are dropped and the limit applied; `next_cursor` is the
+  oldest-of-page id on truncation. `parent_session_id` session filtering
+  is honored. Codified in SPEC §6.3, implemented in the emulator, and
+  asserted against clio by conformance (`Drift_MessagePagination`,
+  `Drift_ParentSessionFilter`) (#232, #298, #302).
+
+### Notes
+- The two residual #232 boxes are **owner decisions**, each tracked in its
+  own issue: Go wire-type ownership / codegen (#254 — a decision-ready
+  design + spike is posted there) and the single server-side dedup owner
+  (clio #832). Neither is client work.
+
 ## [0.9.4] — 2026-07-07
 
 The lab-demo release. Pairs with the current CLIO backend and the GACT
