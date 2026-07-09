@@ -312,3 +312,44 @@ func TestRenderProjectedExecutionConversationIncludesPersistedArtifactSupplement
 		}
 	}
 }
+
+// TestProjectionKeepsCommandResultVerbatim guards the review's HIGH finding: a
+// synthetic slash-command result (metadata.synthetic=="command_result") must NOT be
+// run through cleanProse — its pipe/arrow-shaped body would be mangled by
+// stripStatusPrefix. Web parity: transcriptDelegationModel.ts:549 routes it around
+// cleanProse. Meanwhile a real orchestration placeholder is still dropped and real
+// answer prose still survives.
+func TestProjectionKeepsCommandResultVerbatim(t *testing.T) {
+	cmdBody := "cache -> stats | ok | 42 entries, 3 evictions"
+	messages := []gact.Message{
+		{ID: "u1", SessionID: "s1", Role: gact.RoleUser},
+		{ID: "a1", SessionID: "s1", Role: gact.RoleAssistant, Parts: []gact.Part{
+			{ID: "p1", Type: gact.PartTypeText, Sequence: 1, Text: cmdBody,
+				Metadata: map[string]any{"synthetic": "command_result", "agent_id": "main"}},
+			{ID: "p2", Type: gact.PartTypeText, Sequence: 2, Text: "(Delegating to the data expert; no final answer yet.)",
+				Metadata: map[string]any{"agent_id": "main"}},
+			{ID: "p3", Type: gact.PartTypeText, Sequence: 3, Text: "Real answer here.",
+				Metadata: map[string]any{"agent_id": "main"}},
+		}},
+	}
+	turns := filterProjectedTurns(projectExecutionTimelineFromMessages(messages))
+	if len(turns) != 1 {
+		t.Fatalf("want one projected turn, got %d", len(turns))
+	}
+	var texts []string
+	for _, n := range turns[0].Nodes {
+		if n.Kind == executionNodeAssistantText {
+			texts = append(texts, n.Text)
+		}
+	}
+	joined := strings.Join(texts, "\n")
+	if !strings.Contains(joined, cmdBody) {
+		t.Errorf("command_result body was mangled/dropped by cleanProse; text nodes: %#v", texts)
+	}
+	if strings.Contains(joined, "Delegating to the data expert") {
+		t.Errorf("orchestration placeholder was not dropped; text nodes: %#v", texts)
+	}
+	if !strings.Contains(joined, "Real answer here.") {
+		t.Errorf("real answer prose was dropped; text nodes: %#v", texts)
+	}
+}
