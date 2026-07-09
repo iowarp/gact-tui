@@ -88,33 +88,6 @@ export function stripClioScaffolding(text: string): string {
   return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/**
- * A ReAct tool_call carries the step's `next_thought` on its `thought` field —
- * but that SAME next_thought also streams as a visible text row, so rendering
- * both shows the answer twice. clio's own stream-audit confirms the LLM emits the
- * next_thought ONCE (clean, `duplicate_suppressed=false`); the second copy is
- * injected by the backend tool_observer onto `tool_call.thought`. Drop that copy
- * when it repeats the most recent text/reasoning row from the same agent. (This
- * is the render-side guard; clio also clears it at the source, but the render has
- * the complete, settled parts so it is the reliable layer and fixes already-
- * persisted sessions on reload.)
- */
-export function dedupToolThought(rows: readonly TurnRow[], agent: string, thought: string): string {
-  const t = thought.split(/\s+/).join(' ').trim();
-  if (!t) return thought;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i]!;
-    if ((r.kind === 'text' || r.kind === 'reasoning') && r.agent === agent) {
-      const body = (r.text || '').split(/\s+/).join(' ').trim();
-      // Bidirectional containment: the tool thought can be a trimmed subset of the
-      // streamed text, or a marker-padded superset of it.
-      if (body && (body.includes(t) || t.includes(body))) return '';
-      return thought; // nearest same-agent text didn't match → a distinct thought
-    }
-  }
-  return thought;
-}
-
 export function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {
   return rows.slice(0, beforeIndex).some((row) => {
     if (row.kind !== 'text') return false;

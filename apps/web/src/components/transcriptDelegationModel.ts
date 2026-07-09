@@ -27,18 +27,14 @@ import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
 // The transitional prose-heuristic presentation filters live in ONE spec'd home
 // (./presentationFilters.ts + contract/SPEC.md Appendix "Transitional client
-// presentation filters (non-normative)"). dedupToolThought stays re-exported
-// from here for backwards compatibility with existing importers.
+// presentation filters (non-normative)").
 import {
-  dedupToolThought,
   hasPriorAnswerRow,
   isBareJsonBody,
   isOrchestrationPlaceholder,
   isTerminalCompletionReasoning,
   stripClioScaffolding,
 } from './presentationFilters.js';
-
-export { dedupToolThought };
 
 /** A single tool call row (a tool_call part, joined to its tool_result by id). */
 export interface ToolRow {
@@ -597,11 +593,12 @@ export function buildAssistantTurnModel(
         id: `tool-${callId}`,
         depth,
         agent,
-        thought: dedupToolThought(
-          rows,
-          agent,
-          cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
-        ),
+        // Render the thought VERBATIM (clio #732 / epic #880): the server now
+        // guarantees single-representation — next_thought owns its visible text
+        // row and tool_call.thought carries the copy ONLY when there is no
+        // visible row — so the client no longer dedups. cleanProse is unrelated
+        // (non-S2) scaffolding cleanup and stays.
+        thought: cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
         name: str(part.tool_name) || 'tool',
         argsSummary: summariseArgs(part.input ?? part.metadata?.['input']),
         content: { kind: 'text', text: '' },

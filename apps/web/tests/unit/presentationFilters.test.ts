@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   stripClioScaffolding,
-  dedupToolThought,
   hasPriorAnswerRow,
   isBareJsonBody,
   isOrchestrationPlaceholder,
@@ -23,8 +22,6 @@ import {
 
 const textRow = (agent: string, text: string): TurnRow =>
   ({ kind: 'text', id: `t-${agent}-${text.length}`, depth: 0, agent, text }) as unknown as TurnRow;
-const reasoningRow = (agent: string, text: string): TurnRow =>
-  ({ kind: 'reasoning', id: `r-${agent}-${text.length}`, depth: 0, agent, text }) as unknown as TurnRow;
 
 describe('stripClioScaffolding', () => {
   it('returns empty string for falsy input', () => {
@@ -164,32 +161,6 @@ describe('hasPriorAnswerRow', () => {
     expect(
       hasPriorAnswerRow([textRow('main', 'No user-facing answer yet, still working here.')], 1),
     ).toBe(false);
-  });
-});
-
-describe('dedupToolThought', () => {
-  it('drops a thought that is contained in the nearest same-agent text row', () => {
-    const rows = [textRow('main', 'hello world foo')];
-    expect(dedupToolThought(rows, 'main', 'hello world')).toBe('');
-  });
-  it('drops a thought that is a superset of the nearest same-agent row', () => {
-    const rows = [textRow('main', 'hello world')];
-    expect(dedupToolThought(rows, 'main', 'hello world foo')).toBe('');
-  });
-  it('keeps a distinct thought when the nearest same-agent row does not match', () => {
-    const rows = [textRow('main', 'hello world foo')];
-    expect(dedupToolThought(rows, 'main', 'a different thought')).toBe('a different thought');
-  });
-  it('keeps the thought when there is no same-agent text/reasoning row', () => {
-    const rows = [textRow('geo', 'hello world')];
-    expect(dedupToolThought(rows, 'main', 'hello world')).toBe('hello world');
-  });
-  it('returns the raw thought unchanged when it is blank', () => {
-    expect(dedupToolThought([textRow('main', 'x')], 'main', '   ')).toBe('   ');
-  });
-  it('also matches against a reasoning row', () => {
-    const rows = [reasoningRow('main', 'let me think about this')];
-    expect(dedupToolThought(rows, 'main', 'let me think')).toBe('');
   });
 });
 
