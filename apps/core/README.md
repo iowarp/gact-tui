@@ -5,4 +5,4 @@ and `@clio/desktop`. No DOM dependencies — pure logic, types, and a fetch-base
 HTTP client.
 
 This is the harness scaffold. Full coverage of the contract (workspaces, MCP,
-permissions, files, agents, metrics) is tracked in `apps/PLAN.md`.
+permissions, files, agents, metrics) is tracked in `docs/archive/apps-PLAN.md`.

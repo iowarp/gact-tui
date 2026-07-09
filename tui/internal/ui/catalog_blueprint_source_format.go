@@ -2,7 +2,10 @@ package ui
 
 // catalog_blueprint_source_format.go formats blueprint source summaries, status tags, and attention indicators.
 
-import "strings"
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
+	"strings"
+)
 
 func sourceTitle(summary *agentBlueprintSourceSummary) string {
 	if summary == nil {
@@ -52,15 +55,15 @@ func agentBlueprintSourceInlineSummary(summary *agentBlueprintSourceSummary) str
 		parts = append(parts, marketplaceSourceStatusLabel(summary.status))
 	}
 	if summary.statusMsg != "" {
-		parts = append(parts, compactCatalogText(summary.statusMsg))
+		parts = append(parts, valuefmt.CompactCatalogText(summary.statusMsg))
 	}
 	if len(summary.blueprints) > 0 {
-		parts = append(parts, pluralizeCount(len(summary.blueprints), "blueprint"))
+		parts = append(parts, valuefmt.PluralizeCount(len(summary.blueprints), "blueprint"))
 	}
 	if len(summary.errors) > 0 {
-		parts = append(parts, pluralizeCount(len(summary.errors), "error"))
+		parts = append(parts, valuefmt.PluralizeCount(len(summary.errors), "error"))
 	} else if len(summary.warnings) > 0 {
-		parts = append(parts, pluralizeCount(len(summary.warnings), "warning"))
+		parts = append(parts, valuefmt.PluralizeCount(len(summary.warnings), "warning"))
 	}
 	if len(parts) == 0 {
 		return "source registry entry"

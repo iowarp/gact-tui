@@ -46,7 +46,7 @@ func (c *sidebarComponent) handleDelete() tea.Cmd {
 		if c.app.PruneDetachedRegistry != nil {
 			c.app.PruneDetachedRegistry(sid)
 		}
-		return deleteSessionCmd(c.app.c, c.app.session.wsID, sid)
+		return deleteSessionCmd(c.app.c, sid)
 	}
 	c.pendingDeleteSessionID = sid
 	c.app.setHint("press x again to confirm delete (any other key cancels)")

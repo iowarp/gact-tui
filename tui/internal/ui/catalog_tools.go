@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem {
@@ -19,7 +20,7 @@ func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem
 		if tools[i].ServerID != tools[j].ServerID {
 			return tools[i].ServerID < tools[j].ServerID
 		}
-		return firstNonEmpty(tools[i].Name, tools[i].ID) < firstNonEmpty(tools[j].Name, tools[j].ID)
+		return valuefmt.FirstNonEmpty(tools[i].Name, tools[i].ID) < valuefmt.FirstNonEmpty(tools[j].Name, tools[j].ID)
 	})
 	serverByID := make(map[string]gact.McpServer, len(servers))
 	for _, server := range servers {
@@ -54,7 +55,7 @@ func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem
 				desc := fmt.Sprintf("%d callable tool%s from this connection", mcpCounts[tool.ServerID], plural(mcpCounts[tool.ServerID]))
 				inlineDesc := desc
 				if ok {
-					title = toolCatalogSourceRowTitle(firstNonEmpty(server.Name, server.ID), "MCP connection")
+					title = toolCatalogSourceRowTitle(valuefmt.FirstNonEmpty(server.Name, server.ID), "MCP connection")
 					status = mcpConnectionStatusTag(server)
 					desc = mcpServerCatalogDescription(server)
 					inlineDesc = mcpSourceInlineSummary(server, mcpCounts[tool.ServerID])
@@ -73,7 +74,7 @@ func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem
 				id:         "toolsource/" + catalogToolSourceID(src),
 				title:      toolCatalogSourceRowTitleForSource(src),
 				desc:       toolCatalogSourceDescription(src, sourceCounts[src]),
-				inlineDesc: pluralizeCount(sourceCounts[src], "tool"),
+				inlineDesc: valuefmt.PluralizeCount(sourceCounts[src], "tool"),
 			})
 		}
 		sourceSeen[src]++
@@ -89,7 +90,7 @@ func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem
 			title = treePrefix(sourceSeen[src]-1, sourceCounts[src]) + title
 		}
 		items = append(items, catalogItem{
-			id:         firstNonEmpty(tool.ID, tool.Name),
+			id:         valuefmt.FirstNonEmpty(tool.ID, tool.Name),
 			title:      title,
 			desc:       toolCatalogDescription(tool),
 			inlineDesc: toolCatalogInlineSummary(tool),
@@ -102,7 +103,7 @@ func toolCatalogItems(tools []gact.Tool, servers []gact.McpServer) []catalogItem
 		}
 		items = append(items, catalogItem{
 			id:         "mcpserver/" + server.ID,
-			title:      toolCatalogSourceRowTitle(firstNonEmpty(server.Name, server.ID), "MCP connection"),
+			title:      toolCatalogSourceRowTitle(valuefmt.FirstNonEmpty(server.Name, server.ID), "MCP connection"),
 			desc:       mcpServerCatalogDescription(server),
 			inlineDesc: mcpSourceInlineSummary(server, 0),
 			statusTag:  mcpConnectionStatusTag(server),
@@ -133,7 +134,7 @@ func toolCatalogSourceLabel(source string) string {
 	case "":
 		return "Unknown"
 	default:
-		return humanizeAgentLabel(source)
+		return valuefmt.HumanizeAgentLabel(source)
 	}
 }
 
@@ -141,14 +142,14 @@ func toolCatalogSourceDescription(source string, count int) string {
 	label := toolCatalogSourceLabel(source)
 	switch normalizedToolSource(gact.Tool{Source: source}) {
 	case "recipe", "extension":
-		return fmt.Sprintf("%s provide %s.", label, pluralizeCount(count, "tool"))
+		return fmt.Sprintf("%s provide %s.", label, valuefmt.PluralizeCount(count, "tool"))
 	default:
-		return fmt.Sprintf("%s provides %s.", label, pluralizeCount(count, "tool"))
+		return fmt.Sprintf("%s provides %s.", label, valuefmt.PluralizeCount(count, "tool"))
 	}
 }
 
 func toolCatalogRowTitle(tool gact.Tool) string {
-	name := firstNonEmpty(tool.Name, tool.ID)
+	name := valuefmt.FirstNonEmpty(tool.Name, tool.ID)
 	switch normalizedToolSource(tool) {
 	case "builtin":
 		return toolCatalogToolRowTitle(name, "built-in")
@@ -157,7 +158,7 @@ func toolCatalogRowTitle(tool gact.Tool) string {
 	case "extension":
 		return toolCatalogToolRowTitle(name, "extension")
 	case "mcp":
-		return toolCatalogToolRowTitle(name, firstNonEmpty(tool.ServerID, "MCP"))
+		return toolCatalogToolRowTitle(name, valuefmt.FirstNonEmpty(tool.ServerID, "MCP"))
 	default:
 		source := strings.TrimSpace(normalizedToolSource(tool))
 		if source == "" {
@@ -168,8 +169,8 @@ func toolCatalogRowTitle(tool gact.Tool) string {
 }
 
 func toolCatalogSourceRowTitle(name, kind string) string {
-	label := firstNonEmpty(kind, "source")
-	return label + " · " + firstNonEmpty(name, "unknown")
+	label := valuefmt.FirstNonEmpty(kind, "source")
+	return label + " · " + valuefmt.FirstNonEmpty(name, "unknown")
 }
 
 func toolCatalogSourceRowTitleForSource(source string) string {
@@ -183,16 +184,16 @@ func toolCatalogSourceRowTitleForSource(source string) string {
 	case "":
 		return "Unknown tools"
 	default:
-		return humanizeAgentLabel(source) + " tools"
+		return valuefmt.HumanizeAgentLabel(source) + " tools"
 	}
 }
 
 func toolCatalogToolRowTitle(name, origin string) string {
-	return firstNonEmpty(name, "unknown")
+	return valuefmt.FirstNonEmpty(name, "unknown")
 }
 
 func normalizedToolSource(tool gact.Tool) string {
-	return firstNonEmpty(tool.Source, "builtin")
+	return valuefmt.FirstNonEmpty(tool.Source, "builtin")
 }
 
 func toolCatalogInlineSummary(tool gact.Tool) string {

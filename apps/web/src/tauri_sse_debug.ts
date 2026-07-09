@@ -20,11 +20,7 @@ export interface SseBridgeDebugState {
     | 'event'
     | 'error'
     | 'closed'
-    | 'close-requested'
-    | 'channel-open'
-    | 'channel-event'
-    | 'channel-error'
-    | 'channel-closed';
+    | 'close-requested';
   lastMessage?: string;
   eventCount: number;
   openedAt?: number;

@@ -37,7 +37,7 @@ Tagged releases live at
 
 ## What you get
 
-![multi-backend picker](web/screenshots/multi-backend-picker.png)
+![multi-backend picker](../docs/screenshots/multi-backend-picker.png)
 
 - A chat shell with sessions, sidebar, transcript with verbose / normal
   / summary density, and a composer that streams responses token by
@@ -48,8 +48,8 @@ Tagged releases live at
 - **Cmd+K / Ctrl+K** slash palette, **@-mention** picker for files /
   agents / tools.
 - Multi-backend picker — register a remote backend over HTTP or open
-  an SSH tunnel from the desktop shell (`ssh -L` with passphrase
-  stored in the OS keychain).
+  an SSH tunnel from the desktop shell (`ssh -L`, authenticating via
+  ssh-agent or an unencrypted key file; no secrets are stored).
 - Tray icon + OS notifications when a run finishes and the window is
   unfocused.
 
@@ -71,6 +71,30 @@ Tagged releases live at
    never seen or pasted by the user.
 
 Full sequence in [FIRST-RUN.md](FIRST-RUN.md).
+
+---
+
+## Backend ports & default host
+
+Two different servers, two different default ports — don't conflate them:
+
+| Port | Server | Role |
+|---|---|---|
+| **17800** | `clio-agent` (clio) | The shipped product backend the web + desktop UIs talk to. The web app's default backend URL lives in one place, `apps/web/src/backendDefaults.ts`. |
+| **7777** | the emulator / gact TUI | The Go emulator default (`emulator/cmd/emulator-server/main.go`) and the TUI's dev default (`tui/main.go`) — a separate contract-conformance server, **not** the product backend. Changing the TUI's dev default is an owner decision and is intentionally left unchanged. |
+
+**Host split (`127.0.0.1` vs `localhost`).** `backendDefaults.ts` exports
+the default at port 17800 in both host forms and preserves each existing
+call site's host rather than flipping everything to one:
+
+- `DEFAULT_BACKEND_URL` — `http://127.0.0.1:17800` (connect form, fixture
+  seeds).
+- `DEFAULT_BACKEND_URL_LOCALHOST` — `http://localhost:17800` (pure-web
+  splash probe, remote-backend wizard prefill).
+
+The pure-web candidate list (`routes/splashBackend.ts`) probes both forms
+in order, and both are pinned by tests, so the two host forms are kept
+distinct on purpose.
 
 ---
 
@@ -107,7 +131,6 @@ the artifacts + SHA256 sums to the matching GitHub Release.
 - [INSTALL.md](INSTALL.md) — per-OS install + unsigned trust prompts
 - [FIRST-RUN.md](FIRST-RUN.md) — sidecar lifecycle, port + token, state
 - [SECURITY.md](SECURITY.md) — bearer storage, CSP, allowlist, SSH keys
-- [STATUS.md](STATUS.md) — current build state
 - [PLAN.md](PLAN.md) — ordered queue of follow-up work
 - [HARNESS.md](HARNESS.md) — visual loop, CI shape, commit conventions
 - [CLAUDE.md](CLAUDE.md) — session rules for AI coders working here

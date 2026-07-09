@@ -7,7 +7,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// ZZZZZZZZZZ1: when an edit_file tool_call is paired with a sibling
+// When an edit_file tool_call is paired with a sibling
 // file_diff for the same path in the same message, the diff renders
 // UNDER the edit_file header (absorbed) and the standalone "◇ diff"
 // block is suppressed. User feedback: "EditFile returns the diff,
@@ -53,7 +53,7 @@ func TestEditFile_AbsorbsSiblingDiff(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZZZ1: a lone file_diff (no matching edit_file call) keeps
+// A lone file_diff (no matching edit_file call) keeps
 // its standalone rendering — back-compat with the diff-without-edit
 // flow from the runDiffScript variants.
 func TestEditFile_LoneFileDiffStillRendersStandalone(t *testing.T) {
@@ -70,7 +70,7 @@ func TestEditFile_LoneFileDiffStillRendersStandalone(t *testing.T) {
 	}
 }
 
-// AAAAAAAAAA1: grep tool_result renders CC-style with a file header +
+// Grep tool_result renders CC-style with a file header +
 // line-number gutter instead of raw "path:line:content" text. User
 // feedback: "the line numbers should be added by us not for them to
 // be on the file".
@@ -113,7 +113,7 @@ func TestGrepResult_RendersGutter(t *testing.T) {
 	}
 }
 
-// AAAAAAAAAA1: a grep result that fails to parse (non-standard
+// A grep result that fails to parse (non-standard
 // format) falls through to the generic tool_result render so we
 // never swallow real output.
 func TestGrepResult_UnparseableFallsThrough(t *testing.T) {

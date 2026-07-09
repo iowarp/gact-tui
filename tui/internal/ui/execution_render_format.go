@@ -3,10 +3,12 @@ package ui
 // execution_render_format.go formats execution prose, tool-call lines, observation blocks, and indentation.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionProseWrapWidth(width int) int {
@@ -27,6 +29,19 @@ func executionWrapForPrefix(text string, width int, prefix string) string {
 
 func executionDisplayProse(text string) string {
 	text = stripExecutionControlSections(stripSemanticControlContracts(text))
+	text = strings.ReplaceAll(text, "\u00a0", " ")
+	text = strings.ReplaceAll(text, "**", "")
+	text = strings.ReplaceAll(text, "`", "")
+	return flowExecutionProse(text)
+}
+
+// executionDisplayProseFull is executionDisplayProse WITHOUT the semantic
+// summary truncation: control-contract markers are still stripped, but the
+// prose keeps its full length. The unified transcript render (#233) uses it
+// for assistant text parts \u2014 the web renders the same rows in full, and the
+// flat render this replaced never truncated them.
+func executionDisplayProseFull(text string) string {
+	text = stripExecutionControlSections(stripSemanticControlMarkers(text))
 	text = strings.ReplaceAll(text, "\u00a0", " ")
 	text = strings.ReplaceAll(text, "**", "")
 	text = strings.ReplaceAll(text, "`", "")
@@ -80,7 +95,7 @@ func executionProseLineIsBoundary(line string) bool {
 }
 
 func (t Theme) executionToolCallLine(toolName string, args any, width int) string {
-	name := firstNonEmpty(toolDisplayName(toolName), toolName, "tool")
+	name := valuefmt.FirstNonEmpty(render.ToolDisplayName(toolName), toolName, "tool")
 	nameStyle := lipgloss.NewStyle().Foreground(t.RoleTool).Bold(true)
 	if argsText := executionArgsPreview(args); argsText != "" {
 		plain := name + "(" + argsText + ")"

@@ -219,6 +219,9 @@ func (a *App) dispatchUpdateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sessionsRefreshedMsg:
 		return a.session.handleRefreshed(m)
 
+	case sessionDeletedMsg:
+		return a.session.handleSessionDeleted(m)
+
 	case workspaceSwitchedMsg:
 		return a.workspace.handleSwitched(m)
 

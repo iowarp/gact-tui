@@ -4,6 +4,7 @@ package ui
 
 import (
 	"encoding/json"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"sort"
 	"strings"
 )
@@ -13,7 +14,7 @@ func executionAgentTextStructuredPreview(agent, text string) string {
 	if !ok {
 		return ""
 	}
-	obj := mapValue(parsed)
+	obj := valuefmt.MapValue(parsed)
 	if len(obj) == 0 {
 		return ""
 	}
@@ -53,7 +54,7 @@ func executionExpertReportPreview(node executionTimelineNode) string {
 		if text := executionWorkflowStatePreview(node.Agent, parsed); text != "" {
 			return text
 		}
-		if obj := mapValue(parsed); len(obj) > 0 {
+		if obj := valuefmt.MapValue(parsed); len(obj) > 0 {
 			return executionStructuredMapPreview(node.Agent, obj)
 		}
 	}
@@ -119,7 +120,7 @@ func executionFenceLooksLikeControlJSON(body string) bool {
 	if !ok {
 		return false
 	}
-	obj := mapValue(parsed)
+	obj := valuefmt.MapValue(parsed)
 	if len(obj) == 0 {
 		return false
 	}
@@ -127,14 +128,14 @@ func executionFenceLooksLikeControlJSON(body string) bool {
 }
 
 func executionWorkflowStatePreview(agent string, raw any) string {
-	root := mapValue(raw)
+	root := valuefmt.MapValue(raw)
 	if len(root) == 0 {
 		return ""
 	}
-	state := mapValue(root["workflow_state"])
+	state := valuefmt.MapValue(root["workflow_state"])
 	if len(state) == 0 {
-		if structured := mapValue(root["structured"]); len(structured) > 0 {
-			state = mapValue(structured["workflow_state"])
+		if structured := valuefmt.MapValue(root["structured"]); len(structured) > 0 {
+			state = valuefmt.MapValue(structured["workflow_state"])
 		}
 	}
 	if len(state) == 0 {
@@ -143,11 +144,11 @@ func executionWorkflowStatePreview(agent string, raw any) string {
 	if executionLooksLikeWorkflowControlJSON(state) {
 		return executionStructuredMapPreview(agent, state)
 	}
-	if agentMap := mapValue(state[agent]); len(agentMap) > 0 {
+	if agentMap := valuefmt.MapValue(state[agent]); len(agentMap) > 0 {
 		return executionStructuredMapPreview(agent, agentMap)
 	}
 	for _, value := range state {
-		if obj := mapValue(value); len(obj) > 0 {
+		if obj := valuefmt.MapValue(value); len(obj) > 0 {
 			return executionStructuredMapPreview(agent, obj)
 		}
 	}
@@ -155,7 +156,7 @@ func executionWorkflowStatePreview(agent string, raw any) string {
 }
 
 func parseLooseJSON(raw any) (any, bool) {
-	text := strings.TrimSpace(stringValue(raw))
+	text := strings.TrimSpace(valuefmt.StringValue(raw))
 	if text == "" {
 		return nil, false
 	}

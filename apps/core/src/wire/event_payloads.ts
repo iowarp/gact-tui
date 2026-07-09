@@ -22,10 +22,16 @@ export interface SessionCreatedPayload {
   session: Session;
 }
 
-export interface SessionUpdatedPayload {
-  session_id: string;
-  changed_fields: string[];
-}
+/**
+ * `session.updated` — clio publishes the FULL Session object, flat
+ * (`payload=Session(**sess.to_wire()).model_dump(exclude_none=True)`,
+ * routes/sessions.py). It is an authoritative snapshot keyed by `id` —
+ * NOT the `{session_id, changed_fields}` diff this type used to claim
+ * (that shape only ever existed in the emulator; #232). Consumers that
+ * still tolerate the legacy diff should read `changed_fields` through
+ * the loose envelope, not through this type.
+ */
+export type SessionUpdatedPayload = Session;
 
 export interface SessionDeletedPayload {
   session_id: string;
@@ -42,11 +48,19 @@ export interface SessionSummarizedPayload {
   summary: string;
 }
 
+/**
+ * `session.compacted` — keys per the clio server (routes/sessions.py
+ * `/compact` publish; #232). The previous
+ * `{session_id, summary, compacted_count, auto}` shape had ZERO overlap
+ * with what the server sends. `session_id` rides the event envelope /
+ * per-session stream, not this payload.
+ */
 export interface SessionCompactedPayload {
-  session_id: string;
-  summary: string;
-  compacted_count: number;
-  auto: boolean;
+  event_id: string;
+  archived_count: number;
+  summary_chars: number;
+  summary_message_id: string;
+  version: number;
 }
 
 export interface MessageCreatedPayload {
@@ -64,9 +78,21 @@ export interface MessagePartDeltaPayload {
   delta: PartDelta;
 }
 
+/**
+ * `message.part.completed` — clio turn.py `_close_streamed_part`. Beyond the
+ * ids, clio sends the vendor fields the store already depends on:
+ * `final_text` is the clean, complete text a client must use to replace its
+ * buffered deltas (and, for batch providers that emit no `part.delta`
+ * chunks, the ONLY carrier of the text); `turn_id` links the part to its
+ * turn (the user message id); `stream_source` distinguishes live streaming
+ * from replay/reload.
+ */
 export interface MessagePartCompletedPayload {
   message_id: string;
   part_id: string;
+  final_text?: string;
+  turn_id?: string;
+  stream_source?: string;
 }
 
 export interface MessageCompletedPayload {
@@ -133,79 +159,6 @@ export interface TranscriptTurnStartedPayload {
   [k: string]: unknown;
 }
 
-export interface TranscriptTraceDeltaPayload {
-  turn_id: string;
-  trace_id: string;
-  trace_kind: 'model_aux' | string;
-  text_append: string;
-  agent_id?: string;
-  part_id?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptTextDeltaPayload {
-  turn_id: string;
-  agent_id?: string;
-  part_id?: string;
-  field: 'thought' | 'answer';
-  text_append: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptActionAddedPayload {
-  turn_id: string;
-  action: TranscriptAction;
-  [k: string]: unknown;
-}
-
-export type TranscriptAction =
-  | TranscriptAgentCallAction
-  | TranscriptToolCallAction
-  | TranscriptReturnAction
-  | (Record<string, unknown> & { kind?: string; type?: string; call_id?: string });
-
-export interface TranscriptAgentCallAction {
-  kind: 'agent_call';
-  call_id: string;
-  target_agent: string;
-  prompt?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptToolCallAction {
-  kind: 'tool_call';
-  call_id: string;
-  tool_name: string;
-  input?: unknown;
-  thought?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptReturnAction {
-  kind: 'return';
-  call_id: string;
-  target_agent?: string;
-  parent_agent?: string;
-  text?: string;
-  response?: string;
-  summary?: string;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
-export interface TranscriptCallResultDeltaPayload {
-  call_id: string;
-  content_type?: string;
-  text_append?: string;
-  value_append?: unknown;
-  tokens?: number;
-  [k: string]: unknown;
-}
-
 export interface TranscriptTurnCompletedPayload {
   turn_id: string;
   tokens?: { input?: number; output?: number; total?: number };
@@ -226,11 +179,13 @@ export interface MessageErrorPayload {
 
 /**
  * Per SPEC §7.2, the streaming part delta carries `text_append` for
- * text/thinking parts; tool_call deltas accumulate JSON-input fragments.
+ * text/thinking parts; tool_call deltas accumulate JSON-input fragments
+ * under `input_json_append` (this type used to transpose it as
+ * `json_input_append`, a key nothing on the wire ever sent; #232).
  */
 export interface PartDelta {
   text_append?: string;
-  json_input_append?: string;
+  input_json_append?: string;
   [k: string]: unknown;
 }
 
@@ -256,9 +211,14 @@ export interface PermissionRequestedPayload {
   permission: PermissionRequest;
 }
 
+/**
+ * `permission.resolved` — action vocabulary per clio permission_gate.py:
+ * allow / deny / allow_session / allow_workspace ('approve' was never a
+ * wire value; #232).
+ */
 export interface PermissionResolvedPayload {
   permission_id: string;
-  action: 'approve' | 'deny';
+  action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
 }
 
 export interface CostUpdatedPayload {
@@ -336,11 +296,68 @@ export interface LmProviderFailedPayload {
 }
 
 /**
- * `memory.compacted` — the memory subsystem compacted stored session context
- * (SPEC §7, vendor). Distinct from `session.compacted`, which is the
- * transcript-level compaction that produces a compaction Part.
+ * `session.cleared` — the `/clear` backend command wiped the session
+ * ledger (policy-guarded, SPEC §7.3a). Carries only the session id.
  */
-export interface MemoryCompactedPayload {
+export interface SessionClearedPayload {
   session_id: string;
+}
+
+/**
+ * `session.undo` / `session.rewind` — a rollback was committed (SPEC §6.2 /
+ * §7.3a). Emitted after the per-message `message.deleted` events and before
+ * the authoritative `session.updated`. For `undo`, `target_message_id` is
+ * `""` and `include_target` is `false`.
+ */
+export interface SessionRollbackPayload {
+  session_id: string;
+  deleted_message_ids: string[];
+  target_message_id: string;
+  include_target: boolean;
   [k: string]: unknown;
 }
+
+/**
+ * `message.deleted` — a message was removed (SPEC §7.3a). `operation` is
+ * `undo` | `rewind` on a rollback; absent for a direct delete.
+ */
+export interface MessageDeletedPayload {
+  message_id: string;
+  session_id: string;
+  operation?: 'undo' | 'rewind' | string;
+  [k: string]: unknown;
+}
+
+/**
+ * `file.diff.applied` / `file.diff.rejected` / `file.diff.write_failed` —
+ * the diff apply lifecycle (SPEC §6.10 / §7.3a). `error` is present only on
+ * `write_failed`.
+ */
+export interface FileDiffAppliedPayload {
+  session_id: string;
+  path: string;
+  part_id: string;
+  message_id: string;
+  error?: string;
+  [k: string]: unknown;
+}
+
+/**
+ * `turn.retry_requested` / `.retry_running` / `.retry_completed` /
+ * `.retry_failed` / `.retry_cancelled` — the retry lifecycle (SPEC §6.24).
+ * The payload is the full flat TurnAttempt; kept as an open record so the
+ * wire layer does not pin the attempt shape.
+ */
+export interface TurnRetryPayload {
+  [k: string]: unknown;
+}
+
+/**
+ * `OpaqueEventPayload` — vendor / opaque event payloads the client tolerates
+ * but does not model: `arc.op`, `agent.reasoning.delta`, `subagent.*`,
+ * `tool.selection.invalid`, `context.file.*`, the memory-tool audit sextet,
+ * and every spec-only `mcp.*` / `file.changed` / `diff.generated` /
+ * `session.agent_routed` / `workspace.updated` type. House style: a loose
+ * record with a trailing index signature.
+ */
+export type OpaqueEventPayload = Record<string, unknown>;

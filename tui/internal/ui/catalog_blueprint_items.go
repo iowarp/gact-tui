@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintProviderCatalogItem(key string, blueprints []gact.AgentBlueprintDefinition) catalogItem {
@@ -14,14 +15,14 @@ func agentBlueprintProviderCatalogItem(key string, blueprints []gact.AgentBluepr
 	return catalogItem{
 		id:         "provider/" + key,
 		title:      label + " blueprints",
-		desc:       fmt.Sprintf("%s provides %s in this workspace.", label, pluralizeCount(len(blueprints), "blueprint")),
-		inlineDesc: pluralizeCount(len(blueprints), "blueprint"),
+		desc:       fmt.Sprintf("%s provides %s in this workspace.", label, valuefmt.PluralizeCount(len(blueprints), "blueprint")),
+		inlineDesc: valuefmt.PluralizeCount(len(blueprints), "blueprint"),
 		statusTag:  strings.ToLower(label),
 	}
 }
 
 func agentBlueprintProviderGroupKey(blueprint gact.AgentBlueprintDefinition) string {
-	scope := compactStatusTag(firstNonEmpty(blueprint.Scope, "workspace"))
+	scope := compactStatusTag(valuefmt.FirstNonEmpty(blueprint.Scope, "workspace"))
 	switch scope {
 	case "builtin", "built-in", "built_in":
 		return "built-in"
@@ -46,7 +47,7 @@ func agentBlueprintProviderGroupLabel(key string) string {
 	case "session":
 		return "Session"
 	default:
-		return humanizeAgentLabel(key)
+		return valuefmt.HumanizeAgentLabel(key)
 	}
 }
 
@@ -64,7 +65,7 @@ func agentBlueprintProviderGroupRank(key string) int {
 }
 
 func agentBlueprintCatalogItem(blueprint gact.AgentBlueprintDefinition, prefix string) catalogItem {
-	title := firstNonEmpty(blueprint.Title, blueprint.ID)
+	title := valuefmt.FirstNonEmpty(blueprint.Title, blueprint.ID)
 	if prefix != "" {
 		title = prefix + title
 	}
@@ -82,7 +83,7 @@ func markActiveAgentBlueprintCatalogItems(items []catalogItem, activeID, activeS
 	if activeID == "" {
 		return items
 	}
-	scope := firstNonEmpty(strings.TrimSpace(activeScope), "unknown scope")
+	scope := valuefmt.FirstNonEmpty(strings.TrimSpace(activeScope), "unknown scope")
 	out := append([]catalogItem(nil), items...)
 	for i := range out {
 		if out[i].id != activeID {
@@ -101,7 +102,7 @@ func markActiveAgentBlueprintDetailItems(items []catalogItem, blueprintID, activ
 	if strings.TrimSpace(blueprintID) == "" || strings.TrimSpace(blueprintID) != strings.TrimSpace(activeID) {
 		return items
 	}
-	scope := firstNonEmpty(strings.TrimSpace(activeScope), "unknown scope")
+	scope := valuefmt.FirstNonEmpty(strings.TrimSpace(activeScope), "unknown scope")
 	out := append([]catalogItem(nil), items...)
 	for i := range out {
 		switch out[i].id {
@@ -124,7 +125,7 @@ func activeAgentBlueprintDetailStatus(items []catalogItem) string {
 		if item.id != "activate" || item.statusTag != "active" {
 			continue
 		}
-		detail := compactCatalogText(item.desc)
+		detail := valuefmt.CompactCatalogText(item.desc)
 		if detail == "" {
 			return "Active"
 		}
@@ -182,9 +183,9 @@ func agentBlueprintInlineSummary(blueprint gact.AgentBlueprintDefinition) string
 		parts = append(parts, blueprint.Scope)
 	}
 	if len(blueprint.ValidationErrors) > 0 {
-		parts = append(parts, pluralizeCount(len(blueprint.ValidationErrors), "error"))
+		parts = append(parts, valuefmt.PluralizeCount(len(blueprint.ValidationErrors), "error"))
 	} else if len(blueprint.ValidationWarnings) > 0 {
-		parts = append(parts, pluralizeCount(len(blueprint.ValidationWarnings), "warning"))
+		parts = append(parts, valuefmt.PluralizeCount(len(blueprint.ValidationWarnings), "warning"))
 	}
 	if len(parts) == 0 {
 		return "markdown agent blueprint"
@@ -200,16 +201,16 @@ func agentBlueprintCatalogStatus(blueprint gact.AgentBlueprintDefinition) string
 		return "warning"
 	}
 	if agentBlueprintSourceKey(blueprint) == "" {
-		return firstNonEmpty(blueprint.Scope, "blueprint")
+		return valuefmt.FirstNonEmpty(blueprint.Scope, "blueprint")
 	}
 	install := agentBlueprintInstallMetadata(blueprint)
-	if status := compactStatusTag(stringValue(install["status"])); status != "" {
+	if status := compactStatusTag(valuefmt.StringValue(install["status"])); status != "" {
 		return status
 	}
 	if state := agentBlueprintMarketplaceState(blueprint); state != "" {
 		return state
 	}
-	return firstNonEmpty(blueprint.Scope, "blueprint")
+	return valuefmt.FirstNonEmpty(blueprint.Scope, "blueprint")
 }
 
 func compactStatusTag(status string) string {

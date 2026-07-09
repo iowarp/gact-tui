@@ -108,7 +108,7 @@ func TestCtrlE_TargetsCursorMessage(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZ1: body-focus Enter opens the detail view on the cursor's
+// Body-focus Enter opens the detail view on the cursor's
 // bulky message — same behaviour as Ctrl+E, mapped to the intuitive
 // "Enter to open" convention.
 func TestBodyEnter_OpensDetailView(t *testing.T) {

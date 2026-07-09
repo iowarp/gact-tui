@@ -137,6 +137,53 @@
   white-space: nowrap;
 }
 
+/* ============ denominator toggle (legend %s) ============ */
+.ctx-legend__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ctx-legend__denom {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ctx-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border-30);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.ctx-toggle__btn {
+  padding: 3px 9px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.ctx-toggle__btn + .ctx-toggle__btn {
+  border-left: 1px solid var(--color-border-30);
+}
+
+.ctx-toggle__btn--active {
+  background: var(--color-accent-cyan-10);
+  color: var(--color-accent-cyan);
+}
+
+.ctx-toggle__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* ============ legend ============ */
 .ctx-legend {
   display: flex;

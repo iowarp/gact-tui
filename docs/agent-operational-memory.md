@@ -64,8 +64,3 @@ TUI, web, and desktop validation.
   are written unless `CLIO_LIVE_KEEP_SESSIONS=1` is set for debugging.
 - When filing CLIO-agent backend issues for UI blockers, label/tag them so the
   CLIO-agent team can find gact-tui related work quickly.
-
-## Files To Preserve
-
-- `docs/handoff-2026-06-10.md` is an untracked handoff document and must not be
-  deleted.

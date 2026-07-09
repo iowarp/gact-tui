@@ -6,19 +6,26 @@
 import { openTauriSse, type SseBridgeHandle, type SseBridgeHandlers } from './tauri.js';
 import { createSseDebugRecorder } from './tauri_sse_debug.js';
 
-type OpenTauriSse = (url: string, handlers: SseBridgeHandlers) => Promise<SseBridgeHandle>;
+type OpenTauriSse = (
+  url: string,
+  handlers: SseBridgeHandlers,
+  lastEventId?: string,
+) => Promise<SseBridgeHandle>;
 
 /** Production bridge opener: records SSE telemetry to `window.__gactSseDebug`. */
-const openTauriSseWithDebug: OpenTauriSse = (url, handlers) =>
-  openTauriSse(url, handlers, createSseDebugRecorder());
+const openTauriSseWithDebug: OpenTauriSse = (url, handlers, lastEventId) =>
+  openTauriSse(url, handlers, createSseDebugRecorder(), lastEventId);
 
 export interface LiveTranscriptTauriStreamOptions {
   sseUrl: string;
   generation: number;
+  /** Last seen SSE id, echoed as Last-Event-ID so the bridge can resume. */
+  lastEventId?: string;
   isStale: (generation: number) => boolean;
   setHandle: (handle: SseBridgeHandle | null) => void;
   onOpen: () => void;
-  onData: (data: string) => void;
+  /** Raw SSE `data:` payload plus the event `id:` if present. */
+  onData: (data: string, id?: string) => void;
   onFailure: () => void;
   openBridge?: OpenTauriSse;
 }
@@ -36,18 +43,22 @@ export function openLiveTranscriptTauriStream(options: LiveTranscriptTauriStream
     options.onFailure();
   };
 
-  void openBridge(options.sseUrl, {
-    onOpen: () => {
-      if (stale()) return;
-      options.onOpen();
+  void openBridge(
+    options.sseUrl,
+    {
+      onOpen: () => {
+        if (stale()) return;
+        options.onOpen();
+      },
+      onData: (data, id) => {
+        if (stale()) return;
+        options.onData(data, id);
+      },
+      onError: fail,
+      onClosed: fail,
     },
-    onData: (data) => {
-      if (stale()) return;
-      options.onData(data);
-    },
-    onError: fail,
-    onClosed: fail,
-  })
+    options.lastEventId,
+  )
     .then((handle) => {
       if (stale() || failed) {
         handle.close();

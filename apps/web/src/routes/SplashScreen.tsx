@@ -22,8 +22,9 @@ export { SPLASH_INTRO_KEY } from './splashModel.js';
  * - In Tauri: polls `get_backend` until status flips from `starting`
  *   to `ready` (or `error`). The bundled clio-agent-gact sidecar is
  *   already spawning in the Rust supervisor; we just wait.
- * - In a pure browser: probes `http://localhost:17800/v1/capabilities`
- *   directly. If it answers, transition to chat. If not, surface a
+ * - In a pure browser: probes the default backend's `/v1/capabilities`
+ *   directly (backendDefaults.ts, clio on :17800). If it answers,
+ *   transition to chat. If not, surface a
  *   "manual connect" prompt that opens ConnectScreen (rendered as a
  *   sibling route, not the default).
  *

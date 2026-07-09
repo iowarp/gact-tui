@@ -1,15 +1,19 @@
 package ui
 
+import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
+)
+
 // scrollToSelectedMessage shifts scrollOffset so the selected message
 // sits inside the visible window. Uses the same bottom-anchored math
 // jumpToMessage does.
 //
-// TTTTTTTTT1: the basic offset only pins the *message*, not the
+// The basic offset only pins the *message*, not the
 // selected part within it. For long messages (multi-tool assistants
 // with two bulky reads), walking the part cursor up with `k` can
 // leave the ▸ marker scrolled above the viewport. The caller can
 // detect that with `selectedPartEarlyInMessage` — for now this
-// function keeps the pre-TTTTTTTTT1 message-anchoring behaviour and
+// function keeps the earlier message-anchoring behaviour and
 // the visibility-of-part refinement is punted to a follow-up, since
 // doing it right needs per-part row metadata from the renderer.
 func (c *conversationComponent) scrollToSelectedMessage() {
@@ -24,7 +28,7 @@ func (c *conversationComponent) scrollToSelectedMessage() {
 		c.pendingPartScroll = false
 		return
 	}
-	// VVVVVVVVV1: arm the post-render scroll adjustment so the View
+	// Arm the post-render scroll adjustment so the View
 	// path can nudge the viewport to keep the ▸ marker visible. The
 	// base message-anchored offset is rough (measures in messages,
 	// scrollClip wants lines); the per-part fine-tune reads the
@@ -36,7 +40,7 @@ func (c *conversationComponent) selectedPartIsBottomBlock() bool {
 	if c.bodySelMsgIdx < 0 || c.bodySelMsgIdx >= len(c.messages) {
 		return false
 	}
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	lastVisible := -1
 	for i := len(c.messages) - 1; i >= 0; i-- {
 		if absorbed[i] {
@@ -68,20 +72,20 @@ func (c *conversationComponent) reattachBottom() {
 // alone gave no visual feedback. Default to the latest message so
 // the marker is immediately visible AND so Ctrl+E expands the most
 // recent bulky output by default (preserves the L3 behaviour).
-// (FFFFF1) ZZZZZZZ1: skip past any absorbed tool messages so the
+// Skip past any absorbed tool messages so the
 // cursor lands on a row the renderer actually paints — otherwise the
 // highlight is invisible because the index targets a message that
-// pairToolResults swallowed into its assistant parent.
+// render.PairToolResults swallowed into its assistant parent.
 func (c *conversationComponent) maybeInitCursor() {
 	if c.app.focus != FocusBody {
 		return
 	}
 	if c.bodySelMsgIdx >= 0 && c.bodySelMsgIdx < len(c.messages) {
 		c.bodySelMsgIdx = c.snapToVisibleMsg(c.bodySelMsgIdx, -1)
-		// TTTTTTTTT1: reseat the part cursor on the snapped msg. If the
+		// Reseat the part cursor on the snapped msg. If the
 		// old partIdx is still valid for the new msg, keep it; else
 		// fall back to last-part so Ctrl+E targets the bulky block at
-		// the bottom of the turn (matches pre-TTTTTTTTT1 default).
+		// the bottom of the turn (matches the earlier default).
 		addr := addressablePartsOf(c.messages[c.bodySelMsgIdx])
 		if c.bodySelPartIdx < 0 || c.bodySelPartIdx >= len(addr) {
 			c.bodySelPartIdx = len(addr) - 1
@@ -105,7 +109,7 @@ func (c *conversationComponent) snapToVisibleMsg(idx, dir int) int {
 	if len(c.messages) == 0 {
 		return -1
 	}
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	if dir == 0 {
 		dir = -1
 	}

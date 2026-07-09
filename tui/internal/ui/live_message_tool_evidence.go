@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 )
 
 // normalizeMessageToolEvidence promotes CLIO's metadata-only tool telemetry
@@ -37,7 +38,7 @@ func normalizeMessageToolEvidence(m *gact.Message) {
 				"synthetic_from": "tools_called_metadata",
 			},
 		})
-		resultText := toolEvidenceResultText(row.Name, row.Result)
+		resultText := presentation.ToolEvidenceResultText(row.Name, row.Result)
 		if row.RepeatCount > 0 {
 			repeatNotice := "trace repeated " + strconv.Itoa(row.RepeatCount) + " more time" + plural(row.RepeatCount) + " with the same call/result"
 			if strings.TrimSpace(resultText) == "" {

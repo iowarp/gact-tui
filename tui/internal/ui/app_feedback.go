@@ -23,7 +23,7 @@ const (
 	// footer flicker on routine sub-second reconnect blips while
 	// keeping real outages visible within a second.
 	sseBadgeMinDelay = 800 * time.Millisecond
-	// LLLLLLLL1: min dwell before a transient hint is eligible for
+	// Min dwell before a transient hint is eligible for
 	// keystroke-clear. Prevents the "hint set by background event
 	// between two keystrokes disappears on the user's next key"
 	// flicker. Same 800ms floor as the reconnect badge so the two
@@ -67,7 +67,7 @@ func (c *chromeComponent) handleErr(m errMsg) (tea.Model, tea.Cmd) {
 		a.cmdPalette.searchMatches = nil
 		return a, nil
 	}
-	// CLIO-BBBBBBBBBB4: memory stats are decorative; a failure
+	// Memory stats are decorative; a failure
 	// just hides the chip until the next refresh.
 	if m.stage == "memory_stats" {
 		return a, nil
@@ -87,6 +87,22 @@ func (c *chromeComponent) handleErr(m errMsg) (tea.Model, tea.Cmd) {
 	if m.stage == "cancel-session" {
 		a.setHint("cancel failed: " + operatorErrorMessage(m.err))
 		return a, scheduleHintExpire(a.transientHint)
+	}
+	// Issue #227: SSE stream failures — open ("sse") or mid-stream
+	// ("sse-read") — are as transient as a clean remote close, so they
+	// must NOT dead-end in the fatal StageError modal. Route them into
+	// the exact backoff-reconnect path sseClosedMsg takes, and surface
+	// the reason as a toast (the footer's "(reconnecting…)" badge keeps
+	// showing while the backoff runs) so the user still sees why.
+	if m.stage == "sse" || m.stage == "sse-read" {
+		writeTUIAuditReceived("tui.sse_reconnect", map[string]any{
+			"reason": "sse_stream_error",
+			"stage":  m.stage,
+			"error":  operatorErrorMessage(m.err),
+		})
+		a.setHint("stream error: " + operatorErrorMessage(m.err))
+		_, reconnect := a.connection.handleSSEClosed(sseClosedMsg{})
+		return a, tea.Batch(reconnect, scheduleHintExpire(a.transientHint))
 	}
 	a.stage = StageError
 	a.stageError = fmt.Sprintf("%s: %v", m.stage, m.err)
@@ -202,7 +218,7 @@ type appFeedbackState struct {
 }
 
 // setHint records a transient operator toast. The "first seen" stamp
-// (transientHintAt) that drives the LLLLLLLL1 keystroke-clear dwell is
+// (transientHintAt) that drives the keystroke-clear dwell is
 // applied centrally in App.Update's deferred closure, which compares the
 // hint before and after the cycle — so this setter is a pure field write
 // and intentionally does NOT stamp transientHintAt itself. Routing every

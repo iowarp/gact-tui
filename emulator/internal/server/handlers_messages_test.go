@@ -220,3 +220,91 @@ func TestSearchMessages(t *testing.T) {
 		t.Errorf("empty q: %d", rec2.Code)
 	}
 }
+
+// TestListMessagesPaginationContract guards the SPEC §6.3 pagination edges the
+// emulator previously drifted on (CLIO-232 / #872): omitting `limit` returns the
+// full ledger with next_cursor empty; a present `limit<=0` is 422; an unknown
+// `before` cursor is 404 (not a 400 malformed-query).
+func TestListMessagesPaginationContract(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+
+	for i := 0; i < 3; i++ {
+		rec := do(t, h, http.MethodPost, "/v1/sessions/"+sid+"/messages", PostMessageRequest{
+			Parts: []gact.Part{gact.NewTextPart("m")},
+		})
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("post %d: %d", i, rec.Code)
+		}
+	}
+
+	// Omitting limit → full ledger, next_cursor empty (no truncation).
+	rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("full ledger: %d", rec.Code)
+	}
+	var full ListMessagesResponse
+	mustDecode(t, rec, &full)
+	if len(full.Messages) != 3 {
+		t.Errorf("full ledger count = %d, want 3 (no truncation when limit omitted)", len(full.Messages))
+	}
+	if full.NextCursor != "" {
+		t.Errorf("full ledger next_cursor = %q, want empty", full.NextCursor)
+	}
+
+	// Present limit<=0 → 422 validation_error (not a silent default).
+	for _, bad := range []string{"0", "-1"} {
+		rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages?limit="+bad, nil)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("limit=%s status = %d, want 422", bad, rec.Code)
+		}
+	}
+
+	// Unknown before cursor → 404 (like GET a single message), not 400.
+	rec = do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages?before=msg_nope", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("unknown before status = %d, want 404", rec.Code)
+	}
+}
+
+// TestListMessagesBeforeCursorResolvesUnfiltered guards the review's HIGH finding:
+// a `before` cursor must resolve against the UNFILTERED ledger, then system rows
+// are dropped — matching clio. Filtering first would 404 a valid cursor that names
+// a system-role message when include_system=false.
+func TestListMessagesBeforeCursorResolvesUnfiltered(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+	st := srv.Store()
+
+	// Seed oldest→newest: user1, sys1(system), user2.
+	u1, _ := st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleUser, Parts: []gact.Part{gact.NewTextPart("u1")}})
+	sys1, _ := st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleSystem, Parts: []gact.Part{gact.NewTextPart("sys1")}})
+	_, _ = st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleUser, Parts: []gact.Part{gact.NewTextPart("u2")}})
+
+	// before=<system message id> with include_system=false must be 200 (cursor
+	// resolves against the unfiltered ledger), returning the older non-system rows.
+	rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages?before="+sys1.ID+"&include_system=false", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("before=<system id>&include_system=false: status %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+	var body ListMessagesResponse
+	mustDecode(t, rec, &body)
+	// Only user1 is strictly older than sys1 and non-system.
+	if len(body.Messages) != 1 || body.Messages[0].ID != u1.ID {
+		var ids []string
+		for _, m := range body.Messages {
+			ids = append(ids, m.ID)
+		}
+		t.Errorf("before=<sys>&include_system=false returned %v, want [%s]", ids, u1.ID)
+	}
+}
+
+// TestListMessagesInvalidIncludeSystem422 guards the review's MEDIUM finding: a
+// present-but-unparseable include_system is 422, not a silent coercion to false.
+func TestListMessagesInvalidIncludeSystem422(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	rec := do(t, srv.Handler(), http.MethodGet, "/v1/sessions/"+sid+"/messages?include_system=maybe", nil)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("include_system=maybe status = %d, want 422", rec.Code)
+	}
+}

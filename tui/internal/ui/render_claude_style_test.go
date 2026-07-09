@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestCapitalizeToolName(t *testing.T) {
 		{"mcp__gh__search", "MCPGhSearch"},
 	}
 	for _, tc := range cases {
-		got := capitalizeToolName(tc.in)
+		got := render.CapitalizeToolName(tc.in)
 		// Normalise: we're case-insensitive on the prefix part. Allow
 		// MCP__/mcp__ pre-normalisation to land wherever.
 		if tc.in == "mcp__gh__search" {
@@ -30,7 +31,7 @@ func TestCapitalizeToolName(t *testing.T) {
 			continue
 		}
 		if got != tc.want {
-			t.Errorf("capitalizeToolName(%q) = %q, want %q", tc.in, got, tc.want)
+			t.Errorf("render.CapitalizeToolName(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
@@ -54,8 +55,8 @@ func TestToolDisplayNameKnownScientificTools(t *testing.T) {
 		{"bash", "Bash"},
 	}
 	for _, tc := range cases {
-		if got := toolDisplayName(tc.tool); got != tc.want {
-			t.Errorf("toolDisplayName(%q) = %q, want %q", tc.tool, got, tc.want)
+		if got := render.ToolDisplayName(tc.tool); got != tc.want {
+			t.Errorf("render.ToolDisplayName(%q) = %q, want %q", tc.tool, got, tc.want)
 		}
 	}
 }

@@ -61,7 +61,8 @@ it is filed here against the auth model rather than as a UI defect.
   through Rust so the WebView never depends on clio's CORS. SSE now
   streams through the `gact_sse_open`/`gact_sse_close` bridge
   (`src/sse_bridge.rs`): Rust reads the stream and forwards each event
-  over a Tauri Channel, and the bearer token rides in the sseUrl query
+  over the keyed global `gact:sse` Tauri event (filtered by
+  `client_id`), and the bearer token rides in the sseUrl query
   string (an `EventSource` can't send headers). The pure-web build still
   uses `EventSource`. Verified by a live integration test
   (`sse_bridge::tests::streams_real_clio_events_through_the_parser`) and
@@ -69,7 +70,7 @@ it is filed here against the auth model rather than as a UI defect.
   the desktop's dependence on clio CORS for live streaming; (a) and (b)
   remain open for the REST/attach-token side.
 
-See `apps/05-open-questions.md` Q4 (auth model) — this finding is the
+See `docs/archive/apps-design/05-open-questions.md` Q4 (auth model) — this finding is the
 concrete cross-origin consequence of `trust_socket` being the only
 implemented scheme.
 
@@ -129,14 +130,16 @@ implemented scheme.
   ```
   No agent forwarding (`-A`), no X11 (`-X`), no `StrictHostKeyChecking
   no`. The user's `~/.ssh/known_hosts` is the authoritative source.
-- The key passphrase, if provided, is written to the **OS keychain**
-  via the `keyring` crate. The `keyring` features are restricted to
-  `windows-native`, `apple-native`, `linux-native` — no in-memory or
-  in-process fallback; if the keychain is unavailable the spawn fails
-  with `KeychainWriteFailed` and the user is shown an error card.
-- Service identifier: `ai.iowarp.clio.desktop.ssh`. Account:
-  `user@host`. Uninstall the app does **not** wipe these; clear them
-  with the OS-native credentials tool.
+  The `-i <key_path>` flag is included only when a key path was
+  provided in the wizard.
+- Authentication is delegated entirely to `ssh` itself: an
+  agent-provided identity (ssh-agent) or an unencrypted key file
+  (`-i <key_path>`). The app supplies no passphrase and stores **no**
+  SSH secrets anywhere — nothing is written to the OS keychain. An
+  encrypted key with no agent loaded cannot be unlocked by the app;
+  the tunnel simply fails to come up, exactly as it would at a
+  terminal. Wiring an `SSH_ASKPASS` helper for that case is tracked
+  as follow-up work.
 
 ## File access
 

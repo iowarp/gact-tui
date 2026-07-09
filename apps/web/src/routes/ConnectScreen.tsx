@@ -11,6 +11,7 @@ import { BrandMark } from '../components/BrandMark.js';
 import { useBackendRegistry } from '../registry.js';
 import { createConnectScreenController } from './ConnectScreenController.js';
 import { normalizedBackendBaseUrl } from './ConnectScreenModel.js';
+import { DEFAULT_BACKEND_URL } from '../backendDefaults.js';
 import {
   pureWebBackendCandidates,
   type PureWebBackendCandidate,
@@ -138,7 +139,7 @@ export function ConnectScreen(props: ConnectScreenProps) {
               type="url"
               value={connect.url()}
               onInput={(e) => connect.setUrl(e.currentTarget.value)}
-              placeholder="http://127.0.0.1:17800"
+              placeholder={DEFAULT_BACKEND_URL}
               data-testid="connect-url"
               autocomplete="off"
               spellcheck={false}

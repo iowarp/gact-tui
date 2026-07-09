@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func paletteCommandSubtitle(c gact.Command) string {
@@ -26,7 +27,7 @@ func paletteCommandSubtitle(c gact.Command) string {
 		return strings.Join(parts, " · ")
 	}
 	if c.Status != "" && c.Status != "available" {
-		reason := strings.TrimSpace(firstNonEmpty(c.DisabledReason, c.Error))
+		reason := strings.TrimSpace(valuefmt.FirstNonEmpty(c.DisabledReason, c.Error))
 		if reason != "" {
 			return c.Status + " · " + reason
 		}

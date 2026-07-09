@@ -11,3 +11,7 @@
 *.webm binary
 *.mp4  binary
 *.ico  binary
+
+# No Git LFS. Doc images are a curated handful of small plain blobs under
+# docs/screenshots/ (see the media policy in CLAUDE.md); screenshots are
+# tape-regenerated and not committed elsewhere.

@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *fileViewerComponent) uploadCurrentDetail() tea.Cmd {
@@ -46,7 +47,7 @@ func uploadAttachmentFileCmd(c *client.Client, sessionID, path, mode string) tea
 		}
 		mimeType := mime.TypeByExtension(filepath.Ext(path))
 		if mimeType == "" && len(data) > 0 {
-			mimeType = http.DetectContentType(data[:minInt(len(data), 512)])
+			mimeType = http.DetectContentType(data[:valuefmt.MinInt(len(data), 512)])
 		}
 		cf, err := c.UploadAttachment(ctx, sessionID, filepath.Base(path), mimeType, mode, data)
 		return contextFileUploadedMsg{sessionID: sessionID, localPath: path, file: cf, err: err}

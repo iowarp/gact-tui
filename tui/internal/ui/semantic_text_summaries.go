@@ -3,6 +3,7 @@ package ui
 // semantic_text_summaries.go classifies and humanizes semantic event text/types.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
@@ -58,6 +59,23 @@ func humanizeSemanticEventType(eventType string) string {
 }
 
 func stripSemanticControlContracts(text string) string {
+	text = stripSemanticControlMarkers(text)
+	if text == "" {
+		return ""
+	}
+	if looksLikeMarkdownBlock(text) {
+		return render.TruncateMarkdownBlock(text, 1200, 18)
+	}
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	return textutil.Truncate(text, 320)
+}
+
+// stripSemanticControlMarkers cuts the text at the first DSPy control-contract
+// marker WITHOUT the summarizing truncation of stripSemanticControlContracts.
+// The unified transcript render uses it so assistant prose renders in full
+// (web parity: text rows are markdown IN FULL; truncation is reserved for
+// semantic-event summaries).
+func stripSemanticControlMarkers(text string) string {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
@@ -80,9 +98,5 @@ func stripSemanticControlContracts(text string) string {
 			text = strings.TrimSpace(text[:idx])
 		}
 	}
-	if looksLikeMarkdownBlock(text) {
-		return truncateMarkdownBlock(text, 1200, 18)
-	}
-	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
-	return textutil.Truncate(text, 320)
+	return text
 }

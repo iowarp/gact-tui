@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func agentBlueprintSourceRegistryItems(sources []gact.AgentBlueprintSource) []catalogItem {
@@ -15,7 +16,7 @@ func agentBlueprintSourceRegistryItems(sources []gact.AgentBlueprintSource) []ca
 		if sources[i].Status != sources[j].Status {
 			return sources[i].Status < sources[j].Status
 		}
-		return firstNonEmpty(sources[i].Name, sources[i].ID) < firstNonEmpty(sources[j].Name, sources[j].ID)
+		return valuefmt.FirstNonEmpty(sources[i].Name, sources[i].ID) < valuefmt.FirstNonEmpty(sources[j].Name, sources[j].ID)
 	})
 	items := make([]catalogItem, 0, len(sources)*2)
 	if len(sources) == 0 {
@@ -28,29 +29,29 @@ func agentBlueprintSourceRegistryItems(sources []gact.AgentBlueprintSource) []ca
 		}}
 	}
 	for _, source := range sources {
-		status := firstNonEmpty(source.Status, "source")
+		status := valuefmt.FirstNonEmpty(source.Status, "source")
 		if source.Error != "" {
 			status = "error"
 		}
 		sourceID := source.ID
 		items = append(items, catalogItem{
 			id:         "source/" + sourceID,
-			title:      "▾ " + firstNonEmpty(source.Name, source.Source, source.ID),
+			title:      "▾ " + valuefmt.FirstNonEmpty(source.Name, source.Source, source.ID),
 			desc:       formatAgentBlueprintRegistrySource(source),
 			inlineDesc: agentBlueprintRegistrySourceInlineSummary(source),
 			statusTag:  status,
 		})
 		blueprints := append([]gact.AgentBlueprintDefinition(nil), source.AvailableBlueprints...)
 		sort.SliceStable(blueprints, func(i, j int) bool {
-			return firstNonEmpty(blueprints[i].Title, blueprints[i].ID) < firstNonEmpty(blueprints[j].Title, blueprints[j].ID)
+			return valuefmt.FirstNonEmpty(blueprints[i].Title, blueprints[i].ID) < valuefmt.FirstNonEmpty(blueprints[j].Title, blueprints[j].ID)
 		})
 		for idx, blueprint := range blueprints {
 			items = append(items, catalogItem{
 				id:         "source-blueprint/" + sourceID + "/" + blueprint.ID,
-				title:      treePrefix(idx, len(blueprints)) + firstNonEmpty(blueprint.Title, blueprint.ID),
+				title:      treePrefix(idx, len(blueprints)) + valuefmt.FirstNonEmpty(blueprint.Title, blueprint.ID),
 				desc:       agentBlueprintDescription(blueprint),
 				inlineDesc: agentBlueprintRegistryBlueprintInlineSummary(blueprint),
-				statusTag:  firstNonEmpty(blueprint.Version, "install"),
+				statusTag:  valuefmt.FirstNonEmpty(blueprint.Version, "install"),
 			})
 		}
 	}
@@ -77,7 +78,7 @@ func agentBlueprintRegistrySourceInlineSummary(source gact.AgentBlueprintSource)
 		parts = append(parts, availableBlueprintCountLabel(len(source.AvailableBlueprints)))
 	}
 	if source.Error != "" {
-		parts = append(parts, "needs attention: "+compactCatalogText(source.Error))
+		parts = append(parts, "needs attention: "+valuefmt.CompactCatalogText(source.Error))
 	}
 	if len(parts) == 0 {
 		return "source registry entry"
@@ -117,10 +118,10 @@ func agentBlueprintRegistryBlueprintInlineSummary(blueprint gact.AgentBlueprintD
 		parts = append(parts, "available to install")
 	}
 	install := agentBlueprintInstallMetadata(blueprint)
-	if ref := stringValue(install["ref"]); ref != "" {
+	if ref := valuefmt.StringValue(install["ref"]); ref != "" {
 		parts = append(parts, "branch "+ref)
 	}
-	if commit := stringValue(install["commit"]); commit != "" {
+	if commit := valuefmt.StringValue(install["commit"]); commit != "" {
 		parts = append(parts, shortHash(commit))
 	}
 	return strings.Join(parts, " · ")
@@ -137,9 +138,9 @@ func parseSourceBlueprintItemID(id string) (sourceID, blueprintID string, ok boo
 
 func formatAgentBlueprintRegistrySource(source gact.AgentBlueprintSource) string {
 	rows := appendDetailSection(nil, "Marketplace connection",
-		detailField{"name", firstNonEmpty(source.Name, source.ID)},
-		detailField{"status", firstNonEmpty(source.Status, "unknown")},
-		detailField{"available", pluralizeCount(len(source.AvailableBlueprints), "blueprint")},
+		detailField{"name", valuefmt.FirstNonEmpty(source.Name, source.ID)},
+		detailField{"status", valuefmt.FirstNonEmpty(source.Status, "unknown")},
+		detailField{"available", valuefmt.PluralizeCount(len(source.AvailableBlueprints), "blueprint")},
 	)
 	rows = appendDetailSection(rows, "Repository",
 		detailField{"url", source.Source},
@@ -164,7 +165,7 @@ func formatAgentBlueprintRegistrySource(source gact.AgentBlueprintSource) string
 	if len(source.AvailableBlueprints) > 0 {
 		lines := make([]string, 0, len(source.AvailableBlueprints))
 		for _, blueprint := range source.AvailableBlueprints {
-			line := firstNonEmpty(blueprint.Title, blueprint.ID)
+			line := valuefmt.FirstNonEmpty(blueprint.Title, blueprint.ID)
 			if blueprint.Version != "" {
 				line += " · " + blueprint.Version
 			}

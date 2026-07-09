@@ -3,6 +3,7 @@ package ui
 // render_message_headers.go renders message role/headers and decides header visibility/part suppression.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -93,7 +94,7 @@ func standaloneToolHeaderLabel(parts []gact.Part) string {
 		if part.IsError {
 			status = "ERROR"
 		}
-		return "TOOL · " + capitalizeToolName(name) + " " + status
+		return "TOOL · " + render.CapitalizeToolName(name) + " " + status
 	}
 	return ""
 }

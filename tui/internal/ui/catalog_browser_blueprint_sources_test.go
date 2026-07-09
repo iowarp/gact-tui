@@ -13,6 +13,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func TestCatalogBrowser_AgentBlueprintSourceDeleteRequiresConfirmation(t *testing.T) {
@@ -282,7 +283,7 @@ func TestCatalogBrowser_AgentBlueprintSourceActionsRenderForSelectedBlueprint(t 
 		"scope":        "workspace",
 		"workspace_id": "ws1",
 	} {
-		if got := stringValue(installBody[key]); got != want {
+		if got := valuefmt.StringValue(installBody[key]); got != want {
 			t.Fatalf("install body %s = %q, want %q; body=%#v", key, got, want, installBody)
 		}
 	}

@@ -141,16 +141,18 @@ func TestE2E_TUI_HappyPath(t *testing.T) {
 	// teatest.WaitFor consumes the reader between calls, so combine
 	// asserting all three in one predicate. The full assistant turn
 	// (thinking → tool_call → tool result) renders within ~5s on Fast.
-	// L4 reshaped tool rendering: `ReadFile(path)` header + `⎿` glyph
-	// leading the indented output (no `● TOOL` row between them, since
-	// the L4 polish nests tool_result under its call).
+	// #233 unified the transcript on the canonical projection: the assistant
+	// turn renders under a colored `▎agent` header (the glyph and the name are
+	// styled separately, so match them apart) with `●` turn markers, the
+	// `ReadFile(path)` call line, and the `⎿` result glyph under its call.
 	waitForOutput(t, tm, func(s string) bool {
-		return strings.Contains(s, "ASSISTANT") &&
+		return strings.Contains(s, "▎") &&
+			strings.Contains(s, "●") &&
 			strings.Contains(s, "ReadFile(") &&
 			strings.Contains(s, "⎿")
 	}, 8*time.Second)
 
-	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// Ctrl+C now opens a confirm modal. Send it twice so
 	// the second press accepts the default "close" option and quits.
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
@@ -193,7 +195,7 @@ func TestE2E_TUI_PermissionFlow(t *testing.T) {
 		return strings.Contains(s, "Removed") || strings.Contains(s, "directory was removed")
 	}, 5*time.Second)
 
-	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// Ctrl+C now opens a confirm modal. Send it twice so
 	// the second press accepts the default "close" option and quits.
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
@@ -225,7 +227,7 @@ func TestE2E_TUI_PaletteAndHelp(t *testing.T) {
 	}, 2*time.Second)
 
 	tm.Send(tea.KeyPressMsg{Code: tea.KeyEscape})
-	// ZZZZZZZZZ1: Ctrl+C now opens a confirm modal. Send it twice so
+	// Ctrl+C now opens a confirm modal. Send it twice so
 	// the second press accepts the default "close" option and quits.
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})

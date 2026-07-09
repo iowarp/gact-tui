@@ -5,6 +5,8 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,11 +22,40 @@ func (c *executionComponent) openArtifactForSelection() bool {
 }
 
 func (c *executionComponent) artifactDetailForSelection() (bulkyPartRef, bool) {
-	turns := c.turnsForCurrentSession()
-	if len(turns) == 0 {
-		return bulkyPartRef{}, false
+	partsTurns := c.conversationTurnsForRender()
+	// The provider-thinking disclosure row advertises `Ctrl+E`; when the body
+	// cursor sits on that row, open exactly its prose — before the coarser
+	// turn-level resolution below can pick an unrelated ref.
+	if ref, ok := c.selectedProviderThinkingRef(partsTurns); ok {
+		return ref, true
 	}
-	targetsByTurn := c.artifactDetailsByTurn(turns)
+	ledgerTurns := c.turnsForCurrentSession()
+	targetsByTurn := c.artifactDetailsByTurn(ledgerTurns)
+	// Provider thinking lives only on the message-parts projection — the SSE
+	// semantic-event ledger never records thinking parts — so its detail refs
+	// merge in from there. Prepending keeps each turn's existing last-ref-wins
+	// pick (tool observation / expert report) unchanged; the thinking becomes
+	// the turn-level pick only when the turn has no ledger detail (e.g. after
+	// a /messages reload, which delivers parts but no ledger).
+	turnOrder := make([]string, 0, len(ledgerTurns)+len(partsTurns))
+	seenTurn := map[string]bool{}
+	for _, turn := range ledgerTurns {
+		if !seenTurn[turn.TurnID] {
+			seenTurn[turn.TurnID] = true
+			turnOrder = append(turnOrder, turn.TurnID)
+		}
+	}
+	for _, turn := range partsTurns {
+		refs := providerThinkingDetailRefs(turn)
+		if len(refs) == 0 {
+			continue
+		}
+		if !seenTurn[turn.TurnID] {
+			seenTurn[turn.TurnID] = true
+			turnOrder = append(turnOrder, turn.TurnID)
+		}
+		targetsByTurn[turn.TurnID] = append(refs, targetsByTurn[turn.TurnID]...)
+	}
 	if len(targetsByTurn) == 0 {
 		return bulkyPartRef{}, false
 	}
@@ -33,12 +64,67 @@ func (c *executionComponent) artifactDetailForSelection() (bulkyPartRef, bool) {
 			return refs[len(refs)-1], true
 		}
 	}
-	for i := len(turns) - 1; i >= 0; i-- {
-		if refs := targetsByTurn[turns[i].TurnID]; len(refs) > 0 {
+	for i := len(turnOrder) - 1; i >= 0; i-- {
+		if refs := targetsByTurn[turnOrder[i]]; len(refs) > 0 {
 			return refs[len(refs)-1], true
 		}
 	}
 	return bulkyPartRef{}, false
+}
+
+// selectedProviderThinkingRef resolves the provider-thinking node the body
+// cursor addresses, if any. Provider-thinking parts are addressable
+// (addressablePartsOf), so their disclosure row is a first-class cursor stop;
+// its node carries the source part address (Src) that the selection matches.
+func (c *executionComponent) selectedProviderThinkingRef(turns []executionProjectedTurn) (bulkyPartRef, bool) {
+	selMsg := c.app.conversation.bodySelMsgIdx
+	selAddr := c.app.conversation.bodySelPartIdx
+	if selMsg < 0 || selAddr < 0 {
+		return bulkyPartRef{}, false
+	}
+	for _, turn := range turns {
+		for _, node := range turn.Nodes {
+			if !node.ProviderThinking || !node.Src.Valid ||
+				node.Src.MsgIdx != selMsg || node.Src.AddrIdx != selAddr {
+				continue
+			}
+			return providerThinkingDetailRef(turn.TurnID, node)
+		}
+	}
+	return bulkyPartRef{}, false
+}
+
+// providerThinkingDetailRefs collects a projected turn's provider-thinking
+// detail refs. Only the message-parts projection produces such nodes — the
+// ledger node builders (execution_timeline_nodes.go) never set ProviderThinking.
+func providerThinkingDetailRefs(turn executionProjectedTurn) []bulkyPartRef {
+	var refs []bulkyPartRef
+	for _, node := range turn.Nodes {
+		if !node.ProviderThinking {
+			continue
+		}
+		if ref, ok := providerThinkingDetailRef(turn.TurnID, node); ok {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+// providerThinkingDetailRef builds the Ctrl+E detail ref carrying a
+// provider-thinking node's full prose — the text the collapsed `thinking ·
+// N chars · Ctrl+E` transcript row (execution_render.providerThinkingDisclosure)
+// never shows inline.
+func providerThinkingDetailRef(turnID string, node executionTimelineNode) (bulkyPartRef, bool) {
+	thinking := strings.TrimSpace(node.Thinking)
+	if thinking == "" || semanticPreviewIsRedacted(thinking) {
+		return bulkyPartRef{}, false
+	}
+	return bulkyPartRef{
+		messageID: "execution:" + turnID,
+		partID:    executionNodeDetailID(node, valuefmt.FirstNonEmpty(node.Src.PartID, "thinking")),
+		title:     "Thinking · " + valuefmt.FirstNonEmpty(node.Agent, "assistant"),
+		fullText:  thinking,
+	}, true
 }
 
 func (c *executionComponent) artifactDetailsByTurn(turns []executionProjectedTurn) map[string][]bulkyPartRef {
@@ -57,12 +143,19 @@ func (c *executionComponent) artifactDetailsByTurn(turns []executionProjectedTur
 
 func (c *executionComponent) artifactDetailsForNode(turnID string, node executionTimelineNode) []bulkyPartRef {
 	var refs []bulkyPartRef
+	// Provider-native thinking renders as a collapsed `thinking · N chars · Ctrl+E`
+	// row (execution_render.emitReactStep); its full prose is only reachable here.
+	if node.ProviderThinking {
+		if ref, ok := providerThinkingDetailRef(turnID, node); ok {
+			refs = append(refs, ref)
+		}
+	}
 	if reasoning := strings.TrimSpace(node.Reasoning); reasoning != "" && !semanticPreviewIsRedacted(reasoning) {
-		title := firstNonEmpty(toolDisplayName(node.ToolName), node.ToolName, "reasoning")
+		title := valuefmt.FirstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, "reasoning")
 		refs = append(refs, bulkyPartRef{
 			messageID: "execution:" + turnID,
 			partID:    executionNodeDetailID(node, "reasoning"),
-			title:     "Reasoning trace · " + firstNonEmpty(node.Agent, title),
+			title:     "Reasoning trace · " + valuefmt.FirstNonEmpty(node.Agent, title),
 			fullText:  reasoning,
 		})
 	}
@@ -81,10 +174,10 @@ func (c *executionComponent) observationDetailRefs(turnID string, node execution
 	if observation == nil {
 		return nil
 	}
-	obj := mapValue(observation)
+	obj := valuefmt.MapValue(observation)
 	if len(obj) == 0 {
 		if parsed, ok := parseLooseJSON(observation); ok {
-			obj = mapValue(parsed)
+			obj = valuefmt.MapValue(parsed)
 		}
 	}
 	lowerTool := strings.ToLower(toolName)
@@ -117,13 +210,13 @@ func (c *executionComponent) expertReportDetailRefs(turnID string, node executio
 			}
 		}
 	}
-	text := strings.TrimSpace(stripSemanticControlContracts(firstNonEmpty(node.Text, node.Summary)))
+	text := strings.TrimSpace(stripSemanticControlContracts(valuefmt.FirstNonEmpty(node.Text, node.Summary)))
 	if text != "" {
 		if preview, hidden := collapseForPreview(text, c.app.Theme.CollapseThreshold); hidden > 0 || strings.Contains(preview, "Ctrl+E") {
 			refs = append(refs, bulkyPartRef{
 				messageID: "execution:" + turnID,
 				partID:    executionNodeDetailID(node, "report"),
-				title:     firstNonEmpty(node.Agent, "expert") + " report",
+				title:     valuefmt.FirstNonEmpty(node.Agent, "expert") + " report",
 				fullText:  text,
 			})
 		}
@@ -205,7 +298,7 @@ func (c *executionComponent) shellDiffRef(turnID string, node executionTimelineN
 }
 
 func executionJSONOutputRef(turnID string, node executionTimelineNode, title string, value any) (bulkyPartRef, bool) {
-	text := strings.TrimSpace(stringValue(value))
+	text := strings.TrimSpace(valuefmt.StringValue(value))
 	if parsed, ok := parseLooseJSON(value); ok {
 		if payload, err := json.MarshalIndent(parsed, "", "  "); err == nil {
 			text = string(payload)
@@ -220,7 +313,7 @@ func executionJSONOutputRef(turnID string, node executionTimelineNode, title str
 	return bulkyPartRef{
 		messageID: "execution:" + turnID,
 		partID:    executionNodeDetailID(node, "output"),
-		title:     title + " · " + firstNonEmpty(toolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
+		title:     title + " · " + valuefmt.FirstNonEmpty(render.ToolDisplayName(node.ToolName), node.ToolName, node.Agent, "execution"),
 		fullText:  text,
 	}, true
 }

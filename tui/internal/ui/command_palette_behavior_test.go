@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func TestPaletteClassifiesThemeNavigationAndMCPPrompts(t *testing.T) {
@@ -139,7 +140,7 @@ func TestPaletteCategoryOrderPrioritizesOperatorEntrypoints(t *testing.T) {
 	a.cmdPalette.paletteGroup = "Runtime"
 
 	matches := a.cmdPalette.visibleMatches()
-	got := make([]string, 0, minInt(3, len(matches)))
+	got := make([]string, 0, valuefmt.MinInt(3, len(matches)))
 	for i := 0; i < len(matches) && i < 3; i++ {
 		got = append(got, matches[i].ID)
 	}

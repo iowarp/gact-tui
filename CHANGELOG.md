@@ -4,6 +4,69 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.9.5] — 2026-07-09
+
+The parity-and-convergence release. Closes the two protocol-convergence
+epics — #233 (the TUI renders at parity with the web client off the same
+wire) and #232 (spec follows reality; conformance makes drift
+CI-impossible) — validated end-to-end against the live CLIO backend
+running EarthScope.
+
+### Changed
+- **TUI renders the server's clean stream verbatim.** The orchestration
+  "placeholder" chrome the client used to synthesize is stripped at web
+  parity, so a delegation turn renders the same nested
+  `main → expert → tool → returns` grammar the web client shows, with no
+  client-side scaffolding (#233, #300).
+
+### Removed
+- **Client-side `workflow_state` part fabricator deleted.** clio never
+  emits `workflow_state` at message level (it rides real `expert_handoff`
+  parts), so the synthetic evidence part the TUI fabricated was pure
+  client invention — now gone. `reasoning_log` promotion is retained (the
+  server *does* emit it message-level with no backing part for
+  reasoning-capable models) (#233, #301).
+
+### Contract
+- **`GET /messages` pagination is now a normative contract.** `limit`
+  absent → full ledger; `limit<=0` or non-numeric → 422; unknown `before`
+  → 404; `before` resolves against the unfiltered ledger before system
+  rows are dropped and the limit applied; `next_cursor` is the
+  oldest-of-page id on truncation. `parent_session_id` session filtering
+  is honored. Codified in SPEC §6.3, implemented in the emulator, and
+  asserted against clio by conformance (`Drift_MessagePagination`,
+  `Drift_ParentSessionFilter`) (#232, #298, #302).
+
+### Notes
+- The two residual #232 boxes are **owner decisions**, each tracked in its
+  own issue: Go wire-type ownership / codegen (#254 — a decision-ready
+  design + spike is posted there) and the single server-side dedup owner
+  (clio #832). Neither is client work.
+
+## [0.9.4] — 2026-07-07
+
+The lab-demo release. Pairs with the current CLIO backend and the GACT
+protocol as it stands after the P0 hardening wave and the protocol-
+convergence work that followed the 0.2 line.
+
+### Added
+- Config-aware CLI backend resolution: `resolveCLIBackend` reads
+  `config.json` and surfaces a structured `reason` (e.g.
+  `config_load_error`) instead of failing silently (#230).
+
+### Changed
+- SSE parsing brought to WHATWG conformance — leading-space stripping
+  and multi-line `data:` accumulation handled per spec, replacing the
+  ad-hoc line parser (#252).
+
+### Notes
+- **Gap 0.2.2 – 0.9.3 is not retro-documented.** The project versioned
+  ahead of this changelog across the P0 wave and protocol convergence;
+  those intermediate releases were not captured here at the time. For
+  the per-tag detail, see the GitHub releases. This entry revives the
+  changelog at the current tag (`v0.9.4`) rather than fabricating the
+  intervening history.
+
 ## [0.2.1] — 2026-04-27
 
 The "lab-ready" release. Pairs with clio-agent v0.3.1 — every advertised
@@ -14,10 +77,10 @@ capability is verified end-to-end through the TUI against the live CLIO.
   builtin slash-commands in the palette so the user can discover them
   without remembering the magic string. Each routes to its
   `catalogBrowser` modal as before.
-- `SCREENSHOTS.md` index — every PNG under `screenshots/` paired with
+- `SCREENSHOTS.md` index (now `screenshots/README.md`) — every PNG under `screenshots/` paired with
   the capability it proves and the tape that produced it.
-- `screenshots/clio_diff.png` — real CLIO diff path rendered inline.
-- `screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers
+- `docs/screenshots/clio_diff.png` — real CLIO diff path rendered inline.
+- `docs/screenshots/clio_mcp_servers.png` — bundled + third-party MCP servers
   visible in the `/mcp` modal.
 
 ### Notes

@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionStagedResourcePreview(obj map[string]any, threshold int) string {
@@ -59,14 +61,14 @@ func executionPlotObservationPreview(obj map[string]any) string {
 	if path == "" {
 		return ""
 	}
-	rows := []string{shortenPathForInline(path)}
+	rows := []string{valuefmt.ShortenPathForInline(path)}
 	if plotType := executionFirstScalarValue(obj, "plot_type", "chart_type"); plotType != "" {
 		rows = append(rows, "chart "+plotType)
 	}
 	if x := executionFirstScalarValue(obj, "x_column"); x != "" {
 		rows = append(rows, "x "+x)
 	}
-	if y := summarizeNamedItems(obj, "y_columns", "y_column"); y != "" {
+	if y := presentation.SummarizeNamedItems(obj, "y_columns", "y_column"); y != "" {
 		rows = append(rows, "y "+y)
 	}
 	if n := executionFirstScalarValue(obj, "data_points"); n != "" {
@@ -79,7 +81,7 @@ func executionPlotObservationPreview(obj map[string]any) string {
 func executionPathWithSize(path, size string) string {
 	line := filepath.Base(path)
 	if strings.TrimSpace(line) == "" {
-		line = shortenPathForInline(path)
+		line = valuefmt.ShortenPathForInline(path)
 	}
 	if size != "" {
 		line += " · " + size + " bytes"
@@ -192,17 +194,17 @@ func executionFirstNonEmptyLines(path string, limit int) []string {
 }
 
 func executionArtifactPreview(raw any) string {
-	obj := mapValue(raw)
+	obj := valuefmt.MapValue(raw)
 	if len(obj) == 0 {
 		return ""
 	}
-	path := firstStringValue(obj, "local_path", "path", "output_path", "artifact_path")
+	path := presentation.FirstStringValue(obj, "local_path", "path", "output_path", "artifact_path")
 	if path == "" {
 		return ""
 	}
 	var rows []string
-	rows = append(rows, shortenPathForInline(path))
-	if size := firstStringValue(obj, "size_bytes", "bytes"); size != "" {
+	rows = append(rows, valuefmt.ShortenPathForInline(path))
+	if size := presentation.FirstStringValue(obj, "size_bytes", "bytes"); size != "" {
 		rows[0] += " · " + size + " bytes"
 	}
 	return strings.Join(rows, "\n")

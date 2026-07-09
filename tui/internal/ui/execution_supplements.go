@@ -1,11 +1,19 @@
 package ui
 
 // execution_supplements.go derives supplemental execution nodes from assistant messages and de-duplicates them.
+//
+// executionPlaceholderAssistantText (below) is a TRANSITIONAL prose heuristic
+// inventoried in contract/SPEC.md Appendix ("Transitional client presentation
+// filters (non-normative)") next to the web client's equivalents. It exists only
+// while the server still emits placeholder answer text (clio #832); its deletion
+// condition is recorded there.
 
 import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *executionComponent) assistantSupplementNodesByTurn() map[string][]executionTimelineNode {
@@ -16,7 +24,7 @@ func (c *executionComponent) assistantSupplementNodesByTurn() map[string][]execu
 		case gact.RoleUser:
 			currentTurnID = messageTurnID(msg)
 		case gact.RoleAssistant:
-			turnID := firstNonEmpty(messageTurnID(msg), currentTurnID)
+			turnID := valuefmt.FirstNonEmpty(messageTurnID(msg), currentTurnID)
 			if turnID == "" {
 				continue
 			}
@@ -63,12 +71,12 @@ func executionAssistantSupplementNodes(msg gact.Message) []executionTimelineNode
 }
 
 func executionExpertHandoffSupplementNode(part gact.Part) executionTimelineNode {
-	agent := firstNonEmpty(
-		stringValue(part.Metadata["agent_id"]),
-		stringValue(part.Metadata["delegate_to"]),
+	agent := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(part.Metadata["agent_id"]),
+		valuefmt.StringValue(part.Metadata["delegate_to"]),
 		"expert",
 	)
-	parent := firstNonEmpty(stringValue(part.Metadata["parent_id"]), stringValue(part.Metadata["parent"]))
+	parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["parent_id"]), valuefmt.StringValue(part.Metadata["parent"]))
 	text := strings.TrimSpace(part.Text)
 	node := executionTimelineNode{
 		Kind:        executionNodeExpertReport,
@@ -97,12 +105,12 @@ func executionExpertHandoffSupplementNode(part gact.Part) executionTimelineNode 
 }
 
 func executionImagePartPreview(part gact.Part) string {
-	title := firstNonEmpty(part.Title, stringValue(part.Metadata["title"]), "image artifact")
-	path := firstNonEmpty(part.URI, stringValue(part.Metadata["path"]), stringValue(part.Metadata["artifact_path"]))
+	title := valuefmt.FirstNonEmpty(part.Title, valuefmt.StringValue(part.Metadata["title"]), "image artifact")
+	path := valuefmt.FirstNonEmpty(part.URI, valuefmt.StringValue(part.Metadata["path"]), valuefmt.StringValue(part.Metadata["artifact_path"]))
 	if path == "" {
 		return title
 	}
-	return title + "\n" + shortenPathForInline(path) + "\nCtrl+E full image"
+	return title + "\n" + valuefmt.ShortenPathForInline(path) + "\nCtrl+E full image"
 }
 
 func executionSupplementCarriesArtifact(text string) bool {
@@ -164,7 +172,7 @@ func executionDedupSupplementNodes(existing, supplements []executionTimelineNode
 }
 
 func executionNodeComparableText(node executionTimelineNode) string {
-	return firstNonEmpty(node.Text, node.Summary, node.Question, node.Thinking)
+	return valuefmt.FirstNonEmpty(node.Text, node.Summary, node.Question, node.Thinking)
 }
 
 func normalizeExecutionComparable(text string) string {
@@ -192,14 +200,21 @@ func executionTextQualityScore(text string) int {
 }
 
 func executionPlaceholderAssistantText(text string) bool {
-	normalized := strings.ToLower(strings.Join(strings.Fields(stripSemanticControlContracts(text)), " "))
+	stripped := stripSemanticControlContracts(text)
+	normalized := strings.ToLower(strings.Join(strings.Fields(stripped), " "))
 	if normalized == "" {
 		return false
 	}
-	if strings.Contains(normalized, "no answer yet") {
+	// Web parity: a row whose prose cleans ENTIRELY to chrome (whole-line status
+	// parentheticals like "(Delegating to …)", typed-state blobs) is a placeholder —
+	// the same mechanism the web uses (cleanProse strips it to empty, the row is
+	// dropped). This replaces the former domain-specific "awaiting geospatial/data
+	// acquisition" strings. NOTE: we deliberately do NOT hide a row merely because it
+	// CONTAINS an orchestration phrase (the web's isOrchestrationPlaceholder is only a
+	// gate for hasPriorAnswerRow, never a hide) — real prose like "routing to the
+	// station catalog expert to filter …" must survive.
+	if strings.TrimSpace(presentation.CleanProse(stripped)) == "" {
 		return true
 	}
-	return strings.Contains(normalized, "awaiting geospatial resolution") ||
-		strings.Contains(normalized, "awaiting data acquisition") ||
-		strings.Contains(normalized, "awaiting synthesis")
+	return strings.Contains(normalized, "no answer yet")
 }

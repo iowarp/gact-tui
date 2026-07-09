@@ -649,12 +649,14 @@ test.describe('CLIO harness — visual proofs', () => {
       expect(bgLight).toBe('#f7f9fc');
       await page.waitForTimeout(300);
       await page.screenshot({ path: shot('settings-light-theme'), fullPage: false });
-      // Back to Dark → overrides clear to the design-system default.
+      // Back to Dark → the mode's default preset (DEFAULT_DARK_PRESET_ID = 'dim',
+      // the softened dark the design system adopted over the "far too heavy" pure
+      // black; see ThemePresets.ts) applies its --color-bg.
       await page.getByTestId('settings-theme-dark').click();
       const bgDark = await page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim(),
       );
-      expect(bgDark).toBe('#000000');
+      expect(bgDark).toBe('#101216');
     });
   });
 

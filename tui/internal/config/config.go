@@ -19,6 +19,14 @@ import (
 	"path/filepath"
 )
 
+// DefaultBackend and DefaultTheme are the built-in defaults at the bottom
+// of the resolution precedence (defaults < config file < env < flags).
+// Shared by the CLI (internal/cli) and the interactive TUI entry point.
+const (
+	DefaultBackend = "http://localhost:7777"
+	DefaultTheme   = "dark"
+)
+
 // Config is the on-disk shape. Fields are pointers so we can tell
 // "absent from file" from "explicitly set to zero" — important for
 // layering with env vars and flags.
@@ -61,7 +69,7 @@ type Config struct {
 	// use the baked-in default. Resolves relative paths against
 	// $XDG_CONFIG_HOME/gact/.
 	IntroFile *string `json:"intro_file,omitempty"`
-	// NNNNNNNNN1: frame delay (milliseconds) for the animated GRC
+	// Frame delay (milliseconds) for the animated GRC
 	// logo splash. Nil/0 = built-in default (90ms → ~3.2s per 36-
 	// frame loop). Lower = faster rotation. Range-clamped at use
 	// site to [20, 1000] so a typo doesn't freeze the splash.

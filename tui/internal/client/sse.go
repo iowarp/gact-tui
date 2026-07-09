@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // SSEEvent is a single decoded SSE event.
@@ -88,55 +87,131 @@ func (c *Client) StreamEvents(ctx context.Context, scope EventStreamScope) (<-ch
 		defer close(events)
 		defer close(errs)
 
-		rdr := bufio.NewReader(resp.Body)
-		var current SSEEvent
+		sc := newSSEScanner(resp.Body)
 		for {
-			line, err := rdr.ReadString('\n')
+			ev, err := sc.next()
 			if err != nil {
 				if err != io.EOF && ctx.Err() == nil {
 					errs <- err
 				}
 				return
 			}
-			// SSE wire spec uses CRLF, but some servers emit LF only.
-			// Trim both so the blank-line dispatch + prefix matches
-			// work regardless of which the upstream picks.
-			line = strings.TrimRight(line, "\r\n")
-			if line == "" {
-				// dispatch
-				if current.Raw != nil {
-					select {
-					case events <- current:
-					case <-ctx.Done():
-						return
-					}
-				}
-				current = SSEEvent{}
-				continue
-			}
-			switch {
-			case strings.HasPrefix(line, "id: "):
-				current.ID = strings.TrimPrefix(line, "id: ")
-			case strings.HasPrefix(line, "event: "):
-				current.Type = strings.TrimPrefix(line, "event: ")
-			case strings.HasPrefix(line, "data: "):
-				raw := []byte(strings.TrimPrefix(line, "data: "))
-				current.Raw = raw
-				var d map[string]any
-				if err := json.Unmarshal(raw, &d); err == nil {
-					current.Payload = d
-					if current.Type == "" {
-						if t, ok := d["type"].(string); ok {
-							current.Type = t
-						}
-					}
-				}
-			case strings.HasPrefix(line, ":"):
-				// SSE comment line; ignore.
+			select {
+			case events <- ev:
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
 
-	_ = time.Second // keep import for future per-event timing if needed
 	return events, errs, nil
+}
+
+// sseScanner decodes a Server-Sent Events byte stream into SSEEvents using the
+// WHATWG field-parsing rules (https://html.spec.whatwg.org/#event-stream):
+// each line is split at the first colon into a field name and value, one
+// optional leading space is stripped from the value, and consecutive `data`
+// fields are accumulated with `\n` joins. A blank line dispatches the buffered
+// event; comment lines (leading colon) and unknown fields are ignored. This
+// replaces the earlier prefix-with-mandatory-space parser that also overwrote
+// (rather than accumulated) multi-line data.
+type sseScanner struct {
+	r        *bufio.Reader
+	current  SSEEvent
+	data     strings.Builder
+	haveData bool
+}
+
+func newSSEScanner(r io.Reader) *sseScanner {
+	return &sseScanner{r: bufio.NewReader(r)}
+}
+
+// next returns the next decoded event, or io.EOF when the stream ends. A final
+// event without a terminating blank line is discarded, per the SSE spec.
+func (s *sseScanner) next() (SSEEvent, error) {
+	for {
+		line, err := s.r.ReadString('\n')
+		if err != nil {
+			// A partial final line (returned alongside io.EOF) is
+			// incomplete and discarded; any other read error is fatal.
+			if err == io.EOF {
+				return SSEEvent{}, io.EOF
+			}
+			return SSEEvent{}, err
+		}
+		// The SSE wire spec uses CRLF, but some servers emit LF only.
+		// Strip both so the blank-line dispatch works either way.
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			if ev, ok := s.dispatch(); ok {
+				return ev, nil
+			}
+			continue
+		}
+		if strings.HasPrefix(line, ":") {
+			// Comment line; ignore.
+			continue
+		}
+		field, value := splitSSEField(line)
+		switch field {
+		case "id":
+			s.current.ID = value
+		case "event":
+			s.current.Type = value
+		case "data":
+			s.data.WriteString(value)
+			s.data.WriteByte('\n')
+			s.haveData = true
+		default:
+			// Unknown field (e.g. retry, or vendor extensions); ignore.
+		}
+	}
+}
+
+// dispatch finalizes the buffered event. It reports ok=false for an event that
+// accumulated no `data` field (e.g. a comment-only or metadata-only block),
+// matching the SSE spec's "if the data buffer is empty, do not dispatch" rule.
+func (s *sseScanner) dispatch() (SSEEvent, bool) {
+	if !s.haveData {
+		s.reset()
+		return SSEEvent{}, false
+	}
+	// The accumulator appends a trailing newline after every data line; the
+	// SSE spec drops the last one before dispatch.
+	raw := strings.TrimSuffix(s.data.String(), "\n")
+	ev := s.current
+	ev.Raw = []byte(raw)
+	var d map[string]any
+	if err := json.Unmarshal([]byte(raw), &d); err == nil {
+		ev.Payload = d
+		if ev.Type == "" {
+			if t, ok := d["type"].(string); ok {
+				ev.Type = t
+			}
+		}
+	}
+	s.reset()
+	return ev, true
+}
+
+func (s *sseScanner) reset() {
+	s.current = SSEEvent{}
+	s.data.Reset()
+	s.haveData = false
+}
+
+// splitSSEField splits an SSE line into its field name and value. If the line
+// contains a colon, the field is the text before it and the value the text
+// after, with one optional leading space removed. A line with no colon is a
+// field name with an empty value.
+func splitSSEField(line string) (field, value string) {
+	if i := strings.IndexByte(line, ':'); i >= 0 {
+		field = line[:i]
+		value = line[i+1:]
+		if len(value) > 0 && value[0] == ' ' {
+			value = value[1:]
+		}
+		return field, value
+	}
+	return line, ""
 }

@@ -5,6 +5,7 @@ package ui
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *sessionComponent) viewSetup() string {
@@ -13,7 +14,7 @@ func (c *sessionComponent) viewSetup() string {
 		c.setup = &sessionSetupState{}
 	}
 	s := c.setup
-	w := minInt(maxInt(76, c.app.modals.modalWidth()), 104)
+	w := valuefmt.MinInt(maxInt(76, c.app.modals.modalWidth()), 104)
 	contentW := modalBodyContentWidth(w)
 	rows := []string{}
 	if s.loading {
@@ -73,7 +74,7 @@ func (c *sessionComponent) viewSetup() string {
 			width:   w,
 			title:   title,
 			buttons: buttons,
-			body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), minInt(18, maxInt(12, len(rows)))),
+			body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), valuefmt.MinInt(18, maxInt(12, len(rows)))),
 			footer:  t.HintLabel.Render("Ctrl+B opens session defaults"),
 		})
 		c.app.interaction.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+blueprintStart, 0, sectionW, blueprintList, "session-setup:blueprints:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
@@ -109,7 +110,7 @@ func (c *sessionComponent) viewSetup() string {
 		width:   w,
 		title:   title,
 		buttons: buttons,
-		body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), minInt(12, maxInt(6, len(rows)))),
+		body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), valuefmt.MinInt(12, maxInt(6, len(rows)))),
 		footer:  t.HintLabel.Render("Ctrl+B opens this picker"),
 	})
 	return rendered.modal

@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // --- View -----------------------------------------------------------------
@@ -83,7 +84,7 @@ func (c *connectionComponent) sseHealthDot() string {
 // only emits the escape sequence when the string actually changes.
 // U2: appends a status suffix for running / waiting_permission so
 // tab-switchers can tell at a glance which pane needs attention.
-// MMMMMMMM1: appends `[↩N]` when the user has detached sessions on
+// Appends `[↩N]` when the user has detached sessions on
 // this backend so an unfocused terminal tab still reminds them
 // resumable work exists.
 func (c *chromeComponent) windowTitle() string {
@@ -200,7 +201,7 @@ func (a *App) viewErrorModal() string {
 }
 
 func (m *modalkit) paletteBodyPageSize() int {
-	return minInt(22, m.modalBodyRows(10))
+	return valuefmt.MinInt(22, m.modalBodyRows(10))
 }
 
 func (m *modalkit) paletteBodyPageSizeForRows(rows []string) int {

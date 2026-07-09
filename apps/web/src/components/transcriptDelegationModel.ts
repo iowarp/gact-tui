@@ -25,7 +25,20 @@
 import type { Message, Part } from '@clio/core';
 import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
-import { stripClioScaffolding } from './clioScaffolding.js';
+// The transitional prose-heuristic presentation filters live in ONE spec'd home
+// (./presentationFilters.ts + contract/SPEC.md Appendix "Transitional client
+// presentation filters (non-normative)"). dedupToolThought stays re-exported
+// from here for backwards compatibility with existing importers.
+import {
+  dedupToolThought,
+  hasPriorAnswerRow,
+  isBareJsonBody,
+  isOrchestrationPlaceholder,
+  isTerminalCompletionReasoning,
+  stripClioScaffolding,
+} from './presentationFilters.js';
+
+export { dedupToolThought };
 
 /** A single tool call row (a tool_call part, joined to its tool_result by id). */
 export interface ToolRow {
@@ -398,38 +411,6 @@ function buildDepthResolver(list: readonly PartLike[]): (agent: string) => numbe
 }
 
 /**
- * Project an assistant message's parts into the ordered append-only row log.
- * Returns null for turns with no delegation/agent structure (the caller then
- * leaves the message to its normal flat rendering).
- */
-/**
- * A ReAct tool_call carries the step's `next_thought` on its `thought` field —
- * but that SAME next_thought also streams as a visible text row, so rendering
- * both shows the answer twice. clio's own stream-audit confirms the LLM emits the
- * next_thought ONCE (clean, `duplicate_suppressed=false`); the second copy is
- * injected by the backend tool_observer onto `tool_call.thought`. Drop that copy
- * when it repeats the most recent text/reasoning row from the same agent. (This
- * is the render-side guard; clio also clears it at the source, but the render has
- * the complete, settled parts so it is the reliable layer and fixes already-
- * persisted sessions on reload.)
- */
-export function dedupToolThought(rows: readonly TurnRow[], agent: string, thought: string): string {
-  const t = thought.split(/\s+/).join(' ').trim();
-  if (!t) return thought;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i]!;
-    if ((r.kind === 'text' || r.kind === 'reasoning') && r.agent === agent) {
-      const body = (r.text || '').split(/\s+/).join(' ').trim();
-      // Bidirectional containment: the tool thought can be a trimmed subset of the
-      // streamed text, or a marker-padded superset of it.
-      if (body && (body.includes(t) || t.includes(body))) return '';
-      return thought; // nearest same-agent text didn't match → a distinct thought
-    }
-  }
-  return thought;
-}
-
-/**
  * Project a USER turn into the same ordered row log. A user message is its prompt
  * prose (rendered plainly — no `●` marker, no agent header) plus any attachments
  * (images / documents) as passthrough rows. Kept trivially simple: no delegation,
@@ -754,68 +735,5 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
     }
     return true;
   });
-}
-
-function hasPriorAnswerRow(rows: readonly TurnRow[], beforeIndex: number): boolean {
-  return rows.slice(0, beforeIndex).some((row) => {
-    if (row.kind !== 'text') return false;
-    if (row.agent !== 'synthesis' && row.agent !== 'main') return false;
-    const text = row.text.trim();
-    return text.length > 20 && !isOrchestrationPlaceholder(text) && !isBareJsonBody(text);
-  });
-}
-
-function isBareJsonBody(text: string): boolean {
-  const body = text.trim();
-  if (!body) return false;
-  const wrapped =
-    (body.startsWith('{') && body.endsWith('}')) ||
-    (body.startsWith('[') && body.endsWith(']'));
-  if (!wrapped) return false;
-  try {
-    JSON.parse(body);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isOrchestrationPlaceholder(text: string): boolean {
-  const body = text.toLowerCase();
-  if (/no user-facing answer yet/.test(body)) return true;
-  if (/awaiting .*child/.test(body)) return true;
-  if (/awaiting .*synthesis/.test(body)) return true;
-  if (/no evidence (?:yet|is available)/.test(body)) return true;
-  if (/pending .*delegation/.test(body)) return true;
-  if (/delegating to .*expert/.test(body)) return true;
-  if (/routing to synthesis/.test(body)) return true;
-  if (/routing to the .*expert/.test(body)) return true;
-  if (/before routing to synthesis/.test(body)) return true;
-  if (/before finishing/.test(body)) return true;
-  return false;
-}
-
-function isTerminalCompletionReasoning(text: string): boolean {
-  const body = text.toLowerCase();
-  const complete =
-    /task is (?:fully )?(?:complete|satisfied)/.test(body) ||
-    /all required work is complete/.test(body) ||
-    /all required work .*complete/.test(body) ||
-    /all claims .*grounded/.test(body) ||
-    /workflow is .*complete/.test(body) ||
-    /workflow has already executed/.test(body) ||
-    /both required children/.test(body) ||
-    /both required .*completed/.test(body) ||
-    /both required pipeline stages/.test(body) ||
-    /both .*children .*returned/.test(body) ||
-    /synthesis has returned/.test(body);
-  const finish =
-    /i now finish/.test(body) ||
-    /parent finishes/.test(body) ||
-    /finish on the turn/.test(body) ||
-    /carrying (?:the )?(?:synthesis'?s? )?answer/.test(body) ||
-    /no further children/.test(body) ||
-    /no downstream work/.test(body);
-  return complete || finish;
 }
 

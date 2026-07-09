@@ -12,6 +12,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func createBasicAgentCmd(c *client.Client, agentID string) tea.Cmd {
@@ -42,7 +43,7 @@ func cloneAgentCmd(c *client.Client, scope client.RuntimeScope, sourceID, target
 		}
 		source.ID = targetID
 		source.Source = "user"
-		source.Title = firstNonEmpty(source.Title, titleFromAgentID(sourceID)) + " copy"
+		source.Title = valuefmt.FirstNonEmpty(source.Title, titleFromAgentID(sourceID)) + " copy"
 		source.Metadata = cloneMetadata(source.Metadata)
 		source.Metadata["cloned_from_agent_id"] = sourceID
 		source.Metadata["created_by"] = "gact-tui"
@@ -115,5 +116,5 @@ func agentWriteHint(mode string, agent gact.AgentDef) string {
 	if action == "" {
 		action = "saved"
 	}
-	return fmt.Sprintf("%s expert %s", action, firstNonEmpty(agent.ID, "unknown"))
+	return fmt.Sprintf("%s expert %s", action, valuefmt.FirstNonEmpty(agent.ID, "unknown"))
 }

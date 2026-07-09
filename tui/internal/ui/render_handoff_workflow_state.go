@@ -3,9 +3,12 @@ package ui
 // render_handoff_workflow_state.go handles embedded workflow-state within handoff output and stage/status labels.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func embeddedWorkflowStateDominates(text string) bool {
@@ -42,7 +45,7 @@ func stripEmbeddedWorkflowStateBlock(text string) string {
 		"CLIO typed workflow state:",
 		"Retained typed workflow state:",
 	} {
-		if idx := indexFold(text, marker); idx > 0 {
+		if idx := presentation.IndexFold(text, marker); idx > 0 {
 			if cutAt < 0 || idx < cutAt {
 				cutAt = idx
 			}
@@ -55,15 +58,15 @@ func stripEmbeddedWorkflowStateBlock(text string) string {
 }
 
 func attachWorkflowStateSummary(output string, p gact.Part) string {
-	workflowSummary := strings.TrimSpace(stringValue(p.Metadata["workflow_summary"]))
+	workflowSummary := strings.TrimSpace(valuefmt.StringValue(p.Metadata["workflow_summary"]))
 	if workflowSummary == "" {
-		workflowSummary = workflowStateSummary(mapValue(p.Metadata["workflow_state"]))
+		workflowSummary = presentation.WorkflowStateSummary(valuefmt.MapValue(p.Metadata["workflow_state"]))
 	}
 	if workflowSummary == "" {
 		return output
 	}
 	if output == "" {
-		return workflowStateBlockFromSummary(workflowSummary)
+		return presentation.WorkflowStateBlockFromSummary(workflowSummary)
 	}
 	if expertHandoffOutputIsRich(output) {
 		return output
@@ -71,10 +74,10 @@ func attachWorkflowStateSummary(output string, p gact.Part) string {
 	if strings.Contains(output, workflowSummary) {
 		return output
 	}
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(output)) {
-		return output + "\n\n" + workflowStateBlockFromSummary(workflowSummary)
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(output)) {
+		return output + "\n\n" + presentation.WorkflowStateBlockFromSummary(workflowSummary)
 	}
-	if stateBlock := workflowStateBlockFromSummary(workflowSummary); stateBlock != "" {
+	if stateBlock := presentation.WorkflowStateBlockFromSummary(workflowSummary); stateBlock != "" {
 		return output + "\n" + stateBlock
 	}
 	return output
@@ -89,7 +92,7 @@ func expertHandoffOutputIsRich(output string) bool {
 	if strings.Contains(lower, "state:") || strings.Contains(lower, "workflow_state") {
 		return false
 	}
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(text)) {
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(text)) {
 		return true
 	}
 	if strings.Count(text, "\n") >= 2 {

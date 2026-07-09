@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func partTypeDetailRows(p gact.Part) ([]string, string) {
@@ -29,7 +30,7 @@ func partTypeDetailRows(p gact.Part) ([]string, string) {
 	case gact.PartTypeRetryAttempt:
 		rows = appendRetryAttemptDetailRows(rows, p)
 	case partTypeRuntimeProvenance:
-		rp := mapValue(p.Metadata["runtime_provenance"])
+		rp := valuefmt.MapValue(p.Metadata["runtime_provenance"])
 		if len(rp) > 0 {
 			return nil, runtimeProvenanceDetailText(rp)
 		}
@@ -110,28 +111,28 @@ func partTypeDetailRows(p gact.Part) ([]string, string) {
 }
 
 func appendExpertHandoffDetailRows(rows []string, p gact.Part) []string {
-	route := firstNonEmpty(
-		stringValue(p.Metadata["agent_id"]),
-		stringValue(p.Metadata["expert"]),
+	route := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["agent_id"]),
+		valuefmt.StringValue(p.Metadata["expert"]),
 		"expert",
 	)
-	if parent := firstNonEmpty(stringValue(p.Metadata["parent_id"]), stringValue(p.Metadata["parent"])); parent != "" {
+	if parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["parent_id"]), valuefmt.StringValue(p.Metadata["parent"])); parent != "" {
 		route = parent + " -> " + route
 	}
 	rows = append(rows, detailFieldRows("route", route)...)
-	rows = append(rows, detailFieldRows("status", orPlaceholder(stringValue(p.Metadata["status"]), "observed"))...)
-	if stage := firstNonEmpty(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["dispatch_target"])); stage != "" {
+	rows = append(rows, detailFieldRows("status", orPlaceholder(valuefmt.StringValue(p.Metadata["status"]), "observed"))...)
+	if stage := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["stage"]), valuefmt.StringValue(p.Metadata["dispatch_target"])); stage != "" {
 		rows = append(rows, detailFieldRows("stage", stage)...)
 	}
-	if duration, ok := floatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
+	if duration, ok := valuefmt.FloatValue(p.Metadata["duration_ms"]); ok && duration > 0 {
 		rows = append(rows, detailFieldRows("duration", fmt.Sprintf("%.0f ms", duration))...)
 	}
-	if input := strings.TrimSpace(stringValue(p.Metadata["input_summary"])); input != "" {
+	if input := strings.TrimSpace(valuefmt.StringValue(p.Metadata["input_summary"])); input != "" {
 		rows = append(rows, detailFieldRows("input", input)...)
 	}
-	output := firstNonEmpty(
-		stringValue(p.Metadata["output_summary"]),
-		stringValue(p.Metadata["summary"]),
+	output := valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(p.Metadata["output_summary"]),
+		valuefmt.StringValue(p.Metadata["summary"]),
 		p.Text,
 	)
 	if output != "" {
@@ -153,9 +154,9 @@ func appendExpertHandoffDetailRows(rows []string, p gact.Part) []string {
 func appendAgentQuestionDetailRows(rows []string, p gact.Part) []string {
 	if p.Question != nil {
 		rows = append(rows, detailFieldRows("question", p.Question.ID)...)
-		rows = append(rows, detailFieldRows("source", firstNonEmpty(p.Question.Source, p.Question.AgentID))...)
+		rows = append(rows, detailFieldRows("source", valuefmt.FirstNonEmpty(p.Question.Source, p.Question.AgentID))...)
 		rows = append(rows, detailFieldRows("category", p.Question.Category)...)
-		rows = append(rows, detailFieldRows("kind", firstNonEmpty(p.Question.Kind, p.Question.ExpectedAnswerType))...)
+		rows = append(rows, detailFieldRows("kind", valuefmt.FirstNonEmpty(p.Question.Kind, p.Question.ExpectedAnswerType))...)
 		rows = append(rows, detailFieldRows("status", p.Question.Status)...)
 		rows = append(rows, detailFieldRows("prompt", p.Question.Prompt)...)
 		choices := p.Question.Options
@@ -165,7 +166,7 @@ func appendAgentQuestionDetailRows(rows []string, p gact.Part) []string {
 		if len(choices) > 0 {
 			choiceRows := make([]string, 0, len(choices))
 			for _, choice := range choices {
-				label := firstNonEmpty(choice.Label, choice.Value, choice.ID)
+				label := valuefmt.FirstNonEmpty(choice.Label, choice.Value, choice.ID)
 				if choice.Description != "" {
 					label += ": " + choice.Description
 				}
@@ -182,7 +183,7 @@ func appendAgentQuestionDetailRows(rows []string, p gact.Part) []string {
 func appendRetryAttemptDetailRows(rows []string, p gact.Part) []string {
 	if p.RetryAttempt != nil {
 		rows = append(rows, detailFieldRows("attempt", p.RetryAttempt.ID)...)
-		rows = append(rows, detailFieldRows("source message", firstNonEmpty(p.RetryAttempt.SourceMessageID, p.RetryAttempt.OriginalMessageID))...)
+		rows = append(rows, detailFieldRows("source message", valuefmt.FirstNonEmpty(p.RetryAttempt.SourceMessageID, p.RetryAttempt.OriginalMessageID))...)
 		rows = append(rows, detailFieldRows("attempt message", p.RetryAttempt.AttemptMessageID)...)
 		rows = append(rows, detailFieldRows("status", p.RetryAttempt.Status)...)
 		rows = append(rows, detailFieldRows("notes", p.RetryAttempt.Notes)...)

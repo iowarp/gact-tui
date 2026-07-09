@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeEmbeddedStructuredHandoffText(output string) string {
@@ -17,7 +19,7 @@ func summarizeEmbeddedStructuredHandoffText(output string) string {
 	if start < 0 {
 		return ""
 	}
-	end := matchingJSONObjectEnd(output[start:])
+	end := presentation.MatchingJSONObjectEnd(output[start:])
 	if end < 0 {
 		return ""
 	}
@@ -67,39 +69,39 @@ func summarizeStructuredHandoffObject(obj map[string]any) string {
 	if summary := summarizeStructuredHandoffObjectStatus(obj); summary != "" {
 		return summary
 	}
-	if state := mapValue(obj["workflow_state"]); len(state) > 0 {
-		if summary := workflowStateBlockSummary(state); summary != "" {
+	if state := valuefmt.MapValue(obj["workflow_state"]); len(state) > 0 {
+		if summary := presentation.WorkflowStateBlockSummary(state); summary != "" {
 			return summary
 		}
 	}
 	if summary := summarizeRegionResolutionObject(obj); summary != "" {
 		return summary
 	}
-	if summary := summarizeToolResult("", obj); summary != "" {
+	if summary := presentation.SummarizeToolResult("", obj); summary != "" {
 		return summary
 	}
 	return summarizeGenericStructuredObject(obj)
 }
 
 func summarizeStructuredHandoffObjectStatus(obj map[string]any) string {
-	if summary := summarizeErrorResult(obj); summary != "" {
+	if summary := presentation.SummarizeErrorResult(obj); summary != "" {
 		return summary
 	}
 	rows := []string{}
-	if code := firstStringValue(obj, "error", "code", "type"); code != "" {
+	if code := presentation.FirstStringValue(obj, "error", "code", "type"); code != "" {
 		rows = append(rows, "status: "+code)
 	}
-	if message := firstStringValue(obj, "message", "summary"); message != "" {
-		rows = append(rows, "message: "+shortenKnownPaths(message))
+	if message := presentation.FirstStringValue(obj, "message", "summary"); message != "" {
+		rows = append(rows, "message: "+valuefmt.ShortenKnownPaths(message))
 	}
 	if details, ok := obj["details"].(map[string]any); ok {
-		if stage := firstStringValue(details, "stage"); stage != "" {
+		if stage := presentation.FirstStringValue(details, "stage"); stage != "" {
 			rows = append(rows, "stage: "+stage)
 		}
-		if stepLimit, ok := floatValue(details["step_limit"]); ok {
+		if stepLimit, ok := valuefmt.FloatValue(details["step_limit"]); ok {
 			rows = append(rows, fmt.Sprintf("step limit: %.0f", stepLimit))
 		}
-		if actions := summarizeNamedItems(details, "recovery_actions"); actions != "" {
+		if actions := presentation.SummarizeNamedItems(details, "recovery_actions"); actions != "" {
 			rows = append(rows, "recovery: "+actions)
 		}
 	}
@@ -110,13 +112,13 @@ func summarizeStructuredHandoffObjectStatus(obj map[string]any) string {
 }
 
 func summarizeRegionResolutionObject(obj map[string]any) string {
-	label := firstNonEmpty(
-		firstStringValue(obj, "REGION_LABEL", "region_label", "label", "location", "place"),
+	label := valuefmt.FirstNonEmpty(
+		presentation.FirstStringValue(obj, "REGION_LABEL", "region_label", "label", "location", "place"),
 	)
-	lat, hasLat := firstNumericValue(obj, "CENTER_LAT", "center_lat", "lat", "latitude")
-	lon, hasLon := firstNumericValue(obj, "CENTER_LON", "center_lon", "lon", "longitude")
-	radius, hasRadius := firstNumericValue(obj, "RADIUS_KM", "radius_km", "radius")
-	confidence := firstStringValue(obj, "CONFIDENCE", "confidence")
+	lat, hasLat := valuefmt.FirstNumericValue(obj, "CENTER_LAT", "center_lat", "lat", "latitude")
+	lon, hasLon := valuefmt.FirstNumericValue(obj, "CENTER_LON", "center_lon", "lon", "longitude")
+	radius, hasRadius := valuefmt.FirstNumericValue(obj, "RADIUS_KM", "radius_km", "radius")
+	confidence := presentation.FirstStringValue(obj, "CONFIDENCE", "confidence")
 	if label == "" && !hasLat && !hasLon && !hasRadius && confidence == "" {
 		return ""
 	}
@@ -127,24 +129,15 @@ func summarizeRegionResolutionObject(obj map[string]any) string {
 		parts = append(parts, "resolved region")
 	}
 	if hasLat && hasLon {
-		parts = append(parts, "center "+formatCompactFloat(lat)+", "+formatCompactFloat(lon))
+		parts = append(parts, "center "+presentation.FormatCompactFloat(lat)+", "+presentation.FormatCompactFloat(lon))
 	}
 	if hasRadius {
-		parts = append(parts, "radius "+formatCompactFloat(radius)+" km")
+		parts = append(parts, "radius "+presentation.FormatCompactFloat(radius)+" km")
 	}
 	if confidence != "" {
 		parts = append(parts, "confidence "+confidence)
 	}
 	return strings.Join(parts, " · ")
-}
-
-func firstNumericValue(result map[string]any, keys ...string) (float64, bool) {
-	for _, key := range keys {
-		if value, ok := floatValue(result[key]); ok {
-			return value, true
-		}
-	}
-	return 0, false
 }
 
 func summarizeGenericStructuredObject(obj map[string]any) string {
@@ -194,31 +187,31 @@ func genericStructuredValueSummary(key string, raw any) string {
 		}
 		lower := strings.ToLower(key)
 		if strings.Contains(lower, "path") || strings.Contains(lower, "file") {
-			return shortenPathForInline(text)
+			return valuefmt.ShortenPathForInline(text)
 		}
-		return textutil.Truncate(shortenKnownPaths(text), 80)
+		return textutil.Truncate(valuefmt.ShortenKnownPaths(text), 80)
 	case bool:
 		if value {
 			return "yes"
 		}
 		return "no"
 	case float64:
-		return formatCompactFloat(value)
+		return presentation.FormatCompactFloat(value)
 	case json.Number:
 		return value.String()
 	case []any:
 		if len(value) == 0 {
 			return ""
 		}
-		if items := summarizeAnyItems(value); items != "" {
+		if items := presentation.SummarizeAnyItems(value); items != "" {
 			return textutil.Truncate(items, 80)
 		}
 	case map[string]any:
-		if status := firstStringValue(value, "status", "state"); status != "" {
+		if status := presentation.FirstStringValue(value, "status", "state"); status != "" {
 			return status
 		}
-		if summary := firstStringValue(value, "summary", "message", "description"); summary != "" {
-			return textutil.Truncate(shortenKnownPaths(summary), 80)
+		if summary := presentation.FirstStringValue(value, "summary", "message", "description"); summary != "" {
+			return textutil.Truncate(valuefmt.ShortenKnownPaths(summary), 80)
 		}
 		if len(value) > 0 {
 			return fmt.Sprintf("%d fields", len(value))

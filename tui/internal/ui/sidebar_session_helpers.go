@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func isChildSession(s gact.Session) bool {
@@ -30,7 +31,7 @@ func (c *sidebarComponent) childSessionCount(parentID string) int {
 
 func sessionToolCount(s gact.Session) int {
 	for _, key := range []string{"tool_count", "tools_count"} {
-		if n, ok := floatValue(s.Metadata[key]); ok && n > 0 {
+		if n, ok := valuefmt.FloatValue(s.Metadata[key]); ok && n > 0 {
 			return int(n)
 		}
 	}
@@ -86,7 +87,7 @@ func (c *sidebarComponent) openSessionSummaryDetail(index int) tea.Cmd {
 	}
 	rows := appendDetailSection(nil, "Session Summary",
 		detailField{"session", s.ID},
-		detailField{"title", firstNonEmpty(s.Title, c.app.localizer.t(msgSidebarUntitled, nil))},
+		detailField{"title", valuefmt.FirstNonEmpty(s.Title, c.app.localizer.t(msgSidebarUntitled, nil))},
 		detailField{"status", s.Status},
 		detailField{"updated", formatOptionalTime(s.UpdatedAt)},
 		detailField{"summary", summary},
@@ -94,7 +95,7 @@ func (c *sidebarComponent) openSessionSummaryDetail(index int) tea.Cmd {
 	c.app.detail.open(&bulkyPartRef{
 		messageID: "session-summary",
 		partID:    s.ID,
-		title:     "Session summary · " + firstNonEmpty(s.Title, s.ID),
+		title:     "Session summary · " + valuefmt.FirstNonEmpty(s.Title, s.ID),
 		fullText:  strings.Join(rows, "\n"),
 	})
 	return nil

@@ -3,8 +3,27 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    # Pure media/doc changes don't affect any built or tested code — but
+    # contract/SPEC.md IS the source the Go/TS vocabulary gates enforce, so
+    # re-include it (ordered negation: last matching pattern wins).
+    paths:
+      - "**"
+      - "!**.png"
+      - "!**.gif"
+      - "!**.md"
+      - "!screenshots/**"
+      - "!docs/**"
+      - "contract/SPEC.md"
   pull_request:
     branches: [main, develop]
+    paths:
+      - "**"
+      - "!**.png"
+      - "!**.gif"
+      - "!**.md"
+      - "!screenshots/**"
+      - "!docs/**"
+      - "contract/SPEC.md"
 
 jobs:
   build-test:
@@ -27,6 +46,24 @@ jobs:
             echo "$unformatted" >&2
             exit 1
           fi
+
+      # Ratchet guards against re-accretion: per-file Go line counts over
+      # tui/ emulator/ adapters/ and the frozen tui/internal/ui package count
+      # (iowarp/gact-tui#234). Flipped to ENFORCING 2026-07-08 (ahead of the
+      # 2026-09-01 grace date — the backlog is already clear): a new oversized
+      # Go file or a baselined file that regrows now fails CI. Baselines only
+      # ratchet down.
+      - name: Size / ui-package ratchet (enforcing)
+        run: python3 scripts/check_go_file_size.py --enforce
+
+      # Media policy (iowarp/gact-tui#235): the history bloat came from committed
+      # eval/run artifacts (audit dumps, raw captures, logs), not the curated
+      # baselines. .gitignore lists them, but `git add -f` walks past it — so
+      # re-assert the denylist as a hard CI gate. Curated images under
+      # docs/screenshots/ and apps/design | apps/branding | docs/ media stay
+      # allowed (no LFS — small plain blobs only).
+      - name: Media policy (no tracked eval/run artifacts)
+        run: python3 scripts/check_media_policy.py
 
       # The repo root is a go.work workspace, not a module, so
       # `go <cmd> ./...` from the root doesn't span the members.
@@ -59,3 +96,39 @@ jobs:
           make dev-install
           make verify-dev-install
           gact version
+
+  python-adapter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/claude-agent-sdk-server
+    steps:
+      - uses: actions/checkout@v4
+
+      # Per-job path filter: only exercise the adapter when its
+      # directory changed (GitHub has no native per-job `paths`).
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            adapter:
+              - "adapters/claude-agent-sdk-server/**"
+
+      - uses: actions/setup-python@v5
+        if: steps.changes.outputs.adapter == 'true'
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.changes.outputs.adapter == 'true'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.adapter == 'true'
+        run: uv sync
+
+      # Hermetic subset only: the test_smoke_*.py files require a real
+      # `claude` CLI install (they self-skip without it). test_bridge.py
+      # and test_endpoints.py are deterministic and offline.
+      - name: Run hermetic tests
+        if: steps.changes.outputs.adapter == 'true'
+        run: uv run pytest tests/test_bridge.py tests/test_endpoints.py

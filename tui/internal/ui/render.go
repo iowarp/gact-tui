@@ -3,8 +3,6 @@ package ui
 // render.go renders message parts by role into the conversation body and shortens known paths.
 
 import (
-	"strings"
-
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -18,14 +16,14 @@ func (t Theme) renderPartsForRoleWithResults(parts []gact.Part, width int, role 
 	return t.renderPartsForRoleWithResultsSelected(parts, width, role, inlineResults, "")
 }
 
-// TTTTTTTTT1: renderPartsForRoleWithResultsSelected is the per-part
+// renderPartsForRoleWithResultsSelected is the per-part
 // marker-aware variant. When selectedPartID matches a part's ID, its
 // first rendered line is prefixed with `▸ ` so the user can see
 // which addressable block has focus. Works for both the outer part
 // and the inlined tool_result sibling so "expand this specific read
 // result" reads intuitively.
 func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width int, role string, inlineResults map[string]gact.Part, selectedPartID string) string {
-	// ZZZZZZZZZZ1: edit_file absorbs its sibling file_diff. User
+	// edit_file absorbs its sibling file_diff. User
 	// feedback: "EditFile returns the diff, there shouldn't be an
 	// 'ok' or a diff indicated but instead the changes". We match
 	// edit_file tool_calls to file_diff parts in the same message
@@ -75,7 +73,7 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 			}
 			rows = append(rows, rendered)
 		}
-		// ZZZZZZZZZZ1: prefer the absorbed diff over the "ok" result.
+		// Prefer the absorbed diff over the "ok" result.
 		if p.Type == gact.PartTypeToolCall && p.CallID != "" {
 			if diff, ok := editDiffByCall[p.CallID]; ok {
 				// Render the diff's body as if it were the tool_result
@@ -92,7 +90,7 @@ func (t Theme) renderPartsForRoleWithResultsSelected(parts []gact.Part, width in
 			}
 			if pairedResults != nil {
 				if r, ok := pairedResults[p.CallID]; ok {
-					// AAAAAAAAAA1: thread the parent tool_name so
+					// Thread the parent tool_name so
 					// grep / similar tools can take over the result
 					// layout (file:line gutter instead of raw text).
 					rr := t.renderToolResultForTool(r, width, p.ToolName)
@@ -168,32 +166,4 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 	default:
 		return t.renderUnknownPart(p)
 	}
-}
-
-func shortenKnownPaths(text string) string {
-	fields := strings.Fields(text)
-	for i, field := range fields {
-		trimmed := strings.Trim(field, ".,;:)]}")
-		if strings.Contains(trimmed, "/") && len(trimmed) > 60 {
-			fields[i] = strings.Replace(field, trimmed, shortenPathForInline(trimmed), 1)
-		}
-	}
-	return strings.Join(fields, " ")
-}
-
-func shortenPathForInline(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" || len(path) <= 54 || !strings.Contains(path, "/") {
-		return path
-	}
-	parts := strings.Split(path, "/")
-	if len(parts) <= 2 {
-		return path
-	}
-	tail := parts[len(parts)-1]
-	parent := parts[len(parts)-2]
-	if parent == "" {
-		return "..." + "/" + tail
-	}
-	return ".../" + parent + "/" + tail
 }

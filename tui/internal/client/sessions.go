@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -147,16 +149,45 @@ func (c *Client) RejectDiffs(ctx context.Context, sessionID string, paths []stri
 	return out.Rejected, err
 }
 
-// SummarizeSession POSTs /v1/sessions/{id}/summarize. The backend
-// generates (or pre-fills) a summary; the updated session struct is
-// fetched on a subsequent GetSession to read it. MMM6: pass-through
-// `instructions` for backends that take a custom summarizer prompt.
-func (c *Client) SummarizeSession(ctx context.Context, id string, auto bool, instructions string) error {
-	body := map[string]any{"auto": auto}
-	if instructions != "" {
-		body["instructions"] = instructions
+// CompactFallbackLegacySummarize is the structured degradation reason
+// reported when the backend does not serve POST /v1/sessions/{id}/compact
+// and the client fell back to the legacy /summarize route (the emulator
+// and pre-/compact backends). Mirrors clio's stream_fallback reason
+// catalog style: every degraded path carries a machine-readable reason.
+const CompactFallbackLegacySummarize = "compact_route_missing_legacy_summarize"
+
+// CompactSession POSTs /v1/sessions/{id}/compact with an optional
+// `focus` instruction — the contract CLIO actually serves
+// (clio gact/routes/sessions.py; the /summarize route never existed
+// there, see iowarp/gact-tui#224). Backends that predate /compact
+// (including the emulator) still serve the legacy
+// POST /v1/sessions/{id}/summarize; on a 404 from /compact the client
+// retries that route once, mapping focus into its legacy `instructions`
+// key, and reports the degradation via the returned fallback reason so
+// callers can surface it (never silently). When the backend supports
+// neither route, the returned error carries both failures.
+func (c *Client) CompactSession(ctx context.Context, id string, focus string) (string, error) {
+	body := map[string]any{}
+	if focus != "" {
+		body["focus"] = focus
 	}
-	return c.do(ctx, http.MethodPost, "/v1/sessions/"+id+"/summarize", body, nil)
+	base := "/v1/sessions/" + url.PathEscape(id)
+	err := c.do(ctx, http.MethodPost, base+"/compact", body, nil)
+	if err == nil {
+		return "", nil
+	}
+	var gerr *Error
+	if !errors.As(err, &gerr) || gerr.Status != http.StatusNotFound {
+		return "", err
+	}
+	legacy := map[string]any{"auto": true}
+	if focus != "" {
+		legacy["instructions"] = focus
+	}
+	if legacyErr := c.do(ctx, http.MethodPost, base+"/summarize", legacy, nil); legacyErr != nil {
+		return "", fmt.Errorf("compact: %w (legacy /summarize fallback also failed: %v)", err, legacyErr)
+	}
+	return CompactFallbackLegacySummarize, nil
 }
 
 // RewindSession POSTs /v1/sessions/{id}/rewind, deleting every

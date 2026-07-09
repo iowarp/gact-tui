@@ -5,6 +5,7 @@ package ui
 import (
 	"charm.land/lipgloss/v2"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -31,7 +32,7 @@ func renderSettingsTUIActionRow(theme Theme, width int, selected bool, label, va
 	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render(control)
 	detail := []string{}
 	if hint != "" && selected {
-		detailWidth := minInt(maxInt(12, width-6), 72)
+		detailWidth := valuefmt.MinInt(maxInt(12, width-6), 72)
 		for _, row := range textutil.WrapPlainRows(hint, detailWidth, "") {
 			detailLine := "  " + hintStyle.Render(row)
 			detailLine = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(detailLine)
@@ -68,7 +69,7 @@ func renderSettingsTUIStepperRow(theme Theme, width int, selected bool, label, v
 	line := marker + labelStyle.Render(label) + "  " + valueStyle.Render(control)
 	detail := []string{}
 	if hint != "" && selected {
-		detailWidth := minInt(maxInt(12, width-6), 72)
+		detailWidth := valuefmt.MinInt(maxInt(12, width-6), 72)
 		for _, row := range textutil.WrapPlainRows(hint, detailWidth, "") {
 			detailLine := "  " + hintStyle.Render(row)
 			detailLine = lipgloss.NewStyle().Background(theme.Bg).Width(width).Render(detailLine)

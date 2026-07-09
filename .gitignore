@@ -15,14 +15,17 @@ coverage.txt
 coverage.html
 
 # Loop-test artifacts (kept for reference but binaries/screenshots regenerated)
-loop-test/hello
-loop-test/hello.gif
-loop-test/screenshot.png
-loop-test/testdata/
+examples/loop-test/hello
+examples/loop-test/hello.gif
+examples/loop-test/screenshot.png
+examples/loop-test/loop-test
+# Note: examples/loop-test/testdata/ holds the committed teatest golden fixtures
+# (required for `go test` to pass in CI) — do NOT ignore it.
 
 # Claude Code session-only state
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
+.claude/settings.local.json
 .clio-agent-artifacts/
 .playwright-mcp/
 .mcp.json
@@ -57,15 +60,28 @@ tui/coverage.txt
 *.webm
 *.mp4
 
-# Allow committed screenshots
-!screenshots/
-!screenshots/**/*.png
+# Screenshots live ONLY in docs/screenshots/ (media policy in CLAUDE.md,
+# enforced by scripts/check_media_policy.py — iowarp/gact-tui#235). The old
+# scattered screenshots/ tree is deleted; ignore it so a stray run can't
+# re-introduce committed captures outside the one sanctioned folder.
+screenshots/
 .clio_agent/
 
 # Backup files
 *.bak
 
-# visual_loop capture dumps + derived images (regenerable from .tape sources)
-visual_loop/**/*.jsonl
-visual_loop/**/*.png
-visual_loop/**/*.gif
+# apps/web/ visual-test captures are regenerable output, never tracked. The
+# Playwright suite renders them on demand (uploaded as a CI artifact); the sole
+# committed screenshot home is docs/screenshots/ (media policy in CLAUDE.md,
+# enforced by scripts/check_media_policy.py — iowarp/gact-tui#235). Ignore the
+# whole tree; do not re-introduce tracked baselines here.
+apps/web/screenshots/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Stray root-level images (screenshots/ and docs/ are the sanctioned homes;
+# no root image is tracked — verified 2026-07)
+/*.png
+/*.gif

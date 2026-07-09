@@ -18,7 +18,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// (lost the session if the terminal closed).
 	if k.String() == "ctrl+z" {
 		a.DetachedSessionID = a.session.currentID()
-		// AAAAAAAA1: capture title + workspace so main.go can record
+		// Capture title + workspace so main.go can record
 		// a useful row in the detached registry.
 		if a.session.selected >= 0 && a.session.selected < len(a.session.sessions) {
 			s := a.session.sessions[a.session.selected]
@@ -30,7 +30,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Clear any transient hint banner — it's a one-off toast that
 	// shouldn't persist past the next interaction. Done before modal
 	// dispatch so even hitting "Esc" in a modal dismisses the banner.
-	// LLLLLLLL1: but only if the hint has been on-screen long enough
+	// But only if the hint has been on-screen long enough
 	// for the user to read it. Without the min-display gate, a hint
 	// set by a background event (SSE reconnect, session archive
 	// confirmation, etc.) between two keystrokes gets clobbered on
@@ -77,7 +77,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch k.String() {
 	case "ctrl+c":
-		// ZZZZZZZZZ1: Ctrl+C now opens a confirmation overlay instead
+		// Ctrl+C now opens a confirmation overlay instead
 		// of exiting immediately. User feedback: "ctrl+c should have
 		// a confirmation window, close? yes no detach". Prevents
 		// accidental quit mid-turn and surfaces the detach path

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func appendMemoryOperatorSummary(rows []string, stats gact.MemoryStats, evidence transcriptEvidenceSummary, totalLookups int, hitRate string, note string, search *gact.MemorySearchResponse, frames []map[string]any, toolEvidence *memoryToolEvidence) []string {
@@ -47,7 +48,7 @@ func memoryCurrentContextText(stats gact.MemoryStats, evidence transcriptEvidenc
 		items := contextFrameItems(latest)
 		messageItems, fileItems, excludedItems := 0, 0, 0
 		for _, item := range items {
-			switch stringValue(item["kind"]) {
+			switch valuefmt.StringValue(item["kind"]) {
 			case "message":
 				messageItems++
 			case "context_file":
@@ -57,7 +58,7 @@ func memoryCurrentContextText(stats gact.MemoryStats, evidence transcriptEvidenc
 				excludedItems++
 			}
 		}
-		status := firstNonEmpty(stringValue(latest["status"]), "observed")
+		status := valuefmt.FirstNonEmpty(valuefmt.StringValue(latest["status"]), "observed")
 		return fmt.Sprintf("latest %s frame · %d messages · %d files · %d excluded", status, messageItems, fileItems, excludedItems)
 	}
 	if stats.Session != nil && stats.Session.MessagesRetained > 0 {
@@ -154,14 +155,14 @@ func appendMemoryToolEvidenceRows(rows []string, evidence *memoryToolEvidence) [
 		fields = append(fields,
 			detailField{"summary access", memoryPolicyDecisionText(metadataString(evidence.summary.Metadata, "policy_decision"))},
 			detailField{"summary messages", scalarText(evidence.summary.Summary["message_count"])},
-			detailField{"summary source", memorySourceText(metadataString(mapValue(evidence.summary.Summary["metadata"]), "source"))},
+			detailField{"summary source", memorySourceText(metadataString(valuefmt.MapValue(evidence.summary.Summary["metadata"]), "source"))},
 		)
 	}
 	if evidence.frame != nil {
 		fields = append(fields,
 			detailField{"frame access", memoryPolicyDecisionText(metadataString(evidence.frame.Metadata, "policy_decision"))},
-			detailField{"frame id", stringValue(evidence.frame.Frame["id"])},
-			detailField{"frame source", memorySourceText(metadataString(mapValue(evidence.frame.Frame["metadata"]), "source"))},
+			detailField{"frame id", valuefmt.StringValue(evidence.frame.Frame["id"])},
+			detailField{"frame source", memorySourceText(metadataString(valuefmt.MapValue(evidence.frame.Frame["metadata"]), "source"))},
 		)
 	}
 	if len(fields) > 0 {

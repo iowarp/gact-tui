@@ -9,7 +9,7 @@
  * writes to `window.__gactSseDebug`).
  */
 
-import { createChannel, invoke, listen } from './tauriApi.js';
+import { invoke, listen } from './tauriApi.js';
 import { inTauri } from './tauri_runtime.js';
 import type { SseDebugRecorder } from './tauri_sse_debug.js';
 
@@ -18,6 +18,8 @@ export type { SseBridgeDebugState, SseDebugRecorder } from './tauri_sse_debug.js
 interface SseBridgeMessage {
   kind: 'open' | 'event' | 'error' | 'closed';
   data?: string;
+  /** The SSE `id:` value for this event, when present (for Last-Event-ID). */
+  id?: string;
   message?: string;
 }
 
@@ -27,8 +29,8 @@ export interface SseBridgeHandle {
 
 export interface SseBridgeHandlers {
   onOpen: () => void;
-  /** Raw SSE `data:` payload (a JSON envelope) for one event. */
-  onData: (data: string) => void;
+  /** Raw SSE `data:` payload (a JSON envelope) plus the event `id:` if any. */
+  onData: (data: string, id?: string) => void;
   onError: (message?: string) => void;
   onClosed: () => void;
 }
@@ -60,7 +62,7 @@ function dispatchSseBridgeMessage(
           eventCount: state.eventCount,
           lastMessage: m.data.slice(0, 240),
         });
-        handlers.onData(m.data);
+        handlers.onData(m.data, m.id);
       }
       break;
     case 'error':
@@ -77,14 +79,15 @@ function dispatchSseBridgeMessage(
 /**
  * Open an SSE stream through the Rust `gact_sse_open` bridge instead of
  * a raw browser `EventSource`. Rust reads the stream (no WebView CORS
- * layer) and forwards each event's data over a Tauri Channel. This is
+ * layer) and forwards each event's data over the keyed global `gact:sse`
+ * Tauri event (filtered by `client_id`). This is
  * what makes desktop live-streaming independent of clio's CORS headers
  * — and lets the bearer token ride along (EventSource can't set headers;
  * the token travels in the sseUrl query string per SPEC §7). See
  * `apps/SECURITY.md` + issue #111.
  *
- * Pure-web build: callers should guard via `inTauri()` and fall back to
- * `new EventSource(...)`.
+ * Pure-web build: callers should guard via `inTauri()` and fall back to the
+ * fetch-based reader (`openSseFetchStream` via `openLiveTranscriptBrowserStream`).
  *
  * Pass `recordDebug` (e.g. from `createSseDebugRecorder()`) to capture bridge
  * telemetry; omit it to run the bridge silently (the default in tests).
@@ -93,6 +96,7 @@ export async function openTauriSse(
   url: string,
   handlers: SseBridgeHandlers,
   recordDebug?: SseDebugRecorder,
+  lastEventId?: string,
 ): Promise<SseBridgeHandle> {
   if (!inTauri()) {
     throw new Error('openTauriSse() called outside Tauri shell');
@@ -102,21 +106,22 @@ export async function openTauriSse(
   record({ url, state: 'importing', eventCount: 0 });
   record({ url, state: 'invoking', eventCount: 0 });
   const clientId = `sse-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  // The keyed global `gact:sse` event (filtered by client_id) is the sole
+  // transport: the Rust bridge emits every message there. An earlier build
+  // also mirrored messages over a per-command Tauri Channel, which caused
+  // double delivery; that Channel is gone on both sides.
   const unlisten = await listen<SseBridgeEventPayload>('gact:sse', (event) => {
     if (event.payload.client_id !== clientId) return;
     dispatchSseBridgeMessage(url, handlers, record, debugState, event.payload.message);
   });
-  const ch = await createChannel<SseBridgeMessage>();
-  // Linux WebKit CI proved Rust can send over Channel while the frontend
-  // callback never fires. Keep the Channel for command compatibility, but
-  // consume the keyed Tauri event above as the live transcript transport.
-  ch.onmessage = (m) => {
-    record({ url, state: `channel-${m.kind}` });
-  };
+  // clio reads the resume cursor only from the Last-Event-ID header; the
+  // Rust bridge already forwards this headers map on the request, so no
+  // command-signature change is needed.
+  const headers: Record<string, string> = {};
+  if (lastEventId) headers['Last-Event-ID'] = lastEventId;
   const id = await invoke<number>('gact_sse_open', {
     url,
-    headers: {},
-    onEvent: ch,
+    headers,
     clientId,
   });
   record({ url, state: 'handle-ready' });

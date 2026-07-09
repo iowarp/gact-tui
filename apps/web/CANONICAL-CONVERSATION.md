@@ -17,7 +17,7 @@ line-by-line in the real wire capture (`clean-earthscope-la.wire.sse`). This is 
 > Where a body reads `⟨text empty in stream — dev-team gap⟩`, the agent ran but its
 > prose/thought was not present in the transcript parts (only the delegation task
 > and, for tool-using experts, the semantic `react.step` thought were recoverable).
-> See `apps/CLIO-DEVTEAM-ISSUE-react-thought-ordering.md`.
+> These stream gaps are tracked as backend fixes, not client-side workarounds.
 
 ---
 

@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 const maxLocalFilePreviewBytes = 2 * 1024 * 1024
@@ -168,7 +169,7 @@ func localFileUnsupportedText(info, path, ext, reason string) string {
 	rows = append(rows,
 		"",
 		"Open externally with o or the open button.",
-		"If this file type matters to your workflow, please open an issue on the repository and include this extension: "+firstNonEmpty(ext, filepath.Ext(path), "unknown")+".",
+		"If this file type matters to your workflow, please open an issue on the repository and include this extension: "+valuefmt.FirstNonEmpty(ext, filepath.Ext(path), "unknown")+".",
 	)
 	return strings.Join(rows, "\n")
 }
@@ -230,7 +231,7 @@ func prettyJSON(data []byte) (string, error) {
 func previewJSONLines(data []byte, limit int) string {
 	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
 	var out strings.Builder
-	fmt.Fprintf(&out, "jsonl: %d records (showing first %d)\n\n", len(lines), minInt(limit, len(lines)))
+	fmt.Fprintf(&out, "jsonl: %d records (showing first %d)\n\n", len(lines), valuefmt.MinInt(limit, len(lines)))
 	for i, line := range lines {
 		if i >= limit {
 			break

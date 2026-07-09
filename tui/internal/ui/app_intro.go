@@ -109,7 +109,7 @@ func (a *App) viewIntro() string {
 		app.stage = StageConnecting
 		return app.connection.connectCmd()
 	})
-	// LLLLLLLLL1 + MMMMMMMMM1: when IntroLogo is empty and the
+	// When IntroLogo is empty and the
 	// terminal has room, render the embedded grc.iit.edu logo. If
 	// the animation-frames embed is populated, cycle through the
 	// 36-frame truecolor rotation on the introFrameIdx tick; else

@@ -5,10 +5,13 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func summarizeExpertHandoffOutput(output string) string {
@@ -17,13 +20,13 @@ func summarizeExpertHandoffOutput(output string) string {
 		return ""
 	}
 	if containsFormattedWorkflowStateSummary(output) {
-		return truncateMarkdownBlock(output, 1200, 18)
+		return render.TruncateMarkdownBlock(output, 1200, 18)
 	}
 	if stripped := stripEmbeddedWorkflowStateBlock(output); stripped != "" && stripped != output {
 		output = stripped
 	}
 	compact := strings.TrimSpace(strings.Join(strings.Fields(output), " "))
-	if summary := summarizeEmbeddedWorkflowStateText(compact); summary != "" {
+	if summary := presentation.SummarizeEmbeddedWorkflowStateText(compact); summary != "" {
 		return summary
 	}
 	if summary := summarizeEmbeddedStructuredHandoffText(compact); summary != "" {
@@ -32,16 +35,16 @@ func summarizeExpertHandoffOutput(output string) string {
 	if summary := summarizeStructuredHandoffOutput(compact); summary != "" {
 		return summary
 	}
-	output = expandInlineMarkdownTables(output)
+	output = render.ExpandInlineMarkdownTables(output)
 	if looksLikeMarkdownBlock(output) {
-		return truncateMarkdownBlock(output, 1200, 18)
+		return render.TruncateMarkdownBlock(output, 1200, 18)
 	}
 	output = compact
 	if (strings.Contains(output, "member=") || strings.Contains(output, ".SAC")) && strings.Contains(output, " - ") {
 		output = strings.SplitN(output, " - ", 2)[0]
 	}
-	output = shortenKnownPaths(output)
-	segments := splitSummarySegments(output)
+	output = valuefmt.ShortenKnownPaths(output)
+	segments := valuefmt.SplitSummarySegments(output)
 	if len(segments) == 0 {
 		return textutil.Truncate(output, 260)
 	}
@@ -50,23 +53,23 @@ func summarizeExpertHandoffOutput(output string) string {
 }
 
 func expertHandoffOutputSummary(p gact.Part) string {
-	if expertHandoffStarted(stringValue(p.Metadata["stage"]), stringValue(p.Metadata["status"])) {
+	if expertHandoffStarted(valuefmt.StringValue(p.Metadata["stage"]), valuefmt.StringValue(p.Metadata["status"])) {
 		startOutputs := []string{
-			summarizeExpertHandoffInput(stringValue(p.Metadata["input_summary"])),
-			summarizeExpertHandoffInput(stringValue(p.Metadata["input"])),
+			summarizeExpertHandoffInput(valuefmt.StringValue(p.Metadata["input_summary"])),
+			summarizeExpertHandoffInput(valuefmt.StringValue(p.Metadata["input"])),
 		}
 		return bestExpertHandoffSummary(startOutputs)
 	}
-	if local := summarizeExpertHandoffOutput(stringValue(p.Metadata["local_output_summary"])); local != "" &&
+	if local := summarizeExpertHandoffOutput(valuefmt.StringValue(p.Metadata["local_output_summary"])); local != "" &&
 		!strings.Contains(strings.ToLower(local), "state:") {
 		return attachWorkflowStateSummary(local, p)
 	}
 	outputs := []string{
-		stringValue(p.Metadata["return_output_summary"]),
-		stringValue(p.Metadata["result_summary"]),
-		stringValue(p.Metadata["observation_summary"]),
-		stringValue(p.Metadata["output_summary"]),
-		stringValue(p.Metadata["summary"]),
+		valuefmt.StringValue(p.Metadata["return_output_summary"]),
+		valuefmt.StringValue(p.Metadata["result_summary"]),
+		valuefmt.StringValue(p.Metadata["observation_summary"]),
+		valuefmt.StringValue(p.Metadata["output_summary"]),
+		valuefmt.StringValue(p.Metadata["summary"]),
 		expertHandoffErrorSummary(p.Metadata["error"]),
 		p.Text,
 	}
@@ -85,7 +88,7 @@ func summarizeExpertHandoffInput(input string) string {
 		"CLIO durable typed workflow state:",
 		"Retained typed workflow state:",
 	} {
-		if idx := indexFold(input, marker); idx > 0 {
+		if idx := presentation.IndexFold(input, marker); idx > 0 {
 			input = strings.TrimSpace(input[:idx])
 		}
 	}
@@ -119,7 +122,7 @@ func expertHandoffSummaryScore(raw string, summary string) int {
 	rawLower := strings.ToLower(raw)
 	lower := strings.ToLower(summary)
 	score := 0
-	if looksLikeMarkdownBlock(expandInlineMarkdownTables(summary)) {
+	if looksLikeMarkdownBlock(render.ExpandInlineMarkdownTables(summary)) {
 		score += 6
 	}
 	for _, token := range []string{
@@ -164,49 +167,18 @@ func summarizeStructuredHandoffOutput(output string) string {
 	return summarizeStructuredHandoffObjectStatus(obj)
 }
 
-func splitSummarySegments(output string) []string {
-	var segments []string
-	for _, raw := range strings.Split(output, " - ") {
-		text := strings.TrimSpace(raw)
-		if text == "" {
-			continue
-		}
-		if (strings.Contains(text, "member=") || strings.Contains(text, ".SAC")) && len(segments) > 0 {
-			continue
-		}
-		if strings.Contains(text, ": ") && len(text) > 120 {
-			parts := strings.Split(text, ". ")
-			for _, part := range parts {
-				part = strings.TrimSpace(part)
-				if part != "" {
-					segments = append(segments, part)
-				}
-				if len(segments) >= 3 {
-					return segments
-				}
-			}
-			continue
-		}
-		segments = append(segments, text)
-		if len(segments) >= 3 {
-			break
-		}
-	}
-	return segments
-}
-
 func expertHandoffErrorSummary(raw any) string {
 	switch errValue := raw.(type) {
 	case nil:
 		return ""
 	case map[string]any:
-		if summary := summarizeErrorResult(errValue); summary != "" {
+		if summary := presentation.SummarizeErrorResult(errValue); summary != "" {
 			return summary
 		}
 		if nested, ok := errValue["error"].(map[string]any); ok {
-			return summarizeErrorResult(map[string]any{"error": nested})
+			return presentation.SummarizeErrorResult(map[string]any{"error": nested})
 		}
-		return compactJSON(errValue)
+		return valuefmt.CompactJSON(errValue)
 	case string:
 		text := strings.TrimSpace(errValue)
 		if text == "" {
@@ -214,12 +186,12 @@ func expertHandoffErrorSummary(raw any) string {
 		}
 		var payload map[string]any
 		if err := json.Unmarshal([]byte(text), &payload); err == nil {
-			if summary := summarizeErrorResult(payload); summary != "" {
+			if summary := presentation.SummarizeErrorResult(payload); summary != "" {
 				return summary
 			}
 		}
-		return shortenKnownPaths(text)
+		return valuefmt.ShortenKnownPaths(text)
 	default:
-		return shortenKnownPaths(fmt.Sprint(errValue))
+		return valuefmt.ShortenKnownPaths(fmt.Sprint(errValue))
 	}
 }

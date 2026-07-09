@@ -55,6 +55,14 @@ describe('sanitizeEmphasis', () => {
     expect(sanitizeEmphasis('use `shell_bash` and `*/`')).toBe('use `shell_bash` and `*/`');
   });
 
+  it('does not escape a backslash path inside inline code (#222)', () => {
+    const bs = String.fromCharCode(92);
+    const src = `open \`C:${bs}Users${bs}alice${bs}notes.txt\` now`;
+    // Backslashes inside the code span are literal — no emphasis escaping, and no
+    // extra backslash injected.
+    expect(sanitizeEmphasis(src)).toBe(src);
+  });
+
   it('does not escape inside a fenced block', () => {
     const src = 'text_here\n```\nx = a_b */ *.c\n```\nmore_text';
     expect(sanitizeEmphasis(src)).toBe('text\\_here\n```\nx = a_b */ *.c\n```\nmore\\_text');

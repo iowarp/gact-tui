@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type agentHierarchyRuntimeState string
@@ -30,14 +31,14 @@ func (c *agentComponent) agentHierarchyRuntimeState(agentID string) agentHierarc
 	}
 	for i := len(c.app.conversation.messages) - 1; i >= 0; i-- {
 		msg := c.app.conversation.messages[i]
-		if rp := mapValue(msg.Metadata["runtime_provenance"]); len(rp) > 0 {
+		if rp := valuefmt.MapValue(msg.Metadata["runtime_provenance"]); len(rp) > 0 {
 			best = strongerAgentHierarchyState(best, agentStateFromRuntimeProvenance(agentID, rp))
 			markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(rp))
 		}
 		for j := len(msg.Parts) - 1; j >= 0; j-- {
 			part := msg.Parts[j]
 			if part.Type == partTypeRuntimeProvenance {
-				markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(mapValue(part.Metadata["runtime_provenance"])))
+				markAgentHierarchySettledRun(settledRunKeys, runtimeProvenanceRunKeys(valuefmt.MapValue(part.Metadata["runtime_provenance"])))
 			}
 			state := agentStateFromPart(agentID, part)
 			if state == agentHierarchyStateLive && partRunIsSettled(part, settledRunKeys) {
@@ -72,7 +73,7 @@ func (c *agentComponent) agentStateFromRecordedExecution(agentID string, settled
 			continue
 		}
 		if state == agentHierarchyStateLive {
-			keys := runtimeRunKeys(stringValue(pl["trace_id"]), stringValue(pl["turn_id"]))
+			keys := runtimeRunKeys(valuefmt.StringValue(pl["trace_id"]), valuefmt.StringValue(pl["turn_id"]))
 			for _, key := range keys {
 				if settled[key] {
 					state = agentHierarchyStateObserved
@@ -95,10 +96,10 @@ func partRunIsSettled(part gact.Part, settled map[string]bool) bool {
 	if len(settled) == 0 || len(part.Metadata) == 0 {
 		return false
 	}
-	rawEvent := mapValue(part.Metadata["raw_event"])
+	rawEvent := valuefmt.MapValue(part.Metadata["raw_event"])
 	keys := runtimeRunKeys(
-		firstNonEmpty(stringValue(part.Metadata["trace_id"]), stringValue(rawEvent["trace_id"])),
-		firstNonEmpty(stringValue(part.Metadata["turn_id"]), stringValue(rawEvent["turn_id"])),
+		valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["trace_id"]), valuefmt.StringValue(rawEvent["trace_id"])),
+		valuefmt.FirstNonEmpty(valuefmt.StringValue(part.Metadata["turn_id"]), valuefmt.StringValue(rawEvent["turn_id"])),
 	)
 	for _, key := range keys {
 		if settled[key] {
@@ -112,10 +113,10 @@ func runtimeProvenanceRunKeys(rp map[string]any) []string {
 	if len(rp) == 0 {
 		return nil
 	}
-	turn := mapValue(rp["turn"])
+	turn := valuefmt.MapValue(rp["turn"])
 	return runtimeRunKeys(
-		firstNonEmpty(stringValue(turn["trace_id"]), stringValue(rp["trace_id"])),
-		firstNonEmpty(stringValue(turn["turn_id"]), stringValue(rp["turn_id"])),
+		valuefmt.FirstNonEmpty(valuefmt.StringValue(turn["trace_id"]), valuefmt.StringValue(rp["trace_id"])),
+		valuefmt.FirstNonEmpty(valuefmt.StringValue(turn["turn_id"]), valuefmt.StringValue(rp["turn_id"])),
 	)
 }
 
@@ -157,12 +158,12 @@ func agentStateFromPart(agentID string, part gact.Part) agentHierarchyRuntimeSta
 	if part.Type == gact.PartTypeExpertHandoff {
 		state = strongerAgentHierarchyState(state, agentStateFromRuntimeRow(agentID, part.Metadata))
 	}
-	rawEvent := mapValue(part.Metadata["raw_event"])
+	rawEvent := valuefmt.MapValue(part.Metadata["raw_event"])
 	if len(rawEvent) > 0 {
 		state = strongerAgentHierarchyState(state, agentStateFromSemanticEvent(agentID, rawEvent))
 	}
 	if part.Type == partTypeRuntimeProvenance {
-		state = strongerAgentHierarchyState(state, agentStateFromRuntimeProvenance(agentID, mapValue(part.Metadata["runtime_provenance"])))
+		state = strongerAgentHierarchyState(state, agentStateFromRuntimeProvenance(agentID, valuefmt.MapValue(part.Metadata["runtime_provenance"])))
 	}
 	return state
 }
@@ -171,11 +172,11 @@ func agentStateFromSemanticEvent(agentID string, event map[string]any) agentHier
 	if len(event) == 0 {
 		return agentHierarchyStateNone
 	}
-	eventType := stringValue(event["event_type"])
-	status := strings.ToLower(stringValue(event["status"]))
-	actor := mapValue(event["actor"])
-	subject := mapValue(event["subject"])
-	payload := mapValue(event["payload"])
+	eventType := valuefmt.StringValue(event["event_type"])
+	status := strings.ToLower(valuefmt.StringValue(event["status"]))
+	actor := valuefmt.MapValue(event["actor"])
+	subject := valuefmt.MapValue(event["subject"])
+	payload := valuefmt.MapValue(event["payload"])
 	matchesActor := mapReferencesAgent(actor, agentID)
 	matchesSubject := mapReferencesAgent(subject, agentID)
 	matchesPayload := mapReferencesAgent(payload, agentID)
@@ -202,13 +203,13 @@ func agentStateFromRuntimeProvenance(agentID string, rp map[string]any) agentHie
 		return agentHierarchyStateNone
 	}
 	state := agentHierarchyStateNone
-	agent := mapValue(rp["agent"])
+	agent := valuefmt.MapValue(rp["agent"])
 	for _, key := range []string{"active_expert_id", "active_agent_id", "selected_agent_id", "id"} {
-		if stringValue(agent[key]) == agentID {
+		if valuefmt.StringValue(agent[key]) == agentID {
 			state = strongerAgentHierarchyState(state, agentHierarchyStateActive)
 		}
 	}
-	delegation := mapValue(rp["delegation"])
+	delegation := valuefmt.MapValue(rp["delegation"])
 	for _, row := range runtimeRowMaps(delegation["events"]) {
 		state = strongerAgentHierarchyState(state, agentStateFromFinalRuntimeRow(agentID, row))
 	}
@@ -219,10 +220,10 @@ func agentStateFromFinalRuntimeRow(agentID string, row map[string]any) agentHier
 	if !mapReferencesAgent(row, agentID) {
 		return agentHierarchyStateNone
 	}
-	stage := strings.ToLower(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["event_type"]),
-		stringValue(row["status"]),
+	stage := strings.ToLower(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["stage"]),
+		valuefmt.StringValue(row["event_type"]),
+		valuefmt.StringValue(row["status"]),
 	))
 	if strings.Contains(stage, "active") {
 		return agentHierarchyStateActive
@@ -234,10 +235,10 @@ func agentStateFromRuntimeRow(agentID string, row map[string]any) agentHierarchy
 	if !mapReferencesAgent(row, agentID) {
 		return agentHierarchyStateNone
 	}
-	stage := strings.ToLower(firstNonEmpty(
-		stringValue(row["stage"]),
-		stringValue(row["event_type"]),
-		stringValue(row["status"]),
+	stage := strings.ToLower(valuefmt.FirstNonEmpty(
+		valuefmt.StringValue(row["stage"]),
+		valuefmt.StringValue(row["event_type"]),
+		valuefmt.StringValue(row["status"]),
 	))
 	if strings.Contains(stage, "started") || stage == "running" || strings.Contains(stage, "tool.started") {
 		return agentHierarchyStateLive

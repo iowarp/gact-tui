@@ -18,9 +18,9 @@ Current lineup: **dark** (default) · **light** (Gruvbox-inspired cream) ·
 
 | | |
 |---|---|
-| ![dracula](../screenshots/61-dracula-convo.png) | ![solarized-light](../screenshots/60-solarized-light-convo.png) |
+| ![dracula](screenshots/61-dracula-convo.png) | ![solarized-light](screenshots/60-solarized-light-convo.png) |
 | Dracula in action | Solarized-light, conversation pane |
-| ![theme picker](../screenshots/54-themes-list.png) | ![tokyo-night](../screenshots/59-theme-tokyo-night.png) |
+| ![theme picker](screenshots/54-themes-list.png) | ![tokyo-night](screenshots/59-theme-tokyo-night.png) |
 | Settings > Theme picker — ↑/↓ previews live | Tokyo Night |
 
 ### Custom theme
@@ -195,7 +195,7 @@ gact log "$SID" | grep -i "tool"
 
 **Emulator** (Phase A complete — 21/21 tasks). Race-clean, ≥75% coverage on
 HTTP layer, end-to-end binary tests cover the full streaming + permission
-flow. See [`emulator/`](../emulator) and `STATUS.md`.
+flow. See [`emulator/`](../emulator).
 
 | SPEC § | Capability | Status |
 |---|---|---|
@@ -266,11 +266,10 @@ gact-tui/
 │   ├── opencode/             # OpenCode upstream → GACT v0.1
 │   ├── crush/                # Crush upstream → GACT v0.1
 │   └── claudecode/           # Claude Code (via stream-json) → GACT v0.1
-├── notes/                    # distilled reference for bubbletea/lipgloss/etc.
+├── docs/reference/           # distilled reference for bubbletea/lipgloss/etc.
 ├── .claude/skills/           # tui-screenshot + tui-test workflows
 ├── screenshots/              # VHS-rendered visual record of states
-├── PLAN.md                   # ordered task queue
-├── STATUS.md                 # iteration log + decisions
+├── docs/archive/             # superseded planning logs + design briefs
 └── CLAUDE.md                 # project rules for Claude sessions
 ```
 
@@ -297,7 +296,9 @@ For UI changes, the canonical workflow is captured in
 
 1. Build the TUI binary
 2. Run a `.tape` file via VHS
-3. Inspect the resulting PNG in `screenshots/`
+3. Inspect the resulting PNG
 
-Screenshots are committed to the repo as a visual changelog. New work
-that touches the UI should add a fresh screenshot demonstrating it.
+The `.tape` sources under `tui/testdata/tapes/` are the source of truth —
+screenshots are regenerated on demand, not committed as a gallery. When a doc
+needs to embed a capture, curate it into `docs/screenshots/` (the sole committed
+screenshot home — see the media policy in the root `CLAUDE.md`, #235).

@@ -70,12 +70,44 @@ export function startLiveTranscriptSession(
     setPendingPermission: signals.setPendingPermission,
     setPendingQuestion: signals.setPendingQuestion,
   };
-  void fetchLiveTranscriptSnapshot(client, sessionId)
-    .then((snapshot) => replaceLiveTranscriptSnapshot(snapshot, snapshotSetters))
-    .catch(() => clearLiveTranscriptSnapshot(snapshotSetters))
-    .finally(() => signals.setMessagesLoading(false));
-
+  // Disposal guard (iowarp/gact-tui#226): switching sessions A -> B closes
+  // A's session while its snapshot fetch may still be in flight. The shared
+  // signals now belong to B, so a late A resolution (or failure) must be
+  // discarded — mirroring the current-session guard the Go TUI applies in
+  // tui/internal/ui/message_load_commands.go.
   let disposed = false;
+  void fetchLiveTranscriptSnapshot(client, sessionId)
+    .then((snapshot) => {
+      if (disposed) {
+        console.warn('[live] stale transcript snapshot discarded', {
+          reason: 'snapshot_session_disposed',
+          session_id: sessionId,
+        });
+        return;
+      }
+      replaceLiveTranscriptSnapshot(snapshot, snapshotSetters);
+    })
+    .catch((error: unknown) => {
+      if (disposed) {
+        console.warn('[live] stale transcript snapshot failure ignored', {
+          reason: 'snapshot_session_disposed',
+          session_id: sessionId,
+          error,
+        });
+        return;
+      }
+      console.warn('[live] transcript snapshot fetch failed; clearing feed', {
+        reason: 'snapshot_fetch_failed',
+        session_id: sessionId,
+        error,
+      });
+      clearLiveTranscriptSnapshot(snapshotSetters);
+    })
+    .finally(() => {
+      // A disposed session's `finally` must not flip the NEW session's
+      // loading skeleton off while its own snapshot is still in flight.
+      if (!disposed) signals.setMessagesLoading(false);
+    });
   const transcriptReconciler = createTranscriptReconciler({
     client,
     sessionId,

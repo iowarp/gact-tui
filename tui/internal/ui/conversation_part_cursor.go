@@ -3,6 +3,7 @@ package ui
 // conversation_part_cursor.go tracks the selected addressable part and steps the part cursor.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
@@ -15,7 +16,14 @@ func addressablePartsOf(m gact.Message) []int {
 	for i, p := range m.Parts {
 		switch p.Type {
 		case gact.PartTypeThinking:
-			continue
+			// Provider-native thinking renders as a one-row disclosure
+			// (`thinking · N chars · Ctrl+E` — #233 box 3), so the row is
+			// addressable: the cursor can land on it and Ctrl+E opens the full
+			// prose. Regular ReAct next_thought renders inline inside its step
+			// and stays cursor-transparent.
+			if !isProviderThinkingPart(p) {
+				continue
+			}
 		case gact.PartTypeText:
 			if strings.TrimSpace(p.Text) == "" {
 				continue
@@ -79,7 +87,7 @@ func (c *conversationComponent) stepPartCursorSelection(dir int) bool {
 		return true
 	}
 
-	_, absorbed := pairToolResults(c.messages)
+	_, absorbed := render.PairToolResults(c.messages)
 	msgIdx := c.bodySelMsgIdx
 	partIdx := c.bodySelPartIdx
 	addr := addressablePartsOf(c.messages[msgIdx])

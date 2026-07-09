@@ -10,6 +10,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (t Theme) renderSubagentCallPart(p gact.Part, wrapW int) string {
@@ -35,7 +36,7 @@ func (t Theme) renderErrorPart(p gact.Part, wrapW int) string {
 		Render("✗ " + p.Code)
 	if p.Message != "" {
 		body := lipgloss.NewStyle().Foreground(t.Danger).
-			Render(indent(textutil.Wrap(shortenKnownPaths(p.Message), wrapW-2), "  "))
+			Render(indent(textutil.Wrap(valuefmt.ShortenKnownPaths(p.Message), wrapW-2), "  "))
 		head = lipgloss.JoinVertical(lipgloss.Left, head, body)
 	}
 	if len(p.Metadata) == 0 {

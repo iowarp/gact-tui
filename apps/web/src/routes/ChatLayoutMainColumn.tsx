@@ -8,6 +8,8 @@ import type { RailRoute } from '../components/LeftRail.js';
 import type { SessionRow } from '../components/SessionsColumn.js';
 import { TranscriptSearch } from '../components/TranscriptSearch.js';
 import { ContextFooter } from '../components/ContextFooter.js';
+import { activeAgentFromSemanticEvents } from '../components/ContextUsageModel.js';
+import { presentBlueprintLabel } from '../brand-presentation.js';
 import { ChatConversationPane } from './ChatConversationPane.js';
 import { DiscoveryView } from './DiscoveryView.js';
 import type { ChatLayoutProps } from './ChatLayoutTypes.js';
@@ -122,22 +124,35 @@ export function ChatLayoutMainColumn(options: ChatLayoutMainColumnProps) {
           onPickPermMode={options.props.onPickPermMode}
           onOpenSettings={options.props.onOpenSettings}
           onAddRemote={options.props.onAddRemote}
-          renderContextFooter={() => (
-            <Show when={options.props.activeId}>
-              <div class="chat__context-footer" data-testid="chat-context-footer">
-                <ContextFooter
-                  client={options.discoveryClient}
-                  sessionId={options.props.activeId}
-                  {...(options.props.sessionBindings?.pack_id
-                    ? {
-                        activeExpert: options.props.sessionBindings.pack_id,
-                        activeExpertLabel: options.props.sessionBindings.pack_id,
-                      }
-                    : {})}
-                />
-              </div>
-            </Show>
-          )}
+          renderContextFooter={() => {
+            // Track the LIVE active agent of the running turn (the one currently
+            // executing, read from the semantic-event trace), not the static
+            // blueprint binding. When idle (no attributable activity) leave the
+            // expert props off so ContextFooter falls back to the routing root.
+            // Gate on the same x_clio_semantic_events vendor capability the
+            // transcript's semanticEvents prop uses — never bypass the flag.
+            const semanticEvents = options.props.semanticEventsEnabled
+              ? options.props.semanticEvents
+              : undefined;
+            const live = activeAgentFromSemanticEvents(semanticEvents);
+            const expertProps = live
+              ? {
+                  activeExpert: live.id,
+                  activeExpertLabel: presentBlueprintLabel(live.title, live.id),
+                }
+              : {};
+            return (
+              <Show when={options.props.activeId}>
+                <div class="chat__context-footer" data-testid="chat-context-footer">
+                  <ContextFooter
+                    client={options.discoveryClient}
+                    sessionId={options.props.activeId}
+                    {...expertProps}
+                  />
+                </div>
+              </Show>
+            );
+          }}
         />
       </Show>
     </div>

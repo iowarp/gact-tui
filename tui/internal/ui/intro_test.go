@@ -25,7 +25,7 @@ func TestEnableIntro_FlipsStage(t *testing.T) {
 		t.Errorf("after EnableIntro, stage = %v, want StageIntro", a.stage)
 	}
 	// Init should NOT fire connectCmd while in StageIntro. It MAY
-	// fire the MMMMMMMMM1 introTickCmd that drives the animated
+	// fire the introTickCmd that drives the animated
 	// GRC logo, but that cmd never produces a connectedMsg so the
 	// splash-before-connect invariant still holds. Actual runtime
 	// dispatch of the tick is covered by splash-dismiss tests below.
@@ -105,7 +105,7 @@ func TestViewIntro_CompactHeightDoesNotOverflow(t *testing.T) {
 	}
 }
 
-// EEEEEEEE1: empty-state callout (no session selected) surfaces
+// Empty-state callout (no session selected) surfaces
 // the detached count + resume hint when the user has detached
 // sessions on this server.
 func TestEmptyState_DetachedResumeHint(t *testing.T) {
@@ -116,7 +116,7 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	out := a.conversation.render(a.width-40, a.height-3)
 	if strings.Contains(out, "gact attach") || strings.Contains(out, "detached session(s)") {
 		// note: the existing crib already mentions Ctrl+Z and `gact
-		// attach <sid>`, so check for the EEEEEEEE1 phrase explicitly.
+		// attach <sid>`, so check for the empty-state phrase explicitly.
 		if strings.Contains(out, "detached session(s) on this server") {
 			t.Errorf("empty resume hint should not appear when none detached: %q", out)
 		}
@@ -135,7 +135,7 @@ func TestEmptyState_DetachedResumeHint(t *testing.T) {
 	}
 }
 
-// LLLLLLLL1: a transient hint set by a background event between
+// A transient hint set by a background event between
 // two keystrokes must not get wiped on the user's next key until
 // it's been visible for at least transientHintMinDwell (800ms).
 // Without this gate, the hint flashes for ~1 frame and vanishes.
@@ -147,7 +147,7 @@ func TestTransientHint_KeystrokeRespectsMinDwell(t *testing.T) {
 	a.session.selected = 0
 
 	// Simulate the "background event sets hint" flow: a prior
-	// Update cycle assigned transientHint. The LLLLLLLL1 deferred
+	// Update cycle assigned transientHint. The deferred
 	// stamp runs at the end of each Update, so we simulate it
 	// manually here (the test is synchronous — no scheduler tick).
 	a.transientHint = "background toast"

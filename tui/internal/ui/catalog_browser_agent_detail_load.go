@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeScope) tea.Cmd {
@@ -75,12 +76,12 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			})
 		}
 		for _, ref := range agent.CapabilityRefs {
-			title := firstNonEmpty(ref.Title, ref.ID)
+			title := valuefmt.FirstNonEmpty(ref.Title, ref.ID)
 			items = append(items, catalogItem{
 				id:        "capability/" + ref.Kind + "/" + ref.ID,
 				title:     "Capability · " + title,
 				desc:      agentCapabilityRefDescription(ref),
-				statusTag: firstNonEmpty(ref.Status, ref.Kind),
+				statusTag: valuefmt.FirstNonEmpty(ref.Status, ref.Kind),
 			})
 		}
 		if routes := stringListFromMetadata(agent.Metadata, "routes_to"); len(routes) > 0 {
@@ -131,9 +132,9 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			for _, command := range plannerCommands {
 				items = append(items, catalogItem{
 					id:        "command/" + command.ID,
-					title:     "Planner command · " + firstNonEmpty(command.Title, command.ID),
+					title:     "Planner command · " + valuefmt.FirstNonEmpty(command.Title, command.ID),
 					desc:      paletteCommandSubtitle(command),
-					statusTag: firstNonEmpty(command.CommandSource, command.Source, "command"),
+					statusTag: valuefmt.FirstNonEmpty(command.CommandSource, command.Source, "command"),
 				})
 			}
 		}
@@ -141,10 +142,10 @@ func loadAgentDetailCmd(c *client.Client, agentID string, scope client.RuntimeSc
 			items = append(items, catalogItem{id: "tools/none", title: "Can use · none declared"})
 		} else {
 			for _, tool := range visibleTools {
-				toolID := firstNonEmpty(tool.ID, tool.Name)
+				toolID := valuefmt.FirstNonEmpty(tool.ID, tool.Name)
 				items = append(items, catalogItem{
 					id:        "tool/" + toolID,
-					title:     "Can use · " + firstNonEmpty(tool.Name, toolID),
+					title:     "Can use · " + valuefmt.FirstNonEmpty(tool.Name, toolID),
 					desc:      toolSummary(tool),
 					statusTag: tool.Owner,
 				})

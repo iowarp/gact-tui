@@ -1,11 +1,12 @@
 go 1.25.8
 
 use (
-	./emulator
-	./tui
-	./adapters/opencode
+	./adapters/claudecode
 	./adapters/crush
 	./adapters/goose
-	./adapters/claudecode
+	./adapters/opencode
 	./contract/conformance
+	./emulator
+	./examples/loop-test
+	./tui
 )

@@ -9,6 +9,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 // applySSE folds an incoming event into local state.
@@ -18,7 +19,7 @@ import (
 // the actual event data, so handlers must read e.Payload["payload"][...].
 func (c *conversationComponent) applySSE(e client.SSEEvent) {
 	if c.app.audit != nil {
-		c.app.audit.RecordReceived("sse."+firstNonEmpty(e.Type, "event"), e)
+		c.app.audit.RecordReceived("sse."+valuefmt.FirstNonEmpty(e.Type, "event"), e)
 		defer c.app.audit.RecordReceived("state.after_sse", map[string]any{
 			"session_id":     c.app.session.currentID(),
 			"event_type":     e.Type,
@@ -113,6 +114,13 @@ func (c *conversationComponent) applySSE(e client.SSEEvent) {
 		// carries session_id so we can ignore hits for other sessions.
 		if pl != nil {
 			sid, _ := pl["session_id"].(string)
+			if sid != "" {
+				// The backend wiped this session's history — the execution
+				// ledger must go with it or Ctrl+E drill-down keeps showing
+				// pre-/clear events (#231). Applies to non-current sessions
+				// too (a subagent session can be cleared while unselected).
+				c.app.execution.clearSessionLedger(sid)
+			}
 			if sid != "" && sid == c.app.session.currentID() {
 				c.clearMessages()
 				c.scrollOffset = 0
@@ -162,7 +170,7 @@ func (c *conversationComponent) applySSEBatch(events []client.SSEEvent) tea.Cmd 
 		c.app.fileViewer.refreshFromWorkspace()
 	}
 	cmds := []tea.Cmd{waitForSSE(c.app.connection.sseEvents, c.app.connection.sseErrs)}
-	// CLIO-BBBBBBBBBB4 (v0.2 §6.19): when a turn just settled back to idle
+	// When a turn just settled back to idle (v0.2 §6.19)
 	// AND the backend has memory, refresh the cache stats. Piggy-backs on the
 	// status_changed event loop — one fetch per turn completion, no extra
 	// polling.

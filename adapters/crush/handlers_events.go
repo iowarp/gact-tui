@@ -202,7 +202,21 @@ func translateCrushEvent(raw []byte, fallbackSessionID string) (string, map[stri
 	case "message":
 		switch inner.Type {
 		case "created":
-			return "message.created", map[string]any{"session_id": sid, "message": resource}, sid, true
+			// Codified shape (clio gact/types.py, emulator, claudecode — 3 of 4
+			// implementations): the payload IS the message resource, flat.
+			// Never nest it under a "message" key (iowarp/gact-tui#232).
+			payload := make(map[string]any, len(resource)+1)
+			for k, v := range resource {
+				payload[k] = v
+			}
+			if _, ok := payload["session_id"]; !ok {
+				if sid != "" {
+					payload["session_id"] = sid
+				} else if fallbackSessionID != "" {
+					payload["session_id"] = fallbackSessionID
+				}
+			}
+			return "message.created", payload, sid, true
 		case "updated":
 			return "message.updated", map[string]any{"session_id": sid, "message": resource}, sid, true
 		case "deleted":

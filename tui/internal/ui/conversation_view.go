@@ -97,110 +97,46 @@ func (c *conversationComponent) render(width, height int) string {
 	} else if len(c.messages) == 0 {
 		body = c.renderEmptySessionBody(t)
 	} else {
-		var rows []string
-		var hitBlocks []conversationPartHitBlock
-		fullLine := 0
-		hasProjectedExecution := c.app.execution.currentSessionHasProjected()
-		if projected, ok := c.app.execution.renderConversation(t, width-4); ok {
-			body = projected
-			c.registerWheelHit(conversationH, width, permBanner != "")
-			body = c.scrollClip(body, conversationH, t)
-		} else {
-			// III1: pair tool_results to their tool_calls so each call's
-			// output renders directly under it. Tool messages whose entire
-			// payload was absorbed get skipped from standalone rendering
-			// (the role header would otherwise be empty noise).
-			inlineResults, absorbed := pairToolResults(c.messages)
-			// Theme identity is constant across every message in a frame, so
-			// fold it once here rather than per message inside the cache key.
-			themeSig := themeRenderSignature(t)
-			lastModelLabel := ""
-			var prevRendered *gact.Message
-			for i, m := range c.messages {
-				if hasProjectedExecution && isSemanticLiveMessage(m) {
-					continue
-				}
-				if absorbed[i] {
-					continue
-				}
-				if !shouldRenderConversationMessage(m) {
-					continue
-				}
-				if isModelSwapMarker(m) {
-					if label := modelSwapMarkerLabel(m); label != "" {
-						lastModelLabel = label
-					}
-				} else if label := modelRefLabel(m); label != "" {
-					if lastModelLabel != "" && label != lastModelLabel {
-						rows = append(rows, t.renderModelSwapDivider(gact.Message{
-							Role: gact.RoleSystem,
-							Metadata: map[string]any{
-								"gact_tui_kind": modelSwapMarkerKind,
-								"label":         label,
-							},
-						}, width-4))
-					}
-					lastModelLabel = label
-				}
-				// TTTTTTTTT1: pass the selected part ID so the per-block
-				// `▸ ` marker paints on the currently focused part. Only
-				// honoured on the selected message; empty string on every
-				// other row so unrelated messages render untouched.
-				selPartID := ""
-				if i == c.bodySelMsgIdx && c.app.focus == FocusBody {
-					selPartID = c.selectedPartID()
-				}
-				if len(rows) > 0 {
-					fullLine++
-				}
-				rendered := c.cachedMessageRender(t, themeSig, m, prevRendered, width-4, inlineResults[i], selPartID)
-				row := rendered.row
-				for _, block := range rendered.blocks {
-					block.msgIdx = i
-					block.fullStart += fullLine
-					hitBlocks = append(hitBlocks, block)
-				}
-				// XXXXXXXXX1: dropped the full-message █ gutter bar + row tint
-				// per user feedback: "i also dont see the value with the
-				// message selector and global turn selector rather just have
-				// the message selector". The per-block `▸ ` cursor from
-				// TTTTTTTTT1 is now the only selection indicator — single
-				// selector, clearer signal. Search-hit marker still paints
-				// (different colour + glyph, independent UX).
-				if m.ID != "" && m.ID == c.searchHitMessageID {
-					marker := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).Render("▶ ")
-					row = prependGutter(row, marker)
-				}
-				rows = append(rows, row)
-				fullLine += rendered.lineCount
-				prevRendered = &c.messages[i]
-			}
-			// Pending-turn indicator: when the session is running but the latest
-			// message hasn't produced any visible parts yet (e.g. user just
-			// pressed Enter and the assistant hasn't streamed a delta), show a
-			// "● thinking…" stub so the user knows the system isn't dead.
-			if c.app.conversation.shouldShowThinkingIndicator() {
-				thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
-					Render(c.app.ticker.spinnerChar()) + " " +
-					lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
-						Render(c.app.localizer.t(msgConversationThinking, nil))
-				rows = append(rows, "", thinkLine)
-			}
-			body = strings.Join(rows, "\n")
-			// VVVVVVVVV1: one-shot scroll adjustment — if a nav handler
-			// flagged pendingPartScroll, find the ▸ marker in the full
-			// body and bump scrollOffset so it falls within the viewport
-			// (ideally at ~1/3 from top for context). Clear the flag so
-			// subsequent renders (e.g. SSE streaming a new message in)
-			// don't re-thrash the scroll.
-			if c.pendingPartScroll {
-				c.adjustScrollForSelectedPart(body, conversationH)
-				c.pendingPartScroll = false
-			}
-			c.registerWheelHit(conversationH, width, permBanner != "")
-			c.registerPartHits(hitBlocks, body, conversationH, width, permBanner != "")
-			body = c.scrollClip(body, conversationH, t)
+		// #233 phase 1: ONE transcript render — the parts-only projection
+		// (execution.renderConversation), for every session shape. The former
+		// flat per-message fallback loop is retired (web precedent 09240c4c);
+		// part-level hit blocks now come back from the projected render.
+		//
+		// Width contract: the pane style is Width(width-2) OUTER with a rounded
+		// border (2) + Padding(0,1) (2), so exactly width-6 content columns fit.
+		// Rendering wider makes overlong lines soft-wrap INSIDE the pane, which
+		// silently grows the body past the fixed-height viewport and pushes the
+		// bottom rows (and the hit-geometry line math) off screen.
+		projected, hitBlocks, _ := c.app.execution.renderConversation(t, width-6)
+		rows := []string{}
+		if projected != "" {
+			rows = append(rows, projected)
 		}
+		// Pending-turn indicator: when the session is running but the latest
+		// message hasn't produced any visible parts yet (e.g. user just
+		// pressed Enter and the assistant hasn't streamed a delta), show a
+		// "● thinking…" stub so the user knows the system isn't dead.
+		if c.app.conversation.shouldShowThinkingIndicator() {
+			thinkLine := lipgloss.NewStyle().Foreground(t.Warning).Bold(true).
+				Render(c.app.ticker.spinnerChar()) + " " +
+				lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).
+					Render(c.app.localizer.t(msgConversationThinking, nil))
+			rows = append(rows, "", thinkLine)
+		}
+		body = strings.Join(rows, "\n")
+		// One-shot scroll adjustment — if a nav handler
+		// flagged pendingPartScroll, find the ▌ marker in the full
+		// body and bump scrollOffset so it falls within the viewport
+		// (ideally at ~1/3 from top for context). Clear the flag so
+		// subsequent renders (e.g. SSE streaming a new message in)
+		// don't re-thrash the scroll.
+		if c.pendingPartScroll {
+			c.adjustScrollForSelectedPart(body, conversationH)
+			c.pendingPartScroll = false
+		}
+		c.registerWheelHit(conversationH, width, permBanner != "")
+		c.registerPartHits(hitBlocks, body, conversationH, width, permBanner != "")
+		body = c.scrollClip(body, conversationH, t)
 	}
 	c.app.clipboard.setConversationSnapshot(body, conversationH, width, permBanner != "")
 	body = c.app.clipboard.renderConversationDragHighlight(body)

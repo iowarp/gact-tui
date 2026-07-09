@@ -58,8 +58,7 @@ apps/core/dist
 # --- Visual artifacts (never needed in an image) ---
 screenshots
 apps/web/screenshots
-visual_loop
-loop-test
+examples/loop-test
 **/*.png
 **/*.gif
 **/*.tape

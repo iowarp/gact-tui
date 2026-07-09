@@ -6,45 +6,47 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func executionStructuredMapPreview(agent string, obj map[string]any) string {
 	var rows []string
-	if stationCatalog := mapValue(obj["station_catalog"]); len(stationCatalog) > 0 {
+	if stationCatalog := valuefmt.MapValue(obj["station_catalog"]); len(stationCatalog) > 0 {
 		rows = append(rows, executionStationCatalogPreview(stationCatalog)...)
 	}
-	if acquisition := mapValue(obj["acquisition"]); len(acquisition) > 0 {
+	if acquisition := valuefmt.MapValue(obj["acquisition"]); len(acquisition) > 0 {
 		if status := executionFirstScalarValue(acquisition, "status"); status != "" {
 			rows = append(rows, "acquisition "+status)
 		}
 		if path := executionFirstScalarValue(acquisition, "metadata_path", "local_path", "path"); path != "" {
-			rows = append(rows, shortenPathForInline(path))
+			rows = append(rows, valuefmt.ShortenPathForInline(path))
 		}
 		if ready := executionFirstScalarValue(acquisition, "analysis_ready"); ready != "" {
 			rows = append(rows, "analysis ready "+ready)
 		}
 	}
-	if resource := mapValue(obj["resource_candidate"]); len(resource) > 0 {
+	if resource := valuefmt.MapValue(obj["resource_candidate"]); len(resource) > 0 {
 		if name := executionFirstScalarValue(resource, "resource_name", "dataset_name"); name != "" {
 			rows = append(rows, name)
 		}
 	}
-	if profile := mapValue(obj["profile"]); len(profile) > 0 {
+	if profile := valuefmt.MapValue(obj["profile"]); len(profile) > 0 {
 		rows = append(rows, executionProfilePreview(profile)...)
 	}
 	for _, key := range []string{"artifact", "plot"} {
-		if artifact := mapValue(obj[key]); len(artifact) > 0 {
+		if artifact := valuefmt.MapValue(obj[key]); len(artifact) > 0 {
 			if kind := executionFirstScalarValue(artifact, "kind", "plot_type", "type"); kind != "" {
 				rows = append(rows, kind)
 			}
 			if path := executionFirstScalarValue(artifact, "path", "local_path", "output_path", "plot_path", "artifact_path"); path != "" {
-				rows = append(rows, shortenPathForInline(path))
+				rows = append(rows, valuefmt.ShortenPathForInline(path))
 				if executionPathLooksLikeImage(path) {
 					rows = append(rows, "Ctrl+E full image")
 				}
 			}
-			if columns := summarizeNamedItems(artifact, "columns", "y_columns"); columns != "" {
+			if columns := presentation.SummarizeNamedItems(artifact, "columns", "y_columns"); columns != "" {
 				rows = append(rows, "columns "+columns)
 			}
 			if status := executionFirstScalarValue(artifact, "status"); status != "" && status != "completed" {
@@ -61,7 +63,7 @@ func executionStructuredMapPreview(agent string, obj map[string]any) string {
 		}
 	}
 	if path := executionFirstScalarValue(obj, "path", "local_path", "cleaned_path", "output_path", "plot_path", "artifact_path"); path != "" {
-		rows = append(rows, shortenPathForInline(path))
+		rows = append(rows, valuefmt.ShortenPathForInline(path))
 	}
 	if radius := executionFirstScalarValue(obj, "radius_km"); radius != "" {
 		rows = append(rows, "radius "+radius+" km")
@@ -97,7 +99,7 @@ func executionProfilePreview(obj map[string]any) []string {
 		rows = append(rows, "profile")
 	}
 	if path := executionFirstScalarValue(obj, "path", "file_path", "local_path"); path != "" {
-		rows = append(rows, shortenPathForInline(path))
+		rows = append(rows, valuefmt.ShortenPathForInline(path))
 	}
 	if scanLimited := executionFirstScalarValue(obj, "scan_limited", "profile_limited"); scanLimited != "" {
 		rows = append(rows, "scan limited "+scanLimited)
@@ -116,7 +118,7 @@ func executionStationCatalogPreview(obj map[string]any) []string {
 	ids, _ := obj["station_ids"].([]any)
 	limit := min(3, len(ids))
 	for i := 0; i < limit; i++ {
-		id := strings.TrimSpace(stringValue(ids[i]))
+		id := strings.TrimSpace(valuefmt.StringValue(ids[i]))
 		if id != "" {
 			rows = append(rows, id)
 		}

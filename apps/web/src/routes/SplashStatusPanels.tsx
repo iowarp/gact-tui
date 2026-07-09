@@ -5,6 +5,7 @@ import { For, Show, type Accessor } from 'solid-js';
 import { brand } from '@brand';
 import { inTauri } from '../tauri.js';
 import { installRecipeForPlatform, type SplashPhase } from './splashModel.js';
+import { DEFAULT_BACKEND_DISPLAY } from '../backendDefaults.js';
 
 export function SplashProbePanel(props: {
   phase: Accessor<SplashPhase>;
@@ -20,7 +21,7 @@ export function SplashProbePanel(props: {
       <p class="splash__hint">
         {props.phase() === 'starting'
           ? 'Booting the bundled agent backend…'
-          : 'Looking for a backend on localhost:17800…'}
+          : `Looking for a backend on ${DEFAULT_BACKEND_DISPLAY}…`}
         <Show when={props.elapsedMs() > 1500}>
           <span class="splash__elapsed">
             {' · '}

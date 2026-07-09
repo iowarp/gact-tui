@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func loadMcpResourceDetailCmd(c *client.Client, serverID, uri, title string) tea.Cmd {
@@ -18,10 +19,10 @@ func loadMcpResourceDetailCmd(c *client.Client, serverID, uri, title string) tea
 		defer cancel()
 		contents, err := c.McpResourceRead(ctx, serverID, uri)
 		if err != nil {
-			return catalogDetailLoadedMsg{title: firstNonEmpty(title, uri), err: err}
+			return catalogDetailLoadedMsg{title: valuefmt.FirstNonEmpty(title, uri), err: err}
 		}
 		return catalogDetailLoadedMsg{
-			title: firstNonEmpty(title, uri),
+			title: valuefmt.FirstNonEmpty(title, uri),
 			text:  formatMcpResourceContents(contents),
 		}
 	}
@@ -48,7 +49,7 @@ func mcpDetailDisplayName(serverID, serverName string) string {
 	for _, prefix := range []string{"Source · MCP · ", "MCP tools · ", "MCP connection · ", "MCP source · ", "MCP server · ", "MCP · "} {
 		name = strings.TrimPrefix(name, prefix)
 	}
-	return firstNonEmpty(name, serverID)
+	return valuefmt.FirstNonEmpty(name, serverID)
 }
 
 func selectedCatalogMcpServerID(cb *catalogBrowserState) string {
@@ -83,7 +84,7 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 					title:      "Connection overview",
 					desc:       formatMcpServerSummary(server),
 					inlineDesc: mcpServerDetailInlineSummary(server),
-					statusTag:  firstNonEmpty(server.Status, "server"),
+					statusTag:  valuefmt.FirstNonEmpty(server.Status, "server"),
 				})
 				break
 			}
@@ -93,7 +94,7 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 			errs = append(errs, "tools: "+err.Error())
 		} else {
 			for _, t := range tools {
-				toolID := firstNonEmpty(t.ID, t.Name)
+				toolID := valuefmt.FirstNonEmpty(t.ID, t.Name)
 				desc := mcpDetailToolSummary(t)
 				if owners := owningAgentsForTool(t, agents); len(owners) > 0 {
 					if desc != "" {
@@ -103,7 +104,7 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 				}
 				items = append(items, catalogItem{
 					id:        "tool/" + toolID,
-					title:     "Tool · " + firstNonEmpty(t.Name, toolID),
+					title:     "Tool · " + valuefmt.FirstNonEmpty(t.Name, toolID),
 					desc:      desc,
 					statusTag: "tool",
 				})

@@ -3,6 +3,7 @@
  * validation) used by its route view.
  */
 import type { BackendEntry } from '@clio/core';
+import { DEFAULT_BACKEND_URL_LOCALHOST } from '../backendDefaults.js';
 
 export type RemoteBackendMode = 'http' | 'ssh';
 
@@ -22,7 +23,8 @@ export interface SshTunnelEndpoint {
   localPort?: number;
 }
 
-export const DEFAULT_HTTP_BACKEND_URL = 'http://localhost:17800';
+/** Re-export of the shared default (hostname host form). */
+export const DEFAULT_HTTP_BACKEND_URL = DEFAULT_BACKEND_URL_LOCALHOST;
 export const DEFAULT_SSH_REMOTE_PORT = '17800';
 export const INACTIVE_SSH_TUNNEL_URL = 'http://127.0.0.1:0';
 

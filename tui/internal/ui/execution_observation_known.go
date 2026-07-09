@@ -3,12 +3,14 @@ package ui
 // execution_observation_known.go builds tool-specific (geocode/NDP/ranking) execution observation previews.
 
 import (
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"regexp"
 	"strings"
 )
 
 func executionSpecificObservationPreview(toolName string, observation any, threshold int) string {
-	obj := mapValue(observation)
+	obj := valuefmt.MapValue(observation)
 	if len(obj) == 0 {
 		return ""
 	}
@@ -90,7 +92,7 @@ func executionRegexValue(raw string, pattern string) string {
 func executionNDPSearchObservationPreview(obj map[string]any, threshold int) string {
 	datasets, _ := obj["datasets"].([]any)
 	if len(datasets) == 0 {
-		if nested := mapValue(obj["datasets"]); len(nested) > 0 {
+		if nested := valuefmt.MapValue(obj["datasets"]); len(nested) > 0 {
 			datasets, _ = nested["items"].([]any)
 		}
 	}
@@ -100,10 +102,10 @@ func executionNDPSearchObservationPreview(obj map[string]any, threshold int) str
 	limit := min(max(1, threshold), 3)
 	var rows []string
 	for _, rawDataset := range datasets {
-		dataset := mapValue(rawDataset)
+		dataset := valuefmt.MapValue(rawDataset)
 		resources, _ := dataset["resources"].([]any)
 		for _, rawResource := range resources {
-			resource := mapValue(rawResource)
+			resource := valuefmt.MapValue(rawResource)
 			name := executionFirstScalarValue(resource, "name", "title")
 			format := strings.ToLower(executionFirstScalarValue(resource, "format"))
 			if name == "" || (format != "" && format != "csv" && !strings.HasSuffix(strings.ToLower(name), ".csv")) {
@@ -123,14 +125,14 @@ func executionNDPSearchObservationPreview(obj map[string]any, threshold int) str
 			if i >= limit {
 				break
 			}
-			dataset := mapValue(rawDataset)
+			dataset := valuefmt.MapValue(rawDataset)
 			if name := executionFirstScalarValue(dataset, "title", "name", "id"); name != "" {
 				rows = append(rows, name)
 			}
 		}
 	}
 	total := len(datasets)
-	if count, ok := firstNumericValue(obj, "count", "total_found"); ok && count > float64(total) {
+	if count, ok := valuefmt.FirstNumericValue(obj, "count", "total_found"); ok && count > float64(total) {
 		total = int(count)
 	}
 	if total > len(rows) {
@@ -140,7 +142,7 @@ func executionNDPSearchObservationPreview(obj map[string]any, threshold int) str
 }
 
 func executionPointRankingPreview(obj map[string]any, threshold int) string {
-	count := firstNonEmpty(executionFirstScalarValue(obj, "within_radius_count"), executionFirstScalarValue(obj, "count"))
+	count := valuefmt.FirstNonEmpty(executionFirstScalarValue(obj, "within_radius_count"), executionFirstScalarValue(obj, "count"))
 	radius := executionFirstScalarValue(obj, "radius_km")
 	var rows []string
 	if count != "" {
@@ -156,13 +158,13 @@ func executionPointRankingPreview(obj map[string]any, threshold int) string {
 		if i >= limit {
 			break
 		}
-		point := mapValue(raw)
-		id := firstStringValueFold(point, "site", "station", "station_id", "id", "name")
+		point := valuefmt.MapValue(raw)
+		id := presentation.FirstStringValueFold(point, "site", "station", "station_id", "id", "name")
 		if id == "" {
 			continue
 		}
-		if distance, ok := firstNumericValue(point, "distance_km", "distance"); ok {
-			rows = append(rows, id+" "+formatCompactFloat(distance)+" km")
+		if distance, ok := valuefmt.FirstNumericValue(point, "distance_km", "distance"); ok {
+			rows = append(rows, id+" "+presentation.FormatCompactFloat(distance)+" km")
 		} else {
 			rows = append(rows, id)
 		}

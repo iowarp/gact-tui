@@ -132,7 +132,7 @@ func (c *sessionComponent) appendModelSwapMarker(info *client.LMProviderInfo) {
 // (OOO1; pulled out of connectedMsg so tests can target the
 // decision logic without firing the network-bound selectIndex Cmd.)
 //
-// RRRRRRRR1: matching strategy is precedence-ordered:
+// Matching strategy is precedence-ordered:
 //  1. exact id match
 //  2. exact title match (case-sensitive — preserves OOO1 behaviour)
 //  3. id PREFIX match (so an 8-char `sess_abc1…` resolves)

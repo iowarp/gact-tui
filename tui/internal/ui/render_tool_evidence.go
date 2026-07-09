@@ -11,6 +11,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type toolEvidenceRow struct {
@@ -54,7 +55,7 @@ func (t Theme) renderToolEvidence(m gact.Message, width int) string {
 			}
 		}
 		head := status + " " + row.Name
-		if args := compactJSON(row.Args); args != "" {
+		if args := valuefmt.CompactJSON(row.Args); args != "" {
 			head += "(" + textutil.Truncate(args, 120) + ")"
 		}
 		var meta []string
@@ -75,7 +76,7 @@ func (t Theme) renderToolEvidence(m gact.Message, width int) string {
 		}
 		out = append(out, lipgloss.NewStyle().Foreground(t.RoleTool).
 			Render(indent(textutil.Wrap(head, wrapW-2), "  ")))
-		if result := compactJSON(row.Result); result != "" {
+		if result := valuefmt.CompactJSON(row.Result); result != "" {
 			out = append(out, lipgloss.NewStyle().Foreground(t.FgMuted).
 				Render(indent(textutil.Wrap("result: "+textutil.Truncate(result, 180), wrapW-4), "    ")))
 		}
@@ -106,7 +107,7 @@ func normalizeToolEvidenceRows(raw any) []toolEvidenceRow {
 			Name:            name,
 			Args:            rowMap["args"],
 			Result:          rowMap["result"],
-			TelemetrySource: stringValue(rowMap["telemetry_source"]),
+			TelemetrySource: valuefmt.StringValue(rowMap["telemetry_source"]),
 		}
 		if row.Args == nil {
 			row.Args = rowMap["arguments"]
@@ -117,7 +118,7 @@ func normalizeToolEvidenceRows(raw any) []toolEvidenceRow {
 		if okValue, ok := rowMap["ok"].(bool); ok {
 			row.OK = &okValue
 		}
-		if duration, ok := floatValue(rowMap["duration_ms"]); ok {
+		if duration, ok := valuefmt.FloatValue(rowMap["duration_ms"]); ok {
 			row.DurationMS = &duration
 		}
 		if cached, ok := rowMap["cached"].(bool); ok {
@@ -135,7 +136,7 @@ func normalizeToolEvidenceRows(raw any) []toolEvidenceRow {
 }
 
 func toolEvidenceRowKey(row toolEvidenceRow) string {
-	return row.Name + "\x00" + compactJSON(row.Args) + "\x00" + compactJSON(row.Result)
+	return row.Name + "\x00" + valuefmt.CompactJSON(row.Args) + "\x00" + valuefmt.CompactJSON(row.Result)
 }
 
 func toolEvidenceRowIsError(row toolEvidenceRow) bool {

@@ -7,34 +7,72 @@ package ui
 // reloaded renders identical by construction (the consistency the wire contract
 // promises). The web renders from the same parts; this brings the TUI onto that
 // shared foundation.
+//
+// #233 phase 1: the projection is TOTAL (web precedent 09240c4c — "unify all
+// transcript rendering through one path"). Every assistant/tool part of every
+// turn projects — plain single-agent turns included — and each node carries its
+// source part address so the projected render keeps part-level hit testing.
 
 import (
 	"sort"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
-// projectExecutionTimelineFromMessages groups assistant parts by turn and emits
-// the per-turn executionTimelineNode lists the canonical renderer consumes.
+// sourcedPart is one transcript part plus its address in the conversation
+// (message index + addressable-part index) so projected nodes stay clickable.
+type sourcedPart struct {
+	part    gact.Part
+	msgIdx  int
+	addrIdx int // index into addressablePartsOf(message); -1 = not addressable
+}
+
+// projectExecutionTimelineFromMessages groups assistant/tool parts by turn and
+// emits the per-turn executionTimelineNode lists the canonical renderer
+// consumes. An assistant message without its own turn ID attaches to the
+// preceding user message's turn (arrival order), so plain prose is never
+// dropped; tool-role messages contribute their tool_result parts to the same
+// turn (they pair with the calls that requested them).
 func projectExecutionTimelineFromMessages(messages []gact.Message) []executionProjectedTurn {
 	type turnAcc struct {
-		parts []gact.Part
+		parts []sourcedPart
 	}
 	accs := map[string]*turnAcc{}
 	var order []string
-	for _, m := range messages {
-		if m.Role != gact.RoleAssistant || isSemanticLiveMessage(m) {
-			continue
-		}
-		tid := firstNonEmpty(m.TurnID, m.ID)
+	currentTurnID := ""
+	appendParts := func(tid string, msgIdx int, m gact.Message) {
 		acc := accs[tid]
 		if acc == nil {
 			acc = &turnAcc{}
 			accs[tid] = acc
 			order = append(order, tid)
 		}
-		acc.parts = append(acc.parts, m.Parts...)
+		addrByPart := map[int]int{}
+		for ai, pi := range addressablePartsOf(m) {
+			addrByPart[pi] = ai
+		}
+		for pi, p := range m.Parts {
+			addrIdx, ok := addrByPart[pi]
+			if !ok {
+				addrIdx = -1
+			}
+			acc.parts = append(acc.parts, sourcedPart{part: p, msgIdx: msgIdx, addrIdx: addrIdx})
+		}
+	}
+	for msgIdx, m := range messages {
+		switch m.Role {
+		case gact.RoleUser:
+			currentTurnID = valuefmt.FirstNonEmpty(messageTurnID(m), m.ID)
+		case gact.RoleAssistant, gact.RoleTool:
+			if isSemanticLiveMessage(m) {
+				continue
+			}
+			tid := valuefmt.FirstNonEmpty(messageTurnID(m), currentTurnID, m.ID)
+			appendParts(tid, msgIdx, m)
+		}
 	}
 	var turns []executionProjectedTurn
 	for _, tid := range order {
@@ -47,11 +85,21 @@ func projectExecutionTimelineFromMessages(messages []gact.Message) []executionPr
 	return turns
 }
 
+// isProviderThinkingPart reports whether a thinking part carries provider-native
+// reasoning (metadata.thinking_source == "provider", e.g. the Claude Code SDK)
+// rather than a ReAct next_thought. Shared by the parts projection (which flags
+// the node ProviderThinking), the part cursor (which makes the disclosure row
+// addressable), and the Ctrl+E detail resolution.
+func isProviderThinkingPart(p gact.Part) bool {
+	return p.Type == gact.PartTypeThinking &&
+		valuefmt.StringValue(p.Metadata["thinking_source"]) == "provider" &&
+		strings.TrimSpace(p.Thinking) != ""
+}
+
 // messagesHaveExecutionTrajectory reports whether the transcript contains a
-// sub-agent delegation — the case the canonical hierarchical execution timeline
-// exists to render. Plain turns (a direct answer, or a single-agent tool call
-// with no delegation) return false and keep the existing flat transcript render,
-// preserving their role header.
+// sub-agent delegation. The transcript render no longer gates on it (#233 —
+// the parts projection is total); it remains the render-dump/replay marker for
+// "this session has a hierarchical execution timeline".
 func messagesHaveExecutionTrajectory(messages []gact.Message) bool {
 	for _, m := range messages {
 		if m.Role != gact.RoleAssistant || isSemanticLiveMessage(m) {
@@ -66,10 +114,10 @@ func messagesHaveExecutionTrajectory(messages []gact.Message) bool {
 	return false
 }
 
-func projectPartsToTimelineNodes(parts []gact.Part) []executionTimelineNode {
-	sorted := append([]gact.Part(nil), parts...)
+func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
+	sorted := append([]sourcedPart(nil), parts...)
 	sort.SliceStable(sorted, func(i, j int) bool {
-		si, sj := sorted[i].Sequence, sorted[j].Sequence
+		si, sj := sorted[i].part.Sequence, sorted[j].part.Sequence
 		if si == 0 || sj == 0 {
 			return false // no sequence ⇒ keep arrival/array order
 		}
@@ -101,41 +149,68 @@ func projectPartsToTimelineNodes(parts []gact.Part) []executionTimelineNode {
 	callIndex := map[string]int{}
 	seenHandoff := map[string]bool{}
 
-	for _, p := range sorted {
+	for _, sp := range sorted {
+		p := sp.part
+		src := executionNodeSource{Valid: sp.addrIdx >= 0, MsgIdx: sp.msgIdx, AddrIdx: sp.addrIdx, PartID: p.ID}
 		switch p.Type {
 		case gact.PartTypeRoutingDecision:
 			// Plumbing chip — suppressed from the transcript (web parity).
 			continue
 
 		case gact.PartTypeText:
-			text := strings.TrimSpace(p.Text)
+			// Web parity (transcriptDelegationModel.ts:549,553): a synthetic slash
+			// command result (metadata.synthetic=="command_result") is NOT model
+			// prose — keep it verbatim, because cleanProse's stripStatusPrefix would
+			// mangle a pipe/arrow-shaped result body. The web routes it to its own
+			// passthrough card before cleanProse; the TUI keeps it as a plain text
+			// row. Otherwise run prose through cleanProse and drop the row when it
+			// cleans to empty (pure orchestration chrome — "(Delegating to …)",
+			// status parentheticals, a typed-state blob — which the web hides too).
+			var text string
+			if valuefmt.StringValue(p.Metadata["synthetic"]) == "command_result" {
+				text = strings.TrimSpace(p.Text)
+			} else {
+				text = presentation.CleanProse(p.Text)
+			}
 			if text == "" {
 				continue
 			}
-			agent := resolveExpert(firstNonEmpty(p.AgentID, stringValue(p.Metadata["agent_id"])))
+			agent := resolveExpert(valuefmt.FirstNonEmpty(p.AgentID, valuefmt.StringValue(p.Metadata["agent_id"])))
 			nodes = append(nodes, executionTimelineNode{
 				Kind:  executionNodeAssistantText,
 				Agent: agent,
 				Depth: depthOf(agent),
 				Text:  text,
+				Src:   src,
 			})
 
 		case gact.PartTypeThinking:
-			text := strings.TrimSpace(p.Thinking)
+			// Web parity (transcriptDelegationModel.ts:561): cleanProse the thinking
+			// too — provider thinking is bridged raw and leaks `[[ ## … ]]` section
+			// markers, which cleanProse strips.
+			text := presentation.CleanProse(p.Thinking)
 			if text == "" {
 				continue
 			}
 			agent := resolveExpert(p.AgentID)
+			// Provider-native reasoning (Claude Code SDK et al.) carries
+			// metadata.thinking_source == "provider". Web renders it ONLY as a
+			// collapsed disclosure (transcriptDelegationModel.ts:582); the TUI
+			// mirrors that by flagging the node so the renderer emits one muted
+			// summary line instead of the full prose. Regular ReAct next_thought
+			// (no such metadata) keeps rendering inline.
 			nodes = append(nodes, executionTimelineNode{
-				Kind:     executionNodeReactStep,
-				Agent:    agent,
-				Depth:    depthOf(agent),
-				Thinking: text,
+				Kind:             executionNodeReactStep,
+				Agent:            agent,
+				Depth:            depthOf(agent),
+				Thinking:         text,
+				ProviderThinking: isProviderThinkingPart(p),
+				Src:              src,
 			})
 
 		case gact.PartTypeExpertHandoff:
-			parent := firstNonEmpty(stringValue(p.Metadata["parent_id"]), stringValue(p.Metadata["parent"]), strings.TrimSpace(p.AgentID), "main")
-			child := firstNonEmpty(stringValue(p.Metadata["delegate_to"]), stringValue(p.Metadata["agent_id"]))
+			parent := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["parent_id"]), valuefmt.StringValue(p.Metadata["parent"]), strings.TrimSpace(p.AgentID), "main")
+			child := valuefmt.FirstNonEmpty(valuefmt.StringValue(p.Metadata["delegate_to"]), valuefmt.StringValue(p.Metadata["agent_id"]))
 			if child == "" {
 				continue
 			}
@@ -167,14 +242,15 @@ func projectPartsToTimelineNodes(parts []gact.Part) []executionTimelineNode {
 				continue
 			}
 			seenHandoff[key] = true
-			question := strings.TrimSpace(stringValue(p.Metadata["question"]))
+			question := strings.TrimSpace(valuefmt.StringValue(p.Metadata["question"]))
 			nodes = append(nodes, executionTimelineNode{
 				Kind:        executionNodeHandoff,
 				Agent:       child,
 				ParentAgent: parent,
 				Depth:       pd + 1,
 				Question:    question,
-				Thinking:    firstNonEmpty(p.Thought, stringValue(p.Metadata["thought"])),
+				Thinking:    valuefmt.FirstNonEmpty(p.Thought, valuefmt.StringValue(p.Metadata["thought"])),
+				Src:         src,
 			})
 
 		case gact.PartTypeToolCall:
@@ -184,9 +260,10 @@ func projectPartsToTimelineNodes(parts []gact.Part) []executionTimelineNode {
 				Kind:     executionNodeReactStep,
 				Agent:    current,
 				Depth:    depthOf(current),
-				Thinking: firstNonEmpty(p.Thought, stringValue(p.Metadata["thought"])),
+				Thinking: valuefmt.FirstNonEmpty(p.Thought, valuefmt.StringValue(p.Metadata["thought"])),
 				ToolName: p.ToolName,
 				CallID:   p.CallID,
+				Src:      src,
 			}
 			if len(p.Input) > 0 {
 				node.ToolArgs = anyMap(p.Input)
@@ -201,21 +278,43 @@ func projectPartsToTimelineNodes(parts []gact.Part) []executionTimelineNode {
 			if p.CallID != "" {
 				if idx, ok := callIndex[p.CallID]; ok {
 					nodes[idx].Observation = obs
+					nodes[idx].HasRawDetail = nodes[idx].HasRawDetail || partHasRawDetail(p)
 					continue
 				}
 			}
 			nodes = append(nodes, executionTimelineNode{
-				Kind:        executionNodeToolRun,
-				Agent:       current,
-				Depth:       depthOf(current),
-				ToolName:    p.ToolName,
-				Observation: obs,
-				CallID:      p.CallID,
-				Status:      "completed",
+				Kind:         executionNodeToolRun,
+				Agent:        current,
+				Depth:        depthOf(current),
+				ToolName:     p.ToolName,
+				Observation:  obs,
+				CallID:       p.CallID,
+				Status:       "completed",
+				HasRawDetail: partHasRawDetail(p),
+				Src:          src,
+			})
+
+		default:
+			// Passthrough: parts the timeline grammar has no row for (file_diff,
+			// image, error, document, …) render via their own part view so the
+			// unified path never loses transcript content (web parity).
+			pp := p
+			nodes = append(nodes, executionTimelineNode{
+				Kind:  executionNodePassthrough,
+				Agent: current,
+				Depth: depthOf(current),
+				Src:   src,
+				Part:  &pp,
 			})
 		}
 	}
 	return nodes
+}
+
+// partHasRawDetail reports whether a tool_result part carries a raw payload
+// worth a detail affordance (flat-render parity: metadata.raw_result).
+func partHasRawDetail(p gact.Part) bool {
+	return p.Metadata != nil && p.Metadata["raw_result"] != nil
 }
 
 func partToolResultObservation(p gact.Part) any {

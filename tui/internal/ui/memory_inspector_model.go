@@ -10,9 +10,10 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
-// CLIO-BBBBBBBBBB4: memoryStatsMsg carries a fresh /v1/memory/stats
+// memoryStatsMsg carries a fresh /v1/memory/stats
 // snapshot. Fired after connect + after every session.status_changed
 // -> idle event for backends with capabilities.memory = true.
 type memoryStatsMsg struct {
@@ -107,7 +108,7 @@ func latestContextFrameID(frames []map[string]any) string {
 	if len(frames) == 0 {
 		return ""
 	}
-	return stringValue(frames[len(frames)-1]["id"])
+	return valuefmt.StringValue(frames[len(frames)-1]["id"])
 }
 
 type memoryToolEvidence struct {
@@ -141,7 +142,7 @@ func loadMemoryToolEvidence(ctx context.Context, c *client.Client, scope client.
 		out.summary = &resp
 	}
 	if len(frames) > 0 {
-		frameID := stringValue(frames[len(frames)-1]["id"])
+		frameID := valuefmt.StringValue(frames[len(frames)-1]["id"])
 		if frameID != "" {
 			if resp, err := c.MemoryToolReadContextFrame(ctx, scope.SessionID, gact.MemoryToolReadContextFrameRequest{
 				FrameID: frameID,

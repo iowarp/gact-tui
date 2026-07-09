@@ -3,10 +3,6 @@ import path from 'node:path';
 
 const NORMALIZED_TYPES = new Set([
   'turn.started',
-  'turn.trace.delta',
-  'turn.text.delta',
-  'turn.action.added',
-  'call.result.delta',
   'state.updated',
   'turn.completed',
 ]);
@@ -201,9 +197,7 @@ for (let i = 1; i < received.length; i += 1) {
 }
 
 const normalized = received.filter((row) => NORMALIZED_TYPES.has(row.event_type));
-const publicEvents = normalized.filter((row) =>
-  ['turn.trace.delta', 'turn.text.delta', 'turn.action.added', 'call.result.delta'].includes(row.event_type),
-);
+const publicEvents = normalized.filter((row) => [].includes(row.event_type));
 const leaks = [];
 for (const row of publicEvents) {
   const text = payloadText(row);
@@ -230,24 +224,6 @@ const lowLevelProviderRows = (lowLevelRawRows.length ? lowLevelRawRows : lowLeve
 const bridgeRows = audit.filter((row) => row.stage === 'bridge.contract_field');
 const emitRows = audit.filter((row) => row.stage === 'sse.normalized_emit');
 const normalizedTiming = orderedTiming(normalized, writesByKey);
-const actions = normalized
-  .filter((row) => row.event_type === 'turn.action.added')
-  .map((row) => ({
-    event_id: Number(row.event_id),
-    kind: row.payload?.action?.kind || '',
-    agent_id: row.payload?.action?.agent_id || '',
-    target_agent: row.payload?.action?.target_agent || '',
-    name: row.payload?.action?.name || '',
-    prompt: row.payload?.action?.prompt || '',
-    summary: row.payload?.action?.summary || '',
-  }));
-const results = normalized
-  .filter((row) => row.event_type === 'call.result.delta')
-  .map((row) => ({
-    event_id: Number(row.event_id),
-    call_id: row.payload?.call_id || '',
-    text_len: typeof row.payload?.text_append === 'string' ? row.payload.text_append.length : 0,
-  }));
 const states = normalized
   .filter((row) => row.event_type === 'state.updated')
   .map((row) => ({
@@ -288,8 +264,6 @@ const report = {
   maxEventOccurredToReceivedMs: max(normalizedTiming.map((row) => row.eventOccurredToReceivedMs)),
   minProviderToBridgeMs: min(providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows).map((row) => row.providerToBridgeMs)),
   maxProviderToBridgeMs: max(providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows).map((row) => row.providerToBridgeMs)),
-  actions,
-  results,
   states,
   normalizedTiming,
   providerBridgeTiming: providerBridgeTiming(lowLevelProviderRows, bridgeRows, emitRows),

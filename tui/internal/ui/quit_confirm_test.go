@@ -8,7 +8,7 @@ import (
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 )
 
-// ZZZZZZZZZ1: Ctrl+C opens the confirm modal instead of quitting
+// Ctrl+C opens the confirm modal instead of quitting
 // immediately. User feedback: "ctrl+c should have a confirmation
 // window, close? yes no detach".
 func TestQuitConfirm_CtrlCOpensModal(t *testing.T) {
@@ -35,7 +35,7 @@ func TestQuitConfirm_CtrlCOpensModal(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZZ1: left/right move the highlight; n dismisses; enter fires
+// Left/right move the highlight; n dismisses; enter fires
 // the current selection.
 func TestQuitConfirm_KeyboardNav(t *testing.T) {
 	a := newReadyApp(
@@ -78,7 +78,7 @@ func TestQuitConfirm_KeyboardNav(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZZ1: Esc dismisses without acting.
+// Esc dismisses without acting.
 func TestQuitConfirm_EscDismisses(t *testing.T) {
 	a := newReadyApp(
 		[]gact.Session{{ID: "s1", Status: gact.StatusIdle}},
@@ -97,7 +97,7 @@ func TestQuitConfirm_EscDismisses(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZZ1: `d` picks detach — the cleanup path that records
+// `d` picks detach — the cleanup path that records
 // DetachedSessionID + quits (mirrors Ctrl+Z). No backend cancel.
 func TestQuitConfirm_DetachPath(t *testing.T) {
 	a := newReadyApp(
@@ -123,7 +123,7 @@ func TestQuitConfirm_DetachPath(t *testing.T) {
 	}
 }
 
-// ZZZZZZZZZ1: double Ctrl+C accepts the current highlighted option —
+// Double Ctrl+C accepts the current highlighted option —
 // keeps the old "spam ctrl+c to quit" muscle memory working.
 func TestQuitConfirm_DoubleCtrlCAccepts(t *testing.T) {
 	a := newReadyApp(

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 type permissionInspectorRespondedMsg struct {
@@ -77,7 +78,7 @@ func respondPermissionInspectorCmd(c *client.Client, sessionID string, action ga
 		var pending client.PermissionWire
 		found := false
 		for _, p := range perms {
-			if strings.EqualFold(firstNonEmpty(p.Status, string(p.Action)), "pending") {
+			if strings.EqualFold(valuefmt.FirstNonEmpty(p.Status, string(p.Action)), "pending") {
 				pending = p
 				found = true
 				break

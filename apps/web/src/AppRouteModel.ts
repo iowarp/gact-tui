@@ -8,6 +8,7 @@ import type { BackendRegistry } from './registry.js';
 import type { SettingsContext, SettingsSection } from './routes/SettingsShell.js';
 import { readSectionParam } from './routes/settings-deeplink.js';
 import { synthCapabilities } from './appBootstrap.js';
+import { DEFAULT_BACKEND_URL_LOCALHOST } from './backendDefaults.js';
 
 export interface BackendHandle {
   url: string;
@@ -37,7 +38,7 @@ export function initialRouteFromUrl(href: string): InitialRouteDecision {
       route: {
         name: 'chat',
         backend: {
-          url: url.searchParams.get('backend') ?? 'http://localhost:17800',
+          url: url.searchParams.get('backend') ?? DEFAULT_BACKEND_URL_LOCALHOST,
           bearerToken: '',
           capabilities: synthCapabilities(),
         },

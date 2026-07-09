@@ -7,6 +7,7 @@ import (
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *executionComponent) recordSSE(e client.SSEEvent) {
@@ -14,7 +15,7 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	if len(pl) == 0 {
 		return
 	}
-	sid := c.app.conversation.replaySessionID(stringValue(pl["session_id"]))
+	sid := c.app.conversation.replaySessionID(valuefmt.StringValue(pl["session_id"]))
 	if sid == "" {
 		sid = c.app.session.currentID()
 	}
@@ -30,19 +31,19 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	record.TurnID = c.turnIDForSSERecord(e.Type, pl)
 	switch e.Type {
 	case "message.created":
-		if role := strings.TrimSpace(stringValue(pl["role"])); role == gact.RoleUser {
+		if role := strings.TrimSpace(valuefmt.StringValue(pl["role"])); role == gact.RoleUser {
 			record.Type = "turn.user_message"
-			record.TurnID = firstNonEmpty(stringValue(pl["turn_id"]), stringValue(pl["id"]))
+			record.TurnID = valuefmt.FirstNonEmpty(valuefmt.StringValue(pl["turn_id"]), valuefmt.StringValue(pl["id"]))
 		} else {
 			return
 		}
 	case "message.part.delta":
-		delta := mapValue(pl["delta"])
-		if strings.TrimSpace(stringValue(delta["text_append"])) == "" {
+		delta := valuefmt.MapValue(pl["delta"])
+		if strings.TrimSpace(valuefmt.StringValue(delta["text_append"])) == "" {
 			return
 		}
 	case "message.part.added":
-		partRaw := mapValue(pl["part"])
+		partRaw := valuefmt.MapValue(pl["part"])
 		part := decodePart(partRaw)
 		record.Part = &part
 		switch part.Type {
@@ -52,7 +53,7 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 			// prose node and makes live vs reload ordering diverge. Batch
 			// providers still need the full part because they may emit no
 			// deltas.
-			if strings.TrimSpace(stringValue(pl["stream_source"])) == "live" {
+			if strings.TrimSpace(valuefmt.StringValue(pl["stream_source"])) == "live" {
 				return
 			}
 			if strings.TrimSpace(part.Text) == "" {
@@ -63,13 +64,11 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 			return
 		}
 	case "semantic.event":
-		eventType := firstNonEmpty(stringValue(pl["event_type"]), e.Type)
-		switch eventType {
-		case "expert.lifecycle.started", "blueprint.delegation.started", "blueprint.delegation.completed", "expert.extract.completed", "react.step.completed", "tool.call.started", "tool.call.completed":
-			record.Type = eventType
-		default:
+		eventType := valuefmt.FirstNonEmpty(valuefmt.StringValue(pl["event_type"]), e.Type)
+		if !semanticEventReachesLedger(eventType, valuefmt.StringValue(pl["status"])) {
 			return
 		}
+		record.Type = eventType
 	case "tool.call.started", "tool.call.completed":
 	default:
 		return
@@ -77,7 +76,94 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 	if c.executionEventsBySession == nil {
 		c.executionEventsBySession = map[string][]executionTimelineEvent{}
 	}
-	c.executionEventsBySession[sid] = append(c.executionEventsBySession[sid], record)
+	events := append(c.executionEventsBySession[sid], record)
+	if len(events) > executionLedgerMaxEvents {
+		dropped := len(events) - executionLedgerTrimTarget
+		kept := make([]executionTimelineEvent, executionLedgerTrimTarget)
+		copy(kept, events[dropped:])
+		events = kept
+		if c.app.audit != nil {
+			c.app.audit.RecordReceived("execution.ledger.trimmed", map[string]any{
+				"reason":     "execution_ledger_cap",
+				"session_id": sid,
+				"dropped":    dropped,
+				"kept":       len(kept),
+				"cap":        executionLedgerMaxEvents,
+			})
+		}
+	}
+	c.executionEventsBySession[sid] = events
+}
+
+// semanticLedgerEventTypes mirrors the server's UI/SSE serving allow-list —
+// contract/SPEC.md §7.6 "Served allow-list" is source of truth (clio
+// semantic_events.py: SSE_UI_EVENT_TYPES): the ReAct trajectory atoms
+// (react step / extract / expert response / expert lifecycle), the delegation
+// atom on BOTH its prefixes (`blueprint.delegation.*` for Agent Blueprint
+// experts, plain `delegation.*` for expert-pack / prompt-agent delegations),
+// and memory.search.completed. Everything else (turn/agent/hook lifecycle,
+// the `tool.call.*` mirrors, `lm.token.delta`, memory bookkeeping) never
+// reaches the wire — except through the failed-status gate below.
+var semanticLedgerEventTypes = map[string]bool{
+	"react.step.completed":                true,
+	"expert.extract.completed":            true,
+	"expert.response.completed":           true,
+	"expert.lifecycle.started":            true,
+	"blueprint.delegation.started":        true,
+	"blueprint.delegation.completed":      true,
+	"blueprint.delegation.parent_resumed": true,
+	"blueprint.delegation.failed":         true,
+	"delegation.started":                  true,
+	"delegation.completed":                true,
+	"delegation.parent_resumed":           true,
+	"delegation.failed":                   true,
+	"memory.search.completed":             true,
+}
+
+// semanticEventReachesLedger reports whether a semantic event belongs in the
+// execution ledger: the §7.6 served allow-list PLUS the unconditional pass for
+// failure/cancellation statuses (errors are first-class and are never
+// filtered out of the served stream — SPEC.md §7.6, clio _SSE_ALWAYS_STATUSES).
+func semanticEventReachesLedger(eventType, status string) bool {
+	if semanticLedgerEventTypes[eventType] {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "failed", "error", "cancelled":
+		return true
+	}
+	return false
+}
+
+// clearSessionLedger drops a session's execution-event ledger. Called when the
+// backend reports session.cleared so the Ctrl+E drill-down cannot reflect
+// pre-/clear state (#231).
+func (c *executionComponent) clearSessionLedger(sessionID string) {
+	delete(c.executionEventsBySession, sessionID)
+}
+
+// dropDeletedSessionLedger drops the execution-event ledger of a session the
+// backend confirmed deleted, recording a structured execution.ledger.pruned
+// audit event for the drop. Confirmed deletion (and session.cleared, via
+// clearSessionLedger) are the only prune triggers: refreshed session lists
+// are filtered views (workspace-scoped, and archived-filtered when the
+// archived sidebar view is on), so a session's absence from one never proves
+// it was deleted — and pruning on such lists would irreversibly destroy live
+// sessions' ledgers, because lastSeenSeqIDBySession suppresses SSE replay on
+// revisit (#231).
+func (c *executionComponent) dropDeletedSessionLedger(sessionID string) {
+	events, ok := c.executionEventsBySession[sessionID]
+	if !ok {
+		return
+	}
+	delete(c.executionEventsBySession, sessionID)
+	if c.app.audit != nil {
+		c.app.audit.RecordReceived("execution.ledger.pruned", map[string]any{
+			"reason":     "session_deleted",
+			"session_id": sessionID,
+			"dropped":    len(events),
+		})
+	}
 }
 
 // recordedSemanticPayloads returns the payloads of recorded structural
@@ -95,7 +181,7 @@ func (c *executionComponent) recordedSemanticPayloads(sessionID string) []map[st
 	}
 	out := make([]map[string]any, 0, len(records))
 	for _, r := range records {
-		if strings.TrimSpace(stringValue(r.Payload["event_type"])) == "" {
+		if strings.TrimSpace(valuefmt.StringValue(r.Payload["event_type"])) == "" {
 			continue
 		}
 		out = append(out, r.Payload)
@@ -104,12 +190,12 @@ func (c *executionComponent) recordedSemanticPayloads(sessionID string) []map[st
 }
 
 func (c *executionComponent) turnIDForSSERecord(eventType string, pl map[string]any) string {
-	if turnID := strings.TrimSpace(stringValue(pl["turn_id"])); turnID != "" {
+	if turnID := strings.TrimSpace(valuefmt.StringValue(pl["turn_id"])); turnID != "" {
 		return turnID
 	}
 	switch eventType {
 	case "message.part.delta", "message.part.added", "message.part.completed":
-		if turnID := c.turnIDForMessage(stringValue(pl["message_id"])); turnID != "" {
+		if turnID := c.turnIDForMessage(valuefmt.StringValue(pl["message_id"])); turnID != "" {
 			return turnID
 		}
 	}
@@ -121,7 +207,7 @@ func messageTurnID(msg gact.Message) string {
 		return turnID
 	}
 	if msg.Metadata != nil {
-		if turnID := strings.TrimSpace(stringValue(msg.Metadata["turn_id"])); turnID != "" {
+		if turnID := strings.TrimSpace(valuefmt.StringValue(msg.Metadata["turn_id"])); turnID != "" {
 			return turnID
 		}
 	}

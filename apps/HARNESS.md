@@ -26,22 +26,27 @@ All eight commands must exit 0 before you stop.
 - `apps/desktop/` — `@clio/desktop` — Tauri 2 shell wrapping `@clio/web`
 - `apps/design/` — CLIO Design System (READ-ONLY — do not modify per goal scope)
 - `apps/research/` — Reference research (READ-ONLY — historical context)
-- `apps/screenshots → web/screenshots` — visual proofs live with `@clio/web`
+- `apps/web/screenshots/` — regenerable Playwright captures (git-ignored, CI
+  artifact); the sole *committed* screenshot home is `docs/screenshots/`
 
 The pnpm workspace is rooted at `apps/`. The repo root is the Go workspace; the two do
 not cross. Running `pnpm` commands from the repo root will fail — always `cd apps`.
 
 ## Visual loop
 
-The visual proof for any UI change is a Playwright-captured PNG in
-`apps/web/screenshots/`. The loop:
+The visual proof for any UI change is a green `test:visual` run, which renders
+Playwright captures under `apps/web/screenshots/`. Those captures are
+**regenerable output — git-ignored and never committed** (CI uploads them as a
+workflow artifact). The loop:
 
 1. Edit a `.tsx`/`.css` file under `apps/web/src/`.
 2. `pnpm --filter @clio/web dev` for HMR-driven iteration if needed.
-3. Refresh proofs: `pnpm --filter @clio/web test:visual`.
-4. Inspect new PNGs in `apps/web/screenshots/`; commit them alongside the code change.
+3. Render proofs: `pnpm --filter @clio/web test:visual`.
+4. Inspect the fresh PNGs in `apps/web/screenshots/` locally. Do **not** commit
+   them — the media guard forbids tracked images there. A curated screenshot the
+   docs embed goes to `docs/screenshots/` instead.
 
-**Required screenshots** (each must exist before a UI-touching commit lands):
+**Required surfaces** (each must render in a green `test:visual` run):
 
 | Filename | Route | What it proves |
 |---|---|---|
@@ -52,7 +57,8 @@ The visual proof for any UI change is a Playwright-captured PNG in
 | `density-verbose.png` | `/?route=chat&fixture=verbose` | Verbose density (full tool bodies) |
 | `density-summary.png` | `/?route=chat&fixture=summary` | Summary density (tool noise hidden) |
 
-Add more rows as we ship features — every fixture URL gets its own PNG.
+Add more rows as we ship features — every fixture URL gets its own capture in the
+visual run.
 
 ## Tests
 
@@ -102,18 +108,21 @@ Conventional commits, per the global rule:
 - `chore(scope): subject`
 
 Scope examples: `web`, `core`, `desktop`, `harness`, `ci`. One change per commit when
-possible. Visual changes never land without their PNGs in the same commit.
+possible. Visual changes never land without a green `test:visual` run.
 
 ## Screenshot policy
 
-1. **No UI commit without a screenshot.** If your diff touches `apps/web/src/**`, the
-   commit message must reference a PNG you added or updated in
-   `apps/web/screenshots/`.
-2. **Names are stable, content is not.** Filenames are part of the contract; replacing
-   the file with a fresher render is fine (and expected).
-3. **Six baseline shots are mandatory.** The visual test will fail loudly if any of the
-   six required shots is missing.
-4. **Screenshots are dark mode at 1440×900.** Playwright is configured this way; do not
+1. **No UI commit without a green visual run.** If your diff touches
+   `apps/web/src/**`, `pnpm --filter @clio/web test:visual` must pass — that run
+   renders the surface captures and asserts each surface's testids.
+2. **Captures are regenerable, not committed.** They land under
+   `apps/web/screenshots/`, which is **git-ignored**; the media guard
+   (`scripts/check_media_policy.py`) fails the build on any tracked image there.
+   The only committed screenshot home is `docs/screenshots/` — curate a small
+   render there when the docs need to embed one (iowarp/gact-tui#235).
+3. **Every required surface must render.** The visual test fails loudly if any
+   required surface is missing.
+4. **Captures are dark mode at 1440×900.** Playwright is configured this way; do not
    override per-test unless the feature you're proving needs a different viewport.
 
 ## Out of scope on this branch

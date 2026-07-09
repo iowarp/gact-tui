@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func stringFromMetadata(metadata map[string]any, key string) string {
@@ -43,8 +44,8 @@ func agentPromptResolutionDescription(agent gact.AgentDef) string {
 		}
 	}
 	if len(parts) == 0 {
-		promptID := firstNonEmpty(agent.PromptID, stringFromMetadata(agent.Metadata, "prompt_id"), stringFromMetadata(agent.Metadata, "prompt"))
-		profile := firstNonEmpty(agent.PromptProfile, stringFromMetadata(agent.Metadata, "prompt_profile"))
+		promptID := valuefmt.FirstNonEmpty(agent.PromptID, stringFromMetadata(agent.Metadata, "prompt_id"), stringFromMetadata(agent.Metadata, "prompt"))
+		profile := valuefmt.FirstNonEmpty(agent.PromptProfile, stringFromMetadata(agent.Metadata, "prompt_profile"))
 		if promptID != "" {
 			parts = append(parts, "prompt: "+promptID)
 		}
@@ -76,15 +77,8 @@ func agentParentID(agent gact.AgentDef) string {
 	return stringFromMetadata(agent.Metadata, "parent_id")
 }
 
-func humanizeAgentLabel(label string) string {
-	label = strings.TrimSpace(label)
-	label = strings.ReplaceAll(label, "_", " ")
-	label = strings.ReplaceAll(label, "-", " ")
-	return strings.Join(strings.Fields(label), " ")
-}
-
 func operatorAgentTitle(agent gact.AgentDef) string {
-	title := strings.TrimSpace(firstNonEmpty(agent.Title, agent.ID))
+	title := strings.TrimSpace(valuefmt.FirstNonEmpty(agent.Title, agent.ID))
 	for _, suffix := range []string{" Agent", " agent"} {
 		if strings.HasSuffix(title, suffix) {
 			stem := strings.TrimSpace(strings.TrimSuffix(title, suffix))

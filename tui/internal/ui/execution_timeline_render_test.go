@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -20,7 +22,7 @@ func (t Theme) renderExecutionAgentBlock(agent, text string, depth, width int) s
 
 func (t Theme) renderExecutionExpertReport(node executionTimelineNode, width int) string {
 	w := &execTimelineWriter{t: t, width: width, levelAgent: map[int]string{}}
-	w.emitHeader(node.Depth, firstNonEmpty(node.Agent, "expert"))
+	w.emitHeader(node.Depth, valuefmt.FirstNonEmpty(node.Agent, "expert"))
 	w.emitTurns(node, node.Depth)
 	return strings.Join(w.rows, "\n")
 }
@@ -338,5 +340,69 @@ func TestRenderExecutionExpertMarkdownProsePreservesSpaces(t *testing.T) {
 		if strings.Contains(rendered, bad) {
 			t.Fatalf("rendered expert prose joined text %q:\n%s", bad, rendered)
 		}
+	}
+}
+
+// TestRenderExecutionProviderThinkingCollapsesToDisclosure pins #233 box 3 (web
+// parity): a provider-thinking react step renders ONLY the muted
+// `thinking · N chars · Ctrl+E` summary — never the prose — and the char count
+// tracks the full thinking length so it ticks up as the block streams.
+func TestRenderExecutionProviderThinkingCollapsesToDisclosure(t *testing.T) {
+	theme := DefaultTheme()
+	thinking := "The user wants the nearest EarthScope station to San Diego. " +
+		"I should resolve the coordinates, search the catalog, then stage and plot the data."
+	node := executionTimelineNode{
+		Kind:             executionNodeReactStep,
+		Agent:            "main",
+		Depth:            1,
+		Thinking:         thinking,
+		ProviderThinking: true,
+	}
+
+	rendered := ansi.Strip(theme.renderExecutionReactStep(node, 120))
+	wantSummary := "thinking · " + strconv.Itoa(len(thinking)) + " chars · Ctrl+E"
+	if !strings.Contains(rendered, wantSummary) {
+		t.Fatalf("provider thinking summary %q missing:\n%s", wantSummary, rendered)
+	}
+	for _, leaked := range []string{"nearest EarthScope station", "search the catalog"} {
+		if strings.Contains(rendered, leaked) {
+			t.Fatalf("provider thinking prose leaked into transcript (%q):\n%s", leaked, rendered)
+		}
+	}
+}
+
+// TestRenderExecutionProviderThinkingCountGrowsWhileStreaming proves the summary
+// count reflects the current (growing) thinking length rather than a fixed value.
+func TestRenderExecutionProviderThinkingCountGrowsWhileStreaming(t *testing.T) {
+	theme := DefaultTheme()
+	short := executionTimelineNode{Kind: executionNodeReactStep, Depth: 1, Thinking: "abc", ProviderThinking: true}
+	grown := executionTimelineNode{Kind: executionNodeReactStep, Depth: 1, Thinking: "abcdefghij", ProviderThinking: true}
+	if got := ansi.Strip(theme.renderExecutionReactStep(short, 120)); !strings.Contains(got, "thinking · 3 chars · Ctrl+E") {
+		t.Fatalf("short thinking count wrong:\n%s", got)
+	}
+	if got := ansi.Strip(theme.renderExecutionReactStep(grown, 120)); !strings.Contains(got, "thinking · 10 chars · Ctrl+E") {
+		t.Fatalf("grown thinking count wrong:\n%s", got)
+	}
+}
+
+// TestRenderExecutionRegularThinkingRendersInlineUnchanged is the golden guard:
+// a react step WITHOUT the provider flag still spills its next_thought prose
+// inline and shows no disclosure summary (behavior unchanged for ReAct models).
+func TestRenderExecutionRegularThinkingRendersInlineUnchanged(t *testing.T) {
+	theme := DefaultTheme()
+	thinking := "I need to search for the catalog before staging anything."
+	node := executionTimelineNode{
+		Kind:     executionNodeReactStep,
+		Agent:    "main",
+		Depth:    1,
+		Thinking: thinking,
+	}
+
+	rendered := ansi.Strip(theme.renderExecutionReactStep(node, 120))
+	if !strings.Contains(rendered, "I need to search for the catalog") {
+		t.Fatalf("regular thinking prose was dropped:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "chars · Ctrl+E") {
+		t.Fatalf("regular thinking wrongly collapsed to a disclosure:\n%s", rendered)
 	}
 }

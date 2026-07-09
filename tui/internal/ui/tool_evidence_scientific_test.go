@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 )
 
 func TestScientificToolCallSummaryUsesPrimaryArgs(t *testing.T) {
@@ -257,7 +258,7 @@ func TestScientificToolEvidenceSummariesCoverCommonFormats(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			summary := summarizeToolResult(tc.tool, tc.raw)
+			summary := presentation.SummarizeToolResult(tc.tool, tc.raw)
 			for _, want := range tc.want {
 				if !strings.Contains(summary, want) {
 					t.Fatalf("summary missing %q:\n%s", want, summary)

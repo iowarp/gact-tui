@@ -7,6 +7,10 @@
 
 GO        ?= go
 GO_TEST_FLAGS ?= -timeout=20m
+# Go modules, derived from go.work so the test/test-race/vet targets can
+# never drift out of sync with the workspace (each `./path` becomes a module
+# to chdir into). Adding a module to go.work is enough to include it here.
+GO_MODULES := $(shell grep -oE '\./[^ ]+' go.work)
 EMULATOR_BIN ?= emulator/emulator-server
 TUI_BIN      ?= tui/gact
 PORT      ?= 7777
@@ -22,10 +26,10 @@ TUI_BUILD_DIRTY    := $(shell test -n "$$(git status --porcelain --untracked-fil
 # (+ -dirty when the tree has uncommitted changes), e.g. v0.3.0-2098-g31c252e7.
 TUI_VERSION        := $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null)
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
-TUI_LDFLAGS        ?= -X main.buildRevision=$(TUI_BUILD_REVISION) -X main.buildTime=$(TUI_BUILD_TIME) -X main.buildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
+TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
-.PHONY: help build build-emulator build-tui test test-race \
-        run-emulator run-tui ping list \
+.PHONY: help build build-emulator build-tui test test-race adapter-py-test \
+        check-size run-emulator run-tui ping list \
         screenshots clean fmt vet install dev-install verify-dev-install \
         install-for-clio verify-clio-install uninstall \
         file-renderers-check install-file-renderers install-file-renderers-python
@@ -42,27 +46,28 @@ build-tui: ## Build $(TUI_BIN).
 	cd tui && $(GO) build -ldflags '$(TUI_LDFLAGS)' -o $(notdir $(TUI_BIN)) .
 
 test: ## Run unit + integration tests for every module.
-	cd emulator && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd tui && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd contract/conformance && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/opencode && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/crush && $(GO) test $(GO_TEST_FLAGS) ./...
-	cd adapters/goose && $(GO) test $(GO_TEST_FLAGS) ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> test $$mod"; \
+		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) ./... ) || exit $$?; \
+	done
 
 test-race: ## Run tests under -race for every module.
-	cd emulator && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd tui && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd contract/conformance && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/opencode && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/crush && $(GO) test $(GO_TEST_FLAGS) -race ./...
-	cd adapters/claudecode && $(GO) test $(GO_TEST_FLAGS) -race ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> test -race $$mod"; \
+		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) -race ./... ) || exit $$?; \
+	done
 
 vet: ## go vet every module.
-	cd emulator && $(GO) vet ./...
-	cd tui && $(GO) vet ./...
-	cd contract/conformance && $(GO) vet ./...
-	cd adapters/opencode && $(GO) vet ./...
-	cd adapters/crush && $(GO) vet ./...
+	@for mod in $(GO_MODULES); do \
+		echo "==> vet $$mod"; \
+		( cd $$mod && $(GO) vet ./... ) || exit $$?; \
+	done
+
+adapter-py-test: ## Run the Python claude-agent-sdk-server adapter tests.
+	cd adapters/claude-agent-sdk-server && uv run pytest tests/test_bridge.py tests/test_endpoints.py
+
+check-size: ## Ratchet guard: Go file sizes + tui/internal/ui package growth (enforcing).
+	python3 scripts/check_go_file_size.py --enforce
 
 fmt: ## gofmt every module's source tree.
 	$(GO) fmt ./emulator/... ./tui/... ./contract/... ./adapters/...
@@ -79,14 +84,17 @@ ping: build-tui ## Probe the running backend (set $(PORT) to override).
 list: build-tui ## List sessions on the running backend.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) list
 
-INTRO_SRC ?= logo/logo-vide-basic.gif  ## Source GIF for the intro animation; override with `make intro-logo-anim INTRO_SRC=logo/other.gif`.
+# No intro source GIF is tracked in this repo (the historical
+# logo/logo-video.gif is gone); callers must supply one:
+# `make intro-logo-anim INTRO_SRC=path/to/logo.gif`.
+INTRO_SRC ?=
 
 intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from $(INTRO_SRC) using chafa.
 	@if ! command -v chafa >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then \
 		echo "chafa + imagemagick required"; exit 1; \
 	fi
-	@if [ ! -f $(INTRO_SRC) ]; then \
-		echo "source GIF $(INTRO_SRC) not found; set INTRO_SRC=..."; exit 1; \
+	@if [ -z "$(INTRO_SRC)" ] || [ ! -f "$(INTRO_SRC)" ]; then \
+		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see apps/branding for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
 	fi
 	@rm -rf /tmp/gact-intro-frames && mkdir -p /tmp/gact-intro-frames
 	convert $(INTRO_SRC) -coalesce /tmp/gact-intro-frames/f%02d.png
@@ -102,11 +110,13 @@ intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from 
 		> tui/internal/intro/intro-static.ansi
 	@echo "wrote tui/internal/intro/intro-anim.ansi ($$(grep -c $$'\f' tui/internal/intro/intro-anim.ansi) frames) + intro-static.ansi (fallback)"
 
-screenshots: build-tui ## Render every VHS tape under tui/ into screenshots/.
+screenshots: build-tui ## Render every VHS tape under tui/testdata/tapes/ into screenshots/.
 	@if ! command -v vhs >/dev/null 2>&1; then \
 		echo "vhs not installed; see https://github.com/charmbracelet/vhs"; exit 1; \
 	fi
-	cd tui && for tape in *.tape; do \
+	# Run VHS from the repo root so tapes with a repo-relative `Output
+	# screenshots/<name>.gif` land in the top-level screenshots/ directory.
+	for tape in tui/testdata/tapes/*.tape; do \
 		echo "rendering $$tape"; \
 		GACT_BACKEND=http://localhost:$(PORT) vhs $$tape; \
 	done

@@ -12,29 +12,34 @@ render. Read both before touching transcript code:
   output only, depth = indentation, name-once colored headers).
 - `apps/web/CANONICAL-CONVERSATION.md` — the **entire** approved EarthScope run
   rendered out, grounded in the real wire. This is the exact target.
-- `apps/CLIO-DEVTEAM-ISSUE-react-thought-ordering.md` — stream gaps to fix
-  backend-side (per-step thought + tool attribution not in the ordered parts),
-  NOT to paper over in the client.
+
+Known stream gaps (per-step thought + tool attribution not in the ordered parts)
+are fixed backend-side, **NOT** papered over in the client.
 
 ## ABSOLUTE RULES (anti-procrastination)
 
-1. **No deferring.** If a design question comes up, decide it per `apps/08-decisions.md`.
-   Document the choice in `apps/STATUS.md` "Current state" and move on. Do not write
-   "TBD" or "open question" anywhere except `apps/STATUS.md` "Open blockers".
+1. **No deferring.** If a design question comes up, decide it per `docs/archive/apps-design/08-decisions.md`.
+   Record the choice on the relevant GitHub issue and move on. Do not write
+   "TBD" or "open question" in the tree — track open blockers as GitHub issues.
 
 2. **No over-research.** Research is done — see `apps/research/`. The design system
-   is in `apps/design/`. Decisions are in `apps/08-decisions.md`. Build now.
+   is in `apps/design/`. Decisions are in `docs/archive/apps-design/08-decisions.md`. Build now.
 
 3. **Difficult-first.** When the harness can be made more robust without scope creep,
    make it more robust. Examples: prefer typed reducers over `any`, prefer Playwright
    over manual checks, prefer locked Tauri capabilities over open ones.
 
 4. **Visual verification is mandatory.** If you change anything in `apps/web/`, you
-   MUST end the session with refreshed PNGs in `apps/web/screenshots/`. Use
-   `pnpm --filter @clio/web test:visual`. Don't describe the change — show it.
+   MUST end the session having run `pnpm --filter @clio/web test:visual` and reviewed
+   the captures it renders. Those captures are **regenerable output** — they land under
+   `apps/web/screenshots/` (git-ignored) and CI uploads them as a workflow artifact;
+   **do not commit them.** The only committed screenshot home is `docs/screenshots/`
+   (media policy in the root `CLAUDE.md`, enforced by
+   `scripts/check_media_policy.py` — iowarp/gact-tui#235). Don't describe the
+   change — show it via the rendered capture.
 
 5. **Tests must pass.** Never commit failing tests. Never `it.skip` to make a build
-   green. If a test won't pass, document the blocker in `apps/STATUS.md` and pick a
+   green. If a test won't pass, file the blocker as a GitHub issue and pick a
    different task.
 
 6. **Commit and push before stopping.** Every session ends with `git push`. Even
@@ -42,14 +47,14 @@ render. Read both before touching transcript code:
    `git status` shows anything modified at the end of a session, you have not
    stopped correctly.
 
-7. **No early-stopping.** "I finished a task" is not a reason to stop. Pick the next
-   item from `apps/PLAN.md` and keep working until you hit a real blocker (network
-   down, native toolchain broken, Tauri WebView2 missing). Even then, document it in
-   `apps/STATUS.md` and try the next-next task.
+7. **No early-stopping.** "I finished a task" is not a reason to stop. Move to the next
+   piece of open work and keep going until you hit a real blocker (network
+   down, native toolchain broken, Tauri WebView2 missing). Even then, file it as a
+   GitHub issue and try the next task.
 
 8. **No scope creep upward.** Do not modify `tui/`, `emulator/`, `adapters/`,
    `contract/`, or `apps/design/`. If a refactor "would be cleaner first" — note it
-   in `apps/PLAN.md`, do not do it.
+   in `docs/archive/apps-PLAN.md`, do not do it.
 
 9. **Real implementations only.** Stub endpoints that return placeholder data are
    fine when wrapped in a fixture flag (`?fixture=…`); endpoints that pretend to
@@ -69,9 +74,10 @@ apps/
 ├── research/   READ-ONLY       — reference research
 ├── CLAUDE.md   (this file)
 ├── HARNESS.md  — visual loop, tests, CI, commit conventions, screenshot policy
-├── STATUS.md   — current state; update at session end
-├── PLAN.md     — ordered task queue; pick the top unfinished item
 └── README.md   — folder rationale and doc read-order
+
+(The historical `PLAN.md` / `CHANGELOG.md` / `RELEASE-READINESS.md` planning docs
+were archived to `docs/archive/apps-*.md`.)
 ```
 
 ## Required commands (all must exit 0 before stopping)
@@ -89,41 +95,23 @@ pnpm --filter @clio/web test:visual    # against the gact emulator running on :7
 
 ## Visual proof requirements
 
-`apps/web/screenshots/` must contain (at minimum) these PNGs after any UI-touching
-commit. The first six are the original harness baselines; the next fourteen
-landed with the v0.9.0 cut:
+`pnpm --filter @clio/web test:visual` must pass for any UI-touching commit. It
+renders the surface captures (connect screen, streaming chat, permission cards,
+density modes, slash palette, remote-backend wizard, multi-backend picker, …)
+under `apps/web/screenshots/` and asserts each surface's critical testids. Those
+captures are **regenerable output**: the directory is git-ignored and CI uploads
+the renders as a workflow artifact for review — **do not commit them.** The test
+passing is the proof; a green run means every required surface rendered.
 
-Baselines:
-- `connect-screen.png`
-- `empty-sidebar.png`
-- `chat-streaming.png`
-- `permission-card.png`
-- `density-verbose.png`
-- `density-summary.png`
-
-v0.9.0 additions:
-- `starting-clio-splash.png`
-- `chat-live-stream.png`
-- `permission-allow-once.png`
-- `permission-deny.png`
-- `diff-pane-open.png`
-- `diff-per-hunk-apply.png`
-- `density-keybind-verbose.png`
-- `density-keybind-summary.png`
-- `slash-palette.png`
-- `at-mention-picker.png`
-- `stop-mid-stream.png`
-- `settings-backends.png`
-- `add-remote-ssh-wizard.png`
-- `multi-backend-picker.png`
-
-Filenames are stable across sessions. Replacing the PNG with a fresher render is
-expected; renaming or removing one is not.
+Committed screenshots (the small curated set the docs embed) live only under
+`docs/screenshots/` — the sole tracked screenshot home, enforced by
+`scripts/check_media_policy.py` (iowarp/gact-tui#235). Never add a tracked image
+under `apps/web/screenshots/`; the media guard fails the build if you do.
 
 ## Personal note from the original harness session
 
-The user is asleep. They will be disappointed in the morning if `apps/STATUS.md`
-says "I planned more" or "I researched more". They will be happy if it says
+The user is asleep. They will be disappointed in the morning if the session ends
+with "I planned more" or "I researched more". They will be happy if it ends with
 "Wired SSE delta reduction, screenshots show streaming render, here are the
 open questions for human review."
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func formatResolvedPrompt(p gact.ResolvedPrompt) string {
@@ -186,7 +187,7 @@ func formatPromptReload(result gact.PromptReloadResult) string {
 		detailField{"prompt ids", strings.Join(result.PromptIDs, ", ")},
 	)
 	for _, source := range result.Sources {
-		label := firstNonEmpty(source.Scope, "source")
+		label := valuefmt.FirstNonEmpty(source.Scope, "source")
 		rows = append(rows, detailFieldRows(label, source.Root)...)
 	}
 	if len(result.Metadata) > 0 {

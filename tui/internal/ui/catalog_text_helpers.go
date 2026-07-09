@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func toolCatalogMetadata(tool gact.Tool) []string {
@@ -55,7 +56,7 @@ func operatorSourceValueLabel(source string) string {
 	case "builtin":
 		return "built-in"
 	default:
-		return humanizeAgentLabel(source)
+		return valuefmt.HumanizeAgentLabel(source)
 	}
 }
 
@@ -69,7 +70,7 @@ func toolPurposeSummary(tool gact.Tool) string {
 			desc = strings.TrimSpace(desc[:idx])
 		}
 	}
-	return compactCatalogText(desc)
+	return valuefmt.CompactCatalogText(desc)
 }
 
 func schemaFieldNames(schema map[string]any, limit int) []string {
@@ -103,7 +104,7 @@ func toolDescriptionRepeatsName(desc string, tool gact.Tool) bool {
 }
 
 func nonRepeatingCatalogDescription(desc string, candidates ...string) string {
-	desc = compactCatalogText(desc)
+	desc = valuefmt.CompactCatalogText(desc)
 	if desc == "" || catalogDescriptionRepeatsAny(desc, candidates...) {
 		return ""
 	}
@@ -127,13 +128,6 @@ func normalizeCatalogComparable(text string) string {
 	text = strings.TrimSpace(strings.ToLower(text))
 	text = strings.Trim(text, "`'\". ")
 	return strings.Join(strings.Fields(text), " ")
-}
-
-func pluralizeCount(count int, noun string) string {
-	if count == 1 {
-		return fmt.Sprintf("1 %s", noun)
-	}
-	return fmt.Sprintf("%d %ss", count, noun)
 }
 
 func toolSummary(tool gact.Tool) string {

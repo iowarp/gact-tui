@@ -1,6 +1,6 @@
 package ui
 
-// workspace_switch_events.go handles workspace switched/created/deleted and session-refreshed messages.
+// workspace_switch_events.go handles workspace switched/created/deleted and session refreshed/deleted messages.
 
 import tea "charm.land/bubbletea/v2"
 
@@ -22,6 +22,12 @@ func (w *workspaceModal) resetScopedUIState() {
 
 // handleRefreshed keeps the current session selected when it survives
 // a sidebar refresh, and otherwise keeps the cursor near the previous row.
+//
+// m.sessions is a FILTERED view, not the set of live sessions: every list is
+// workspace-scoped, and reloadSessionsForView additionally applies the
+// Archived filter. Nothing here may treat absence from m.sessions as
+// deletion — in particular, execution ledgers are pruned only on an explicit
+// deletion signal (sessionDeletedMsg) or session.cleared (#231).
 func (c *sessionComponent) handleRefreshed(m sessionsRefreshedMsg) (tea.Model, tea.Cmd) {
 	prevID := c.currentID()
 	c.sessions = m.sessions
@@ -55,6 +61,17 @@ func (c *sessionComponent) handleRefreshed(m sessionsRefreshedMsg) (tea.Model, t
 	}
 	c.selected = newIdx
 	return c.app, c.selectIndex(newIdx)
+}
+
+// handleSessionDeleted reacts to a backend-confirmed session deletion: it
+// drops the deleted session's execution ledger — confirmed deletion is the
+// only list-independent proof a session is gone (#231) — then re-lists the
+// current workspace so the sidebar drops the row. If the re-list fails it
+// surfaces as errMsg{stage: "list-sessions"} through the normal error path;
+// the ledger drop has already happened by then.
+func (c *sessionComponent) handleSessionDeleted(m sessionDeletedMsg) (tea.Model, tea.Cmd) {
+	c.app.execution.dropDeletedSessionLedger(m.sessionID)
+	return c.app, reloadSessionsCmd(c.app.c, c.wsID)
 }
 
 // handleSwitched applies a workspace switch response and ignores
