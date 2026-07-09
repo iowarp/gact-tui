@@ -485,3 +485,139 @@ func checkCompactFocus(t Reporter, c *conformClient, sid string) {
 		t.Errorf("POST /compact unexpected status %d body %s", resp.StatusCode, truncForLog(body))
 	}
 }
+
+// --- 7. GET /messages pagination contract (CLIO-232 / #872) ------------------
+
+// checkMessagePagination asserts the SPEC §6.3 pagination contract that the
+// pre-#872 servers (and the emulator, before this was enforced) drifted on:
+// omitting `limit` yields the full ledger with `next_cursor` null; a positive
+// `limit` truncates to the newest N and sets `next_cursor` to the oldest-of-page
+// id; a PRESENT `limit<=0` is 422 `validation_error` (not a silent default); an
+// unknown `before` cursor is 404 (not a 400 malformed-query); `include_system`
+// is accepted. Read-only — safe against a caller-pinned session.
+func checkMessagePagination(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	type page struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+		NextCursor string `json:"next_cursor"`
+	}
+
+	// Full ledger: no params → next_cursor must be null/empty (no truncation).
+	resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages")
+	if err != nil {
+		t.Fatalf("GET /messages (full ledger): %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /messages (full ledger): status %d, body %s", resp.StatusCode, body)
+	}
+	var full page
+	if err := json.Unmarshal(body, &full); err != nil {
+		t.Fatalf("decode full ledger: %v", err)
+	}
+	if full.NextCursor != "" {
+		t.Errorf("full-ledger GET /messages (no limit) must have next_cursor null, got %q", full.NextCursor)
+	}
+
+	// A present limit<=0 is 422 validation_error, not a silent default.
+	for _, bad := range []string{"0", "-1"} {
+		resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages?limit="+bad)
+		if err != nil {
+			t.Fatalf("GET /messages?limit=%s: %v", bad, err)
+		}
+		if resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Errorf("GET /messages?limit=%s must be 422 validation_error, got %d (body %s)", bad, resp.StatusCode, body)
+		}
+	}
+
+	// An unknown `before` cursor is a 404 (like GET a single message), not a 400.
+	resp, body, err = c.get(ctx, "/v1/sessions/"+sid+"/messages?before=msg_conformance_nonexistent")
+	if err != nil {
+		t.Fatalf("GET /messages?before=<unknown>: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("GET /messages?before=<unknown cursor> must be 404, got %d (body %s)", resp.StatusCode, body)
+	}
+
+	// include_system is an accepted boolean query param.
+	resp, _, err = c.get(ctx, "/v1/sessions/"+sid+"/messages?include_system=false")
+	if err != nil {
+		t.Fatalf("GET /messages?include_system=false: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET /messages?include_system=false must be 200, got %d", resp.StatusCode)
+	}
+
+	// Truncation + next_cursor semantics (needs >=2 messages to observe a cut).
+	if len(full.Messages) >= 2 {
+		resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages?limit=1")
+		if err != nil {
+			t.Fatalf("GET /messages?limit=1: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET /messages?limit=1: status %d, body %s", resp.StatusCode, body)
+		}
+		var p page
+		if err := json.Unmarshal(body, &p); err != nil {
+			t.Fatalf("decode limit=1 page: %v", err)
+		}
+		if len(p.Messages) != 1 {
+			t.Errorf("GET /messages?limit=1 must return exactly 1 message, got %d", len(p.Messages))
+		}
+		if p.NextCursor == "" {
+			t.Errorf("GET /messages?limit=1 with >=2 messages must set next_cursor (older rows remain)")
+		}
+		if len(p.Messages) == 1 && p.NextCursor != "" && p.NextCursor != p.Messages[0].ID {
+			t.Errorf("next_cursor must be the oldest-of-page id %q, got %q", p.Messages[0].ID, p.NextCursor)
+		}
+		if p.NextCursor != "" {
+			resp2, _, err := c.get(ctx, "/v1/sessions/"+sid+"/messages?before="+p.NextCursor)
+			if err != nil {
+				t.Fatalf("GET /messages?before=<valid cursor>: %v", err)
+			}
+			if resp2.StatusCode != http.StatusOK {
+				t.Errorf("GET /messages?before=<valid cursor> must be 200, got %d", resp2.StatusCode)
+			}
+		}
+	}
+}
+
+// --- 8. GET /sessions?parent_session_id filter (CLIO-232) -------------------
+
+// checkParentSessionFilter asserts SPEC §6.2: GET /v1/sessions honors a
+// non-empty `parent_session_id` — every returned session must be a direct
+// sub-session of that parent (Go clients depend on this to scope subsession
+// UIs; a server that ignores it would show ALL sessions). Read-only.
+func checkParentSessionFilter(t Reporter, c *conformClient, sid string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, body, err := c.get(ctx, "/v1/sessions?parent_session_id="+sid)
+	if err != nil {
+		t.Fatalf("GET /sessions?parent_session_id=%s: %v", sid, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /sessions?parent_session_id filter: status %d, body %s", resp.StatusCode, body)
+	}
+	var out struct {
+		Sessions []struct {
+			ID              string `json:"id"`
+			ParentSessionID string `json:"parent_session_id"`
+		} `json:"sessions"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatalf("decode /sessions parent filter: %v", err)
+	}
+	// The filter must be applied: every returned row is a child of sid. (The set
+	// may legitimately be empty when the session has no sub-sessions.)
+	for _, s := range out.Sessions {
+		if s.ParentSessionID != sid {
+			t.Errorf("GET /sessions?parent_session_id=%s returned session %s whose parent_session_id=%q — filter ignored", sid, s.ID, s.ParentSessionID)
+		}
+	}
+}

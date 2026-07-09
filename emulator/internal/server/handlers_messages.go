@@ -48,11 +48,24 @@ type SearchResponse struct {
 func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	sid := r.PathValue("id")
 	q := r.URL.Query()
-	limit, _ := strconv.Atoi(q.Get("limit"))
-	if limit <= 0 {
-		limit = 50
+	// SPEC §6.3: all query params optional. Omitting `limit` yields the historical
+	// full-ledger (no truncation, next_cursor null). A PRESENT `limit` must be a
+	// positive integer — `<=0` (or non-numeric) is 422 validation_error, matching
+	// clio (routes/messages.py). Absent → 0 = "no limit" to the store.
+	limit := 0
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			writeError(w, http.StatusUnprocessableEntity, "validation_error", "limit must be a positive integer")
+			return
+		}
+		limit = n
 	}
-	includeSystem := parseBool(q.Get("include_system"))
+	// include_system defaults to true; only an explicit `false` drops system rows.
+	includeSystem := true
+	if raw := q.Get("include_system"); raw != "" {
+		includeSystem = parseBool(raw)
+	}
 	msgs, next, err := s.store.ListMessages(store.MessageFilter{
 		SessionID:     sid,
 		Before:        q.Get("before"),
@@ -60,7 +73,9 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		IncludeSystem: includeSystem,
 	})
 	if err != nil {
-		writeStoreError(w, err, "session_not_found", "invalid_query")
+		// An unknown session OR an unknown `before` cursor is a 404 (SPEC §6.3:
+		// "unknown id → 404", like GET a single message); a malformed query is 422.
+		writeStoreError(w, err, "not_found", "validation_error")
 		return
 	}
 	writeJSON(w, http.StatusOK, ListMessagesResponse{Messages: msgs, NextCursor: next})

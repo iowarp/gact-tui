@@ -108,7 +108,9 @@ func (s *Store) ListMessages(f MessageFilter) (msgs []gact.Message, next string,
 			}
 		}
 		if !found {
-			return nil, "", fmt.Errorf("%w: cursor %q not found", ErrInvalidArg, f.Before)
+			// SPEC §6.3: an unknown `before` cursor id is a 404 (like GET a single
+			// message), not a malformed-query 400.
+			return nil, "", fmt.Errorf("%w: message %q not found (before cursor)", ErrNotFound, f.Before)
 		}
 	}
 	page := full[start:]
