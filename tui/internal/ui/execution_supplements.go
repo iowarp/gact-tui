@@ -199,14 +199,21 @@ func executionTextQualityScore(text string) int {
 }
 
 func executionPlaceholderAssistantText(text string) bool {
-	normalized := strings.ToLower(strings.Join(strings.Fields(stripSemanticControlContracts(text)), " "))
+	stripped := stripSemanticControlContracts(text)
+	normalized := strings.ToLower(strings.Join(strings.Fields(stripped), " "))
 	if normalized == "" {
 		return false
 	}
-	if strings.Contains(normalized, "no answer yet") {
+	// Web parity: a row whose prose cleans ENTIRELY to chrome (whole-line status
+	// parentheticals like "(Delegating to …)", typed-state blobs) is a placeholder —
+	// the same mechanism the web uses (cleanProse strips it to empty, the row is
+	// dropped). This replaces the former domain-specific "awaiting geospatial/data
+	// acquisition" strings. NOTE: we deliberately do NOT hide a row merely because it
+	// CONTAINS an orchestration phrase (the web's isOrchestrationPlaceholder is only a
+	// gate for hasPriorAnswerRow, never a hide) — real prose like "routing to the
+	// station catalog expert to filter …" must survive.
+	if strings.TrimSpace(cleanProse(stripped)) == "" {
 		return true
 	}
-	return strings.Contains(normalized, "awaiting geospatial resolution") ||
-		strings.Contains(normalized, "awaiting data acquisition") ||
-		strings.Contains(normalized, "awaiting synthesis")
+	return strings.Contains(normalized, "no answer yet")
 }

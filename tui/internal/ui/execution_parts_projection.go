@@ -157,7 +157,20 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			continue
 
 		case gact.PartTypeText:
-			text := strings.TrimSpace(p.Text)
+			// Web parity (transcriptDelegationModel.ts:549,553): a synthetic slash
+			// command result (metadata.synthetic=="command_result") is NOT model
+			// prose — keep it verbatim, because cleanProse's stripStatusPrefix would
+			// mangle a pipe/arrow-shaped result body. The web routes it to its own
+			// passthrough card before cleanProse; the TUI keeps it as a plain text
+			// row. Otherwise run prose through cleanProse and drop the row when it
+			// cleans to empty (pure orchestration chrome — "(Delegating to …)",
+			// status parentheticals, a typed-state blob — which the web hides too).
+			var text string
+			if valuefmt.StringValue(p.Metadata["synthetic"]) == "command_result" {
+				text = strings.TrimSpace(p.Text)
+			} else {
+				text = cleanProse(p.Text)
+			}
 			if text == "" {
 				continue
 			}
@@ -171,7 +184,10 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			})
 
 		case gact.PartTypeThinking:
-			text := strings.TrimSpace(p.Thinking)
+			// Web parity (transcriptDelegationModel.ts:561): cleanProse the thinking
+			// too — provider thinking is bridged raw and leaks `[[ ## … ]]` section
+			// markers, which cleanProse strips.
+			text := cleanProse(p.Thinking)
 			if text == "" {
 				continue
 			}
