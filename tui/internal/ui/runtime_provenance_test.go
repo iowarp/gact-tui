@@ -99,34 +99,6 @@ func TestReasoningLogMetadataPromotesCompactThinkingMarker(t *testing.T) {
 	}
 }
 
-func TestWorkflowStateMetadataPromotesEvidencePart(t *testing.T) {
-	msg := gact.Message{
-		ID:   "m1",
-		Role: gact.RoleAssistant,
-		Metadata: map[string]any{
-			"workflow_state": map[string]any{
-				"dataset_id": "00d66104-dcb0-4381-86b4-fc62f08b3434",
-				"stage":      "visualization",
-				"artifacts":  []any{"plot.png"},
-			},
-		},
-		Parts: []gact.Part{{ID: "text", Type: gact.PartTypeText, Text: "Done."}},
-	}
-	normalizeMessagePresentation(&msg)
-	if len(msg.Parts) < 2 || msg.Parts[0].Type != gact.PartTypeExpertHandoff {
-		t.Fatalf("workflow evidence not inserted before text: %#v", msg.Parts)
-	}
-	if !strings.Contains(msg.Parts[0].Text, "workflow state:") || !strings.Contains(msg.Parts[0].Text, "dataset 00d66104") {
-		t.Fatalf("workflow state summary = %q", msg.Parts[0].Text)
-	}
-	if strings.Contains(msg.Parts[0].Text, "dataset_id=") {
-		t.Fatalf("workflow state summary should use operator labels, got %q", msg.Parts[0].Text)
-	}
-	if msg.Parts[0].Metadata["synthetic_from"] != "workflow_state_metadata" {
-		t.Fatalf("workflow metadata = %#v", msg.Parts[0].Metadata)
-	}
-}
-
 func TestWorkflowStateSummaryNamesNestedStatusAndEvidence(t *testing.T) {
 	summary := presentation.WorkflowStateSummary(map[string]any{
 		"geospatial": map[string]any{

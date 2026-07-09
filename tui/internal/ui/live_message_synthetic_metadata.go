@@ -1,6 +1,25 @@
 package ui
 
-// live_message_synthetic_metadata.go normalizes synthetic message metadata (workflow state, reasoning log, error info).
+// live_message_synthetic_metadata.go normalizes synthetic message metadata
+// (reasoning log, error info).
+//
+// It used to also fabricate an expert_handoff part from message-level
+// metadata.workflow_state. That was removed for #233 web parity: the web reads
+// workflow_state off the real expert_handoff parts on the wire
+// (WorkflowStateModel.workflowStateFromPart) — and so does the TUI already
+// (render_handoff_workflow_state.go / execution_reports.go). The clio backend
+// never assigns workflow_state at the message level (it only reaches a Message
+// nested inside expert_handoffs[] rows, which always carry a real expert_handoff
+// Part), so the message-level synthesizer was pure client divergence and a no-op
+// on the real stream.
+//
+// reasoning_log is DELIBERATELY kept: the backend (turn_finalize.py, default-on
+// CLIO_CAPTURE_REASONING) emits assistant metadata.reasoning_log for
+// reasoning-capable models with NO backing thinking/reasoning part
+// (streaming.py deliberately does not route reasoning tokens into a part), so this
+// compact marker is the only surface for that content. Per contract/SPEC.md
+// Appendix A its deletion condition ("server emits reasoning as reasoning parts")
+// is not yet met — retire it only once the server emits real reasoning parts.
 
 import (
 	"encoding/json"
@@ -8,48 +27,8 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
-
-func normalizeMessageWorkflowState(m *gact.Message) {
-	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_workflow_state") {
-		return
-	}
-	state := valuefmt.MapValue(m.Metadata["workflow_state"])
-	if len(state) == 0 {
-		return
-	}
-	summary := presentation.WorkflowStateSummary(state)
-	if summary == "" {
-		return
-	}
-	metadata := map[string]any{
-		"synthetic_from": "workflow_state_metadata",
-		"workflow_state": state,
-		"state_keys":     presentation.SortedWorkflowStateKeys(state),
-		"output_summary": summary,
-		"summary":        summary,
-	}
-	part := gact.Part{
-		ID:       "synthetic_workflow_state",
-		Type:     gact.PartTypeExpertHandoff,
-		Text:     "workflow state: " + summary,
-		Metadata: metadata,
-	}
-	insertAt := len(m.Parts)
-	for i, existing := range m.Parts {
-		if existing.Type == gact.PartTypeText {
-			insertAt = i
-			break
-		}
-	}
-	parts := make([]gact.Part, 0, len(m.Parts)+1)
-	parts = append(parts, m.Parts[:insertAt]...)
-	parts = append(parts, part)
-	parts = append(parts, m.Parts[insertAt:]...)
-	m.Parts = parts
-}
 
 func normalizeMessageReasoningLog(m *gact.Message) {
 	if m == nil || m.Role != gact.RoleAssistant || messageHasPartID(*m, "synthetic_reasoning_log") {

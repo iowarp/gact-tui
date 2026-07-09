@@ -2441,7 +2441,9 @@ condition**: once the server stops emitting the corresponding artifact, the
 filter is **deleted, not weakened**. They are centralized so that removal is one
 auditable step per client — the web filters live in
 `apps/web/src/components/presentationFilters.ts`; the TUI filters live in
-`tui/internal/ui/live_message_normalization.go` (nine normalization stages) and
+`tui/internal/ui/live_message_normalization.go` (eight normalization stages),
+`tui/internal/ui/presentation/prose_filters.go` (the `CleanProse` chain — the
+Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`), and
 `tui/internal/ui/execution_supplements.go`
 (`executionPlaceholderAssistantText`). This table is the shared registry those
 file headers cross-link back to.
@@ -2468,21 +2470,21 @@ freshly-observed backend leak — fix the leak at the server and retire the row.
 | `normalizeMessageCompactionSummaries` | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"` | Recast an inline compaction summary as a typed compaction part | Server emits compaction as its own part type, never inline text |
 | `normalizeMessageAdapterSections` | format | a `text` part containing `[[ ## ` ChatAdapter section markers | Split adapter-formatted text back into typed parts | Server never ships raw ChatAdapter section markup in `text` |
 | `normalizeMessageExpertHandoffs` | structural | `expert_handoffs` metadata rows | Synthesize handoff parts/rows the stream did not carry as parts | Server emits handoffs as first-class parts |
-| `normalizeMessageWorkflowState` | structural | `workflow_state` metadata | Surface display-only typed workflow state as a synthetic part | Server emits workflow state as a typed (non-text) part |
-| `normalizeMessageReasoningLog` | structural | `reasoning_log` metadata rows | Materialize a reasoning log the stream carried only as metadata | Server emits reasoning as `reasoning` parts |
+| `normalizeMessageReasoningLog` | structural | `reasoning_log` metadata rows | Materialize a reasoning log the stream carried only as metadata (the backend emits `metadata.reasoning_log` for reasoning-capable models with no backing part) | Server emits reasoning as `reasoning`/`thinking` parts |
 | `normalizeMessageErrorInfo` | structural | `error_info` metadata | Materialize structured error info as a part | Server emits errors via the §14 error envelope/parts |
 | `normalizeMessagePartialAnswerLabels` | structural | on an errored turn, `text` parts after an `error` part | Flag post-error text as `partial_after_error` so it renders as partial | Server labels partial answers at the source |
 | `normalizeMessageToolEvidence` | structural | `tools_called` / tool-evidence metadata | Materialize tool evidence rows from metadata | Server emits tool calls/results as parts |
 | `normalizeMessageRuntimeProvenance` | structural | runtime-provenance metadata | Summarize runtime provenance from metadata | Server emits provenance as a typed part or omits it |
-| `executionPlaceholderAssistantText` | prose | `no answer yet`; `awaiting geospatial resolution`; `awaiting data acquisition`; `awaiting synthesis` (after stripping semantic control contracts) | Detect placeholder assistant text so it is not treated as a real answer | Server withholds placeholder answer text |
+| `CleanProse` (`presentation/prose_filters.go`) | prose + format | leaked `[[ ## field ## ]]` section markers; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence markers; a leading `A -> B \| status \| stage \|` prefix | Byte-faithful Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`; strips the same backend chrome from `text`/`thinking` prose so both clients render identically (a `command_result` synthetic part is routed around it, matching the web) | Server never emits status parentheticals, section markers, typed-state captions, or status-prefix heads in a `text`/`reasoning` part |
+| `executionPlaceholderAssistantText` | prose | text that `CleanProse` reduces ENTIRELY to empty (pure whole-line chrome), or a body normalizing to `no answer yet` | Detect a placeholder assistant row so it is not treated as a real answer — web parity: only fully-chrome rows are hidden, a row merely mentioning orchestration survives | Server withholds placeholder answer text |
 
 Most TUI stages are **structural** (metadata-keyed synthesizers that reconstruct
 parts the stream carried only as message metadata) rather than prose heuristics;
 they are inventoried here because they, too, are transitional shims that
 disappear once the server emits the corresponding first-class parts. The genuine
-prose heuristics — the ones that read model wording — are
-`normalizeMessageCompactionSummaries`, `normalizeMessageAdapterSections`, and
-`executionPlaceholderAssistantText` (TUI) and every web row except
+prose heuristics — the ones that read model wording — are the `CleanProse`
+chain, `normalizeMessageCompactionSummaries`, `normalizeMessageAdapterSections`,
+and `executionPlaceholderAssistantText` (TUI) and every web row except
 `hasPriorAnswerRow`/`filterVisibleRows`.
 
 ---

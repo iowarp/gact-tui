@@ -20,6 +20,11 @@ package presentation
 //
 // This lives in the presentation subpackage (not the flat ui package) per the
 // #234 no-accretion freeze: new ui logic lands in an extracted subpackage.
+//
+// This filter is inventoried in contract/SPEC.md Appendix A ("Transitional client
+// presentation filters (non-normative)") as the `CleanProse` row, which records
+// its deletion condition — the shared cross-repo registry the web and TUI headers
+// both point back to.
 
 import (
 	"regexp"

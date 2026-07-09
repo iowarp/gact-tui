@@ -2,26 +2,26 @@ package ui
 
 // live_message_normalization.go normalizes message presentation (compaction summaries, partial-answer labels, visibility).
 //
-// These nine normalization stages are TRANSITIONAL prose/shape heuristics
-// inventoried alongside the web client's filters in contract/SPEC.md Appendix
-// ("Transitional client presentation filters (non-normative)"). Each carries a
-// documented deletion condition: they exist only while the server still leaks
-// presentation chrome onto the clean stream (clio #832). Do not weaken or delete
-// them here piecemeal — deletion is a single server-driven, auditable step.
+// These normalization stages are TRANSITIONAL prose/shape heuristics inventoried
+// alongside the web client's filters in contract/SPEC.md Appendix ("Transitional
+// client presentation filters (non-normative)"). Each carries a documented
+// deletion condition: they exist only while the server still leaks presentation
+// chrome onto the clean stream (clio #832). Deletion is a server-driven, auditable
+// step — the workflow_state fabricator was retired for #233 web parity (the web
+// reads workflow_state off real expert_handoff parts; the backend never emits it at
+// message level). Do not weaken or delete the remaining stages piecemeal.
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func normalizeMessagePresentation(m *gact.Message) {
 	normalizeMessageCompactionSummaries(m)
 	normalizeMessageAdapterSections(m)
 	normalizeMessageExpertHandoffs(m)
-	normalizeMessageWorkflowState(m)
 	normalizeMessageReasoningLog(m)
 	normalizeMessageErrorInfo(m)
 	normalizeMessagePartialAnswerLabels(m)
@@ -90,9 +90,11 @@ func shouldRenderConversationMessage(m gact.Message) bool {
 	if len(normalizeExpertHandoffRows(m.Metadata["expert_handoffs"])) > 0 {
 		return true
 	}
-	if len(valuefmt.MapValue(m.Metadata["workflow_state"])) > 0 {
-		return true
-	}
+	// workflow_state message-level aggregate no longer makes a part-less message
+	// visible: its fabricator was deleted for #233 web parity (the web reads
+	// workflow_state off real expert_handoff parts, and the backend never emits it
+	// at message level). A message with real parts still renders via the parts
+	// clause above.
 	if rows, ok := m.Metadata["reasoning_log"].([]any); ok && len(rows) > 0 {
 		return true
 	}
