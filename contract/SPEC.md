@@ -742,7 +742,7 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/sessions` | query: `workspace_id?` (default scope `ws_default`), `include_all_workspaces?: bool`, `archived?: bool` (omitted = active-only, `true` = archived-only, `false` = active-only) | `{sessions: Session[]}` newest-first by `created_at`. **No `next_cursor`/`limit`/`before`/`parent_session_id`** (not implemented — `parent_session_id` reserved for future use; clio silently ignores it, so a subsession UI filtering on it would see ALL sessions) |
+| GET | `/v1/sessions` | query: `workspace_id?` (default scope `ws_default`), `include_all_workspaces?: bool`, `archived?: bool` (omitted = active-only, `true` = archived-only, `false` = active-only), `parent_session_id?` (clio honors: non-empty → only that parent's direct sub-sessions) | `{sessions: Session[]}` newest-first by `created_at`. **No `next_cursor`/`limit`/`before`** (sessions returned unbounded) |
 | POST | `/v1/sessions` | `{workspace_id? = "ws_default", title?, model?, agent?, mode? = "chat", edit_mode? = "diff", routing_mode? = "auto", metadata?}` — no `parent_session_id`/`fork_at_message_id` (forking is `/fork`) | `Session`, `200`. Unknown workspace → 404 (legacy tag `internal_error`). **No `session.created` event** is emitted |
 | GET | `/v1/sessions/{id}` | query: `workspace_id?` — on mismatch → **403 `permission_error`** with `details.scope: "other_workspace"` | `Session` |
 | PATCH | `/v1/sessions/{id}` | `{title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?, archived?}` — `metadata` **merges shallowly** (never replaces; e.g. `metadata.pinned` survives unrelated patches) | `Session`; publishes `session.updated` with the **full Session object** as payload (§7.3a) |
@@ -812,7 +812,7 @@ event type** — the transition rides `session.status_changed`.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/sessions/{id}/messages` | query params **NOT honored** (`before`/`limit`/`include_system` silently ignored) | `{messages: Message[] newest-first, next_cursor: null (always)}` — the full ledger, unbounded. May include one **live in-flight assistant message** (`metadata: {live: true, status: "running"}`) while a turn is streaming |
+| GET | `/v1/sessions/{id}/messages` | query (clio honors; all optional — omit every one for the historical full-ledger behavior): `before?` (cursor → messages strictly older than that id; unknown id → 404), `limit?: int` (newest-N after `before`; `<=0` → 422 `validation_error`), `include_system?: bool` (default true; `false` drops `role:"system"`, §4.4) | `{messages: Message[] newest-first, next_cursor}` — `next_cursor` is the oldest-of-page id when `limit` truncated older rows, else `null`. May include one **live in-flight assistant message** (`metadata: {live: true, status: "running"}`) on the newest page (`before` unset) while a turn is streaming |
 | GET | `/v1/sessions/{id}/messages/{msg_id}` | — | `Message`; 404 `not_found` |
 | POST | `/v1/sessions/{id}/messages` | `{parts: Part[], text?, model?, agent?, agent_id?, metadata?}` | `{message_id, accepted_at}`, HTTP **200** |
 | DELETE | `/v1/sessions/{id}/messages/{msg_id}` | — | `204` |
@@ -2307,10 +2307,10 @@ behavior above, not drift**.
 - `GET /v1/events` (global stream) — §7.1
 - `POST /v1/sessions/{id}/summarize`, `POST /v1/sessions/{id}/attachments`
   — routes absent AND flags truthfully `false` (§3.3)
-- Pagination everywhere: `GET /v1/sessions` ignores
-  `parent_session_id`/`limit`/`before` (reserved); `GET /messages`
-  ignores `before`/`limit`/`include_system` and always returns
-  `next_cursor: null` (§6.2, §6.3)
+- `GET /v1/sessions` pagination: `limit`/`before` still absent
+  (sessions returned unbounded, newest-first) — §6.2. NOTE:
+  `parent_session_id` (sessions) and `before`/`limit`/`include_system`
+  + `next_cursor` (`GET /messages`) are now honored by clio (§6.2, §6.4)
 - `PATCH /v1/sessions/{id}/context/files` — §6.9
 - `PATCH /v1/sessions/{id}/messages/{id}/parts/{id}` — §6.3
 - `GET /v1/permissions/{id}` — §6.11
