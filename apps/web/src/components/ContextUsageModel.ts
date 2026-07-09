@@ -5,7 +5,7 @@
  * fullness fallback. Kept separate from {@link ContextUsageBar} so the math is
  * unit-testable in isolation.
  */
-import type { ContextState } from '@clio/core';
+import type { ContextState, SemanticEventPayload } from '@clio/core';
 
 /**
  * The /context-style category buckets, in the STABLE display order used by both
@@ -196,4 +196,147 @@ export function contextTone(
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
+}
+
+/**
+ * Which denominator a legend/percentage is taken against:
+ *  - `used`   — fraction of the ATTRIBUTED-used total (the segmented-bar sum);
+ *               this is the composition breakdown and the widget default.
+ *  - `window` — fraction of the full context WINDOW (capacity), so the numbers
+ *               agree with the headline `used / window` fullness.
+ * Surfacing both (behind a toggle) removes the two-denominators-in-one-widget
+ * ambiguity: the bar's block WIDTHS are always of-used composition, while the
+ * numbers can be read either way — each mode labelled so it's unambiguous.
+ */
+export type DenominatorMode = 'used' | 'window';
+
+/**
+ * Fraction (0..1) for one segment under the chosen denominator. `used` returns
+ * the precomputed of-used composition fraction; `window` divides the segment's
+ * tokens by the window capacity. Returns 0 when the window is unknown (caller
+ * should gate the `window` mode off in that case rather than show misleading 0s).
+ */
+export function segmentFraction(
+  block: Pick<ContextSegmentBlock, 'tokens' | 'fraction'>,
+  mode: DenominatorMode,
+  windowTokens: number,
+): number {
+  if (mode === 'window') {
+    return windowTokens > 0 ? clamp01(block.tokens / windowTokens) : 0;
+  }
+  return block.fraction;
+}
+
+/** A live-active-agent reference resolved from the semantic-event stream. */
+export interface ActiveAgentRef {
+  /** Routing id/scope for the agent (the context scope to fetch). */
+  id: string;
+  /** Human title as reported by the backend (pre-brand-mapping). */
+  title: string;
+}
+
+const REDACTION_SENTINEL = /^\[redacted\]:\d+ chars$/i;
+
+/** Trimmed string value, or '' when absent or a redaction sentinel. */
+function safeString(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  return !text || REDACTION_SENTINEL.test(text) ? '' : text;
+}
+
+/** Resolve an agent reference from a semantic-event actor/subject dict. */
+function agentRefFrom(record: Record<string, unknown> | undefined): ActiveAgentRef | null {
+  if (!record) return null;
+  const id = safeString(record['agent_id']);
+  const title = safeString(record['agent_title']);
+  if (!id && !title) return null;
+  return { id: id || title, title: title || id };
+}
+
+/**
+ * Resolve the executing expert from an `expert.lifecycle.started` event the way
+ * the Go projector's `executionExpertID` does (execution_timeline_helpers.go):
+ * the nested `payload.expert_id`, falling back to `actor.agent_id`. The human
+ * title is taken best-effort from the same dicts; when absent it defaults to the
+ * id (the caller's `presentBlueprintLabel(title, id)` re-derives a label). Null
+ * when neither id source resolves.
+ */
+function expertRefFromEvent(event: SemanticEventPayload): ActiveAgentRef | null {
+  const body = event.payload;
+  const actor = event.actor;
+  const id = safeString(body?.['expert_id']) || safeString(actor?.['agent_id']);
+  if (!id) return null;
+  const title =
+    safeString(body?.['expert_title']) || safeString(actor?.['agent_title']) || id;
+  return { id, title };
+}
+
+/** The agent a single event says is executing NOW, or null if the event is
+ *  not an activity marker that pins an active agent. Only the events on the
+ *  §7.6 served allow-list (execution_sse.go `semanticLedgerEventTypes`) can
+ *  reach the client, so those are the only cases handled here. */
+function activeAgentForEvent(event: SemanticEventPayload | undefined): ActiveAgentRef | null {
+  if (!event) return null;
+  switch (event.event_type) {
+    // The most DIRECT signal an expert now owns execution: the Go projector's
+    // applyExpertLifecycleStarted sets currentTextAgent from executionExpertID.
+    case 'expert.lifecycle.started':
+      return expertRefFromEvent(event);
+    // Work was handed to the SUBJECT: it is now the executing agent. The
+    // delegation atom rides BOTH prefixes depending on the runtime —
+    // `blueprint.delegation.*` for Agent Blueprint experts, plain
+    // `delegation.*` for expert-pack / prompt-agent delegations. Both are the
+    // SAME atom (contract/SPEC.md §7.6) and track identically.
+    case 'blueprint.delegation.started':
+    case 'delegation.started':
+      return agentRefFrom(event.subject) ?? agentRefFrom(event.actor);
+    // The parent (ACTOR) picked the workflow back up.
+    case 'blueprint.delegation.parent_resumed':
+    case 'delegation.parent_resumed':
+      return agentRefFrom(event.actor) ?? agentRefFrom(event.subject);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Resolve the CURRENTLY-active agent from the semantic-event ledger: the agent
+ * of the most recent activity marker (expert-lifecycle start or delegation
+ * hand-off / parent-resume). Returns null when the stream has no attributable
+ * activity (idle / between turns), so the caller falls back to the routing
+ * root. This is a read of the observed trace, not a heuristic decision about
+ * routing.
+ */
+export function activeAgentFromSemanticEvents(
+  events: readonly SemanticEventPayload[] | undefined,
+): ActiveAgentRef | null {
+  if (!events || events.length === 0) return null;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ref = activeAgentForEvent(events[i]);
+    if (ref) return ref;
+  }
+  return null;
+}
+
+/**
+ * Whether an agent is a routable EXPERT (part of the tier-1→tier-N routing
+ * hierarchy) — as opposed to a skill, tool, command, or other non-routable
+ * catalog entry. Skills are agents with `source === 'skill'` (SPEC §6.5); other
+ * non-expert kinds are detected from a `kind`/`role`/`is_skill` marker on the
+ * agent or its metadata. Unknown/absent markers default to routable so a real
+ * backend expert is never hidden.
+ */
+export function isRoutableExpert(agent: {
+  source?: string;
+  metadata?: Record<string, unknown>;
+}): boolean {
+  if (safeString(agent.source).toLowerCase() === 'skill') return false;
+  const meta = agent.metadata ?? {};
+  const topKind = (agent as { kind?: unknown }).kind;
+  const kind = safeString(topKind ?? meta['kind'] ?? meta['agent_kind']).toLowerCase();
+  const NON_EXPERT_KINDS = new Set(['skill', 'tool', 'command', 'hook', 'prompt']);
+  if (kind && NON_EXPERT_KINDS.has(kind)) return false;
+  if (safeString(meta['role']).toLowerCase() === 'skill') return false;
+  if (meta['is_skill'] === true || meta['skill'] === true) return false;
+  return true;
 }

@@ -15,7 +15,8 @@ import type { Client, ContextState } from '@clio/core';
 import { CompactContextError } from '@clio/core';
 import { Dropdown, type DropdownItem } from './Dropdown.js';
 import { ContextUsageBar } from './ContextUsageBar.js';
-import { categoryTotal } from './ContextUsageModel.js';
+import { categoryTotal, isRoutableExpert } from './ContextUsageModel.js';
+import { presentBlueprintLabel } from '../brand-presentation.js';
 import { useToast } from './Toast.js';
 import { Icon } from './Icon.js';
 import './context-usage.css';
@@ -62,7 +63,15 @@ export function ContextPanel(props: ContextPanelProps) {
     async () => {
       try {
         const res = await props.client.agents();
-        return res.agents.map((a) => ({ id: a.id, label: a.title || a.id }));
+        // Routable EXPERTS only (skills / non-expert kinds are not context
+        // scopes), labelled by their short id (main, geospatial, data, …) — the
+        // SAME identity the live context footer shows — rather than the verbose
+        // expert-pack title (`a.title`, e.g. "Geospatial Resolution Expert"),
+        // which this picker is meant to shorten. A brand display-name still wins
+        // when one is declared for the id.
+        return res.agents
+          .filter((a) => isRoutableExpert(a))
+          .map((a) => ({ id: a.id, label: presentBlueprintLabel(a.id, a.id) }));
       } catch {
         return [] as ContextExpert[];
       }

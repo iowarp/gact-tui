@@ -7,10 +7,12 @@
  * until a state is available (so a session with no context budget stays quiet).
  */
 import { createResource, createSignal, Show } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import type { Client, ContextState } from '@clio/core';
 import { ContextUsageBar } from './ContextUsageBar.js';
 import { ContextPanel, type ContextExpert } from './ContextPanel.js';
-import { fullnessFraction, contextTone } from './ContextUsageModel.js';
+import { fullnessFraction, contextTone, isRoutableExpert } from './ContextUsageModel.js';
+import { presentBlueprintLabel } from '../brand-presentation.js';
 import './context-usage.css';
 
 type FooterClient = Pick<Client, 'getContextState' | 'compactContext' | 'agents'>;
@@ -47,13 +49,19 @@ export function ContextFooter(props: ContextFooterProps) {
       if (supplied) return supplied;
       try {
         const { agents } = await props.client.agents();
-        if (agents.length === 0) return undefined;
-        // clio routing roots at `main`; prefer it, else an agent with no
-        // parent in metadata, else the first roster entry.
+        // Routable EXPERTS only — skills / non-expert kinds are not scopes.
+        const experts = agents.filter((a) => isRoutableExpert(a));
+        if (experts.length === 0) return undefined;
+        // clio routing roots at `main`; prefer it, else an expert with no
+        // parent, else the first roster entry.
+        const parentOf = (a: (typeof experts)[number]) =>
+          (a as { parent_id?: unknown }).parent_id ??
+          a.metadata?.['parent_id'] ??
+          a.metadata?.['parent_agent_id'];
         const root =
-          agents.find((a) => a.id === 'main') ??
-          agents.find((a) => !(a.metadata?.['parent_id'] ?? a.metadata?.['parent_agent_id'])) ??
-          agents[0];
+          experts.find((a) => a.id === 'main') ??
+          experts.find((a) => !parentOf(a)) ??
+          experts[0];
         return root?.id;
       } catch {
         return undefined;
@@ -85,8 +93,15 @@ export function ContextFooter(props: ContextFooterProps) {
     return s ? fullnessFraction(s) : null;
   };
   const tone = () => contextTone(fullness(), state()?.autocompact_pct ?? null);
-  const label = () =>
-    props.activeExpertLabel || props.activeExpert || 'context';
+  // Label the LIVE active agent when the caller supplies one; otherwise fall
+  // back to the resolved routing root (brand-mapped short name), so the footer
+  // always names whose context it is showing rather than a bare "context".
+  const label = () => {
+    if (props.activeExpertLabel) return props.activeExpertLabel;
+    if (props.activeExpert) return presentBlueprintLabel(props.activeExpert, props.activeExpert);
+    const scope = rosterScope();
+    return scope ? presentBlueprintLabel(scope, scope) : 'context';
+  };
 
   return (
     <Show when={props.sessionId ? state() : null}>
@@ -119,21 +134,27 @@ export function ContextFooter(props: ContextFooterProps) {
           </button>
 
           <Show when={open()}>
-            <div
-              class="ctx-overlay"
-              data-testid="context-overlay"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setOpen(false);
-              }}
-            >
-              <ContextPanel
-                client={props.client}
-                sessionId={props.sessionId!}
-                {...(effectiveScope() ? { activeExpert: effectiveScope() } : {})}
-                {...(props.experts ? { experts: props.experts } : {})}
-                onClose={() => setOpen(false)}
-              />
-            </div>
+            {/* Portal to <body> so the fixed overlay escapes the composer's
+                trapped stacking context (an ancestor with transform/contain
+                pins z-index locally); otherwise z-index:60 renders UNDER the
+                composer. Backdrop-click-to-close is preserved on the overlay. */}
+            <Portal mount={document.body}>
+              <div
+                class="ctx-overlay"
+                data-testid="context-overlay"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setOpen(false);
+                }}
+              >
+                <ContextPanel
+                  client={props.client}
+                  sessionId={props.sessionId!}
+                  {...(effectiveScope() ? { activeExpert: effectiveScope() } : {})}
+                  {...(props.experts ? { experts: props.experts } : {})}
+                  onClose={() => setOpen(false)}
+                />
+              </div>
+            </Portal>
           </Show>
         </>
       )}
