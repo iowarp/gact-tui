@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
@@ -212,7 +213,7 @@ func executionPlaceholderAssistantText(text string) bool {
 	// CONTAINS an orchestration phrase (the web's isOrchestrationPlaceholder is only a
 	// gate for hasPriorAnswerRow, never a hide) — real prose like "routing to the
 	// station catalog expert to filter …" must survive.
-	if strings.TrimSpace(cleanProse(stripped)) == "" {
+	if strings.TrimSpace(presentation.CleanProse(stripped)) == "" {
 		return true
 	}
 	return strings.Contains(normalized, "no answer yet")

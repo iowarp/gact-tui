@@ -1,6 +1,6 @@
-package ui
+package presentation
 
-// presentation_filters.go is the ONE home for the TUI's transitional prose
+// prose_filters.go is the ONE home for the TUI's transitional prose
 // presentation filters — the Go port of the web client's
 // apps/web/src/components/presentationFilters.ts + the cleanProse chain in
 // transcriptDelegationModel.ts. Behaviour is intended to be behaviorally faithful
@@ -17,6 +17,9 @@ package ui
 // backend's protocol vocabulary by key name — and are meant to be deleted, not
 // weakened, once the server stops emitting the chrome. Do not add domain-specific
 // keyword heuristics here.
+//
+// This lives in the presentation subpackage (not the flat ui package) per the
+// #234 no-accretion freeze: new ui logic lands in an extracted subpackage.
 
 import (
 	"regexp"
@@ -91,11 +94,11 @@ func findBalancedJsonEnd(text string, start int) int {
 	return -1
 }
 
-// stripClioScaffolding removes CLIO-generated status chrome glued into model
+// StripClioScaffolding removes CLIO-generated status chrome glued into model
 // answer/reasoning text — port of presentationFilters.ts:stripClioScaffolding.
 // Format-based and conservative: only whole-line status parentheticals, a
 // balanced "typed workflow state: {…}" blob, and leaked section markers.
-func stripClioScaffolding(text string) string {
+func StripClioScaffolding(text string) string {
 	if text == "" {
 		return ""
 	}
@@ -153,10 +156,10 @@ func stripClioScaffolding(text string) string {
 	return strings.TrimSpace(out)
 }
 
-// stripStatusPrefix strips a leading "A -> B | status | <stage> | <prose>" head —
+// StripStatusPrefix strips a leading "A -> B | status | <stage> | <prose>" head —
 // port of transcriptDelegationModel.ts:stripStatusPrefix. Structural (arrow head +
 // short pipe segments), never a status-word match; never eats a markdown table row.
-func stripStatusPrefix(text string) string {
+func StripStatusPrefix(text string) string {
 	nl := strings.IndexByte(text, '\n')
 	head := text
 	if nl >= 0 {
@@ -181,9 +184,9 @@ func stripStatusPrefix(text string) string {
 	return rest
 }
 
-// cleanProse is the web's cleanProse (transcriptDelegationModel.ts:190): strip the
+// CleanProse is the web's cleanProse (transcriptDelegationModel.ts:190): strip the
 // scaffolding, then the status prefix, then trim. Prose that cleans to empty was
 // pure orchestration chrome and the caller drops the row (web parity).
-func cleanProse(text string) string {
-	return strings.TrimSpace(stripStatusPrefix(stripClioScaffolding(text)))
+func CleanProse(text string) string {
+	return strings.TrimSpace(StripStatusPrefix(StripClioScaffolding(text)))
 }

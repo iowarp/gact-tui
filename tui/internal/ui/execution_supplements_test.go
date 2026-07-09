@@ -59,3 +59,30 @@ func TestExecutionDedupSupplementNodesSkipsExistingEvidence(t *testing.T) {
 		t.Fatalf("kept supplement text = %q", got[0].Text)
 	}
 }
+
+// TestExecutionPlaceholderNarrowedToWebParity documents the intentional #233 change:
+// the TUI no longer hides a row merely because it CONTAINS a bare, un-parenthesized
+// domain phrase like "awaiting data acquisition" (the former overfit heuristic). The
+// web doesn't hide those either — its isOrchestrationPlaceholder is a hasPriorAnswerRow
+// gate, never a hide. Only text that cleans ENTIRELY to chrome (a whole-line
+// parenthetical) is hidden.
+func TestExecutionPlaceholderNarrowedToWebParity(t *testing.T) {
+	for _, hidden := range []string{
+		"(Awaiting synthesis before finishing.)",
+		"(Delegating to the data expert for acquisition.)",
+	} {
+		if !executionPlaceholderAssistantText(hidden) {
+			t.Errorf("expected parenthesized chrome to be hidden: %q", hidden)
+		}
+	}
+	// Bare, un-parenthesized prose → NOT hidden (web parity; was hidden by the old
+	// domain-substring heuristic, intentionally retired).
+	for _, shown := range []string{
+		"Awaiting data acquisition to complete before ranking the candidate stations.",
+		"The geospatial expert is now awaiting synthesis of the resolved coordinates.",
+	} {
+		if executionPlaceholderAssistantText(shown) {
+			t.Errorf("expected bare prose to survive (web parity): %q", shown)
+		}
+	}
+}

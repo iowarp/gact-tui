@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
@@ -169,7 +170,7 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			if valuefmt.StringValue(p.Metadata["synthetic"]) == "command_result" {
 				text = strings.TrimSpace(p.Text)
 			} else {
-				text = cleanProse(p.Text)
+				text = presentation.CleanProse(p.Text)
 			}
 			if text == "" {
 				continue
@@ -187,7 +188,7 @@ func projectPartsToTimelineNodes(parts []sourcedPart) []executionTimelineNode {
 			// Web parity (transcriptDelegationModel.ts:561): cleanProse the thinking
 			// too — provider thinking is bridged raw and leaks `[[ ## … ]]` section
 			// markers, which cleanProse strips.
-			text := cleanProse(p.Thinking)
+			text := presentation.CleanProse(p.Thinking)
 			if text == "" {
 				continue
 			}
