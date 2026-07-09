@@ -35,12 +35,20 @@ describe('stripClioScaffolding', () => {
     expect(stripClioScaffolding('Just prose.')).toBe('Just prose.');
   });
 
-  it('strips a leaked [[ ## field ## ]] section marker (thinking channel)', () => {
-    expect(stripClioScaffolding('[[ ## reasoning ## ]] actual thought')).toBe('actual thought');
-  });
+  // NOTE (clio #877 / epic #880): stripClioScaffolding no longer strips `[[ ## field ## ]]`
+  // markers. The prior SECTION_MARKER step was deleted as the paired client half of the
+  // server-side root fix: clio's SDK thinking/contract splitter now promotes every real
+  // line-start header to the contract stream (so no STRUCTURAL marker reaches the render),
+  // and a marker the model QUOTES mid-prose while narrating the format is genuine reasoning
+  // content that must render verbatim — stripping it produced the mangled ", then , then"
+  // garble. This is the deliberate, server-driven deletion the header above anticipates.
+  // (The prose scrub below — status parentheticals, typed-state captions — stays until its
+  // own paired server fix lands, clio #881.)
 
-  it('strips a backtick-wrapped section marker', () => {
-    expect(stripClioScaffolding('`[[ ## answer ## ]]`Hello')).toBe('Hello');
+  it('leaves a quoted [[ ## field ## ]] marker in reasoning prose untouched (verbatim render)', () => {
+    expect(stripClioScaffolding('It emits `[[ ## reasoning ## ]]` first.')).toBe(
+      'It emits `[[ ## reasoning ## ]]` first.',
+    );
   });
 
   it('removes an inline (in progress …) placeholder, preserving the double space it leaves', () => {

@@ -46,8 +46,22 @@ describe('reasoning/answer are distinct rows (no swap, no marker leak)', () => {
     expect(flat).toContain("I'm limited to routing specific EarthScope");
   });
 
-  it('does not leak any [[ ## field ## ]] section markers into any row', () => {
-    const flat = JSON.stringify(rows);
-    expect(/\[\[\s*##\s*[A-Za-z0-9_]+\s*##\s*\]\]/.test(flat)).toBe(false);
+  it('keeps DSPy-extracted content rows marker-free, but renders provider-thinking prose verbatim', () => {
+    // clio #877 / epic #880: the client is a pure verbatim renderer. The server's SDK
+    // thinking/contract splitter promotes every real line-start header to the contract
+    // stream, so no STRUCTURAL marker reaches the render; the DSPy field-extracted content
+    // rows (reasoning/answer) are therefore marker-free by construction. A marker the model
+    // QUOTES mid-prose while narrating the format stays in provider thinking as genuine
+    // reasoning content and MUST render verbatim — the old client SECTION_MARKER strip that
+    // removed it is what produced the mangled ", then , then" garble this epic kills.
+    const loose = rows as ReadonlyArray<{ text?: string; providerThinking?: { text?: string } }>;
+    const markerRe = /\[\[\s*##\s*[A-Za-z0-9_]+\s*##\s*\]\]/;
+
+    const contentText = loose.map((r) => r.text ?? '').join('\n');
+    expect(markerRe.test(contentText)).toBe(false); // reasoning/answer content never carries markers
+
+    const thinkingText = loose.map((r) => r.providerThinking?.text ?? '').join('\n');
+    expect(thinkingText).toContain('`[[ ## reasoning ## ]]`'); // quoted prose survives verbatim
+    expect(thinkingText).toContain('`[[ ## answer ## ]]`');
   });
 });
