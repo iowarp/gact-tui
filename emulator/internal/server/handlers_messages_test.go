@@ -266,3 +266,45 @@ func TestListMessagesPaginationContract(t *testing.T) {
 		t.Errorf("unknown before status = %d, want 404", rec.Code)
 	}
 }
+
+// TestListMessagesBeforeCursorResolvesUnfiltered guards the review's HIGH finding:
+// a `before` cursor must resolve against the UNFILTERED ledger, then system rows
+// are dropped — matching clio. Filtering first would 404 a valid cursor that names
+// a system-role message when include_system=false.
+func TestListMessagesBeforeCursorResolvesUnfiltered(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	h := srv.Handler()
+	st := srv.Store()
+
+	// Seed oldest→newest: user1, sys1(system), user2.
+	u1, _ := st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleUser, Parts: []gact.Part{gact.NewTextPart("u1")}})
+	sys1, _ := st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleSystem, Parts: []gact.Part{gact.NewTextPart("sys1")}})
+	_, _ = st.AppendMessage(gact.Message{SessionID: sid, Role: gact.RoleUser, Parts: []gact.Part{gact.NewTextPart("u2")}})
+
+	// before=<system message id> with include_system=false must be 200 (cursor
+	// resolves against the unfiltered ledger), returning the older non-system rows.
+	rec := do(t, h, http.MethodGet, "/v1/sessions/"+sid+"/messages?before="+sys1.ID+"&include_system=false", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("before=<system id>&include_system=false: status %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+	var body ListMessagesResponse
+	mustDecode(t, rec, &body)
+	// Only user1 is strictly older than sys1 and non-system.
+	if len(body.Messages) != 1 || body.Messages[0].ID != u1.ID {
+		var ids []string
+		for _, m := range body.Messages {
+			ids = append(ids, m.ID)
+		}
+		t.Errorf("before=<sys>&include_system=false returned %v, want [%s]", ids, u1.ID)
+	}
+}
+
+// TestListMessagesInvalidIncludeSystem422 guards the review's MEDIUM finding: a
+// present-but-unparseable include_system is 422, not a silent coercion to false.
+func TestListMessagesInvalidIncludeSystem422(t *testing.T) {
+	srv, _, sid := newServerWithSession(t)
+	rec := do(t, srv.Handler(), http.MethodGet, "/v1/sessions/"+sid+"/messages?include_system=maybe", nil)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("include_system=maybe status = %d, want 422", rec.Code)
+	}
+}

@@ -62,9 +62,16 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		limit = n
 	}
 	// include_system defaults to true; only an explicit `false` drops system rows.
+	// A present-but-unparseable value is 422 (clio's FastAPI bool coercion rejects
+	// it too) — do NOT silently coerce garbage to false via the lenient parseBool.
 	includeSystem := true
 	if raw := q.Get("include_system"); raw != "" {
-		includeSystem = parseBool(raw)
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusUnprocessableEntity, "validation_error", "include_system must be a boolean")
+			return
+		}
+		includeSystem = v
 	}
 	msgs, next, err := s.store.ListMessages(store.MessageFilter{
 		SessionID:     sid,

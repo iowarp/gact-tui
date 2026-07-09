@@ -86,21 +86,21 @@ func (s *Store) ListMessages(f MessageFilter) (msgs []gact.Message, next string,
 	}
 
 	ids := s.messagesBySession[f.SessionID]
-	// Build newest-first slice of full messages (filtered).
-	full := make([]gact.Message, 0, len(ids))
+	// Build the newest-first slice of ALL messages, UNFILTERED. The `before`
+	// cursor must resolve against the full ledger regardless of include_system —
+	// clio (routes/messages.py) resolves the cursor against the unfiltered
+	// chronological list and only drops system rows afterward. Filtering first
+	// would 404 a valid cursor that happens to name a system-role message.
+	all := make([]gact.Message, 0, len(ids))
 	for i := len(ids) - 1; i >= 0; i-- {
-		m := s.messages[ids[i]]
-		if !f.IncludeSystem && m.Role == gact.RoleSystem {
-			continue
-		}
-		full = append(full, *m)
+		all = append(all, *s.messages[ids[i]])
 	}
 
-	// Apply Before: skip until we've passed the cursor.
+	// Resolve Before against the unfiltered list: keep rows strictly older.
 	start := 0
 	if f.Before != "" {
 		found := false
-		for i, m := range full {
+		for i, m := range all {
 			if m.ID == f.Before {
 				start = i + 1
 				found = true
@@ -113,11 +113,20 @@ func (s *Store) ListMessages(f MessageFilter) (msgs []gact.Message, next string,
 			return nil, "", fmt.Errorf("%w: message %q not found (before cursor)", ErrNotFound, f.Before)
 		}
 	}
-	page := full[start:]
+
+	// Drop system rows AFTER cursor resolution (clio order), if requested.
+	page := make([]gact.Message, 0, len(all)-start)
+	for _, m := range all[start:] {
+		if !f.IncludeSystem && m.Role == gact.RoleSystem {
+			continue
+		}
+		page = append(page, m)
+	}
+
+	// Apply limit to the newest N; next_cursor is the oldest-of-page id when the
+	// limit truncated older rows that remain beyond this page.
 	if f.Limit > 0 && len(page) > f.Limit {
 		page = page[:f.Limit]
-	}
-	if len(page) > 0 && f.Limit > 0 && start+f.Limit < len(full) {
 		next = page[len(page)-1].ID
 	}
 	return page, next, nil

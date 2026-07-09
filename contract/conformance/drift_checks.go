@@ -552,6 +552,16 @@ func checkMessagePagination(t Reporter, c *conformClient, sid string) {
 		t.Errorf("GET /messages?include_system=false must be 200, got %d", resp.StatusCode)
 	}
 
+	// A present-but-unparseable include_system is 422, not a silent coercion —
+	// same no-silent-fallback rule as limit.
+	resp, body, err = c.get(ctx, "/v1/sessions/"+sid+"/messages?include_system=maybe")
+	if err != nil {
+		t.Fatalf("GET /messages?include_system=maybe: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("GET /messages?include_system=<non-bool> must be 422, got %d (body %s)", resp.StatusCode, body)
+	}
+
 	// Truncation + next_cursor semantics (needs >=2 messages to observe a cut).
 	if len(full.Messages) >= 2 {
 		resp, body, err := c.get(ctx, "/v1/sessions/"+sid+"/messages?limit=1")
@@ -588,16 +598,42 @@ func checkMessagePagination(t Reporter, c *conformClient, sid string) {
 
 // --- 8. GET /sessions?parent_session_id filter (CLIO-232) -------------------
 
-// checkParentSessionFilter asserts SPEC §6.2: GET /v1/sessions honors a
-// non-empty `parent_session_id` — every returned session must be a direct
-// sub-session of that parent (Go clients depend on this to scope subsession
-// UIs; a server that ignores it would show ALL sessions). Read-only.
+// checkParentSessionFilter asserts SPEC §6.2: GET /v1/sessions honors a non-empty
+// `parent_session_id` — the result is exactly that parent's direct sub-sessions
+// (Go clients depend on this to scope subsession UIs; a server that ignores it
+// would show ALL sessions). It first creates a known child by forking `sid`
+// (portable POST /fork), so the positive assertion — the child IS returned — is
+// non-vacuous: a filter that silently returns nothing, or ignores the param and
+// returns everything, both fail. MUTATING (creates a session) — gate on a
+// suite-owned session.
 func checkParentSessionFilter(t Reporter, c *conformClient, sid string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	resp, body, err := c.get(ctx, "/v1/sessions?parent_session_id="+sid)
+	// Fork sid to mint a known sub-session (parent_session_id -> sid).
+	resp, body, err := c.postJSON(ctx, "/v1/sessions/"+sid+"/fork", map[string]any{"title": "conformance-fork"})
+	if err != nil {
+		t.Fatalf("POST /fork: %v", err)
+	}
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST /fork: status %d, body %s", resp.StatusCode, body)
+	}
+	var child struct {
+		ID              string `json:"id"`
+		ParentSessionID string `json:"parent_session_id"`
+	}
+	if err := json.Unmarshal(body, &child); err != nil {
+		t.Fatalf("decode fork response: %v", err)
+	}
+	if child.ID == "" {
+		t.Fatalf("fork returned no session id: %s", body)
+	}
+	if child.ParentSessionID != sid {
+		t.Errorf("forked session parent_session_id = %q, want %q", child.ParentSessionID, sid)
+	}
+
+	resp, body, err = c.get(ctx, "/v1/sessions?parent_session_id="+sid)
 	if err != nil {
 		t.Fatalf("GET /sessions?parent_session_id=%s: %v", sid, err)
 	}
@@ -613,11 +649,20 @@ func checkParentSessionFilter(t Reporter, c *conformClient, sid string) {
 	if err := json.Unmarshal(body, &out); err != nil {
 		t.Fatalf("decode /sessions parent filter: %v", err)
 	}
-	// The filter must be applied: every returned row is a child of sid. (The set
-	// may legitimately be empty when the session has no sub-sessions.)
+	// Negative: every returned row is a direct child of sid (an ignored filter
+	// that returns ALL sessions fails here — the parent sid itself has parent "").
+	sawChild := false
 	for _, s := range out.Sessions {
-		if s.ParentSessionID != sid {
-			t.Errorf("GET /sessions?parent_session_id=%s returned session %s whose parent_session_id=%q — filter ignored", sid, s.ID, s.ParentSessionID)
+		if s.ID == child.ID {
+			sawChild = true
 		}
+		if s.ParentSessionID != sid {
+			t.Errorf("GET /sessions?parent_session_id=%s returned %s whose parent_session_id=%q — filter not applied", sid, s.ID, s.ParentSessionID)
+		}
+	}
+	// Positive (non-vacuous): the known child must appear — a filter that silently
+	// returns an empty list fails here.
+	if !sawChild {
+		t.Errorf("GET /sessions?parent_session_id=%s omitted the just-forked child %s — filter over-restricts or returns empty", sid, child.ID)
 	}
 }
