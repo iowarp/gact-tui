@@ -529,7 +529,7 @@ The content of a message is an ordered list of typed parts. The discriminator is
 | `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
 | `error` | In-stream error | `code: string`, `message: string`, `recoverable: bool` (v0.1 shape; v0.2 backends prefer `Message.error_info`, §14) |
-| `compaction` | Marks where prior history was summarized away | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[NOT EMITTED by clio 3527143]** — clio's `/compact` (§6.25) instead REPLACES the ledger with one synthetic assistant `text` message flagged `metadata.synthetic: "compact_summary"`; there is no `compaction` part type on clio's wire. Valid for other backends. |
+| `compaction` | Marks where prior history was summarized away | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[EMITTED by clio 2f892c1]** — clio's `/compact` (§6.25) REPLACES the ledger with one synthetic assistant message whose single part is `type="compaction"`, carrying `summary`/`compacted_message_ids`/`auto=false` (user-triggered) plus `metadata.synthetic: "compact_summary"` + `memory_event_id`. (Prior to 2f892c1 clio inlined the summary as a `[compact summary]`-prefixed `text` part; that prose form is retired.) |
 
 > **Implemented part shape (clio `types.py:Part`).** The reference
 > backend models `Part` as a **single flat struct** with all of the
@@ -1640,14 +1640,17 @@ canonical tag), 503 `agent_unavailable` (no LM agent bound), 502
 `upstream_error` (summarization failed), 500 `memory_update_failed`
 (ARC store failure).
 
-Behavior (clio 3527143, descriptive):
+Behavior (clio 2f892c1, descriptive):
 
 - The transcript source is the text parts of the **last 50 messages**.
 - On success the visible ledger is **REPLACED by ONE synthetic
-  assistant `text` message** (`msg_compact_*`) whose single part
-  carries `metadata.synthetic: "compact_summary"` +
-  `memory_event_id`. **There is no `compaction` part type** on clio's
-  wire (§4.5, §10 item 3).
+  assistant message** (`msg_compact_*`) whose single part is
+  `type="compaction"` (§4.5) — carrying `summary`,
+  `compacted_message_ids` (the ids of the messages it replaced), and
+  `auto=false` (user-triggered) — and also retains
+  `metadata.synthetic: "compact_summary"` + `memory_event_id`. (Prior
+  to 2f892c1 the summary rode on a `[compact summary]`-prefixed `text`
+  part; that prose form is retired — see §4.5, §10 item 3.)
 - The original messages are archived **in-memory only**
   (process-lifetime); the ARC conversation is replaced with the
   summary when ARC is configured.
@@ -2151,7 +2154,7 @@ The 10 questions raised during design review are decided here. Several are expli
 
 2. **System messages: in the message stream as `role: "system"`.** Default included; suppressible via `?include_system=false`. Backends that store the system prompt only in session config simply never emit one. See §4.4.
 
-3. **Compaction: an event, plus a visible marker in history.** The `session.compacted` event (§7.3) lets the TUI react in real time. The original design paired it with a `compaction` part type (§4.5) as the in-history marker; **the reference backend does not emit that part** — clio instead replaces the ledger with one synthetic assistant `text` message flagged `metadata.synthetic: "compact_summary"` (§6.25), which serves the same archaeological purpose. The part type remains valid for backends that keep pre-compaction history inline.
+3. **Compaction: an event, plus a visible marker in history.** The `session.compacted` event (§7.3) lets the TUI react in real time. The in-history marker is the `compaction` part type (§4.5); **the reference backend emits it as of clio 2f892c1** — clio replaces the ledger with one synthetic assistant message whose sole part is a `compaction` part (still flagged `metadata.synthetic: "compact_summary"`, §6.25), serving the same archaeological purpose. The part type also remains valid for backends that keep pre-compaction history inline.
 
 4. **Search: yes, `GET /v1/sessions/{id}/messages/search?q=...`** (§6.3). Gated by `capabilities.search_messages`. Simple full-text shape, returns matches with snippets. Backend ranks however it wants.
 
@@ -2467,7 +2470,7 @@ freshly-observed backend leak — fix the leak at the server and retire the row.
 
 | Filter (stage) | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
 | --- | --- | --- | --- | --- |
-| `normalizeMessageCompactionSummaries` | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"` | Recast an inline compaction summary as a typed compaction part | Server emits compaction as its own part type, never inline text |
+| `normalizeMessageCompactionSummaries` | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"` | Recast an inline compaction summary as a typed compaction part | Server emits compaction as its own part type, never inline text — **met as of clio 2f892c1** (§4.5/§6.25); clio now ships a `compaction` part, so this stage is a no-op for clio. Deletion tracked in #233. |
 | `normalizeMessageAdapterSections` | format | a `text` part containing `[[ ## ` ChatAdapter section markers | Split adapter-formatted text back into typed parts | Server never ships raw ChatAdapter section markup in `text` |
 | `normalizeMessageExpertHandoffs` | structural | `expert_handoffs` metadata rows | Synthesize handoff parts/rows the stream did not carry as parts | Server emits handoffs as first-class parts |
 | `normalizeMessageReasoningLog` | structural | `reasoning_log` metadata rows | Materialize a reasoning log the stream carried only as metadata (the backend emits `metadata.reasoning_log` for reasoning-capable models with no backing part) | Server emits reasoning as `reasoning`/`thinking` parts |
