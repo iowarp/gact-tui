@@ -315,6 +315,16 @@ func Run(t Reporter, baseURL string, opts Options) {
 	if sid != "" && !opts.SkipCapabilityTruth {
 		t.Run("Drift_CapabilityTruth", func(t Reporter) { checkCapabilityTruth(t, c, sid) })
 	}
+	if sid != "" {
+		// Read-only pagination contract check (CLIO-232 / #872) — safe against a
+		// caller-pinned session, so not gated on suiteOwnsSession.
+		t.Run("Drift_MessagePagination", func(t Reporter) { checkMessagePagination(t, c, sid) })
+	}
+	if suiteOwnsSession {
+		// Forks a sub-session to make the filter assertion non-vacuous — mutating,
+		// so only against a session this suite created itself.
+		t.Run("Drift_ParentSessionFilter", func(t Reporter) { checkParentSessionFilter(t, c, sid) })
+	}
 	if sid != "" && opts.SpecPath != "" && !opts.SkipSSE && !opts.SkipPostMessage {
 		t.Run("Drift_EventVocabulary", func(t Reporter) {
 			checkEventVocabulary(t, c, sid, wsID, opts.SpecPath, opts.SSEBudget)
