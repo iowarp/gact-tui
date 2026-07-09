@@ -8,7 +8,7 @@
  * Pure presentational: the caller owns fetching the {@link ContextState}. The
  * proportion math + fullness fallback live in {@link ContextUsageModel}.
  */
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import type { ContextState } from '@clio/core';
 import { formatCount } from '../formatters.js';
 import {
@@ -17,7 +17,9 @@ import {
   contextSegments,
   contextTone,
   fullnessFraction,
+  segmentFraction,
   usedTokensAbsolute,
+  type DenominatorMode,
 } from './ContextUsageModel.js';
 import './context-usage.css';
 
@@ -45,6 +47,20 @@ export function ContextUsageBar(props: ContextUsageBarProps) {
   const marker = () => autocompactMarkerPct(props.state);
   const total = () => categoryTotal(props.state.categories);
   const absUsed = () => usedTokensAbsolute(props.state);
+
+  // Which denominator the legend %s use. Default 'used' (composition of the
+  // attributed-used total — the same basis as the bar's block widths). 'window'
+  // reads each segment against the full context capacity so the numbers agree
+  // with the headline fullness. The window mode is only offered when the window
+  // size is known (else it would render misleading zeros).
+  const [denom, setDenom] = createSignal<DenominatorMode>('window');
+  const windowKnown = () => props.state.window_tokens > 0;
+  const activeDenom = (): DenominatorMode =>
+    denom() === 'window' && !windowKnown() ? 'used' : denom();
+  const legendPct = (block: { tokens: number; fraction: number }): number =>
+    Math.round(
+      segmentFraction(block, activeDenom(), props.state.window_tokens) * 100,
+    );
 
   return (
     <div class="ctx-bar" data-testid={props.testid ?? 'context-usage-bar'}>
@@ -102,6 +118,33 @@ export function ContextUsageBar(props: ContextUsageBarProps) {
       </div>
 
       <Show when={props.showLegend}>
+        <div class="ctx-legend__toolbar">
+          <span class="ctx-legend__denom" data-testid="context-usage-denom">
+            {activeDenom() === 'used' ? '% of used' : '% of capacity'}
+          </span>
+          <div class="ctx-toggle" role="group" aria-label="percentage denominator">
+            <button
+              type="button"
+              class={'ctx-toggle__btn' + (activeDenom() === 'used' ? ' ctx-toggle__btn--active' : '')}
+              data-testid="context-usage-denom-used"
+              aria-pressed={activeDenom() === 'used'}
+              onClick={() => setDenom('used')}
+            >
+              of used
+            </button>
+            <button
+              type="button"
+              class={'ctx-toggle__btn' + (activeDenom() === 'window' ? ' ctx-toggle__btn--active' : '')}
+              data-testid="context-usage-denom-window"
+              aria-pressed={activeDenom() === 'window'}
+              disabled={!windowKnown()}
+              title={windowKnown() ? undefined : 'Context window size unknown'}
+              onClick={() => setDenom('window')}
+            >
+              of capacity
+            </button>
+          </div>
+        </div>
         <ul class="ctx-legend" data-testid="context-usage-legend">
           <For each={segments()}>
             {(block) => (
@@ -109,9 +152,7 @@ export function ContextUsageBar(props: ContextUsageBarProps) {
                 <span class={'ctx-legend__pip ' + block.colorClass} />
                 <span class="ctx-legend__name">{block.label}</span>
                 <span class="ctx-legend__tokens">{formatCount(block.tokens)}</span>
-                <span class="ctx-legend__pct">
-                  {Math.round(block.fraction * 100)}%
-                </span>
+                <span class="ctx-legend__pct">{legendPct(block)}%</span>
               </li>
             )}
           </For>

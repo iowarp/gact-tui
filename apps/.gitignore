@@ -24,3 +24,7 @@ playwright/.cache/
 # Embedding agent brand override (points brandingRoot at the agent repo)
 brand.config.local.json
 .generated-branding/
+# Visual-suite brand harness sidecars (backup of the developer's original +
+# transient SETUP/RESTORE state; see apps/web/tests/visual/write-brand-config.mjs)
+brand.config.local.json.harness-bak
+.brand-config.harness-state.json

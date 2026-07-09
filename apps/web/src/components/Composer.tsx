@@ -1,7 +1,7 @@
 /**
  * UI component: Composer. Exports `Composer`.
  */
-import { Show } from 'solid-js';
+import { Show, onCleanup, onMount } from 'solid-js';
 import { Icon } from './Icon.js';
 import { ComposerActionRow } from './ComposerActionRow.js';
 import { AttachmentChips } from './ComposerAttachments.js';
@@ -15,9 +15,35 @@ export type { ComposerProps, ModelOption, PermissionMode } from './ComposerTypes
 
 export function Composer(props: ComposerProps = {}) {
   const controller = createComposerController(props);
+  let rootEl!: HTMLDivElement;
+
+  // Publish the composer's LIVE rendered height into --composer-h on the chat
+  // layout root (.chat__main-col). The "jump to latest" pill is absolutely
+  // positioned against that root and derives its clearance from --composer-h,
+  // so it must track the composer's real height — which changes when the
+  // ComposerPickers row wraps to two lines (narrow main column) or a docked
+  // context footer appears. A static magic number regressed: it under-measured
+  // the one-line composer and overlapped the top band once the picker row
+  // wrapped. Measuring the border box removes the guesswork at any wrap state.
+  onMount(() => {
+    const target = rootEl.closest('.chat__main-col') as HTMLElement | null;
+    if (!target || typeof ResizeObserver === 'undefined') return;
+    const publish = () => {
+      const height = Math.round(rootEl.getBoundingClientRect().height);
+      if (height > 0) target.style.setProperty('--composer-h', `${height}px`);
+    };
+    const observer = new ResizeObserver(publish);
+    observer.observe(rootEl);
+    publish();
+    onCleanup(() => {
+      observer.disconnect();
+      target.style.removeProperty('--composer-h');
+    });
+  });
 
   return (
     <div
+      ref={rootEl}
       class={'composer ' + (controller.attachments.dragging() ? 'composer--dragging' : '')}
       data-testid="composer"
       onDragOver={controller.attachments.onDragOver}

@@ -12,6 +12,15 @@ export default defineConfig({
   testDir: './tests/visual',
   fullyParallel: false,
   retries: 0,
+  // SETUP runs inside `webServer.command` (it must write the brand pointer
+  // BEFORE `pnpm build` bakes it in). RESTORE is wired here as globalTeardown so
+  // the developer's own `brand.config.local.json` is put back after the suite
+  // finishes — pass OR fail. Without this, `test:visual` (= `playwright test`)
+  // has no teardown and leaves the workspace pointing at the CLIO test brand.
+  // The module's default export calls restoreBrandConfig(); it is a no-op when
+  // SETUP never ran (e.g. an existing server was reused), so it never touches a
+  // workspace it did not modify.
+  globalTeardown: './tests/visual/write-brand-config.mjs',
   reporter: process.env['CI'] ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
