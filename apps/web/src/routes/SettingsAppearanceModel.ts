@@ -110,9 +110,11 @@ export function presetEntriesForThemeMode(
   prefersLight = prefersLightScheme(),
 ): Array<[string, (typeof THEME_PRESETS)[string]]> {
   const presetMode = presetModeForThemeMode(mode, prefersLight);
-  return Object.entries(THEME_PRESETS).filter(
-    ([id, preset]) => preset.mode === presetMode && id !== 'default',
-  );
+  // Include the mode's baseline `default` palette as a selectable tile: it is
+  // the only way back to the un-tweaked theme after applying an alternate preset
+  // (there is no separate reset control), so excluding it stranded users on the
+  // last preset they picked.
+  return Object.entries(THEME_PRESETS).filter(([, preset]) => preset.mode === presetMode);
 }
 
 export function persistThemeMode(
