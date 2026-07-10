@@ -32,7 +32,6 @@ import {
   hasPriorAnswerRow,
   isBareJsonBody,
   isOrchestrationPlaceholder,
-  isTerminalCompletionReasoning,
   stripClioScaffolding,
 } from './presentationFilters.js';
 
@@ -722,14 +721,6 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
     if (streaming) return true;
     if (isBareJsonBody(body)) return false;
     if (isOrchestrationPlaceholder(body)) return false;
-    if (
-      row.kind === 'reasoning' &&
-      row.agent === 'main' &&
-      hasPriorAnswerRow(all, index) &&
-      isTerminalCompletionReasoning(body)
-    ) {
-      return false;
-    }
     return true;
   });
 }

@@ -4,7 +4,6 @@ import {
   hasPriorAnswerRow,
   isBareJsonBody,
   isOrchestrationPlaceholder,
-  isTerminalCompletionReasoning,
 } from '../../src/components/presentationFilters.js';
 import {
   filterVisibleRows,
@@ -111,32 +110,6 @@ describe('isOrchestrationPlaceholder', () => {
 
   it('is false for genuine prose', () => {
     expect(isOrchestrationPlaceholder('The dataset has 42 rows in the county table.')).toBe(false);
-  });
-});
-
-describe('isTerminalCompletionReasoning', () => {
-  it.each([
-    'The task is complete.',
-    'The task is fully satisfied.',
-    'All required work is complete.',
-    'All claims are grounded in evidence.',
-    'The workflow is now complete.',
-    'The workflow has already executed.',
-    'Both required children returned.',
-    'Both required pipeline stages ran.',
-    'Synthesis has returned.',
-    'I now finish.',
-    'The parent finishes.',
-    'I finish on the turn.',
-    'Carrying the synthesis answer forward.',
-    'There are no further children.',
-    'There is no downstream work.',
-  ])('is true for terminal-completion reasoning: %s', (body) => {
-    expect(isTerminalCompletionReasoning(body)).toBe(true);
-  });
-
-  it('is false for substantive reasoning', () => {
-    expect(isTerminalCompletionReasoning('I should geocode the county centroid next.')).toBe(false);
   });
 });
 

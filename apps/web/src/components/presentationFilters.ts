@@ -127,26 +127,3 @@ export function isOrchestrationPlaceholder(text: string): boolean {
   return false;
 }
 
-export function isTerminalCompletionReasoning(text: string): boolean {
-  const body = text.toLowerCase();
-  const complete =
-    /task is (?:fully )?(?:complete|satisfied)/.test(body) ||
-    /all required work is complete/.test(body) ||
-    /all required work .*complete/.test(body) ||
-    /all claims .*grounded/.test(body) ||
-    /workflow is .*complete/.test(body) ||
-    /workflow has already executed/.test(body) ||
-    /both required children/.test(body) ||
-    /both required .*completed/.test(body) ||
-    /both required pipeline stages/.test(body) ||
-    /both .*children .*returned/.test(body) ||
-    /synthesis has returned/.test(body);
-  const finish =
-    /i now finish/.test(body) ||
-    /parent finishes/.test(body) ||
-    /finish on the turn/.test(body) ||
-    /carrying (?:the )?(?:synthesis'?s? )?answer/.test(body) ||
-    /no further children/.test(body) ||
-    /no downstream work/.test(body);
-  return complete || finish;
-}
