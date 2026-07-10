@@ -25,15 +25,6 @@
 import type { Message, Part } from '@clio/core';
 import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
-// The transitional prose-heuristic presentation filters live in ONE spec'd home
-// (./presentationFilters.ts + contract/SPEC.md Appendix "Transitional client
-// presentation filters (non-normative)").
-import {
-  hasPriorAnswerRow,
-  isBareJsonBody,
-  isOrchestrationPlaceholder,
-  stripClioScaffolding,
-} from './presentationFilters.js';
 
 /** A single tool call row (a tool_call part, joined to its tool_result by id). */
 export interface ToolRow {
@@ -180,51 +171,11 @@ function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** Clean an agent's prose: drop clio status scaffolding + a leading
- *  `A -> B | status | …` pipe prefix some backends glue onto handoff bodies. */
+/** Trim an agent's prose. The client is a VERBATIM renderer (epic #880): the
+ *  server owns the clean stream, so no scaffolding/status-prefix scrubbing runs
+ *  here — only whitespace trimming, which is not a content change. */
 function cleanProse(raw: string): string {
-  return stripStatusPrefix(stripClioScaffolding(raw)).trim();
-}
-
-/**
- * Strip a leading pipe-delimited status prefix, e.g.
- * "agent -> agent | completed | <stage> | <prose>". Detected STRUCTURALLY (an
- * "A -> B" arrow head followed by short ` | <token>` segments); format-based,
- * never a match of a specific status word. Never eats a markdown table row.
- */
-function stripStatusPrefix(text: string): string {
-  const nl = text.indexOf('\n');
-  const head = nl >= 0 ? text.slice(0, nl) : text;
-  if (!/^\s*\S+\s*->\s*\S+\s*\|/.test(head)) return text;
-  const lastPipe = head.lastIndexOf('|');
-  if (lastPipe < 0) return text;
-  const segments = head.slice(0, lastPipe).split('|');
-  if (!segments.every((s) => s.trim().length <= 40)) return text;
-  const rest = head.slice(lastPipe + 1).trimStart();
-  return nl >= 0 ? rest + text.slice(nl) : rest;
-}
-
-/**
- * A handoff `output_summary` is frequently a BARE JSON evidence object (typed
- * structured state — display-only per the contract), not prose. Such a body is
- * machine state, not something to render as the delegation's task line, so it is
- * treated as empty. A summary that is real prose (optionally followed by state,
- * already stripped) is kept verbatim.
- */
-function dropBareJsonSummary(text: string): string {
-  const t = text.trim();
-  if (!t) return '';
-  const wrapped =
-    (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
-  if (wrapped) {
-    try {
-      JSON.parse(t);
-      return '';
-    } catch {
-      // not valid JSON — fall through and treat as prose
-    }
-  }
-  return text;
+  return raw.trim();
 }
 
 /** Render a tool's args object/string into a compact one-line summary. */
@@ -430,7 +381,7 @@ function buildUserTurnModel(list: readonly PartLike[]): AssistantTurnModel | nul
 
 export function buildAssistantTurnModel(
   parts: readonly Part[],
-  opts?: { streaming?: boolean; role?: 'user' | 'assistant' },
+  opts?: { role?: 'user' | 'assistant' },
 ): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
   // TOTAL builder (the single render path): EVERY turn — user prompts, delegation
@@ -476,7 +427,7 @@ export function buildAssistantTurnModel(
       const task =
         cleanProse(str(part.metadata?.['question'])) ||
         cleanProse(str(part.metadata?.['input'])) ||
-        dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary'])));
+        cleanProse(str(part.metadata?.['output_summary']));
       const pairKey = `${parent}->${agent}`;
       let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
@@ -506,7 +457,7 @@ export function buildAssistantTurnModel(
           depth: depthOf(agent),
           agent,
           parent,
-          text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
+          text: cleanProse(str(part.metadata?.['output_summary'])),
           // The "details" raw mirrors the live return's `response`: the GENUINE
           // structured output (empty for prose). Sourcing it from output_raw keeps
           // reload identical to live — no falling back to workflow_state, which
@@ -529,8 +480,8 @@ export function buildAssistantTurnModel(
         parent,
         agent,
         // The delegated task: the question sent down, else a backend-provided
-        // handoff summary (older shape). cleanProse strips clio scaffolding
-        // (durable workflow_state JSON) + a leading `A -> B | status` prefix.
+        // handoff summary (older shape). Rendered VERBATIM (epic #880): the server
+        // owns the clean stream, so cleanProse only trims — no scaffolding scrub.
         task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
       });
@@ -656,7 +607,7 @@ export function buildAssistantTurnModel(
     rows.push({ kind: 'passthrough', id, depth, part: part as Part });
   }
 
-  const cleanRows = filterVisibleRows(rows, opts);
+  const cleanRows = filterVisibleRows(rows);
   if (cleanRows.length === 0) return null;
   return { rows: cleanRows };
 }
@@ -682,32 +633,18 @@ export function messageSearchTexts(msg: Message): string[] {
 }
 
 /**
- * Defensive net for clio #736: after a terminal child returns, the orchestrator
- * (`main`) re-emits that child's answer VERBATIM as its own `text` part, so the
- * final brief would render twice. Drop a `text` row whose body exactly repeats
- * an earlier `text` row's body — the answer renders once, attributed to the
- * agent that authored it first. The backend fix removes the duplicate at source;
- * this keeps the render correct regardless. Only EXACT full-body repeats are
- * dropped, so distinct orchestrator summaries (unique prose) are untouched.
+ * Drop only STRUCTURALLY empty rows from the ordered log. The client is a
+ * VERBATIM renderer (epic #880): the server owns the clean stream, so there is NO
+ * content dedup, body-shape, or placeholder scrubbing here — any genuine backend
+ * double-emit or placeholder is fixed at the SOURCE, not hidden in the render.
+ * This filter behaves IDENTICALLY live and reloaded (no streaming branch), so a
+ * turn renders the same in-flight as it does after a reload.
  */
-export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean }): TurnRow[] {
-  // While a turn is still STREAMING, the body-shape/dedupe predicates judge
-  // INCOMPLETE text and wrongly drop main/synthesis rows mid-stream (so they only
-  // "pop in" once complete — the batched/stuck feel). For in-flight content apply
-  // ONLY the structural empty-text drop; the full filter runs once the message is
-  // finalized. A completed-session reload passes no opts → byte-identical output
-  // (parity preserved).
-  const streaming = opts?.streaming === true;
-  // #48: NO client-side text dedup. It was born from a wrong reading of the
-  // dspy.extract/response semantics (treating the extract answer as a duplicate of
-  // the finish next_thought) and ran ONLY when settled — dropping real content and
-  // making a reloaded turn diverge from the live one. Build identically live/settled;
-  // any genuine backend double-emit is fixed at the SOURCE, not hidden here.
-  const base = rows;
-  return base.filter((row, index, all) => {
+export function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
+  return rows.filter((row) => {
     if (row.kind === 'return') {
+      // A return row with neither a summary nor structured details is empty chrome.
       if (!row.text.trim() && !row.raw.trim()) return false;
-      if (!streaming && row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
       return true;
     }
     if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
@@ -718,9 +655,6 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
       // renders. Drop only genuinely empty rows.
       return row.kind === 'reasoning' && !!row.providerThinking?.text.trim();
     }
-    if (streaming) return true;
-    if (isBareJsonBody(body)) return false;
-    if (isOrchestrationPlaceholder(body)) return false;
     return true;
   });
 }

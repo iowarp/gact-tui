@@ -327,68 +327,20 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     expect(textRow.text).toContain('Los Angeles');
   });
 
-  it('strips bare progress scaffolding from text rows', () => {
+  it('renders agent prose VERBATIM — no scaffolding/placeholder scrubbing (epic #880)', () => {
+    // The client is a pure verbatim renderer: it no longer strips status
+    // parentheticals, "typed workflow state" captions, or orchestration
+    // placeholders from model prose. The server owns the clean stream; whatever the
+    // model authored renders exactly. (The three former scrubbing tests were
+    // deleted with stripClioScaffolding / isOrchestrationPlaceholder / isBareJsonBody.)
+    const raw =
+      '(No user-facing answer yet - work is delegated. Awaiting child expert evidence.)\n\nRouting complete.';
     const rows = buildAssistantTurnModel([
       handoff('h', 'main', 'data', 'delegate.started'),
-      text('t', 'data', 'In progress: acquiring data.\n\nCompleted:\n- catalog staged'),
+      text('t', 'main', raw),
     ])!.rows;
     const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
-    expect(textRow.text).toBe('Completed:\n- catalog staged');
-  });
-
-  it('strips generated parenthetical routing/status scaffolding from text rows', () => {
-    const rows = buildAssistantTurnModel([
-      handoff('h', 'main', 'data', 'delegate.started'),
-      text(
-        't',
-        'main',
-        '(No user-facing answer yet - work is delegated. Awaiting child expert evidence.)\n\n(Orchestration in progress - awaiting visualization and synthesis results.)\n\nRouting complete.',
-      ),
-    ])!.rows;
-    const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
-    expect(textRow.text).toBe('Routing complete.');
-  });
-
-  it('strips live orchestration placeholders discovered in real EarthScope reloads', () => {
-    const rows = buildAssistantTurnModel([
-      text('a', 'main', 'Awaiting geospatial resolution. No evidence yet from child expert.'),
-      text('a2', 'main', 'Pending geospatial delegation. No answer available until event coordinates are resolved.'),
-      text(
-        'a3',
-        'main',
-        'Delegating to geospatial to resolve the 2019 Ridgecrest earthquake sequence into event center coordinates and GNSS search radius. Awaiting child evidence before routing to synthesis and finishing.',
-      ),
-      handoff('h', 'main', 'geospatial', 'delegate.started', 'Resolve the region'),
-      text('b', 'main', 'Routing to synthesis to produce the final user-facing answer.'),
-      text(
-        'b1',
-        'main',
-        'Routing to synthesis for final answer formatting. Awaiting synthesis completion before finishing.',
-      ),
-      text(
-        'b1b',
-        'main',
-        'Delegating to synthesis expert to compose the final user-facing answer from the completed geospatial resolution.',
-      ),
-      text(
-        'b2',
-        'main',
-        'Routing to the geospatial expert to resolve the event. No evidence is available until the geospatial expert returns its tool results.\n\nAwaiting synthesis child expert to produce the final answer.',
-      ),
-      text('c', 'geospatial', 'Resolved region: **Ridgecrest**.'),
-    ])!.rows;
-
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Awaiting'))).toBe(false);
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Routing to synthesis'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('No evidence is available'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Pending geospatial'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Ridgecrest'))).toBe(true);
+    expect(textRow.text).toBe(raw);
   });
 
   it('unwraps a content-block tool_result envelope to the real output text', () => {
@@ -458,20 +410,16 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     expect(tool.durationMs).toBe(1234.6);
   });
 
-  it('messageSearchTexts returns the CLEANED, rendered text (so highlight keys align)', () => {
+  it('messageSearchTexts indexes the VERBATIM rendered text (so highlight keys align)', () => {
+    const body = 'Evidence is ready.\n\nCLIO typed workflow state:\n{"workflow_state":{}}';
     const msg: Message = {
       id: 'm',
       role: 'assistant',
-      parts: [
-        {
-          type: 'text',
-          text: 'Evidence is ready.\n\nCLIO typed workflow state:\n{"workflow_state":{}}',
-        } as unknown as Part,
-      ],
+      parts: [{ type: 'text', text: body } as unknown as Part],
     } as unknown as Message;
-    // The display-only workflow-state blob is stripped, so search indexes only the
-    // prose the render actually shows.
-    expect(messageSearchTexts(msg)).toEqual(['Evidence is ready.']);
+    // The client is a verbatim renderer (epic #880): no scaffolding scrub runs, so
+    // search indexes exactly the text the render shows — the full body, trimmed.
+    expect(messageSearchTexts(msg)).toEqual([body]);
   });
 
   it('emits row kinds in order: text, delegation, tool, text', () => {

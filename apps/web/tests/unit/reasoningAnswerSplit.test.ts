@@ -33,7 +33,7 @@ describe('reasoning/answer are distinct rows (no swap, no marker leak)', () => {
     },
   ] as unknown as Parameters<typeof buildAssistantTurnModel>[0];
 
-  const model = buildAssistantTurnModel(parts, { streaming: false, role: 'assistant' });
+  const model = buildAssistantTurnModel(parts, { role: 'assistant' });
   const rows = model?.rows ?? [];
 
   it('keeps the reasoning text and the answer text as separate, non-swapped content', () => {

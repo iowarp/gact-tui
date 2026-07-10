@@ -89,44 +89,6 @@ describe('Transcript', () => {
     expect(current!.getAttribute('data-match-key')).toBe('a:1');
   });
 
-  it('strips display-only typed workflow state, keeping only the prose', () => {
-    // UNIFIED render: `CLIO typed workflow state: { … }` is backend display-only
-    // machine state, stripped by cleanProse (same as the handoff path) — the prose
-    // is kept, the JSON blob and the retired workflow-state card are gone.
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-workflow',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'text',
-                text:
-                  'Evidence is ready.\n\nCLIO typed workflow state:\n' +
-                  JSON.stringify({
-                    workflow_state: {
-                      acquisition: {
-                        status: 'staged',
-                        local_path: '/tmp/run/MTA1.csv',
-                        size_bytes: 50424246,
-                      },
-                    },
-                  }),
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getByText('Evidence is ready.')).toBeTruthy();
-    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
-    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
-    expect(screen.queryByText(/typed workflow state/)).toBeNull();
-  });
-
   it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {
     render(() => (
       <Transcript
@@ -142,19 +104,13 @@ describe('Transcript', () => {
                   parent_id: 'main',
                   agent_id: 'data',
                   status: 'failed',
+                  // SERVER-REALISTIC input: the server emits an already-scrubbed
+                  // prose summary (delegation.py::_failed_child_delegation_output_summary);
+                  // the failure's typed workflow_state travels STRUCTURALLY on the
+                  // row, never serialized into this human-readable text (#880). The
+                  // client renders this prose VERBATIM.
                   output_summary:
-                    "Child expert 'data' failed while delegated from 'main': _UnsupportedSessionAgent. data\n\n" +
-                    'CLIO durable typed workflow state:\n' +
-                    JSON.stringify({
-                      workflow_state: {
-                        delegation: {
-                          status: 'failed',
-                          failed_child: 'data',
-                          parent: 'main',
-                          error: '_UnsupportedSessionAgent',
-                        },
-                      },
-                    }),
+                    "Child expert 'data' failed while delegated from 'main': _UnsupportedSessionAgent. data",
                 },
               },
             ],
@@ -217,56 +173,6 @@ describe('Transcript', () => {
     // The blocker detail is built GENERICALLY from the nested entry's own fields
     // (no hardcoded backend error-code copy).
     expect(screen.getByText(/Failed Child: ndp_dataset_discovery/)).toBeTruthy();
-  });
-
-  it('treats a bare JSON handoff body as display-only state (not rendered as prose)', () => {
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-handoff-json',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'expert_handoff',
-                metadata: {
-                  parent_id: 'main',
-                  agent_id: 'geospatial',
-                  status: 'completed',
-                  output_summary:
-                    JSON.stringify({
-                      REGION_LABEL: 'San Diego area',
-                      CENTER_LAT: 32.7157,
-                      CENTER_LON: -117.1611,
-                      RADIUS_KM: 50,
-                      CONFIDENCE: 'high',
-                      WARNINGS: ['Default radius of 50 km applied for area query.'],
-                    }) +
-                    '\n\nCLIO durable typed workflow state:\n' +
-                    JSON.stringify({
-                      workflow_state: {
-                        geospatial: {
-                          status: 'resolved',
-                          region_name: 'San Diego area',
-                        },
-                      },
-                    }),
-                },
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    // The handoff body is a bare JSON evidence object — display-only structured
-    // state per the contract — with no task and no tools, so the delegation is
-    // entirely empty: NO prose result, NO raw JSON keys, NO workflow-state card.
-    expect(screen.queryByTestId('assistant-turn-result')).toBeNull();
-    expect(screen.queryByText(/REGION_LABEL/)).toBeNull();
-    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
-    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
   });
 
 });

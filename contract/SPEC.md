@@ -2441,9 +2441,10 @@ text, machine state, or duplicated reasoning onto the stream.
 server, not the client, must de-duplicate and clean the transcript; the client
 renders what it receives. Every row below therefore carries a **deletion
 condition**: once the server stops emitting the corresponding artifact, the
-filter is **deleted, not weakened**. They are centralized so that removal is one
-auditable step per client — the web filters live in
-`apps/web/src/components/presentationFilters.ts`; the TUI filters live in
+filter is **deleted, not weakened**. The web client has already reached the end
+state — epic #880 deleted every web presentation filter and its
+`apps/web/src/components/presentationFilters.ts` home (see the Web client section
+below). The TUI filters remain and live in
 `tui/internal/ui/live_message_normalization.go` (eight normalization stages),
 `tui/internal/ui/presentation/prose_filters.go` (the `CleanProse` chain — the
 Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`), and
@@ -2456,13 +2457,26 @@ freshly-observed backend leak — fix the leak at the server and retire the row.
 
 ### Web client (`apps/web`)
 
+The web client has **no transitional prose/shape presentation filters left**. Epic
+#880 deleted them all — `stripClioScaffolding`, `stripStatusPrefix`,
+`isOrchestrationPlaceholder`, `isBareJsonBody`, and `hasPriorAnswerRow` — together
+with their `presentationFilters.ts` home, plus a fifth handoff-summary scrub
+(`dropBareJsonSummary`) that had lived separately in `transcriptDelegationModel.ts`
+and dropped a handoff `output_summary` whose whole body was JSON. Each became
+provably dead once the server-side root fixes landed: structured state rides typed
+non-`text` parts; the completed-return `output_summary` is server-rendered to a
+readable one-liner and can never be a bare JSON body (clio
+`delegation.py::_render_return_summary` converts any structured answer to a summary
+field, `key: value` scalars, or `""`, never verbatim JSON); the double-answer is
+collapsed at source; the `answer` field defaults to `""` so routers no longer
+fabricate placeholder prose. The web app now renders the `/v1` stream **verbatim**:
+zero regex marker-stripping, zero dedup/scrub in the render path.
+
+The one surviving row is not a prose heuristic — it is a permanent structural drop:
+
 | Filter | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
 | --- | --- | --- | --- | --- |
-| `stripClioScaffolding` | prose + format | leaked ChatAdapter section markers `[[ ## field ## ]]`; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence truncation markers | Backend glues status chrome and display-only machine state inline into answer/reasoning prose | Server never emits status parentheticals, section markers, or typed-state captions in a `text`/`reasoning` part |
-| `isOrchestrationPlaceholder` | prose | `no user-facing answer yet`; `awaiting …child`; `awaiting …synthesis`; `no evidence yet` / `no evidence is available`; `pending …delegation`; `delegating to …expert`; `routing to synthesis`; `routing to the …expert`; `before routing to synthesis`; `before finishing` | Orchestrator emits placeholder answer text before children return | Server withholds a `text` part until it has real answer content |
-| `isBareJsonBody` | format | a body that is wholly a `JSON.parse`-able object/array | Handoff/summary bodies sometimes arrive as bare machine state, not prose | Server tags structured state as its own (non-`text`) part instead of inlining raw JSON |
-| `hasPriorAnswerRow` | structural (feeds the synthesis-return drop) | a prior `main`/`synthesis` `text` row > 20 chars that is not itself a placeholder/bare-JSON | Gate so the `synthesis` return-row drop only applies once a real answer has rendered | Retired together with the predicate it guards |
-| `filterVisibleRows` | composer / gate | — (orchestrates the predicates above) | Applies the prose/shape predicates ONLY once a turn is finalized (streaming applies just the structural empty-row drop), and drops empty rows + a `synthesis` return row that repeats a prior answer | Retired when the predicates it composes are all retired |
+| `filterVisibleRows` | structural | a row with no renderable content: an empty `return` row (no summary and no structured details), or an empty `text`/`reasoning` row that is not a live thinking host | Skips rows that would paint nothing; behaves IDENTICALLY live and reloaded (no streaming branch, no prose/shape predicates) | Not transitional — a permanent structural empty-row skip, keyed on emptiness alone, never on model wording |
 
 ### TUI client (`tui/internal/ui`)
 
@@ -2483,10 +2497,11 @@ Most TUI stages are **structural** (metadata-keyed synthesizers that reconstruct
 parts the stream carried only as message metadata) rather than prose heuristics;
 they are inventoried here because they, too, are transitional shims that
 disappear once the server emits the corresponding first-class parts. The genuine
-prose heuristics — the ones that read model wording — are the `CleanProse`
-chain, `normalizeMessageCompactionSummaries`, `normalizeMessageAdapterSections`,
-and `executionPlaceholderAssistantText` (TUI) and every web row except
-`hasPriorAnswerRow`/`filterVisibleRows`.
+prose heuristics — the ones that read model wording — are now TUI-only: the
+`CleanProse` chain, `normalizeMessageCompactionSummaries`,
+`normalizeMessageAdapterSections`, and `executionPlaceholderAssistantText`. The
+web client has no prose heuristic left (epic #880 deleted them); its sole
+surviving `filterVisibleRows` keys on row emptiness alone, never on model wording.
 
 ---
 
