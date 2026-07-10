@@ -14,6 +14,7 @@
     "demo:record": "node scripts/record-web-demo.mjs",
     "demo:earthscope-render": "node scripts/earthscope-render-demo.mjs",
     "probe:earthscope-sse": "node scripts/probe-earthscope-sse.mjs",
+    "verify:deleted-filters": "node scripts/verify-deleted-filters.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
