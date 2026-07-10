@@ -565,6 +565,22 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > `duration_ms`, `pack_id`, `provider_id`, `model_id`, …) are routing /
 > bookkeeping. Generic clients ignore the envelope; it is a clio vendor
 > extension.
+>
+> **Delegation lifecycle: one header, one conclusion** (clio). A single
+> delegation emits exactly ONE `expert_handoff` part with `stage:
+> "delegate.started"` and exactly ONE concluding part with `stage:
+> "delegate.completed"` — *whatever the outcome*. A **failed** delegation
+> concludes on `delegate.completed` too, carrying `status: "failed"`; the
+> finer-grained `delegate.failed` stage is reported on the message's
+> `metadata.expert_handoffs` row and the `delegation.failed` semantic
+> event, never on a part. `parent.resumed` marks an intermediate
+> orchestrator's structural return twin.
+>
+> A part carries exactly ONE stage: the typed `Part.stage` field, mirrored
+> verbatim onto `metadata.stage` for clients predating the typed field. The
+> two never disagree, so `part.stage || part.metadata.stage` is always the
+> same value. Because the server guarantees one header and one conclusion,
+> a client renders the delegation VERBATIM and MUST NOT dedup handoff parts.
 
 **Streaming deltas** for parts are sent via SSE events (§7.4).
 
@@ -2466,11 +2482,19 @@ and dropped a handoff `output_summary` whose whole body was JSON. Each became
 provably dead once the server-side root fixes landed: structured state rides typed
 non-`text` parts; the completed-return `output_summary` is server-rendered to a
 readable one-liner and can never be a bare JSON body (clio
-`delegation.py::_render_return_summary` converts any structured answer to a summary
-field, `key: value` scalars, or `""`, never verbatim JSON); the double-answer is
-collapsed at source; the `answer` field defaults to `""` so routers no longer
-fabricate placeholder prose. The web app now renders the `/v1` stream **verbatim**:
-zero regex marker-stripping, zero dedup/scrub in the render path.
+`return_summary.py::public_return_summary` is the seam that converts any structured
+answer to a summary field, `key: value` scalars, or `""`, never verbatim JSON); the
+double-answer is collapsed at source; the `answer` field defaults to `""` so routers
+no longer fabricate placeholder prose.
+
+The last dedup went with them: `seenDelegation` (with `delegationKey` and
+`lastDelegationKeyByPair`) collapsed the `started` + `failed` handoff pair into one
+header, because a failed delegation used to conclude on the header lane with stage
+`delegate.failed`. clio #882 made every delegation conclude on `delegate.completed`
+— failures carry `status: "failed"` — so the server now guarantees one header and one
+conclusion (§4.5) and the client counts on it instead of deduping. The web app renders
+the `/v1` stream **verbatim**: zero regex marker-stripping, zero dedup/scrub in the
+render path.
 
 The one surviving row is not a prose heuristic — it is a permanent structural drop:
 

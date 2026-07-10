@@ -87,7 +87,7 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     ]);
   });
 
-  it('DEDUPEs a delegation (started + completed + resumed) into ONE header', () => {
+  it('renders ONE header per delegation VERBATIM — started is the header, completed is the return, resumed is dropped (server owns it; no client dedup, #882)', () => {
     const parts = [
       handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
       handoff('b', 'main', 'geospatial', 'delegate.completed'),
@@ -95,8 +95,42 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
     const delegations = rows.filter((r) => r.kind === 'delegation');
+    // The server mints the single header at delegate.started; the client no longer
+    // dedups (seenDelegation deleted, #882). delegate.completed contributes only its
+    // return row, and parent.resumed is dropped structurally — so exactly ONE header
+    // survives for the (parent → child), rendered verbatim.
     expect(delegations).toHaveLength(1);
     expect(delegations[0]).toMatchObject({ parent: 'main', agent: 'geospatial', task: 'task' });
+  });
+
+  it('renders ONE header for a FAILED delegation — the failure conclusion rides the return lane, never a 2nd header (#882)', () => {
+    // The server routes a failed delegation's terminal live part through the SAME lane
+    // as a success: stage `delegate.completed` with status `failed` (turn_delegation.py).
+    // `metadata.stage` is the legacy mirror of the typed field and carries the SAME
+    // value — the precise `delegate.failed` lives on the persisted expert_handoffs row
+    // and the `delegation.failed` semantic event, never on the part. Before #882 the
+    // failure came through as `delegate.failed` on the header lane and `seenDelegation`
+    // collapsed the started+failed pair; with the dedup deleted, a verbatim client MUST
+    // still show exactly ONE header (minted at delegate.started) — the failure is a return.
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        type: 'expert_handoff',
+        id: 'b',
+        agent_id: 'main',
+        parent_agent: 'main',
+        child_agent: 'geospatial',
+        stage: 'delegate.completed',
+        status: 'failed',
+        metadata: { stage: 'delegate.completed' },
+      } as unknown as Part,
+    ];
+    const rows = buildAssistantTurnModel(parts)!.rows;
+    const delegations = rows.filter((r) => r.kind === 'delegation');
+    expect(delegations).toHaveLength(1);
+    expect(delegations[0]).toMatchObject({ parent: 'main', agent: 'geospatial', task: 'task' });
+    // No spurious second header from the failure conclusion.
+    expect(delegations.map((r) => (r as { agent: string }).agent)).toEqual(['geospatial']);
   });
 
   it('renders explicit child return handoffs from completed delegation events', () => {

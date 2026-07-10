@@ -301,10 +301,6 @@ function clip(s: string, max: number): string {
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
 }
 
-function delegationKey(parent: string, agent: string, task: string): string {
-  return `${parent}->${agent}->${task.replace(/\s+/g, ' ').trim()}`;
-}
-
 /** Agent of a part — the emitter. `expert_handoff` headers belong to the CHILD
  *  (the delegated-to agent) so the header indents with the child's work. */
 function partAgent(part: PartLike): string {
@@ -395,10 +391,6 @@ export function buildAssistantTurnModel(
   const rows: TurnRow[] = [];
   // Tool rows indexed by call_id so a later tool_result joins its tool_call.
   const toolByCall = new Map<string, ToolRow>();
-  // Dedup delegation headers: a backend emits started + completed + resumed for
-  // the same (parent → child); we keep ONE header (the first seen).
-  const seenDelegation = new Set<string>();
-  const lastDelegationKeyByPair = new Map<string, string>();
 
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
@@ -428,28 +420,15 @@ export function buildAssistantTurnModel(
         cleanProse(str(part.metadata?.['question'])) ||
         cleanProse(str(part.metadata?.['input'])) ||
         cleanProse(str(part.metadata?.['output_summary']));
-      const pairKey = `${parent}->${agent}`;
-      let key = delegationKey(parent, agent, task);
       if (stage === 'delegate.completed' || stage === 'completed') {
-        // The dspy.extract that precedes this return (its SDK thinking host + the
-        // `reasoning` text) renders in the flow like every other turn — thinking on
-        // top, streaming — NOT folded onto the return. Folding bound it to the return,
-        // which only exists at the very END of the turn, so it could not stream in.
-        // The return stays a clean one-liner (`↩ child returns to parent · show details`).
-        if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
-        if (!seenDelegation.has(key)) {
-          seenDelegation.add(key);
-          lastDelegationKeyByPair.set(pairKey, key);
-          rows.push({
-            kind: 'delegation',
-            id: `delegation-${id}`,
-            depth: depthOf(parent),
-            parent,
-            agent,
-            task,
-            status: str(part.status) || str(part.metadata?.['status']) || 'completed',
-          });
-        }
+        // The delegation's terminal RETURN lane. The server mints exactly ONE header
+        // per delegation at `delegate.started` and routes every conclusion — success
+        // AND failure (a failed delegation carries stage `delegate.completed` with
+        // status `failed`) — here (#882), so a concluded delegation contributes only
+        // its return + tool rows, never a second header. The client is a verbatim
+        // renderer (#880): no dedup. The preceding dspy.extract (SDK thinking host +
+        // `reasoning`) streams in the flow like every other turn; the return stays a
+        // clean one-liner (`↩ child returns to parent · show details`).
         rows.push(...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id));
         rows.push({
           kind: 'return',
@@ -466,9 +445,6 @@ export function buildAssistantTurnModel(
         });
         continue;
       }
-      if (seenDelegation.has(key)) continue;
-      seenDelegation.add(key);
-      lastDelegationKeyByPair.set(pairKey, key);
       rows.push({
         kind: 'delegation',
         // The delegation is the PARENT's turn (its decision to hand off), so it
