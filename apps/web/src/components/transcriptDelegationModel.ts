@@ -107,15 +107,28 @@ export interface RoutingRow {
   source: string;
 }
 
-/** A child agent's structured hand-back to its parent. */
+/** A child agent's hand-back to its parent. The return contract is exactly two
+ *  fields — `{ output/answer , workflow_state }` (#885): `output` is the child's
+ *  parent-bound answer BYTE-FOR-BYTE (never a server-authored summary), and
+ *  `workflow_state` rides on the row as a typed carrier (not rendered in the
+ *  disclosure). A FAILED return carries `output === ''` and the failure surfaces
+ *  from the typed `status`/`error` fields (#882) — the client never reads a
+ *  server-synthesized failure sentence out of `output`. */
 export interface ReturnRow {
   kind: 'return';
   id: string;
   depth: number;
   agent: string;
   parent: string;
-  text: string;
-  raw: string;
+  /** The child's parent-bound answer, VERBATIM. `''` on failure. May legitimately
+   *  be a bare JSON body when the child's deliverable is structured — the client
+   *  renders it verbatim behind `show more` and never filters/summarizes it. */
+  output: string;
+  /** Typed delegation status (`completed` | `failed` | …). Drives the failure
+   *  render when `output` is empty. */
+  status?: string;
+  /** Typed failure detail (`error`/`message`) surfaced when the child failed. */
+  error?: string;
   chars?: number;
   tokens?: number;
   providerThinking?: ProviderThinking;
@@ -169,6 +182,13 @@ interface PartLike {
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/** Whether a TYPED delegation `status` enum denotes a failure. Keys on the
+ *  structured status field (`failed`/`error`/`blocked`), NOT on model prose — a
+ *  failed return renders from typed fields (#882), never from scraped text. */
+export function isFailedStatus(status: string | undefined): boolean {
+  return !!status && /fail|block|error/i.test(status);
 }
 
 /** Trim an agent's prose. The client is a VERBATIM renderer (epic #880): the
@@ -285,15 +305,15 @@ function rawResultString(result: unknown): string {
   }
 }
 
-function firstNonEmptyRaw(...values: unknown[]): unknown {
-  for (const value of values) {
-    if (typeof value === 'string') {
-      if (value.trim()) return value;
-      continue;
-    }
-    if (value != null) return value;
-  }
-  return undefined;
+/** Read a delegation return's `output` as the child's answer, VERBATIM (#885).
+ *  A string passes through byte-for-byte (no trim — `show more` is byte-for-byte
+ *  the child's parent-bound answer); a non-string deliverable is serialized once.
+ *  There is NO field-picking, summarizing, or cleaning — whatever the child
+ *  returned is what the row stores and the UI shows. */
+function readOutput(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  return rawResultString(value);
 }
 
 function clip(s: string, max: number): string {
@@ -418,8 +438,7 @@ export function buildAssistantTurnModel(
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
       const task =
         cleanProse(str(part.metadata?.['question'])) ||
-        cleanProse(str(part.metadata?.['input'])) ||
-        cleanProse(str(part.metadata?.['output_summary']));
+        cleanProse(str(part.metadata?.['input']));
       if (stage === 'delegate.completed' || stage === 'completed') {
         // The delegation's terminal RETURN lane. The server mints exactly ONE header
         // per delegation at `delegate.started` and routes every conclusion — success
@@ -430,18 +449,24 @@ export function buildAssistantTurnModel(
         // `reasoning`) streams in the flow like every other turn; the return stays a
         // clean one-liner (`↩ child returns to parent · show details`).
         rows.push(...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id));
+        const status = str(part.status) || str(part.metadata?.['status']);
+        const error = str(part.metadata?.['error']) || str(part.metadata?.['message']);
         rows.push({
           kind: 'return',
           id: `return-${id}`,
           depth: depthOf(agent),
           agent,
           parent,
-          text: cleanProse(str(part.metadata?.['output_summary'])),
-          // The "details" raw mirrors the live return's `response`: the GENUINE
-          // structured output (empty for prose). Sourcing it from output_raw keeps
-          // reload identical to live — no falling back to workflow_state, which
-          // would surface a "details" toggle live-hidden turns don't have.
-          raw: rawResultString(firstNonEmptyRaw(part.metadata?.['output_raw'])),
+          // `output` is the child's parent-bound answer, BYTE-FOR-BYTE (#885): the
+          // sole content field, shown VERBATIM behind `show more`. It is NOT a
+          // server-authored summary and NOT re-cleaned here — a structured
+          // deliverable renders as the exact bytes the child returned (a bare JSON
+          // body is legitimate). A failed return carries `output === ''`; the
+          // failure rides the typed `status`/`error` fields, never a synthesized
+          // sentence scraped back out of `output`.
+          output: readOutput(part.metadata?.['output']),
+          ...(status ? { status } : {}),
+          ...(error ? { error } : {}),
         });
         continue;
       }
@@ -455,9 +480,10 @@ export function buildAssistantTurnModel(
         depth: depthOf(parent),
         parent,
         agent,
-        // The delegated task: the question sent down, else a backend-provided
-        // handoff summary (older shape). Rendered VERBATIM (epic #880): the server
-        // owns the clean stream, so cleanProse only trims — no scaffolding scrub.
+        // The delegated task: the question sent down, else the raw `input`. There
+        // is NO `output_summary` fallback (removed with the summary layer, #885).
+        // Rendered VERBATIM (epic #880): the server owns the clean stream, so
+        // cleanProse only trims — no scaffolding scrub.
         task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
       });
@@ -619,9 +645,13 @@ export function messageSearchTexts(msg: Message): string[] {
 export function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
   return rows.filter((row) => {
     if (row.kind === 'return') {
-      // A return row with neither a summary nor structured details is empty chrome.
-      if (!row.text.trim() && !row.raw.trim()) return false;
-      return true;
+      // Keep a return that carries the child's answer (`output`) OR a failure
+      // conclusion (empty `output` but a typed `error`/failed `status`, #882).
+      // Drop only empty chrome. This keys on emptiness + typed status, never on
+      // model wording.
+      if (row.output.trim()) return true;
+      if (row.error?.trim()) return true;
+      return isFailedStatus(row.status);
     }
     if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
     const body = row.text.trim();

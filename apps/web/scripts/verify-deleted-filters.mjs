@@ -83,9 +83,12 @@ function matches(check, text) {
 }
 
 /**
- * Every string a USER can see. Deliberately narrow: structured carriers
- * (workflow_state, output_raw, tool results) are typed parts the renderer never
- * treats as prose, so a JSON body there is correct, not a leak.
+ * Every string a USER can see AS PROSE. Deliberately narrow: structured carriers
+ * (workflow_state, tool results) are typed parts the renderer never treats as
+ * prose, so a JSON body there is correct, not a leak. The delegation return's
+ * `output` is likewise NOT scanned — after #885 it carries the child's answer
+ * BYTE-FOR-BYTE (a bare JSON body is legitimate, shown verbatim behind `show
+ * more`), so the isBareJsonBody predicate must not be applied to it.
  */
 function* visibleStrings(messages) {
   for (const message of messages) {
@@ -95,10 +98,10 @@ function* visibleStrings(messages) {
         yield { where: `${message.id}/${part.id ?? type}:${type}.text`, text: part.text ?? '' };
       }
       if (type === 'expert_handoff') {
-        // The delegation header's task line and the return's one-liner both render verbatim.
+        // The delegation header's task line renders verbatim as prose. The return's
+        // `output` is a verbatim answer carrier (may be bare JSON), not prose — not scanned.
         const meta = part.metadata ?? {};
         yield { where: `${message.id}/${part.id ?? type}:handoff.text`, text: part.text ?? '' };
-        yield { where: `${message.id}/${part.id ?? type}:handoff.output_summary`, text: meta.output_summary ?? '' };
         yield { where: `${message.id}/${part.id ?? type}:handoff.question`, text: meta.question ?? '' };
       }
       if (type === 'tool_call' && part.thought) {

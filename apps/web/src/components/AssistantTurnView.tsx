@@ -37,6 +37,7 @@ import type {
   ToolRow,
   TurnRow,
 } from './transcriptDelegationModel.js';
+import { isFailedStatus } from './transcriptDelegationModel.js';
 import {
   ToolResultView,
   type ReadWorkspaceImage,
@@ -550,19 +551,17 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
   const row = () => props.row;
   const [open, setOpen] = createSignal(false);
   // A return is a COLLAPSED one-liner: `↩ child returns to parent  thinking ▾
-  // show details ▾`. Nothing is shown by default. Two independent disclosures sit
-  // on the line: "thinking" (the reasoning the child's turn used) and "show
-  // details" (the return content — the readable summary, plus the raw payload
-  // when it carries more than the summary).
+  // show more ▾`. The return contract is exactly `{ output/answer, workflow_state }`
+  // (#885): `show more` reveals the child's parent-bound answer BYTE-FOR-BYTE —
+  // one field, no server-authored summary, no separate raw payload. A FAILED
+  // return has empty `output`; its failure surfaces inline from the typed
+  // `status`/`error` fields (#882), never a synthesized sentence.
   const thinking = () => row().providerThinking;
-  const hasContent = () => row().text.trim().length > 0 || row().raw.trim().length > 0;
-  const showRaw = () => {
-    const raw = row().raw.trim();
-    return raw.length > 0 && raw !== row().text.trim();
-  };
+  const output = () => row().output.trim();
+  const isErr = () => isFailedStatus(row().status) || (row().error?.trim().length ?? 0) > 0;
   const detailsCount = () => {
     if (row().tokens != null) return `${row().tokens} tokens`;
-    const chars = row().chars ?? (row().text || row().raw).length;
+    const chars = row().chars ?? row().output.length;
     return `${chars} chars`;
   };
   return (
@@ -580,17 +579,20 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
           <span class="trx-row__marker trx-row__marker--return" aria-hidden="true">
             ↩
           </span>
-          <span class="trx-row__owner">
+          <span class="trx-row__owner" classList={{ 'is-err': isErr() }}>
             <span class="trx-row__agent">{row().agent}</span>
             <span class="trx-row__arrow" aria-hidden="true">
               returns to
             </span>
             <span class="trx-row__agent">{row().parent}</span>
           </span>
+          <Show when={isErr() && row().status}>
+            <span class="trx-row__status is-err">{row().status}</span>
+          </Show>
           <Show when={thinking()}>
             {(t) => <ProviderThinkingDisclosure thinking={t()} />}
           </Show>
-          <Show when={hasContent()}>
+          <Show when={output().length > 0}>
             <button
               type="button"
               class="trx-return__toggle"
@@ -601,20 +603,21 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
                 setOpen((v) => !v);
               }}
             >
-              {open() ? 'hide details' : `show details (${detailsCount()})`}
+              {open() ? 'hide details' : `show more (${detailsCount()})`}
             </button>
           </Show>
         </div>
-        <Show when={open() && hasContent()}>
+        <Show when={isErr() && row().error?.trim()}>
+          <div class="trx-row__task" data-testid="assistant-turn-return-error">
+            <span class="trx-tool__result-gutter" aria-hidden="true">
+              ⎿
+            </span>
+            <span>{row().error}</span>
+          </div>
+        </Show>
+        <Show when={open() && output().length > 0}>
           <div class="trx-row__body trx-row__body--return" data-testid="assistant-turn-return-body">
-            <Show when={row().text}>
-              <Markdown text={row().text} />
-            </Show>
-            <Show when={showRaw()}>
-              <pre class="trx-return__raw" data-testid="assistant-turn-return-raw">
-                {row().raw}
-              </pre>
-            </Show>
+            <Markdown text={row().output} />
           </div>
         </Show>
       </section>

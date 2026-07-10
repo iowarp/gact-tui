@@ -133,12 +133,14 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     expect(delegations.map((r) => (r as { agent: string }).agent)).toEqual(['geospatial']);
   });
 
-  it('renders explicit child return handoffs from completed delegation events', () => {
+  it('renders a completed delegation return carrying the child answer VERBATIM on `output`', () => {
     const parts = [
       handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
       {
         ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
-        metadata: { output_summary: 'Region resolved and ready.' },
+        // #885: the return carries the child's answer on `output`, not a
+        // server-authored `output_summary`.
+        metadata: { output: 'Region resolved and ready.' },
       } as unknown as Part,
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
@@ -148,9 +150,68 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
         agent: 'geospatial',
         parent: 'main',
         depth: 1,
-        text: 'Region resolved and ready.',
+        output: 'Region resolved and ready.',
       }),
     ]);
+  });
+
+  it('stores `output` BYTE-FOR-BYTE for a STRUCTURED (JSON) child answer — no field-picking, no summary, no clean (#885)', () => {
+    // The child's deliverable is a bare JSON body. The return row must STORE those
+    // exact bytes on `output` — the row is the value the UI renders verbatim behind
+    // `show more`. This goes RED if the server-authored blanking/summary layer is
+    // ever restored client-side (output re-picked to a one-liner, cleaned, or dropped
+    // because it "looks structured").
+    const jsonAnswer =
+      '{"REGION_LABEL":"Los Angeles, CA, USA","CENTER_LAT":34.0522,"CENTER_LON":-118.2437,"RADIUS_KM":50,"CONFIDENCE":"high"}';
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: jsonAnswer, workflow_state: { geospatial: { center_lat: 34.0522 } } },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // Byte-for-byte: the stored value IS the child's JSON answer, unchanged.
+    expect(ret.output).toBe(jsonAnswer);
+  });
+
+  it('a FAILED return has empty `output`; the failure rides typed status/error, and the row is KEPT (#882/#885)', () => {
+    const parts = [
+      handoff('a', 'main', 'data', 'delegate.started', 'task'),
+      {
+        type: 'expert_handoff',
+        id: 'b',
+        agent_id: 'main',
+        parent_agent: 'main',
+        child_agent: 'data',
+        stage: 'delegate.completed',
+        status: 'failed',
+        // #885: no server-authored failure sentence in `output`; the failure is typed.
+        metadata: { stage: 'delegate.completed', output: '', error: '_UnsupportedSessionAgent: data' },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(ret).toBeTruthy();
+    expect(ret.output).toBe('');
+    expect(ret.status).toBe('failed');
+    expect(ret.error).toBe('_UnsupportedSessionAgent: data');
+  });
+
+  it('drops an EMPTY return (no output, no failure) as structural chrome', () => {
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        status: 'completed',
+        metadata: { output: '' },
+      } as unknown as Part,
+    ];
+    const returns = buildAssistantTurnModel(parts)!.rows.filter((r) => r.kind === 'return');
+    expect(returns).toHaveLength(0);
   });
 
   it('PAIRS a tool_call with its tool_result by call_id into one tool row', () => {
@@ -320,7 +381,7 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
         child_agent: 'geospatial',
         stage: 'delegate.completed',
         status: 'completed',
-        metadata: { output_summary: 'Resolved Los Angeles to a bounded region.' },
+        metadata: { output: 'Resolved Los Angeles to a bounded region.' },
       } as unknown as Part,
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;

@@ -89,7 +89,7 @@ describe('Transcript', () => {
     expect(current!.getAttribute('data-match-key')).toBe('a:1');
   });
 
-  it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {
+  it('renders a FAILED delegation return from TYPED status/error fields, empty output (#885)', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -103,13 +103,16 @@ describe('Transcript', () => {
                 metadata: {
                   parent_id: 'main',
                   agent_id: 'data',
+                  child_agent: 'data',
+                  parent_agent: 'main',
+                  stage: 'delegate.completed',
                   status: 'failed',
-                  // SERVER-REALISTIC input: the server emits an already-scrubbed
-                  // prose summary (delegation.py::_failed_child_delegation_output_summary);
-                  // the failure's typed workflow_state travels STRUCTURALLY on the
-                  // row, never serialized into this human-readable text (#880). The
-                  // client renders this prose VERBATIM.
-                  output_summary:
+                  // #885: the server no longer authors a failure sentence into
+                  // `output`/`output_summary`. `output` is empty; the failure rides
+                  // the TYPED `status`/`error` fields, which the client renders. The
+                  // typed workflow_state travels structurally on the row.
+                  output: '',
+                  error:
                     "Child expert 'data' failed while delegated from 'main': _UnsupportedSessionAgent. data",
                 },
               },
@@ -118,16 +121,17 @@ describe('Transcript', () => {
         ]}
       />
     ));
-    // The delegation renders as an indented step (agent + status) with the real
-    // prose; the workflow_state JSON / "Raw state" card is gone (stripped).
-    const step = screen.getByTestId('assistant-turn-step');
-    expect(step).toBeTruthy();
-    expect(step.textContent).toContain('data');
-    expect(step.textContent).toContain('failed');
-    expect(step.textContent).toContain("Child expert 'data' failed");
+    // The failed return renders its typed status + error; there is no server-authored
+    // summary prose, no workflow_state JSON, no "Raw state" card.
+    const ret = screen.getByTestId('assistant-turn-return');
+    expect(ret).toBeTruthy();
+    expect(ret.textContent).toContain('data');
+    expect(ret.textContent).toContain('failed');
+    expect(ret.textContent).toContain("Child expert 'data' failed");
+    expect(screen.getByTestId('assistant-turn-return-error')).toBeTruthy();
     expect(screen.queryByText('Raw state')).toBeNull();
     expect(screen.queryByTestId('workflow-state-card')).toBeNull();
-    expect(step.textContent).not.toContain('workflow_state');
+    expect(ret.textContent).not.toContain('workflow_state');
   });
 
   it('keeps a turn-level workflow blocker visible after the final answer text', () => {

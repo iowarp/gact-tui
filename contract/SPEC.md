@@ -553,18 +553,26 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > **Delegation / expert-handoff return envelope** (clio): the terminal
 > part of a delegated (sub)agent's turn carries the `expert_handoff`
 > envelope on `metadata` — the vendor fields a transcript client reads to
-> render a `↩ child returns to parent` row. Keys: `agent_id`; `stage`
-> (e.g. `"delegate.completed"` | `"parent.resumed"`); `status` (e.g.
-> `"completed"`); `resumed_from` (the stage a parent resumed from, when
-> applicable); `output` (the terminal deliverable, a copy of the `answer`
-> text); `output_summary` (the cleaned one-line summary of `output`);
-> `output_raw` (the structured child result — JSON for data/analysis
-> returns, empty for prose returns); and `workflow_state` (the typed
-> workflow dictionary, also surfaced on the message per §4.4). The
-> remaining keys (`delegate_to`, `question`, `thought`, `depth`,
-> `duration_ms`, `pack_id`, `provider_id`, `model_id`, …) are routing /
-> bookkeeping. Generic clients ignore the envelope; it is a clio vendor
-> extension.
+> render a `↩ child returns to parent` row. The return contract is exactly
+> two fields: **`output`** and **`workflow_state`**. `output` is the child's
+> parent-bound answer **BYTE-FOR-BYTE** — the exact `answer`/deliverable the
+> child returned, never a server-authored summary or a re-formatted view of
+> it. When the child's deliverable is structured, `output` legitimately
+> carries a bare JSON body; a client renders it VERBATIM (behind a `show
+> more` disclosure) and MUST NOT filter, summarize, or re-shape it.
+> `workflow_state` is the typed workflow dictionary (also surfaced on the
+> message per §4.4) — a typed carrier on the row, not rendered as the answer.
+> A **failed** return carries `output: ""` and surfaces the failure through
+> the typed fields `status: "failed"`, `error`, and `message`; a client
+> renders the failure from those typed fields and never expects failure prose
+> in `output`. The other keys — `agent_id`; `stage` (e.g.
+> `"delegate.completed"` | `"parent.resumed"`); `status`; `resumed_from`;
+> `error`/`message` (on failure); and `delegate_to`, `question`, `thought`,
+> `depth`, `duration_ms`, `pack_id`, `provider_id`, `model_id`, … — are
+> routing / bookkeeping. Generic clients ignore the envelope; it is a clio
+> vendor extension. (There is no `output_summary` or `output_raw` key: the
+> server-authored summary layer was removed in clio #885 — `output` is the
+> single, verbatim answer field.)
 >
 > **Delegation lifecycle: one header, one conclusion** (clio). A single
 > delegation emits exactly ONE `expert_handoff` part with `stage:
@@ -2478,14 +2486,23 @@ The web client has **no transitional prose/shape presentation filters left**. Ep
 `isOrchestrationPlaceholder`, `isBareJsonBody`, and `hasPriorAnswerRow` — together
 with their `presentationFilters.ts` home, plus a fifth handoff-summary scrub
 (`dropBareJsonSummary`) that had lived separately in `transcriptDelegationModel.ts`
-and dropped a handoff `output_summary` whose whole body was JSON. Each became
-provably dead once the server-side root fixes landed: structured state rides typed
-non-`text` parts; the completed-return `output_summary` is server-rendered to a
-readable one-liner and can never be a bare JSON body (clio
-`return_summary.py::public_return_summary` is the seam that converts any structured
-answer to a summary field, `key: value` scalars, or `""`, never verbatim JSON); the
-double-answer is collapsed at source; the `answer` field defaults to `""` so routers
-no longer fabricate placeholder prose.
+and dropped a handoff `output_summary` whose whole body was JSON. The first four
+became dead once the server-side root fixes landed: structured state rides typed
+non-`text` parts; the double-answer is collapsed at source; the `answer` field
+defaults to `""` so routers no longer fabricate placeholder prose.
+
+`dropBareJsonSummary`'s original rationale — "the completed-return `output_summary`
+is server-rendered to a readable one-liner and can never be a bare JSON body" — is
+now **wrong and retired**. clio #885 removed the server-authored summary layer
+entirely (`return_summary.py`, `output_summary`, `output_raw` — all deleted). The
+delegation return contract is now exactly `{ output, workflow_state }`, where
+`output` is the child's answer **byte-for-byte** (§4.5). When a child's deliverable
+is structured, the wire therefore **legitimately** carries a **bare JSON body in
+`output`**, shown VERBATIM behind the return's `show more` disclosure. The client
+renders those bytes exactly and MUST NOT filter, summarize, or pretty-rewrite them —
+so `dropBareJsonSummary` and `isBareJsonBody` are not just dead, they would be
+**wrong to restore**: they would delete a legitimate answer. (Pretty-*printing* JSON
+is a permissible render choice; the byte content in the data model must be preserved.)
 
 The last dedup went with them: `seenDelegation` (with `delegationKey` and
 `lastDelegationKeyByPair`) collapsed the `started` + `failed` handoff pair into one
@@ -2500,7 +2517,7 @@ The one surviving row is not a prose heuristic — it is a permanent structural 
 
 | Filter | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
 | --- | --- | --- | --- | --- |
-| `filterVisibleRows` | structural | a row with no renderable content: an empty `return` row (no summary and no structured details), or an empty `text`/`reasoning` row that is not a live thinking host | Skips rows that would paint nothing; behaves IDENTICALLY live and reloaded (no streaming branch, no prose/shape predicates) | Not transitional — a permanent structural empty-row skip, keyed on emptiness alone, never on model wording |
+| `filterVisibleRows` | structural | a row with no renderable content: a `return` row with empty `output` AND no typed failure (no `error`, non-failed `status`), or an empty `text`/`reasoning` row that is not a live thinking host | Skips rows that would paint nothing; behaves IDENTICALLY live and reloaded (no streaming branch, no prose/shape predicates) | Not transitional — a permanent structural empty-row skip, keyed on emptiness + typed status alone, never on model wording |
 
 ### TUI client (`tui/internal/ui`)
 
