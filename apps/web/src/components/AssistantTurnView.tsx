@@ -38,6 +38,7 @@ import type {
   TurnRow,
 } from './transcriptDelegationModel.js';
 import { isFailedStatus } from './transcriptDelegationModel.js';
+import { WorkflowContractIcon } from './WorkflowContractIcon.js';
 import {
   ToolResultView,
   type ReadWorkspaceImage,
@@ -320,6 +321,14 @@ function DelegationRowView(props: { row: DelegationRow; showAgent: boolean }) {
           </span>
           <Show when={isErr()}>
             <span class="trx-row__status is-err">{row().status}</span>
+          </Show>
+          {/* #305: the typed workflow contract passed DOWN to the child, shown as a
+              document icon ONLY when the call row carries a non-empty state (arrives
+              on delegate.started via clio-agent #888; absent → no icon). */}
+          <Show when={row().workflowState}>
+            {(state) => (
+              <WorkflowContractIcon state={state()} child={row().agent} direction="call" />
+            )}
           </Show>
         </div>
         <Show when={row().task}>
@@ -605,6 +614,13 @@ function ReturnRowView(props: { row: ReturnRow; showAgent: boolean }) {
             >
               {open() ? 'hide details' : `show more (${detailsCount()})`}
             </button>
+          </Show>
+          {/* #305: the typed workflow contract handed back UP to the parent, shown as
+              a document icon ONLY when the return row carries a non-empty state. */}
+          <Show when={row().workflowState}>
+            {(state) => (
+              <WorkflowContractIcon state={state()} child={row().agent} direction="return" />
+            )}
           </Show>
         </div>
         <Show when={isErr() && row().error?.trim()}>

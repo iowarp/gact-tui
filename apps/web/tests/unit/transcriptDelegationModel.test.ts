@@ -517,6 +517,89 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     expect(messageSearchTexts(msg)).toEqual([body]);
   });
 
+  it('surfaces the typed workflow_state onto the RETURN row when the completed handoff carries a non-empty object (#305)', () => {
+    const ws = { geospatial: { provenance: 'osm_nominatim' }, acquisition: { status: 'pending' } };
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'Resolved LA.', workflow_state: ws },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // The exact typed object is surfaced verbatim (no field-picking / reshaping).
+    expect(ret.workflowState).toEqual(ws);
+    expect((ret.workflowState as { geospatial: { provenance: string } }).geospatial.provenance).toBe(
+      'osm_nominatim',
+    );
+  });
+
+  it('leaves workflowState UNDEFINED on a return with no workflow_state, and on an EMPTY {} state (#305 — icon renders only for real state)', () => {
+    const noState = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done' },
+      } as unknown as Part,
+    ];
+    const retNo = buildAssistantTurnModel(noState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(retNo.workflowState).toBeUndefined();
+
+    const emptyState = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done', workflow_state: {} },
+      } as unknown as Part,
+    ];
+    const retEmpty = buildAssistantTurnModel(emptyState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // An empty {} carries no information → no icon → undefined on the row.
+    expect(retEmpty.workflowState).toBeUndefined();
+  });
+
+  it('surfaces workflow_state onto the CALL (delegation) row when the started handoff carries it (clio-agent #888), else leaves it undefined (#305)', () => {
+    const ws = { orchestration_stage: 'geospatial', user_request_summary: 'find LA stations' };
+    // WITH state on delegate.started (the #888 wire): the call row exposes it.
+    const withState = [
+      {
+        ...handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+        metadata: { question: 'task', workflow_state: ws },
+      } as unknown as Part,
+    ];
+    const callWith = buildAssistantTurnModel(withState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'delegation' }> => r.kind === 'delegation',
+    )!;
+    expect(callWith.workflowState).toEqual(ws);
+
+    // TODAY'S wire (no state on delegate.started): the call row leaves it undefined,
+    // so the contract icon simply doesn't render — structural degradation, no error.
+    const withoutState = [handoff('a', 'main', 'geospatial', 'delegate.started', 'task')];
+    const callWithout = buildAssistantTurnModel(withoutState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'delegation' }> => r.kind === 'delegation',
+    )!;
+    expect(callWithout.workflowState).toBeUndefined();
+  });
+
+  it('does NOT treat a non-object workflow_state (string / array) as a contract (#305)', () => {
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done', workflow_state: 'not-an-object' },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(ret.workflowState).toBeUndefined();
+  });
+
   it('emits row kinds in order: text, delegation, tool, text', () => {
     const parts = [
       text('a', 'main', 'orchestrating'),

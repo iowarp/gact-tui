@@ -60,6 +60,12 @@ export interface DelegationRow {
   task: string;
   status: string;
   providerThinking?: ProviderThinking;
+  /** The typed workflow contract PASSED DOWN to the child on this call, carried
+   *  on `metadata.workflow_state` of the `delegate.started` part (the snapshot
+   *  the server attaches via clio-agent #888). Present ONLY when a non-empty
+   *  object; the #305 contract icon renders off this. Older wires don't carry it
+   *  on started rows, so it is `undefined` and the icon simply doesn't render. */
+  workflowState?: Record<string, unknown>;
 }
 
 /** An agent's prose (markdown, in full). */
@@ -132,6 +138,11 @@ export interface ReturnRow {
   chars?: number;
   tokens?: number;
   providerThinking?: ProviderThinking;
+  /** The typed workflow contract RETURNED UP to the parent, carried on
+   *  `metadata.workflow_state` of the `delegate.completed` part. Present ONLY
+   *  when a non-empty object; the #305 contract icon renders off this. Never
+   *  rendered as the answer (that is `output`, #885) — a typed carrier only. */
+  workflowState?: Record<string, unknown>;
 }
 
 /** Any non-delegation, non-text part rendered by its own per-type view. */
@@ -316,6 +327,18 @@ function readOutput(value: unknown): string {
   return rawResultString(value);
 }
 
+/** Read the typed `workflow_state` carrier off a handoff's metadata. Returns the
+ *  object ONLY when it is a NON-EMPTY plain object — an absent, null, non-object,
+ *  or empty (`{}`) state yields `undefined`, so the #305 contract icon renders
+ *  exactly when there is real state to show (and degrades to nothing on older
+ *  wires that omit it). No field-picking or reshaping: the exact typed object is
+ *  surfaced onto the row, byte content preserved for the popup. */
+function readWorkflowState(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  return Object.keys(obj).length > 0 ? obj : undefined;
+}
+
 function clip(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
@@ -467,6 +490,12 @@ export function buildAssistantTurnModel(
           output: readOutput(part.metadata?.['output']),
           ...(status ? { status } : {}),
           ...(error ? { error } : {}),
+          // The typed workflow contract returned UP to the parent (#305). A typed
+          // carrier only — surfaced verbatim onto the row for the contract icon,
+          // never rendered as the answer (that is `output`, #885).
+          ...(readWorkflowState(part.metadata?.['workflow_state'])
+            ? { workflowState: readWorkflowState(part.metadata?.['workflow_state'])! }
+            : {}),
         });
         continue;
       }
@@ -486,6 +515,12 @@ export function buildAssistantTurnModel(
         // cleanProse only trims — no scaffolding scrub.
         task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
+        // The typed workflow contract PASSED DOWN to the child on this call (#305),
+        // attached to the `delegate.started` part by clio-agent #888. Absent on
+        // older wires → `undefined` → the contract icon simply doesn't render.
+        ...(readWorkflowState(part.metadata?.['workflow_state'])
+          ? { workflowState: readWorkflowState(part.metadata?.['workflow_state'])! }
+          : {}),
       });
       continue;
     }

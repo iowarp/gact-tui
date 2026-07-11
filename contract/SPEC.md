@@ -562,6 +562,14 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > more` disclosure) and MUST NOT filter, summarize, or re-shape it.
 > `workflow_state` is the typed workflow dictionary (also surfaced on the
 > message per §4.4) — a typed carrier on the row, not rendered as the answer.
+> It rides BOTH ends of a delegation: on the `delegate.completed` part it is the
+> state the child handed back UP, and on the `delegate.started` part it is the
+> snapshot the parent passed DOWN to the child (the started-row carrier is added
+> by clio-agent#888; older wires omit it on `delegate.started`). A transcript
+> client MAY surface it as an on-demand affordance on either row — e.g. the
+> gact-tui web contract icon (iowarp/gact-tui#305) — but MUST NOT render it raw
+> in the flow; when the key is absent or an empty object the affordance simply
+> does not appear.
 > A **failed** return carries `output: ""` and surfaces the failure through
 > the typed fields `status: "failed"`, `error`, and `message`; a client
 > renders the failure from those typed fields and never expects failure prose
