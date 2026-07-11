@@ -41,8 +41,14 @@ const RETAINED_EVIDENCE_LINE =
   /^\s*(?:\[\.\.\.delegation output truncated; exact evidence retained below\.\.\.\]|\[exact retained evidence index\])\s*$/gim;
 /** `transcriptDelegationModel.ts` — the `A -> B | status |` de-merger. */
 const STATUS_PREFIX = /^\s*\S+\s*->\s*\S+\s*\|/;
-/** `[[ ## field ## ]]` ChatAdapter section markers leaking into prose (#877). */
-const SECTION_MARKER = /\[\[\s*##/;
+/** `[[ ## field ## ]]` ChatAdapter section markers leaking into prose (#877).
+ *  LINE-START anchored, mirroring clio's #877 detector (`_CONTRACT_HEADER_RE`,
+ *  `(?:\A|\n)[ \t]*\[\[ ## \w+ ## ]]`) and DSPy's own field-header grammar: a
+ *  marker at line start is a leaked contract header; the model *talking about*
+ *  its markers inline (e.g. "they want me to respond with `[[ ## next_thought
+ *  ## ]]`" — observed verbatim on the Gate 1 LA wire, 2026-07-11) is genuine
+ *  reasoning content that must render verbatim, not a leak. */
+const SECTION_MARKER = /(^|\n)[ \t]*\[\[ ## \w+ ## \]\]/;
 
 /** `isBareJsonBody` — the whole trimmed body parses as a JSON object/array. */
 function isBareJsonBody(text) {
