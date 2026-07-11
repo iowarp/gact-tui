@@ -553,18 +553,50 @@ The content of a message is an ordered list of typed parts. The discriminator is
 > **Delegation / expert-handoff return envelope** (clio): the terminal
 > part of a delegated (sub)agent's turn carries the `expert_handoff`
 > envelope on `metadata` — the vendor fields a transcript client reads to
-> render a `↩ child returns to parent` row. Keys: `agent_id`; `stage`
-> (e.g. `"delegate.completed"` | `"parent.resumed"`); `status` (e.g.
-> `"completed"`); `resumed_from` (the stage a parent resumed from, when
-> applicable); `output` (the terminal deliverable, a copy of the `answer`
-> text); `output_summary` (the cleaned one-line summary of `output`);
-> `output_raw` (the structured child result — JSON for data/analysis
-> returns, empty for prose returns); and `workflow_state` (the typed
-> workflow dictionary, also surfaced on the message per §4.4). The
-> remaining keys (`delegate_to`, `question`, `thought`, `depth`,
-> `duration_ms`, `pack_id`, `provider_id`, `model_id`, …) are routing /
-> bookkeeping. Generic clients ignore the envelope; it is a clio vendor
-> extension.
+> render a `↩ child returns to parent` row. The return contract is exactly
+> two fields: **`output`** and **`workflow_state`**. `output` is the child's
+> parent-bound answer **BYTE-FOR-BYTE** — the exact `answer`/deliverable the
+> child returned, never a server-authored summary or a re-formatted view of
+> it. When the child's deliverable is structured, `output` legitimately
+> carries a bare JSON body; a client renders it VERBATIM (behind a `show
+> more` disclosure) and MUST NOT filter, summarize, or re-shape it.
+> `workflow_state` is the typed workflow dictionary (also surfaced on the
+> message per §4.4) — a typed carrier on the row, not rendered as the answer.
+> It rides BOTH ends of a delegation: on the `delegate.completed` part it is the
+> state the child handed back UP, and on the `delegate.started` part it is the
+> snapshot the parent passed DOWN to the child (the started-row carrier is added
+> by clio-agent#888; older wires omit it on `delegate.started`). A transcript
+> client MAY surface it as an on-demand affordance on either row — e.g. the
+> gact-tui web contract icon (iowarp/gact-tui#305) — but MUST NOT render it raw
+> in the flow; when the key is absent or an empty object the affordance simply
+> does not appear.
+> A **failed** return carries `output: ""` and surfaces the failure through
+> the typed fields `status: "failed"`, `error`, and `message`; a client
+> renders the failure from those typed fields and never expects failure prose
+> in `output`. The other keys — `agent_id`; `stage` (e.g.
+> `"delegate.completed"` | `"parent.resumed"`); `status`; `resumed_from`;
+> `error`/`message` (on failure); and `delegate_to`, `question`, `thought`,
+> `depth`, `duration_ms`, `pack_id`, `provider_id`, `model_id`, … — are
+> routing / bookkeeping. Generic clients ignore the envelope; it is a clio
+> vendor extension. (There is no `output_summary` or `output_raw` key: the
+> server-authored summary layer was removed in clio #885 — `output` is the
+> single, verbatim answer field.)
+>
+> **Delegation lifecycle: one header, one conclusion** (clio). A single
+> delegation emits exactly ONE `expert_handoff` part with `stage:
+> "delegate.started"` and exactly ONE concluding part with `stage:
+> "delegate.completed"` — *whatever the outcome*. A **failed** delegation
+> concludes on `delegate.completed` too, carrying `status: "failed"`; the
+> finer-grained `delegate.failed` stage is reported on the message's
+> `metadata.expert_handoffs` row and the `delegation.failed` semantic
+> event, never on a part. `parent.resumed` marks an intermediate
+> orchestrator's structural return twin.
+>
+> A part carries exactly ONE stage: the typed `Part.stage` field, mirrored
+> verbatim onto `metadata.stage` for clients predating the typed field. The
+> two never disagree, so `part.stage || part.metadata.stage` is always the
+> same value. Because the server guarantees one header and one conclusion,
+> a client renders the delegation VERBATIM and MUST NOT dedup handoff parts.
 
 **Streaming deltas** for parts are sent via SSE events (§7.4).
 
@@ -2441,9 +2473,10 @@ text, machine state, or duplicated reasoning onto the stream.
 server, not the client, must de-duplicate and clean the transcript; the client
 renders what it receives. Every row below therefore carries a **deletion
 condition**: once the server stops emitting the corresponding artifact, the
-filter is **deleted, not weakened**. They are centralized so that removal is one
-auditable step per client — the web filters live in
-`apps/web/src/components/presentationFilters.ts`; the TUI filters live in
+filter is **deleted, not weakened**. The web client has already reached the end
+state — epic #880 deleted every web presentation filter and its
+`apps/web/src/components/presentationFilters.ts` home (see the Web client section
+below). The TUI filters remain and live in
 `tui/internal/ui/live_message_normalization.go` (eight normalization stages),
 `tui/internal/ui/presentation/prose_filters.go` (the `CleanProse` chain — the
 Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`), and
@@ -2456,15 +2489,43 @@ freshly-observed backend leak — fix the leak at the server and retire the row.
 
 ### Web client (`apps/web`)
 
+The web client has **no transitional prose/shape presentation filters left**. Epic
+#880 deleted them all — `stripClioScaffolding`, `stripStatusPrefix`,
+`isOrchestrationPlaceholder`, `isBareJsonBody`, and `hasPriorAnswerRow` — together
+with their `presentationFilters.ts` home, plus a fifth handoff-summary scrub
+(`dropBareJsonSummary`) that had lived separately in `transcriptDelegationModel.ts`
+and dropped a handoff `output_summary` whose whole body was JSON. The first four
+became dead once the server-side root fixes landed: structured state rides typed
+non-`text` parts; the double-answer is collapsed at source; the `answer` field
+defaults to `""` so routers no longer fabricate placeholder prose.
+
+`dropBareJsonSummary`'s original rationale — "the completed-return `output_summary`
+is server-rendered to a readable one-liner and can never be a bare JSON body" — is
+now **wrong and retired**. clio #885 removed the server-authored summary layer
+entirely (`return_summary.py`, `output_summary`, `output_raw` — all deleted). The
+delegation return contract is now exactly `{ output, workflow_state }`, where
+`output` is the child's answer **byte-for-byte** (§4.5). When a child's deliverable
+is structured, the wire therefore **legitimately** carries a **bare JSON body in
+`output`**, shown VERBATIM behind the return's `show more` disclosure. The client
+renders those bytes exactly and MUST NOT filter, summarize, or pretty-rewrite them —
+so `dropBareJsonSummary` and `isBareJsonBody` are not just dead, they would be
+**wrong to restore**: they would delete a legitimate answer. (Pretty-*printing* JSON
+is a permissible render choice; the byte content in the data model must be preserved.)
+
+The last dedup went with them: `seenDelegation` (with `delegationKey` and
+`lastDelegationKeyByPair`) collapsed the `started` + `failed` handoff pair into one
+header, because a failed delegation used to conclude on the header lane with stage
+`delegate.failed`. clio #882 made every delegation conclude on `delegate.completed`
+— failures carry `status: "failed"` — so the server now guarantees one header and one
+conclusion (§4.5) and the client counts on it instead of deduping. The web app renders
+the `/v1` stream **verbatim**: zero regex marker-stripping, zero dedup/scrub in the
+render path.
+
+The one surviving row is not a prose heuristic — it is a permanent structural drop:
+
 | Filter | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
 | --- | --- | --- | --- | --- |
-| `stripClioScaffolding` | prose + format | leaked ChatAdapter section markers `[[ ## field ## ]]`; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence truncation markers | Backend glues status chrome and display-only machine state inline into answer/reasoning prose | Server never emits status parentheticals, section markers, or typed-state captions in a `text`/`reasoning` part |
-| `isOrchestrationPlaceholder` | prose | `no user-facing answer yet`; `awaiting …child`; `awaiting …synthesis`; `no evidence yet` / `no evidence is available`; `pending …delegation`; `delegating to …expert`; `routing to synthesis`; `routing to the …expert`; `before routing to synthesis`; `before finishing` | Orchestrator emits placeholder answer text before children return | Server withholds a `text` part until it has real answer content |
-| `isTerminalCompletionReasoning` | prose | completion phrasings (`task is (fully) complete/satisfied`, `all required work …complete`, `all claims …grounded`, `workflow …complete`/`already executed`, `both required children/pipeline stages …returned`, `synthesis has returned`) plus finish phrasings (`i now finish`, `parent finishes`, `finish on the turn`, `carrying …answer`, `no further children`, `no downstream work`) | The parent's terminal "I'm done" reasoning would render as prose after the answer already showed | Server does not surface the finish-turn `next_thought` as a visible `reasoning` part |
-| `isBareJsonBody` | format | a body that is wholly a `JSON.parse`-able object/array | Handoff/summary bodies sometimes arrive as bare machine state, not prose | Server tags structured state as its own (non-`text`) part instead of inlining raw JSON |
-| `hasPriorAnswerRow` | structural (feeds the two above) | a prior `main`/`synthesis` `text` row > 20 chars that is not itself a placeholder/bare-JSON | Gate so completion-reasoning/synthesis-return drops only apply once a real answer has rendered | Retired together with the predicates it guards |
-| `dedupToolThought` | structural/prose | a `tool_call.thought` whose whitespace-normalized body is bidirectionally contained in the nearest same-agent `text`/`reasoning` row | Backend `tool_observer` copies the step `next_thought` onto the tool call, so it renders twice | Server emits each `next_thought` once (`duplicate_suppressed` at source) |
-| `filterVisibleRows` | composer / gate | — (orchestrates the predicates above) | Applies the prose/shape predicates ONLY once a turn is finalized (streaming applies just the structural empty-row drop), and drops empty rows + a `synthesis` return row that repeats a prior answer | Retired when the predicates it composes are all retired |
+| `filterVisibleRows` | structural | a row with no renderable content: a `return` row with empty `output` AND no typed failure (no `error`, non-failed `status`), or an empty `text`/`reasoning` row that is not a live thinking host | Skips rows that would paint nothing; behaves IDENTICALLY live and reloaded (no streaming branch, no prose/shape predicates) | Not transitional — a permanent structural empty-row skip, keyed on emptiness + typed status alone, never on model wording |
 
 ### TUI client (`tui/internal/ui`)
 
@@ -2485,10 +2546,11 @@ Most TUI stages are **structural** (metadata-keyed synthesizers that reconstruct
 parts the stream carried only as message metadata) rather than prose heuristics;
 they are inventoried here because they, too, are transitional shims that
 disappear once the server emits the corresponding first-class parts. The genuine
-prose heuristics — the ones that read model wording — are the `CleanProse`
-chain, `normalizeMessageCompactionSummaries`, `normalizeMessageAdapterSections`,
-and `executionPlaceholderAssistantText` (TUI) and every web row except
-`hasPriorAnswerRow`/`filterVisibleRows`.
+prose heuristics — the ones that read model wording — are now TUI-only: the
+`CleanProse` chain, `normalizeMessageCompactionSummaries`,
+`normalizeMessageAdapterSections`, and `executionPlaceholderAssistantText`. The
+web client has no prose heuristic left (epic #880 deleted them); its sole
+surviving `filterVisibleRows` keys on row emptiness alone, never on model wording.
 
 ---
 

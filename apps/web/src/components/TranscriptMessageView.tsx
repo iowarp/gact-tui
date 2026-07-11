@@ -62,13 +62,10 @@ export function MessageView(props: MessageViewProps) {
   // incremental paint — RENDERING_SPEC).
   const [rows, setRows] = createStore<TurnRow[]>([]);
   createComputed(() => {
-    // streamingPartIdx >= 0 means this assistant message is still in-flight; tell
-    // the builder so the visibility filter doesn't drop main/synthesis rows on
-    // partial text (they'd only pop in when complete). Finalized messages pass
-    // streaming:false → full filter → identical to a reload.
-    const streaming = (props.streamingPartIdx ?? -1) >= 0;
+    // The builder is a pure verbatim projection (epic #880): it renders the same
+    // rows live and reloaded, so it takes no streaming flag. The streaming cursor
+    // is applied downstream from props.streamingPartIdx (below), not in the model.
     const model = buildAssistantTurnModel(props.msg.parts ?? [], {
-      streaming,
       role: isAssistant() ? 'assistant' : 'user',
     });
     setRows(reconcile(model?.rows ?? [], { key: 'id' }));

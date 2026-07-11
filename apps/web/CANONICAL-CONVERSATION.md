@@ -13,6 +13,10 @@ line-by-line in the real wire capture (`clean-earthscope-la.wire.sse`). This is 
   it; the child indents **one level** below. `⤶ returns to X` hands control back.
 - `⎿` — a tool result, indented under its call, showing the **real output**. It
   **collapses only when long** (`▾ … expand`); short results render inline in full.
+- 🗎 — a **workflow-contract** document icon on a `→ delegates`/`⤶ returns` row
+  (owner-approved 2026-07-11, iowarp/gact-tui#305), shown ONLY when the row carries
+  a non-empty typed `workflow_state`; hover reveals the full contract (`→ child` on
+  a call, `← child` on a return), click pins it. The contract is never raw in the flow.
 
 > Where a body reads `⟨text empty in stream — dev-team gap⟩`, the agent ran but its
 > prose/thought was not present in the transcript parts (only the delegation task

@@ -7,16 +7,14 @@ const NORMALIZED_TYPES = new Set([
   'turn.completed',
 ]);
 
-const PUBLIC_LEAK_PATTERNS = [
-  /\[\[\s*##/i,
-  /\bworkflow_state\b/i,
-  /\btyped\s+workflow[_ ]state\b/i,
-  /\bstructured\s+state\b/i,
-  /\bacquisition\.metadata_path\b/i,
-  /\bacquisition\.analysis_ready\b/i,
-  /\bmetadata_path\b/i,
-  /\banalysis_ready\b/i,
-];
+// STRUCTURAL leaks only (post clio #881/#885, owner-approved 2026-07-11): the
+// model's prose legitimately references workflow_state, schema fields, and even
+// fenced state JSON — that is genuine reasoning rendered verbatim, NOT a leak.
+// The one remaining leak class is a DSPy contract header at LINE START in a
+// public field (mirrors clio's #877 `_CONTRACT_HEADER_RE`); an inline backtick
+// mention ("respond with `[[ ## next_thought ## ]]`") is content, observed
+// verbatim on the Gate 1 LA wire.
+const PUBLIC_LEAK_PATTERNS = [/(^|\n)[ \t]*\[\[ ## \w+ ## \]\]/];
 
 function parseArgs(argv) {
   const opts = { outDir: '' };

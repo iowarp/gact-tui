@@ -39,6 +39,144 @@ Everything below in this file is consistent with it; where an older sketch (e.g.
 7. **Model text is always full, never collapsed** (rule §2 / §0.2). Only tool
    output compacts.
 8. **Depth = indentation only.** No boxes, bars, or cards (§2.1).
+9. **Workflow-contract glyph** (owner-approved 2026-07-11, iowarp/gact-tui#305):
+   a small document icon on a delegation CALL row and RETURN row, shown ONLY when
+   that row carries a non-empty typed `workflow_state`; hover shows the full state
+   pretty-printed (titled `Workflow contract → child` on a call / `← child` on a
+   return), click pins it (selectable, X / Esc to close). It is the ONLY glyph
+   added to the flow — the contract is never rendered raw in the transcript.
+
+---
+
+## ★★ DSPy contract → render lanes (server-stream contract — DEFINITIVE, owner-confirmed 2026-07-09)
+
+The client renders this **verbatim**; clio ("the agent") owns emitting it clean. Where this
+conflicts with older sketches below, **this section wins.**
+
+### The thinking lane (all kinds)
+
+```
+> thinking (n characters) ▼      PROVIDER-extracted native CoT ONLY. DSPy hides the CoT, so clio
+                                 pulls it straight from the provider. Present on a reasoning
+                                 provider (e.g. Haiku); absent where the provider doesn't expose
+                                 it. Collapsed by default. THIS IS THE ENTIRE thinking lane —
+                                 no DSPy contract field ever goes here.
+```
+
+Its one known defect: the provider CoT sometimes **overflows into the response** past the
+`[[ ## field ## ]]` split boundary (clio #877).
+
+### Agents come in three kinds — field meanings DEPEND on the kind
+
+A blueprint declares `module.kind` (`predict` | `chain_of_thought` | `react`); the program is
+built at `gact/agents/builders.py:1644-1658`. **`reasoning` is an overloaded field name — never
+gate on the field name alone.**
+
+| kind | program | visible response | has an extract? |
+|---|---|---|---|
+| `react` | `dspy.ReAct` subclass | **`next_thought`** (per loop step) | **YES** — post-loop `ChainOfThought` emitting `reasoning` + `answer` |
+| `chain_of_thought` | `dspy.ChainOfThought` | **`reasoning`** — this IS its whole visible conversation | **NO** |
+| `predict` | `dspy.Predict` | (declared outputs only) | **NO** |
+
+EarthScope pack — `react`: geospatial, visualization, earthscope_station_catalog,
+ndp_dataset_discovery, ndp_resource_resolver, gnss_timeseries_analysis.
+`chain_of_thought`: **main**, data, analysis, **synthesis**, seismic_event_catalog,
+station_network_analysis.
+
+> ⚠️ Suppressing the field named `reasoning` without gating on `kind == react` would **delete the
+> entire visible transcript** of main / data / analysis / synthesis.
+
+### A `react` expert's loop step
+
+```
+> thinking (n characters) ▼      provider CoT
+●  next_thought                  THE RESPONSE — its visible text (not "step reasoning")
+●  tool_call(params)             next_tool_name(next_tool_args)
+   ⎿ tool response               the observation (feeds the next step)
+```
+
+Exception: the final loop step's tool is `finish` — the **finish tool call is not rendered**
+(only its `next_thought`, e.g. "… — finish.").
+
+### A `react` expert's extract — SUPPRESSED ON THE AGENT (clio #878)
+
+The extract (a `ChainOfThought` over the trajectory) emits `reasoning` + `answer`. **Both are
+suppressed at the agent**, so neither reaches the `/v1` wire as a visible part; the extract emits
+**no `●` bullet**:
+
+- `reasoning` — dropped. Not brought to the parent, no conversational value.
+- `answer` — very repetitive with the previous final-step `next_thought`; it survives only inside
+  the return contract.
+
+So the extract renders as the expert's **return to its parent**, contract hidden by default:
+
+```
+> thinking (n characters) ▼           provider CoT for the extract call
+  <child> returns to <parent>   show more ▼
+     └ return contract = { output/answer , workflow_state }     ← DEFAULT HIDDEN
+```
+
+`show more` == byte-for-byte the child's parent-bound `output`/`answer` (`delegation.py`
+`row["output"]` ← the extract `answer`).
+
+**This happens at the AGENT (server) — NOT in the web render.** The bullet vanishes because it
+never reaches the stream. The client renders verbatim; it does **not** filter it out (that would
+be a compensation, the exact thing we delete). Suppressing the *visible part* is not dropping the
+*value*. The only client change is **deleting** the now-dead `isTerminalCompletionReasoning`
+heuristic — no render-code changes.
+
+### `main` and `synthesis` — main has no extract, and must not run after synthesis
+
+`main` is `kind: chain_of_thought` (`main.md`): a single `ChainOfThought`, re-invoked once per
+delegation round by the settle traversal, delegating via a **typed `next_expert` Literal output
+field** (`builders.py:1164-1178`), not tool calls. It therefore has **no `next_thought` and no
+extract**; its visible block is its `reasoning`. Its `answer` does not stream visibly
+(`_answer_stream_visible = agent_id == "synthesis" or not workflow_state`, `builders.py:1799-1802`).
+
+**`synthesis` IS `main`'s extract** — the final summarization pass, special because it holds the
+full context, which is exactly why its response is genuine content and not a restatement.
+`synthesis` writes the user-facing answer (`main.md`: *"your `synthesis` child writes the
+user-facing answer, never you"*), and its `answer` is the one that streams visibly.
+
+> ⚠️ **`main` must NOT run after `synthesis` returns.** Today the settle traversal re-invokes the
+> parent after every child (`turn_delegation.py:1010`) — including after `synthesis` — and main's
+> `answer` then becomes "the deliverable" (`turn_delegation.py:931-935`), restating what synthesis
+> just wrote. That extra round is the ROOT of the double-answer (clio #736); the client's
+> `dedupeRepeatedText` and the server's `suppressed_parent_resume_offsets` are both compensations
+> for it. The fix: when `synthesis` returns, the turn ENDS and **synthesis's answer is the to-user
+> response**.
+
+---
+
+## ★★★ Delegation `expert_handoff` envelope field-map (render-lane registry — owner principle, 2026-07-11)
+
+The `expert_handoff` part carries a typed metadata envelope (SPEC §4.5). **An
+unmapped typed field is invisible information** — every key the server emits must
+have a decision ON THE RECORD here: either its declared render surface, or an
+explicit "not rendered — <reason>". "Unmapped" is never an accident. This is the
+render-lane analogue of the client-filter registry (SPEC.md Appendix A): each row
+is a promise about where a typed field goes and why.
+
+| key | render surface | rationale |
+|---|---|---|
+| `output` / `answer` | return row `show more` (byte-for-byte) | the child's parent-bound deliverable; verbatim, never summarized (#885). |
+| `workflow_state` | #305 contract icon + popup on BOTH call and return rows (arrives on `delegate.started` via clio-agent#888) | the typed workflow contract; shown on demand, full bytes, never raw in the flow. |
+| `status` | failure render on returns (`is-err` + status chip) | drives the failed-return render when `output` is empty (#882). |
+| `error` / `message` | failure detail line under a failed return (`⎿ <error>`) | typed failure detail; the client never scrapes a failure sentence from `output`. |
+| `stage` | transcript STRUCTURE only (`call(child)` / `returns to`; drives which lane a part takes) | lifecycle enum is wire vocabulary — never rendered as prose. |
+| `parent_agent` / `child_agent` | transcript STRUCTURE (delegation graph → depth, owner headers) | names the edge; resolves indentation, never rendered as prose. |
+| `question` / `input` | call-row task line, VERBATIM | the instruction the parent sent the child (first-class, not muted). |
+| `thought` | (when on a tool_call) the `●` step reasoning above the call | the model's step reasoning (clio #732); on handoffs it is bookkeeping. |
+| `agent_id` | not rendered — emitter attribution, already implied by the resolved owner/child | |
+| `resumed_from` | not rendered — `parent.resumed` bookkeeping for the structural return twin | |
+| `tools_called` | expanded into the child's tool rows (not a field on the header) | the per-tool rows already render; the array is a carrier, not a surface. |
+| `duration_ms` | not rendered on the handoff — telemetry lives on the tool footer, not the delegation edge | |
+| `depth` | not rendered — a server hint; the client recomputes depth from the delegation graph (generic, no trust in a vendor number) | |
+| `delegate_to` | not rendered — a resolution alias for `child_agent`, already used for structure | |
+| `pack_id` / `provider_id` / `model_id` | not rendered — provenance bookkeeping, no place in the flow | |
+
+New typed keys land here with a decision the moment they appear on the wire — do
+not let a field ship unmapped.
 
 ---
 
