@@ -1269,15 +1269,42 @@ Backends MAY implement policies as simple per-tool toggles, or as rich rule engi
 > `ready` or `error`. `GET` returns `LMProviderInfo`
 > `{configured, provider, api_base, model, temperature, max_tokens,
 > context_length, chosen_context?, context_window?, is_reasoning?,
-> native_tool_calling?, thinking_budget, transport?, state,
+> native_tool_calling?, thinking_level?, thinking_effective,
+> thinking_budget, transport?, state,
 > status_message, error, operation_id, presets[]}` — `api_key` is never
 > echoed back.
 > `PUT` body is `LMProviderRequest`
 > `{provider, api_base, model, api_key, temperature?, max_tokens?,
-> context_length?, parallel?, transport?, thinking_budget?}`. Defaults:
+> context_length?, parallel?, transport?, thinking_level?, thinking_budget?}`.
+> Defaults:
 > `temperature=0.0`; `max_tokens=0`, `context_length=0`, and
 > `parallel=0` mean "let the server choose/default." Each preset row
 > carries `supports_vision` (model multimodal capability for the picker).
+
+> **Thinking level (clio).** `thinking_level` is a provider-generic extended-
+> reasoning control with one external vocabulary — `off | low | medium | high`,
+> or omitted/`null` = "provider default" (the server may substitute a shipped
+> per-model default, e.g. Claude Code + Haiku ships `low`). The request field is
+> validated at the boundary: an out-of-vocabulary value is a structured `422`
+> `validation_error` (never silently ignored). The server maps the level to each
+> provider's native transport and echoes the resolution back on `GET`/`PUT` as
+> two fields: `thinking_level` (the raw level in effect) and `thinking_effective`
+> (a human-readable resolved effect — e.g. `"medium (budget 8192)"`, `"off"`,
+> `"default (provider default)"`, or `"unsupported (<reason>)"`). A level
+> requested on a provider with no mapping is **not** dropped silently: it surfaces
+> as a typed `unsupported (<reason>)` in `thinking_effective`.
+>
+> | Provider family | Native transport | `off` | `low` / `medium` / `high` |
+> |---|---|---|---|
+> | `anthropic` | `thinking.budget_tokens` | omit (thinking off) | budget `2048` / `8192` / `24576` |
+> | `claude_code` | SDK `thinking` option | `{"type":"disabled"}` | `{"type":"enabled","budget_tokens":N}` |
+> | `openai` / `lm_studio` / `ollama` / `argonne` | `reasoning_effort` | omit | `reasoning_effort` = the level |
+> | `codex` | `model_reasoning_effort` | `"none"` (explicit disable) | the level (pinned on `turn/start`) |
+> | any other | — | — | `unsupported` (typed reason in `thinking_effective`) |
+>
+> An explicit `thinking_budget` (token count) remains an override for the
+> budget-based providers; when both are omitted the field is unset and today's
+> provider default governs.
 > `GET /v1/providers/{id}/handshake` is report-only: it checks
 > connectivity/auth/catalog metadata and returns `models[]`, `source`,
 > `error?`, `connectivity`, `auth`, `latency_ms`, `generated_at`,

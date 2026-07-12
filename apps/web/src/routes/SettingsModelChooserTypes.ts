@@ -9,5 +9,9 @@ export interface SettingsModelChooserProps {
   presets: Accessor<LmPreset[]>;
   activeProvider: Accessor<string | undefined>;
   activeModel: Accessor<string | undefined>;
+  /** The thinking level currently in effect (#895), or undefined when unset. */
+  activeThinkingLevel: Accessor<string | undefined>;
+  /** The resolved per-provider thinking effect, for a display-only hint (#895). */
+  activeThinkingEffective: Accessor<string | undefined>;
   onChanged: () => unknown;
 }

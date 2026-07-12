@@ -6,10 +6,13 @@ import {
   defaultSelectedModel,
   isActiveModelSelection,
   mergeLiveModelOptions,
+  normalizeThinkingLevel,
   providerModelOptions,
   presetStatusLabel,
   presetTone,
   suggestedModelOptions,
+  THINKING_LEVEL_OPTIONS,
+  thinkingLevelForBody,
 } from '../../src/routes/SettingsModelChooserModel.js';
 
 const PRESETS: LmPreset[] = [
@@ -104,5 +107,36 @@ describe('SettingsModelChooserModel', () => {
     expect(presetStatusLabel(sophia)).toBe('Globus token validated');
     expect(presetTone(openrouter)).toBe('warn');
     expect(presetStatusLabel(openrouter)).toBe('needs sign-in');
+  });
+
+  it('offers the provider-generic thinking vocabulary as validated options (#895)', () => {
+    expect(THINKING_LEVEL_OPTIONS.map((o) => o.value)).toEqual([
+      '',
+      'off',
+      'low',
+      'medium',
+      'high',
+    ]);
+    // The default option is the "leave provider default" empty value.
+    expect(THINKING_LEVEL_OPTIONS[0]).toEqual({ value: '', label: 'Provider default' });
+  });
+
+  it('normalizes any snapshot value to a selector value (#895)', () => {
+    expect(normalizeThinkingLevel('high')).toBe('high');
+    expect(normalizeThinkingLevel('MEDIUM')).toBe('medium');
+    expect(normalizeThinkingLevel('off')).toBe('off');
+    // Unknown / legacy / blank → provider default (never throws).
+    expect(normalizeThinkingLevel('ultra')).toBe('');
+    expect(normalizeThinkingLevel(undefined)).toBe('');
+    expect(normalizeThinkingLevel(null)).toBe('');
+  });
+
+  it('only emits a valid literal in the request body, else omits it (#895)', () => {
+    expect(thinkingLevelForBody('low')).toBe('low');
+    expect(thinkingLevelForBody('high')).toBe('high');
+    // Provider default and junk both omit the field so the wire never sees ''.
+    expect(thinkingLevelForBody('')).toBeUndefined();
+    expect(thinkingLevelForBody('ultra')).toBeUndefined();
+    expect(thinkingLevelForBody(undefined)).toBeUndefined();
   });
 });

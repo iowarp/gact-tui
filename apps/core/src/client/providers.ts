@@ -45,6 +45,12 @@ export interface SetLmInput {
   model: string;
   temperature?: number;
   max_tokens?: number;
+  /**
+   * Provider-generic extended-reasoning level (#895): one of
+   * off | low | medium | high. Omit to leave the provider default (the server
+   * validates the vocabulary — an out-of-range value is a 422).
+   */
+  thinking_level?: 'off' | 'low' | 'medium' | 'high';
 }
 
 export interface AuthProviderResult {
