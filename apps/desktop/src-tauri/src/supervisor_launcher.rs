@@ -54,7 +54,11 @@ pub fn locate_launcher_named(sidecar_name: &str) -> Result<PathBuf, String> {
 
 /// The candidate filenames the launcher may carry, most-likely first:
 /// the triple-stripped name tauri-bundler installs, then the suffixed
-/// name dev layouts use.
+/// name dev layouts use. The stripped name can collide with an unrelated
+/// same-named binary sitting next to the app exe (e.g. a system-prefix
+/// `clio-agent` console script on Linux) — accepted: in a healthy install
+/// the bundler's own copy is that sibling, and a collision implies the
+/// bundle was broken anyway.
 fn launcher_basenames(sidecar_name: &str) -> [String; 2] {
     let triple = host_target_triple();
     let ext = if cfg!(windows) { ".exe" } else { "" };
@@ -74,12 +78,16 @@ fn find_in_dir(dir: &Path, basenames: &[String]) -> Option<PathBuf> {
 fn host_target_triple() -> &'static str {
     if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
         "x86_64-pc-windows-msvc"
+    } else if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
+        "aarch64-pc-windows-msvc"
     } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
         "aarch64-apple-darwin"
     } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
         "x86_64-apple-darwin"
     } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
         "x86_64-unknown-linux-gnu"
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+        "aarch64-unknown-linux-gnu"
     } else {
         "unknown"
     }
