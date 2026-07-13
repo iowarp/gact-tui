@@ -23,9 +23,10 @@ provided. Pick one:
 | Works fully offline | Only once clio-agent is installed separately | **Yes, out of the box** |
 | Best for | Developers / users who already run clio-agent, or want the smallest download | Air-gapped machines, demos, non-technical users who want one-click |
 
-**How the launcher chooses.** The bundled installer ships a relocatable
-Python environment (`clio-runtime/`) packed next to the app. On launch
-the sidecar launcher resolves `clio-agent-gact` in this priority order:
+**How the launcher chooses.** The bundled installer ships a portable
+backend runtime (`gact-runtime/`, self-described by its `runtime.json`
+manifest) packed next to the app. On launch the sidecar launcher
+resolves the backend in this priority order:
 
 0. **Bundled runtime** next to the launcher executable (bundled
    installer only — the lite installer simply doesn't ship one, so this
