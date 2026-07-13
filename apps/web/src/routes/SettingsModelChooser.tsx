@@ -13,6 +13,7 @@ import {
   ModelRow,
   ProviderRow,
   StatusRow,
+  ThinkingRow,
 } from './SettingsModelChooserRows.js';
 import { createSettingsModelChooserState } from './SettingsModelChooserState.js';
 import type { SettingsModelChooserProps } from './SettingsModelChooserTypes.js';
@@ -52,6 +53,13 @@ export function SettingsModelChooser(props: SettingsModelChooserProps) {
           models={state.models() ?? []}
           loading={state.models.loading}
           onSelectedModel={state.setSelectedModel}
+        />
+
+        <ThinkingRow
+          value={state.selectedThinking()}
+          effective={props.activeThinkingEffective()}
+          disabled={state.busy()}
+          onSelect={state.setThinkingChoice}
         />
 
         <StatusRow

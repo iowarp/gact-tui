@@ -46,6 +46,8 @@ export function SettingsModels(props: SettingsModelsProps) {
 
   const activeProvider = () => lm()?.provider;
   const activeModel = () => lm()?.model;
+  const activeThinkingLevel = () => lm()?.thinking_level;
+  const activeThinkingEffective = () => lm()?.thinking_effective;
 
   return (
     <DiscoveryPage
@@ -96,6 +98,8 @@ export function SettingsModels(props: SettingsModelsProps) {
           presets={presets}
           activeProvider={activeProvider}
           activeModel={activeModel}
+          activeThinkingLevel={activeThinkingLevel}
+          activeThinkingEffective={activeThinkingEffective}
           onChanged={refetchLm}
         />
       </div>

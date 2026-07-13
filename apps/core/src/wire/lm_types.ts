@@ -6,6 +6,17 @@ export interface LmConfigSnapshot {
   temperature?: number;
   max_tokens?: number;
   thinking_budget?: number;
+  /**
+   * Provider-generic extended-reasoning level in effect: off | low | medium |
+   * high, or absent/empty = provider default (#895). Echoed by GET /v1/providers/lm.
+   */
+  thinking_level?: string;
+  /**
+   * Human-readable resolved per-provider effect of the thinking level — e.g.
+   * "medium (budget 8192)", "off", "default (provider default)", or
+   * "unsupported (<reason>)". Display-only; the server never leaves it invisible.
+   */
+  thinking_effective?: string;
   presets?: LmPreset[];
 }
 

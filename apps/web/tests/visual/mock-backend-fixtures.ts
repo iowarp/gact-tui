@@ -389,28 +389,30 @@ const earthscopeBlockedMessages: Message[] = [
           parent_id: 'data',
           agent_id: 'ndp_dataset_discovery',
           status: 'failed',
+          // Post-#880 wire: the durable typed workflow-state dict rides on the
+          // handoff metadata as a first-class field — it is NOT embedded in
+          // `output_summary` prose (that retired format is no longer scraped by
+          // the render). The failed delegation entry carries a structural
+          // `error`, which the render surfaces as a user-facing workflow blocker.
+          workflow_state: {
+            geospatial: {
+              status: 'resolved',
+              region_name: 'San Diego area',
+              confidence: 'high',
+            },
+            delegation: {
+              status: 'failed',
+              failed_child: 'ndp_dataset_discovery',
+              parent: 'data',
+              error: '_UnsupportedSessionAgent',
+              message: 'ndp_dataset_discovery',
+            },
+            acquisition: {
+              analysis_ready: false,
+            },
+          },
           output_summary:
-            "Child expert 'ndp_dataset_discovery' failed while delegated from 'data': _UnsupportedSessionAgent. ndp_dataset_discovery\n\n" +
-            'CLIO durable typed workflow state:\n' +
-            JSON.stringify({
-              workflow_state: {
-                geospatial: {
-                  status: 'resolved',
-                  region_name: 'San Diego area',
-                  confidence: 'high',
-                },
-                delegation: {
-                  status: 'failed',
-                  failed_child: 'ndp_dataset_discovery',
-                  parent: 'data',
-                  error: '_UnsupportedSessionAgent',
-                  message: 'ndp_dataset_discovery',
-                },
-                acquisition: {
-                  analysis_ready: false,
-                },
-              },
-            }),
+            "Child expert 'ndp_dataset_discovery' failed while delegated from 'data': _UnsupportedSessionAgent.",
         },
       },
       {
