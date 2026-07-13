@@ -344,17 +344,25 @@ jobs:
         run: bash apps/desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
         working-directory: ${{ github.workspace }}
 
-      - name: Build embedded clio-agent runtime (bundled, macOS/Linux)
-        if: matrix.variant == 'bundled' && matrix.os != 'windows-latest'
+      # The bundled variant packs src-tauri/gact-runtime (a self-describing
+      # runtime the EMBEDDING BRAND builds — e.g. iowarp/clio-agent's
+      # install/build-gact-runtime.{sh,ps1}). This generic repo's CI
+      # exercises the packing mechanism with a stub runtime + manifest
+      # instead of building any brand's real backend (iowarp/gact-tui#311).
+      - name: Stage stub gact-runtime (bundled)
+        if: matrix.variant == 'bundled'
         shell: bash
-        run: bash apps/desktop/scripts/build-clio-runtime.sh
         working-directory: ${{ github.workspace }}
-
-      - name: Build embedded clio-agent runtime (bundled, Windows)
-        if: matrix.variant == 'bundled' && matrix.os == 'windows-latest'
-        shell: pwsh
-        run: ./scripts/build-clio-runtime.ps1
-        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          rt="apps/desktop/src-tauri/gact-runtime"
+          mkdir -p "$rt/bin"
+          printf '#!/bin/sh
+exit 0
+' > "$rt/bin/backend-stub"
+          chmod +x "$rt/bin/backend-stub"
+          printf '{"schema": 1, "exec": ["bin/backend-stub"]}
+' > "$rt/runtime.json"
 
       - name: Build web (Tauri frontend)
         run: pnpm --filter @clio/web build

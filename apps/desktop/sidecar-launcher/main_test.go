@@ -19,14 +19,20 @@ func touch(t *testing.T, p string) {
 	}
 }
 
-// bundledGactPath returns the conventional bundled path for the host OS
-// under a given exe dir: <exeDir>/clio-runtime/.venv/<scriptDir>/<bin>.
-func bundledGactPath(exeDir string) string {
-	return filepath.Join(exeDir, "clio-runtime", ".venv", venvScriptDir(), gactBinName())
+// writeManifest writes a runtime.json into dir and creates the stub
+// interpreter file it points at.
+func writeManifest(t *testing.T, dir, body string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, manifestName), []byte(body), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
 }
 
-// clearResolutionEnv blanks every env var candidatePaths consults so a
-// test starts from a known-empty resolution context. PATH is emptied so
+// clearResolutionEnv blanks every env var resolution consults so a
+// test starts from a known-empty context. PATH is emptied so
 // exec.LookPath cannot accidentally find a system clio-agent-gact.
 func clearResolutionEnv(t *testing.T) {
 	t.Helper()
@@ -43,117 +49,161 @@ func clearResolutionEnv(t *testing.T) {
 	t.Setenv("HOME", "")
 }
 
-func TestBundledCandidatesIncludesHostLayout(t *testing.T) {
+// --- manifest loading ---------------------------------------------------
+
+func TestLoadManifestResolvesRelativeExec(t *testing.T) {
 	dir := t.TempDir()
-	got := bundledCandidates(dir)
-	want := bundledGactPath(dir)
-	found := false
-	for _, p := range got {
-		if p == want {
-			found = true
-			break
+	stub := filepath.Join(dir, "python", "python-stub")
+	touch(t, stub)
+	writeManifest(t, dir, `{"schema":1,"exec":["python/python-stub","-m","some_module"],"env":{"EXTRA":"1"}}`)
+
+	rt, err := loadManifest(dir)
+	if err != nil {
+		t.Fatalf("loadManifest: %v", err)
+	}
+	if rt.Argv[0] != stub {
+		t.Fatalf("exec[0] should resolve relative to the runtime dir: got %q want %q", rt.Argv[0], stub)
+	}
+	if len(rt.Argv) != 3 || rt.Argv[1] != "-m" || rt.Argv[2] != "some_module" {
+		t.Fatalf("argv tail mangled: %v", rt.Argv)
+	}
+	if rt.Env["EXTRA"] != "1" {
+		t.Fatalf("manifest env not carried: %v", rt.Env)
+	}
+}
+
+func TestLoadManifestHardErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"bad json", `{nope`, "invalid JSON"},
+		{"wrong schema", `{"schema":2,"exec":["x"]}`, "unsupported schema"},
+		{"empty exec", `{"schema":1,"exec":[]}`, "empty exec"},
+		{"missing binary", `{"schema":1,"exec":["does/not/exist"]}`, "not found"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeManifest(t, dir, tc.body)
+			_, err := loadManifest(dir)
+			if err == nil {
+				t.Fatalf("expected error for %s", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q should mention %q", err.Error(), tc.want)
+			}
+		})
+	}
+}
+
+// --- bundled dir discovery -----------------------------------------------
+
+func TestBundledRuntimeDirsEnvFirstThenExeLayouts(t *testing.T) {
+	clearResolutionEnv(t)
+	envDir := t.TempDir()
+	t.Setenv(envBundledDir, envDir)
+	exe := t.TempDir()
+
+	dirs := bundledRuntimeDirs(exe)
+	if len(dirs) != 4 {
+		t.Fatalf("want 4 candidate dirs, got %v", dirs)
+	}
+	if dirs[0] != envDir {
+		t.Fatalf("supervisor env dir must be first: %v", dirs)
+	}
+	joined := strings.Join(dirs, "\n")
+	for _, want := range []string{
+		filepath.Join(exe, "gact-runtime"),
+		filepath.Join(exe, "resources", "gact-runtime"),
+		filepath.Join(exe, "..", "Resources", "gact-runtime"),
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("missing exe-relative layout %q in %v", want, dirs)
 		}
 	}
-	if !found {
-		t.Fatalf("bundledCandidates(%q) = %v; missing host layout %q", dir, got, want)
+}
+
+// The env var name must match what the Tauri supervisor exports
+// (sidecar_setup.rs BUNDLED_RUNTIME_ENV). They drifted apart once
+// (GACT_ vs CLIO_) and the bundled lookup was silently dead — pin it.
+func TestBundledDirEnvNameMatchesSupervisor(t *testing.T) {
+	if envBundledDir != "GACT_BUNDLED_RUNTIME_DIR" {
+		t.Fatalf("envBundledDir = %q; must be GACT_BUNDLED_RUNTIME_DIR (sidecar_setup.rs)", envBundledDir)
 	}
 }
 
-func TestVenvScriptDirsPrioritizesHostLayoutWithoutDuplicates(t *testing.T) {
-	got := venvScriptDirs()
-	if len(got) != 2 {
-		t.Fatalf("venvScriptDirs len = %d, want 2: %v", len(got), got)
-	}
-	if got[0] != venvScriptDir() {
-		t.Fatalf("venvScriptDirs should prioritize host script dir %q, got %v", venvScriptDir(), got)
-	}
-	if got[0] == got[1] {
-		t.Fatalf("venvScriptDirs should not duplicate entries: %v", got)
-	}
-}
+// --- full resolution -------------------------------------------------------
 
-func TestBundledCandidatesProbesResourceLayouts(t *testing.T) {
+func TestResolveRuntimeManifestWinsOverLegacyBinary(t *testing.T) {
+	clearResolutionEnv(t)
+	// A valid legacy override binary exists...
+	legacy := filepath.Join(t.TempDir(), "ovr", gactBinName())
+	touch(t, legacy)
+	t.Setenv(envOverride, legacy)
+	// ...but a bundled manifest runtime is present via the supervisor env.
 	dir := t.TempDir()
-	got := bundledCandidates(dir)
-	joined := strings.Join(got, "\n")
+	touch(t, filepath.Join(dir, "python", "py-stub"))
+	writeManifest(t, dir, `{"schema":1,"exec":["python/py-stub","-m","mod"]}`)
+	t.Setenv(envBundledDir, dir)
 
-	// resources/ nested layout must be probed.
-	if !strings.Contains(joined, filepath.Join("resources", "clio-runtime")) {
-		t.Errorf("bundledCandidates missing resources/clio-runtime layout:\n%s", joined)
+	rt, err := resolveRuntime()
+	if err != nil {
+		t.Fatalf("resolveRuntime: %v", err)
 	}
-	// macOS .app sibling Resources layout (<exedir>/../Resources) must be
-	// probed. filepath.Join cleans the "..", so the produced candidate
-	// is <parent-of-exedir>/Resources/clio-runtime/...; assert against
-	// that exact cleaned form.
-	macRoot := filepath.Join(dir, "..", "Resources")
-	if !strings.Contains(joined, filepath.Join(macRoot, "clio-runtime")) {
-		t.Errorf("bundledCandidates missing ../Resources/clio-runtime layout:\n%s", joined)
-	}
-	// Both Scripts/ and bin/ console-script dirs must be probed so a
-	// copied/cross-built tree resolves regardless of host.
-	if !strings.Contains(joined, string(os.PathSeparator)+"Scripts"+string(os.PathSeparator)) {
-		t.Errorf("bundledCandidates missing Scripts/ probe:\n%s", joined)
-	}
-	if !strings.Contains(joined, string(os.PathSeparator)+"bin"+string(os.PathSeparator)) {
-		t.Errorf("bundledCandidates missing bin/ probe:\n%s", joined)
+	if !strings.Contains(rt.Argv[0], "py-stub") {
+		t.Fatalf("bundled manifest runtime must win over legacy binary; got %v", rt.Argv)
 	}
 }
 
-// The supervisor-provided bundled dir (CLIO_BUNDLED_RUNTIME_DIR, resolved
-// through Tauri's resource-dir API) must outrank every other candidate —
-// including the exe-relative bundled probes. This is what makes the
-// bundled variant work on Linux deb/rpm, where resources live under
-// /usr/lib/<app>/ and exe-relative probing from /usr/bin/ cannot reach
-// them.
-func TestCandidatePathsSupervisorBundledDirFirst(t *testing.T) {
+func TestResolveRuntimeBrokenManifestIsHardErrorNotFallthrough(t *testing.T) {
 	clearResolutionEnv(t)
-	exe := t.TempDir()
-	supervisorDir := filepath.Join(t.TempDir(), "resources", "clio-runtime")
-	t.Setenv(envBundledDir, supervisorDir)
-	// Set competing sources to prove the supervisor dir wins.
-	t.Setenv(envOverride, filepath.Join(t.TempDir(), "override", gactBinName()))
-	t.Setenv(envDevRepo, t.TempDir())
+	// A perfectly good legacy binary is available...
+	legacy := filepath.Join(t.TempDir(), "ovr", gactBinName())
+	touch(t, legacy)
+	t.Setenv(envOverride, legacy)
+	// ...but the bundled manifest is broken. Falling through would mask
+	// a broken bundle behind system resolution — must hard-error.
+	dir := t.TempDir()
+	writeManifest(t, dir, `{"schema":1,"exec":["gone"]}`)
+	t.Setenv(envBundledDir, dir)
 
-	paths := candidatePaths(exe)
-	if len(paths) == 0 {
-		t.Fatal("candidatePaths returned nothing")
-	}
-	want := filepath.Join(supervisorDir, ".venv", venvScriptDir(), gactBinName())
-	if paths[0] != want {
-		t.Fatalf("expected supervisor bundled dir first; got %q (want %q)\nall: %v",
-			paths[0], want, paths)
+	if _, err := resolveRuntime(); err == nil {
+		t.Fatal("broken bundled manifest must be a hard error, not a fallthrough to legacy resolution")
 	}
 }
 
-func TestCandidatePathsBundledFirst(t *testing.T) {
+func TestResolveRuntimeFallsToLegacyWhenNoManifest(t *testing.T) {
 	clearResolutionEnv(t)
-	exe := t.TempDir()
-	// Also set an env override + dev repo so we can prove bundled wins.
-	t.Setenv(envOverride, filepath.Join(t.TempDir(), "override", gactBinName()))
-	t.Setenv(envDevRepo, t.TempDir())
+	legacy := filepath.Join(t.TempDir(), "ovr", gactBinName())
+	touch(t, legacy)
+	t.Setenv(envOverride, legacy)
+	// Bundled dir exists but has no manifest (lite build / plain dir).
+	t.Setenv(envBundledDir, t.TempDir())
 
-	paths := candidatePaths(exe)
-	if len(paths) == 0 {
-		t.Fatal("candidatePaths returned nothing")
+	rt, err := resolveRuntime()
+	if err != nil {
+		t.Fatalf("resolveRuntime: %v", err)
 	}
-	want := bundledGactPath(exe)
-	if paths[0] != want {
-		t.Fatalf("expected bundled path first; got %q (want %q)\nall: %v", paths[0], want, paths)
+	if rt.Argv[0] != legacy {
+		t.Fatalf("expected legacy override %q, got %v", legacy, rt.Argv)
 	}
 }
 
-func TestCandidatePathsEnvOverrideBeforePath(t *testing.T) {
+// --- legacy candidate ordering --------------------------------------------
+
+func TestCandidatePathsEnvOverrideFirst(t *testing.T) {
 	clearResolutionEnv(t)
-	// No exe dir ⇒ no bundled candidates, so the env override must lead.
 	override := filepath.Join(t.TempDir(), "ovr", gactBinName())
 	t.Setenv(envOverride, override)
 
-	paths := candidatePaths("")
+	paths := candidatePaths()
 	if len(paths) == 0 {
 		t.Fatal("candidatePaths returned nothing")
 	}
 	if paths[0] != override {
-		t.Fatalf("expected env override first when no bundle; got %q\nall: %v", paths[0], paths)
+		t.Fatalf("expected env override first; got %q\nall: %v", paths[0], paths)
 	}
 }
 
@@ -162,7 +212,7 @@ func TestCandidatePathsDevRepoIsLast(t *testing.T) {
 	devRepo := t.TempDir()
 	t.Setenv(envDevRepo, devRepo)
 
-	paths := candidatePaths("")
+	paths := candidatePaths()
 	if len(paths) == 0 {
 		t.Fatal("candidatePaths returned nothing")
 	}
@@ -174,9 +224,9 @@ func TestCandidatePathsDevRepoIsLast(t *testing.T) {
 
 func TestCandidatePathsNoHardcodedDevPath(t *testing.T) {
 	clearResolutionEnv(t)
-	// With everything cleared and no exe dir, the list must be empty —
-	// proving no hardcoded developer filesystem path leaks in.
-	paths := candidatePaths("")
+	// With everything cleared, the list must be empty — proving no
+	// hardcoded developer filesystem path leaks in.
+	paths := candidatePaths()
 	for _, p := range paths {
 		if strings.Contains(strings.ToLower(p), "libraries") ||
 			strings.Contains(strings.ToLower(p), filepath.Join("projects", "clio-agent")) {
@@ -184,7 +234,7 @@ func TestCandidatePathsNoHardcodedDevPath(t *testing.T) {
 		}
 	}
 	if len(paths) != 0 {
-		t.Fatalf("expected no candidates with empty env and no exe dir; got %v", paths)
+		t.Fatalf("expected no candidates with empty env; got %v", paths)
 	}
 }
 
@@ -193,7 +243,7 @@ func TestCandidatePathsDevRepoUsesPlatformLayout(t *testing.T) {
 	devRepo := t.TempDir()
 	t.Setenv(envDevRepo, devRepo)
 
-	paths := candidatePaths("")
+	paths := candidatePaths()
 	last := paths[len(paths)-1]
 	if runtime.GOOS == "windows" {
 		if !strings.HasSuffix(last, filepath.Join("Scripts", "clio-agent-gact.exe")) {
@@ -206,37 +256,33 @@ func TestCandidatePathsDevRepoUsesPlatformLayout(t *testing.T) {
 	}
 }
 
-// TestResolvePrefersBundledOverDevRepo arranges real stub files for BOTH
-// a bundled runtime and a dev-repo checkout, and asserts resolve()'s
-// underlying candidate order surfaces the bundled one first. (resolve()
-// itself reads exeDir() of the test binary; we exercise the orderer that
-// resolve() consumes, with both targets actually present on disk.)
-func TestResolvePrefersBundledOverDevRepo(t *testing.T) {
-	clearResolutionEnv(t)
-	exe := t.TempDir()
-	devRepo := t.TempDir()
-	t.Setenv(envDevRepo, devRepo)
+// --- spawn shape -----------------------------------------------------------
 
-	bundled := bundledGactPath(exe)
-	dev := filepath.Join(devRepo, ".venv", venvScriptDir(), gactBinName())
-	touch(t, bundled)
-	touch(t, dev)
-
-	// Walk candidatePaths the same way resolve() does and take the first
-	// existing regular file.
-	var first string
-	for _, p := range candidatePaths(exe) {
-		if p == "" {
-			continue
-		}
-		info, err := os.Stat(p)
-		if err != nil || info.IsDir() {
-			continue
-		}
-		first = p
-		break
+func TestSpawnArgvAppendsBindArgsAfterManifestArgs(t *testing.T) {
+	rt := &resolvedRuntime{Argv: []string{"/rt/python", "-m", "mod"}}
+	got := spawnArgv(rt, cliArgs{host: "127.0.0.1", port: 4321, token: "tok"})
+	want := []string{"/rt/python", "-m", "mod", "--host", "127.0.0.1", "--port", "4321"}
+	if len(got) != len(want) {
+		t.Fatalf("argv = %v, want %v", got, want)
 	}
-	if first != bundled {
-		t.Fatalf("resolve order picked %q; expected bundled %q", first, bundled)
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("argv[%d] = %q, want %q (all: %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+func TestSpawnEnvCarriesManifestEnvAndToken(t *testing.T) {
+	rt := &resolvedRuntime{Argv: []string{"x"}, Env: map[string]string{"RUNTIME_EXTRA": "yes"}}
+	env := spawnEnv(rt, cliArgs{host: "h", port: 1, token: "secret-token"})
+	joined := strings.Join(env, "\n")
+	for _, want := range []string{
+		"RUNTIME_EXTRA=yes",
+		envBearer + "=secret-token",
+		envGactContractVer + "=0.2",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("spawn env missing %q", want)
+		}
 	}
 }
