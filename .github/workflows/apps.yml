@@ -357,12 +357,10 @@ jobs:
           set -euo pipefail
           rt="apps/desktop/src-tauri/gact-runtime"
           mkdir -p "$rt/bin"
-          printf '#!/bin/sh
-exit 0
-' > "$rt/bin/backend-stub"
+          echo '#!/bin/sh' > "$rt/bin/backend-stub"
+          echo 'exit 0' >> "$rt/bin/backend-stub"
           chmod +x "$rt/bin/backend-stub"
-          printf '{"schema": 1, "exec": ["bin/backend-stub"]}
-' > "$rt/runtime.json"
+          echo '{"schema": 1, "exec": ["bin/backend-stub"]}' > "$rt/runtime.json"
 
       - name: Build web (Tauri frontend)
         run: pnpm --filter @clio/web build
