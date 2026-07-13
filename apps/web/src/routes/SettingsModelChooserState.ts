@@ -12,8 +12,10 @@ import {
   findPresetById,
   isActiveModelSelection,
   mergeLiveModelOptions,
+  normalizeThinkingLevel,
   providerModelOptions,
   suggestedModelOptions,
+  thinkingLevelForBody,
   type ModelOption,
 } from './SettingsModelChooserModel.js';
 import type { SettingsModelChooserProps } from './SettingsModelChooserTypes.js';
@@ -24,6 +26,12 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [authMsg, setAuthMsg] = createSignal<string | null>(null);
+  // Thinking-level selection (#895). `null` = follow the active/server value;
+  // any explicit pick (including '' = provider default) overrides it. Kept as a
+  // separate signal so a picked value survives snapshot refetches.
+  const [thinkingChoice, setThinkingChoice] = createSignal<string | null>(null);
+  const selectedThinking = (): string =>
+    normalizeThinkingLevel(thinkingChoice() ?? props.activeThinkingLevel());
 
   createEffect(() => {
     const list = props.presets();
@@ -70,19 +78,27 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
       props.activeProvider(),
       props.activeModel(),
       selectedModel(),
-    );
+    ) &&
+    // A changed thinking level is also a real change to apply, even when the
+    // provider/model match what is already active (#895).
+    selectedThinking() === normalizeThinkingLevel(props.activeThinkingLevel());
 
   const blockedReason = (): string | null => blockedReasonForPreset(selected());
 
   async function applySelection() {
     const p = selected();
     if (!p) return;
+    // Only send thinking_level when the user picked a concrete level; '' /
+    // provider-default omits the field so the wire never receives an invalid
+    // literal and the server applies its shipped per-model default.
+    const level = thinkingLevelForBody(selectedThinking());
     await runAsyncAction(
       async () => {
         await props.client.setLm({
           provider: p.id,
           api_base: p.api_base ?? '',
           model: selectedModel() || p.suggested_model || 'unknown',
+          ...(level ? { thinking_level: level } : {}),
         });
         await props.onChanged();
       },
@@ -128,8 +144,10 @@ export function createSettingsModelChooserState(props: SettingsModelChooserProps
     selected,
     selectedId,
     selectedModel,
+    selectedThinking,
     setSelectedId,
     setSelectedModel,
+    setThinkingChoice,
     applySelection,
     authenticate,
     authenticatePreset,

@@ -89,45 +89,7 @@ describe('Transcript', () => {
     expect(current!.getAttribute('data-match-key')).toBe('a:1');
   });
 
-  it('strips display-only typed workflow state, keeping only the prose', () => {
-    // UNIFIED render: `CLIO typed workflow state: { … }` is backend display-only
-    // machine state, stripped by cleanProse (same as the handoff path) — the prose
-    // is kept, the JSON blob and the retired workflow-state card are gone.
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-workflow',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'text',
-                text:
-                  'Evidence is ready.\n\nCLIO typed workflow state:\n' +
-                  JSON.stringify({
-                    workflow_state: {
-                      acquisition: {
-                        status: 'staged',
-                        local_path: '/tmp/run/MTA1.csv',
-                        size_bytes: 50424246,
-                      },
-                    },
-                  }),
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    expect(screen.getByText('Evidence is ready.')).toBeTruthy();
-    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
-    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
-    expect(screen.queryByText(/typed workflow state/)).toBeNull();
-  });
-
-  it('renders an expert handoff as a flowing step with prose, not a workflow-state card', () => {
+  it('renders a FAILED delegation return from TYPED status/error fields, empty output (#885)', () => {
     render(() => (
       <Transcript
         density="normal"
@@ -141,20 +103,17 @@ describe('Transcript', () => {
                 metadata: {
                   parent_id: 'main',
                   agent_id: 'data',
+                  child_agent: 'data',
+                  parent_agent: 'main',
+                  stage: 'delegate.completed',
                   status: 'failed',
-                  output_summary:
-                    "Child expert 'data' failed while delegated from 'main': _UnsupportedSessionAgent. data\n\n" +
-                    'CLIO durable typed workflow state:\n' +
-                    JSON.stringify({
-                      workflow_state: {
-                        delegation: {
-                          status: 'failed',
-                          failed_child: 'data',
-                          parent: 'main',
-                          error: '_UnsupportedSessionAgent',
-                        },
-                      },
-                    }),
+                  // #885: the server no longer authors a failure sentence into
+                  // `output`/`output_summary`. `output` is empty; the failure rides
+                  // the TYPED `status`/`error` fields, which the client renders. The
+                  // typed workflow_state travels structurally on the row.
+                  output: '',
+                  error:
+                    "Child expert 'data' failed while delegated from 'main': _UnsupportedSessionAgent. data",
                 },
               },
             ],
@@ -162,16 +121,17 @@ describe('Transcript', () => {
         ]}
       />
     ));
-    // The delegation renders as an indented step (agent + status) with the real
-    // prose; the workflow_state JSON / "Raw state" card is gone (stripped).
-    const step = screen.getByTestId('assistant-turn-step');
-    expect(step).toBeTruthy();
-    expect(step.textContent).toContain('data');
-    expect(step.textContent).toContain('failed');
-    expect(step.textContent).toContain("Child expert 'data' failed");
+    // The failed return renders its typed status + error; there is no server-authored
+    // summary prose, no workflow_state JSON, no "Raw state" card.
+    const ret = screen.getByTestId('assistant-turn-return');
+    expect(ret).toBeTruthy();
+    expect(ret.textContent).toContain('data');
+    expect(ret.textContent).toContain('failed');
+    expect(ret.textContent).toContain("Child expert 'data' failed");
+    expect(screen.getByTestId('assistant-turn-return-error')).toBeTruthy();
     expect(screen.queryByText('Raw state')).toBeNull();
     expect(screen.queryByTestId('workflow-state-card')).toBeNull();
-    expect(step.textContent).not.toContain('workflow_state');
+    expect(ret.textContent).not.toContain('workflow_state');
   });
 
   it('keeps a turn-level workflow blocker visible after the final answer text', () => {
@@ -217,56 +177,6 @@ describe('Transcript', () => {
     // The blocker detail is built GENERICALLY from the nested entry's own fields
     // (no hardcoded backend error-code copy).
     expect(screen.getByText(/Failed Child: ndp_dataset_discovery/)).toBeTruthy();
-  });
-
-  it('treats a bare JSON handoff body as display-only state (not rendered as prose)', () => {
-    render(() => (
-      <Transcript
-        density="normal"
-        messages={[
-          {
-            id: 'm-handoff-json',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'expert_handoff',
-                metadata: {
-                  parent_id: 'main',
-                  agent_id: 'geospatial',
-                  status: 'completed',
-                  output_summary:
-                    JSON.stringify({
-                      REGION_LABEL: 'San Diego area',
-                      CENTER_LAT: 32.7157,
-                      CENTER_LON: -117.1611,
-                      RADIUS_KM: 50,
-                      CONFIDENCE: 'high',
-                      WARNINGS: ['Default radius of 50 km applied for area query.'],
-                    }) +
-                    '\n\nCLIO durable typed workflow state:\n' +
-                    JSON.stringify({
-                      workflow_state: {
-                        geospatial: {
-                          status: 'resolved',
-                          region_name: 'San Diego area',
-                        },
-                      },
-                    }),
-                },
-              },
-            ],
-          },
-        ]}
-      />
-    ));
-
-    // The handoff body is a bare JSON evidence object — display-only structured
-    // state per the contract — with no task and no tools, so the delegation is
-    // entirely empty: NO prose result, NO raw JSON keys, NO workflow-state card.
-    expect(screen.queryByTestId('assistant-turn-result')).toBeNull();
-    expect(screen.queryByText(/REGION_LABEL/)).toBeNull();
-    expect(screen.queryByText(/"workflow_state"/)).toBeNull();
-    expect(screen.queryByTestId('workflow-state-card')).toBeNull();
   });
 
 });

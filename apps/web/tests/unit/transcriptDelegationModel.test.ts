@@ -87,7 +87,7 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     ]);
   });
 
-  it('DEDUPEs a delegation (started + completed + resumed) into ONE header', () => {
+  it('renders ONE header per delegation VERBATIM — started is the header, completed is the return, resumed is dropped (server owns it; no client dedup, #882)', () => {
     const parts = [
       handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
       handoff('b', 'main', 'geospatial', 'delegate.completed'),
@@ -95,16 +95,52 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
     const delegations = rows.filter((r) => r.kind === 'delegation');
+    // The server mints the single header at delegate.started; the client no longer
+    // dedups (seenDelegation deleted, #882). delegate.completed contributes only its
+    // return row, and parent.resumed is dropped structurally — so exactly ONE header
+    // survives for the (parent → child), rendered verbatim.
     expect(delegations).toHaveLength(1);
     expect(delegations[0]).toMatchObject({ parent: 'main', agent: 'geospatial', task: 'task' });
   });
 
-  it('renders explicit child return handoffs from completed delegation events', () => {
+  it('renders ONE header for a FAILED delegation — the failure conclusion rides the return lane, never a 2nd header (#882)', () => {
+    // The server routes a failed delegation's terminal live part through the SAME lane
+    // as a success: stage `delegate.completed` with status `failed` (turn_delegation.py).
+    // `metadata.stage` is the legacy mirror of the typed field and carries the SAME
+    // value — the precise `delegate.failed` lives on the persisted expert_handoffs row
+    // and the `delegation.failed` semantic event, never on the part. Before #882 the
+    // failure came through as `delegate.failed` on the header lane and `seenDelegation`
+    // collapsed the started+failed pair; with the dedup deleted, a verbatim client MUST
+    // still show exactly ONE header (minted at delegate.started) — the failure is a return.
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        type: 'expert_handoff',
+        id: 'b',
+        agent_id: 'main',
+        parent_agent: 'main',
+        child_agent: 'geospatial',
+        stage: 'delegate.completed',
+        status: 'failed',
+        metadata: { stage: 'delegate.completed' },
+      } as unknown as Part,
+    ];
+    const rows = buildAssistantTurnModel(parts)!.rows;
+    const delegations = rows.filter((r) => r.kind === 'delegation');
+    expect(delegations).toHaveLength(1);
+    expect(delegations[0]).toMatchObject({ parent: 'main', agent: 'geospatial', task: 'task' });
+    // No spurious second header from the failure conclusion.
+    expect(delegations.map((r) => (r as { agent: string }).agent)).toEqual(['geospatial']);
+  });
+
+  it('renders a completed delegation return carrying the child answer VERBATIM on `output`', () => {
     const parts = [
       handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
       {
         ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
-        metadata: { output_summary: 'Region resolved and ready.' },
+        // #885: the return carries the child's answer on `output`, not a
+        // server-authored `output_summary`.
+        metadata: { output: 'Region resolved and ready.' },
       } as unknown as Part,
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
@@ -114,9 +150,68 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
         agent: 'geospatial',
         parent: 'main',
         depth: 1,
-        text: 'Region resolved and ready.',
+        output: 'Region resolved and ready.',
       }),
     ]);
+  });
+
+  it('stores `output` BYTE-FOR-BYTE for a STRUCTURED (JSON) child answer — no field-picking, no summary, no clean (#885)', () => {
+    // The child's deliverable is a bare JSON body. The return row must STORE those
+    // exact bytes on `output` — the row is the value the UI renders verbatim behind
+    // `show more`. This goes RED if the server-authored blanking/summary layer is
+    // ever restored client-side (output re-picked to a one-liner, cleaned, or dropped
+    // because it "looks structured").
+    const jsonAnswer =
+      '{"REGION_LABEL":"Los Angeles, CA, USA","CENTER_LAT":34.0522,"CENTER_LON":-118.2437,"RADIUS_KM":50,"CONFIDENCE":"high"}';
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: jsonAnswer, workflow_state: { geospatial: { center_lat: 34.0522 } } },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // Byte-for-byte: the stored value IS the child's JSON answer, unchanged.
+    expect(ret.output).toBe(jsonAnswer);
+  });
+
+  it('a FAILED return has empty `output`; the failure rides typed status/error, and the row is KEPT (#882/#885)', () => {
+    const parts = [
+      handoff('a', 'main', 'data', 'delegate.started', 'task'),
+      {
+        type: 'expert_handoff',
+        id: 'b',
+        agent_id: 'main',
+        parent_agent: 'main',
+        child_agent: 'data',
+        stage: 'delegate.completed',
+        status: 'failed',
+        // #885: no server-authored failure sentence in `output`; the failure is typed.
+        metadata: { stage: 'delegate.completed', output: '', error: '_UnsupportedSessionAgent: data' },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(ret).toBeTruthy();
+    expect(ret.output).toBe('');
+    expect(ret.status).toBe('failed');
+    expect(ret.error).toBe('_UnsupportedSessionAgent: data');
+  });
+
+  it('drops an EMPTY return (no output, no failure) as structural chrome', () => {
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        status: 'completed',
+        metadata: { output: '' },
+      } as unknown as Part,
+    ];
+    const returns = buildAssistantTurnModel(parts)!.rows.filter((r) => r.kind === 'return');
+    expect(returns).toHaveLength(0);
   });
 
   it('PAIRS a tool_call with its tool_result by call_id into one tool row', () => {
@@ -286,7 +381,7 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
         child_agent: 'geospatial',
         stage: 'delegate.completed',
         status: 'completed',
-        metadata: { output_summary: 'Resolved Los Angeles to a bounded region.' },
+        metadata: { output: 'Resolved Los Angeles to a bounded region.' },
       } as unknown as Part,
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
@@ -302,242 +397,6 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     const ret = rows.find((r) => r.kind === 'return') as Extract<TurnRow, { kind: 'return' }>;
     expect(ret).toBeTruthy();
     expect(ret.providerThinking).toBeFalsy();
-  });
-
-  it('suppresses terminal parent completion reasoning after the synthesis answer', () => {
-    const answer = `
-### Region
-Ridgecrest, Kern County, California (2019 Earthquake Sequence) was resolved.
-
-Recommended GNSS station search radius: **100 km**.
-
-Data staging, profiling, and visualization were not performed per the geospatial-only request.
-`.repeat(4);
-    const terminalReasoning = `
-The user's request was explicit and scoped: "resolve only the geospatial target".
-
-Both required child experts have already completed:
-1. geospatial resolved the region with high confidence
-2. synthesis aggregated the geospatial evidence into the final user-facing answer
-
-The workflow_state reflects orchestration_stage=geospatial_resolution_complete.
-The task is fully satisfied by the grounded evidence already returned by the children.
-Per the orchestrator instructions, after synthesis completes, the parent finishes on the next turn.
-`;
-    const rows = buildAssistantTurnModel([
-      handoff('h', 'main', 'synthesis', 'delegate.started'),
-      text('synthesis-answer', 'synthesis', answer),
-      handoff('done', 'main', 'synthesis', 'delegate.completed'),
-      handoff('res', '', 'main', 'parent.resumed'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning',
-        agent_id: 'main',
-        thinking: terminalReasoning,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning')).toBe(false);
-    expect(rows.some((r) => r.kind === 'return' && r.agent === 'synthesis')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ kind: 'text', agent: 'synthesis' });
-  });
-
-  it('suppresses live post-answer echoes after terminal workflow-complete reasoning', () => {
-    const synthesisAnswer = `
-## Region
-
-**Ridgecrest, California - 2019 Earthquake Sequence**
-
-Geospatial resolution identified the target event region with:
-- Center: 35.6206924 N, 117.672097 W
-- Search radius: 100 km
-
-This analysis was limited to geospatial resolution only. No GNSS data staging,
-analysis, or visualization was performed.
-`;
-    const terminalReasoning = `
-The user request explicitly scoped the task to **geospatial resolution only**.
-
-Workflow evidence:
-- **Geospatial expert** (completed): Resolved the Ridgecrest event region.
-- **Synthesis expert** (completed): Composed the final user-facing answer.
-
-The accumulated \`workflow_state\` confirms the request scope and constraints.
-
-All required work is complete. Synthesis is the terminal child per protocol - I
-finish on the turn after it returns, carrying its answer. No further children
-(analysis, data, visualization) are needed.
-`;
-    const rows = buildAssistantTurnModel([
-      handoff('geo-start', 'main', 'geospatial', 'delegate.started'),
-      toolCall('tc', 'geospatial', 'c1', 'geo_geocode', { query: 'Ridgecrest, California' }),
-      toolResult('tr', 'geospatial', 'c1', 'display_name: Ridgecrest, CA'),
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text('syn-answer', 'synthesis', synthesisAnswer),
-      handoff('syn-done', 'main', 'synthesis', 'delegate.completed'),
-      text('geo-echo', 'geospatial', '{ "event_center_latitude": 35.6206924 }'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning',
-        agent_id: 'main',
-        text: terminalReasoning,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'geo-echo')).toBe(false);
-    expect(rows.some((r) => r.id === 'terminal-reasoning')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'syn-answer', kind: 'text', agent: 'synthesis' });
-  });
-
-  it('suppresses terminal workflow-complete reasoning with downstream-work wording', () => {
-    const synthesisAnswer = `
-## Region
-
-The 2019 Ridgecrest earthquake sequence region has been resolved with high confidence.
-
-## Scope clarification
-
-The requested task was geospatial resolution only. No GNSS data staging,
-profiling, analysis, or visualization has been performed.
-`;
-    const terminalReasoning = `
-Both required children have completed:
-1. **geospatial** returned high-confidence coordinates.
-2. **synthesis** composed the user-facing answer.
-
-The typed workflow_state confirms:
-- \`geospatial.status = "resolved"\`
-- \`task = "geospatial_resolution_only"\`
-
-All claims in the user-facing answer are grounded in child evidence. No
-downstream work (data acquisition, analysis, visualization) is required per the
-explicit user scope. The task is complete.
-`;
-    const rows = buildAssistantTurnModel([
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text('syn-answer', 'synthesis', synthesisAnswer),
-      handoff('syn-done', 'main', 'synthesis', 'delegate.completed'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning-2',
-        agent_id: 'main',
-        text: terminalReasoning,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning-2')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'syn-answer', kind: 'text', agent: 'synthesis' });
-  });
-
-  it('suppresses terminal workflow-complete reasoning with returned-children wording', () => {
-    const rows = buildAssistantTurnModel([
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text('syn-answer', 'synthesis', '## Scope\n\nThe requested task was geospatial resolution only.'),
-      handoff('syn-done', 'main', 'synthesis', 'delegate.completed'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning-3',
-        agent_id: 'main',
-        text: `
-The workflow_state confirms the bounded scope: pipeline_scope="geospatial_then_synthesis",
-user_constraints=["no_data_staging", "no_analysis", "no_visualization"],
-task="geospatial_resolution_only". Both required children (geospatial and
-synthesis) have returned grounded evidence, and all user constraints are
-satisfied. The task is complete.
-`,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning-3')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'syn-answer', kind: 'text', agent: 'synthesis' });
-  });
-
-  it('keeps a main-attributed final answer before finish/carry bookkeeping', () => {
-    const answer = `
-## Region
-
-Ridgecrest, Kern County, California.
-
-**Earthquake sequence center:** 35.6206924 N, -117.672097 W
-
-**GNSS station discovery radius:** 75 km
-
-This response provides the requested geospatial resolution parameters only.
-`;
-    const rows = buildAssistantTurnModel([
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text('main-answer', 'main', answer),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning-4',
-        agent_id: 'main',
-        text: `
-Synthesis has returned. The requested task (geospatial resolution only) is
-complete. No further children (data, analysis, visualization) are needed per the
-user's explicit scope constraints. I now finish and carry synthesis's answer.
-`,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning-4')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'main-answer', kind: 'text', agent: 'main' });
-  });
-
-  it('suppresses final completion reasoning with finish-carrying wording', () => {
-    const rows = buildAssistantTurnModel([
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text(
-        'syn-answer',
-        'synthesis',
-        '## Region\n\nThe 2019 Ridgecrest earthquake sequence region has been resolved.',
-      ),
-      handoff('syn-done', 'main', 'synthesis', 'delegate.completed'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning-5',
-        agent_id: 'main',
-        text: `
-The user requested geospatial resolution only for the 2019 Ridgecrest earthquake
-sequence. Both required pipeline stages have now completed: (1) the geospatial
-expert resolved the region, and (2) the synthesis expert has produced the final
-user-facing answer. This is the turn after synthesis has returned, and the
-workflow is genuinely complete; I now finish, carrying the synthesis answer
-forward.
-`,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning-5')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'syn-answer', kind: 'text', agent: 'synthesis' });
-  });
-
-  it('suppresses final completion reasoning with executed-workflow wording', () => {
-    const rows = buildAssistantTurnModel([
-      handoff('syn-start', 'main', 'synthesis', 'delegate.started'),
-      text(
-        'syn-answer',
-        'synthesis',
-        '## Region\n\nRidgecrest geospatial resolution complete. No GNSS data staging was performed.',
-      ),
-      handoff('syn-done', 'main', 'synthesis', 'delegate.completed'),
-      {
-        type: 'thinking',
-        id: 'terminal-reasoning-6',
-        agent_id: 'main',
-        text: `
-The workflow has already executed:
-
-1. geospatial child: Successfully resolved the event center.
-2. synthesis child: Produced the final user-facing answer.
-
-The typed workflow_state confirms the geospatial_resolution_only constraint.
-The task is complete. I now finish and carry the synthesis answer to the user.
-`,
-      } as unknown as Part,
-    ])!.rows;
-
-    expect(rows.some((r) => r.id === 'terminal-reasoning-6')).toBe(false);
-    expect(rows.at(-1)).toMatchObject({ id: 'syn-answer', kind: 'text', agent: 'synthesis' });
   });
 
   it('keeps every row keyed by a stable, unique id', () => {
@@ -563,68 +422,20 @@ The task is complete. I now finish and carry the synthesis answer to the user.
     expect(textRow.text).toContain('Los Angeles');
   });
 
-  it('strips bare progress scaffolding from text rows', () => {
+  it('renders agent prose VERBATIM — no scaffolding/placeholder scrubbing (epic #880)', () => {
+    // The client is a pure verbatim renderer: it no longer strips status
+    // parentheticals, "typed workflow state" captions, or orchestration
+    // placeholders from model prose. The server owns the clean stream; whatever the
+    // model authored renders exactly. (The three former scrubbing tests were
+    // deleted with stripClioScaffolding / isOrchestrationPlaceholder / isBareJsonBody.)
+    const raw =
+      '(No user-facing answer yet - work is delegated. Awaiting child expert evidence.)\n\nRouting complete.';
     const rows = buildAssistantTurnModel([
       handoff('h', 'main', 'data', 'delegate.started'),
-      text('t', 'data', 'In progress: acquiring data.\n\nCompleted:\n- catalog staged'),
+      text('t', 'main', raw),
     ])!.rows;
     const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
-    expect(textRow.text).toBe('Completed:\n- catalog staged');
-  });
-
-  it('strips generated parenthetical routing/status scaffolding from text rows', () => {
-    const rows = buildAssistantTurnModel([
-      handoff('h', 'main', 'data', 'delegate.started'),
-      text(
-        't',
-        'main',
-        '(No user-facing answer yet - work is delegated. Awaiting child expert evidence.)\n\n(Orchestration in progress - awaiting visualization and synthesis results.)\n\nRouting complete.',
-      ),
-    ])!.rows;
-    const textRow = rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text')!;
-    expect(textRow.text).toBe('Routing complete.');
-  });
-
-  it('strips live orchestration placeholders discovered in real EarthScope reloads', () => {
-    const rows = buildAssistantTurnModel([
-      text('a', 'main', 'Awaiting geospatial resolution. No evidence yet from child expert.'),
-      text('a2', 'main', 'Pending geospatial delegation. No answer available until event coordinates are resolved.'),
-      text(
-        'a3',
-        'main',
-        'Delegating to geospatial to resolve the 2019 Ridgecrest earthquake sequence into event center coordinates and GNSS search radius. Awaiting child evidence before routing to synthesis and finishing.',
-      ),
-      handoff('h', 'main', 'geospatial', 'delegate.started', 'Resolve the region'),
-      text('b', 'main', 'Routing to synthesis to produce the final user-facing answer.'),
-      text(
-        'b1',
-        'main',
-        'Routing to synthesis for final answer formatting. Awaiting synthesis completion before finishing.',
-      ),
-      text(
-        'b1b',
-        'main',
-        'Delegating to synthesis expert to compose the final user-facing answer from the completed geospatial resolution.',
-      ),
-      text(
-        'b2',
-        'main',
-        'Routing to the geospatial expert to resolve the event. No evidence is available until the geospatial expert returns its tool results.\n\nAwaiting synthesis child expert to produce the final answer.',
-      ),
-      text('c', 'geospatial', 'Resolved region: **Ridgecrest**.'),
-    ])!.rows;
-
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Awaiting'))).toBe(false);
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Routing to synthesis'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('No evidence is available'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Pending geospatial'))).toBe(
-      false,
-    );
-    expect(rows.some((r) => r.kind === 'text' && r.text.includes('Ridgecrest'))).toBe(true);
+    expect(textRow.text).toBe(raw);
   });
 
   it('unwraps a content-block tool_result envelope to the real output text', () => {
@@ -694,20 +505,99 @@ The task is complete. I now finish and carry the synthesis answer to the user.
     expect(tool.durationMs).toBe(1234.6);
   });
 
-  it('messageSearchTexts returns the CLEANED, rendered text (so highlight keys align)', () => {
+  it('messageSearchTexts indexes the VERBATIM rendered text (so highlight keys align)', () => {
+    const body = 'Evidence is ready.\n\nCLIO typed workflow state:\n{"workflow_state":{}}';
     const msg: Message = {
       id: 'm',
       role: 'assistant',
-      parts: [
-        {
-          type: 'text',
-          text: 'Evidence is ready.\n\nCLIO typed workflow state:\n{"workflow_state":{}}',
-        } as unknown as Part,
-      ],
+      parts: [{ type: 'text', text: body } as unknown as Part],
     } as unknown as Message;
-    // The display-only workflow-state blob is stripped, so search indexes only the
-    // prose the render actually shows.
-    expect(messageSearchTexts(msg)).toEqual(['Evidence is ready.']);
+    // The client is a verbatim renderer (epic #880): no scaffolding scrub runs, so
+    // search indexes exactly the text the render shows — the full body, trimmed.
+    expect(messageSearchTexts(msg)).toEqual([body]);
+  });
+
+  it('surfaces the typed workflow_state onto the RETURN row when the completed handoff carries a non-empty object (#305)', () => {
+    const ws = { geospatial: { provenance: 'osm_nominatim' }, acquisition: { status: 'pending' } };
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'Resolved LA.', workflow_state: ws },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // The exact typed object is surfaced verbatim (no field-picking / reshaping).
+    expect(ret.workflowState).toEqual(ws);
+    expect((ret.workflowState as { geospatial: { provenance: string } }).geospatial.provenance).toBe(
+      'osm_nominatim',
+    );
+  });
+
+  it('leaves workflowState UNDEFINED on a return with no workflow_state, and on an EMPTY {} state (#305 — icon renders only for real state)', () => {
+    const noState = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done' },
+      } as unknown as Part,
+    ];
+    const retNo = buildAssistantTurnModel(noState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(retNo.workflowState).toBeUndefined();
+
+    const emptyState = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done', workflow_state: {} },
+      } as unknown as Part,
+    ];
+    const retEmpty = buildAssistantTurnModel(emptyState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    // An empty {} carries no information → no icon → undefined on the row.
+    expect(retEmpty.workflowState).toBeUndefined();
+  });
+
+  it('surfaces workflow_state onto the CALL (delegation) row when the started handoff carries it (clio-agent #888), else leaves it undefined (#305)', () => {
+    const ws = { orchestration_stage: 'geospatial', user_request_summary: 'find LA stations' };
+    // WITH state on delegate.started (the #888 wire): the call row exposes it.
+    const withState = [
+      {
+        ...handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+        metadata: { question: 'task', workflow_state: ws },
+      } as unknown as Part,
+    ];
+    const callWith = buildAssistantTurnModel(withState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'delegation' }> => r.kind === 'delegation',
+    )!;
+    expect(callWith.workflowState).toEqual(ws);
+
+    // TODAY'S wire (no state on delegate.started): the call row leaves it undefined,
+    // so the contract icon simply doesn't render — structural degradation, no error.
+    const withoutState = [handoff('a', 'main', 'geospatial', 'delegate.started', 'task')];
+    const callWithout = buildAssistantTurnModel(withoutState)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'delegation' }> => r.kind === 'delegation',
+    )!;
+    expect(callWithout.workflowState).toBeUndefined();
+  });
+
+  it('does NOT treat a non-object workflow_state (string / array) as a contract (#305)', () => {
+    const parts = [
+      handoff('a', 'main', 'geospatial', 'delegate.started', 'task'),
+      {
+        ...handoff('b', 'main', 'geospatial', 'delegate.completed'),
+        metadata: { output: 'done', workflow_state: 'not-an-object' },
+      } as unknown as Part,
+    ];
+    const ret = buildAssistantTurnModel(parts)!.rows.find(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    )!;
+    expect(ret.workflowState).toBeUndefined();
   });
 
   it('emits row kinds in order: text, delegation, tool, text', () => {

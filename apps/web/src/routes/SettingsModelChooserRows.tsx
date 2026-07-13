@@ -11,6 +11,7 @@ import {
 import {
   presetStatusLabel,
   presetTone,
+  THINKING_LEVEL_OPTIONS,
   type ModelOption,
 } from './SettingsModelChooserModel.js';
 import './settings-model-chooser.css';
@@ -110,6 +111,49 @@ export function ModelRow(props: ModelRowProps) {
               <option value="">No models available</option>
             </Show>
           </select>
+        </Show>
+      }
+    />
+  );
+}
+
+export interface ThinkingRowProps {
+  value: string;
+  effective?: string;
+  disabled: boolean;
+  onSelect: (value: string) => void;
+}
+
+/**
+ * Extended-reasoning level selector (#895). A single validated dropdown over the
+ * provider-generic vocabulary (off/low/medium/high + "provider default"); the
+ * resolved per-provider effect (`thinking_effective`) is shown as a read-only
+ * hint so the user sees what the level actually does on the active provider.
+ */
+export function ThinkingRow(props: ThinkingRowProps) {
+  return (
+    <ListRow
+      testid="models-thinking-row"
+      label="Thinking level"
+      description="How much extended reasoning the model spends. Higher costs more time and tokens."
+      control={
+        <select
+          class="sx-select"
+          data-testid="models-thinking-select"
+          value={props.value}
+          disabled={props.disabled}
+          onChange={(e) => props.onSelect(e.currentTarget.value)}
+        >
+          <For each={THINKING_LEVEL_OPTIONS}>
+            {(o) => <option value={o.value}>{o.label}</option>}
+          </For>
+        </select>
+      }
+      badge={
+        <Show when={props.effective}>
+          <Pill tone="neutral" testid="models-thinking-effective">
+            {props.effective}
+          </Pill>
         </Show>
       }
     />

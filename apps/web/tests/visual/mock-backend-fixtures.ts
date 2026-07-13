@@ -22,10 +22,18 @@ export type VisualCase =
   | 'nested-depth'
   | 'transcript-artifacts';
 
-/** The saved real clio run (1 user msg + 1 assistant msg with 12 parts: a
- *  routing decision, 5 delegations emitted twice as delegate.completed +
- *  parent.resumed duplicates, and the final text answer). Sorted oldest-first
- *  so the transcript shows the user prompt before the answer. */
+/** The saved real clio run (GET /messages, session sess_f81710c00d95, captured
+ *  from the post-#880/#881 server — the clean presentation-model wire). One user
+ *  msg + one assistant msg with 135 ordered parts: provider `thinking` (SDK CoT),
+ *  agent `text` (`reasoning`/`next_thought`), 10 delegate.started + 10
+ *  delegate.completed handoffs (each delegation minted ONCE, no dedup), 10
+ *  structural `parent.resumed` twins, `routing_decision` plumbing, and the
+ *  tool_call/tool_result pairs of the LA GNSS pipeline
+ *  (geospatial → data → {ndp_dataset_discovery, earthscope_station_catalog,
+ *  ndp_resource_resolver} → analysis → {gnss_timeseries_analysis,
+ *  station_network_analysis} → visualization → synthesis). Copied VERBATIM from
+ *  the live capture — never hand-edited. Sorted oldest-first so the transcript
+ *  shows the user prompt before the assistant turn. */
 const earthscopeRealMessages: Message[] = (
   earthscopeRealTrace as { messages: Message[] }
 ).messages
@@ -33,10 +41,12 @@ const earthscopeRealMessages: Message[] = (
   .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
 
 /**
- * A real 2-level delegation chain: main → data → ndp_dataset_discovery. The
- * `data` expert (depth 1) carries reasoning prose AND a child handoff to
- * `ndp_dataset_discovery` (depth 2, parent_id 'data'). Proves the depth
- * indentation: the child must sit one visible level deeper than its parent.
+ * A 2-level delegation chain: main → data → ndp_dataset_discovery, in the
+ * post-#880 clean-wire shape — each delegation is a typed `delegate.started`
+ * EDGE (parent_agent/child_agent/stage), so the render mints one delegation step
+ * per edge. main → data sits at depth 0; data → ndp_dataset_discovery sits at
+ * depth 1 (a child of `data`). Proves the depth indentation: the child edge sits
+ * one visible level deeper than its parent edge.
  */
 const nestedDepthMessages: Message[] = [
   {
@@ -58,46 +68,42 @@ const nestedDepthMessages: Message[] = [
     created_at: '2026-06-16T12:00:05Z',
     parts: [
       {
-        type: 'routing_decision',
-        selected_agent: 'main',
-        rationale: 'Multi-step data acquisition — delegate to the data expert.',
-        heuristic: false,
-        metadata: { route_source: 'LM router' },
-      },
-      {
+        // A delegation EDGE in the post-#880 shape (metadata-borne typed fields,
+        // the shape the wire fixture carries; the model reads delegate_to/parent_id/
+        // stage from metadata). main → data, at depth 0.
         type: 'expert_handoff',
+        text: 'main -> data',
         metadata: {
           parent_id: 'main',
           agent_id: 'data',
           delegate_to: 'data',
-          status: 'completed',
-          stage: 'delegate.completed',
+          status: 'running',
+          stage: 'delegate.started',
+          question:
+            'Take ownership of data acquisition for the Los Angeles GNSS request: discover a ' +
+            'concrete EarthScope dataset, stage a real time-series CSV, and record its provenance.',
         },
-        text:
-          'main -> data | completed | delegate.completed | I took ownership of data acquisition for the Los Angeles GNSS request. ' +
-          'Before staging anything I need a concrete dataset, so I delegated catalog discovery to the ' +
-          'EarthScope dataset-discovery specialist and waited for it to return a ranked candidate. ' +
-          'Once it returned MTA1 as the closest high-quality station I staged the CSV locally and ' +
-          'recorded the provenance for the downstream analysis expert.',
       },
       {
+        // data → ndp_dataset_discovery: a child of `data`, so this edge sits one
+        // level deeper (depth 1).
         type: 'expert_handoff',
+        text: 'data -> ndp_dataset_discovery',
         metadata: {
           parent_id: 'data',
           agent_id: 'ndp_dataset_discovery',
           delegate_to: 'ndp_dataset_discovery',
-          status: 'completed',
-          stage: 'delegate.completed',
+          status: 'running',
+          stage: 'delegate.started',
+          question:
+            'Search the National Data Platform catalog for EarthScope GNSS stations within the ' +
+            'resolved Los Angeles bounding box, rank candidates by distance-to-center and data ' +
+            'freshness, and return the top station with its download URL and metadata reference.',
         },
-        text:
-          'data -> ndp_dataset_discovery | completed | delegate.completed | Searched the National Data Platform catalog for EarthScope GNSS ' +
-          'stations within the resolved Los Angeles bounding box. Ranked 72 candidate stations by ' +
-          'distance-to-center and data freshness. The top candidate is **MTA1** (0.3 km from center, ' +
-          'December 2024 data). Returned its download URL and metadata-catalog reference to the data expert.',
       },
       {
         type: 'text',
-        metadata: { stream_source: 'main' },
+        metadata: { stream_source: 'main', agent_id: 'main' },
         text:
           '## Dataset staged\n\n' +
           'I discovered and staged **MTA1**, the closest high-quality EarthScope GNSS station to ' +
@@ -383,28 +389,30 @@ const earthscopeBlockedMessages: Message[] = [
           parent_id: 'data',
           agent_id: 'ndp_dataset_discovery',
           status: 'failed',
+          // Post-#880 wire: the durable typed workflow-state dict rides on the
+          // handoff metadata as a first-class field — it is NOT embedded in
+          // `output_summary` prose (that retired format is no longer scraped by
+          // the render). The failed delegation entry carries a structural
+          // `error`, which the render surfaces as a user-facing workflow blocker.
+          workflow_state: {
+            geospatial: {
+              status: 'resolved',
+              region_name: 'San Diego area',
+              confidence: 'high',
+            },
+            delegation: {
+              status: 'failed',
+              failed_child: 'ndp_dataset_discovery',
+              parent: 'data',
+              error: '_UnsupportedSessionAgent',
+              message: 'ndp_dataset_discovery',
+            },
+            acquisition: {
+              analysis_ready: false,
+            },
+          },
           output_summary:
-            "Child expert 'ndp_dataset_discovery' failed while delegated from 'data': _UnsupportedSessionAgent. ndp_dataset_discovery\n\n" +
-            'CLIO durable typed workflow state:\n' +
-            JSON.stringify({
-              workflow_state: {
-                geospatial: {
-                  status: 'resolved',
-                  region_name: 'San Diego area',
-                  confidence: 'high',
-                },
-                delegation: {
-                  status: 'failed',
-                  failed_child: 'ndp_dataset_discovery',
-                  parent: 'data',
-                  error: '_UnsupportedSessionAgent',
-                  message: 'ndp_dataset_discovery',
-                },
-                acquisition: {
-                  analysis_ready: false,
-                },
-              },
-            }),
+            "Child expert 'ndp_dataset_discovery' failed while delegated from 'data': _UnsupportedSessionAgent.",
         },
       },
       {
@@ -651,7 +659,7 @@ const SESSION_META: Record<VisualCase, { id: string; title: string }> = {
   markdown: { id: 'mock-markdown', title: 'markdown release read' },
   'earthscope-blocked': { id: 'mock-earthscope-blocked', title: 'earthscope ndp blocked' },
   fulldata: { id: 'mock-fulldata', title: 'full-data surfaces' },
-  'earthscope-real': { id: 'sess_a19f51d8c21b', title: 'earthscope real trace' },
+  'earthscope-real': { id: 'sess_f81710c00d95', title: 'earthscope real trace' },
   'nested-depth': { id: 'mock-nested', title: 'nested delegation depth' },
   'transcript-artifacts': { id: 'mock-artifacts', title: 'transcript artifacts' },
   earthscope: { id: 'mock-earthscope', title: 'earthscope gnss los angeles' },

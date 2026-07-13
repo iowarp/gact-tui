@@ -58,8 +58,9 @@ describe('AssistantTurnView normalized stream shape', () => {
         agent: 'geospatial',
         parent: 'main',
         depth: 1,
-        text: 'Resolved region: Los Angeles.',
-        raw: 'Resolved region: Los Angeles.\ncenter: 34.05, -118.24; radius_km: 50',
+        // #885: the return carries the child's answer VERBATIM on the single
+        // `output` field — no server-authored summary, no separate raw payload.
+        output: 'Resolved region: Los Angeles.\ncenter: 34.05, -118.24; radius_km: 50',
       },
     ];
 
@@ -81,12 +82,12 @@ describe('AssistantTurnView normalized stream shape', () => {
       'display_name: Los Angeles',
     );
 
-    // raw carries MORE than the rendered body, so the "details" disclosure is
-    // offered and reveals the raw payload (when raw only repeats text, it's hidden).
+    // `show more` reveals the child's answer VERBATIM (the single `output` field);
+    // there is no separate raw payload.
     const toggle = screen.getByTestId('assistant-turn-return-toggle');
-    expect(toggle.textContent).toContain('details');
+    expect(toggle.textContent).toContain('show more');
     fireEvent.click(toggle);
-    expect(screen.getByTestId('assistant-turn-return-raw').textContent).toContain('radius_km: 50');
+    expect(screen.getByTestId('assistant-turn-return-body').textContent).toContain('radius_km: 50');
 
     expect(screen.queryByText('workflow_state')).toBeNull();
     expect(screen.queryByText('[[ ##')).toBeNull();

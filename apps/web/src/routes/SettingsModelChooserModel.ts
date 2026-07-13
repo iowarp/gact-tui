@@ -86,6 +86,44 @@ export function presetTone(preset: LmPreset): PillTone {
   return 'neutral';
 }
 
+/** A thinking-level choice in the selector (`''` = leave the provider default). */
+export interface ThinkingLevelOption {
+  value: '' | 'off' | 'low' | 'medium' | 'high';
+  label: string;
+}
+
+/** The fixed, provider-generic thinking-level menu (#895). */
+export const THINKING_LEVEL_OPTIONS: ThinkingLevelOption[] = [
+  { value: '', label: 'Provider default' },
+  { value: 'off', label: 'Off' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+/**
+ * Coerce an arbitrary snapshot value to a selector value: one of the four
+ * levels, or `''` (provider default) for null/undefined/unknown. Never throws,
+ * so a snapshot carrying a legacy/blank level still renders the default choice.
+ */
+export function normalizeThinkingLevel(value: string | undefined | null): ThinkingLevelOption['value'] {
+  const v = (value ?? '').trim().toLowerCase();
+  if (v === 'off' || v === 'low' || v === 'medium' || v === 'high') return v;
+  return '';
+}
+
+/**
+ * The value to put in the `thinking_level` request field, or `undefined` when
+ * the field should be omitted (provider default). Only the four valid levels are
+ * ever sent — `''` maps to omit, so the wire never receives an invalid literal.
+ */
+export function thinkingLevelForBody(
+  value: string | undefined | null,
+): 'off' | 'low' | 'medium' | 'high' | undefined {
+  const v = normalizeThinkingLevel(value);
+  return v === '' ? undefined : v;
+}
+
 export function presetStatusLabel(preset: LmPreset): string {
   if (preset.status_message) return preset.status_message;
   if (preset.status) return preset.status;

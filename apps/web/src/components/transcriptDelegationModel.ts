@@ -25,20 +25,6 @@
 import type { Message, Part } from '@clio/core';
 import { analyzeToolResult } from './toolResultPreview.js';
 import type { ToolResultContent } from './toolResultContent.js';
-// The transitional prose-heuristic presentation filters live in ONE spec'd home
-// (./presentationFilters.ts + contract/SPEC.md Appendix "Transitional client
-// presentation filters (non-normative)"). dedupToolThought stays re-exported
-// from here for backwards compatibility with existing importers.
-import {
-  dedupToolThought,
-  hasPriorAnswerRow,
-  isBareJsonBody,
-  isOrchestrationPlaceholder,
-  isTerminalCompletionReasoning,
-  stripClioScaffolding,
-} from './presentationFilters.js';
-
-export { dedupToolThought };
 
 /** A single tool call row (a tool_call part, joined to its tool_result by id). */
 export interface ToolRow {
@@ -74,6 +60,12 @@ export interface DelegationRow {
   task: string;
   status: string;
   providerThinking?: ProviderThinking;
+  /** The typed workflow contract PASSED DOWN to the child on this call, carried
+   *  on `metadata.workflow_state` of the `delegate.started` part (the snapshot
+   *  the server attaches via clio-agent #888). Present ONLY when a non-empty
+   *  object; the #305 contract icon renders off this. Older wires don't carry it
+   *  on started rows, so it is `undefined` and the icon simply doesn't render. */
+  workflowState?: Record<string, unknown>;
 }
 
 /** An agent's prose (markdown, in full). */
@@ -121,18 +113,36 @@ export interface RoutingRow {
   source: string;
 }
 
-/** A child agent's structured hand-back to its parent. */
+/** A child agent's hand-back to its parent. The return contract is exactly two
+ *  fields — `{ output/answer , workflow_state }` (#885): `output` is the child's
+ *  parent-bound answer BYTE-FOR-BYTE (never a server-authored summary), and
+ *  `workflow_state` rides on the row as a typed carrier (not rendered in the
+ *  disclosure). A FAILED return carries `output === ''` and the failure surfaces
+ *  from the typed `status`/`error` fields (#882) — the client never reads a
+ *  server-synthesized failure sentence out of `output`. */
 export interface ReturnRow {
   kind: 'return';
   id: string;
   depth: number;
   agent: string;
   parent: string;
-  text: string;
-  raw: string;
+  /** The child's parent-bound answer, VERBATIM. `''` on failure. May legitimately
+   *  be a bare JSON body when the child's deliverable is structured — the client
+   *  renders it verbatim behind `show more` and never filters/summarizes it. */
+  output: string;
+  /** Typed delegation status (`completed` | `failed` | …). Drives the failure
+   *  render when `output` is empty. */
+  status?: string;
+  /** Typed failure detail (`error`/`message`) surfaced when the child failed. */
+  error?: string;
   chars?: number;
   tokens?: number;
   providerThinking?: ProviderThinking;
+  /** The typed workflow contract RETURNED UP to the parent, carried on
+   *  `metadata.workflow_state` of the `delegate.completed` part. Present ONLY
+   *  when a non-empty object; the #305 contract icon renders off this. Never
+   *  rendered as the answer (that is `output`, #885) — a typed carrier only. */
+  workflowState?: Record<string, unknown>;
 }
 
 /** Any non-delegation, non-text part rendered by its own per-type view. */
@@ -185,51 +195,18 @@ function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** Clean an agent's prose: drop clio status scaffolding + a leading
- *  `A -> B | status | …` pipe prefix some backends glue onto handoff bodies. */
+/** Whether a TYPED delegation `status` enum denotes a failure. Keys on the
+ *  structured status field (`failed`/`error`/`blocked`), NOT on model prose — a
+ *  failed return renders from typed fields (#882), never from scraped text. */
+export function isFailedStatus(status: string | undefined): boolean {
+  return !!status && /fail|block|error/i.test(status);
+}
+
+/** Trim an agent's prose. The client is a VERBATIM renderer (epic #880): the
+ *  server owns the clean stream, so no scaffolding/status-prefix scrubbing runs
+ *  here — only whitespace trimming, which is not a content change. */
 function cleanProse(raw: string): string {
-  return stripStatusPrefix(stripClioScaffolding(raw)).trim();
-}
-
-/**
- * Strip a leading pipe-delimited status prefix, e.g.
- * "agent -> agent | completed | <stage> | <prose>". Detected STRUCTURALLY (an
- * "A -> B" arrow head followed by short ` | <token>` segments); format-based,
- * never a match of a specific status word. Never eats a markdown table row.
- */
-function stripStatusPrefix(text: string): string {
-  const nl = text.indexOf('\n');
-  const head = nl >= 0 ? text.slice(0, nl) : text;
-  if (!/^\s*\S+\s*->\s*\S+\s*\|/.test(head)) return text;
-  const lastPipe = head.lastIndexOf('|');
-  if (lastPipe < 0) return text;
-  const segments = head.slice(0, lastPipe).split('|');
-  if (!segments.every((s) => s.trim().length <= 40)) return text;
-  const rest = head.slice(lastPipe + 1).trimStart();
-  return nl >= 0 ? rest + text.slice(nl) : rest;
-}
-
-/**
- * A handoff `output_summary` is frequently a BARE JSON evidence object (typed
- * structured state — display-only per the contract), not prose. Such a body is
- * machine state, not something to render as the delegation's task line, so it is
- * treated as empty. A summary that is real prose (optionally followed by state,
- * already stripped) is kept verbatim.
- */
-function dropBareJsonSummary(text: string): string {
-  const t = text.trim();
-  if (!t) return '';
-  const wrapped =
-    (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
-  if (wrapped) {
-    try {
-      JSON.parse(t);
-      return '';
-    } catch {
-      // not valid JSON — fall through and treat as prose
-    }
-  }
-  return text;
+  return raw.trim();
 }
 
 /** Render a tool's args object/string into a compact one-line summary. */
@@ -339,24 +316,32 @@ function rawResultString(result: unknown): string {
   }
 }
 
-function firstNonEmptyRaw(...values: unknown[]): unknown {
-  for (const value of values) {
-    if (typeof value === 'string') {
-      if (value.trim()) return value;
-      continue;
-    }
-    if (value != null) return value;
-  }
-  return undefined;
+/** Read a delegation return's `output` as the child's answer, VERBATIM (#885).
+ *  A string passes through byte-for-byte (no trim — `show more` is byte-for-byte
+ *  the child's parent-bound answer); a non-string deliverable is serialized once.
+ *  There is NO field-picking, summarizing, or cleaning — whatever the child
+ *  returned is what the row stores and the UI shows. */
+function readOutput(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  return rawResultString(value);
+}
+
+/** Read the typed `workflow_state` carrier off a handoff's metadata. Returns the
+ *  object ONLY when it is a NON-EMPTY plain object — an absent, null, non-object,
+ *  or empty (`{}`) state yields `undefined`, so the #305 contract icon renders
+ *  exactly when there is real state to show (and degrades to nothing on older
+ *  wires that omit it). No field-picking or reshaping: the exact typed object is
+ *  surfaced onto the row, byte content preserved for the popup. */
+function readWorkflowState(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  return Object.keys(obj).length > 0 ? obj : undefined;
 }
 
 function clip(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
-}
-
-function delegationKey(parent: string, agent: string, task: string): string {
-  return `${parent}->${agent}->${task.replace(/\s+/g, ' ').trim()}`;
 }
 
 /** Agent of a part — the emitter. `expert_handoff` headers belong to the CHILD
@@ -435,7 +420,7 @@ function buildUserTurnModel(list: readonly PartLike[]): AssistantTurnModel | nul
 
 export function buildAssistantTurnModel(
   parts: readonly Part[],
-  opts?: { streaming?: boolean; role?: 'user' | 'assistant' },
+  opts?: { role?: 'user' | 'assistant' },
 ): AssistantTurnModel | null {
   const list = parts as readonly PartLike[];
   // TOTAL builder (the single render path): EVERY turn — user prompts, delegation
@@ -449,10 +434,6 @@ export function buildAssistantTurnModel(
   const rows: TurnRow[] = [];
   // Tool rows indexed by call_id so a later tool_result joins its tool_call.
   const toolByCall = new Map<string, ToolRow>();
-  // Dedup delegation headers: a backend emits started + completed + resumed for
-  // the same (parent → child); we keep ONE header (the first seen).
-  const seenDelegation = new Set<string>();
-  const lastDelegationKeyByPair = new Map<string, string>();
 
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
@@ -480,49 +461,44 @@ export function buildAssistantTurnModel(
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
       const task =
         cleanProse(str(part.metadata?.['question'])) ||
-        cleanProse(str(part.metadata?.['input'])) ||
-        dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary'])));
-      const pairKey = `${parent}->${agent}`;
-      let key = delegationKey(parent, agent, task);
+        cleanProse(str(part.metadata?.['input']));
       if (stage === 'delegate.completed' || stage === 'completed') {
-        // The dspy.extract that precedes this return (its SDK thinking host + the
-        // `reasoning` text) renders in the flow like every other turn — thinking on
-        // top, streaming — NOT folded onto the return. Folding bound it to the return,
-        // which only exists at the very END of the turn, so it could not stream in.
-        // The return stays a clean one-liner (`↩ child returns to parent · show details`).
-        if (!task) key = lastDelegationKeyByPair.get(pairKey) || key;
-        if (!seenDelegation.has(key)) {
-          seenDelegation.add(key);
-          lastDelegationKeyByPair.set(pairKey, key);
-          rows.push({
-            kind: 'delegation',
-            id: `delegation-${id}`,
-            depth: depthOf(parent),
-            parent,
-            agent,
-            task,
-            status: str(part.status) || str(part.metadata?.['status']) || 'completed',
-          });
-        }
+        // The delegation's terminal RETURN lane. The server mints exactly ONE header
+        // per delegation at `delegate.started` and routes every conclusion — success
+        // AND failure (a failed delegation carries stage `delegate.completed` with
+        // status `failed`) — here (#882), so a concluded delegation contributes only
+        // its return + tool rows, never a second header. The client is a verbatim
+        // renderer (#880): no dedup. The preceding dspy.extract (SDK thinking host +
+        // `reasoning`) streams in the flow like every other turn; the return stays a
+        // clean one-liner (`↩ child returns to parent · show details`).
         rows.push(...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id));
+        const status = str(part.status) || str(part.metadata?.['status']);
+        const error = str(part.metadata?.['error']) || str(part.metadata?.['message']);
         rows.push({
           kind: 'return',
           id: `return-${id}`,
           depth: depthOf(agent),
           agent,
           parent,
-          text: dropBareJsonSummary(cleanProse(str(part.metadata?.['output_summary']))),
-          // The "details" raw mirrors the live return's `response`: the GENUINE
-          // structured output (empty for prose). Sourcing it from output_raw keeps
-          // reload identical to live — no falling back to workflow_state, which
-          // would surface a "details" toggle live-hidden turns don't have.
-          raw: rawResultString(firstNonEmptyRaw(part.metadata?.['output_raw'])),
+          // `output` is the child's parent-bound answer, BYTE-FOR-BYTE (#885): the
+          // sole content field, shown VERBATIM behind `show more`. It is NOT a
+          // server-authored summary and NOT re-cleaned here — a structured
+          // deliverable renders as the exact bytes the child returned (a bare JSON
+          // body is legitimate). A failed return carries `output === ''`; the
+          // failure rides the typed `status`/`error` fields, never a synthesized
+          // sentence scraped back out of `output`.
+          output: readOutput(part.metadata?.['output']),
+          ...(status ? { status } : {}),
+          ...(error ? { error } : {}),
+          // The typed workflow contract returned UP to the parent (#305). A typed
+          // carrier only — surfaced verbatim onto the row for the contract icon,
+          // never rendered as the answer (that is `output`, #885).
+          ...(readWorkflowState(part.metadata?.['workflow_state'])
+            ? { workflowState: readWorkflowState(part.metadata?.['workflow_state'])! }
+            : {}),
         });
         continue;
       }
-      if (seenDelegation.has(key)) continue;
-      seenDelegation.add(key);
-      lastDelegationKeyByPair.set(pairKey, key);
       rows.push({
         kind: 'delegation',
         // The delegation is the PARENT's turn (its decision to hand off), so it
@@ -533,11 +509,18 @@ export function buildAssistantTurnModel(
         depth: depthOf(parent),
         parent,
         agent,
-        // The delegated task: the question sent down, else a backend-provided
-        // handoff summary (older shape). cleanProse strips clio scaffolding
-        // (durable workflow_state JSON) + a leading `A -> B | status` prefix.
+        // The delegated task: the question sent down, else the raw `input`. There
+        // is NO `output_summary` fallback (removed with the summary layer, #885).
+        // Rendered VERBATIM (epic #880): the server owns the clean stream, so
+        // cleanProse only trims — no scaffolding scrub.
         task,
         status: str(part.status) || str(part.metadata?.['status']) || 'observed',
+        // The typed workflow contract PASSED DOWN to the child on this call (#305),
+        // attached to the `delegate.started` part by clio-agent #888. Absent on
+        // older wires → `undefined` → the contract icon simply doesn't render.
+        ...(readWorkflowState(part.metadata?.['workflow_state'])
+          ? { workflowState: readWorkflowState(part.metadata?.['workflow_state'])! }
+          : {}),
       });
       continue;
     }
@@ -597,11 +580,12 @@ export function buildAssistantTurnModel(
         id: `tool-${callId}`,
         depth,
         agent,
-        thought: dedupToolThought(
-          rows,
-          agent,
-          cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
-        ),
+        // Render the thought VERBATIM (clio #732 / epic #880): the server now
+        // guarantees single-representation — next_thought owns its visible text
+        // row and tool_call.thought carries the copy ONLY when there is no
+        // visible row — so the client no longer dedups. cleanProse is unrelated
+        // (non-S2) scaffolding cleanup and stays.
+        thought: cleanProse(str(part.thought) || str(part.metadata?.['thought'])),
         name: str(part.tool_name) || 'tool',
         argsSummary: summariseArgs(part.input ?? part.metadata?.['input']),
         content: { kind: 'text', text: '' },
@@ -660,7 +644,7 @@ export function buildAssistantTurnModel(
     rows.push({ kind: 'passthrough', id, depth, part: part as Part });
   }
 
-  const cleanRows = filterVisibleRows(rows, opts);
+  const cleanRows = filterVisibleRows(rows);
   if (cleanRows.length === 0) return null;
   return { rows: cleanRows };
 }
@@ -686,33 +670,23 @@ export function messageSearchTexts(msg: Message): string[] {
 }
 
 /**
- * Defensive net for clio #736: after a terminal child returns, the orchestrator
- * (`main`) re-emits that child's answer VERBATIM as its own `text` part, so the
- * final brief would render twice. Drop a `text` row whose body exactly repeats
- * an earlier `text` row's body — the answer renders once, attributed to the
- * agent that authored it first. The backend fix removes the duplicate at source;
- * this keeps the render correct regardless. Only EXACT full-body repeats are
- * dropped, so distinct orchestrator summaries (unique prose) are untouched.
+ * Drop only STRUCTURALLY empty rows from the ordered log. The client is a
+ * VERBATIM renderer (epic #880): the server owns the clean stream, so there is NO
+ * content dedup, body-shape, or placeholder scrubbing here — any genuine backend
+ * double-emit or placeholder is fixed at the SOURCE, not hidden in the render.
+ * This filter behaves IDENTICALLY live and reloaded (no streaming branch), so a
+ * turn renders the same in-flight as it does after a reload.
  */
-export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean }): TurnRow[] {
-  // While a turn is still STREAMING, the body-shape/dedupe predicates judge
-  // INCOMPLETE text and wrongly drop main/synthesis rows mid-stream (so they only
-  // "pop in" once complete — the batched/stuck feel). For in-flight content apply
-  // ONLY the structural empty-text drop; the full filter runs once the message is
-  // finalized. A completed-session reload passes no opts → byte-identical output
-  // (parity preserved).
-  const streaming = opts?.streaming === true;
-  // #48: NO client-side text dedup. It was born from a wrong reading of the
-  // dspy.extract/response semantics (treating the extract answer as a duplicate of
-  // the finish next_thought) and ran ONLY when settled — dropping real content and
-  // making a reloaded turn diverge from the live one. Build identically live/settled;
-  // any genuine backend double-emit is fixed at the SOURCE, not hidden here.
-  const base = rows;
-  return base.filter((row, index, all) => {
+export function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
+  return rows.filter((row) => {
     if (row.kind === 'return') {
-      if (!row.text.trim() && !row.raw.trim()) return false;
-      if (!streaming && row.agent === 'synthesis' && hasPriorAnswerRow(all, index)) return false;
-      return true;
+      // Keep a return that carries the child's answer (`output`) OR a failure
+      // conclusion (empty `output` but a typed `error`/failed `status`, #882).
+      // Drop only empty chrome. This keys on emptiness + typed status, never on
+      // model wording.
+      if (row.output.trim()) return true;
+      if (row.error?.trim()) return true;
+      return isFailedStatus(row.status);
     }
     if (row.kind !== 'text' && row.kind !== 'reasoning') return true;
     const body = row.text.trim();
@@ -721,17 +695,6 @@ export function filterVisibleRows(rows: TurnRow[], opts?: { streaming?: boolean 
       // thinking lives in providerThinking) — keep it so the collapsed `thinking ▾`
       // renders. Drop only genuinely empty rows.
       return row.kind === 'reasoning' && !!row.providerThinking?.text.trim();
-    }
-    if (streaming) return true;
-    if (isBareJsonBody(body)) return false;
-    if (isOrchestrationPlaceholder(body)) return false;
-    if (
-      row.kind === 'reasoning' &&
-      row.agent === 'main' &&
-      hasPriorAnswerRow(all, index) &&
-      isTerminalCompletionReasoning(body)
-    ) {
-      return false;
     }
     return true;
   });

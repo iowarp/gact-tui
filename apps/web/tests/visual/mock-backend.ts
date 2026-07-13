@@ -147,8 +147,15 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
     if (method === 'GET' && path === '/v1/workspaces/ws-demo/files/read') {
       const requested = url.searchParams.get('path') ?? '';
       // The real EarthScope plot artifact (an absolute output_path emitted by the
-      // visualization tool) — serve the actual PNG bytes for inline rendering.
-      if (requested.endsWith('MTA1_GNSS_timeseries_displacement.png')) {
+      // visualization tool) — serve the actual PNG bytes for inline rendering. The
+      // post-#880 capture's plot tool returns `MTA1_CI_LY_30_timeseries.png`; the
+      // older fixture used `MTA1_GNSS_timeseries_displacement.png`. Both map to the
+      // one committed plot PNG (the mock is a test double; the bytes only need to be
+      // a real raster for the inline-image render proof).
+      if (
+        requested.endsWith('MTA1_CI_LY_30_timeseries.png') ||
+        requested.endsWith('MTA1_GNSS_timeseries_displacement.png')
+      ) {
         await route.fulfill({
           status: 200,
           contentType: 'image/png',

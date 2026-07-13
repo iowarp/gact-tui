@@ -107,15 +107,14 @@ function workflowStateFromPart(part: Part | undefined): Record<string, unknown> 
   if (isRecord(state)) return state;
   const partRecord: Record<string, unknown> = isRecord(part) ? part : {};
 
-  const candidates = [
-    metadata['output_summary'],
-    metadata['return_output_summary'],
-    metadata['local_output_summary'],
-    partRecord['text'],
-  ];
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue;
-    const workflow = splitWorkflowState(candidate);
+  // The typed workflow dictionary rides on `metadata.workflow_state` (read above).
+  // The only remaining fallback is a state block the model embedded in its own
+  // prose `text`; the server no longer authors summary sentences carrying state
+  // (#885), so `output_summary`/`return_output_summary`/`local_output_summary` are
+  // not scraped for state — those keys no longer exist on the wire.
+  const embedded = partRecord['text'];
+  if (typeof embedded === 'string') {
+    const workflow = splitWorkflowState(embedded);
     if (workflow) return workflow.state;
   }
   return null;
