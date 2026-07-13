@@ -34,7 +34,8 @@ const BRAND_BACKEND_JSON: &str =
 pub struct BrandBackend {
     /// `"managed"` (spawn/install a sidecar) or `"connect"` (attach-only).
     pub mode: String,
-    /// externalBin basename — the launcher is `<sidecar_name>-<triple>{.exe}`.
+    /// externalBin stem — installed as `<sidecar_name>{.exe}` (tauri-bundler
+    /// strips the triple); dev layouts keep `<sidecar_name>-<triple>{.exe}`.
     pub sidecar_name: String,
     /// Conventional local port to attach-first.
     pub attach_port: u16,
