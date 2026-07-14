@@ -4,6 +4,44 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.9.7] — 2026-07-13
+
+The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
+
+### Fixed
+- **Desktop sidecar launcher found on real installs** (#309): tauri-bundler
+  strips the target-triple suffix when packaging `externalBin`, but the
+  supervisor looked only for the suffixed dev name next to the executable —
+  every installed bundle failed at boot with "sidecar launcher missing".
+  The lookup now probes the installed (stripped) name first; ARM triples
+  added; unit tests cover both layouts.
+
+### Changed
+- **Generic self-describing bundled runtime** (#311): a bundled backend is a
+  `gact-runtime/` dir shipping a `runtime.json` manifest
+  (`{"schema":1,"exec":[...],"env":{}}`) that the launcher execs with zero
+  brand knowledge; `GACT_BUNDLED_RUNTIME_DIR` unified with the supervisor
+  (the env-name drift had silently killed resource-dir discovery). A
+  present-but-broken manifest is a hard typed error, never a fallthrough.
+
+### Removed
+- `build-clio-runtime.{sh,ps1,mjs}` — the embedding brand builds its own
+  runtime (moved to iowarp/clio-agent `install/build-gact-runtime.*`);
+  apps.yml exercises the generic packing with a stub runtime.
+
+## [0.9.6] — 2026-07-13
+
+> Retroactive entry: v0.9.6 was tagged without a CHANGELOG heading, so its
+> changelog-gated neutral release never published (assets shipped via the
+> clio-agent release pipeline instead). Recorded for the tag history.
+
+### Changed
+- Thinking-level control surface (#307): typed `thinking_level` plumbed
+  through the web provider settings at contract parity with clio-agent
+  v0.6.x (`off|low|medium|high`, effective-value reporting).
+- Blocked-turn `workflow_state` carried as typed part metadata rather than
+  `output_summary` prose in the web visual fixtures (#307).
+
 ## [0.9.5] — 2026-07-09
 
 The parity-and-convergence release. Closes the two protocol-convergence
