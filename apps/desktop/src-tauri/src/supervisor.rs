@@ -3,8 +3,8 @@
 //! On app launch the supervisor:
 //!   1. Allocates a free localhost port (ephemeral-bind + release).
 //!   2. Generates a 32-byte bearer token (hex-encoded; 64 chars).
-//!   3. Locates the bundled launcher binary
-//!      (`binaries/clio-agent-<triple>{.exe}`).
+//!   3. Locates the bundled launcher binary (installed `clio-agent{.exe}`
+//!      next to the app exe; dev `binaries/clio-agent-<triple>{.exe}`).
 //!   4. Spawns the launcher with `--host 127.0.0.1 --port N --token T`.
 //!   5. Polls `http://127.0.0.1:N/v1/capabilities` with the `Authorization:
 //!      Bearer T` header until 200 (≤ 30 s).
