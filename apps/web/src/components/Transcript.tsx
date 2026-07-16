@@ -3,7 +3,7 @@
  * scroll management, and the per-message part renderers.
  */
 import { For, Show, createMemo } from 'solid-js';
-import type { FileDiff, Message, SemanticEventPayload } from '@clio/core';
+import type { Client, FileDiff, Message, SemanticEventPayload } from '@clio/core';
 import type { ExecutionTranscriptEvent } from '../live.js';
 import type { ModelOption } from './ComposerTypes.js';
 import type { TranscriptDensity } from './TranscriptParts.js';
@@ -68,6 +68,9 @@ export interface TranscriptProps {
   /** Resolve a workspace file path to an inline image data URL — used to render
    *  tool artifacts (e.g. a plot's output_path) inline in the transcript. */
   readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
+  /** Client/session binding used only by capability-bound MCP App parts. */
+  mcpAppClient?: Client;
+  sessionId?: string;
   /** Chronological CLIO execution ledger. When present, assistant execution
    * renders as one interleaved timeline instead of separate semantic/message
    * blocks. Shared by web and desktop. */
@@ -172,6 +175,8 @@ export function Transcript(props: TranscriptProps) {
             }
             imagePartsSupported={props.imagePartsSupported}
             readWorkspaceImage={props.readWorkspaceImage}
+            mcpAppClient={props.mcpAppClient}
+            sessionId={props.sessionId}
           />
         )}
       </For>

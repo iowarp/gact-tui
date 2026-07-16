@@ -1,4 +1,11 @@
 export { Client, TransportTimeoutError, type ClientOptions } from './http.js';
+export type {
+  McpAppPayload,
+  McpAppRef,
+  McpCallToolResult,
+  McpContentBlock,
+  McpReadResourceResult,
+} from './mcp_apps.js';
 export {
   type SseHandler,
   parseSseBlock,
