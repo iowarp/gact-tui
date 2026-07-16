@@ -21,7 +21,7 @@
  *   - Tool output rendered by CONTENT TYPE, never by tool name; only it collapses.
  */
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import type { FileDiff, Part } from '@clio/core';
+import type { Client, FileDiff, Part } from '@clio/core';
 import { Icon } from './Icon.js';
 import { Markdown } from './Markdown.js';
 import { ImagePartView } from './TranscriptImagePartView.js';
@@ -63,6 +63,8 @@ export function AssistantTurnView(props: {
   onPinFile?: (path: string) => void;
   imagePartsSupported?: boolean;
   readWorkspaceImage?: ReadWorkspaceImage;
+  mcpAppClient?: Client;
+  sessionId?: string;
   messageId?: string;
   /** True while this turn's message is still streaming — the LAST row is the one
    *  actively growing, so it renders plain (no per-token re-parse) for smoothness. */
@@ -215,6 +217,8 @@ function TurnRowView(props: {
   onPinFile?: (path: string) => void;
   imagePartsSupported?: boolean;
   readWorkspaceImage?: ReadWorkspaceImage;
+  mcpAppClient?: Client;
+  sessionId?: string;
   messageId?: string;
   isStreamingTail?: boolean;
   searchQuery?: string;
@@ -264,6 +268,8 @@ function TurnRowView(props: {
             onPinFile={props.onPinFile}
             imagePartsSupported={props.imagePartsSupported}
             messageId={props.messageId}
+            mcpAppClient={props.mcpAppClient}
+            sessionId={props.sessionId}
           />
         );
     }
@@ -656,6 +662,8 @@ function PassthroughRowView(props: {
   onPinFile?: (path: string) => void;
   imagePartsSupported?: boolean;
   messageId?: string;
+  mcpAppClient?: Client;
+  sessionId?: string;
 }) {
   const part = props.row.part;
   if (part.type === 'image') {
@@ -674,6 +682,8 @@ function PassthroughRowView(props: {
         onPinFile={props.onPinFile}
         imagePartsSupported={props.imagePartsSupported}
         messageId={props.messageId}
+        mcpAppClient={props.mcpAppClient}
+        sessionId={props.sessionId}
       />
     </div>
   );

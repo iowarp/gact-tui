@@ -4,6 +4,7 @@
  */
 import { Show } from 'solid-js';
 import type {
+  Client,
   FileDiff,
   Message,
   PermissionRequest,
@@ -62,6 +63,7 @@ export interface ChatConversationTranscriptProps {
   /** Resolve a workspace file path to an inline image data URL (for tool
    *  artifacts like plot output_path). */
   readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
+  mcpAppClient?: Client;
 }
 
 export function ChatConversationTranscript(props: ChatConversationTranscriptProps) {
@@ -113,6 +115,8 @@ export function ChatConversationTranscript(props: ChatConversationTranscriptProp
             scrollEl={props.transcriptScroll.scrollEl()}
             imagePartsSupported={props.caps?.capabilities?.['multimodal_image_parts'] !== false}
             readWorkspaceImage={props.readWorkspaceImage}
+            mcpAppClient={props.mcpAppClient}
+            sessionId={props.activeId}
             executionEvents={props.executionEvents}
             semanticEvents={props.semanticEvents}
           />

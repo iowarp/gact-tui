@@ -22,6 +22,8 @@
   },
   "dependencies": {
     "@clio/core": "workspace:*",
+    "@modelcontextprotocol/ext-apps": "1.7.4",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@tauri-apps/api": "2.1.1",
     "@tauri-apps/plugin-process": "2.3.1",
     "@tauri-apps/plugin-updater": "2.10.1",

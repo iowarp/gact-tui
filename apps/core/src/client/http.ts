@@ -5,6 +5,18 @@ import {
 } from './session_voice.js';
 import { sessionSseUrl } from './sse.js';
 import { SessionOperationsClient } from './session_operations_client.js';
+import {
+  callMcpAppTool,
+  closeMcpApp,
+  fetchMcpApp,
+  postMcpAppMessage,
+  readMcpAppResource,
+  updateMcpAppModelContext,
+  type McpAppPayload,
+  type McpAppRef,
+  type McpCallToolResult,
+  type McpReadResourceResult,
+} from './mcp_apps.js';
 export { HttpError, TransportTimeoutError, type ClientOptions } from './transport.js';
 export type { HookEvent, HookRow } from './hooks.js';
 
@@ -14,6 +26,45 @@ export type { HookEvent, HookRow } from './hooks.js';
  * as PLAN.md items.
  */
 export class Client extends SessionOperationsClient {
+  /** Resolve one capability-bound MCP App payload. */
+  mcpApp(ref: McpAppRef): Promise<McpAppPayload> {
+    return fetchMcpApp(this, ref);
+  }
+
+  /** Call an app-visible tool through the originating MCP namespace. */
+  callMcpAppTool(
+    ref: McpAppRef,
+    body: { name: string; arguments?: Record<string, unknown> },
+  ): Promise<McpCallToolResult> {
+    return callMcpAppTool(this, ref, body);
+  }
+
+  /** Read a resource from the App's exact originating MCP namespace. */
+  readMcpAppResource(ref: McpAppRef, uri: string): Promise<McpReadResourceResult> {
+    return readMcpAppResource(this, ref, uri);
+  }
+
+  /** Replace the ephemeral model context advertised by an App. */
+  updateMcpAppModelContext(
+    ref: McpAppRef,
+    context: Record<string, unknown>,
+  ): Promise<Record<string, never>> {
+    return updateMcpAppModelContext(this, ref, context);
+  }
+
+  /** Submit a user-role App message through the existing session turn path. */
+  postMcpAppMessage(
+    ref: McpAppRef,
+    message: Record<string, unknown>,
+  ): Promise<{ message_id: string }> {
+    return postMcpAppMessage(this, ref, message);
+  }
+
+  /** Release a private App record and run its declared cleanup call. */
+  closeMcpApp(ref: McpAppRef): Promise<void> {
+    return closeMcpApp(this, ref);
+  }
+
   /**
    * POST /v1/sessions/{id}/voice/transcribe — multipart upload of an
    * audio blob; backend returns the transcribed text. Mirrors the

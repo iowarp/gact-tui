@@ -3,6 +3,7 @@
  * the parts for display within a transcript message.
  */
 import type {
+  Client,
   FileDiff,
   Part,
   PartAgentQuestion,
@@ -10,6 +11,7 @@ import type {
   PartCompaction,
   PartDocument,
   PartError,
+  PartMcpApp,
   PartRedactedThinking,
   PartResource,
   PartResourceLink,
@@ -32,6 +34,7 @@ import { TranscriptErrorPartView } from './TranscriptErrorPartView.js';
 import { TranscriptCompactionPartView } from './TranscriptCompactionPartView.js';
 import { TranscriptRedactedThinkingPartView } from './TranscriptRedactedThinkingPartView.js';
 import { UnknownPartView } from './TranscriptUnknownPartView.js';
+import { McpAppPartView } from './McpAppPartView.js';
 import './transcript-new-parts.css';
 
 export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
@@ -66,6 +69,8 @@ export interface PartViewProps {
   /** Resolve a workspace file path to an inline image — used by the LIVE
    *  execution turn to render tool-artifact images (e.g. a plot output_path). */
   readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
+  mcpAppClient?: Client;
+  sessionId?: string;
 }
 
 /**
@@ -127,6 +132,16 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
   redacted_thinking: (p) => (
     <TranscriptRedactedThinkingPartView part={p as PartRedactedThinking} />
   ),
+  mcp_app: (p, props) =>
+    props.mcpAppClient && props.sessionId ? (
+      <McpAppPartView
+        part={p as PartMcpApp}
+        client={props.mcpAppClient}
+        sessionId={props.sessionId}
+      />
+    ) : (
+      <UnknownPartView part={p as unknown as PartUnknown} />
+    ),
 };
 
 export function PartView(props: PartViewProps) {

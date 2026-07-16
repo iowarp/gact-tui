@@ -123,6 +123,22 @@ export interface PartToolResult extends PartBase {
 }
 
 /**
+ * Public capability reference for an MCP Apps 2026-01-26 view. The backing
+ * CallToolResult (including private `_meta`) is deliberately absent: the host
+ * resolves `data_ref` against its session-local registry and only the bound
+ * iframe receives the private app payload.
+ */
+export interface PartMcpApp extends PartBase {
+  type: 'mcp_app';
+  app_instance_id: string;
+  resource_uri: string;
+  source_server: string;
+  data_ref: string;
+  mime_type: 'text/html;profile=mcp-app';
+  height?: number;
+}
+
+/**
  * clio delegated a turn to a sub-session agent (SPEC §4.5 subagent_call). The
  * companion `subagent_result` arrives when the sub-session finishes.
  */
@@ -295,6 +311,7 @@ export type Part =
   | PartDocument
   | PartToolCall
   | PartToolResult
+  | PartMcpApp
   | PartSubagentCall
   | PartSubagentResult
   | PartResourceLink

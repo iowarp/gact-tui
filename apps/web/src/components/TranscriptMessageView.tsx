@@ -4,7 +4,7 @@
  */
 import { For, Show, createComputed, createMemo } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
-import type { FileDiff, Message } from '@clio/core';
+import type { Client, FileDiff, Message } from '@clio/core';
 import type { ModelOption } from './ComposerTypes.js';
 import { metadataToolDiffs } from './TranscriptToolParts.js';
 import { PartView, type TranscriptDensity } from './TranscriptParts.js';
@@ -40,6 +40,8 @@ export interface MessageViewProps {
   imagePartsSupported?: boolean;
   /** Resolve a workspace file path to an inline image data URL (tool artifacts). */
   readWorkspaceImage?: (path: string) => Promise<{ url: string; mediaType: string } | null>;
+  mcpAppClient?: Client;
+  sessionId?: string;
 }
 
 export function MessageView(props: MessageViewProps) {
@@ -108,6 +110,8 @@ export function MessageView(props: MessageViewProps) {
             onPinFile={props.onPinFile}
             imagePartsSupported={props.imagePartsSupported}
             readWorkspaceImage={props.readWorkspaceImage}
+            mcpAppClient={props.mcpAppClient}
+            sessionId={props.sessionId}
             messageId={props.msg.id}
             searchQuery={props.searchQuery}
             currentMatchKey={props.currentMatchKey}
@@ -126,6 +130,8 @@ export function MessageView(props: MessageViewProps) {
               currentMatchKey={props.currentMatchKey}
               matchBaseIndex={props.matchBaseIndex}
               imagePartsSupported={props.imagePartsSupported}
+              mcpAppClient={props.mcpAppClient}
+              sessionId={props.sessionId}
             />
           )}
         </For>

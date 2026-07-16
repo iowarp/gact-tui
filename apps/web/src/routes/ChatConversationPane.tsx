@@ -114,6 +114,7 @@ export function ChatConversationPane(props: ChatConversationPaneProps) {
     <>
       <ChatConversationTranscript
         readWorkspaceImage={readWorkspaceImage}
+        mcpAppClient={props.workspaceClient}
         activeId={props.activeId}
         voiceCapable={props.voiceCapable}
         caps={props.caps}
