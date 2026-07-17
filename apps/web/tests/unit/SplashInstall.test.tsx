@@ -41,6 +41,7 @@ const state: {
   openLogsCalls: number;
   openLogsResult: string | null;
   openLogsReject: string | null;
+  readLogsResult: string | null;
   progressHandlers: InstallProgressHandlers | null;
   unsubscribed: boolean;
 } = {
@@ -50,6 +51,7 @@ const state: {
   openLogsCalls: 0,
   openLogsResult: 'C:\\Users\\me\\AppData\\clio\\logs\\clio-boot.log',
   openLogsReject: null,
+  readLogsResult: '=== backend boot log ===\nspawning launcher on 127.0.0.1:64168\nboot failed: sidecar did not report ready within 30s',
   progressHandlers: null,
   unsubscribed: false,
 };
@@ -73,6 +75,7 @@ vi.mock('../../src/tauri.js', () => {
       if (state.openLogsReject) throw new Error(state.openLogsReject);
       return state.openLogsResult;
     },
+    readLogs: async () => state.readLogsResult,
     onInstallProgress: (handlers: InstallProgressHandlers) => {
       state.progressHandlers = handlers;
       return () => {
@@ -123,6 +126,8 @@ beforeEach(() => {
   state.openLogsCalls = 0;
   state.openLogsResult = 'C:\\Users\\me\\AppData\\clio\\logs\\clio-boot.log';
   state.openLogsReject = null;
+  state.readLogsResult =
+    '=== backend boot log ===\nspawning launcher on 127.0.0.1:64168\nboot failed: sidecar did not report ready within 30s';
   state.progressHandlers = null;
   state.unsubscribed = false;
 });
@@ -285,6 +290,18 @@ describe('Splash first-run install (one swoop)', () => {
       expect(state.openLogsCalls).toBe(1);
       const hint = screen.getByTestId('splash-log-hint');
       expect(hint.textContent).toContain('clio-boot.log');
+    });
+  });
+
+  it('shows the boot-log transcript inline with a Copy button on failure', async () => {
+    mount();
+    await waitFor(() => expect(state.progressHandlers).not.toBeNull());
+    state.progressHandlers!.onFailed({ code: 1, tail: 'broken' });
+
+    await waitFor(() => {
+      const pane = screen.getByTestId('splash-boot-log');
+      expect(pane.textContent).toContain('did not report ready within 30s');
+      expect(screen.getByTestId('splash-copy-logs')).toBeTruthy();
     });
   });
 
