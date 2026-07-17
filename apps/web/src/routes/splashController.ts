@@ -2,12 +2,13 @@
  * Orchestrates the startup splash flow: backend startup, install steps, and the
  * transition into the connected app.
  */
-import { createSignal, onCleanup, onMount } from 'solid-js';
+import { createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import {
   inTauri,
   installClio,
   onInstallProgress,
   openLogs,
+  readLogs,
   repairClio,
 } from '../tauri.js';
 import type { BackendHandle as FrontendHandle } from '../App.js';
@@ -41,6 +42,8 @@ export function createSplashController(options: SplashControllerOptions) {
   const [installLog, setInstallLog] = createSignal<string[]>([]);
   const [installFailed, setInstallFailed] = createSignal(false);
   const [logHint, setLogHint] = createSignal<string | null>(null);
+  const [bootLog, setBootLog] = createSignal<string | null>(null);
+  const [logCopied, setLogCopied] = createSignal(false);
   const intro = loadIntro();
   const elapsedTimer = createSplashElapsedTimer(setElapsedMs);
 
@@ -87,6 +90,33 @@ export function createSplashController(options: SplashControllerOptions) {
       void backendStartup.probePureWebBackend();
     }
   });
+
+  // Pull the persisted boot-log transcript into the failure card the moment we
+  // enter the error phase, so the user can read AND copy it without leaving the
+  // app (the OS "Open logs" reveal is kept as a secondary action). Cleared when
+  // leaving the error phase so a later retry starts fresh.
+  createEffect(() => {
+    if (phase() === 'error' && inTauri()) {
+      void readLogs()
+        .then((text) => setBootLog(text && text.trim() ? text : null))
+        .catch(() => setBootLog(null));
+    } else if (phase() !== 'error') {
+      setBootLog(null);
+      setLogCopied(false);
+    }
+  });
+
+  async function copyLogs() {
+    const text = bootLog();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setLogCopied(true);
+      setTimeout(() => setLogCopied(false), 2000);
+    } catch {
+      setLogCopied(false);
+    }
+  }
 
   onCleanup(() => {
     cancelled = true;
@@ -159,9 +189,12 @@ export function createSplashController(options: SplashControllerOptions) {
     installFailed,
     logHint,
     intro,
+    bootLog,
+    logCopied,
     setLogPaneRef,
     retryFromError,
     repair: () => startInstall(true),
     openLogsAction,
+    copyLogs,
   };
 }

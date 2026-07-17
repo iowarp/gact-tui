@@ -46,6 +46,17 @@ export async function openLogs(): Promise<string | null> {
   return invoke<string>('open_logs');
 }
 
+/**
+ * Read the persisted boot-log transcript text for inline display + copy on the
+ * boot-failure card. Distinct from {@link openLogs} (which reveals the file in
+ * the OS file manager). Resolves to the transcript, or rejects with the
+ * Rust-side error string. Returns null outside Tauri.
+ */
+export async function readLogs(): Promise<string | null> {
+  if (!inTauri()) return null;
+  return invoke<string>('read_logs');
+}
+
 /** Payload of `clio:install-failed`. `code` is the installer's exit code, or
  * null when it could not be launched at all. `tail` is the last ~30 lines of
  * combined stdout/stderr. */

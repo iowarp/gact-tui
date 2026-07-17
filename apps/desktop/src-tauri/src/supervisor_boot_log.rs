@@ -70,6 +70,17 @@ pub(crate) fn boot_log_line(line: &str) {
     }
 }
 
+/// Read the full persisted boot-log transcript, for inline display + copy in
+/// the boot-failure card. Returns a friendly error string (never panics) when
+/// the path is unset (tests) or the file cannot be read.
+pub(crate) fn read_boot_log() -> Result<String, String> {
+    let path = boot_log_path().ok_or_else(|| "boot log path is not initialized".to_string())?;
+    if !path.is_file() {
+        return Err(format!("boot log not found at {}", path.display()));
+    }
+    fs::read_to_string(&path).map_err(|e| format!("read boot log {}: {e}", path.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

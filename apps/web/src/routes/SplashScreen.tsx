@@ -47,7 +47,7 @@ export function SplashScreen(props: SplashScreenProps) {
   return (
     <div class="splash" data-testid="splash-screen">
       <main class="splash__main">
-        <BrandMark class="splash__mark" />
+        <BrandMark class="splash__mark" useImage />
         <h1 class="splash__wordmark">
           {brand.name}
           <Show when={inTauri()}> Desktop</Show>
@@ -70,9 +70,12 @@ export function SplashScreen(props: SplashScreenProps) {
           error={controller.error}
           installFailed={controller.installFailed}
           logHint={controller.logHint}
+          bootLog={controller.bootLog}
+          logCopied={controller.logCopied}
           onRetry={controller.retryFromError}
           onRepair={controller.repair}
           onOpenLogs={() => void controller.openLogsAction()}
+          onCopyLogs={() => void controller.copyLogs()}
           onManualConnect={() => props.onWebFallbackNeeded()}
         />
       </main>

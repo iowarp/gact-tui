@@ -97,11 +97,27 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
             // because clio isn't installed" (-> NeedsInstall, one-swoop) from
             // any other failure (-> Error). The launcher mirrors clio's exit
             // code, so a still-running child means clio is up but unhealthy.
+            // Record the distinction in the boot log — otherwise every failure
+            // looks identical ("connection refused") and is undiagnosable.
+            boot_log_line(&format!("probe gave up: {probe_err}"));
             match child.try_wait() {
                 Ok(Some(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
+                    boot_log_line(
+                        "launcher exited 2 (backend not found) — routing to first-run install",
+                    );
                     Err(SpawnError::NeedsInstall)
                 }
+                Ok(Some(status)) => {
+                    boot_log_line(&format!(
+                        "launcher exited early (code {:?}) before the backend answered /v1/capabilities",
+                        status.code()
+                    ));
+                    Err(SpawnError::Other(probe_err))
+                }
                 _ => {
+                    boot_log_line(
+                        "launcher still running but the backend never answered /v1/capabilities within the probe window; terminating",
+                    );
                     // Best-effort reap so a half-started launcher isn't leaked.
                     let _ = child.kill();
                     let _ = child.wait();
