@@ -25,6 +25,7 @@ export {
   installClio,
   onInstallProgress,
   openLogs,
+  readLogs,
   repairClio,
   type InstallFailure,
   type InstallProgressHandlers,

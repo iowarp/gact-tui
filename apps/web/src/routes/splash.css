@@ -55,6 +55,23 @@
   box-shadow: 0 0 32px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
+/* Image lockup variant: when the brand ships a real logo (logoImage), the
+   raster fills the mark and the gradient-badge chrome steps aside — mirrors the
+   rail/connect image marks so every surface shows the same on-brand mark. */
+.splash__mark.brand-mark--image {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.splash__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
 .splash__wordmark {
   font-family: var(--font-sans);
   font-size: 28px;

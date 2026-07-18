@@ -69,9 +69,12 @@ export function SplashErrorPanel(props: {
   error: Accessor<string | null>;
   installFailed: Accessor<boolean>;
   logHint: Accessor<string | null>;
+  bootLog: Accessor<string | null>;
+  logCopied: Accessor<boolean>;
   onRetry: () => void;
   onRepair: () => void;
   onOpenLogs: () => void;
+  onCopyLogs: () => void;
   onManualConnect: () => void;
 }) {
   return (
@@ -138,6 +141,24 @@ export function SplashErrorPanel(props: {
           <p class="splash__error-loghint" data-testid="splash-log-hint">
             {props.logHint()}
           </p>
+        </Show>
+        <Show when={props.bootLog()}>
+          {(log) => (
+            <div class="splash__logpane" data-testid="splash-boot-log">
+              <div class="splash__logpane-head">
+                <span class="splash__logpane-title">Backend boot log</span>
+                <button
+                  type="button"
+                  class="splash__btn splash__btn--ghost splash__btn--sm"
+                  onClick={props.onCopyLogs}
+                  data-testid="splash-copy-logs"
+                >
+                  {props.logCopied() ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <pre class="splash__logpane-body">{log()}</pre>
+            </div>
+          )}
         </Show>
       </div>
     </Show>

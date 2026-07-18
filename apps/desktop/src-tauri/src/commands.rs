@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use crate::ssh::TunnelManager;
 use crate::ssh_types::{TunnelHandle, TunnelRequest};
 use crate::supervisor::Supervisor;
+use crate::supervisor_boot_log;
 use crate::supervisor_boot_log_open;
 use crate::supervisor_installer;
 use crate::supervisor_state::lock_recover;
@@ -71,6 +72,15 @@ fn run_installer(app: tauri::AppHandle, force: bool) {
 #[tauri::command]
 pub fn open_logs() -> Result<String, String> {
     supervisor_boot_log_open::open_boot_log().map(|p| p.display().to_string())
+}
+
+/// Return the persisted boot-log transcript text for inline display + copy in
+/// the boot-failure card. Distinct from `open_logs`, which reveals the file in
+/// the OS file manager; this hands the WebView the text so the user can read
+/// and copy it without leaving the app.
+#[tauri::command]
+pub fn read_logs() -> Result<String, String> {
+    supervisor_boot_log::read_boot_log()
 }
 
 /// Open an SSH tunnel for an `ssh-tunnel` backend entry.

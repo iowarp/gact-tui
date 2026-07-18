@@ -89,6 +89,12 @@ func spawnEnv(rt *resolvedRuntime, args cliArgs) []string {
 	return append(env,
 		envBearer+"="+args.token,
 		envGactContractVer+"=0.2",
+		// Force the (typically Python) backend to flush stdout/stderr
+		// unbuffered so its boot transcript is teed into the boot log in
+		// real time. A block-buffered pipe otherwise strands the startup
+		// output when a failing boot is killed at the probe timeout — the
+		// "connection refused, zero backend output" symptom.
+		"PYTHONUNBUFFERED=1",
 	)
 }
 
@@ -137,5 +143,9 @@ func main() {
 			err, envOverride, envDevRepo)
 		os.Exit(exitNotFound)
 	}
+	// Record which backend was resolved BEFORE exec so the boot log names
+	// the chosen runtime even if the child never binds. Without this line a
+	// non-answering backend is indistinguishable from a resolution failure.
+	fmt.Fprintf(os.Stderr, "sidecar-launcher: resolved backend argv=%v dir=%q\n", rt.Argv, rt.Dir)
 	os.Exit(runChild(rt, args))
 }
