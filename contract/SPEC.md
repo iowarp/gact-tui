@@ -189,6 +189,7 @@ consumers have an authority for the values.
     "x_clio_retry_attempts": true,                 // §6.24 — /v1/sessions/{id}/messages/{id}/retry
     "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
     "x_clio_semantic_events": true,                // §7.6 — the semantic.event SSE spine
+    "x_clio_artifacts": true,                      // §6.26 — /v1/artifacts + artifact.* events + resource_link artifact:// parts
     "x_clio_semantic_trace_backend": "none",       // "none" | "file" | "factory"
     "x_clio_semantic_trace_detail": "semantic",    // "off" | "metadata" | "semantic" | "full_debug"
     "x_clio_hook_backend": "local_python",         // "local_python" | "none" | "factory" | "unavailable" (init failure)
@@ -524,7 +525,7 @@ The content of a message is an ordered list of typed parts. The discriminator is
 | `routing_decision` (v0.2) | Orchestrator picked an agent for this turn | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = deterministic keyword match; false = LM router). **clio extension**: also carries `execution_path: string` — `"fast"` (deterministic tool template, no LM) or `"expert_loop"` (full expert tool-loop), empty when N/A. SHOULD be the first part of a routed assistant message when `agent_routing` is true. |
 | `subagent_call` | Spawn a subagent | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object` |
 | `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
-| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?` |
+| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism}` — `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
 | `resource` | Embedded MCP resource | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64) |
 | `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
@@ -1721,6 +1722,36 @@ This is the implemented path for both history compaction and the
 user-facing summary (the `/summarize` route is not registered and
 `session_summary` is truthfully advertised `false` — see §6.2).
 
+## §6.26 Artifacts (vendor — `x_clio_artifacts`)
+
+A **first-class session output** — a tool-generated file, a designated report, a
+staged dataset, a `ui_payload` — recorded as a durable, hash-pinned, versioned
+**artifact**. A logical artifact is keyed `(workspace_id, name)`; each immutable
+**version** carries its own `artifact_id` (`artifact_<uuid4hex>`) and a content
+`sha256`. Artifacts gain outbound wire identity as `resource_link` parts (§4.5)
+and `artifact.*` semantic events (§7.6). Server-only in this slice — client
+rendering (an artifacts panel) is a later campaign; the wire contract lands
+first.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/v1/sessions/{sid}/artifacts` | List the artifacts of the session's workspace. `?limit=` (clamped ≤ 200, default 50), `?before=<head artifact_id>` cursor (newest-first). Returns `{artifacts: ArtifactRecord[], count, next_cursor}`. |
+| GET | `/v1/workspaces/{wid}/artifacts` | Same, scoped to a workspace directly. |
+| GET | `/v1/workspaces/{wid}/artifacts/{name}` | Resolve one version by name. `?ref=latest\|vN\|<alias>` — `latest` + `vN` resolve now; full alias resolution lands with version chains. Returns `{artifact, resolved, ref}`. |
+| GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
+| GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9). |
+| POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
+
+**ArtifactRecord** (list/get): `{workspace_id, name, kind, latest_version,
+head_artifact_id, aliases: {alias: versionN}, versions: ArtifactVersion[]}`.
+**ArtifactVersion**: `{artifact_id, workspace_id, name, version, kind
+(dataset\|image\|report\|plan\|script\|config\|model\|ui_payload\|other),
+custody (cas\|workspace-referenced\|external-referenced), mechanism
+(harness\|tool-schema\|change-feed\|model\|none), evidence_class
+(hashed-at-use\|authority-asserted\|stat-pinned), sha256, size_bytes, authority,
+path, created_at, annotation, producer, uri, fetch_url}`. All errors use the
+§6.0 `ErrorEnvelope`.
+
 ---
 
 ## §7 Streaming Events (SSE)
@@ -1848,6 +1879,13 @@ There is no `file.diff.proposed` event — a diff proposal arrives as a
 batch `message.part.added` (`file_diff` part) plus a `semantic.event`
 `artifact.proposed` `{path, unified_diff, new_content, edit_mode,
 lines_added, lines_removed}`.
+
+> **`artifact.proposed` is the proposal stage of the `artifact.*` family**
+> (§7.6, vendor `x_clio_artifacts`). Its payload is unchanged by that widening
+> — a diff proposal still carries exactly the six `file_diff` fields above. Like
+> the diff-lifecycle events it rides the semantic spine only and is NOT on the
+> served-UI allow-list (the `file_diff` part is what a client renders). The
+> distinct **created**-stage events (`artifact.created` etc., §7.6) ARE served.
 
 #### §7.3c Normalized transcript channel — RETIRED (clio e921eec)
 
@@ -2009,12 +2047,26 @@ serves. Only these `event_type` values reach the SSE wire:
 `react.step.completed`, `expert.extract.completed`,
 `expert.response.completed`, `expert.lifecycle.started`,
 `(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
-`.failed`, `memory.search.completed` — **PLUS any event whose `status`
+`.failed`, `memory.search.completed`, **the artifact `created` family
+(`artifact.created` / `artifact.version.added` / `artifact.alias.moved`,
+vendor `x_clio_artifacts`, §6.26)** — **PLUS any event whose `status`
 is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
 else (turn/agent/hook lifecycle, `tool.call.*` mirrors,
-`lm.token.delta`, `memory.compacted`, `arc.op`) is captured on the
-durable trace/ARC/hooks but NOT served over SSE. The captured set is
-open.
+`lm.token.delta`, `memory.compacted`, `arc.op`, **and the trace-only
+artifact-provenance events `artifact.used` / `artifact.transform.recorded`
+/ `artifact.proposed`**) is captured on the durable trace/ARC/hooks but
+NOT served over SSE. The captured set is open.
+
+**Artifact event family** (vendor `x_clio_artifacts`, §6.26). `artifact.created`
+fires per new immutable artifact version; its payload is the artifact record
+`{event_id, artifact_id, workspace_id, name, version, kind, custody, mechanism,
+sha256, size_bytes, path, created_at, annotation, producer, evidence}`.
+`artifact.version.added` / `artifact.alias.moved` are the version-chain + alias
+atoms (emitted once clio ships version chains + aliases). All three are served.
+`artifact.used` / `artifact.transform.recorded` are the `b = transform(a)`
+provenance edges and stay trace-only; `artifact.proposed` is the diff-proposal
+stage (§7.3a). An artifact record carries no credential fields, so the served
+`semantic` projection is the full record.
 
 **Detail levels** (`x_clio_semantic_trace_detail`, also per-event):
 `off` suppresses SSE + hooks but never durable capture; `metadata`
