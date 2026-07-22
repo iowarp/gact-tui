@@ -1742,6 +1742,9 @@ first.
 | GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
 | GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9). |
 | POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
+| GET | `/v1/artifacts/{artifact_id}/lineage` | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated=true` when the graph hit the node cap. |
+| GET | `/v1/sessions/{sid}/transforms` | The **TransformRecords** a session produced (S5). Returns `{transforms: TransformRecord[], count}`. |
+| GET | `/v1/transforms/{activity_id}` | One TransformRecord by its `activity_id` (the producing tool `call_id`). Returns `{transform: TransformRecord}`; unknown id is `404`. |
 
 **ArtifactRecord** (list/get): `{workspace_id, name, kind, latest_version,
 head_artifact_id, aliases: {alias: versionN}, versions: ArtifactVersion[]}`. The
@@ -1762,6 +1765,30 @@ non-`null` on a re-link-by-hash (`{reason: "relink_by_hash", matched_version,
 matched_sha256}`) or an undesignated overwrite detected at observation
 (`{reason: "undesignated_overwrite", lease: "clean"\|"dirty", actor: "unknown"}`).
 All additive. All errors use the §6.0 `ErrorEnvelope`.
+
+**TransformRecord** (S5 — `b = transform(a)`, one per producing tool call, keyed by
+the observer `call_id`): `{call_id, event_id, session_id, turn_id, workspace_id,
+status (success\|failed), kind (ordinary\|contended), agent_role
+(executing\|annotating), agent_id, instrument, environment, replay
+(reproducible\|re-runnable), replay_reason, used: ProvEdge[], generated: ProvEdge[],
+started_at, ended_at, annotation, candidates: string[]}`. A **failed** run that wrote
+outputs is real provenance (recorded, not dropped). **instrument** = `{tool, args,
+cmd, script_hash, script_artifact_id}` — a generated script the tool ran is itself a
+`script` artifact and its own hashed dep (`script_hash`). **environment** =
+`{tier (declared\|lockfile-hash\|image-digest), clio_version, lockfile_sha256,
+launcher_fingerprint, provider_id, model_id, model_variant, os, arch,
+python_version}`. **replay** is permanent and honest: `reproducible` iff the
+environment tier is at least `lockfile-hash` AND every used input is content-pinned,
+else `re-runnable` (with a typed `replay_reason`) — never silently upgraded.
+**ProvEdge** = `{role (used\|generated), evidence (schema-arg\|hash-pair\|
+lease-window\|authority\|assertion), artifact_id, sha256, external_ref, authority,
+name, version, path, arg, note}`: a registry-matched edge carries `artifact_id` +
+`sha256` (the relay `ArtifactUse` pair); an external / catalog input carries
+`external_ref` (`external:<path>` or a catalog URL) and/or `authority`. A changed
+input mints a **gap** version first and points the edge at it (`note: "gap_first"`),
+never a stale pin. NDP catalog inputs (no checksum/ETag/DOI on the wire) are pinned
+by their catalog URL as `authority`. All additive; errors use the §6.0
+`ErrorEnvelope`.
 
 ---
 
@@ -2081,10 +2108,13 @@ re-link-by-hash / undesignated-overwrite gap) described under **ArtifactVersion*
 alias auto-moves on every new version): payload `{event_id, workspace_id, name,
 alias, from_version, to_version, at}` — folded last-writer-wins by `(at, event_id)`
 so a replay of the log in any order rebuilds the identical alias map. All three are
-served. `artifact.used` / `artifact.transform.recorded` are the `b = transform(a)`
-provenance edges and stay trace-only; `artifact.proposed` is the diff-proposal
-stage (§7.3a). An artifact record carries no credential fields, so the served
-`semantic` projection is the full record.
+served. `artifact.transform.recorded` (S5) fires per producing tool call — its
+payload is the full **TransformRecord** (§6.26) keyed by the observer `call_id`. It
+stays **trace-only** (NOT on the SSE UI wire — the same split as `artifact.used`),
+but unlike `artifact.used` it IS folded into the registry projection at boot to
+rebuild the transform/lineage index (queried via the §6.26 lineage routes).
+`artifact.proposed` is the diff-proposal stage (§7.3a). An artifact record carries no
+credential fields, so the served `semantic` projection is the full record.
 
 **Detail levels** (`x_clio_semantic_trace_detail`, also per-event):
 `off` suppresses SSE + hooks but never durable capture; `metadata`
