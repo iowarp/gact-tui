@@ -525,7 +525,7 @@ The content of a message is an ordered list of typed parts. The discriminator is
 | `routing_decision` (v0.2) | Orchestrator picked an agent for this turn | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = deterministic keyword match; false = LM router). **clio extension**: also carries `execution_path: string` — `"fast"` (deterministic tool template, no LM) or `"expert_loop"` (full expert tool-loop), empty when N/A. SHOULD be the first part of a routed assistant message when `agent_routing` is true. |
 | `subagent_call` | Spawn a subagent | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object` |
 | `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
-| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism}` — `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
+| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism, workspace_id, name}` — the nine identity/provenance keys plus the logical-identity pair `workspace_id`/`name` (which the `uri`/`name` fields already encode, repeated here so a client keying off `metadata` alone need not re-parse the `uri`). `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
 | `resource` | Embedded MCP resource | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64) |
 | `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
@@ -1737,20 +1737,31 @@ first.
 |---|---|---|
 | GET | `/v1/sessions/{sid}/artifacts` | List the artifacts of the session's workspace. `?limit=` (clamped ≤ 200, default 50), `?before=<head artifact_id>` cursor (newest-first). Returns `{artifacts: ArtifactRecord[], count, next_cursor}`. |
 | GET | `/v1/workspaces/{wid}/artifacts` | Same, scoped to a workspace directly. |
-| GET | `/v1/workspaces/{wid}/artifacts/{name}` | Resolve one version by name. `?ref=latest\|vN\|<alias>` — `latest` + `vN` resolve now; full alias resolution lands with version chains. Returns `{artifact, resolved, ref}`. |
+| GET | `/v1/workspaces/{wid}/artifacts/{name}` | Resolve one version by name. `?ref=latest\|vN\|<alias>` — **full resolution is live** (S4): `latest` (the auto-maintained head alias), any `vN`, and any tracked alias resolve. An unknown ref is an honest **`404 not_found`** whose `details.available` lists the full resolvable set (`latest`, every `v1..vN`, every tracked alias name) — the pre-S4 `409 alias_resolution_not_available` placeholder is gone (resolution is complete). Returns `{artifact, resolved, ref}` on success. |
+| POST | `/v1/workspaces/{wid}/artifacts/{name}/aliases` | Move a mutable alias to a version (S4). Body `{alias, ref}` where `ref` is `latest\|vN\|<alias>`. Emits `artifact.alias.moved` (§7.6). The reserved `latest` alias is auto-maintained to the head, so moving it by hand is `422 reserved_alias`; a missing artifact / unresolvable target is `404` (with `details.available`). Returns `{artifact, alias, from_version, to_version}`. |
 | GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
 | GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9). |
 | POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
 
 **ArtifactRecord** (list/get): `{workspace_id, name, kind, latest_version,
-head_artifact_id, aliases: {alias: versionN}, versions: ArtifactVersion[]}`.
+head_artifact_id, aliases: {alias: versionN}, versions: ArtifactVersion[]}`. The
+`aliases` map always carries the reserved `latest` (auto-maintained to the head);
+user aliases are added via the alias-move route (S4).
 **ArtifactVersion**: `{artifact_id, workspace_id, name, version, kind
 (dataset\|image\|report\|plan\|script\|config\|model\|ui_payload\|other),
 custody (cas\|workspace-referenced\|external-referenced), mechanism
 (harness\|tool-schema\|change-feed\|model\|none), evidence_class
 (hashed-at-use\|authority-asserted\|stat-pinned), sha256, size_bytes, authority,
-path, created_at, annotation, producer, uri, fetch_url}`. All errors use the
-§6.0 `ErrorEnvelope`.
+path, created_at, annotation, producer, uri, fetch_url}` — **plus the S4
+version-chain fields** `{prior_version: int\|null, prior_sha256: string\|null,
+kind_warning: string, custody_gap: object\|null}`: `prior_version`/`prior_sha256`
+are the PROV `wasRevisionOf` edge (the prior head this version revises; both `null`
+on v1); `kind_warning` is non-empty when a mint requested a kind other than the one
+locked at v1 (the locked kind is kept, never a new kind); `custody_gap` is
+non-`null` on a re-link-by-hash (`{reason: "relink_by_hash", matched_version,
+matched_sha256}`) or an undesignated overwrite detected at observation
+(`{reason: "undesignated_overwrite", lease: "clean"\|"dirty", actor: "unknown"}`).
+All additive. All errors use the §6.0 `ErrorEnvelope`.
 
 ---
 
@@ -2058,12 +2069,19 @@ artifact-provenance events `artifact.used` / `artifact.transform.recorded`
 NOT served over SSE. The captured set is open.
 
 **Artifact event family** (vendor `x_clio_artifacts`, §6.26). `artifact.created`
-fires per new immutable artifact version; its payload is the artifact record
+fires per **v1** immutable artifact version; its payload is the artifact record
 `{event_id, artifact_id, workspace_id, name, version, kind, custody, mechanism,
 sha256, size_bytes, path, created_at, annotation, producer, evidence}`.
-`artifact.version.added` / `artifact.alias.moved` are the version-chain + alias
-atoms (emitted once clio ships version chains + aliases). All three are served.
-`artifact.used` / `artifact.transform.recorded` are the `b = transform(a)`
+`artifact.version.added` fires per **v2+** revision (S4): the SAME record payload
+**plus** the version-chain fields `{prior_version, prior_sha256, kind_warning,
+custody_gap}` — `prior_version`/`prior_sha256` are the PROV `wasRevisionOf` edge to
+the prior head; `kind_warning`/`custody_gap` are the honest markers (kind lock,
+re-link-by-hash / undesignated-overwrite gap) described under **ArtifactVersion**
+(§6.26). `artifact.alias.moved` fires when an alias pointer moves (the `latest`
+alias auto-moves on every new version): payload `{event_id, workspace_id, name,
+alias, from_version, to_version, at}` — folded last-writer-wins by `(at, event_id)`
+so a replay of the log in any order rebuilds the identical alias map. All three are
+served. `artifact.used` / `artifact.transform.recorded` are the `b = transform(a)`
 provenance edges and stay trace-only; `artifact.proposed` is the diff-proposal
 stage (§7.3a). An artifact record carries no credential fields, so the served
 `semantic` projection is the full record.
