@@ -1742,7 +1742,7 @@ first.
 | GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
 | GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9). |
 | POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
-| GET | `/v1/artifacts/{artifact_id}/lineage` | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated=true` when the graph hit the node cap. |
+| GET | `/v1/artifacts/{artifact_id}/lineage` | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated` is `null` for a complete graph, else `{reason: "node_cap", nodes}` or `{reason: "depth_horizon", at_depth}`; the graph is always well-formed (no edge references a node absent from `nodes`). |
 | GET | `/v1/sessions/{sid}/transforms` | The **TransformRecords** a session produced (S5). Returns `{transforms: TransformRecord[], count}`. |
 | GET | `/v1/transforms/{activity_id}` | One TransformRecord by its `activity_id` (the producing tool `call_id`). Returns `{transform: TransformRecord}`; unknown id is `404`. |
 
@@ -1771,24 +1771,37 @@ the observer `call_id`): `{call_id, event_id, session_id, turn_id, workspace_id,
 status (success\|failed), kind (ordinary\|contended), agent_role
 (executing\|annotating), agent_id, instrument, environment, replay
 (reproducible\|re-runnable), replay_reason, used: ProvEdge[], generated: ProvEdge[],
-started_at, ended_at, annotation, candidates: string[]}`. A **failed** run that wrote
-outputs is real provenance (recorded, not dropped). **instrument** = `{tool, args,
-cmd, script_hash, script_artifact_id}` — a generated script the tool ran is itself a
-`script` artifact and its own hashed dep (`script_hash`). **environment** =
-`{tier (declared\|lockfile-hash\|image-digest), clio_version, lockfile_sha256,
-launcher_fingerprint, provider_id, model_id, model_variant, os, arch,
-python_version}`. **replay** is permanent and honest: `reproducible` iff the
-environment tier is at least `lockfile-hash` AND every used input is content-pinned,
-else `re-runnable` (with a typed `replay_reason`) — never silently upgraded.
+started_at, ended_at, annotation, candidates: string[], notes: object[]}`. A
+**failed** run that wrote outputs is real provenance (recorded, not dropped).
+**notes** carries typed DETECTABLE non-edges (precision over recall): a
+freshly-written output under a non-designation arg (`unminted_output_candidate`), a
+path-looking arg that never resolved to a workspace file (`unresolved_path_arg`), a
+discovery search whose hits were listed not consumed (`catalog_hits_not_consumed`).
+**instrument** = `{tool, args, cmd, script_hash, script_artifact_id}` — a generated
+script the tool ran is itself a `script` artifact and its own hashed dep
+(`script_hash`); a large inline arg (`content`/`cmd`) is bounded to
+`{sha256, size, truncated, head}` so the record stays memory-bounded. **environment**
+= `{tier (declared\|lockfile-hash\|image-digest), clio_version, lockfile_sha256,
+launcher_fingerprint, provider_id, model_id, model_variant, model_source
+(executing_lm\|global_fallback), os, arch, python_version}`; `lockfile_sha256` is
+`sha256` of clio's OWN `uv.lock` resolved at the clio-agent repo-root anchor only (a
+packaged install with no such anchor falls to `declared`, never an unrelated
+lockfile). **replay** is permanent and honest: `reproducible` iff the environment
+tier is at least `lockfile-hash` AND every used input pins its BITS (hash-pair, or an
+authority edge that also carries a content sha), else `re-runnable` with a typed
+`replay_reason` (`env_below_lockfile_hash` \| `inputs_unpinned:<n>` \|
+`inputs_authority_asserted:<n>` — an authority-asserted catalog locator pins IDENTITY,
+not bytes) — never silently upgraded.
 **ProvEdge** = `{role (used\|generated), evidence (schema-arg\|hash-pair\|
 lease-window\|authority\|assertion), artifact_id, sha256, external_ref, authority,
 name, version, path, arg, note}`: a registry-matched edge carries `artifact_id` +
 `sha256` (the relay `ArtifactUse` pair); an external / catalog input carries
 `external_ref` (`external:<path>` or a catalog URL) and/or `authority`. A changed
-input mints a **gap** version first and points the edge at it (`note: "gap_first"`),
-never a stale pin. NDP catalog inputs (no checksum/ETag/DOI on the wire) are pinned
-by their catalog URL as `authority`. All additive; errors use the §6.0
-`ErrorEnvelope`.
+input mints a version first and points the edge at it, its `note` naming the ACTUAL
+reconcile class (`gap` \| `auto_revision` \| `relink` \| `stale_fallback`), never a
+stale pin. NDP catalog inputs (no checksum/ETag/DOI on the wire) are identified by
+their catalog URL as `authority` — an identity pin, not a bit-content pin. All
+additive; errors use the §6.0 `ErrorEnvelope`.
 
 ---
 
