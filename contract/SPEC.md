@@ -758,12 +758,16 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 | DELETE | `/v1/workspaces/{id}` | — | `204` |
 | POST | `/v1/workspaces/{id}/grants` | `{root?, domain?, deny_mode?}` (any subset) | `{workspace_id, root?, domain?, deny_mode?}` — B5 mid-session grants |
 
-> **Boundary events (B5 #979).** Workspace **create**, **session attach**
-> (`POST /v1/sessions` binding a session to a workspace), and a `PATCH`
-> **`root_path` change** now emit `boundary.granted`/`boundary.revoked`
-> semantic events (§7.6, `kind: "root"`) — previously silent write-territory
-> mutations. A `root_path` change emits a `revoked` (old root) + `granted` (new
-> root) pair.
+> **Boundary events (B5 #979).** The write-territory **changes** — workspace
+> **create** and a `PATCH` **`root_path` change** — now emit
+> `boundary.granted`/`boundary.revoked` semantic events (§7.6, `kind: "root"`),
+> previously silent. A `root_path` change emits a `revoked` (old root) +
+> `granted` (new root) pair. A plain **session create** does NOT emit a boundary
+> event: a session inherits its workspace's already-established territory, so no
+> grant was made — emitting `boundary.granted{grantor: user}` there would both
+> fabricate a user decision (⚑ grants are user/model decisions, never automatic)
+> and prepend a spurious event to every session's stream ahead of `turn.started`.
+> The session's territory is fully described by its workspace's boundary events.
 
 > **`POST /v1/workspaces/{id}/grants` (B5 #979).** Grants new effective
 > boundary to a workspace mid-session — every grant is a recorded USER decision
