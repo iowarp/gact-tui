@@ -756,6 +756,33 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 | GET | `/v1/workspaces/{id}` | — | `Workspace` |
 | PATCH | `/v1/workspaces/{id}` | partial `Workspace` | `Workspace` |
 | DELETE | `/v1/workspaces/{id}` | — | `204` |
+| POST | `/v1/workspaces/{id}/grants` | `{root?, domain?, deny_mode?}` (any subset) | `{workspace_id, root?, domain?, deny_mode?}` — B5 mid-session grants |
+
+> **Boundary events (B5 #979).** Workspace **create**, **session attach**
+> (`POST /v1/sessions` binding a session to a workspace), and a `PATCH`
+> **`root_path` change** now emit `boundary.granted`/`boundary.revoked`
+> semantic events (§7.6, `kind: "root"`) — previously silent write-territory
+> mutations. A `root_path` change emits a `revoked` (old root) + `granted` (new
+> root) pair.
+
+> **`POST /v1/workspaces/{id}/grants` (B5 #979).** Grants new effective
+> boundary to a workspace mid-session — every grant is a recorded USER decision
+> that emits `boundary.granted` (§7.6). Body (any subset):
+> - `{root: "<path>"}` — grant a writable filesystem root. The OS write-fence
+>   and the advisory file-policy widen LIVE on the next spawn/tool-boundary
+>   check. Returns `root: {granted, pattern, reason, pending_respawn}` where
+>   `reason` is `grant_applied_live` (per-spawn fence — takes effect on the next
+>   spawn), `grant_pending_respawn` (a session-wide srt fence, e.g. Windows —
+>   children already spawned keep their compile-time territory until they
+>   respawn; `pending_respawn: true`), or `grant_recorded_no_active_fence` (the
+>   floor — advisory-only widen). `kind: "root"` boundary event.
+> - `{domain: "<host>"}` — grant a network domain: appends a sticky workspace
+>   `host_pattern` allow policy (§6.11) and emits `boundary.granted{kind:
+>   "domain"}`.
+> - `{deny_mode: true|false}` — toggle the workspace's opt-in network deny mode
+>   (§6.11.d).
+> `404` for an unknown workspace; `400` if the body names none of
+> `root`/`domain`/`deny_mode`.
 
 > **Drift note.** clio's `CreateWorkspaceRequest` requires `name` and
 > takes `storage_root` (not `config`); the implemented `Workspace` adds
@@ -1177,7 +1204,11 @@ Full body/response semantics in §6.2.
 <exact path>, action: "allow", created_from_permission_id}`, appends it
 to `/v1/policies`, and **persists it to disk**
 (`permission_policies.json` — survives restart). The derived policy is
-attached to the resolved row as `.policy`.
+attached to the resolved row as `.policy`. When the resolved request is a
+**`network_egress`** kind (a deny-mode domain prompt, §6.11.d), the derived
+policy carries **`host_pattern`** (the requested domain) instead of
+`path_pattern`, and an `allow_workspace` resolution additionally emits
+`boundary.granted{kind: "domain"}` (§7.6).
 
 ```json
 // Policy (implemented)
@@ -1185,10 +1216,19 @@ attached to the resolved row as `.policy`.
   "scope": "workspace|session",
   "scope_id": "...",                 // empty = wildcard within scope
   "tool_name_pattern": "shell|edit|*",   // fnmatch glob, default "*"
-  "path_pattern": "/src/**|*",           // fnmatch glob, optional
+  "path_pattern": "/src/**|*",           // fnmatch glob, optional (file territory)
+  "host_pattern": "*.ndp.org|*",         // fnmatch glob, optional (B5 — network domain)
   "action": "allow|allow_session|allow_workspace|deny|ask"
 }
 ```
+
+`host_pattern` (B5 #979) is the **network-domain analogue of `path_pattern`**:
+an fnmatch glob matched (case-insensitively) against a CONNECT's requested
+authority host by the deny-mode egress gate (§6.11.d). It is validated with the
+SAME atomic-PUT rule as the other optional string fields — a non-string
+`host_pattern` rejects the WHOLE `/v1/policies` update (422). A row may carry
+`path_pattern` (file territory) or `host_pattern` (network domain); a `host_pattern`
+row's `tool_name_pattern` is unused.
 
 Policy semantics (clio's evaluator, descriptive):
 
@@ -1249,6 +1289,37 @@ observable only via `permission.requested` +
 > must tolerate unmatched ids.
 
 Backends MAY implement policies as simple per-tool toggles, or as rich rule engines (Gemini-style TOML with folder trust + shell safety). The contract specifies the data shape, not the evaluator.
+
+#### §6.11.c Permission-event listing (B5 #979)
+
+`permission.requested` and `permission.resolved` are BOTH first-class UI
+semantic events on the `semantic.event` spine (§7.6) AND raw wire events on the
+per-session SSE stream. Prior to B5, `permission.requested` was emitted as a
+semantic event but not UI-listed while `permission.resolved` was bus-only; both
+are now consistently captured on the durable trace/ARC and served to the UI. The
+timeout carve-out (case 7 above — a `timeout` emits NO `permission.resolved`)
+still holds; a client must not wait on a resolved event for a timed-out request.
+
+#### §6.11.d Deny-mode network egress (B5 #979)
+
+The child network default is **ALLOW + RECORD** (every forwarded egress mints a
+trace-only `net.egress` record). A workspace MAY opt into **deny mode** — a
+per-workspace config flag `network_deny_mode` (set via
+`PATCH /v1/workspaces/{id}` metadata or `POST /v1/workspaces/{id}/grants
+{deny_mode: true}`). In deny mode the clio egress chokepoint consults the
+workspace's `host_pattern` policies at CONNECT time:
+
+- a matching `allow`/`allow_*` `host_pattern` → the CONNECT proceeds, no prompt;
+- a matching `deny` `host_pattern` → the CONNECT is refused (HTTP `403`), a typed
+  `permission.resolved{action: deny}` record is emitted;
+- an **unknown** domain → a `permission.requested` of a new request **kind
+  `network_egress`** is opened on the pending-row (`tool_call.tool_name =
+  "network_egress"`, `tool_call.input = {host, port}`, `kind: "network_egress"`),
+  and the connection blocks (up to 600 s) exactly like the interactive tool gate.
+  Resolving `allow_workspace` derives a sticky `host_pattern` policy (with
+  `created_from_permission_id` provenance) and emits `boundary.granted{kind:
+  "domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. A
+  timeout is a typed denial (no `permission.resolved`, per §6.11.c).
 
 ### §6.12 Providers & Models
 
@@ -2104,13 +2175,28 @@ serves. Only these `event_type` values reach the SSE wire:
 `(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
 `.failed`, `memory.search.completed`, **the artifact `created` family
 (`artifact.created` / `artifact.version.added` / `artifact.alias.moved`,
-vendor `x_clio_artifacts`, §6.26)** — **PLUS any event whose `status`
-is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
+vendor `x_clio_artifacts`, §6.26)**, **the grant/boundary family (B5 #979):
+`boundary.granted` / `boundary.revoked` and the permission lifecycle
+`permission.requested` / `permission.resolved`** — **PLUS any event whose
+`status` is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
 else (turn/agent/hook lifecycle, `tool.call.*` mirrors,
 `lm.token.delta`, `memory.compacted`, `arc.op`, **and the trace-only
 artifact-provenance events `artifact.used` / `artifact.transform.recorded`
-/ `artifact.proposed`**) is captured on the durable trace/ARC/hooks but
+/ `artifact.proposed`, plus the trace-only sandbox substrate `net.egress` /
+`artifact.policy_violation`**) is captured on the durable trace/ARC/hooks but
 NOT served over SSE. The captured set is open.
+
+**Boundary event family** (B5 #979). `boundary.granted` / `boundary.revoked`
+record every change to a workspace/session's effective write-territory or
+network-domain boundary — a recorded USER or MODEL decision, never a
+deterministic backend choice. Payload: `{kind: "root"|"domain", scope:
+"session"|"workspace", grantor: "user"|"model-request"|"policy", pattern,
+workspace_id, created_from_permission_id?, reason?}`. Emit sites: workspace
+create / session attach / `PATCH root_path` (§6.1, `kind: "root"`); the
+`POST /v1/workspaces/{id}/grants` root+domain grants (§6.1); and a deny-mode
+`network_egress` resolution (§6.11.d, `kind: "domain"`, carrying
+`created_from_permission_id`). `reason` on a root grant is one of
+`grant_applied_live` / `grant_pending_respawn` / `grant_recorded_no_active_fence`.
 
 **Artifact event family** (vendor `x_clio_artifacts`, §6.26). `artifact.created`
 fires per **v1** immutable artifact version; its payload is the artifact record
