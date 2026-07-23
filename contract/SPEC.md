@@ -1316,10 +1316,25 @@ workspace's `host_pattern` policies at CONNECT time:
   `network_egress`** is opened on the pending-row (`tool_call.tool_name =
   "network_egress"`, `tool_call.input = {host, port}`, `kind: "network_egress"`),
   and the connection blocks (up to 600 s) exactly like the interactive tool gate.
-  Resolving `allow_workspace` derives a sticky `host_pattern` policy (with
+  Concurrent CONNECTs to the SAME `(workspace, host)` **coalesce** onto one prompt;
+  distinct concurrently-open prompts are bounded, and a connect over that bound
+  fails closed (`reason: egress_gate_prompt_cap_reached`). Resolving `allow_workspace`
+  derives a sticky **workspace-scoped** `host_pattern` policy (with
   `created_from_permission_id` provenance) and emits `boundary.granted{kind:
-  "domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. A
-  timeout is a typed denial (no `permission.resolved`, per §6.11.c).
+  "domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. Resolving
+  `allow_session` derives a session-scoped `host_pattern` policy that is **NOT honoured
+  at the chokepoint** — a workspace-shared fleet child's egress cannot be attributed to
+  one session, so a session-scoped host grant never widens the network boundary (it
+  re-prompts, fail-safe; the more-restrictive choice must never leak broader).
+
+  **Deny-mode egress is FAIL-CLOSED and always recorded** (unlike the interactive
+  tool-gate timeout of §6.11.c, which emits nothing): every deny-mode block — a
+  `deny` policy, an interactive **timeout**, the concurrency cap, or a decision-path
+  error while the store cannot prove the workspace is NOT in deny mode — emits a typed
+  `permission.resolved{action: "deny", reason}` record (`reason` ∈ `policy_deny` /
+  `egress_gate_timeout` / `egress_gate_prompt_cap_reached` / `egress_gate_store_unresolved`
+  / `egress_gate_decision_error`). A security boundary the user opted into is never
+  silently allowed on an error, and never denied without a record.
 
 ### §6.12 Providers & Models
 
