@@ -3,10 +3,7 @@
  */
 import { createEffect, createMemo, createSignal, onMount, type Accessor } from 'solid-js';
 import { getHljs, hljsSync } from '../hljs-lazy.js';
-import {
-  createPreviewRailResources,
-  type PreviewRailClient,
-} from './PreviewRailData.js';
+import { createPreviewRailResources, type PreviewRailClient } from './PreviewRailData.js';
 import {
   buildTree,
   classifyPreview,
@@ -16,6 +13,7 @@ import {
   highlightedPreviewHtml,
   isMarkdownPreviewPath,
   normalizePath,
+  splitPath,
   previewDataUrl,
   type PreviewKind,
   type TreeNode,
@@ -53,6 +51,8 @@ export function createPreviewRailController(props: PreviewRailControllerProps) {
   const content = resources.content;
   const fileContent = resources.fileContent;
   const readError = resources.readError;
+  const artifacts = resources.artifacts;
+  const refetchArtifacts = resources.refetchArtifacts;
   const tree = createMemo(() => buildTree(listing()?.entries ?? []));
   const rows = createMemo(() => flattenVisible(tree(), expanded(), filter()));
 
@@ -85,6 +85,13 @@ export function createPreviewRailController(props: PreviewRailControllerProps) {
   });
 
   const selectedNode = createMemo(() => findTreeNode(tree(), selected()));
+  const selectedArtifact = createMemo(() => {
+    const path = normalizePath(selected());
+    const name = splitPath(path).at(-1) ?? path;
+    return artifacts()?.artifacts.find(
+      (artifact) => artifact.name === path || artifact.name === name,
+    );
+  });
 
   const dataUrl = createMemo(() => previewDataUrl(fileContent(), kind()));
 
@@ -118,6 +125,7 @@ export function createPreviewRailController(props: PreviewRailControllerProps) {
     setImageLoadFailed,
     listing,
     refetchListing,
+    refetchArtifacts,
     listError,
     content,
     fileContent,
@@ -126,6 +134,7 @@ export function createPreviewRailController(props: PreviewRailControllerProps) {
     onRowClick,
     kind,
     selectedNode,
+    selectedArtifact,
     dataUrl,
     textBody,
     highlighted,

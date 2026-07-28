@@ -74,6 +74,10 @@ export function ChatLayoutSidePanels(options: ChatLayoutSidePanelsProps) {
         <PreviewRail
           client={options.discoveryClient}
           workspaceId={options.previewWorkspaceId()}
+          sessionId={options.props.activeId}
+          documentArtifactsEnabled={
+            typeof options.props.caps?.capabilities.x_clio_document_artifacts === 'object'
+          }
           externalPath={options.previewPath}
           onClose={() => options.setPreviewOpen(false)}
         />

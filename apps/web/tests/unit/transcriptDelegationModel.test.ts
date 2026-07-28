@@ -9,14 +9,8 @@ import { analyzeToolResult } from '../../src/components/toolResultPreview.js';
 
 /** Clean-stream part factories (the 4-atom ReAct wire: text / handoff / tool). */
 const text = (id: string, agent: string, t: string): Part =>
-  ({ type: 'text', id, agent_id: agent, text: t } as unknown as Part);
-const handoff = (
-  id: string,
-  parent: string,
-  child: string,
-  stage: string,
-  question = '',
-): Part =>
+  ({ type: 'text', id, agent_id: agent, text: t }) as unknown as Part;
+const handoff = (id: string, parent: string, child: string, stage: string, question = ''): Part =>
   ({
     type: 'expert_handoff',
     id,
@@ -26,14 +20,27 @@ const handoff = (
     stage,
     status: 'completed',
     metadata: question ? { question } : {},
-  } as unknown as Part);
+  }) as unknown as Part;
 const toolCall = (id: string, agent: string, callId: string, name: string, input: unknown): Part =>
-  ({ type: 'tool_call', id, agent_id: agent, call_id: callId, tool_name: name, input } as unknown as Part);
+  ({
+    type: 'tool_call',
+    id,
+    agent_id: agent,
+    call_id: callId,
+    tool_name: name,
+    input,
+  }) as unknown as Part;
 const toolResult = (id: string, agent: string, callId: string, content: unknown): Part =>
-  ({ type: 'tool_result', id, agent_id: agent, call_id: callId, content } as unknown as Part);
+  ({ type: 'tool_result', id, agent_id: agent, call_id: callId, content }) as unknown as Part;
 /** A text part carrying its DSPy contract field (signature_field_name). */
 const textField = (id: string, agent: string, t: string, field: string): Part =>
-  ({ type: 'text', id, agent_id: agent, text: t, metadata: { signature_field_name: field } } as unknown as Part);
+  ({
+    type: 'text',
+    id,
+    agent_id: agent,
+    text: t,
+    metadata: { signature_field_name: field },
+  }) as unknown as Part;
 /** A provider (SDK) thinking part — becomes a collapsed reasoning host row. */
 const thinking = (id: string, agent: string, t: string): Part =>
   ({
@@ -42,7 +49,7 @@ const thinking = (id: string, agent: string, t: string): Part =>
     agent_id: agent,
     thinking: t,
     metadata: { thinking_source: 'provider', provider_source: 'claude_code_sdk' },
-  } as unknown as Part);
+  }) as unknown as Part;
 
 const kinds = (rows: TurnRow[]) => rows.map((r) => r.kind);
 
@@ -73,18 +80,12 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     // Rows are in arrival order: main text, the geospatial delegation+prose come
     // BEFORE the data delegation+prose. No regrouping, no reordering.
     const agentsInOrder = model.rows
-      .filter((r): r is Extract<TurnRow, { kind: 'text' | 'delegation' }> =>
-        r.kind === 'text' || r.kind === 'delegation',
+      .filter(
+        (r): r is Extract<TurnRow, { kind: 'text' | 'delegation' }> =>
+          r.kind === 'text' || r.kind === 'delegation',
       )
       .map((r) => (r.kind === 'delegation' ? `→${r.agent}` : r.agent));
-    expect(agentsInOrder).toEqual([
-      'main',
-      '→geospatial',
-      'geospatial',
-      'main',
-      '→data',
-      'data',
-    ]);
+    expect(agentsInOrder).toEqual(['main', '→geospatial', 'geospatial', 'main', '→data', 'data']);
   });
 
   it('renders ONE header per delegation VERBATIM — started is the header, completed is the return, resumed is dropped (server owns it; no client dedup, #882)', () => {
@@ -144,7 +145,9 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
       } as unknown as Part,
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
-    const returns = rows.filter((r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return');
+    const returns = rows.filter(
+      (r): r is Extract<TurnRow, { kind: 'return' }> => r.kind === 'return',
+    );
     expect(returns).toEqual([
       expect.objectContaining({
         agent: 'geospatial',
@@ -189,7 +192,11 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
         stage: 'delegate.completed',
         status: 'failed',
         // #885: no server-authored failure sentence in `output`; the failure is typed.
-        metadata: { stage: 'delegate.completed', output: '', error: '_UnsupportedSessionAgent: data' },
+        metadata: {
+          stage: 'delegate.completed',
+          output: '',
+          error: '_UnsupportedSessionAgent: data',
+        },
       } as unknown as Part,
     ];
     const ret = buildAssistantTurnModel(parts)!.rows.find(
@@ -238,10 +245,13 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
     ];
     const rows = buildAssistantTurnModel(parts)!.rows;
     const textRow = (a: string) =>
-      rows.find((r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text' && r.agent === a)!;
+      rows.find(
+        (r): r is Extract<TurnRow, { kind: 'text' }> => r.kind === 'text' && r.agent === a,
+      )!;
     const delegationTo = (a: string) =>
       rows.find(
-        (r): r is Extract<TurnRow, { kind: 'delegation' }> => r.kind === 'delegation' && r.agent === a,
+        (r): r is Extract<TurnRow, { kind: 'delegation' }> =>
+          r.kind === 'delegation' && r.agent === a,
       )!;
     // The child's WORK indents one level per delegation depth.
     expect(textRow('data').depth).toBe(1);
@@ -255,7 +265,12 @@ describe('buildAssistantTurnModel — ordered append-only row log', () => {
   it('SUPPRESSES routing_decision plumbing rows (the real decision is the handoff)', () => {
     const parts = [
       handoff('h', 'main', 'geo', 'delegate.started'),
-      { type: 'routing_decision', id: 'r', agent_id: 'main', selected_agent: 'geo' } as unknown as Part,
+      {
+        type: 'routing_decision',
+        id: 'r',
+        agent_id: 'main',
+        selected_agent: 'geo',
+      } as unknown as Part,
       toolCall('tc', 'geo', 'c1', 'geo_geocode', {}),
       toolResult('tr', 'geo', 'c1', 'ok'),
     ];
@@ -354,9 +369,9 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     // No dedup: BOTH the synthesis report and main's terminal restatement render.
     expect(rows.filter((r) => r.kind === 'text')).toHaveLength(2);
     // The thinking host is still present (kept, not merged away).
-    expect(
-      rows.some((r) => r.kind === 'reasoning' && !!r.providerThinking?.text.trim()),
-    ).toBe(true);
+    expect(rows.some((r) => r.kind === 'reasoning' && !!r.providerThinking?.text.trim())).toBe(
+      true,
+    );
   });
 
   it('renders the dspy.extract (thinking + reasoning) in the FLOW, not folded onto the return', () => {
@@ -466,10 +481,35 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
       role: 'user',
     })!;
     expect(model.rows).toEqual([
-      expect.objectContaining({ kind: 'text', isUser: true, text: 'find the LA stations', depth: 0 }),
+      expect.objectContaining({
+        kind: 'text',
+        isUser: true,
+        text: 'find the LA stations',
+        depth: 0,
+      }),
     ]);
     // User prompt is NOT scaffolding-stripped or agent-attributed.
     expect((model.rows[0] as Extract<TurnRow, { kind: 'text' }>).agent).toBe('');
+  });
+
+  it('shows a typed artifact review instead of its model-facing prompt text', () => {
+    const review = {
+      id: 'review-part',
+      type: 'artifact_review',
+      review_id: 'review-1',
+      artifact_id: 'artifact-1',
+      artifact_version: 2,
+      artifact_sha256: 'a'.repeat(64),
+      review_text: 'Make the uncertainty explicit.',
+      anchor: { profile: 'text-quote', exact: 'tentative result' },
+    } as unknown as Part;
+    const model = buildAssistantTurnModel(
+      [text('generated-prompt', '', 'Artifact review instruction...'), review],
+      { role: 'user' },
+    )!;
+
+    expect(model.rows).toHaveLength(1);
+    expect(model.rows[0]).toEqual(expect.objectContaining({ kind: 'passthrough', part: review }));
   });
 
   it('routes a synthetic command_result text part to a passthrough row (command card)', () => {
@@ -531,9 +571,9 @@ The profile is scan-limited. Full-file cadence, duration, gap structure, and mul
     )!;
     // The exact typed object is surfaced verbatim (no field-picking / reshaping).
     expect(ret.workflowState).toEqual(ws);
-    expect((ret.workflowState as { geospatial: { provenance: string } }).geospatial.provenance).toBe(
-      'osm_nominatim',
-    );
+    expect(
+      (ret.workflowState as { geospatial: { provenance: string } }).geospatial.provenance,
+    ).toBe('osm_nominatim');
   });
 
   it('leaves workflowState UNDEFINED on a return with no workflow_state, and on an EMPTY {} state (#305 — icon renders only for real state)', () => {

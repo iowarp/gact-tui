@@ -17,9 +17,9 @@ import {
   fetchMetrics,
   fetchToolDetail,
 } from './system.js';
-import { WorkspaceClient } from './workspace_client.js';
+import { DocumentClient } from './document_client.js';
 
-export class SystemClient extends WorkspaceClient {
+export class SystemClient extends DocumentClient {
   capabilities(): Promise<Capabilities> {
     return fetchCapabilities(this);
   }

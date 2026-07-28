@@ -20,7 +20,8 @@ export type VisualCase =
   | 'fulldata'
   | 'earthscope-real'
   | 'nested-depth'
-  | 'transcript-artifacts';
+  | 'transcript-artifacts'
+  | 'documents';
 
 /** The saved real clio run (GET /messages, session sess_f81710c00d95, captured
  *  from the post-#880/#881 server — the clean presentation-model wire). One user
@@ -34,9 +35,7 @@ export type VisualCase =
  *  station_network_analysis} → visualization → synthesis). Copied VERBATIM from
  *  the live capture — never hand-edited. Sorted oldest-first so the transcript
  *  shows the user prompt before the assistant turn. */
-const earthscopeRealMessages: Message[] = (
-  earthscopeRealTrace as { messages: Message[] }
-).messages
+const earthscopeRealMessages: Message[] = (earthscopeRealTrace as { messages: Message[] }).messages
   .slice()
   .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
 
@@ -162,7 +161,11 @@ const transcriptArtifactsMessages: Message[] = [
         type: 'text',
         text:
           '## Methodology (long)\n\n' +
-          Array.from({ length: 20 }, (_, i) => `- Step ${i + 1}: processed component band ${i + 1} and removed outliers beyond 3σ.`).join('\n'),
+          Array.from(
+            { length: 20 },
+            (_, i) =>
+              `- Step ${i + 1}: processed component band ${i + 1} and removed outliers beyond 3σ.`,
+          ).join('\n'),
       },
       {
         type: 'file_diff',
@@ -174,7 +177,10 @@ const transcriptArtifactsMessages: Message[] = [
           '--- a/analysis/mta1_plot.py',
           '+++ b/analysis/mta1_plot.py',
           '@@ -0,0 +1,24 @@',
-          ...Array.from({ length: 24 }, (_, i) => `+line ${i + 1} of the generated plotting script`),
+          ...Array.from(
+            { length: 24 },
+            (_, i) => `+line ${i + 1} of the generated plotting script`,
+          ),
         ].join('\n'),
       },
     ],
@@ -612,7 +618,11 @@ const fullDataMessages: Message[] = [
         type: 'document',
         title: 'EarthScope Data Policy',
         context: 'Section 3 — attribution requirements for derived products.',
-        source: { kind: 'url', url: 'https://www.earthscope.org/data/policy', media_type: 'text/html' },
+        source: {
+          kind: 'url',
+          url: 'https://www.earthscope.org/data/policy',
+          media_type: 'text/html',
+        },
         citations: { enabled: true },
       },
       {
@@ -645,6 +655,7 @@ const fullDataMessages: Message[] = [
 ];
 
 export function messagesForCase(visualCase: VisualCase): Message[] {
+  if (visualCase === 'documents') return markdownMessages;
   if (visualCase === 'markdown') return markdownMessages;
   if (visualCase === 'earthscope-blocked') return earthscopeBlockedMessages;
   if (visualCase === 'fulldata') return fullDataMessages;
@@ -662,6 +673,7 @@ const SESSION_META: Record<VisualCase, { id: string; title: string }> = {
   'earthscope-real': { id: 'sess_f81710c00d95', title: 'earthscope real trace' },
   'nested-depth': { id: 'mock-nested', title: 'nested delegation depth' },
   'transcript-artifacts': { id: 'mock-artifacts', title: 'transcript artifacts' },
+  documents: { id: 'mock-documents', title: 'document review workflow' },
   earthscope: { id: 'mock-earthscope', title: 'earthscope gnss los angeles' },
 };
 
@@ -685,7 +697,7 @@ export function sessionForCase(visualCase: VisualCase): Session {
   };
 }
 
-export function capabilities(): Capabilities {
+export function capabilities(documents = false): Capabilities {
   return {
     contract_version: '0.2',
     backend: { name: 'mock-clio', version: '0.0.0', vendor: 'gact-tui' },
@@ -704,6 +716,18 @@ export function capabilities(): Capabilities {
       tool_telemetry: true,
       x_clio_semantic_events: true,
       x_clio_context_state: true,
+      ...(documents
+        ? {
+            x_clio_document_artifacts: {
+              protocol_version: '0.1',
+              profiles: ['markdown', 'pdf', 'latex', 'html-static', 'ooxml', 'odf'],
+              review_actions: true,
+              native_comment_trigger: '@clio',
+              static_html_scripts: 'blocked',
+              embedded_editors: ['onlyoffice', 'collabora'],
+            },
+          }
+        : {}),
     },
     transports: { events_sse: true, events_websocket: false },
     auth: { schemes: ['trust_socket'], current: 'trust_socket' },
@@ -791,10 +815,7 @@ const CONTEXT_CATEGORY_SHAPES: Record<string, Record<string, number>> = {
 const CONTEXT_WINDOW_TOKENS = 200000;
 
 /** Build a full ContextState for a (session, scope) pair. */
-export function contextStateForScope(
-  sessionId: string,
-  scope?: string,
-): ContextState {
+export function contextStateForScope(sessionId: string, scope?: string): ContextState {
   const key = scope && CONTEXT_CATEGORY_SHAPES[scope] ? scope : '__default__';
   const categories = CONTEXT_CATEGORY_SHAPES[key]!;
   const live = Object.entries(categories)
@@ -839,10 +860,7 @@ export function contextStateForScope(
  * Compacted state after "Compact now": the live working set collapses into a
  * single dominant `summary` bucket (one live block), well under threshold.
  */
-export function compactedContextState(
-  sessionId: string,
-  scope?: string,
-): ContextState {
+export function compactedContextState(sessionId: string, scope?: string): ContextState {
   const categories = { system: 18000, summary: 9000, framing: 1500 };
   const live = categories.system + categories.summary;
   const used = live + categories.framing;

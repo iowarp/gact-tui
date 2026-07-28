@@ -443,6 +443,44 @@
 }
 
 /* ---- forward-compat unknown-part fallback (SPEC §8.3) ---- */
+.trx-artifact-review {
+  display: flex;
+  gap: 9px;
+  margin: 7px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-accent-border, var(--color-border-60));
+  border-radius: 9px;
+  background: var(--color-surface-alt);
+}
+
+.trx-artifact-review__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.trx-artifact-review__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.trx-artifact-review q,
+.trx-artifact-review p {
+  display: block;
+  margin: 6px 0 0;
+}
+
+.trx-artifact-review q {
+  color: var(--color-text-dim, var(--color-muted));
+}
+
+.trx-artifact-review code {
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
 .trx-unknown {
   display: inline-flex;
   align-items: center;

@@ -65,6 +65,13 @@ export async function getBackend(): Promise<BackendHandle> {
   return invoke<BackendHandle>('get_backend');
 }
 
+/** Open a backend-created native document working copy in its OS application. */
+export async function openDocumentPath(path: string): Promise<boolean> {
+  if (!inTauri()) return false;
+  await invoke<string>('open_document_path', { path });
+  return true;
+}
+
 /** Native menu action ids. Re-exported from {@link ./menu-actions.ts}, whose
  * single source of truth is `menu-actions.json` — the same file the Rust
  * MENU_SPEC (src-tauri/src/menu_spec.rs) embeds and asserts against, so the

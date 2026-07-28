@@ -6,6 +6,7 @@ export type {
   McpContentBlock,
   McpReadResourceResult,
 } from './mcp_apps.js';
+export * from './document_types.js';
 export {
   type SseHandler,
   parseSseBlock,

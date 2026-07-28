@@ -174,6 +174,17 @@ export interface PartResource extends PartBase {
   content?: Part[];
 }
 
+/** A user instruction bound to one exact immutable document artifact version. */
+export interface PartArtifactReview extends PartBase {
+  type: 'artifact_review';
+  review_id: string;
+  artifact_id: string;
+  artifact_version: number;
+  artifact_sha256: string;
+  review_text: string;
+  anchor: Record<string, unknown>;
+}
+
 export type FileDiffStatus = 'pending' | 'applied' | 'rejected' | 'apply_failed';
 /** file_diff edit mode (SPEC §4.5) — same vocabulary as the session-level
  *  EditMode (diff/whole/patch) in session_types.ts, but scoped to one part. */
@@ -316,6 +327,7 @@ export type Part =
   | PartSubagentResult
   | PartResourceLink
   | PartResource
+  | PartArtifactReview
   | FileDiff
   | PartCitation
   | PartError

@@ -52,10 +52,7 @@ export default defineConfig({
       // title + browser tab read the selected brand (no hardcoded "CLIO").
       name: 'gact-brand-html',
       transformIndexHtml(html) {
-        let out = html.replace(
-          /<title>[\s\S]*?<\/title>/,
-          `<title>${brand.name}</title>`,
-        );
+        let out = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${brand.name}</title>`);
         if (brandLogoAsset) {
           const href = `/assets/brand-logo${brandLogoAsset.ext}`;
           out = out.replace(
@@ -63,12 +60,8 @@ export default defineConfig({
             `<link rel="icon" type="${brandLogoAsset.mime}" href="${href}" />\n    <link rel="apple-touch-icon" href="${href}" />`,
           );
         } else if (brand.logoSvg) {
-          const dataUri =
-            'data:image/svg+xml,' + encodeURIComponent(brand.logoSvg);
-          out = out.replace(
-            /href="\/favicon\.svg"/,
-            `href="${dataUri}"`,
-          );
+          const dataUri = 'data:image/svg+xml,' + encodeURIComponent(brand.logoSvg);
+          out = out.replace(/href="\/favicon\.svg"/, `href="${dataUri}"`);
         }
         return out;
       },
@@ -130,6 +123,9 @@ export default defineConfig({
     fs: {
       allow: ['..', BRANDING_ROOT],
     },
+  },
+  worker: {
+    format: 'es',
   },
   build: {
     target: 'es2022',

@@ -9,7 +9,7 @@
   /* Clamp width that yields to chat — defined on the host `.chat` grid as
      --preview-rail-w (see chat.css §4 rule). Falls back to a fixed width if
      the rail is ever rendered outside that context (e.g. unit tests). */
-  width: var(--preview-rail-w, clamp(18rem, 32vw, 30rem));
+  width: var(--preview-rail-w, clamp(22rem, 46vw, 58rem));
   min-width: 0;
   height: 100%;
   background: var(--color-surface);
