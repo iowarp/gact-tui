@@ -28,7 +28,7 @@ jobs:
           node-version: "22"
       - name: Export the immutable schemas from the package
         run: |
-          uv venv && uv pip install ./.clio-schemas
+          uv venv --clear && uv pip install ./.clio-schemas
           uv run python -m clio_schemas.export --out /tmp/schemas
       - name: Generate TypeScript (clean dir) and typecheck
         run: |
