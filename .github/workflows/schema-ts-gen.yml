@@ -35,4 +35,5 @@ jobs:
           cd .clio-schemas/tools/ts-gen
           npm ci
           node schemas-to-ts.mjs --in /tmp/schemas --out /tmp/generated-ts
-          npx tsc -p tsconfig.check.json --noEmit --rootDir /tmp/generated-ts /tmp/generated-ts/*.ts || npx tsc --noEmit --strict --types "" /tmp/generated-ts/*.ts
+          printf '{"compilerOptions":{"strict":true,"noEmit":true,"types":[]},"include":["./*.ts"]}' > /tmp/generated-ts/tsconfig.json
+          ./node_modules/.bin/tsc -p /tmp/generated-ts
