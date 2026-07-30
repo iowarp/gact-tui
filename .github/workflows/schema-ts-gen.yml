@@ -1,0 +1,38 @@
+# P0.6 (clio-agent#1110): the gact-tui half of the clio-schemas consumer loop.
+# Generates TypeScript from the IMMUTABLE JSON schemas shipped inside the
+# pinned clio-schemas package and typechecks the output. The real record
+# schemas (and the committed generated types + drift gate) arrive with P2.1.
+name: schema-ts-gen
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/schema-ts-gen.yml"]
+  pull_request:
+    paths: [".github/workflows/schema-ts-gen.yml"]
+  workflow_dispatch: {}
+jobs:
+  ts-gen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: iowarp/clio-schemas
+          ref: main
+          path: .clio-schemas
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Export the immutable schemas from the package
+        run: |
+          uv venv && uv pip install ./.clio-schemas
+          uv run python -m clio_schemas.export --out /tmp/schemas
+      - name: Generate TypeScript (clean dir) and typecheck
+        run: |
+          cd .clio-schemas/tools/ts-gen
+          npm ci
+          node schemas-to-ts.mjs --in /tmp/schemas --out /tmp/generated-ts
+          npx tsc -p tsconfig.check.json --noEmit --rootDir /tmp/generated-ts /tmp/generated-ts/*.ts || npx tsc --noEmit --strict --types "" /tmp/generated-ts/*.ts
