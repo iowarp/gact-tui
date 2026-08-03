@@ -114,7 +114,10 @@ export async function connectBackend(rawUrl: string, bearerToken?: string): Prom
 
   let sessions: Session[];
   try {
-    sessions = (await client.sessions()).sessions;
+    // The rail groups BY workspace, so it needs every workspace's sessions.
+    // Without this the backend defaults to ws_default and the rail silently
+    // shows one bucket — or nothing, if the user works elsewhere.
+    sessions = (await client.sessions({ include_all_workspaces: true })).sessions;
   } catch (err) {
     return {
       kind: 'failed',

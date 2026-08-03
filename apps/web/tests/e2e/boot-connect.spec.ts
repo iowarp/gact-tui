@@ -24,7 +24,7 @@ test('boots to the connect screen', async ({ page }) => {
 test('connects to a backend and lands on its sessions', async ({ page }) => {
   await connectMockBackend(page);
 
-  await expect(page.getByTestId('connected-backend')).toContainText(MOCK_BACKEND);
+  await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
   await expect(page.getByTestId(`session-row-${MOCK_SESSION_ID}`)).toBeVisible();
 });
 
@@ -55,7 +55,7 @@ test('boots without console errors', async ({ page }) => {
   page.on('pageerror', (err) => errors.push(String(err)));
 
   await connectMockBackend(page);
-  await expect(page.getByTestId('connected-backend')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

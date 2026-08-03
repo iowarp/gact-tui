@@ -21,7 +21,7 @@ test('connects to a real backend and accepts its contract', async ({ page }) => 
 
   // Either we land connected, or we surface a typed reason. What must NOT
   // happen is a blank screen or an indefinite pending state.
-  const connected = page.getByTestId('connected-backend');
+  const connected = page.getByRole('navigation', { name: /workspaces/i });
   const error = page.getByTestId('connect-error');
   await expect(connected.or(error)).toBeVisible({ timeout: 20_000 });
 });
@@ -45,7 +45,7 @@ test('a failing session list is surfaced as a typed reason, never a blank pane',
   await page.getByTestId('connect-url').fill(LIVE_URL as string);
   await page.getByTestId('connect-submit').click();
 
-  const connected = page.getByTestId('connected-backend');
+  const connected = page.getByRole('navigation', { name: /workspaces/i });
   const error = page.getByTestId('connect-error');
   await expect(connected.or(error)).toBeVisible({ timeout: 20_000 });
 

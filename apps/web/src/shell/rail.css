@@ -123,10 +123,17 @@
   border-color: var(--t-cy3);
 }
 
+/* Centred, not baseline-aligned. The row mixes an 11.5px title, a 10px
+   timestamp and a 16px button box; baseline alignment puts all three on
+   visibly different optical lines. The prototype centres its pin icon out of
+   the same row for the same reason — this applies it to the whole row. */
 .shell-rail__row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
+  /* Fills its grid track so the title can ellipsis and the time + menu stay
+     pinned right, rather than bunching against the title. */
+  width: 100%;
   min-width: 0;
 }
 
@@ -171,6 +178,7 @@
 .shell-rail__menu {
   display: grid;
   place-items: center;
+  align-self: center;
   width: 16px;
   height: 16px;
   flex-shrink: 0;

@@ -37,7 +37,7 @@ await page.getByTestId('connect-submit').click();
 
 // Wait for EITHER outcome. A build that hangs here has failed regardless of
 // which branch it was supposed to take.
-const connected = page.getByTestId('connected-backend');
+const connected = page.getByRole('navigation', { name: /workspaces/i });
 const errorBox = page.getByTestId('connect-error');
 let outcome = 'timeout';
 try {
