@@ -119,6 +119,20 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
     ),
   },
 
+  mcp_app: {
+    // The backend emits this today, so it must render. The interactive host
+    // (sandboxed ui:// iframe, tool bridge) is P3.1 / gact-tui#324 — until
+    // then this names the app rather than letting an emitted kind fall through
+    // to the unrenderable marker.
+    render: (part) => (
+      <div className="part-tool" data-testid="part-mcp-app">
+        <span className="part-tool__name">{str(part['name'] ?? 'MCP App')}</span>
+        <span className="part-muted">{str(part['uri'])}</span>
+        <span className="part-muted">interactive rendering lands with #324</span>
+      </div>
+    ),
+  },
+
   compaction: {
     render: (part) => (
       <p className="part-muted">
