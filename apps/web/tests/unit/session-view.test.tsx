@@ -47,7 +47,7 @@ describe('SessionView', () => {
   it('loads a session and renders its messages through the transcript', async () => {
     const client = makeClient();
     render(<SessionView client={client} sessions={SESSIONS} />);
-    fireEvent.click(screen.getByRole('button', { name: /LA ground motion/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByText('staging the CSV')).toBeInTheDocument());
     expect(client.messages).toHaveBeenCalledWith('sess_a');
   });
@@ -55,7 +55,7 @@ describe('SessionView', () => {
   it('states when a session has no messages rather than showing an empty pane', async () => {
     const client = makeClient({ messages: vi.fn(async () => ({ messages: [] })) });
     render(<SessionView client={client} sessions={SESSIONS} />);
-    fireEvent.click(screen.getByRole('button', { name: /membudget 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'membudget 1' }));
     await waitFor(() => expect(screen.getByTestId('transcript-empty')).toBeInTheDocument());
   });
 
@@ -67,7 +67,7 @@ describe('SessionView', () => {
       }),
     });
     render(<SessionView client={client} sessions={SESSIONS} />);
-    fireEvent.click(screen.getByRole('button', { name: /skill gate/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'skill gate' }));
     await waitFor(() => {
       const err = screen.getByTestId('transcript-error');
       expect(err).toHaveTextContent(/500|unreadable/);

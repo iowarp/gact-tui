@@ -57,19 +57,19 @@ describe('AppShell', () => {
     renderShell();
     const rail = screen.getByRole('navigation', { name: /workspaces/i });
     expect(within(rail).getByText('/scratch/j4471')).toBeInTheDocument();
-    expect(within(rail).getByRole('button', { name: /asteroid cut-plane render/ })).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: 'asteroid cut-plane render' })).toBeInTheDocument();
   });
 
   it('marks the active session as current', () => {
     renderShell();
-    const active = screen.getByRole('button', { name: /LA ground motion/ });
+    const active = screen.getByRole('button', { name: 'LA ground motion · EarthScope GNSS' });
     expect(active).toHaveAttribute('aria-current', 'true');
   });
 
   it('selects a session', () => {
     const onSelectSession = vi.fn();
     renderShell({ onSelectSession });
-    fireEvent.click(screen.getByRole('button', { name: /ior baseline sweep/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'ior baseline sweep' }));
     expect(onSelectSession).toHaveBeenCalledWith('sess_h1');
   });
 
@@ -95,7 +95,7 @@ describe('AppShell', () => {
   it('conveys session status by more than colour', () => {
     renderShell();
     // A 7px dot alone is colour-only; the status must also be readable.
-    const active = screen.getByRole('button', { name: /LA ground motion/ });
+    const active = screen.getByRole('button', { name: 'LA ground motion · EarthScope GNSS' });
     expect(within(active).getByText('running')).toBeInTheDocument();
   });
 

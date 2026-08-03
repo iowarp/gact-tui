@@ -1,3 +1,7 @@
+/* Rail geometry transcribed from the Session v3 prototype. Numbers here are
+   the prototype's, not approximations — this column was crafted and the
+   rebuild has no licence to redesign it. */
+
 .shell-rail {
   display: flex;
   flex-direction: column;
@@ -45,13 +49,6 @@
   flex: 1;
 }
 
-.shell-rail__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 10px;
-}
-
 .shell-rail__heading {
   display: flex;
   align-items: center;
@@ -60,17 +57,28 @@
   border-bottom: 1px solid var(--t-bd3);
 }
 
+/* The prototype's list: 6px padding, 1px between rows. */
+.shell-rail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .shell-rail__group {
   display: flex;
   flex-direction: column;
-  padding: 8px 6px 2px;
+  gap: 1px;
 }
 
 .shell-rail__grouphead {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 2px 6px 4px;
+  padding: 8px 8px 4px 10px;
 }
 
 .shell-rail__grouplabel {
@@ -81,29 +89,29 @@
   white-space: nowrap;
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(11.5px * var(--ts));
+  font-size: calc(11px * var(--ts));
 }
 
 .shell-rail__groupcount {
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
+  font-size: calc(10px * var(--ts));
 }
 
+/* THE session row — grid, not flex: an 8px indicator column and a content
+   column that may shrink. */
 .shell-rail__session {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
   gap: 8px;
+  align-items: center;
   width: 100%;
-  padding: 5px 7px;
+  padding: 3px 8px 3px 10px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
-  font-family: var(--f-prose);
-  font-size: calc(13px * var(--ts));
-  color: var(--t-tx);
 }
 
 .shell-rail__session:hover {
@@ -113,7 +121,13 @@
 .shell-rail__session[aria-current='true'] {
   background: var(--t-cy12);
   border-color: var(--t-cy3);
-  color: var(--t-hd);
+}
+
+.shell-rail__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 .shell-rail__title {
@@ -122,10 +136,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(11.5px * var(--ts));
+  font-weight: 500;
 }
 
-/* The textual status paired with the dot. Visually quiet, but present for
-   assistive tech and for anyone who cannot separate the dot colours. */
+/* Status as TEXT for assistive tech only. The dot is the visual channel and
+   the prototype shows no status word — this never renders on screen. */
 .shell-rail__status {
   position: absolute;
   width: 1px;
@@ -142,5 +160,35 @@
   flex-shrink: 0;
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
+  font-size: calc(10px * var(--ts));
+}
+
+.shell-rail__session[aria-current='true'] .shell-rail__age {
+  color: var(--t-cy);
+}
+
+/* The per-session action button. */
+.shell-rail__menu {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--t-mu);
+  opacity: 0;
+}
+
+.shell-rail__session:hover .shell-rail__menu,
+.shell-rail__menu:focus-visible {
+  opacity: 1;
+}
+
+.shell-rail__menu:hover {
+  background: var(--t-sf2);
+  color: var(--t-hd);
 }
