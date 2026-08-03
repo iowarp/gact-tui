@@ -1,15 +1,32 @@
+/* Topbar geometry transcribed from the prototype. The 64px band is a fixed
+   design height, not a consequence of padding — deriving it from padding gave
+   a visibly shorter bar than the design. */
+
 .shell-topbar {
+  height: 64px;
+  flex: 0 0 64px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 8px 14px;
+  gap: 12px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--t-bd3);
+  background: var(--t-bg);
+  position: relative;
+  z-index: 55;
+}
+
+/* Title + breadcrumb share a baseline-aligned group that may shrink. */
+.shell-topbar__identity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .shell-topbar__title {
   margin: 0;
-  min-width: 0;
+  min-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -20,6 +37,7 @@
 }
 
 .shell-topbar__sep {
+  flex-shrink: 0;
   color: var(--t-dis);
 }
 

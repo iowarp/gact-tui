@@ -71,7 +71,10 @@ export function Composer({
         {contextPercent === undefined ? null : <Chip>{`ctx ${contextPercent}%`}</Chip>}
       </div>
 
-      <div className="composer__frame">
+      <div
+        className="composer__frame"
+        data-queued={asyncCount ? 'true' : undefined}
+      >
         <textarea
           ref={boxRef}
           className="composer__input"

@@ -15,18 +15,35 @@
   flex-wrap: wrap;
 }
 
+/* THE chat pill. Geometry is the prototype's, including the asymmetric bottom
+   padding and the DYNAMIC corner: the top-left is always square so the pill
+   reads as attached, and the top-right squares off too once the composer is
+   focused or something is queued above it. */
 .composer__frame {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 12px 14px 10px;
   background: var(--t-sf);
   border: 1px solid var(--t-bd3);
-  border-radius: 10px;
+  border-radius: 0 14px 14px 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.composer__frame:focus-within,
+.composer__frame[data-queued='true'] {
+  border-radius: 0 0 14px 14px;
 }
 
 .composer__frame:focus-within {
   border-color: var(--t-cy3);
+}
+
+/* Raised only while a picker is open, so the popover is not clipped by the
+   transcript above it. */
+.composer__frame[data-picker-open='true'] {
+  z-index: 55;
 }
 
 /* Transcribed from the prototype's composer textarea. */

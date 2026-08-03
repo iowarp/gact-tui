@@ -39,15 +39,17 @@ export function Topbar({
         />
       ) : null}
 
-      <h1 className="shell-topbar__title">{title}</h1>
-      {breadcrumb ? (
-        <>
-          <span className="shell-topbar__sep" aria-hidden="true">
-            /
-          </span>
-          <span className="shell-topbar__crumb">{breadcrumb}</span>
-        </>
-      ) : null}
+      <div className="shell-topbar__identity">
+        <h1 className="shell-topbar__title">{title}</h1>
+        {breadcrumb ? (
+          <>
+            <span className="shell-topbar__sep" aria-hidden="true">
+              /
+            </span>
+            <span className="shell-topbar__crumb">{breadcrumb}</span>
+          </>
+        ) : null}
+      </div>
 
       <span className="shell-topbar__spacer" />
 

@@ -5,12 +5,7 @@
  * renders a connect screen and completes a handshake through @clio/core.
  */
 import { expect, test } from '@playwright/test';
-import {
-  MOCK_BACKEND,
-  MOCK_SESSION_ID,
-  connectMockBackend,
-  installMockBackend,
-} from './mock-backend';
+import { connectMockBackend, installMockBackend } from './mock-backend';
 
 test('boots to the connect screen', async ({ page }) => {
   await installMockBackend(page);
