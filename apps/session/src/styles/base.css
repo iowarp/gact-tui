@@ -1,0 +1,20 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--t-bg, #101216);
+  color: var(--t-fg, #e6e8ec);
+  font-family: var(--f-ui, InterVariable, Inter, system-ui, sans-serif);
+  font-size: var(--ts-base, 13px);
+  -webkit-font-smoothing: antialiased;
+}
