@@ -1,8 +1,17 @@
 /**
- * Minimal route-level mock backend for the P4.R boot-and-connect spec.
+ * Route-level mock backend, shaped from OBSERVED REALITY.
  *
- * Deliberately small: it serves only what a boot + connect needs
- * (`/v1/capabilities` for the handshake, `/v1/sessions` for the landing list).
+ * The capability flags below were captured from a live clio-agent
+ * (`develop` @ `fbf7215e`, `GET /v1/capabilities`) rather than invented, and
+ * the message parts are shaped from the emitters that construct them — see
+ * `contract/PARTS.md` for the citations.
+ *
+ * This still proves NOTHING about live correctness. Bringing a real backend up
+ * immediately produced two defects no fixture had ever shown (clio-agent#1171,
+ * and CORS closed by default). The mock exists so the surfaces can be
+ * exercised deterministically in CI; the live gate is a separate thing and
+ * lives in `live-backend.spec.ts`.
+ *
  * The full fixture corpus is P5.1's visual-harness scope (gact-tui#340) —
  * this file must not grow into a second one.
  */
@@ -24,27 +33,118 @@ export interface MockBackendOptions {
   failWithStatus?: number;
 }
 
-/** The nested Capabilities envelope the real server returns (SPEC 3.3) —
- *  capability gating reads `caps.capabilities.<flag>`, never `caps.<flag>`. */
+/** The nested Capabilities envelope, flags copied from a live capture.
+ *  Capability gating reads `caps.capabilities.<flag>`, never `caps.<flag>`. */
 const capabilities = (contract: string) => ({
   contract_version: contract,
   backend: {
     name: 'clio-agent-gact',
-    version: '0.10.0-mock',
+    version: '0.9.0+fbf7215e',
     vendor: 'iowarp',
+    homepage: 'https://github.com/iowarp/clio-agent',
   },
   capabilities: {
     workspaces: true,
     sessions: true,
     subagents: true,
     mcp: true,
+    lsp: false,
+    files: true,
+    diffs: true,
     permissions: true,
     providers: true,
+    commands: true,
+    voice: false,
+    scheduled_sessions: true,
+    hooks: true,
+    session_tasks: true,
+    metrics: true,
+    session_branching: true,
+    session_sharing: true,
+    session_export: true,
+    session_summary: false,
+    attachments_upload: false,
+    multimodal_image_parts: true,
+    cost_tracking: true,
   },
   transports: { sse: true },
   auth: { schemes: ['trust_socket'] },
   extensions: [],
 });
+
+/**
+ * A message carrying every part kind clio-agent actually emits today.
+ *
+ * Shapes follow the emitters, not the prototype: `background_exit` from
+ * `gact/background_exit.py` (note `exit_status: "canceled"`, one l, mapped
+ * from the two-l task status) and `agent_message` from
+ * `gact/agent_messaging.py`, both including the run-handle group produced by
+ * `run_handle_fields()`.
+ */
+export const MOCK_WIRE_MESSAGE = {
+  id: 'msg_wire_0001',
+  role: 'assistant',
+  parts: [
+    { type: 'thinking', thinking: 'Resolving the region before staging data.', tokens: 77 },
+    { type: 'text', text: 'Starting with the geospatial child.' },
+    {
+      type: 'expert_handoff',
+      expert: 'geospatial',
+      task_id: 'task_b7525159dde5',
+      question: 'Resolve Los Angeles into grounded coordinates.',
+    },
+    { type: 'routing_decision', expert: 'data' },
+    {
+      type: 'tool_call',
+      id: 'call_a4c19b2e',
+      name: 'stage_resource',
+      input: { resource: 'earthscope_stations.csv', source: 'ds2.datacollaboratory.org' },
+    },
+    { type: 'tool_result', content: 'staged 1,101 rows', is_error: false },
+    {
+      type: 'resource_link',
+      uri: 'file:///staged/earthscope_stations.csv',
+      name: 'earthscope_stations.csv',
+    },
+    { type: 'file_diff', path: 'analysis/profile.py', status: 'applied' },
+    {
+      type: 'mcp_app',
+      uri: 'ui://ndp/station-picker',
+      mime_type: 'text/html;profile=mcp-app',
+    },
+    { type: 'compaction', reason: 'context pressure' },
+    {
+      type: 'background_exit',
+      agent_id: 'data',
+      parent_agent: 'main',
+      child_agent: 'data',
+      handle_id: 'task_b899efeeca04',
+      run_label: 'data #1',
+      live_state: 'completed',
+      host: 'ares',
+      placement: 'relay:ares',
+      task_id: 'task_b899efeeca04',
+      job_id: 'task_b899efeeca04',
+      exit_status: 'completed',
+      status: 'completed',
+    },
+    {
+      type: 'agent_message',
+      agent_id: 'main',
+      parent_agent: 'main',
+      child_agent: 'data',
+      stage: 'message.queued',
+      handle_id: 'task_b899efeeca04',
+      run_label: 'data #1',
+      live_state: 'running',
+      host: 'local',
+      placement: 'local',
+      message_action: 'queue',
+      status: 'accepted',
+      text: 'also profile the uncertainty columns',
+    },
+  ],
+};
 
 const sessions = () => ({
   sessions: [
@@ -87,6 +187,9 @@ export async function installMockBackend(
 
     if (url.pathname === '/v1/capabilities') return json(capabilities(contract));
     if (url.pathname === '/v1/sessions') return json(sessions());
+    if (/^\/v1\/sessions\/[^/]+\/messages$/.test(url.pathname)) {
+      return json({ messages: [MOCK_WIRE_MESSAGE] });
+    }
 
     // Anything else is out of P4.R scope — answer honestly rather than
     // silently returning an empty 200 the app would misread as real data.
