@@ -6,6 +6,7 @@ import {
   type ConnectedBackend,
 } from './backend/connection';
 import { ConnectScreen } from './connect/ConnectScreen';
+import { KitGallery } from './kit/KitGallery';
 import { SessionList } from './sessions/SessionList';
 import { applyAppearance, loadAppearance } from './theme/theme';
 
@@ -47,6 +48,13 @@ export function App() {
     }
     setBackend(result);
   }, []);
+
+  // Development surface for the component kit (gact-tui#331) — the fixtures
+  // harness the visual gates screenshot. Not app chrome, not routable from it.
+  // Checked after every hook so hook order stays identical across renders.
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('kit')) {
+    return <KitGallery />;
+  }
 
   if (backend) {
     return <SessionList backend={backend} />;
