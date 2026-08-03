@@ -14,6 +14,7 @@ export { PartCard, type PartCardProps } from './PartCard';
 export { KvGrid, type KvGridProps, type KvRow } from './KvGrid';
 export { Eyebrow, type EyebrowProps } from './Eyebrow';
 export { Icon, type IconName, type IconProps } from './Icon';
+export { Layer, type LayerProps, type LayerSize } from './Layer';
 export { InlineEdit, type InlineEditProps, type InlineEditSize } from './InlineEdit';
 export { Tabs, type TabDef, type TabsProps } from './Tabs';
 export { Popover, type PopoverPlacement, type PopoverProps } from './Popover';

@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Chip, Eyebrow, KvGrid, Select, Tabs, ToolbarButton } from '../kit';
+import { Chip, KvGrid, Select, Tabs } from '../kit';
 import type { ObservabilityData } from './types';
 import './observability.css';
 
 export interface ObservabilityProps {
   data: ObservabilityData;
-  onClose: () => void;
 }
 
 type ObsTab = 'agents' | 'runs' | 'tools' | 'artifacts' | 'context';
@@ -17,7 +16,7 @@ type ObsTab = 'agents' | 'runs' | 'tools' | 'artifacts' | 'context';
  * case: a per-expert dropdown filtering a list required no new primitive,
  * which is the whole argument for having a kit.
  */
-export function Observability({ data, onClose }: ObservabilityProps) {
+export function Observability({ data }: ObservabilityProps) {
   const [tab, setTab] = useState<ObsTab>('agents');
   const experts = Object.keys(data.toolsByExpert);
   const [expert, setExpert] = useState(experts[0] ?? '');
@@ -30,18 +29,7 @@ export function Observability({ data, onClose }: ObservabilityProps) {
 
   return (
     <section className="obs" aria-label="Observability">
-      <header className="obs__head">
-        <Eyebrow strong>observability</Eyebrow>
-        <span className="obs__spacer" />
-        <ToolbarButton
-          label="Close observability"
-          iconOnly
-          size="small"
-          icon={<span aria-hidden="true">×</span>}
-          onClick={onClose}
-        />
-      </header>
-
+      {/* The heading and close control are the Layer's — see kit/Layer.tsx. */}
       <div className="obs__tabs">
         <Tabs
           label="Observability views"

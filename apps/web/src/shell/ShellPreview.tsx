@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Message } from '@clio/core';
 import { Composer } from '../composer/Composer';
+import { Layer } from '../kit';
 import { DetailSlot } from '../detail/DetailSlot';
 import { Observability } from '../observability/Observability';
 import { Settings } from '../settings/Settings';
@@ -167,15 +168,7 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
       ]}
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
-      detail={
-        surface === 'settings' ? (
-          <Settings onClose={() => {}} />
-        ) : surface === 'obs' ? (
-          <Observability data={OBS} onClose={() => {}} />
-        ) : (
-          <DetailSlot record={RECORD} onClose={() => {}} />
-        )
-      }
+      detail={<DetailSlot record={RECORD} onClose={() => {}} />}
     >
       <Transcript messages={MESSAGES} />
       <Composer
@@ -190,6 +183,16 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
           { id: 'opus', label: 'claude-opus-5', detail: 'Anthropic' },
         ]}
       />
+
+      {/* Settings and observability are OVERLAYS in the prototype, never
+          right-pane content. The preview must place them where the app does,
+          or it stops being evidence for anything. */}
+      <Layer open={surface === 'settings'} title="settings" size="settings" onClose={() => {}}>
+        <Settings />
+      </Layer>
+      <Layer open={surface === 'obs'} title="observability" width={880} height={560} onClose={() => {}}>
+        <Observability data={OBS} />
+      </Layer>
     </AppShell>
   );
 }

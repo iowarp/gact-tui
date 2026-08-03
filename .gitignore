@@ -85,3 +85,6 @@ __pycache__/
 # no root image is tracked — verified 2026-07)
 /*.png
 /*.gif
+
+# Local clio-agent runtime state (sessions, messages) — never source.
+.clio/

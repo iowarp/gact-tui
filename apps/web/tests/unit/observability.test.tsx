@@ -33,12 +33,12 @@ const DATA: ObservabilityData = {
 
 describe('Observability', () => {
   it('opens on the agents tab', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     expect(screen.getByRole('tab', { name: /agents/i })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('lists every agent with its status as text', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     const panel = screen.getByTestId('obs-agents');
     expect(within(panel).getByText('geospatial')).toBeInTheDocument();
     // Status must be readable, not just a colour.
@@ -46,7 +46,7 @@ describe('Observability', () => {
   });
 
   it('lists runs with their terminal state', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     fireEvent.click(screen.getByRole('tab', { name: /runs/i }));
     const panel = screen.getByTestId('obs-runs');
     expect(within(panel).getByText('task_b7525159dde5')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('Observability', () => {
   // ---- the kit proof case ----
 
   it('filters available tools by expert through the kit select', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     fireEvent.click(screen.getByRole('tab', { name: /tools/i }));
 
     // Defaults to the first expert.
@@ -71,20 +71,20 @@ describe('Observability', () => {
   });
 
   it('shows how many tools the selected expert exposes', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     fireEvent.click(screen.getByRole('tab', { name: /tools/i }));
     expect(screen.getByTestId('obs-tools-count')).toHaveTextContent('1');
   });
 
   it('lists artifacts', () => {
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     fireEvent.click(screen.getByRole('tab', { name: /artifacts/i }));
     expect(screen.getByText('earthscope_stations.csv')).toBeInTheDocument();
   });
 
   it('reports context usage with its denominator, not a bare percentage', () => {
     // A percentage with no denominator cannot be sanity-checked by the reader.
-    render(<Observability data={DATA} onClose={vi.fn()} />);
+    render(<Observability data={DATA} />);
     fireEvent.click(screen.getByRole('tab', { name: /context/i }));
     const panel = screen.getByTestId('obs-context');
     expect(panel).toHaveTextContent('41%');
@@ -95,16 +95,10 @@ describe('Observability', () => {
     render(
       <Observability
         data={{ agents: [], runs: [], toolsByExpert: {}, artifacts: [] }}
-        onClose={vi.fn()}
+       
       />,
     );
     expect(screen.getByTestId('obs-empty')).toBeInTheDocument();
   });
 
-  it('closes', () => {
-    const onClose = vi.fn();
-    render(<Observability data={DATA} onClose={onClose} />);
-    fireEvent.click(screen.getByRole('button', { name: /close observability/i }));
-    expect(onClose).toHaveBeenCalledOnce();
-  });
 });

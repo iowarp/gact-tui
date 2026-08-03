@@ -1,0 +1,113 @@
+/* LayerChrome — full-screen overlay. Geometry from the prototype:
+     settings  fixed inset:0, centred, padding-top 6vh, scrim rgba(6,8,11,.62)
+     window    inset:0 over --t-scrim, card at 8vh auto
+   Card chrome is shared: --t-sf, --t-bd6, 12px radius, --t-shadow, rise 160ms. */
+
+.kit-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.kit-layer[data-size='settings'] {
+  padding-top: 6vh;
+}
+
+.kit-layer[data-size='window'] {
+  padding-top: 8vh;
+}
+
+.kit-layer__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--t-scrim);
+}
+
+.kit-layer[data-size='settings'] .kit-layer__scrim {
+  background: rgba(6, 8, 11, 0.62);
+}
+
+.kit-layer__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd6);
+  border-radius: 12px;
+  box-shadow: var(--t-shadow);
+  animation: clio-rise 160ms ease-out both;
+}
+
+.kit-layer__card[data-size='settings'] {
+  width: min(1040px, 92vw);
+  height: 80vh;
+}
+
+/* The window variant is caller-sized so it can be dragged/resized. */
+.kit-layer__card[data-size='window'] {
+  width: min(860px, 92vw);
+  max-height: 78vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-layer__card {
+    animation: none;
+  }
+}
+
+.kit-layer__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.kit-layer__title {
+  margin: 0;
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.kit-layer__spacer {
+  flex: 1;
+}
+
+.kit-layer__close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--t-mu);
+  cursor: pointer;
+  font-size: calc(13px * var(--ts));
+  line-height: 1;
+}
+
+.kit-layer__close:hover {
+  border-color: var(--t-bd3);
+}
+
+.kit-layer__close:hover {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.kit-layer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

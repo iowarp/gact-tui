@@ -50,7 +50,7 @@ describe('settings page inventory', () => {
 
 describe('Settings', () => {
   it('renders only backed pages in the nav', () => {
-    render(<Settings onClose={vi.fn()} />);
+    render(<Settings />);
     const nav = screen.getByRole('navigation', { name: /settings/i });
     expect(within(nav).getByRole('button', { name: /providers/i })).toBeInTheDocument();
     expect(within(nav).queryByRole('button', { name: /^relays$/i })).toBeNull();
@@ -58,7 +58,7 @@ describe('Settings', () => {
   });
 
   it('switches pages', () => {
-    render(<Settings onClose={vi.fn()} />);
+    render(<Settings />);
     fireEvent.click(screen.getByRole('button', { name: /doctor/i }));
     expect(screen.getByTestId('settings-page')).toHaveTextContent(/doctor/i);
   });
@@ -66,15 +66,9 @@ describe('Settings', () => {
   it('states that a page is not implemented yet rather than showing a blank pane', () => {
     // These pages are BACKED but their UI is not built. Saying so beats an
     // empty pane that looks like a broken load.
-    render(<Settings onClose={vi.fn()} />);
+    render(<Settings />);
     fireEvent.click(screen.getByRole('button', { name: /metrics/i }));
     expect(screen.getByTestId('settings-unbuilt')).toBeInTheDocument();
   });
 
-  it('closes', () => {
-    const onClose = vi.fn();
-    render(<Settings onClose={onClose} />);
-    fireEvent.click(screen.getByRole('button', { name: /close settings/i }));
-    expect(onClose).toHaveBeenCalledOnce();
-  });
 });

@@ -5,6 +5,7 @@ import { Composer } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
 import type { SessionStatus } from '../shell/StatusDot';
+import { Layer } from '../kit';
 import { Observability } from '../observability/Observability';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
@@ -260,18 +261,7 @@ export function SessionView({ client, sessions, onForgetSession }: SessionViewPr
       agentCount={agentCount}
       onOpenSettings={() => setPanel('settings')}
       onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
-      {...(panel === 'settings'
-        ? { detail: <Settings onClose={() => setPanel(null)} /> }
-        : {})}
-      {...(panel === 'obs'
-        ? {
-            detail: obs ? (
-              <Observability data={obs} onClose={() => setPanel(null)} />
-            ) : (
-              <p className="sessionview__notice">Loading observability…</p>
-            ),
-          }
-        : {})}
+
     >
       {sessions.length === 0 ? (
         <p className="sessionview__notice" data-testid="sessions-empty">
@@ -346,6 +336,22 @@ export function SessionView({ client, sessions, onForgetSession }: SessionViewPr
           {...(sending ? { busyReason: 'Sending…' } : {})}
         />
       ) : null}
+      <Layer
+        open={panel === 'settings'}
+        title="settings"
+        size="settings"
+        onClose={() => setPanel(null)}
+      >
+        <Settings />
+      </Layer>
+
+      <Layer open={panel === 'obs'} title="observability" onClose={() => setPanel(null)}>
+        {obs ? (
+          <Observability data={obs} />
+        ) : (
+          <p className="sessionview__notice">Loading observability…</p>
+        )}
+      </Layer>
     </AppShell>
   );
 }

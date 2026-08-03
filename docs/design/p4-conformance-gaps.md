@@ -46,7 +46,7 @@ is done and working, as originally instructed.
 | # | Defect | Status |
 |---|---|---|
 | C1 | Icons hand-drawn instead of the prototype's set. The gear reads as a **sun**. | fixing |
-| C2 | Settings / observability open in the **wrong column** — placed in the right `detail` slot; owner reports seeing them left. Panel placement never visually verified. | open |
+| C2 | Settings / observability open in the **wrong column** — placed in the right `detail` slot; owner reports seeing them left. Panel placement never visually verified. | **fixed** |
 | C3 | Composer pill anchors to **content flow, not the viewport bottom** — it sits after the text rather than at the bottom of the screen. | open |
 | C4 | Empty state is a debug string ("Select a session to open it."). The prototype defines a real empty session with its own animation. | open |
 | C5 | Model selector shows `default` rather than provider / model. | open |

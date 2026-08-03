@@ -1,13 +1,9 @@
 import { useState } from 'react';
-import { Eyebrow, MasterDetail, ToolbarButton } from '../kit';
+import { MasterDetail } from '../kit';
 import { AppearancePage } from './AppearancePage';
 import { AboutPage } from './AboutPage';
 import { SETTINGS_PAGES, backedPages, type SettingsPage } from './pages';
 import './settings.css';
-
-export interface SettingsProps {
-  onClose: () => void;
-}
 
 /**
  * Settings — a MasterDetail over the backed page inventory.
@@ -16,25 +12,14 @@ export interface SettingsProps {
  * say so instead of rendering an empty pane, which would read as a load
  * failure rather than as work not yet done.
  */
-export function Settings({ onClose }: SettingsProps) {
+export function Settings() {
   const pages = backedPages();
   const [active, setActive] = useState(pages[0]?.id ?? 'backends');
   const page = SETTINGS_PAGES.find((p) => p.id === active);
 
   return (
     <section className="settings" aria-label="Settings pane">
-      <header className="settings__head">
-        <Eyebrow strong>settings</Eyebrow>
-        <span className="settings__spacer" />
-        <ToolbarButton
-          label="Close settings"
-          iconOnly
-          size="small"
-          icon={<span aria-hidden="true">×</span>}
-          onClick={onClose}
-        />
-      </header>
-
+      {/* The heading and close control are the Layer's — see kit/Layer.tsx. */}
       <div className="settings__body">
         <MasterDetail
           label="Settings"
