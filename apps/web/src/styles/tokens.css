@@ -84,7 +84,9 @@
   --ts: 1;
   --f-prose: 'Inter', system-ui, sans-serif;
   --f-ui: 'Inter', system-ui, sans-serif;
-  --f-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  /* The prototype spells mono as JetBrains Mono with a ui-monospace fallback;
+     it carries the eyebrow/meta/chip lanes, so it is not interchangeable. */
+  --f-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root[data-theme='dark'] {
