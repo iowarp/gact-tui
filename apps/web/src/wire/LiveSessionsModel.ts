@@ -4,7 +4,7 @@
  * event warrants a transcript refetch ({@link shouldReconcileTranscriptAfterEvent}).
  */
 import type { Session, SessionStatus } from '@clio/core';
-import type { SidebarSession } from './components/Sidebar.js';
+import type { SidebarSession } from './session_view.js';
 import { presentBlueprintLabel } from './brand-presentation.js';
 
 export function shouldReconcileTranscriptAfterEvent(

@@ -3,7 +3,7 @@
  * permission requests) into the sidebar session list and pending-permission signal.
  */
 import type { PermissionRequest, Session, SessionStatus } from '@clio/core';
-import type { SidebarSession } from './components/Sidebar.js';
+import type { SidebarSession } from './session_view.js';
 import type { BackendNotification } from './LiveNotifications.js';
 import { toSidebarSession } from './LiveSessionsModel.js';
 

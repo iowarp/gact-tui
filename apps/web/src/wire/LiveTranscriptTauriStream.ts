@@ -3,8 +3,8 @@
  * staleness guarding and debug recording. Exports
  * {@link openLiveTranscriptTauriStream}.
  */
-import { openTauriSse, type SseBridgeHandle, type SseBridgeHandlers } from './tauri.js';
-import { createSseDebugRecorder } from './tauri_sse_debug.js';
+import { openTauriSse, type SseBridgeHandle, type SseBridgeHandlers } from '../tauri/tauri.js';
+import { createSseDebugRecorder } from '../tauri/tauri_sse_debug.js';
 
 type OpenTauriSse = (
   url: string,

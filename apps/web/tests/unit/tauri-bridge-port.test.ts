@@ -1,55 +1,53 @@
 /**
- * Drift pins for the modules ported verbatim from the legacy tree.
+ * Tauri bridge surface.
  *
- * These files were COPIED, not rewritten, so the same Tauri shell keeps
- * working against the new app. While both trees exist, a copy can silently
- * drift from its source — and `menu-actions.json` is worse than that: the Rust
- * MENU_SPEC embeds the LEGACY path (`apps/desktop/src-tauri/src/menu_spec_tests.rs`
- * -> `../../../web/src/menu-actions.json`), so a drifted copy here would make
- * the new app's menu contract diverge from the shell that renders it with
- * nothing failing.
+ * This file used to byte-compare the bridge against the legacy tree while both
+ * existed. That tree is now deleted, so the comparison has no counterpart —
+ * keeping it would have meant a test that could only ever pass.
  *
- * These pins delete themselves with the legacy tree at cutover (gact-tui#339),
- * at which point the Rust include_str! must be repointed at this app.
+ * What still needs guarding is the CONTRACT the Rust shell depends on: the
+ * bridge entry points it calls, and the menu action id set that
+ * `apps/desktop/src-tauri/src/menu_spec_tests.rs` embeds from this app via
+ * include_str!. Drift there breaks the desktop build from the JS side with
+ * nothing failing here — which is what the old pin actually protected against.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ALL_MENU_ACTIONS } from '../../src/tauri/menu-actions';
 
-const PORTED = [
-  'tauri.ts',
-  'tauriApi.ts',
-  'tauri_http.ts',
-  'tauri_sse.ts',
-  'tauri_sse_debug.ts',
-  'tauri_runtime.ts',
-  'tauri_install.ts',
-  'tauri_ssh.ts',
-  'tauri_update.ts',
-  'menu-actions.ts',
-  'menu-actions.json',
-] as const;
+const TAURI = resolve(__dirname, '..', '..', 'src', 'tauri');
+const read = (name: string) => readFileSync(resolve(TAURI, name), 'utf8');
 
-const legacyPath = (name: string) => resolve(__dirname, '..', '..', '..', 'web.old', 'src', name);
-const portedPath = (name: string) => resolve(__dirname, '..', '..', 'src', 'tauri', name);
-
-describe('ported Tauri bridge', () => {
-  it.each(PORTED)('%s is byte-identical to the legacy source', (name) => {
-    const legacy = readFileSync(legacyPath(name));
-    const ported = readFileSync(portedPath(name));
-    expect(ported.equals(legacy)).toBe(true);
+describe('tauri bridge', () => {
+  it.each([
+    ['tauri_sse.ts', /export\s+(async\s+)?function\s+openTauriSse/],
+    // Exported as a typed const, not a function declaration.
+    ['tauri_http.ts', /export\s+const\s+tauriFetch\s*:/],
+    ['tauri_runtime.ts', /export\s+function\s+inTauri/],
+    ['tauriApi.ts', /export\s+(async\s+)?function\s+invoke/],
+    ['tauri_ssh.ts', /export\s+(async\s+)?function\s+openSshTunnel/],
+  ])('%s still exports the entry point the shell calls', (file, pattern) => {
+    expect(read(file as string)).toMatch(pattern as RegExp);
   });
 
-  it('pins the menu contract the Rust MENU_SPEC embeds', () => {
-    // The Rust side asserts against apps/web/src/menu-actions.json. Until that
-    // include_str! is repointed at cutover, the action id SET must match.
-    const legacy = JSON.parse(readFileSync(legacyPath('menu-actions.json'), 'utf8')) as {
-      actions: string[];
-    };
-    const ported = JSON.parse(readFileSync(portedPath('menu-actions.json'), 'utf8')) as {
-      actions: string[];
-    };
-    expect(new Set(ported.actions)).toEqual(new Set(legacy.actions));
-    expect(ported.actions.length).toBeGreaterThan(0);
+  it('the menu action set matches the JSON the Rust MENU_SPEC embeds', () => {
+    const json = JSON.parse(read('menu-actions.json')) as { actions: string[] };
+    expect(new Set(ALL_MENU_ACTIONS)).toEqual(new Set(json.actions));
+    expect(json.actions.length).toBeGreaterThan(0);
+  });
+
+  it('no bridge module reaches for a raw EventSource', () => {
+    // The desktop path goes through the Rust bridge. A raw EventSource here
+    // would bypass it and silently break tunnelled/remote backends.
+    for (const file of [
+      'tauri.ts',
+      'tauri_sse.ts',
+      'tauri_sse_debug.ts',
+      'tauri_http.ts',
+      'tauriApi.ts',
+    ]) {
+      expect(read(file)).not.toMatch(/new\s+EventSource\s*\(/);
+    }
   });
 });

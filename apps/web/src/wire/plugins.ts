@@ -9,8 +9,8 @@
  */
 
 import { brand } from '@brand';
-import { invoke } from './tauriApi.js';
-import { inTauri } from './tauri.js';
+import { invoke } from '../tauri/tauriApi.js';
+import { inTauri } from '../tauri/tauri.js';
 
 export const PLUGINS_KEY = 'clio.plugins.v1';
 
