@@ -21,6 +21,9 @@ export interface AppShellProps {
   onSelectRibbon: (id: string) => void;
   /** Rename a session in place — from the rail row menu or the topbar title. */
   onRenameSession?: (sessionId: string, title: string) => void;
+  /** Which side panel is open; drives the toolbar's pressed state. */
+  panel?: string | null;
+  onTogglePanel?: (panel: string) => void;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -50,6 +53,8 @@ export function AppShell({
   onSelectSession,
   onSelectRibbon,
   onRenameSession,
+  panel,
+  onTogglePanel,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -85,6 +90,8 @@ export function AppShell({
           {...(contextPercent === undefined ? {} : { contextPercent })}
           railCollapsed={railCollapsed}
           onShowRail={() => setRailCollapsed(false)}
+          {...(panel !== undefined ? { panel } : {})}
+          {...(onTogglePanel ? { onTogglePanel } : {})}
           {...(onRenameSession && activeSessionId
             ? { onRename: (next: string) => onRenameSession(activeSessionId, next) }
             : {})}

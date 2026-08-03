@@ -8,6 +8,9 @@ export interface TopbarProps {
   contextPercent?: number;
   railCollapsed: boolean;
   onShowRail: () => void;
+  /** Which side panel is open, so the toolbar can report pressed state. */
+  panel?: string | null;
+  onTogglePanel?: (panel: string) => void;
   /** Supplying this makes the title rename-in-place, as the prototype does. */
   onRename?: (next: string) => void;
 }
@@ -26,6 +29,8 @@ export function Topbar({
   contextPercent,
   railCollapsed,
   onShowRail,
+  panel,
+  onTogglePanel,
   onRename,
 }: TopbarProps) {
   const isDesktop = useIsDesktop();
@@ -62,7 +67,12 @@ export function Topbar({
 
       <span className="shell-topbar__spacer" />
 
-      <ToolbarButton label="files" icon={<FilesIcon />} onClick={() => {}} />
+      <ToolbarButton
+        label="files"
+        icon={<FilesIcon />}
+        pressed={panel === 'files'}
+        onClick={() => onTogglePanel?.('files')}
+      />
 
       {isDesktop ? (
         <ToolbarButton label="Workspace console" icon={<ConsoleIcon />} onClick={() => {}} />
@@ -71,10 +81,22 @@ export function Topbar({
       <ToolbarButton
         label={`artifacts ${artifactCount ?? 0}`}
         icon={<ArtifactsIcon />}
-        onClick={() => {}}
+        pressed={panel === 'artifacts'}
+        onClick={() => onTogglePanel?.('artifacts')}
       />
-      <ToolbarButton label={`ctx ${contextPercent ?? 0}%`} icon={<CtxIcon />} onClick={() => {}} />
-      <ToolbarButton label="Observability" iconOnly icon={<EyeIcon />} onClick={() => {}} />
+      <ToolbarButton
+        label={`ctx ${contextPercent ?? 0}%`}
+        icon={<CtxIcon />}
+        pressed={panel === 'context'}
+        onClick={() => onTogglePanel?.('context')}
+      />
+      <ToolbarButton
+        label="Observability"
+        iconOnly
+        icon={<EyeIcon />}
+        pressed={panel === 'obs'}
+        onClick={() => onTogglePanel?.('obs')}
+      />
     </header>
   );
 }

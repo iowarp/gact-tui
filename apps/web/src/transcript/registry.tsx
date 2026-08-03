@@ -95,9 +95,15 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   routing_decision: {
+    // The wire field is `selected_agent` (tool_observer.py:533). I had guessed
+    // `expert`/`selected_expert`, which rendered a bare "routed to" with
+    // nothing after it against a real backend.
     render: (part) => (
-      <p className="part-muted">
-        routed to <strong>{str(part['expert'] ?? part['selected_expert'])}</strong>
+      <p className="part-muted" data-testid="part-routing">
+        routed to <strong>{str(part['selected_agent'])}</strong>
+        {part['rationale'] ? (
+          <span className="part-routing__why"> — {str(part['rationale'])}</span>
+        ) : null}
       </p>
     ),
   },

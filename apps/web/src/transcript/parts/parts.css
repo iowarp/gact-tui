@@ -234,3 +234,7 @@
   font-size: calc(13.5px * var(--ts));
   line-height: 1.55;
 }
+
+.part-routing__why {
+  color: var(--t-dis);
+}

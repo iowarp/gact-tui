@@ -5,6 +5,8 @@ import { Composer } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
 import type { SessionStatus } from '../shell/StatusDot';
+import { Observability } from '../observability/Observability';
+import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import './sessionview.css';
 
@@ -34,6 +36,71 @@ export function SessionView({ client, sessions }: SessionViewProps) {
   const [commands, setCommands] = useState<PickerItem[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [panel, setPanel] = useState<string | null>(null);
+  const [obs, setObs] = useState<ObservabilityData | null>(null);
+
+  // Observability reads REAL endpoints. Each tab that has no backing says so
+  // rather than rendering an empty list that looks like "nothing happened".
+  useEffect(() => {
+    if (panel !== 'obs' || !activeId) return;
+    let cancelled = false;
+    void (async () => {
+      const [agents, runs, servers, context] = await Promise.all([
+        client.agents().catch(() => null),
+        client.sessionTasks(activeId).catch(() => null),
+        client.mcpServers().catch(() => null),
+        client.getContextState(activeId).catch(() => null),
+      ]);
+      if (cancelled) return;
+      const used = (context as { used_pct?: number; used_percent?: number } | null) ?? null;
+      setObs({
+        // AgentDef is { id, title, tools?, tier? } — real field names, and
+        // `tier` is semantic weight, which is what the tree indents by.
+        agents: (agents?.agents ?? []).map((a) => ({
+          id: a.id,
+          label: a.title || a.id,
+          status: 'idle' as AgentStatus,
+          depth: Math.max(0, (a.tier ?? 1) - 1),
+        })),
+        runs: (runs?.tasks ?? []).map((t) => ({
+          id: String((t as { id?: string }).id ?? ''),
+          agent: String((t as { agent_id?: string }).agent_id ?? ''),
+          state: String((t as { status?: string }).status ?? ''),
+        })),
+        toolsByExpert: Object.fromEntries(
+          (servers?.servers ?? []).map((srv) => {
+            const row = srv as {
+              name?: string;
+              id?: string;
+              tools?: Array<{ name?: string; description?: string }>;
+            };
+            return [
+              row.name ?? row.id ?? 'server',
+              (row.tools ?? []).map((t) => ({
+                name: t.name ?? '',
+                ...(t.description ? { description: t.description } : {}),
+              })),
+            ];
+          }),
+        ),
+        // No client method serves session artifacts — tracked as a gap rather
+        // than faked with an empty list.
+        artifacts: [],
+        ...(used?.used_pct !== undefined || used?.used_percent !== undefined
+          ? {
+              context: {
+                usedPercent: Math.round(used.used_pct ?? used.used_percent ?? 0),
+                tokens: 0,
+                limit: 0,
+              },
+            }
+          : {}),
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [panel, activeId, client]);
 
   // Slash commands come from the backend. If it cannot serve them the picker
   // stays closed rather than opening empty, which would read as broken.
@@ -159,6 +226,17 @@ export function SessionView({ client, sessions }: SessionViewProps) {
       activeRibbonId="main"
       onSelectRibbon={() => {}}
       onRenameSession={(sessionId, next) => void rename(sessionId, next)}
+      panel={panel}
+      onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
+      {...(panel === 'obs'
+        ? {
+            detail: obs ? (
+              <Observability data={obs} onClose={() => setPanel(null)} />
+            ) : (
+              <p className="sessionview__notice">Loading observability…</p>
+            ),
+          }
+        : {})}
     >
       {sessions.length === 0 ? (
         <p className="sessionview__notice" data-testid="sessions-empty">

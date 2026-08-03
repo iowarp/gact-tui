@@ -207,4 +207,21 @@ describe('Transcript', () => {
     expect(part).toHaveTextContent('queue');
     expect(part).toHaveTextContent('also profile the uncertainty columns');
   });
+
+  it('names the routed agent using the wire field the backend actually sends', () => {
+    // `selected_agent` per gact/tool_observer.py:533. Guessing `expert` here
+    // produced a bare "routed to" with no name against a live backend.
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { type: 'routing_decision', selected_agent: 'geospatial', rationale: 'place name' },
+          ]),
+        ]}
+      />,
+    );
+    const part = screen.getByTestId('part-routing');
+    expect(part).toHaveTextContent('geospatial');
+    expect(part).toHaveTextContent('place name');
+  });
 });
