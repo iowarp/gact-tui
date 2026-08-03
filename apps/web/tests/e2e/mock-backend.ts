@@ -187,6 +187,20 @@ export async function installMockBackend(
 
     if (url.pathname === '/v1/capabilities') return json(capabilities(contract));
     if (url.pathname === '/v1/sessions') return json(sessions());
+    // The rail labels its groups from workspace root paths, so the app asks
+    // for these on connect. Without the route the browser logs a 404 even
+    // though the client tolerates it.
+    if (url.pathname === '/v1/workspaces') {
+      return json({
+        workspaces: [
+          {
+            id: 'ws_default',
+            name: 'clio-agent',
+            root_path: String.raw`D:\proj\clio-agent`,
+          },
+        ],
+      });
+    }
     if (/^\/v1\/sessions\/[^/]+\/messages$/.test(url.pathname)) {
       return json({ messages: [MOCK_WIRE_MESSAGE] });
     }
