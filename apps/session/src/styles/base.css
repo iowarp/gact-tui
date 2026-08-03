@@ -12,9 +12,29 @@ body,
 
 body {
   margin: 0;
-  background: var(--t-bg, #101216);
-  color: var(--t-fg, #e6e8ec);
-  font-family: var(--f-ui, InterVariable, Inter, system-ui, sans-serif);
-  font-size: var(--ts-base, 13px);
+  background: var(--t-bg);
+  color: var(--t-tx);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
   -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--t-cy);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--t-cyh);
+  text-decoration: underline;
+}
+
+::selection {
+  background: var(--t-sel);
+  color: var(--t-hd);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--t-bd3) transparent;
 }

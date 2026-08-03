@@ -1,0 +1,154 @@
+/*
+ * Design tokens — transcribed from the Session v3 prototype's `applyTheme()`.
+ *
+ * The prototype carries three presets. DIM is the base (:root here); DARK
+ * overrides only the surface ramp; LIGHT replaces the whole palette. `--ts` is
+ * a global type scale multiplier and `--f-prose` the selectable prose stack —
+ * both are prototype semantics, not inventions.
+ *
+ * Values are transcribed as observed, NOT normalized. Two prototype nits are
+ * preserved-and-flagged here rather than silently corrected (the plan assigns
+ * nit normalization to cutover):
+ *   - `--t-erc06` carries an .08 alpha in the prototype's own base fallbacks.
+ *   - the base ramp is spelled through var() fallbacks rather than a :root
+ *     block, so DIM had no single authoritative declaration until this file.
+ *
+ * gact-tui#331 owns unifying these with the existing design-system tokens.
+ */
+
+:root {
+  /* surfaces */
+  --t-bg: #101216;
+  --t-sf: #16181d;
+  --t-sf2: #1c1f25;
+  --t-hv: #1f232b;
+  --t-well: rgba(28, 31, 37, 0.7);
+  --t-ink: #16181d;
+
+  /* text ramp (dim/dark branch of applyTheme) */
+  --t-hd: #dde1e8;
+  --t-pr: #c9cfd9;
+  --t-tx: #b7bdc8;
+  --t-mu: #8a93a2;
+  --t-dis: #5c6470;
+
+  /* accents */
+  --t-ac: #c4682a;
+  --t-ach: #d47b3a;
+  --t-cy: #0aa6ad;
+  --t-cyh: #35c2c8;
+  --t-ok: #34d399;
+  --t-wa: #fbbf24;
+  --t-er: #f87171;
+  --t-grad1: #2d638b;
+
+  /* borders — rgb(45,99,139) */
+  --t-bd12: rgba(45, 99, 139, 0.12);
+  --t-bd2: rgba(45, 99, 139, 0.2);
+  --t-bd3: rgba(45, 99, 139, 0.3);
+  --t-bd35: rgba(45, 99, 139, 0.35);
+  --t-bd4: rgba(45, 99, 139, 0.4);
+  --t-bd5: rgba(45, 99, 139, 0.5);
+  --t-bd6: rgba(45, 99, 139, 0.6);
+
+  /* cyan washes — rgb(10,166,173) */
+  --t-cy08: rgba(10, 166, 173, 0.08);
+  --t-cy1: rgba(10, 166, 173, 0.1);
+  --t-cy12: rgba(10, 166, 173, 0.12);
+  --t-cy3: rgba(10, 166, 173, 0.3);
+  --t-cy35: rgba(10, 166, 173, 0.35);
+  --t-cy4: rgba(10, 166, 173, 0.4);
+  --t-cy5: rgba(10, 166, 173, 0.5);
+
+  /* status washes */
+  --t-okc06: rgba(52, 211, 153, 0.06);
+  --t-okc4: rgba(52, 211, 153, 0.4);
+  --t-wac4: rgba(251, 191, 36, 0.4);
+  --t-erc06: rgba(187, 37, 37, 0.08); /* prototype nit: .06 name, .08 value */
+  --t-erc08: rgba(187, 37, 37, 0.08);
+  --t-erc5: rgba(187, 37, 37, 0.5);
+
+  /* warm/accent washes — rgb(196,104,42) */
+  --t-wm08: rgba(196, 104, 42, 0.08);
+  --t-wm15: rgba(196, 104, 42, 0.15);
+  --t-wm16: rgba(196, 104, 42, 0.16);
+  --t-wm35: rgba(196, 104, 42, 0.35);
+  --t-wm4: rgba(196, 104, 42, 0.4);
+
+  /* elevation + selection */
+  --t-sel: #a8adb899;
+  --t-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.55);
+  --t-scrim: rgba(0, 0, 0, 0.6);
+
+  /* type */
+  --ts: 1;
+  --f-prose: 'Inter', system-ui, sans-serif;
+  --f-ui: 'Inter', system-ui, sans-serif;
+  --f-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+
+:root[data-theme='dark'] {
+  --t-bg: #0c0e11;
+  --t-sf: #101216;
+  --t-sf2: #14171c;
+  --t-hv: #191d23;
+  --t-well: rgba(14, 16, 20, 0.7);
+}
+
+:root[data-theme='light'] {
+  --t-bg: #f7f9fc;
+  --t-sf: #ffffff;
+  --t-sf2: #eef3f8;
+  --t-hv: #e4ebf3;
+  --t-well: rgba(238, 243, 248, 0.9);
+  --t-ink: #16181d;
+
+  --t-hd: #101b30;
+  --t-pr: #24384f;
+  --t-tx: #1f334a;
+  --t-mu: #465b72;
+  --t-dis: #b6c2cf;
+
+  --t-ac: #c75f14;
+  --t-ach: #b35512;
+  --t-cy: #067a87;
+  --t-cyh: #0a95a3;
+  --t-ok: #067647;
+  --t-okh: #0a9158;
+  --t-wa: #a16207;
+  --t-er: #bb2525;
+  --t-grad1: #8ca3bd;
+
+  --t-bd12: rgba(70, 91, 114, 0.12);
+  --t-bd2: rgba(70, 91, 114, 0.2);
+  --t-bd3: rgba(70, 91, 114, 0.3);
+  --t-bd35: rgba(70, 91, 114, 0.35);
+  --t-bd4: rgba(70, 91, 114, 0.4);
+  --t-bd5: rgba(70, 91, 114, 0.5);
+  --t-bd6: rgba(70, 91, 114, 0.6);
+
+  --t-cy08: rgba(6, 122, 135, 0.08);
+  --t-cy1: rgba(6, 122, 135, 0.1);
+  --t-cy12: rgba(6, 122, 135, 0.12);
+  --t-cy3: rgba(6, 122, 135, 0.3);
+  --t-cy35: rgba(6, 122, 135, 0.35);
+  --t-cy4: rgba(6, 122, 135, 0.4);
+  --t-cy5: rgba(6, 122, 135, 0.5);
+
+  --t-okc06: rgba(6, 118, 71, 0.06);
+  --t-okc4: rgba(6, 118, 71, 0.4);
+  --t-wac4: rgba(161, 98, 7, 0.4);
+  --t-erc06: rgba(187, 37, 37, 0.06);
+  --t-erc08: rgba(187, 37, 37, 0.08);
+  --t-erc5: rgba(187, 37, 37, 0.5);
+
+  --t-wm08: rgba(199, 95, 20, 0.08);
+  --t-wm15: rgba(199, 95, 20, 0.15);
+  --t-wm16: rgba(199, 95, 20, 0.16);
+  --t-wm35: rgba(199, 95, 20, 0.35);
+  --t-wm4: rgba(199, 95, 20, 0.4);
+
+  --t-sel: rgba(6, 122, 135, 0.25);
+  --t-shadow: 0 18px 48px -20px rgba(20, 36, 64, 0.35);
+  --t-scrim: rgba(20, 36, 64, 0.35);
+}

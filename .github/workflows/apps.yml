@@ -63,11 +63,20 @@ jobs:
       - name: Build @clio/web
         run: pnpm --filter @clio/web build
 
+      - name: Build @clio/session
+        run: pnpm --filter @clio/session build
+
       - name: Install Playwright browsers
         run: pnpm --filter @clio/web exec playwright install --with-deps chromium
 
       - name: Visual tests
         run: pnpm --filter @clio/web test:visual
+
+      # The Session v3 rebuild (gact-tui#322) gates from its first commit — it
+      # never ships untested. Its harness is separate from the legacy visual
+      # suite and both run until the legacy tree is deleted at cutover (#339).
+      - name: Session v3 e2e
+        run: pnpm --filter @clio/session test:e2e
 
       - name: Upload screenshots
         if: always()

@@ -12,8 +12,10 @@ export const MOCK_BACKEND = 'http://mock.test';
 
 export const MOCK_SESSION_ID = 'sess_boot_0001';
 
-/** Contract version the app requires; a mismatch is a loud refusal (P4.6b). */
-export const MOCK_CONTRACT = 'GACT v0.2';
+/** Contract version the app requires; a mismatch is a loud refusal (P4.6b).
+ *  Matches the REAL backend's value (`gact/types.py: contract_version = "0.2"`),
+ *  not the `GACT v0.2` prose spelling used in docs. */
+export const MOCK_CONTRACT = '0.2';
 
 export interface MockBackendOptions {
   /** Override the advertised contract version to exercise the refusal path. */
@@ -22,11 +24,26 @@ export interface MockBackendOptions {
   failWithStatus?: number;
 }
 
+/** The nested Capabilities envelope the real server returns (SPEC 3.3) —
+ *  capability gating reads `caps.capabilities.<flag>`, never `caps.<flag>`. */
 const capabilities = (contract: string) => ({
-  contract,
-  version: '0.10.0-mock',
-  features: {},
-  limits: {},
+  contract_version: contract,
+  backend: {
+    name: 'clio-agent-gact',
+    version: '0.10.0-mock',
+    vendor: 'iowarp',
+  },
+  capabilities: {
+    workspaces: true,
+    sessions: true,
+    subagents: true,
+    mcp: true,
+    permissions: true,
+    providers: true,
+  },
+  transports: { sse: true },
+  auth: { schemes: ['trust_socket'] },
+  extensions: [],
 });
 
 const sessions = () => ({
