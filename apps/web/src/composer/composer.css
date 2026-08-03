@@ -1,0 +1,94 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 16px;
+}
+
+.composer__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.composer__frame {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-radius: 10px;
+}
+
+.composer__frame:focus-within {
+  border-color: var(--t-cy3);
+}
+
+/* Transcribed from the prototype's composer textarea. */
+.composer__input {
+  width: 100%;
+  resize: none;
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 2px 0;
+  max-height: 180px;
+  overflow-y: auto;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.5;
+}
+
+.composer__input::placeholder {
+  color: var(--t-dis);
+}
+
+.composer__input:disabled {
+  color: var(--t-dis);
+}
+
+.composer__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer__spacer {
+  flex: 1;
+}
+
+.composer__send {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: var(--t-ac);
+  border: 0;
+  border-radius: 50%;
+  color: var(--t-ink);
+  cursor: pointer;
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--t-ach);
+}
+
+.composer__send:disabled {
+  background: var(--t-sf2);
+  color: var(--t-dis);
+  cursor: default;
+}
+
+.composer__busy {
+  margin: 0;
+  color: var(--t-wa);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}

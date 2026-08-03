@@ -14,10 +14,29 @@
   min-width: 0;
 }
 
-/* The user turn is the prototype's bordered card; assistant output is bare. */
+/* The user turn is the prototype's right-aligned bubble — 78% max width with
+   an asymmetric corner. Assistant output is bare and full width. */
 .transcript__message[data-role='user'] {
-  padding: 12px 14px;
-  background: var(--t-sf);
+  align-self: flex-end;
+  max-width: 78%;
+  padding: 10px 14px;
+  background: var(--t-sf2);
   border: 1px solid var(--t-bd3);
-  border-radius: 10px;
+  border-radius: 12px 12px 4px 12px;
+  color: var(--t-hd);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.55;
+  animation: clio-rise 200ms ease-out both;
+}
+
+/* The bubble carries the user's words directly; a bullet marker in the gutter
+   is an assistant-output affordance and reads as noise here. */
+.transcript__message[data-role='user'] .part-gutter-dot {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transcript__message[data-role='user'] {
+    animation: none;
+  }
 }

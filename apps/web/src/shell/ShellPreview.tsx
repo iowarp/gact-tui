@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Message } from '@clio/core';
+import { Composer } from '../composer/Composer';
 import { Transcript } from '../transcript/Transcript';
 import { AppShell } from './AppShell';
 import type { RailGroup } from './Rail';
@@ -99,6 +100,7 @@ const MESSAGES = [
 export function ShellPreview() {
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
+  const [model, setModel] = useState('sonnet');
 
   return (
     <AppShell
@@ -118,6 +120,18 @@ export function ShellPreview() {
       onSelectRibbon={setRibbon}
     >
       <Transcript messages={MESSAGES} />
+      <Composer
+        placement="ares:/scratch/j4471"
+        asyncCount={2}
+        contextPercent={41}
+        modelId={model}
+        onModelChange={setModel}
+        onSubmit={() => {}}
+        models={[
+          { id: 'sonnet', label: 'claude-sonnet-5', detail: 'Anthropic' },
+          { id: 'opus', label: 'claude-opus-5', detail: 'Anthropic' },
+        ]}
+      />
     </AppShell>
   );
 }

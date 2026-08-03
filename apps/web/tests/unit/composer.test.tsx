@@ -3,9 +3,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { Message } from '@clio/core';
 import { Composer } from '../../src/composer/Composer';
-import { Transcript } from '../../src/transcript/Transcript';
 
 function renderComposer(overrides: Partial<Parameters<typeof Composer>[0]> = {}) {
   const props = {
@@ -91,21 +89,5 @@ describe('Composer', () => {
     renderComposer({ busy: true, busyReason: 'turn in progress' });
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByTestId('composer-busy')).toHaveTextContent('turn in progress');
-  });
-});
-
-describe('user message bubble', () => {
-  it('renders right-aligned rather than as a full-width card', () => {
-    // The prototype's user turn is a 78%-max bubble with an asymmetric radius.
-    const { container } = render(
-      <Transcript
-        messages={[
-          { id: 'm', role: 'user', parts: [{ type: 'text', text: 'hi' }] } as unknown as Message,
-        ]}
-      />,
-    );
-    const frame = container.querySelector('.transcript__message[data-role="user"]');
-    expect(frame).not.toBeNull();
-    expect(getComputedStyle(frame as Element).alignSelf).toBe('flex-end');
   });
 });

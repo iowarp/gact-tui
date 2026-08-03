@@ -17,7 +17,11 @@ export default defineConfig({
   webServer: {
     command: `pnpm build && pnpm preview --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env['CI'],
+    // NEVER reuse. A preview server left running from a manual capture served a
+    // stale dist to the suite, which passed specs against code that no longer
+    // existed — and hid a CSS fix for two runs. A rebuild costs ~1.5s; silently
+    // testing the wrong bytes costs correctness.
+    reuseExistingServer: false,
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
