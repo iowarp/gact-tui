@@ -1,0 +1,44 @@
+/* Segmented control — inset track, transcribed from the prototype. */
+.kit-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  background: var(--t-bg);
+  border: 1px solid var(--t-bd3);
+  border-radius: 7px;
+}
+
+.kit-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  color: var(--t-mu);
+}
+
+.kit-tabs__tab:hover {
+  color: var(--t-hd);
+}
+
+.kit-tabs__tab[aria-selected='true'] {
+  background: var(--t-sf2);
+  color: var(--t-cy);
+}
+
+.kit-tabs__tab:focus-visible {
+  outline: 2px solid var(--t-cy3);
+  outline-offset: -1px;
+}
+
+.kit-tabs__badge {
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+}

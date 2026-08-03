@@ -1,0 +1,68 @@
+.kit-contextmenu {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  padding: 4px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd6);
+  border-radius: 9px;
+  box-shadow: var(--t-shadow);
+  animation: clio-rise 120ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-contextmenu {
+    animation: none;
+  }
+}
+
+.kit-contextmenu:focus-visible {
+  outline: none;
+}
+
+/* The shared menu row — also used by Popover menus. */
+.kit-contextmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  color: var(--t-tx);
+}
+
+.kit-contextmenu__item:hover:not(:disabled),
+.kit-contextmenu__item[data-active='true'] {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.kit-contextmenu__item[data-tone='danger'] {
+  color: var(--t-er);
+}
+
+.kit-contextmenu__item[data-tone='danger']:hover:not(:disabled),
+.kit-contextmenu__item[data-tone='danger'][data-active='true'] {
+  background: var(--t-erc06);
+  color: var(--t-er);
+}
+
+.kit-contextmenu__item:disabled {
+  color: var(--t-dis);
+  cursor: default;
+}
+
+.kit-contextmenu__icon {
+  display: grid;
+  place-items: center;
+  width: 12px;
+  color: var(--t-mu);
+}

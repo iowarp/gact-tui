@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { Eyebrow, KvGrid, Modal, PartCard, useIsDesktop } from './index';
+import {
+  Chip,
+  ContextMenu,
+  Eyebrow,
+  KvGrid,
+  Modal,
+  PartCard,
+  Popover,
+  Splitter,
+  Tabs,
+  ToolbarButton,
+  useIsDesktop,
+} from './index';
 import './gallery.css';
 
 /**
@@ -11,6 +23,10 @@ import './gallery.css';
  */
 export function KitGallery() {
   const [openModal, setOpenModal] = useState<null | 'default' | 'danger' | 'scroll'>(null);
+  const [tab, setTab] = useState('log');
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [railWidth, setRailWidth] = useState(260);
   const isDesktop = useIsDesktop();
 
   return (
@@ -49,6 +65,107 @@ export function KitGallery() {
             { key: 'local_path', value: '/staged/earthscope_stations.csv', trailing: '1,101 rows' },
             { key: 'provenance', value: 'osm_nominatim', trailing: 'grounded' },
           ]}
+        />
+      </section>
+
+      <section className="kit-gallery__section">
+        <Eyebrow>Chip</Eyebrow>
+        <div className="kit-gallery__row">
+          <Chip tone="accent">ares:/scratch/j4471</Chip>
+          <Chip tone="accent" onClick={() => {}}>
+            async 2
+          </Chip>
+          <Chip>ctx 41%</Chip>
+          <Chip tone="warn">degraded</Chip>
+          <Chip tone="error">failed</Chip>
+        </div>
+      </section>
+
+      <section className="kit-gallery__section">
+        <Eyebrow>ToolbarButton</Eyebrow>
+        <div className="kit-gallery__row">
+          <ToolbarButton label="files" onClick={() => {}} />
+          <ToolbarButton label="console" pressed onClick={() => {}} />
+          <ToolbarButton label="artifacts 5" onClick={() => {}} />
+          <ToolbarButton
+            label="Observability"
+            iconOnly
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M1.2 7S3.3 3.2 7 3.2 12.8 7 12.8 7 10.7 10.8 7 10.8 1.2 7 1.2 7z"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                />
+                <circle cx="7" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            }
+            onClick={() => {}}
+          />
+        </div>
+      </section>
+
+      <section className="kit-gallery__section">
+        <Eyebrow>Tabs</Eyebrow>
+        <Tabs
+          label="Observability"
+          activeId={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'log', label: 'log' },
+            { id: 'gantt', label: 'gantt' },
+            { id: 'tools', label: 'tools' },
+            { id: 'artifacts', label: 'artifacts', badge: 5 },
+          ]}
+        />
+      </section>
+
+      <section className="kit-gallery__section">
+        <Eyebrow>Popover · ContextMenu · Splitter</Eyebrow>
+        <div className="kit-gallery__row">
+          <span className="kit-gallery__anchor">
+            <button type="button" onClick={() => setPopoverOpen((v) => !v)}>
+              popover (down)
+            </button>
+            <Popover open={popoverOpen} label="Model" onClose={() => setPopoverOpen(false)}>
+              <div className="kit-gallery__menu">
+                <button type="button">claude-sonnet-5</button>
+                <button type="button">gpt-5.5</button>
+              </div>
+            </Popover>
+          </span>
+
+          <button type="button" onClick={() => setMenuOpen(true)}>
+            context menu
+          </button>
+        </div>
+
+        <div className="kit-gallery__splitrow">
+          <div className="kit-gallery__pane" style={{ width: `${railWidth}px` }}>
+            rail · {railWidth}px
+          </div>
+          <Splitter
+            label="Rail width"
+            value={railWidth}
+            min={200}
+            max={460}
+            onResize={setRailWidth}
+          />
+          <div className="kit-gallery__pane kit-gallery__pane--grow">content</div>
+        </div>
+
+        <ContextMenu
+          open={menuOpen}
+          x={40}
+          y={40}
+          items={[
+            { id: 'rename', label: 'Rename' },
+            { id: 'archive', label: 'Archive' },
+            { id: 'pin', label: 'Pin', disabled: true },
+            { id: 'delete', label: 'Delete', tone: 'danger' },
+          ]}
+          onSelect={() => {}}
+          onClose={() => setMenuOpen(false)}
         />
       </section>
 

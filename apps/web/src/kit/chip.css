@@ -1,0 +1,46 @@
+.kit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 2px 9px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  white-space: nowrap;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  color: var(--t-cy);
+}
+
+button.kit-chip {
+  cursor: pointer;
+}
+
+button.kit-chip:hover {
+  border-color: var(--t-cy4);
+  color: var(--t-cyh);
+}
+
+.kit-chip[data-tone='default'] {
+  color: var(--t-mu);
+}
+
+.kit-chip[data-tone='accent'] {
+  color: var(--t-cy);
+}
+
+.kit-chip[data-tone='warn'] {
+  border-color: var(--t-wac4);
+  color: var(--t-wa);
+}
+
+.kit-chip[data-tone='error'] {
+  border-color: var(--t-erc5);
+  color: var(--t-er);
+}
+
+.kit-chip__icon {
+  display: grid;
+  place-items: center;
+}

@@ -1,0 +1,16 @@
+/* 6px grab strip pulled back over its neighbour — the prototype's divider. */
+.kit-splitter {
+  position: relative;
+  z-index: 30;
+  flex: 0 0 6px;
+  width: 6px;
+  margin-left: -6px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.kit-splitter:hover,
+.kit-splitter:focus-visible {
+  background: var(--t-cy3);
+  outline: none;
+}

@@ -58,3 +58,44 @@
   font-size: calc(12px * var(--ts));
   color: var(--t-cy);
 }
+
+.kit-gallery__anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.kit-gallery__menu {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.kit-gallery__menu button {
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.kit-gallery__splitrow {
+  display: flex;
+  align-items: stretch;
+  height: 60px;
+  margin-top: 6px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.kit-gallery__pane {
+  display: grid;
+  place-items: center;
+  background: var(--t-sf);
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+}
+
+.kit-gallery__pane--grow {
+  flex: 1;
+  background: var(--t-bg);
+}
