@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Client, Message, Session, Workspace } from '@clio/core';
+import type { PickerItem } from '../composer/Picker';
 import { Composer } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
@@ -30,6 +31,39 @@ export function SessionView({ client, sessions }: SessionViewProps) {
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [renamed, setRenamed] = useState<Record<string, string>>({});
+  const [commands, setCommands] = useState<PickerItem[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  // Slash commands come from the backend. If it cannot serve them the picker
+  // stays closed rather than opening empty, which would read as broken.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await client.commands();
+        if (cancelled) return;
+        setCommands(
+          // SlashCommandDef is { id, title, description? }. The backend's id
+          // ALREADY carries the leading slash — prefixing another produced
+          // "//clear" in the live picker.
+          (result.commands ?? []).map((c) => {
+            const name = c.id.startsWith('/') ? c.id : `/${c.id}`;
+            return {
+              id: name,
+              label: name,
+              ...(c.description ?? c.title ? { detail: c.description ?? c.title } : {}),
+            };
+          }),
+        );
+      } catch {
+        // No commands surface; the `/` picker simply does not open.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   // Workspace paths name the rail groups. The prototype shows a TREE the user
   // recognises (/scratch/j4471, ~/rollups); an opaque ws_ id names nothing.
@@ -95,6 +129,25 @@ export function SessionView({ client, sessions }: SessionViewProps) {
     [client],
   );
 
+  const send = useCallback(
+    async (text: string) => {
+      if (!activeId) return;
+      setSending(true);
+      setSendError(null);
+      try {
+        await client.sendMessage(activeId, { text });
+        // Re-read rather than guessing what the backend appended: the turn may
+        // add parts this client never predicted.
+        await load(activeId);
+      } catch (err) {
+        setSendError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSending(false);
+      }
+    },
+    [activeId, client, load],
+  );
+
   return (
     <AppShell
       groups={groupByWorkspace(sessions, workspaces, renamed)}
@@ -119,6 +172,12 @@ export function SessionView({ client, sessions }: SessionViewProps) {
 
       {state.kind === 'loading' ? <p className="sessionview__notice">Loading…</p> : null}
 
+      {sendError ? (
+        <p className="sessionview__error" data-testid="send-error" role="alert">
+          Could not send: {sendError}
+        </p>
+      ) : null}
+
       {state.kind === 'failed' ? (
         <p className="sessionview__error" data-testid="transcript-error" role="alert">
           Could not load this session: {state.detail}
@@ -139,10 +198,11 @@ export function SessionView({ client, sessions }: SessionViewProps) {
         <Composer
           models={[{ id: 'default', label: 'default' }]}
           modelId="default"
+          commands={commands}
           onModelChange={() => {}}
-          onSubmit={() => {}}
-          busy
-          busyReason="Sending is not wired to this backend yet (#334)."
+          onSubmit={({ text }) => void send(text)}
+          busy={sending}
+          {...(sending ? { busyReason: 'Sending…' } : {})}
         />
       ) : null}
     </AppShell>

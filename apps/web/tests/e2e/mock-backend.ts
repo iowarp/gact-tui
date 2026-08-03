@@ -190,6 +190,15 @@ export async function installMockBackend(
     // The rail labels its groups from workspace root paths, so the app asks
     // for these on connect. Without the route the browser logs a 404 even
     // though the client tolerates it.
+    // The composer's `/` picker asks for these on connect.
+    if (url.pathname === '/v1/commands') {
+      return json({
+        commands: [
+          { id: '/clear', title: 'clear', description: 'Drop the in-memory log' },
+          { id: '/compact', title: 'compact', description: 'Compact the context' },
+        ],
+      });
+    }
     if (url.pathname === '/v1/workspaces') {
       return json({
         workspaces: [
