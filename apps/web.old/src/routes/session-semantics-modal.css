@@ -1,0 +1,80 @@
+.semantics__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  z-index: 74;
+}
+
+.semantics {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 32px));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 14px;
+  z-index: 75;
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.semantics__head,
+.semantics__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.semantics__head h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+  color: var(--color-heading);
+}
+
+.semantics__body {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.semantics__field {
+  display: grid;
+  gap: 6px;
+}
+
+.semantics__field > span,
+.semantics__check {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.semantics__field select,
+.semantics__field input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  color: var(--color-text);
+  padding: 9px 10px;
+  outline: none;
+}
+
+.semantics__field select:focus,
+.semantics__field input:focus {
+  border-color: var(--color-accent-cyan);
+}
+
+.semantics__desc {
+  margin: -4px 0 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.semantics__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

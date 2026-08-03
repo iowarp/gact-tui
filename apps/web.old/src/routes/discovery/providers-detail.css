@@ -1,0 +1,27 @@
+.prov__detail-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.prov__detail-kv dt {
+  color: var(--color-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  font-family: var(--font-mono);
+  margin: 0;
+}
+
+.prov__detail-kv dd {
+  margin: 0;
+  color: var(--color-text);
+}

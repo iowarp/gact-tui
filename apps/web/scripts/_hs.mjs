@@ -1,0 +1,17 @@
+import { chromium } from '@playwright/test';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport:{width:1440,height:900}, colorScheme:'dark' });
+const errs=[]; p.on('pageerror',e=>errs.push(String(e)));
+await p.goto('http://127.0.0.1:4191/',{waitUntil:'networkidle'});
+await p.getByTestId('connect-url').fill('http://127.0.0.1:17897');
+await p.getByTestId('connect-submit').click();
+await p.getByRole('navigation',{name:/workspaces/i}).waitFor({timeout:20000});
+await p.getByRole('button',{name:'thinking-experiment',exact:true}).click();
+await p.waitForTimeout(2200);
+const calls = await p.locator('.part-handoff__title').allInnerTexts();
+const cards = await p.getByTestId('part-child-card').count();
+console.log('Call() headings :', calls.length, calls.slice(0,3).join(' | '));
+console.log('child cards     :', cards);
+console.log('console errors  :', errs.length);
+await p.screenshot({ path:'screenshots/visual-check/handoff-live.png' });
+await b.close();

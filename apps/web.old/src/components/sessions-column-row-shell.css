@@ -1,0 +1,75 @@
+.sx__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--color-heading);
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.sx__row:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-30);
+}
+
+/* Selected session row: keep the active conversation visible without making
+   the session rail compete with the transcript. */
+.sx__row.is-active {
+  background: color-mix(in srgb, var(--color-surface-alt) 86%, var(--color-accent-cyan) 14%);
+  border-color: var(--color-accent-cyan-30);
+}
+
+.sx__row-hit {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0 6px 10px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.sx__row-kebab {
+  justify-self: center;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast),
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+
+.sx__row-kebab .icon {
+  display: block;
+}
+
+.sx__row:hover .sx__row-kebab,
+.sx__row.is-active .sx__row-kebab,
+.sx__row-kebab[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.sx__row-kebab:hover {
+  background: var(--color-bg);
+  color: var(--color-heading);
+  border-color: var(--color-border-30);
+}

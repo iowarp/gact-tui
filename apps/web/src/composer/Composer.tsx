@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Chip, Select, Tabs, type SelectOption } from '../kit';
+import { Chip, Icon, Select, Tabs, type SelectOption } from '../kit';
 import { Picker, type PickerItem } from './Picker';
 import './composer.css';
 
@@ -191,15 +191,7 @@ export function Composer({
             disabled={!canSend}
             onClick={submit}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path
-                d="M7 11.5v-9M3.5 6L7 2.5 10.5 6"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Icon name="send" size={14} />
           </button>
         </div>
       </div>

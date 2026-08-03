@@ -122,3 +122,52 @@ describe('workspace group labels', () => {
     await waitFor(() => expect(within(rail).getByText('ws_default')).toBeInTheDocument());
   });
 });
+
+describe('missing session', () => {
+  it('offers to delete a session the backend no longer has', async () => {
+    // A 404 means the row points at something gone. Better to say so and let
+    // the user remove it than to look broken.
+    const client = {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => {
+        throw Object.assign(new Error('session not found: sess_a'), { status: 404 });
+      }),
+      deleteSession: vi.fn(async () => undefined),
+    } as unknown as Client;
+
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByTestId('session-missing')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument();
+  });
+
+  it('removes it on confirm and drops the row', async () => {
+    const onForget = vi.fn();
+    const client = {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => {
+        throw Object.assign(new Error('session not found'), { status: 404 });
+      }),
+      deleteSession: vi.fn(async () => undefined),
+    } as unknown as Client;
+
+    render(<SessionView client={client} sessions={SESSIONS} onForgetSession={onForget} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => screen.getByTestId('session-missing'));
+    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    await waitFor(() => expect(onForget).toHaveBeenCalledWith('sess_a'));
+  });
+
+  it('a non-404 failure is still reported as a load error, not a missing session', async () => {
+    const client = {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => {
+        throw Object.assign(new Error('boom'), { status: 500 });
+      }),
+    } as unknown as Client;
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByTestId('transcript-error')).toBeInTheDocument());
+    expect(screen.queryByTestId('session-missing')).toBeNull();
+  });
+});

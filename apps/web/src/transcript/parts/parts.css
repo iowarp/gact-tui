@@ -127,45 +127,98 @@
 .part-handoff {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.part-handoff__title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* The question hangs 18px under its Call() heading. */
+.part-handoff__question {
+  margin: 0 0 0 18px;
+  min-width: 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+}
+
+/* The child's return is its own card at the same 18px hang — an object you
+   can open, not a paragraph of the parent's message. */
+.part-childcard {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
+  margin-left: 18px;
+  padding: 10px 14px;
   background: var(--t-sf);
   border: 1px solid var(--t-bd3);
-  border-radius: 9px;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
-.part-handoff[data-returned='true'] {
-  border-color: var(--t-cy3);
-}
-
-.part-handoff__head {
+.part-childcard__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  flex-wrap: wrap;
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
 }
 
-.part-handoff__label {
-  color: var(--t-mu);
-  font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+@keyframes clio-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
-.part-handoff__child {
-  color: var(--t-cy);
-  font-family: var(--f-mono);
-  font-size: calc(12.5px * var(--ts));
+.part-childcard__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--t-ac);
+  align-self: center;
+  animation: clio-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part-childcard__dot {
+    animation: none;
+  }
+}
+
+.part-childcard__name {
+  color: var(--t-hd);
+  font-weight: 700;
+}
+
+.part-childcard__dur {
+  white-space: nowrap;
+  color: var(--t-ac);
+  font-size: calc(11px * var(--ts));
   font-weight: 600;
 }
 
-.part-handoff__body {
-  margin: 0;
+.part-childcard__body {
   color: var(--t-pr);
   font-family: var(--f-prose);
-  font-size: calc(13.5px * var(--ts));
-  line-height: 1.6;
+  font-size: calc(14px * var(--ts));
+  line-height: 1.55;
+  opacity: 0.85;
 }
 
 /* ---- unrenderable ---- */
@@ -237,4 +290,12 @@
 
 .part-routing__why {
   color: var(--t-dis);
+}
+
+.part-handoff__glyph {
+  display: flex;
+  justify-content: center;
+  width: 14px;
+  padding-top: 4px;
+  color: var(--t-ac);
 }

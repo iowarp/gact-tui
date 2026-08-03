@@ -1,0 +1,20 @@
+.dp__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.dp__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color var(--dur-fast), transform var(--dur-fast);
+}
+
+.dp__card:hover {
+  border-color: var(--color-select-border);
+}

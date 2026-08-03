@@ -14,12 +14,17 @@ import './sessionview.css';
 export interface SessionViewProps {
   client: Client;
   sessions: Session[];
+  /** Drop a row whose session the backend no longer has. */
+  onForgetSession?: (sessionId: string) => void;
 }
 
 type LoadState =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'loaded'; messages: Message[] }
+  // A 404 is its own state: the row points at something the backend no longer
+  // has, which is actionable (remove it) rather than merely broken.
+  | { kind: 'missing' }
   | { kind: 'failed'; detail: string };
 
 /**
@@ -29,7 +34,7 @@ type LoadState =
  * SAME shell/transcript/composer the fixtures harness does — the harness is a
  * development view of these components, not a separate implementation.
  */
-export function SessionView({ client, sessions }: SessionViewProps) {
+export function SessionView({ client, sessions, onForgetSession }: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -174,6 +179,14 @@ export function SessionView({ client, sessions }: SessionViewProps) {
         const result = await client.messages(sessionId);
         setState({ kind: 'loaded', messages: result.messages ?? [] });
       } catch (err) {
+        const status =
+          typeof err === 'object' && err !== null && 'status' in err
+            ? (err as { status?: unknown }).status
+            : undefined;
+        if (status === 404) {
+          setState({ kind: 'missing' });
+          return;
+        }
         // A failed load must never look like an empty session.
         setState({
           kind: 'failed',
@@ -276,6 +289,34 @@ export function SessionView({ client, sessions }: SessionViewProps) {
         <p className="sessionview__error" data-testid="send-error" role="alert">
           Could not send: {sendError}
         </p>
+      ) : null}
+
+      {state.kind === 'missing' && activeId ? (
+        <div className="sessionview__missing" data-testid="session-missing" role="alert">
+          <p className="sessionview__missingtext">
+            This session is no longer on the backend. It was probably deleted
+            elsewhere.
+          </p>
+          <button
+            type="button"
+            className="sessionview__removebtn"
+            onClick={() => {
+              void (async () => {
+                try {
+                  await client.deleteSession(activeId);
+                } catch {
+                  // Already gone on the backend — removing the row is still
+                  // the right outcome.
+                }
+                onForgetSession?.(activeId);
+                setActiveId(null);
+                setState({ kind: 'idle' });
+              })();
+            }}
+          >
+            Remove from list
+          </button>
+        </div>
       ) : null}
 
       {state.kind === 'failed' ? (

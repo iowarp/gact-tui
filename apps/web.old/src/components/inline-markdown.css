@@ -1,0 +1,153 @@
+/* Styling for the single incremental markdown renderer (Markdown.tsx / smd).
+ *
+ * smd emits PLAIN semantic tags (p, h1-6, ul/ol/li, code, pre>code, a, blockquote,
+ * hr, strong, em, s, table). Bare tags would otherwise pick up GLOBAL rules
+ * (e.g. `p { font-size: --text-base; max-width: 65ch }`) that don't match the
+ * transcript. Per RENDERING_SPEC the transcript is ONE font — `--font-mono` at
+ * `--trx-body` (14.5px) — and differentiates ONLY by weight + color, never size
+ * or family. So every markdown tag is pinned to that font here. */
+
+.im {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+}
+
+/* Pin EVERY markdown tag to the one transcript font + fill the column (override
+ * the global `p`/heading rules: font-size, font-family, and the 65ch max-width). */
+.im p,
+.im li,
+.im h1,
+.im h2,
+.im h3,
+.im h4,
+.im h5,
+.im h6,
+.im blockquote,
+.im pre,
+.im code,
+.im a,
+.im strong,
+.im em,
+.im s,
+.im ul,
+.im ol,
+.im th,
+.im td {
+  font-family: var(--font-mono);
+  font-size: var(--trx-body);
+  max-width: none;
+}
+
+.im p {
+  margin: 0;
+}
+
+/* Weight-only + color-only differentiation (no size/family changes). */
+.im strong {
+  font-weight: 700;
+}
+
+.im em {
+  font-style: italic;
+}
+
+.im h1,
+.im h2,
+.im h3,
+.im h4,
+.im h5,
+.im h6 {
+  margin: 10px 0 2px;
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.im a {
+  color: var(--color-accent-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.im a:hover {
+  color: var(--color-heading);
+}
+
+/* Inline code: color-only (same font + size as body). */
+.im code {
+  color: var(--color-accent-cyan);
+}
+
+.im s {
+  color: var(--color-muted);
+}
+
+.im ul,
+.im ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.im li {
+  margin: 0;
+}
+
+/* Fenced code block: a soft monospace panel (no lang badge / copy button). */
+.im pre {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.im pre code {
+  color: var(--color-text);
+  white-space: pre;
+}
+
+.im blockquote {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border-30);
+  color: var(--color-muted);
+}
+
+.im hr {
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.im table {
+  border-collapse: collapse;
+}
+
+.im th,
+.im td {
+  border: 1px solid var(--color-border-30);
+  padding: 2px 6px;
+  text-align: left;
+}
+
+.im th {
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+/* Search highlight span (see HighlightedText). */
+.im mark {
+  background: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  color: var(--color-heading);
+  padding: 0 2px;
+  border-radius: 3px;
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { brand } from '@brand';
-import { ContextMenu, Eyebrow, InlineEdit, ToolbarButton, type MenuItemDef } from '../kit';
+import { ContextMenu, Eyebrow, Icon, InlineEdit, ToolbarButton, type MenuItemDef } from '../kit';
 import { StatusDot, type SessionStatus } from './StatusDot';
 import './rail.css';
 
@@ -115,7 +115,7 @@ export function Rail({
           label="Collapse sessions"
           iconOnly
           size="small"
-          icon={<CollapseIcon />}
+          icon={<Icon name="panel" />}
           onClick={onCollapse}
         />
       </div>
@@ -176,7 +176,7 @@ export function Rail({
                       aria-label={`Actions for ${session.title}`}
                       onClick={(e) => openMenu(e, session.id)}
                     >
-                      <MenuGlyph />
+                      <Icon name="dots" />
                     </button>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function Rail({
           aria-label="Settings"
           onClick={() => onOpenSettings?.()}
         >
-          <GearIcon />
+          <Icon name="tool" />
         </button>
         <span className="shell-rail__footcell">
           <span className="shell-rail__footdot" aria-hidden="true" />
@@ -232,35 +232,4 @@ export function Rail({
   );
 }
 
-function GearIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <circle cx="6" cy="6" r="2" stroke="currentColor" strokeWidth="1.2" />
-      <path
-        d="M6 1v1.5M6 9.5V11M11 6H9.5M2.5 6H1M9.2 2.8l-1 1M3.8 8.2l-1 1M9.2 9.2l-1-1M3.8 3.8l-1-1"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
-function MenuGlyph() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <circle cx="2.5" cy="6" r="1" fill="currentColor" />
-      <circle cx="6" cy="6" r="1" fill="currentColor" />
-      <circle cx="9.5" cy="6" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function CollapseIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M4.5 1.5v9" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
-}

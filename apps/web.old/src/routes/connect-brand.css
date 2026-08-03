@@ -1,0 +1,118 @@
+.connect__main {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 92vw);
+  padding: 28px 32px 32px;
+  text-align: center;
+}
+
+.connect__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto 22px;
+}
+
+.connect__mark-link {
+  display: inline-flex;
+  color: inherit;
+  text-decoration: none;
+}
+
+.connect__mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.connect__mark.brand-mark--image {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.connect__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.connect__brand-copy {
+  width: min-content;
+  min-width: 142px;
+  display: grid;
+  gap: 3px;
+  line-height: 1;
+}
+
+.connect__wordmark {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-sans);
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--color-heading);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.connect__tagline {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.connect__tagline-link {
+  color: var(--color-accent-cyan);
+  text-decoration: none;
+}
+
+.connect__tagline-link:hover,
+.connect__tagline-link:focus-visible,
+.connect__wordmark:hover,
+.connect__wordmark:focus-visible {
+  text-decoration: underline;
+}
+
+.connect__title {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--color-heading);
+  margin: 0 0 8px;
+}
+
+.connect__lede {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: var(--color-muted);
+  line-height: 1.55;
+  margin: 0 auto 26px;
+  max-width: 460px;
+}
+
+.connect__lede code {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-30);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--color-accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}

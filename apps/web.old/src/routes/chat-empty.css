@@ -1,0 +1,163 @@
+/* Empty-conversation state. */
+.chat__empty {
+  width: min(100%, 560px);
+  text-align: center;
+  margin: auto;
+  padding: 24px;
+  color: var(--color-muted);
+}
+
+.chat--empty-transcript .chat__empty {
+  margin-block: auto;
+}
+
+.chat--empty-transcript .chat__empty-icon {
+  display: none;
+}
+
+.chat--empty-transcript .chat__empty--preview {
+  max-width: 360px;
+  margin-block: auto;
+  padding: 16px;
+}
+
+.chat__empty--preview .chat__empty-body {
+  margin-bottom: 0;
+}
+
+.chat__empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  /* Stronger fill + a hairline ring so the icon reads against the page bg.
+     The previous 0.22-alpha gradient was too faint and the cyan stroke
+     vanished into it. */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 42%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent-cyan) 42%, transparent) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-cyan-30),
+    var(--glow-cyan-sm);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+  color: var(--color-heading);
+}
+
+.chat--no-sessions .chat__empty-icon {
+  display: none;
+}
+
+.chat__empty-title {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.chat__empty-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-muted);
+  width: min(100%, 520px);
+  margin: 0 auto 24px;
+  line-height: 1.55;
+}
+
+.chat__empty-prompts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: min(100%, 520px);
+  margin: 0 auto;
+  text-align: left;
+}
+
+.chat__empty-prompt {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  padding: 12px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+
+.chat__empty-prompt:hover {
+  border-color: var(--color-accent-cyan);
+  background: var(--color-surface-alt);
+}
+
+.chat__empty-prompt-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-cyan);
+  margin-bottom: 4px;
+}
+
+.chat__empty-tip {
+  display: block;
+  width: min(100%, 520px);
+  margin: 24px auto 0;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.chat__empty-kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-30);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-heading);
+}
+
+@media (max-height: 640px) {
+  .chat--empty-transcript .chat__empty {
+    margin-block: auto;
+  }
+
+  .chat--empty-transcript .chat__empty-prompts,
+  .chat--empty-transcript .chat__empty-tip {
+    display: none;
+  }
+
+  .chat--empty-transcript .chat__empty-body {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .chat__empty {
+    padding: 44px 12px 24px;
+    width: min(100%, 560px);
+    margin-inline: auto;
+  }
+
+  .chat__empty-prompts {
+    display: none;
+  }
+
+  .chat__empty-tip {
+    display: none;
+  }
+
+  .chat--empty-transcript .chat__empty-body {
+    margin-bottom: 0;
+  }
+}

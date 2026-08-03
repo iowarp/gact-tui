@@ -1,0 +1,128 @@
+.sidebar {
+  border-right: 1px solid var(--color-border-30);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+  background: var(--color-surface);
+}
+
+.sidebar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-30);
+}
+
+.sidebar__counter {
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.sidebar__list {
+  overflow: auto;
+  padding: 8px 0;
+}
+
+.sidebar__group {
+  margin-bottom: 8px;
+}
+
+.sidebar__group-head {
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-muted);
+}
+
+.sidebar__row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--color-heading);
+  font-size: var(--text-sm);
+  border-left: 2px solid transparent;
+}
+
+.sidebar__row:hover {
+  background: var(--color-surface-alt);
+}
+
+/* Selected row = selection state → the single warm accent. */
+.sidebar__row--active {
+  background: var(--color-surface-alt);
+  border-left-color: var(--color-accent);
+}
+
+.sidebar__pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+
+.sidebar__pip--running {
+  background: var(--color-accent-cyan);
+  box-shadow: 0 0 6px var(--color-accent-cyan);
+}
+
+.sidebar__pip--idle {
+  background: var(--color-muted);
+}
+
+.sidebar__pip--waiting {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px var(--color-warning);
+}
+
+.sidebar__pip--error {
+  background: var(--color-error);
+}
+
+.sidebar__pip--finished {
+  background: var(--color-success);
+}
+
+.sidebar__title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar__age {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.sidebar__empty {
+  padding: 16px;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.sidebar__empty code {
+  background: var(--color-surface-alt);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.sidebar__foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border-30);
+}
+
+.sidebar__newbtn {
+  width: 100%;
+}

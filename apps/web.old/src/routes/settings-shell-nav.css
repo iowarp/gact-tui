@@ -1,0 +1,93 @@
+.settings-shell__nav {
+  border-right: 1px solid var(--color-border-30);
+  /* Surface token (not page bg) so the nav follows the light palette. */
+  background: var(--color-surface);
+  padding: 20px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-shell__nav-group {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 12px 12px 4px;
+}
+
+.settings-shell__nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.settings-shell__nav-btn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-heading);
+}
+
+/* A clicked-but-no-longer-hovered nav item used to keep the gray hover fill
+   via the retained :focus state, reading like a second active item. Drop the
+   fill on keyboard focus and show only a focus ring; pointer focus shows
+   nothing (the active cyan state is the single source of "selected"). */
+.settings-shell__nav-btn:focus {
+  outline: none;
+}
+
+.settings-shell__nav-btn:focus:not(:hover):not(.is-active) {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.settings-shell__nav-btn:focus-visible {
+  outline: 2px solid var(--color-accent-cyan-30);
+  outline-offset: -1px;
+}
+
+/* Selected nav item: the single warm accent. */
+.settings-shell__nav-btn.is-active {
+  background: var(--color-select-bg);
+  color: var(--color-accent);
+  border-color: var(--color-select-border);
+}
+
+@media (max-width: 760px) {
+  .settings-shell__nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-30);
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-direction: row;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+
+  .settings-shell__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-shell__nav-group {
+    display: none;
+  }
+
+  .settings-shell__nav-btn {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+}

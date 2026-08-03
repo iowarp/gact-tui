@@ -1,0 +1,24 @@
+.rmp__editor {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-30);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text);
+  outline: none;
+  resize: vertical;
+}
+
+.rmp__editor:focus {
+  border-color: var(--color-accent-cyan);
+}
+
+.rmp__editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}

@@ -39,6 +39,11 @@ export const BESPOKE_PATTERNS: Array<{ id: string; pattern: RegExp; use: string 
     use: 'the scrim belongs to <Modal>/<Popover>; do not paint one directly',
   },
   {
+    id: 'inline-svg',
+    pattern: /<svg[\s>]/,
+    use: 'use <Icon name="..."/> from src/kit — hand-drawn glyphs produced a gear that read as a sun',
+  },
+  {
     id: 'modal-width',
     pattern: /width:\s*680px/,
     use: 'the 680px dialog scaffold is <Modal>; do not restate its width',
@@ -87,6 +92,7 @@ describe('kit conformance guard', () => {
       'tablist-role': '<div role="tablist" />',
       'menu-role': '<div role="menu" />',
       scrim: '.x { background: var(--t-scrim); }',
+      'inline-svg': '<svg viewBox="0 0 12 12" />',
       'modal-width': '.x { width: 680px; }',
     }[id] as string;
 

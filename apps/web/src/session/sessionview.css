@@ -16,3 +16,37 @@
   font-family: var(--f-prose);
   font-size: calc(13px * var(--ts));
 }
+
+.sessionview__missing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 24px;
+  padding: 10px 12px;
+  background: var(--t-wm08);
+  border: 1px solid var(--t-wm35);
+  border-radius: 8px;
+}
+
+.sessionview__missingtext {
+  margin: 0;
+  color: var(--t-wa);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+}
+
+.sessionview__removebtn {
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--t-erc5);
+  border-radius: 6px;
+  color: var(--t-er);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  cursor: pointer;
+}
+
+.sessionview__removebtn:hover {
+  background: var(--t-erc06);
+}

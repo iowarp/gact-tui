@@ -91,7 +91,7 @@ describe('Transcript', () => {
     expect(screen.getByText('Los Angeles, California')).toBeInTheDocument();
   });
 
-  it('renders an expert handoff with the child name', () => {
+  it('renders an expert handoff as the prototype Call(child) heading', () => {
     render(
       <Transcript
         messages={[
@@ -106,7 +106,30 @@ describe('Transcript', () => {
         ]}
       />,
     );
-    expect(screen.getByText('geospatial')).toBeInTheDocument();
+    // One heading, not a bare name — `Call(geospatial)` is the prototype's form.
+    expect(screen.getByText('Call(geospatial)')).toBeInTheDocument();
+    expect(screen.getByText(/Resolve Los Angeles/)).toBeInTheDocument();
+  });
+
+  it('renders a returning handoff as its own child card, not parent prose', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'subagent_result',
+              expert: 'geospatial',
+              duration: '1m 12s',
+              excerpt: 'Los Angeles resolves to 34.0537 N, 118.2428 W.',
+            },
+          ]),
+        ]}
+      />,
+    );
+    const card = screen.getByTestId('part-child-card');
+    expect(card).toHaveTextContent('geospatial');
+    expect(card).toHaveTextContent('1m 12s');
+    expect(card).toHaveTextContent(/34.0537/);
   });
 
   it('SURFACES an unknown part kind rather than dropping it', () => {

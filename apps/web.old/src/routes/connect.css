@@ -1,0 +1,27 @@
+@import './connect-actions.css';
+@import './connect-brand.css';
+@import './connect-form.css';
+@import './connect-status.css';
+
+.connect {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  /* Warm-led hero: the brand accent owns the top-left glow; cyan is a faint
+     secondary in the far corner. */
+  background:
+    radial-gradient(
+      980px 640px at 22% 16%,
+      color-mix(in srgb, var(--color-accent) 20%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      1100px 700px at 80% 84%,
+      color-mix(in srgb, var(--color-accent-cyan) 9%, transparent) 0%,
+      transparent 65%
+    ),
+    var(--color-bg);
+}

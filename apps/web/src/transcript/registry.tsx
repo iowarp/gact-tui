@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Chip, KvGrid } from '../kit';
+import { Chip, Icon, KvGrid } from '../kit';
 import { toolInputRows } from '../wire/presentation';
 import { shortScalar } from '../wire/presentationUtils';
 import { CollapsiblePart } from './parts/CollapsiblePart';
@@ -52,7 +52,7 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   tool_call: {
-    gutter: <ToolGlyph />,
+    gutter: <Icon name="tool" />,
     render: (part) => {
       const rows = toolInputRows(part['input'] as Record<string, unknown> | undefined);
       return (
@@ -70,7 +70,7 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   tool_result: {
-    gutter: <ToolGlyph />,
+    gutter: <Icon name="tool" />,
     render: (part) => {
       const isError = part['is_error'] === true;
       return (
@@ -83,14 +83,17 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   expert_handoff: {
+    gutter: <HandoffGlyph />,
     render: (part) => <HandoffPart part={part} />,
   },
 
   subagent_call: {
+    gutter: <HandoffGlyph />,
     render: (part) => <HandoffPart part={part} />,
   },
 
   subagent_result: {
+    gutter: <HandoffGlyph />,
     render: (part) => <HandoffPart part={part} returned />,
   },
 
@@ -190,15 +193,12 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 };
 
-function ToolGlyph() {
+/** The handoff wrench sits in the ACCENT colour, unlike the muted tool glyph. */
+function HandoffGlyph() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <path
-        d="M7.6 1.8a2.6 2.6 0 0 0 3 3.4L8.2 7.6 4.4 3.8 6.8 1.4a2.6 2.6 0 0 0 .8.4zM4 4.2 7.8 8l-2.6 2.6a1.3 1.3 0 0 1-1.8 0l-1-1a1.3 1.3 0 0 1 0-1.8z"
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <span className="part-handoff__glyph">
+      <Icon name="tool" />
+    </span>
   );
 }
+

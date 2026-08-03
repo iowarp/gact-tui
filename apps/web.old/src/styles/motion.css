@@ -1,0 +1,62 @@
+/* === Skeleton loaders + motion (W3 Tier-1) === */
+
+/* Content-shaped shimmer placeholder. Compose with width/height utilities
+   or inline styles per surface; the shimmer band sweeps left -> right. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-alt);
+  border-radius: 8px;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-heading) 6%, transparent) 50%,
+    transparent 100%
+  );
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Entrance motion for content that pops in (transcript messages, cards).
+   Subtle: 8px rise + fade over 200ms. */
+.anim-rise {
+  animation: anim-rise 200ms ease-out both;
+}
+
+@keyframes anim-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* a11y: honor the OS-level reduced-motion preference globally. Animations
+   collapse to their end state; transitions become instant. The shimmer
+   skeletons stay visible (static) - only their sweep stops. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
