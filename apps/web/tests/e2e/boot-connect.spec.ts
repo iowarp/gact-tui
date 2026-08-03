@@ -25,7 +25,8 @@ test('connects to a backend and lands on its sessions', async ({ page }) => {
   await connectMockBackend(page);
 
   await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
-  await expect(page.getByTestId(`session-row-${MOCK_SESSION_ID}`)).toBeVisible();
+  // The row is identified by its title, as the rail labels it.
+  await expect(page.getByRole('button', { name: 'Boot smoke session', exact: true })).toBeVisible();
 });
 
 test('surfaces a typed reason when the backend is unreachable', async ({ page }) => {
