@@ -30,10 +30,17 @@
   border-bottom: 1px solid var(--t-bd3);
 }
 
+/*
+ * A flex column that does NOT scroll. Its scrolling child (the transcript)
+ * absorbs the free space, which is what holds the composer against the
+ * bottom of the viewport rather than the bottom of the text.
+ */
 .shell__content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .shell__detail {

@@ -1,11 +1,23 @@
+/*
+ * Pinned: never shrinks, never scrolls away with the transcript.
+ *
+ * The prototype splits this in two — a full-width band carrying the 36px
+ * gutter, and an 860px content column centred inside it. Putting the padding
+ * and the max-width on one element would subtract the gutter from the pill,
+ * leaving it 788px instead of 860px.
+ */
 .composer {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 860px;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 24px 16px;
+  max-width: calc(860px + 2 * 36px);
+  /* top:auto pins it to the bottom of the column even when what sits above
+     is an error or empty state rather than a space-absorbing transcript;
+     left/right:auto keep it centred. */
+  margin: auto auto 0;
+  padding: 0 36px 18px;
 }
 
 .composer__chips {

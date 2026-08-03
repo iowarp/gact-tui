@@ -16,26 +16,31 @@ export interface TranscriptProps {
  */
 export function Transcript({ messages }: TranscriptProps) {
   return (
+    // The scroller is full-width so its scrollbar rides the pane edge; the
+    // 860px reading column is centred inside it. Scrolling the column itself
+    // would inset the scrollbar into the text.
     <div className="transcript">
-      {messages.map((message) => {
-        const parts = (message.parts ?? []) as unknown as WirePart[];
-        // A message with no parts has nothing to say; an empty frame would be
-        // visual noise implying content that does not exist.
-        if (parts.length === 0) return null;
+      <div className="transcript__column">
+          {messages.map((message) => {
+          const parts = (message.parts ?? []) as unknown as WirePart[];
+          // A message with no parts has nothing to say; an empty frame would be
+          // visual noise implying content that does not exist.
+          if (parts.length === 0) return null;
 
-        return (
-          <article
-            key={message.id}
-            className="transcript__message"
-            data-role={message.role}
-            aria-label={`${message.role} message`}
-          >
-            {parts.map((part, index) => (
-              <RenderedPart key={`${message.id}:${index}`} part={part} />
-            ))}
-          </article>
-        );
-      })}
+          return (
+            <article
+              key={message.id}
+              className="transcript__message"
+              data-role={message.role}
+              aria-label={`${message.role} message`}
+            >
+              {parts.map((part, index) => (
+                <RenderedPart key={`${message.id}:${index}`} part={part} />
+              ))}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }

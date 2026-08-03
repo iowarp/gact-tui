@@ -42,3 +42,43 @@ test('an unrenderable part is visible, not dropped', async ({ page }) => {
   await expect(unknown).toBeVisible();
   await expect(unknown).toContainText('some_future_kind');
 });
+
+test('the composer pill sits at the bottom of the viewport, not the bottom of the text', async ({
+  page,
+}) => {
+  // The defect this pins (C3): the content column scrolled as one block, so
+  // the composer flowed after the transcript and came to rest mid-screen on a
+  // short session. The transcript must absorb the free space instead.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?shell');
+
+  const composer = page.locator('.composer');
+  await expect(composer).toBeVisible();
+
+  const box = await composer.boundingBox();
+  expect(box).not.toBeNull();
+  // Within the 18px bottom gutter of the viewport floor.
+  expect(900 - (box!.y + box!.height)).toBeLessThanOrEqual(2);
+
+  // The transcript, not the column, owns scrolling.
+  const scroll = await page
+    .locator('.transcript')
+    .evaluate((el) => ({ overflowY: getComputedStyle(el).overflowY, flexGrow: getComputedStyle(el).flexGrow }));
+  expect(scroll.overflowY).toBe('auto');
+  expect(scroll.flexGrow).toBe('1');
+
+  const column = await page
+    .locator('.shell__content')
+    .evaluate((el) => getComputedStyle(el).overflowY);
+  expect(column).toBe('hidden');
+});
+
+test('the composer stays pinned when the transcript is too short to fill the column', async ({
+  page,
+}) => {
+  // A short transcript is the case that exposed the bug; a tall one hid it.
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await page.goto('/?shell');
+  const box = await page.locator('.composer').boundingBox();
+  expect(1200 - (box!.y + box!.height)).toBeLessThanOrEqual(2);
+});

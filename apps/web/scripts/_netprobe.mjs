@@ -1,0 +1,15 @@
+import { chromium } from '@playwright/test';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport:{width:1440,height:900}, colorScheme:'dark' });
+const failed=[];
+p.on('requestfailed', r => failed.push({url:r.url(), err:r.failure()?.errorText}));
+p.on('response', async r => { if (r.status()>=400) failed.push({url:r.url(), status:r.status()}); });
+await p.goto('http://127.0.0.1:4191/',{waitUntil:'networkidle'});
+await p.getByTestId('connect-url').fill('http://127.0.0.1:17900');
+await p.getByTestId('connect-submit').click();
+await p.getByRole('navigation',{name:/workspaces/i}).waitFor({timeout:20000});
+failed.length = 0;
+await p.getByRole('button',{name:'EarthScope LIVE headed demo',exact:true}).click();
+await p.waitForTimeout(3000);
+console.log('failures:', JSON.stringify(failed, null, 1));
+await b.close();

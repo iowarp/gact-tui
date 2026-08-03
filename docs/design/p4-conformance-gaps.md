@@ -47,7 +47,7 @@ is done and working, as originally instructed.
 |---|---|---|
 | C1 | Icons hand-drawn instead of the prototype's set. The gear reads as a **sun**. | fixing |
 | C2 | Settings / observability open in the **wrong column** — placed in the right `detail` slot; owner reports seeing them left. Panel placement never visually verified. | **fixed** |
-| C3 | Composer pill anchors to **content flow, not the viewport bottom** — it sits after the text rather than at the bottom of the screen. | open |
+| C3 | Composer pill anchors to **content flow, not the viewport bottom** — it sits after the text rather than at the bottom of the screen. | **fixed** |
 | C4 | Empty state is a debug string ("Select a session to open it."). The prototype defines a real empty session with its own animation. | open |
 | C5 | Model selector shows `default` rather than provider / model. | open |
 | C6 | Rail group rows lack the folder icon, disclosure chevron and their own menu. | open |
@@ -65,6 +65,20 @@ is done and working, as originally instructed.
 | S4 | Connecting state **freezes with no feedback**; needs an animation. | open |
 | S5 | Missing session (404) should offer **remove**, not appear broken. | done |
 | S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | open |
+
+### Backend defects (clio-agent, P4-linked)
+
+Found by driving the live backend at `127.0.0.1:17900`. Both are clio-agent
+bugs, not UI bugs, and both are in scope here rather than deferred.
+
+| # | Defect | Status |
+|---|---|---|
+| B1 | `GET /v1/sessions/{id}/messages` returns **500 `internal_error` / "Unhandled server error"** when the message blob is missing (`RuntimeError: GetBlob operation failed`). A gone blob is a knowable state and should be a typed, recoverable error the UI can render. | open |
+| B2 | **5xx responses carry no CORS headers** while 2xx/4xx do, so the browser reports an opaque `net::ERR_FAILED` / "Failed to fetch". The server's structured error body never reaches a web client — the no-silent-fallback contract is defeated in transit. | open |
+
+B2 is the more serious of the two: it makes *every* server error indistinguishable
+from a network outage in the UI, so no amount of typed error detail on the server
+side is observable from the browser.
 
 ### Wire-field bugs the live backend caught
 

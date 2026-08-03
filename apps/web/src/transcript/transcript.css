@@ -1,10 +1,24 @@
+/*
+ * The transcript is the ONLY scroller in the content column.
+ *
+ * When the column itself scrolled, the composer flowed after the text and
+ * came to rest wherever the transcript happened to end — mid-screen on a
+ * short session. The prototype pins it by making the transcript absorb the
+ * free space and scroll inside it (C3).
+ */
 .transcript {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.transcript__column {
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-width: 860px;
   margin: 0 auto;
-  padding: 18px 24px 40px;
+  padding: 18px 36px 40px;
 }
 
 .transcript__message {
