@@ -111,3 +111,43 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: /artifacts/i })).toBeInTheDocument();
   });
 });
+
+describe('rail rename', () => {
+  it('turns the row into an edit field when Rename is chosen', () => {
+    renderShell({ onRenameSession: vi.fn() });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for asteroid cut-plane render' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    expect(screen.getByRole('textbox', { name: /session name/i })).toHaveValue(
+      'asteroid cut-plane render',
+    );
+  });
+
+  it('commits the new name for the RIGHT session', () => {
+    const onRenameSession = vi.fn();
+    renderShell({ onRenameSession });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const box = screen.getByRole('textbox', { name: /session name/i });
+    fireEvent.change(box, { target: { value: 'sweep v2' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(onRenameSession).toHaveBeenCalledWith('sess_h1', 'sweep v2');
+  });
+
+  it('leaves edit mode on Escape without renaming', () => {
+    const onRenameSession = vi.fn();
+    renderShell({ onRenameSession });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /session name/i }), { key: 'Escape' });
+    expect(onRenameSession).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox', { name: /session name/i })).toBeNull();
+  });
+
+  it('does not offer rename when the caller cannot perform it', () => {
+    // No handler means the surface cannot rename; showing the item would
+    // promise something that does nothing.
+    renderShell();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
+  });
+});

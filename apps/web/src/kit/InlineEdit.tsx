@@ -9,6 +9,12 @@ export interface InlineEditProps {
   label: string;
   /** `title` is the topbar's 14px/600; `rail` the row's 11.5px/500. */
   size?: InlineEditSize;
+  /** Open straight into edit mode — used when an explicit Rename action
+   *  opened this field, where a second click would be a dead step. */
+  startEditing?: boolean;
+  /** Called when editing ends without committing, so the owner can drop its
+   *  "currently renaming" state instead of leaving the row stuck. */
+  onCancel?: () => void;
   onCommit: (next: string) => void;
 }
 
@@ -20,8 +26,15 @@ export interface InlineEditProps {
  * mirror the metrics of the text they replace (`--t-sf2` fill, `--t-cy4`
  * border), so the field appears WHERE the label was without the row shifting.
  */
-export function InlineEdit({ value, label, size = 'title', onCommit }: InlineEditProps) {
-  const [editing, setEditing] = useState(false);
+export function InlineEdit({
+  value,
+  label,
+  size = 'title',
+  startEditing = false,
+  onCancel,
+  onCommit,
+}: InlineEditProps) {
+  const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   // Guards the blur handler so Escape does not commit on its way out.
@@ -56,6 +69,7 @@ export function InlineEdit({ value, label, size = 'title', onCommit }: InlineEdi
       cancelled.current = true;
       setDraft(value);
       setEditing(false);
+      onCancel?.();
     }
   }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { brand } from '@brand';
-import { ContextMenu, Eyebrow, ToolbarButton, type MenuItemDef } from '../kit';
+import { ContextMenu, Eyebrow, InlineEdit, ToolbarButton, type MenuItemDef } from '../kit';
 import { StatusDot, type SessionStatus } from './StatusDot';
 import './rail.css';
 
@@ -56,6 +56,8 @@ export interface RailProps {
   onSelectSession: (id: string) => void;
   onCollapse: () => void;
   onSessionAction?: (sessionId: string, action: SessionAction) => void;
+  /** Supplying this enables rename-in-place from the row menu. */
+  onRenameSession?: (sessionId: string, title: string) => void;
 }
 
 /**
@@ -68,8 +70,10 @@ export function Rail({
   onSelectSession,
   onCollapse,
   onSessionAction,
+  onRenameSession,
 }: RailProps) {
   const [menu, setMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   function openMenu(event: React.MouseEvent, sessionId: string) {
     event.preventDefault();
@@ -77,7 +81,11 @@ export function Rail({
     setMenu({ sessionId, x: event.clientX, y: event.clientY });
   }
 
-  const items: MenuItemDef[] = SESSION_ACTIONS.map((action) => ({
+  const items: MenuItemDef[] = SESSION_ACTIONS.filter(
+    // Offering an action the surface cannot perform promises something that
+    // does nothing when clicked.
+    (action) => action.id !== 'rename' || onRenameSession !== undefined,
+  ).map((action) => ({
     id: action.id,
     label: action.label,
     // Unsupported actions are shown in the destructive tone — visible, not
@@ -140,7 +148,21 @@ export function Rail({
                 >
                   <StatusDot status={session.status} />
                   <div className="shell-rail__row">
-                    <span className="shell-rail__title">{session.title}</span>
+                    {renamingId === session.id && onRenameSession ? (
+                      <InlineEdit
+                        value={session.title}
+                        label="Session name"
+                        size="rail"
+                        startEditing
+                        onCancel={() => setRenamingId(null)}
+                        onCommit={(next) => {
+                          setRenamingId(null);
+                          onRenameSession(session.id, next);
+                        }}
+                      />
+                    ) : (
+                      <span className="shell-rail__title">{session.title}</span>
+                    )}
                     <span className="shell-rail__status">{session.status}</span>
                     <span className="shell-rail__age">{session.age}</span>
                     <button
@@ -166,7 +188,12 @@ export function Rail({
         items={items}
         label="Session actions"
         onSelect={(id) => {
-          if (menu) onSessionAction?.(menu.sessionId, id as SessionAction);
+          if (!menu) return;
+          if (id === 'rename') {
+            setRenamingId(menu.sessionId);
+            return;
+          }
+          onSessionAction?.(menu.sessionId, id as SessionAction);
         }}
         onClose={() => setMenu(null)}
       />

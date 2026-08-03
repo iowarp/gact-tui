@@ -19,8 +19,8 @@ export interface AppShellProps {
   detail?: ReactNode;
   onSelectSession: (id: string) => void;
   onSelectRibbon: (id: string) => void;
-  /** Renames the active session in place from the topbar. */
-  onRenameSession?: (next: string) => void;
+  /** Rename a session in place — from the rail row menu or the topbar title. */
+  onRenameSession?: (sessionId: string, title: string) => void;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -64,6 +64,7 @@ export function AppShell({
               activeSessionId={activeSessionId}
               onSelectSession={onSelectSession}
               onCollapse={() => setRailCollapsed(true)}
+              {...(onRenameSession ? { onRenameSession } : {})}
             />
           </div>
           <Splitter
@@ -84,7 +85,9 @@ export function AppShell({
           {...(contextPercent === undefined ? {} : { contextPercent })}
           railCollapsed={railCollapsed}
           onShowRail={() => setRailCollapsed(false)}
-          {...(onRenameSession ? { onRename: onRenameSession } : {})}
+          {...(onRenameSession && activeSessionId
+            ? { onRename: (next: string) => onRenameSession(activeSessionId, next) }
+            : {})}
         />
 
         <div className="shell__ribbon">

@@ -75,16 +75,15 @@ export function SessionView({ client, sessions }: SessionViewProps) {
   // Renaming hits the real endpoint and updates the row optimistically, so the
   // title does not snap back to the old value while the request is in flight.
   const rename = useCallback(
-    async (next: string) => {
-      if (!activeId) return;
-      setRenamed((prev) => ({ ...prev, [activeId]: next }));
+    async (sessionId: string, next: string) => {
+      setRenamed((prev) => ({ ...prev, [sessionId]: next }));
       try {
-        await client.patchSession(activeId, { title: next });
+        await client.patchSession(sessionId, { title: next });
       } catch (err) {
         // Put the old title back rather than leaving a rename that never
         // reached the backend looking like it succeeded.
         setRenamed((prev) => {
-          const { [activeId]: _dropped, ...rest } = prev;
+          const { [sessionId]: _dropped, ...rest } = prev;
           return rest;
         });
         setState({
@@ -93,7 +92,7 @@ export function SessionView({ client, sessions }: SessionViewProps) {
         });
       }
     },
-    [activeId, client],
+    [client],
   );
 
   return (
@@ -106,7 +105,7 @@ export function SessionView({ client, sessions }: SessionViewProps) {
       ribbon={[{ id: 'main', label: 'main' }]}
       activeRibbonId="main"
       onSelectRibbon={() => {}}
-      {...(active ? { onRenameSession: (next: string) => void rename(next) } : {})}
+      onRenameSession={(sessionId, next) => void rename(sessionId, next)}
     >
       {sessions.length === 0 ? (
         <p className="sessionview__notice" data-testid="sessions-empty">
