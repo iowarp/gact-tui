@@ -79,3 +79,46 @@ describe('SessionView', () => {
     expect(screen.getByTestId('sessions-empty')).toBeInTheDocument();
   });
 });
+
+describe('workspace group labels', () => {
+  const WS = [
+    // String.raw so the backslashes are literal path separators, not escapes.
+    { id: 'ws_default', name: 'clio-agent', root_path: String.raw`D:\proj\clio-agent` },
+    { id: 'ws_other', name: 'rollups', root_path: String.raw`C:\Users\jaime\rollups` },
+  ];
+
+  function clientWithWorkspaces() {
+    return {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => ({ messages: MESSAGES })),
+      workspaces: vi.fn(async () => ({ workspaces: WS })),
+    } as unknown as Client;
+  }
+
+  it('labels groups with the workspace PATH, not the opaque id', async () => {
+    // The prototype's rail shows paths (/scratch/j4471, ~/rollups). A raw
+    // ws_ id tells the user nothing about which tree they are looking at.
+    render(<SessionView client={clientWithWorkspaces()} sessions={SESSIONS} />);
+    const rail = screen.getByRole('navigation', { name: /workspaces/i });
+    await waitFor(() => expect(within(rail).getByText(/clio-agent$/)).toBeInTheDocument());
+    expect(within(rail).queryByText('ws_default')).toBeNull();
+  });
+
+  it('shortens the home directory the way the prototype does', async () => {
+    render(<SessionView client={clientWithWorkspaces()} sessions={SESSIONS} />);
+    const rail = screen.getByRole('navigation', { name: /workspaces/i });
+    await waitFor(() => expect(within(rail).getByText('~/rollups')).toBeInTheDocument());
+  });
+
+  it('falls back to the id when the backend cannot name the workspace', async () => {
+    // Honest fallback: an unlabelled group must still be identifiable.
+    const client = {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => ({ messages: MESSAGES })),
+      workspaces: vi.fn(async () => ({ workspaces: [] })),
+    } as unknown as Client;
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    const rail = screen.getByRole('navigation', { name: /workspaces/i });
+    await waitFor(() => expect(within(rail).getByText('ws_default')).toBeInTheDocument());
+  });
+});

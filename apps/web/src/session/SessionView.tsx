@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Client, Message, Session } from '@clio/core';
+import type { Client, Message, Session, Workspace } from '@clio/core';
 import { Composer } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
@@ -28,6 +28,25 @@ type LoadState =
 export function SessionView({ client, sessions }: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+
+  // Workspace paths name the rail groups. The prototype shows a TREE the user
+  // recognises (/scratch/j4471, ~/rollups); an opaque ws_ id names nothing.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await client.workspaces();
+        if (!cancelled) setWorkspaces(result.workspaces ?? []);
+      } catch {
+        // Labels degrade to ids, which the group still renders. Not worth
+        // failing the whole view over.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   const load = useCallback(
     async (sessionId: string) => {
@@ -54,7 +73,7 @@ export function SessionView({ client, sessions }: SessionViewProps) {
 
   return (
     <AppShell
-      groups={groupByWorkspace(sessions)}
+      groups={groupByWorkspace(sessions, workspaces)}
       activeSessionId={activeId}
       onSelectSession={setActiveId}
       title={active?.title ?? ''}
@@ -106,7 +125,12 @@ export function SessionView({ client, sessions }: SessionViewProps) {
 }
 
 /** Group sessions by workspace, preserving backend order within each group. */
-function groupByWorkspace(sessions: Session[]): RailGroup[] {
+function groupByWorkspace(sessions: Session[], workspaces: Workspace[]): RailGroup[] {
+  const labels = new Map<string, string>();
+  for (const ws of workspaces) {
+    const root = (ws as { root_path?: string }).root_path;
+    if (ws.id) labels.set(ws.id, root ? shortenPath(root) : ws.name || ws.id);
+  }
   const groups = new Map<string, RailSession[]>();
   for (const session of sessions) {
     const key = session.workspace_id || 'ungrouped';
@@ -121,10 +145,21 @@ function groupByWorkspace(sessions: Session[]): RailGroup[] {
   }
   return [...groups.entries()].map(([id, rows]) => ({
     id,
-    label: id,
+    // Fall back to the id rather than an empty header: an unlabelled group
+    // must still be identifiable.
+    label: labels.get(id) ?? id,
     count: rows.length,
     sessions: rows,
   }));
+}
+
+/** Render a filesystem root the way the prototype does: home as `~`, forward
+ *  slashes, so a Windows path reads like the design's `~/rollups`. */
+export function shortenPath(root: string): string {
+  const normalized = root.replace(/\\/g, '/');
+  const home = /^([A-Za-z]:)?\/Users\/[^/]+/.exec(normalized);
+  const shortened = home ? normalized.replace(home[0], '~') : normalized;
+  return shortened.replace(/\/+$/, '');
 }
 
 /** Map wire status onto the rail's dot vocabulary without inventing states. */
