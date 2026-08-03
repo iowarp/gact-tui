@@ -58,6 +58,7 @@ export function App() {
     if (params.has('kit')) return <KitGallery />;
     if (params.has('shell')) return <ShellPreview />;
     if (params.has('obs')) return <ShellPreview surface="obs" />;
+    if (params.has('settings')) return <ShellPreview surface="settings" />;
   }
 
   if (backend) {

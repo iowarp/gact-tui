@@ -3,6 +3,7 @@ import type { Message } from '@clio/core';
 import { Composer } from '../composer/Composer';
 import { DetailSlot } from '../detail/DetailSlot';
 import { Observability } from '../observability/Observability';
+import { Settings } from '../settings/Settings';
 import type { ObservabilityData } from '../observability/types';
 import type { ArtifactRecord } from '../detail/types';
 import { Transcript } from '../transcript/Transcript';
@@ -145,7 +146,7 @@ const OBS: ObservabilityData = {
   context: { usedPercent: 41, tokens: 82_000, limit: 200_000 },
 };
 
-export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs' }) {
+export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs' | 'settings' }) {
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
   const [model, setModel] = useState('sonnet');
@@ -167,7 +168,9 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
       detail={
-        surface === 'obs' ? (
+        surface === 'settings' ? (
+          <Settings onClose={() => {}} />
+        ) : surface === 'obs' ? (
           <Observability data={OBS} onClose={() => {}} />
         ) : (
           <DetailSlot record={RECORD} onClose={() => {}} />
