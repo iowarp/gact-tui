@@ -5,6 +5,8 @@ export interface EyebrowProps {
   children: ReactNode;
   /** `.1em` is the prototype's default; `.08em` its tighter inline variant. */
   tight?: boolean;
+  /** Section-header weight — the rail's `.12em`/700 treatment. */
+  strong?: boolean;
 }
 
 /**
@@ -12,9 +14,13 @@ export interface EyebrowProps {
  * repeated text treatment after body prose. It names sections, part kinds and
  * meta lanes.
  */
-export function Eyebrow({ children, tight = false }: EyebrowProps) {
+export function Eyebrow({ children, tight = false, strong = false }: EyebrowProps) {
   return (
-    <span className="kit-eyebrow" data-tight={tight ? 'true' : undefined}>
+    <span
+      className="kit-eyebrow"
+      data-tight={tight ? 'true' : undefined}
+      data-strong={strong ? 'true' : undefined}
+    >
       {children}
     </span>
   );

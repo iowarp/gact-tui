@@ -9,6 +9,8 @@ export interface ToolbarButtonProps {
   iconOnly?: boolean;
   /** Renders as a toggle and reports aria-pressed. */
   pressed?: boolean;
+  /** `small` is the rail's 22px icon button; default is the topbar's 26px. */
+  size?: 'small' | 'default';
   onClick: () => void;
 }
 
@@ -28,6 +30,7 @@ export function ToolbarButton({
   icon,
   iconOnly = false,
   pressed,
+  size = 'default',
   onClick,
 }: ToolbarButtonProps) {
   return (
@@ -35,6 +38,7 @@ export function ToolbarButton({
       type="button"
       className="kit-toolbarbutton"
       data-icon-only={iconOnly ? 'true' : undefined}
+      data-size={size}
       aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
       onClick={onClick}

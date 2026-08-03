@@ -9,3 +9,10 @@
 .kit-eyebrow[data-tight='true'] {
   letter-spacing: 0.08em;
 }
+
+.kit-eyebrow[data-strong='true'] {
+  font-size: calc(11.5px * var(--ts));
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}

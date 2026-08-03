@@ -38,3 +38,8 @@
   display: grid;
   place-items: center;
 }
+
+.kit-toolbarbutton[data-icon-only='true'][data-size='small'] {
+  width: 22px;
+  height: 22px;
+}

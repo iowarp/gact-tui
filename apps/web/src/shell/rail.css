@@ -1,0 +1,146 @@
+.shell-rail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--t-sf);
+  border-right: 1px solid var(--t-bd3);
+}
+
+.shell-rail__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.shell-rail__logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.shell-rail__mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--t-cy12);
+  color: var(--t-cy);
+  font-size: calc(13px * var(--ts));
+  font-weight: 600;
+}
+
+.shell-rail__wordmark {
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.shell-rail__spacer {
+  flex: 1;
+}
+
+.shell-rail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+.shell-rail__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.shell-rail__group {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 6px 2px;
+}
+
+.shell-rail__grouphead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 6px 4px;
+}
+
+.shell-rail__grouplabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+}
+
+.shell-rail__groupcount {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+}
+
+.shell-rail__session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+  color: var(--t-tx);
+}
+
+.shell-rail__session:hover {
+  background: var(--t-hv);
+}
+
+.shell-rail__session[aria-current='true'] {
+  background: var(--t-cy12);
+  border-color: var(--t-cy3);
+  color: var(--t-hd);
+}
+
+.shell-rail__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The textual status paired with the dot. Visually quiet, but present for
+   assistive tech and for anyone who cannot separate the dot colours. */
+.shell-rail__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.shell-rail__age {
+  flex-shrink: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+}

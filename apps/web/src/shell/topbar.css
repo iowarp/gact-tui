@@ -1,0 +1,35 @@
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.shell-topbar__title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  font-weight: 600;
+}
+
+.shell-topbar__sep {
+  color: var(--t-dis);
+}
+
+.shell-topbar__crumb {
+  flex-shrink: 0;
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+}
+
+.shell-topbar__spacer {
+  flex: 1;
+}

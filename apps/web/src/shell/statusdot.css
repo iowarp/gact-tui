@@ -1,0 +1,44 @@
+@keyframes shell-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.shell-statusdot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--t-dis);
+}
+
+.shell-statusdot[data-status='running'] {
+  background: var(--t-ok);
+  box-shadow: 0 0 6px var(--t-okc4);
+  animation: shell-pulse 1.8s ease-in-out infinite;
+}
+
+.shell-statusdot[data-status='queued'] {
+  background: var(--t-wa);
+  box-shadow: 0 0 6px var(--t-wac4);
+}
+
+.shell-statusdot[data-status='error'] {
+  background: var(--t-er);
+  box-shadow: 0 0 6px var(--t-erc5);
+}
+
+.shell-statusdot[data-status='idle'] {
+  background: var(--t-dis);
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-statusdot {
+    animation: none;
+  }
+}
