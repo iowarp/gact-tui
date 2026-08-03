@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KvGrid } from '../kit';
+import { Chip, KvGrid } from '../kit';
 import { toolInputRows } from '../wire/presentation';
 import { shortScalar } from '../wire/presentationUtils';
 import { CollapsiblePart } from './parts/CollapsiblePart';
@@ -124,6 +124,40 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
       <p className="part-muted">
         context compacted{part['reason'] ? ` — ${str(part['reason'])}` : ''}
       </p>
+    ),
+  },
+
+  background_exit: {
+    render: (part) => {
+      const status = str(part['exit_status'] ?? part['live_state']);
+      const placement = str(part['placement']);
+      // A run that exited on a remote host is not the same event as one that
+      // exited locally, so the host travels with the exit rather than being
+      // dropped as decoration.
+      const remote = placement.startsWith('relay:');
+      return (
+        <div className="part-runhandle" data-testid="part-background-exit" data-status={status}>
+          <span className="part-runhandle__label">exited</span>
+          <span className="part-runhandle__run">
+            {str(part['run_label']) || str(part['child_agent'])}
+          </span>
+          <Chip tone={status === 'failed' ? 'error' : 'accent'}>{status}</Chip>
+          {remote ? <Chip title={placement}>{str(part['host'])}</Chip> : null}
+        </div>
+      );
+    },
+  },
+
+  agent_message: {
+    render: (part) => (
+      <div className="part-runhandle" data-testid="part-agent-message">
+        <span className="part-runhandle__label">{str(part['message_action']) || 'message'}</span>
+        <span className="part-runhandle__run">
+          {str(part['run_label']) || str(part['child_agent'])}
+        </span>
+        {part['status'] ? <Chip>{str(part['status'])}</Chip> : null}
+        {part['text'] ? <p className="part-runhandle__text">{str(part['text'])}</p> : null}
+      </div>
     ),
   },
 

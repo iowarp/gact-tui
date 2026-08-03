@@ -193,3 +193,44 @@
   font-family: var(--f-prose);
   font-size: calc(12px * var(--ts));
 }
+
+/* ---- run-handle parts (background_exit, agent_message) ---- */
+
+.part-runhandle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-radius: 7px;
+}
+
+.part-runhandle[data-status='failed'] {
+  border-color: var(--t-erc5);
+}
+
+.part-runhandle__label {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.part-runhandle__run {
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  font-weight: 600;
+}
+
+.part-runhandle__text {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  line-height: 1.55;
+}

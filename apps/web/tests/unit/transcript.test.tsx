@@ -30,6 +30,10 @@ describe('part renderer registry', () => {
       'file_diff',
       'compaction',
       'error',
+      // Shipped in P2.11 / P2.14 — verified against the emitters:
+      // gact/agent_messaging.py:116 and gact/background_exit.py:46.
+      'background_exit',
+      'agent_message',
     ]) {
       expect(PART_RENDERERS[kind], `no renderer for "${kind}"`).toBeDefined();
     }
@@ -153,5 +157,54 @@ describe('Transcript', () => {
     );
     const err = screen.getByTestId('part-error');
     expect(within(err).getByText(/tool exploded/)).toBeInTheDocument();
+  });
+
+  it('renders a background_exit with its run handle and exit status', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'background_exit',
+              child_agent: 'data',
+              handle_id: 'task_b899efeeca04',
+              run_label: 'data #1',
+              live_state: 'completed',
+              host: 'ares',
+              placement: 'relay:ares',
+              exit_status: 'completed',
+            },
+          ]),
+        ]}
+      />,
+    );
+    const part = screen.getByTestId('part-background-exit');
+    expect(part).toHaveTextContent('data #1');
+    expect(part).toHaveTextContent('completed');
+    // Placement is load-bearing: a run that exited on a remote host is not the
+    // same event as one that exited locally.
+    expect(part).toHaveTextContent('ares');
+  });
+
+  it('renders an agent_message with its action and target child', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'agent_message',
+              child_agent: 'data',
+              run_label: 'data #1',
+              message_action: 'queue',
+              status: 'accepted',
+              text: 'also profile the uncertainty columns',
+            },
+          ]),
+        ]}
+      />,
+    );
+    const part = screen.getByTestId('part-agent-message');
+    expect(part).toHaveTextContent('queue');
+    expect(part).toHaveTextContent('also profile the uncertainty columns');
   });
 });

@@ -303,6 +303,62 @@ export interface PartUnknown extends PartBase {
   [key: string]: unknown;
 }
 
+/**
+ * Run-handle render fields carried by every run-scoped part.
+ *
+ * Produced by `run_handle_fields()`
+ * (clio-agent `gact/agents/spawn_placement.py:98`) and attached identically to
+ * `background_exit` and `agent_message`, so they are modelled once.
+ */
+export interface RunHandleFields {
+  /** Stable handle for the run; falls back to the task id. */
+  handle_id?: string;
+  /** Display label, e.g. `data #1`. */
+  run_label?: string;
+  /** Live state; falls back to the task status. */
+  live_state?: string;
+  /** Resolved host — `local`, or the host parsed out of a relay placement. */
+  host?: string;
+  /** Placement grammar, e.g. `local` or `relay:ares`. */
+  placement?: string;
+  agent_id?: string;
+  parent_agent?: string;
+  child_agent?: string;
+}
+
+/** Terminal outcome of a backgrounded run. Note `canceled` (one l) on the wire. */
+export type BackgroundExitStatus = 'completed' | 'failed' | 'canceled';
+
+/**
+ * Emitted once per terminal background task, downstream of the exactly-once
+ * consumption gate (clio-agent `gact/background_exit.py`, P2.14 / #1131).
+ */
+export interface PartBackgroundExit extends PartBase, RunHandleFields {
+  type: 'background_exit';
+  task_id?: string;
+  job_id?: string;
+  exit_status: BackgroundExitStatus;
+  /** Present only when the terminal fold supplied one. */
+  artifact_ref?: Record<string, unknown> | null;
+  status?: string;
+}
+
+/** What was done to the child agent (clio-agent `gact/agent_messaging.py`). */
+export type AgentMessageAction = 'queue' | 'steer' | 'wake' | 'supersede';
+
+/**
+ * Emitted when a message is delivered to a child agent — steer, queue, wake or
+ * supersede (P2.11 / #1128).
+ */
+export interface PartAgentMessage extends PartBase, RunHandleFields {
+  type: 'agent_message';
+  message_action?: AgentMessageAction;
+  /** Lifecycle stage, e.g. `message.queued`. */
+  stage?: string;
+  status?: string;
+  text?: string;
+}
+
 export type Part =
   | PartText
   | PartThinking
@@ -323,7 +379,9 @@ export type Part =
   | PartRoutingDecision
   | PartExpertHandoff
   | PartAgentQuestion
-  | PartRetryAttempt;
+  | PartRetryAttempt
+  | PartBackgroundExit
+  | PartAgentMessage;
 
 export interface Message {
   id: string;
