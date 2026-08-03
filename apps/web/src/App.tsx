@@ -57,6 +57,7 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('kit')) return <KitGallery />;
     if (params.has('shell')) return <ShellPreview />;
+    if (params.has('obs')) return <ShellPreview surface="obs" />;
   }
 
   if (backend) {

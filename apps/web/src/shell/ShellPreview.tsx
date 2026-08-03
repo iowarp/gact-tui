@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Message } from '@clio/core';
 import { Composer } from '../composer/Composer';
 import { DetailSlot } from '../detail/DetailSlot';
+import { Observability } from '../observability/Observability';
+import type { ObservabilityData } from '../observability/types';
 import type { ArtifactRecord } from '../detail/types';
 import { Transcript } from '../transcript/Transcript';
 import { AppShell } from './AppShell';
@@ -119,7 +121,31 @@ const RECORD: ArtifactRecord = {
   ],
 };
 
-export function ShellPreview() {
+const OBS: ObservabilityData = {
+  agents: [
+    { id: 'main', label: 'main', status: 'running', depth: 0 },
+    { id: 'geospatial', label: 'geospatial', status: 'done', depth: 1, duration: '1m 12s' },
+    { id: 'data', label: 'data', status: 'running', depth: 1 },
+    { id: 'ndp_discovery', label: 'ndp_dataset_discovery', status: 'done', depth: 2, duration: '48s' },
+  ],
+  runs: [
+    { id: 'task_b7525159dde5', agent: 'geospatial', state: 'succeeded', duration: '1m 12s' },
+    { id: 'task_b899efeeca04', agent: 'data', state: 'running' },
+  ],
+  toolsByExpert: {
+    geospatial: [{ name: 'geo_geocode', description: 'Resolve a place name via OSM Nominatim' }],
+    data: [
+      { name: 'ndp_dataset_discovery', description: 'Search NDP for datasets' },
+      { name: 'stage_resource', description: 'Stage a remote resource locally' },
+    ],
+  },
+  artifacts: [
+    { id: 'art_5f21c9d0e83a', label: 'earthscope_stations.csv', kind: 'dataset / csv' },
+  ],
+  context: { usedPercent: 41, tokens: 82_000, limit: 200_000 },
+};
+
+export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs' }) {
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
   const [model, setModel] = useState('sonnet');
@@ -140,7 +166,13 @@ export function ShellPreview() {
       ]}
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
-      detail={<DetailSlot record={RECORD} onClose={() => {}} />}
+      detail={
+        surface === 'obs' ? (
+          <Observability data={OBS} onClose={() => {}} />
+        ) : (
+          <DetailSlot record={RECORD} onClose={() => {}} />
+        )
+      }
     >
       <Transcript messages={MESSAGES} />
       <Composer
