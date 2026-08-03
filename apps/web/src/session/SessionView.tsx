@@ -29,6 +29,7 @@ export function SessionView({ client, sessions }: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [renamed, setRenamed] = useState<Record<string, string>>({});
 
   // Workspace paths name the rail groups. The prototype shows a TREE the user
   // recognises (/scratch/j4471, ~/rollups); an opaque ws_ id names nothing.
@@ -71,16 +72,41 @@ export function SessionView({ client, sessions }: SessionViewProps) {
 
   const active = sessions.find((s) => s.id === activeId);
 
+  // Renaming hits the real endpoint and updates the row optimistically, so the
+  // title does not snap back to the old value while the request is in flight.
+  const rename = useCallback(
+    async (next: string) => {
+      if (!activeId) return;
+      setRenamed((prev) => ({ ...prev, [activeId]: next }));
+      try {
+        await client.patchSession(activeId, { title: next });
+      } catch (err) {
+        // Put the old title back rather than leaving a rename that never
+        // reached the backend looking like it succeeded.
+        setRenamed((prev) => {
+          const { [activeId]: _dropped, ...rest } = prev;
+          return rest;
+        });
+        setState({
+          kind: 'failed',
+          detail: `Rename failed: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    },
+    [activeId, client],
+  );
+
   return (
     <AppShell
-      groups={groupByWorkspace(sessions, workspaces)}
+      groups={groupByWorkspace(sessions, workspaces, renamed)}
       activeSessionId={activeId}
       onSelectSession={setActiveId}
-      title={active?.title ?? ''}
+      title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
       {...(active?.workspace_id ? { breadcrumb: active.workspace_id } : {})}
       ribbon={[{ id: 'main', label: 'main' }]}
       activeRibbonId="main"
       onSelectRibbon={() => {}}
+      {...(active ? { onRenameSession: (next: string) => void rename(next) } : {})}
     >
       {sessions.length === 0 ? (
         <p className="sessionview__notice" data-testid="sessions-empty">
@@ -125,7 +151,11 @@ export function SessionView({ client, sessions }: SessionViewProps) {
 }
 
 /** Group sessions by workspace, preserving backend order within each group. */
-function groupByWorkspace(sessions: Session[], workspaces: Workspace[]): RailGroup[] {
+function groupByWorkspace(
+  sessions: Session[],
+  workspaces: Workspace[],
+  renamed: Record<string, string> = {},
+): RailGroup[] {
   const labels = new Map<string, string>();
   for (const ws of workspaces) {
     const root = (ws as { root_path?: string }).root_path;
@@ -137,7 +167,7 @@ function groupByWorkspace(sessions: Session[], workspaces: Workspace[]): RailGro
     const rows = groups.get(key) ?? [];
     rows.push({
       id: session.id,
-      title: session.title || session.id,
+      title: renamed[session.id] ?? session.title ?? session.id,
       status: toStatus(session.status),
       age: session.updated_at ? relativeAge(session.updated_at) : '',
     });

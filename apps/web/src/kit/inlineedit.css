@@ -1,0 +1,60 @@
+/* Rename-in-place. Each size mirrors the metrics of the text it replaces, so
+   entering edit mode does not move the row — the prototype's two variants are
+   the topbar title (14px/600) and the rail row (11.5px/500). */
+
+.kit-inlineedit {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.kit-inlineedit__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+}
+
+.kit-inlineedit__value:focus-visible {
+  outline: 2px solid var(--t-cy3);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.kit-inlineedit__input {
+  min-width: 0;
+  flex: 1;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-cy4);
+  outline: none;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+}
+
+/* Topbar title */
+.kit-inlineedit[data-size='title'] .kit-inlineedit__value,
+.kit-inlineedit[data-size='title'] .kit-inlineedit__input {
+  font-size: calc(14px * var(--ts));
+  font-weight: 600;
+}
+
+.kit-inlineedit[data-size='title'] .kit-inlineedit__input {
+  min-width: 280px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* Rail row */
+.kit-inlineedit[data-size='rail'] .kit-inlineedit__value,
+.kit-inlineedit[data-size='rail'] .kit-inlineedit__input {
+  font-size: calc(11.5px * var(--ts));
+  font-weight: 500;
+}
+
+.kit-inlineedit[data-size='rail'] .kit-inlineedit__input {
+  padding: 1px 6px;
+  border-radius: 5px;
+}

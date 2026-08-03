@@ -1,4 +1,4 @@
-import { ToolbarButton, useIsDesktop } from '../kit';
+import { InlineEdit, ToolbarButton, useIsDesktop } from '../kit';
 import './topbar.css';
 
 export interface TopbarProps {
@@ -8,6 +8,8 @@ export interface TopbarProps {
   contextPercent?: number;
   railCollapsed: boolean;
   onShowRail: () => void;
+  /** Supplying this makes the title rename-in-place, as the prototype does. */
+  onRename?: (next: string) => void;
 }
 
 /**
@@ -24,6 +26,7 @@ export function Topbar({
   contextPercent,
   railCollapsed,
   onShowRail,
+  onRename,
 }: TopbarProps) {
   const isDesktop = useIsDesktop();
 
@@ -40,7 +43,13 @@ export function Topbar({
       ) : null}
 
       <div className="shell-topbar__identity">
-        <h1 className="shell-topbar__title">{title}</h1>
+        {onRename ? (
+          <h1 className="shell-topbar__title">
+            <InlineEdit value={title} label="Session title" size="title" onCommit={onRename} />
+          </h1>
+        ) : (
+          <h1 className="shell-topbar__title">{title}</h1>
+        )}
         {breadcrumb ? (
           <>
             <span className="shell-topbar__sep" aria-hidden="true">

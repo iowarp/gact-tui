@@ -19,6 +19,8 @@ export interface AppShellProps {
   detail?: ReactNode;
   onSelectSession: (id: string) => void;
   onSelectRibbon: (id: string) => void;
+  /** Renames the active session in place from the topbar. */
+  onRenameSession?: (next: string) => void;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -47,6 +49,7 @@ export function AppShell({
   detail,
   onSelectSession,
   onSelectRibbon,
+  onRenameSession,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -81,6 +84,7 @@ export function AppShell({
           {...(contextPercent === undefined ? {} : { contextPercent })}
           railCollapsed={railCollapsed}
           onShowRail={() => setRailCollapsed(false)}
+          {...(onRenameSession ? { onRename: onRenameSession } : {})}
         />
 
         <div className="shell__ribbon">
