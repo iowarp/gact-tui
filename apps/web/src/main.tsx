@@ -1,11 +1,14 @@
-/* @refresh reload */
-import { render } from 'solid-js/web';
-import './styles/index.css';
-import { App } from './App.js';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
+import './styles/tokens.css';
+import './styles/base.css';
 
-const root = document.getElementById('root');
-if (!root) {
-  throw new Error('#root not found in index.html');
-}
-render(() => <App />, root);
+const host = document.getElementById('root');
+if (!host) throw new Error('#root host element is missing from index.html');
 
+createRoot(host).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

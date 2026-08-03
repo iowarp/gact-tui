@@ -2,7 +2,7 @@
 // the expected Tauri scaffold pieces and a known beforeBuildCommand. Adding
 // real end-to-end tests against `tauri build --debug` is tracked in PLAN.md.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -163,21 +163,45 @@ test('sidecar-launcher Go module declares no workspace tie-in', () => {
 });
 
 test('Tauri SSE path does not fall back to raw browser EventSource', () => {
-  const connection = readFileSync(
-    resolve(root, '..', 'web', 'src', 'LiveTranscriptConnection.ts'),
-    'utf8',
-  );
-  assert.doesNotMatch(connection, /BRIDGE_FALLBACK_MS/);
-  assert.doesNotMatch(connection, /function\s+fallBack\s*\(/);
+  // The transcript connection this guard originally read is not ported yet
+  // (Session v3 rebuild). Asserting only "no raw EventSource in the app" would
+  // pass VACUOUSLY today, so the guard is split into two parts that are both
+  // meaningful right now and both tighten as the transcript lands:
+  //
+  //   1. the Rust SSE bridge is present and exported — the desktop path exists;
+  //   2. no module in the app constructs a raw EventSource.
+  //
+  // When the transcript connection is ported it must open SSE through
+  // openTauriSse under inTauri(); restore the branch-level assertion then.
+  const webSrc = resolve(root, '..', 'web', 'src');
 
-  const tauriStart = connection.indexOf('if (inTauri()) {');
-  assert.notEqual(tauriStart, -1, 'expected an explicit Tauri SSE branch');
-  const pureWebCall = connection.indexOf('openEventSource();', tauriStart);
-  assert.notEqual(pureWebCall, -1, 'expected pure-web EventSource call after Tauri branch');
-  const tauriBranch = connection.slice(tauriStart, pureWebCall);
-  assert.doesNotMatch(
-    tauriBranch,
-    /openEventSource\s*\(/,
-    'Tauri SSE must retry the Rust bridge, not raw EventSource',
+  const bridge = readFileSync(resolve(webSrc, 'tauri', 'tauri_sse.ts'), 'utf8');
+  assert.match(
+    bridge,
+    /export\s+(async\s+)?function\s+openTauriSse/,
+    'the Rust SSE bridge entry point must exist',
+  );
+  assert.doesNotMatch(bridge, /BRIDGE_FALLBACK_MS/);
+  assert.doesNotMatch(bridge, /function\s+fallBack\s*\(/);
+
+  const offenders = [];
+  for (const file of walkSourceFiles(webSrc)) {
+    if (/new\s+EventSource\s*\(/.test(readFileSync(file, 'utf8'))) offenders.push(file);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `raw EventSource is not permitted; the desktop path must use openTauriSse: ${offenders.join(', ')}`,
   );
 });
+
+/** Yield every .ts/.tsx file under `dir`, recursively. */
+function walkSourceFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkSourceFiles(full));
+    else if (/\.tsx?$/.test(entry.name)) out.push(full);
+  }
+  return out;
+}

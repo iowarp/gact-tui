@@ -1,0 +1,49 @@
+import { defineConfig, devices } from '@playwright/test';
+
+const PORT = 4173;
+
+// The visual suite exercises the CLIO product (the brand under test): its
+// screenshots + string assertions are CLIO-branded. Default the brand to
+// `clio` so `test:visual` stays valid even when GACT_BRAND is unset; an
+// explicit GACT_BRAND still wins (e.g. to render the neutral profile).
+const BRAND = process.env['GACT_BRAND'] ?? 'clio';
+
+export default defineConfig({
+  testDir: './tests/visual',
+  fullyParallel: false,
+  retries: 0,
+  // SETUP runs inside `webServer.command` (it must write the brand pointer
+  // BEFORE `pnpm build` bakes it in). RESTORE is wired here as globalTeardown so
+  // the developer's own `brand.config.local.json` is put back after the suite
+  // finishes — pass OR fail. Without this, `test:visual` (= `playwright test`)
+  // has no teardown and leaves the workspace pointing at the CLIO test brand.
+  // The module's default export calls restoreBrandConfig(); it is a no-op when
+  // SETUP never ran (e.g. an existing server was reused), so it never touches a
+  // workspace it did not modify.
+  globalTeardown: './tests/visual/write-brand-config.mjs',
+  reporter: process.env['CI'] ? 'github' : 'list',
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    headless: true,
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    colorScheme: 'dark',
+  },
+  webServer: {
+    // Build (with the selected brand baked in) then preview, so the served
+    // dist always matches BRAND regardless of any prior build.
+    command: `node tests/visual/write-brand-config.mjs ${BRAND} && pnpm build && pnpm preview --port ${PORT}`,
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: !process.env['CI'] && !process.env['GACT_BRAND'],
+    timeout: 180_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { GACT_BRAND: BRAND },
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});

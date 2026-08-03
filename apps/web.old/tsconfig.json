@@ -2,7 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "types": ["vite/client", "vitest/globals", "node"],
     "paths": {
       "@clio/core": ["../core/src/index.ts"],

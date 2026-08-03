@@ -30,7 +30,7 @@ const PORTED = [
   'menu-actions.json',
 ] as const;
 
-const legacyPath = (name: string) => resolve(__dirname, '..', '..', '..', 'web', 'src', name);
+const legacyPath = (name: string) => resolve(__dirname, '..', '..', '..', 'web.old', 'src', name);
 const portedPath = (name: string) => resolve(__dirname, '..', '..', 'src', 'tauri', name);
 
 describe('ported Tauri bridge', () => {

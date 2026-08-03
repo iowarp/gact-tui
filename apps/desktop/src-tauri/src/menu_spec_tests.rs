@@ -5,7 +5,7 @@ use super::*;
 /// MENU_SPEC is validated against the very same file the web dispatcher reads
 /// — neither side can drift without failing a test on one of the two ends.
 const MENU_ACTIONS_JSON: &str =
-    include_str!("../../../web/src/menu-actions.json");
+    include_str!("../../../web/src/tauri/menu-actions.json");
 
 #[derive(serde::Deserialize)]
 struct MenuActionsSpec {
