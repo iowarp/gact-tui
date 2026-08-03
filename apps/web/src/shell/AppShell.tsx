@@ -24,6 +24,9 @@ export interface AppShellProps {
   /** Which side panel is open; drives the toolbar's pressed state. */
   panel?: string | null;
   onTogglePanel?: (panel: string) => void;
+  /** Live agent count shown in the rail footer band. */
+  agentCount?: number;
+  onOpenSettings?: () => void;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -55,6 +58,8 @@ export function AppShell({
   onRenameSession,
   panel,
   onTogglePanel,
+  agentCount,
+  onOpenSettings,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -70,6 +75,8 @@ export function AppShell({
               onSelectSession={onSelectSession}
               onCollapse={() => setRailCollapsed(true)}
               {...(onRenameSession ? { onRenameSession } : {})}
+              {...(agentCount !== undefined ? { agentCount } : {})}
+              {...(onOpenSettings ? { onOpenSettings } : {})}
             />
           </div>
           <Splitter

@@ -58,6 +58,9 @@ export interface RailProps {
   onSessionAction?: (sessionId: string, action: SessionAction) => void;
   /** Supplying this enables rename-in-place from the row menu. */
   onRenameSession?: (sessionId: string, title: string) => void;
+  /** Live agent count for the footer band. */
+  agentCount?: number;
+  onOpenSettings?: () => void;
 }
 
 /**
@@ -71,6 +74,8 @@ export function Rail({
   onCollapse,
   onSessionAction,
   onRenameSession,
+  agentCount,
+  onOpenSettings,
 }: RailProps) {
   const [menu, setMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -181,6 +186,32 @@ export function Rail({
         ))}
       </nav>
 
+      <div className="shell-rail__footer">
+        <button
+          type="button"
+          className="shell-rail__footcell"
+          aria-label="Settings"
+          onClick={() => onOpenSettings?.()}
+        >
+          <GearIcon />
+        </button>
+        <span className="shell-rail__footcell">
+          <span className="shell-rail__footdot" aria-hidden="true" />
+          agents {agentCount ?? 0}
+        </span>
+        {/* Relay has no client method — shown disabled rather than hidden, so
+            the capability gap is visible instead of silently missing. */}
+        <button
+          type="button"
+          className="shell-rail__footcell"
+          disabled
+          title="Relay status is not served by this backend"
+        >
+          <span className="shell-rail__footdot" aria-hidden="true" />
+          relay
+        </button>
+      </div>
+
       <ContextMenu
         open={menu !== null}
         x={menu?.x ?? 0}
@@ -198,6 +229,20 @@ export function Rail({
         onClose={() => setMenu(null)}
       />
     </div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <circle cx="6" cy="6" r="2" stroke="currentColor" strokeWidth="1.2" />
+      <path
+        d="M6 1v1.5M6 9.5V11M11 6H9.5M2.5 6H1M9.2 2.8l-1 1M3.8 8.2l-1 1M9.2 9.2l-1-1M3.8 3.8l-1-1"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

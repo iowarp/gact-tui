@@ -188,15 +188,61 @@
   border-radius: 4px;
   cursor: pointer;
   color: var(--t-mu);
-  opacity: 0;
-}
-
-.shell-rail__session:hover .shell-rail__menu,
-.shell-rail__menu:focus-visible {
-  opacity: 1;
 }
 
 .shell-rail__menu:hover {
   background: var(--t-sf2);
   color: var(--t-hd);
+}
+
+/* Footer band — the prototype's `auto minmax(0,1fr) minmax(0,1fr)` grid:
+   settings, agent count, relay. */
+.shell-rail__footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  border-top: 1px solid var(--t-bd3);
+  background: var(--t-sf);
+}
+
+.shell-rail__footcell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--t-bd3);
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  cursor: pointer;
+}
+
+.shell-rail__footcell:first-child {
+  border-left: 0;
+}
+
+.shell-rail__footcell:hover:not(:disabled) {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+/* Unavailable here means the backend cannot serve it — shown, not hidden. */
+.shell-rail__footcell:disabled {
+  color: var(--t-dis);
+  cursor: default;
+}
+
+.shell-rail__footdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t-ok);
+  flex: 0 0 auto;
+}
+
+.shell-rail__footcell:disabled .shell-rail__footdot {
+  background: var(--t-dis);
 }

@@ -6,6 +6,7 @@ import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
 import type { SessionStatus } from '../shell/StatusDot';
 import { Observability } from '../observability/Observability';
+import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import './sessionview.css';
@@ -38,6 +39,22 @@ export function SessionView({ client, sessions }: SessionViewProps) {
   const [sendError, setSendError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const [obs, setObs] = useState<ObservabilityData | null>(null);
+  const [agentCount, setAgentCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await client.agents();
+        if (!cancelled) setAgentCount((result.agents ?? []).length);
+      } catch {
+        // Footer shows 0; the count is informational, not load-bearing.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   // Observability reads REAL endpoints. Each tab that has no backing says so
   // rather than rendering an empty list that looks like "nothing happened".
@@ -227,7 +244,12 @@ export function SessionView({ client, sessions }: SessionViewProps) {
       onSelectRibbon={() => {}}
       onRenameSession={(sessionId, next) => void rename(sessionId, next)}
       panel={panel}
+      agentCount={agentCount}
+      onOpenSettings={() => setPanel('settings')}
       onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
+      {...(panel === 'settings'
+        ? { detail: <Settings onClose={() => setPanel(null)} /> }
+        : {})}
       {...(panel === 'obs'
         ? {
             detail: obs ? (
