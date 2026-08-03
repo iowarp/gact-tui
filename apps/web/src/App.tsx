@@ -8,7 +8,7 @@ import {
 import { ConnectScreen } from './connect/ConnectScreen';
 import { KitGallery } from './kit/KitGallery';
 import { ShellPreview } from './shell/ShellPreview';
-import { SessionList } from './sessions/SessionList';
+import { SessionView } from './session/SessionView';
 import { applyAppearance, loadAppearance } from './theme/theme';
 
 const LAST_URL_KEY = 'clio.backend.last-url.v3';
@@ -62,7 +62,12 @@ export function App() {
   }
 
   if (backend) {
-    return <SessionList backend={backend} />;
+    return (
+      <SessionView
+        client={backend.client}
+        sessions={backend.sessions}
+      />
+    );
   }
 
   return (
@@ -70,6 +75,7 @@ export function App() {
       initialUrl={initialUrl()}
       pending={pending}
       failure={failure}
+      onEdit={() => setFailure(null)}
       onConnect={(url) => void onConnect(url)}
     />
   );

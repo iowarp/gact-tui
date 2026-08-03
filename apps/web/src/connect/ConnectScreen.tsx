@@ -4,6 +4,8 @@ import type { ConnectFailure } from '../backend/connection';
 import './connect.css';
 
 export interface ConnectScreenProps {
+  /** Clears a stale failure when the user edits the address. */
+  onEdit?: () => void;
   /** Pre-filled backend URL (last used, or the brand's attach default). */
   initialUrl: string;
   pending: boolean;
@@ -11,7 +13,7 @@ export interface ConnectScreenProps {
   onConnect: (url: string) => void;
 }
 
-export function ConnectScreen({ initialUrl, pending, failure, onConnect }: ConnectScreenProps) {
+export function ConnectScreen({ initialUrl, pending, failure, onConnect, onEdit }: ConnectScreenProps) {
   const [url, setUrl] = useState(initialUrl);
 
   function submit(event: FormEvent) {
@@ -41,7 +43,10 @@ export function ConnectScreen({ initialUrl, pending, failure, onConnect }: Conne
           data-testid="connect-url"
           className="connect__input"
           value={url}
-          onChange={(e) => setUrl(e.currentTarget.value)}
+          onChange={(e) => {
+            setUrl(e.currentTarget.value);
+            onEdit?.();
+          }}
           placeholder="127.0.0.1:17800"
           autoComplete="off"
           spellCheck={false}

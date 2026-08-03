@@ -1,0 +1,18 @@
+.sessionview__notice {
+  margin: 0;
+  padding: 18px 24px;
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+}
+
+.sessionview__error {
+  margin: 18px 24px;
+  padding: 10px 12px;
+  background: var(--t-erc06);
+  border: 1px solid var(--t-erc5);
+  border-radius: 8px;
+  color: var(--t-er);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+}
