@@ -1,0 +1,20 @@
+/* The part frame: 14px gutter + shrinkable content column. */
+.kit-partcard {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 8px;
+}
+
+.kit-partcard__gutter {
+  display: flex;
+  justify-content: center;
+  color: var(--t-mu);
+}
+
+.kit-partcard__body {
+  min-width: 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+}

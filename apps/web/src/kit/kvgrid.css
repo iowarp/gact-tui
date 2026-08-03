@@ -1,0 +1,45 @@
+/* Key/value grid — 110px key, shrinkable value, auto trailing slot. */
+.kit-kvgrid {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kit-kvgrid__row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 7px 10px;
+  border-radius: 7px;
+}
+
+.kit-kvgrid__row:hover {
+  background: var(--t-hv);
+}
+
+.kit-kvgrid__key {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  overflow-wrap: anywhere;
+}
+
+.kit-kvgrid__value {
+  margin: 0;
+  min-width: 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.kit-kvgrid__trailing {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  white-space: nowrap;
+}

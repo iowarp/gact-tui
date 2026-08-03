@@ -1,0 +1,11 @@
+.kit-eyebrow {
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--t-mu);
+}
+
+.kit-eyebrow[data-tight='true'] {
+  letter-spacing: 0.08em;
+}
