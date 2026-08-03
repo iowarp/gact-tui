@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  MasterDetail,
   Chip,
   ContextMenu,
   Eyebrow,
@@ -7,6 +8,7 @@ import {
   Modal,
   PartCard,
   Popover,
+  Select,
   Splitter,
   Tabs,
   ToolbarButton,
@@ -27,6 +29,8 @@ export function KitGallery() {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [railWidth, setRailWidth] = useState(260);
+  const [model, setModel] = useState('sonnet');
+  const [page, setPage] = useState('providers');
   const isDesktop = useIsDesktop();
 
   return (
@@ -124,18 +128,18 @@ export function KitGallery() {
         <Eyebrow>Popover · ContextMenu · Splitter</Eyebrow>
         <div className="kit-gallery__row">
           <span className="kit-gallery__anchor">
-            <button type="button" onClick={() => setPopoverOpen((v) => !v)}>
+            <button type="button" className="kit-gallery__btn" onClick={() => setPopoverOpen((v) => !v)}>
               popover (down)
             </button>
             <Popover open={popoverOpen} label="Model" onClose={() => setPopoverOpen(false)}>
               <div className="kit-gallery__menu">
-                <button type="button">claude-sonnet-5</button>
-                <button type="button">gpt-5.5</button>
+                <button type="button" className="kit-gallery__btn">claude-sonnet-5</button>
+                <button type="button" className="kit-gallery__btn">gpt-5.5</button>
               </div>
             </Popover>
           </span>
 
-          <button type="button" onClick={() => setMenuOpen(true)}>
+          <button type="button" className="kit-gallery__btn" onClick={() => setMenuOpen(true)}>
             context menu
           </button>
         </div>
@@ -170,15 +174,47 @@ export function KitGallery() {
       </section>
 
       <section className="kit-gallery__section">
+        <Eyebrow>Select</Eyebrow>
+        <div className="kit-gallery__row">
+          <Select
+            label="Model"
+            value={model}
+            onChange={setModel}
+            options={[
+              { id: 'sonnet', label: 'claude-sonnet-5', detail: 'Anthropic' },
+              { id: 'opus', label: 'claude-opus-5', detail: 'Anthropic' },
+              { id: 'gpt', label: 'gpt-5.5', detail: 'unavailable', disabled: true },
+            ]}
+          />
+        </div>
+      </section>
+
+      <section className="kit-gallery__section">
+        <Eyebrow>MasterDetail</Eyebrow>
+        <MasterDetail
+          label="Settings"
+          activeId={page}
+          onSelect={setPage}
+          items={[
+            { id: 'providers', label: 'Providers' },
+            { id: 'policies', label: 'Policies' },
+            { id: 'hooks', label: 'Hooks', badge: 3 },
+            { id: 'plugins', label: 'Plugins', hidden: true },
+          ]}
+          detail={<p>Detail pane for “{page}”. Unbacked pages ship hidden, never dead.</p>}
+        />
+      </section>
+
+      <section className="kit-gallery__section">
         <Eyebrow>Modal</Eyebrow>
         <div className="kit-gallery__row">
-          <button type="button" onClick={() => setOpenModal('default')}>
+          <button type="button" className="kit-gallery__btn" onClick={() => setOpenModal('default')}>
             default
           </button>
-          <button type="button" onClick={() => setOpenModal('danger')}>
+          <button type="button" className="kit-gallery__btn" onClick={() => setOpenModal('danger')}>
             danger
           </button>
-          <button type="button" onClick={() => setOpenModal('scroll')}>
+          <button type="button" className="kit-gallery__btn" onClick={() => setOpenModal('scroll')}>
             scrolling body
           </button>
         </div>
@@ -189,7 +225,7 @@ export function KitGallery() {
         title="Default dialog"
         onClose={() => setOpenModal(null)}
         footer={
-          <button type="button" onClick={() => setOpenModal(null)}>
+          <button type="button" className="kit-gallery__btn" onClick={() => setOpenModal(null)}>
             Done
           </button>
         }

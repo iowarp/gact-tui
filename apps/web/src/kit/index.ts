@@ -19,4 +19,10 @@ export { ContextMenu, type ContextMenuProps, type MenuItemDef } from './ContextM
 export { Chip, type ChipProps, type ChipTone } from './Chip';
 export { ToolbarButton, type ToolbarButtonProps } from './ToolbarButton';
 export { Splitter, type SplitterProps } from './Splitter';
+export { Select, type SelectOption, type SelectProps } from './Select';
+export {
+  MasterDetail,
+  type MasterDetailItem,
+  type MasterDetailProps,
+} from './MasterDetail';
 export { useIsDesktop } from './useIsDesktop';

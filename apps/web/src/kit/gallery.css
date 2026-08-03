@@ -37,7 +37,7 @@
   flex-wrap: wrap;
 }
 
-.kit-gallery button {
+.kit-gallery__btn {
   padding: 6px 10px;
   background: transparent;
   border: 1px solid var(--t-bd3);
@@ -48,7 +48,7 @@
   cursor: pointer;
 }
 
-.kit-gallery button:hover {
+.kit-gallery__btn:hover {
   background: var(--t-hv);
   color: var(--t-hd);
 }
@@ -70,7 +70,7 @@
   padding: 4px;
 }
 
-.kit-gallery__menu button {
+.kit-gallery__menu .kit-gallery__btn {
   border: 0;
   border-radius: 6px;
   text-align: left;

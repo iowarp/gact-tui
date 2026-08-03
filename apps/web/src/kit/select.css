@@ -1,0 +1,72 @@
+.kit-select {
+  position: relative;
+  display: inline-flex;
+}
+
+.kit-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  color: var(--t-mu);
+}
+
+.kit-select__trigger:hover,
+.kit-select__trigger[aria-expanded='true'] {
+  border-color: var(--t-bd3);
+  color: var(--t-hd);
+}
+
+.kit-select__caret {
+  color: var(--t-mu);
+}
+
+.kit-select__list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  min-width: 200px;
+}
+
+.kit-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  color: var(--t-tx);
+}
+
+.kit-select__option:hover:not(:disabled) {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.kit-select__option[aria-selected='true'] {
+  color: var(--t-cy);
+}
+
+.kit-select__option:disabled {
+  color: var(--t-dis);
+  cursor: default;
+}
+
+.kit-select__option-detail {
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+}
