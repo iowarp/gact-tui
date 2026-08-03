@@ -1,0 +1,23 @@
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 18px 24px 40px;
+}
+
+.transcript__message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The user turn is the prototype's bordered card; assistant output is bare. */
+.transcript__message[data-role='user'] {
+  padding: 12px 14px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-radius: 10px;
+}

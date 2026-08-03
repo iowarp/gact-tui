@@ -1,0 +1,195 @@
+.part-text {
+  margin: 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+}
+
+/* The prototype's small bullet marker in the 14px gutter. */
+.part-gutter-dot {
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--t-ac);
+}
+
+.part-muted {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+}
+
+.part-link {
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+}
+
+.part-error {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--t-erc06);
+  border: 1px solid var(--t-erc5);
+  border-radius: 7px;
+  color: var(--t-er);
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+}
+
+/* ---- collapsible (thinking) ---- */
+
+.part-collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.part-collapsible__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+  color: var(--t-mu);
+}
+
+.part-collapsible__toggle:hover {
+  color: var(--t-hd);
+}
+
+.part-collapsible__chev {
+  display: inline-block;
+  transition: transform 120ms ease-out;
+}
+
+.part-collapsible__chev[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part-collapsible__chev {
+    transition: none;
+  }
+}
+
+.part-collapsible__body {
+  padding-left: 2px;
+}
+
+.part-thinking {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ---- tool ---- */
+
+.part-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.part-tool__name {
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(12.5px * var(--ts));
+  font-weight: 600;
+}
+
+.part-tool[data-error='true'] .part-tool__name {
+  color: var(--t-er);
+}
+
+.part-toolresult {
+  margin: 0;
+  color: var(--t-pr);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* ---- handoff ---- */
+
+.part-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-radius: 9px;
+}
+
+.part-handoff[data-returned='true'] {
+  border-color: var(--t-cy3);
+}
+
+.part-handoff__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.part-handoff__label {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.part-handoff__child {
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(12.5px * var(--ts));
+  font-weight: 600;
+}
+
+.part-handoff__body {
+  margin: 0;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  line-height: 1.6;
+}
+
+/* ---- unrenderable ---- */
+
+.part-unrenderable {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--t-wm08);
+  border: 1px solid var(--t-wm35);
+  border-radius: 7px;
+}
+
+.part-unrenderable__kind {
+  color: var(--t-wa);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  font-weight: 600;
+}
+
+.part-unrenderable__note {
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(12px * var(--ts));
+}

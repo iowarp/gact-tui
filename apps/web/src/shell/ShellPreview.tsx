@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { Message } from '@clio/core';
+import { Transcript } from '../transcript/Transcript';
 import { AppShell } from './AppShell';
 import type { RailGroup } from './Rail';
 
@@ -36,6 +38,64 @@ const GROUPS: RailGroup[] = [
   },
 ];
 
+const MESSAGES = [
+  {
+    id: 'm_user',
+    role: 'user',
+    parts: [
+      {
+        type: 'text',
+        text:
+          "What recent ground-motion is EarthScope's GNSS network showing around Los Angeles? " +
+          'Pull a real station time series, plot it, and tell me how much to trust the data.',
+      },
+    ],
+  },
+  {
+    id: 'm_a1',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'thinking',
+        thinking:
+          'The user wants recent ground motion around Los Angeles from EarthScope GNSS. ' +
+          'I will spawn the geospatial child to resolve the place name into coordinates.',
+        tokens: 77,
+      },
+      {
+        type: 'text',
+        text:
+          'The request asks for the full pipeline: resolve Los Angeles, discover and stage a ' +
+          'GNSS station CSV, profile it, then produce a PNG. Starting with the geospatial child.',
+      },
+      {
+        type: 'expert_handoff',
+        expert: 'geospatial',
+        task_id: 'task_b7525159dde5',
+        duration: '1m 12s',
+        question:
+          "Resolve 'Los Angeles, California' into a grounded region center and search radius.",
+      },
+      {
+        type: 'subagent_result',
+        expert: 'geospatial',
+        duration: '1m 12s',
+        excerpt:
+          'Los Angeles resolves via OSM Nominatim to 34.0537° N, 118.2428° W, bbox ' +
+          '[-118.668, 33.660, -118.155, 34.337]. Radius 100 km assumed as a conservative default.',
+      },
+      {
+        type: 'tool_call',
+        id: 'tc1',
+        name: 'ndp_dataset_discovery',
+        input: { center_lat: 34.0536909, center_lon: -118.242766, radius_km: 100 },
+      },
+      { type: 'routing_decision', expert: 'data' },
+      { type: 'some_future_kind', payload: 1 },
+    ],
+  },
+] as unknown as Message[];
+
 export function ShellPreview() {
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
@@ -57,9 +117,7 @@ export function ShellPreview() {
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
     >
-      <div style={{ padding: '20px 24px', color: 'var(--t-mu)' }}>
-        Transcript region — gact-tui#333.
-      </div>
+      <Transcript messages={MESSAGES} />
     </AppShell>
   );
 }
