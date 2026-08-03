@@ -43,11 +43,15 @@ describe('DetailSlot', () => {
   });
 
   it('renders the four provenance axes on the provenance tab', () => {
-    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    const { container } = render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-    const panel = screen.getByTestId('detail-provenance');
+    // Scoped to the axes grid: "hashed-at-use" is legitimately BOTH the
+    // evidence axis and a route edge stance, so a panel-wide lookup is
+    // ambiguous by design rather than by accident.
+    const axes = container.querySelector('.kit-kvgrid') as HTMLElement;
+    expect(axes).not.toBeNull();
     for (const value of ['harness', 'tool-declared', 'hashed-at-use', 'workspace — data/']) {
-      expect(within(panel).getByText(value)).toBeInTheDocument();
+      expect(within(axes).getByText(value)).toBeInTheDocument();
     }
   });
 

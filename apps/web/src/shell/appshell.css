@@ -35,3 +35,8 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+.shell__detail {
+  flex: 0 0 auto;
+  min-height: 0;
+}

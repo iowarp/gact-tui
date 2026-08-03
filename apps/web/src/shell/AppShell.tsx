@@ -15,6 +15,8 @@ export interface AppShellProps {
   artifactCount?: number;
   contextPercent?: number;
   children: ReactNode;
+  /** Optional right pane; absent when nothing is selected. */
+  detail?: ReactNode;
   onSelectSession: (id: string) => void;
   onSelectRibbon: (id: string) => void;
 }
@@ -23,6 +25,8 @@ export interface AppShellProps {
 const RAIL_DEFAULT = 300;
 const RAIL_MIN = 200;
 const RAIL_MAX = 460;
+/** The prototype's right pane width. */
+const DETAIL_DEFAULT = 480;
 
 /**
  * The application shell — rail, topbar, hierarchy ribbon, content region.
@@ -40,6 +44,7 @@ export function AppShell({
   artifactCount,
   contextPercent,
   children,
+  detail,
   onSelectSession,
   onSelectRibbon,
 }: AppShellProps) {
@@ -89,6 +94,12 @@ export function AppShell({
 
         <main className="shell__content">{children}</main>
       </div>
+
+      {detail ? (
+        <div className="shell__detail" style={{ width: `${DETAIL_DEFAULT}px` }}>
+          {detail}
+        </div>
+      ) : null}
     </div>
   );
 }

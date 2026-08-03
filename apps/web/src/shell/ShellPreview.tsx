@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Message } from '@clio/core';
 import { Composer } from '../composer/Composer';
+import { DetailSlot } from '../detail/DetailSlot';
+import type { ArtifactRecord } from '../detail/types';
 import { Transcript } from '../transcript/Transcript';
 import { AppShell } from './AppShell';
 import type { RailGroup } from './Rail';
@@ -97,6 +99,26 @@ const MESSAGES = [
   },
 ] as unknown as Message[];
 
+const RECORD: ArtifactRecord = {
+  id: 'art_5f21c9d0e83a',
+  sha: 'sha256:b3c94ff0a2e1…41ad',
+  size: '48 KB (1,101 rows)',
+  kind: 'dataset / csv',
+  mechanism: 'harness',
+  designation: 'tool-declared',
+  evidence: 'hashed-at-use',
+  custody: 'workspace — data/',
+  note: 'Clean station-metadata catalog staged from NDP.',
+  instrument: 'stage_resource(resource="earthscope_stations.csv", source="ds2.datacollaboratory.org")',
+  route: [
+    { kind: 'node', nodeType: 'artifact', label: 'ds2.datacollaboratory.org/…/earthscope_stations.csv', sub: 'external source on NDP' },
+    { kind: 'edge', edge: 'used', stance: 'authority-asserted' },
+    { kind: 'node', nodeType: 'activity', label: 'stage_resource', sub: 'call_a4c19b2e' },
+    { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+    { kind: 'node', nodeType: 'artifact', label: 'earthscope_stations.csv', sub: 'this version', self: true },
+  ],
+};
+
 export function ShellPreview() {
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
@@ -118,6 +140,7 @@ export function ShellPreview() {
       ]}
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
+      detail={<DetailSlot record={RECORD} onClose={() => {}} />}
     >
       <Transcript messages={MESSAGES} />
       <Composer
