@@ -7,6 +7,7 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   background: var(--t-sf);
   border-right: 1px solid var(--t-bd3);
 }
@@ -16,6 +17,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 0;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--t-bd3);
 }
 
@@ -33,11 +35,49 @@
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--t-bd3);
 }
 
-/* The prototype's list: 6px padding, 1px between rows. */
+.shell-rail__headingactions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.shell-rail__headingbutton {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--t-mu);
+  cursor: pointer;
+}
+
+.shell-rail__headingbutton:hover:not(:disabled) {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.shell-rail__headingbutton:disabled {
+  color: var(--t-dis);
+  cursor: default;
+}
+
 .shell-rail__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The prototype's list: 6px padding, 1px between rows. */
+.shell-rail__list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -55,9 +95,17 @@
 
 .shell-rail__grouphead {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 8px 8px 4px 10px;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 25px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.shell-rail__grouphead:hover {
+  background: var(--t-hv);
 }
 
 .shell-rail__grouplabel {
@@ -66,25 +114,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--t-mu);
+  color: rgb(183, 189, 200);
   font-family: var(--f-mono);
-  font-size: calc(11px * var(--ts));
+  font-size: calc(11.5px * var(--ts));
 }
 
 .shell-rail__groupcount {
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10px * var(--ts));
+  font-size: calc(10.5px * var(--ts));
 }
 
 /* THE session row — grid, not flex: an 8px indicator column and a content
    column that may shrink. */
 .shell-rail__session {
+  /* Positioned so the sr-only children (status text, menu alias) contain HERE.
+     Unpositioned, an absolute sr-only span anchors to <html> at its static y —
+     rows scrolled past the fold then stretch the DOCUMENT and the page itself
+     scrolls (the B13 owner bug's root cause). */
+  position: relative;
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
-  width: 100%;
+  width: calc(100% - 12px);
+  height: 27px;
+  margin-left: 12px;
   padding: 3px 8px 3px 10px;
   background: transparent;
   border: 1px solid transparent;
@@ -98,8 +153,8 @@
 }
 
 .shell-rail__session[aria-current='true'] {
-  background: var(--t-cy12);
-  border-color: var(--t-cy3);
+  background: rgb(25, 50, 56);
+  border-color: transparent;
 }
 
 /* Centred, not baseline-aligned. The row mixes an 11.5px title, a 10px
@@ -109,7 +164,7 @@
 .shell-rail__row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   /* Fills its grid track so the title can ellipsis and the time + menu stay
      pinned right, rather than bunching against the title. */
   width: 100%;
@@ -150,7 +205,14 @@
 }
 
 .shell-rail__session[aria-current='true'] .shell-rail__age {
-  color: var(--t-cy);
+  color: var(--t-mu);
+}
+
+.shell-rail__pin {
+  display: grid;
+  place-items: center;
+  flex: 0 0 9px;
+  color: var(--t-mu);
 }
 
 /* The per-session action button. */
@@ -174,12 +236,14 @@
   color: var(--t-hd);
 }
 
+
 /* Footer band — the prototype's `auto minmax(0,1fr) minmax(0,1fr)` grid:
    settings, agent count, relay. */
 .shell-rail__footer {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
+  flex-shrink: 0;
   border-top: 1px solid var(--t-bd3);
   background: var(--t-sf);
 }
@@ -200,7 +264,7 @@
   border-left: 1px solid var(--t-bd3);
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
+  font-size: calc(11px * var(--ts));
   cursor: pointer;
 }
 
@@ -226,26 +290,46 @@
   cursor: default;
 }
 
-.shell-rail__footdot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--t-ok);
-  flex: 0 0 auto;
-}
-
-.shell-rail__footcell:disabled .shell-rail__footdot {
-  background: var(--t-dis);
+.shell-rail__footcount {
+  color: var(--t-hd);
 }
 
 /* --- group disclosure + truncation (C6 / C7) ------------------------- */
 
 .shell-rail__groupdisclose {
-  display: flex;
+  display: inline-grid;
   align-items: center;
   justify-content: center;
+  width: 8px;
+  height: 12px;
+  flex: 0 0 8px;
+  padding: 0;
+  color: var(--t-mu);
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: calc(8px * var(--ts));
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.shell-rail__groupdisclose:hover {
+  color: var(--t-hd);
+}
+
+.shell-rail__groupdisclose[aria-expanded='false'] {
+  color: var(--t-dis);
+}
+
+.shell-rail__groupdisclose[aria-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+.shell-rail__groupmenu {
+  display: grid;
+  place-items: center;
   width: 16px;
   height: 16px;
+  flex: 0 0 16px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -254,19 +338,16 @@
   cursor: pointer;
 }
 
-.shell-rail__groupdisclose:hover {
-  background: var(--t-hv);
+.shell-rail__groupmenu:hover {
+  background: var(--t-sf2);
   color: var(--t-hd);
-}
-
-.shell-rail__groupdisclose[aria-expanded='false'] {
-  color: var(--t-dis);
 }
 
 /* The prototype's "show more (4)": 11px, muted, aligned with the rows. */
 .shell-rail__showmore {
   display: block;
-  width: 100%;
+  width: calc(100% - 12px);
+  margin-left: 12px;
   padding: 3px 8px 3px 10px;
   border: 0;
   background: transparent;
@@ -277,5 +358,12 @@
 }
 
 .shell-rail__showmore:hover {
+  background: var(--t-hv);
   color: var(--t-hd);
+}
+
+.shell-rail__brand .shell-lockup__logo:hover,
+.shell-rail__brand .shell-lockup__wordmark:hover,
+.shell-rail__brand .shell-lockup__tagline-accent:hover {
+  filter: brightness(1.18);
 }

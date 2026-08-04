@@ -17,15 +17,28 @@ test('the body never scrolls; the rail list owns its overflow', async ({ page })
     const scroller = document.scrollingElement!;
     const list = document.querySelector('.shell-rail__list');
     const foot = document.querySelector('.shell-rail__foot')?.getBoundingClientRect();
+    // Name the overflowing element: a bare "expected 0" says nothing about
+    // WHICH portal/sibling pushed the page past the viewport.
+    const offenders = [document.documentElement, document.body, ...document.body.children].map(
+      (el) => {
+        const r = el.getBoundingClientRect();
+        const s = getComputedStyle(el);
+        return `${el.tagName.toLowerCase()}#${el.id || ''}.${String(el.className).slice(0, 30)} h=${Math.round(r.height)} bottom=${Math.round(r.bottom)} pos=${s.position} scrollH=${el.scrollHeight}`;
+      },
+    );
     return {
       bodyOverflow: scroller.scrollHeight - scroller.clientHeight,
       railListScrolls: list ? list.scrollHeight > list.clientHeight : null,
       footBottom: foot ? Math.round(foot.bottom) : null,
       viewport: window.innerHeight,
+      offenders,
     };
   });
 
-  expect(layout.bodyOverflow, 'the page itself must never scroll').toBe(0);
+  expect(
+    layout.bodyOverflow,
+    `the page itself must never scroll; overflowing: ${layout.offenders.join(' | ')}`,
+  ).toBe(0);
   expect(layout.railListScrolls, 'the rail list scrolls internally').toBe(true);
   expect(layout.footBottom, 'the footer band stays pinned to the viewport').toBe(layout.viewport);
 });

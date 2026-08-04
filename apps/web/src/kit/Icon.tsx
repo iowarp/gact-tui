@@ -29,6 +29,7 @@ export type IconName =
   | 'detach'
   | 'pulse'
   | 'bolt'
+  | 'zap'
   | 'play'
   | 'sparkle'
   | 'swap'
@@ -47,6 +48,9 @@ export type IconName =
   | 'ctx'
   | 'eye'
   | 'send'
+  | 'arrow-up'
+  | 'search'
+  | 'pin'
   | 'plus'
   | 'dots';
 
@@ -79,7 +83,9 @@ const GLYPHS: Record<IconName, ReactNode> = {
     </>
   ),
   artifact: P('M6 1.5L10.5 6 6 10.5 1.5 6 6 1.5z'),
-  folder: P('M1.5 3.2c0-.7.5-1.2 1.2-1.2h2l1.2 1.4h3.9c.7 0 1.2.5 1.2 1.2v4.7c0 .7-.5 1.2-1.2 1.2H2.7c-.7 0-1.2-.5-1.2-1.2V3.2z'),
+  folder: P(
+    'M1.5 3.2c0-.7.5-1.2 1.2-1.2h2l1.2 1.4h3.9c.7 0 1.2.5 1.2 1.2v4.7c0 .7-.5 1.2-1.2 1.2H2.7c-.7 0-1.2-.5-1.2-1.2V3.2z',
+  ),
   csv: (
     <>
       <rect x={1.5} y={1.5} width={9} height={9} rx={1.5} stroke="currentColor" strokeWidth={1.1} />
@@ -101,8 +107,22 @@ const GLYPHS: Record<IconName, ReactNode> = {
   conf: (
     <>
       {P('M2 3.8h8M2 8.2h8', 1.1)}
-      <circle cx={4.2} cy={3.8} r={1.3} stroke="currentColor" strokeWidth={1.1} fill="var(--t-sf)" />
-      <circle cx={7.8} cy={8.2} r={1.3} stroke="currentColor" strokeWidth={1.1} fill="var(--t-sf)" />
+      <circle
+        cx={4.2}
+        cy={3.8}
+        r={1.3}
+        stroke="currentColor"
+        strokeWidth={1.1}
+        fill="var(--t-sf)"
+      />
+      <circle
+        cx={7.8}
+        cy={8.2}
+        r={1.3}
+        stroke="currentColor"
+        strokeWidth={1.1}
+        fill="var(--t-sf)"
+      />
     </>
   ),
   bin: (
@@ -113,7 +133,15 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ),
   bot: (
     <>
-      <rect x={2.2} y={4} width={7.6} height={5.6} rx={1.5} stroke="currentColor" strokeWidth={1.1} />
+      <rect
+        x={2.2}
+        y={4}
+        width={7.6}
+        height={5.6}
+        rx={1.5}
+        stroke="currentColor"
+        strokeWidth={1.1}
+      />
       {P('M6 4V1.8', 1.1)}
       {C(4.4, 6.8, 0.7, true)}
     </>
@@ -151,8 +179,25 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ),
   pulse: P('M1.5 6h2L5 3l2 6 1.5-3h2'),
   bolt: <path d="M6.9 1.1L2.6 7h2.7l-1.1 3.9L8.9 5H6.2l.7-3.9z" fill="currentColor" />,
-  play: P('M3.5 2.2L9.5 6l-6 3.8V2.2z'),
-  sparkle: P('M6 1.3l1.1 3.1 3.1 1.1-3.1 1.1L6 9.7 4.9 6.6 1.8 5.5l3.1-1.1L6 1.3z'),
+  zap: <path d="M6.9 1.1L2.6 7h2.7l-1.1 3.9L8.9 5H6.2l.7-3.9z" fill="currentColor" stroke="none" />,
+  play: (
+    <path
+      d="M3.5 2.2L9.5 6l-6 3.8V2.2z"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
+  sparkle: (
+    <path
+      d="M6 1.3l1.1 3.1 3.1 1.1-3.1 1.1L6 9.7 4.9 6.6 1.8 5.5l3.1-1.1L6 1.3z"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
   swap: (
     <>
       {P('M3.5 1.8L1.5 3.8l2 2M1.5 3.8h7')}
@@ -161,9 +206,15 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ),
   ask: (
     <>
-      {C(6, 6, 4.5)}
-      {P('M4.7 4.8a1.4 1.4 0 112.2 1.4c-.5.4-.9.7-.9 1.2', 1.1)}
-      {C(6, 9, 0.5, true)}
+      <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.1" />
+      <path
+        d="M4.7 4.8a1.4 1.4 0 112.2 1.4c-.5.4-.9.7-.9 1.2"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="6" cy="9" r="0.5" fill="currentColor" />
     </>
   ),
   pencil: (
@@ -234,25 +285,50 @@ const GLYPHS: Record<IconName, ReactNode> = {
     </>
   ),
   send: P('M6 9.9V2.1M3 5L6 2l3 3', 1.5),
+  'arrow-up': (
+    <path
+      d="M7 11.5v-9M3 6.5l4-4 4 4"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
+  search: (
+    <g>
+      <circle cx={5.2} cy={5.2} r={3.7} stroke="currentColor" strokeWidth={1.3} />
+      <path d="M8 8L10.8 10.8" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+    </g>
+  ),
+  pin: (
+    <path
+      d="M6 1v4M3.5 5h5l-1 2.5h-3L3.5 5zM6 7.5V11"
+      stroke="currentColor"
+      strokeWidth={1.1}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
   // The composer's attach control, transcribed from the prototype's
   // [title="Attach"] button: viewBox 0 0 12 12, stroke-width 1.4.
   plus: P('M6 1v10M1 6h10', 1.4),
   dots: (
     <>
-      {C(2.5, 6, 1, true)}
+      {C(2.2, 6, 1, true)}
       {C(6, 6, 1, true)}
-      {C(9.5, 6, 1, true)}
+      {C(9.8, 6, 1, true)}
     </>
   ),
 };
 
 export function Icon({ name, size = 12 }: IconProps) {
-  const box = name === 'tool' ? '0 0 24 24' : '0 0 12 12';
+  const box = name === 'tool' ? '0 0 24 24' : name === 'arrow-up' ? '0 0 14 14' : '0 0 12 12';
   return (
     <svg
       width={size}
       height={size}
       viewBox={box}
+      data-icon={name}
       fill="none"
       aria-hidden="true"
       style={{ display: 'block' }}

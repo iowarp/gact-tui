@@ -23,14 +23,81 @@
 .composer__chips {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 0;
+  margin-bottom: -3px;
+}
+
+.composer__chips .kit-chip {
+  min-height: 23px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  line-height: 1;
+}
+
+.composer__pillsep {
+  width: 1px;
+  height: 15px;
+  flex: 0 0 1px;
+  margin: 0 2px;
+  background: rgba(45, 99, 139, 0.3);
+}
+
+.composer__placementlabel,
+.composer__contextlabel {
+  font-size: 0;
+}
+
+.composer__placementlabel::before,
+.composer__placementlabel::after,
+.composer__contextlabel::before,
+.composer__contextlabel::after {
+  font-size: calc(11.5px * var(--ts));
+}
+
+.composer__placementlabel::before {
+  content: attr(data-host);
+  color: var(--t-mu);
+}
+
+.composer__placementlabel::after {
+  content: attr(data-path);
+  color: var(--t-tx);
+  /* Compaction happens in code (compactPath — tail-biased, honest ellipsis);
+     this is only the guard against a pathological single segment. */
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.composer__asyncchip .kit-chip {
+  color: var(--t-ac);
+}
+
+.composer__contextdot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t-wa);
+}
+
+.composer__contextlabel::before {
+  content: 'ctx ';
+  color: var(--t-mu);
+}
+
+.composer__contextlabel::after {
+  content: attr(data-percent);
+  color: var(--t-tx);
 }
 
 /* THE chat pill. Geometry is the prototype's, including the asymmetric bottom
-   padding and the DYNAMIC corner: the top-left is always square so the pill
-   reads as attached, and the top-right squares off too once the composer is
-   focused or something is queued above it. */
+   padding and the square docking corner when the status pill is present. */
 .composer__frame {
   display: flex;
   flex-direction: column;
@@ -38,14 +105,13 @@
   padding: 12px 14px 10px;
   background: var(--t-sf);
   border: 1px solid var(--t-bd3);
-  border-radius: 0 14px 14px 14px;
+  border-radius: 14px;
   position: relative;
   z-index: 1;
 }
 
-.composer__frame:focus-within,
-.composer__frame[data-queued='true'] {
-  border-radius: 0 0 14px 14px;
+.composer__frame[data-pill='true'] {
+  border-radius: 0 14px 14px 14px;
 }
 
 .composer__frame:focus-within {
@@ -92,16 +158,91 @@
   flex: 1;
 }
 
+.composer__quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 23px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--t-mu);
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  line-height: 1;
+}
+
+.composer__quiet:hover {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.composer__approval {
+  position: relative;
+  display: inline-flex;
+}
+
+.composer__approval > .kit-contextmenu {
+  left: 0;
+}
+
+.composer__approval .kit-contextmenu__item {
+  gap: 0;
+}
+
+.composer__approval .kit-contextmenu__icon {
+  width: auto;
+  color: inherit;
+}
+
+.composer__model {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 240px;
+  height: 23px;
+  min-width: 0;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--t-mu);
+}
+
+.composer__model:hover {
+  background: var(--t-hv);
+}
+
+.composer__model .kit-select {
+  min-width: 0;
+  flex: 1;
+}
+
+.composer__model .kit-select__trigger {
+  width: 100%;
+  height: 23px;
+  justify-content: space-between;
+  padding: 0;
+  color: var(--t-hd);
+}
+
+.composer__model .kit-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .composer__send {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
+  padding: 0;
   background: var(--t-ac);
   border: 0;
   border-radius: 50%;
-  color: var(--t-ink);
+  color: var(--t-sf);
   cursor: pointer;
 }
 
@@ -110,9 +251,10 @@
 }
 
 .composer__send:disabled {
-  background: var(--t-sf2);
-  color: var(--t-dis);
+  background: var(--t-ac);
+  color: var(--t-sf);
   cursor: default;
+  opacity: 0.45;
 }
 
 .composer__busy {

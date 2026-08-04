@@ -2,6 +2,7 @@
 .shell {
   display: flex;
   height: 100vh;
+  max-height: 100vh;
   min-width: 0;
   overflow: hidden;
   background: var(--t-bg);
@@ -11,7 +12,9 @@
 
 .shell__rail {
   flex: 0 0 auto;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .shell__column {

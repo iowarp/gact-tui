@@ -14,6 +14,7 @@ export { PartCard, type PartCardProps } from './PartCard';
 export { KvGrid, type KvGridProps, type KvRow } from './KvGrid';
 export { Eyebrow, type EyebrowProps } from './Eyebrow';
 export { Icon, type IconName, type IconProps } from './Icon';
+export { StatusDot, type SessionStatus, type StatusDotProps } from './StatusDot';
 export { Layer, type LayerProps, type LayerSize } from './Layer';
 export { InlineEdit, type InlineEditProps, type InlineEditSize } from './InlineEdit';
 export { Tabs, type TabDef, type TabsProps } from './Tabs';
@@ -23,9 +24,5 @@ export { Chip, type ChipProps, type ChipTone } from './Chip';
 export { ToolbarButton, type ToolbarButtonProps } from './ToolbarButton';
 export { Splitter, type SplitterProps } from './Splitter';
 export { Select, type SelectOption, type SelectProps } from './Select';
-export {
-  MasterDetail,
-  type MasterDetailItem,
-  type MasterDetailProps,
-} from './MasterDetail';
+export { MasterDetail, type MasterDetailItem, type MasterDetailProps } from './MasterDetail';
 export { useIsDesktop } from './useIsDesktop';

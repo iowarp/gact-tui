@@ -115,7 +115,7 @@ describe('AppShell', () => {
 describe('rail rename', () => {
   it('turns the row into an edit field when Rename is chosen', () => {
     renderShell({ onRenameSession: vi.fn() });
-    fireEvent.click(screen.getByRole('button', { name: 'Actions for asteroid cut-plane render' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Session menu for asteroid cut-plane render' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
     expect(screen.getByRole('textbox', { name: /session name/i })).toHaveValue(
       'asteroid cut-plane render',
@@ -125,7 +125,7 @@ describe('rail rename', () => {
   it('commits the new name for the RIGHT session', () => {
     const onRenameSession = vi.fn();
     renderShell({ onRenameSession });
-    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Session menu for ior baseline sweep' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
     const box = screen.getByRole('textbox', { name: /session name/i });
     fireEvent.change(box, { target: { value: 'sweep v2' } });
@@ -136,7 +136,7 @@ describe('rail rename', () => {
   it('leaves edit mode on Escape without renaming', () => {
     const onRenameSession = vi.fn();
     renderShell({ onRenameSession });
-    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Session menu for ior baseline sweep' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
     fireEvent.keyDown(screen.getByRole('textbox', { name: /session name/i }), { key: 'Escape' });
     expect(onRenameSession).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe('rail rename', () => {
     // No handler means the surface cannot rename; showing the item would
     // promise something that does nothing.
     renderShell();
-    fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Session menu for ior baseline sweep' }));
     expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
   });
 });

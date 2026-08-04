@@ -1,6 +1,14 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { brand } from '@brand';
-import { Chip, ContextMenu, Icon, Select, type MenuItemDef, type SelectOption } from '../kit';
+import {
+  Chip,
+  ContextMenu,
+  Icon,
+  Select,
+  StatusDot,
+  type MenuItemDef,
+  type SelectOption,
+} from '../kit';
 import { Picker, type PickerItem } from './Picker';
 import './composer.css';
 
@@ -18,6 +26,24 @@ export type ApprovalMode = (typeof APPROVAL_MODES)[number];
 export interface ComposerSubmission {
   text: string;
   mode: ComposerMode;
+}
+
+/**
+ * Tail-biased path compaction for the placement chip. The prototype's paths
+ * are naturally short (`/scratch/j4471`); a deep path keeps its LAST segments
+ * — the part that names the place — behind a leading ellipsis. Done in code:
+ * the CSS rtl-clip trick shuffles leading `~/` punctuation to the tail.
+ */
+export function compactPath(path: string, budget = 34): string {
+  if (path.length <= budget) return path;
+  const segments = path.split('/').filter(Boolean);
+  let out = '';
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const next = `/${segments[i]}${out}`;
+    if (next.length > budget) break;
+    out = next;
+  }
+  return out ? `…${out}` : `…${path.slice(-budget)}`;
 }
 
 export interface ComposerProps {
@@ -115,7 +141,7 @@ export function Composer({
   const hasPill = Boolean(placement) || hasAsync || hasContext;
   const placementParts = placement?.match(/^([^:]+:)(.*)$/);
   const placementHost = placementParts?.[1] ?? '';
-  const placementPath = placementParts?.[2] ?? placement ?? '';
+  const placementPath = compactPath(placementParts?.[2] ?? placement ?? '');
   const normalizedModels = models.map(({ detail, ...option }) => ({
     ...option,
     label: typeof detail === 'string' ? `${detail} / ${option.label}` : option.label,
@@ -182,7 +208,9 @@ export function Composer({
           {placement ? (
             <span className="composer__placementchip">
               <Chip>
-                <span className="composer__placementdot" aria-hidden="true" />
+                {/* Static like the prototype's pill dot — placement is a
+                    location, not activity; the pulse belongs to real states. */}
+                <StatusDot status="running" quiet />
                 <span
                   className="composer__placementlabel"
                   data-host={placementHost}

@@ -1,0 +1,67 @@
+@keyframes kit-pip {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
+
+.kit-statusdot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+.kit-statusdot[data-state='running'] {
+  background: rgb(52, 211, 153);
+  box-shadow: 0 0 8px rgb(52, 211, 153);
+  animation: kit-pip 1.4s ease-in-out infinite;
+}
+
+.kit-statusdot[data-state='queued'] {
+  background: rgb(251, 191, 36);
+  box-shadow: 0 0 8px rgb(251, 191, 36);
+  animation: kit-pip 1.4s ease-in-out infinite;
+}
+
+.kit-statusdot[data-state='error'] {
+  background: var(--t-er);
+  box-shadow: 0 0 8px var(--t-er);
+  animation: kit-pip 1.4s ease-in-out infinite;
+}
+
+.kit-statusdot[data-state='idle'] {
+  width: 7px;
+  height: 7px;
+  flex-basis: 7px;
+  background: rgb(138, 147, 162);
+}
+
+.kit-statusdot[data-quiet='true'] {
+  animation: none;
+}
+
+.kit-statusdot[data-state='running'][data-quiet='true'] {
+  box-shadow: 0 0 6px rgb(52, 211, 153);
+}
+
+.kit-statusdot[data-state='queued'][data-quiet='true'] {
+  box-shadow: 0 0 6px rgb(251, 191, 36);
+}
+
+.kit-statusdot[data-state='error'][data-quiet='true'] {
+  box-shadow: 0 0 6px var(--t-er);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-statusdot {
+    animation: none;
+  }
+}

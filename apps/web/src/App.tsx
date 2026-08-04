@@ -22,6 +22,17 @@ import { probeCandidates } from './connect/candidates';
 import { Splash } from './connect/Splash';
 
 const LAST_URL_KEY = 'clio.backend.last-url.v3';
+
+/** Short, colon-free deployment label for the pill/rail: the prototype shows
+ *  `ares:` — a NAME — never a URL. Hostname is the honest default until the
+ *  user names a connection. */
+function connectionLabel(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
 type AppRoute = 'splash' | 'connect' | 'shell';
 
 /** Default the field to the last backend used, else the brand's attach port. */
@@ -83,7 +94,7 @@ export function App() {
 
   const completeConnection = useCallback(
     async (result: ConnectedBackend, connectionId: string) => {
-      await pool.connect({ id: connectionId, label: result.url, url: result.url });
+      await pool.connect({ id: connectionId, label: connectionLabel(result.url), url: result.url });
       syncPool();
       try {
         localStorage.setItem(LAST_URL_KEY, result.url);
@@ -91,7 +102,7 @@ export function App() {
         // CLIO DEPLOYMENTS from here — a UI-owned set, not anything the backend
         // serves — so a connection that is never recorded makes that count lie.
         const next = setLastUsed(
-          rememberBackend(loadRegistry(), { url: result.url, label: result.url }),
+          rememberBackend(loadRegistry(), { url: result.url, label: connectionLabel(result.url) }),
           result.url,
         );
         saveRegistry(next);
@@ -114,7 +125,7 @@ export function App() {
       if (result.kind === 'failed') {
         // Record the attempt in the pool whatever the outcome: a refusal the
         // user can see beats one that vanishes.
-        await pool.connect({ id: url, label: url, url });
+        await pool.connect({ id: url, label: connectionLabel(url), url });
         syncPool();
         setPending(false);
         setFailure(result);

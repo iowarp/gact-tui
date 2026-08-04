@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { brand } from '@brand';
-import { ContextMenu, Eyebrow, Icon, InlineEdit, ToolbarButton, type MenuItemDef } from '../kit';
+import {
+  ContextMenu,
+  Eyebrow,
+  Icon,
+  InlineEdit,
+  StatusDot,
+  ToolbarButton,
+  type MenuItemDef,
+  type SessionStatus,
+} from '../kit';
 import { Lockup } from './Lockup';
-import { StatusDot, type SessionStatus } from './StatusDot';
 import './rail.css';
 
 export interface RailSession {
@@ -69,6 +77,8 @@ export interface RailProps {
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
   onCollapse: () => void;
+  onNewSession?: (workspaceId?: string) => void;
+  onOpenSearch?: () => void;
   onSessionAction?: (sessionId: string, action: SessionAction) => void;
   /** Supplying this enables rename-in-place from the row menu. */
   onRenameSession?: (sessionId: string, title: string) => void;
@@ -85,6 +95,33 @@ export interface RailProps {
   onOpenSettings?: () => void;
 }
 
+interface RailActions {
+  onNewSession?: (workspaceId?: string) => void;
+  onSessionAction?: (sessionId: string, action: SessionAction) => void;
+}
+
+const RailActionsContext = createContext<RailActions>({});
+
+export interface RailActionsProviderProps extends RailActions {
+  children: ReactNode;
+}
+
+/**
+ * Supplies connected-view rail actions without widening AppShell's public
+ * layout contract. Explicit Rail props still take precedence.
+ */
+export function RailActionsProvider({
+  children,
+  onNewSession,
+  onSessionAction,
+}: RailActionsProviderProps) {
+  return (
+    <RailActionsContext.Provider value={{ onNewSession, onSessionAction }}>
+      {children}
+    </RailActionsContext.Provider>
+  );
+}
+
 /**
  * The workspace/session rail — geometry transcribed from the prototype, which
  * is a crafted design rather than a starting point.
@@ -94,6 +131,8 @@ export function Rail({
   activeSessionId,
   onSelectSession,
   onCollapse,
+  onNewSession,
+  onOpenSearch,
   onSessionAction,
   onRenameSession,
   agentCount,
@@ -102,7 +141,13 @@ export function Rail({
   onSwitchConnection,
   onOpenSettings,
 }: RailProps) {
+  const contextualActions = useContext(RailActionsContext);
+  const newSession = onNewSession ?? contextualActions.onNewSession;
+  const sessionAction = onSessionAction ?? contextualActions.onSessionAction;
   const [menu, setMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
+  const [groupMenu, setGroupMenu] = useState<{ groupId: string; x: number; y: number } | null>(
+    null,
+  );
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
@@ -150,113 +195,166 @@ export function Rail({
 
       <div className="shell-rail__heading">
         <Eyebrow strong>workspaces</Eyebrow>
+        <span className="shell-rail__headingactions">
+          <button
+            type="button"
+            className="shell-rail__headingbutton"
+            aria-label="Search sessions"
+            disabled={!onOpenSearch}
+            onClick={() => onOpenSearch?.()}
+          >
+            <Icon name="search" />
+          </button>
+          <button
+            type="button"
+            className="shell-rail__headingbutton"
+            aria-label="New session"
+            disabled={!newSession}
+            onClick={() => newSession?.()}
+          >
+            <Icon name="plus" size={11} />
+          </button>
+        </span>
       </div>
 
       <nav className="shell-rail__body" aria-label="Workspaces">
-        {groups.map((group) => {
-          const collapsed = collapsedGroups.includes(group.id);
-          const expanded = expandedGroups.includes(group.id);
-          // The prototype truncates a long group behind "show more (N)"; the
-          // count is the point, since "show more" alone never says whether
-          // one session is hidden or forty.
-          // The prototype's ordering, verbatim: pinned first, then the rest,
-          // each bucket keeping its incoming order. Truncation applies AFTER,
-          // so a pinned session is never the one hidden behind "show more".
-          const ordered = [
-            ...group.sessions.filter((s) => s.pinned),
-            ...group.sessions.filter((s) => !s.pinned),
-          ];
-          const truncated = !expanded && ordered.length > GROUP_VISIBLE;
-          const shown = truncated ? ordered.slice(0, GROUP_VISIBLE) : ordered;
-          const hidden = ordered.length - shown.length;
+        <div className="shell-rail__list">
+          {groups.map((group) => {
+            const collapsed = collapsedGroups.includes(group.id);
+            const expanded = expandedGroups.includes(group.id);
+            // The prototype truncates a long group behind "show more (N)"; the
+            // count is the point, since "show more" alone never says whether
+            // one session is hidden or forty.
+            // The prototype's ordering, verbatim: pinned first, then the rest,
+            // each bucket keeping its incoming order. Truncation applies AFTER,
+            // so a pinned session is never the one hidden behind "show more".
+            const ordered = [
+              ...group.sessions.filter((s) => s.pinned),
+              ...group.sessions.filter((s) => !s.pinned),
+            ];
+            const truncated = !expanded && ordered.length > GROUP_VISIBLE;
+            const shown = truncated ? ordered.slice(0, GROUP_VISIBLE) : ordered;
+            const hidden = ordered.length - shown.length;
 
-          return (
-          <section className="shell-rail__group" key={group.id}>
-            <div className="shell-rail__grouphead" data-testid={`rail-grouphead-${group.id}`}>
-              <button
-                type="button"
-                className="shell-rail__groupdisclose"
-                aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-                aria-expanded={!collapsed}
-                onClick={() =>
-                  setCollapsedGroups((cur) =>
-                    cur.includes(group.id) ? cur.filter((id) => id !== group.id) : [...cur, group.id],
-                  )
-                }
-              >
-                <Icon name="folder" size={11} />
-              </button>
-              <span className="shell-rail__grouplabel">{group.label}</span>
-              <span className="shell-rail__groupcount">{group.count}</span>
-            </div>
-
-            {collapsed ? null : shown.map((session) => {
-              const active = session.id === activeSessionId;
-              return (
+            return (
+              <section className="shell-rail__group" key={group.id}>
                 <div
-                  key={session.id}
-                  className="shell-rail__session"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={session.title}
-                  aria-current={active ? 'true' : undefined}
-                  onClick={() => onSelectSession(session.id)}
-                  onContextMenu={(e) => openMenu(e, session.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onSelectSession(session.id);
-                    }
-                  }}
+                  className="shell-rail__grouphead"
+                  data-testid={`rail-grouphead-${group.id}`}
+                  onClick={() =>
+                    setCollapsedGroups((cur) =>
+                      cur.includes(group.id)
+                        ? cur.filter((id) => id !== group.id)
+                        : [...cur, group.id],
+                    )
+                  }
                 >
-                  <StatusDot status={session.status} />
-                  <div className="shell-rail__row">
-                    {renamingId === session.id && onRenameSession ? (
-                      <InlineEdit
-                        value={session.title}
-                        label="Session name"
-                        size="rail"
-                        startEditing
-                        onCancel={() => setRenamingId(null)}
-                        onCommit={(next) => {
-                          setRenamingId(null);
-                          onRenameSession(session.id, next);
-                        }}
-                      />
-                    ) : (
-                      <span className="shell-rail__title">{session.title}</span>
-                    )}
-                    <span className="shell-rail__status">{session.status}</span>
-                    <span className="shell-rail__age">{session.age}</span>
-                    <button
-                      type="button"
-                      className="shell-rail__menu"
-                      aria-label={`Actions for ${session.title}`}
-                      onClick={(e) => openMenu(e, session.id)}
-                    >
-                      <Icon name="dots" />
-                    </button>
-                  </div>
+                  <span
+                    className="shell-rail__groupdisclose"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+                    aria-expanded={!collapsed}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      event.currentTarget.click();
+                    }}
+                  >
+                    <span aria-hidden="true">{'\u25b8'}</span>
+                  </span>
+                  <Icon name="folder" size={11} />
+                  <span className="shell-rail__grouplabel">{group.label}</span>
+                  <span className="shell-rail__groupcount">{group.count}</span>
+                  <button
+                    type="button"
+                    className="shell-rail__groupmenu"
+                    aria-label="Workspace menu"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const box = event.currentTarget.getBoundingClientRect();
+                      setGroupMenu({ groupId: group.id, x: box.left, y: box.bottom });
+                    }}
+                  >
+                    <Icon name="dots" />
+                  </button>
                 </div>
-              );
-            })}
 
-            {collapsed || !truncated ? null : (
-              <button
-                type="button"
-                className="shell-rail__showmore"
-                data-testid={`rail-showmore-${group.id}`}
-                onClick={() => setExpandedGroups((cur) => [...cur, group.id])}
-              >
-                {`show more (${hidden})`}
-              </button>
-            )}
-          </section>
-          );
-        })}
+                {collapsed
+                  ? null
+                  : shown.map((session) => {
+                      const active = session.id === activeSessionId;
+                      return (
+                        <div
+                          key={session.id}
+                          className="shell-rail__session"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={session.title}
+                          aria-current={active ? 'true' : undefined}
+                          onClick={() => onSelectSession(session.id)}
+                          onContextMenu={(e) => openMenu(e, session.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onSelectSession(session.id);
+                            }
+                          }}
+                        >
+                          <StatusDot status={session.status} />
+                          <div className="shell-rail__row">
+                            {renamingId === session.id && onRenameSession ? (
+                              <InlineEdit
+                                value={session.title}
+                                label="Session name"
+                                size="rail"
+                                startEditing
+                                onCancel={() => setRenamingId(null)}
+                                onCommit={(next) => {
+                                  setRenamingId(null);
+                                  onRenameSession(session.id, next);
+                                }}
+                              />
+                            ) : (
+                              <span className="shell-rail__title">{session.title}</span>
+                            )}
+                            {session.pinned ? (
+                              <span className="shell-rail__pin" aria-hidden="true">
+                                <Icon name="pin" size={9} />
+                              </span>
+                            ) : null}
+                            <span className="shell-rail__status">{session.status}</span>
+                            <span className="shell-rail__age">{session.age}</span>
+                            <button
+                              type="button"
+                              className="shell-rail__menu"
+                              aria-label={`Session menu for ${session.title}`}
+                              onClick={(e) => openMenu(e, session.id)}
+                            >
+                              <Icon name="dots" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                {collapsed || !truncated ? null : (
+                  <button
+                    type="button"
+                    className="shell-rail__showmore"
+                    data-testid={`rail-showmore-${group.id}`}
+                    onClick={() => setExpandedGroups((cur) => [...cur, group.id])}
+                  >
+                    {`show more (${hidden})`}
+                  </button>
+                )}
+              </section>
+            );
+          })}
+        </div>
       </nav>
 
-      <div className="shell-rail__footer">
+      <div className="shell-rail__footer shell-rail__foot">
         <button
           type="button"
           className="shell-rail__footcell shell-rail__footcell--icon"
@@ -278,8 +376,9 @@ export function Rail({
             setConnectionsAt({ x: box.left, y: box.top });
           }}
         >
-          <span className="shell-rail__footdot" aria-hidden="true" />
-          agents {readyCount}
+          <StatusDot status={readyCount > 0 ? 'running' : 'idle'} quiet />
+          <span>agents </span>
+          <span className="shell-rail__footcount">{readyCount}</span>
         </button>
         {/* Relay has no client method — shown disabled rather than hidden, so
             the capability gap is visible instead of silently missing. */}
@@ -289,8 +388,8 @@ export function Rail({
           disabled
           title="Relay status is not served by this backend"
         >
-          <span className="shell-rail__footdot" aria-hidden="true" />
-          relay
+          <StatusDot status="idle" quiet />
+          <span>relay</span>
         </button>
       </div>
 
@@ -306,9 +405,27 @@ export function Rail({
             setRenamingId(menu.sessionId);
             return;
           }
-          onSessionAction?.(menu.sessionId, id as SessionAction);
+          sessionAction?.(menu.sessionId, id as SessionAction);
         }}
         onClose={() => setMenu(null)}
+      />
+
+      <ContextMenu
+        open={groupMenu !== null}
+        x={groupMenu?.x ?? 0}
+        y={groupMenu?.y ?? 0}
+        label="Workspace actions"
+        items={[
+          {
+            id: 'new-session-here',
+            label: 'New session here',
+            disabled: !newSession,
+          },
+        ]}
+        onSelect={() => {
+          if (groupMenu) newSession?.(groupMenu.groupId);
+        }}
+        onClose={() => setGroupMenu(null)}
       />
 
       <ContextMenu
@@ -325,9 +442,7 @@ export function Rail({
             connection.status === 'ready'
               ? connection.label
               : `${connection.label} — ${connection.status}`,
-          ...(connection.status === 'ready'
-            ? {}
-            : { disabled: true, tone: 'danger' as const }),
+          ...(connection.status === 'ready' ? {} : { disabled: true, tone: 'danger' as const }),
           ...(connection.id === activeConnectionId ? { checked: true } : {}),
         }))}
         onSelect={(id) => {
@@ -340,5 +455,3 @@ export function Rail({
     </div>
   );
 }
-
-
