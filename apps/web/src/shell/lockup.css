@@ -48,6 +48,9 @@
   font-family: var(--f-prose);
   font-size: calc(20px * var(--ts));
   font-weight: 700;
+  /* The prototype's wordmark row is 22px tall; the default line-height for
+     20px Inter is ~30px and pushes the tagline 6px low. */
+  line-height: 22px;
   letter-spacing: normal;
   text-decoration: none;
 }
