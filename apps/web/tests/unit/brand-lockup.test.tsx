@@ -46,7 +46,10 @@ describe('Lockup', () => {
     expect(container.querySelector('img')).toHaveAttribute('src', '/assets/brand-logo.png');
     rerender(<Lockup brand={{ ...CLIO_LIKE, logoImage: null }} />);
     expect(container.querySelector('img')).toBeNull();
-    expect(screen.getByText('C')).toBeInTheDocument();
+    // Scoped to the logo slot: the wordmark also contains a "C" span, and an
+    // unscoped query passes even when the glyph never renders (caught in
+    // review — the first implementation drew it via CSS content).
+    expect(container.querySelector('.shell-lockup__logo')).toHaveTextContent('C');
   });
 
   it('degrades to non-link structure when no homeUrl exists', () => {

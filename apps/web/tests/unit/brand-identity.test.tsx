@@ -37,7 +37,7 @@ describe('rail lockup (A2)', () => {
 
   it('renders the wordmark as one span per letter', () => {
     const { container } = renderRail();
-    const letters = container.querySelectorAll('.shell-rail__wordmark span');
+    const letters = container.querySelectorAll('.shell-lockup__wordmark span');
     expect(letters).toHaveLength(brand.wordmark.length);
     expect([...letters].map((l) => l.textContent).join('')).toBe(brand.wordmark);
   });

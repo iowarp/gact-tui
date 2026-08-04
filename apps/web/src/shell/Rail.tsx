@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { brand } from '@brand';
 import { ContextMenu, Eyebrow, Icon, InlineEdit, ToolbarButton, type MenuItemDef } from '../kit';
+import { Lockup } from './Lockup';
 import { StatusDot, type SessionStatus } from './StatusDot';
 import './rail.css';
 
@@ -136,14 +137,7 @@ export function Rail({
   return (
     <div className="shell-rail">
       <div className="shell-rail__brand">
-        {brand.logoImage ? (
-          <img className="shell-rail__logo" src={brand.logoImage} alt="" />
-        ) : (
-          <span className="shell-rail__mark" aria-hidden="true">
-            {brand.markGlyph}
-          </span>
-        )}
-        <span className="shell-rail__wordmark">{brand.wordmark}</span>
+        <Lockup brand={brand} />
         <span className="shell-rail__spacer" />
         <ToolbarButton
           label="Collapse sessions"

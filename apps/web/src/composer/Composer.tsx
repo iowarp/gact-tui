@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { brand } from '@brand';
 import { Chip, Icon, Select, Tabs, type SelectOption } from '../kit';
 import { Picker, type PickerItem } from './Picker';
 import './composer.css';
@@ -24,8 +25,8 @@ export interface ComposerProps {
   placement?: string;
   asyncCount?: number;
   contextPercent?: number;
-  models: SelectOption[];
-  modelId: string;
+  models?: SelectOption[];
+  modelId?: string;
   /** Blocks input; `busyReason` is then REQUIRED to be shown. */
   busy?: boolean;
   busyReason?: string;
@@ -34,7 +35,7 @@ export interface ComposerProps {
   commands?: PickerItem[];
   /** Workspace files, from client.workspaceFiles(). Empty disables `@`. */
   files?: PickerItem[];
-  onModelChange: (id: string) => void;
+  onModelChange?: (id: string) => void;
   /** Current approval mode; omit when no session is open to carry one. */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
@@ -58,16 +59,16 @@ export function Composer({
   placement,
   asyncCount,
   contextPercent,
-  models,
-  modelId,
+  models = [],
+  modelId = '',
   approvalMode,
   onApprovalModeChange,
   busy = false,
   busyReason,
-  placeholder = 'Message clio (@ to reference, / for commands)',
+  placeholder = `Message ${brand.name.toLowerCase()} (@ to reference, / for commands)`,
   commands = [],
   files = [],
-  onModelChange,
+  onModelChange = () => {},
   onSubmit,
   footer,
 }: ComposerProps) {
