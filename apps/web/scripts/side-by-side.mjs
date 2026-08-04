@@ -117,6 +117,23 @@ const SETUPS = {
       await p.waitForTimeout(1200);
     },
   },
+  'ask-menu': {
+    proto: async (p) => {
+      await p.evaluate(() => {
+        const b = [...document.querySelectorAll('button')].find(
+          (x) => x.textContent?.trim().toLowerCase() === 'ask',
+        );
+        b?.click();
+      });
+      await p.waitForTimeout(700);
+    },
+    app: async (p) => {
+      await p.locator('.shell-rail__session').first().click();
+      await p.waitForTimeout(900);
+      await p.getByTestId('composer-approval').click();
+      await p.waitForTimeout(700);
+    },
+  },
   'menus-session': {
     proto: async (p) => {
       await p.evaluate(() => {

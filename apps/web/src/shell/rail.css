@@ -119,6 +119,12 @@
   font-size: calc(11.5px * var(--ts));
 }
 
+.shell-rail__grouplabel-edit {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 .shell-rail__groupcount {
   color: var(--t-mu);
   font-family: var(--f-mono);

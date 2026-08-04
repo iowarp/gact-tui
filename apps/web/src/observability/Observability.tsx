@@ -7,9 +7,11 @@ export interface ObservabilityProps {
   data: ObservabilityData;
   /** Layer owners render the trace state in their shared header row. */
   showTraceHeader?: boolean;
+  /** Tab to land on when the layer opens — the pill chips deep-link here. */
+  initialTab?: ObsTab;
 }
 
-type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
+export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
 type TimelineMode = 'log' | 'gantt';
 
 const GLYPHS: Record<ObsTimelineKind, string> = {
@@ -33,10 +35,10 @@ export function ObservabilityTrace() {
 }
 
 /** The session observability layer: live timeline, runs, tools, artifacts and context. */
-export function Observability({ data, showTraceHeader = true }: ObservabilityProps) {
+export function Observability({ data, showTraceHeader = true, initialTab }: ObservabilityProps) {
   const legacy =
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
-  const [tab, setTab] = useState<ObsTab>(legacy ? 'agents' : 'timeline');
+  const [tab, setTab] = useState<ObsTab>(initialTab ?? (legacy ? 'agents' : 'timeline'));
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('log');
   const experts = Object.keys(data.toolsByExpert);
   const [expert, setExpert] = useState(experts[0] ?? '');

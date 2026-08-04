@@ -20,18 +20,26 @@
   padding: 0 36px 18px;
 }
 
-.composer__chips {
-  display: flex;
+.composer__pillbox {
+  box-sizing: border-box;
+  display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  gap: 0;
-  margin-bottom: -3px;
+  gap: 2px;
+  height: 31px;
+  margin-bottom: -7px;
+  padding: 3px 4px;
+  background: rgb(22, 24, 29);
+  border: 1px solid rgba(45, 99, 139, 0.3);
+  border-radius: 10px 10px 10px 0;
 }
 
-.composer__chips .kit-chip {
+.composer__pillbox .kit-chip {
   min-height: 23px;
   padding: 4px 9px;
-  border-radius: 7px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   font-family: var(--f-mono);
   font-size: calc(11.5px * var(--ts));
   line-height: 1;
@@ -41,7 +49,7 @@
   width: 1px;
   height: 15px;
   flex: 0 0 1px;
-  margin: 0 2px;
+  margin: 0;
   background: rgba(45, 99, 139, 0.3);
 }
 
@@ -77,13 +85,6 @@
 
 .composer__asyncchip .kit-chip {
   color: var(--t-ac);
-}
-
-.composer__contextdot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--t-wa);
 }
 
 .composer__contextlabel::before {
@@ -186,15 +187,6 @@
 
 .composer__approval > .kit-contextmenu {
   left: 0;
-}
-
-.composer__approval .kit-contextmenu__item {
-  gap: 0;
-}
-
-.composer__approval .kit-contextmenu__icon {
-  width: auto;
-  color: inherit;
 }
 
 .composer__model {

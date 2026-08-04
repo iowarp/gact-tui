@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Icon } from './Icon';
 import './contextmenu.css';
 
 export interface MenuItemDef {
   id: string;
   label: string;
+  ariaLabel?: string;
+  description?: string;
   icon?: ReactNode;
+  checked?: boolean;
   tone?: 'default' | 'danger';
   disabled?: boolean;
+  title?: string;
 }
 
 export interface ContextMenuProps {
@@ -15,6 +20,7 @@ export interface ContextMenuProps {
   y: number;
   items: MenuItemDef[];
   label?: string;
+  eyebrow?: string;
   onSelect: (id: string) => void;
   onClose: () => void;
 }
@@ -32,6 +38,7 @@ export function ContextMenu({
   y,
   items,
   label = 'Actions',
+  eyebrow,
   onSelect,
   onClose,
 }: ContextMenuProps) {
@@ -101,22 +108,36 @@ export function ContextMenu({
       style={{ left: `${x}px`, top: `${y}px` }}
       onKeyDown={onKeyDown}
     >
+      {eyebrow ? <div className="kit-contextmenu__eyebrow">{eyebrow}</div> : null}
       {items.map((item, index) => (
         <button
           key={item.id}
           type="button"
           role="menuitem"
+          aria-label={item.ariaLabel}
           className="kit-contextmenu__item"
           data-tone={item.tone === 'danger' ? 'danger' : undefined}
           data-active={index === activeIndex ? 'true' : undefined}
+          data-description={item.description ? 'true' : undefined}
           disabled={item.disabled}
+          title={item.title}
           onClick={() => {
             onSelect(item.id);
             onClose();
           }}
         >
           {item.icon ? <span className="kit-contextmenu__icon">{item.icon}</span> : null}
-          {item.label}
+          <span className="kit-contextmenu__copy">
+            <span className="kit-contextmenu__label">{item.label}</span>
+            {item.description ? (
+              <span className="kit-contextmenu__description">{item.description}</span>
+            ) : null}
+          </span>
+          {item.checked ? (
+            <span className="kit-contextmenu__check" data-checked="true">
+              <Icon name="check" />
+            </span>
+          ) : null}
         </button>
       ))}
     </div>

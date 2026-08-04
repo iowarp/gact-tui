@@ -66,6 +66,10 @@ export interface ComposerProps {
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
   onSubmit: (submission: ComposerSubmission) => void;
+  /** Pill chip click-throughs — the prototype's async chip opens the runs
+      view, ctx opens telemetry. Omitted = the chip renders as text. */
+  onOpenAsync?: () => void;
+  onOpenContext?: () => void;
   /**
    * Rendered inside the composer block, below the frame — the prototype puts
    * its version stamp here, within the same 860px column. A sibling AFTER the
@@ -96,6 +100,8 @@ export function Composer({
   files = [],
   onModelChange = () => {},
   onSubmit,
+  onOpenAsync,
+  onOpenContext,
   footer,
 }: ComposerProps) {
   const [text, setText] = useState('');
@@ -150,10 +156,32 @@ export function Composer({
     modelId || normalizedModels.some((option) => option.id === '')
       ? normalizedModels
       : [{ id: '', label: 'model not set' }, ...normalizedModels];
-  const approvalMenuItems: MenuItemDef[] = APPROVAL_MODES.map((approval) => ({
-    id: approval,
-    label: approval,
-  }));
+  const approvalMenuItems: MenuItemDef[] = [
+    {
+      id: 'ask',
+      label: 'ask',
+      description: 'Prompt me before every tool call',
+      icon: <Icon name="ask" />,
+    },
+    {
+      id: 'auto-edits',
+      label: 'auto-edits',
+      description: 'Auto-approve safe file edits; ask for the rest',
+      icon: <Icon name="pencil" />,
+    },
+    {
+      id: 'bypass',
+      label: 'bypass',
+      description: 'Skip permissions entirely',
+      icon: <Icon name="warning" />,
+    },
+    {
+      id: 'ai-review',
+      label: 'ai-review',
+      description: 'An AI reviewer approves or blocks each action',
+      icon: <Icon name="eye" />,
+    },
+  ].map((item) => ({ ...item, checked: item.id === approvalMode }));
 
   function submit() {
     if (!canSend) return;
@@ -204,7 +232,7 @@ export function Composer({
   return (
     <div className="composer">
       {hasPill ? (
-        <div className="composer__chips">
+        <div className="composer__pillbox">
           {placement ? (
             <span className="composer__placementchip">
               <Chip>
@@ -226,7 +254,10 @@ export function Composer({
           ) : null}
           {hasAsync ? (
             <span className="composer__asyncchip">
-              <Chip icon={<Icon name="zap" size={11} />}>{`async ${asyncCount}`}</Chip>
+              <Chip
+                icon={<Icon name="zap" size={11} />}
+                {...(onOpenAsync ? { onClick: onOpenAsync, title: 'Open runs' } : {})}
+              >{`async ${asyncCount}`}</Chip>
             </span>
           ) : null}
           {hasAsync && hasContext ? (
@@ -234,7 +265,11 @@ export function Composer({
           ) : null}
           {hasContext ? (
             <span className="composer__contextchip">
-              <Chip icon={<span className="composer__contextdot" aria-hidden="true" />}>
+              {/* No dot: the prototype's ctx chip is bare muted text; the amber
+                  activity dot rides the ASYNC chip (finished-agent badge). */}
+              <Chip
+                {...(onOpenContext ? { onClick: onOpenContext, title: 'Open context telemetry' } : {})}
+              >
                 <span className="composer__contextlabel" data-percent={`${contextPercent}%`}>
                   {`ctx ${contextPercent}%`}
                 </span>
@@ -313,9 +348,10 @@ export function Composer({
               <ContextMenu
                 open={approvalMenuOpen}
                 x={0}
-                y={-128}
+                y={-220}
                 items={approvalMenuItems}
                 label="Approval modes"
+                eyebrow="Permissions"
                 onSelect={(id) => onApprovalModeChange(id as ApprovalMode)}
                 onClose={() => setApprovalMenuOpen(false)}
               />

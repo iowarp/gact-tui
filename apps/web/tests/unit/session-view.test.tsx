@@ -286,9 +286,11 @@ describe('composer control row (C5 / C9 / S1)', () => {
     // opening the kit menu (the combobox duplicate is deleted).
     fireEvent.click(screen.getByTestId('composer-approval'));
     const menu = screen.getByRole('menu');
+    // P5-3: items carry the prototype's two-line label+description grammar, so
+    // the mode identity lives on the label line, not the whole textContent.
     const items = within(menu)
       .getAllByRole('menuitem')
-      .map((o) => o.textContent?.trim());
+      .map((o) => o.querySelector('.kit-contextmenu__label')?.textContent?.trim());
     expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
   });
 

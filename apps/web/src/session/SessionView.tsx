@@ -18,10 +18,12 @@ import {
   type RailGroup,
   type RailSession,
   type SessionAction,
+  type WorkspaceAction,
 } from '../shell/Rail';
 import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
 import { Observability, ObservabilityTrace } from '../observability/Observability';
+import type { ObsTab } from '../observability/Observability';
 import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../observability/build';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
@@ -73,6 +75,7 @@ const TERMINAL_AGENT_TASK_STATUSES = new Set([
 ]);
 
 const PINS_STORAGE_KEY = 'clio.pins.v1';
+const WORKSPACE_PINS_STORAGE_KEY = 'clio.workspace-pins.v1';
 const NO_MESSAGES: Message[] = [];
 
 function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
@@ -112,10 +115,15 @@ export function SessionView({
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [renamed, setRenamed] = useState<Record<string, string>>({});
+  const [renamedWorkspaces, setRenamedWorkspaces] = useState<Record<string, string>>({});
   const [commands, setCommands] = useState<PickerItem[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
+  // Pill-chip deep links land the obs layer on a specific tab (async -> runs,
+  // ctx -> context); the eye button leaves it undefined = default tab.
+  const [obsTab, setObsTab] = useState<ObsTab | undefined>(undefined);
   const [obs, setObs] = useState<ObservabilityData | null>(null);
   const [liveTraceRows, setLiveTraceRows] = useState<NonNullable<ObservabilityData['timeline']>>(
     [],
@@ -125,10 +133,17 @@ export function SessionView({
   const [activeScope, setActiveScope] = useState('main');
   const [pillState, setPillState] = useState<ComposerPillState | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPins(client.baseUrl));
+  const [pinnedWorkspaceIds, setPinnedWorkspaceIds] = useState<Set<string>>(() =>
+    loadWorkspacePins(client.baseUrl),
+  );
+  const [removedWorkspaceIds, setRemovedWorkspaceIds] = useState<Set<string>>(new Set());
   const [createdWorkspaces, setCreatedWorkspaces] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setPinnedIds(loadPins(client.baseUrl));
+    setPinnedWorkspaceIds(loadWorkspacePins(client.baseUrl));
+    setRemovedWorkspaceIds(new Set());
+    setRenamedWorkspaces({});
   }, [client.baseUrl]);
 
   // The rail footer counts CONNECTED CLIO DEPLOYMENTS the user can swap
@@ -498,16 +513,91 @@ export function SessionView({
 
   const handleSessionAction = useCallback(
     (sessionId: string, action: SessionAction): void => {
-      if (action !== 'pin') return;
-      setPinnedIds((current) => {
-        const next = new Set(current);
-        if (next.has(sessionId)) next.delete(sessionId);
-        else next.add(sessionId);
-        savePins(client.baseUrl, next);
-        return next;
-      });
+      setActionError(null);
+      if (action === 'pin') {
+        setPinnedIds((current) => {
+          const next = new Set(current);
+          if (next.has(sessionId)) next.delete(sessionId);
+          else next.add(sessionId);
+          savePins(client.baseUrl, next);
+          return next;
+        });
+        return;
+      }
+      if (action !== 'delete') return;
+      void (async () => {
+        try {
+          await client.deleteSession(sessionId);
+          onForgetSession?.(sessionId);
+          if (activeId === sessionId) {
+            setActiveId(null);
+            setState({ kind: 'idle' });
+          }
+        } catch (error) {
+          setActionError(
+            `Delete session failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      })();
     },
-    [client.baseUrl],
+    [activeId, client, onForgetSession],
+  );
+
+  const handleWorkspaceAction = useCallback(
+    (workspaceId: string, action: WorkspaceAction): void => {
+      setActionError(null);
+      if (action === 'pin') {
+        setPinnedWorkspaceIds((current) => {
+          const next = new Set(current);
+          if (next.has(workspaceId)) next.delete(workspaceId);
+          else next.add(workspaceId);
+          saveWorkspacePins(client.baseUrl, next);
+          return next;
+        });
+        return;
+      }
+      if (action !== 'remove') return;
+      void (async () => {
+        try {
+          await client.deleteWorkspace(workspaceId);
+          setRemovedWorkspaceIds((current) => new Set(current).add(workspaceId));
+          setWorkspaces((current) => current.filter((workspace) => workspace.id !== workspaceId));
+          if (active?.workspace_id === workspaceId) {
+            setActiveId(null);
+            setState({ kind: 'idle' });
+          }
+        } catch (error) {
+          setActionError(
+            `Remove workspace failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      })();
+    },
+    [active?.workspace_id, client],
+  );
+
+  const renameWorkspace = useCallback(
+    async (workspaceId: string, next: string): Promise<void> => {
+      setActionError(null);
+      const previous = renamedWorkspaces[workspaceId];
+      setRenamedWorkspaces((current) => ({ ...current, [workspaceId]: next }));
+      try {
+        const updated = await client.patchWorkspace(workspaceId, { name: next });
+        setWorkspaces((current) =>
+          current.map((workspace) => (workspace.id === workspaceId ? updated : workspace)),
+        );
+      } catch (error) {
+        setRenamedWorkspaces((current) => {
+          if (previous !== undefined) return { ...current, [workspaceId]: previous };
+          const { [workspaceId]: _dropped, ...rest } = current;
+          return rest;
+        });
+        setActionError(
+          `Rename workspace failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+    [client, renamedWorkspaces],
   );
 
   // Renaming hits the real endpoint and updates the row optimistically, so the
@@ -606,9 +696,19 @@ export function SessionView({
     <RailActionsProvider
       onNewSession={(workspaceId) => void startNewSession(workspaceId)}
       onSessionAction={handleSessionAction}
+      onWorkspaceAction={handleWorkspaceAction}
+      onRenameWorkspace={(workspaceId, next) => void renameWorkspace(workspaceId, next)}
     >
       <AppShell
-        groups={groupByWorkspace(sessions, workspaces, renamed, pinnedIds)}
+        groups={groupByWorkspace(
+          sessions,
+          workspaces,
+          renamed,
+          pinnedIds,
+          renamedWorkspaces,
+          pinnedWorkspaceIds,
+          removedWorkspaceIds,
+        )}
         activeSessionId={activeId}
         onSelectSession={setActiveId}
         title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
@@ -640,6 +740,12 @@ export function SessionView({
         {sendError ? (
           <p className="sessionview__error" data-testid="send-error" role="alert">
             Could not send: {sendError}
+          </p>
+        ) : null}
+
+        {actionError ? (
+          <p className="sessionview__error" data-testid="action-error" role="alert">
+            {actionError}
           </p>
         ) : null}
 
@@ -702,6 +808,14 @@ export function SessionView({
             {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
             onApprovalModeChange={(next) => void setApprovalMode(next)}
             onModelChange={(next) => void setModel(next)}
+            onOpenAsync={() => {
+              setObsTab('runs');
+              setPanel('obs');
+            }}
+            onOpenContext={() => {
+              setObsTab('context');
+              setPanel('obs');
+            }}
             onSubmit={({ text }) => void send(text)}
             busy={sending}
             {...(sending ? { busyReason: 'Sending…' } : {})}
@@ -752,7 +866,12 @@ export function SessionView({
           onClose={() => setPanel(null)}
         >
           {observabilityData ? (
-            <Observability data={observabilityData} showTraceHeader={false} />
+            <Observability
+              key={obsTab ?? 'default'}
+              data={observabilityData}
+              showTraceHeader={false}
+              {...(obsTab ? { initialTab: obsTab } : {})}
+            />
           ) : (
             <p className="sessionview__notice">Loading observability…</p>
           )}
@@ -775,14 +894,20 @@ function groupByWorkspace(
   workspaces: Workspace[],
   renamed: Record<string, string> = {},
   pinnedIds: ReadonlySet<string> = new Set(),
+  renamedWorkspaces: Record<string, string> = {},
+  pinnedWorkspaceIds: ReadonlySet<string> = new Set(),
+  removedWorkspaceIds: ReadonlySet<string> = new Set(),
 ): RailGroup[] {
   const labels = new Map<string, string>();
   for (const ws of workspaces) {
-    if (ws.id) labels.set(ws.id, workspaceDisplayLabel(ws.id, workspaces));
+    if (ws.id) {
+      labels.set(ws.id, renamedWorkspaces[ws.id] ?? workspaceDisplayLabel(ws.id, workspaces));
+    }
   }
   const groups = new Map<string, RailSession[]>();
   for (const session of sessions) {
     const key = session.workspace_id || 'ungrouped';
+    if (removedWorkspaceIds.has(key)) continue;
     const rows = groups.get(key) ?? [];
     rows.push({
       id: session.id,
@@ -800,6 +925,7 @@ function groupByWorkspace(
     label: labels.get(id) ?? id,
     count: rows.length,
     sessions: rows,
+    ...(pinnedWorkspaceIds.has(id) ? { pinned: true } : {}),
   }));
 }
 
@@ -831,9 +957,17 @@ function pinsBackendKey(baseUrl: string): string {
 }
 
 function loadPins(baseUrl: string): Set<string> {
+  return loadStoredPins(PINS_STORAGE_KEY, baseUrl);
+}
+
+function loadWorkspacePins(baseUrl: string): Set<string> {
+  return loadStoredPins(WORKSPACE_PINS_STORAGE_KEY, baseUrl);
+}
+
+function loadStoredPins(storageKey: string, baseUrl: string): Set<string> {
   if (typeof localStorage === 'undefined') return new Set();
   try {
-    const raw = localStorage.getItem(PINS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return new Set();
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return new Set();
@@ -846,16 +980,24 @@ function loadPins(baseUrl: string): Set<string> {
 }
 
 function savePins(baseUrl: string, pins: ReadonlySet<string>): void {
+  saveStoredPins(PINS_STORAGE_KEY, baseUrl, pins);
+}
+
+function saveWorkspacePins(baseUrl: string, pins: ReadonlySet<string>): void {
+  saveStoredPins(WORKSPACE_PINS_STORAGE_KEY, baseUrl, pins);
+}
+
+function saveStoredPins(storageKey: string, baseUrl: string, pins: ReadonlySet<string>): void {
   if (typeof localStorage === 'undefined') return;
   try {
-    const raw = localStorage.getItem(PINS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
     const byBackend =
       typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
         ? { ...(parsed as Record<string, unknown>) }
         : {};
     byBackend[pinsBackendKey(baseUrl)] = [...pins];
-    localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(byBackend));
+    localStorage.setItem(storageKey, JSON.stringify(byBackend));
   } catch {
     // Pinning remains usable for this render when storage is unavailable.
   }

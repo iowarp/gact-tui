@@ -36,6 +36,9 @@ export type IconName =
   | 'swap'
   | 'ask'
   | 'pencil'
+  | 'trash'
+  | 'x'
+  | 'warning'
   | 'list'
   | 'chevrons'
   | 'warn'
@@ -76,7 +79,7 @@ const C = (cx: number, cy: number, r: number, filled = false) => (
 
 /** Path data, verbatim from the prototype's menuIcon(). */
 const GLYPHS: Record<IconName, ReactNode> = {
-  check: P('M2 6.5l2.6 2.6L10 3.4', 1.5),
+  check: P('M2.5 6.5l2.5 2.5 4.5-5', 1.4),
   upload: (
     <>
       {P('M6 10V2')}
@@ -227,9 +230,27 @@ const GLYPHS: Record<IconName, ReactNode> = {
     </>
   ),
   pencil: (
+    <path
+      d="M7.5 1.8l2.7 2.7L4 10.7l-3 .3.3-3 6.2-6.2z"
+      stroke="currentColor"
+      strokeWidth={1.1}
+      strokeLinejoin="round"
+    />
+  ),
+  trash: (
+    <path
+      d="M2 3h8M4.8 1.5h2.4M3 3l.6 7.2c0 .4.4.8.8.8h3.2c.4 0 .8-.4.8-.8L9 3M5 5v3.5M7 5v3.5"
+      stroke="currentColor"
+      strokeWidth={1.1}
+      strokeLinecap="round"
+    />
+  ),
+  x: P('M1.5 1.5l8 8M9.5 1.5l-8 8', 1.3),
+  warning: (
     <>
-      {P('M2 10l.5-2.4L8.6 1.5l1.9 1.9L4.4 9.5 2 10z')}
-      {P('M7.4 2.7l1.9 1.9', 1.1)}
+      {P('M6 1.5l5 9H1z', 1.2)}
+      {P('M6 5v2.5', 1.1)}
+      {C(6, 9, 0.5, true)}
     </>
   ),
   list: (
@@ -315,10 +336,9 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ),
   pin: (
     <path
-      d="M6 1v4M3.5 5h5l-1 2.5h-3L3.5 5zM6 7.5V11"
+      d="M4.5 1.5h3l.5 3.5 2 1.5v1H6.8V11l-.8 .8-.8-.8V7.5H2v-1l2-1.5.5-3.5z"
       stroke="currentColor"
       strokeWidth={1.1}
-      strokeLinecap="round"
       strokeLinejoin="round"
     />
   ),
@@ -340,6 +360,8 @@ export function Icon({ name, size = 12 }: IconProps) {
       ? '0 0 24 24'
       : name === 'arrow-up' || name === 'eye'
         ? '0 0 14 14'
+        : name === 'x'
+          ? '0 0 11 11'
         : '0 0 12 12';
   return (
     <svg

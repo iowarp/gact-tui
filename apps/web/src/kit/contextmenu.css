@@ -3,9 +3,11 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  width: 200px;
+  width: max-content;
+  min-width: 200px;
+  max-width: calc(100vw - 16px);
   padding: 4px;
-  background: var(--t-sf);
+  background: rgb(28, 31, 37);
   border: 1px solid var(--t-bd6);
   border-radius: 9px;
   box-shadow: var(--t-shadow);
@@ -22,21 +24,37 @@
   outline: none;
 }
 
+.kit-contextmenu__eyebrow {
+  padding: 5px 9px 6px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 /* The shared menu row — also used by Popover menus. */
 .kit-contextmenu__item {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 6px 9px;
+  min-height: 28px;
+  padding: 4px 9px;
   background: transparent;
   border: 0;
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
   font-family: var(--f-mono);
-  font-size: calc(12px * var(--ts));
-  color: var(--t-tx);
+  color: var(--t-hd);
+}
+
+.kit-contextmenu__item[data-description='true'] {
+  align-items: flex-start;
+  min-height: 44px;
+  padding-block: 5px;
 }
 
 .kit-contextmenu__item:hover:not(:disabled),
@@ -63,6 +81,48 @@
 .kit-contextmenu__icon {
   display: grid;
   place-items: center;
+  flex: 0 0 12px;
   width: 12px;
+  margin-top: 1px;
   color: var(--t-mu);
+}
+
+.kit-contextmenu__copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kit-contextmenu__label {
+  font-family: var(--f-mono);
+  font-size: calc(12.5px * var(--ts));
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.kit-contextmenu__description {
+  color: var(--t-mu);
+  font-size: calc(11px * var(--ts));
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.kit-contextmenu__check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 12px;
+  align-self: center;
+  color: var(--t-ac);
+}
+
+.kit-contextmenu__item[data-tone='danger'] .kit-contextmenu__icon,
+.kit-contextmenu__item[data-tone='danger'] .kit-contextmenu__description {
+  color: var(--t-er);
+}
+
+.kit-contextmenu__item[data-tone='danger']:disabled {
+  color: var(--t-er);
+  opacity: 0.55;
 }
