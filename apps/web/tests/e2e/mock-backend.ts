@@ -31,6 +31,11 @@ export interface MockBackendOptions {
   contract?: string;
   /** Fail every request with this status instead of serving fixtures. */
   failWithStatus?: number;
+  /**
+   * Serve the fixtures on a different origin than MOCK_BACKEND — e.g. the
+   * brand-default `http://127.0.0.1:17800` the boot splash probes (slice F).
+   */
+  origin?: string;
 }
 
 /** The nested Capabilities envelope, flags copied from a live capture.
@@ -276,7 +281,7 @@ export async function installMockBackend(
 ): Promise<void> {
   const contract = options.contract ?? MOCK_CONTRACT;
 
-  await page.route(`${MOCK_BACKEND}/**`, async (route: Route) => {
+  await page.route(`${options.origin ?? MOCK_BACKEND}/**`, async (route: Route) => {
     if (options.failWithStatus) {
       await route.fulfill({
         status: options.failWithStatus,
