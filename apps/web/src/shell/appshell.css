@@ -51,3 +51,8 @@
   flex: 0 0 auto;
   min-height: 0;
 }
+
+.shell__dock {
+  flex: 0 0 auto;
+  min-height: 0;
+}

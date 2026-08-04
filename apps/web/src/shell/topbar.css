@@ -26,7 +26,8 @@
 
 .shell-topbar__title {
   margin: 0;
-  min-width: 110px;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -34,6 +35,12 @@
   font-family: var(--f-prose);
   font-size: calc(14px * var(--ts));
   font-weight: 600;
+}
+
+/* InlineEdit is flexible in forms; here the title must hug its text so the
+   following blueprint crumb starts immediately after it. */
+.shell-topbar__identity .kit-inlineedit {
+  flex: 0 1 auto;
 }
 
 .shell-topbar__sep {
@@ -84,5 +91,19 @@
 
 .shell-topbar__count {
   order: 2;
+  color: var(--t-cy);
+}
+
+/* The prototype treats artifacts as an accented surface, while context stays
+   muted until opened; the values follow the same tone as their control. */
+.shell-topbar .kit-toolbarbutton[aria-label='artifacts'] {
+  color: var(--t-cy);
+}
+
+.shell-topbar .kit-toolbarbutton[aria-label='ctx'] .shell-topbar__count {
+  color: inherit;
+}
+
+.shell-topbar .kit-toolbarbutton:hover {
   color: var(--t-cy);
 }

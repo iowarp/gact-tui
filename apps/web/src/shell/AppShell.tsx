@@ -9,6 +9,7 @@ export interface AppShellProps {
   activeSessionId: string | null;
   title: string;
   breadcrumb?: string;
+  breadcrumbTitle?: string;
   /** The hierarchy ribbon — main plus any focused child agents. */
   ribbon: TabDef[];
   activeRibbonId: string;
@@ -17,6 +18,8 @@ export interface AppShellProps {
   children: ReactNode;
   /** Optional right pane; absent when nothing is selected. */
   detail?: ReactNode;
+  /** Optional bottom dock inside the centre column (the desktop console). */
+  dock?: ReactNode;
   onSelectSession: (id: string) => void;
   onSelectRibbon: (id: string) => void;
   /** Rename a session in place — from the rail row menu or the topbar title. */
@@ -31,6 +34,7 @@ export interface AppShellProps {
   activeConnectionId?: string;
   onSwitchConnection?: (id: string) => void;
   onOpenSettings?: () => void;
+  onOpenSearch?: () => void;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -51,12 +55,14 @@ export function AppShell({
   activeSessionId,
   title,
   breadcrumb,
+  breadcrumbTitle,
   ribbon,
   activeRibbonId,
   artifactCount,
   contextPercent,
   children,
   detail,
+  dock,
   onSelectSession,
   onSelectRibbon,
   onRenameSession,
@@ -67,6 +73,7 @@ export function AppShell({
   activeConnectionId,
   onSwitchConnection,
   onOpenSettings,
+  onOpenSearch,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -87,6 +94,7 @@ export function AppShell({
               {...(activeConnectionId ? { activeConnectionId } : {})}
               {...(onSwitchConnection ? { onSwitchConnection } : {})}
               {...(onOpenSettings ? { onOpenSettings } : {})}
+              {...(onOpenSearch ? { onOpenSearch } : {})}
             />
           </div>
           <Splitter
@@ -103,6 +111,7 @@ export function AppShell({
         <Topbar
           title={title}
           {...(breadcrumb === undefined ? {} : { breadcrumb })}
+          {...(breadcrumbTitle === undefined ? {} : { breadcrumbTitle })}
           {...(artifactCount === undefined ? {} : { artifactCount })}
           {...(contextPercent === undefined ? {} : { contextPercent })}
           railCollapsed={railCollapsed}
@@ -125,6 +134,7 @@ export function AppShell({
         </div>
 
         <main className="shell__content">{children}</main>
+        {dock ? <div className="shell__dock">{dock}</div> : null}
       </div>
 
       {detail ? (

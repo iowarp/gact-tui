@@ -10,7 +10,9 @@ import {
   type Workspace,
 } from '@clio/core';
 import type { PickerItem } from '../composer/Picker';
-import { Composer, type ApprovalMode } from '../composer/Composer';
+import { Composer, type ApprovalMode, type ComposerMode } from '../composer/Composer';
+import type { ProviderModelGroup } from '../composer/ProviderModelPicker';
+import { VersionUpdate } from '../composer/VersionUpdate';
 import { AppShell } from '../shell/AppShell';
 import {
   RailActionsProvider,
@@ -29,6 +31,10 @@ import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import { BlueprintWindow } from './BlueprintWindow';
+import { ConsoleDock } from './ConsoleDock';
+import { FreshHeadline, FreshStarting, SuggestedPrompts, type FreshStarter } from './FreshState';
+import { NewDialog, SearchDialog } from './SessionDialogs';
+import { SessionRightPanel, type RightPanelKind } from './SessionRightPanel';
 import './sessionview.css';
 
 export interface SessionViewProps {
@@ -55,6 +61,7 @@ export interface SessionViewProps {
 interface SessionDetail {
   model?: { provider_id?: string; model_id?: string; variant?: string };
   approval_mode?: ApprovalMode;
+  mode?: 'plan' | 'edit' | 'architect';
   metadata?: { active_agent_blueprint_id?: string };
 }
 
@@ -63,6 +70,7 @@ interface ComposerPillState {
   scope: string;
   asyncCount?: number;
   contextPercent?: number;
+  artifactCount?: number;
 }
 
 const TERMINAL_AGENT_TASK_STATUSES = new Set([
@@ -77,6 +85,21 @@ const TERMINAL_AGENT_TASK_STATUSES = new Set([
 const PINS_STORAGE_KEY = 'clio.pins.v1';
 const WORKSPACE_PINS_STORAGE_KEY = 'clio.workspace-pins.v1';
 const NO_MESSAGES: Message[] = [];
+
+/**
+ * The prototype's SUGGESTED rows (design/prototype/Clio Session.html,
+ * emptyStarters) are static content in its OWN source — there is no
+ * backend generator for them, so this is the honest, matching baseline. Row
+ * 1's subtitle is the one piece that is genuinely dynamic there
+ * (`'in ' + workspace`); the rest is verbatim prototype copy.
+ */
+function freshStarters(workspaceLabel: string | undefined): FreshStarter[] {
+  return [
+    { text: 'Profile a dataset', meta: workspaceLabel ? `in ${workspaceLabel}` : 'in this workspace' },
+    { text: 'Run a benchmark sweep', meta: 'on ares, compared against last week' },
+    { text: 'Find what is filling scratch', meta: 'and propose what to archive' },
+  ];
+}
 
 function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
   return Promise.resolve()
@@ -121,6 +144,14 @@ export function SessionView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newWorkspaceId, setNewWorkspaceId] = useState<string | undefined>(undefined);
+  // A SUGGESTED row click fills the composer; token forces the effect to
+  // refire even when the same starter is picked twice in a row.
+  const [starterPrompt, setStarterPrompt] = useState<{ text: string; token: number } | null>(
+    null,
+  );
   // Pill-chip deep links land the obs layer on a specific tab (async -> runs,
   // ctx -> context); the eye button leaves it undefined = default tab.
   const [obsTab, setObsTab] = useState<ObsTab | undefined>(undefined);
@@ -130,6 +161,8 @@ export function SessionView({
   );
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
+  const [modelProviders, setModelProviders] = useState<ProviderModelGroup[]>([]);
+  const [thinkingLevel, setThinkingLevel] = useState<string | undefined>(undefined);
   const [activeScope, setActiveScope] = useState('main');
   const [pillState, setPillState] = useState<ComposerPillState | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPins(client.baseUrl));
@@ -152,31 +185,51 @@ export function SessionView({
   // is what /v1/agents returns and what this used to show.
   const connectedCount = loadRegistry().backends.length;
 
-  // Providers and their models, for the composer's model control. Read once
-  // per backend: the catalogue does not change inside a session.
+  // Provider navigation, per-provider model rows, and readiness all come from
+  // the read-only LM configuration and live catalogues.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const { providers = [] } = await client.providers();
-        const usable = providers.filter((p) => p.is_authenticated);
+        const [{ providers = [] }, lm] = await Promise.all([
+          client.providers(),
+          optionalFetch(() => client.lmConfig()),
+        ]);
+        const presets = lm?.presets ?? [];
         const perProvider = await Promise.all(
-          usable.map(async (p) => {
+          providers.map(async (p) => {
             try {
               const { models = [] } = await client.providerModels(p.id);
-              return models.map((m) => ({
-                id: `${p.id}/${m.id}`,
-                // The prototype's label: "Anthropic / claude-sonnet-4-6".
-                label: `${p.name || p.id} / ${m.id}`,
-              }));
+              const preset = presets.find((candidate) => candidate.provider === p.id || candidate.id === p.id);
+              return {
+                id: p.id,
+                label: p.name || p.id,
+                status: preset?.status || (p.is_authenticated ? 'configured' : 'not configured'),
+                statusLabel: preset?.status_message || preset?.status || (p.is_authenticated ? 'configured' : 'not configured'),
+                models: models.map((model) => ({
+                  id: model.id,
+                  value: `${p.id}/${model.id}`,
+                  label: model.name || model.id,
+                  detail: model.id,
+                })),
+              } satisfies ProviderModelGroup;
             } catch {
-              // A provider that cannot list models contributes none; the
-              // others still populate the control.
-              return [];
+              const preset = presets.find((candidate) => candidate.provider === p.id || candidate.id === p.id);
+              return {
+                id: p.id,
+                label: p.name || p.id,
+                status: preset?.status || 'catalog unavailable',
+                statusLabel: preset?.status_message || preset?.status || 'catalog unavailable',
+                models: [],
+              } satisfies ProviderModelGroup;
             }
           }),
         );
-        if (!cancelled) setModelOptions(perProvider.flat());
+        if (!cancelled) {
+          setModelProviders(perProvider);
+          setModelOptions(perProvider.flatMap((provider) => provider.models.map((model) => ({ id: model.value, label: model.label, detail: provider.label }))));
+          setThinkingLevel(lm?.thinking_level || undefined);
+        }
       } catch {
         // Leaves the control empty, which reads as "nothing to choose".
       }
@@ -383,9 +436,12 @@ export function SessionView({
 
   const refreshPill = useCallback(
     async (sessionId: string, scope: string) => {
-      const [tasksResult, contextResult] = await Promise.allSettled([
+      const [tasksResult, contextResult, artifactsResult] = await Promise.allSettled([
         Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
         Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
+        Promise.resolve().then(() =>
+          fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+        ),
       ]);
       const next: ComposerPillState = { sessionId, scope };
 
@@ -400,6 +456,16 @@ export function SessionView({
         if (typeof usedPercent === 'number' && Number.isFinite(usedPercent)) {
           next.contextPercent = Math.round(usedPercent);
         }
+      }
+
+      if (artifactsResult.status === 'fulfilled') {
+        const artifactRows = Array.isArray(artifactsResult.value.artifacts)
+          ? artifactsResult.value.artifacts
+          : [];
+        next.artifactCount =
+          typeof artifactsResult.value.count === 'number'
+            ? artifactsResult.value.count
+            : artifactRows.length;
       }
 
       setPillState(next);
@@ -459,8 +525,16 @@ export function SessionView({
     active?.workspace_id ?? (activeId ? createdWorkspaces[activeId] : undefined);
   const activeWorkspaceLabel = activeWorkspaceId
     ? workspaceDisplayLabel(activeWorkspaceId, workspaces)
-    : 'ungrouped';
-  const placement = activeId ? `${activeConnectionLabel}:${activeWorkspaceLabel}` : undefined;
+    : undefined;
+  // Pre-session the prototype's pill and headline still name a workspace —
+  // the current/default one, not nothing. workspaces[0] is the best
+  // available "current" answer until the app models connections' own
+  // default roots.
+  const defaultWorkspaceLabel = workspaces[0]
+    ? workspaceDisplayLabel(workspaces[0].id, workspaces)
+    : undefined;
+  const resolvedWorkspaceLabel = activeWorkspaceLabel ?? defaultWorkspaceLabel;
+  const placement = `${activeConnectionLabel}:${resolvedWorkspaceLabel ?? 'ungrouped'}`;
   const activePill =
     pillState?.sessionId === activeId && pillState.scope === activeScope ? pillState : null;
   const waitingCount = activePill?.asyncCount ?? 0;
@@ -483,11 +557,12 @@ export function SessionView({
         : [];
 
   const createAndSelectSession = useCallback(
-    async (workspaceId?: string): Promise<Session> => {
+    async (workspaceId?: string, title = 'untitled session'): Promise<Session> => {
       const targetWorkspace = workspaceId ?? active?.workspace_id;
-      const created = await client.createSession(
-        targetWorkspace ? { workspace_id: targetWorkspace } : {},
-      );
+      const created = await client.createSession({
+        title,
+        ...(targetWorkspace ? { workspace_id: targetWorkspace } : {}),
+      });
       const createdWorkspace = created.workspace_id || targetWorkspace;
       if (createdWorkspace) {
         setCreatedWorkspaces((current) => ({ ...current, [created.id]: createdWorkspace }));
@@ -499,16 +574,38 @@ export function SessionView({
     [active?.workspace_id, client, onSessionCreated],
   );
 
-  const startNewSession = useCallback(
-    async (workspaceId?: string): Promise<void> => {
-      setSendError(null);
-      try {
-        await createAndSelectSession(workspaceId);
-      } catch (error) {
-        setSendError(error instanceof Error ? error.message : String(error));
+  const openNewDialog = useCallback((workspaceId?: string): void => {
+    setNewWorkspaceId(workspaceId);
+    setNewOpen(true);
+  }, []);
+
+  const createFromDialog = useCallback(
+    async (input: {
+      title: string;
+      workspaceId?: string;
+      blueprintId?: string;
+      expertPackId?: string;
+    }): Promise<void> => {
+      const created = await createAndSelectSession(input.workspaceId, input.title);
+      if (input.blueprintId) {
+        await client.setSessionBlueprint(created.id, { blueprint_id: input.blueprintId });
+      }
+      if (input.expertPackId) {
+        await client.setSessionExpertPack(created.id, { pack_id: input.expertPackId });
       }
     },
-    [createAndSelectSession],
+    [client, createAndSelectSession],
+  );
+
+  const createWorkspaceFromDialog = useCallback(
+    async ({ name, rootPath }: { name: string; rootPath: string }): Promise<void> => {
+      const created = await client.createWorkspace({
+        root_path: rootPath,
+        ...(name ? { name } : {}),
+      });
+      setWorkspaces((current) => [...current.filter((item) => item.id !== created.id), created]);
+    },
+    [client],
   );
 
   const handleSessionAction = useCallback(
@@ -662,7 +759,7 @@ export function SessionView({
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, mode: ComposerMode) => {
       setSending(true);
       setSendError(null);
       try {
@@ -673,6 +770,11 @@ export function SessionView({
         if (!target) {
           const created = await createAndSelectSession();
           target = created.id;
+        }
+        const wireMode = mode === 'plan' ? 'plan' : 'edit';
+        if (typeof client.patchSession === 'function') {
+          await client.patchSession(target, { mode: wireMode });
+          setDetail((current) => ({ ...current, mode: wireMode }));
         }
         await client.sendMessage(target, { text });
         // Re-read rather than guessing what the backend appended: the turn may
@@ -691,13 +793,99 @@ export function SessionView({
   const observabilityData = obs
     ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
     : null;
+  const rightPanelKind =
+    panel === 'files' || panel === 'artifacts' || panel === 'context'
+      ? (panel as RightPanelKind)
+      : null;
+  const rightWorkspaceId = activeWorkspaceId ?? newWorkspaceId ?? workspaces[0]?.id;
+  const rightWorkspaceLabel = rightWorkspaceId
+    ? workspaceDisplayLabel(rightWorkspaceId, workspaces)
+    : undefined;
+
+  // The prototype's "New session" screen: no active session yet, OR a real
+  // session that has not carried its first turn (isEmpty/emptyMsgs.length
+  // === 0 in the prototype's own state). `sending` stands in for its
+  // optimistic `emptyMsgs` echo — the moment a turn goes out, the headline
+  // and SUGGESTED rows give way to the "starting the session on…" line and
+  // the spacer below starts collapsing, before the real message even lands.
+  const isIdleLayout = state.kind === 'idle' || (state.kind === 'loaded' && state.messages.length === 0);
+  const idleStarted = sending;
+  // contextPercent defaults to 0 pre-session (needs no read, per the
+  // prototype's own default pill); once a real session exists the REAL
+  // fetched value is authoritative, including while it is still loading.
+  const composerContextPercent = activeId ? activePill?.contextPercent : 0;
+  // The prototype also reads "· update available"; no endpoint reports
+  // update state, so that half is omitted, not invented.
+  const versionLine = backendVersion ? (
+    <div className="sessionview__version">
+      <VersionUpdate
+        backendVersion={backendVersion}
+        {...(newBuildAvailable ? { newBuildAvailable: true } : {})}
+      />
+    </div>
+  ) : null;
+  // The prototype nests SUGGESTED and the version line INSIDE the composer's
+  // own dock (frame -> SUGGESTED -> version), not beside it — the composer's
+  // existing 36px gutter already covers both, so they ride its `footer` slot
+  // rather than a second wrapper that would double the inset.
+  const composerFooter =
+    isIdleLayout && !idleStarted ? (
+      <>
+        <SuggestedPrompts
+          starters={freshStarters(resolvedWorkspaceLabel)}
+          onUse={(text) =>
+            setStarterPrompt((current) => ({ text, token: (current?.token ?? 0) + 1 }))
+          }
+        />
+        {versionLine}
+      </>
+    ) : (
+      versionLine
+    );
+  const composerElement =
+    state.kind !== 'missing' ? (
+      <Composer
+        // A session can carry no model, and clio-agent exposes no endpoint
+        // for the model that would ACTUALLY answer the turn (/v1/models and
+        // /v1/system both 404). Say so rather than render a bare chevron.
+        models={modelId ? modelOptions : [{ id: '', label: 'model not set' }, ...modelOptions]}
+        modelId={modelId}
+        modelProviders={modelProviders}
+        {...(thinkingLevel ? { thinkingLevel } : {})}
+        sessionMode={detail?.mode === 'plan' ? 'plan' : 'execute'}
+        commands={commands}
+        placement={placement}
+        {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
+        {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
+        {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
+        onApprovalModeChange={(next) => void setApprovalMode(next)}
+        onModelChange={(next) => void setModel(next)}
+        onOpenAsync={() => {
+          setObsTab('runs');
+          setPanel('obs');
+        }}
+        onOpenContext={() => {
+          setObsTab('context');
+          setPanel('obs');
+        }}
+        onSubmit={({ text, mode }) => void send(text, mode)}
+        busy={sending}
+        {...(sending ? { busyReason: 'Sending…' } : {})}
+        {...(starterPrompt ? { insertPrompt: starterPrompt } : {})}
+        {...(composerFooter ? { footer: composerFooter } : {})}
+      />
+    ) : null;
 
   return (
     <RailActionsProvider
-      onNewSession={(workspaceId) => void startNewSession(workspaceId)}
+      onNewSession={openNewDialog}
       onSessionAction={handleSessionAction}
       onWorkspaceAction={handleWorkspaceAction}
       onRenameWorkspace={(workspaceId, next) => void renameWorkspace(workspaceId, next)}
+      onOpenWorkspaceFiles={(workspaceId) => {
+        setNewWorkspaceId(workspaceId);
+        setPanel('files');
+      }}
     >
       <AppShell
         groups={groupByWorkspace(
@@ -711,18 +899,42 @@ export function SessionView({
         )}
         activeSessionId={activeId}
         onSelectSession={setActiveId}
-        title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
-        {...(activeBlueprintId ? { breadcrumb: activeBlueprintId } : {})}
+        title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? 'untitled session'}
+        breadcrumb={activeBlueprintId ?? 'no blueprint'}
+        breadcrumbTitle={
+          activeBlueprintId ? 'Agent blueprint · click to view or edit' : 'Pick a blueprint for this session'
+        }
         ribbon={[{ id: 'main', label: 'main' }]}
         activeRibbonId={activeScope}
         onSelectRibbon={setActiveScope}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
         panel={panel}
+        artifactCount={activePill?.artifactCount}
+        contextPercent={activePill?.contextPercent}
+        {...(rightPanelKind
+          ? {
+              detail: (
+                <SessionRightPanel
+                  client={client}
+                  kind={rightPanelKind}
+                  {...(activeId ? { sessionId: activeId } : {})}
+                  {...(rightWorkspaceId ? { workspaceId: rightWorkspaceId } : {})}
+                  {...(rightWorkspaceLabel ? { workspaceLabel: rightWorkspaceLabel } : {})}
+                  scope={activeScope}
+                  onClose={() => setPanel(null)}
+                />
+              ),
+            }
+          : {})}
+        {...(panel === 'console'
+          ? { dock: <ConsoleDock onClose={() => setPanel(null)} /> }
+          : {})}
         agentCount={connectedCount}
         {...(connections ? { connections } : {})}
         {...(activeConnectionId ? { activeConnectionId } : {})}
         {...(onSwitchConnection ? { onSwitchConnection } : {})}
         onOpenSettings={() => setPanel('settings')}
+        onOpenSearch={() => setSearchOpen(true)}
         onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
       >
         {sessions.length === 0 ? (
@@ -730,10 +942,6 @@ export function SessionView({
             This backend has no sessions yet.
           </p>
         ) : null}
-
-        {/* Nothing is rendered for the idle state on purpose. A fresh session is
-          an EMPTY session — the shell plus a composer waiting for input — not
-          an instruction to go and click something. */}
 
         {state.kind === 'loading' ? <p className="sessionview__notice">Loading…</p> : null}
 
@@ -782,72 +990,31 @@ export function SessionView({
           </p>
         ) : null}
 
-        {state.kind === 'loaded' && state.messages.length === 0 ? (
-          <p className="sessionview__notice" data-testid="transcript-empty">
-            This session has no messages.
-          </p>
-        ) : null}
-
-        {state.kind === 'loaded' && transcriptMessages.length > 0 ? (
-          <Transcript messages={transcriptMessages} />
-        ) : null}
-
-        {state.kind !== 'missing' ? (
-          <Composer
-            // A session can carry no model, and clio-agent exposes no endpoint
-            // for the model that would ACTUALLY answer the turn (/v1/models and
-            // /v1/system both 404). Say so rather than render a bare chevron.
-            models={modelId ? modelOptions : [{ id: '', label: 'model not set' }, ...modelOptions]}
-            modelId={modelId}
-            commands={commands}
-            {...(placement ? { placement } : {})}
-            {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
-            {...(activePill?.contextPercent !== undefined
-              ? { contextPercent: activePill.contextPercent }
-              : {})}
-            {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
-            onApprovalModeChange={(next) => void setApprovalMode(next)}
-            onModelChange={(next) => void setModel(next)}
-            onOpenAsync={() => {
-              setObsTab('runs');
-              setPanel('obs');
-            }}
-            onOpenContext={() => {
-              setObsTab('context');
-              setPanel('obs');
-            }}
-            onSubmit={({ text }) => void send(text)}
-            busy={sending}
-            {...(sending ? { busyReason: 'Sending…' } : {})}
-            {...(backendVersion
-              ? {
-                  footer: (
-                    // The prototype also reads "· update available"; no endpoint
-                    // reports update state, so that half is omitted, not invented.
-                    <div className="sessionview__version">
-                      <button
-                        type="button"
-                        className="sessionview__versionbtn"
-                        data-testid="version-stamp"
-                      >
-                        {`v${backendVersion}`}
-                      </button>
-                      {newBuildAvailable ? (
-                        <button
-                          type="button"
-                          className="sessionview__newbuild"
-                          data-testid="new-build"
-                          onClick={() => window.location.reload()}
-                        >
-                          · new app build — reload
-                        </button>
-                      ) : null}
-                    </div>
-                  ),
-                }
-              : {})}
-          />
-        ) : null}
+        {isIdleLayout ? (
+          <>
+            <div className="sessionview__idle-scroll" data-testid="transcript-empty">
+              <div className="sessionview__idle-headline">
+                {idleStarted ? (
+                  <FreshStarting hostLabel={activeConnectionLabel} />
+                ) : (
+                  <FreshHeadline {...(resolvedWorkspaceLabel ? { workspaceLabel: resolvedWorkspaceLabel } : {})} />
+                )}
+              </div>
+            </div>
+            <div className="sessionview__idle-dock">{composerElement}</div>
+            <div
+              className="sessionview__idle-spacer"
+              {...(idleStarted ? { 'data-started': 'true' } : {})}
+            />
+          </>
+        ) : (
+          <>
+            {state.kind === 'loaded' && transcriptMessages.length > 0 ? (
+              <Transcript messages={transcriptMessages} />
+            ) : null}
+            {composerElement}
+          </>
+        )}
         <Layer
           open={panel === 'settings'}
           title="settings"
@@ -882,6 +1049,22 @@ export function SessionView({
           client={client}
           open={panel === 'blueprint'}
           onClose={() => setPanel(null)}
+        />
+        <SearchDialog
+          open={searchOpen}
+          sessions={sessions}
+          workspaces={workspaces}
+          onChooseSession={setActiveId}
+          onClose={() => setSearchOpen(false)}
+        />
+        <NewDialog
+          client={client}
+          open={newOpen}
+          workspaces={workspaces}
+          {...(newWorkspaceId ? { initialWorkspaceId: newWorkspaceId } : {})}
+          onCreateSession={createFromDialog}
+          onCreateWorkspace={createWorkspaceFromDialog}
+          onClose={() => setNewOpen(false)}
         />
       </AppShell>
     </RailActionsProvider>

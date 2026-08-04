@@ -1,18 +1,18 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { brand } from '@brand';
 import {
   Chip,
   ContextMenu,
   Icon,
-  Select,
   StatusDot,
   type MenuItemDef,
   type SelectOption,
 } from '../kit';
 import { Picker, type PickerItem } from './Picker';
+import { ProviderModelPicker, type ProviderModelGroup } from './ProviderModelPicker';
 import './composer.css';
 
-export type ComposerMode = 'ask' | 'execute';
+export type ComposerMode = 'ask' | 'execute' | 'plan';
 
 /**
  * The approval axis, from the wire Literal (gact/types.py: UpdateSessionRequest
@@ -53,6 +53,11 @@ export interface ComposerProps {
   contextPercent?: number;
   models?: SelectOption[];
   modelId?: string;
+  /** Live provider catalogue for the prototype's two-pane model picker. */
+  modelProviders?: ProviderModelGroup[];
+  thinkingLevel?: string;
+  /** Real session execution axis: backend edit is labelled execute in the UI. */
+  sessionMode?: 'execute' | 'plan';
   /** Blocks input; `busyReason` is then REQUIRED to be shown. */
   busy?: boolean;
   busyReason?: string;
@@ -76,6 +81,12 @@ export interface ComposerProps {
    * composer would push the whole block off the viewport floor.
    */
   footer?: ReactNode;
+  /**
+   * Fills the textarea from OUTSIDE the component — the fresh-state SUGGESTED
+   * rows populate the composer on click. `token` must change on every use
+   * (even reselecting the same starter) so the effect fires again.
+   */
+  insertPrompt?: { text: string; token: number };
 }
 
 /**
@@ -91,6 +102,9 @@ export function Composer({
   contextPercent,
   models = [],
   modelId = '',
+  modelProviders,
+  thinkingLevel,
+  sessionMode,
   approvalMode,
   onApprovalModeChange,
   busy = false,
@@ -103,14 +117,29 @@ export function Composer({
   onOpenAsync,
   onOpenContext,
   footer,
+  insertPrompt,
 }: ComposerProps) {
   const [text, setText] = useState('');
-  const [mode, setMode] = useState<ComposerMode>('ask');
+  const [mode, setMode] = useState<ComposerMode>(sessionMode ?? 'ask');
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (sessionMode) setMode(sessionMode);
+  }, [sessionMode]);
+
+  useEffect(() => {
+    if (!insertPrompt) return;
+    setText(insertPrompt.text);
+    boxRef.current?.focus();
+    // Depends on the whole object (not just .text): the caller mints a fresh
+    // object with an incremented token on every use, so reselecting the SAME
+    // starter still refills (and refocuses) the field.
+  }, [insertPrompt]);
 
   // `/` commands a TURN, so it only counts at the very start. `@` references a
   // file and may appear anywhere in a sentence.
@@ -182,6 +211,20 @@ export function Composer({
       icon: <Icon name="eye" />,
     },
   ].map((item) => ({ ...item, checked: item.id === approvalMode }));
+  const modeMenuItems: MenuItemDef[] = [
+    {
+      id: 'execute',
+      label: 'execute',
+      description: 'Act on the workspace under the permission mode',
+      icon: <Icon name="play" />,
+    },
+    {
+      id: 'plan',
+      label: 'plan',
+      description: 'Read-only — plan changes, never apply',
+      icon: <Icon name="list" />,
+    },
+  ].map((item) => ({ ...item, checked: item.id === mode }));
 
   function submit() {
     if (!canSend) return;
@@ -326,25 +369,31 @@ export function Composer({
             <Icon name="plus" size={13} />
           </button>
 
-          {approvalMode && onApprovalModeChange ? (
-            <span className="composer__approval">
-              <button
-                type="button"
-                className="composer__quiet"
-                data-testid="composer-approval"
-                aria-label={approvalMode}
-                aria-haspopup="menu"
-                aria-expanded={approvalMenuOpen}
-                aria-pressed={mode === 'ask'}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => {
-                  setMode('ask');
+          {/* Always visible, even pre-session — the prototype shows "ask"
+              alongside "execute" from the first paint. The DROPDOWN (the real
+              ask/auto-edits/bypass/ai-review picker) is the part gated on a
+              real session: there is nothing to pick from before one exists. */}
+          <span className="composer__approval">
+            <button
+              type="button"
+              className="composer__quiet"
+              data-testid="composer-approval"
+              aria-label={approvalMode ?? 'ask'}
+              aria-haspopup="menu"
+              aria-expanded={approvalMenuOpen}
+              aria-pressed={approvalMenuOpen}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                setMode('ask');
+                if (approvalMode && onApprovalModeChange) {
                   setApprovalMenuOpen((open) => !open);
-                }}
-              >
-                <Icon name="ask" />
-                <span>{approvalMode}</span>
-              </button>
+                }
+              }}
+            >
+              <Icon name="ask" />
+              <span>{approvalMode ?? 'ask'}</span>
+            </button>
+            {approvalMode && onApprovalModeChange ? (
               <ContextMenu
                 open={approvalMenuOpen}
                 x={0}
@@ -355,29 +404,47 @@ export function Composer({
                 onSelect={(id) => onApprovalModeChange(id as ApprovalMode)}
                 onClose={() => setApprovalMenuOpen(false)}
               />
-            </span>
-          ) : null}
+            ) : null}
+          </span>
 
-          <button
-            type="button"
-            className="composer__quiet"
-            aria-label="Execute"
-            aria-pressed={mode === 'execute'}
-            onClick={() => setMode('execute')}
-          >
-            <Icon name="play" />
-            <span>execute</span>
-          </button>
+          <span className="composer__mode">
+            <button
+              type="button"
+              className="composer__quiet"
+              aria-label={mode === 'plan' ? 'Plan' : 'Execute'}
+              aria-haspopup="menu"
+              aria-expanded={modeMenuOpen}
+              aria-pressed={mode === 'execute' || mode === 'plan'}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                if (mode === 'ask') setMode('execute');
+                setModeMenuOpen((open) => !open);
+              }}
+            >
+              <Icon name={mode === 'plan' ? 'list' : 'play'} />
+              <span>{mode === 'plan' ? 'plan' : 'execute'}</span>
+            </button>
+            <ContextMenu
+              open={modeMenuOpen}
+              x={0}
+              y={-154}
+              items={modeMenuItems}
+              label="Turn mode"
+              eyebrow="mode"
+              onSelect={(id) => setMode(id as ComposerMode)}
+              onClose={() => setModeMenuOpen(false)}
+            />
+          </span>
 
           <span className="composer__spacer" />
 
           <span className="composer__model" data-testid="composer-model">
             <Icon name="sparkle" />
-            <Select
-              label="Model"
+            <ProviderModelPicker
               value={modelId}
               options={modelOptions}
-              placement="up"
+              {...(modelProviders ? { providers: modelProviders } : {})}
+              {...(thinkingLevel ? { thinkingLevel } : {})}
               onChange={onModelChange}
             />
           </span>

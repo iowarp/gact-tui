@@ -180,12 +180,14 @@
   color: var(--t-hd);
 }
 
-.composer__approval {
+.composer__approval,
+.composer__mode {
   position: relative;
   display: inline-flex;
 }
 
-.composer__approval > .kit-contextmenu {
+.composer__approval > .kit-contextmenu,
+.composer__mode > .kit-contextmenu {
   left: 0;
 }
 
@@ -206,22 +208,17 @@
   background: var(--t-hv);
 }
 
-.composer__model .kit-select {
+.composer__model .provider-model-picker {
   min-width: 0;
   flex: 1;
 }
 
-.composer__model .kit-select__trigger {
+.composer__model .provider-model-picker__trigger {
   width: 100%;
   height: 23px;
   justify-content: space-between;
   padding: 0;
   color: var(--t-hd);
-}
-
-.composer__model .kit-select__value {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .composer__send {

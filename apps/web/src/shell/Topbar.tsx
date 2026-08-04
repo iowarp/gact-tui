@@ -4,6 +4,9 @@ import './topbar.css';
 export interface TopbarProps {
   title: string;
   breadcrumb?: string;
+  /** Tooltip on the breadcrumb button — the prototype distinguishes "pick
+      one" from "view/edit the one you have" here. */
+  breadcrumbTitle?: string;
   artifactCount?: number;
   contextPercent?: number;
   railCollapsed: boolean;
@@ -24,6 +27,7 @@ export interface TopbarProps {
 export function Topbar({
   title,
   breadcrumb,
+  breadcrumbTitle,
   artifactCount,
   contextPercent,
   railCollapsed,
@@ -62,6 +66,7 @@ export function Topbar({
             <button
               type="button"
               className="shell-topbar__crumb-button"
+              {...(breadcrumbTitle ? { title: breadcrumbTitle } : {})}
               onClick={() => onTogglePanel?.('blueprint')}
             >
               <span className="shell-topbar__crumb">{breadcrumb}</span>

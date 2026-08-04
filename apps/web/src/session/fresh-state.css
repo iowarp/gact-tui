@@ -1,0 +1,153 @@
+/*
+ * Fresh/idle-session pieces — geometry transcribed from the prototype
+ * (design/prototype/Clio Session.html, the "New session" / "Suggested"
+ * blocks). Colours and sizes are the measured values, not approximations.
+ */
+
+.fresh-headline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.fresh-headline__glyph {
+  color: var(--t-ac);
+  font-family: var(--f-mono);
+  font-size: calc(19px * var(--ts));
+  line-height: 1;
+}
+
+.fresh-headline__text {
+  margin: 0;
+  font-family: var(--f-prose);
+  font-size: calc(25px * var(--ts));
+  font-weight: 600;
+  color: var(--t-hd);
+  letter-spacing: -0.01em;
+}
+
+.fresh-starting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  color: var(--t-ac);
+}
+
+/* clio-pulse is defined once, globally, in transcript/parts/parts.css. */
+.fresh-starting__glyph {
+  animation: clio-pulse 1.4s ease-in-out infinite;
+}
+
+.fresh-suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 16px 4px 0;
+  /* clio-rise is defined once, globally, in kit/modal.css. */
+  animation: clio-rise 200ms ease-out both;
+}
+
+.fresh-suggested__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--t-mu);
+}
+
+.fresh-suggested__diamond {
+  color: var(--t-cy);
+}
+
+.fresh-suggested__row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  background: transparent;
+  border: 0;
+  padding: 1px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fresh-suggested__row:hover {
+  opacity: 0.72;
+}
+
+.fresh-suggested__title {
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  color: var(--t-pr);
+  line-height: 1.4;
+}
+
+.fresh-suggested__meta {
+  font-family: var(--f-prose);
+  font-size: calc(12.5px * var(--ts));
+  color: var(--t-mu);
+  line-height: 1.4;
+}
+
+/*
+ * The idle layout (SessionView.tsx) — THREE flex siblings in `.shell__content`,
+ * measured live off the prototype's own DOM (not just its source text, which
+ * reads as one block but renders as three):
+ *
+ *   1. .sessionview__idle-scroll   flex:1, min-height:0 — the prototype's
+ *      `[data-tr-scroll]`. Holds ONLY the headline/"starting…" line, an 860px
+ *      column that is full-height + bottom-anchored so the greeting sits at
+ *      the FLOOR of this (shrinkable) region, not the floor of the viewport.
+ *   2. .sessionview__idle-dock     flex:0 0 auto — the composer's OWN natural
+ *      height (pill+frame), with SUGGESTED and the version line inside its
+ *      `footer` slot (Composer's own 36px gutter already covers them; do NOT
+ *      re-wrap in another 860px column or the gutter doubles).
+ *   3. .sessionview__idle-spacer   flex-grow 1 while idle, 0 once a turn has
+ *      started (460ms), flex-basis:0 — the prototype's `pillSpacer` div.
+ *
+ * Region 1 and region 3 are BOTH flex:1/flex-grow:1, so while idle they take
+ * the leftover vertical space roughly evenly — region 1's content is anchored
+ * to ITS floor, which is what visually centers the composer block; region 3
+ * shrinking to 0 on send is what slides it down to the true floor.
+ */
+.sessionview__idle-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 36px 12px;
+}
+
+.sessionview__idle-headline {
+  box-sizing: border-box;
+  max-width: 860px;
+  min-width: 0;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  justify-content: flex-end;
+}
+
+.sessionview__idle-dock {
+  flex: 0 0 auto;
+}
+
+.sessionview__idle-spacer {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  transition: flex-grow 460ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sessionview__idle-spacer[data-started='true'] {
+  flex-grow: 0;
+}

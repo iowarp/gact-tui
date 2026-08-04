@@ -1,0 +1,15 @@
+.version-update { position: relative; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 20px; }
+.version-update__stamp { padding: 0; border: 0; background: transparent; color: var(--t-mu); font: calc(9px * var(--ts))/1.4 var(--f-mono); cursor: pointer; }
+.version-update__stamp:hover { color: var(--t-cy); }
+.version-update__backend-assistive { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.version-update__notice { color: var(--t-ac); font: calc(8.5px * var(--ts))/1 var(--f-mono); text-transform: uppercase; }
+.version-update > .kit-popover { right: 0; bottom: calc(100% + 6px); left: auto; width: 340px; padding: 0; overflow: hidden; text-align: left; }
+.version-update__header { padding: 10px 12px; border-bottom: 1px solid var(--t-bd3); }
+.version-update__row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 11px 12px; border-bottom: 1px solid var(--t-bd2); }
+.version-update__row > svg { color: var(--t-cy); }
+.version-update__row div { display: flex; flex-direction: column; }
+.version-update__row strong { color: var(--t-hd); font: 600 calc(10.5px * var(--ts))/1.35 var(--f-mono); }
+.version-update__row span, .version-update__row small { color: var(--t-mu); font: calc(8.5px * var(--ts))/1.35 var(--f-mono); }
+.version-update__row button { padding: 5px 8px; border: 1px solid var(--t-ac); border-radius: 5px; background: var(--t-ac); color: var(--t-bg); font: 700 calc(8.5px * var(--ts))/1 var(--f-mono); cursor: pointer; }
+.version-update__auto { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border: 0; background: var(--t-bg); color: var(--t-tx); font: calc(9.5px * var(--ts))/1.3 var(--f-mono); cursor: pointer; }
+.version-update__auto span:last-child { color: var(--t-cy); }

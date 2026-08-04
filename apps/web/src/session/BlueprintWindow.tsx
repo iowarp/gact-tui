@@ -50,11 +50,20 @@ export function BlueprintWindow({ blueprintId, client, open, onClose }: Blueprin
 
   const blueprint = state.kind === 'loaded' ? state.detail.agent_blueprint : null;
   const title = blueprint?.title || blueprintId || 'blueprint';
-  const layerOpen =
-    open && Boolean(blueprintId) && state.kind !== 'idle' && state.kind !== 'loading';
+  // Clickable even with nothing attached (fresh-session.json C1) — the
+  // prototype's own click routes a bare session to a blueprint PICKER
+  // (Settings > blueprints, not built yet — tracked separately). Until that
+  // exists, opening this window and saying so honestly is the correct
+  // degraded behavior: something real happens, nothing is fabricated.
+  const layerOpen = open && state.kind !== 'loading';
 
   return (
     <Layer open={layerOpen} title={title} onClose={onClose}>
+      {!blueprintId ? (
+        <p data-testid="blueprint-window-empty">
+          No blueprint is attached to this session. Picking one from here is not wired yet.
+        </p>
+      ) : null}
       {state.kind === 'failed' ? <p role="alert">Could not load blueprint: {state.detail}</p> : null}
       {state.kind === 'loaded' ? <BlueprintDetail detail={state.detail} /> : null}
     </Layer>

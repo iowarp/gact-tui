@@ -7,7 +7,9 @@
  * regression locks, never evidence (owner standard, 2026-08-04).
  *
  * Usage: node scripts/side-by-side.mjs <name> <setup>
- *   setup: none | session | obs | obs-gantt | fresh | menus-session
+ *   setup: none | session | obs | obs-gantt | fresh | menus-session |
+ *          files | artifacts | context | console | search | new-dialog |
+ *          execute-menu | model-picker | update-panel
  */
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -56,6 +58,20 @@ async function appPage() {
   return p;
 }
 
+async function selectAppSession(p) {
+  await p.locator('.shell-rail__session').first().click();
+  await p.waitForTimeout(900);
+}
+
+async function clickPrototypeText(p, label) {
+  await p.evaluate((wanted) => {
+    const button = [...document.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent?.trim().toLowerCase() === wanted.toLowerCase(),
+    );
+    button?.click();
+  }, label);
+}
+
 /** Per-state setup on each side. Extend as review states grow. */
 const SETUPS = {
   none: { proto: async () => {}, app: async () => {} },
@@ -101,6 +117,9 @@ const SETUPS = {
     },
   },
   fresh: {
+    // The prototype's own default landing session is one of its canned demo
+    // transcripts — reaching its true idle/"New session" screen means going
+    // through +new like a real user would, not just loading the root state.
     proto: async (p) => {
       await p.mouse.click(278, 85);
       await p.waitForTimeout(700);
@@ -112,8 +131,13 @@ const SETUPS = {
       });
       await p.waitForTimeout(1200);
     },
+    // The app's rail "+" opens the +new dialog rather than creating instantly
+    // (owner-review-1) — submit it the same way a user would to reach the
+    // same idle/empty-composer state on this side.
     app: async (p) => {
       await p.getByRole('button', { name: /new session/i }).click().catch(() => {});
+      await p.waitForTimeout(400);
+      await p.getByRole('button', { name: /create session/i }).click().catch(() => {});
       await p.waitForTimeout(1200);
     },
   },
@@ -151,6 +175,55 @@ const SETUPS = {
       await row.getByRole('button', { name: /session menu/i }).click();
       await p.waitForTimeout(700);
     },
+  },
+  files: {
+    proto: async (p) => { await clickPrototypeText(p, 'files'); await p.waitForTimeout(800); },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'files' }).click(); await p.waitForTimeout(900); },
+  },
+  artifacts: {
+    proto: async (p) => { await clickPrototypeText(p, 'artifacts'); await p.waitForTimeout(800); },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'artifacts' }).click(); await p.waitForTimeout(900); },
+  },
+  context: {
+    proto: async (p) => { await clickPrototypeText(p, 'ctx'); await p.waitForTimeout(800); },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'ctx' }).click(); await p.waitForTimeout(900); },
+  },
+  console: {
+    proto: async (p) => { await p.locator('button[title^="Workspace console"]').click(); await p.waitForTimeout(800); },
+    app: async (p) => {
+      await p.addInitScript(() => { window.isTauri = true; });
+      await p.reload();
+      await p.getByRole('navigation', { name: /workspaces/i }).waitFor();
+      await selectAppSession(p);
+      await p.getByRole('button', { name: 'console' }).click();
+      await p.waitForTimeout(800);
+    },
+  },
+  search: {
+    proto: async (p) => { await p.locator('button[title="Search sessions and workspaces"]').click(); await p.waitForTimeout(600); },
+    app: async (p) => { await p.getByRole('button', { name: /search sessions/i }).click(); await p.waitForTimeout(600); },
+  },
+  'new-dialog': {
+    proto: async (p) => { await p.mouse.click(278, 85); await p.waitForTimeout(600); },
+    app: async (p) => { await p.getByRole('button', { name: /new session/i }).click(); await p.waitForTimeout(600); },
+  },
+  'execute-menu': {
+    proto: async (p) => { await clickPrototypeText(p, 'execute'); await p.waitForTimeout(600); },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'Execute' }).click(); await p.waitForTimeout(600); },
+  },
+  'model-picker': {
+    proto: async (p) => {
+      await p.evaluate(() => {
+        const button = [...document.querySelectorAll('button')].find((candidate) => /claude|sonnet|opus/i.test(candidate.textContent || '') && candidate.getBoundingClientRect().y > 700);
+        button?.click();
+      });
+      await p.waitForTimeout(700);
+    },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('combobox', { name: /model/i }).click(); await p.waitForTimeout(700); },
+  },
+  'update-panel': {
+    proto: async (p) => { await p.locator('button[title="Build version — click for updates"]').click(); await p.waitForTimeout(600); },
+    app: async (p) => { await p.getByTestId('version-stamp').click(); await p.waitForTimeout(600); },
   },
 };
 

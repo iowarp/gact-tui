@@ -52,11 +52,15 @@ describe('SessionView', () => {
     expect(client.messages).toHaveBeenCalledWith('sess_a');
   });
 
-  it('states when a session has no messages rather than showing an empty pane', async () => {
+  it('renders the fresh/idle greeting for a session with no messages, not a blank notice', async () => {
     const client = makeClient({ messages: vi.fn(async () => ({ messages: [] })) });
     render(<SessionView client={client} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'membudget 1' }));
     await waitFor(() => expect(screen.getByTestId('transcript-empty')).toBeInTheDocument());
+    // The prototype's own idle screen (a headline + SUGGESTED), not a plain
+    // "no messages" sentence — see fresh-session-conformance.test.tsx.
+    expect(screen.getByText(/^Ready on /)).toBeInTheDocument();
+    expect(screen.getByTestId('suggested-prompts')).toBeInTheDocument();
   });
 
   it('surfaces a load failure with its reason instead of a blank transcript', async () => {
