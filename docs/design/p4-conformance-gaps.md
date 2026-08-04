@@ -277,3 +277,13 @@ Owner-reported on the live :4191 build (all confirmed by measurement):
   the left column are all wrong" — this is B2/B3/B5 (group path 11.5px
   `rgb(183,189,200)` not 11px muted; title Inter 11.5/500 head color; footer
   mono 11px with the count in head color; time mono 10px muted).
+- **B13 Page scrolls beyond the viewport (owner screenshot, 2026-08-03).**
+  With enough workspaces the BODY becomes the scroller: the footer band lands
+  mid-page and the app trails into empty background. The shell must be
+  viewport-locked (root `height: 100vh; overflow: hidden`) and the rail's
+  session list must own its overflow (`flex: 1; min-height: 0;
+  overflow-y: auto`) with the lockup/heading pinned above and the footer band
+  pinned below — the same only-scroller rule the transcript already enforces.
+  Failing-first proof: with >viewport of seeded groups,
+  `document.scrollingElement.scrollHeight === clientHeight` AND the rail list
+  scrolls internally while the footer stays fixed at the viewport bottom.
