@@ -341,3 +341,30 @@ describe('version stamp (C8)', () => {
     expect(screen.queryByTestId('version-stamp')).toBeNull();
   });
 });
+
+describe('new-build notice (C8, client-side)', () => {
+  it('says nothing about updates when the running build is current', () => {
+    render(
+      <SessionView client={makeClient()} sessions={SESSIONS} backendVersion="0.9.0+42522bb1" />,
+    );
+    expect(screen.queryByTestId('new-build')).toBeNull();
+  });
+
+  it('offers a reload when a newer app build is deployed', () => {
+    render(
+      <SessionView
+        client={makeClient()}
+        sessions={SESSIONS}
+        backendVersion="0.9.0+42522bb1"
+        newBuildAvailable
+      />,
+    );
+    const notice = screen.getByTestId('new-build');
+    expect(notice).toBeInTheDocument();
+    // It must be unambiguous that this is the APP, not the backend whose
+    // version sits right next to it. "update available" beside a backend
+    // version reads as "the backend has an update", which would be false.
+    expect(notice.textContent).toMatch(/app|build/i);
+    expect(notice.textContent).not.toMatch(/0\.9\.0/);
+  });
+});

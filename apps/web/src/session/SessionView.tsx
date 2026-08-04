@@ -23,6 +23,11 @@ export interface SessionViewProps {
   onSessionCreated?: (session: Session) => void;
   /** capabilities.backend.version, for the prototype's version stamp. */
   backendVersion?: string;
+  /**
+   * A newer APP build is deployed (client-side check, see wire/updateCheck).
+   * Deliberately distinct from `backendVersion`: they are different subjects.
+   */
+  newBuildAvailable?: boolean;
   /** Connected clio deployments, owned by the pool in App (S6). */
   connections?: RailConnection[];
   activeConnectionId?: string;
@@ -57,6 +62,7 @@ export function SessionView({
   onForgetSession,
   onSessionCreated,
   backendVersion,
+  newBuildAvailable,
   connections,
   activeConnectionId,
   onSwitchConnection,
@@ -463,6 +469,16 @@ export function SessionView({
                     >
                       {`v${backendVersion}`}
                     </button>
+                    {newBuildAvailable ? (
+                      <button
+                        type="button"
+                        className="sessionview__newbuild"
+                        data-testid="new-build"
+                        onClick={() => window.location.reload()}
+                      >
+                        · new app build — reload
+                      </button>
+                    ) : null}
                   </div>
                 ),
               }

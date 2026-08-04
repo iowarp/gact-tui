@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConnectionPool } from './connections/ConnectionPool';
+import { APP_VERSION } from './build-info';
+import {
+  DEFAULT_UPDATE_POLL_MS,
+  fetchDeployedVersion,
+  isNewerBuild,
+} from './wire/updateCheck';
 import type { RailConnection } from './shell/Rail';
 import { brand } from '@brand';
 import {
@@ -57,6 +63,25 @@ export function App() {
 
   useEffect(() => {
     applyAppearance(loadAppearance(), document.documentElement);
+  }, []);
+
+  // Poll the deployed build marker, and re-check on focus: someone returning
+  // to a long-open tab is exactly who is running a stale bundle. Ported from
+  // the legacy tree — this never needed a backend endpoint.
+  const [newBuildAvailable, setNewBuildAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const deployed = await fetchDeployedVersion();
+      if (!cancelled && isNewerBuild(APP_VERSION, deployed)) setNewBuildAvailable(true);
+    };
+    void check();
+    const timer = setInterval(() => void check(), DEFAULT_UPDATE_POLL_MS);
+    window.addEventListener('focus', () => void check());
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   const onConnect = useCallback(async (url: string) => {
@@ -130,6 +155,7 @@ export function App() {
           )
         }
         backendVersion={backend.capabilities?.backend?.version ?? ''}
+        newBuildAvailable={newBuildAvailable}
         connections={connections}
         activeConnectionId={activeConnectionId}
         onSwitchConnection={(id) => {
