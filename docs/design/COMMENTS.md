@@ -35,7 +35,14 @@ checked off with the commit that lands it. Newest first.
 ### Rail — row menu
 - The Pin menu option on a PINNED session should read "Unpin" (toggle label
   follows state).
-- Status: TODO (fix round; the rail contract's pin test gains the label flip).
+- The ⋯ menus (session rows AND workspace/group heads) carried ICONS on every
+  item in the prototype — ours render text-only.
+- The workspace ⋯ menu item is NOT named "New session here" — that label was
+  my invention (specced as a minimal placeholder in the B brief). The real
+  item set + icons must be extracted from the prototype's menus once the
+  export is servable again — do not invent.
+- Status: TODO (fix round; menu extraction blocked on the prototype export
+  location).
 
 ### Rail (annotated screenshot, Screenshot 2026-08-04 011207.png)
 - Group-head disclosure caret: "maybe smaller" (prototype's is 8px mono).
