@@ -243,3 +243,37 @@ P5 workflow slices — every item below is a defect until measured equal.
   route. Resolved local backend registers as `clio:local`.
 - **F2** Current app boots to the ConnectScreen card and only autoconnects from
   a saved registry entry.
+
+### B (addendum) — owner feedback 2026-08-03 + animation extraction
+
+Owner-reported on the live :4191 build (all confirmed by measurement):
+
+- **B6 Reactive chrome.** The prototype's logo/wordmark/tagline are links with
+  hover feedback; the rail generally reacts on hover. The app's chrome is
+  inert, which reads worse than the prototype ("when you make it even worse it
+  does look bad"). Hover states are part of the conformance bar, not polish.
+- **B7 Pin semantics.** Pin is a UI-organization semantic (client-owned, never
+  backend). It must WORK: toggle from the row menu, pinned-first ordering,
+  pin glyph on the row — currently unverifiable because no toggle exists.
+- **B8 Dot column alignment.** The session-row status dot must align with the
+  group head's folder icon column; row spacing around it is off.
+- **B9 Owner deviation license (spacing).** The prototype's rail spacing is
+  "a bit too big" — slight vertical compression vs the prototype is APPROVED
+  for the rail rows. Record final numbers here when tuned.
+- **B10 show-more proof.** `show more (N)` logic exists but live data never has
+  >5 sessions per group; the mock e2e must seed a group with >5 so the
+  semantics are verifiable (and demo data should too).
+- **B11 Unified indicator light.** Prototype defect (owner): indicator lights
+  are three different classes with different effects — session rows =
+  `clio-pip` 1.4s ease-in-out + `box-shadow: 0 0 8px <color>`; footer dots =
+  static + `0 0 6px` glow; running dots = `clio-pulse` (opacity .5↔1, scale
+  .85↔1.15), no glow. The app builds ONE kit StatusDot used everywhere:
+  subtle pulse + luminescent glow for active states (green running
+  `rgb(52,211,153)`, amber attention `rgb(251,191,36)`, orange busy
+  `rgb(196,104,42)`), static muted gray for idle. Keyframes to transcribe:
+  `clio-pip { 0%,100% {opacity:1; transform:scale(1)} 50% {opacity:.6;
+  transform:scale(.85)} }`.
+- **B12 Left-column typography.** Owner: "font color and size of the fonts on
+  the left column are all wrong" — this is B2/B3/B5 (group path 11.5px
+  `rgb(183,189,200)` not 11px muted; title Inter 11.5/500 head color; footer
+  mono 11px with the count in head color; time mono 10px muted).
