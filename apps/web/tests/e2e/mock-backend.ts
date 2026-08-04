@@ -36,6 +36,40 @@ export interface MockBackendOptions {
    * brand-default `http://127.0.0.1:17800` the boot splash probes (slice F).
    */
   origin?: string;
+  /**
+   * Volume fixtures for overflow semantics (B10/B13): twelve workspaces, the
+   * first holding eight sessions so `show more (3)` fires and the rail
+   * overflows the viewport.
+   */
+  stress?: boolean;
+}
+
+/** Deterministic volume fixtures — see MockBackendOptions.stress. */
+function stressFixtures() {
+  const workspaces = Array.from({ length: 12 }, (_, i) => ({
+    id: `ws_stress_${String(i + 1).padStart(2, '0')}`,
+    name: `stress-ws-${String(i + 1).padStart(2, '0')}`,
+    root_path: `/scratch/stress-${String(i + 1).padStart(2, '0')}`,
+  }));
+  const sessions = [
+    ...Array.from({ length: 8 }, (_, i) => ({
+      id: `sess_stress_${i + 1}`,
+      title: `stress-${String(i + 1).padStart(2, '0')}`,
+      status: 'idle',
+      created_at: '2026-08-03T00:00:00Z',
+      updated_at: '2026-08-03T00:00:00Z',
+      workspace_id: 'ws_stress_01',
+    })),
+    ...workspaces.slice(1).map((ws, i) => ({
+      id: `sess_stress_ov_${i + 1}`,
+      title: `stress overflow ${String(i + 1).padStart(2, '0')}`,
+      status: 'idle',
+      created_at: '2026-08-03T00:00:00Z',
+      updated_at: '2026-08-03T00:00:00Z',
+      workspace_id: ws.id,
+    })),
+  ];
+  return { workspaces, sessions };
 }
 
 /** The nested Capabilities envelope, flags copied from a live capture.
@@ -301,7 +335,10 @@ export async function installMockBackend(
       });
 
     if (url.pathname === '/v1/capabilities') return json(capabilities(contract));
-    if (url.pathname === '/v1/sessions') return json(sessions());
+    if (url.pathname === '/v1/sessions') {
+      if (options.stress) return json({ sessions: stressFixtures().sessions });
+      return json(sessions());
+    }
     // The rail labels its groups from workspace root paths, so the app asks
     // for these on connect. Without the route the browser logs a 404 even
     // though the client tolerates it.
@@ -367,6 +404,7 @@ export async function installMockBackend(
       });
     }
     if (url.pathname === '/v1/workspaces') {
+      if (options.stress) return json({ workspaces: stressFixtures().workspaces });
       return json({
         workspaces: [
           {
@@ -391,11 +429,25 @@ export async function installMockBackend(
   });
 }
 
+/**
+ * Refuse the brand-default backends the boot splash probes. Without this,
+ * every cold boot spends 2×2.5s probing the REAL :17800 — specs then race
+ * their own assertion timeouts, which is exactly the flake shape the full
+ * run showed (boot specs at 4.7–5.2s each). A spec that wants the default
+ * SERVED registers the mock on that origin afterwards; the later route wins.
+ */
+export async function refuseDefaultBackends(page: Page): Promise<void> {
+  for (const origin of ['http://127.0.0.1:17800', 'http://localhost:17800']) {
+    await page.route(`${origin}/**`, (route) => route.abort('connectionrefused'));
+  }
+}
+
 /** Drive the connect screen all the way to a connected backend. */
 export async function connectMockBackend(
   page: Page,
   options: MockBackendOptions = {},
 ): Promise<void> {
+  await refuseDefaultBackends(page);
   await installMockBackend(page, options);
   await page.goto('/');
   await page.getByTestId('connect-url').fill(MOCK_BACKEND);

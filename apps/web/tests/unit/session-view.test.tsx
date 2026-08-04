@@ -282,9 +282,14 @@ describe('composer control row (C5 / C9 / S1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('combobox', { name: /approval/i }));
-    const options = screen.getAllByRole('option').map((o) => o.textContent?.trim());
-    expect(options).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
+    // Slice D consolidated the approval control into the iconed ask button
+    // opening the kit menu (the combobox duplicate is deleted).
+    fireEvent.click(screen.getByTestId('composer-approval'));
+    const menu = screen.getByRole('menu');
+    const items = within(menu)
+      .getAllByRole('menuitem')
+      .map((o) => o.textContent?.trim());
+    expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
   });
 
   it('persists an approval-mode change through PATCH', async () => {
@@ -293,8 +298,8 @@ describe('composer control row (C5 / C9 / S1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('combobox', { name: /approval/i }));
-    fireEvent.click(screen.getByRole('option', { name: 'bypass' }));
+    fireEvent.click(screen.getByTestId('composer-approval'));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('bypass'));
 
     await waitFor(() =>
       expect(client.patchSession).toHaveBeenCalledWith('sess_a', { approval_mode: 'bypass' }),

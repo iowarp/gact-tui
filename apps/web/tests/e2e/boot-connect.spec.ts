@@ -5,7 +5,7 @@
  * renders a connect screen and completes a handshake through @clio/core.
  */
 import { expect, test } from '@playwright/test';
-import { connectMockBackend, installMockBackend } from './mock-backend';
+import { connectMockBackend, installMockBackend, refuseDefaultBackends } from './mock-backend';
 
 /**
  * Clears the saved-backend registry so a case starts from a genuinely COLD
@@ -30,6 +30,7 @@ async function coldBoot(page: import('@playwright/test').Page): Promise<void> {
 
 test('boots to the connect screen', async ({ page }) => {
   await coldBoot(page);
+  await refuseDefaultBackends(page);
   await installMockBackend(page);
   await page.goto('/');
 

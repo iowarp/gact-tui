@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { brand } from '@brand';
-import { Chip, Icon, Select, Tabs, type SelectOption } from '../kit';
+import { Chip, ContextMenu, Icon, Select, type MenuItemDef, type SelectOption } from '../kit';
 import { Picker, type PickerItem } from './Picker';
 import './composer.css';
 
@@ -76,6 +76,7 @@ export function Composer({
   const [mode, setMode] = useState<ComposerMode>('ask');
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
@@ -109,6 +110,24 @@ export function Composer({
   }
 
   const canSend = !busy && text.trim().length > 0;
+  const hasAsync = asyncCount !== undefined && asyncCount > 0;
+  const hasContext = contextPercent !== undefined;
+  const hasPill = Boolean(placement) || hasAsync || hasContext;
+  const placementParts = placement?.match(/^([^:]+:)(.*)$/);
+  const placementHost = placementParts?.[1] ?? '';
+  const placementPath = placementParts?.[2] ?? placement ?? '';
+  const normalizedModels = models.map(({ detail, ...option }) => ({
+    ...option,
+    label: typeof detail === 'string' ? `${detail} / ${option.label}` : option.label,
+  }));
+  const modelOptions =
+    modelId || normalizedModels.some((option) => option.id === '')
+      ? normalizedModels
+      : [{ id: '', label: 'model not set' }, ...normalizedModels];
+  const approvalMenuItems: MenuItemDef[] = APPROVAL_MODES.map((approval) => ({
+    id: approval,
+    label: approval,
+  }));
 
   function submit() {
     if (!canSend) return;
@@ -158,11 +177,44 @@ export function Composer({
 
   return (
     <div className="composer">
-      <div className="composer__chips">
-        {placement ? <Chip tone="accent">{placement}</Chip> : null}
-        {asyncCount ? <Chip tone="accent">{`async ${asyncCount}`}</Chip> : null}
-        {contextPercent === undefined ? null : <Chip>{`ctx ${contextPercent}%`}</Chip>}
-      </div>
+      {hasPill ? (
+        <div className="composer__chips">
+          {placement ? (
+            <span className="composer__placementchip">
+              <Chip>
+                <span className="composer__placementdot" aria-hidden="true" />
+                <span
+                  className="composer__placementlabel"
+                  data-host={placementHost}
+                  data-path={placementPath}
+                >
+                  {placement}
+                </span>
+              </Chip>
+            </span>
+          ) : null}
+          {placement && (hasAsync || hasContext) ? (
+            <span className="composer__pillsep" aria-hidden="true" />
+          ) : null}
+          {hasAsync ? (
+            <span className="composer__asyncchip">
+              <Chip icon={<Icon name="zap" size={11} />}>{`async ${asyncCount}`}</Chip>
+            </span>
+          ) : null}
+          {hasAsync && hasContext ? (
+            <span className="composer__pillsep" aria-hidden="true" />
+          ) : null}
+          {hasContext ? (
+            <span className="composer__contextchip">
+              <Chip icon={<span className="composer__contextdot" aria-hidden="true" />}>
+                <span className="composer__contextlabel" data-percent={`${contextPercent}%`}>
+                  {`ctx ${contextPercent}%`}
+                </span>
+              </Chip>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div
         className="composer__frame"
@@ -170,6 +222,7 @@ export function Composer({
         data-expanded={expanded ? 'true' : undefined}
         data-queued={asyncCount ? 'true' : undefined}
         data-picker-open={pickerOpen ? 'true' : undefined}
+        data-pill={hasPill ? 'true' : undefined}
       >
         <Picker
           open={pickerOpen}
@@ -210,35 +263,56 @@ export function Composer({
             <Icon name="plus" size={13} />
           </button>
 
-          <Tabs
-            label="Turn mode"
-            activeId={mode}
-            onChange={(id) => setMode(id as ComposerMode)}
-            tabs={[
-              { id: 'ask', label: 'ask' },
-              { id: 'execute', label: 'execute' },
-            ]}
-          />
-
-          <span className="composer__spacer" />
-
           {approvalMode && onApprovalModeChange ? (
-            <span className="composer__approval" data-testid="composer-approval">
-              <Select
-                label="Approval"
-                value={approvalMode}
-                options={APPROVAL_MODES.map((id) => ({ id, label: id }))}
-                placement="up"
-                onChange={(id) => onApprovalModeChange(id as ApprovalMode)}
+            <span className="composer__approval">
+              <button
+                type="button"
+                className="composer__quiet"
+                data-testid="composer-approval"
+                aria-label={approvalMode}
+                aria-haspopup="menu"
+                aria-expanded={approvalMenuOpen}
+                aria-pressed={mode === 'ask'}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => {
+                  setMode('ask');
+                  setApprovalMenuOpen((open) => !open);
+                }}
+              >
+                <Icon name="ask" />
+                <span>{approvalMode}</span>
+              </button>
+              <ContextMenu
+                open={approvalMenuOpen}
+                x={0}
+                y={-128}
+                items={approvalMenuItems}
+                label="Approval modes"
+                onSelect={(id) => onApprovalModeChange(id as ApprovalMode)}
+                onClose={() => setApprovalMenuOpen(false)}
               />
             </span>
           ) : null}
 
+          <button
+            type="button"
+            className="composer__quiet"
+            aria-label="Execute"
+            aria-pressed={mode === 'execute'}
+            onClick={() => setMode('execute')}
+          >
+            <Icon name="play" />
+            <span>execute</span>
+          </button>
+
+          <span className="composer__spacer" />
+
           <span className="composer__model" data-testid="composer-model">
+            <Icon name="sparkle" />
             <Select
               label="Model"
               value={modelId}
-              options={models}
+              options={modelOptions}
               placement="up"
               onChange={onModelChange}
             />
@@ -251,7 +325,7 @@ export function Composer({
             disabled={!canSend}
             onClick={submit}
           >
-            <Icon name="send" size={14} />
+            <Icon name="arrow-up" size={13} />
           </button>
         </div>
       </div>

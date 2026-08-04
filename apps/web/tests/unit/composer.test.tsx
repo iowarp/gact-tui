@@ -70,7 +70,7 @@ describe('Composer', () => {
   it('switches between ask and execute modes', () => {
     const onSubmit = vi.fn();
     renderComposer({ onSubmit });
-    fireEvent.click(screen.getByRole('tab', { name: /execute/i }));
+    fireEvent.click(screen.getByRole('button', { name: /execute/i }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'run it' } });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
     expect(onSubmit).toHaveBeenCalledWith({ text: 'run it', mode: 'execute' });

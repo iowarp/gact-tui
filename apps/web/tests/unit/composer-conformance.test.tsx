@@ -91,6 +91,27 @@ describe('pill wiring (D1)', () => {
     await openSession(client);
     await waitFor(() => expect(screen.getByText(/local:/)).toBeInTheDocument());
   });
+
+  it('the pill persists when async work is zero and the model-grounded read is empty', async () => {
+    // Live finding (2026-08-03): a fresh session has used_pct null and no
+    // tasks, and the whole pill vanished. Placement is ALWAYS known while a
+    // session is open; ctx falls back to the segment-attributed pct_used.
+    const client = makeClient({
+      '/agent-tasks': { tasks: [] },
+      '/context/state': { used_pct: null, pct_used: 7.4 },
+    });
+    await openSession(client);
+    await waitFor(() => expect(screen.getByText(/local:/)).toBeInTheDocument());
+    expect(screen.getByText(/ctx 7%/)).toBeInTheDocument();
+  });
+
+  it('placement still renders when the auxiliary reads fail', async () => {
+    // No silent blanking: a failed tasks/context read costs those chips, not
+    // the pill.
+    const client = makeClient({});
+    await openSession(client);
+    await waitFor(() => expect(screen.getByText(/local:/)).toBeInTheDocument());
+  });
 });
 
 describe('control row (D2–D4)', () => {
