@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { brand } from '@brand';
 import {
   connectBackend,
@@ -9,7 +9,15 @@ import { ConnectScreen } from './connect/ConnectScreen';
 import { KitGallery } from './kit/KitGallery';
 import { ShellPreview } from './shell/ShellPreview';
 import { SessionView } from './session/SessionView';
-import { loadRegistry, rememberBackend, saveRegistry } from './connect/registry';
+import {
+  forgetBackend,
+  lastUsed,
+  loadRegistry,
+  rememberBackend,
+  saveRegistry,
+  setLastUsed,
+} from './connect/registry';
+import type { BackendEntry } from '@clio/core';
 import { applyAppearance, loadAppearance } from './theme/theme';
 
 const LAST_URL_KEY = 'clio.backend.last-url.v3';
@@ -29,6 +37,7 @@ export function App() {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<ConnectFailure | null>(null);
   const [backend, setBackend] = useState<ConnectedBackend | null>(null);
+  const [saved, setSaved] = useState<BackendEntry[]>(() => loadRegistry().backends);
 
   useEffect(() => {
     applyAppearance(loadAppearance(), document.documentElement);
@@ -48,12 +57,35 @@ export function App() {
       // Record it in the backend registry. The rail footer counts CONNECTED
       // CLIO DEPLOYMENTS from here — a UI-owned set, not anything the backend
       // serves — so a connection that is never recorded makes that count lie.
-      saveRegistry(rememberBackend(loadRegistry(), { url: result.url, label: result.url }));
+      const next = setLastUsed(
+        rememberBackend(loadRegistry(), { url: result.url, label: result.url }),
+        result.url,
+      );
+      saveRegistry(next);
+      setSaved(next.backends);
     } catch {
       // Storage unavailable; the connection itself is unaffected.
     }
     setBackend(result);
   }, []);
+
+  const onForget = useCallback((url: string) => {
+    const next = forgetBackend(loadRegistry(), url);
+    saveRegistry(next);
+    setSaved(next.backends);
+  }, []);
+
+  // Autoconnect to the backend last used. Re-typing the same address on every
+  // boot was a regression against the legacy app, which reconnected itself.
+  // It runs ONCE and never retries: a failing autoconnect leaves the user on
+  // the connect screen with the reason, rather than in a retry loop.
+  const attempted = useRef(false);
+  useEffect(() => {
+    if (attempted.current || backend) return;
+    attempted.current = true;
+    const entry = lastUsed(loadRegistry());
+    if (entry) void onConnect(entry.url);
+  }, [backend, onConnect]);
 
   // Development surface for the component kit (gact-tui#331) — the fixtures
   // harness the visual gates screenshot. Not app chrome, not routable from it.
@@ -90,6 +122,8 @@ export function App() {
       failure={failure}
       onEdit={() => setFailure(null)}
       onConnect={(url) => void onConnect(url)}
+      saved={saved}
+      onForget={onForget}
     />
   );
 }

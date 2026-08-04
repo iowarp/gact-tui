@@ -123,3 +123,105 @@
   letter-spacing: 0.06em;
   opacity: 0.85;
 }
+
+/* --- connecting feedback (S4) --------------------------------------- */
+
+.connect__progress {
+  height: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--t-bd3);
+}
+
+.connect__progressbar {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--t-ac);
+  animation: connect-sweep 1100ms ease-in-out infinite;
+}
+
+@keyframes connect-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+/* Motion is feedback, not decoration; without it the state still reads. */
+@media (prefers-reduced-motion: reduce) {
+  .connect__progressbar {
+    width: 100%;
+    animation: none;
+  }
+}
+
+.connect__status {
+  margin: 8px 0 0;
+  min-height: 14px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}
+
+/* --- saved backends (S3) -------------------------------------------- */
+
+.connect__saved {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.connect__savedrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 4px;
+}
+
+.connect__savedconnect {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t-hd);
+  font-size: calc(11.5px * var(--ts));
+  text-align: left;
+  cursor: pointer;
+}
+
+.connect__savedconnect:hover:not(:disabled) {
+  background: var(--t-hv);
+}
+
+.connect__savedurl {
+  overflow: hidden;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect__savedforget {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--t-mu);
+  cursor: pointer;
+}
+
+.connect__savedforget:hover:not(:disabled) {
+  background: var(--t-hv);
+  color: var(--t-er);
+}

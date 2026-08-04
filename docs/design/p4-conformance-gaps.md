@@ -61,8 +61,8 @@ is done and working, as originally instructed.
 |---|---|---|
 | S1 | **Permissions/approve modes missing** from the composer. The prototype's `ask`/`auto-edits`/`auto`/`bypass` was *placeholder* semantics (owner: "we just built a menu that allowed for multiple acceptance semantics"); the real axis is the wire Literal `ask`/`auto-edits`/`bypass`/`ai-review`, PATCH-backed. | **fixed** |
 | S2 | **Shift+Tab does not expand** the composer (added deliberately to the prototype). | open |
-| S3 | **Connection semantics lost**: no saved-connections list, no autoconnect. `@clio/core` ships the backend registry — a KEPT module — and I wrote a one-off single-key connect screen instead. | in progress |
-| S4 | Connecting state **freezes with no feedback**; needs an animation. | open |
+| S3 | **Connection semantics lost**: no saved-connections list, no autoconnect. `@clio/core` ships the backend registry — a KEPT module — and I wrote a one-off single-key connect screen instead. | **fixed** |
+| S4 | Connecting state **freezes with no feedback**; needs an animation. | **fixed** |
 | S5 | Missing session (404) should offer **remove**, not appear broken. | done |
 | S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | open |
 
