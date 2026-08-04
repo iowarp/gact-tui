@@ -31,11 +31,32 @@ page.on('response', (r) => {
 });
 
 // ---- connect ----------------------------------------------------------
+// Warm boot: a real user's browser carries the saved registry, so the splash
+// autoconnects silently on the first candidate. Cold-boot fallback noise is
+// covered by the e2e boot-splash specs; THIS gate holds the zero-console-error
+// bar on the everyday path.
+await page.addInitScript(
+  ([backend]) => {
+    try {
+      localStorage.setItem(
+        'clio.backends.v3',
+        JSON.stringify({
+          backends: [
+            { id: backend, label: 'live-gate', url: backend, bearerToken: '', kind: 'http' },
+          ],
+          currentId: backend,
+        }),
+      );
+      localStorage.setItem('clio.backend.last-url.v3', backend);
+    } catch {
+      // Storage unavailable; the gate then exercises the cold path instead.
+    }
+  },
+  [BACKEND],
+);
 await page.goto(PREVIEW, { waitUntil: 'networkidle' });
-await page.getByTestId('connect-url').fill(BACKEND);
-await page.getByTestId('connect-submit').click();
 await page.getByRole('navigation', { name: /workspaces/i }).waitFor({ timeout: 30000 });
-note(true, 'connect + handshake');
+note(true, 'connect + handshake (warm splash autoconnect)');
 
 // ---- shell chrome -----------------------------------------------------
 const chrome = await page.evaluate(() => ({
