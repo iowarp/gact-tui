@@ -66,6 +66,14 @@ export function App() {
       <SessionView
         client={backend.client}
         sessions={backend.sessions}
+        onForgetSession={(sessionId) =>
+          setBackend((cur) =>
+            cur ? { ...cur, sessions: cur.sessions.filter((s) => s.id !== sessionId) } : cur,
+          )
+        }
+        onSessionCreated={(session) =>
+          setBackend((cur) => (cur ? { ...cur, sessions: [session, ...cur.sessions] } : cur))
+        }
       />
     );
   }

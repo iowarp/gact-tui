@@ -171,3 +171,60 @@ describe('missing session', () => {
     expect(screen.queryByTestId('session-missing')).toBeNull();
   });
 });
+
+describe('empty session by default (C4)', () => {
+  // The owner's complaint: "by default we should be getting an empty session
+  // ... not a select a session debug message". A fresh boot must look like a
+  // usable session you can type into, not an instruction to click something.
+
+  it('shows no select-a-session instruction', () => {
+    render(<SessionView client={makeClient()} sessions={SESSIONS} />);
+    expect(screen.queryByText(/select a session/i)).toBeNull();
+  });
+
+  it('offers a working composer before any session is selected', () => {
+    render(<SessionView client={makeClient()} sessions={SESSIONS} />);
+    const input = screen.getByRole('textbox');
+    expect(input).toBeInTheDocument();
+    expect(input).not.toBeDisabled();
+  });
+
+  it('creates the session on first send, then posts the message into it', async () => {
+    const createSession = vi.fn(async () => ({
+      id: 'sess_new',
+      title: 'untitled',
+      status: 'idle',
+      workspace_id: 'ws_default',
+    }));
+    const sendMessage = vi.fn(async () => ({}));
+    const client = makeClient({
+      createSession,
+      sendMessage,
+      messages: vi.fn(async () => ({ messages: [] })),
+    });
+
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'hello' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    await waitFor(() => expect(createSession).toHaveBeenCalled());
+    // The message must land in the session that was just created, not nowhere.
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledWith('sess_new', { text: 'hello' }));
+  });
+
+  it('reports a failed create instead of silently dropping the message', async () => {
+    const client = makeClient({
+      createSession: vi.fn(async () => {
+        throw new Error('backend refused');
+      }),
+      sendMessage: vi.fn(async () => ({})),
+    });
+
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'hello' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    await waitFor(() => expect(screen.getByTestId('send-error')).toHaveTextContent(/backend refused/i));
+    expect(client.sendMessage).not.toHaveBeenCalled();
+  });
+});

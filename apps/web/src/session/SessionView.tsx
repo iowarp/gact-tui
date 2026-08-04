@@ -17,6 +17,8 @@ export interface SessionViewProps {
   sessions: Session[];
   /** Drop a row whose session the backend no longer has. */
   onForgetSession?: (sessionId: string) => void;
+  /** A session brought into being by the first send, so the rail can show it. */
+  onSessionCreated?: (session: Session) => void;
 }
 
 type LoadState =
@@ -35,7 +37,12 @@ type LoadState =
  * SAME shell/transcript/composer the fixtures harness does — the harness is a
  * development view of these components, not a separate implementation.
  */
-export function SessionView({ client, sessions, onForgetSession }: SessionViewProps) {
+export function SessionView({
+  client,
+  sessions,
+  onForgetSession,
+  onSessionCreated,
+}: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -229,21 +236,30 @@ export function SessionView({ client, sessions, onForgetSession }: SessionViewPr
 
   const send = useCallback(
     async (text: string) => {
-      if (!activeId) return;
       setSending(true);
       setSendError(null);
       try {
-        await client.sendMessage(activeId, { text });
+        // No session selected means a FRESH one, not a dead end: the default
+        // view is an empty session you can type into, so the first send is
+        // what brings the session into being.
+        let target = activeId;
+        if (!target) {
+          const created = await client.createSession({});
+          target = created.id;
+          setActiveId(target);
+          onSessionCreated?.(created);
+        }
+        await client.sendMessage(target, { text });
         // Re-read rather than guessing what the backend appended: the turn may
         // add parts this client never predicted.
-        await load(activeId);
+        await load(target);
       } catch (err) {
         setSendError(err instanceof Error ? err.message : String(err));
       } finally {
         setSending(false);
       }
     },
-    [activeId, client, load],
+    [activeId, client, load, onSessionCreated],
   );
 
   return (
@@ -269,9 +285,9 @@ export function SessionView({ client, sessions, onForgetSession }: SessionViewPr
         </p>
       ) : null}
 
-      {state.kind === 'idle' && sessions.length > 0 ? (
-        <p className="sessionview__notice">Select a session to open it.</p>
-      ) : null}
+      {/* Nothing is rendered for the idle state on purpose. A fresh session is
+          an EMPTY session — the shell plus a composer waiting for input — not
+          an instruction to go and click something. */}
 
       {state.kind === 'loading' ? <p className="sessionview__notice">Loading…</p> : null}
 
@@ -325,7 +341,7 @@ export function SessionView({ client, sessions, onForgetSession }: SessionViewPr
         <Transcript messages={state.messages} />
       ) : null}
 
-      {active ? (
+      {state.kind !== 'missing' ? (
         <Composer
           models={[{ id: 'default', label: 'default' }]}
           modelId="default"
