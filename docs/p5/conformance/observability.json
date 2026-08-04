@@ -1,0 +1,150 @@
+{
+  "surface": "observability",
+  "summary": "The chrome, timeline/gantt data-plane, and top-level tab/badge grammar match the prototype closely and are wired to real live data (SSE session-trace + agent-tasks + artifacts + mcp/servers + context/state). But roughly half the surface's finer-grained truth is off: the tools tab renders a structurally wrong view (a static per-server tool catalog instead of the prototype's chronological tool-call log) AND that wrong view is itself broken (every tool name renders blank, a string/object type mismatch against /v1/mcp/servers); the runs tab is a flat ungrouped list missing the RUNNING/COMPLETED grouping, status icons, and transcript links; the context tab is missing its progress bar, 3-metric KPI grid, and 'live now' panel (only used%/tokens survive); and the prototype's entire cross-navigation model — click a log/gantt/runs/tools/artifacts row to jump to that message, open that agent's transcript, or open that artifact — has zero equivalent anywhere in the shipped panel.",
+  "items": [
+    {
+      "element": "Layer header: eye glyph + 'observability' title + 'session trace · live' meta + maximize/pop-out/close icon triad",
+      "proto_truth": "measured proto-obs.json: 'observability' 13px mono rgb(221,225,232) @ (421,88); 'session trace' + '· live' 11px mono, the '· live' segment colored rgb(196,104,42) (orange accent); screenshot proto-obs-timeline.png shows 3 icon buttons top-right (⛶ maximize, ↗ pop-out, ✕ close)",
+      "status": "match",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:132-169 (header markup, icon triad); apps/web/src/session/SessionView.tsx:848-861 (headerIcon=<Icon name=\"eye\">, headerMeta=<ObservabilityTrace/>, windowControls); apps/web/src/observability/observability.css:23-34 (.obs__trace-scope cyan, [data-live=true] orange); live screenshot apps/web/screenshots/conformance-audit/obs-timeline-live.png",
+      "backend_surface": "unbacked (chrome only)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Pop-out (↗) header icon button",
+      "proto_truth": "prototype's header icon cluster (⛶ / ↗ / ✕) shows no disabled styling — the pop-out affordance reads as live/clickable",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:151-159 — rendered with the `disabled` attribute and title=\"opens in a window on desktop only\"; apps/web/src/kit/layer.css:129-132 (.kit-layer__windowbtn:disabled{opacity:.35})",
+      "backend_surface": "unbacked",
+      "fix_hint": "Either wire it to window.open() on the web build, or keep it disabled but document the platform-gap explicitly rather than presenting the same 3-icon cluster as the prototype's fully-live one."
+    },
+    {
+      "element": "Bottom-right drag-to-resize grip on the observability window",
+      "proto_truth": "prototype markup (design/prototype/Clio Session.html, byte offset ~8108118, repeated 4x): `<div sc-camel-on-mouse-down=\"{{ dragWin }}\" title=\"Drag to resize\" style=\"position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;...\"><svg>...</svg></div>`; JS `dragWin` sets `document.body.style.cursor='nwse-resize'` and tracks `winW`/`winH` state, default 680 x round(innerHeight*0.72)",
+      "status": "missing",
+      "app_evidence": "apps/web/src/kit/layer.css:1-139 and Layer.tsx have no resize-handle element, no pointerdown/mousedown drag logic, and no `cursor: nwse-resize` anywhere in the codebase; the window card size is fixed at `min(860px,92vw)` x `max-height:78vh` (layer.css:55-58) with only the maximize toggle as an alternative",
+      "backend_surface": "unbacked",
+      "fix_hint": "Add a corner grip element with pointer-drag resize wired to explicit width/height state on the Layer 'window' variant, matching the prototype's dragWin handler."
+    },
+    {
+      "element": "Tab row: timeline / runs N / tools N / artifacts N / context, with live badge counts",
+      "proto_truth": "proto-obs.json header row: 'timeline' (active, white), 'runs' + '6', 'tools' + '14', 'artifacts' + '5', 'context' — all 11.5px mono, inactive tabs muted rgb(138,147,162), active tab white rgb(221,225,232)",
+      "status": "match",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:60-66 (tabs array with badge counts); apps/web/src/observability/observability.css:40-62 (.kit-tabs[data-variant=quiet] active/inactive colors); live screenshot shows 'runs 1 / tools 4 / artifacts 0' with correct live counts",
+      "backend_surface": "GET /v1/sessions/{id}/tasks + GET /v1/sessions/{id}/agent-tasks (runs badge), GET /v1/mcp/servers (tools badge), GET /v1/sessions/{id}/artifacts (artifacts badge)",
+      "fix_hint": ""
+    },
+    {
+      "element": "log | gantt segmented toggle",
+      "proto_truth": "two-button segmented control, 'log' active with cyan background var(--t-cy1)/text var(--t-cy), 'gantt' muted — proto-obs.json 'log' @ rgb(10,166,173) when active vs 'gantt' rgb(138,147,162) when inactive (and vice versa in the gantt capture)",
+      "status": "match",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:236-249 (mode buttons); observability.css:90-124 (.obs-timeline__mode[aria-pressed=true]); verified live by toggling — apps/web/screenshots/conformance-audit/obs-gantt-live.png",
+      "backend_surface": "unbacked (client-side view state)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Legend glyph row: ○ event · (icon) tool · ◆ artifact · ✗ failure · ● running",
+      "proto_truth": "prototype markup (HTML offset ~8239011): event = plain '○' text muted; TOOL = an 11x11 circle with 1px border, containing an orange (var(--t-ac)) wrench SVG icon — not a text character; artifact = '◆' colored var(--t-cy) cyan; failure = '✗' (U+2717) colored var(--t-er) red; running = '●' colored var(--t-ac) orange",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:15-21 GLYPHS = {event:'○', tool:'◉', artifact:'◆', failure:'×', running:'●'}; observability.css:140-158 only overrides color for artifact/failure/running kinds — tool legend glyph stays default muted gray text, no orange, no circle, no wrench icon at all; failure uses '×' (U+00D7) not '✗' (U+2717)",
+      "backend_surface": "unbacked",
+      "fix_hint": "Render the tool marker as the same orange circled-wrench SVG used per-row (see next finding) instead of a muted text glyph; swap '×' for '✗' to match the exact codepoint."
+    },
+    {
+      "element": "Timeline log row glyph/marker per kind (thread bullet)",
+      "proto_truth": "prototype per-row markers (HTML offset ~8242700+): generic event = 11px ring with dynamic border color; artifact = 8x8 diamond, cyan fill, outlined; failure = bold red '✗' text; RUNNING = 11px filled orange circle that PULSES via `animation: clio-pulse 1.4s ease-in-out infinite`; USER = a distinct 16x16 circle containing a person/head-and-shoulders SVG icon; TOOL = a distinct 16x16 circle containing an orange wrench SVG icon",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:272-274 (`<span className=\"obs-log__node\">{GLYPHS[row.kind]}</span>`) renders the same 5 flat GLYPHS characters used in the legend, no SVG icons, and no 'user' kind exists at all in ObsTimelineKind (apps/web/src/observability/types.ts:38); observability.css:203-215 has no animation/keyframe applied to .obs-log__node for the running state",
+      "backend_surface": "unbacked (rendering only)",
+      "fix_hint": "Add a 'user' timeline kind with its own icon; add the clio-pulse animation to the running marker; render tool as the wrench-in-circle icon."
+    },
+    {
+      "element": "Timeline's opening row for the user's turn",
+      "proto_truth": "prototype's very first log row is always the user message, e.g. '19:52 · user · \"What recent ground-motion is EarthScope's GNSS network showing around...\"' (proto-obs.json rows[0-1])",
+      "status": "missing",
+      "app_evidence": "apps/web/src/observability/build.ts:148-227 `toHistoryTimelineRow` only produces rows for part types 'expert_handoff', 'tool_call', 'background_exit', and artifact parts — there is no branch for a plain user/assistant text part, so the user's question never becomes a timeline row; confirmed live: apps/web/screenshots/conformance-audit/obs-timeline-live.png opens directly on '12:16 geospatial task started' even though the visible transcript behind the panel clearly shows a user question first",
+      "backend_surface": "GET /v1/sessions/{id}/messages (message.parts already carry the user text; build.ts just never converts it to a row)",
+      "fix_hint": "Add a text/user-message branch to toHistoryTimelineRow so the first user turn (and subsequent user turns) appear as 'user' kind rows."
+    },
+    {
+      "element": "Timeline/gantt/runs/tools/artifacts row click-to-navigate (jump to message / open agent transcript / open artifact)",
+      "proto_truth": "prototype's obsTl row builder (HTML offset ~8472858) wraps every row in a click handler keyed by row type: `r.jumpMsg` → closes the observability layer and scrolls the transcript to that message (title 'Go to message'); `r.isArt` → `this.artGo(r.name)` (title 'Open artifact'); rows naming a child agent → `this.goView(jk)` (title 'Open agent'); cursor is dynamically 'pointer' vs 'default' depending on whether a handler exists",
+      "status": "missing",
+      "app_evidence": "apps/web/src/observability/Observability.tsx — Timeline() (lines 233-296) and Gantt() (lines 298-370) render plain `<li>`/`<div>` rows with zero onClick handlers anywhere in the file; no equivalent of jump-to-message, open-agent, or open-artifact exists for log or gantt rows",
+      "backend_surface": "unbacked (no client-side navigation wired; underlying data — message ids, child_session_id, artifact ids — is already present in the parts/records used to build these rows)",
+      "fix_hint": "Wire onClick handlers on log/gantt rows: scroll-to-message for handoff/tool rows tied to a sourceId, open child session for expert_handoff rows (task.child_session_id is already read in build.ts), open the artifact viewer for artifact rows."
+    },
+    {
+      "element": "Gantt chart: hierarchical indented rows, teal duration bars, tool glyphs, artifact diamond markers, orange running bars, time axis",
+      "proto_truth": "proto-obs-gantt.png: axis ticks every ~2min; nested rows (main·turn1 > geospatial > data > ndp_dataset_discovery > ...) each indented by depth; cyan bars with duration labels to the right; orange gradient/shimmer bars for 'running' rows (turn 2, data x2); a small ✗ inline on a running bar to flag a nested failure",
+      "status": "match",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:298-370 Gantt(); observability.css:254-380 (.obs-gantt__bar[data-state=running] shimmer keyframe, [data-state=failed] red); build.ts:260-397 reconstructPartSpans/toTaskSpan build real spans from live parts+agent tasks; verified live: apps/web/screenshots/conformance-audit/obs-gantt-live.png renders a real red-bordered failed bar with '1m 57s' duration for the live geospatial task",
+      "backend_surface": "GET /v1/sessions/{id}/messages + GET /v1/sessions/{id}/agent-tasks + GET /v1/sessions/{id}/artifacts",
+      "fix_hint": ""
+    },
+    {
+      "element": "Runs tab: RUNNING / COMPLETED (N) grouped sections, per-row lightning-bolt (running, orange) or checkmark (done, green) icon, description line, 'live transcript ↗' / 'transcript ↗' link opening that run's session",
+      "proto_truth": "proto-obs-runs.png + prototype markup (HTML offset ~8250560): 'RUNNING' uppercase small-caps header, each row a full-width `<button>` (not static text) with an orange lightning-bolt SVG, run label, host/task id, 'running · Xh Ym' state, a second description line, and a cyan 'live transcript ↗' action; 'COMPLETED (4)' section below uses a green ✓ SVG per row and a 'transcript ↗' action instead",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:125-144 renders a single flat `<ul>` of `obs-run__row` `<li>` items (id/agent/state/host/duration in a 5-column CSS grid) with no grouping, no status icon, no description, no transcript link, and not a button; observability.css:436-486 confirms plain text styling only; live capture apps/web/screenshots/conformance-audit/obs-runs-live.png shows one bare row: 'geospatial #1 / task_dde2adc566e9 ... geospatial  failed  local  1m 57s'",
+      "backend_surface": "GET /v1/sessions/{id}/tasks (client.sessionTasks) + GET /v1/sessions/{id}/agent-tasks (fetchSessionAgentTasks) — SessionView.tsx:185-234",
+      "fix_hint": "Group taskRuns by running vs terminal state, add status icon + description + a transcript link that opens the run's child_session_id (already present on SessionAgentTask)."
+    },
+    {
+      "element": "Tools tab information model: chronological log of tool CALLS made this session",
+      "proto_truth": "proto-obs-tools.png + prototype markup (HTML offset ~8256338, `obsToolRows`): each row = time, orange wrench icon, an expandable `<button>` showing `name(argHint) ▸` that toggles inline call details, a cyan '{{agent}} ↗' button that opens the session where the call ran, and a trailing ✓/✗/pulsing-running status glyph — 14 rows total for the captured session, sorted by call time",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:146-170 renders a completely different view: an 'Expert' <Select> dropdown scoped to one MCP server at a time, plus a static description list of that server's declared tools — there is no time column, no call args, no expand/collapse, no per-call status, and no per-call agent link anywhere in the file",
+      "backend_surface": "unbacked as designed (mcp/servers describes available tools, not session tool-call history; the actual call history already exists in the timeline's tool_call parts, see build.ts:185-197, and is simply not projected into this tab)",
+      "fix_hint": "Rebuild the tools tab from the same tool_call/tool_result parts + resultByCall map already computed in build.ts's buildObservabilityTrace, instead of client.mcpServers()."
+    },
+    {
+      "element": "Tools tab rows (within the current, wrong catalog model) — tool name/description text",
+      "proto_truth": "n/a — measuring only whether the app's own chosen data renders; the tab badge correctly reads 'tools 4' and the per-server meta correctly reads '3 tools' for 'fs'",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:251-266 maps `(row.tools ?? []).map((tool) => ({ name: tool.name ?? '', ... }))`, but GET /v1/mcp/servers returns `tools` as an array of plain strings (e.g. `[\"fs_apply_edit_write\",\"fs_propose_edit\",\"fs_read_file\"]`), not `{name, description}` objects — `tool.name` on a string is always `undefined`, so every row renders `''`; confirmed live via DOM dump: `<ul class=\"obs__list obs-tools__list\"><li class=\"obs-tool__row\"><span class=\"obs-tool__name\"></span></li>` x3, and via `curl http://127.0.0.1:17900/v1/mcp/servers` showing `\"tools\": [\"fs_apply_edit_write\", ...]` (string[])",
+      "backend_surface": "GET /v1/mcp/servers",
+      "fix_hint": "Map `tool` as the string itself (`{ name: tool }`) rather than `tool.name`, or fix the wire type to match whichever side is correct; a blank name for every row is a total loss of information regardless of which tab layout ships."
+    },
+    {
+      "element": "Artifacts tab rows: time, diamond glyph, teal name, producer path ('· expert / tool'), size/meta",
+      "proto_truth": "proto-obs-artifacts.png: 5 rows, each 'HH:MM  ◆ name.ext  · expert / tool_name   N rows|columns|KB|lines' — e.g. '19:55  ◆ earthscope_stations.csv  · data / ndp_dataset_discovery   1,101 rows'",
+      "status": "match",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:172-190 (obs-artifact__row grid); observability.css:496-545 (grid-template-columns: 48px 12px minmax(130px,max-content) minmax(0,1fr) auto, matching time/glyph/name/producer/meta); apps/web/src/observability/build.ts:410-434 toArtifactRow/artifactProducer produce the exact '<requesting_expert> / <expert> / <tool>' path convention seen in the prototype; not independently pixel-verified live because the captured live session has 0 artifacts (apps/web/screenshots/conformance-audit/obs-artifacts-live.png), but the code path is real and matches the CSS/markup contract, not fabricated",
+      "backend_surface": "GET /v1/sessions/{id}/artifacts?includeChildren=true",
+      "fix_hint": ""
+    },
+    {
+      "element": "Artifacts tab row click-to-open (entire row is a button)",
+      "proto_truth": "prototype markup (HTML offset ~8266125): each artifact row is a full-width `<button sc-camel-on-click=\"{{goArtCat}}\" ...>` — the whole row opens the artifact viewer, not just the name",
+      "status": "missing",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:176-188 renders `<li className=\"obs-artifact__row\">` containing plain `<span>` elements (time/glyph/name/producer/meta) — no `<button>`, no onClick anywhere in the artifacts branch",
+      "backend_surface": "unbacked (artifact identity — record.head_artifact_id — is already carried in the row data; no navigation is wired to it)",
+      "fix_hint": "Wrap the row in a button/onClick that opens the same artifact viewer the 'artifacts N' topbar chip and inline transcript artifact chips already use."
+    },
+    {
+      "element": "Context tab: context-window progress bar with 'Xk / Yk · Z%' label",
+      "proto_truth": "proto-obs-context.png + measured JSON: 'context window' label left, '82.1k / 200k · 41%' right (11.5px mono, value in header color); below it a 6px rounded bar, teal→blue gradient fill at 41% width",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:203-219 renders a generic `<KvGrid>` with two flat rows: 'used: N%' and 'tokens: X / Y' — no visual progress-bar element, no combined 'Xk/Yk · Z%' single-line format; live capture apps/web/screenshots/conformance-audit/obs-context-live.png shows exactly 'used 0%' / 'tokens 1,755 / 1,000,000' as plain KV text",
+      "backend_surface": "GET /v1/sessions/{id}/context/state",
+      "fix_hint": "Replace the KvGrid with a dedicated context-window component: one combined label line + a gradient progress bar sized to usedPercent."
+    },
+    {
+      "element": "Context tab: 3-column KPI grid — relay latency (green ms) / thinking tokens (white count) / cost (cyan $)",
+      "proto_truth": "proto-obs-context.png: three bordered cards in a row, each with an uppercase small-caps label, a 16px value ('12 ms' green, '600' white, '$0.31' cyan), and a muted caption line ('clio-relay (ares)', '2 blocks', 'incl. subagents')",
+      "status": "missing",
+      "app_evidence": "apps/web/src/observability/types.ts:32-36 ObsContext only has {usedPercent, tokens, limit} — there is no relay-latency, thinking-tokens, or cost field anywhere in the type or in Observability.tsx's context branch (lines 203-219)",
+      "backend_surface": "GET /v1/sessions/{id}/context/state (unknown whether the backend response even carries relay latency / thinking-token / cost figures — needs a wire-shape check before this can be wired, since related task #1176/#7 already flags a 422 on this same route in some session-mode paths)",
+      "fix_hint": "Confirm /context/state's actual payload includes these three metrics (or find the routes that do — usage.py/evidence.py per CLAUDE.md's gact module map) and extend ObsContext + the render branch."
+    },
+    {
+      "element": "Context tab: 'LIVE NOW · N' panel listing concurrently-running background jobs",
+      "proto_truth": "proto-obs-context.png: a bordered box titled 'LIVE NOW · 3' followed by 3 orange-text rows, e.g. 'stripe-tuner · getstripe 6,143/9,800 · 12.4k tok ↑' and two rows prefixed with a lightning-bolt glyph ('⚡ io-monitor · sampling every 30s · last 08s ago')",
+      "status": "missing",
+      "app_evidence": "No equivalent list, data source, or UI exists anywhere in apps/web/src/observability/ — the context branch renders only the two-row KvGrid described above",
+      "backend_surface": "unbacked (would need a cross-session 'what else is running right now' feed, distinct from GET /v1/sessions/{id}/context/state which is scoped to one session)",
+      "fix_hint": "Out of scope for a single-session context/state call; would need a new session-agnostic 'active runs' endpoint, or reuse of GET /v1/sessions with a running-status filter."
+    }
+  ]
+}

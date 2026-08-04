@@ -1,0 +1,110 @@
+{
+  "surface": "panels",
+  "summary": "The topbar's 5-control toolbar (files / console / artifacts / ctx / eye) renders with correct order, labels, icons and sizing, and the eye icon correctly opens the Observability overlay with matching window chrome. But 3 of the other 4 controls are dead: files, artifacts, and ctx all toggle internal `panel` state (so they show a pressed border) yet SessionView.tsx never renders anything for panel==='files'|'artifacts'|'context' — confirmed by source read and a live click-through against the real backend (role=dialog count stayed 0 for all three, vs 1 for the eye icon). The Files Layer (tree + preview + attach-to-message) does not exist anywhere in the app despite the backend/client already exposing GET /v1/workspaces/{id}/files and /files/read for exactly this purpose. The console dock (bottom REPL, tabs, resizable) has no implementation and no backend surface at all. The right-hand Detail Slot (article/answer/agent inspector) is a built component (detail/DetailSlot.tsx) but SessionView never passes it to AppShell's `detail` prop and no transcript element opens it, so it never appears live; even in its fixture-only form it is missing most of the prototype's chrome (kind badge, breadcrumb, copy/download/maximize/collapse buttons) and its Overview tab has no CSV data-table preview. Roughly 3 of 14 measured elements match; the rest are not-wired, missing, or structurally incomplete.",
+  "items": [
+    {
+      "element": "Topbar surface toolbar — button row order/grammar (files, console, artifacts N, ctx N%, eye icon)",
+      "proto_truth": "5 pills in this exact order after the breadcrumb spacer: 'files' (folder icon), 'console' (terminal icon, isDesktop-only), 'artifacts {{obsArtCount}}' (icon hardcoded color:var(--t-cy,#0aa6ad)), 'ctx {{ctxPct}}' (bars icon), icon-only gauge button title='Observability'. Measured from audit-proto.json: JetBrains Mono 11.5px, color rgb(138,147,162) default, padding 3px 8px, radius 5px, gap 5px; x-positions files=1019 console=1096 artifacts=1188 ctx=1305 (w70/83/109/81).",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:75-119",
+      "backend_surface": "unbacked (client-side layout only)",
+      "fix_hint": null
+    },
+    {
+      "element": "'files' topbar button — click target",
+      "proto_truth": "sc-camel-on-click=\"{{ openFilesLayer }}\" → this.setState({ pop:null, layerFiles:true }) — opens the FILES LAYER modal immediately.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:75-80 calls onTogglePanel('files') → apps/web/src/session/SessionView.tsx:722 sets panel='files', but no <Layer>/component anywhere checks panel==='files' (only 'settings','obs','blueprint' are handled at SessionView.tsx:839-868). Live click-through confirmed: apps/web/screenshots/conformance-audit/app-click-files.png shows only a pressed border, role=dialog count stayed 0.",
+      "backend_surface": "GET /v1/workspaces/{id}/files, GET /v1/workspaces/{id}/files/read?path=… — exist and are wired into apps/core/src/client/workspace_client.ts:31-102 ('Backs the file browser and the preview rail'), but zero call sites in apps/web/src consume listWorkspaceFiles/readWorkspaceFile for this purpose.",
+      "fix_hint": "Build a Files Layer (Layer size='window', LayerChrome pattern like Observability's) driven by client.listWorkspaceFiles()/readWorkspaceFile(), and open it from panel==='files' in SessionView."
+    },
+    {
+      "element": "Files Layer content — tree sidebar + file preview + attach-to-message",
+      "proto_truth": "Modal window (LayerChrome, width×height=winW×winH, 8vh top margin): header folder-icon + 'files' + path meta (fsRootPath) + 'browse…' button + maximize/pop-out/close; body = resizable tree column (filter input, chevron/folder rows, size right-aligned e.g. '48 KB') + right content pane showing selected file path, raw content, 'ATTACH TO MESSAGE' button, and a 'SAVE' button. Screenshot: apps/web/screenshots/visual-check/walk-files-panel.png.",
+      "status": "missing",
+      "app_evidence": "No component exists: `find apps/web/src -iname '*files*'` returns nothing besides the topbar button/icon (Topbar.tsx, Icon.tsx, KitGallery.tsx).",
+      "backend_surface": "GET /v1/workspaces/{id}/files, GET /v1/workspaces/{id}/files/read (see above) — backed, unconsumed for this feature.",
+      "fix_hint": null
+    },
+    {
+      "element": "'console' topbar button — presence gate and click target",
+      "proto_truth": "<sc-if value=\"{{ isDesktop }}\">…console button…</sc-if> — the ONLY toolbar control gated on desktop; click toggles the bottom workspace-console dock (consoleOpen).",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/useIsDesktop.ts:1-18 correctly scopes the gate to only the console pill (doc comment confirms this is intentional and matches the prototype), and apps/web/src/shell/Topbar.tsx:82-89 applies it — this part MATCHES. But the click itself is not-wired: onTogglePanel('console') sets panel='console' and SessionView.tsx never renders anything for it. In the browser build (not Tauri) the button is correctly absent, confirmed live: apps/web/screenshots/conformance-audit/app-connected.png has no console pill.",
+      "backend_surface": "unbacked — no shell/PTY/console-execution endpoint found in apps/core/src/client (grepped 'shell'/'pty'/'/console', only incidental 'shell hook command' matches).",
+      "fix_hint": "Marked 'deviates' because the gate is correct but the destination is missing; see next item."
+    },
+    {
+      "element": "Console dock — bottom REPL surface",
+      "proto_truth": "Resizable dock anchored to the bottom of the center column (not a right/side panel): tab bar ('bash' + '+' new-shell + per-tab close), drag-to-resize handle, REPL body with cyan prompt (e.g. 'j4471@ares:j4471$'), command echo, gray output, live input line. Screenshot: apps/web/screenshots/visual-check/walk-console.png.",
+      "status": "missing",
+      "app_evidence": "No dock/shell component exists anywhere under apps/web/src (grep for 'console' only matches the topbar button/icon and unrelated wire files).",
+      "backend_surface": "unbacked",
+      "fix_hint": null
+    },
+    {
+      "element": "'artifacts N' topbar button — click target",
+      "proto_truth": "tgArtifacts: () => this.setState({ layerObs:true, obsTab:'artifacts', pop:null }) — opens the SAME Observability layer as the eye icon, preset to the artifacts tab.",
+      "status": "not-wired",
+      "app_evidence": "Topbar.tsx:91-101 calls onTogglePanel('artifacts') → SessionView.tsx panel='artifacts', which no <Layer> checks (only obs/settings/blueprint are handled). Live click-through: apps/web/screenshots/conformance-audit/app-click-artifacts.png shows a pressed border only, role=dialog count 0 (script log: 'clicked artifacts: true / role=dialog count after clicking artifacts: 0').",
+      "backend_surface": "Same data the Observability layer already fetches (fetchSessionArtifacts, SessionView.tsx:194) — the artifacts tab itself is built (Observability.tsx:172-201) and reachable via the eye icon, just not from this pill.",
+      "fix_hint": "Thread an initialTab prop into <Observability>/<Layer> (currently `tab` is pure internal useState in Observability.tsx:39) and have panel==='artifacts' open that Layer with tab='artifacts', mirroring tgArtifacts."
+    },
+    {
+      "element": "'artifacts' pill accent color",
+      "proto_truth": "color:var(--t-cy,#0aa6ad) is hardcoded (no {{}} binding) — the pill is ALWAYS cyan/teal, not conditional on open/closed state. Confirmed in audit-proto.json: color rgb(10,166,173) while files/console/ctx were rgb(138,147,162) in the same capture.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/toolbarbutton.css:1-27 — a single generic style shared by every ToolbarButton: default color var(--t-mu) (gray), and cyan only when aria-pressed='true' (line 23-27). 'artifacts' gets no special-case, so by default (panel closed) it renders gray, not the prototype's always-on cyan accent.",
+      "backend_surface": "unbacked (styling only)",
+      "fix_hint": "Give the artifacts ToolbarButton instance a permanent accent variant instead of relying on `pressed`."
+    },
+    {
+      "element": "'ctx N%' topbar button — click target",
+      "proto_truth": "tgTelemetry: () => this.setState({ layerObs:true, obsTab:'context', pop:null }) — opens the same Observability layer preset to the context tab.",
+      "status": "not-wired",
+      "app_evidence": "Topbar.tsx:102-112 calls onTogglePanel('context') → SessionView.tsx panel='context', unhandled. Live click-through: apps/web/screenshots/conformance-audit/app-click-ctx.png, role=dialog count 0 after click (script log: 'clicked ctx: true / role=dialog count after clicking ctx: 0').",
+      "backend_surface": "Context tab is built (Observability.tsx:203-220) and reachable via the eye icon only.",
+      "fix_hint": "Same fix as artifacts — open the Observability Layer with tab='context'."
+    },
+    {
+      "element": "Observability eye icon — click target",
+      "proto_truth": "tgObs: () => this.setState((p) => ({ layerObs: !p.layerObs, obsTab:'agents', pop:null })) — toggles the Observability layer, defaulting to the timeline tab.",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:113-119 → onTogglePanel('obs') → SessionView.tsx:848-861 renders <Layer open={panel==='obs'} title='observability' headerIcon={eye} headerMeta={ObservabilityTrace} windowControls>. Live click-through confirmed: apps/web/screenshots/conformance-audit/app-click-obs.png shows the modal open, role=dialog count=1.",
+      "backend_surface": "GET /v1/agents, session tasks, /v1/mcp/servers, context state, agent tasks, artifacts — all wired via loadObservability (SessionView.tsx:185-285).",
+      "fix_hint": null
+    },
+    {
+      "element": "Observability Layer window chrome (scrim, card, header icon+title+meta, maximize / pop-out / close)",
+      "proto_truth": "Fixed inset:0 scrim + centered card (width×height, 8vh top margin, --t-sf bg, --t-bd6 hairline, 12px radius, --t-shadow, clio-rise 160ms); dc-import 'LayerChrome' header: eye icon, 'observability' heading, 'session trace · live' meta; corner drag-resize handle.",
+      "status": "match",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:32-175 — doc comment explicitly: 'Settings, observability and files are OVERLAYS in the prototype, not side-pane content' — the component is deliberately modeled on this pattern (scrim, card, header row with icon/title/meta, maximize+pop-out+close buttons). Visually confirmed in apps/web/screenshots/conformance-audit/app-click-obs.png.",
+      "backend_surface": "unbacked (chrome only)",
+      "fix_hint": "Minor: the pop-out button is permanently disabled (Layer.tsx:151-159, 'opens in a window on desktop only') which is a reasonable web-build stand-in for the prototype's own no-op pop-out; not flagged separately."
+    },
+    {
+      "element": "Observability 'context' tab content",
+      "proto_truth": "Rich panel (walk-ctx-panel.png / proto-obs-context.png): a filled progress bar labelled 'context window' with '82.1k / 200k · 41%'; three stat tiles — RELAY LATENCY '12 ms' / 'clio-relay (ares)', THINKING TOKENS '600' / '2 blocks', COST '$0.31' / 'incl. subagents'; an orange-bordered 'LIVE NOW · 3' box listing live async jobs (e.g. 'stripe-tuner · getstripe 6,143/9,800 · 12.4k tok ↑').",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/observability/Observability.tsx:203-220 — the context tab renders only a 2-row KvGrid ('used: N%', 'tokens: X / Y'). No progress bar, no relay-latency/thinking-tokens/cost tiles, no live-jobs box.",
+      "backend_surface": "fetchSessionContextState (SessionView.tsx:192) supplies usedPercent/tokens/limit only; relay latency, thinking-token count, cost, and live-async-job rows have no corresponding fetch in loadObservability at all.",
+      "fix_hint": "Extend ObservabilityData/context to carry latency/thinking-tokens/cost/live-jobs once a backend source is identified, and render the progress-bar + tile + live-now grammar."
+    },
+    {
+      "element": "Detail slot (right pane) — reachability from the live app",
+      "proto_truth": "Opens beside the transcript (not an overlay) when a user clicks an artifact/answer/agent affordance inline in a message (e.g. 'Open artifact', an answer's inline chip, or shift-click on an agent handoff). Default width 480px (`s.rightW || 480`), border-left, flex:0 0 auto — a true right-hand pane, distinct from the files/console/artifacts/ctx overlay layers. Screenshot: apps/web/screenshots/conformance-audit/proto-artifact-detail.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/shell/AppShell.tsx:18,59,130-134 defines a `detail?: ReactNode` slot rendered at width 480px (comment: 'The prototype's right pane width' — this part is already correct), but apps/web/src/session/SessionView.tsx never passes a `detail` prop to <AppShell> (grepped: only apps/web/src/shell/ShellPreview.tsx:171 — the dev-only `?shell` fixture harness — passes `detail={<DetailSlot record={RECORD} onClose={...}/>}` with a hardcoded static record). Grepped apps/web/src/transcript for any open-detail callback (onOpenArtifact/openDetail/onSelectArtifact) — zero matches; transcript/parts only has CollapsiblePart.tsx and HandoffPart.tsx, no artifact-chip component at all.",
+      "backend_surface": "fetchSessionArtifacts (already called for Observability, SessionView.tsx:194) has the data; no UI trigger consumes it for this surface.",
+      "fix_hint": "Add an artifact-chip/answer-open affordance in the transcript that sets a 'selected record' state and passes detail={<DetailSlot .../>} to AppShell — tracked as backlog item 'E7 — mint real artifacts and ground the chips'."
+    },
+    {
+      "element": "Detail slot chrome (kind badge, breadcrumb, copy/download, maximize, collapse-to-rail)",
+      "proto_truth": "Header row: uppercase colored kind badge (e.g. 'ARTIFACT'); for artifact kind, a copy-markdown icon button and a download icon button (opens a menu: 'download file' / 'open storage location' / 'copy link to artifact'); a Maximize button (detExpand, grows to a centered 1120px-max modal with scrim); a 'Collapse panel' icon button (tgRight); a Close (×) button. Below: clickable breadcrumb trail (crumbs, e.g. 'session > earthscope_stations_…'). For artifact kind, a 3-way segmented sub-tab row labelled ARTIFACT / PROVENANCE / RECREATE.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/detail/DetailSlot.tsx:21-58 — header is only an 'detail' eyebrow label plus a single plain Close (×) button (ToolbarButton, no copy/download/maximize/collapse); no kind badge; no breadcrumb; tabs are labelled 'overview' / 'provenance' / 'recreate' (first tab named 'overview', not the prototype's 'artifact'); the overview tab is a bare KvGrid (id/kind/size/sha) with no embedded data-table preview of file contents (prototype shows the actual CSV rows, e.g. Site/Latitude/Longitude, with 'first 20 of 1,101 rows · show 50 more').",
+      "backend_surface": "n/a (chrome + content-rendering gap, independent of the wiring gap above)",
+      "fix_hint": "Once the slot is reachable, close the chrome gap: add kind badge, breadcrumb, copy/download menu, maximize, and rename the first tab to match the prototype's 'artifact' label; add a tabular content preview for dataset-kind artifacts."
+    }
+  ]
+}

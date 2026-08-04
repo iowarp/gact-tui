@@ -1,0 +1,134 @@
+{
+  "surface": "composer-pill",
+  "summary": "2 of 15 elements are clean matches (pillbox container geometry, send circle); 1 (attach) is honestly unbacked-and-flagged. The worst gaps: none of the three pill chips (placement/async/ctx) are clickable — all render as inert <span>s though the prototype makes each a button opening a real layer/popover; the async->ctx separator silently disappears whenever a session has 0 async agents; the ctx chip has an invented dot the prototype never draws; the mode control ('execute') has no menu, no 'plan' option, and its captured value is discarded by the send handler so it is pure decoration; the model selector opens a flat single-column list where the prototype opens a two-pane provider+model picker with per-model settings; the entire queued-messages/steering tray that docks above the pill (and drives one of the frame's two border-radius states) does not exist; and Shift+Tab-to-expand is an app-invented shortcut with zero grounding in the prototype, substituting for the continuous type-to-autogrow the prototype actually implements. The approval menu's grammar (icons/description/eyebrow/check) is conformant IN SOURCE, verified by a passing unit test, but the currently-deployed preview bundle lags the tree and renders a bare text list — a dev-job-in-flight artifact, not a source defect.",
+  "items": [
+    {
+      "element": "Status pillbox container (chip strip above the composer frame)",
+      "proto_truth": "Single bordered div: bg var(--t-sf,#16181d)=rgb(22,24,29), border 1px solid rgba(45,99,139,.3), border-radius 10px 10px 10px 0, padding 3px 4px, gap 2px, display inline-flex, height 31px (measured). Always rendered (never conditional).",
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/composer.css:23-35",
+      "backend_surface": "n/a (layout)",
+      "fix_hint": "None needed for geometry. Consider also always-rendering the pillbox (see separate finding on hasPill conditionality) to match the prototype's unconditional presence."
+    },
+    {
+      "element": "Placement/workspace chip (\"ares:/scratch/j4471\")",
+      "proto_truth": "<button onClick=openFilesLayer>: static 6x6 ok-green (#34d399) dot + 'ares:' (muted) + path (bright). Clicking opens the Files layer (workspace browser).",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:230-245 (no onClick passed to Chip); apps/web/src/kit/Chip.tsx:37-43 (renders <span> not <button> when onClick is absent); apps/web/src/kit/statusdot.css:16-20 (dot is 7x7, not 6x6). Confirmed live: DOM query on the running preview returns .composer__placementchip .kit-chip as a SPAN.",
+      "backend_surface": "unbacked from this control (a Files layer exists elsewhere in the app, reachable from the topbar, but the composer chip has no click handler at all)",
+      "fix_hint": "Add an onClick to open the Files layer, matching the topbar's existing handler; correct the dot to 6x6."
+    },
+    {
+      "element": "Pill separators (1px hairlines between chips)",
+      "proto_truth": "Two separators: one gates WITH the async chip (shown only when hasTrace/async data exists), the other — between the async slot and the ctx chip — is UNCONDITIONAL, always rendered regardless of whether the async chip is present.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:246-256 — second separator requires `hasAsync && hasContext`, so it silently disappears whenever asyncCount is 0/undefined even though contextPercent is set (the common single-session case). Visually confirmed: apps/web/screenshots/conformance-audit/composer-zoom.png shows the placement chip butted directly against the ctx chip with no divider.",
+      "backend_surface": "n/a (client-side conditional logic)",
+      "fix_hint": "Make the ctx-side separator unconditional on `hasContext` alone (or on `placement && hasContext`), independent of hasAsync."
+    },
+    {
+      "element": "Async chip (\"async N\")",
+      "proto_truth": "<button onClick=tgRuns>: amber lightning-bolt icon + 'async {N}' (amber). Carries an absolute 5x5 amber dot badge (top-right) when a run 'hasRecentDone'. Clicking opens the 'async agents' runs popover: a floating panel listing detached/running agent runs with live progress tickers, a 'recently finished' section (dismissible rows), and a 'run history ↗' link.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:249-253 (renders inert <span> via Chip with no onClick, and has no 'recently finished' badge prop at all). Repo-wide grep for 'async agents'/'RunsPopover'/'goExecCa'/'goWatch' returns zero matches in apps/web/src — the destination popover does not exist anywhere in the app.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Build the async-runs popover as its own component and wire the chip's onClick to open it; add the recently-finished badge once that data is threaded through."
+    },
+    {
+      "element": "Context chip (\"ctx N%\")",
+      "proto_truth": "<button onClick=tgTelemetry>: PLAIN text 'ctx {{ctxPct}}', no icon, no dot. Idle color var(--t-mu), hover color var(--t-cy). Clicking opens the Observability layer, Context tab.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:257-265 renders a permanent 5x5 amber dot (composer.css:90-95, background:var(--t-wa)) that has no prototype counterpart on this chip; also renders as inert <span> (no onClick) — confirmed live via DOM query (.composer__contextchip .kit-chip tag === SPAN) and apps/web/screenshots/conformance-audit/composer-zoom.png.",
+      "backend_surface": "GET context-state exists (fetchSessionContextState is imported in SessionView.tsx) and the Observability Context tab exists (P5-4/#347, completed) but neither is wired to this chip's click",
+      "fix_hint": "Remove the invented dot; wire onClick to open Observability with obsTab='context', matching tgTelemetry."
+    },
+    {
+      "element": "Composer frame (the chat box itself)",
+      "proto_truth": "border-radius is one of THREE prototype states: plain (never actually reached — pillbox is unconditional) / '0 14px 14px 14px' default (square top-left, docks under the always-present pillbox) / '0 0 14px 14px' when focused-on-a-child OR a queued-messages tray is showing (square top, docks under that tray).",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/composer.css:109-127 implements only two states (plain 14px when hasPill is false, '0 14px 14px 14px' when data-pill=true). The third state never fires: apps/web/src/composer/Composer.tsx:273 sets a `data-queued` attribute but composer.css has no `[data-queued]` selector anywhere — a dead attribute.",
+      "backend_surface": "n/a",
+      "fix_hint": "Once the queued-messages tray (see separate finding) exists, add `.composer__frame[data-queued='true'] { border-radius: 0 0 14px 14px; }`."
+    },
+    {
+      "element": "Queued-messages tray / steering-context panel (docks directly above the pill)",
+      "proto_truth": "When messages are queued for a busy main agent, a tray renders above the frame (radius 0 14px 0 0): 'N messages queued' eyebrow, 'interrupt and deliver' link, per-row up/down/edit(✎)/remove(✕) controls. A parallel 'steering' panel serves the same slot when viewing a focused/finished child agent (live/reawaken states, warning banner, interrupt button).",
+      "status": "missing",
+      "app_evidence": "Repo-wide search (`mainQ|queued messages|interrupt and deliver|steering|reawaken`) in apps/web/src turns up only the dead `data-queued` attribute at apps/web/src/composer/Composer.tsx:273 — no tray/panel component exists.",
+      "backend_surface": "unbacked (no client-side state or endpoint evidence found for message queuing)",
+      "fix_hint": "This is a whole feature slice, not a wiring fix — scope it as its own composer sub-component once the underlying queue/steer semantics are decided."
+    },
+    {
+      "element": "Textarea autogrow",
+      "proto_truth": "rows=1, continuously grows AS THE USER TYPES via onInput (`el.style.height = min(scrollHeight,180)+'px'`), no manual toggle needed. Placeholder swaps contextually when steering a focused child agent.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:285-299 — textarea has onChange/onKeyDown only, no onInput/autoGrow handler; the box never grows with typed content. Height only changes via the Shift+Tab shortcut (see separate finding) forcing a fixed 180px min-height.",
+      "backend_surface": "n/a",
+      "fix_hint": "Add an onInput handler that mirrors the prototype's autoGrow (scrollHeight up to 180px, min-height back to auto when empty)."
+    },
+    {
+      "element": "Slash '/' command menu and '@' file-reference menu",
+      "proto_truth": "Both show a VISIBLE uppercase eyebrow header ('commands' / '@ reference — pick a file, agent, or tool'). Each row = a colored (cyan) icon + name (bold, '/'-prefixed for commands) + one-line grey description. Empty state: 'no matching commands' / 'no matching files'.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/Popover.tsx:48-59 — the `label` prop only becomes `aria-label` (screen-reader only); no visible eyebrow is ever rendered. apps/web/src/composer/Picker.tsx:49 and picker.css:27-32 — the icon slot is a blank 14x14 color swatch (`background: var(--t-cy12)`), never filled with an actual glyph, even though matching glyphs (csv/doc/folder/term/...) already exist in apps/web/src/kit/Icon.tsx. Empty state text IS implemented ('No matches.').",
+      "backend_surface": "commands from client.commands(), files from client.workspaceFiles() — both real per the ComposerProps doc comment",
+      "fix_hint": "Render a visible eyebrow inside Popover (or pass one from Picker); populate picker__icon with the real per-item Icon (command glyph / file-type glyph) instead of a blank tint."
+    },
+    {
+      "element": "Attach button",
+      "proto_truth": "26x26 transparent button, radius 7, '+' icon (stroke 1.4). Opens an 'attach' popover (eyebrow 'attach') with 3 rows: 'upload file / from this machine', 'session artifact / csv, heatmap, report, script', 'path on ares / reference a file in /scratch/j4471'.",
+      "status": "unbacked",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:305-314 and composer.css:270-291 — geometry (26x26, radius 7, '+' icon) matches exactly; rendered `disabled` and tinted red via `data-unbacked='true'`, with an explicit code comment: 'clio-agent serves no upload endpoint, so this is shown and flagged rather than hidden.'",
+      "backend_surface": "unbacked (no upload endpoint in clio-agent, per the code's own comment)",
+      "fix_hint": "None required — this is the correct, deliberate treatment of a real backend gap per the project's no-silent-fallback convention. Revisit once/if an upload endpoint ships."
+    },
+    {
+      "element": "Approval control ('ask') and its menu",
+      "proto_truth": "Button = icon + mode label. Opens a 330px popover, eyebrow 'permissions', 4 two-line iconed rows (ask/auto-edits/auto/bypass), cyan check (var(--t-cy)) on the active row.",
+      "status": "match",
+      "app_evidence": "SOURCE: apps/web/src/composer/Composer.tsx:153-178,316-346 renders icon+description+eyebrow('Permissions')+checked item via ContextMenu, and deliberately swaps the prototype's placeholder 'auto' for the real wire Literal 'ai-review' (documented at Composer.tsx:17-24, backed by gact/types.py UpdateSessionRequest.approval_mode). Verified by the passing unit test apps/web/tests/unit/menus-and-pill-conformance.test.tsx (6/6 pass, re-run live). CAVEAT: the currently-deployed preview bundle (localhost:4191) lags this source and renders a bare, unstyled text list with no icons/description/eyebrow/check — apps/web/screenshots/conformance-audit/composer-approval-menu.png — consistent with the task brief's note that a dev job is mid-flight on composer files; treat the source (and its passing test) as ground truth, not the stale bundle.",
+      "backend_surface": "PATCH /v1/sessions/{id} (approval_mode) — apps/core/src/client/session_records_api.ts patchSessionRecord, confirmed wired via SessionView.tsx:628-641 setApprovalMode",
+      "fix_hint": "No source fix required for grammar. Separately: the check icon uses var(--t-ac) (orange) in apps/web/src/kit/contextmenu.css:112-118 where the prototype uses var(--t-cy) (cyan) — see the dedicated check-color finding below."
+    },
+    {
+      "element": "Checkmark color on selected menu items",
+      "proto_truth": "Every menu's active-item check glyph is cyan: `color:var(--t-cy,#0aa6ad)`.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/contextmenu.css:112-118 — `.kit-contextmenu__check { color: var(--t-ac); }` where --t-ac is #c4682a (orange), not cyan (tokens.css:36,38). Applies to the composer's approval menu (and every other ContextMenu in the app).",
+      "backend_surface": "n/a",
+      "fix_hint": "Change `.kit-contextmenu__check` color to `var(--t-cy)`."
+    },
+    {
+      "element": "Mode control ('execute') and its menu",
+      "proto_truth": "Button = icon + composeMode label ('execute'/'plan'). Opens a 300px popover, eyebrow 'mode', 2 rows: 'execute / Act on the workspace under the permission mode', 'plan / Read-only — plan changes, never apply', cyan check on active. This axis is submitted with every turn.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:348-357 — plain toggle button (`aria-pressed`, onClick sets local state only), NO popover, NO 'plan' option anywhere in the app. Worse: the captured value is discarded by the caller — apps/web/src/session/SessionView.tsx:807 `onSubmit={({ text }) => void send(text)}` destructures only `text`, dropping `mode` entirely — so this control has zero effect on any request the backend receives.",
+      "backend_surface": "unbacked — no execute/plan axis reaches the backend; the composer's real approval semantics live entirely in the separate approvalMode prop/control",
+      "fix_hint": "Either wire a real popover with execute/plan (or whatever the actual backend axis is) and thread the chosen value into sendMessage, or remove the control until there is a backend field for it — a decorative toggle that silently drops its value is the exact 'no silent fallback' violation the project's cleanup program targets."
+    },
+    {
+      "element": "Model selector and its menu",
+      "proto_truth": "Button = sparkle icon + '{{routerLabel}}' (e.g. 'Anthropic / claude-sonnet-4-6') + chevron, max-width 240px. Opens a resizable 480px two-column popover: LEFT = providers (name + 'change configuration' link + status label, expandable per-provider config list), RIGHT = that provider's models (name, cyan check on selection, per-model gear opening inline sampling-parameter fields), plus a header 'Provider settings' gear and a bottom 5-option 'thinking' effort row.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:145-152,361-370 and apps/web/src/kit/Select.tsx render a SINGLE flat scrollable listbox (real backend-sourced rows like 'LM Studio (localhost) / qwopus3.5-9b-v3', 'OpenAI Codex (subscription) / gpt-5.5') with no two-column layout, no per-provider status/config, no per-model gear/sampling settings, no thinking-effort row, no resize handles, and no checkmark icon on the selected row (select.css:60-62 only changes text color). Live-captured: apps/web/screenshots/conformance-audit/composer-model-menu.png.",
+      "backend_surface": "PATCH /v1/sessions/{id} (model) — confirmed wired via SessionView.tsx:644-658 setModel; width (240px) and trigger geometry match the prototype exactly",
+      "fix_hint": "The data plumbing (real providers/models, PATCH-backed) is sound — the gap is purely informational architecture. If the two-pane picker is judged out of scope for now, this is an accepted, scoped simplification rather than a bug; otherwise build a ProviderModelPicker replacing the flat Select here."
+    },
+    {
+      "element": "Send circle",
+      "proto_truth": "30x30 circular button, bg var(--t-ac,#c4682a), arrow-up icon (13x13, path 'M7 11.5v-9M3 6.5l4-4 4 4'), hover bg var(--t-ach,#d47b3a).",
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/composer.css:234-257; apps/web/src/kit/Icon.tsx:322-330 (path transcribed verbatim). Disabled state adds opacity:.45, a reasonable addition not in the prototype's markup but consistent with disabled-affordance conventions.",
+      "backend_surface": "POST /v1/sessions/{id}/messages — apps/core/src/client/session_messages_client.ts sendMessage, confirmed wired via SessionView.tsx:660-685",
+      "fix_hint": "None."
+    },
+    {
+      "element": "Shift+Tab expand",
+      "proto_truth": "NOT PRESENT in the prototype. An exhaustive search of the full 8.5MB vendored prototype for 'Tab' (case-insensitive) returns zero matches — there is no Shift+Tab binding, no manual-expand toggle, and no such concept anywhere in the design. The prototype's only textarea height mechanism is continuous type-to-autogrow (see the textarea finding above).",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:212-218 implements `event.key==='Tab' && event.shiftKey` to toggle a `data-expanded` flag forcing `min-height:180px` (composer.css:293-297). No UI affordance (tooltip, icon, hint) anywhere surfaces that this shortcut exists.",
+      "backend_surface": "n/a",
+      "fix_hint": "This is effectively standing in for the missing autogrow. Once autogrow is implemented per the textarea finding, reassess whether a manual expand shortcut is still needed at all, or drop it as invented scope."
+    }
+  ]
+}

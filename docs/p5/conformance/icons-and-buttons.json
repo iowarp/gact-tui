@@ -1,0 +1,126 @@
+{
+  "surface": "icons-and-buttons",
+  "summary": "Exhaustive clickable sweep of design/prototype/Clio Session.html (227 <button> occurrences grepped, live-probed via Playwright against :4399 for icon SVGs/titles not resolvable from the minified template source) cross-referenced against apps/web/src. The prototype's canonical icon set is well-transcribed (kit/Icon.tsx, 38 glyphs verified pixel-identical for check/pin/pencil/trash/folder/plus/x/wrench/search/disclosure-chevron) and most rail/session/workspace context-menu controls match exactly. The catch-all misses cluster in three places: (1) window chrome shared by every overlay (Layer.tsx close/maximize/pop-out all use hardcoded Unicode glyphs instead of the prototype's real SVGs, and are inconsistent with each other), (2) the artifact/record detail panel, which ships Close + tabs only — Copy, Download and Maximize are entirely absent and their icons don't even exist in the Icon set, and (3) two controls that render correctly but open the wrong thing: the rail's search icon is permanently disabled (onOpenSearch has zero callers anywhere in the tree) and the '+' new-session button skips the prototype's configuration modal and creates a session immediately. The entire settings sub-nav beyond Appearance/About (13 pages) is a self-disclosed 'not built yet' placeholder, and 3 more pages (Relays/Plugins/Data & backups) are hidden from the nav outright — both deliberate, recorded gaps, not silent breakage.",
+  "items": [
+    {
+      "element": "Send-while-busy message queue (reorder ↑/↓, in-place edit, remove, 'interrupt · deliver now' link)",
+      "proto_truth": "Prototype's send button title becomes 'Queue for the next step boundary' while the agent is busy (svg viewBox 0 0 14 14, path 'M7 11.5v-9M3 6.5l4-4 4 4', stroke-width 1.8 — same shape as kit's 'arrow-up' glyph) instead of blocking. Queued messages get their own row with 20x20 up/down reorder buttons (mq.up/mq.down), an edit-in-place pencil (mq.startEdit) and a remove control (mq.rm), plus a 'DELIVER NOW' link (mainQNow/fv.deliverNow, mono 10.5px uppercase teal) that interrupts the current step to deliver early. Verified live via Playwright DOM eval against http://127.0.0.1:4399/Clio%20Session.html.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:138 `const canSend = !busy && text.trim().length > 0;` and :372-380 (send button `disabled={!canSend}`, aria-label always 'Send message', never changes). No queue state exists anywhere in Composer.tsx; grep for queue/mq\\./qm\\. across apps/web/src returns zero matches.",
+      "backend_surface": "unbacked (no queued-message endpoint confirmed this pass)",
+      "fix_hint": "Add queued-message state to Composer; keep Send enabled while busy (enqueue instead of disabling) and build the reorder/edit/remove/deliver-now row."
+    },
+    {
+      "element": "Rail search icon (magnifying glass, title 'Search sessions and workspaces')",
+      "proto_truth": "22x22 button, svg circle r=3.7 + diagonal handle — matches kit's 'search' glyph exactly. Click opens a full search overlay (closeSearch, sr.go result rows) — see existing capture apps/web/screenshots/visual-check/walk-search.png.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:283-291 renders the correct `<Icon name=\"search\"/>` glyph, but `disabled={!onOpenSearch}` and `onOpenSearch` is never supplied by any caller — grep for `onOpenSearch=` across apps/web/src finds only the Rail.tsx prop declaration/plumbing, no component ever passes a real handler. The button is permanently disabled.",
+      "backend_surface": "unbacked (no session/workspace search endpoint wired)",
+      "fix_hint": "Build the search overlay component and wire onOpenSearch from SessionView/ShellPreview."
+    },
+    {
+      "element": "'New session' (+) button in the rail heading",
+      "proto_truth": "22x22 plus button (svg 'M6 1v10M1 6h10'). Click opens a modal: ✕ close, a session/workspace mode-toggle pill (newModeSessionGo/newModeWsGo), a workspace-path text field, a 'Browse — opens the OS file picker' button, and an orange 'CREATE SESSION'/'CREATE WORKSPACE' submit button.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:292-300 `onClick={() => newSession?.()}` → apps/web/src/session/SessionView.tsx:693 `onNewSession={(workspaceId) => void startNewSession(workspaceId)}` → SessionView.tsx:498-508 `startNewSession` calls `createAndSelectSession(workspaceId)` directly. No modal, no path field, no session/workspace choice — the icon is correct but the click performs a different action than the prototype (immediate creation vs. a configuration dialog).",
+      "backend_surface": "POST /v1/sessions via createAndSelectSession (real route, invoked with zero configuration step)",
+      "fix_hint": "Insert the prototype's new-session/workspace modal between the click handler and createAndSelectSession."
+    },
+    {
+      "element": "Artifact/record detail panel toolbar: Copy button",
+      "proto_truth": "24x24 button titled 'Copy', svg 12x12 two-overlapping-squares icon (`<rect x=4 y=4 width=6.5 height=6.5 rx=1/>` + offset path), positioned in the detail-panel header beside Download/Maximize/Collapse/Close. Live-probed at :4399; screenshot: apps/web/screenshots/conformance-audit/proto-artifact-detail.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/detail/DetailSlot.tsx:21-58 header renders only Eyebrow('detail') + spacer + Close — no Copy control anywhere. apps/web/src/kit/Icon.tsx's IconName union (lines 15-59) has no 'copy' member; grep for `[Cc]opy|clipboard` and `Icon name=\"copy\"` across apps/web/src returns zero matches in the whole app.",
+      "backend_surface": "unbacked (clipboard write is client-only)",
+      "fix_hint": "Add a 'copy' glyph to Icon.tsx transcribed from the path above, and a Copy ToolbarButton to DetailSlot's header."
+    },
+    {
+      "element": "Artifact/record detail panel toolbar: Download button / download menu",
+      "proto_truth": "24x24 button titled 'Download', svg 12x12 arrow-into-tray icon (`M6 1.5v6M3.2 5l2.8 2.8L8.8 5` + tray path). Triggers a small menu (tgArtMenu) offering 'download' / 'open folder' / 'copy link' rows.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/detail/DetailSlot.tsx has no Download control or menu. Icon.tsx's IconName union has no 'download' member (only an unrelated up-arrow 'upload'). Grep for `Download|download` across apps/web/src matches only tauri_update.ts (app self-update) and wire/settings-export.ts (Data & backups export) — neither is this control.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Add the download/open-folder/copy-link menu to DetailSlot, backed by the artifact's existing content reference."
+    },
+    {
+      "element": "Window chrome: maximize/expand button (shared by Settings, Observability, and any future windowControls surface)",
+      "proto_truth": "Titled 'Maximize' on the artifact-detail panel, 'Expand' on the Observability window — same svg both places: 12x12, 4-corner-arrows path `M7.2 1.5h3.3v3.3M4.8 10.5H1.5V7.2M10.5 1.5L7 5M1.5 10.5L5 7`, stroke-width 1.3. Live-probed at :4399; screenshots: proto-obs-header.png, proto-artifact-detail.png in apps/web/screenshots/conformance-audit/.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:141-150 renders a hardcoded Unicode glyph `&#x26F6;` (⛶) instead of an SVG. The 4-corner-arrows path is absent from Icon.tsx's GLYPHS (kit/Icon.tsx:15-59, 81-355) entirely.",
+      "backend_surface": "unbacked (client-only layout state)",
+      "fix_hint": "Add an 'expand' IconName transcribed from the path above; swap Layer.tsx's ⛶ for `<Icon name=\"expand\"/>`."
+    },
+    {
+      "element": "Window chrome: pop-out button (Observability window)",
+      "proto_truth": "Titled 'Pop out', svg 12x12 box-with-external-arrow icon (`M4.8 2H2.6c-.6 0-1.1.5-1.1 1.1v6.3c0 .6.5 1.1 1.1 1.1h6.3c.6 0 1.1-.5 1.1-1.1V7.2M7.2 1.5h3.3...`) — a live, clickable control in the prototype.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:151-160 renders a hardcoded Unicode glyph `&#x2197;` (↗), permanently `disabled`, title 'opens in a window on desktop only'. Glyph doesn't match the prototype's SVG (also absent from Icon.tsx), and the control does nothing on the web build it ships to.",
+      "backend_surface": "unbacked (would need a Tauri window API, desktop-only)",
+      "fix_hint": "Either implement the desktop pop-out via Tauri and enable this control there, or drop the disabled stub rather than shipping inert chrome with the wrong glyph on web."
+    },
+    {
+      "element": "Detail-panel Close button (artifact/record view)",
+      "proto_truth": "Titled 'Close' (no '(Esc)' suffix — distinct from the Settings/diff-window close), svg 11x11 X icon `M1.5 1.5l8 8M9.5 1.5l-8 8`, stroke-width 1.4.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/detail/DetailSlot.tsx:29-35 renders `<span aria-hidden=\"true\">×</span>` (U+00D7 multiplication sign) via ToolbarButton — not even reusing the app's own already-correct `Icon name=\"x\"` glyph (kit/Icon.tsx: `x: P('M1.5 1.5l8 8M9.5 1.5l-8 8', 1.3)`), which is used correctly elsewhere, e.g. Rail.tsx:254 remove-workspace. Wrong glyph, and inconsistent with the app's own canonical icon it should have called.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Replace the `×` span with `<Icon name=\"x\" size={11}/>`."
+    },
+    {
+      "element": "Observability window Close button",
+      "proto_truth": "Titled 'Close' — this window uses the SVG X (11x11, `M1.5 1.5l8 8M9.5 1.5l-8 8`, stroke-width 1.4, matching Icon.tsx's 'x' almost exactly), NOT the plain-text '✕' the Settings/diff windows use.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/Layer.tsx:162-169 always renders literal text `✕` (U+2715) regardless of context. This happens to be CORRECT for Settings (the prototype's own Settings close is also plain '✕' text, titled 'Close (Esc)' — verified live), but WRONG for the Observability window mounted at apps/web/src/session/SessionView.tsx:848-853 with `windowControls`, where the prototype shows a real SVG X instead.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Layer needs a per-instance close-glyph choice (text ✕ for size='settings', Icon 'x' SVG when windowControls is set) instead of one hardcoded glyph shared by both."
+    },
+    {
+      "element": "Settings sub-pages: Providers / Models / Agents / Commands / Prompts / Agent blueprints / Expert packs / MCP servers / Hooks / Policies / Memory / Metrics / Doctor (13 pages, 40+ prototype buttons — provider sign-in/save-key/add-config, agent detach/disconnect, model-config gear, etc.)",
+      "proto_truth": "Each is a full page with its own controls, e.g. Providers has a chevron-expand config row plus 'sign in' / 'save key' / '+ add config' buttons (key-icon svg); Agents has a per-connection detach/disconnect icon pair. Nav list live-probed at :4399: 'Backends, Session defaults, Providers, Models, Agents, Relays, Commands, Prompts, Agent blueprints, Expert packs, MCP servers, Hooks, Policies, Memory, Metrics, Doctor, Plugins, Appearance, Data & backups, About'.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/Settings.tsx:36-69 `PageBody` — every id other than 'appearance'/'about' falls through to a placeholder: \"This page is backed by {method} but its interface has not been built yet.\" No provider/agent/relay controls exist. apps/web/screenshots/conformance-audit/app-settings-pages.json (captured this session, parallel agent) confirms the literal placeholder text for all 13 backend-backed pages.",
+      "backend_surface": "backend-backed per apps/web/src/settings/pages.ts:44-78 (providers(), agents(), commands(), etc. are real @clio/core methods) but zero UI built",
+      "fix_hint": "Tracked separately as the 'Settings views conformance' work item — build each page's control set from the prototype instead of the placeholder."
+    },
+    {
+      "element": "Settings pages: Relays / Plugins / Data & backups",
+      "proto_truth": "Real nav items and pages in the prototype (Relays has per-relay toggle/disconnect + '+ new relay'; Plugins and Data & backups are their own pages).",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/pages.ts:48-96 marks all three `backing: 'unbacked'` with a recorded `gap` string, and `backedPages()` (pages.ts:100-102) filters them out of the nav entirely — they never render even as a placeholder page. The gap text does surface inside the built 'About' page body (per app-settings-pages.json) so it is a disclosed, not silent, omission.",
+      "backend_surface": "unbacked — no relay-registry, plugin-listing, or workspace-backup route exists on clio-agent per pages.ts's own recorded gap text",
+      "fix_hint": "Land the missing clio-agent routes (relay registry, plugin listing, workspace backup) before building these pages; the hide-from-nav behavior is the interim, documented mitigation."
+    },
+    {
+      "element": "Panel collapse/expand toggle icon (rail 'Collapse/Expand sessions'; detail-panel 'Collapse/Expand panel')",
+      "proto_truth": "At least two distinct treatments, live-probed: rail collapse is a bare vertical line on a borderless 22x22 button; the detail-panel collapse is a rounded-rect (11x9.6, viewBox 0 0 14 14) with an OFF-CENTER divider line inside a bordered 22x22 button. Already flagged as B4 in docs/design/p4-conformance-gaps.md.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/Icon.tsx:292-297 defines ONE 'panel' glyph (rect 9x9, centered divider, viewBox 0 0 12 12) reused identically at apps/web/src/shell/Rail.tsx:275 and apps/web/src/shell/Topbar.tsx:44 — a single generic shape standing in for the prototype's differently-proportioned, off-center variants.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Transcribe the prototype's distinct collapse paths as separate IconName members instead of one generic 'panel' glyph."
+    },
+    {
+      "element": "Composer acceptance-mode button (the 'ask' pill that opens the ask/auto-edits/bypass/ai-review menu)",
+      "proto_truth": "Per D3 in docs/design/p4-conformance-gaps.md: 'ask' and 'execute' are a mode pair; the acceptance-mode menu hangs off the 'ask' side of that row.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:326-330 — the button's onClick unconditionally calls `setMode('ask')` before toggling `approvalMenuOpen`. If the user is currently in `execute` mode and only wants to check or change the permission level, clicking this control silently flips their send-mode back to `ask` as a side effect of merely opening the menu.",
+      "backend_surface": "unbacked (client-only composer state)",
+      "fix_hint": "Decouple the two: toggle the approval-mode ContextMenu without mutating `mode`."
+    },
+    {
+      "element": "Rail session-row / workspace-row context menus (pin, rename, delete · pin, rename, open-in-files, new-session-here, remove)",
+      "proto_truth": "pin (`M4.5 1.5h3l.5 3.5...`), pencil (`M7.5 1.8l2.7 2.7...`), trash (`M2 3h8M4.8 1.5h2.4...`), folder, plus (`M6 1v10M1 6h10`), x (`M1.5 1.5l8 8M9.5 1.5l-8 8`) — verified against apps/web/screenshots/visual-check/proto-menus.json.",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:200-259 builds these items using `<Icon name=\"pin|pencil|trash|folder|plus|x\"/>`, pixel-identical to the prototype's path data (kit/Icon.tsx:81-355).",
+      "backend_surface": "patchSession()/deleteSession() (real) for session actions; pin/rename-workspace/new-session-here are client-owned per Rail.tsx:61-75",
+      "fix_hint": ""
+    },
+    {
+      "element": "Transcript disclosure chevron (thinking / tool-call collapse toggle)",
+      "proto_truth": "▸ (collapsed) / ▾ (open), per B2/E1 in docs/design/p4-conformance-gaps.md and apps/web/screenshots/visual-check/proto-menus.json.",
+      "status": "match",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:56 `{open ? '▾' : '▸'}` — matches. Note: an unreachable component apps/web/src/transcript/parts/CollapsiblePart.tsx:28 still hardcodes the old, wrong '›' glyph, but it has zero importers anywhere in apps/web/src (grep confirms) — dead code, not a live defect.",
+      "backend_surface": "n/a (client-side render toggle)",
+      "fix_hint": "Optional cleanup: delete the unreachable CollapsiblePart.tsx."
+    }
+  ]
+}

@@ -1,0 +1,344 @@
+{
+  "surface": "settings",
+  "summary": "Nav coverage is strong (16 of 19 prototype pages are listed, correctly gated on real backing) but content coverage is almost nil: 15 of those 17 visible pages -- everything except Appearance and About -- render only the generic 'backed but not built' placeholder, so none of the prototype's actual Backends/Providers/Models/Agents/Policies/Doctor/etc. UI exists in the app. The two built pages (Appearance, About) are themselves incomplete versus the prototype. The nav also drops the prototype's CONNECTION/AGENTS/TELEMETRY/APP section headers (flat list instead of grouped), and hides Relays/Plugins/Data & backups -- the last two despite real, working client-side code (wire/plugins.ts, wire/settings-export.ts) sitting completely unwired to any UI.",
+  "items": [
+    {
+      "element": "Settings overlay header chrome (icon + title + close)",
+      "proto_truth": "Header reads gear-icon + 'Settings' (bold, capitalized), with an X close button top-right. Screenshot: apps/web/screenshots/conformance-audit/proto-settings-open.png",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:839-844 (<Layer title=\"settings\" ...> with no headerIcon prop) and apps/web/src/kit/Layer.tsx:11-28 (headerIcon prop exists but is never passed for settings); apps/web/src/kit/layer.css:81-88 (.kit-layer__title has no text-transform, so the literal lowercase string renders). Screenshot: apps/web/screenshots/conformance-audit/app-settings-open.png shows plain lowercase 'settings', no gear glyph.",
+      "backend_surface": "unbacked (client-only chrome)",
+      "fix_hint": "Pass title=\"Settings\" and headerIcon={<Icon name=\"gear\"/>} (or equivalent) at both Layer call sites (SessionView.tsx:841, ShellPreview.tsx:190)."
+    },
+    {
+      "element": "Nav section group headers: CONNECTION / AGENTS / TELEMETRY / APP",
+      "proto_truth": "Left rail groups pages under 4 uppercase, muted, non-interactive section labels (letter-spaced, ~11px mono). Verbatim order: CONNECTION -> Backends; AGENTS -> Session defaults, Providers, Models, Agents, Relays, Commands, Prompts, Agent blueprints, Expert packs, MCP servers; TELEMETRY -> Hooks, Policies, Memory, Metrics, Doctor; APP -> Plugins, Appearance, Data & backups, About. Screenshot: proto-settings-open.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/Settings.tsx:24-30 (items={pages.map((p) => ({ id: p.id, label: p.label }))} -- flattens the `group` field entirely); apps/web/src/kit/MasterDetail.tsx:15-58 (MasterDetailItem has no group/section concept, renders one flat <nav> of buttons); apps/web/src/kit/masterdetail.css (no group-header class exists at all). Screenshot: apps/web/screenshots/conformance-audit/app-settings-open.png shows one continuous unsectioned list.",
+      "backend_surface": "unbacked (client-only nav structure)",
+      "fix_hint": "pages.ts already carries the correct `group` per page (Connection/Agents/Telemetry/App, in the right order) -- MasterDetail just needs to render a header row when an item's group changes."
+    },
+    {
+      "element": "Nav item: Backends",
+      "proto_truth": "Visible, default-active page under CONNECTION.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:34-41 (id: 'backends', backing: 'client'); nav list confirmed live at apps/web/screenshots/conformance-audit/app-settings-nav.json (aria-current='page' on Backends).",
+      "backend_surface": "client (no route expected)"
+    },
+    {
+      "element": "Nav item: Session defaults",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:44 (backing: 'client'); app-settings-nav.json.",
+      "backend_surface": "client (no route expected)"
+    },
+    {
+      "element": "Nav item: Providers",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:45; app-settings-nav.json.",
+      "backend_surface": "GET /v1/providers (apps/core/src/client/providers.ts:63, ProviderSettingsClient.providers())"
+    },
+    {
+      "element": "Nav item: Models",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:46; app-settings-nav.json.",
+      "backend_surface": "provider-scoped models (ProviderSettingsClient.providerModels(), apps/core/src/client/provider_settings_client.ts:28)"
+    },
+    {
+      "element": "Nav item: Agents",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:47; app-settings-nav.json.",
+      "backend_surface": "GET /v1/agents (apps/core/src/client/agents.ts:106, AgentCatalogClient.agents())"
+    },
+    {
+      "element": "Nav item: Relays",
+      "proto_truth": "Visible under AGENTS, between Agents and Commands. Screenshot: proto-settings-open.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/pages.ts:48-54 (backing: 'unbacked', explicit comment: 'No relay registry route exists... no client method lists or edits relay hosts'); backedPages() filter at pages.ts:100-102 removes it from the nav entirely; not present in app-settings-nav.json.",
+      "backend_surface": "unbacked -- no client method or route",
+      "fix_hint": "Deliberate per #337 ship-hidden policy (a promise that can't work is worse than absent) -- but it is a real, tracked gap versus the prototype, not a bug to silently accept."
+    },
+    {
+      "element": "Nav item: Commands",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:55; app-settings-nav.json.",
+      "backend_surface": "GET /v1/commands (apps/core/src/client/system.ts:107, SystemClient.commands())"
+    },
+    {
+      "element": "Nav item: Prompts",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:56; app-settings-nav.json.",
+      "backend_surface": "GET /v1/prompts (apps/core/src/client/prompts.ts:72, PromptSettingsClient.prompts())"
+    },
+    {
+      "element": "Nav item: Agent blueprints",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:57-63; app-settings-nav.json.",
+      "backend_surface": "GET /v1/agent-blueprints (apps/core/src/client/agent_blueprints.ts:67-70, AgentBlueprintClient.agentBlueprints())"
+    },
+    {
+      "element": "Nav item: Expert packs",
+      "proto_truth": "Visible under AGENTS.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:64-70; app-settings-nav.json.",
+      "backend_surface": "GET /v1/expert-packs (apps/core/src/client/expert_packs.ts:48-56, ExpertPackClient.expertPacks())"
+    },
+    {
+      "element": "Nav item: MCP servers",
+      "proto_truth": "Visible under AGENTS, last item in the group.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:71; app-settings-nav.json.",
+      "backend_surface": "GET /v1/mcp/servers (apps/core/src/client/mcp.ts:23, McpClient.mcpServers())"
+    },
+    {
+      "element": "Nav item: Hooks",
+      "proto_truth": "Visible under TELEMETRY.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:74; app-settings-nav.json.",
+      "backend_surface": "GET /v1/hooks (apps/core/src/client/hooks.ts:43, SettingsClient.hooks())"
+    },
+    {
+      "element": "Nav item: Policies",
+      "proto_truth": "Visible under TELEMETRY.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:75; app-settings-nav.json.",
+      "backend_surface": "GET /v1/policies (apps/core/src/client/system.ts:111, SettingsClient.policies())"
+    },
+    {
+      "element": "Nav item: Memory",
+      "proto_truth": "Visible under TELEMETRY.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:76; app-settings-nav.json.",
+      "backend_surface": "GET /v1/memory/stats (apps/core/src/client/system.ts:41-45, SystemClient.memoryStats())"
+    },
+    {
+      "element": "Nav item: Metrics",
+      "proto_truth": "Visible under TELEMETRY.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:77; app-settings-nav.json.",
+      "backend_surface": "GET /v1/metrics (apps/core/src/client/system.ts:103, SystemClient.metrics())"
+    },
+    {
+      "element": "Nav item: Doctor",
+      "proto_truth": "Visible under TELEMETRY, last item in the group.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:78; app-settings-nav.json.",
+      "backend_surface": "GET /v1/health (apps/core/src/client/system.ts:53, SystemClient.health())"
+    },
+    {
+      "element": "Nav item: Plugins",
+      "proto_truth": "Visible under APP, first item ('Loaded from ~/.config/gact/plugins/<name>/plugin.json'). Screenshot: proto-settings-plugins.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/pages.ts:81-87 (backing: 'unbacked', gap text claims 'There is no client method to list or configure plugins') -- but apps/web/src/wire/plugins.ts:1-40+ implements a full PluginDef registry (register/list/invoke via Tauri exec_plugin) that is never imported by any settings page (grep for downloadSettings/importSettings/plugin usage in src/settings/* returns nothing).",
+      "backend_surface": "client (Tauri desktop shell) -- pages.ts's 'unbacked' claim is stale; a working client module exists and is simply unwired",
+      "fix_hint": "Either build a PluginsPage against wire/plugins.ts and reclassify as backing:'client', or if the design intent truly excludes it, update the stale gap comment."
+    },
+    {
+      "element": "Nav item: Appearance",
+      "proto_truth": "Visible under APP.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:88 (built: true); app-settings-nav.json.",
+      "backend_surface": "client (theme/localStorage preferences, apps/web/src/theme/theme.ts)"
+    },
+    {
+      "element": "Nav item: Data & backups",
+      "proto_truth": "Visible under APP, between Appearance and About. Screenshot: proto-settings-data-backups.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/pages.ts:89-95 (backing: 'unbacked', gap text: 'No export/backup route on either side... there is no workspace-level backup surface') -- but apps/web/src/wire/settings-export.ts is a complete, working implementation (collectPrefs/buildEnvelope/downloadSettings/importSettings against localStorage, envelope-versioned, credential keys excluded) that no component anywhere imports (grep across src/ for downloadSettings|importSettings|collectPrefs finds only its own definition file).",
+      "backend_surface": "client (localStorage export/import) -- pages.ts's 'unbacked' claim is stale/incorrect; the exact same 'client' backing category used for Backends/Appearance applies here",
+      "fix_hint": "Build a Data & backups page wired to wire/settings-export.ts's downloadSettings()/importSettings(), and reclassify pages.ts's 'data' entry to backing:'client'."
+    },
+    {
+      "element": "Nav item: About",
+      "proto_truth": "Visible under APP, last item.",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/pages.ts:96 (built: true); app-settings-nav.json.",
+      "backend_surface": "client (build-info.ts) + connected-backend identity"
+    },
+    {
+      "element": "Backends detail pane",
+      "proto_truth": "Title 'Backends' + subtitle 'Registered agent backends. HTTP works everywhere; SSH tunnels need the desktop shell.' Two rows: (1) green status dot, bold 'ares' + muted 'current', subtext 'ssh tunnel · gact-agent v0.9.2+g4f21c · contract v0.2', right-aligned 'Refresh' button; (2) dim status dot, bold 'local', subtext 'http://127.0.0.1:8080 · bundled · idle', right-aligned 'Connect' button. Below both, a filled cyan '+ Add remote backend' button. Screenshot: proto-settings-open.png / proto-settings-backends.png.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/Settings.tsx:54-68 (PageBody's default branch renders only the h2 + '...but its interface has not been built yet.' paragraph for every id that isn't 'appearance'/'about'). Confirmed live: apps/web/screenshots/conformance-audit/app-settings-pages.json entry for 'Backends' = 'This page is backed but its interface has not been built yet.' Screenshot: app-settings-backends.png.",
+      "backend_surface": "client -- the connection registry (loadRegistry/saveRegistry/forgetBackend in apps/web/src/App.tsx:47-178) already exists and backs a DIFFERENT UI, the rail footer 'Connected backends' popover (apps/web/src/shell/Rail.tsx:546-565) -- it has simply never been surfaced inside this Settings page.",
+      "fix_hint": "gact-tui#338 (referenced in pages.ts:41) owns this build."
+    },
+    {
+      "element": "Session defaults detail pane",
+      "proto_truth": "Title + subtitle 'Choose the default semantics applied to new sessions.' Two labeled dropdowns side by side: 'AGENT BLUEPRINT' (value 'earthscope-gnss-region@0.1.0') and 'EXPERT PACK' (placeholder 'search...'). Screenshot: proto-settings-session-defaults.png.",
+      "status": "missing",
+      "app_evidence": "Same generic placeholder as Backends. app-settings-pages.json: 'This page is backed but its interface has not been built yet.'",
+      "backend_surface": "client (no dedicated route; sources from agent-blueprints + expert-packs catalogs already fetched elsewhere)"
+    },
+    {
+      "element": "Providers detail pane",
+      "proto_truth": "Title + subtitle 'Same catalog and saved configurations as the composer picker.' Left column: scrollable list of 9 providers (LM Studio, Ollama, OpenAI, Anthropic, Codex, Claude Code, ALCF Sophia, ALCF Metis, vLLM, OpenRouter) each with a colored status dot; 'Anthropic' selected. Right panel: provider name + 'ready' badge + '+ new configuration' link; a config row '✓ default' + endpoint URL; NAME/ENDPOINT text inputs; AUTH row showing green 'API key saved'. Screenshot: proto-settings-providers.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by providers() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/providers, GET/PUT /v1/providers/lm (apps/core/src/client/providers.ts:63,85,92)"
+    },
+    {
+      "element": "Models detail pane",
+      "proto_truth": "Title + subtitle 'Default model per role for new sessions. The composer picker overrides the current session only.' Two rows: 'main' -> 'Anthropic / claude-sonnet-4-6' with a disclosure chevron; 'router lm' -> 'Ollama / granite3.1-dense:8b' with a disclosure chevron. Screenshot: proto-settings-models.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by providerModels() but its interface has not been built yet.'",
+      "backend_surface": "ProviderSettingsClient.providerModels() / lmConfig() (apps/core/src/client/provider_settings_client.ts:28-33)"
+    },
+    {
+      "element": "Agents detail pane",
+      "proto_truth": "Title + subtitle 'Connected agents across hosts. Detach keeps an agent running after this client closes.' Three rows, each: green status dot, bold host id ('clio@ares', 'clio@polaris', 'io-monitor@ares') + muted address:port, a lightning-bolt 'detach' icon button and an X 'disconnect' icon button. Below, filled cyan '+ Connect agent' button. Screenshot: proto-settings-agents.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by agents() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/agents (apps/core/src/client/agents.ts:106)"
+    },
+    {
+      "element": "Relays detail pane",
+      "proto_truth": "Title + subtitle 'Relay hosts that tunnel agent traffic. Click a name to toggle name / address.' Three rows (ares 12ms, polaris 38ms, delta 214ms) each with an X remove button; '+ Add relay' button below.",
+      "status": "unbacked",
+      "app_evidence": "Not reachable -- page is hidden from nav (see 'Nav item: Relays' finding above).",
+      "backend_surface": "unbacked per pages.ts:48-54"
+    },
+    {
+      "element": "Commands detail pane",
+      "proto_truth": "Title + subtitle 'Slash commands available in the composer.' A flat list of 9 command rows, each 'name' (mono, cyan) + one-line description, e.g. '/compact  summarize earlier messages to reclaim context', '/review  review pending diffs', '/detach  detach the current task to run async', '/monitor  watch a metric on ares, alerts to this session', '/blueprint  open the session blueprint', '/files  browse workspace files', '/runs  open run history', '/agents  manage connected agents', '/provider  switch the lm provider (main + router lm)'.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by commands() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/commands (apps/core/src/client/system.ts:107)"
+    },
+    {
+      "element": "Prompts detail pane",
+      "proto_truth": "Title + subtitle 'Saved prompt templates, insertable from the composer.' Empty state: bold 'No saved prompts', muted 'Save a prompt from the composer ⋯ menu and it will appear here.'",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by prompts() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/prompts (apps/core/src/client/prompts.ts:72)"
+    },
+    {
+      "element": "Agent blueprints detail pane",
+      "proto_truth": "Title + subtitle 'Installed blueprint packs. A blueprint declares the child agents, tools, and templates a session can use.' Three rows: 'earthscope-gnss-region @0.1.0' bold + 'this session · 4 declared children · 12 files' + 'Open editor' link; 'ndp-wildfire-smoke @0.2.1' + 'depth-2 nested chain'; 'data-semantics @0.1.0' + 'simplest single-child pack'. Screenshot: proto-settings-agent-blueprints.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by agentBlueprints() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/agent-blueprints (apps/core/src/client/agent_blueprints.ts:67-70)"
+    },
+    {
+      "element": "Expert packs detail pane",
+      "proto_truth": "Title + subtitle 'Optional expert overlays applied on top of a blueprint.' Empty state: bold 'No expert packs installed', muted 'Packs installed on the backend will be listed here.'",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by expertPacks() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/expert-packs (apps/core/src/client/expert_packs.ts:48-56)"
+    },
+    {
+      "element": "MCP servers detail pane",
+      "proto_truth": "Title + subtitle 'Tool servers reachable from the connected backend.' Two rows: green dot 'hdf5' + 'configured · 6 tools'; dim dot 'parquet' + 'needs configuration'. Screenshot: proto-settings-mcp-servers.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by mcpServers() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/mcp/servers (apps/core/src/client/mcp.ts:23)"
+    },
+    {
+      "element": "Hooks detail pane",
+      "proto_truth": "Title + subtitle 'Scripts run on session lifecycle events.' Empty state: bold 'No hooks configured', muted 'Add hooks in the backend config to run scripts on turn start, tool calls, or completion.'",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by hooks() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/hooks (apps/core/src/client/hooks.ts:43)"
+    },
+    {
+      "element": "Policies detail pane",
+      "proto_truth": "Title + subtitle 'Tool-permission rules. The composer approval toggle sets the per-session default.' 'DEFAULT APPROVAL MODE' label with two segmented buttons, 'Ask' (selected, cyan outline + checkmark) and 'Execute'. Below, a dashed-border empty state: bold 'No persistent allow rules', muted 'Rules created with allow-session / allow-workspace during approval prompts appear here.' Screenshot: proto-settings-policies.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by policies() but its interface has not been built yet.'",
+      "backend_surface": "GET/PUT /v1/policies (apps/core/src/client/system.ts:111,118)"
+    },
+    {
+      "element": "Memory detail pane",
+      "proto_truth": "Title + subtitle 'Persistent memory stores available to sessions.' Empty state: bold 'No memory stores', muted 'The connected backend reports no memory capability.'",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by memoryStats() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/memory/stats (apps/core/src/client/system.ts:41-45)"
+    },
+    {
+      "element": "Metrics detail pane",
+      "proto_truth": "Title + subtitle 'This session, computed from the event stream.' Stat rows: 'context 41%' + '82.1k / 200k'; 'tool calls 14' + 'all sessions'; 'child tasks 6' + '4 completed · 2 running'; 'artifacts 5' + 'this turn'; a link 'Open observability' at the bottom.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by metrics() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/metrics (apps/core/src/client/system.ts:103)"
+    },
+    {
+      "element": "Doctor detail pane",
+      "proto_truth": "Title + subtitle 'Connectivity and environment checks.' Five checklist rows, check-icon left (green check or red X) + label + right-aligned detail: '✓ Backend reachable' / 'ares · ssh tunnel · 12 ms'; '✓ Relay connected' / 'gact-relay v0.4.1'; '✓ Contract version' / 'GACT v0.2'; '✓ Provider ready' / 'Anthropic · key present'; '✗ vLLM endpoint' / '127.0.0.1:8000 · offline'. Screenshot: proto-settings-doctor.png.",
+      "status": "missing",
+      "app_evidence": "app-settings-pages.json: 'This page is backed by health() but its interface has not been built yet.'",
+      "backend_surface": "GET /v1/health (apps/core/src/client/system.ts:53) plus /v1/capabilities, /v1/lsp/clients for the extra rows"
+    },
+    {
+      "element": "Plugins detail pane",
+      "proto_truth": "Title + subtitle 'Loaded from ~/.config/gact/plugins/<name>/plugin.json.' Empty state: bold 'No plugins loaded', muted 'Drop a plugin folder into ~/.config/gact/plugins and restart the backend.' Screenshot: proto-settings-plugins.png.",
+      "status": "unbacked",
+      "app_evidence": "Not reachable -- page hidden from nav; see 'Nav item: Plugins' finding for the unwired wire/plugins.ts module.",
+      "backend_surface": "client (Tauri exec_plugin) -- wired module exists but unused"
+    },
+    {
+      "element": "Appearance detail pane -- Theme preset",
+      "proto_truth": "Row label 'THEME PRESET', three segmented buttons in order 'Dark', 'Dim' (selected, cyan), 'Light'. Screenshot: proto-settings-appearance.png.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/settings/AppearancePage.tsx:30-40 renders label text 'Theme' (not 'THEME PRESET') and Tabs in order dim/dark/light (not Dark/Dim/Light). Confirmed live: app-settings-pages.json Appearance detailText starts 'THEME dim dark light'.",
+      "backend_surface": "client (localStorage, theme.ts:13)",
+      "fix_hint": "Reorder tabs to Dark/Dim/Light and relabel to 'Theme preset' to match the prototype string."
+    },
+    {
+      "element": "Appearance detail pane -- Prose font",
+      "proto_truth": "Row label 'PROSE FONT', five buttons: Inter, Source Sans 3, Literata, Atkinson Hyperlegible, OpenDyslexic (wraps to 2 rows). Caption: 'Applies to prose and UI text. Code and metadata stay monospace.'",
+      "status": "match",
+      "app_evidence": "apps/web/src/settings/AppearancePage.tsx:42-48 + apps/web/src/theme/theme.ts:15-24 (ProseFont union + PROSE_STACKS keys: inter/source/literata/atkinson/dyslexic -- same 5 options). Missing only the caption line.",
+      "backend_surface": "client (localStorage, theme.ts:18-24)"
+    },
+    {
+      "element": "Appearance detail pane -- Text size",
+      "proto_truth": "Row label 'TEXT SIZE', four discrete buttons S / M / L / XL, 'M' selected (cyan). Caption: 'Scales all text. Browser zoom works independently.' Screenshot: proto-settings-appearance.png.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/settings/AppearancePage.tsx:50-62 renders a continuous <input type=\"range\"> from 0.85 to 1.4 step 0.05 labeled 'Type scale -- X.XXx', not 4 discrete S/M/L/XL buttons. Confirmed live: app-settings-pages.json shows 'TYPE SCALE -- 1.00x'.",
+      "backend_surface": "client (localStorage, theme.ts scale field)",
+      "fix_hint": "Replace the range input with 4 Tabs buttons snapping to the prototype's discrete S/M/L/XL scale values, and rename the label to 'Text size'."
+    },
+    {
+      "element": "Appearance detail pane -- Diff preview",
+      "proto_truth": "Row label 'DIFF PREVIEW', three buttons '3 lines' (selected)/'5 lines'/'8 lines'. Caption: 'Change lines shown inline in transcript diffs before the pop-up takes over.'",
+      "status": "missing",
+      "app_evidence": "apps/web/src/settings/AppearancePage.tsx has no diff-preview control at all (file is 65 lines total, only Theme/Prose font/Type scale exist).",
+      "backend_surface": "client (localStorage preference, presumably)"
+    },
+    {
+      "element": "Appearance detail pane -- UI widgets",
+      "proto_truth": "Row label 'UI WIDGETS', two buttons 'Auto' (selected)/'Always expand'. Caption: 'Auto keeps tool widgets (mcp-ui) as compact chips and expands model widgets (a2ui). Always expand renders both inline.'",
+      "status": "missing",
+      "app_evidence": "Not present in apps/web/src/settings/AppearancePage.tsx.",
+      "backend_surface": "client (localStorage preference, presumably)"
+    },
+    {
+      "element": "Appearance detail pane -- Transcript density",
+      "proto_truth": "Row label 'TRANSCRIPT DENSITY', three buttons 'Verbose'/'Normal' (selected, with checkmark)/'Summary'.",
+      "status": "missing",
+      "app_evidence": "Not present in apps/web/src/settings/AppearancePage.tsx.",
+      "backend_surface": "client (localStorage preference, presumably)"
+    },
+    {
+      "element": "Appearance detail pane -- Locale",
+      "proto_truth": "Row label 'LOCALE', value 'English (US) (en-US)'.",
+      "status": "missing",
+      "app_evidence": "Not present in apps/web/src/settings/AppearancePage.tsx.",
+      "backend_surface": "client (localStorage preference, presumably)"
+    },
+    {
+      "element": "About detail pane",
+      "proto_truth": "Title 'About Clio Web' + subtitle 'Build identity and connected backend.' Four KV rows: 'app' -> 'Clio Web' + right-aligned 'v0.9.2+g4f21c'; 'contract' -> 'GACT v0.2'; 'backend' -> 'gact-agent' + right-aligned 'ares · ssh tunnel'; 'auth' -> 'ssh key' + right-aligned 'jaime@ares'. Below, two cyan links: 'github.com/iowarp/gact-tui  web, desktop, and TUI clients' and 'GACT v0.2 protocol spec  canonical wire contract'. Screenshot: proto-settings-about.png.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/settings/AboutPage.tsx:16-39 renders title 'About' (not 'About Clio Web'), no subtitle, only a 2-row KvGrid (product/version, e.g. 'CLIO' / '6ae79d9c-dirty') -- missing the contract/backend/auth rows and both links entirely. It also adds an extra 'Not available in this build' gaps list (Relays/Plugins/Data & backups with reasons) that the prototype's About page does not show at all -- confirmed live in app-settings-pages.json.",
+      "backend_surface": "client (apps/web/src/build-info.ts) + connected-backend identity (contract/backend/auth rows have no source wired)",
+      "fix_hint": "The extra gaps list is a deliberate, documented design choice (AboutPage.tsx:6-11 comment) distinct from a prototype mismatch -- worth a product call on whether to keep it, but the missing contract/backend/auth/links content is a straightforward gap."
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "surface": "rail-and-topbar",
+  "summary": "About half the surface matches the prototype closely (workspace context menu, session context menu grammar at the source level, footer settings/agents cells, topbar title/breadcrumb/blueprint-window wiring, files/console/obs toggles). The worst gaps: the New(+) session button skips the prototype's entire configuration modal and creates a blank session immediately (no title/blueprint/expert-pack/workspace picker, no create-workspace path even though POST /v1/workspaces exists); search is permanently disabled (onOpenSearch is never supplied); the hierarchy ribbon is hardcoded to a single 'main' tab and never reflects the live child-agent hierarchy the transcript is actively showing; and the topbar's cyan-accent language is inverted between the artifacts and ctx% controls. The currently-served localhost:4191 preview is a stale build (version marker v0.9.0+a9962ee6, a hash absent from this repo's git history) whose session context menu still shows the pre-#345/#346 six-item grammar (Rename/Fork/Export/Share/Pin/Delete) — findings about that menu are graded against the current source (Rail.tsx), which already matches the prototype's three-item grammar, per the task's own instruction that source is authoritative for exists/wired.",
+  "items": [
+    {
+      "element": "Rail lockup: CLIO logo image + 'C L I O' letter-spaced wordmark + 'by the Gnosis Research Center' tagline (cyan link), collapse-sessions icon button",
+      "proto_truth": "42x42 logo, 20px/700 wordmark spans colored rgb(221,225,232), 10.5px/600 tagline with 'Gnosis Research Center' in rgb(10,166,173); measured in apps/web/screenshots/visual-check/audit-proto.json rail[0..7]",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:268-278 (Lockup + collapse ToolbarButton); apps/web/screenshots/conformance-audit/app-rail.png",
+      "backend_surface": "unbacked (static brand asset)",
+      "fix_hint": ""
+    },
+    {
+      "element": "'WORKSPACES' eyebrow label above the list",
+      "proto_truth": "uppercase, JetBrains Mono 11.5px/700, letter-spacing .12em, color var(--t-mu); raw prototype h2 at design/prototype/Clio Session.html sessions-column dump",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:281 (<Eyebrow strong>workspaces</Eyebrow>)",
+      "backend_surface": "unbacked (static label)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Search-sessions icon button in the rail heading",
+      "proto_truth": "title 'Search sessions and workspaces'; opens the SEARCH MODAL — icon+placeholder input, live-filtered result rows (workspace-folder icon or chat icon, label, right-aligned meta), clicking a row navigates there",
+      "status": "missing",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:283-291 (`disabled={!onOpenSearch}`); apps/web/src/session/SessionView.tsx never passes `onOpenSearch` to AppShell/Rail (grep for onOpenSearch across the file returns nothing) — the button is permanently disabled and no SearchModal component exists anywhere under apps/web/src (grep for SearchModal/search modal is empty)",
+      "backend_surface": "unbacked — no dedicated search endpoint is needed (a client-side filter over the already-loaded session/workspace list would suffice, as the prototype's `searchRows` implies), but the UI was never built",
+      "fix_hint": "Build a SearchModal component (kit Modal + text input + filtered list) and wire onOpenSearch from SessionView so the button becomes actionable."
+    },
+    {
+      "element": "New (+) session button in the rail heading",
+      "proto_truth": "opens the 'NEW SESSION MODAL': '+ new' header, session/workspace segmented toggle, (session tab) title input placeholder 'untitled session' + AGENT BLUEPRINT dropdown + EXPERT PACK dropdown + WORKSPACE dropdown + orange 'CREATE SESSION' button; (workspace tab) NAME input placeholder 'e.g. ior-sweeps' + PATH input placeholder '/scratch/…' + 'browse…' button + orange 'CREATE WORKSPACE' button. Hover on the icon is cyan (color var(--t-cy), border var(--t-cy4)), distinct from the neutral hover on Search.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:292-300 button calls `newSession?.()` directly with no args; apps/web/src/session/SessionView.tsx:481-508 `createAndSelectSession`/`startNewSession` call `client.createSession(...)` immediately with no title/blueprint/expert-pack/workspace input — SessionView.tsx never imports kit's Modal (grep for 'Modal' in the file returns only the Icon/Layer import line 23), so no NewSessionModal exists; live-measured hover on the '+' button: color rgb(221,225,232) / background rgb(31,35,43) (the shared neutral `--t-hv` hover from apps/web/src/shell/rail.css:62-65), not the prototype's cyan; apps/web/screenshots/visual-check/proto-new-session.png and apps/web/screenshots/conformance-audit/proto-new-workspace-tab.png are the prototype's two tab states",
+      "backend_surface": "POST /v1/sessions exists and is called blind (apps/core/src/client/session_records_client.ts:41); POST /v1/workspaces (createWorkspace) exists in apps/core/src/client/workspace_client.ts:59-65 but is never called anywhere under apps/web/src — the workspace-creation half of this control has a ready backend and zero client UI",
+      "fix_hint": "Build the New-session modal (session/workspace tabs, the four session fields, the two workspace fields) and route 'create session' through it instead of calling createSession on click; give the icon its own cyan hover treatment distinct from Search."
+    },
+    {
+      "element": "Workspace group head: disclosure chevron, folder icon, path label (inline-renamable), session count, '...' menu button",
+      "proto_truth": "▸ rotates on expand; folder icon verbatim; count badge; menu opens WORKSPACE CONTEXT MENU with, in order: pin workspace / open in files / rename workspace / new session here / (divider) / remove workspace",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:324-382 (grouphead markup), :221-259 (workspaceItems array — same 5 items, same order, same labels as the prototype's wsCtxPin/wsCtxOpenDir/wsCtxRename/wsCtxNewHere/wsCtxRemove); apps/web/screenshots/visual-check/proto-ws-menu.png is the prototype capture",
+      "backend_surface": "rename → PATCH /v1/workspaces/{id}; new-session-here → POST /v1/sessions; remove → DELETE /v1/workspaces/{id}; pin is client-only by design (Rail.tsx:53-59 comment)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Workspace menu item 'open in files'",
+      "proto_truth": "opens the workspace's file tree in the Files layer",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:230-236 item is `disabled: !openWorkspaceFiles`; apps/web/src/session/SessionView.tsx never passes `onOpenWorkspaceFiles` to AppShell/Rail — the menu entry renders but is permanently greyed out and inert even though a Files panel exists elsewhere in the topbar",
+      "backend_surface": "GET /v1/workspaces/{id}/files exists (apps/core/src/client/workspace_client.ts:32) and is presumably how the Files panel itself is populated — the gap is only the rail's wiring to it",
+      "fix_hint": "Pass an onOpenWorkspaceFiles handler from SessionView that opens the files panel scoped to the chosen workspace."
+    },
+    {
+      "element": "Session row: status dot, title (inline-renamable), pin icon when pinned, age text, '...' menu button",
+      "proto_truth": "7x7 dot, colored+glowing by state, no visible status word (dot is the only visual channel); title/age/menu row",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:386-440; apps/web/src/kit/statusdot.css:14-49 (7px dot, running/queued/error pulse, idle static); apps/web/src/shell/rail.css:197-209 documents the status text as intentionally screen-reader-only, matching the prototype showing no status word — live-measured dot colors: running rgb(52,211,153), error rgb(248,113,113), idle rgb(138,147,162), each with matching box-shadow glow except idle",
+      "backend_surface": "GET /v1/sessions (list) drives status/age/title",
+      "fix_hint": ""
+    },
+    {
+      "element": "Session '...' menu (pin / rename / delete)",
+      "proto_truth": "3 items in order: pin (label flips to 'unpin' when pinned) / rename / (divider) / delete in red",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:61-75 (SESSION_ACTIONS: pin/rename/delete, matching icons), :200-218 (pin label flips, delete gets danger tone) — matches apps/web/screenshots/visual-check/proto-session-menu.png exactly at the source level. NOTE: the currently-served preview build (footer shows v0.9.0+a9962ee6, a hash not present in `git log --all`) instead renders a stale 6-item menu with no icons (Rename/Fork/Export/Share/Pin/Delete) — apps/web/screenshots/conformance-audit/app-session-ctx-menu.png and app-04-session-ctx.png (a sibling capture, same stale hash) — this is the pre-#345/#346 grammar the roadmap task list already marks in_progress, not what current Rail.tsx source produces",
+      "backend_surface": "rename → PATCH /v1/sessions/{id}; delete → DELETE /v1/sessions/{id}; pin is client-only",
+      "fix_hint": "Rebuild the localhost:4191 preview bundle so the served menu matches the current 3-item source."
+    },
+    {
+      "element": "Rail footer: settings gear cell",
+      "proto_truth": "gear icon, 41px-wide first cell (own 13px gutter), opens Settings",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:458-466; apps/web/src/shell/rail.css:286-291 documents the measured 41px width",
+      "backend_surface": "unbacked (local UI navigation)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Rail footer: 'agents N' cell",
+      "proto_truth": "green dot + 'agents' + live count; title 'Connected agents — opens settings' — clicking navigates to Settings",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:467-483 — clicking opens a connections-swap ContextMenu (apps/web/screenshots/conformance-audit/app-06-connections-menu.png) instead of navigating to Settings; count itself is correctly live (GET-driven readyCount)",
+      "backend_surface": "count is client-owned (connection pool), not /v1/agents",
+      "fix_hint": "Either retitle the cell to reflect its real action (connection swap) or add a path to Settings alongside it, since the prototype's stated affordance is 'opens settings'."
+    },
+    {
+      "element": "Rail footer: 'relay' cell",
+      "proto_truth": "green dot + clickable 'relay' text; title 'Relays — opens settings'",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:486-494 renders a permanently `disabled` cell with an idle/muted dot and the label 'relay unknown', title citing clio-agent#1179; apps/web/screenshots/conformance-audit/app-full.png shows 'relay unknown' live",
+      "backend_surface": "unbacked (clio-agent#1179 — no relay-reachability endpoint exists yet); this is a deliberate typed-degradation (no-silent-fallback), not an oversight",
+      "fix_hint": "Once #1179 lands a reachability endpoint, restore the live green dot + click-to-settings behavior."
+    },
+    {
+      "element": "Topbar: session title (click-to-rename) + '/' + blueprint breadcrumb button",
+      "proto_truth": "title editable in place; '/' separator; blueprint name button that opens the blueprint editor",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:49-71; apps/web/src/session/SessionView.tsx:711,863-867 (BlueprintWindow opens on panel==='blueprint'); live: title 'LA ground motion - EarthScope GNSS' / breadcrumb 'earthscope-flat' in apps/web/screenshots/conformance-audit/app-session-selected-topbar.png",
+      "backend_surface": "rename → PATCH /v1/sessions/{id}",
+      "fix_hint": ""
+    },
+    {
+      "element": "Topbar 'files' toggle",
+      "proto_truth": "muted by default; on hover: cyan text + cyan-tinted background (rgba(10,166,173,.12)) + cyan border",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/toolbarbutton.css:18-21 gives a neutral hover (border var(--t-bd3), color var(--t-hd), no background tint); live-measured hover: color rgb(221,225,232), border rgba(45,99,139,.3), background transparent — no cyan anywhere. Same shared class also drives console/artifacts/ctx/observability hover, so this is systemic across all 5 topbar controls",
+      "backend_surface": "unbacked (pure styling)",
+      "fix_hint": "Add a cyan hover variant to ToolbarButton (or a topbar-scoped override) matching the prototype's style-hover on files/console/artifacts/ctx/obs."
+    },
+    {
+      "element": "Topbar 'console' toggle",
+      "proto_truth": "desktop-only ('isDesktop' gate); pressed state tints text/border/background cyan",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:82-89 (`isDesktop ? <ToolbarButton .../> : null`); confirmed absent in the non-desktop Playwright capture (apps/web/screenshots/conformance-audit topbar HTML dump has no console button when useIsDesktop() is false), matching the prototype's `sc-if isDesktop`",
+      "backend_surface": "unbacked (client shell mode)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Topbar 'artifacts N' toggle",
+      "proto_truth": "entire control (icon + 'artifacts' label + count) is permanently rendered in the cyan accent color var(--t-cy), regardless of whether the panel is open — measured in apps/web/screenshots/visual-check/audit-proto.json topbar: button 'artifacts' color rgb(10,166,173), span '5' color rgb(10,166,173)",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/shell/topbar.css:85-88 (`.shell-topbar__count { color: var(--t-cy) }` applies only to the numeral) + apps/web/src/kit/toolbarbutton.css (icon/label inherit the plain muted button color until `aria-pressed`); live-measured: label/icon color rgb(138,147,162) (muted), count color rgb(10,166,173) — only the number is cyan, the word 'artifacts' and its icon stay grey until clicked",
+      "backend_surface": "artifact count is session-derived (observability/session state)",
+      "fix_hint": "Give the artifacts ToolbarButton a permanent cyan variant (icon+label+count) independent of pressed state, matching the prototype's always-on accent."
+    },
+    {
+      "element": "Topbar 'ctx N%' toggle",
+      "proto_truth": "entire control stays muted grey at all times — measured in audit-proto.json: button 'ctx' color rgb(138,147,162), span '41%' color rgb(138,147,162); no cyan anywhere on this control",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/shell/topbar.css:85-88 applies the shared `.shell-topbar__count { color: var(--t-cy) }` rule to the ctx percentage too; live-measured: percentage 'ctx 0%' renders with count color rgb(10,166,173) (cyan) even though the prototype's ctx% is always grey — the app has the artifacts/ctx cyan assignment backwards relative to spec",
+      "backend_surface": "context percent comes from the session pill (refreshPill, SessionView.tsx ~line 397)",
+      "fix_hint": "Scope the cyan `.shell-topbar__count` styling to the artifacts button only; leave the ctx percentage muted."
+    },
+    {
+      "element": "Topbar observability (eye) icon button",
+      "proto_truth": "icon-only, title 'Observability', muted default / cyan hover, no permanent accent",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Topbar.tsx:113-119; apps/web/src/kit/Icon.tsx:311-320 (verbatim eye path); note it shares the same missing-cyan-hover systemic issue noted above",
+      "backend_surface": "unbacked (panel toggle only)",
+      "fix_hint": ""
+    },
+    {
+      "element": "Hierarchy ribbon (row directly under the topbar)",
+      "proto_truth": "data-driven breadcrumb of the currently-focused agent hierarchy (`{{ ribbon }}` sc-for): starts at 'main', gains a hop for each child agent the user has navigated into (e.g. 'main › geospatial'), the active/live hop shows a small orange pulsing dot, each hop is clickable to jump back",
+      "status": "missing",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:712 hardcodes `ribbon={[{ id: 'main', label: 'main' }]}` — no code path anywhere in the file ever adds a second entry or calls setActiveScope with anything but 'main' from a ribbon click; live-verified against a REAL running session with an active `Call(geospatial)` child turn (apps/web/screenshots/conformance-audit/app-session-selected-full.png) — the transcript shows exactly the kind of child call the ribbon should expose, but the ribbon strip still renders only 'main'",
+      "backend_surface": "the session/turn data needed (child session ids, live status) is already reachable via the same GET /v1/sessions/{id} + turn data the transcript itself renders from — this is a client wiring gap, not a missing endpoint",
+      "fix_hint": "Populate `ribbon` from the child-agent navigation stack (push a hop when a Call(...) block is followed, pop on back-navigation) and give the active hop the live-pulse treatment."
+    }
+  ]
+}

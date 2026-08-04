@@ -1,0 +1,190 @@
+{
+  "surface": "fresh-session",
+  "summary": "Roughly a third of this surface matches: the composer's model selector, send button, attach-button-flagged-unbacked, and execute toggle all render correctly in the fresh/idle state. Everything else that makes the fresh state feel designed is either entirely unimplemented (headline, SUGGESTED prompts, composer pill, topbar placeholder text, animate-to-floor transition) or actively wrong (the rail's + button skips the prototype's new-session dialog and POSTs a blank session immediately). The +new dialog — title/name field, session|workspace tabs, AGENT BLUEPRINT/EXPERT PACK/WORKSPACE selects, CREATE SESSION button — has zero implementation in apps/web/src despite every data source it needs (GET /v1/agent-blueprints, GET /v1/expert-packs, GET /v1/workspaces, POST /v1/sessions, POST /v1/workspaces) already being live and reachable.",
+  "items": [
+    {
+      "element": "Topbar title placeholder, fresh/no-session state",
+      "proto_truth": "h1 span reads literal text \"untitled session\" — font Inter 14px, weight 600, color var(--t-hd,#c5cad3). Measured via live DOM: apps/web/screenshots/conformance-audit (probe script output), header outerHTML: <span title=\"Click to rename\" ...>untitled session</span>.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:710 (title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''} resolves to '' with no active session); apps/web/src/shell/Topbar.tsx:51-56 renders the empty string verbatim (h1 goes blank, CSS itself already matches the prototype's 14px/600/var(--t-hd) rule in topbar.css:27-37). Screenshot: apps/web/screenshots/conformance-audit/app-fresh-session.png shows a blank topbar-left where the title belongs.",
+      "backend_surface": "unbacked (no session exists yet; the prototype's value here is a client-owned placeholder, not read from any endpoint)",
+      "fix_hint": "When !activeId, pass title=\"untitled session\" (or the brand-equivalent constant) instead of ''."
+    },
+    {
+      "element": "Topbar breadcrumb placeholder, fresh/no-session state",
+      "proto_truth": "\"/\" separator (JetBrains Mono 12.5px, color var(--t-mu,#6b7280)) + button reading \"no blueprint\" (JetBrains Mono 12.5px, color var(--t-tx,#a8adb8), title=\"Pick a blueprint for this session\", clickable even with nothing selected).",
+      "status": "missing",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:711 spreads breadcrumb only `...(activeBlueprintId ? { breadcrumb: activeBlueprintId } : {})` — omitted entirely when no session/blueprint exists. apps/web/src/shell/Topbar.tsx:57-70 renders nothing (not even the '/' separator) when breadcrumb is undefined. CSS (topbar.css:39-65) already matches the prototype's separator/crumb-button styling when populated.",
+      "backend_surface": "unbacked pre-session (same as title — the prototype's fallback text and its click affordance are UI-owned, not from a backend field)",
+      "fix_hint": "Always pass a breadcrumb value: activeBlueprintId when set, else the literal \"no blueprint\", and keep the crumb-button clickable (it should open blueprint selection, not just the read-only BlueprintWindow, once a blueprint IS attached)."
+    },
+    {
+      "element": "Composer vertical position — centered mid-canvas before the first turn",
+      "proto_truth": "Layout is a flex column: header (64px) -> ribbon (34px) -> headline wrapper (flex-grow:1, flex-basis:0%) -> fixed-height composer block (345px, containing pill+frame+SUGGESTED+footer) -> bottom spacer (flex-grow:1, flex-basis:0px). With both flex:1 siblings present, the composer block sits roughly mid-viewport (measured composer frame rect: x=440,y=372,w=860,h=89 inside a 1440x900 viewport — vertical center ~416/900 = 46%), not pinned to the floor.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/composer/composer.css:9-21 — `.composer { margin: auto auto 0; }` inside apps/web/src/shell/appshell.css:37-48 `.shell__content` (flex column). The code comment explicitly states intent: \"holds the composer against the bottom of the viewport rather than the bottom of the text.\" There is no top/bottom flex-grow spacer pair and no idle-vs-active layout branch. Screenshot apps/web/screenshots/conformance-audit/app-fresh-session.png shows the composer pinned at the very bottom (y≈756-880 of 900) even with zero messages.",
+      "backend_surface": "unbacked (pure client layout)",
+      "fix_hint": "Give the idle/no-messages state a top spacer (flex:1) above the composer and a bottom spacer (flex:1, transition: flex-grow) below it; drop both to flex-grow:0 once the transcript has content, matching the prototype's spacer pair."
+    },
+    {
+      "element": "Composer animate-to-floor transition on first turn",
+      "proto_truth": "The bottom spacer div carries `transition: flex-grow 0.46s cubic-bezier(0.4, 0, 0.2, 1)` (measured via getComputedStyle) — when the first message starts a turn, that spacer's flex-grow animates from 1 to 0, sliding the composer from mid-canvas down to the floor over 460ms as the transcript takes the vacated space.",
+      "status": "missing",
+      "app_evidence": "No such transition exists anywhere in apps/web/src/composer/composer.css or apps/web/src/shell/appshell.css — impossible for it to exist given finding above (composer is ALWAYS floor-pinned via `margin:auto auto 0`, so there is nothing to animate from).",
+      "backend_surface": "unbacked (pure client animation, but its trigger condition — \"a turn started\" — is powered by POST /v1/sessions/{id}/messages returning and messages.length transitioning 0→1)",
+      "fix_hint": "Land together with the centered-composer fix above: the same spacer pair whose flex-grow animates is what produces this transition for free."
+    },
+    {
+      "element": "Fresh-session headline — glyph + \"Ready on {workspace}\"",
+      "proto_truth": "Flex row, centered, gap 10px: icon glyph \"✻\" (JetBrains Mono, 19px, color var(--t-ac,#c4682a) — the rust-orange accent) followed by h1 \"Ready on /scratch/j4471\" (Inter, 25px, weight 600, color var(--t-hd,#c5cad3), letter-spacing -0.01em). The workspace name is interpolated from the current/default workspace.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:730-732 — explicit comment: \"Nothing is rendered for the idle state on purpose. A fresh session is an EMPTY session ... not an instruction to go and click something.\" Screenshot apps/web/screenshots/conformance-audit/app-fresh-session.png shows a blank canvas above the composer.",
+      "backend_surface": "GET /v1/workspaces (already fetched into SessionView's `workspaces` state at line ~364-378 for the rail groups; unused for this element). Live-verified: `curl http://127.0.0.1:17900/v1/workspaces` returns real workspace rows.",
+      "fix_hint": "Render the headline for the idle state using the same workspaces list already in state (default to the first/most-recent workspace, or the connection's default root)."
+    },
+    {
+      "element": "Composer placement/context pill, fresh state (above the composer frame)",
+      "proto_truth": "Pillbox shows even with no session yet: green status dot + \"ares:/scratch/j4471\" chip, separator, \"ctx 0%\" chip — defaults to the current connection/workspace with 0% context. Composer frame's top-left corner is square (border-radius 0 14 14 14) to dock flush under the pill.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:459 — `const placement = activeId ? ... : undefined;` — with no active session, Composer.tsx:141 `hasPill = Boolean(placement) || hasAsync || hasContext` evaluates false, so the entire pillbox (Composer.tsx:228-267) is omitted and the frame keeps its plain 14px-all-corners radius (composer.css:109-123). Screenshot confirms: no pill row above the composer in the fresh state.",
+      "backend_surface": "unbacked pre-session for the exact host label (\"ares\" is a connection/placement concept the app doesn't model at all yet); ctx defaults to 0% which needs no backend call.",
+      "fix_hint": "Show a default placement pill (`<connection>:<default-workspace>` · `ctx 0%`) before a session exists, sourced from the active connection + first/default workspace, rather than gating the whole pillbox on activeId."
+    },
+    {
+      "element": "SUGGESTED section label",
+      "proto_truth": "\"✧ suggested\" — teal diamond icon (color var(--t-cy,#0aa6ad)) + text rendered uppercase via CSS text-transform (source text is lowercase \"suggested\"); JetBrains Mono, 10.5px, letter-spacing 0.1em, color var(--t-mu,#6b7280). Entrance uses a 200ms ease-out \"clio-rise\" animation.",
+      "status": "missing",
+      "app_evidence": "grep for \"suggest\" (case-insensitive) across apps/web/src returns zero matches — no component, no CSS class, nothing staged.",
+      "backend_surface": "unbacked — no endpoint in apps/core/src/client suggests or generates prompts; this section has no backend generator even in the prototype's own design (its 3 rows are static, not model-suggested).",
+      "fix_hint": "Add a SuggestedPrompts component under composer/, static-content acceptable initially (matches the prototype's own static rows) since no backend surface exists to source them dynamically."
+    },
+    {
+      "element": "SUGGESTED row 1",
+      "proto_truth": "Title \"Profile a dataset\" (Inter 14px, color var(--t-pr,#b6bcc6)); subtitle \"in /scratch/j4471\" (Inter 12.5px, color var(--t-mu,#6b7280)). Rendered as a real <button>; hover opacity 0.72 (`.scpr:hover{opacity:.72}`); clicking it inserts the title text \"Profile a dataset\" verbatim into the composer textarea (verified live: clicked the row, textarea.value became \"Profile a dataset\").",
+      "status": "missing",
+      "app_evidence": "Not rendered — see SessionView.tsx:730-732.",
+      "backend_surface": "unbacked (static prototype content, not model- or backend-generated)",
+      "fix_hint": "See SUGGESTED section label fix_hint; wire onClick to Composer's setText with the row's title."
+    },
+    {
+      "element": "SUGGESTED row 2",
+      "proto_truth": "Title \"Run a benchmark sweep\" (Inter 14px, var(--t-pr)); subtitle \"on ares, compared against last week\" (Inter 12.5px, var(--t-mu)). Same button/hover/click-to-populate behavior as row 1.",
+      "status": "missing",
+      "app_evidence": "Not rendered — see SessionView.tsx:730-732.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Same as row 1."
+    },
+    {
+      "element": "SUGGESTED row 3",
+      "proto_truth": "Title \"Find what is filling scratch\" (Inter 14px, var(--t-pr)); subtitle \"and propose what to archive\" (Inter 12.5px, var(--t-mu)). Same button/hover/click-to-populate behavior as row 1.",
+      "status": "missing",
+      "app_evidence": "Not rendered — see SessionView.tsx:730-732.",
+      "backend_surface": "unbacked",
+      "fix_hint": "Same as row 1."
+    },
+    {
+      "element": "Rail \"+\" (new session) button — click semantics",
+      "proto_truth": "Clicking the \"+\" icon button beside the WORKSPACES search icon opens the \"+ new\" modal dialog (a 680px overlay) — it does NOT create a session immediately. The dialog is where the user names the session and picks blueprint/pack/workspace before a session is actually created.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:292-298 — `<button aria-label=\"New session\" onClick={() => newSession?.()}>` calls straight through to `startNewSession()` -> `createAndSelectSession()` in apps/web/src/session/SessionView.tsx:481-508, which immediately calls `client.createSession({})` (POST /v1/sessions) with no title, no blueprint, no expert pack — no dialog is shown at all. The kit's `Modal` component (apps/web/src/kit/Modal.tsx) exists and is exercised only in apps/web/src/kit/KitGallery.tsx (a dev-only gallery page), never wired to this button.",
+      "backend_surface": "POST /v1/sessions (apps/core/src/client/session_records_api.ts:99, CreateSessionInput = {title?, workspace_id?}) — reachable and correctly typed, just invoked at the wrong moment with no user input collected first.",
+      "fix_hint": "Change the \"+\" button's onClick to open a new-session modal (session|workspace tabs) instead of calling newSession() directly; only call createSession/createWorkspace from the modal's CREATE button, using its collected inputs."
+    },
+    {
+      "element": "\"+new\" dialog — container/header/close",
+      "proto_truth": "Modal: fixed inset:0, scrim `rgba(0,0,0,.6)`; panel 680px wide, `margin: 8vh auto 0`, background var(--t-sf,#16181d), border 1px solid var(--t-bd6,rgba(45,99,139,.6)), border-radius 12px, box-shadow var(--t-shadow), 160ms ease-out \"clio-rise\" entrance. Header row: padding 12px 16px, border-bottom 1px solid var(--t-bd3); teal \"+\" glyph (var(--t-cy,#0aa6ad)) + bold \"new\" title (JetBrains Mono 13px, weight 700, var(--t-hd)); 24x24 close-X button (border-radius 6px; hover: color var(--t-hd), border-color var(--t-bd3)).",
+      "status": "missing",
+      "app_evidence": "No modal is ever shown for this flow (see Rail \"+\" button finding above). apps/web/src/kit/Modal.tsx provides a generic modal shell but is not composed into any session/workspace-creation flow.",
+      "backend_surface": "unbacked (chrome only)",
+      "fix_hint": "Build on kit's existing Modal component rather than a bespoke overlay."
+    },
+    {
+      "element": "\"+new\" dialog — session | workspace tab toggle",
+      "proto_truth": "Pill toggle, inline-flex, background var(--t-bg,#101216), border 1px solid var(--t-bd3), border-radius 7px, padding 2px, gap 2px. Active tab: background var(--t-sf2,#1c1f25), border-radius 5px, color var(--t-hd,#c5cad3). Inactive tab: transparent background, color var(--t-mu,#6b7280). Both tabs: JetBrains Mono 11px, letter-spacing 0.04em, padding 3px 12px.",
+      "status": "missing",
+      "app_evidence": "No dialog exists to contain this control.",
+      "backend_surface": "unbacked (chrome only; switching tabs swaps which POST the CREATE button will issue)",
+      "fix_hint": "n/a — implement alongside the dialog container."
+    },
+    {
+      "element": "\"+new\" dialog, session tab — name field",
+      "proto_truth": "Text input, placeholder \"untitled session\", width 100%, background var(--t-sf2,#1c1f25), border 1px solid var(--t-bd3), border-radius 8px, padding 8px 12px, font Inter 14px weight 600 color var(--t-hd; focus border-color var(--t-cy,#0aa6ad).",
+      "status": "missing",
+      "app_evidence": "No dialog exists.",
+      "backend_surface": "POST /v1/sessions accepts `title` (CreateSessionInput.title, apps/core/src/client/session_records_api.ts:15) — ready to receive this field.",
+      "fix_hint": "n/a — implement alongside the dialog container."
+    },
+    {
+      "element": "\"+new\" dialog, session tab — AGENT BLUEPRINT select",
+      "proto_truth": "Label \"agent blueprint\" (JetBrains Mono 10.5px, uppercase via CSS text-transform, letter-spacing 0.1em, color var(--t-mu)). Select: same field chrome as the name input but JetBrains Mono 12px. Prototype's static option list: \"clio (default)\", \"io-triage\", \"storage-tuner\".",
+      "status": "missing",
+      "app_evidence": "No dialog exists. The app DOES fetch blueprint data elsewhere (BlueprintWindow.tsx uses fetchAgentBlueprint for the read-only breadcrumb viewer) but nothing lists ALL blueprints for a create-time picker.",
+      "backend_surface": "GET /v1/agent-blueprints — client method `agentBlueprints()` in apps/core/src/client/agent_blueprint_client.ts. Live-verified reachable: `curl http://127.0.0.1:17900/v1/agent-blueprints` returns a real blueprint (\"earthscope-gnss-region\"). NOTE: POST /v1/sessions itself has no blueprint field (CreateSessionInput = {title, workspace_id} only) — binding a chosen blueprint would need a follow-up call, likely `setSessionBlueprintBinding` (apps/core/src/client/agent_blueprints.ts).",
+      "fix_hint": "Populate the select from client.agentBlueprints(); after createSession() succeeds, call the session-blueprint binding endpoint with the chosen id before navigating in."
+    },
+    {
+      "element": "\"+new\" dialog, session tab — EXPERT PACK select",
+      "proto_truth": "Label \"expert pack\" (same styling as AGENT BLUEPRINT label). Prototype's static option list: \"hpc-io\", \"lustre-ost\", \"none\".",
+      "status": "missing",
+      "app_evidence": "No dialog exists.",
+      "backend_surface": "GET /v1/expert-packs — client method `expertPacks()` in apps/core/src/client/expert_pack_client.ts. Live-verified reachable but currently empty on this backend: `curl http://127.0.0.1:17900/v1/expert-packs` -> `{\"expert_packs\":[]}`. Binding uses `setSessionExpertPackBinding` (POST /v1/sessions/{id}/expert-pack), a second call after session creation, same as blueprint.",
+      "fix_hint": "Populate from client.expertPacks(); degrade to a disabled/'none'-only select when the list is empty rather than hiding the field, matching the composer's own \"present-but-flagged\" convention for unbacked-in-practice controls."
+    },
+    {
+      "element": "\"+new\" dialog, session tab — WORKSPACE select",
+      "proto_truth": "Label \"workspace\" (same styling). Options populated from the real workspace roots shown in the rail (\"/scratch/j4471\", \"/scratch/hermes\", \"~/rollups\", \"~/chronolog\" in the prototype's mock rail).",
+      "status": "missing",
+      "app_evidence": "No dialog exists. SessionView.tsx already loads `workspaces` via client.workspaces() for the rail groups (line ~364-378) — the same data this select needs is already in React state and unused here.",
+      "backend_surface": "GET /v1/workspaces — live-verified reachable and returning real rows (`curl http://127.0.0.1:17900/v1/workspaces`).",
+      "fix_hint": "Reuse SessionView's existing `workspaces` state to populate this select; pass the chosen workspace_id straight into createSession()."
+    },
+    {
+      "element": "\"+new\" dialog, session tab — CREATE SESSION button",
+      "proto_truth": "Right-aligned in a footer row with border-top 1px solid var(--t-bd3), padding-top 12px. Button: background var(--t-ac,#c4682a) [rust-orange accent], border-radius 8px, padding 6px 16px, color var(--t-ink,#16181d) [near-black text on orange], JetBrains Mono 11.5px, weight 700, uppercase, letter-spacing 0.05em; hover background var(--t-ach,#d47b3a) (lighter orange).",
+      "status": "missing",
+      "app_evidence": "No dialog exists; the equivalent action today is the bare POST fired by the rail's \"+\" button (see \"not-wired\" finding above) with no collected inputs.",
+      "backend_surface": "POST /v1/sessions (createSession), optionally followed by blueprint/expert-pack binding calls per the two findings above.",
+      "fix_hint": "n/a — implement alongside the dialog container; disable while the POST is in flight (composer already has a `busy` pattern to copy)."
+    },
+    {
+      "element": "\"+new\" dialog, workspace tab — name + path + browse + CREATE WORKSPACE",
+      "proto_truth": "\"name\" label + text input (placeholder \"e.g. ior-sweeps\", same chrome as the session-tab name field). \"path\" label + row of [text input placeholder \"/scratch/…\"] + [button \"browse…\" title=\"Browse — opens the OS file picker\", bordered, JetBrains Mono 11.5px]. Footer button \"CREATE WORKSPACE\" — identical styling to CREATE SESSION (var(--t-ac) background, uppercase, etc.).",
+      "status": "missing",
+      "app_evidence": "No dialog exists; apps/web/src has no workspace-creation UI anywhere (grep for createWorkspace in apps/web/src returns no matches).",
+      "backend_surface": "POST /v1/workspaces — client method `createWorkspace(body: CreateWorkspaceInput)` in apps/core/src/client/workspace_client.ts:63, reachable. The \"browse…\" OS file picker has no web equivalent (Tauri desktop shell may be able to back it via apps/web/src/tauri/, browser build cannot) — that half is legitimately unbacked in a browser context.",
+      "fix_hint": "Implement the workspace tab alongside the session tab; gate \"browse…\" behind the Tauri desktop build (apps/web/src/tauri/) and fall back to path-typing only on web."
+    },
+    {
+      "element": "Composer mode row — \"ask\" toggle/approval-mode button, fresh state",
+      "proto_truth": "Always visible alongside \"execute\": circle-question icon + \"ask\" text, JetBrains Mono 11.5px, color var(--t-mu) (or highlighted when active, per other captured session states).",
+      "status": "missing",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:316-346 — the button is gated on `approvalMode && onApprovalModeChange`; `approvalMode` comes from `detail?.approval_mode` (SessionView.tsx:804), which is null until a real session record has loaded. With no active session, only the \"execute\" button (Composer.tsx:348-357) renders. Screenshot apps/web/screenshots/conformance-audit/app-fresh-session.png shows \"+  ▷ execute\" only, no \"ask\".",
+      "backend_surface": "session.approval_mode is a real field (PATCH /v1/sessions/{id}) but genuinely does not exist before a session is created — the prototype still shows the control pre-session using a client-only default (\"ask\"), which the app's `mode` state (Composer.tsx:102, defaults to 'ask') already tracks internally, it's just not exposed as a button.",
+      "fix_hint": "Render the ask/execute pair unconditionally using the local `mode` state; treat the approval-mode MENU (the extra ask/auto-edits/bypass/ai-review picker) as the part that stays disabled/hidden until a session + approval_mode exist, rather than hiding the whole button."
+    },
+    {
+      "element": "Composer \"+\" attach button",
+      "proto_truth": "26x26 button, border-radius 7px, plus-glyph icon, title \"Attach\".",
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:305-314 + composer.css:266-291 — renders with correct geometry, additionally flagged `data-unbacked=\"true\"` (red) and disabled, with a documented rationale (no upload endpoint exists). This is a deliberate, correctly-labeled gap, not a defect.",
+      "backend_surface": "unbacked (clio-agent serves no upload endpoint) — correctly disclosed in the UI rather than silently hidden.",
+      "fix_hint": "none needed"
+    },
+    {
+      "element": "Composer model selector, fresh state",
+      "proto_truth": "\"✧ Anthropic / claude-sonnet-4-6 ⌄\" chip.",
+      "status": "match",
+      "app_evidence": "apps/web/src/session/SessionView.tsx:796 substitutes \"model not set\" when no modelId is known pre-session — matches screenshot (app shows \"✧ model not set ⌄\"), which is the honest fallback since clio-agent exposes no default-model endpoint. Composer.tsx:361-370 renders the Select control correctly.",
+      "backend_surface": "GET /v1/providers + GET /v1/providers/{id}/models (client.providers/providerModels) for the option list; no endpoint names a THE default model pre-session, so \"model not set\" is the honest state per the code's own comment (SessionView.tsx:793-796).",
+      "fix_hint": "none needed"
+    },
+    {
+      "element": "Composer send button, fresh/empty-text state",
+      "proto_truth": "30x30 orange circle, up-arrow icon, disabled look while input is empty.",
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:138,372-380 — `canSend = !busy && text.trim().length>0`; disabled styling in composer.css:252-257 (opacity 0.45) matches.",
+      "backend_surface": "POST /v1/sessions/{id}/messages once text is present (client.sendMessage)",
+      "fix_hint": "none needed"
+    }
+  ]
+}

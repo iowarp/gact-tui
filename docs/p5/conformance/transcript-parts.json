@@ -1,0 +1,171 @@
+{
+  "surface": "transcript-parts",
+  "summary": "About a quarter of the inventoried elements match the prototype outright (user/assistant message shell, the Call(child) title+question shape used by subagent_call/result, routing_decision text, the honest-placeholder/no-silent-fallback policy for unrenderable and unshipped kinds). The worst gaps: tool_call+tool_result never fold into the prototype's single collapsible row — both render fully expanded, permanently, with mismatched wrench/gear icons, and long tool errors are silently truncated at 120 chars into a dangling fragment; the entire artifact-chip grid (28px teal icon tile cards) is unimplemented anywhere in the transcript; the child-result card renders with cursor:pointer but has no click handler at all, so the prototype's 'open the focused agent transcript' interaction is both missing (the pane doesn't exist) and not-wired (the affordance lies); and the running/failed color semantics on child cards are backwards against the prototype's convention (StatusDot's 'running' is success-green, and a live-observed failed delegation still renders the neutral gray 'idle' dot).",
+  "items": [
+    {
+      "element": "User message bubble",
+      "proto_truth": "Right-aligned, max-width 78%, background var(--t-sf2,#1c1f25), border 1px solid var(--t-bd3,rgba(45,99,139,.3)), border-radius 12px 12px 4px 12px, padding 10px 14px, color var(--t-hd,#c5cad3), font-size 14px, line-height 1.55, Inter/system-ui.",
+      "status": "match",
+      "app_evidence": "apps/web/src/transcript/transcript.css:33-44",
+      "backend_surface": "message.role='user', message.parts",
+      "fix_hint": ""
+    },
+    {
+      "element": "Assistant narration gutter marker (14px gutter slot next to plain text parts)",
+      "proto_truth": "A '●' glyph, JetBrains Mono 13px, color var(--t-ac,#c4682a), line-height 1.6 — identical in both the main turn loop (sg.isNar) and the focused-agent view (pp.isText). design/prototype/Clio Session.html:391 (isNar block).",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:103-106 (part-gutterbar); apps/web/src/transcript/parts/parts.css:9-18",
+      "backend_surface": "message.part.text",
+      "fix_hint": "Swap the 4px full-height accent bar for the prototype's mono '●' bullet (13px, var(--t-ac), line-height 1.6), or explicitly document the bar as an intentional redesign — it currently isn't."
+    },
+    {
+      "element": "'thinking' disclosure — collapsed header + expanded body",
+      "proto_truth": "Header: '▸ thinking ({{tok}} tokens)', mono-independent prose 14px, color var(--t-mu) hover var(--t-hd), chevron rotates 90deg open. Expanded body: margin-left 14px, padding-left 10px, border-left 2px solid var(--t-bd3,rgba(45,99,139,.3)) guide rail, prose 14px, line-height 1.6, white-space pre-wrap.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:44-67; apps/web/src/transcript/parts/parts.css:73-97",
+      "backend_surface": "message.part.thinking",
+      "fix_hint": "Token count is honestly dropped per clio-agent#1177 (field absent from the wire) — that part is fine. But the expanded body lost its border-left:2px guide rail (now just 2px of padding) and its font-size is 13.5px instead of the prototype's 14px; restore both."
+    },
+    {
+      "element": "Tool invocation row — fold/collapse behavior ('tool_result folds inside expandable')",
+      "proto_truth": "ONE row per tool call: '{name}({argHint})  …  {meta}  {✓/✗ mark}  ▸chevron', collapsed by default; clicking toggles a bordered 'well' box showing the full params/results 2-column grid. While collapsed, an optional 1-line preview of the first result key/value still shows. design/prototype/Clio Session.html:391 (isToolSeg block).",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:116-142",
+      "backend_surface": "message.part.tool_call + message.part.tool_result (two separate wire parts)",
+      "fix_hint": "tool_call and tool_result render as two SEPARATE, permanently-expanded PartCards — no chevron, no toggle, no collapse exists at all. Merge them into one collapsible card keyed by the call id, closed by default, with the ✓/✗ mark + duration meta on the header row."
+    },
+    {
+      "element": "Tool call vs tool result gutter icon",
+      "proto_truth": "The SAME wrench glyph (path 'M7.9 1.6a2.9…') is used for the call and its result — one icon per tool row, not two.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:120-122,131-132; apps/web/src/kit/Icon.tsx:154-172",
+      "backend_surface": "n/a (styling)",
+      "fix_hint": "tool_call correctly uses the 'wrench' icon; tool_result uses 'tool' (a borrowed 24x24 gear/settings glyph) instead — live-confirmed as a visibly different icon stacked directly under the wrench. Use 'wrench' for both, or drop the icon on the result row since it's the same tool."
+    },
+    {
+      "element": "Tool-result error text (content)",
+      "proto_truth": "Full stderr/traceback lines in a dedicated 'tail' well box, or a clean key/value results grid — nothing is silently cut mid-token.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:77-89 (toolResultText); apps/web/src/wire/presentationUtils.ts:115-124 (shortScalar, default maxLen 120)",
+      "backend_surface": "message.part.tool_result.content",
+      "fix_hint": "Live-observed on a real failed geo_geocode call: the MCPError message is truncated to 120 chars via the generic shortScalar helper, ending mid-object as \"...{'support...\". Render tool_result error text in full (own well box), not through the summary-table truncator.",
+      "app_evidence_screenshot": "apps/web/screenshots/conformance-audit/geo-02-transcript-top.png"
+    },
+    {
+      "element": "Call(child) title + indented question (subagent_call / subagent_result path)",
+      "proto_truth": "Bold 'Call(child)' heading (600 weight, 14px), question paragraph hanging at margin-left 18px, prose 14px/1.6.",
+      "status": "match",
+      "app_evidence": "apps/web/src/transcript/parts/HandoffPart.tsx:20-42; apps/web/src/transcript/parts/parts.css:157-178",
+      "backend_surface": "message.part.subagent_call / message.part.subagent_result",
+      "fix_hint": ""
+    },
+    {
+      "element": "expert_handoff Call card (stage=delegate.started / delegate.completed)",
+      "proto_truth": "Same Call() grammar as subagent_call: title, optional expandable call-params, question, THEN a separate child-summary card with header row (name↑, host in accent mono 10.5px, duration top-right) and a 3-line-clamp body excerpt.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:144-166",
+      "backend_surface": "message.part.expert_handoff (stage=delegate.started|delegate.completed)",
+      "fix_hint": "Live-observed (LA ground motion session): this code path takes a shortcut that skips the Call() title AND the question text entirely, rendering only a bare compact card (StatusDot + child_agent name + run_label). Host and duration are never extracted or shown. Route this stage through the same HandoffPart grammar used for subagent_call/result instead of a second, thinner card shape.",
+      "app_evidence_screenshot": "apps/web/screenshots/conformance-audit/la-02-transcript-top.png"
+    },
+    {
+      "element": "Child/run 'running' status dot color",
+      "proto_truth": "In-progress indicators are ALWAYS accent orange var(--t-ac,#c4682a) with clio-pulse; var(--t-ok,#34d399) green is reserved for completed-successfully states, never for 'still running'.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/kit/statusdot.css:22-26 (running = rgb(52,211,153), i.e. var(--t-ok) green); apps/web/src/transcript/registry.tsx:156; contrast apps/web/src/transcript/parts/parts.css:212-219 (part-childcard__dot correctly uses var(--t-ac))",
+      "backend_surface": "message.part.expert_handoff.stage",
+      "fix_hint": "StatusDot's 'running' state uses the SUCCESS green, not the in-progress accent orange the prototype uses everywhere else for pulsing/live state — live-confirmed on the 'geospatial' child card while it was running. This also means the app now has two Call-card code paths that disagree with each other on the color for the same semantic state (HandoffPart's own dot is correctly orange).",
+      "app_evidence_screenshot": "apps/web/screenshots/conformance-audit/la-02-transcript-top.png"
+    },
+    {
+      "element": "Failed delegation — status dot",
+      "proto_truth": "Failures are marked red/var(--t-er,#f87171) with a ✗ mark throughout the prototype (tool marks, hitl deny states, run-history badges) — a failed child is never visually identical to a successful one.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:156 (status hardcoded to 'running'|'idle', never 'error'); apps/web/src/kit/statusdot.css:34-38 (an 'error' state exists and is unused here)",
+      "backend_surface": "message.part.expert_handoff — no success/failure signal reaches the renderer for this stage",
+      "fix_hint": "Live-observed: a session where the narration text explicitly says the geospatial child 'fully failed (delegate.failed, error_reason=agent_error)' still renders that child's card with the plain gray 'idle' dot, identical to a normal completion. Thread the delegate's terminal status into StatusDot's status prop (StatusDot already supports 'error').",
+      "app_evidence_screenshot": "apps/web/screenshots/conformance-audit/la-03-scroll-1.png"
+    },
+    {
+      "element": "Child-card click → focused agent transcript / side-panel peek",
+      "proto_truth": "The completed-child summary card is interactive: role=button, tabindex=0, title=\"Open agent · shift-click to peek in the side panel\"; click opens a full 'focused agent transcript' center pane showing the child's own prompt-from-parent, thinking/text/tool/nested-Call/return flow; shift-click peeks it in the side panel.",
+      "status": "not-wired",
+      "app_evidence": "apps/web/src/transcript/parts/HandoffPart.tsx:44-65 (ChildCard has cursor:pointer via apps/web/src/transcript/parts/parts.css:182-192 but no onClick prop at all, in either code path)",
+      "backend_surface": "unbacked — no per-child focused-transcript view or route exists in apps/web/src",
+      "fix_hint": "The card visually invites a click (cursor:pointer) but does nothing. Two things are needed: (1) an onClick handler, and (2) the destination itself — no 'focused agent transcript' pane exists anywhere in the app (grepped apps/web/src for an equivalent of the prototype's inFocus/fv.parts view; none found). Tracked by the open 'E9 — new Call-agent grammar' work item."
+    },
+    {
+      "element": "Artifact chips inline (durable-artifacts-this-turn grid)",
+      "proto_truth": "'artifacts (N)' section under a completed turn: grid-template-columns repeat(auto-fill,minmax(180px,1fr)); each card = 28px teal icon tile (background var(--t-cy1,rgba(10,166,173,.1)), color var(--t-cy,#0aa6ad), border-radius 6px) + mono filename 12.5px/600 color var(--t-hd, ellipsized) + mono meta line 11px color var(--t-mu) (e.g. '1,101 rows', '412 KB'); same card pattern used for the single 'answer.md' final-answer card and for inline artifact pills elsewhere.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:192-198 (resource_link renders as a bare <a>); apps/web/src/transcript/parts/parts.css:31-35; no artifact-card component exists under apps/web/src/kit/",
+      "backend_surface": "unbacked in the transcript — the artifact-minting wire shape (list of durable artifacts produced this turn) is not rendered here even though the #966 ArtifactRecord model already backs the separate DetailSlot pane",
+      "fix_hint": "resource_link is the closest wire kind and renders as plain cyan mono text (12px) with no icon, no card, no size/row-count meta, and no grid. Build the 28px-icon-tile card component and render it per-artifact plus a per-turn 'artifacts (N)' grid, reusing DetailSlot's icon-by-kind logic (apps/web/src/detail/DetailSlot.tsx)."
+    },
+    {
+      "element": "HITL 'ask' card (checkbox question + Answer/Decline)",
+      "proto_truth": "Amber-bordered card: header 'question' + awaiting/answered dot, checkbox option rows with per-option note field, a free-text 'your own scope' row, Answer / Decline-to-answer buttons.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:98-100 (explicit comment: 'P3 kinds (a2ui, permission, documents, Live Web) are deliberately absent — the backend does not emit them yet')",
+      "backend_surface": "unbacked (documented intentional gap)",
+      "fix_hint": ""
+    },
+    {
+      "element": "HITL 'permission required' card (Allow once / Allow for session / Deny)",
+      "proto_truth": "Amber-bordered card: 'permission required' header + awaiting dot, tool(\"cmd\") in a mono well, policy line, three action buttons; resolved state shows '✓ allowed …' or '✗ denied … — by you' with a colored pill.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:98-100",
+      "backend_surface": "unbacked (documented intentional gap)",
+      "fix_hint": ""
+    },
+    {
+      "element": "a2ui / mcp-ui live widget card (e.g. ParaView viewer)",
+      "proto_truth": "Bordered card: header (widget name + 'a2ui'/'mcp-ui' chip + live pulsing dot + open-in-panel button), a live render surface, a frame-scrub range input, and a 'pin' button.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:209-221",
+      "backend_surface": "gact-tui#324 (tracked, explicit placeholder)",
+      "fix_hint": "Current mcp_app renderer honestly names the app + uri and states 'interactive rendering lands with #324' rather than dropping the part — correct no-silent-fallback behavior, just not yet the real widget."
+    },
+    {
+      "element": "Streaming text cursor on in-progress content",
+      "proto_truth": "A blinking '▍' (animation: clio-pulse 1s ease-in-out infinite) appended to the live line of a running child's body text and to the main narration while a turn is still generating.",
+      "status": "missing",
+      "app_evidence": "apps/web/src/transcript/parts/parts.css (clio-pulse keyframe is defined and applied ONLY to .part-childcard__dot); apps/web/src/transcript/transcript.css (no cursor rule anywhere)",
+      "backend_surface": "unbacked — no part-level 'still streaming' flag is rendered as a cursor",
+      "fix_hint": "No streaming-cursor affordance exists anywhere in the transcript CSS/JSX. Add a pulsing '▍' appended to the currently-streaming text node."
+    },
+    {
+      "element": "'Waiting for N background agents to finish' — pulsing marker",
+      "proto_truth": "'✳' mark with animation: clio-pulse 1.4s ease-in-out infinite, mono 12px, color var(--t-ac).",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/transcript.css:74-76; apps/web/src/transcript/registry.tsx:265-278",
+      "backend_surface": "message.part.transcript_activity (count)",
+      "fix_hint": "Color and text match ('Waiting for N background agents to finish'), but .transcript__activity-mark has no animation rule at all — the mark is static instead of pulsing."
+    },
+    {
+      "element": "routing_decision — 'routed to X — rationale'",
+      "proto_truth": "Muted prose line naming the routed-to expert with an em-dash rationale clause.",
+      "status": "match",
+      "app_evidence": "apps/web/src/transcript/registry.tsx:178-190",
+      "backend_surface": "message.part.routing_decision (selected_agent, rationale)",
+      "fix_hint": "",
+      "app_evidence_screenshot": "apps/web/screenshots/conformance-audit/geo-03-scroll-1.png"
+    },
+    {
+      "element": "Unrenderable/unknown part kind fallback",
+      "proto_truth": "No direct prototype equivalent (the prototype's trace is a closed, fictional set of kinds) — but the project's own no-silent-fallback rule requires any kind this build can't render to be NAMED, not dropped.",
+      "status": "match",
+      "app_evidence": "apps/web/src/transcript/Transcript.tsx:48-64",
+      "backend_surface": "any message.part.<kind> not in PART_RENDERERS",
+      "fix_hint": ""
+    },
+    {
+      "element": "background_exit / agent_message pill shape",
+      "proto_truth": "Small inline pill for background-agent injections: padding 2px 9px, border-radius 6px, background var(--t-sf2,#1c1f25), border 1px solid var(--t-bd35,rgba(45,99,139,.35)), mono 11.5px.",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/transcript/parts/parts.css:287-300 (.part-runhandle: padding 7px 10px, border-radius 7px, background var(--t-sf), border var(--t-bd3), flex-wrap)",
+      "backend_surface": "message.part.background_exit / message.part.agent_message (P2.14, gact-tui#1131/#1169)",
+      "fix_hint": "The newer async-injection card is a bigger, boxier chip than the prototype's compact inline pill for the equivalent isInj segment — narrower padding/radius would bring it back in line, if that's not an intentional redesign for the newer live-execution grammar."
+    }
+  ]
+}
