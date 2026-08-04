@@ -39,3 +39,8 @@ export type {
   SummarizeSessionInput,
   VoiceTranscriptionResult,
 } from './session.js';
+export {
+  fetchSessionAgentTasks,
+  type SessionAgentTask,
+  type SessionAgentTasksResult,
+} from './session_agent_tasks.js';

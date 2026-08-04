@@ -38,16 +38,51 @@
 
 .shell-topbar__sep {
   flex-shrink: 0;
-  color: var(--t-dis);
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(12.5px * var(--ts));
+}
+
+.shell-topbar__crumb-button {
+  flex-shrink: 0;
+  padding: 1px 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--t-tx);
+  font-family: var(--f-mono);
+  font-size: calc(12.5px * var(--ts));
+  cursor: pointer;
+}
+
+.shell-topbar__crumb-button:hover {
+  background: var(--t-hv);
+}
+
+.shell-topbar__crumb-button:focus-visible {
+  outline: 2px solid var(--t-cy3);
+  outline-offset: 1px;
 }
 
 .shell-topbar__crumb {
-  flex-shrink: 0;
-  color: var(--t-cy);
-  font-family: var(--f-mono);
-  font-size: calc(11.5px * var(--ts));
+  color: inherit;
 }
 
 .shell-topbar__spacer {
   flex: 1;
+}
+
+/* Metric values are separate flex items so their accent survives the muted
+   inactive label while the pressed chip still colors the whole control. */
+.shell-topbar .kit-toolbarbutton__icon {
+  display: contents;
+}
+
+.shell-topbar .kit-toolbarbutton__label {
+  order: 1;
+}
+
+.shell-topbar__count {
+  order: 2;
+  color: var(--t-cy);
 }

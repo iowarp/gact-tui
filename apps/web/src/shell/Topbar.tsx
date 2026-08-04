@@ -1,4 +1,4 @@
-import { Icon, InlineEdit, ToolbarButton, useIsDesktop } from '../kit';
+import { Icon, InlineEdit, ToolbarButton } from '../kit';
 import './topbar.css';
 
 export interface TopbarProps {
@@ -18,9 +18,8 @@ export interface TopbarProps {
 /**
  * The topbar — session identity plus the surface toolbar.
  *
- * Capability rule, taken from the prototype: ONLY the workspace console is
- * desktop-gated. `files`, `artifacts`, `ctx` and observability render in the
- * browser too, so this must not become a shell-wide desktop gate.
+ * Capability rule, measured from the prototype: every surface control,
+ * including the workspace console, renders in both browser and desktop shells.
  */
 export function Topbar({
   title,
@@ -33,8 +32,6 @@ export function Topbar({
   onTogglePanel,
   onRename,
 }: TopbarProps) {
-  const isDesktop = useIsDesktop();
-
   return (
     <header className="shell-topbar" role="banner">
       {railCollapsed ? (
@@ -60,7 +57,13 @@ export function Topbar({
             <span className="shell-topbar__sep" aria-hidden="true">
               /
             </span>
-            <span className="shell-topbar__crumb">{breadcrumb}</span>
+            <button
+              type="button"
+              className="shell-topbar__crumb-button"
+              onClick={() => onTogglePanel?.('files')}
+            >
+              <span className="shell-topbar__crumb">{breadcrumb}</span>
+            </button>
           </>
         ) : null}
       </div>
@@ -74,26 +77,39 @@ export function Topbar({
         onClick={() => onTogglePanel?.('files')}
       />
 
-      {isDesktop ? (
-        <ToolbarButton label="Workspace console" icon={<Icon name="console" />} onClick={() => {}} />
-      ) : null}
+      <ToolbarButton
+        label="Workspace console"
+        icon={<Icon name="console" />}
+        pressed={panel === 'console'}
+        onClick={() => onTogglePanel?.('console')}
+      />
 
       <ToolbarButton
-        label={`artifacts ${artifactCount ?? 0}`}
-        icon={<Icon name="artifacts" />}
+        label="artifacts"
+        icon={
+          <>
+            <Icon name="artifacts" />
+            <span className="shell-topbar__count">{artifactCount ?? 0}</span>
+          </>
+        }
         pressed={panel === 'artifacts'}
         onClick={() => onTogglePanel?.('artifacts')}
       />
       <ToolbarButton
-        label={`ctx ${contextPercent ?? 0}%`}
-        icon={<Icon name="ctx" />}
+        label="ctx"
+        icon={
+          <>
+            <Icon name="ctx" />
+            <span className="shell-topbar__count">{contextPercent ?? 0}%</span>
+          </>
+        }
         pressed={panel === 'context'}
         onClick={() => onTogglePanel?.('context')}
       />
       <ToolbarButton
         label="Observability"
         iconOnly
-        icon={<Icon name="eye" />}
+        icon={<Icon name="eye" size={14} />}
         pressed={panel === 'obs'}
         onClick={() => onTogglePanel?.('obs')}
       />

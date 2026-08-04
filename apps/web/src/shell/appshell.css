@@ -29,7 +29,8 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding: 6px 14px;
+  height: 34px;
+  padding: 0 36px;
   border-bottom: 1px solid var(--t-bd3);
 }
 

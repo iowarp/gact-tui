@@ -16,7 +16,7 @@ export type {
   UploadAttachmentResult,
   WorkspaceFileListResult,
 } from './context.js';
-export { CompactContextError } from './context.js';
+export { CompactContextError, fetchSessionContextState } from './context.js';
 export type {
   CreateWorkspaceInput,
   PatchWorkspaceInput,

@@ -280,8 +280,12 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ctx: P('M1.5 10.5V7M6 10.5V4M10.5 10.5V1.8', 1.4),
   eye: (
     <>
-      {P('M1.2 6S3 2.8 6 2.8 10.8 6 10.8 6 9 9.2 6 9.2 1.2 6 1.2 6z', 1.2)}
-      {C(6, 6, 1.4)}
+      <path
+        d="M1.2 7S3.3 3.2 7 3.2 12.8 7 12.8 7 10.7 10.8 7 10.8 1.2 7 1.2 7z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
+      <circle cx="7" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.3" />
     </>
   ),
   send: P('M6 9.9V2.1M3 5L6 2l3 3', 1.5),
@@ -322,7 +326,12 @@ const GLYPHS: Record<IconName, ReactNode> = {
 };
 
 export function Icon({ name, size = 12 }: IconProps) {
-  const box = name === 'tool' ? '0 0 24 24' : name === 'arrow-up' ? '0 0 14 14' : '0 0 12 12';
+  const box =
+    name === 'tool'
+      ? '0 0 24 24'
+      : name === 'arrow-up' || name === 'eye'
+        ? '0 0 14 14'
+        : '0 0 12 12';
   return (
     <svg
       width={size}

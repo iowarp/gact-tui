@@ -13,6 +13,8 @@ export interface TabsProps {
   tabs: TabDef[];
   activeId: string;
   onChange: (id: string) => void;
+  /** Removes the segmented track for low-chrome hierarchy ribbons. */
+  variant?: 'default' | 'quiet';
 }
 
 /**
@@ -22,7 +24,7 @@ export interface TabsProps {
  * Implements the WAI-ARIA tabs pattern properly: roving tabindex (only the
  * selected tab is in the tab order), arrow keys with wraparound, Home/End.
  */
-export function Tabs({ label, tabs, activeId, onChange }: TabsProps) {
+export function Tabs({ label, tabs, activeId, onChange, variant = 'default' }: TabsProps) {
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       const index = tabs.findIndex((t) => t.id === activeId);
@@ -43,7 +45,13 @@ export function Tabs({ label, tabs, activeId, onChange }: TabsProps) {
   );
 
   return (
-    <div className="kit-tabs" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+    <div
+      className="kit-tabs"
+      role="tablist"
+      aria-label={label}
+      data-variant={variant}
+      onKeyDown={onKeyDown}
+    >
       {tabs.map((tab) => {
         const selected = tab.id === activeId;
         return (

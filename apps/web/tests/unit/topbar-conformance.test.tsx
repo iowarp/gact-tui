@@ -1,12 +1,19 @@
 /**
- * Slice C failing-first contract — topbar conformance (P5 inventory C1–C3).
+ * Slice C contract — topbar conformance, CORRECTED to the owner's semantics
+ * (COMMENTS.md 2026-08-04). Two of the original readings were wrong and are
+ * reversed here:
  *
- * Ribbon styling (C4) and the eye glyph (C5) are geometry/appearance — the
- * browser audit verifies those; this file pins structure and semantics.
+ * - Console is DESKTOP-ONLY and reads exactly "console". (The first contract
+ *   un-gated it because the prototype renders it in a plain browser — the
+ *   prototype simply does not encode the gate.)
+ * - The crumb after the session title names the session's BLUEPRINT
+ *   (`active_agent_blueprint_id` — the prototype's `earthscope-gnss-region`
+ *   is a pack id, not a workspace path). Clicking it opens the blueprint
+ *   window (view; edit is clio-agent#1178 and ships visibly degraded).
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Topbar } from '../../src/shell/Topbar';
 import { SessionView } from '../../src/session/SessionView';
 
@@ -17,11 +24,20 @@ describe('Topbar (C2/C3)', () => {
     );
   }
 
-  it('offers the workspace console in the browser too', () => {
-    // The prototype renders `console` in a plain-browser render; the
-    // desktop-only gate recorded earlier was wrong (C2).
+  afterEach(() => {
+    delete (window as { isTauri?: boolean }).isTauri;
+  });
+
+  it('offers no console in the browser — desktop-only, labeled exactly "console"', () => {
     renderTopbar();
-    expect(screen.getByRole('button', { name: /console/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /console/i })).toBeNull();
+  });
+
+  it('offers the console on desktop, named "console" not "Workspace console"', () => {
+    (window as { isTauri?: boolean }).isTauri = true;
+    renderTopbar();
+    const console_ = screen.getByRole('button', { name: /console/i });
+    expect(console_).toHaveAccessibleName(expect.stringMatching(/^console$/i));
   });
 
   it('carries the artifact count as its own span for accent styling', () => {
@@ -31,7 +47,7 @@ describe('Topbar (C2/C3)', () => {
   });
 });
 
-describe('breadcrumb (C1)', () => {
+describe('blueprint crumb (C1, corrected)', () => {
   const SESSIONS = [
     { id: 'sess_a', title: 'LA ground motion', status: 'running', workspace_id: 'ws_a' },
   ] as unknown as Session[];
@@ -43,19 +59,54 @@ describe('breadcrumb (C1)', () => {
     return {
       baseUrl: 'http://live.test',
       messages: vi.fn(async () => ({ messages: MESSAGES })),
-      workspaces: vi.fn(async () => ({
-        workspaces: [{ id: 'ws_a', name: 'proj', root_path: 'D:\\Users\\jaime\\proj' }],
+      getSession: vi.fn(async () => ({
+        id: 'sess_a',
+        workspace_id: 'ws_a',
+        approval_mode: 'ask',
+        metadata: {
+          active_agent_blueprint_id: 'earthscope-gnss-region',
+          active_agent_blueprint_name: 'EarthScope',
+          active_agent_blueprint_version: '0.1.0',
+        },
       })),
-      get: vi.fn(async () => ({ tasks: [], used_pct: null, pct_used: 0 })),
+      get: vi.fn(async (path: string) => {
+        if (path.includes('/agent-blueprints/')) {
+          return {
+            agent_blueprint: {
+              id: 'earthscope-gnss-region',
+              title: 'EarthScope GNSS Region',
+              version: '0.1.0',
+              description: 'demo blueprint',
+            },
+            agents: [],
+            mcp_descriptors: [],
+          };
+        }
+        return { tasks: [], used_pct: null, pct_used: 0 };
+      }),
     } as unknown as Client;
   }
 
-  it('names the workspace by its shortened path, never the raw id', async () => {
+  it('names the session blueprint, never a workspace id or path', async () => {
     render(<SessionView client={makeClient()} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByText('hello')).toBeInTheDocument());
     const crumb = screen.getByRole('banner').querySelector('.shell-topbar__crumb');
-    await waitFor(() => expect(crumb?.textContent).toBe('~/proj'));
-    expect(crumb?.textContent).not.toContain('ws_a');
+    await waitFor(() => expect(crumb?.textContent).toBe('earthscope-gnss-region'));
+  });
+
+  it('opens the blueprint window on click — view backed, edit visibly degraded (#1178)', async () => {
+    render(<SessionView client={makeClient()} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() =>
+      expect(screen.getByRole('banner').querySelector('.shell-topbar__crumb')?.textContent).toBe(
+        'earthscope-gnss-region',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /earthscope-gnss-region/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('EarthScope GNSS Region');
+    // The definition body has no wire surface yet — the gap is VISIBLE.
+    expect(dialog.textContent).toMatch(/definition|#1178/i);
   });
 });

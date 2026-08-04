@@ -489,7 +489,9 @@ export function SessionView({
         activeSessionId={activeId}
         onSelectSession={setActiveId}
         title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
-        {...(active?.workspace_id ? { breadcrumb: active.workspace_id } : {})}
+        {...(activeWorkspaceId
+          ? { breadcrumb: workspaceDisplayLabel(activeWorkspaceId, workspaces) }
+          : {})}
         ribbon={[{ id: 'main', label: 'main' }]}
         activeRibbonId={activeScope}
         onSelectRibbon={setActiveScope}

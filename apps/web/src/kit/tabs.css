@@ -42,3 +42,21 @@
   color: var(--t-mu);
   font-size: calc(10.5px * var(--ts));
 }
+
+/* Hierarchy ribbons use the prototype's quiet tabs, not a segmented track. */
+.kit-tabs[data-variant='quiet'] {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.kit-tabs[data-variant='quiet'] .kit-tabs__tab {
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.kit-tabs[data-variant='quiet'] .kit-tabs__tab[aria-selected='true'] {
+  background: transparent;
+  color: var(--t-hd);
+}

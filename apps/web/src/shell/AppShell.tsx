@@ -120,6 +120,7 @@ export function AppShell({
             tabs={ribbon}
             activeId={activeRibbonId}
             onChange={onSelectRibbon}
+            variant="quiet"
           />
         </div>
 
