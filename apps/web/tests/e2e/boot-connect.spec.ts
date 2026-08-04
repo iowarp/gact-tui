@@ -71,14 +71,17 @@ test('boots without console errors', async ({ page }) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
   page.on('pageerror', (err) => errors.push(String(err)));
+  page.on('response', (r) => {
+    if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`);
+  });
 
   await coldBoot(page);
   await connectMockBackend(page);
   await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
 
-  expect(errors, `console errors during boot:
-${errors.join('
-')}`).toEqual([]);
+  // Print what was captured: a flake that names itself is diagnosable; one
+  // that only reports "expected []" is not.
+  expect(errors, `console errors during boot: ${errors.join(' | ')}`).toEqual([]);
 });
 
 test('autoconnects to the last-used backend without typing', async ({ page }) => {

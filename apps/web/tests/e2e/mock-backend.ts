@@ -208,6 +208,49 @@ export async function installMockBackend(
         ],
       });
     }
+    // Shapes copied from the LIVE backend, not invented: GET /v1/providers and
+    // GET /v1/providers/{id}/models on clio-agent 0.9.0+42522bb1. The composer
+    // reads these for its model control, and an unstubbed route here surfaces
+    // as a boot console 404 rather than as a missing feature.
+    if (url.pathname === '/v1/providers') {
+      return json({
+        providers: [
+          {
+            id: 'anthropic',
+            name: 'Anthropic',
+            auth_methods: ['api_key'],
+            is_authenticated: true,
+            default_model: 'claude-sonnet-4-20250514',
+            api_base: '',
+            env_keys: ['ANTHROPIC_API_KEY'],
+            description: 'Anthropic models',
+          },
+          {
+            id: 'openai',
+            name: 'OpenAI',
+            auth_methods: ['api_key'],
+            is_authenticated: false,
+            default_model: 'gpt-4o-mini',
+            api_base: '',
+            env_keys: ['OPENAI_API_KEY'],
+            description: 'OpenAI models',
+          },
+        ],
+      });
+    }
+    if (/^\/v1\/providers\/[^/]+\/models$/.test(url.pathname)) {
+      return json({
+        models: [
+          {
+            id: 'claude-sonnet-4-6',
+            name: 'claude-sonnet-4-6',
+            context_window: 200000,
+            native_tool_calling: true,
+            context_source: 'live',
+          },
+        ],
+      });
+    }
     if (url.pathname === '/v1/workspaces') {
       return json({
         workspaces: [
