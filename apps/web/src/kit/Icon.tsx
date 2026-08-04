@@ -24,6 +24,7 @@ export type IconName =
   | 'bin'
   | 'bot'
   | 'tool'
+  | 'wrench'
   | 'compact'
   | 'diff'
   | 'detach'
@@ -158,6 +159,14 @@ const GLYPHS: Record<IconName, ReactNode> = {
         strokeLinejoin="round"
       />
     </>
+  ),
+  wrench: (
+    <path
+      d="M7.9 1.6a2.9 2.9 0 0 0-3.5 3.7L1.6 8.1a1.2 1.2 0 0 0 1.7 1.7l2.8-2.8a2.9 2.9 0 0 0 3.7-3.5L8 5.3 6.7 4l1.2-1.8z"
+      stroke="currentColor"
+      strokeWidth="1.1"
+      strokeLinejoin="round"
+    />
   ),
   compact: (
     <>

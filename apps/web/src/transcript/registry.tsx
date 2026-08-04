@@ -1,8 +1,6 @@
-import type { ReactNode } from 'react';
-import { Chip, Icon, KvGrid } from '../kit';
-import { toolInputRows } from '../wire/presentation';
+import { useState, type ReactNode } from 'react';
+import { Chip, Icon } from '../kit';
 import { shortScalar } from '../wire/presentationUtils';
-import { CollapsiblePart } from './parts/CollapsiblePart';
 import { HandoffPart } from './parts/HandoffPart';
 import './parts/parts.css';
 
@@ -16,6 +14,57 @@ export interface PartRenderer {
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
+
+const TOOL_ARG_MAX_LENGTH = 200;
+
+function toolArgValue(value: unknown): string {
+  let rendered: string;
+  if (typeof value === 'string') rendered = value;
+  else if (value === null || typeof value !== 'object') rendered = String(value);
+  else {
+    try {
+      rendered = JSON.stringify(value) ?? String(value);
+    } catch {
+      rendered = String(value);
+    }
+  }
+
+  return rendered.length <= TOOL_ARG_MAX_LENGTH
+    ? rendered
+    : `${rendered.slice(0, TOOL_ARG_MAX_LENGTH - 1).trimEnd()}…`;
+}
+
+function toolArgs(input: unknown): string {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  return Object.entries(input)
+    .map(([key, value]) => `${key}: ${toolArgValue(value)}`)
+    .join('\n');
+}
+
+function ThinkingPart({ part }: { part: WirePart }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="part-collapsible">
+      <button
+        type="button"
+        className="part-collapsible__toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="part-thinkingdisclose" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="part-thinkinghead">thinking</span>
+      </button>
+      {open ? (
+        <div className="part-collapsible__body">
+          <p className="part-thinking">{str(part['thinking'] ?? part['text'])}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * A tool result's `content` is a LIST OF PARTS on the wire, never a string.
@@ -52,21 +101,12 @@ function toolResultText(part: Record<string, unknown>): string {
  */
 export const PART_RENDERERS: Record<string, PartRenderer> = {
   text: {
-    gutter: <span className="part-gutter-dot" aria-hidden="true" />,
+    gutter: <span className="part-gutterbar" aria-hidden="true" />,
     render: (part) => <p className="part-text">{str(part['text'])}</p>,
   },
 
   thinking: {
-    render: (part) => {
-      const tokens = part['tokens'];
-      const summary =
-        typeof tokens === 'number' ? `thinking (${tokens} tokens)` : 'thinking';
-      return (
-        <CollapsiblePart summary={summary}>
-          <p className="part-thinking">{str(part['thinking'] ?? part['text'])}</p>
-        </CollapsiblePart>
-      );
-    },
+    render: (part) => <ThinkingPart part={part} />,
   },
 
   redacted_thinking: {
@@ -74,18 +114,15 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   tool_call: {
-    gutter: <Icon name="tool" />,
     render: (part) => {
-      const rows = toolInputRows(part['input'] as Record<string, unknown> | undefined);
+      const args = toolArgs(part['input']);
       return (
         <div className="part-tool">
-          <span className="part-tool__name">{str(part['name'])}</span>
-          {rows.length > 0 ? (
-            <KvGrid
-              label={`${str(part['name'])} params`}
-              rows={rows.map((r) => ({ key: r.label, value: r.value }))}
-            />
-          ) : null}
+          <span className="part-tool__glyph">
+            <Icon name="wrench" size={11} />
+          </span>
+          <span className="part-tool__name">{str(part['tool_name'] ?? part['name'])}</span>
+          {args ? <div className="part-tool__args">{args}</div> : null}
         </div>
       );
     },

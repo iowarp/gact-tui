@@ -64,14 +64,16 @@ describe('Transcript', () => {
       />,
     );
     const toggle = screen.getByRole('button', { name: /thinking/i });
-    // Collapsed: the token count is the summary, the body is not rendered.
-    expect(toggle).toHaveTextContent('77');
+    // Collapsed: the body is not rendered. No token count appears even though
+    // the fixture carries one — the real wire has no such field
+    // (clio-agent#1177) and a number the backend never sent must not render.
+    expect(toggle).not.toHaveTextContent('77');
     expect(screen.queryByText('internal reasoning here')).toBeNull();
     fireEvent.click(toggle);
     expect(screen.getByText('internal reasoning here')).toBeInTheDocument();
   });
 
-  it('renders a tool call with its params as a key/value grid', () => {
+  it('renders a tool call with its params as indented prose (E4)', () => {
     const { container } = render(
       <Transcript
         messages={[
@@ -87,8 +89,10 @@ describe('Transcript', () => {
       />,
     );
     expect(screen.getByText('geo_geocode')).toBeInTheDocument();
-    expect(container.querySelector('.kit-kvgrid')).not.toBeNull();
-    expect(screen.getByText('Los Angeles, California')).toBeInTheDocument();
+    // The dt/dd grid died with slice E: args are prose, one key per line.
+    expect(container.querySelector('.part-tool dl')).toBeNull();
+    const args = container.querySelector('.part-tool__args');
+    expect(args?.textContent).toContain('Los Angeles, California');
   });
 
   it('renders an expert handoff as the prototype Call(child) heading', () => {

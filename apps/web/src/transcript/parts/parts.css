@@ -6,14 +6,19 @@
   line-height: 1.6;
 }
 
-/* The prototype's small bullet marker in the 14px gutter. */
-.part-gutter-dot {
+/* The prototype's full-height accent marker in the 14px gutter. */
+.part-gutterbar {
   display: block;
-  width: 5px;
-  height: 5px;
-  margin-top: 8px;
-  border-radius: 50%;
+  align-self: stretch;
+  width: 4px;
+  min-height: 100%;
+  border-radius: 2px;
+  color: var(--t-ac);
   background: var(--t-ac);
+}
+
+.transcript__message[data-role='user'] .part-gutterbar {
+  display: none;
 }
 
 .part-muted {
@@ -58,7 +63,6 @@
   border: 0;
   cursor: pointer;
   font-family: var(--f-prose);
-  font-size: calc(13px * var(--ts));
   color: var(--t-mu);
 }
 
@@ -66,19 +70,17 @@
   color: var(--t-hd);
 }
 
-.part-collapsible__chev {
+.part-thinkingdisclose {
   display: inline-block;
-  transition: transform 120ms ease-out;
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
+  line-height: 1;
 }
 
-.part-collapsible__chev[data-open='true'] {
-  transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .part-collapsible__chev {
-    transition: none;
-  }
+.part-thinkinghead {
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
 }
 
 .part-collapsible__body {
@@ -98,6 +100,7 @@
 
 .part-tool {
   display: flex;
+  position: relative;
   flex-direction: column;
   gap: 6px;
 }
@@ -107,6 +110,26 @@
   font-family: var(--f-mono);
   font-size: calc(12.5px * var(--ts));
   font-weight: 600;
+}
+
+.part-tool__glyph {
+  display: flex;
+  position: absolute;
+  top: 5px;
+  left: -22px;
+  justify-content: center;
+  width: 14px;
+  color: var(--t-ac);
+}
+
+.part-tool__args {
+  padding-left: 18px;
+  color: var(--t-tx);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .part-tool[data-error='true'] .part-tool__name {
