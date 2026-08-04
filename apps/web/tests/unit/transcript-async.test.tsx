@@ -52,6 +52,32 @@ describe('running child card (E5, captured shape)', () => {
     expect(container.textContent).not.toContain('main -> geospatial');
   });
 
+  it('renders a delegate.completed handoff as a COMPLETED card', () => {
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              ...STARTED_HANDOFF,
+              id: 'live_handoff_dfda2a286781',
+              text: 'main <- geospatial',
+              stage: 'delegate.completed',
+              live_state: 'completed',
+              status: 'completed',
+            },
+          ]),
+        ]}
+      />,
+    );
+    const card = screen.getByTestId('part-child-card');
+    expect(card).toHaveTextContent('geospatial');
+    // Completed: idle dot, no pulse — and NO fabricated duration (the wire
+    // carries none; the prototype's "4m 38s" has no source yet).
+    expect(card.querySelector('.kit-statusdot')?.getAttribute('data-state')).toBe('idle');
+    expect(card.textContent).not.toMatch(/\d+m \d+s/);
+    expect(container.textContent).not.toContain('main <- geospatial');
+  });
+
   it('names the placement when the child runs elsewhere', () => {
     render(
       <Transcript
