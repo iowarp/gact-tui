@@ -207,9 +207,14 @@
 
 .shell-rail__footcell {
   display: flex;
+  /* Centred on BOTH axes. align-items alone only centred vertically, so the
+     label sat at the left edge of a cell far wider than its text. Measured
+     from the prototype: justify/align/text-align center, 9px 6px, gap 7px. */
+  justify-content: center;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  text-align: center;
+  gap: 7px;
+  padding: 9px 6px;
   min-width: 0;
   background: transparent;
   border: 0;
@@ -222,6 +227,13 @@
 
 .shell-rail__footcell:first-child {
   border-left: 0;
+}
+
+/* The gear cell carries its own gutter (13px, not 6px), which is what makes
+   the prototype's first footer column 41px wide rather than shrinking to the
+   icon. Measured, not derived. */
+.shell-rail__footcell--icon {
+  padding: 9px 13px;
 }
 
 .shell-rail__footcell:hover:not(:disabled) {

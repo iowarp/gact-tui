@@ -189,11 +189,11 @@ export function Rail({
       <div className="shell-rail__footer">
         <button
           type="button"
-          className="shell-rail__footcell"
+          className="shell-rail__footcell shell-rail__footcell--icon"
           aria-label="Settings"
           onClick={() => onOpenSettings?.()}
         >
-          <Icon name="tool" />
+          <Icon name="tool" size={14} />
         </button>
         <span className="shell-rail__footcell">
           <span className="shell-rail__footdot" aria-hidden="true" />
