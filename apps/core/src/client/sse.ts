@@ -2,16 +2,71 @@ import type { GactEvent } from '../wire/events.js';
 
 export type SseHandler = (event: GactEvent) => void;
 
-export function sessionSseUrl(
-  baseUrl: string,
-  sessionId: string,
-  bearerToken?: string,
-): string {
+/** Session SSE events consumed by the observability trace. */
+export type SessionTraceEvent = Extract<
+  GactEvent,
+  { type: 'semantic.event' | 'session.status_changed' }
+>;
+
+/** Close handle for a browser session-trace subscription. */
+export interface SessionTraceSubscription {
+  close: () => void;
+}
+
+/** EventSource constructor seam used by browser hosts and deterministic tests. */
+export type SessionTraceEventSourceFactory = (url: string) => EventSource;
+
+export function sessionSseUrl(baseUrl: string, sessionId: string, bearerToken?: string): string {
   const u = new URL(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/events`);
   if (bearerToken) {
     u.searchParams.set('auth_token', bearerToken);
   }
   return u.toString();
+}
+
+/**
+ * Subscribe to the two session events that drive the live observability trace.
+ * Native EventSource owns reconnects; this helper owns filtering, envelope
+ * validation, and cleanup while the panel is open.
+ */
+export function subscribeSessionTraceEvents(
+  url: string,
+  onEvent: (event: SessionTraceEvent) => void,
+  createEventSource: SessionTraceEventSourceFactory = (sourceUrl) => new EventSource(sourceUrl),
+): SessionTraceSubscription {
+  const source = createEventSource(url);
+  const listeners = new Map<SessionTraceEvent['type'], EventListener>();
+
+  for (const type of ['semantic.event', 'session.status_changed'] as const) {
+    const listener: EventListener = (rawEvent) => {
+      const event = parseSessionTraceEvent(rawEvent as MessageEvent<string>, type);
+      if (event) onEvent(event);
+    };
+    listeners.set(type, listener);
+    source.addEventListener(type, listener);
+  }
+
+  return {
+    close: () => {
+      for (const [type, listener] of listeners) source.removeEventListener(type, listener);
+      source.close();
+    },
+  };
+}
+
+function parseSessionTraceEvent(
+  rawEvent: MessageEvent<string>,
+  expectedType: SessionTraceEvent['type'],
+): SessionTraceEvent | null {
+  try {
+    const parsed = JSON.parse(rawEvent.data) as Record<string, unknown>;
+    if (parsed['type'] !== expectedType || typeof parsed['occurred_at'] !== 'string') return null;
+    const payload = parsed['payload'];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    return parsed as unknown as SessionTraceEvent;
+  } catch {
+    return null;
+  }
 }
 
 /**

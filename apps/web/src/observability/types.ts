@@ -13,6 +13,8 @@ export interface ObsRun {
   id: string;
   agent: string;
   state: string;
+  label?: string;
+  host?: string;
   duration?: string;
 }
 
@@ -33,6 +35,42 @@ export interface ObsContext {
   limit: number;
 }
 
+export type ObsTimelineKind = 'event' | 'tool' | 'artifact' | 'failure' | 'running';
+
+export interface ObsTimelineRow {
+  at?: string;
+  actor: string;
+  action: string;
+  duration?: string;
+  kind: ObsTimelineKind;
+  depth?: number;
+  /** Stable backend identity used to discard SSE reconnect replays. */
+  sourceId?: string;
+}
+
+export type ObsSpanState = 'done' | 'running' | 'failed';
+
+export interface ObsSpan {
+  id: string;
+  label: string;
+  depth: number;
+  startMs: number;
+  endMs: number | null;
+  state: ObsSpanState;
+  duration?: string;
+  artifacts?: number;
+  /** Real creation timestamps for artifact diamonds owned by this span. */
+  artifactAtMs?: number[];
+  tool?: boolean;
+}
+
+export interface ObsArtifactRow {
+  at?: string;
+  name: string;
+  producer: string;
+  meta: string;
+}
+
 export interface ObservabilityData {
   agents: ObsAgent[];
   runs: ObsRun[];
@@ -40,4 +78,10 @@ export interface ObservabilityData {
   toolsByExpert: Record<string, ObsTool[]>;
   artifacts: ObsArtifact[];
   context?: ObsContext;
+  /** Optional only for compatibility with pre-P5 captured fixtures. */
+  timeline?: ObsTimelineRow[];
+  /** Optional only for compatibility with pre-P5 captured fixtures. */
+  spans?: ObsSpan[];
+  /** Optional only for compatibility with pre-P5 captured fixtures. */
+  artifactRows?: ObsArtifactRow[];
 }

@@ -42,5 +42,14 @@ export type {
 export {
   fetchSessionAgentTasks,
   type SessionAgentTask,
+  type SessionAgentTaskRef,
   type SessionAgentTasksResult,
 } from './session_agent_tasks.js';
+export {
+  fetchSessionArtifacts,
+  type SessionArtifactProducer,
+  type SessionArtifactRecord,
+  type SessionArtifactsOptions,
+  type SessionArtifactsResult,
+  type SessionArtifactVersion,
+} from './session_artifacts.js';

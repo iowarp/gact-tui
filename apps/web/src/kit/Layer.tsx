@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import './layer.css';
 
 export type LayerSize = 'settings' | 'window';
@@ -13,6 +20,12 @@ export interface LayerProps {
   /** Explicit dimensions for the resizable `window` variant (obs, files). */
   width?: number;
   height?: number;
+  /** Optional glyph rendered immediately before the visible heading. */
+  headerIcon?: ReactNode;
+  /** Inline heading context, such as an observability trace state. */
+  headerMeta?: ReactNode;
+  /** Show the window chrome used by desktop-style layers. */
+  windowControls?: boolean;
   onClose: () => void;
 }
 
@@ -34,8 +47,12 @@ export function Layer({
   size = 'window',
   width,
   height,
+  headerIcon,
+  headerMeta,
+  windowControls = false,
   onClose,
 }: LayerProps) {
+  const [maximized, setMaximized] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
   const titleId = useRef(`layer-${Math.random().toString(36).slice(2, 9)}`).current;
@@ -48,6 +65,10 @@ export function Layer({
 
   useEffect(() => {
     if (open) cardRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setMaximized(false);
   }, [open]);
 
   const onKeyDown = useCallback(
@@ -80,13 +101,23 @@ export function Layer({
 
   if (!open) return null;
 
-  const style =
-    size === 'window' && (width || height)
+  const style = maximized
+    ? {
+        width: 'calc(100vw - 32px)',
+        height: 'calc(100vh - 32px)',
+        maxHeight: 'none',
+      }
+    : size === 'window' && (width || height)
       ? { ...(width ? { width: `${width}px` } : {}), ...(height ? { height: `${height}px` } : {}) }
       : undefined;
 
   return (
-    <div className="kit-layer" data-size={size} onKeyDown={onKeyDown}>
+    <div
+      className="kit-layer"
+      data-maximized={maximized ? 'true' : 'false'}
+      data-size={size}
+      onKeyDown={onKeyDown}
+    >
       <div className="kit-layer__scrim" data-testid="layer-scrim" onClick={onClose} />
       <div
         ref={cardRef}
@@ -99,13 +130,38 @@ export function Layer({
         tabIndex={-1}
       >
         <header className="kit-layer__head">
+          {headerIcon ? <span className="kit-layer__headicon">{headerIcon}</span> : null}
           <h2 className="kit-layer__title" id={titleId}>
             {title}
           </h2>
+          {headerMeta ? <span className="kit-layer__headmeta">{headerMeta}</span> : null}
           <span className="kit-layer__spacer" />
+          {windowControls ? (
+            <>
+              <button
+                type="button"
+                className="kit-layer__windowbtn"
+                aria-label={maximized ? `Restore ${title}` : `Maximize ${title}`}
+                aria-pressed={maximized}
+                title={maximized ? 'restore window' : 'maximize window'}
+                onClick={() => setMaximized((value) => !value)}
+              >
+                <span aria-hidden="true">&#x26F6;</span>
+              </button>
+              <button
+                type="button"
+                className="kit-layer__windowbtn"
+                aria-label={`Pop out ${title}`}
+                title="opens in a window on desktop only"
+                disabled
+              >
+                <span aria-hidden="true">&#x2197;</span>
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
-            className="kit-layer__close"
+            className="kit-layer__windowbtn kit-layer__close"
             aria-label={`Close ${title}`}
             onClick={onClose}
           >

@@ -11,9 +11,13 @@ export {
   parseSseBlock,
   parseSseFields,
   openSseFetchStream,
+  subscribeSessionTraceEvents,
   type SseFields,
   type SseFetchStream,
   type SseFetchStreamOptions,
+  type SessionTraceEvent,
+  type SessionTraceEventSourceFactory,
+  type SessionTraceSubscription,
 } from './sse.js';
 export * from './public_agent_exports.js';
 export * from './public_discovery_exports.js';

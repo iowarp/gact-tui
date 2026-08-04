@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchSessionAgentTasks,
+  fetchSessionArtifacts,
   fetchSessionContextState,
+  subscribeSessionTraceEvents,
   type Client,
   type Message,
   type Session,
@@ -17,9 +19,10 @@ import {
   type RailSession,
   type SessionAction,
 } from '../shell/Rail';
-import { Layer, type SelectOption, type SessionStatus } from '../kit';
+import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
-import { Observability } from '../observability/Observability';
+import { Observability, ObservabilityTrace } from '../observability/Observability';
+import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../observability/build';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
@@ -70,6 +73,13 @@ const TERMINAL_AGENT_TASK_STATUSES = new Set([
 ]);
 
 const PINS_STORAGE_KEY = 'clio.pins.v1';
+const NO_MESSAGES: Message[] = [];
+
+function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
+  return Promise.resolve()
+    .then(request)
+    .catch(() => null);
+}
 
 type LoadState =
   | { kind: 'idle' }
@@ -107,6 +117,9 @@ export function SessionView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const [obs, setObs] = useState<ObservabilityData | null>(null);
+  const [liveTraceRows, setLiveTraceRows] = useState<NonNullable<ObservabilityData['timeline']>>(
+    [],
+  );
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
   const [activeScope, setActiveScope] = useState('main');
@@ -158,68 +171,152 @@ export function SessionView({
     };
   }, [client]);
 
-  // Observability reads REAL endpoints. Each tab that has no backing says so
-  // rather than rendering an empty list that looks like "nothing happened".
-  useEffect(() => {
-    if (panel !== 'obs' || !activeId) return;
-    let cancelled = false;
-    void (async () => {
-      const [agents, runs, servers, context] = await Promise.all([
-        client.agents().catch(() => null),
-        client.sessionTasks(activeId).catch(() => null),
-        client.mcpServers().catch(() => null),
-        fetchSessionContextState(client, activeId, activeScope).catch(() => null),
-      ]);
-      if (cancelled) return;
-      const used = (context as { used_pct?: number; used_percent?: number } | null) ?? null;
-      setObs({
-        // AgentDef is { id, title, tools?, tier? } — real field names, and
-        // `tier` is semantic weight, which is what the tree indents by.
-        agents: (agents?.agents ?? []).map((a) => ({
-          id: a.id,
-          label: a.title || a.id,
+  const loadObservability = useCallback(
+    async (sessionId: string, scope: string, messages: Message[]): Promise<ObservabilityData> => {
+      const [agents, sessionRuns, servers, context, agentTasksResult, artifactResult] =
+        await Promise.all([
+          optionalFetch(() => client.agents()),
+          optionalFetch(() => client.sessionTasks(sessionId)),
+          optionalFetch(() => client.mcpServers()),
+          optionalFetch(() => fetchSessionContextState(client, sessionId, scope)),
+          optionalFetch(() => fetchSessionAgentTasks(client, sessionId)),
+          optionalFetch(() => fetchSessionArtifacts(client, sessionId, { includeChildren: true })),
+        ]);
+      const agentTasks = agentTasksResult?.tasks ?? [];
+      const artifactRecords = artifactResult?.artifacts ?? [];
+      const trace = buildObservabilityTrace({
+        messages,
+        agentTasks,
+        artifacts: artifactRecords,
+      });
+      const durationById = new Map(trace.spans.map((span) => [span.id, span.duration]));
+      const taskRuns = agentTasks.flatMap((task) => {
+        const id = task.task_id || task.id;
+        if (!id) return [];
+        const label = task.run_label || task.agent_ref?.expert_id;
+        const host = task.host || task.placement;
+        const duration = durationById.get(id);
+        return [
+          {
+            id,
+            agent: task.agent_ref?.expert_id ?? '',
+            state: task.status || task.live_state || 'unknown',
+            ...(label ? { label } : {}),
+            ...(host ? { host } : {}),
+            ...(duration ? { duration } : {}),
+          },
+        ];
+      });
+      const taskRunIds = new Set(taskRuns.map((run) => run.id));
+      const existingRuns = (sessionRuns?.tasks ?? [])
+        .filter((task) => !taskRunIds.has(task.id))
+        .map((task) => {
+          const agent = task.metadata?.['agent_id'];
+          const host = task.metadata?.['host'];
+          return {
+            id: task.id,
+            label: task.title,
+            agent: typeof agent === 'string' ? agent : '',
+            state: task.status,
+            ...(typeof host === 'string' && host ? { host } : {}),
+          };
+        });
+      const usedFraction = context?.used_pct ?? context?.pct_used;
+      const usedPercent =
+        typeof usedFraction === 'number' && Number.isFinite(usedFraction)
+          ? Math.round(usedFraction <= 1 ? usedFraction * 100 : usedFraction)
+          : null;
+
+      return {
+        // Agent definitions remain available for legacy consumers; the P5 UI
+        // projects active work through runs and timeline instead of an agents tab.
+        agents: (agents?.agents ?? []).map((agent) => ({
+          id: agent.id,
+          label: agent.title || agent.id,
           status: 'idle' as AgentStatus,
-          depth: Math.max(0, (a.tier ?? 1) - 1),
+          depth: Math.max(0, (agent.tier ?? 1) - 1),
         })),
-        runs: (runs?.tasks ?? []).map((t) => ({
-          id: String((t as { id?: string }).id ?? ''),
-          agent: String((t as { agent_id?: string }).agent_id ?? ''),
-          state: String((t as { status?: string }).status ?? ''),
-        })),
+        runs: [...taskRuns, ...existingRuns],
         toolsByExpert: Object.fromEntries(
-          (servers?.servers ?? []).map((srv) => {
-            const row = srv as {
+          (servers?.servers ?? []).map((server) => {
+            const row = server as {
               name?: string;
               id?: string;
               tools?: Array<{ name?: string; description?: string }>;
             };
             return [
               row.name ?? row.id ?? 'server',
-              (row.tools ?? []).map((t) => ({
-                name: t.name ?? '',
-                ...(t.description ? { description: t.description } : {}),
+              (row.tools ?? []).map((tool) => ({
+                name: tool.name ?? '',
+                ...(tool.description ? { description: tool.description } : {}),
               })),
             ];
           }),
         ),
-        // No client method serves session artifacts — tracked as a gap rather
-        // than faked with an empty list.
-        artifacts: [],
-        ...(used?.used_pct !== undefined || used?.used_percent !== undefined
+        artifacts: artifactRecords.map((record) => ({
+          id: record.head_artifact_id || `${record.workspace_id ?? 'workspace'}:${record.name}`,
+          label: record.name,
+          ...(record.kind ? { kind: record.kind } : {}),
+        })),
+        ...trace,
+        ...(usedPercent !== null
           ? {
               context: {
-                usedPercent: Math.round(used.used_pct ?? used.used_percent ?? 0),
-                tokens: 0,
-                limit: 0,
+                usedPercent,
+                tokens: context?.used_tokens ?? context?.live_tokens ?? 0,
+                limit: context?.window_tokens ?? 0,
               },
             }
           : {}),
-      });
-    })();
+      };
+    },
+    [client],
+  );
+
+  const observabilityMessages = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
+
+  useEffect(() => {
+    if (panel !== 'obs') return;
+    setObs(null);
+    setLiveTraceRows([]);
+  }, [panel, activeId, client]);
+
+  useEffect(() => {
+    if (panel !== 'obs' || !activeId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      const next = await loadObservability(activeId, activeScope, observabilityMessages);
+      if (!cancelled) setObs(next);
+    };
+    void refresh();
     return () => {
       cancelled = true;
     };
-  }, [panel, activeId, activeScope, client]);
+  }, [panel, activeId, activeScope, loadObservability, observabilityMessages]);
+
+  useEffect(() => {
+    if (panel !== 'obs' || !activeId || typeof EventSource === 'undefined') return;
+    let cancelled = false;
+    const subscription = subscribeSessionTraceEvents(client.sseUrl(activeId), (event) => {
+      const row = timelineRowFromSessionTraceEvent(event);
+      setLiveTraceRows((previous) => {
+        if (row.sourceId && previous.some((item) => item.sourceId === row.sourceId))
+          return previous;
+        const next = [...previous, row];
+        return next.length > 500 ? next.slice(next.length - 500) : next;
+      });
+
+      if (event.type === 'session.status_changed') {
+        void loadObservability(activeId, activeScope, observabilityMessages).then((next) => {
+          if (!cancelled) setObs(next);
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+      subscription.close();
+    };
+  }, [panel, activeId, activeScope, client, loadObservability, observabilityMessages]);
 
   // Slash commands come from the backend. If it cannot serve them the picker
   // stays closed rather than opening empty, which would read as broken.
@@ -501,6 +598,10 @@ export function SessionView({
     [activeId, activeScope, client, createAndSelectSession, load, refreshPill],
   );
 
+  const observabilityData = obs
+    ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
+    : null;
+
   return (
     <RailActionsProvider
       onNewSession={(workspaceId) => void startNewSession(workspaceId)}
@@ -511,9 +612,7 @@ export function SessionView({
         activeSessionId={activeId}
         onSelectSession={setActiveId}
         title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
-        {...(activeBlueprintId
-          ? { breadcrumb: activeBlueprintId }
-          : {})}
+        {...(activeBlueprintId ? { breadcrumb: activeBlueprintId } : {})}
         ribbon={[{ id: 'main', label: 'main' }]}
         activeRibbonId={activeScope}
         onSelectRibbon={setActiveScope}
@@ -644,9 +743,16 @@ export function SessionView({
           <Settings />
         </Layer>
 
-        <Layer open={panel === 'obs'} title="observability" onClose={() => setPanel(null)}>
-          {obs ? (
-            <Observability data={obs} />
+        <Layer
+          open={panel === 'obs'}
+          title="observability"
+          headerIcon={<Icon name="eye" size={14} />}
+          headerMeta={<ObservabilityTrace />}
+          windowControls
+          onClose={() => setPanel(null)}
+        >
+          {observabilityData ? (
+            <Observability data={observabilityData} showTraceHeader={false} />
           ) : (
             <p className="sessionview__notice">Loading observability…</p>
           )}
