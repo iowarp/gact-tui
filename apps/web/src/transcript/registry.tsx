@@ -18,6 +18,28 @@ export interface PartRenderer {
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
 
 /**
+ * A tool result's `content` is a LIST OF PARTS on the wire, never a string.
+ *
+ * Passing it to shortScalar hit its isRecord branch and rendered the literal
+ * word "recorded" for every live tool result. The e2e mock had been shaped
+ * with `content: 'staged 1,101 rows'`, so nothing caught it until the mock was
+ * corrected to the observed shape.
+ */
+function toolResultText(part: Record<string, unknown>): string {
+  const content = part['content'];
+  if (Array.isArray(content)) {
+    const text = content
+      .map((child) => (child && typeof child === 'object' ? str((child as Record<string, unknown>)['text']) : str(child)))
+      .filter((chunk) => chunk.length > 0)
+      .join('\n');
+    if (text) return shortScalar(text);
+    // Content present but carrying no text: say so rather than render blank.
+    return content.length > 0 ? `${content.length} non-text result part(s)` : '';
+  }
+  return shortScalar(content ?? part['text']);
+}
+
+/**
  * THE part-renderer registry.
  *
  * One kind, one renderer, one pipeline. The legacy tree's dual pipeline dies
@@ -76,7 +98,7 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
       return (
         <div className="part-tool" data-error={isError ? 'true' : undefined}>
           <span className="part-tool__name">{isError ? 'tool failed' : 'tool result'}</span>
-          <p className="part-toolresult">{shortScalar(part['content'] ?? part['text'])}</p>
+          <p className="part-toolresult">{toolResultText(part)}</p>
         </div>
       );
     },

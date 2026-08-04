@@ -1,0 +1,118 @@
+/**
+ * The mock must emit the REAL wire, not a plausible one.
+ *
+ * Every wire-field bug this rebuild hit was a guess that no fixture could
+ * falsify — `routing_decision.expert` instead of `selected_agent`, `AgentDef
+ * .name` instead of `title`, a slash id double-prefixed. A mock that invents
+ * field names cannot catch any of them; it manufactures agreement with itself.
+ *
+ * Ground truth is `contract/testdata/observed-part-model-v0.3.json`, captured
+ * from clio-agent 0.9.0+42522bb1 by reflecting the Part model, and
+ * `observed-parts-v0.3.json`, read out of live session ledgers.
+ */
+import { describe, expect, it } from 'vitest';
+import { MOCK_WIRE_MESSAGE } from '../e2e/mock-backend';
+import observedModel from '../../../../contract/testdata/observed-part-model-v0.3.json';
+import observedParts from '../../../../contract/testdata/observed-parts-v0.3.json';
+
+const MODEL_FIELDS = new Set(Object.keys(observedModel.part_model.fields));
+
+describe('captured ground truth', () => {
+  it('describes the Part model as a flat union', () => {
+    // Not a discriminated union: every part carries every field, and absent
+    // values are DEFAULTS rather than missing keys. Assuming per-kind field
+    // sets is what produced the guesses above.
+    expect(observedModel.part_model.shape).toMatch(/FLAT UNION/);
+    expect(observedModel.part_model.field_count).toBeGreaterThanOrEqual(56);
+  });
+
+  it('records which kinds live sessions have actually produced', () => {
+    expect(observedParts.observed_kinds).toEqual([
+      'expert_handoff',
+      'routing_decision',
+      'text',
+      'thinking',
+      'tool_call',
+      'tool_result',
+    ]);
+  });
+
+  it('every observed sample uses only fields the model declares', () => {
+    for (const [kind, sample] of Object.entries(observedParts.samples)) {
+      for (const field of Object.keys(sample as Record<string, unknown>)) {
+        expect(MODEL_FIELDS, `observed ${kind}.${field} is not in the model`).toContain(field);
+      }
+    }
+  });
+});
+
+describe('mock wire conformance', () => {
+  it('uses no field the real Part model does not declare', () => {
+    const offenders: string[] = [];
+    for (const part of MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>) {
+      for (const field of Object.keys(part)) {
+        if (!MODEL_FIELDS.has(field)) offenders.push(`${String(part['type'])}.${field}`);
+      }
+    }
+    expect(offenders, `invented fields: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('names the routing target selected_agent, never expert', () => {
+    // The exact bug the live backend caught: the UI rendered "routed to" with
+    // no name because the mock agreed with the wrong field.
+    const routing = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
+      (p) => p['type'] === 'routing_decision',
+    );
+    expect(routing?.['selected_agent']).toBeTruthy();
+    expect(routing).not.toHaveProperty('expert');
+  });
+
+  it('carries tool identity in call_id / tool_name', () => {
+    const call = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
+      (p) => p['type'] === 'tool_call',
+    );
+    expect(call?.['tool_name']).toBeTruthy();
+    expect(call?.['call_id']).toBeTruthy();
+    expect(call).not.toHaveProperty('name');
+  });
+
+  it('puts thinking text in `text`, as the emitter does', () => {
+    const think = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
+      (p) => p['type'] === 'thinking',
+    );
+    expect(think?.['text']).toBeTruthy();
+    expect(think).not.toHaveProperty('thinking');
+  });
+
+  it('models tool_result content as a list of parts, not a string', () => {
+    const result = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
+      (p) => p['type'] === 'tool_result',
+    );
+    expect(Array.isArray(result?.['content'])).toBe(true);
+  });
+
+  it('addresses an mcp_app by resource_uri and app_instance_id', () => {
+    const app = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
+      (p) => p['type'] === 'mcp_app',
+    );
+    expect(app?.['resource_uri']).toBeTruthy();
+    expect(app?.['app_instance_id']).toBeTruthy();
+  });
+
+  it('covers every part kind the rebuild renders', () => {
+    const kinds = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).map((p) =>
+      String(p['type']),
+    );
+    for (const required of [
+      'expert_handoff',
+      'routing_decision',
+      'mcp_app',
+      'resource_link',
+      'file_diff',
+      'background_exit',
+      'agent_message',
+    ]) {
+      expect(kinds).toContain(required);
+    }
+  });
+});

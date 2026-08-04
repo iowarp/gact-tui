@@ -85,36 +85,144 @@ export const MOCK_WIRE_MESSAGE = {
   id: 'msg_wire_0001',
   role: 'assistant',
   parts: [
-    { type: 'thinking', thinking: 'Resolving the region before staging data.', tokens: 77 },
-    { type: 'text', text: 'Starting with the geospatial child.' },
+    // Field names below are the EMITTERS', not plausible ones. Verified against
+    // contract/testdata/observed-part-model-v0.3.json (the 56-field flat union
+    // reflected off clio-agent 0.9.0+42522bb1) and observed-parts-v0.3.json
+    // (real parts read out of live session ledgers). tests/unit/
+    // wire-conformance.test.ts fails on any field the model does not declare.
     {
-      type: 'expert_handoff',
-      expert: 'geospatial',
-      task_id: 'task_b7525159dde5',
-      question: 'Resolve Los Angeles into grounded coordinates.',
+      // gact/transcript: provider chain-of-thought lands in `text`. It is NOT
+      // a `thinking` field, and there is no token count on the part.
+      type: 'thinking',
+      agent_id: 'main',
+      text: 'Resolving the region before staging data.',
+      metadata: {
+        thinking_source: 'provider',
+        provider_source: 'claude_code_sdk',
+        default_collapsed: true,
+        stream_source: 'live',
+      },
     },
-    { type: 'routing_decision', expert: 'data' },
+    { type: 'text', agent_id: 'main', text: 'Starting with the geospatial child.' },
+    {
+      // gact/live_handle: the delegate is `child_agent`; the question rides in
+      // metadata, which is where the live ledger carries it.
+      type: 'expert_handoff',
+      id: 'live_handoff_a4fc52c182b4',
+      agent_id: 'main',
+      parent_agent: 'main',
+      child_agent: 'geospatial',
+      metadata: {
+        agent_id: 'geospatial',
+        delegate_to: 'geospatial',
+        delegation_lifecycle: 'sync',
+        depth: 0,
+        execute: true,
+        execution_mode: 'blueprint_react',
+        parent_id: 'main',
+        question: 'Resolve Los Angeles into grounded coordinates.',
+        source: 'agent_next_expert',
+        stream_source: 'live',
+      },
+    },
+    {
+      // tool_observer.py:533 — `selected_agent`. Getting this wrong rendered
+      // "routed to" with no name against the live backend.
+      type: 'routing_decision',
+      id: 'live_route_data',
+      agent_id: 'main',
+      selected_agent: 'data',
+      rationale: 'Agent planner selected data for tool stage_resource.',
+      execution_path: 'orchestrator -> data',
+      sequence: 6,
+      metadata: {
+        route_reason: 'Resolved from live tool owner data.',
+        route_source: 'live_tool_observer',
+        stream_source: 'live',
+      },
+    },
     {
       type: 'tool_call',
-      id: 'call_a4c19b2e',
-      name: 'stage_resource',
+      id: 'live_call_a4c19b2e_call',
+      agent_id: 'data',
+      call_id: 'call_a4c19b2e',
+      tool_name: 'stage_resource',
       input: { resource: 'earthscope_stations.csv', source: 'ds2.datacollaboratory.org' },
+      sequence: 7,
+      metadata: { stream_source: 'live', telemetry_source: 'live_observer' },
     },
-    { type: 'tool_result', content: 'staged 1,101 rows', is_error: false },
     {
+      // `content` is a LIST OF PARTS on the wire, never a bare string.
+      type: 'tool_result',
+      id: 'live_call_a4c19b2e_result',
+      agent_id: 'data',
+      call_id: 'call_a4c19b2e',
+      is_error: false,
+      duration_ms: 412.0,
+      content: [
+        {
+          type: 'text',
+          id: 'live_call_a4c19b2e_result_final_text',
+          text: 'staged 1,101 rows',
+        },
+      ],
+      metadata: { stream_source: 'live' },
+    },
+    {
+      // artifacts/wire.py:186
       type: 'resource_link',
-      uri: 'file:///staged/earthscope_stations.csv',
+      id: 'part_resource_link_5f21c9d0',
+      agent_id: 'data',
+      server_id: 'clio-artifacts',
+      uri: 'artifact://ws_default/earthscope_stations.csv@1',
       name: 'earthscope_stations.csv',
+      mime_type: 'text/csv',
+      metadata: { workspace_id: 'ws_default', version: 1 },
     },
-    { type: 'file_diff', path: 'analysis/profile.py', status: 'applied' },
     {
-      type: 'mcp_app',
-      uri: 'ui://ndp/station-picker',
-      mime_type: 'text/html;profile=mcp-app',
+      // turn_finalize.py:444
+      type: 'file_diff',
+      id: 'part_file_diff_7c2a',
+      agent_id: 'main',
+      path: 'analysis/profile.py',
+      unified_diff: [
+        '--- a/analysis/profile.py',
+        '+++ b/analysis/profile.py',
+        '@@ -1,2 +1,3 @@',
+        ' import pandas',
+        '+import numpy',
+        '',
+      ].join('\n'),
+      new_content: '',
+      status: 'pending',
+      edit_mode: 'diff',
+      lines_added: 1,
+      lines_removed: 0,
     },
-    { type: 'compaction', reason: 'context pressure' },
+    {
+      // mcp_apps.py:439 — addressed by resource_uri + app_instance_id, not `uri`.
+      type: 'mcp_app',
+      id: 'mcp_app_app_3f9c1d',
+      agent_id: 'data',
+      app_instance_id: 'app_3f9c1d',
+      resource_uri: 'ui://ndp/station-picker',
+      source_server: 'ndp',
+      data_ref: '',
+      mime_type: 'text/html;profile=mcp-app',
+      metadata: { stream_source: 'live', protocol: '2026-01-26' },
+    },
+    {
+      // routes/compaction.py:60 — summary/auto/compacted_message_ids, no `reason`.
+      type: 'compaction',
+      id: 'part_compact_9b21c7d0aa',
+      summary: 'Folded 12 turns of station discovery into a standing summary.',
+      auto: true,
+      compacted_message_ids: ['msg_0007', 'msg_0008', 'msg_0009'],
+      metadata: { stream_source: 'batch' },
+    },
     {
       type: 'background_exit',
+      id: 'live_background_exit_b899efeeca04',
       agent_id: 'data',
       parent_agent: 'main',
       child_agent: 'data',
@@ -126,7 +234,9 @@ export const MOCK_WIRE_MESSAGE = {
       task_id: 'task_b899efeeca04',
       job_id: 'task_b899efeeca04',
       exit_status: 'completed',
+      artifact_ref: 'artifact://ws_default/earthscope_stations.csv@1',
       status: 'completed',
+      metadata: { stream_source: 'live' },
     },
     {
       type: 'agent_message',

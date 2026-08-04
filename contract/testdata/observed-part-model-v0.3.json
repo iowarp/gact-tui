@@ -1,0 +1,238 @@
+{
+  "captured_from": {
+    "backend": "clio-agent-gact",
+    "version": "0.9.0+42522bb1",
+    "endpoint": "http://127.0.0.1:17900",
+    "contract_version_reported": "0.2"
+  },
+  "part_model": {
+    "shape": "FLAT UNION \u2014 every part carries every field; absent values are defaults, not omitted keys",
+    "field_count": 56,
+    "fields": {
+      "id": {
+        "type": "str",
+        "required": false
+      },
+      "type": {
+        "type": "str",
+        "required": true
+      },
+      "metadata": {
+        "type": "dict[str, Any]",
+        "required": false
+      },
+      "agent_id": {
+        "type": "str",
+        "required": false
+      },
+      "sequence": {
+        "type": "int",
+        "required": false
+      },
+      "text": {
+        "type": "str",
+        "required": false
+      },
+      "data": {
+        "type": "Optional[str]",
+        "required": false
+      },
+      "url": {
+        "type": "Optional[str]",
+        "required": false
+      },
+      "media_type": {
+        "type": "Optional[str]",
+        "required": false
+      },
+      "selected_agent": {
+        "type": "str",
+        "required": false
+      },
+      "rationale": {
+        "type": "str",
+        "required": false
+      },
+      "confidence": {
+        "type": "float",
+        "required": false
+      },
+      "heuristic": {
+        "type": "bool",
+        "required": false
+      },
+      "execution_path": {
+        "type": "str",
+        "required": false
+      },
+      "parent_agent": {
+        "type": "str",
+        "required": false
+      },
+      "child_agent": {
+        "type": "str",
+        "required": false
+      },
+      "stage": {
+        "type": "str",
+        "required": false
+      },
+      "handle_id": {
+        "type": "str",
+        "required": false
+      },
+      "run_label": {
+        "type": "str",
+        "required": false
+      },
+      "live_state": {
+        "type": "str",
+        "required": false
+      },
+      "host": {
+        "type": "str",
+        "required": false
+      },
+      "placement": {
+        "type": "str",
+        "required": false
+      },
+      "message_action": {
+        "type": "str",
+        "required": false
+      },
+      "supersedes_handle_id": {
+        "type": "str",
+        "required": false
+      },
+      "superseded_by_handle_id": {
+        "type": "str",
+        "required": false
+      },
+      "task_id": {
+        "type": "str",
+        "required": false
+      },
+      "job_id": {
+        "type": "str",
+        "required": false
+      },
+      "exit_status": {
+        "type": "str",
+        "required": false
+      },
+      "artifact_ref": {
+        "type": "str",
+        "required": false
+      },
+      "call_id": {
+        "type": "str",
+        "required": false
+      },
+      "tool_name": {
+        "type": "str",
+        "required": false
+      },
+      "thought": {
+        "type": "str",
+        "required": false
+      },
+      "input": {
+        "type": "dict[str, Any]",
+        "required": false
+      },
+      "content": {
+        "type": "list[clio_agent.gact.parts.Part]",
+        "required": false
+      },
+      "is_error": {
+        "type": "bool",
+        "required": false
+      },
+      "cached": {
+        "type": "bool",
+        "required": false
+      },
+      "duration_ms": {
+        "type": "float",
+        "required": false
+      },
+      "uri": {
+        "type": "str",
+        "required": false
+      },
+      "name": {
+        "type": "str",
+        "required": false
+      },
+      "server_id": {
+        "type": "str",
+        "required": false
+      },
+      "app_instance_id": {
+        "type": "str",
+        "required": false
+      },
+      "resource_uri": {
+        "type": "str",
+        "required": false
+      },
+      "source_server": {
+        "type": "str",
+        "required": false
+      },
+      "data_ref": {
+        "type": "str",
+        "required": false
+      },
+      "mime_type": {
+        "type": "str",
+        "required": false
+      },
+      "height": {
+        "type": "int",
+        "required": false
+      },
+      "path": {
+        "type": "str",
+        "required": false
+      },
+      "unified_diff": {
+        "type": "str",
+        "required": false
+      },
+      "new_content": {
+        "type": "str",
+        "required": false
+      },
+      "status": {
+        "type": "str",
+        "required": false
+      },
+      "edit_mode": {
+        "type": "str",
+        "required": false
+      },
+      "lines_added": {
+        "type": "int",
+        "required": false
+      },
+      "lines_removed": {
+        "type": "int",
+        "required": false
+      },
+      "summary": {
+        "type": "str",
+        "required": false
+      },
+      "auto": {
+        "type": "bool",
+        "required": false
+      },
+      "compacted_message_ids": {
+        "type": "list[str]",
+        "required": false
+      }
+    }
+  }
+}
