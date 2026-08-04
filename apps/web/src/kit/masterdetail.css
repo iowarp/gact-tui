@@ -13,6 +13,24 @@
   border-right: 1px solid var(--t-bd3);
 }
 
+.kit-masterdetail__itemwrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.kit-masterdetail__group {
+  padding: 12px 10px 5px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.kit-masterdetail__itemwrap:first-child .kit-masterdetail__group {
+  padding-top: 2px;
+}
+
 .kit-masterdetail__item {
   display: flex;
   align-items: center;

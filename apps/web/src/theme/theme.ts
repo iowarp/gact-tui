@@ -23,21 +23,58 @@ export const PROSE_STACKS: Record<ProseFont, string> = {
   dyslexic: "'OpenDyslexic','Atkinson Hyperlegible',system-ui,sans-serif",
 };
 
+/** Discrete text-size steps — the prototype's S/M/L/XL buttons replace what
+ * was a continuous range slider (no such control exists in the ground
+ * truth). Values span the same 0.85–1.4 envelope the old slider allowed. */
+export type TextSize = 'S' | 'M' | 'L' | 'XL';
+
+export const TEXT_SIZE_SCALE: Record<TextSize, number> = {
+  S: 0.9,
+  M: 1,
+  L: 1.15,
+  XL: 1.3,
+};
+
+/** Diff-preview line count — "Change lines shown inline in transcript diffs
+ * before the pop-up takes over." A stored preference; no consumer reads it
+ * yet (the inline diff preview itself is untouched by this pass). */
+export type DiffPreviewLines = 3 | 5 | 8;
+
+/** "Auto keeps tool widgets (mcp-ui) as compact chips and expands model
+ * widgets (a2ui). Always expand renders both inline." Stored preference;
+ * no consumer reads it yet. */
+export type UiWidgetsMode = 'auto' | 'always';
+
 export interface Appearance {
   theme: ThemePreset;
   font: ProseFont;
   /** Type-scale multiplier; the prototype's `--ts`. */
   scale: number;
+  diffPreviewLines: DiffPreviewLines;
+  uiWidgets: UiWidgetsMode;
+  /** IETF tag. Only `en-US` is offered — no i18n catalog exists to switch to. */
+  locale: string;
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
   // The prototype's own default branch is DIM (dark is an explicit opt-in).
   theme: 'dim',
   font: 'inter',
-  scale: 1,
+  scale: TEXT_SIZE_SCALE.M,
+  diffPreviewLines: 3,
+  uiWidgets: 'auto',
+  locale: 'en-US',
 };
 
 const STORAGE_KEY = 'clio.appearance.v3';
+
+function isDiffPreviewLines(value: unknown): value is DiffPreviewLines {
+  return value === 3 || value === 5 || value === 8;
+}
+
+function isUiWidgetsMode(value: unknown): value is UiWidgetsMode {
+  return value === 'auto' || value === 'always';
+}
 
 export function loadAppearance(): Appearance {
   try {
@@ -48,6 +85,11 @@ export function loadAppearance(): Appearance {
       theme: isPreset(parsed.theme) ? parsed.theme : DEFAULT_APPEARANCE.theme,
       font: isProseFont(parsed.font) ? parsed.font : DEFAULT_APPEARANCE.font,
       scale: typeof parsed.scale === 'number' && parsed.scale > 0 ? parsed.scale : 1,
+      diffPreviewLines: isDiffPreviewLines(parsed.diffPreviewLines)
+        ? parsed.diffPreviewLines
+        : DEFAULT_APPEARANCE.diffPreviewLines,
+      uiWidgets: isUiWidgetsMode(parsed.uiWidgets) ? parsed.uiWidgets : DEFAULT_APPEARANCE.uiWidgets,
+      locale: typeof parsed.locale === 'string' && parsed.locale ? parsed.locale : DEFAULT_APPEARANCE.locale,
     };
   } catch {
     // Unreadable or corrupt preference — fall back to the default appearance.

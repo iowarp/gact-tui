@@ -1017,11 +1017,29 @@ export function SessionView({
         )}
         <Layer
           open={panel === 'settings'}
-          title="settings"
+          title="Settings"
+          headerIcon={
+            // The prototype's settings gear is --t-tx (muted), not the
+            // Layer default cyan (that default is right for e.g. obs's eye).
+            <span style={{ color: 'var(--t-tx)' }}>
+              <Icon name="tool" size={14} />
+            </span>
+          }
           size="settings"
           onClose={() => setPanel(null)}
         >
-          <Settings />
+          <Settings
+            client={client}
+            {...(connections ? { connections } : {})}
+            {...(activeConnectionId ? { activeConnectionId } : {})}
+            {...(activePill?.contextPercent !== undefined
+              ? { contextPercent: activePill.contextPercent }
+              : {})}
+            {...(activePill?.artifactCount !== undefined
+              ? { artifactCount: activePill.artifactCount }
+              : {})}
+            onOpenObservability={() => setPanel('obs')}
+          />
         </Layer>
 
         <Layer

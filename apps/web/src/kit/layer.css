@@ -87,6 +87,13 @@
   letter-spacing: 0;
 }
 
+/* Settings has its own inline header markup in the prototype (not the
+   shared LayerChrome the window-kind layers use) — prose font, 14px. */
+.kit-layer__card[data-size='settings'] .kit-layer__title {
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+}
+
 .kit-layer__headmeta {
   display: inline-flex;
   align-items: center;

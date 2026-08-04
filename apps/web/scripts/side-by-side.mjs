@@ -9,7 +9,9 @@
  * Usage: node scripts/side-by-side.mjs <name> <setup>
  *   setup: none | session | obs | obs-gantt | fresh | menus-session |
  *          files | artifacts | context | console | search | new-dialog |
- *          execute-menu | model-picker | update-panel
+ *          execute-menu | model-picker | update-panel | settings |
+ *          settings-<page-label> (e.g. settings-appearance, settings-about,
+ *          settings-providers — any settings nav label, lowercased/hyphenated)
  */
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -70,6 +72,39 @@ async function clickPrototypeText(p, label) {
     );
     button?.click();
   }, label);
+}
+
+/** Open the settings overlay in the prototype: the leftmost cell of the rail
+ * footer's 41px/129px/129px grid band (verified in scripts/_gearprobe.mjs). */
+async function openPrototypeSettings(p) {
+  await p.evaluate(() => {
+    const band = Array.from(document.querySelectorAll('*')).find(
+      (el) => getComputedStyle(el).gridTemplateColumns === '41px 129px 129px',
+    );
+    band?.children[0]?.click();
+  });
+  await p.waitForTimeout(700);
+}
+
+async function openAppSettings(p) {
+  await selectAppSession(p);
+  await p.getByRole('button', { name: 'Settings' }).click();
+  await p.waitForTimeout(700);
+}
+
+/** Click a settings nav item by its visible label — the prototype's
+ * `settingsNav` buttons and the app's MasterDetail rail buttons both render
+ * the page label as plain button text, so one selector works on both. */
+async function clickSettingsNavLabel(p, label) {
+  await p.evaluate((wanted) => {
+    const norm = (s) => (s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const target = norm(wanted);
+    const button = [...document.querySelectorAll('nav button')].find(
+      (candidate) => norm(candidate.textContent) === target,
+    );
+    button?.click();
+  }, label);
+  await p.waitForTimeout(500);
 }
 
 /** Per-state setup on each side. Extend as review states grow. */
@@ -225,9 +260,33 @@ const SETUPS = {
     proto: async (p) => { await p.locator('button[title="Build version — click for updates"]').click(); await p.waitForTimeout(600); },
     app: async (p) => { await p.getByTestId('version-stamp').click(); await p.waitForTimeout(600); },
   },
+  settings: {
+    proto: async (p) => { await openPrototypeSettings(p); },
+    app: async (p) => { await openAppSettings(p); },
+  },
 };
 
-const s = SETUPS[setup] ?? SETUPS.none;
+/** settings-<page-label>: open settings, then pick a nav page by label
+ * (e.g. `settings-appearance`, `settings-about`, `settings-agent-blueprints`
+ * -> "Agent blueprints"). Built on demand so every settings page is coverable
+ * without one hardcoded entry per page. */
+function settingsPageSetup(pageSlug) {
+  const label = pageSlug.replace(/-/g, ' ');
+  return {
+    proto: async (p) => {
+      await openPrototypeSettings(p);
+      await clickSettingsNavLabel(p, label);
+    },
+    app: async (p) => {
+      await openAppSettings(p);
+      await clickSettingsNavLabel(p, label);
+    },
+  };
+}
+
+const s = setup.startsWith('settings-')
+  ? settingsPageSetup(setup.slice('settings-'.length))
+  : (SETUPS[setup] ?? SETUPS.none);
 const [pp, ap] = [await protoPage(), await appPage()];
 await s.proto(pp);
 await s.app(ap);

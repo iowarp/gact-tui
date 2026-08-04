@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Message } from '@clio/core';
 import { Composer } from '../composer/Composer';
-import { Layer } from '../kit';
+import { Icon, Layer } from '../kit';
 import { DetailSlot } from '../detail/DetailSlot';
 import { Observability } from '../observability/Observability';
 import { Settings } from '../settings/Settings';
+import { createClient } from '../backend/connection';
 import type { ObservabilityData } from '../observability/types';
 import type { ArtifactRecord } from '../detail/types';
 import { Transcript } from '../transcript/Transcript';
@@ -151,6 +152,10 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
   const [active, setActive] = useState('sess_la');
   const [ribbon, setRibbon] = useState('main');
   const [model, setModel] = useState('sonnet');
+  // This harness is fixtures everywhere else (GROUPS/MESSAGES/OBS above), but
+  // Settings needs a real client for its GET-backed pages — point it at the
+  // conventional local dev backend rather than fabricate one.
+  const settingsClient = useMemo(() => createClient('http://127.0.0.1:17900'), []);
 
   return (
     <AppShell
@@ -187,8 +192,18 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
       {/* Settings and observability are OVERLAYS in the prototype, never
           right-pane content. The preview must place them where the app does,
           or it stops being evidence for anything. */}
-      <Layer open={surface === 'settings'} title="settings" size="settings" onClose={() => {}}>
-        <Settings />
+      <Layer
+        open={surface === 'settings'}
+        title="Settings"
+        headerIcon={
+          <span style={{ color: 'var(--t-tx)' }}>
+            <Icon name="tool" size={14} />
+          </span>
+        }
+        size="settings"
+        onClose={() => {}}
+      >
+        <Settings client={settingsClient} contextPercent={41} artifactCount={5} />
       </Layer>
       <Layer open={surface === 'obs'} title="observability" width={880} height={560} onClose={() => {}}>
         <Observability data={OBS} />

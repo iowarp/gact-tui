@@ -10,6 +10,13 @@ export interface MasterDetailItem {
    */
   hidden?: boolean;
   badge?: ReactNode;
+  /**
+   * Section this item falls under (e.g. "CONNECTION", "AGENTS"). A
+   * non-interactive header renders once, immediately before the first
+   * visible item of a new group — settings' CONNECTION/AGENTS/TELEMETRY/APP
+   * rail sections (design/prototype/Clio Session.html `settingsNav`).
+   */
+  group?: string;
 }
 
 export interface MasterDetailProps {
@@ -34,24 +41,33 @@ export function MasterDetail({
   onSelect,
 }: MasterDetailProps) {
   const visible = items.filter((item) => !item.hidden);
+  let lastGroup: string | undefined;
 
   return (
     <div className="kit-masterdetail">
       <nav className="kit-masterdetail__rail" aria-label={label}>
-        {visible.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="kit-masterdetail__item"
-            aria-current={item.id === activeId ? 'page' : undefined}
-            onClick={() => onSelect(item.id)}
-          >
-            <span>{item.label}</span>
-            {item.badge !== undefined ? (
-              <span className="kit-masterdetail__badge">{item.badge}</span>
-            ) : null}
-          </button>
-        ))}
+        {visible.map((item) => {
+          const showGroup = item.group !== undefined && item.group !== lastGroup;
+          lastGroup = item.group;
+          return (
+            <div key={item.id} className="kit-masterdetail__itemwrap">
+              {showGroup ? (
+                <div className="kit-masterdetail__group">{item.group}</div>
+              ) : null}
+              <button
+                type="button"
+                className="kit-masterdetail__item"
+                aria-current={item.id === activeId ? 'page' : undefined}
+                onClick={() => onSelect(item.id)}
+              >
+                <span>{item.label}</span>
+                {item.badge !== undefined ? (
+                  <span className="kit-masterdetail__badge">{item.badge}</span>
+                ) : null}
+              </button>
+            </div>
+          );
+        })}
       </nav>
       <div className="kit-masterdetail__detail">{detail}</div>
     </div>
