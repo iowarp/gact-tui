@@ -10,6 +10,8 @@
  * from clio-agent 0.9.0+42522bb1 by reflecting the Part model, and
  * `observed-parts-v0.3.json`, read out of live session ledgers.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MOCK_WIRE_MESSAGE } from '../e2e/mock-backend';
 import observedModel from '../../../../contract/testdata/observed-part-model-v0.3.json';
@@ -114,5 +116,53 @@ describe('mock wire conformance', () => {
     ]) {
       expect(kinds).toContain(required);
     }
+  });
+});
+
+describe('SPEC v0.3 states what was captured', () => {
+  // The SPEC is prose and drifts silently. These bind its load-bearing claims
+  // to the capture, so a stale document fails instead of merely misleading.
+  const spec = readFileSync(resolve(__dirname, '../../../../contract/SPEC.md'), 'utf-8');
+
+  it('is titled v0.3', () => {
+    expect(spec.split('\n')[0]).toContain('GACT v0.3');
+  });
+
+  it('states the flat union rather than a discriminated one', () => {
+    expect(spec).toMatch(/FLAT UNION/);
+    expect(spec).toMatch(/defaults, not omitted keys|default.*not.*omitted/i);
+  });
+
+  it('quotes the captured field count', () => {
+    expect(spec).toContain(String(observedModel.part_model.field_count));
+  });
+
+  it('lists exactly the kinds the capture observed', () => {
+    // The captured-kinds paragraph must not drift from the capture itself.
+    const section = spec.slice(spec.indexOf('#### 4.5.1'), spec.indexOf('#### 4.5.2'));
+    for (const kind of observedParts.observed_kinds) {
+      expect(section, `SPEC 4.5.1 omits observed kind ${kind}`).toContain(kind);
+    }
+  });
+
+  it('names every model field in its field-group table', () => {
+    // A field the model has and the SPEC never mentions is undocumented wire.
+    const section = spec.slice(spec.indexOf('#### 4.5.2'), spec.indexOf('#### 4.5.3'));
+    const missing = [...MODEL_FIELDS].filter((f) => !section.includes(`\`${f}\``));
+    expect(missing, `undocumented fields: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it('never ASSERTS that thinking carries a `thinking` field', () => {
+    // Quoting the old claim in the corrections table is the point of that
+    // table, so the check is per-line: any line mentioning `thinking: string`
+    // must also carry the correction to `text: string`.
+    const asserted = spec
+      .split('\n')
+      .filter((line) => line.includes('`thinking: string`') && !line.includes('`text: string`'));
+    expect(asserted, `uncorrected claims:\n${asserted.join('\n')}`).toEqual([]);
+  });
+
+  it('is honest that the wire still reports contract_version 0.2', () => {
+    expect(spec).toMatch(/contract_version.{0,40}still.{0,20}0\.2|still `"0\.2"`/);
   });
 });

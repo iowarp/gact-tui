@@ -1,4 +1,39 @@
-# GACT v0.2 — Generic Agentic-Coder TUI Contract
+# GACT v0.3 — Generic Agentic-Coder TUI Contract
+
+> **v0.3 (2026-08-03) — Part model re-derived from observation.**
+>
+> §4.5 was rewritten from a *capture* of the reference backend rather than
+> edited forward from its v0.2 prose. Ground truth is
+> `clio-agent-gact 0.9.0+42522bb1` at `http://127.0.0.1:17900`, recorded in
+> two artifacts committed alongside this document so the derivation is
+> auditable rather than asserted:
+>
+> * `contract/testdata/observed-part-model-v0.3.json` — the `Part` model
+>   reflected off the running backend: **56 fields, a flat union**.
+> * `contract/testdata/observed-parts-v0.3.json` — real parts read out of
+>   live session ledgers.
+>
+> Two things the v0.2 prose got wrong, both caught by the capture:
+>
+> 1. It described a **discriminated union** ("the discriminator is `type`",
+>    per-kind key fields). The wire is a **flat union**: every part carries
+>    every field, and absent values are **defaults, not omitted keys**. Every
+>    per-kind field guess this contract's consumers made was downstream of
+>    that one mistake.
+> 2. It documented `thinking.thinking: string`. The emitter puts provider
+>    reasoning in **`text`**.
+>
+> **`contract_version` on the wire is still `"0.2"`** — the backend reports
+> that value and this document does not change what it reports. The mismatch
+> between a v0.3 document and a `0.2` wire value is tracked as
+> iowarp/clio-agent#1170 and is the backend's call to resolve, not this
+> document's.
+>
+> **Scope of this revision.** §4.5 (Part) is re-derived from the capture.
+> Sections not listed above still read as reconciled for v0.2 and carry
+> their original provenance notes; they have **not** been re-verified
+> against 0.9.0+42522bb1. Where a later section contradicts §4.5, §4.5 wins
+> — it is the one backed by a capture.
 
 > **Reconciliation note (2026-07-01).** This document was reconciled
 > to the *actually-implemented* GACT v0.2 wire, using as ground truth
@@ -508,14 +543,109 @@ into the main transcript.
 
 ### 4.5 Part (Content Block)
 
-The content of a message is an ordered list of typed parts. The discriminator is `type`. Every part has an `id` (stable for the lifetime of the message), `type`, and optional `metadata`.
+*Re-derived for v0.3 from a capture of `clio-agent-gact 0.9.0+42522bb1`. See
+the artifacts named in the v0.3 header note.*
+
+The content of a message is an ordered list of typed parts. `type` selects how
+a part is **rendered**, but it does **not** select which fields the part
+carries.
+
+#### 4.5.0 The Part is a FLAT UNION
+
+This is the single most consequential fact about the wire, and the v0.2 prose
+had it wrong.
+
+A `Part` is **one model with 56 fields**. Every part carries every field.
+A field that does not apply to a given `type` is present at its **default**
+(`""`, `0`, `false`, `{}`, `[]`) — it is **not omitted**.
+
+```
+# Every part on the wire looks like this, whatever its type:
+{"type": "routing_decision", "id": "live_route_geo", "agent_id": "main",
+ "selected_agent": "geo", "rationale": "...", "sequence": 6,
+ "tool_name": "", "call_id": "", "path": "", "unified_diff": "",
+ "lines_added": 0, "is_error": false, "content": [], "input": {}, ...}
+```
+
+Consequences a client MUST design for:
+
+* **Presence is not meaning.** `part.tool_name === ''` does not distinguish
+  "no tool" from "field absent". Branch on `type` first, then read the fields
+  that `type` documents below.
+* **Truthiness checks are unsafe as type tests.** `if (part.path)` is false
+  for a `file_diff` whose path is genuinely empty, and false for every part of
+  every other kind — it tests emptiness, never kind.
+* **Unknown fields are normal.** A part from a newer backend carries fields
+  this document does not list. Clients MUST ignore them, never reject the part.
+* **Older parts carry fewer keys.** Ledgers written before a field existed
+  serialise without it; the captured live samples carry **32** keys against the
+  current model's **56**. A reader MUST treat a missing key exactly as it
+  treats that field's default.
+
+#### 4.5.1 Kinds observed in production
+
+Split by evidence, because the two groups are not equally well attested:
+
+**Captured from live session ledgers** (`observed-parts-v0.3.json`) — these
+kinds have demonstrably been produced by a running backend:
+
+`text`, `thinking`, `expert_handoff`, `tool_call`, `tool_result`,
+`routing_decision`
+
+**Read from their emitters, with no captured live instance** — the emitting
+code is cited, but no session in the corpus has exercised them, so the field
+sets below are weaker evidence than the group above:
+
+| `type` | Emitter |
+|---|---|
+| `agent_message` | `gact/agent_messaging.py:116` |
+| `resource_link` | `gact/artifacts/wire.py:186` |
+| `background_exit` | `gact/background_exit.py:46` |
+| `mcp_app` | `gact/mcp_apps.py:439` |
+| `file_diff` | `gact/turn_finalize.py:444` |
+| `compaction` | `gact/routes/compaction.py:60` |
+
+#### 4.5.2 Field groups
+
+Fields cluster by concern. A part uses the groups its kind needs and leaves
+the rest at their defaults.
+
+| Group | Fields |
+|---|---|
+| identity | `id`, `type`, `metadata`, `agent_id`, `sequence` |
+| content | `text`, `data`, `url`, `media_type` |
+| routing | `selected_agent`, `rationale`, `confidence`, `heuristic`, `execution_path` |
+| delegation | `parent_agent`, `child_agent`, `stage` |
+| run handle | `handle_id`, `run_label`, `live_state`, `host`, `placement`, `message_action`, `supersedes_handle_id`, `superseded_by_handle_id` |
+| job | `task_id`, `job_id`, `exit_status`, `artifact_ref` |
+| tool | `call_id`, `tool_name`, `thought`, `input`, `content`, `is_error`, `cached`, `duration_ms` |
+| resource | `uri`, `name`, `server_id`, `mime_type` |
+| mcp app | `app_instance_id`, `resource_uri`, `source_server`, `data_ref`, `height` |
+| diff | `path`, `unified_diff`, `new_content`, `status`, `edit_mode`, `lines_added`, `lines_removed` |
+| compaction | `summary`, `auto`, `compacted_message_ids` |
+
+#### 4.5.3 Corrections against v0.2
+
+| Kind | v0.2 said | Observed |
+|---|---|---|
+| `thinking` | `thinking: string` | **`text: string`**. Provider attribution rides in `metadata` (`thinking_source`, `provider_source`, `default_collapsed`). No token count on the part. |
+| `tool_result` | `content: Part[]` | Correct — and it is worth restating, because reading `content` as a **string** is a live-breaking bug. It is *always* a list. |
+| `routing_decision` | `selected_agent` | Correct. Consumers that guessed `expert`/`selected_expert` rendered a bare "routed to" with no name. |
+| `expert_handoff` | — | The delegate is **`child_agent`**. The question rides in `metadata.question`, not a top-level field. |
+| `mcp_app` | — | Addressed by **`resource_uri` + `app_instance_id`**, not `uri`. |
+| `compaction` | — | **`summary`**, `auto`, `compacted_message_ids` — there is no `reason` field. |
+
+#### 4.5.4 Per-kind rendering fields
+
+The table below lists, per `type`, the fields a renderer reads. Every other
+field is still present at its default.
 
 **Core part types** (every conforming backend MUST handle these in messages it produces, but MAY return only a subset depending on what the backend supports):
 
 | `type` | Purpose | Key fields |
 |---|---|---|
 | `text` | Plain text | `text: string` |
-| `thinking` | Extended reasoning | `thinking: string`, `signature?: string` (opaque, round-tripped) |
+| `thinking` | Extended reasoning | **`text: string`** — corrected in v0.3; the emitter does NOT use a `thinking` field. Attribution rides in `metadata`: `thinking_source` (`provider`/…), `provider_source`, `default_collapsed`. |
 | `redacted_thinking` | Encrypted reasoning | `data: string`, `signature?: string` |
 | `image` | Image content | **Implemented (clio)**: flat `data?: string` (base64), `url?: string`, `media_type?: string` — NOT a nested `source` object. Gated by `multimodal_image_parts`. |
 | `document` | Document content | `source: {...same}`, `title?`, `context?`, `citations?: {enabled: bool}` (v0.1 sketch; clio does not emit document parts today) |
