@@ -244,3 +244,84 @@ describe('pinned sessions sort first (prototype ordering)', () => {
     expect(titles).toEqual(['beta', 'gamma', 'alpha']);
   });
 });
+
+describe('connection swapping from the rail footer (S6)', () => {
+  // The footer's "agents N" counts CONNECTED CLIO DEPLOYMENTS — one local, one
+  // on ares — and exists so the user can swap between them. It is UI-owned
+  // vocabulary, so the pool and the registry drive it, never /v1/agents.
+  const CONNECTIONS = [
+    { id: 'c1', label: 'local', url: 'http://127.0.0.1:17900', status: 'ready' as const },
+    { id: 'c2', label: 'ares', url: 'http://ares:17900', status: 'ready' as const },
+    { id: 'c3', label: 'dead', url: 'http://nope:17900', status: 'refused' as const },
+  ];
+
+  it('counts only connections that are actually ready', () => {
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={() => {}}
+        onCollapse={() => {}}
+        connections={CONNECTIONS}
+        activeConnectionId="c1"
+      />,
+    );
+    // 3 known, 2 usable. Counting the refused one would overstate reach.
+    expect(screen.getByTestId('rail-connections')).toHaveTextContent('agents 2');
+  });
+
+  it('lists every connection, including one that refused, with its state', () => {
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={() => {}}
+        onCollapse={() => {}}
+        connections={CONNECTIONS}
+        activeConnectionId="c1"
+        onSwitchConnection={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rail-connections'));
+    // A refused backend is KEPT and shown with its reason; dropping it looks
+    // identical to losing the entry.
+    expect(screen.getByRole('menuitem', { name: /ares/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /dead/i })).toBeInTheDocument();
+  });
+
+  it('switches to the chosen connection', () => {
+    const onSwitchConnection = vi.fn();
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={() => {}}
+        onCollapse={() => {}}
+        connections={CONNECTIONS}
+        activeConnectionId="c1"
+        onSwitchConnection={onSwitchConnection}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rail-connections'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ares/i }));
+    expect(onSwitchConnection).toHaveBeenCalledWith('c2');
+  });
+
+  it('cannot switch to a connection that is not ready', () => {
+    const onSwitchConnection = vi.fn();
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={() => {}}
+        onCollapse={() => {}}
+        connections={CONNECTIONS}
+        activeConnectionId="c1"
+        onSwitchConnection={onSwitchConnection}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rail-connections'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /dead/i }));
+    expect(onSwitchConnection).not.toHaveBeenCalled();
+  });
+});

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConnectionPool } from './connections/ConnectionPool';
+import type { RailConnection } from './shell/Rail';
 import { brand } from '@brand';
 import {
   connectBackend,
@@ -39,6 +41,20 @@ export function App() {
   const [backend, setBackend] = useState<ConnectedBackend | null>(null);
   const [saved, setSaved] = useState<BackendEntry[]>(() => loadRegistry().backends);
 
+  // THE connection owner (gact-tui#338). Every connection holds its own client
+  // and its own failure state; nothing here is process-global, which is what
+  // the pool's leak tests protect. A refused backend is KEPT with its reason
+  // rather than dropped, so the rail can show why it will not serve.
+  const pool = useRef(new ConnectionPool()).current;
+  const [connections, setConnections] = useState<RailConnection[]>([]);
+  const [activeConnectionId, setActiveConnectionId] = useState<string>('');
+
+  const syncPool = useCallback(() => {
+    setConnections(
+      pool.list().map((c) => ({ id: c.id, label: c.label, url: c.url, status: c.status })),
+    );
+  }, [pool]);
+
   useEffect(() => {
     applyAppearance(loadAppearance(), document.documentElement);
   }, []);
@@ -47,6 +63,10 @@ export function App() {
     setPending(true);
     setFailure(null);
     const result = await connectBackend(url);
+    // Record the attempt in the pool whatever the outcome: a refusal the user
+    // can see beats one that vanishes.
+    await pool.connect({ id: url, label: url, url });
+    syncPool();
     setPending(false);
     if (result.kind === 'failed') {
       setFailure(result);
@@ -66,8 +86,9 @@ export function App() {
     } catch {
       // Storage unavailable; the connection itself is unaffected.
     }
+    setActiveConnectionId(url);
     setBackend(result);
-  }, []);
+  }, [pool, syncPool]);
 
   const onForget = useCallback((url: string) => {
     const next = forgetBackend(loadRegistry(), url);
@@ -109,6 +130,15 @@ export function App() {
           )
         }
         backendVersion={backend.capabilities?.backend?.version ?? ''}
+        connections={connections}
+        activeConnectionId={activeConnectionId}
+        onSwitchConnection={(id) => {
+          // Swapping deployments re-runs the same connect path, so the new
+          // backend's sessions and capabilities are read fresh rather than
+          // inherited from the one being left.
+          const target = pool.get(id);
+          if (target) void onConnect(target.url);
+        }}
         onSessionCreated={(session) =>
           setBackend((cur) => (cur ? { ...cur, sessions: [session, ...cur.sessions] } : cur))
         }

@@ -64,7 +64,7 @@ is done and working, as originally instructed.
 | S3 | **Connection semantics lost**: no saved-connections list, no autoconnect. `@clio/core` ships the backend registry — a KEPT module — and I wrote a one-off single-key connect screen instead. | **fixed** |
 | S4 | Connecting state **freezes with no feedback**; needs an animation. | **fixed** |
 | S5 | Missing session (404) should offer **remove**, not appear broken. | done |
-| S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | open — the registry now drives saved connections and the footer count, but the pool class itself is still unused. |
+| S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | **fixed** — the pool owns connections in App; the rail footer counts READY ones and swaps between them. |
 
 ### Backend defects (clio-agent, P4-linked)
 

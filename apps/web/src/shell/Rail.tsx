@@ -24,6 +24,14 @@ export interface RailGroup {
 /** Sessions shown per group before the prototype's "show more (N)" kicks in. */
 const GROUP_VISIBLE = 5;
 
+/** One connected (or refused) clio deployment. */
+export interface RailConnection {
+  id: string;
+  label: string;
+  url: string;
+  status: 'ready' | 'refused' | 'error';
+}
+
 export type SessionAction = 'rename' | 'fork' | 'export' | 'share' | 'pin' | 'delete';
 
 /**
@@ -63,8 +71,16 @@ export interface RailProps {
   onSessionAction?: (sessionId: string, action: SessionAction) => void;
   /** Supplying this enables rename-in-place from the row menu. */
   onRenameSession?: (sessionId: string, title: string) => void;
-  /** Live agent count for the footer band. */
+  /** Live agent count for the footer band. Superseded by `connections`. */
   agentCount?: number;
+  /**
+   * Connected clio deployments the user can swap between (one local, one on
+   * ares, ...). UI-owned vocabulary, like pin — never /v1/agents, which is the
+   * expert registry and a different thing entirely.
+   */
+  connections?: RailConnection[];
+  activeConnectionId?: string;
+  onSwitchConnection?: (id: string) => void;
   onOpenSettings?: () => void;
 }
 
@@ -80,11 +96,22 @@ export function Rail({
   onSessionAction,
   onRenameSession,
   agentCount,
+  connections,
+  activeConnectionId,
+  onSwitchConnection,
   onOpenSettings,
 }: RailProps) {
   const [menu, setMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [connectionsAt, setConnectionsAt] = useState({ x: 0, y: 0 });
+
+  // Only READY connections are counted: a refused backend is known but cannot
+  // serve, and counting it would overstate what the user can reach.
+  const readyCount = connections
+    ? connections.filter((c) => c.status === 'ready').length
+    : (agentCount ?? 0);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   function openMenu(event: React.MouseEvent, sessionId: string) {
@@ -244,10 +271,22 @@ export function Rail({
         >
           <Icon name="tool" size={14} />
         </button>
-        <span className="shell-rail__footcell">
+        <button
+          type="button"
+          className="shell-rail__footcell"
+          data-testid="rail-connections"
+          aria-haspopup="menu"
+          aria-expanded={connectionsOpen}
+          onClick={(event) => {
+            if (!onSwitchConnection) return;
+            const box = event.currentTarget.getBoundingClientRect();
+            setConnectionsOpen((cur) => !cur);
+            setConnectionsAt({ x: box.left, y: box.top });
+          }}
+        >
           <span className="shell-rail__footdot" aria-hidden="true" />
-          agents {agentCount ?? 0}
-        </span>
+          agents {readyCount}
+        </button>
         {/* Relay has no client method — shown disabled rather than hidden, so
             the capability gap is visible instead of silently missing. */}
         <button
@@ -276,6 +315,33 @@ export function Rail({
           onSessionAction?.(menu.sessionId, id as SessionAction);
         }}
         onClose={() => setMenu(null)}
+      />
+
+      <ContextMenu
+        open={connectionsOpen}
+        x={connectionsAt.x}
+        y={connectionsAt.y}
+        label="Connected backends"
+        items={(connections ?? []).map((connection) => ({
+          id: connection.id,
+          // A connection that refused is KEPT and shown with its state. A user
+          // who added a backend needs to see why it will not serve them;
+          // dropping it looks identical to losing the entry.
+          label:
+            connection.status === 'ready'
+              ? connection.label
+              : `${connection.label} — ${connection.status}`,
+          ...(connection.status === 'ready'
+            ? {}
+            : { disabled: true, tone: 'danger' as const }),
+          ...(connection.id === activeConnectionId ? { checked: true } : {}),
+        }))}
+        onSelect={(id) => {
+          const chosen = (connections ?? []).find((c) => c.id === id);
+          if (chosen?.status !== 'ready') return;
+          onSwitchConnection?.(id);
+        }}
+        onClose={() => setConnectionsOpen(false)}
       />
     </div>
   );

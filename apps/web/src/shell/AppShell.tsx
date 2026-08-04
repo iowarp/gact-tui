@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Splitter, Tabs, type TabDef } from '../kit';
-import { Rail, type RailGroup } from './Rail';
+import { Rail, type RailConnection, type RailGroup } from './Rail';
 import { Topbar } from './Topbar';
 import './appshell.css';
 
@@ -26,6 +26,10 @@ export interface AppShellProps {
   onTogglePanel?: (panel: string) => void;
   /** Live agent count shown in the rail footer band. */
   agentCount?: number;
+  /** Connected clio deployments, for the footer's swap menu (S6). */
+  connections?: RailConnection[];
+  activeConnectionId?: string;
+  onSwitchConnection?: (id: string) => void;
   onOpenSettings?: () => void;
 }
 
@@ -59,6 +63,9 @@ export function AppShell({
   panel,
   onTogglePanel,
   agentCount,
+  connections,
+  activeConnectionId,
+  onSwitchConnection,
   onOpenSettings,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
@@ -76,6 +83,9 @@ export function AppShell({
               onCollapse={() => setRailCollapsed(true)}
               {...(onRenameSession ? { onRenameSession } : {})}
               {...(agentCount !== undefined ? { agentCount } : {})}
+              {...(connections ? { connections } : {})}
+              {...(activeConnectionId ? { activeConnectionId } : {})}
+              {...(onSwitchConnection ? { onSwitchConnection } : {})}
               {...(onOpenSettings ? { onOpenSettings } : {})}
             />
           </div>

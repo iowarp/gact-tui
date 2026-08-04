@@ -3,7 +3,7 @@ import type { Client, Message, Session, Workspace } from '@clio/core';
 import type { PickerItem } from '../composer/Picker';
 import { Composer, type ApprovalMode } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
-import type { RailGroup, RailSession } from '../shell/Rail';
+import type { RailConnection, RailGroup, RailSession } from '../shell/Rail';
 import type { SessionStatus } from '../shell/StatusDot';
 import { Layer } from '../kit';
 import type { SelectOption } from '../kit';
@@ -23,6 +23,10 @@ export interface SessionViewProps {
   onSessionCreated?: (session: Session) => void;
   /** capabilities.backend.version, for the prototype's version stamp. */
   backendVersion?: string;
+  /** Connected clio deployments, owned by the pool in App (S6). */
+  connections?: RailConnection[];
+  activeConnectionId?: string;
+  onSwitchConnection?: (id: string) => void;
 }
 
 /** The fields of the session record the composer renders. */
@@ -53,6 +57,9 @@ export function SessionView({
   onForgetSession,
   onSessionCreated,
   backendVersion,
+  connections,
+  activeConnectionId,
+  onSwitchConnection,
 }: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
@@ -358,6 +365,9 @@ export function SessionView({
       onRenameSession={(sessionId, next) => void rename(sessionId, next)}
       panel={panel}
       agentCount={connectedCount}
+      {...(connections ? { connections } : {})}
+      {...(activeConnectionId ? { activeConnectionId } : {})}
+      {...(onSwitchConnection ? { onSwitchConnection } : {})}
       onOpenSettings={() => setPanel('settings')}
       onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
 
