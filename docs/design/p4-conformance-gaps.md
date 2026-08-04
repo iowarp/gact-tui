@@ -287,3 +287,9 @@ Owner-reported on the live :4191 build (all confirmed by measurement):
   Failing-first proof: with >viewport of seeded groups,
   `document.scrollingElement.scrollHeight === clientHeight` AND the rail list
   scrolls internally while the footer stays fixed at the viewport bottom.
+- **D1b Placement chip content (screenshot review, 2026-08-03).** The chip
+  prints the full backend URL as the connection label plus the entire
+  workspace path. Prototype form: `ares:/scratch/j4471` — a SHORT deployment
+  label (saved label, else hostname) and a compact path (home-substituted,
+  tail-biased truncation). Root cause: `App.completeConnection` registers
+  connections with `label: result.url`.
