@@ -32,6 +32,11 @@ checked off with the commit that lands it. Newest first.
   load, or the saved prop lost on the splash-fallback path).
 - Status: TODO + diagnosis.
 
+### Rail — row menu
+- The Pin menu option on a PINNED session should read "Unpin" (toggle label
+  follows state).
+- Status: TODO (fix round; the rail contract's pin test gains the label flip).
+
 ### Rail (annotated screenshot, Screenshot 2026-08-04 011207.png)
 - Group-head disclosure caret: "maybe smaller" (prototype's is 8px mono).
 - Session row status dot: "bigger".
