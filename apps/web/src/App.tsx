@@ -9,6 +9,7 @@ import { ConnectScreen } from './connect/ConnectScreen';
 import { KitGallery } from './kit/KitGallery';
 import { ShellPreview } from './shell/ShellPreview';
 import { SessionView } from './session/SessionView';
+import { loadRegistry, rememberBackend, saveRegistry } from './connect/registry';
 import { applyAppearance, loadAppearance } from './theme/theme';
 
 const LAST_URL_KEY = 'clio.backend.last-url.v3';
@@ -44,6 +45,10 @@ export function App() {
     }
     try {
       localStorage.setItem(LAST_URL_KEY, result.url);
+      // Record it in the backend registry. The rail footer counts CONNECTED
+      // CLIO DEPLOYMENTS from here — a UI-owned set, not anything the backend
+      // serves — so a connection that is never recorded makes that count lie.
+      saveRegistry(rememberBackend(loadRegistry(), { url: result.url, label: result.url }));
     } catch {
       // Storage unavailable; the connection itself is unaffected.
     }

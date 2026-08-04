@@ -47,6 +47,7 @@ export type IconName =
   | 'ctx'
   | 'eye'
   | 'send'
+  | 'plus'
   | 'dots';
 
 export interface IconProps {
@@ -233,6 +234,9 @@ const GLYPHS: Record<IconName, ReactNode> = {
     </>
   ),
   send: P('M6 9.9V2.1M3 5L6 2l3 3', 1.5),
+  // The composer's attach control, transcribed from the prototype's
+  // [title="Attach"] button: viewBox 0 0 12 12, stroke-width 1.4.
+  plus: P('M6 1v10M1 6h10', 1.4),
   dots: (
     <>
       {C(2.5, 6, 1, true)}

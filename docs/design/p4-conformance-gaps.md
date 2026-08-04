@@ -49,17 +49,17 @@ is done and working, as originally instructed.
 | C2 | Settings / observability open in the **wrong column** — placed in the right `detail` slot; owner reports seeing them left. Panel placement never visually verified. | **fixed** |
 | C3 | Composer pill anchors to **content flow, not the viewport bottom** — it sits after the text rather than at the bottom of the screen. | **fixed** |
 | C4 | Empty state is a debug string ("Select a session to open it."). The prototype defines a real empty session with its own animation. | **fixed** |
-| C5 | Model selector shows `default` rather than provider / model. | open |
+| C5 | Model selector shows `default` rather than provider / model. | **fixed** |
 | C6 | Rail group rows lack the folder icon, disclosure chevron and their own menu. | open |
 | C7 | No "show more (N)" truncation on long session lists. | open |
 | C8 | No version stamp (`v0.9.2+g4f21c · update available`). | open |
-| C9 | Composer has no attach (`+`) control. | open |
+| C9 | Composer has no attach (`+`) control. | **fixed** (shown red / unbacked) |
 
 ### Interaction semantics
 
 | # | Defect | Status |
 |---|---|---|
-| S1 | **Permissions/approve modes missing** from the composer — the prototype carries `ask` / `auto-edits` / `auto` / `bypass` with per-mode icons and background tints. | open |
+| S1 | **Permissions/approve modes missing** from the composer. The prototype's `ask`/`auto-edits`/`auto`/`bypass` was *placeholder* semantics (owner: "we just built a menu that allowed for multiple acceptance semantics"); the real axis is the wire Literal `ask`/`auto-edits`/`bypass`/`ai-review`, PATCH-backed. | **fixed** |
 | S2 | **Shift+Tab does not expand** the composer (added deliberately to the prototype). | open |
 | S3 | **Connection semantics lost**: no saved-connections list, no autoconnect. `@clio/core` ships the backend registry — a KEPT module — and I wrote a one-off single-key connect screen instead. | in progress |
 | S4 | Connecting state **freezes with no feedback**; needs an animation. | open |
@@ -74,6 +74,9 @@ bugs, not UI bugs, and both are in scope here rather than deferred.
 | # | Defect | Status |
 |---|---|---|
 | B1 | `GET /v1/sessions/{id}/messages` returns **500 `internal_error` / "Unhandled server error"** when the message blob is missing (`RuntimeError: GetBlob operation failed`). A gone blob is a knowable state and should be a typed, recoverable error the UI can render. | open |
+| B3 | The rail footer counted the **expert registry** (`/v1/agents` -> 12) where it must count **connected clio deployments** the user can swap between. Owner: "a UI personal semantic, not an agent backend semantic" — it is client-owned like pin, so it reads from the local backend registry and needs no endpoint. | **fixed** |
+| B4 | No endpoint exposes the **effective model** for a session that carries none (`/v1/models`, `/v1/system`, `/v1/catalog/models` all 404). `session.model` is `{'','',''}` on every existing session, so the control can only say "model not set". | open |
+| B5 | No **upload/attach endpoint** (`/v1/upload`, `/v1/files`, `/v1/attachments` all 404), so the prototype's attach control ships visibly unbacked (red). | open |
 | B2 | **5xx responses carry no CORS headers** while 2xx/4xx do, so the browser reports an opaque `net::ERR_FAILED` / "Failed to fetch". The server's structured error body never reaches a web client — the no-silent-fallback contract is defeated in transit. | open |
 
 B2 is the more serious of the two: it makes *every* server error indistinguishable

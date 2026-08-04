@@ -228,3 +228,76 @@ describe('empty session by default (C4)', () => {
     expect(client.sendMessage).not.toHaveBeenCalled();
   });
 });
+
+describe('composer control row (C5 / C9 / S1)', () => {
+  const SESSION_DETAIL = {
+    id: 'sess_a',
+    title: 'LA ground motion',
+    workspace_id: 'ws_default',
+    model: { provider_id: 'anthropic', model_id: 'claude-sonnet-4-6', variant: '' },
+    approval_mode: 'ask',
+  };
+
+  function wired(overrides: Record<string, unknown> = {}) {
+    return makeClient({
+      getSession: vi.fn(async () => SESSION_DETAIL),
+      providers: vi.fn(async () => ({
+        providers: [
+          { id: 'anthropic', name: 'Anthropic', is_authenticated: true },
+          { id: 'lm_studio', name: 'LM Studio (localhost)', is_authenticated: true },
+        ],
+      })),
+      providerModels: vi.fn(async () => ({
+        models: [{ id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6' }],
+      })),
+      patchSession: vi.fn(async () => SESSION_DETAIL),
+      ...overrides,
+    });
+  }
+
+  it('labels the model as provider / model, not "default"', async () => {
+    // The prototype renders "Anthropic / claude-sonnet-4-6". "default" says
+    // nothing about what will actually answer the turn.
+    render(<SessionView client={wired()} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('composer-model')).toHaveTextContent('Anthropic / claude-sonnet-4-6'),
+    );
+  });
+
+  it('offers the attach control, marked unbacked rather than hidden', () => {
+    // clio-agent serves no upload endpoint (/v1/upload, /v1/files and
+    // /v1/attachments all 404). The prototype has the control, so it ships
+    // visible and flagged instead of silently missing.
+    render(<SessionView client={wired()} sessions={SESSIONS} />);
+    const attach = screen.getByRole('button', { name: /attach/i });
+    expect(attach).toBeInTheDocument();
+    expect(attach).toHaveAttribute('data-unbacked', 'true');
+  });
+
+  it('offers the approval modes the BACKEND accepts', async () => {
+    // The prototype's ask/auto-edits/auto/bypass was placeholder semantics.
+    // The real axis is the wire Literal: ask, auto-edits, bypass, ai-review.
+    render(<SessionView client={wired()} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('combobox', { name: /approval/i }));
+    const options = screen.getAllByRole('option').map((o) => o.textContent?.trim());
+    expect(options).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
+  });
+
+  it('persists an approval-mode change through PATCH', async () => {
+    const client = wired();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('combobox', { name: /approval/i }));
+    fireEvent.click(screen.getByRole('option', { name: 'bypass' }));
+
+    await waitFor(() =>
+      expect(client.patchSession).toHaveBeenCalledWith('sess_a', { approval_mode: 'bypass' }),
+    );
+  });
+});

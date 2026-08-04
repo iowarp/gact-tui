@@ -121,3 +121,30 @@
   font-family: var(--f-mono);
   font-size: calc(11px * var(--ts));
 }
+
+/* Attach — the prototype's 26x26 / radius-7 transparent button. It is
+   disabled and marked because clio-agent serves no upload endpoint; the red
+   is the agreed signal for "present in the design, unbacked by the backend"
+   so the gap is visible rather than quietly missing. */
+.composer__attach {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--t-mu);
+  cursor: pointer;
+}
+
+.composer__attach[data-unbacked='true'] {
+  color: var(--t-er);
+  cursor: not-allowed;
+}
+
+.composer__attach[data-unbacked='true']:hover {
+  background: var(--t-erc06);
+}

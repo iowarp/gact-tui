@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Client, Message, Session, Workspace } from '@clio/core';
 import type { PickerItem } from '../composer/Picker';
-import { Composer } from '../composer/Composer';
+import { Composer, type ApprovalMode } from '../composer/Composer';
 import { AppShell } from '../shell/AppShell';
 import type { RailGroup, RailSession } from '../shell/Rail';
 import type { SessionStatus } from '../shell/StatusDot';
 import { Layer } from '../kit';
+import type { SelectOption } from '../kit';
+import { loadRegistry } from '../connect/registry';
 import { Observability } from '../observability/Observability';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
@@ -19,6 +21,12 @@ export interface SessionViewProps {
   onForgetSession?: (sessionId: string) => void;
   /** A session brought into being by the first send, so the rail can show it. */
   onSessionCreated?: (session: Session) => void;
+}
+
+/** The fields of the session record the composer renders. */
+interface SessionDetail {
+  model?: { provider_id?: string; model_id?: string; variant?: string };
+  approval_mode?: ApprovalMode;
 }
 
 type LoadState =
@@ -52,16 +60,42 @@ export function SessionView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const [obs, setObs] = useState<ObservabilityData | null>(null);
-  const [agentCount, setAgentCount] = useState(0);
+  const [detail, setDetail] = useState<SessionDetail | null>(null);
+  const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
 
+  // The rail footer counts CONNECTED CLIO DEPLOYMENTS the user can swap
+  // between (a local one, one on ares, ...). It is a UI-owned concept like
+  // pin, not a backend one — it must never be the expert-registry size, which
+  // is what /v1/agents returns and what this used to show.
+  const connectedCount = loadRegistry().backends.length;
+
+  // Providers and their models, for the composer's model control. Read once
+  // per backend: the catalogue does not change inside a session.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const result = await client.agents();
-        if (!cancelled) setAgentCount((result.agents ?? []).length);
+        const { providers = [] } = await client.providers();
+        const usable = providers.filter((p) => p.is_authenticated);
+        const perProvider = await Promise.all(
+          usable.map(async (p) => {
+            try {
+              const { models = [] } = await client.providerModels(p.id);
+              return models.map((m) => ({
+                id: `${p.id}/${m.id}`,
+                // The prototype's label: "Anthropic / claude-sonnet-4-6".
+                label: `${p.name || p.id} / ${m.id}`,
+              }));
+            } catch {
+              // A provider that cannot list models contributes none; the
+              // others still populate the control.
+              return [];
+            }
+          }),
+        );
+        if (!cancelled) setModelOptions(perProvider.flat());
       } catch {
-        // Footer shows 0; the count is informational, not load-bearing.
+        // Leaves the control empty, which reads as "nothing to choose".
       }
     })();
     return () => {
@@ -183,6 +217,14 @@ export function SessionView({
   const load = useCallback(
     async (sessionId: string) => {
       setState({ kind: 'loading' });
+      // The record carries model + approval_mode, which the composer renders.
+      // A failure here must not fail the transcript, so it is read separately.
+      void Promise.resolve()
+        .then(() => client.getSession(sessionId))
+        .then((row) => setDetail(row as unknown as SessionDetail))
+        // A backend that cannot serve the record leaves the composer without
+        // model/approval controls rather than failing the transcript with it.
+        .catch(() => setDetail(null));
       try {
         const result = await client.messages(sessionId);
         setState({ kind: 'loaded', messages: result.messages ?? [] });
@@ -234,6 +276,44 @@ export function SessionView({
     [client],
   );
 
+  // The composer's model id is "<provider>/<model>", matching the option ids.
+  const modelId =
+    detail?.model?.provider_id && detail.model.model_id
+      ? `${detail.model.provider_id}/${detail.model.model_id}`
+      : '';
+
+  const setApprovalMode = useCallback(
+    async (next: ApprovalMode) => {
+      if (!activeId) return;
+      const previous = detail?.approval_mode;
+      setDetail((cur) => ({ ...cur, approval_mode: next }));
+      try {
+        await client.patchSession(activeId, { approval_mode: next });
+      } catch {
+        // Revert rather than leave the control asserting a mode the backend
+        // never accepted.
+        setDetail((cur) => ({ ...cur, ...(previous ? { approval_mode: previous } : {}) }));
+      }
+    },
+    [activeId, client, detail?.approval_mode],
+  );
+
+  const setModel = useCallback(
+    async (next: string) => {
+      if (!activeId) return;
+      const [providerId, ...rest] = next.split('/');
+      const modelRef = { provider_id: providerId ?? '', model_id: rest.join('/'), variant: '' };
+      const previous = detail?.model;
+      setDetail((cur) => ({ ...cur, model: modelRef }));
+      try {
+        await client.patchSession(activeId, { model: modelRef });
+      } catch {
+        setDetail((cur) => ({ ...cur, ...(previous ? { model: previous } : {}) }));
+      }
+    },
+    [activeId, client, detail?.model],
+  );
+
   const send = useCallback(
     async (text: string) => {
       setSending(true);
@@ -274,7 +354,7 @@ export function SessionView({
       onSelectRibbon={() => {}}
       onRenameSession={(sessionId, next) => void rename(sessionId, next)}
       panel={panel}
-      agentCount={agentCount}
+      agentCount={connectedCount}
       onOpenSettings={() => setPanel('settings')}
       onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
 
@@ -343,10 +423,17 @@ export function SessionView({
 
       {state.kind !== 'missing' ? (
         <Composer
-          models={[{ id: 'default', label: 'default' }]}
-          modelId="default"
+          // A session can carry no model, and clio-agent exposes no endpoint
+          // for the model that would ACTUALLY answer the turn (/v1/models and
+          // /v1/system both 404). Say so rather than render a bare chevron.
+          models={
+            modelId ? modelOptions : [{ id: '', label: 'model not set' }, ...modelOptions]
+          }
+          modelId={modelId}
           commands={commands}
-          onModelChange={() => {}}
+          {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
+          onApprovalModeChange={(next) => void setApprovalMode(next)}
+          onModelChange={(next) => void setModel(next)}
           onSubmit={({ text }) => void send(text)}
           busy={sending}
           {...(sending ? { busyReason: 'Sending…' } : {})}

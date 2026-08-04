@@ -5,6 +5,15 @@ import './composer.css';
 
 export type ComposerMode = 'ask' | 'execute';
 
+/**
+ * The approval axis, from the wire Literal (gact/types.py: UpdateSessionRequest
+ * .approval_mode). The prototype showed ask/auto-edits/auto/bypass, but that
+ * was placeholder semantics for "a menu of acceptance modes" — these are the
+ * values the backend actually accepts.
+ */
+export const APPROVAL_MODES = ['ask', 'auto-edits', 'bypass', 'ai-review'] as const;
+export type ApprovalMode = (typeof APPROVAL_MODES)[number];
+
 export interface ComposerSubmission {
   text: string;
   mode: ComposerMode;
@@ -26,6 +35,9 @@ export interface ComposerProps {
   /** Workspace files, from client.workspaceFiles(). Empty disables `@`. */
   files?: PickerItem[];
   onModelChange: (id: string) => void;
+  /** Current approval mode; omit when no session is open to carry one. */
+  approvalMode?: ApprovalMode;
+  onApprovalModeChange?: (mode: ApprovalMode) => void;
   onSubmit: (submission: ComposerSubmission) => void;
 }
 
@@ -42,6 +54,8 @@ export function Composer({
   contextPercent,
   models,
   modelId,
+  approvalMode,
+  onApprovalModeChange,
   busy = false,
   busyReason,
   placeholder = 'Message clio (@ to reference, / for commands)',
@@ -164,6 +178,20 @@ export function Composer({
         />
 
         <div className="composer__controls">
+          {/* clio-agent serves no upload endpoint, so this is shown and
+              flagged rather than hidden — a missing control reads as a
+              feature we forgot, a flagged one as a gap we know about. */}
+          <button
+            type="button"
+            className="composer__attach"
+            title="Attach"
+            aria-label="Attach"
+            data-unbacked="true"
+            disabled
+          >
+            <Icon name="plus" size={13} />
+          </button>
+
           <Tabs
             label="Turn mode"
             activeId={mode}
@@ -176,13 +204,27 @@ export function Composer({
 
           <span className="composer__spacer" />
 
-          <Select
-            label="Model"
-            value={modelId}
-            options={models}
-            placement="up"
-            onChange={onModelChange}
-          />
+          {approvalMode && onApprovalModeChange ? (
+            <span className="composer__approval" data-testid="composer-approval">
+              <Select
+                label="Approval"
+                value={approvalMode}
+                options={APPROVAL_MODES.map((id) => ({ id, label: id }))}
+                placement="up"
+                onChange={(id) => onApprovalModeChange(id as ApprovalMode)}
+              />
+            </span>
+          ) : null}
+
+          <span className="composer__model" data-testid="composer-model">
+            <Select
+              label="Model"
+              value={modelId}
+              options={models}
+              placement="up"
+              onChange={onModelChange}
+            />
+          </span>
 
           <button
             type="button"
