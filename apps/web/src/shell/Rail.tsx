@@ -10,6 +10,8 @@ export interface RailSession {
   status: SessionStatus;
   /** Relative age, already formatted ("now", "4m", "8d"). */
   age: string;
+  /** UI organisation only — pin is not backend vocabulary. */
+  pinned?: boolean;
 }
 
 export interface RailGroup {
@@ -136,9 +138,16 @@ export function Rail({
           // The prototype truncates a long group behind "show more (N)"; the
           // count is the point, since "show more" alone never says whether
           // one session is hidden or forty.
-          const truncated = !expanded && group.sessions.length > GROUP_VISIBLE;
-          const shown = truncated ? group.sessions.slice(0, GROUP_VISIBLE) : group.sessions;
-          const hidden = group.sessions.length - shown.length;
+          // The prototype's ordering, verbatim: pinned first, then the rest,
+          // each bucket keeping its incoming order. Truncation applies AFTER,
+          // so a pinned session is never the one hidden behind "show more".
+          const ordered = [
+            ...group.sessions.filter((s) => s.pinned),
+            ...group.sessions.filter((s) => !s.pinned),
+          ];
+          const truncated = !expanded && ordered.length > GROUP_VISIBLE;
+          const shown = truncated ? ordered.slice(0, GROUP_VISIBLE) : ordered;
+          const hidden = ordered.length - shown.length;
 
           return (
           <section className="shell-rail__group" key={group.id}>

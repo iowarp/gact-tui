@@ -201,3 +201,46 @@ describe('rail group rows and truncation (C6 / C7)', () => {
     expect(screen.queryByTestId('rail-showmore-g2')).toBeNull();
   });
 });
+
+describe('pinned sessions sort first (prototype ordering)', () => {
+  // The prototype: byWs[path].filter(x => x.pinned).concat(filter(x => !x.pinned)).
+  // Pin is UI organisation, so the order is the client's to apply.
+  const group: RailGroup[] = [
+    {
+      id: 'g1',
+      label: '~/rollups',
+      count: 3,
+      sessions: [
+        { id: 'a', title: 'alpha', status: 'idle', age: '1h' },
+        { id: 'b', title: 'beta', status: 'idle', age: '2h', pinned: true },
+        { id: 'c', title: 'gamma', status: 'idle', age: '3h' },
+      ],
+    },
+  ];
+
+  it('renders pinned rows above unpinned ones', () => {
+    render(<Rail groups={group} activeSessionId="a" onSelectSession={() => {}} onCollapse={() => {}} />);
+    const titles = Array.from(document.querySelectorAll('.shell-rail__title')).map(
+      (el) => el.textContent,
+    );
+    expect(titles).toEqual(['beta', 'alpha', 'gamma']);
+  });
+
+  it('keeps relative order within each pin bucket', () => {
+    const two: RailGroup[] = [
+      {
+        ...group[0]!,
+        sessions: [
+          { id: 'a', title: 'alpha', status: 'idle', age: '1h' },
+          { id: 'b', title: 'beta', status: 'idle', age: '2h', pinned: true },
+          { id: 'c', title: 'gamma', status: 'idle', age: '3h', pinned: true },
+        ],
+      },
+    ];
+    render(<Rail groups={two} activeSessionId="a" onSelectSession={() => {}} onCollapse={() => {}} />);
+    const titles = Array.from(document.querySelectorAll('.shell-rail__title')).map(
+      (el) => el.textContent,
+    );
+    expect(titles).toEqual(['beta', 'gamma', 'alpha']);
+  });
+});

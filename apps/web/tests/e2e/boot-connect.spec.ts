@@ -7,7 +7,29 @@
 import { expect, test } from '@playwright/test';
 import { connectMockBackend, installMockBackend } from './mock-backend';
 
+/**
+ * Clears the saved-backend registry so a case starts from a genuinely COLD
+ * boot. Autoconnect makes boot depend on persisted state, so any case
+ * asserting boot behaviour must own its starting state rather than inherit
+ * whatever a previous case saved.
+ *
+ * Deliberately not a file-wide beforeEach: it re-runs on every navigation,
+ * including the reload the autoconnect case depends on.
+ */
+async function coldBoot(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.removeItem('clio.backends.v3');
+      localStorage.removeItem('clio.backend.last-url.v3');
+    } catch {
+      // No storage in this context; boot is already cold.
+    }
+  });
+}
+
+
 test('boots to the connect screen', async ({ page }) => {
+  await coldBoot(page);
   await installMockBackend(page);
   await page.goto('/');
 
@@ -50,8 +72,23 @@ test('boots without console errors', async ({ page }) => {
   });
   page.on('pageerror', (err) => errors.push(String(err)));
 
+  await coldBoot(page);
   await connectMockBackend(page);
   await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
 
-  expect(errors).toEqual([]);
+  expect(errors, `console errors during boot:
+${errors.join('
+')}`).toEqual([]);
+});
+
+test('autoconnects to the last-used backend without typing', async ({ page }) => {
+  // The feature the beforeEach above suppresses for the other cases: with a
+  // saved backend, boot must reach the sessions rail on its own.
+  await installMockBackend(page);
+  await connectMockBackend(page);
+  await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
+  await expect(page.getByTestId('connect-screen')).toHaveCount(0);
 });

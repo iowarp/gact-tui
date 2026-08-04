@@ -45,7 +45,7 @@ is done and working, as originally instructed.
 
 | # | Defect | Status |
 |---|---|---|
-| C1 | Icons hand-drawn instead of the prototype's set. The gear reads as a **sun**. | fixing |
+| C1 | Icons hand-drawn instead of the prototype's set. The gear reads as a **sun**. | **fixed** — `kit/Icon.tsx` transcribes all 27 `menuIcon()` glyphs plus the 7 inline template SVGs verbatim; the gear is the prototype's own 24x24 path. |
 | C2 | Settings / observability open in the **wrong column** — placed in the right `detail` slot; owner reports seeing them left. Panel placement never visually verified. | **fixed** |
 | C3 | Composer pill anchors to **content flow, not the viewport bottom** — it sits after the text rather than at the bottom of the screen. | **fixed** |
 | C4 | Empty state is a debug string ("Select a session to open it."). The prototype defines a real empty session with its own animation. | **fixed** |
@@ -60,11 +60,11 @@ is done and working, as originally instructed.
 | # | Defect | Status |
 |---|---|---|
 | S1 | **Permissions/approve modes missing** from the composer. The prototype's `ask`/`auto-edits`/`auto`/`bypass` was *placeholder* semantics (owner: "we just built a menu that allowed for multiple acceptance semantics"); the real axis is the wire Literal `ask`/`auto-edits`/`bypass`/`ai-review`, PATCH-backed. | **fixed** |
-| S2 | **Shift+Tab does not expand** the composer (added deliberately to the prototype). | open |
+| S2 | **Shift+Tab does not expand** the composer (added deliberately to the prototype). | **fixed** — note `'Tab'` appears **nowhere** in the bundled prototype export, so this was built to the owner's stated intent, not transcribed. |
 | S3 | **Connection semantics lost**: no saved-connections list, no autoconnect. `@clio/core` ships the backend registry — a KEPT module — and I wrote a one-off single-key connect screen instead. | **fixed** |
 | S4 | Connecting state **freezes with no feedback**; needs an animation. | **fixed** |
 | S5 | Missing session (404) should offer **remove**, not appear broken. | done |
-| S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | open |
+| S6 | `ConnectionPool` (#338) built and tested but **never wired** into the app. | open — the registry now drives saved connections and the footer count, but the pool class itself is still unused. |
 
 ### Backend defects (clio-agent, P4-linked)
 

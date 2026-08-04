@@ -440,18 +440,25 @@ export function SessionView({
           onSubmit={({ text }) => void send(text)}
           busy={sending}
           {...(sending ? { busyReason: 'Sending…' } : {})}
+          {...(backendVersion
+            ? {
+                footer: (
+                  // The prototype also reads "· update available"; no endpoint
+                  // reports update state, so that half is omitted, not invented.
+                  <div className="sessionview__version">
+                    <button
+                      type="button"
+                      className="sessionview__versionbtn"
+                      data-testid="version-stamp"
+                    >
+                      {`v${backendVersion}`}
+                    </button>
+                  </div>
+                ),
+              }
+            : {})}
         />
       ) : null}
-      {backendVersion ? (
-        // The prototype also reads "· update available"; no endpoint reports
-        // update state, so that half is omitted rather than invented.
-        <div className="sessionview__version">
-          <button type="button" className="sessionview__versionbtn" data-testid="version-stamp">
-            {`v${backendVersion}`}
-          </button>
-        </div>
-      ) : null}
-
       <Layer
         open={panel === 'settings'}
         title="settings"

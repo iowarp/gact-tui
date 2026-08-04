@@ -57,11 +57,8 @@
 .sessionview__version {
   display: flex;
   justify-content: flex-end;
-  flex: 0 0 auto;
   width: 100%;
-  max-width: calc(860px + 2 * 36px);
-  margin: -12px auto 0;
-  padding: 5px 40px 6px;
+  padding: 5px 4px 0;
 }
 
 .sessionview__versionbtn {

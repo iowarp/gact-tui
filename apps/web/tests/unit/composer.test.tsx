@@ -91,3 +91,37 @@ describe('Composer', () => {
     expect(screen.getByTestId('composer-busy')).toHaveTextContent('turn in progress');
   });
 });
+
+describe('Shift+Tab expand (S2)', () => {
+  // Not in the bundled prototype export — `'Tab'` appears nowhere in it — but
+  // the owner added it deliberately to the design, so it is built to spec.
+  it('starts collapsed', () => {
+    render(<Composer models={[]} modelId="" onModelChange={() => {}} onSubmit={() => {}} />);
+    expect(screen.getByTestId('composer-frame')).not.toHaveAttribute('data-expanded');
+  });
+
+  it('expands on Shift+Tab and collapses on a second press', () => {
+    render(<Composer models={[]} modelId="" onModelChange={() => {}} onSubmit={() => {}} />);
+    const input = screen.getByRole('textbox');
+
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(screen.getByTestId('composer-frame')).toHaveAttribute('data-expanded', 'true');
+
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(screen.getByTestId('composer-frame')).not.toHaveAttribute('data-expanded');
+  });
+
+  it('does not expand on a plain Tab, which must still move focus', () => {
+    render(<Composer models={[]} modelId="" onModelChange={() => {}} onSubmit={() => {}} />);
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Tab' });
+    expect(screen.getByTestId('composer-frame')).not.toHaveAttribute('data-expanded');
+  });
+
+  it('keeps the typed text across an expand', () => {
+    render(<Composer models={[]} modelId="" onModelChange={() => {}} onSubmit={() => {}} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'half a thought' } });
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('textbox')).toHaveValue('half a thought');
+  });
+})

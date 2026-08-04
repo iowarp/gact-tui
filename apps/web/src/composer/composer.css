@@ -148,3 +148,9 @@
 .composer__attach[data-unbacked='true']:hover {
   background: var(--t-erc06);
 }
+
+/* Shift+Tab grows the field for a long message. Height only — the pill keeps
+   its width, so nothing around it reflows. */
+.composer__frame[data-expanded='true'] .composer__input {
+  min-height: 180px;
+}

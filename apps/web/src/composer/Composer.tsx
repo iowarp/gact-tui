@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Chip, Icon, Select, Tabs, type SelectOption } from '../kit';
 import { Picker, type PickerItem } from './Picker';
 import './composer.css';
@@ -39,6 +39,12 @@ export interface ComposerProps {
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
   onSubmit: (submission: ComposerSubmission) => void;
+  /**
+   * Rendered inside the composer block, below the frame — the prototype puts
+   * its version stamp here, within the same 860px column. A sibling AFTER the
+   * composer would push the whole block off the viewport floor.
+   */
+  footer?: ReactNode;
 }
 
 /**
@@ -63,10 +69,12 @@ export function Composer({
   files = [],
   onModelChange,
   onSubmit,
+  footer,
 }: ComposerProps) {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<ComposerMode>('ask');
   const [dismissed, setDismissed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
@@ -133,6 +141,13 @@ export function Composer({
       setDismissed(true);
       return;
     }
+    // Shift+Tab toggles the tall composer. Plain Tab is left alone so it can
+    // still move focus — stealing it would trap keyboard users in the field.
+    if (event.key === 'Tab' && event.shiftKey) {
+      event.preventDefault();
+      setExpanded((cur) => !cur);
+      return;
+    }
     // Enter sends; Shift+Enter is a newline. Anything else is normal typing.
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -150,6 +165,8 @@ export function Composer({
 
       <div
         className="composer__frame"
+        data-testid="composer-frame"
+        data-expanded={expanded ? 'true' : undefined}
         data-queued={asyncCount ? 'true' : undefined}
         data-picker-open={pickerOpen ? 'true' : undefined}
       >
@@ -243,6 +260,8 @@ export function Composer({
           {busyReason ?? 'busy'}
         </p>
       ) : null}
+
+      {footer}
     </div>
   );
 }

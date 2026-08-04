@@ -325,6 +325,17 @@ describe('version stamp (C8)', () => {
     expect(screen.queryByText(/update available/i)).toBeNull();
   });
 
+  it('renders the stamp INSIDE the composer block, not after it', () => {
+    // A sibling after .composer pushed the whole block off the viewport
+    // floor, undoing C3. The prototype keeps the stamp inside the composer's
+    // own column, so the block still bottoms out at the floor.
+    render(
+      <SessionView client={makeClient()} sessions={SESSIONS} backendVersion="0.9.0+42522bb1" />,
+    );
+    const stamp = screen.getByTestId('version-stamp');
+    expect(stamp.closest('.composer')).not.toBeNull();
+  });
+
   it('renders no stamp when the backend reports no version', () => {
     render(<SessionView client={makeClient()} sessions={SESSIONS} />);
     expect(screen.queryByTestId('version-stamp')).toBeNull();
