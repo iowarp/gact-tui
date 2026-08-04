@@ -5,7 +5,7 @@
  * designation, evidence, custody and the route DAG. They have zero P2/P3
  * dependencies, which is why this slice runs early.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DetailSlot } from '../../src/detail/DetailSlot';
 import type { ArtifactRecord } from '../../src/detail/types';
@@ -36,10 +36,56 @@ describe('DetailSlot', () => {
     expect(screen.getByRole('complementary', { name: /detail/i })).toBeInTheDocument();
   });
 
-  it('opens on the overview tab showing identity', () => {
+  it('opens on the artifact tab showing identity', () => {
     render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    expect(screen.getByRole('tab', { name: /artifact/i })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('art_5f21c9d0e83a')).toBeInTheDocument();
     expect(screen.getByText(/48 KB/)).toBeInTheDocument();
+  });
+
+  it('shows an uppercase kind badge, defaulting to ARTIFACT', () => {
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    expect(screen.getByText('ARTIFACT')).toBeInTheDocument();
+  });
+
+  it('renders a clickable breadcrumb trail when the record carries one', () => {
+    render(
+      <DetailSlot record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }} onClose={vi.fn()} />,
+    );
+    const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(crumbs).toHaveTextContent('session');
+    expect(crumbs).toHaveTextContent('earthscope_stations.csv');
+  });
+
+  it('omits the breadcrumb row entirely when the record carries none', () => {
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    expect(screen.queryByRole('navigation', { name: /breadcrumb/i })).toBeNull();
+  });
+
+  it('copies an artifact summary to the clipboard', async () => {
+    const writeText = vi.fn(async (_text: string) => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /copy as markdown/i }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0]?.[0]).toContain(RECORD.id);
+  });
+
+  it('renders the download control disabled with an honest unbacked reason', () => {
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    const download = screen.getByRole('button', { name: /download/i });
+    expect(download).toBeDisabled();
+    expect(download).toHaveAttribute('title', expect.stringMatching(/not wired/i));
+  });
+
+  it('maximizes into a centered modal and restores on close', () => {
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /maximize detail/i }));
+    const dialog = screen.getByRole('dialog', { name: RECORD.id });
+    expect(dialog).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: new RegExp(`close ${RECORD.id}`, 'i') }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('complementary', { name: /detail/i })).toBeInTheDocument();
   });
 
   it('renders the four provenance axes on the provenance tab', () => {

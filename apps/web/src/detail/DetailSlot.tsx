@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Chip, Eyebrow, KvGrid, Tabs, ToolbarButton, type KvRow } from '../kit';
+import { Chip, Eyebrow, KvGrid, Layer, Tabs, ToolbarButton, type KvRow } from '../kit';
 import type { ArtifactRecord, RouteStep } from './types';
 import './detail.css';
 
@@ -8,7 +8,7 @@ export interface DetailSlotProps {
   onClose: () => void;
 }
 
-type DetailTab = 'overview' | 'provenance' | 'recreate';
+type DetailTab = 'artifact' | 'provenance' | 'recreate';
 
 /**
  * The detail slot — the prototype's right pane.
@@ -17,15 +17,96 @@ type DetailTab = 'overview' | 'provenance' | 'recreate';
  * surface has no P2/P3 dependency. Absence is always STATED: a record with no
  * route or no instrument says so, because a blank pane reads as "nothing here"
  * when the truth is "this was never captured".
+ *
+ * Reachability gap (tracked separately, E7 — "mint real artifacts and ground
+ * the chips"): nothing in the live transcript opens this yet, only the
+ * `?shell` fixture harness. This component fixes the CHROME the prototype
+ * measures (kind badge, breadcrumb, copy/download, maximize) independent of
+ * that wiring gap, so it is ready when E7 lands.
  */
 export function DetailSlot({ record, onClose }: DetailSlotProps) {
-  const [tab, setTab] = useState<DetailTab>('overview');
+  const [tab, setTab] = useState<DetailTab>('artifact');
+  const [maximized, setMaximized] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const kind = record.recordKind ?? 'artifact';
+
+  const body = (
+    <>
+      <div className="detail__tabs">
+        <Tabs
+          label="Detail views"
+          activeId={tab}
+          onChange={(id) => setTab(id as DetailTab)}
+          tabs={[
+            { id: 'artifact', label: 'artifact' },
+            { id: 'provenance', label: 'provenance' },
+            { id: 'recreate', label: 'recreate' },
+          ]}
+        />
+      </div>
+
+      <div className="detail__body">
+        {tab === 'artifact' ? <Overview record={record} /> : null}
+        {tab === 'provenance' ? <Provenance record={record} /> : null}
+        {tab === 'recreate' ? <Recreate record={record} /> : null}
+      </div>
+    </>
+  );
+
+  const copyMarkdown = () => {
+    const lines = [
+      `# ${record.id}`,
+      record.kind ? `kind: ${record.kind}` : null,
+      record.size ? `size: ${record.size}` : null,
+      record.sha ? `sha: ${record.sha}` : null,
+      record.note ? `\n${record.note}` : null,
+    ].filter((line): line is string => line !== null);
+    void navigator.clipboard?.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  if (maximized) {
+    return (
+      <Layer open title={record.id} width={1120} onClose={() => setMaximized(false)}>
+        {body}
+      </Layer>
+    );
+  }
 
   return (
     <aside className="detail" aria-label="Detail">
       <header className="detail__head">
-        <Eyebrow strong>detail</Eyebrow>
+        <Chip tone="accent">{kind.toUpperCase()}</Chip>
         <span className="detail__spacer" />
+        {kind === 'artifact' ? (
+          <>
+            <ToolbarButton
+              label={copied ? 'Copied' : 'Copy as markdown'}
+              iconOnly
+              size="small"
+              icon={<span aria-hidden="true">{copied ? '✓' : '⧉'}</span>}
+              onClick={copyMarkdown}
+            />
+            <ToolbarButton
+              label="Download"
+              iconOnly
+              size="small"
+              icon={<span aria-hidden="true">⭳</span>}
+              unbacked
+              title="Not wired — no artifact-download endpoint."
+              onClick={() => {}}
+            />
+          </>
+        ) : null}
+        <ToolbarButton
+          label="Maximize detail"
+          iconOnly
+          size="small"
+          icon={<span aria-hidden="true">⛶</span>}
+          onClick={() => setMaximized(true)}
+        />
         <ToolbarButton
           label="Close detail"
           iconOnly
@@ -35,24 +116,18 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
         />
       </header>
 
-      <div className="detail__tabs">
-        <Tabs
-          label="Detail views"
-          activeId={tab}
-          onChange={(id) => setTab(id as DetailTab)}
-          tabs={[
-            { id: 'overview', label: 'overview' },
-            { id: 'provenance', label: 'provenance' },
-            { id: 'recreate', label: 'recreate' },
-          ]}
-        />
-      </div>
+      {record.breadcrumb && record.breadcrumb.length > 0 ? (
+        <nav className="detail__crumbs" aria-label="Detail breadcrumb">
+          {record.breadcrumb.map((crumb, index) => (
+            <span key={`${crumb}-${index}`}>
+              {index > 0 ? <span className="detail__crumbsep">/</span> : null}
+              {crumb}
+            </span>
+          ))}
+        </nav>
+      ) : null}
 
-      <div className="detail__body">
-        {tab === 'overview' ? <Overview record={record} /> : null}
-        {tab === 'provenance' ? <Provenance record={record} /> : null}
-        {tab === 'recreate' ? <Recreate record={record} /> : null}
-      </div>
+      {body}
     </aside>
   );
 }

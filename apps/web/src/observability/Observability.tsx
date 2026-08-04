@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
-import { Chip, KvGrid, Select, Tabs, type TabDef } from '../kit';
-import type { ObsSpan, ObsTimelineKind, ObservabilityData } from './types';
+import { Chip, Eyebrow, Select, Tabs, type TabDef } from '../kit';
+import type { ObsContext, ObsRun, ObsSpan, ObsTimelineKind, ObservabilityData } from './types';
 import './observability.css';
 
 export interface ObservabilityProps {
@@ -203,25 +203,95 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
         ) : null}
 
         {activeTab === 'context' ? (
-          <div className="obs-context" data-testid="obs-context">
-            {data.context ? (
-              <KvGrid
-                label="Context"
-                rows={[
-                  { key: 'used', value: `${data.context.usedPercent}%` },
-                  {
-                    key: 'tokens',
-                    value: `${data.context.tokens.toLocaleString('en-US')} / ${data.context.limit.toLocaleString('en-US')}`,
-                  },
-                ]}
-              />
-            ) : (
-              <p className="obs__empty">No context measurement reported for this session.</p>
-            )}
-          </div>
+          <ContextTab context={data.context} runs={data.runs} />
         ) : null}
       </div>
     </section>
+  );
+}
+
+/** Non-terminal run states — anything else counts as "live now". Mirrors
+ *  SessionView's TERMINAL_AGENT_TASK_STATUSES; kept local since ObsRun.state
+ *  is a display string, not the raw wire enum SessionView normalizes. */
+const TERMINAL_RUN_STATES = new Set([
+  'completed',
+  'failed',
+  'cancelled',
+  'detached',
+  'done',
+  'error',
+]);
+
+interface ContextTabProps {
+  context?: ObsContext;
+  runs: ObsRun[];
+}
+
+/**
+ * The context tab — progress bar + hero stat, real/degraded telemetry tiles,
+ * and a live-jobs box built from the SAME `runs` the runs tab already shows
+ * (no separate fetch). Relay latency and thinking-token counts have no wire
+ * source (SPEC has neither), so they render an honest "not reported" tile
+ * rather than a fabricated estimate — the no-silent-fallback rule.
+ */
+function ContextTab({ context, runs }: ContextTabProps) {
+  if (!context) {
+    return (
+      <div className="obs-context" data-testid="obs-context">
+        <p className="obs__empty">No context measurement reported for this session.</p>
+      </div>
+    );
+  }
+  const liveRuns = runs.filter((run) => !TERMINAL_RUN_STATES.has(run.state.toLowerCase()));
+  return (
+    <div className="obs-context" data-testid="obs-context">
+      <div className="obs-context__hero">
+        <Eyebrow>context window</Eyebrow>
+        <span className="obs-context__hero-value">
+          {context.tokens.toLocaleString('en-US')} / {context.limit.toLocaleString('en-US')} ·{' '}
+          {context.usedPercent}%
+        </span>
+      </div>
+      <div className="obs-context__bar">
+        <span style={{ width: `${Math.min(100, Math.max(0, context.usedPercent))}%` }} />
+      </div>
+
+      <div className="obs-context__tiles">
+        <ContextTile label="relay latency" value={null} />
+        <ContextTile label="thinking tokens" value={null} />
+        <ContextTile
+          label="cost"
+          value={context.costUsd !== undefined ? `$${context.costUsd.toFixed(2)}` : null}
+          meta={context.costUsd !== undefined ? 'incl. subagents' : undefined}
+        />
+      </div>
+
+      {liveRuns.length > 0 ? (
+        <div className="obs-context__live" data-testid="obs-context-live">
+          <Eyebrow strong>live now · {liveRuns.length}</Eyebrow>
+          <ul>
+            {liveRuns.map((run) => (
+              <li key={run.id}>
+                <span className="obs-context__live-label">{run.label ?? run.id}</span>
+                {run.agent ? <span className="obs-context__live-meta">{run.agent}</span> : null}
+                {run.host ? <span className="obs-context__live-meta">{run.host}</span> : null}
+                {run.duration ? <span className="obs-context__live-meta">{run.duration}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ContextTile({ label, value, meta }: { label: string; value: string | null; meta?: string }) {
+  return (
+    <div className="obs-context__tile" {...(value === null ? { 'data-unbacked': 'true' } : {})}>
+      <Eyebrow>{label}</Eyebrow>
+      <strong>{value ?? 'not reported'}</strong>
+      {meta ? <span>{meta}</span> : null}
+    </div>
   );
 }
 

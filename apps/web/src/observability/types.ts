@@ -33,6 +33,9 @@ export interface ObsContext {
   usedPercent: number;
   tokens: number;
   limit: number;
+  /** Sum of every message's real `cost_usd`; undefined when no message in
+   *  this session reported a cost (never fabricated from token counts). */
+  costUsd?: number;
 }
 
 export type ObsTimelineKind = 'event' | 'tool' | 'artifact' | 'failure' | 'running';

@@ -32,9 +32,9 @@ import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ConsoleDock } from './ConsoleDock';
+import { FilesLayer } from './FilesLayer';
 import { FreshHeadline, FreshStarting, SuggestedPrompts, type FreshStarter } from './FreshState';
 import { NewDialog, SearchDialog } from './SessionDialogs';
-import { SessionRightPanel, type RightPanelKind } from './SessionRightPanel';
 import './sessionview.css';
 
 export interface SessionViewProps {
@@ -294,6 +294,17 @@ export function SessionView({
         typeof usedFraction === 'number' && Number.isFinite(usedFraction)
           ? Math.round(usedFraction <= 1 ? usedFraction * 100 : usedFraction)
           : null;
+      // Real per-message cost, summed — never estimated from token counts.
+      // costSeen distinguishes "no message reported a cost" (undefined, shown
+      // as "not reported") from a genuine $0.00.
+      let costSum = 0;
+      let costSeen = false;
+      for (const message of messages) {
+        if (typeof message.cost_usd === 'number' && Number.isFinite(message.cost_usd)) {
+          costSum += message.cost_usd;
+          costSeen = true;
+        }
+      }
 
       return {
         // Agent definitions remain available for legacy consumers; the P5 UI
@@ -333,6 +344,7 @@ export function SessionView({
                 usedPercent,
                 tokens: context?.used_tokens ?? context?.live_tokens ?? 0,
                 limit: context?.window_tokens ?? 0,
+                ...(costSeen ? { costUsd: costSum } : {}),
               },
             }
           : {}),
@@ -579,6 +591,16 @@ export function SessionView({
     setNewOpen(true);
   }, []);
 
+  // The files layer's "attach to message" affordance — the prototype's own
+  // button has no click handler at all (a static mockup element), but the
+  // composer already exposes a real draft-insertion path (the SUGGESTED-row
+  // mechanism), so wire it to something that actually works rather than
+  // leaving it decorative.
+  const attachFileToComposer = useCallback((path: string): void => {
+    setStarterPrompt((current) => ({ text: `@${path}`, token: (current?.token ?? 0) + 1 }));
+    setPanel(null);
+  }, []);
+
   const createFromDialog = useCallback(
     async (input: {
       title: string;
@@ -793,13 +815,9 @@ export function SessionView({
   const observabilityData = obs
     ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
     : null;
-  const rightPanelKind =
-    panel === 'files' || panel === 'artifacts' || panel === 'context'
-      ? (panel as RightPanelKind)
-      : null;
-  const rightWorkspaceId = activeWorkspaceId ?? newWorkspaceId ?? workspaces[0]?.id;
-  const rightWorkspaceLabel = rightWorkspaceId
-    ? workspaceDisplayLabel(rightWorkspaceId, workspaces)
+  const filesWorkspaceId = activeWorkspaceId ?? newWorkspaceId ?? workspaces[0]?.id;
+  const filesWorkspaceLabel = filesWorkspaceId
+    ? workspaceDisplayLabel(filesWorkspaceId, workspaces)
     : undefined;
 
   // The prototype's "New session" screen: no active session yet, OR a real
@@ -909,23 +927,9 @@ export function SessionView({
         onSelectRibbon={setActiveScope}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
         panel={panel}
+        obsTab={obsTab}
         artifactCount={activePill?.artifactCount}
         contextPercent={activePill?.contextPercent}
-        {...(rightPanelKind
-          ? {
-              detail: (
-                <SessionRightPanel
-                  client={client}
-                  kind={rightPanelKind}
-                  {...(activeId ? { sessionId: activeId } : {})}
-                  {...(rightWorkspaceId ? { workspaceId: rightWorkspaceId } : {})}
-                  {...(rightWorkspaceLabel ? { workspaceLabel: rightWorkspaceLabel } : {})}
-                  scope={activeScope}
-                  onClose={() => setPanel(null)}
-                />
-              ),
-            }
-          : {})}
         {...(panel === 'console'
           ? { dock: <ConsoleDock onClose={() => setPanel(null)} /> }
           : {})}
@@ -935,7 +939,17 @@ export function SessionView({
         {...(onSwitchConnection ? { onSwitchConnection } : {})}
         onOpenSettings={() => setPanel('settings')}
         onOpenSearch={() => setSearchOpen(true)}
-        onTogglePanel={(next) => setPanel((cur) => (cur === next ? null : next))}
+        onTogglePanel={(next) => {
+          // 'artifacts'/'ctx' deep-link into the SAME observability layer on a
+          // specific tab (proto tgArtifacts/tgTelemetry: unlike the eye icon,
+          // neither ever CLOSES the layer — they only open it / switch tabs).
+          if (next === 'artifacts' || next === 'context') {
+            setPanel('obs');
+            setObsTab(next === 'artifacts' ? 'artifacts' : 'context');
+            return;
+          }
+          setPanel((cur) => (cur === next ? null : next));
+        }}
       >
         {sessions.length === 0 ? (
           <p className="sessionview__notice" data-testid="sessions-empty">
@@ -1061,6 +1075,15 @@ export function SessionView({
             <p className="sessionview__notice">Loading observability…</p>
           )}
         </Layer>
+
+        <FilesLayer
+          client={client}
+          open={panel === 'files'}
+          {...(filesWorkspaceId ? { workspaceId: filesWorkspaceId } : {})}
+          {...(filesWorkspaceLabel ? { workspaceLabel: filesWorkspaceLabel } : {})}
+          onAttach={attachFileToComposer}
+          onClose={() => setPanel(null)}
+        />
 
         <BlueprintWindow
           blueprintId={activeBlueprintId ?? null}

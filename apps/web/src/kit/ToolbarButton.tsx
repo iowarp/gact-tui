@@ -11,6 +11,11 @@ export interface ToolbarButtonProps {
   pressed?: boolean;
   /** `small` is the rail's 22px icon button; default is the topbar's 26px. */
   size?: 'small' | 'default';
+  /** No backend surface exists for this action yet — renders disabled with
+   *  the codebase's degraded marker (never a silently-omitted control). */
+  unbacked?: boolean;
+  /** Tooltip; mandatory pairing for `unbacked` to explain the gap honestly. */
+  title?: string;
   onClick: () => void;
 }
 
@@ -31,6 +36,8 @@ export function ToolbarButton({
   iconOnly = false,
   pressed,
   size = 'default',
+  unbacked = false,
+  title,
   onClick,
 }: ToolbarButtonProps) {
   return (
@@ -39,8 +46,11 @@ export function ToolbarButton({
       className="kit-toolbarbutton"
       data-icon-only={iconOnly ? 'true' : undefined}
       data-size={size}
+      data-unbacked={unbacked ? 'true' : undefined}
       aria-label={label}
+      {...(title ? { title } : {})}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
+      disabled={unbacked}
       onClick={onClick}
     >
       {icon ? (

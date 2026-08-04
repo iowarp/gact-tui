@@ -31,6 +31,12 @@ export interface ArtifactRecord {
   sha?: string;
   size?: string;
   kind?: string;
+  /** The coarse detail-slot kind (the prototype's badge: ARTIFACT / ANSWER /
+   *  AGENT). Only 'artifact' records are minted today — answer/agent are not
+   *  yet a real record shape anywhere in the app (E7 backlog). */
+  recordKind?: 'artifact' | 'answer' | 'agent';
+  /** Clickable trail shown under the header, e.g. ['session', 'earthscope_stations_…']. */
+  breadcrumb?: string[];
 
   /** How the artifact came to exist (harness, agent, user). */
   mechanism?: string;

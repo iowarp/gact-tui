@@ -74,6 +74,18 @@ async function clickPrototypeText(p, label) {
   }, label);
 }
 
+/** Same, but matches a PREFIX — for pills that carry a live count/percent
+ *  suffix in their own text ("artifacts 5", "ctx 41%"), where exact-text
+ *  matching never hits. */
+async function clickPrototypeTextPrefix(p, label) {
+  await p.evaluate((wanted) => {
+    const button = [...document.querySelectorAll('button')].find((candidate) =>
+      (candidate.textContent?.trim().toLowerCase() ?? '').startsWith(wanted.toLowerCase()),
+    );
+    button?.click();
+  }, label);
+}
+
 /** Open the settings overlay in the prototype: the leftmost cell of the rail
  * footer's 41px/129px/129px grid band (verified in scripts/_gearprobe.mjs). */
 async function openPrototypeSettings(p) {
@@ -213,15 +225,21 @@ const SETUPS = {
   },
   files: {
     proto: async (p) => { await clickPrototypeText(p, 'files'); await p.waitForTimeout(800); },
-    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'files' }).click(); await p.waitForTimeout(900); },
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'files' }).click(); await p.waitForTimeout(2200); },
   },
   artifacts: {
-    proto: async (p) => { await clickPrototypeText(p, 'artifacts'); await p.waitForTimeout(800); },
-    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'artifacts' }).click(); await p.waitForTimeout(900); },
+    proto: async (p) => { await clickPrototypeTextPrefix(p, 'artifacts'); await p.waitForTimeout(800); },
+    // The observability layer's Promise.all fans out to several endpoints
+    // against a real backend — 900ms is enough for a mocked test but leaves
+    // the layer on "Loading observability…" here.
+    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'artifacts' }).click(); await p.waitForTimeout(2500); },
   },
   context: {
-    proto: async (p) => { await clickPrototypeText(p, 'ctx'); await p.waitForTimeout(800); },
-    app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'ctx' }).click(); await p.waitForTimeout(900); },
+    proto: async (p) => { await clickPrototypeTextPrefix(p, 'ctx'); await p.waitForTimeout(800); },
+    // Scoped to the topbar: the composer also renders its own "ctx N%" chip
+    // (a real, separate deep-link into the same layer), which a page-wide
+    // name:'ctx' match resolves ambiguously against.
+    app: async (p) => { await selectAppSession(p); await p.getByRole('banner').getByRole('button', { name: 'ctx' }).click(); await p.waitForTimeout(2500); },
   },
   console: {
     proto: async (p) => { await p.locator('button[title^="Workspace console"]').click(); await p.waitForTimeout(800); },

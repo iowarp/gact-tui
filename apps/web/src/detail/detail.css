@@ -19,6 +19,24 @@
   flex: 1;
 }
 
+.detail__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 0;
+  overflow: hidden;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detail__crumbsep {
+  margin-right: 4px;
+  color: var(--t-dis);
+}
+
 .detail__tabs {
   padding: 8px 12px;
 }

@@ -66,7 +66,16 @@ function client(overrides: Record<string, unknown> = {}): Client {
     get: vi.fn(async (path: string) => {
       if (path.includes('/artifacts')) {
         return {
-          artifacts: [{ id: 'art_1', name: 'station.csv', kind: 'dataset', size_bytes: 128 }],
+          artifacts: [
+            {
+              name: 'station.csv',
+              kind: 'dataset',
+              head_artifact_id: 'art_1',
+              versions: [
+                { artifact_id: 'art_1', name: 'station.csv', version: 1, kind: 'dataset', size_bytes: 128 },
+              ],
+            },
+          ],
         };
       }
       if (path.includes('/context')) {
@@ -110,29 +119,44 @@ describe('owner review 1 contracts', () => {
     expect(css).toMatch(/\.shell-topbar__identity\s+\.kit-inlineedit\s*{[^}]*flex:\s*0\s+1\s+auto/s);
   });
 
-  it('uses the right column for files, artifacts, and context, and docks console below', async () => {
+  it('opens files as its own modal layer, artifacts/ctx as observability tabs, and docks console below', async () => {
+    // Superseded by panels.json PASS 1: files/artifacts/ctx are OVERLAYS in the
+    // prototype (layerFiles / layerObs+obsTab), not right-pane content — an
+    // earlier owner-review round routed them into the detail slot, which
+    // kit/Layer.tsx's own #331 doc comment already flagged as the wrong place.
     (window as { isTauri?: boolean }).isTauri = true;
     const wire = client();
     render(<SessionView client={wire} sessions={SESSIONS} />);
     await selectSession();
 
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
-    const files = await screen.findByTestId('right-panel-files');
-    fireEvent.click(within(files).getByRole('button', { name: /readme\.md/i }));
-    await within(files).findByText(/hello from the workspace/i);
+    const filesLayer = await screen.findByRole('dialog', { name: 'files' });
+    fireEvent.click(within(filesLayer).getByRole('button', { name: /readme\.md/i }));
+    await within(filesLayer).findByText(/hello from the workspace/i);
 
     fireEvent.click(screen.getByRole('button', { name: 'artifacts' }));
-    expect(await screen.findByTestId('right-panel-artifacts')).toHaveTextContent('station.csv');
-    expect(screen.queryByTestId('right-panel-files')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'files' })).toBeNull();
+    const obsLayer = await screen.findByRole('dialog', { name: /observability/i });
+    await within(obsLayer).findByText('station.csv');
+    expect(within(obsLayer).getByRole('tab', { name: /^artifacts/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'ctx' }));
-    expect(await screen.findByTestId('right-panel-context')).toHaveTextContent(/38%|3,800/);
+    await waitFor(() =>
+      expect(within(obsLayer).getByTestId('obs-context')).toHaveTextContent(/38%/),
+    );
+    expect(within(obsLayer).getByRole('tab', { name: /^context/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'console' }));
+    expect(screen.queryByRole('dialog', { name: /observability/i })).toBeNull();
     const dock = screen.getByTestId('console-dock');
     expect(dock).toHaveAttribute('data-unbacked', 'true');
     expect(dock).toHaveTextContent(/no session shell|pty/i);
-    expect(screen.queryByTestId('right-panel-context')).toBeNull();
   });
 
   it('opens rail search and filters live sessions as the user types', async () => {

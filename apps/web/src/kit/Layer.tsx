@@ -24,6 +24,9 @@ export interface LayerProps {
   headerIcon?: ReactNode;
   /** Inline heading context, such as an observability trace state. */
   headerMeta?: ReactNode;
+  /** Extra controls rendered after the meta, before the window buttons —
+   *  e.g. the files layer's "browse…" affordance. */
+  headerActions?: ReactNode;
   /** Show the window chrome used by desktop-style layers. */
   windowControls?: boolean;
   onClose: () => void;
@@ -49,6 +52,7 @@ export function Layer({
   height,
   headerIcon,
   headerMeta,
+  headerActions,
   windowControls = false,
   onClose,
 }: LayerProps) {
@@ -136,6 +140,7 @@ export function Layer({
           </h2>
           {headerMeta ? <span className="kit-layer__headmeta">{headerMeta}</span> : null}
           <span className="kit-layer__spacer" />
+          {headerActions}
           {windowControls ? (
             <>
               <button

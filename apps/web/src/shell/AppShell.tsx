@@ -26,6 +26,8 @@ export interface AppShellProps {
   onRenameSession?: (sessionId: string, title: string) => void;
   /** Which side panel is open; drives the toolbar's pressed state. */
   panel?: string | null;
+  /** Observability tab the layer is showing — see Topbar's `obsTab`. */
+  obsTab?: string;
   onTogglePanel?: (panel: string) => void;
   /** Live agent count shown in the rail footer band. */
   agentCount?: number;
@@ -67,6 +69,7 @@ export function AppShell({
   onSelectRibbon,
   onRenameSession,
   panel,
+  obsTab,
   onTogglePanel,
   agentCount,
   connections,
@@ -117,6 +120,7 @@ export function AppShell({
           railCollapsed={railCollapsed}
           onShowRail={() => setRailCollapsed(false)}
           {...(panel !== undefined ? { panel } : {})}
+          {...(obsTab !== undefined ? { obsTab } : {})}
           {...(onTogglePanel ? { onTogglePanel } : {})}
           {...(onRenameSession && activeSessionId
             ? { onRename: (next: string) => onRenameSession(activeSessionId, next) }

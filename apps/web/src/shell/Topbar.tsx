@@ -13,6 +13,10 @@ export interface TopbarProps {
   onShowRail: () => void;
   /** Which side panel is open, so the toolbar can report pressed state. */
   panel?: string | null;
+  /** Observability tab the layer is showing — 'artifacts'/'ctx' deep-link
+   *  into it rather than opening a panel of their own (proto tgArtifacts /
+   *  tgTelemetry both target the SAME layer, just a different tab). */
+  obsTab?: string;
   onTogglePanel?: (panel: string) => void;
   /** Supplying this makes the title rename-in-place, as the prototype does. */
   onRename?: (next: string) => void;
@@ -33,6 +37,7 @@ export function Topbar({
   railCollapsed,
   onShowRail,
   panel,
+  obsTab,
   onTogglePanel,
   onRename,
 }: TopbarProps) {
@@ -101,7 +106,7 @@ export function Topbar({
             <span className="shell-topbar__count">{artifactCount ?? 0}</span>
           </>
         }
-        pressed={panel === 'artifacts'}
+        pressed={panel === 'obs' && obsTab === 'artifacts'}
         onClick={() => onTogglePanel?.('artifacts')}
       />
       <ToolbarButton
@@ -112,7 +117,7 @@ export function Topbar({
             <span className="shell-topbar__count">{contextPercent ?? 0}%</span>
           </>
         }
-        pressed={panel === 'context'}
+        pressed={panel === 'obs' && obsTab === 'context'}
         onClick={() => onTogglePanel?.('context')}
       />
       <ToolbarButton
