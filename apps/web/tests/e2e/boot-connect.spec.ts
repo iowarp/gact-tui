@@ -75,8 +75,13 @@ test('boots without console errors', async ({ page }) => {
     if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`);
   });
 
+  // A SUCCESSFUL boot must be silent. Under splash-first boot (slice F) the
+  // app probes the brand default itself, so the mock serves that origin and
+  // no form is ever touched; an unreachable-default cold boot legitimately
+  // logs its refusals and is covered by the boot-splash fallback spec.
   await coldBoot(page);
-  await connectMockBackend(page);
+  await installMockBackend(page, { origin: 'http://127.0.0.1:17800' });
+  await page.goto('/');
   await expect(page.getByRole('navigation', { name: /workspaces/i })).toBeVisible();
 
   // Print what was captured: a flake that names itself is diagnosable; one

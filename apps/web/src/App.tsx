@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConnectionPool } from './connections/ConnectionPool';
 import { APP_VERSION } from './build-info';
-import {
-  DEFAULT_UPDATE_POLL_MS,
-  fetchDeployedVersion,
-  isNewerBuild,
-} from './wire/updateCheck';
+import { DEFAULT_UPDATE_POLL_MS, fetchDeployedVersion, isNewerBuild } from './wire/updateCheck';
 import type { RailConnection } from './shell/Rail';
 import { brand } from '@brand';
-import {
-  connectBackend,
-  type ConnectFailure,
-  type ConnectedBackend,
-} from './backend/connection';
+import { connectBackend, type ConnectFailure, type ConnectedBackend } from './backend/connection';
 import { ConnectScreen } from './connect/ConnectScreen';
 import { KitGallery } from './kit/KitGallery';
 import { ShellPreview } from './shell/ShellPreview';
 import { SessionView } from './session/SessionView';
 import {
   forgetBackend,
-  lastUsed,
   loadRegistry,
   rememberBackend,
   saveRegistry,
@@ -27,8 +18,11 @@ import {
 } from './connect/registry';
 import type { BackendEntry } from '@clio/core';
 import { applyAppearance, loadAppearance } from './theme/theme';
+import { probeCandidates } from './connect/candidates';
+import { Splash } from './connect/Splash';
 
 const LAST_URL_KEY = 'clio.backend.last-url.v3';
+type AppRoute = 'splash' | 'connect' | 'shell';
 
 /** Default the field to the last backend used, else the brand's attach port. */
 function initialUrl(): string {
@@ -45,7 +39,10 @@ export function App() {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<ConnectFailure | null>(null);
   const [backend, setBackend] = useState<ConnectedBackend | null>(null);
-  const [saved, setSaved] = useState<BackendEntry[]>(() => loadRegistry().backends);
+  const [route, setRoute] = useState<AppRoute>('splash');
+  const [bootRegistry] = useState(loadRegistry);
+  const [saved, setSaved] = useState<BackendEntry[]>(bootRegistry.backends);
+  const [candidates] = useState(() => probeCandidates(bootRegistry, brand.backend.attachPort));
 
   // THE connection owner (gact-tui#338). Every connection holds its own client
   // and its own failure state; nothing here is process-global, which is what
@@ -84,54 +81,56 @@ export function App() {
     };
   }, []);
 
-  const onConnect = useCallback(async (url: string) => {
-    setPending(true);
-    setFailure(null);
-    const result = await connectBackend(url);
-    // Record the attempt in the pool whatever the outcome: a refusal the user
-    // can see beats one that vanishes.
-    await pool.connect({ id: url, label: url, url });
-    syncPool();
-    setPending(false);
-    if (result.kind === 'failed') {
-      setFailure(result);
-      return;
-    }
-    try {
-      localStorage.setItem(LAST_URL_KEY, result.url);
-      // Record it in the backend registry. The rail footer counts CONNECTED
-      // CLIO DEPLOYMENTS from here — a UI-owned set, not anything the backend
-      // serves — so a connection that is never recorded makes that count lie.
-      const next = setLastUsed(
-        rememberBackend(loadRegistry(), { url: result.url, label: result.url }),
-        result.url,
-      );
-      saveRegistry(next);
-      setSaved(next.backends);
-    } catch {
-      // Storage unavailable; the connection itself is unaffected.
-    }
-    setActiveConnectionId(url);
-    setBackend(result);
-  }, [pool, syncPool]);
+  const completeConnection = useCallback(
+    async (result: ConnectedBackend, connectionId: string) => {
+      await pool.connect({ id: connectionId, label: result.url, url: result.url });
+      syncPool();
+      try {
+        localStorage.setItem(LAST_URL_KEY, result.url);
+        // Record it in the backend registry. The rail footer counts CONNECTED
+        // CLIO DEPLOYMENTS from here — a UI-owned set, not anything the backend
+        // serves — so a connection that is never recorded makes that count lie.
+        const next = setLastUsed(
+          rememberBackend(loadRegistry(), { url: result.url, label: result.url }),
+          result.url,
+        );
+        saveRegistry(next);
+        setSaved(next.backends);
+      } catch {
+        // Storage unavailable; the connection itself is unaffected.
+      }
+      setActiveConnectionId(connectionId);
+      setBackend(result);
+      setRoute('shell');
+    },
+    [pool, syncPool],
+  );
+
+  const onConnect = useCallback(
+    async (url: string) => {
+      setPending(true);
+      setFailure(null);
+      const result = await connectBackend(url);
+      if (result.kind === 'failed') {
+        // Record the attempt in the pool whatever the outcome: a refusal the
+        // user can see beats one that vanishes.
+        await pool.connect({ id: url, label: url, url });
+        syncPool();
+        setPending(false);
+        setFailure(result);
+        return;
+      }
+      await completeConnection(result, url);
+      setPending(false);
+    },
+    [completeConnection, pool, syncPool],
+  );
 
   const onForget = useCallback((url: string) => {
     const next = forgetBackend(loadRegistry(), url);
     saveRegistry(next);
     setSaved(next.backends);
   }, []);
-
-  // Autoconnect to the backend last used. Re-typing the same address on every
-  // boot was a regression against the legacy app, which reconnected itself.
-  // It runs ONCE and never retries: a failing autoconnect leaves the user on
-  // the connect screen with the reason, rather than in a retry loop.
-  const attempted = useRef(false);
-  useEffect(() => {
-    if (attempted.current || backend) return;
-    attempted.current = true;
-    const entry = lastUsed(loadRegistry());
-    if (entry) void onConnect(entry.url);
-  }, [backend, onConnect]);
 
   // Development surface for the component kit (gact-tui#331) — the fixtures
   // harness the visual gates screenshot. Not app chrome, not routable from it.
@@ -144,7 +143,7 @@ export function App() {
     if (params.has('settings')) return <ShellPreview surface="settings" />;
   }
 
-  if (backend) {
+  if (route === 'shell' && backend) {
     return (
       <SessionView
         client={backend.client}
@@ -168,6 +167,19 @@ export function App() {
         onSessionCreated={(session) =>
           setBackend((cur) => (cur ? { ...cur, sessions: [session, ...cur.sessions] } : cur))
         }
+      />
+    );
+  }
+
+  if (route === 'splash') {
+    return (
+      <Splash
+        candidates={candidates}
+        onReady={(result) => void completeConnection(result, result.url)}
+        onFallback={(lastFailure) => {
+          setFailure(lastFailure);
+          setRoute('connect');
+        }}
       />
     );
   }

@@ -43,9 +43,16 @@ describe('rail lockup (A2)', () => {
   });
 
   it('renders the tagline row beneath the wordmark', () => {
-    renderRail();
-    // The gact profile has a tagline; a profile without one may omit the row,
-    // but with one present it must render.
-    expect(screen.getByText(new RegExp(brand.tagline.slice(0, 20)))).toBeInTheDocument();
+    const { container } = renderRail();
+    // Compare the row's full text: an accent-bearing profile (clio) splits the
+    // tagline across a link, so a single-text-node matcher is profile-naive —
+    // this test failed under clio while passing under gact until it compared
+    // the assembled row instead.
+    const row = container.querySelector('.shell-lockup__tagline');
+    if (brand.tagline) {
+      expect(row?.textContent).toBe(brand.tagline);
+    } else {
+      expect(row).toBeNull();
+    }
   });
 });
