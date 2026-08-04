@@ -1,5 +1,9 @@
+export { fetchAgentBlueprint } from './agents.js';
+
 export type {
   AddBlueprintSourceInput,
+  AgentBlueprintDefinition,
+  AgentBlueprintDetail,
   AgentBlueprintsOptions,
   AgentBlueprintsResult,
   AgentBlueprintValidationResult,

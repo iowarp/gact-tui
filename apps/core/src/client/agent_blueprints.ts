@@ -2,6 +2,7 @@ import { normalizeAgentBlueprints, normalizeValidationResult } from './catalog.j
 import type { HttpTransport } from './transport.js';
 import type {
   AddBlueprintSourceInput,
+  AgentBlueprintDetail,
   AgentBlueprintsOptions,
   AgentBlueprintsResult,
   AgentBlueprintValidationResult,
@@ -68,6 +69,14 @@ export async function fetchAgentBlueprints(
     `/v1/agent-blueprints${qs.size ? `?${qs}` : ''}`,
   );
   return { blueprints: normalizeAgentBlueprints(raw) };
+}
+
+/** GET /v1/agent-blueprints/{id} - one blueprint and its served definitions. */
+export function fetchAgentBlueprint(
+  client: AgentBlueprintTransport,
+  blueprintId: string,
+): Promise<AgentBlueprintDetail> {
+  return client.get(`/v1/agent-blueprints/${encodeURIComponent(blueprintId)}`);
 }
 
 export function fetchBlueprintSources(

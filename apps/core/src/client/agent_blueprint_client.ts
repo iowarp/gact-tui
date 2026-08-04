@@ -1,5 +1,6 @@
 import type {
   AddBlueprintSourceInput,
+  AgentBlueprintDetail,
   AgentBlueprintsOptions,
   AgentBlueprintsResult,
   AgentBlueprintValidationResult,
@@ -14,6 +15,7 @@ import type {
 } from './agent_blueprints.js';
 import {
   enableAgentBlueprintMcp,
+  fetchAgentBlueprint,
   fetchAgentBlueprints,
   fetchBlueprintSources,
   fetchSessionBlueprint,
@@ -28,6 +30,11 @@ import {
 import { AgentCatalogClient } from './agent_catalog_client.js';
 
 export class AgentBlueprintClient extends AgentCatalogClient {
+  /** GET /v1/agent-blueprints/{id} - one blueprint and its served definitions. */
+  getAgentBlueprint(blueprintId: string): Promise<AgentBlueprintDetail> {
+    return fetchAgentBlueprint(this, blueprintId);
+  }
+
   /** POST /v1/agent-blueprints/validate - validate a blueprint on the clio host. */
   async validateAgentBlueprint(
     body: ValidateAgentBlueprintInput,

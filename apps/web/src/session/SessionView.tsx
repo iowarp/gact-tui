@@ -23,6 +23,7 @@ import { Observability } from '../observability/Observability';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
+import { BlueprintWindow } from './BlueprintWindow';
 import './sessionview.css';
 
 export interface SessionViewProps {
@@ -49,6 +50,7 @@ export interface SessionViewProps {
 interface SessionDetail {
   model?: { provider_id?: string; model_id?: string; variant?: string };
   approval_mode?: ApprovalMode;
+  metadata?: { active_agent_blueprint_id?: string };
 }
 
 interface ComposerPillState {
@@ -296,6 +298,7 @@ export function SessionView({
   const load = useCallback(
     async (sessionId: string) => {
       setState({ kind: 'loading' });
+      setDetail(null);
       // The record carries model + approval_mode, which the composer renders.
       // A failure here must not fail the transcript, so it is read separately.
       void Promise.resolve()
@@ -336,6 +339,7 @@ export function SessionView({
   }, [activeId, activeScope, load, refreshPill]);
 
   const active = sessions.find((s) => s.id === activeId);
+  const activeBlueprintId = detail?.metadata?.active_agent_blueprint_id;
   const activeConnectionLabel =
     connections?.find((connection) => connection.id === activeConnectionId)?.label ??
     connectionDisplayLabel(client.baseUrl);
@@ -489,8 +493,8 @@ export function SessionView({
         activeSessionId={activeId}
         onSelectSession={setActiveId}
         title={(activeId ? renamed[activeId] : undefined) ?? active?.title ?? ''}
-        {...(activeWorkspaceId
-          ? { breadcrumb: workspaceDisplayLabel(activeWorkspaceId, workspaces) }
+        {...(activeBlueprintId
+          ? { breadcrumb: activeBlueprintId }
           : {})}
         ribbon={[{ id: 'main', label: 'main' }]}
         activeRibbonId={activeScope}
@@ -629,6 +633,13 @@ export function SessionView({
             <p className="sessionview__notice">Loading observability…</p>
           )}
         </Layer>
+
+        <BlueprintWindow
+          blueprintId={activeBlueprintId ?? null}
+          client={client}
+          open={panel === 'blueprint'}
+          onClose={() => setPanel(null)}
+        />
       </AppShell>
     </RailActionsProvider>
   );

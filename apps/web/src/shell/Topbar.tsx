@@ -1,4 +1,4 @@
-import { Icon, InlineEdit, ToolbarButton } from '../kit';
+import { Icon, InlineEdit, ToolbarButton, useIsDesktop } from '../kit';
 import './topbar.css';
 
 export interface TopbarProps {
@@ -18,8 +18,8 @@ export interface TopbarProps {
 /**
  * The topbar — session identity plus the surface toolbar.
  *
- * Capability rule, measured from the prototype: every surface control,
- * including the workspace console, renders in both browser and desktop shells.
+ * The console is the one desktop-only surface; the remaining toolbar controls
+ * are available in both shells.
  */
 export function Topbar({
   title,
@@ -32,6 +32,8 @@ export function Topbar({
   onTogglePanel,
   onRename,
 }: TopbarProps) {
+  const isDesktop = useIsDesktop();
+
   return (
     <header className="shell-topbar" role="banner">
       {railCollapsed ? (
@@ -60,7 +62,7 @@ export function Topbar({
             <button
               type="button"
               className="shell-topbar__crumb-button"
-              onClick={() => onTogglePanel?.('files')}
+              onClick={() => onTogglePanel?.('blueprint')}
             >
               <span className="shell-topbar__crumb">{breadcrumb}</span>
             </button>
@@ -77,12 +79,14 @@ export function Topbar({
         onClick={() => onTogglePanel?.('files')}
       />
 
-      <ToolbarButton
-        label="Workspace console"
-        icon={<Icon name="console" />}
-        pressed={panel === 'console'}
-        onClick={() => onTogglePanel?.('console')}
-      />
+      {isDesktop ? (
+        <ToolbarButton
+          label="console"
+          icon={<Icon name="console" />}
+          pressed={panel === 'console'}
+          onClick={() => onTogglePanel?.('console')}
+        />
+      ) : null}
 
       <ToolbarButton
         label="artifacts"

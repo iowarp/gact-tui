@@ -13,9 +13,9 @@
 
 .kit-statusdot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: 0 0 6px;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
   border-radius: 50%;
 }
 
@@ -46,18 +46,6 @@
 
 .kit-statusdot[data-quiet='true'] {
   animation: none;
-}
-
-.kit-statusdot[data-state='running'][data-quiet='true'] {
-  box-shadow: 0 0 6px rgb(52, 211, 153);
-}
-
-.kit-statusdot[data-state='queued'][data-quiet='true'] {
-  box-shadow: 0 0 6px rgb(251, 191, 36);
-}
-
-.kit-statusdot[data-state='error'][data-quiet='true'] {
-  box-shadow: 0 0 6px var(--t-er);
 }
 
 @media (prefers-reduced-motion: reduce) {

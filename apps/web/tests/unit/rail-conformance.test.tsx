@@ -91,8 +91,21 @@ describe('session rows (B3 + B11)', () => {
       r.textContent?.includes('alpha run'),
     )!;
     fireEvent.click(within(row as HTMLElement).getByRole('button', { name: /session menu/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /pin/i }));
+    const pin = screen.getByRole('menuitem', { name: /pin/i });
+    expect(pin).toHaveAccessibleName('Pin');
+    fireEvent.click(pin);
     expect(onSessionAction).toHaveBeenCalledWith('s1', 'pin');
+
+    const pinnedRow = [...container.querySelectorAll('.shell-rail__session')].find((candidate) =>
+      candidate.textContent?.includes('beta sweep'),
+    )!;
+    fireEvent.click(
+      within(pinnedRow as HTMLElement).getByRole('button', { name: /session menu/i }),
+    );
+    const unpin = screen.getByRole('menuitem', { name: /unpin/i });
+    expect(unpin).toHaveAccessibleName('Unpin');
+    fireEvent.click(unpin);
+    expect(onSessionAction).toHaveBeenCalledWith('s2', 'pin');
   });
 });
 

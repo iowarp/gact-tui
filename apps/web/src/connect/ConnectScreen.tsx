@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { brand } from '@brand';
 import type { BackendEntry } from '@clio/core';
 import type { ConnectFailure } from '../backend/connection';
+import { Lockup } from '../shell/Lockup';
 import './connect.css';
 
 export interface ConnectScreenProps {
@@ -37,16 +38,7 @@ export function ConnectScreen({
   return (
     <main className="connect" data-testid="connect-screen" aria-busy={pending || undefined}>
       <form className="connect__card" onSubmit={submit}>
-        <header className="connect__lockup">
-          {brand.logoImage ? (
-            <img className="connect__logo" src={brand.logoImage} alt="" />
-          ) : (
-            <span className="connect__mark" aria-hidden="true">
-              {brand.markGlyph}
-            </span>
-          )}
-          <h1 className="connect__wordmark">{brand.wordmark}</h1>
-        </header>
+        <Lockup brand={brand} />
 
         <label className="connect__label" htmlFor="connect-url">
           Backend address

@@ -166,13 +166,16 @@ export function Rail({
     setMenu({ sessionId, x: event.clientX, y: event.clientY });
   }
 
+  const menuSession = menu
+    ? groups.flatMap((group) => group.sessions).find((session) => session.id === menu.sessionId)
+    : undefined;
   const items: MenuItemDef[] = SESSION_ACTIONS.filter(
     // Offering an action the surface cannot perform promises something that
     // does nothing when clicked.
     (action) => action.id !== 'rename' || onRenameSession !== undefined,
   ).map((action) => ({
     id: action.id,
-    label: action.label,
+    label: action.id === 'pin' && menuSession?.pinned ? 'Unpin' : action.label,
     // Unsupported actions are shown in the destructive tone — visible, not
     // silently absent — and cannot be invoked.
     ...(action.issue ? { tone: 'danger' as const, disabled: true } : {}),
@@ -380,16 +383,16 @@ export function Rail({
           <span>agents </span>
           <span className="shell-rail__footcount">{readyCount}</span>
         </button>
-        {/* Relay has no client method — shown disabled rather than hidden, so
-            the capability gap is visible instead of silently missing. */}
+        {/* Relay has no reachability wire surface. Its explicit unknown label
+            prevents the idle dot from being mistaken for an offline report. */}
         <button
           type="button"
-          className="shell-rail__footcell"
+          className="shell-rail__footcell shell-rail__footcell--unknown"
           disabled
-          title="Relay status is not served by this backend"
+          title="relay reachability has no wire surface yet (clio-agent#1179)"
         >
           <StatusDot status="idle" quiet />
-          <span>relay</span>
+          <span>relay unknown</span>
         </button>
       </div>
 

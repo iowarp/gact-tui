@@ -125,8 +125,9 @@
   font-size: calc(10.5px * var(--ts));
 }
 
-/* THE session row — grid, not flex: an 8px indicator column and a content
-   column that may shrink. */
+/* THE session row — grid, not flex. The 10px indicator track and 6px gap
+   preserve the title x-position while centring the 7px dot under the group
+   folder's visual column. */
 .shell-rail__session {
   /* Positioned so the sr-only children (status text, menu alias) contain HERE.
      Unpositioned, an absolute sr-only span anchors to <html> at its static y —
@@ -134,8 +135,8 @@
      scrolls (the B13 owner bug's root cause). */
   position: relative;
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 6px;
   align-items: center;
   width: calc(100% - 12px);
   height: 27px;
@@ -146,6 +147,10 @@
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
+}
+
+.shell-rail__session > .kit-statusdot {
+  justify-self: center;
 }
 
 .shell-rail__session:hover {
@@ -288,6 +293,10 @@
 .shell-rail__footcell:disabled {
   color: var(--t-dis);
   cursor: default;
+}
+
+.shell-rail__footcell--unknown:disabled {
+  color: var(--t-mu);
 }
 
 .shell-rail__footcount {

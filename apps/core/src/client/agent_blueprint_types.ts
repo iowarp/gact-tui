@@ -1,5 +1,30 @@
-import type { BlueprintSource } from '../wire/types.js';
+import type { AgentDef, BlueprintSource } from '../wire/types.js';
 import type { AgentBlueprintSummary, ValidationResult } from './catalog_types.js';
+
+export interface AgentBlueprintDefinition {
+  id: string;
+  version?: string;
+  title?: string;
+  description?: string;
+  scope?: string;
+  root?: string;
+  root_path?: string;
+  definition_path?: string;
+  root_expert?: string;
+  kind?: string;
+  enabled?: boolean;
+  validation_warnings?: string[];
+  validation_errors?: string[];
+  defaults?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentBlueprintDetail {
+  agent_blueprint: AgentBlueprintDefinition;
+  agents?: AgentDef[];
+  mcp_descriptors?: Record<string, unknown>[];
+  hook_descriptors?: Record<string, unknown>[];
+}
 
 export interface ValidateAgentBlueprintInput {
   path: string;

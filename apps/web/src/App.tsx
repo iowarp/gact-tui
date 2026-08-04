@@ -28,21 +28,43 @@ const LAST_URL_KEY = 'clio.backend.last-url.v3';
  *  user names a connection. */
 function connectionLabel(url: string): string {
   try {
-    return new URL(url).hostname;
+    const normalized = /^[a-z][a-z\d+.-]*:\/\//i.test(url) ? url : `http://${url}`;
+    return new URL(normalized).hostname || url;
   } catch {
     return url;
   }
 }
+
+function legacyLastUrl(): string | null {
+  try {
+    return localStorage.getItem(LAST_URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Surface the pre-registry last URL as one forgettable saved connection. */
+function initialSavedBackends(backends: BackendEntry[]): BackendEntry[] {
+  if (backends.length > 0) return backends;
+  const url = legacyLastUrl();
+  if (!url) return backends;
+  return [
+    {
+      id: url,
+      label: connectionLabel(url),
+      url,
+      bearerToken: '',
+      kind: 'http',
+    },
+  ];
+}
+
 type AppRoute = 'splash' | 'connect' | 'shell';
 
 /** Default the field to the last backend used, else the brand's attach port. */
 function initialUrl(): string {
-  try {
-    const remembered = localStorage.getItem(LAST_URL_KEY);
-    if (remembered) return remembered;
-  } catch {
-    // Storage unavailable — fall through to the brand default.
-  }
+  const remembered = legacyLastUrl();
+  if (remembered) return remembered;
   return `http://127.0.0.1:${brand.backend.attachPort}`;
 }
 
@@ -52,7 +74,9 @@ export function App() {
   const [backend, setBackend] = useState<ConnectedBackend | null>(null);
   const [route, setRoute] = useState<AppRoute>('splash');
   const [bootRegistry] = useState(loadRegistry);
-  const [saved, setSaved] = useState<BackendEntry[]>(bootRegistry.backends);
+  const [saved, setSaved] = useState<BackendEntry[]>(() =>
+    initialSavedBackends(bootRegistry.backends),
+  );
   const [candidates] = useState(() => probeCandidates(bootRegistry, brand.backend.attachPort));
 
   // THE connection owner (gact-tui#338). Every connection holds its own client
@@ -138,8 +162,18 @@ export function App() {
   );
 
   const onForget = useCallback((url: string) => {
-    const next = forgetBackend(loadRegistry(), url);
+    const registry = loadRegistry();
+    const synthesized =
+      !registry.backends.some((entry) => entry.url === url) && legacyLastUrl() === url;
+    const next = forgetBackend(registry, url);
     saveRegistry(next);
+    if (synthesized) {
+      try {
+        localStorage.removeItem(LAST_URL_KEY);
+      } catch {
+        // Storage unavailable; the visible row can still be removed in memory.
+      }
+    }
     setSaved(next.backends);
   }, []);
 

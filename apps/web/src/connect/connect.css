@@ -10,6 +10,7 @@
 .connect__card {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
   width: 100%;
   max-width: 380px;
@@ -20,37 +21,13 @@
   box-shadow: var(--t-shadow);
 }
 
-.connect__lockup {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.connect__card > .shell-lockup {
   margin-bottom: 8px;
 }
 
-.connect__logo {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.connect__mark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: var(--t-cy12);
-  color: var(--t-cy);
-  font-size: calc(15px * var(--ts));
-  font-weight: 600;
-}
-
-.connect__wordmark {
-  margin: 0;
-  color: var(--t-hd);
-  font-size: calc(16px * var(--ts));
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.connect__card > :not(.shell-lockup) {
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .connect__label {

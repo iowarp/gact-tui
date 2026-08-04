@@ -15,6 +15,7 @@ export * from './agent_types.js';
 
 export {
   enableAgentBlueprintMcp,
+  fetchAgentBlueprint,
   fetchAgentBlueprints,
   fetchBlueprintSources,
   fetchSessionBlueprint,
@@ -28,6 +29,8 @@ export {
 } from './agent_blueprints.js';
 export type {
   AddBlueprintSourceInput,
+  AgentBlueprintDefinition,
+  AgentBlueprintDetail,
   AgentBlueprintsOptions,
   AgentBlueprintsResult,
   AgentBlueprintValidationResult,
