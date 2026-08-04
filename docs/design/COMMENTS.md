@@ -37,6 +37,32 @@ Sessions p5-demo-rehearsal / p5-async-capture-5 show the async UI live.
 4. web.old deletion awaits your done-and-working call.
 
 
+
+## 2026-08-04 (morning batch, owner awake)
+
+- **MCP v2 skew (MASSIVE, demo blocker):** clio-agent client = mcp 2.0.0 /
+  fastmcp 4.0.0b1 (2026-07-28 statelessification); clio-kit server envs =
+  mcp 1.28.1 / fastmcp 3.4.x (the v2 line is prerelease-gated so clio-kit's
+  `fastmcp>=3.0.1` floor never selects it). pandas_filter_data et al die with
+  MCPError -32022 'connection is serving the 2026-07-28 protocol; the
+  initialize handshake is not accepted'. Fix round dispatched in clio-kit.
+- **Prompt idiom:** my capture prompts were wrong — use the owner's canonical
+  NDP prompt style (explicit coords/radius, staged paths + dataset ids,
+  workflow_state field instructions, honest blocked-state reporting).
+- **Boxed Call semantics (extends E9/task 11):** tool routing/args/results are
+  NOT being put in the box — everything under a Call folds INTO the Call box;
+  and the design has replacement semantics for BOTH the right-side column and
+  the center column (detail pane vs transcript) that we lack.
+- **Rail lists child sessions as top-level rows** — the prototype shows only
+  top-level sessions; children belong to the parent's hierarchy ribbon.
+  Filter parent_session_id != null out of the rail groups.
+- **Cleanup done:** all my temp sessions (25) + stress workspaces (9) +
+  orphaned children (5) deleted from the live backend.
+- Prototype vendored at design/prototype/Clio Session.html, served on :4399.
+- Menus extracted verbatim (proto-menus.json): session ⋯ = pin/rename/delete
+  (iconed, delete danger); workspace ⋯ = pin workspace / open in files /
+  rename workspace / new session here / remove workspace.
+
 Kept verbatim-ish as received; each item gets folded into a slice contract and
 checked off with the commit that lands it. Newest first.
 
