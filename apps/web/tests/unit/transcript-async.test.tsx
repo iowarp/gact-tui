@@ -71,9 +71,11 @@ describe('running child card (E5, captured shape)', () => {
     );
     const card = screen.getByTestId('part-child-card');
     expect(card).toHaveTextContent('geospatial');
-    // Completed: idle dot, no pulse — and NO fabricated duration (the wire
-    // carries none; the prototype's "4m 38s" has no source yet).
-    expect(card.querySelector('.kit-statusdot')?.getAttribute('data-state')).toBe('idle');
+    // Completed successfully: the prototype's own completed-card header
+    // carries no dot at all (isTask) — running/failed are the two states
+    // worth a mark, not a plain success. And NO fabricated duration (the
+    // wire carries none; the prototype's "4m 38s" has no source yet).
+    expect(card.querySelector('.kit-statusdot')).toBeNull();
     expect(card.textContent).not.toMatch(/\d+m \d+s/);
     expect(container.textContent).not.toContain('main <- geospatial');
   });
@@ -90,5 +92,54 @@ describe('running child card (E5, captured shape)', () => {
     );
     // A child running through the relay is not the same event as a local one.
     expect(screen.getByTestId('part-child-card')).toHaveTextContent('relay:ares');
+  });
+
+  it('shows the completion excerpt from metadata.output (live-observed field)', () => {
+    // Captured live (sess_a7d05dfd2371, geospatial #1): a completed
+    // expert_handoff's excerpt rides in `metadata.output`, the same place
+    // `metadata.question` rides for delegate.started.
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              ...STARTED_HANDOFF,
+              id: 'live_handoff_235389bb500c',
+              stage: 'delegate.completed',
+              live_state: 'completed',
+              status: 'completed',
+              metadata: { output: "Resolved 'Los Angeles' to center 34.0537, -118.2428." },
+            },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('part-child-card')).toHaveTextContent(
+      "Resolved 'Los Angeles' to center 34.0537, -118.2428.",
+    );
+  });
+
+  it('marks a failed delegation red, never the neutral idle dot (E5 addendum)', () => {
+    // Live-observed: the narration explicitly says the child "fully failed
+    // (delegate.failed, error_reason=agent_error)" while the card still
+    // rendered the plain gray idle dot, identical to a normal completion.
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              ...STARTED_HANDOFF,
+              id: 'live_handoff_failed',
+              stage: 'delegate.failed',
+              live_state: 'failed',
+              status: 'failed',
+            },
+          ]),
+        ]}
+      />,
+    );
+    const card = screen.getByTestId('part-child-card');
+    const dot = card.querySelector('.kit-statusdot');
+    expect(dot?.getAttribute('data-state')).toBe('error');
   });
 });

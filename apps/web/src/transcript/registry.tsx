@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { Chip, Icon, StatusDot } from '../kit';
-import { shortScalar } from '../wire/presentationUtils';
+import { Icon } from '../kit';
 import { HandoffPart } from './parts/HandoffPart';
+import { extractToolResultText } from './parts/toolResultText';
 import './parts/parts.css';
 
 /** A wire part, before this build knows what kind it is. */
@@ -15,33 +15,14 @@ export interface PartRenderer {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
 
-const TOOL_ARG_MAX_LENGTH = 200;
-
-function toolArgValue(value: unknown): string {
-  let rendered: string;
-  if (typeof value === 'string') rendered = value;
-  else if (value === null || typeof value !== 'object') rendered = String(value);
-  else {
-    try {
-      rendered = JSON.stringify(value) ?? String(value);
-    } catch {
-      rendered = String(value);
-    }
-  }
-
-  return rendered.length <= TOOL_ARG_MAX_LENGTH
-    ? rendered
-    : `${rendered.slice(0, TOOL_ARG_MAX_LENGTH - 1).trimEnd()}…`;
-}
-
 function toolArgs(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
   return Object.entries(input)
-    .map(([key, value]) => `${key}: ${toolArgValue(value)}`)
+    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : (JSON.stringify(value) ?? String(value))}`)
     .join('\n');
 }
 
-function ThinkingPart({ part }: { part: WirePart }) {
+function ThinkingDisclosure({ part }: { part: WirePart }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -66,61 +47,32 @@ function ThinkingPart({ part }: { part: WirePart }) {
   );
 }
 
-/**
- * A tool result's `content` is a LIST OF PARTS on the wire, never a string.
- *
- * Passing it to shortScalar hit its isRecord branch and rendered the literal
- * word "recorded" for every live tool result. The e2e mock had been shaped
- * with `content: 'staged 1,101 rows'`, so nothing caught it until the mock was
- * corrected to the observed shape.
- */
-function toolResultText(part: Record<string, unknown>): string {
-  const content = part['content'];
-  if (Array.isArray(content)) {
-    const text = content
-      .map((child) => (child && typeof child === 'object' ? str((child as Record<string, unknown>)['text']) : str(child)))
-      .filter((chunk) => chunk.length > 0)
-      .join('\n');
-    if (text) return shortScalar(text);
-    // Content present but carrying no text: say so rather than render blank.
-    return content.length > 0 ? `${content.length} non-text result part(s)` : '';
-  }
-  return shortScalar(content ?? part['text']);
-}
-
-/**
- * THE part-renderer registry.
- *
- * One kind, one renderer, one pipeline. The legacy tree's dual pipeline dies
- * with it. Anything not in this map is rendered by the unrenderable fallback,
- * which NAMES the kind rather than dropping it.
- *
- * P3 kinds (a2ui, permission, documents, Live Web) are deliberately absent —
- * the backend does not emit them yet, and a renderer for an unemitted kind is
- * untestable decoration.
- */
 export const PART_RENDERERS: Record<string, PartRenderer> = {
   text: {
-    gutter: <span className="part-gutterbar" aria-hidden="true" />,
+    gutter: (
+      <span className="part-textdot" aria-hidden="true">
+        ●
+      </span>
+    ),
     render: (part) => <p className="part-text">{str(part['text'])}</p>,
   },
 
   thinking: {
-    render: (part) => <ThinkingPart part={part} />,
+    render: (part) => <ThinkingDisclosure part={part} />,
   },
 
   redacted_thinking: {
     render: () => <p className="part-muted">thinking (redacted by the provider)</p>,
   },
 
+  // Reachable only if a `tool_call` somehow bypasses Transcript's pairing
+  // (never dropped even so) — the normal path is the merged ToolPart.
   tool_call: {
+    gutter: <WrenchGlyph />,
     render: (part) => {
       const args = toolArgs(part['input']);
       return (
         <div className="part-tool">
-          <span className="part-tool__glyph">
-            <Icon name="wrench" size={11} />
-          </span>
           <span className="part-tool__name">{str(part['tool_name'] ?? part['name'])}</span>
           {args ? <div className="part-tool__args">{args}</div> : null}
         </div>
@@ -128,50 +80,33 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
     },
   },
 
+  // Reachable when a `tool_result` arrives with no matching preceding
+  // `tool_call` in the same message — never dropped, just shown alone.
   tool_result: {
-    gutter: <Icon name="tool" />,
+    gutter: <WrenchGlyph />,
     render: (part) => {
       const isError = part['is_error'] === true;
       return (
         <div className="part-tool" data-error={isError ? 'true' : undefined}>
           <span className="part-tool__name">{isError ? 'tool failed' : 'tool result'}</span>
-          <p className="part-toolresult">{toolResultText(part)}</p>
+          <pre className="part-toolresult">{extractToolResultText(part)}</pre>
         </div>
       );
     },
   },
 
   expert_handoff: {
-    gutter: <HandoffGlyph />,
-    render: (part) => {
-      const stage = str(part['stage']);
-      if (stage !== 'delegate.started' && stage !== 'delegate.completed') {
-        return <HandoffPart part={part} />;
-      }
-
-      const placement = str(part['placement']);
-      return (
-        <div className="part-childcard" data-testid="part-child-card">
-          <div className="part-childcard__head">
-            <StatusDot status={stage === 'delegate.started' ? 'running' : 'idle'} />
-            <span className="part-childcard__name">{str(part['child_agent'])}</span>
-          </div>
-          <div className="part-childcard__meta">
-            <span>{str(part['run_label'])}</span>
-            {placement && placement !== 'local' ? <span>{placement}</span> : null}
-          </div>
-        </div>
-      );
-    },
+    gutter: <WrenchGlyph />,
+    render: (part) => <HandoffPart part={part} />,
   },
 
   subagent_call: {
-    gutter: <HandoffGlyph />,
+    gutter: <WrenchGlyph />,
     render: (part) => <HandoffPart part={part} />,
   },
 
   subagent_result: {
-    gutter: <HandoffGlyph />,
+    gutter: <WrenchGlyph />,
     render: (part) => <HandoffPart part={part} returned />,
   },
 
@@ -189,6 +124,8 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
     ),
   },
 
+  // Reachable when a `resource_link` somehow bypasses Transcript's grouping
+  // into an artifact grid — never dropped even so.
   resource_link: {
     render: (part) => (
       <a className="part-link" href={str(part['uri'])} target="_blank" rel="noreferrer">
@@ -229,6 +166,7 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 
   background_exit: {
+    gutter: <InjectionGlyph />,
     render: (part) => {
       const status = str(part['exit_status'] ?? part['live_state']);
       const placement = str(part['placement']);
@@ -236,30 +174,53 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
       // exited locally, so the host travels with the exit rather than being
       // dropped as decoration.
       const remote = placement.startsWith('relay:');
+      const host = str(part['host']);
       return (
-        <div className="part-runhandle" data-testid="part-background-exit" data-status={status}>
-          <span className="part-runhandle__label">exited</span>
-          <span className="part-runhandle__run">
-            {str(part['run_label']) || str(part['child_agent'])}
+        <div className="part-inj" data-testid="part-background-exit" data-status={status}>
+          <span className="part-inj__pill">
+            exited{' '}
+            <span className="part-inj__run">{str(part['run_label']) || str(part['child_agent'])}</span>
+            {status ? (
+              <>
+                <span className="part-inj__sep">·</span>
+                <span className="part-inj__status" data-error={status === 'failed' ? 'true' : undefined}>
+                  {status}
+                </span>
+              </>
+            ) : null}
+            {remote && host ? (
+              <>
+                <span className="part-inj__sep">·</span>
+                <span className="part-inj__host">{host}</span>
+              </>
+            ) : null}
           </span>
-          <Chip tone={status === 'failed' ? 'error' : 'accent'}>{status}</Chip>
-          {remote ? <Chip title={placement}>{str(part['host'])}</Chip> : null}
         </div>
       );
     },
   },
 
   agent_message: {
-    render: (part) => (
-      <div className="part-runhandle" data-testid="part-agent-message">
-        <span className="part-runhandle__label">{str(part['message_action']) || 'message'}</span>
-        <span className="part-runhandle__run">
-          {str(part['run_label']) || str(part['child_agent'])}
-        </span>
-        {part['status'] ? <Chip>{str(part['status'])}</Chip> : null}
-        {part['text'] ? <p className="part-runhandle__text">{str(part['text'])}</p> : null}
-      </div>
-    ),
+    gutter: <InjectionGlyph />,
+    render: (part) => {
+      const action = str(part['message_action']) || 'message';
+      const status = str(part['status']);
+      return (
+        <div className="part-inj" data-testid="part-agent-message">
+          <span className="part-inj__pill">
+            {action}{' '}
+            <span className="part-inj__run">{str(part['run_label']) || str(part['child_agent'])}</span>
+            {status ? (
+              <>
+                <span className="part-inj__sep">·</span>
+                <span className="part-inj__status">{status}</span>
+              </>
+            ) : null}
+          </span>
+          {part['text'] ? <p className="part-inj__text">{str(part['text'])}</p> : null}
+        </div>
+      );
+    },
   },
 
   transcript_activity: {
@@ -286,8 +247,8 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
   },
 };
 
-/** The handoff wrench sits in the ACCENT colour, unlike the muted tool glyph. */
-function HandoffGlyph() {
+/** The handoff/tool wrench sits in the ACCENT colour, unlike the muted default gutter. */
+export function WrenchGlyph() {
   return (
     <span className="part-handoff__glyph">
       <Icon name="wrench" size={11} />
@@ -295,3 +256,13 @@ function HandoffGlyph() {
   );
 }
 
+/** The prototype's isInj marker (design/prototype/Clio Session.html) — a
+ *  small red "●" for asynchronous injections into the transcript, regardless
+ *  of whether the injected event itself is a success or a failure. */
+function InjectionGlyph() {
+  return (
+    <span className="part-inj__glyph" aria-hidden="true">
+      ●
+    </span>
+  );
+}

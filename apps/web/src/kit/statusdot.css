@@ -19,9 +19,14 @@
   border-radius: 50%;
 }
 
+/* In-progress is ALWAYS the accent colour in the prototype — every one of
+   its 24 pulsing dots (rail live badge, tool run-handles, child cards, hitl
+   "awaiting" markers) uses var(--t-ac) or var(--t-wa); none use var(--t-ok).
+   Green is reserved for a completed-successfully state, never "still
+   running" (design/prototype/Clio Session.html, clio-pulse usages). */
 .kit-statusdot[data-state='running'] {
-  background: rgb(52, 211, 153);
-  box-shadow: 0 0 8px rgb(52, 211, 153);
+  background: var(--t-ac);
+  box-shadow: 0 0 8px var(--t-ac);
   animation: kit-pip 1.4s ease-in-out infinite;
 }
 

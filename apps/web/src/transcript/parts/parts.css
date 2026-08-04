@@ -6,18 +6,17 @@
   line-height: 1.6;
 }
 
-/* The prototype's full-height accent marker in the 14px gutter. */
-.part-gutterbar {
+/* The prototype's narration marker (design/prototype/Clio Session.html:391,
+   isNar) — a mono '●' bullet in the 14px gutter, not a full-height bar. */
+.part-textdot {
   display: block;
-  align-self: stretch;
-  width: 4px;
-  min-height: 100%;
-  border-radius: 2px;
   color: var(--t-ac);
-  background: var(--t-ac);
+  font-family: var(--f-mono);
+  font-size: calc(13px * var(--ts));
+  line-height: 1.6;
 }
 
-.transcript__message[data-role='user'] .part-gutterbar {
+.transcript__message[data-role='user'] .part-textdot {
   display: none;
 }
 
@@ -83,15 +82,18 @@
   font-size: calc(14px * var(--ts));
 }
 
+/* The prototype's thinkOpen guide rail — a left border, not bare padding. */
 .part-collapsible__body {
-  padding-left: 2px;
+  margin-left: 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--t-bd3);
 }
 
 .part-thinking {
   margin: 0;
   color: var(--t-mu);
   font-family: var(--f-prose);
-  font-size: calc(13.5px * var(--ts));
+  font-size: calc(14px * var(--ts));
   line-height: 1.6;
   white-space: pre-wrap;
 }
@@ -100,7 +102,6 @@
 
 .part-tool {
   display: flex;
-  position: relative;
   flex-direction: column;
   gap: 6px;
 }
@@ -110,16 +111,6 @@
   font-family: var(--f-mono);
   font-size: calc(12.5px * var(--ts));
   font-weight: 600;
-}
-
-.part-tool__glyph {
-  display: flex;
-  position: absolute;
-  top: 5px;
-  left: -22px;
-  justify-content: center;
-  width: 14px;
-  color: var(--t-ac);
 }
 
 .part-tool__args {
@@ -143,6 +134,162 @@
   font-size: calc(12px * var(--ts));
   line-height: 1.55;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ---- tool row (merged tool_call + tool_result, isToolSeg) ---- */
+
+.part-toolrow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.part-toolrow__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(13px * var(--ts));
+  text-align: left;
+  cursor: pointer;
+}
+
+.part-toolrow__head:hover {
+  opacity: 0.85;
+}
+
+.part-toolrow__namewrap {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.part-toolrow__name {
+  color: var(--t-hd);
+  font-weight: 600;
+}
+
+.part-toolrow__hint {
+  color: var(--t-mu);
+}
+
+.part-toolrow__spacer {
+  flex: 1;
+}
+
+.part-toolrow__pending {
+  color: var(--t-ac);
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
+.part-toolrow__meta {
+  color: var(--t-mu);
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
+.part-toolrow__meta[data-error='true'] {
+  color: var(--t-er);
+}
+
+.part-toolrow__mark {
+  color: var(--t-ok);
+  font-size: calc(11px * var(--ts));
+}
+
+.part-toolrow__mark[data-error='true'] {
+  color: var(--t-er);
+}
+
+.part-toolrow__chev {
+  display: inline-block;
+  color: var(--t-mu);
+  transition: transform 120ms ease;
+}
+
+.part-toolrow__chev[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+/* The one-line preview that still shows while collapsed — abbreviated by
+   design (a preview), never the ONLY place the full text is available: the
+   well below shows it in full, untruncated, once opened. */
+.part-toolrow__preview {
+  margin: 0 0 0 18px;
+  overflow: hidden;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-toolrow__well {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 14px;
+  padding: 6px 0 6px 12px;
+  border-left: 2px solid var(--t-bd3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+}
+
+.part-toolrow__well[data-error='true'] {
+  border-left-color: var(--t-erc5);
+}
+
+.part-toolrow__grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  row-gap: 3px;
+  column-gap: 12px;
+}
+
+.part-toolrow__row {
+  display: contents;
+}
+
+.part-toolrow__k {
+  color: var(--t-mu);
+}
+
+.part-toolrow__v {
+  color: var(--t-pr);
+  word-break: break-word;
+}
+
+.part-toolrow__result {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--t-well);
+  border-radius: 4px;
+  color: var(--t-tx);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.part-toolrow__well[data-error='true'] .part-toolrow__result {
+  color: var(--t-er);
+}
+
+.part-toolrow__waiting {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(12.5px * var(--ts));
 }
 
 /* ---- handoff ---- */
@@ -179,6 +326,20 @@
 
 /* The child's return is its own card at the same 18px hang — an object you
    can open, not a paragraph of the parent's message. */
+/*
+ * The child's summary card — the same object whether it is still running or
+ * already done (design/prototype/Clio Session.html, isTask). The card itself
+ * never structurally changes on completion; only its StatusDot's status
+ * does, so running/done/failed are the SAME shape in three different states
+ * rather than three different shapes.
+ *
+ * NOTE: there is currently no source-of-truth click target for "open the
+ * focused agent transcript" (design/prototype's isTask goChild pane has no
+ * equivalent view in this build — tracked as the E9 Call-agent grammar work).
+ * The card therefore does NOT claim clickability (no cursor:pointer, no
+ * role="button") until that destination exists; an affordance that does
+ * nothing on click is worse than no affordance.
+ */
 .part-childcard {
   display: flex;
   flex-direction: column;
@@ -188,7 +349,6 @@
   background: rgb(22, 24, 29);
   border: 1px solid var(--t-bd3);
   border-radius: 10px;
-  cursor: pointer;
 }
 
 .part-childcard__head {
@@ -209,21 +369,6 @@
   }
 }
 
-.part-childcard__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--t-ac);
-  align-self: center;
-  animation: clio-pulse 1.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .part-childcard__dot {
-    animation: none;
-  }
-}
-
 .part-childcard__name {
   color: var(--t-hd);
   font-family: 'Inter', system-ui, sans-serif;
@@ -231,21 +376,25 @@
   font-weight: 700;
 }
 
-.part-childcard__meta {
-  display: flex;
-  gap: 10px;
-  padding-left: 15px;
+.part-childcard__run {
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-  line-height: 1.4;
+  font-size: calc(11px * var(--ts));
 }
 
-.part-childcard__dur {
-  white-space: nowrap;
+.part-childcard__host {
   color: var(--t-ac);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+}
+
+/* Muted, matching the prototype's own {{sg.dur}} — the accent colour belongs
+   to the host and the (conditionally-shown) running dot, not the timer. */
+.part-childcard__dur {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--t-mu);
   font-size: calc(11px * var(--ts));
-  font-weight: 600;
 }
 
 .part-childcard__body {
@@ -282,45 +431,67 @@
   font-size: calc(12px * var(--ts));
 }
 
-/* ---- run-handle parts (background_exit, agent_message) ---- */
+/* ---- async injections (background_exit, agent_message — isInj) ---- */
 
-.part-runhandle {
+.part-inj {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 7px 10px;
-  background: var(--t-sf);
-  border: 1px solid var(--t-bd3);
-  border-radius: 7px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.part-runhandle[data-status='failed'] {
+/* The prototype's compact inline pill, not a boxy multi-row chip stack. */
+.part-inj__pill {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-hd);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11.5px * var(--ts));
+  white-space: nowrap;
+}
+
+.part-inj[data-status='failed'] .part-inj__pill {
   border-color: var(--t-erc5);
 }
 
-.part-runhandle__label {
-  color: var(--t-mu);
-  font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.part-runhandle__run {
-  color: var(--t-cy);
-  font-family: var(--f-mono);
-  font-size: calc(12px * var(--ts));
+.part-inj__run {
+  color: var(--t-hd);
   font-weight: 600;
 }
 
-.part-runhandle__text {
-  flex-basis: 100%;
+.part-inj__sep {
+  color: var(--t-mu);
+}
+
+.part-inj__status {
+  color: var(--t-mu);
+}
+
+.part-inj__status[data-error='true'] {
+  color: var(--t-er);
+}
+
+.part-inj__host {
+  color: var(--t-mu);
+}
+
+.part-inj__text {
   margin: 2px 0 0;
   color: var(--t-pr);
   font-family: var(--f-prose);
   font-size: calc(13.5px * var(--ts));
   line-height: 1.55;
+}
+
+.part-inj__glyph {
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  color: var(--t-er);
 }
 
 .part-routing__why {
@@ -333,4 +504,79 @@
   width: 14px;
   padding-top: 4px;
   color: var(--t-ac);
+}
+
+/* ---- durable artifacts (resource_link — the "artifacts (N)" grid) ---- */
+
+.part-artgrid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.part-artgrid__label {
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.part-artgrid__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.part-artchip {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.part-artchip:hover {
+  background: var(--t-hv);
+  border-color: var(--t-cy4);
+}
+
+.part-artchip__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--t-cy);
+  background: var(--t-cy1);
+  border-radius: 6px;
+}
+
+.part-artchip__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.part-artchip__name {
+  overflow: hidden;
+  color: var(--t-hd);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12.5px * var(--ts));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-artchip__meta {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

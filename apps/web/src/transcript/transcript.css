@@ -63,6 +63,13 @@
   display: none;
 }
 
+/* The durable-artifacts grid is its own section, not a gutter-marked
+   narration row (design/prototype/Clio Session.html — no icon column
+   precedes "artifacts (N)"). */
+.kit-partcard[data-kind='artifacts'] > .kit-partcard__gutter {
+  display: none;
+}
+
 .transcript__activity {
   margin: 0;
   color: var(--t-mu);
@@ -73,4 +80,11 @@
 
 .transcript__activity-mark {
   color: var(--t-ac);
+  animation: clio-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transcript__activity-mark {
+    animation: none;
+  }
 }

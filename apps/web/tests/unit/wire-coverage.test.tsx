@@ -19,12 +19,16 @@ describe('real-wire coverage', () => {
     expect(screen.queryAllByTestId('part-unrenderable')).toHaveLength(0);
   });
 
-  it('renders one frame per part, in wire order', () => {
+  it('renders one frame per GROUP, in wire order', () => {
+    // The transcript pairs a tool_call with its tool_result into one row
+    // (the prototype's isToolSeg fold, gact-tui#333 E3/E6) — the fixture's
+    // one tool_call/tool_result pair collapses two wire parts into one card,
+    // so the frame count is parts.length minus that one merge.
     const { container } = render(
       <Transcript messages={[MOCK_WIRE_MESSAGE as unknown as Message]} />,
     );
     expect(container.querySelectorAll('.kit-partcard')).toHaveLength(
-      MOCK_WIRE_MESSAGE.parts.length,
+      MOCK_WIRE_MESSAGE.parts.length - 1,
     );
   });
 
@@ -79,8 +83,10 @@ describe('corrected wire fields actually reach the screen', () => {
     expect(screen.getByText(/Resolving the region before staging data/)).toBeInTheDocument();
   });
 
-  it('shows tool_result content unwrapped from its part list', () => {
+  it('shows tool_result content unwrapped from its part list, once opened', () => {
     render(<Transcript messages={[MOCK_WIRE_MESSAGE as unknown as Message]} />);
+    // The merged tool row is closed by default (E3/E6) — open it first.
+    fireEvent.click(screen.getByRole('button', { name: /stage_resource/ }));
     expect(screen.getByText(/staged 1,101 rows/)).toBeInTheDocument();
   });
 

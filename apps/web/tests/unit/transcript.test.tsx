@@ -73,7 +73,7 @@ describe('Transcript', () => {
     expect(screen.getByText('internal reasoning here')).toBeInTheDocument();
   });
 
-  it('renders a tool call with its params as indented prose (E4)', () => {
+  it('renders a tool call as a collapsed row that opens to prose params (E3/E4/E6)', () => {
     const { container } = render(
       <Transcript
         messages={[
@@ -88,10 +88,17 @@ describe('Transcript', () => {
         ]}
       />,
     );
+    // Closed by default — the prototype's isToolSeg fold, not a permanently
+    // open card. The params are not in the DOM at all until opened.
     expect(screen.getByText('geo_geocode')).toBeInTheDocument();
-    // The dt/dd grid died with slice E: args are prose, one key per line.
-    expect(container.querySelector('.part-tool dl')).toBeNull();
-    const args = container.querySelector('.part-tool__args');
+    expect(container.querySelector('.part-toolrow__well')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /geo_geocode/ }));
+
+    // The dt/dd grid died with slice E: args are key/value prose, not a
+    // semantic definition list.
+    expect(container.querySelector('.part-toolrow dl')).toBeNull();
+    const args = container.querySelector('.part-toolrow__grid');
     expect(args?.textContent).toContain('Los Angeles, California');
   });
 
@@ -102,9 +109,13 @@ describe('Transcript', () => {
           msg('m1', 'assistant', [
             {
               type: 'expert_handoff',
-              expert: 'geospatial',
-              task_id: 'task_b7525159dde5',
-              question: 'Resolve Los Angeles into coordinates',
+              child_agent: 'geospatial',
+              stage: 'delegate.started',
+              status: 'running',
+              // The real wire nests the question under `metadata`
+              // (contract/testdata/observed-parts-v0.3.json), never top-level
+              // — `text` on this kind is router-only arrow prose instead.
+              metadata: { question: 'Resolve Los Angeles into coordinates' },
             },
           ]),
         ]}
@@ -134,6 +145,105 @@ describe('Transcript', () => {
     expect(card).toHaveTextContent('geospatial');
     expect(card).toHaveTextContent('1m 12s');
     expect(card).toHaveTextContent(/34.0537/);
+  });
+
+  it('merges tool_call + tool_result into ONE collapsible row, closed by default (E3/E6)', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'tool_call',
+              call_id: 'call_1',
+              tool_name: 'stage_resource',
+              input: { resource: 'earthscope_stations.csv' },
+            },
+            {
+              type: 'tool_result',
+              call_id: 'call_1',
+              is_error: false,
+              duration_ms: 412,
+              content: [{ type: 'text', text: 'staged 1,101 rows' }],
+            },
+          ]),
+        ]}
+      />,
+    );
+    // ONE row for the pair, not two permanently-open cards — and only ONE
+    // wrench glyph, not a mismatched wrench-then-gear stack.
+    expect(screen.getAllByTestId('part-tool')).toHaveLength(1);
+    expect(screen.getAllByText('stage_resource')).toHaveLength(1);
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('0.4s')).toBeInTheDocument();
+    // The full params/result well is closed by default (a short one-line
+    // preview may still show — it's the SAME text, just not yet the well).
+    expect(screen.queryByText('resource')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /stage_resource/ }));
+    expect(screen.getByText('staged 1,101 rows')).toBeInTheDocument();
+    expect(screen.getByText('resource')).toBeInTheDocument();
+  });
+
+  it('shows a failed tool result in full once opened — nothing cut mid-token (E6)', () => {
+    const longError = "{'support': ".repeat(20) + 'x';
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { type: 'tool_call', call_id: 'call_2', tool_name: 'geo_geocode', input: {} },
+            {
+              type: 'tool_result',
+              call_id: 'call_2',
+              is_error: true,
+              content: [{ type: 'text', text: longError }],
+            },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByText('✗')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /geo_geocode/ }));
+    // The old truncator cut this at 120 chars mid-object; the full string
+    // (well over 120 chars) must be present, verbatim.
+    expect(longError.length).toBeGreaterThan(120);
+    expect(screen.getByText(longError)).toBeInTheDocument();
+  });
+
+  it('renders resource_link parts as an icon-tile artifact grid, not a bare link', () => {
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'resource_link',
+              uri: 'artifact://ws_default/earthscope_stations.csv@1',
+              name: 'earthscope_stations.csv',
+              mime_type: 'text/csv',
+            },
+            {
+              type: 'resource_link',
+              uri: 'artifact://ws_default/notes.md@1',
+              name: 'notes.md',
+              mime_type: 'text/markdown',
+            },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByText('artifacts (2)')).toBeInTheDocument();
+    const chips = container.querySelectorAll('.part-artchip');
+    expect(chips).toHaveLength(2);
+    expect(screen.getByText('earthscope_stations.csv')).toBeInTheDocument();
+    // No fabricated size/row count (the wire carries neither) — the real
+    // mime_type is what's shown instead.
+    expect(chips[0]?.textContent).toContain('text/csv');
+  });
+
+  it('marks assistant narration with the prototype\'s mono bullet, not a bar', () => {
+    const { container } = render(
+      <Transcript messages={[msg('m1', 'assistant', [{ type: 'text', text: 'hello' }])]} />,
+    );
+    expect(container.querySelector('.part-textdot')?.textContent).toBe('●');
+    expect(container.querySelector('.part-gutterbar')).toBeNull();
   });
 
   it('SURFACES an unknown part kind rather than dropping it', () => {
