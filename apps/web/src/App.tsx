@@ -108,6 +108,7 @@ export function App() {
             cur ? { ...cur, sessions: cur.sessions.filter((s) => s.id !== sessionId) } : cur,
           )
         }
+        backendVersion={backend.capabilities?.backend?.version ?? ''}
         onSessionCreated={(session) =>
           setBackend((cur) => (cur ? { ...cur, sessions: [session, ...cur.sessions] } : cur))
         }

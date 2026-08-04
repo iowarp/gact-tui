@@ -50,3 +50,31 @@
 .sessionview__removebtn:hover {
   background: var(--t-erc06);
 }
+
+/* Version stamp — the prototype places it in a row UNDER the composer, in the
+   same 860px column, right-aligned. Measured: 10.5px, --t-mu, padding 2px 4px
+   in a 5px 4px 0 row. */
+.sessionview__version {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: calc(860px + 2 * 36px);
+  margin: -12px auto 0;
+  padding: 5px 40px 6px;
+}
+
+.sessionview__versionbtn {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  cursor: pointer;
+}
+
+.sessionview__versionbtn:hover {
+  color: var(--t-hd);
+}

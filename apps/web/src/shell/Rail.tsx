@@ -19,6 +19,9 @@ export interface RailGroup {
   sessions: RailSession[];
 }
 
+/** Sessions shown per group before the prototype's "show more (N)" kicks in. */
+const GROUP_VISIBLE = 5;
+
 export type SessionAction = 'rename' | 'fork' | 'export' | 'share' | 'pin' | 'delete';
 
 /**
@@ -78,6 +81,8 @@ export function Rail({
   onOpenSettings,
 }: RailProps) {
   const [menu, setMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   function openMenu(event: React.MouseEvent, sessionId: string) {
@@ -125,14 +130,37 @@ export function Rail({
       </div>
 
       <nav className="shell-rail__body" aria-label="Workspaces">
-        {groups.map((group) => (
+        {groups.map((group) => {
+          const collapsed = collapsedGroups.includes(group.id);
+          const expanded = expandedGroups.includes(group.id);
+          // The prototype truncates a long group behind "show more (N)"; the
+          // count is the point, since "show more" alone never says whether
+          // one session is hidden or forty.
+          const truncated = !expanded && group.sessions.length > GROUP_VISIBLE;
+          const shown = truncated ? group.sessions.slice(0, GROUP_VISIBLE) : group.sessions;
+          const hidden = group.sessions.length - shown.length;
+
+          return (
           <section className="shell-rail__group" key={group.id}>
-            <div className="shell-rail__grouphead">
+            <div className="shell-rail__grouphead" data-testid={`rail-grouphead-${group.id}`}>
+              <button
+                type="button"
+                className="shell-rail__groupdisclose"
+                aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+                aria-expanded={!collapsed}
+                onClick={() =>
+                  setCollapsedGroups((cur) =>
+                    cur.includes(group.id) ? cur.filter((id) => id !== group.id) : [...cur, group.id],
+                  )
+                }
+              >
+                <Icon name="folder" size={11} />
+              </button>
               <span className="shell-rail__grouplabel">{group.label}</span>
               <span className="shell-rail__groupcount">{group.count}</span>
             </div>
 
-            {group.sessions.map((session) => {
+            {collapsed ? null : shown.map((session) => {
               const active = session.id === activeSessionId;
               return (
                 <div
@@ -182,8 +210,20 @@ export function Rail({
                 </div>
               );
             })}
+
+            {collapsed || !truncated ? null : (
+              <button
+                type="button"
+                className="shell-rail__showmore"
+                data-testid={`rail-showmore-${group.id}`}
+                onClick={() => setExpandedGroups((cur) => [...cur, group.id])}
+              >
+                {`show more (${hidden})`}
+              </button>
+            )}
           </section>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="shell-rail__footer">

@@ -21,6 +21,8 @@ export interface SessionViewProps {
   onForgetSession?: (sessionId: string) => void;
   /** A session brought into being by the first send, so the rail can show it. */
   onSessionCreated?: (session: Session) => void;
+  /** capabilities.backend.version, for the prototype's version stamp. */
+  backendVersion?: string;
 }
 
 /** The fields of the session record the composer renders. */
@@ -50,6 +52,7 @@ export function SessionView({
   sessions,
   onForgetSession,
   onSessionCreated,
+  backendVersion,
 }: SessionViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
@@ -439,6 +442,16 @@ export function SessionView({
           {...(sending ? { busyReason: 'Sending…' } : {})}
         />
       ) : null}
+      {backendVersion ? (
+        // The prototype also reads "· update available"; no endpoint reports
+        // update state, so that half is omitted rather than invented.
+        <div className="sessionview__version">
+          <button type="button" className="sessionview__versionbtn" data-testid="version-stamp">
+            {`v${backendVersion}`}
+          </button>
+        </div>
+      ) : null}
+
       <Layer
         open={panel === 'settings'}
         title="settings"

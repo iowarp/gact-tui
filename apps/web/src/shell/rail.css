@@ -258,3 +258,45 @@
 .shell-rail__footcell:disabled .shell-rail__footdot {
   background: var(--t-dis);
 }
+
+/* --- group disclosure + truncation (C6 / C7) ------------------------- */
+
+.shell-rail__groupdisclose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--t-mu);
+  cursor: pointer;
+}
+
+.shell-rail__groupdisclose:hover {
+  background: var(--t-hv);
+  color: var(--t-hd);
+}
+
+.shell-rail__groupdisclose[aria-expanded='false'] {
+  color: var(--t-dis);
+}
+
+/* The prototype's "show more (4)": 11px, muted, aligned with the rows. */
+.shell-rail__showmore {
+  display: block;
+  width: 100%;
+  padding: 3px 8px 3px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--t-mu);
+  font-size: calc(11px * var(--ts));
+  text-align: left;
+  cursor: pointer;
+}
+
+.shell-rail__showmore:hover {
+  color: var(--t-hd);
+}

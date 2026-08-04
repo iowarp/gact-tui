@@ -8,7 +8,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from '../../src/shell/AppShell';
-import type { RailGroup } from '../../src/shell/Rail';
+import { Rail, type RailGroup } from '../../src/shell/Rail';
 
 const GROUPS: RailGroup[] = [
   {
@@ -149,5 +149,55 @@ describe('rail rename', () => {
     renderShell();
     fireEvent.click(screen.getByRole('button', { name: 'Actions for ior baseline sweep' }));
     expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
+  });
+});
+
+describe('rail group rows and truncation (C6 / C7)', () => {
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `s${i}`,
+      title: `session ${i}`,
+      status: 'idle' as const,
+      age: '1h',
+    }));
+
+  const bigGroup = [
+    { id: 'g1', label: '~/rollups', count: 9, sessions: many(9) },
+  ];
+
+  it('gives each group a folder icon and a disclosure control', () => {
+    render(<Rail groups={bigGroup} activeSessionId="s0" onSelectSession={() => {}} onCollapse={() => {}} />);
+    const head = screen.getByTestId('rail-grouphead-g1');
+    expect(head.querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /collapse ~\/rollups/i })).toBeInTheDocument();
+  });
+
+  it('collapses a group, hiding its sessions', () => {
+    render(<Rail groups={bigGroup} activeSessionId="s0" onSelectSession={() => {}} onCollapse={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /collapse ~\/rollups/i }));
+    expect(screen.queryByRole('button', { name: 'session 0' })).toBeNull();
+    expect(screen.getByRole('button', { name: /expand ~\/rollups/i })).toBeInTheDocument();
+  });
+
+  it('truncates a long group and says how many are hidden', () => {
+    // The prototype's "show more (4)" — the count is the POINT: "show more"
+    // alone does not say whether one session is hidden or forty.
+    render(<Rail groups={bigGroup} activeSessionId="s0" onSelectSession={() => {}} onCollapse={() => {}} />);
+    const more = screen.getByTestId('rail-showmore-g1');
+    expect(more).toHaveTextContent('show more (4)');
+    expect(screen.queryByRole('button', { name: 'session 8' })).toBeNull();
+  });
+
+  it('reveals the rest on show more', () => {
+    render(<Rail groups={bigGroup} activeSessionId="s0" onSelectSession={() => {}} onCollapse={() => {}} />);
+    fireEvent.click(screen.getByTestId('rail-showmore-g1'));
+    expect(screen.getByRole('button', { name: 'session 8' })).toBeInTheDocument();
+    expect(screen.queryByTestId('rail-showmore-g1')).toBeNull();
+  });
+
+  it('does not truncate a group that fits', () => {
+    const small = [{ id: 'g2', label: '~/small', count: 3, sessions: many(3) }];
+    render(<Rail groups={small} activeSessionId="s0" onSelectSession={() => {}} onCollapse={() => {}} />);
+    expect(screen.queryByTestId('rail-showmore-g2')).toBeNull();
   });
 });

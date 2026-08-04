@@ -301,3 +301,32 @@ describe('composer control row (C5 / C9 / S1)', () => {
     );
   });
 });
+
+describe('version stamp (C8)', () => {
+  it('shows the backend version under the composer', () => {
+    // capabilities.backend.version is "0.9.0+42522bb1" — the prototype's
+    // "v0.9.2+g4f21c" shape, and it is served, so it can be stated exactly.
+    render(
+      <SessionView
+        client={makeClient()}
+        sessions={SESSIONS}
+        backendVersion="0.9.0+42522bb1"
+      />,
+    );
+    expect(screen.getByTestId('version-stamp')).toHaveTextContent('v0.9.0+42522bb1');
+  });
+
+  it('claims nothing about updates, which no endpoint reports', () => {
+    // The prototype reads "· update available". clio-agent serves no update
+    // check, so asserting it would be inventing a fact.
+    render(
+      <SessionView client={makeClient()} sessions={SESSIONS} backendVersion="0.9.0+42522bb1" />,
+    );
+    expect(screen.queryByText(/update available/i)).toBeNull();
+  });
+
+  it('renders no stamp when the backend reports no version', () => {
+    render(<SessionView client={makeClient()} sessions={SESSIONS} />);
+    expect(screen.queryByTestId('version-stamp')).toBeNull();
+  });
+});
