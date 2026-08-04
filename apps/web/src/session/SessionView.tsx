@@ -351,6 +351,24 @@ export function SessionView({
   const placement = activeId ? `${activeConnectionLabel}:${activeWorkspaceLabel}` : undefined;
   const activePill =
     pillState?.sessionId === activeId && pillState.scope === activeScope ? pillState : null;
+  const waitingCount = activePill?.asyncCount ?? 0;
+  const transcriptMessages: Message[] =
+    state.kind === 'loaded' && waitingCount > 0
+      ? [
+          ...state.messages,
+          {
+            id: `${activeId ?? 'session'}:transcript-activity`,
+            role: 'assistant',
+            // This marker is UI-owned and never written back to the backend's
+            // closed wire Part union.
+            parts: [
+              { type: 'transcript_activity', count: waitingCount },
+            ] as unknown as Message['parts'],
+          },
+        ]
+      : state.kind === 'loaded'
+        ? state.messages
+        : [];
 
   const createAndSelectSession = useCallback(
     async (workspaceId?: string): Promise<Session> => {
@@ -565,8 +583,8 @@ export function SessionView({
           </p>
         ) : null}
 
-        {state.kind === 'loaded' && state.messages.length > 0 ? (
-          <Transcript messages={state.messages} />
+        {state.kind === 'loaded' && transcriptMessages.length > 0 ? (
+          <Transcript messages={transcriptMessages} />
         ) : null}
 
         {state.kind !== 'missing' ? (

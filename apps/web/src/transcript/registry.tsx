@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Chip, Icon } from '../kit';
+import { Chip, Icon, StatusDot } from '../kit';
 import { shortScalar } from '../wire/presentationUtils';
 import { HandoffPart } from './parts/HandoffPart';
 import './parts/parts.css';
@@ -143,7 +143,26 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
 
   expert_handoff: {
     gutter: <HandoffGlyph />,
-    render: (part) => <HandoffPart part={part} />,
+    render: (part) => {
+      const stage = str(part['stage']);
+      if (stage !== 'delegate.started' && stage !== 'delegate.completed') {
+        return <HandoffPart part={part} />;
+      }
+
+      const placement = str(part['placement']);
+      return (
+        <div className="part-childcard" data-testid="part-child-card">
+          <div className="part-childcard__head">
+            <StatusDot status={stage === 'delegate.started' ? 'running' : 'idle'} />
+            <span className="part-childcard__name">{str(part['child_agent'])}</span>
+          </div>
+          <div className="part-childcard__meta">
+            <span>{str(part['run_label'])}</span>
+            {placement && placement !== 'local' ? <span>{placement}</span> : null}
+          </div>
+        </div>
+      );
+    },
   },
 
   subagent_call: {
@@ -243,6 +262,21 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
     ),
   },
 
+  transcript_activity: {
+    render: (part) => {
+      const count = Number(part['count']);
+      const noun = count === 1 ? 'agent' : 'agents';
+      return (
+        <p className="transcript__activity" data-testid="transcript-activity">
+          <span className="transcript__activity-mark" aria-hidden="true">
+            ✻
+          </span>
+          {` Waiting for ${count} background ${noun} to finish`}
+        </p>
+      );
+    },
+  },
+
   error: {
     render: (part) => (
       <p className="part-error" data-testid="part-error" role="alert">
@@ -256,7 +290,7 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
 function HandoffGlyph() {
   return (
     <span className="part-handoff__glyph">
-      <Icon name="tool" />
+      <Icon name="wrench" size={11} />
     </span>
   );
 }

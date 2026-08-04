@@ -185,7 +185,7 @@
   gap: 6px;
   margin-left: 18px;
   padding: 10px 14px;
-  background: var(--t-sf);
+  background: rgb(22, 24, 29);
   border: 1px solid var(--t-bd3);
   border-radius: 10px;
   cursor: pointer;
@@ -226,7 +226,19 @@
 
 .part-childcard__name {
   color: var(--t-hd);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: calc(14px * var(--ts));
   font-weight: 700;
+}
+
+.part-childcard__meta {
+  display: flex;
+  gap: 10px;
+  padding-left: 15px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  line-height: 1.4;
 }
 
 .part-childcard__dur {

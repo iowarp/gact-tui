@@ -54,3 +54,23 @@
     animation: none;
   }
 }
+
+.kit-partcard[data-kind='transcript_activity'] {
+  display: block;
+}
+
+.kit-partcard[data-kind='transcript_activity'] > .kit-partcard__gutter {
+  display: none;
+}
+
+.transcript__activity {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  line-height: 1.5;
+}
+
+.transcript__activity-mark {
+  color: var(--t-ac);
+}
