@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { Markdown } from '../markdown';
 import { formatDurationSeconds } from '../../wire/formatters';
-import { normalizeWhitespace, truncate } from '../../wire/presentationUtils';
+import { isRecord, normalizeWhitespace, truncate } from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
-import { extractToolResultText } from './toolResultText';
+import {
+  extractCsvBlock,
+  extractImageBlock,
+  extractStructuredContent,
+  extractToolResultText,
+  type ContentImageBlock,
+} from './toolResultText';
+import { sanitizeTitle } from './titleSanitizer';
 
 export interface ToolPartProps {
   call: WirePart;
@@ -54,6 +61,16 @@ function argRows(input: unknown): Array<{ k: string; v: string }> {
   }));
 }
 
+/** Shared KV-value stringification (pretty-printed — these are read as a
+ *  short block of prose in the result well, not packed into a table cell). */
+function kvValue(v: unknown): string {
+  return typeof v === 'string' ? v : (JSON.stringify(v, null, 1) ?? String(v));
+}
+
+function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: string }> {
+  return Object.entries(obj).map(([k, v]) => ({ k, v: kvValue(v) }));
+}
+
 /**
  * A JSON-object tool result rendered as the prototype's key/value result
  * table (isToolSeg's "results tables") instead of a raw JSON blob. Only a
@@ -70,13 +87,186 @@ function resultRows(text: string): Array<{ k: string; v: string }> | null {
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-  const entries = Object.entries(parsed as Record<string, unknown>);
-  if (entries.length === 0) return null;
-  return entries.map(([k, v]) => ({
-    k,
-    v: typeof v === 'string' ? v : (JSON.stringify(v, null, 1) ?? String(v)),
-  }));
+  if (!isRecord(parsed)) return null;
+  const rows = kvRowsFromObject(parsed);
+  return rows.length > 0 ? rows : null;
+}
+
+/** Compact single-line cell stringification for the real-table renderer
+ *  (step B2/B3 of the result ladder) — unlike {@link kvValue} this never
+ *  pretty-prints, so a nested value doesn't blow out a table row's height. */
+function cellValue(v: unknown): string {
+  if (v === undefined) return '';
+  return typeof v === 'string' ? v : (JSON.stringify(v) ?? String(v));
+}
+
+/**
+ * `structured_content` (or a text/csv content block) only earns the real
+ * table renderer when every array element is a plain object carrying the
+ * SAME set of keys — that's what "uniform" means: a well-formed row set
+ * with real columns, not a coincidence of a mixed-shape array.
+ */
+function isUniformObjectArray(value: unknown): value is Array<Record<string, unknown>> {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  if (!value.every((item) => isRecord(item))) return false;
+  const items = value as Array<Record<string, unknown>>;
+  const firstKeys = JSON.stringify(Object.keys(items[0]!).sort());
+  return items.every((item) => JSON.stringify(Object.keys(item).sort()) === firstKeys);
+}
+
+function objectArrayToTable(items: Array<Record<string, unknown>>): { header: string[]; rows: string[][] } {
+  const header = Object.keys(items[0] ?? {});
+  const rows = items.map((item) => header.map((key) => cellValue(item[key])));
+  return { header, rows };
+}
+
+/** Naive comma-split CSV, matching the existing DetailSlot Preview idiom
+ *  (`src/detail/preview.ts`) — no quoted-comma handling, same tradeoff the
+ *  rest of this codebase already accepts for CSV previews. */
+function parseCsv(text: string): { header: string[]; rows: string[][] } {
+  const lines = text.split(/\r?\n/).filter((line) => line.length > 0);
+  const header = (lines[0] ?? '').split(',');
+  const rows = lines.slice(1).map((line) => line.split(','));
+  return { header, rows };
+}
+
+type InterpretedResult =
+  | { kind: 'kv'; rows: Array<{ k: string; v: string }> }
+  | { kind: 'table'; header: string[]; rows: string[][] }
+  | { kind: 'image'; block: ContentImageBlock }
+  | { kind: 'raw' };
+
+/**
+ * The result render ladder (owner design 2026-08-05), replacing "print the
+ * JSON string and hope": `structured_content` first (object -> KV, uniform
+ * array -> table), then content blocks by mime type (image, text/csv ->
+ * table), then the existing text/JSON-object handling, and finally the
+ * verbatim fallback that was already here. Every step only fires on a shape
+ * it can actually interpret — anything else falls through to the next rung,
+ * and the bottom rung is the untouched raw `<pre>`.
+ */
+function interpretResult(result: WirePart, text: string): InterpretedResult {
+  const structured = extractStructuredContent(result);
+  if (isUniformObjectArray(structured)) {
+    const { header, rows } = objectArrayToTable(structured);
+    return { kind: 'table', header, rows };
+  }
+  if (isRecord(structured)) {
+    const rows = kvRowsFromObject(structured);
+    if (rows.length > 0) return { kind: 'kv', rows };
+  }
+
+  const image = extractImageBlock(result);
+  if (image) return { kind: 'image', block: image };
+
+  const csv = extractCsvBlock(result);
+  if (csv) {
+    const { header, rows } = parseCsv(csv);
+    if (header.length > 0 && rows.length > 0) return { kind: 'table', header, rows };
+  }
+
+  const rows = resultRows(text);
+  if (rows) return { kind: 'kv', rows };
+
+  return { kind: 'raw' };
+}
+
+function KvRows({ rows, testId }: { rows: Array<{ k: string; v: string }>; testId?: string }) {
+  return (
+    <div className="part-toolrow__grid" data-testid={testId}>
+      {rows.map((row) => (
+        <div className="part-toolrow__row" key={row.k}>
+          <span className="part-toolrow__k">{row.k}</span>
+          <span className="part-toolrow__v">{row.v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TABLE_INITIAL_ROWS = 20;
+
+/** The real table half of the result ladder (structured array / CSV block)
+ *  — first {@link TABLE_INITIAL_ROWS} rows + a "show more" reveal, the
+ *  local sibling to DetailSlot's Preview CSV table (not importable — that
+ *  component is private to DetailSlot.tsx). */
+function ResultTable({ header, rows }: { header: string[]; rows: string[][] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? rows : rows.slice(0, TABLE_INITIAL_ROWS);
+  const hasMore = rows.length > TABLE_INITIAL_ROWS;
+  return (
+    <div className="part-toolrow__tablewrap" data-testid="part-tool-result-grid">
+      <table className="part-toolrow__table">
+        <thead>
+          <tr>
+            {header.map((cell, i) => (
+              <th key={i}>{cell}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {hasMore ? (
+        <p className="part-toolrow__tablefoot">
+          {expanded ? `all ${rows.length} rows` : `first ${TABLE_INITIAL_ROWS} of ${rows.length} rows`}
+          {!expanded ? (
+            <button type="button" className="part-toolrow__tablemore" onClick={() => setExpanded(true)}>
+              show more
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Inline bounded image (result ladder step B2) — `data` (base64) becomes a
+ *  data: URI, `url` renders directly; the block is only ever constructed by
+ *  {@link extractImageBlock} once one of the two is confirmed present. */
+function ResultImage({ block }: { block: ContentImageBlock }) {
+  const src = block.url || (block.data ? `data:${block.mimeType};base64,${block.data}` : '');
+  if (!src) return null;
+  return (
+    <div className="part-toolrow__imagewrap" data-testid="part-tool-result-image">
+      <img className="part-toolrow__image" src={src} alt="tool result" />
+    </div>
+  );
+}
+
+/**
+ * Result ladder step B3: whenever a renderer INTERPRETED the payload
+ * (table/image/KV), the verbatim original text stays one keypress away —
+ * never removed, never re-serialized from the parsed shape. Collapsed by
+ * default so the interpreted view stays the primary read.
+ */
+function RawToggle({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="part-toolrow__raw">
+      <button
+        type="button"
+        className="part-toolrow__rawtoggle"
+        aria-expanded={open}
+        data-testid="part-tool-raw-toggle"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? 'hide raw' : 'raw'}
+      </button>
+      {open ? (
+        <pre className="part-toolrow__rawpre" data-testid="part-tool-raw">
+          {text || '(empty result)'}
+        </pre>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -119,6 +309,20 @@ export function ToolPart({ call, result }: ToolPartProps) {
 
   const thought = str(call['thought']);
 
+  // A) Tool titles (owner design 2026-08-05): `tool_title`/`server_title` are
+  // OPTIONAL wire fields on the tool_call. Presence is judged on the RAW
+  // field (a string, even an empty one, counts as "the wire sent this"), so
+  // absence renders EXACTLY today's raw-name-only row (regression pin) while
+  // presence always keeps the raw identifier on screen — it's what went to
+  // the model, and it must be visible when a call fails.
+  const rawTitle = call['tool_title'];
+  const hasTitle = typeof rawTitle === 'string';
+  const displayName = hasTitle ? sanitizeTitle(rawTitle, name) : name;
+  // server_title has no display surface yet beyond a `title` attribute
+  // (grouping/breadcrumb is a later surface) — never a fabricated group
+  // header.
+  const serverTitle = sanitizeTitle(call['server_title'], '');
+
   return (
     <div className="part-toolrow" data-error={isError ? 'true' : undefined} data-testid="part-tool">
       {thought ? (
@@ -132,8 +336,13 @@ export function ToolPart({ call, result }: ToolPartProps) {
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="part-toolrow__namewrap">
-          <span className="part-toolrow__name">{name}</span>
+        <span className="part-toolrow__namewrap" title={serverTitle || undefined}>
+          <span className="part-toolrow__name">{displayName}</span>
+          {hasTitle ? (
+            <span className="part-toolrow__rawname" data-testid="part-tool-rawname">
+              {name}
+            </span>
+          ) : null}
           <span className="part-toolrow__hint">({argHint})</span>
         </span>
         <span className="part-toolrow__spacer" />
@@ -151,32 +360,36 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {previewLine ? <p className="part-toolrow__preview">{previewLine}</p> : null}
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
-          {params.length > 0 ? (
-            <div className="part-toolrow__grid">
-              {params.map((row) => (
-                <div className="part-toolrow__row" key={row.k}>
-                  <span className="part-toolrow__k">{row.k}</span>
-                  <span className="part-toolrow__v">{row.v}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {params.length > 0 ? <KvRows rows={params} /> : null}
           {result ? (
             (() => {
-              const rows = resultRows(text);
-              if (rows) {
-                return (
-                  <div className="part-toolrow__grid" data-testid="part-tool-result-table">
-                    {rows.map((row) => (
-                      <div className="part-toolrow__row" key={row.k}>
-                        <span className="part-toolrow__k">{row.k}</span>
-                        <span className="part-toolrow__v">{row.v}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
+              const interpreted = interpretResult(result, text);
+              switch (interpreted.kind) {
+                case 'kv':
+                  return (
+                    <>
+                      <KvRows rows={interpreted.rows} testId="part-tool-result-table" />
+                      <RawToggle text={text} />
+                    </>
+                  );
+                case 'table':
+                  return (
+                    <>
+                      <ResultTable header={interpreted.header} rows={interpreted.rows} />
+                      <RawToggle text={text} />
+                    </>
+                  );
+                case 'image':
+                  return (
+                    <>
+                      <ResultImage block={interpreted.block} />
+                      <RawToggle text={text} />
+                    </>
+                  );
+                case 'raw':
+                default:
+                  return <pre className="part-toolrow__result">{text || '(empty result)'}</pre>;
               }
-              return <pre className="part-toolrow__result">{text || '(empty result)'}</pre>;
             })()
           ) : (
             <p className="part-toolrow__waiting">waiting for the tool to return…</p>
