@@ -101,10 +101,11 @@
     {
       "element": "Rail footer 'relay' cell",
       "proto_truth": "`<button title=\"Relays — opens settings\" onclick={goSettingsRelays}>` with a live green status dot — navigates into Settings > Relays. design/prototype/Clio Session.html rail footer block.",
-      "status": "unbacked",
+      "status": "not-wired",
       "app_evidence": "apps/web/src/shell/Rail.tsx:515-523 (re-verified PASS 2, 2026-08-05: line numbers shifted, substance unchanged) — the cell is `disabled` with `title=\"relay reachability has no wire surface yet (clio-agent#1179)\"`",
-      "backend_surface": "unbacked, tracked as clio-agent#1179",
-      "fix_hint": "Correctly flagged rather than silently missing (matches the repo's no-silent-fallback rule) — listed here for completeness of the menu sweep, not as a new defect. Re-verified PASS 2: still unbacked, still flagged, no change made."
+      "backend_surface": "GET /v1/relay/status (real, clio-agent#1179 landed; Client.relayStatus() already in apps/core) - cell not wired to it",
+      "fix_hint": "Correctly flagged rather than silently missing (matches the repo's no-silent-fallback rule) — listed here for completeness of the menu sweep, not as a new defect. Re-verified PASS 2: still unbacked, still flagged, no change made.",
+      "audit_correction": "INDEPENDENT AUDIT of grind pass 2 (2026-08-05): corrected unbacked -> not-wired. The wire surface EXISTS now: clio-agent#1179 landed GET /v1/relay/status (probed live this audit: 200 {configured,host,reachable,checked_at,reason,detail}, reachable:true), and the settings pass-2 commit (62a732ce) already shipped Client.relayStatus() in apps/core plus a working Settings > Relays page consuming it (audit2-relays.png) - BEFORE the rail pass-2 commit (4d0079f2) that re-affirmed this cell as 'unbacked'. Rail.tsx's cell is still permanently disabled with the now-FALSE title 'relay reachability has no wire surface yet (clio-agent#1179)' and a grey 'relay unknown' label (visible on audit2-session.png) - a dead control plus a lying tooltip over a live route. Fix: drive the dot/label from the same relayStatus() call and restore click-through to Settings > Relays."
     },
     {
       "element": "Topbar (breadcrumb chip, files/console/artifacts/ctx/observability controls)",

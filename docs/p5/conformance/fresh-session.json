@@ -173,10 +173,11 @@
     {
       "element": "Composer model selector, fresh state",
       "proto_truth": "\"✧ Anthropic / claude-sonnet-4-6 ⌄\" chip.",
-      "status": "match",
+      "status": "deviates",
       "app_evidence": "Unchanged this pass — SessionView.tsx substitutes \"model not set\" pre-session, the honest fallback since clio-agent exposes no default-model endpoint.",
       "backend_surface": "GET /v1/providers + GET /v1/providers/{id}/models for the option list",
-      "fix_hint": "none needed"
+      "fix_hint": "none needed",
+      "audit_correction": "INDEPENDENT AUDIT of grind pass 2 (2026-08-05): corrected match -> deviates. The recorded evidence ('substitutes \"model not set\"') no longer holds once a session's model options load: the chip renders the placeholder DOUBLED - 'model not set / model not set' - because SessionView.tsx:1058 injects a synthetic { id: '', label: 'model not set' } model row and ProviderModelPicker.tsx:105-107 then formats it as '{group} / {model}' with both halves the placeholder. Seen live on audit2-fresh.png (bottom pane) and on the anchor session (audit2-obs-anchor-app.png). The prototype's chip is '✧ Anthropic / claude-sonnet-4-6 ⌄'; a single honest 'model not set' would be the correct degenerate form."
     },
     {
       "element": "Composer send button, fresh/empty-text state",
