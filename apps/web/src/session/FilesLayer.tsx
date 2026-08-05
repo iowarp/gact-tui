@@ -38,6 +38,21 @@ function readableSize(value: number | undefined): string {
 }
 
 /**
+ * clio's live wire types directories `"dir"` (probed directly against
+ * 127.0.0.1:17900's `/v1/workspaces/{id}/files`), not `"directory"` —
+ * SessionView.tsx's own `@`-picker filter already excludes both spellings
+ * (see its `file.type !== 'dir' && file.type !== 'directory'` comment); this
+ * mirrors that same fix here, where it was still missing. Checking only
+ * `'directory'` was a no-op against the real backend: every leaf `dir` entry
+ * fell through to the `file` branch below and rendered as a flat doc-icon
+ * row with no folder chevron/grouping (docs/p5/conformance/panels.json,
+ * audit_correction).
+ */
+function isDirectoryType(type: string | undefined): boolean {
+  return type === 'dir' || type === 'directory';
+}
+
+/**
  * Group the backend's flat file listing into a folder tree — the prototype's
  * `fsTree` renders chevron/folder rows with real nesting, which a flat button
  * list (the previous right-panel implementation) never built.
@@ -51,17 +66,18 @@ function buildFileTree(files: FileRow[]): TreeNode[] {
     parts.forEach((part, index) => {
       const isLeaf = index === parts.length - 1;
       const path = parts.slice(0, index + 1).join('/');
+      const isFileLeaf = isLeaf && !isDirectoryType(file.type);
       let child = node.children.find((candidate) => candidate.name === part);
       if (!child) {
         child = {
           name: part,
           path,
-          type: isLeaf && file.type !== 'directory' ? 'file' : 'directory',
+          type: isFileLeaf ? 'file' : 'directory',
           children: [],
         };
         node.children.push(child);
       }
-      if (isLeaf && file.type !== 'directory') {
+      if (isFileLeaf) {
         child.size = file.size;
         child.language = file.language;
         child.mime = file.mime;

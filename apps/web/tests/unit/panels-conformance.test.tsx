@@ -149,6 +149,56 @@ describe('files layer — folder tree, not a flat list', () => {
   });
 });
 
+describe('files layer — the wire spells directories "dir", not "directory"', () => {
+  // Probed live against 127.0.0.1:17900's /v1/workspaces/{id}/files: clio
+  // lists directories as their OWN entries (`{"path":".claude","type":"dir"}`)
+  // ahead of their children, not merely implied by a file's parent path.
+  // docs/p5/conformance/panels.json's audit_correction: checking only
+  // `type === 'directory'` is a no-op against this real spelling, so every
+  // directory entry fell into the file branch and both the directory ROW
+  // itself and its children (nested under a node now permanently typed
+  // 'file') rendered as flat doc-icon rows with no chevron/expansion.
+  function dirWireClient() {
+    return client({
+      workspaceFiles: vi.fn(async () => ({
+        files: [
+          { path: '.claude', type: 'dir' },
+          { path: '.claude/CLAUDE.md', size: 21_554, type: 'file' },
+          { path: 'empty-dir', type: 'dir' },
+          { path: 'README.md', size: 42, type: 'file', language: 'markdown' },
+        ],
+        next_cursor: null,
+      })),
+    });
+  }
+
+  it('renders a wire-listed "dir" entry as a folder chevron row, not a flat file row', async () => {
+    render(<SessionView client={dirWireClient()} sessions={SESSIONS} />);
+    await selectSession();
+    fireEvent.click(screen.getByRole('button', { name: 'files' }));
+    const dialog = await screen.findByRole('dialog', { name: 'files' });
+
+    const claudeRow = await within(dialog).findByRole('button', { name: /^\.claude/ });
+    expect(claudeRow.querySelector('[data-open]')).not.toBeNull();
+    // An empty directory (no children ever reference it as a parent) still
+    // renders as a folder, not a 0 B file.
+    const emptyRow = within(dialog).getByRole('button', { name: /^empty-dir/ });
+    expect(emptyRow.querySelector('[data-open]')).not.toBeNull();
+  });
+
+  it('still nests and expands a directory entry\'s children instead of orphaning them under a file-typed node', async () => {
+    render(<SessionView client={dirWireClient()} sessions={SESSIONS} />);
+    await selectSession();
+    fireEvent.click(screen.getByRole('button', { name: 'files' }));
+    const dialog = await screen.findByRole('dialog', { name: 'files' });
+
+    await within(dialog).findByRole('button', { name: /^\.claude/ });
+    // Root-level directories start open (matches the prototype's demo tree),
+    // so the child is visible without an extra click.
+    expect(within(dialog).getByRole('button', { name: /claude\.md/i })).toBeInTheDocument();
+  });
+});
+
 describe('topbar artifacts/ctx pills deep-link into observability, they never own a panel', () => {
   function renderTopbar(extra: Partial<Parameters<typeof Topbar>[0]> = {}) {
     return render(

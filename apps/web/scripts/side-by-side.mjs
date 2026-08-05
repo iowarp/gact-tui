@@ -298,8 +298,36 @@ const SETUPS = {
   },
   console: {
     proto: async (p) => { await p.locator('button[title^="Workspace console"]').click(); await p.waitForTimeout(800); },
+    // The "console" topbar button is gated on useIsDesktop() -> inTauri(),
+    // so spoofing window.isTauri is required to even see it. But
+    // src/backend/connection.ts then routes EVERY backend fetch through
+    // tauriFetch (src/tauri/tauri_http.ts), which calls
+    // window.__TAURI_INTERNALS__.invoke('gact_http', ...) — real inside a
+    // packaged Tauri shell, absent here, so every fetch used to throw and
+    // the app's own boot probe never resolved (panels.json fix_hint,
+    // 2026-08-04). Stub just that one command with a real browser fetch so
+    // the rest of the app boots exactly as it does un-spoofed.
     app: async (p) => {
-      await p.addInitScript(() => { window.isTauri = true; });
+      await p.addInitScript(() => {
+        window.isTauri = true;
+        window.__TAURI_INTERNALS__ = {
+          invoke: async (cmd, args) => {
+            if (cmd !== 'gact_http') return null;
+            const req = args?.req ?? {};
+            const resp = await fetch(req.url, {
+              method: req.method ?? 'GET',
+              headers: req.headers ?? {},
+              ...(req.body !== undefined ? { body: req.body } : {}),
+            });
+            const headers = {};
+            resp.headers.forEach((v, k) => {
+              headers[k] = v;
+            });
+            const body = await resp.text();
+            return { status: resp.status, status_text: resp.statusText, headers, body };
+          },
+        };
+      });
       await p.reload();
       await p.getByRole('navigation', { name: /workspaces/i }).waitFor();
       await selectAppSession(p);
