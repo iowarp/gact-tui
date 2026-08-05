@@ -11,6 +11,8 @@
  *  - every log/runs/tools row with a real target is click-through; rows
  *    without one render inert (~8472858)
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Observability } from '../../src/observability/Observability';
@@ -285,5 +287,69 @@ describe('timeline row click-through (jump to message / open agent)', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /thinking \+ plan/i })).toBeNull();
+  });
+});
+
+describe('PASS 3 — row hover highlight is unconditional, matching the prototype', () => {
+  /**
+   * The prototype's own timeline/gantt row template (design/prototype/Clio
+   * Session.html ~8244025/~8247351) carries `style-hover="background:
+   * var(--t-sf2,#1c1f25);"` on EVERY non-separator row div, entirely
+   * independent of whether that row's `{{ r.go }}`/`{{ g.go }}` click handler
+   * (and therefore `{{ r.cur }}`/`{{ g.cur }}` cursor) is set — verified live
+   * against the running prototype: hovering a non-clickable row (e.g.
+   * "routing_decision", cursor:default) turns its background rgb(28,31,37)
+   * (= var(--t-sf2)) exactly the same as hovering a clickable one. Only the
+   * CURSOR differs by clickability, never the hover background. The tools
+   * tab (`.obs-toollog__row:hover`) and runs tab
+   * (`.obs-run2__row:not(:disabled):hover`) already got this right; the
+   * timeline log and gantt rows had gated the hover background itself behind
+   * `[data-nav='true']`, so hovering an inert row (most of them — routing
+   * decisions, "task started", "thinking + plan") gave no feedback at all,
+   * and the rows that DID hover used the generic `--t-hv` token rather than
+   * the prototype's own measured `--t-sf2` (the same class of drift already
+   * caught and fixed once before in rail.css, "rail hover tokens match the
+   * prototype's measured --t-sf2, not the generic --t-hv").
+   */
+  it('.obs-log__row hovers on var(--t-sf2) for every row, not only nav-having ones', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/observability/observability.css'), 'utf8');
+    expect(css).toMatch(/\.obs-log__row:hover\s*{[^}]*background:\s*var\(--t-sf2\)/s);
+    // The cursor/focus-ring stay nav-gated — only the hover background widens.
+    expect(css).toMatch(/\.obs-log__row\[data-nav='true'\]\s*{[^}]*cursor:\s*pointer/s);
+    expect(css).toMatch(/\.obs-log__row\[data-nav='true'\]:focus-visible\s*{/s);
+    expect(css).not.toMatch(/\.obs-log__row\[data-nav='true'\]:hover/);
+  });
+
+  it('.obs-gantt__row hovers on var(--t-sf2) for every row, not only nav-having ones', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/observability/observability.css'), 'utf8');
+    expect(css).toMatch(/\.obs-gantt__row:hover\s*{[^}]*background:\s*var\(--t-sf2\)/s);
+    expect(css).toMatch(/\.obs-gantt__row\[data-nav='true'\]\s*{[^}]*cursor:\s*pointer/s);
+    expect(css).toMatch(/\.obs-gantt__row\[data-nav='true'\]:focus-visible\s*{/s);
+    expect(css).not.toMatch(/\.obs-gantt__row\[data-nav='true'\]:hover/);
+  });
+
+  it('a non-clickable timeline row (no nav target) still carries a real DOM node to hover, distinct from its clickable siblings only by nav/cursor', () => {
+    render(
+      <Observability
+        data={data({
+          timeline: [
+            { actor: 'main', action: 'thinking + plan', kind: 'event', at: '19:52' },
+            {
+              actor: 'geo_geocode',
+              action: 'tool call',
+              kind: 'tool',
+              at: '19:53',
+              nav: { kind: 'message', targetId: 'msg_1' },
+            },
+          ],
+        })}
+        initialTab="timeline"
+        onNavigate={vi.fn()}
+      />,
+    );
+    const rows = document.querySelectorAll('.obs-log__row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.getAttribute('data-nav')).toBe('false');
+    expect(rows[1]!.getAttribute('data-nav')).toBe('true');
   });
 });

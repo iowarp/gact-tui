@@ -273,8 +273,15 @@
   cursor: pointer;
 }
 
-.obs-log__row[data-nav='true']:hover {
-  background: var(--t-hv);
+/* The prototype's own row template (~8244025) carries its hover highlight
+ * unconditionally on EVERY row's `style-hover="background:var(--t-sf2,
+ * #1c1f25);"`, entirely independent of `{{ r.cur }}` — live-verified: a
+ * non-clickable row (e.g. "routing_decision") hovers to the exact same
+ * rgb(28,31,37) as a clickable one, only the cursor differs. `--t-sf2` (not
+ * the generic `--t-hv`) is the prototype's own measured token here, same
+ * class of drift already caught once in rail.css. */
+.obs-log__row:hover {
+  background: var(--t-sf2);
 }
 
 .obs-log__row[data-nav='true']:focus-visible {
@@ -441,8 +448,12 @@
   cursor: pointer;
 }
 
-.obs-gantt__row[data-nav='true']:hover {
-  background: var(--t-hv);
+/* Same unconditional-hover rule as the timeline log rows above (the
+ * prototype's `ganttRows` template, ~8247351, carries the identical
+ * `style-hover="background:var(--t-sf2,#1c1f25);"` on every row regardless
+ * of `{{ g.cur }}`). */
+.obs-gantt__row:hover {
+  background: var(--t-sf2);
 }
 
 .obs-gantt__row[data-nav='true']:focus-visible {
