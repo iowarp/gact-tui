@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import './popover.css';
 
 export type PopoverPlacement = 'down' | 'up';
@@ -9,6 +9,10 @@ export interface PopoverProps {
   children: ReactNode;
   /** `up` is the composer's variant (model picker, command list). */
   placement?: PopoverPlacement;
+  /** Escape hatch for a caller-driven dimension (e.g. the model picker's own
+   *  drag-to-resize width) — inline style wins over the CSS width so a user
+   *  resize sticks without fighting the class-driven default. */
+  style?: CSSProperties;
   onClose: () => void;
 }
 
@@ -21,7 +25,7 @@ export interface PopoverProps {
  *
  * Dismissal is the primitive's job: Escape, and pointer-down outside.
  */
-export function Popover({ open, label, children, placement = 'down', onClose }: PopoverProps) {
+export function Popover({ open, label, children, placement = 'down', style, onClose }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +56,7 @@ export function Popover({ open, label, children, placement = 'down', onClose }: 
       data-placement={placement}
       role="dialog"
       aria-label={label}
+      style={style}
       onKeyDown={onKeyDown}
     >
       {children}

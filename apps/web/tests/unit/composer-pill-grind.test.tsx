@@ -10,6 +10,8 @@ import type { Client, Message, Session } from '@clio/core';
 import { describe, expect, it, vi } from 'vitest';
 import { AsyncRunsPopover, type AsyncRunItem } from '../../src/composer/AsyncRunsPopover';
 import { Composer } from '../../src/composer/Composer';
+import { Picker } from '../../src/composer/Picker';
+import { ProviderModelPicker } from '../../src/composer/ProviderModelPicker';
 import { SessionView } from '../../src/session/SessionView';
 
 describe('pill separators — the ctx-side hairline is independent of async', () => {
@@ -156,6 +158,67 @@ describe('async runs popover — component behavior', () => {
     );
     expect(screen.getByText(/no async runs/i)).toBeInTheDocument();
   });
+
+  it('shows the prototype\'s "Xh Xm" elapsed grammar for an active run with a real startedAt', () => {
+    const startedAt = new Date(Date.now() - (2 * 60 + 14) * 60_000).toISOString();
+    render(
+      <AsyncRunsPopover
+        open
+        tasks={[
+          { id: 't1', label: 'gnss-region-watch', status: 'running', startedAt, terminal: false },
+        ]}
+        dismissedIds={new Set()}
+        onDismiss={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('2h 14m')).toBeInTheDocument();
+  });
+
+  it('shows the prototype\'s "done Xm ago" grammar for a finished run with a real endedAt, and a ✓ for success', () => {
+    const endedAt = new Date(Date.now() - 26 * 60_000).toISOString();
+    render(
+      <AsyncRunsPopover
+        open
+        tasks={[
+          { id: 't2', label: 'aftershock-scan', status: 'completed', endedAt, terminal: true },
+        ]}
+        dismissedIds={new Set()}
+        onDismiss={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('done 26m ago')).toBeInTheDocument();
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('completed')).toBeInTheDocument();
+  });
+
+  it('marks a failed finished run with a ✗ instead of a ✓, distinct from the prototype\'s single happy-path example', () => {
+    render(
+      <AsyncRunsPopover
+        open
+        tasks={[{ id: 't3', label: 'catalog-refresh', status: 'failed', terminal: true }]}
+        dismissedIds={new Set()}
+        onDismiss={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('✗')).toBeInTheDocument();
+    expect(screen.queryByText('✓')).toBeNull();
+  });
+
+  it('omits the elapsed/done-ago text rather than guessing when no timestamp is supplied', () => {
+    render(
+      <AsyncRunsPopover
+        open
+        tasks={[{ id: 't4', label: 'no-timestamp-run', status: 'running', terminal: false }]}
+        dismissedIds={new Set()}
+        onDismiss={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/^\d+[hm]/)).toBeNull();
+  });
 });
 
 describe('async runs popover — wired through the composer chip', () => {
@@ -213,6 +276,75 @@ describe('textarea autogrow', () => {
     mockScrollHeight = 22;
     fireEvent.change(box, { target: { value: '' } });
     expect(box.style.height).toBe('22px');
+  });
+});
+
+describe('popover eyebrows — plain, not the rail\'s bold section-header weight', () => {
+  // Measured on the prototype's own popover headers (async runs, model
+  // picker, command/file picker): all share the SAME plain 10.5px/.1em/
+  // muted treatment. `Eyebrow strong` is a DIFFERENT, bolder style reserved
+  // for the rail's own section heads — using it here was a real mismatch.
+  it('the `/` and `@` picker header is not the bold rail-section-head weight', () => {
+    const { container } = render(
+      <Picker
+        open
+        kind="command"
+        label="Commands"
+        items={[{ id: 'plan', label: '/plan', detail: 'Plan a task' }]}
+        activeIndex={0}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const eyebrow = container.querySelector('.kit-eyebrow');
+    expect(eyebrow).not.toHaveAttribute('data-strong', 'true');
+  });
+
+  it('the model picker\'s "providers" and "thinking" headers are not the bold weight', () => {
+    const { container } = render(
+      <ProviderModelPicker value="" options={[]} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const eyebrows = container.querySelectorAll('.kit-eyebrow');
+    expect(eyebrows.length).toBeGreaterThan(0);
+    eyebrows.forEach((eyebrow) => expect(eyebrow).not.toHaveAttribute('data-strong', 'true'));
+  });
+});
+
+describe('model picker — drag-to-resize handle (the prototype\'s pmDragW)', () => {
+  it('carries a labelled, keyboard-operable resize separator bounded to the measured min/max', () => {
+    render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize model picker/i });
+    expect(handle).toHaveAttribute('aria-valuenow', '-480');
+    expect(handle).toHaveAttribute('aria-valuemin', '-720');
+    expect(handle).toHaveAttribute('aria-valuemax', '-360');
+  });
+
+  it('dragging the LEFT edge left (arrow-left, the keyboard equivalent) WIDENS the panel', () => {
+    const { container } = render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize model picker/i });
+    const panel = () => container.querySelector('.kit-popover') as HTMLElement;
+    expect(panel().style.width).toBe('480px');
+    // ArrowLeft is the keyboard mirror of dragging the left-edge handle
+    // left — the panel is right-anchored, so this must WIDEN it.
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panel().style.width).toBe('488px');
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(panel().style.width).toBe('472px');
+  });
+
+  it('clamps to the measured 360–720 bounds', () => {
+    const { container } = render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize model picker/i });
+    const panel = () => container.querySelector('.kit-popover') as HTMLElement;
+    for (let i = 0; i < 40; i += 1) fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panel().style.width).toBe('720px');
+    for (let i = 0; i < 60; i += 1) fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(panel().style.width).toBe('360px');
   });
 });
 
@@ -274,6 +406,32 @@ describe('SessionView wiring — the `@` picker is backed by real workspace file
     expect(within(list).queryByText('kit')).toBeNull();
     expect(workspaceFiles).toHaveBeenCalledWith('ws_default', expect.objectContaining({ limit: 500 }));
   });
+
+  it('excludes directories using the REAL live wire spelling `type:"dir"`, not just "directory"', async () => {
+    // Probed live against 127.0.0.1:17900: clio's GET /v1/workspaces/{id}/files
+    // types directories `"dir"`. A fixture that only ever used `"directory"`
+    // (above) passes even when the filter checks the wrong string — this
+    // proves the exclusion against the spelling the real backend actually
+    // sends.
+    const workspaceFiles = vi.fn(async () => ({
+      files: [
+        { path: 'src/App.tsx', type: 'file' },
+        { path: '.claude', type: 'dir' },
+        { path: '.claude/skills', type: 'dir' },
+      ],
+      next_cursor: null,
+    }));
+    render(<SessionView client={client({ workspaceFiles })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const box = screen.getByRole('textbox', { name: /message/i });
+    fireEvent.change(box, { target: { value: '@' } });
+
+    const list = await screen.findByRole('listbox', { name: /files/i });
+    expect(within(list).getByText('App.tsx')).toBeInTheDocument();
+    expect(within(list).queryByText('.claude')).toBeNull();
+    expect(within(list).queryByText('skills')).toBeNull();
+  });
 });
 
 describe('SessionView wiring — the placement chip opens this session’s files', () => {
@@ -311,5 +469,41 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
     expect(within(popover).getByText('visualization #1')).toBeInTheDocument();
     expect(within(popover).getByText('analysis #1')).toBeInTheDocument();
     expect(within(popover).getByText('recently finished')).toBeInTheDocument();
+  });
+
+  it('threads the real created_at/completed_at wire fields into the popover\'s elapsed text', async () => {
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/agent-tasks')) {
+        return {
+          tasks: [
+            {
+              task_id: 't1',
+              run_label: 'gnss-region-watch',
+              status: 'running',
+              created_at: new Date(Date.now() - 12 * 60_000).toISOString(),
+            },
+            {
+              task_id: 't2',
+              run_label: 'aftershock-scan',
+              status: 'completed',
+              created_at: new Date(Date.now() - 40 * 60_000).toISOString(),
+              completed_at: new Date(Date.now() - 26 * 60_000).toISOString(),
+            },
+          ],
+        };
+      }
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    render(<SessionView client={client({ get })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const chip = await screen.findByRole('button', { name: /async 1/ });
+    fireEvent.click(chip);
+
+    const popover = await screen.findByRole('dialog', { name: /async agents/i });
+    expect(within(popover).getByText('12m')).toBeInTheDocument();
+    expect(within(popover).getByText('done 26m ago')).toBeInTheDocument();
   });
 });

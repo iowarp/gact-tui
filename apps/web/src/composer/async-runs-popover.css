@@ -7,7 +7,9 @@
 .composer__asyncchip > .kit-popover {
   left: 0;
   right: auto;
-  width: min(280px, 88vw);
+  /* Measured on the prototype's own runs popover (design/prototype/Clio
+     Session.html, `popRuns` block): fixed width:440px. */
+  width: min(440px, 92vw);
   padding: 8px 4px;
 }
 
@@ -49,16 +51,59 @@
   gap: 1px;
 }
 
+/* icon | lines — the prototype's own two-column row grid (measured on its
+   runs popover: `grid-template-columns:16px minmax(0,1fr)`). */
 .async-runs__row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 5px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+  padding: 6px 8px;
   border-radius: 6px;
+}
+
+.async-runs__row--finished {
+  /* Room for the absolute dismiss button so it never overlaps the status
+     line — mirrors the prototype's own `padding:7px 34px 10px 12px`. */
+  padding-right: 26px;
 }
 
 .async-runs__row:hover {
   background: var(--t-hv);
+}
+
+.async-runs__icon {
+  display: flex;
+  justify-self: center;
+  padding-top: 3px;
+  color: var(--t-ac);
+}
+
+.async-runs__check {
+  justify-self: center;
+  padding-top: 1px;
+  color: var(--t-ok);
+  font-size: calc(11.5px * var(--ts));
+  line-height: 1;
+}
+
+.async-runs__check--error {
+  color: var(--t-er);
+}
+
+.async-runs__lines {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.async-runs__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .async-runs__label {
@@ -66,17 +111,36 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--t-tx);
+  color: var(--t-hd);
+  font-weight: 600;
   font-family: var(--f-mono);
-  font-size: calc(11.5px * var(--ts));
+  font-size: calc(12.5px * var(--ts));
+}
+
+.async-runs__spacer {
+  flex: 1;
 }
 
 .async-runs__meta {
-  margin-left: auto;
   flex-shrink: 0;
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(10px * var(--ts));
+  font-size: calc(10.5px * var(--ts));
+  white-space: nowrap;
+}
+
+.async-runs__meta--accent {
+  color: var(--t-ac);
+}
+
+.async-runs__status {
+  color: var(--t-wa);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}
+
+.async-runs__status--error {
+  color: var(--t-er);
 }
 
 .async-runs__finished {
@@ -86,12 +150,13 @@
 }
 
 .async-runs__dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: grid;
   place-items: center;
-  margin-left: auto;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: 0;
   border-radius: 4px;

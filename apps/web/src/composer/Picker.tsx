@@ -59,7 +59,10 @@ export function Picker({ open, kind, label, items, activeIndex, onSelect, onClos
   return (
     <Popover open={open} label={label} placement="up" onClose={onClose}>
       <div className="picker">
-        <Eyebrow strong>{EYEBROW[kind]}</Eyebrow>
+        {/* Measured on the prototype's own picker header: plain 10.5px/.1em/
+            muted, same as every other popover eyebrow in the app — not the
+            rail's bold section-header weight. */}
+        <Eyebrow>{EYEBROW[kind]}</Eyebrow>
         {items.length === 0 ? (
           <p className="picker__empty" data-testid="picker-empty">
             {kind === 'command' ? 'No matching commands.' : 'No matching files.'}

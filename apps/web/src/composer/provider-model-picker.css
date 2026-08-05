@@ -8,7 +8,17 @@
    killing the inherited `overflow-y: auto` this needs to scroll when the
    live provider catalogue (up to ten entries) outgrows the prototype's
    fixed placeholder set. */
-.provider-model-picker > .kit-popover { right: 0; left: auto; width: min(520px, 82vw); padding: 0; overflow-x: hidden; overflow-y: auto; }
+/* NOTE: no `position` override here — the base .kit-popover's own
+   `position: absolute` is what makes `bottom`/`right` (and this rule's own
+   `right: 0`) work at all; it is ALSO already a valid containing block for
+   the absolutely-positioned resize handle below, so nothing needs relative. */
+.provider-model-picker > .kit-popover { right: 0; left: auto; width: 480px; max-width: 92vw; padding: 0; overflow-x: hidden; overflow-y: auto; }
+/* Measured on the prototype's own popRouter handle: a 6px col-resize strip
+   on the LEFT edge (the panel is right-anchored, so dragging its left edge
+   is what grows/shrinks it), pulled half-over the border like the rail's own
+   splitters. */
+.provider-model-picker__resize { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; z-index: 5; }
+.provider-model-picker__resize .kit-splitter { position: absolute; inset: 0; width: 100%; margin: 0; border-radius: 3px; }
 .provider-model-picker__head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-bottom: 1px solid var(--t-bd3); color: var(--t-mu); font: calc(9.5px * var(--ts))/1 var(--f-mono); }
 .provider-model-picker__settingsgear { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--t-mu); cursor: pointer; }
 .provider-model-picker__settingsgear:not(:disabled):hover { background: var(--t-sf2); color: var(--t-hd); }

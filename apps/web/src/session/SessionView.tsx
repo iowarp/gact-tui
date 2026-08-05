@@ -483,7 +483,11 @@ export function SessionView({
         if (cancelled) return;
         setFiles(
           (result.files ?? [])
-            .filter((file) => file.type !== 'directory')
+            // clio's live wire types directories `"dir"` (probed against
+            // 127.0.0.1:17900), not `"directory"` — filtering on the latter
+            // alone is a no-op against the real backend, so both spellings
+            // are excluded here.
+            .filter((file) => file.type !== 'dir' && file.type !== 'directory')
             .map((file) => {
               const parts = file.path.split(/[\\/]/).filter(Boolean);
               const name = parts[parts.length - 1] ?? file.path;
@@ -1008,6 +1012,12 @@ export function SessionView({
       label: task.run_label || task.agent_ref?.expert_id || id || 'task',
       status,
       ...(placement ? { placement } : {}),
+      // Real created_at/completed_at|updated_at wire fields drive the
+      // popover's "2h 14m" / "done 26m ago" elapsed text — never invented.
+      ...(task.created_at ? { startedAt: task.created_at } : {}),
+      ...(task.completed_at ?? task.updated_at
+        ? { endedAt: task.completed_at ?? task.updated_at }
+        : {}),
       terminal: TERMINAL_AGENT_TASK_STATUSES.has(status),
     };
   });

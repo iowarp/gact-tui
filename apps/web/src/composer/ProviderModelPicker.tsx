@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eyebrow, Icon, Popover, type SelectOption } from '../kit';
+import { Eyebrow, Icon, Popover, Splitter, type SelectOption } from '../kit';
 import './provider-model-picker.css';
+
+/** Measured on the prototype's own popRouter panel: default/min/max widths
+ *  for the drag-to-resize handle (`pmDragW`, a left-edge col-resize strip —
+ *  the SAME primitive as the rail's own pane splitters, just mounted on a
+ *  floating popover instead of a fixed-layout divider). */
+const DEFAULT_WIDTH = 480;
+const MIN_WIDTH = 360;
+const MAX_WIDTH = 720;
 
 export interface ProviderModelRow {
   id: string;
@@ -62,6 +70,12 @@ export function ProviderModelPicker({
   onOpenProviderSettings,
 }: ProviderModelPickerProps) {
   const [open, setOpen] = useState(false);
+  // The panel is right-anchored (`right:0; left:auto`), so its left edge is
+  // what the prototype's handle drags — dragging LEFT (negative pointer
+  // delta) must WIDEN the panel. Splitter's own value convention grows with
+  // a RIGHTWARD drag, so the width is stored negated to invert that mapping
+  // rather than reaching into the primitive for a second, mirrored mode.
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
   const groups = useMemo(() => providers?.length ? providers : groupsFromOptions(options), [options, providers]);
   const selectedGroup = groups.find((group) => group.models.some((model) => model.value === value));
   const selectedGroupId = selectedGroup?.id;
@@ -94,9 +108,26 @@ export function ProviderModelPicker({
       >
         <span>{selectedLabel}</span><span aria-hidden="true">⌄</span>
       </button>
-      <Popover open={open} label="Model picker" placement="up" onClose={() => setOpen(false)}>
+      <Popover
+        open={open}
+        label="Model picker"
+        placement="up"
+        style={{ width: `${width}px` }}
+        onClose={() => setOpen(false)}
+      >
+        <span className="provider-model-picker__resize">
+          <Splitter
+            label="Resize model picker"
+            value={-width}
+            min={-MAX_WIDTH}
+            max={-MIN_WIDTH}
+            onResize={(next) => setWidth(-next)}
+          />
+        </span>
         <div className="provider-model-picker__head">
-          <Eyebrow strong>providers</Eyebrow>
+          {/* Measured on the prototype's own popRouter head: plain
+              10.5px/.1em/muted, not the rail's bold section-header weight. */}
+          <Eyebrow>providers</Eyebrow>
           <span />
           {/* clio-agent has no session-scoped "which provider config panel" deep
               link yet — this opens Settings generally (same convention as the
@@ -176,7 +207,9 @@ export function ProviderModelPicker({
             </div>
           </div>
         </div>
-        <div className="provider-model-picker__thinking"><Eyebrow strong>thinking</Eyebrow>{['default', 'off', 'low', 'medium', 'high'].map((level) => <span data-active={(thinkingLevel || 'default') === level ? 'true' : undefined} key={level}>{level}</span>)}</div>
+        {/* Measured on the prototype's own thinking row: plain eyebrow, same
+            as the header above — not bold. */}
+        <div className="provider-model-picker__thinking"><Eyebrow>thinking</Eyebrow>{['default', 'off', 'low', 'medium', 'high'].map((level) => <span data-active={(thinkingLevel || 'default') === level ? 'true' : undefined} key={level}>{level}</span>)}</div>
       </Popover>
     </span>
   );
