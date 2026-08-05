@@ -152,6 +152,15 @@ export function SessionView({
   const [searchOpen, setSearchOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [newWorkspaceId, setNewWorkspaceId] = useState<string | undefined>(undefined);
+  // A rail/search request for a SPECIFIC workspace's files — separate from
+  // newWorkspaceId (the +new dialog's own pre-selection) so the two never
+  // cross-contaminate: asking to view workspace B's files must not silently
+  // change what the +new dialog offers next, and vice versa. Wins over the
+  // active session's own workspace while set; the topbar's plain "files"
+  // toggle clears it so that control always means "this session's files".
+  const [filesWorkspaceRequest, setFilesWorkspaceRequest] = useState<string | undefined>(
+    undefined,
+  );
   // The workspace group-menu's "remove workspace" — gated on the prototype's
   // wsConfirmOpen modal (SessionDialogs.RemoveWorkspaceConfirm) rather than
   // firing the DELETE on click; null = nothing pending.
@@ -896,7 +905,7 @@ export function SessionView({
   const observabilityData = obs
     ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
     : null;
-  const filesWorkspaceId = activeWorkspaceId ?? newWorkspaceId ?? workspaces[0]?.id;
+  const filesWorkspaceId = filesWorkspaceRequest ?? activeWorkspaceId ?? workspaces[0]?.id;
   const filesWorkspaceLabel = filesWorkspaceId
     ? workspaceDisplayLabel(filesWorkspaceId, workspaces)
     : undefined;
@@ -1000,7 +1009,7 @@ export function SessionView({
       onWorkspaceAction={handleWorkspaceAction}
       onRenameWorkspace={(workspaceId, next) => void renameWorkspace(workspaceId, next)}
       onOpenWorkspaceFiles={(workspaceId) => {
-        setNewWorkspaceId(workspaceId);
+        setFilesWorkspaceRequest(workspaceId);
         setPanel('files');
       }}
     >
@@ -1046,6 +1055,12 @@ export function SessionView({
             setPanel('obs');
             setObsTab(next === 'artifacts' ? 'artifacts' : 'context');
             return;
+          }
+          if (next === 'files') {
+            // The topbar's plain "files" toggle always means THIS session's
+            // workspace — clear any workspace the rail/search asked for
+            // explicitly, or a stale request would keep winning here.
+            setFilesWorkspaceRequest(undefined);
           }
           setPanel((cur) => (cur === next ? null : next));
         }}
@@ -1181,7 +1196,10 @@ export function SessionView({
           {...(filesWorkspaceId ? { workspaceId: filesWorkspaceId } : {})}
           {...(filesWorkspaceLabel ? { workspaceLabel: filesWorkspaceLabel } : {})}
           onAttach={attachFileToComposer}
-          onClose={() => setPanel(null)}
+          onClose={() => {
+            setPanel(null);
+            setFilesWorkspaceRequest(undefined);
+          }}
         />
 
         <BlueprintWindow
@@ -1195,6 +1213,10 @@ export function SessionView({
           sessions={sessions}
           workspaces={workspaces}
           onChooseSession={setActiveId}
+          onChooseWorkspace={(workspaceId) => {
+            setFilesWorkspaceRequest(workspaceId);
+            setPanel('files');
+          }}
           onClose={() => setSearchOpen(false)}
         />
         <NewDialog

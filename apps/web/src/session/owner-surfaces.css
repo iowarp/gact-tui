@@ -106,8 +106,7 @@
 .files-layer__empty, .files-layer__error { margin: 24px 0; color: var(--t-mu); font-family: var(--f-mono); font-size: calc(11px * var(--ts)); text-align: center; }
 .files-layer__error { color: var(--t-er); }
 
-.session-files__filter,
-.session-search__box {
+.session-files__filter {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -117,8 +116,7 @@
   background: var(--t-bg);
   color: var(--t-mu);
 }
-.session-files__filter input,
-.session-search__box input {
+.session-files__filter input {
   flex: 1;
   min-width: 0;
   padding: 0;
@@ -127,6 +125,29 @@
   background: transparent;
   color: var(--t-hd);
   font: calc(12px * var(--ts))/1.4 var(--f-mono);
+}
+
+/* Search's icon+input lives IN the modal's own header row (measured: one
+   flex row, no bordered box around the input — unlike the files filter
+   above, which the prototype does box). Colour/size match the prototype's
+   own header-row input: prose font, 14px, heading colour. */
+.session-search__headerbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  color: var(--t-mu);
+}
+.session-search__headerbox input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--t-hd);
+  font: calc(14px * var(--ts))/1.4 var(--f-prose);
 }
 .session-files__list { display: flex; flex-direction: column; margin-top: 10px; }
 .session-files__list button {
@@ -161,8 +182,7 @@
 }
 .files-layer__chev[data-open='true'] { transform: rotate(90deg); }
 
-.session-search { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
-.session-search__box { padding: 12px 13px; }
+.session-search { display: flex; flex-direction: column; min-height: 320px; }
 .session-search__results { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow: auto; }
 .session-search__row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 10px; border: 0; border-radius: 6px; background: transparent; color: var(--t-tx); font: calc(11.5px * var(--ts))/1.4 var(--f-mono); text-align: left; }
 button.session-search__row { cursor: pointer; }

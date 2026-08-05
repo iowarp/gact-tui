@@ -298,7 +298,8 @@ export function Rail({
           <button
             type="button"
             className="shell-rail__headingbutton"
-            aria-label="Search sessions"
+            aria-label="Search sessions and workspaces"
+            title="Search sessions and workspaces"
             disabled={!onOpenSearch}
             onClick={() => onOpenSearch?.()}
           >
@@ -306,8 +307,9 @@ export function Rail({
           </button>
           <button
             type="button"
-            className="shell-rail__headingbutton"
+            className="shell-rail__headingbutton shell-rail__headingbutton--accent"
             aria-label="New session"
+            title="New session"
             disabled={!newSession}
             onClick={() => newSession?.()}
           >
@@ -496,6 +498,7 @@ export function Rail({
           data-testid="rail-connections"
           aria-haspopup="menu"
           aria-expanded={connectionsOpen}
+          title="Connected agents — click to switch the connected backend"
           onClick={(event) => {
             if (!onSwitchConnection) return;
             const box = event.currentTarget.getBoundingClientRect();

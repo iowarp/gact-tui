@@ -104,6 +104,15 @@
   color: inherit;
 }
 
+/* Measured hover (files/console/artifacts/ctx/obs, style-hover attr on each
+   button in the prototype): color + border always turn cyan; the icon-only
+   observability eye is the one control the prototype never tints a
+   background on — the labeled controls get the cy12 background wash too. */
 .shell-topbar .kit-toolbarbutton:hover {
   color: var(--t-cy);
+  border-color: var(--t-cy3);
+}
+
+.shell-topbar .kit-toolbarbutton:hover:not([data-icon-only='true']) {
+  background: var(--t-cy12);
 }

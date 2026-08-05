@@ -52,16 +52,25 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
   color: var(--t-mu);
   cursor: pointer;
 }
 
+/* Search stays neutral on hover — only the New (+) button gets the
+   prototype's cyan accent (measured: search style-hover is color:t-hd +
+   border-color:t-bd3; new-session style-hover is color:t-cy +
+   border-color:t-cy4 — two different tokens, not a shared treatment). */
 .shell-rail__headingbutton:hover:not(:disabled) {
-  background: var(--t-hv);
+  border-color: var(--t-bd3);
   color: var(--t-hd);
+}
+
+.shell-rail__headingbutton--accent:hover:not(:disabled) {
+  border-color: var(--t-cy4);
+  color: var(--t-cy);
 }
 
 .shell-rail__headingbutton:disabled {

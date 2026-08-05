@@ -8,6 +8,9 @@ export interface SearchDialogProps {
   sessions: Session[];
   workspaces: Workspace[];
   onChooseSession: (sessionId: string) => void;
+  /** A workspace row's `sr.go`, prototype-side — same "navigates there" verb
+   *  as a session row, just landing on that workspace's files instead. */
+  onChooseWorkspace?: (workspaceId: string) => void;
   onClose: () => void;
 }
 
@@ -17,6 +20,7 @@ export function SearchDialog({
   sessions,
   workspaces,
   onChooseSession,
+  onChooseWorkspace,
   onClose,
 }: SearchDialogProps) {
   const [query, setQuery] = useState('');
@@ -39,7 +43,7 @@ export function SearchDialog({
   }, [query, sessions, workspaces]);
 
   const firstResult = rows.workspaceRows[0]
-    ? { kind: 'workspace' as const }
+    ? { kind: 'workspace' as const, id: rows.workspaceRows[0].id }
     : rows.sessionRows[0]
       ? { kind: 'session' as const, id: rows.sessionRows[0].id }
       : null;
@@ -47,18 +51,25 @@ export function SearchDialog({
   function chooseFirst(): void {
     if (!firstResult) return;
     if (firstResult.kind === 'session') onChooseSession(firstResult.id);
+    else onChooseWorkspace?.(firstResult.id);
     onClose();
   }
 
   return (
-    <Modal open={open} title="search" onClose={onClose}>
-      <div className="session-search">
-        <label className="session-search__box">
+    <Modal
+      open={open}
+      title="search"
+      header={
+        // The prototype's search modal has no separate title line at all —
+        // the icon+input+close ARE the one header row (measured: single flex
+        // row, 12px/14px padding, border-bottom, no bordered input box).
+        <label className="session-search__headerbox">
           <Icon name="search" size={14} />
           <input
             type="search"
             aria-label="Search sessions and workspaces"
             placeholder="Search sessions and workspaces"
+            autoFocus
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             onKeyDown={(event) => {
@@ -69,6 +80,10 @@ export function SearchDialog({
             }}
           />
         </label>
+      }
+      onClose={onClose}
+    >
+      <div className="session-search">
         <div className="session-search__results" aria-live="polite">
           {rows.workspaceRows.map((workspace, index) => (
             <button
@@ -76,7 +91,10 @@ export function SearchDialog({
               className="session-search__row"
               data-kind="workspace"
               key={workspace.id}
-              onClick={onClose}
+              onClick={() => {
+                onChooseWorkspace?.(workspace.id);
+                onClose();
+              }}
             >
               <Icon name="folder" />
               <span>{workspace.root_path || workspace.name || workspace.id}</span>
