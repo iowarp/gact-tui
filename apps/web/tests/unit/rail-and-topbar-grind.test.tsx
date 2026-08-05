@@ -179,3 +179,106 @@ describe('topbar hover — cyan text needs the matching background/border tint',
     );
   });
 });
+
+/*
+ * P5 grind, PASS 2 (2026-08-05). The prototype's `agents`/`relay` footer
+ * dots (design/prototype/Clio Session.html, ~offset 7821000) are a plain
+ * static `background:var(--t-ok,#34d399)` — no state machine, no pulse. The
+ * app had been driving the agents dot through the SESSION-lifecycle
+ * `running`/`idle` vocabulary, where `running` renders the busy/in-progress
+ * accent (orange), not green — so a real live connection (readyCount > 0)
+ * rendered the wrong color entirely, independent of prototype-matching:
+ * "running" means "task in progress" everywhere else this dot vocabulary is
+ * used, never "backend reachable".
+ *
+ * Also: every rail hover (workspace group row, session row, the three
+ * footer cells) had been reusing the generic `--t-hv` token. The prototype's
+ * own style-hover attributes measure `--t-sf2` on all of them, verbatim —
+ * `--t-hv` never appears anywhere in the prototype's rail markup. And the
+ * icon-only "..." menu buttons (per-session, per-workspace) and "show more"
+ * had picked up a background on hover the prototype never gives them
+ * (color-only hover there, same as the topbar's icon-only eye).
+ */
+describe('rail footer "agents" dot uses the static connected/ready color, not the busy accent', () => {
+  it('renders "ok" (green, matching var(--t-ok)) when at least one connection is ready', () => {
+    const { container } = render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        connections={[{ id: 'c1', label: 'local', url: 'http://x', status: 'ready' }]}
+        onSwitchConnection={vi.fn()}
+      />,
+    );
+    const dot = container.querySelector('[data-testid="rail-connections"] .kit-statusdot');
+    expect(dot).toHaveAttribute('data-state', 'ok');
+  });
+
+  it('falls back to "idle" (never a false-positive green) when nothing is ready', () => {
+    const { container } = render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        connections={[{ id: 'c1', label: 'local', url: 'http://x', status: 'refused' }]}
+        onSwitchConnection={vi.fn()}
+      />,
+    );
+    const dot = container.querySelector('[data-testid="rail-connections"] .kit-statusdot');
+    expect(dot).toHaveAttribute('data-state', 'idle');
+  });
+});
+
+describe('rail hover tokens match the prototype\'s measured --t-sf2, not the generic --t-hv', () => {
+  it('workspace group row, session row, and the footer band all hover on var(--t-sf2)', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/shell/rail.css'), 'utf8');
+    expect(css).toMatch(/\.shell-rail__grouphead:hover\s*{[^}]*background:\s*var\(--t-sf2\)/s);
+    expect(css).toMatch(
+      /\.shell-rail__session:hover\s*{[^}]*background:\s*var\(--t-sf2\)[^}]*border-color:\s*var\(--t-bd3\)/s,
+    );
+    expect(css).toMatch(
+      /\.shell-rail__footcell:hover:not\(:disabled\)\s*{[^}]*background:\s*var\(--t-sf2\)/s,
+    );
+    // The rail section of the prototype never uses --t-hv at all.
+    expect(css).not.toMatch(/\.shell-rail__(grouphead|session|footcell):hover[^}]*var\(--t-hv\)/s);
+  });
+
+  it('the per-row "..." menus and "show more" hover color-only — no background the prototype never gives them', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/shell/rail.css'), 'utf8');
+    const menuRule = css.match(/\.shell-rail__menu:hover\s*{([^}]*)}/s)?.[1] ?? '';
+    const groupMenuRule = css.match(/\.shell-rail__groupmenu:hover\s*{([^}]*)}/s)?.[1] ?? '';
+    const showMoreRule = css.match(/\.shell-rail__showmore:hover\s*{([^}]*)}/s)?.[1] ?? '';
+    for (const rule of [menuRule, groupMenuRule, showMoreRule]) {
+      expect(rule).toMatch(/color:\s*var\(--t-hd\)/);
+      expect(rule).not.toMatch(/background/);
+    }
+  });
+});
+
+describe('topbar title + blueprint crumb carry the prototype\'s click-to-rename/navigate hover cues', () => {
+  it('the blueprint crumb turns cyan AND fills on hover, not the neutral --t-hv', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/shell/topbar.css'), 'utf8');
+    expect(css).toMatch(
+      /\.shell-topbar__crumb-button:hover\s*{[^}]*background:\s*var\(--t-sf2\)[^}]*color:\s*var\(--t-cy\)/s,
+    );
+  });
+
+  it('the session title shows a var(--t-sf2) fill on hover — the click-to-rename affordance the app otherwise gives no visual hint of', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/kit/inlineedit.css'), 'utf8');
+    expect(css).toMatch(
+      /\[data-size='title'\] \.kit-inlineedit__value:hover\s*{[^}]*background:\s*var\(--t-sf2\)/s,
+    );
+  });
+
+  it('"Show sessions" (rail-collapsed state) keeps its own permanent border, distinct from every other borderless toolbar button', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/shell/topbar.css'), 'utf8');
+    expect(css).toMatch(
+      /\[aria-label='Show sessions'\]\s*{[^}]*border-color:\s*var\(--t-bd3\)/s,
+    );
+    expect(css).toMatch(
+      /\[aria-label='Show sessions'\]:hover\s*{[^}]*border-color:\s*var\(--t-bd6\)/s,
+    );
+  });
+});

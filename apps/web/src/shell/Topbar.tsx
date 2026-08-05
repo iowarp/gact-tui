@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { Icon, InlineEdit, ToolbarButton, useIsDesktop } from '../kit';
 import './topbar.css';
 
@@ -46,13 +47,26 @@ export function Topbar({
   return (
     <header className="shell-topbar" role="banner">
       {railCollapsed ? (
-        <ToolbarButton
-          label="Show sessions"
-          iconOnly
-          size="small"
-          icon={<Icon name="panel" />}
-          onClick={onShowRail}
-        />
+        <>
+          {/* The rail's own lockup (logo + wordmark) is gone once collapsed —
+              the prototype keeps a small mark here so brand identity survives
+              collapse instead of vanishing entirely (measured: a 22x22
+              image immediately before the expand control, `tgLeft`). */}
+          {brand.logoImage ? (
+            <img className="shell-topbar__mini-logo" src={brand.logoImage} alt="" />
+          ) : (
+            <span className="shell-topbar__mini-mark" aria-hidden="true">
+              {brand.markGlyph}
+            </span>
+          )}
+          <ToolbarButton
+            label="Show sessions"
+            iconOnly
+            size="small"
+            icon={<Icon name="panel" />}
+            onClick={onShowRail}
+          />
+        </>
       ) : null}
 
       <div className="shell-topbar__identity">

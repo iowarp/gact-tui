@@ -17,13 +17,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Topbar } from '../../src/shell/Topbar';
 import { SessionView } from '../../src/session/SessionView';
 
-describe('Topbar (C2/C3)', () => {
-  function renderTopbar(extra: Partial<Parameters<typeof Topbar>[0]> = {}) {
-    return render(
-      <Topbar title="a session" railCollapsed={false} onShowRail={vi.fn()} {...extra} />,
-    );
-  }
+function renderTopbar(extra: Partial<Parameters<typeof Topbar>[0]> = {}) {
+  return render(<Topbar title="a session" railCollapsed={false} onShowRail={vi.fn()} {...extra} />);
+}
 
+describe('Topbar (C2/C3)', () => {
   afterEach(() => {
     delete (window as { isTauri?: boolean }).isTauri;
   });
@@ -44,6 +42,26 @@ describe('Topbar (C2/C3)', () => {
     const { container } = renderTopbar({ artifactCount: 5 });
     const count = container.querySelector('.shell-topbar__count');
     expect(count?.textContent).toBe('5');
+  });
+});
+
+/*
+ * PASS 2 (2026-08-05): the prototype keeps a small brand mark next to the
+ * "Show sessions" control once the rail collapses (measured: a 22x22 image
+ * immediately before `tgLeft`) — brand identity does not just vanish along
+ * with the rail's own lockup. The app had no equivalent at all.
+ */
+describe('collapsed-rail brand mark (PASS 2)', () => {
+  it('shows no mark and no "Show sessions" control while the rail is visible', () => {
+    renderTopbar({ railCollapsed: false });
+    expect(screen.queryByRole('button', { name: 'Show sessions' })).toBeNull();
+    expect(document.querySelector('.shell-topbar__mini-logo, .shell-topbar__mini-mark')).toBeNull();
+  });
+
+  it('shows a brand mark alongside "Show sessions" once the rail collapses', () => {
+    renderTopbar({ railCollapsed: true });
+    expect(screen.getByRole('button', { name: 'Show sessions' })).toBeInTheDocument();
+    expect(document.querySelector('.shell-topbar__mini-logo, .shell-topbar__mini-mark')).toBeTruthy();
   });
 });
 

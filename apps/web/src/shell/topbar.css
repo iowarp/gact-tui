@@ -15,6 +15,27 @@
   z-index: 55;
 }
 
+.shell-topbar__mini-logo {
+  display: block;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.shell-topbar__mini-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--t-cy12);
+  color: var(--t-cy);
+  font-size: calc(10px * var(--ts));
+  font-weight: 600;
+}
+
 /* Title + breadcrumb share a baseline-aligned group that may shrink. */
 .shell-topbar__identity {
   display: flex;
@@ -62,8 +83,12 @@
   cursor: pointer;
 }
 
+/* Measured verbatim from the prototype's `{{ openBp }}` button style-hover:
+   color turns cyan AND the fill is var(--t-sf2) — not the --t-hv token, and
+   not a background-only change. */
 .shell-topbar__crumb-button:hover {
-  background: var(--t-hv);
+  background: var(--t-sf2);
+  color: var(--t-cy);
 }
 
 .shell-topbar__crumb-button:focus-visible {
@@ -115,4 +140,18 @@
 
 .shell-topbar .kit-toolbarbutton:hover:not([data-icon-only='true']) {
   background: var(--t-cy12);
+}
+
+/* "Show sessions" (the rail-collapsed state's expand control) carries its
+   own permanent border and darkens further on hover — measured verbatim
+   from the prototype's `tgLeft` button here (border:1px solid var(--t-bd3)
+   at rest, var(--t-bd6) on hover). Distinct from the rail's own "Collapse
+   sessions" button, which stays borderless at rest like every other
+   kit-toolbarbutton. */
+.shell-topbar .kit-toolbarbutton[aria-label='Show sessions'] {
+  border-color: var(--t-bd3);
+}
+
+.shell-topbar .kit-toolbarbutton[aria-label='Show sessions']:hover {
+  border-color: var(--t-bd6);
 }

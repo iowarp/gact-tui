@@ -49,6 +49,14 @@
   background: rgb(138, 147, 162);
 }
 
+/* The reservation above, fulfilled: a static connected/ready indicator
+   (rail footer "agents" cell) — steady, no pulse, matching the prototype's
+   own footer-cell dot verbatim (background:var(--t-ok), no animation). */
+.kit-statusdot[data-state='ok'] {
+  background: var(--t-ok);
+  box-shadow: 0 0 6px var(--t-ok);
+}
+
 .kit-statusdot[data-quiet='true'] {
   animation: none;
 }

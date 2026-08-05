@@ -41,6 +41,21 @@
   font-weight: 600;
 }
 
+/* Measured verbatim from the prototype's `{{ activeTitle }}` span: padding
+   1px 4px with a matching -4px left margin (so the rest-state text sits at
+   the same x it always did) and a var(--t-sf2) fill that only shows up on
+   hover — the click-to-rename cue this title otherwise gives no visual hint
+   of at all. */
+.kit-inlineedit[data-size='title'] .kit-inlineedit__value {
+  padding: 1px 4px;
+  margin-left: -4px;
+  border-radius: 5px;
+}
+
+.kit-inlineedit[data-size='title'] .kit-inlineedit__value:hover {
+  background: var(--t-sf2);
+}
+
 .kit-inlineedit[data-size='title'] .kit-inlineedit__input {
   min-width: 280px;
   padding: 2px 8px;

@@ -113,8 +113,11 @@
   cursor: pointer;
 }
 
+/* Measured verbatim from the prototype's `w.toggleOpen` style-hover: a
+   single background swap, var(--t-sf2) — not the --t-hv token, which the
+   rail section of the prototype never uses at all. */
 .shell-rail__grouphead:hover {
-  background: var(--t-hv);
+  background: var(--t-sf2);
 }
 
 .shell-rail__grouplabel {
@@ -168,8 +171,12 @@
   justify-self: center;
 }
 
+/* Measured verbatim from the prototype's `sn.select`/`sn.ctx` style-hover:
+   background AND border-color both move, on var(--t-sf2)/var(--t-bd3) — not
+   the --t-hv token the rest of this rule set had been using. */
 .shell-rail__session:hover {
-  background: var(--t-hv);
+  background: var(--t-sf2);
+  border-color: var(--t-bd3);
 }
 
 .shell-rail__session[aria-current='true'] {
@@ -251,8 +258,9 @@
   color: var(--t-mu);
 }
 
+/* The prototype's `sn.menu` style-hover is color-only (no background) —
+   unlike the row it sits inside, this icon button never gets a fill. */
 .shell-rail__menu:hover {
-  background: var(--t-sf2);
   color: var(--t-hd);
 }
 
@@ -299,8 +307,11 @@
   padding: 9px 13px;
 }
 
+/* Measured verbatim from the prototype's gear/agents/relay style-hover:
+   background:var(--t-sf2) + color:var(--t-hd) on all three footer cells —
+   not the --t-hv token. */
 .shell-rail__footcell:hover:not(:disabled) {
-  background: var(--t-hv);
+  background: var(--t-sf2);
   color: var(--t-hd);
 }
 
@@ -362,8 +373,9 @@
   cursor: pointer;
 }
 
+/* The prototype's `w.menu` style-hover is color-only (no background),
+   matching the per-session menu button's own hover — same grammar. */
 .shell-rail__groupmenu:hover {
-  background: var(--t-sf2);
   color: var(--t-hd);
 }
 
@@ -381,8 +393,9 @@
   cursor: pointer;
 }
 
+/* The prototype's `w.toggleMore` style-hover is color-only — no background,
+   same as the two menu-dots buttons above. */
 .shell-rail__showmore:hover {
-  background: var(--t-hv);
   color: var(--t-hd);
 }
 

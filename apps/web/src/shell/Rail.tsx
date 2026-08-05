@@ -506,7 +506,14 @@ export function Rail({
             setConnectionsAt({ x: box.left, y: box.top });
           }}
         >
-          <StatusDot status={readyCount > 0 ? 'running' : 'idle'} quiet />
+          {/* The prototype's dot is a plain static green (background:var(--t-ok),
+              no clio-pulse) — never the busy/in-progress accent. 'running'
+              would be the wrong state here even ignoring the prototype: it
+              means "task in progress" everywhere else this vocabulary is
+              used, not "backend reachable". 'idle' when nothing is ready
+              keeps the honesty this app's dots are held to elsewhere (never
+              paint green over zero live connections). */}
+          <StatusDot status={readyCount > 0 ? 'ok' : 'idle'} quiet />
           <span>agents </span>
           <span className="shell-rail__footcount">{readyCount}</span>
         </button>
