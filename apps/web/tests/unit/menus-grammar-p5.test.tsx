@@ -9,10 +9,17 @@
  *    check-icon column the ground truth's flat menu never has)
  *  - 'remove workspace' going through a confirmation step instead of firing
  *    the DELETE straight from the context-menu click
+ *
+ * PASS 2 addition: the provider/model picker's SECOND resize handle
+ * (`pmDragCol`, measured on the prototype's own popRouter block — default
+ * 210px, clamp 150-360, independent of the outer panel-width `pmDragW`
+ * handle already implemented) was missing; the provider column was a fixed
+ * 178px that matched neither the prototype's default nor its resizability.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Client, Session, Workspace } from '@clio/core';
 import { describe, expect, it, vi } from 'vitest';
+import { ProviderModelPicker } from '../../src/composer/ProviderModelPicker';
 import { ContextMenu, type MenuItemDef } from '../../src/kit';
 import { Rail, type RailGroup, type RailProps } from '../../src/shell/Rail';
 import { SessionView } from '../../src/session/SessionView';
@@ -194,5 +201,42 @@ describe('SessionView — remove workspace confirmation (wsConfirmOpen)', () => 
     await screen.findByRole('navigation', { name: /workspaces/i });
     expect(client.deleteWorkspace).toHaveBeenCalledTimes(1);
     expect(client.deleteWorkspace).toHaveBeenCalledWith('ws_default');
+  });
+});
+
+describe('model picker — the provider column\'s own resize handle (pmDragCol)', () => {
+  it('carries a SECOND, independently labelled resize separator at the measured 210/150-360 default+bounds', () => {
+    render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize provider column/i });
+    expect(handle).toHaveAttribute('aria-valuenow', '210');
+    expect(handle).toHaveAttribute('aria-valuemin', '150');
+    expect(handle).toHaveAttribute('aria-valuemax', '360');
+    // Distinct from the outer panel-width handle — both must coexist.
+    expect(screen.getByRole('separator', { name: /resize model picker/i })).toBeInTheDocument();
+  });
+
+  it('dragging RIGHT (arrow-right, the keyboard equivalent) WIDENS the provider column — not inverted, unlike the panel handle', () => {
+    const { container } = render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize provider column/i });
+    const panes = () => container.querySelector('.provider-model-picker__panes') as HTMLElement;
+    expect(panes().style.gridTemplateColumns).toBe('210px minmax(0, 1fr)');
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(panes().style.gridTemplateColumns).toBe('218px minmax(0, 1fr)');
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panes().style.gridTemplateColumns).toBe('202px minmax(0, 1fr)');
+  });
+
+  it('clamps to the measured 150-360 bounds', () => {
+    const { container } = render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const handle = screen.getByRole('separator', { name: /resize provider column/i });
+    const panes = () => container.querySelector('.provider-model-picker__panes') as HTMLElement;
+    for (let i = 0; i < 30; i += 1) fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(panes().style.gridTemplateColumns).toBe('360px minmax(0, 1fr)');
+    for (let i = 0; i < 40; i += 1) fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panes().style.gridTemplateColumns).toBe('150px minmax(0, 1fr)');
   });
 });

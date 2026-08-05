@@ -24,7 +24,9 @@
 .provider-model-picker__settingsgear:not(:disabled):hover { background: var(--t-sf2); color: var(--t-hd); }
 .provider-model-picker__settingsgear[data-unbacked='true'] { color: var(--t-er); cursor: not-allowed; }
 .provider-model-picker__settingsgear[data-unbacked='true']:hover { background: var(--t-erc06); }
-.provider-model-picker__panes { display: grid; grid-template-columns: 178px minmax(0, 1fr); min-height: 270px; }
+/* grid-template-columns is set inline (the provider column is drag-resizable
+   via pmDragCol below — a fixed rule here would fight the inline style). */
+.provider-model-picker__panes { display: grid; min-height: 270px; }
 .provider-model-picker__providers { padding: 8px; border-right: 1px solid var(--t-bd3); background: var(--t-bg); }
 .provider-model-picker__provider { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
 .provider-model-picker__provider:hover, .provider-model-picker__provider[data-active='true'] { background: var(--t-hv); color: var(--t-cy); }
@@ -32,7 +34,13 @@
 .provider-model-picker__provider small[data-tone='ok'] { color: var(--t-ok); }
 .provider-model-picker__provider small[data-tone='warn'] { color: var(--t-wa); }
 .provider-model-picker__provider small[data-tone='error'] { color: var(--t-er); }
-.provider-model-picker__models { padding: 12px; }
+.provider-model-picker__models { position: relative; padding: 12px; }
+/* Measured on the prototype's own popRouter handle: the SAME 6px col-resize
+   strip convention as .provider-model-picker__resize above, mounted at the
+   model pane's own left edge (pmDragCol — resizes the provider column
+   independent of the panel-width handle). */
+.provider-model-picker__colresize { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; z-index: 5; }
+.provider-model-picker__colresize .kit-splitter { position: absolute; inset: 0; width: 100%; margin: 0; border-radius: 3px; }
 .provider-model-picker__models [role='listbox'] { display: flex; flex-direction: column; gap: 3px; }
 .provider-model-picker__modelrow { position: relative; }
 .provider-model-picker__modelrow [role='option'] { display: grid; grid-template-columns: minmax(0, 1fr) 12px; align-items: center; gap: 8px; width: 100%; padding: 7px 24px 7px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }

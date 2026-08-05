@@ -10,6 +10,16 @@ const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 360;
 const MAX_WIDTH = 720;
 
+/** Measured on the prototype's own popRouter panel: the SECOND handle
+ *  (`pmDragCol`) that resizes the provider column against the model column,
+ *  independent of the outer panel-width handle above (`pmColW: s.pmColW ||
+ *  210`, clamp `Math.max(150, Math.min(360, ...))`). Grows normally with a
+ *  rightward drag — unlike the panel handle, this one is not right-anchored,
+ *  so it needs no inverted-value trick. */
+const COLUMN_DEFAULT_WIDTH = 210;
+const COLUMN_MIN_WIDTH = 150;
+const COLUMN_MAX_WIDTH = 360;
+
 export interface ProviderModelRow {
   id: string;
   value: string;
@@ -76,6 +86,7 @@ export function ProviderModelPicker({
   // a RIGHTWARD drag, so the width is stored negated to invert that mapping
   // rather than reaching into the primitive for a second, mirrored mode.
   const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [columnWidth, setColumnWidth] = useState(COLUMN_DEFAULT_WIDTH);
   const groups = useMemo(() => providers?.length ? providers : groupsFromOptions(options), [options, providers]);
   const selectedGroup = groups.find((group) => group.models.some((model) => model.value === value));
   const selectedGroupId = selectedGroup?.id;
@@ -149,7 +160,10 @@ export function ProviderModelPicker({
             <Icon name="tool" size={11} />
           </button>
         </div>
-        <div className="provider-model-picker__panes">
+        <div
+          className="provider-model-picker__panes"
+          style={{ gridTemplateColumns: `${columnWidth}px minmax(0, 1fr)` }}
+        >
           <div className="provider-model-picker__providers">
             {groups.map((provider) => (
               <button
@@ -167,6 +181,15 @@ export function ProviderModelPicker({
             ))}
           </div>
           <div className="provider-model-picker__models">
+            <span className="provider-model-picker__colresize">
+              <Splitter
+                label="Resize provider column"
+                value={columnWidth}
+                min={COLUMN_MIN_WIDTH}
+                max={COLUMN_MAX_WIDTH}
+                onResize={setColumnWidth}
+              />
+            </span>
             <div role="listbox" aria-label="Models">
               {(activeProvider?.models ?? []).map((model) => {
                 const active = model.value === value;
