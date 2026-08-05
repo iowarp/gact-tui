@@ -63,6 +63,38 @@ describe('DetailSlot', () => {
     expect(screen.queryByRole('navigation', { name: /breadcrumb/i })).toBeNull();
   });
 
+  it('uses the prototype\'s "›" separator glyph between breadcrumb segments, not a slash', () => {
+    render(
+      <DetailSlot record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }} onClose={vi.fn()} />,
+    );
+    const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(crumbs).toHaveTextContent('›');
+    expect(crumbs.textContent).not.toContain('/');
+  });
+
+  it('the first ("session") crumb is a real, focusable button that closes the detail slot on click — the only crumb with a well-defined destination when there is no multi-level detail stack', () => {
+    const onClose = vi.fn();
+    render(
+      <DetailSlot
+        record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }}
+        onClose={onClose}
+      />,
+    );
+    const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
+    const sessionCrumb = within(crumbs).getByRole('button', { name: 'session' });
+    fireEvent.click(sessionCrumb);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('the trailing (self) crumb is not a button — there is no stack level for it to navigate to', () => {
+    render(
+      <DetailSlot record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }} onClose={vi.fn()} />,
+    );
+    const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(within(crumbs).queryByRole('button', { name: 'earthscope_stations.csv' })).toBeNull();
+    expect(within(crumbs).getByText('earthscope_stations.csv')).toBeInTheDocument();
+  });
+
   it('copies an artifact summary to the clipboard', async () => {
     const writeText = vi.fn(async (_text: string) => {});
     Object.assign(navigator, { clipboard: { writeText } });

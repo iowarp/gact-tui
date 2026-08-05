@@ -268,12 +268,34 @@ export function DetailSlot({ record, onClose, client }: DetailSlotProps) {
 
       {record.breadcrumb && record.breadcrumb.length > 0 ? (
         <nav className="detail__crumbs" aria-label="Detail breadcrumb">
-          {record.breadcrumb.map((crumb, index) => (
-            <span key={`${crumb}-${index}`}>
-              {index > 0 ? <span className="detail__crumbsep">/</span> : null}
-              {crumb}
-            </span>
-          ))}
+          {record.breadcrumb.map((crumb, index) => {
+            const isLast = index === record.breadcrumb!.length - 1;
+            // Prototype truth (crumbs[]/c.go, design/prototype/Clio Session.html):
+            // every crumb but the last drills the detail stack UP a level; the
+            // last (self) crumb's own handler resets the stack to itself, an
+            // observable no-op. This app has no multi-level detail stack yet
+            // (a single record, not a drill-down chain — E7's reachability
+            // gap covers minting the chain), so the only crumb with a real,
+            // well-defined destination today is the first ("session"): going
+            // up from a single-level record means leaving the detail slot
+            // entirely, i.e. onClose. Later, non-first, non-last crumbs stay
+            // display-only rather than wired to a stack level that does not
+            // exist in the data model — an honest scope limit, not a silent
+            // drop of prototype behavior.
+            const clickable = index === 0 && !isLast;
+            return (
+              <span key={`${crumb}-${index}`}>
+                {index > 0 ? <span className="detail__crumbsep">›</span> : null}
+                {clickable ? (
+                  <button type="button" className="detail__crumbbtn" onClick={onClose}>
+                    {crumb}
+                  </button>
+                ) : (
+                  <span className={isLast ? 'detail__crumbcurrent' : undefined}>{crumb}</span>
+                )}
+              </span>
+            );
+          })}
         </nav>
       ) : null}
 

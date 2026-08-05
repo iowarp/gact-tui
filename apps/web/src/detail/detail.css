@@ -123,6 +123,28 @@
   color: var(--t-dis);
 }
 
+/* Non-last crumbs (c.color = var(--t-mu) in the prototype) that have a real
+   destination in this app's data model — see DetailSlot.tsx's onClose note. */
+.detail__crumbbtn {
+  background: transparent;
+  border: 0;
+  padding: 1px 3px;
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail__crumbbtn:hover {
+  background: var(--t-sf2);
+}
+
+/* The trailing (self) crumb — c.color = var(--t-hd) in the prototype when
+   it's the active/last stack entry. */
+.detail__crumbcurrent {
+  color: var(--t-hd);
+}
+
 .detail__tabs {
   padding: 8px 12px;
 }

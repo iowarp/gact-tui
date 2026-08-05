@@ -115,6 +115,14 @@ const RECORD: ArtifactRecord = {
   custody: 'workspace — data/',
   note: 'Clean station-metadata catalog staged from NDP.',
   instrument: 'stage_resource(resource="earthscope_stations.csv", source="ds2.datacollaboratory.org")',
+  // Prototype truth: the detail header shows a clickable breadcrumb trail
+  // (e.g. "session > earthscope_stations_…") below the tab row. Nothing in
+  // the live app supplies this yet (E7, tracked separately, is the
+  // reachability gap that will mint a real one) — set on this dev-harness
+  // fixture only so the chrome composite demonstrates the already-built,
+  // already-tested rendering (DetailSlot.tsx's own breadcrumb branch,
+  // tests/unit/detail.test.tsx) rather than looking unimplemented.
+  breadcrumb: ['session', 'earthscope_stations.csv'],
   route: [
     { kind: 'node', nodeType: 'artifact', label: 'ds2.datacollaboratory.org/…/earthscope_stations.csv', sub: 'external source on NDP' },
     { kind: 'edge', edge: 'used', stance: 'authority-asserted' },
