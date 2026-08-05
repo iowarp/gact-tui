@@ -421,6 +421,33 @@
   opacity: 0.85;
 }
 
+/* The running Call box's LIVE preview (P4R prototype rule): the child's own
+   streamed text tail, rendered muted (distinct from the settled answer's
+   full-color prose above) with a blinking amber cursor block so the box
+   never sits empty while its delegation runs. */
+.part-childcard__body--preview {
+  display: flex;
+  align-items: flex-end;
+  color: var(--t-mu);
+}
+
+.part-childcard__previewtext {
+  white-space: pre-wrap;
+}
+
+.part-childcard__cursor {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--t-am, #c4682a);
+  animation: clio-pulse 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part-childcard__cursor {
+    animation: none;
+  }
+}
+
 /* ---- unrenderable ---- */
 
 .part-unrenderable {
@@ -531,6 +558,7 @@
 }
 
 .part-artgrid__label {
+  white-space: nowrap;
   color: var(--t-mu);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: calc(10.5px * var(--ts));

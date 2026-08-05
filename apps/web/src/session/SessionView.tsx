@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   appendPart,
   applyPartCompleted,
@@ -42,9 +42,18 @@ import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../ob
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
+import type { ChildPreview } from '../transcript/parts/HandoffPart';
 import { DetailSlot } from '../detail/DetailSlot';
 import { headVersion, mintArtifactRecord, routeFromLineage } from '../detail/mintRecord';
 import type { ArtifactRecord } from '../detail/types';
+import {
+  CHILD_PREVIEW_MAX_CONCURRENT,
+  applyChildPreviewEvent,
+  findAgentTaskByHandle,
+  selectRunningHandoffHandles,
+  selectSubscriptionSlots,
+  type ChildPreviewAccumulator,
+} from './childPreview';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
@@ -780,6 +789,10 @@ export function SessionView({
         case 'message.error':
         case 'message.deleted':
           reconcile();
+          // The pill (ctx %, artifact count, async tasks) goes stale between
+          // send-time refreshes — a settled turn is exactly when its numbers
+          // changed (owner: 'artifacts 5 for the whole run', 'ctx 0%').
+          void refreshPill(activeId, activeScope);
           break;
       }
     });
@@ -789,6 +802,138 @@ export function SessionView({
       subscription.close();
     };
   }, [activeId, client]);
+
+  // Live child-session previews for RUNNING delegations (P4R prototype rule:
+  // a Call box must not sit empty while its child streams — children are
+  // real sessions with their own SSE wire, so this renders the child's OWN
+  // wire, not a client-side fabrication). Keyed by handle_id; SessionView
+  // owns subscription lifetime, Transcript/MergedHandoff only ever read the
+  // resolved tail. subsRef/accumulatorsRef/taskCacheRef/fetchingRef are
+  // mutable bookkeeping the effect below needs across renders without
+  // re-triggering itself.
+  const [childPreviews, setChildPreviews] = useState<Record<string, ChildPreview>>({});
+  const childSubsRef = useRef<Record<string, { close: () => void }>>({});
+  const childAccumulatorsRef = useRef<Record<string, ChildPreviewAccumulator>>({});
+  const childTaskCacheRef = useRef<Record<string, { childSessionId: string; startedAt?: string }>>({});
+  const childFetchingRef = useRef<Set<string>>(new Set());
+
+  const runningHandoffHandles = useMemo(
+    () => (state.kind === 'loaded' ? selectRunningHandoffHandles(state.messages) : []),
+    [state],
+  );
+
+  useEffect(() => {
+    if (!activeId || typeof EventSource === 'undefined') return;
+    let cancelled = false;
+    const runningSet = new Set(runningHandoffHandles);
+
+    // Drop subscriptions/previews for handoffs no longer running — settled
+    // (message.part.updated landed on the parent) or vanished from the
+    // transcript (a session switch resets `state` before the new one loads).
+    for (const handleId of Object.keys(childSubsRef.current)) {
+      if (runningSet.has(handleId)) continue;
+      childSubsRef.current[handleId]?.close();
+      delete childSubsRef.current[handleId];
+      delete childAccumulatorsRef.current[handleId];
+      setChildPreviews((cur) => {
+        if (!(handleId in cur)) return cur;
+        const { [handleId]: _drop, ...rest } = cur;
+        return rest;
+      });
+    }
+
+    const openHandleIds = new Set(Object.keys(childSubsRef.current));
+    const toOpen = selectSubscriptionSlots(runningHandoffHandles, openHandleIds);
+    if (toOpen.length === 0) return;
+
+    void (async () => {
+      for (const handleId of toOpen) {
+        if (cancelled || childSubsRef.current[handleId]) continue;
+        if (Object.keys(childSubsRef.current).length >= CHILD_PREVIEW_MAX_CONCURRENT) break;
+
+        // Resolve the child session id + start time from the agent-task
+        // rows refreshPill already fetches; only reach for a dedicated fetch
+        // when a running handoff has no entry there yet.
+        let resolved = childTaskCacheRef.current[handleId];
+        if (!resolved) {
+          const fromPill =
+            pillState?.sessionId === activeId
+              ? findAgentTaskByHandle(pillState.asyncTasks ?? [], handleId)
+              : undefined;
+          if (fromPill?.child_session_id) {
+            resolved = {
+              childSessionId: fromPill.child_session_id,
+              ...(fromPill.created_at ? { startedAt: fromPill.created_at } : {}),
+            };
+          } else if (!childFetchingRef.current.has(handleId)) {
+            childFetchingRef.current.add(handleId);
+            try {
+              const { tasks } = await fetchSessionAgentTasks(client, activeId);
+              const task = findAgentTaskByHandle(tasks, handleId);
+              if (task?.child_session_id) {
+                resolved = {
+                  childSessionId: task.child_session_id,
+                  ...(task.created_at ? { startedAt: task.created_at } : {}),
+                };
+              }
+            } catch {
+              // Stays unresolved — the box keeps showing its plain footer,
+              // never a guessed destination.
+            } finally {
+              childFetchingRef.current.delete(handleId);
+            }
+          }
+          if (resolved) childTaskCacheRef.current[handleId] = resolved;
+        }
+
+        if (cancelled || !resolved || childSubsRef.current[handleId]) continue;
+        if (Object.keys(childSubsRef.current).length >= CHILD_PREVIEW_MAX_CONCURRENT) continue;
+
+        const startedAt = resolved.startedAt;
+        childAccumulatorsRef.current[handleId] = { text: '' };
+        setChildPreviews((cur) => ({
+          ...cur,
+          [handleId]: { text: '', ...(startedAt ? { startedAt } : {}) },
+        }));
+
+        const subscription = subscribeSessionMessageEvents(
+          client.sseUrl(resolved.childSessionId),
+          (event) => {
+            const next = applyChildPreviewEvent(
+              childAccumulatorsRef.current[handleId] ?? { text: '' },
+              event,
+            );
+            childAccumulatorsRef.current[handleId] = next;
+            setChildPreviews((cur) => ({
+              ...cur,
+              [handleId]: { text: next.text, ...(startedAt ? { startedAt } : {}) },
+            }));
+          },
+        );
+        childSubsRef.current[handleId] = subscription;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, client, runningHandoffHandles, pillState]);
+
+  // Hard stop: close every open child-preview subscription on a session
+  // switch or unmount. The incremental drop above only fires for handles
+  // that fell OUT of the running set — a session switch resets `state` to a
+  // fresh load whose messages haven't landed yet, so this is the backstop
+  // that guarantees a PREVIOUS session's child connections never outlive it.
+  useEffect(() => {
+    return () => {
+      for (const sub of Object.values(childSubsRef.current)) sub.close();
+      childSubsRef.current = {};
+      childAccumulatorsRef.current = {};
+      childTaskCacheRef.current = {};
+      childFetchingRef.current = new Set();
+      setChildPreviews({});
+    };
+  }, [activeId]);
 
   // The global LM binding (provider + model), the session-model fallback.
   const [globalLm, setGlobalLm] = useState<{ provider?: string; model?: string } | null>(null);
@@ -1710,6 +1855,7 @@ export function SessionView({
                 messages={transcriptMessages}
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+                childPreviews={childPreviews}
               />
             ) : null}
             {composerElement}
