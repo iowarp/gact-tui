@@ -41,6 +41,7 @@ function makeClient(overrides: Record<string, unknown> = {}) {
     expertPacks: vi.fn(async () => ({ packs: [] })),
     providers: vi.fn(async () => ({ providers: [] })),
     lmConfig: vi.fn(async () => ({ configured: false, provider: '', api_base: '', model: '' })),
+    relayStatus: vi.fn(async () => ({ configured: false })),
     ...overrides,
   } as unknown as Client;
 }
@@ -54,10 +55,12 @@ describe('settings page inventory', () => {
 
   it('hides exactly the unbacked pages', () => {
     const hidden = SETTINGS_PAGES.filter((p) => p.backing === 'unbacked').map((p) => p.id);
-    // Verified against @clio/core's client surface: relays has no route.
-    // Plugins and Data & backups were reclassified — wire/plugins.ts and
-    // wire/settings-export.ts are real, working client-only modules.
-    expect(hidden.sort()).toEqual(['relays']);
+    // clio-agent#1179 landed GET /v1/relay/status, so relays is no longer
+    // unbacked (see the RelaysPage/relayStatus() findings). Plugins and
+    // Data & backups were reclassified earlier — wire/plugins.ts and
+    // wire/settings-export.ts are real, working client-only modules. Nothing
+    // is currently hidden.
+    expect(hidden.sort()).toEqual([]);
     const visible = backedPages().map((p) => p.id);
     for (const id of hidden) expect(visible).not.toContain(id);
   });
@@ -97,8 +100,33 @@ describe('Settings', () => {
     render(<Settings client={client} />);
     const nav = screen.getByRole('navigation', { name: /settings/i });
     expect(within(nav).getByRole('button', { name: /providers/i })).toBeInTheDocument();
-    expect(within(nav).queryByRole('button', { name: /^relays$/i })).toBeNull();
+    // relays is backed (clio-agent#1179 — GET /v1/relay/status) and visible.
+    expect(within(nav).getByRole('button', { name: /^relays$/i })).toBeInTheDocument();
     await waitFor(() => expect(client.capabilities).toHaveBeenCalled());
+  });
+
+  it('renders real Relays content from relayStatus(), not a placeholder', async () => {
+    const client = makeClient({
+      relayStatus: vi.fn(async () => ({
+        configured: true,
+        host: '127.0.0.1',
+        reachable: true,
+        detail: 'TCP connect to 127.0.0.1:18783 succeeded',
+      })),
+    });
+    render(<Settings client={client} />);
+    fireEvent.click(screen.getByRole('button', { name: /^relays$/i }));
+    await waitFor(() => expect(client.relayStatus).toHaveBeenCalled());
+    expect(screen.queryByTestId('settings-unbuilt')).toBeNull();
+    expect(screen.getByText('127.0.0.1')).toBeInTheDocument();
+    expect(screen.getByText(/reachable/i)).toBeInTheDocument();
+  });
+
+  it('shows an honest empty state for Relays when no relay is configured', async () => {
+    const client = makeClient({ relayStatus: vi.fn(async () => ({ configured: false })) });
+    render(<Settings client={client} />);
+    fireEvent.click(screen.getByRole('button', { name: /^relays$/i }));
+    await waitFor(() => expect(screen.getByText(/No relay configured/i)).toBeInTheDocument());
   });
 
   it('renders the section headers in prototype order', async () => {

@@ -6,6 +6,7 @@ import { loadRegistry } from '../connect/registry';
 import { AppearancePage } from './AppearancePage';
 import { AboutPage } from './AboutPage';
 import { BackendsPage, AgentsPage } from './pages/ConnectionPages';
+import { RelaysPage } from './pages/RelaysPage';
 import { SessionDefaultsPage } from './pages/SessionDefaultsPage';
 import { ProvidersPage } from './pages/ProvidersPage';
 import { ModelsPage } from './pages/ModelsPage';
@@ -98,6 +99,8 @@ function PageBody({
         );
       case 'agents':
         return <AgentsPage connections={connections} />;
+      case 'relays':
+        return <RelaysPage client={client} />;
       case 'session-defaults':
         return <SessionDefaultsPage client={client} />;
       case 'providers':

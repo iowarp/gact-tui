@@ -31,6 +31,7 @@ export type {
   PoliciesDocument,
   PoliciesResult,
   PutPoliciesInput,
+  RelayStatus,
   ToolDetailResult,
 } from './system.js';
 export type {

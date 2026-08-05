@@ -72,8 +72,14 @@ export const SETTINGS_PAGES: SettingsPage[] = [
     id: 'relays',
     label: 'Relays',
     group: 'Agents',
-    backing: 'unbacked',
-    gap: 'No relay registry route exists. Federation runs through the session backend (clio-agent P2), and no client method lists or edits relay hosts.',
+    backing: 'backend',
+    method: 'relayStatus()',
+    built: true,
+    // clio-agent#1179 landed GET /v1/relay/status: this backend's own
+    // configured relay + a fresh reachability probe. It is a SINGLETON (the
+    // one relay this backend tunnels through), not the prototype's registry
+    // of named, addable/removable relay hosts — RelaysPage renders the one
+    // real row and degrades the add/remove registry actions visibly.
   },
   { id: 'commands', label: 'Commands', group: 'Agents', backing: 'backend', method: 'commands()', built: true },
   { id: 'prompts', label: 'Prompts', group: 'Agents', backing: 'backend', method: 'prompts()', built: true },

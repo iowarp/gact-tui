@@ -4,6 +4,7 @@ import type {
   CommandsResult,
   LspClientsResult,
   LspDiagnosticsResult,
+  RelayStatus,
   ToolDetailResult,
 } from './system.js';
 import {
@@ -15,6 +16,7 @@ import {
   fetchLspDiagnostics,
   fetchMemoryStats,
   fetchMetrics,
+  fetchRelayStatus,
   fetchToolDetail,
 } from './system.js';
 import { WorkspaceClient } from './workspace_client.js';
@@ -70,5 +72,14 @@ export class SystemClient extends WorkspaceClient {
   /** GET /v1/tools/{id} — single-tool detail (richer than the bulk list). */
   getTool(toolId: string): Promise<ToolDetailResult> {
     return fetchToolDetail(this, toolId);
+  }
+
+  /**
+   * GET /v1/relay/status — this backend's own configured relay + a fresh
+   * reachability probe (clio-agent#1179, closed). Feeds the Settings Relays
+   * page and (separately) the rail footer's relay indicator.
+   */
+  relayStatus(): Promise<RelayStatus> {
+    return fetchRelayStatus(this);
   }
 }

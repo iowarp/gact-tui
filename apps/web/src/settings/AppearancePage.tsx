@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Select } from '../kit';
 import {
+  PROSE_FONT_LABELS,
   PROSE_STACKS,
   TEXT_SIZE_SCALE,
   applyAppearance,
@@ -38,7 +39,7 @@ function PillRow<T extends string>({
 }: {
   label: string;
   activeId: string;
-  options: Array<{ id: T; label: ReactNode }>;
+  options: Array<{ id: T; label: ReactNode; style?: CSSProperties }>;
   onChange: (id: T) => void;
   minWidth?: number;
 }) {
@@ -50,7 +51,7 @@ function PillRow<T extends string>({
           type="button"
           className="settings__pill"
           aria-pressed={opt.id === activeId}
-          style={minWidth ? { minWidth } : undefined}
+          style={minWidth ? { minWidth, ...opt.style } : opt.style}
           onClick={() => onChange(opt.id)}
         >
           {opt.label}
@@ -99,7 +100,13 @@ export function AppearancePage() {
         label="Prose font"
         activeId={appearance.font}
         onChange={(id) => update({ font: id as ProseFont })}
-        options={Object.keys(PROSE_STACKS).map((id) => ({ id, label: id }))}
+        options={(Object.keys(PROSE_STACKS) as ProseFont[]).map((id) => ({
+          id,
+          label: PROSE_FONT_LABELS[id],
+          // Each button previews its own face, matching the prototype's
+          // per-row `font-family:{{ fb.ff }}` (apFonts in the ground truth).
+          style: { fontFamily: PROSE_STACKS[id] },
+        }))}
       />
       <span className="settings__caption">
         Applies to prose and UI text. Code and metadata stay monospace.

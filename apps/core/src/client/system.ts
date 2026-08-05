@@ -111,9 +111,30 @@ export function fetchPolicies(client: SystemTransport): Promise<PoliciesResult> 
   return client.get('/v1/policies');
 }
 
+/**
+ * GET /v1/relay/status — this backend's OWN configured relay identity plus a
+ * fresh bounded TCP reachability probe (clio-agent#1179). A singleton: the
+ * one relay this backend tunnels agent traffic through, not a registry of
+ * named relay hosts to add/remove — see the Relays settings page for how
+ * that differs from the prototype's multi-host registry concept.
+ */
+export interface RelayStatus {
+  configured: boolean;
+  host?: string | null;
+  reachable?: boolean | null;
+  checked_at?: string | null;
+  reason?: string | null;
+  detail?: string | null;
+  [k: string]: unknown;
+}
+
 export function updatePolicies(
   client: SystemTransport,
   body: PutPoliciesInput,
 ): Promise<unknown> {
   return client.request<unknown>('/v1/policies', 'PUT', body);
+}
+
+export function fetchRelayStatus(client: SystemTransport): Promise<RelayStatus> {
+  return client.get<RelayStatus>('/v1/relay/status');
 }

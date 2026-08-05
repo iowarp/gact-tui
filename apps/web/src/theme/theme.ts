@@ -23,6 +23,18 @@ export const PROSE_STACKS: Record<ProseFont, string> = {
   dyslexic: "'OpenDyslexic','Atkinson Hyperlegible',system-ui,sans-serif",
 };
 
+/** Display labels for the prose-font buttons — the prototype shows the full
+ * family name ("Source Sans 3", "OpenDyslexic"), not the internal union key
+ * used to look up the stack. Rendered in the font's own face (via the stack
+ * above) so each button previews its family, matching the prototype. */
+export const PROSE_FONT_LABELS: Record<ProseFont, string> = {
+  inter: 'Inter',
+  source: 'Source Sans 3',
+  literata: 'Literata',
+  atkinson: 'Atkinson Hyperlegible',
+  dyslexic: 'OpenDyslexic',
+};
+
 /** Discrete text-size steps — the prototype's S/M/L/XL buttons replace what
  * was a continuous range slider (no such control exists in the ground
  * truth). Values span the same 0.85–1.4 envelope the old slider allowed. */
