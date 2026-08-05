@@ -80,6 +80,9 @@ export type GactEvent =
   // -- messages / parts --
   | (EventEnvelope<MessageCreatedPayload> & { type: 'message.created' })
   | (EventEnvelope<MessagePartAddedPayload> & { type: 'message.part.added' })
+  // Same payload as part.added — the part is REPLACED in place by id (clean
+  // delegation wire: the terminal expert_handoff updates the started part).
+  | (EventEnvelope<MessagePartAddedPayload> & { type: 'message.part.updated' })
   | (EventEnvelope<MessagePartDeltaPayload> & { type: 'message.part.delta' })
   | (EventEnvelope<MessagePartCompletedPayload> & { type: 'message.part.completed' })
   | (EventEnvelope<MessageCompletedPayload> & { type: 'message.completed' })
@@ -203,6 +206,7 @@ export const WIRE_EVENT_TYPES = [
   'message.part.added',
   'message.part.completed',
   'message.part.delta',
+  'message.part.updated',
   'notification',
   'permission.requested',
   'permission.resolved',

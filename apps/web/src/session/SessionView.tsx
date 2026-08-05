@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  appendPart,
+  applyPartCompleted,
+  applyTextAppend,
   fetchArtifactLineage,
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
   fetchSessionContextState,
+  mergeMessages,
+  subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
+  upsertMessage,
   type Client,
   type Message,
+  type Part,
   type RelayStatus,
   type Session,
   type SessionAgentTask,
@@ -691,6 +698,86 @@ export function SessionView({
     void refreshPill(activeId, activeScope);
   }, [activeId, activeScope, load, refreshPill]);
 
+  // LIVE transcript: the session SSE stream applies message-lifecycle events
+  // to the loaded feed as they arrive — streamed text via part.delta, new
+  // parts via part.added, and the clean delegation wire's IN-PLACE settle
+  // via message.part.updated (the terminal expert_handoff replaces the
+  // started part by id; appendPart's upsert-by-id is exactly that). On
+  // message.completed/error the feed reconciles against /v1/messages with a
+  // key-based merge so racing deltas are never clobbered. Pure application
+  // of the server's wire — no dedup, no reshaping (owner rule 2026-08-05).
+  useEffect(() => {
+    if (!activeId || typeof EventSource === 'undefined') return;
+    let cancelled = false;
+    const applyToLoaded = (fn: (messages: Message[]) => Message[]) => {
+      setState((prev) => (prev.kind === 'loaded' ? { ...prev, messages: fn(prev.messages) } : prev));
+    };
+    let reconcileTimer: number | undefined;
+    const reconcile = () => {
+      if (reconcileTimer !== undefined) window.clearTimeout(reconcileTimer);
+      reconcileTimer = window.setTimeout(() => {
+        void client
+          .messages(activeId)
+          .then((result) => {
+            if (!cancelled) applyToLoaded((prev) => mergeMessages(prev, result.messages ?? []));
+          })
+          .catch(() => {
+            // The live feed keeps what it has; the next lifecycle event or a
+            // session re-select retries the reconcile.
+          });
+      }, 250);
+    };
+    const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
+      const payload = event.payload;
+      switch (event.type) {
+        case 'message.created': {
+          // The payload IS the message wire object (transcript.py publishes
+          // Message.to_wire() directly).
+          const flat = payload['id'] && payload['role'] ? (payload as unknown as Message) : undefined;
+          const nested = payload['message'] as Message | undefined;
+          const message = nested ?? flat;
+          if (message) applyToLoaded((prev) => upsertMessage(prev, { ...message, parts: message.parts ?? [] }));
+          break;
+        }
+        case 'message.part.added':
+        case 'message.part.updated': {
+          const messageId = payload['message_id'] as string | undefined;
+          const part = payload['part'] as Part | undefined;
+          if (messageId && part) applyToLoaded((prev) => appendPart(prev, messageId, part));
+          break;
+        }
+        case 'message.part.delta': {
+          const messageId = payload['message_id'] as string | undefined;
+          const partId = payload['part_id'] as string | undefined;
+          const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
+          if (messageId && partId && delta.text_append) {
+            applyToLoaded((prev) => applyTextAppend(prev, messageId, partId, delta.text_append!));
+          }
+          break;
+        }
+        case 'message.part.completed': {
+          const messageId = payload['message_id'] as string | undefined;
+          const partId = payload['part_id'] as string | undefined;
+          const finalText = payload['final_text'];
+          if (messageId && partId && typeof finalText === 'string') {
+            applyToLoaded((prev) => applyPartCompleted(prev, messageId, partId, finalText));
+          }
+          break;
+        }
+        case 'message.completed':
+        case 'message.error':
+        case 'message.deleted':
+          reconcile();
+          break;
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (reconcileTimer !== undefined) window.clearTimeout(reconcileTimer);
+      subscription.close();
+    };
+  }, [activeId, client]);
+
   const focusTop = focus.length > 0 ? focus[focus.length - 1]! : null;
 
   // The focused child's live-ish view: fetched on focus and refreshed while
@@ -723,10 +810,63 @@ export function SessionView({
       }
     };
     void pull();
+    // The child streams over its own session SSE exactly like the main
+    // transcript (children are real sessions); the poll stays as the
+    // reconcile backstop for everything the part events don't carry
+    // (status transitions, adopted messages).
+    const applyToChild = (fn: (messages: Message[]) => Message[]) => {
+      setChildView((cur) =>
+        cur && cur.sessionId === focusTop.sessionId ? { ...cur, messages: fn(cur.messages) } : cur,
+      );
+    };
+    const subscription =
+      typeof EventSource !== 'undefined'
+        ? subscribeSessionMessageEvents(client.sseUrl(focusTop.sessionId), (event) => {
+            const payload = event.payload;
+            switch (event.type) {
+              case 'message.created': {
+                const flat =
+                  payload['id'] && payload['role'] ? (payload as unknown as Message) : undefined;
+                const nested = payload['message'] as Message | undefined;
+                const message = nested ?? flat;
+                if (message) applyToChild((prev) => upsertMessage(prev, { ...message, parts: message.parts ?? [] }));
+                break;
+              }
+              case 'message.part.added':
+              case 'message.part.updated': {
+                const messageId = payload['message_id'] as string | undefined;
+                const part = payload['part'] as Part | undefined;
+                if (messageId && part) applyToChild((prev) => appendPart(prev, messageId, part));
+                break;
+              }
+              case 'message.part.delta': {
+                const messageId = payload['message_id'] as string | undefined;
+                const partId = payload['part_id'] as string | undefined;
+                const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
+                if (messageId && partId && delta.text_append) {
+                  applyToChild((prev) => applyTextAppend(prev, messageId, partId, delta.text_append!));
+                }
+                break;
+              }
+              case 'message.part.completed': {
+                const messageId = payload['message_id'] as string | undefined;
+                const partId = payload['part_id'] as string | undefined;
+                const finalText = payload['final_text'];
+                if (messageId && partId && typeof finalText === 'string') {
+                  applyToChild((prev) => applyPartCompleted(prev, messageId, partId, finalText));
+                }
+                break;
+              }
+              default:
+                break;
+            }
+          })
+        : null;
     const timer = window.setInterval(() => void pull(), 5000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      subscription?.close();
     };
   }, [focusTop?.sessionId, client]);
 

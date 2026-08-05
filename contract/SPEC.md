@@ -1941,6 +1941,7 @@ sketch; the rest reflect clio's resource model.
 | `session.undo` / `session.rewind` | rollback committed (§6.2) — after per-message `message.deleted`, before `session.updated` | `{session_id, deleted_message_ids, target_message_id, include_target}` (`target_message_id: ""` / `include_target: false` for undo) |
 | `message.created` | new message frame (user msg, streamed assistant frame, finalize assistant frame, tool-observer frame) | payload IS the **flat wire Message** (`Message.to_wire()`) — **NOT** `{message: Message}`. Assistant frames arrive with `parts: []` and a `turn_id`. No `role: "tool"` messages are emitted (tool results are `tool_result` parts on the assistant message) |
 | `message.part.added` | new part appended | `{turn_id, message_id, stream_source: "live"\|"batch", part}` |
+| `message.part.updated` | an existing part REPLACED in place by `part.id` (clean delegation wire: the terminal `expert_handoff` updates the started part — same id/sequence, metadata carrying both `question` and `output`) | `{turn_id, message_id, stream_source, part}` (same shape as `part.added`) |
 | `message.part.delta` | streaming part delta | `{turn_id, message_id, part_id, stream_source: "live", signature_field_name, delta: {text_append}}` — thinking parts ALSO use `text_append` (§7.5) |
 | `message.part.completed` | part finalized | `{turn_id, message_id, part_id, stream_source, final_text, stream_fallback?}` — **`final_text` is authoritative**: clients MUST replace buffered deltas with it. A streamed part whose text cleans to empty is dropped and never receives `part.completed` |
 | `message.completed` | turn settled | `{turn_id, message_id, stop_reason: end_turn\|error\|cancelled\|blocked, tokens, cost_usd, error_info?, metadata?}` — exactly one per turn EXCEPT the ask-user pause (none, §6.23). Turn failures surface as `error_info` here + `session.status_changed(error)`; there is no `message.error` event |
@@ -2215,6 +2216,7 @@ message.deleted implemented
 message.part.added implemented
 message.part.completed implemented
 message.part.delta implemented
+message.part.updated implemented
 permission.requested implemented
 permission.resolved implemented
 semantic.event implemented

@@ -265,3 +265,76 @@ export function openSseFetchStream(options: SseFetchStreamOptions): SseFetchStre
 
   return { close };
 }
+
+/** The message-lifecycle SSE vocabulary that drives the LIVE transcript. */
+export const SESSION_MESSAGE_EVENT_TYPES = [
+  'message.created',
+  'message.part.added',
+  'message.part.updated',
+  'message.part.delta',
+  'message.part.completed',
+  'message.completed',
+  'message.error',
+  'message.deleted',
+] as const;
+
+export type SessionMessageEventType = (typeof SESSION_MESSAGE_EVENT_TYPES)[number];
+
+/** One parsed message-lifecycle envelope off the session SSE stream. */
+export interface SessionMessageEvent {
+  type: SessionMessageEventType;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * Subscribe to the message-lifecycle events of one session's SSE stream —
+ * the live-transcript feed (message.created, part added/updated/delta/
+ * completed, message completed/error/deleted). Native EventSource owns
+ * reconnects; this helper owns per-type listeners, envelope validation, and
+ * cleanup. The transport performs NO dedup or reshaping — the server's wire
+ * is rendered as delivered.
+ */
+export function subscribeSessionMessageEvents(
+  url: string,
+  onEvent: (event: SessionMessageEvent) => void,
+  createEventSource: SessionTraceEventSourceFactory = (sourceUrl) => new EventSource(sourceUrl),
+): SessionTraceSubscription {
+  const source = createEventSource(url);
+  const listeners = new Map<SessionMessageEventType, EventListener>();
+
+  for (const type of SESSION_MESSAGE_EVENT_TYPES) {
+    const listener: EventListener = (rawEvent) => {
+      const event = parseSessionMessageEvent(rawEvent as MessageEvent<string>, type);
+      if (event) onEvent(event);
+    };
+    listeners.set(type, listener);
+    source.addEventListener(type, listener);
+  }
+
+  return {
+    close: () => {
+      for (const [type, listener] of listeners) source.removeEventListener(type, listener);
+      source.close();
+    },
+  };
+}
+
+function parseSessionMessageEvent(
+  rawEvent: MessageEvent<string>,
+  expectedType: SessionMessageEventType,
+): SessionMessageEvent | null {
+  try {
+    const parsed = JSON.parse(rawEvent.data) as Record<string, unknown>;
+    if (parsed['type'] !== expectedType) return null;
+    const payload = parsed['payload'];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    return {
+      type: expectedType,
+      occurred_at: typeof parsed['occurred_at'] === 'string' ? parsed['occurred_at'] : '',
+      payload: payload as Record<string, unknown>,
+    };
+  } catch {
+    return null;
+  }
+}

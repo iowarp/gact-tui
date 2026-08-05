@@ -66,8 +66,9 @@ describe('wire event vocabulary matches SPEC §7.7 (#232)', () => {
   const specTypes = parseVocabulary(extractVocabularyBlock(spec));
   const declared = new Set<string>(WIRE_EVENT_TYPES);
 
-  it('§7.7 parses to the expected 74-type set', () => {
-    expect(specTypes.size).toBe(74);
+  it('§7.7 parses to the expected 75-type set', () => {
+    // 75 = 74 + message.part.updated (clean delegation wire, 2026-08-05).
+    expect(specTypes.size).toBe(75);
   });
 
   it('WIRE_EVENT_TYPES has no duplicate entries', () => {
