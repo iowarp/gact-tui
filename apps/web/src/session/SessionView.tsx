@@ -7,8 +7,10 @@ import {
   type Client,
   type Message,
   type Session,
+  type SessionAgentTask,
   type Workspace,
 } from '@clio/core';
+import type { AsyncRunItem } from '../composer/AsyncRunsPopover';
 import type { PickerItem } from '../composer/Picker';
 import { Composer, type ApprovalMode, type ComposerMode, type QueuedMessage } from '../composer/Composer';
 import type { ProviderModelGroup } from '../composer/ProviderModelPicker';
@@ -69,6 +71,8 @@ interface ComposerPillState {
   sessionId: string;
   scope: string;
   asyncCount?: number;
+  /** The raw rows behind asyncCount — backs the async chip's runs popover. */
+  asyncTasks?: SessionAgentTask[];
   contextPercent?: number;
   artifactCount?: number;
 }
@@ -140,6 +144,7 @@ export function SessionView({
   const [renamed, setRenamed] = useState<Record<string, string>>({});
   const [renamedWorkspaces, setRenamedWorkspaces] = useState<Record<string, string>>({});
   const [commands, setCommands] = useState<PickerItem[]>([]);
+  const [files, setFiles] = useState<PickerItem[]>([]);
   const [sending, setSending] = useState(false);
   // Messages held back while `sending` is true — the composer's mainQ tray.
   // `sending` is this client's own send-round-trip window (POST -> load ->
@@ -446,6 +451,39 @@ export function SessionView({
     };
   }, [client]);
 
+  // Workspace files back the composer's `@` picker (client.workspaceFiles()).
+  // No active session/workspace yet: leave the list empty so `@` simply
+  // does not open, same convention as an unservable commands read above.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = sessions.find((s) => s.id === activeId)?.workspace_id;
+    if (!workspaceId) {
+      setFiles([]);
+      return;
+    }
+    void (async () => {
+      try {
+        const result = await client.workspaceFiles(workspaceId, { limit: 500 });
+        if (cancelled) return;
+        setFiles(
+          (result.files ?? [])
+            .filter((file) => file.type !== 'directory')
+            .map((file) => {
+              const parts = file.path.split(/[\\/]/).filter(Boolean);
+              const name = parts[parts.length - 1] ?? file.path;
+              const dir = parts.slice(0, -1).join('/');
+              return { id: file.path, label: name, ...(dir ? { detail: `${dir}/` } : {}) };
+            }),
+        );
+      } catch {
+        if (!cancelled) setFiles([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, activeId, sessions]);
+
   // Workspace paths name the rail groups. The prototype shows a TREE the user
   // recognises (/scratch/j4471, ~/rollups); an opaque ws_ id names nothing.
   useEffect(() => {
@@ -476,6 +514,7 @@ export function SessionView({
       const next: ComposerPillState = { sessionId, scope };
 
       if (tasksResult.status === 'fulfilled') {
+        next.asyncTasks = tasksResult.value.tasks;
         next.asyncCount = tasksResult.value.tasks.filter(
           (task) => !TERMINAL_AGENT_TASK_STATUSES.has(String(task.status).toLowerCase()),
         ).length;
@@ -922,6 +961,22 @@ export function SessionView({
   // prototype's own default pill); once a real session exists the REAL
   // fetched value is authoritative, including while it is still loading.
   const composerContextPercent = activeId ? activePill?.contextPercent : 0;
+  // Thin projection of the pill's raw agent-task rows for the async chip's
+  // runs popover — undefined (not []) until a real read has landed, so the
+  // composer falls back to its plain onOpenAsync jump instead of opening an
+  // empty popover that misrepresents "we don't know yet" as "there is none".
+  const composerAsyncTasks: AsyncRunItem[] | undefined = activePill?.asyncTasks?.map((task) => {
+    const id = task.task_id ?? task.id ?? '';
+    const status = String(task.status ?? '').toLowerCase();
+    const placement = task.placement ?? task.host;
+    return {
+      id,
+      label: task.run_label || task.agent_ref?.expert_id || id || 'task',
+      status,
+      ...(placement ? { placement } : {}),
+      terminal: TERMINAL_AGENT_TASK_STATUSES.has(status),
+    };
+  });
   // The prototype also reads "· update available"; no endpoint reports
   // update state, so that half is omitted, not invented.
   const versionLine = backendVersion ? (
@@ -962,13 +1017,21 @@ export function SessionView({
         {...(thinkingLevel ? { thinkingLevel } : {})}
         sessionMode={detail?.mode === 'plan' ? 'plan' : 'execute'}
         commands={commands}
+        files={files}
         placement={placement}
         {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
+        {...(composerAsyncTasks ? { asyncTasks: composerAsyncTasks } : {})}
         {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
         onModelChange={(next) => void setModel(next)}
         onOpenProviderSettings={() => setPanel('settings')}
+        onOpenPlacement={() => {
+          // Matches the topbar's plain "files" toggle: THIS session's
+          // workspace, not a stale rail/search request for a different one.
+          setFilesWorkspaceRequest(undefined);
+          setPanel('files');
+        }}
         onOpenAsync={() => {
           setObsTab('runs');
           setPanel('obs');

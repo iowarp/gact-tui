@@ -1,0 +1,124 @@
+/* The async chip's runs popover — anchored to `.composer__asyncchip`
+   (position:relative), rising above the chip like the model/picker popovers. */
+.composer__asyncchip {
+  position: relative;
+}
+
+.composer__asyncchip > .kit-popover {
+  left: 0;
+  right: auto;
+  width: min(280px, 88vw);
+  padding: 8px 4px;
+}
+
+/* The recently-finished badge — a 5x5 amber dot at the chip's top-right,
+   only while an undismissed finished run is pending review. */
+.composer__asyncchip[data-badge='true'] .kit-chip {
+  position: relative;
+}
+
+.composer__asyncchip[data-badge='true'] .kit-chip::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t-wa);
+}
+
+.async-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 4px 4px;
+}
+
+.async-runs__empty {
+  margin: 4px 5px 6px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}
+
+.async-runs__list,
+.async-runs__finished > [role='list'] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.async-runs__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 5px;
+  border-radius: 6px;
+}
+
+.async-runs__row:hover {
+  background: var(--t-hv);
+}
+
+.async-runs__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-tx);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+}
+
+.async-runs__meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10px * var(--ts));
+}
+
+.async-runs__finished {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--t-bd3);
+}
+
+.async-runs__dismiss {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--t-mu);
+  cursor: pointer;
+}
+
+.async-runs__dismiss:hover {
+  background: var(--t-sf2);
+  color: var(--t-hd);
+}
+
+.async-runs__history {
+  margin: 4px 5px 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t-cy);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.async-runs__history:hover {
+  text-decoration: underline;
+}

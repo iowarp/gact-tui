@@ -1,6 +1,11 @@
 /* Picker rows — the prototype's `14px auto minmax(0,1fr)` grammar: an icon
    slot, the label, and a detail column allowed to shrink. */
 
+.picker > .kit-eyebrow {
+  display: block;
+  padding: 5px 9px 6px;
+}
+
 .picker__list {
   display: flex;
   flex-direction: column;
@@ -27,11 +32,12 @@
 }
 
 .picker__icon {
+  display: grid;
+  place-items: center;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
-  background: var(--t-cy12);
   align-self: center;
+  color: var(--t-cy);
 }
 
 .picker__label {

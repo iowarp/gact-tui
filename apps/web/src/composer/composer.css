@@ -53,6 +53,17 @@
   background: rgba(45, 99, 139, 0.3);
 }
 
+/* Static location marker — never pulses, always ok-green. Distinct from
+   kit-statusdot's activity vocabulary (running/queued/error/idle), none of
+   which are the right color for "here", not "doing something". */
+.composer__placementdot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--t-ok, #34d399);
+}
+
 .composer__placementlabel,
 .composer__contextlabel {
   font-size: 0;

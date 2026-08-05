@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { brand } from '@brand';
-import {
-  Chip,
-  ContextMenu,
-  Icon,
-  StatusDot,
-  type MenuItemDef,
-  type SelectOption,
-} from '../kit';
+import { Chip, ContextMenu, Icon, type MenuItemDef, type SelectOption } from '../kit';
+import { AsyncRunsPopover, type AsyncRunItem } from './AsyncRunsPopover';
 import { Picker, type PickerItem } from './Picker';
 import { ProviderModelPicker, type ProviderModelGroup } from './ProviderModelPicker';
 import './composer.css';
@@ -59,6 +53,13 @@ export interface ComposerProps {
   /** Where the turn will run — the prototype's host chip. */
   placement?: string;
   asyncCount?: number;
+  /**
+   * Per-task detail behind the async chip — the prototype's runs popover.
+   * Omitted = the chip falls back to a direct `onOpenAsync` jump (the prior
+   * behavior), since a popover with no row data would misrepresent what the
+   * surface actually knows.
+   */
+  asyncTasks?: AsyncRunItem[];
   contextPercent?: number;
   models?: SelectOption[];
   modelId?: string;
@@ -100,8 +101,10 @@ export interface ComposerProps {
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
   onSubmit: (submission: ComposerSubmission) => void;
-  /** Pill chip click-throughs — the prototype's async chip opens the runs
-      view, ctx opens telemetry. Omitted = the chip renders as text. */
+  /** Pill chip click-throughs — the placement chip opens the workspace files
+      browser, the async chip opens the runs view/popover, ctx opens
+      telemetry. Omitted = the chip renders as text. */
+  onOpenPlacement?: () => void;
   onOpenAsync?: () => void;
   onOpenContext?: () => void;
   /**
@@ -128,6 +131,7 @@ export interface ComposerProps {
 export function Composer({
   placement,
   asyncCount,
+  asyncTasks,
   contextPercent,
   models = [],
   modelId = '',
@@ -150,6 +154,7 @@ export function Composer({
   onModelChange = () => {},
   onOpenProviderSettings,
   onSubmit,
+  onOpenPlacement,
   onOpenAsync,
   onOpenContext,
   footer,
@@ -161,6 +166,8 @@ export function Composer({
   const [expanded, setExpanded] = useState(false);
   const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [asyncPopoverOpen, setAsyncPopoverOpen] = useState(false);
+  const [dismissedAsyncIds, setDismissedAsyncIds] = useState<Set<string>>(new Set());
   const [activeIndex, setActiveIndex] = useState(0);
   const [queueEdit, setQueueEdit] = useState<{ id: string; text: string } | null>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
@@ -181,6 +188,18 @@ export function Composer({
     // object with an incremented token on every use, so reselecting the SAME
     // starter still refills (and refocuses) the field.
   }, [insertPrompt]);
+
+  // The prototype's continuous type-to-autogrow (onInput:
+  // `el.style.height = min(scrollHeight,180)+'px'`) — every text change,
+  // typed or programmatic (picker completion, starter insert, submit-clear),
+  // re-measures. Reset to 'auto' first so deleting content shrinks the box
+  // back down instead of only ever growing.
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, [text]);
 
   // `/` commands a TURN, so it only counts at the very start. `@` references a
   // file and may appear anywhere in a sentence.
@@ -426,10 +445,12 @@ export function Composer({
         <div className="composer__pillbox">
           {placement ? (
             <span className="composer__placementchip">
-              <Chip>
-                {/* Static like the prototype's pill dot — placement is a
-                    location, not activity; the pulse belongs to real states. */}
-                <StatusDot status="running" quiet />
+              <Chip
+                {...(onOpenPlacement ? { onClick: onOpenPlacement, title: 'Open files' } : {})}
+              >
+                {/* Static, not an activity indicator — placement is a
+                    location, never pulses like a running/queued/error dot. */}
+                <span className="composer__placementdot" aria-hidden="true" />
                 <span
                   className="composer__placementlabel"
                   data-host={placementHost}
@@ -440,18 +461,48 @@ export function Composer({
               </Chip>
             </span>
           ) : null}
-          {placement && (hasAsync || hasContext) ? (
+          {/* This separator gates WITH the async chip — it only exists to
+              divide placement from async, so it must not render when there
+              is no async chip to divide (the ctx-side separator below covers
+              placement-to-ctx on its own in that case). */}
+          {placement && hasAsync ? (
             <span className="composer__pillsep" aria-hidden="true" />
           ) : null}
           {hasAsync ? (
-            <span className="composer__asyncchip">
+            <span
+              className="composer__asyncchip"
+              data-badge={
+                asyncTasks?.some((t) => t.terminal && !dismissedAsyncIds.has(t.id))
+                  ? 'true'
+                  : undefined
+              }
+            >
               <Chip
                 icon={<Icon name="zap" size={11} />}
-                {...(onOpenAsync ? { onClick: onOpenAsync, title: 'Open runs' } : {})}
+                {...(asyncTasks
+                  ? { onClick: () => setAsyncPopoverOpen((open) => !open), title: 'Open runs' }
+                  : onOpenAsync
+                    ? { onClick: onOpenAsync, title: 'Open runs' }
+                    : {})}
               >{`async ${asyncCount}`}</Chip>
+              {asyncTasks ? (
+                <AsyncRunsPopover
+                  open={asyncPopoverOpen}
+                  tasks={asyncTasks}
+                  dismissedIds={dismissedAsyncIds}
+                  onDismiss={(id) =>
+                    setDismissedAsyncIds((current) => new Set(current).add(id))
+                  }
+                  {...(onOpenAsync ? { onOpenHistory: onOpenAsync } : {})}
+                  onClose={() => setAsyncPopoverOpen(false)}
+                />
+              ) : null}
             </span>
           ) : null}
-          {hasAsync && hasContext ? (
+          {/* The ctx-side separator is unconditional on `hasContext` alone —
+              it must still render when async is absent/zero (the common
+              single-session case), not only when both chips are present. */}
+          {placement && hasContext ? (
             <span className="composer__pillsep" aria-hidden="true" />
           ) : null}
           {hasContext ? (
@@ -480,6 +531,7 @@ export function Composer({
       >
         <Picker
           open={pickerOpen}
+          kind={slashOpen ? 'command' : 'file'}
           label={slashOpen ? 'Commands' : 'Files'}
           items={pickerItems}
           activeIndex={activeIndex}

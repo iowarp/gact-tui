@@ -54,6 +54,15 @@ describe('slash picker', () => {
     expect(within(list).queryByText('/clear')).toBeNull();
   });
 
+  it('carries a visible "commands" eyebrow and a real icon per row, not a blank tint', () => {
+    renderComposer();
+    type('/comp');
+    const list = screen.getByRole('listbox', { name: /commands/i });
+    expect(screen.getByText('commands', { selector: '.kit-eyebrow' })).toBeInTheDocument();
+    const row = within(list).getByRole('option', { name: /compact/ });
+    expect(row.querySelector('.picker__icon svg')).not.toBeNull();
+  });
+
   it('does NOT open for a slash mid-message', () => {
     // `and/or` is prose, not a command.
     renderComposer();
@@ -107,6 +116,17 @@ describe('at picker', () => {
     expect(within(list).getByText('Modal.tsx')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('option', { name: /Modal/ }));
     expect(screen.getByRole('textbox')).toHaveValue('look at @src/kit/Modal.tsx ');
+  });
+
+  it('carries the "@ reference" eyebrow and a real file-type icon per row', () => {
+    renderComposer();
+    type('look at @Mod');
+    const list = screen.getByRole('listbox', { name: /files/i });
+    expect(
+      screen.getByText(/@ reference — pick a file, agent, or tool/i, { selector: '.kit-eyebrow' }),
+    ).toBeInTheDocument();
+    const row = within(list).getByRole('option', { name: /Modal/ });
+    expect(row.querySelector('.picker__icon svg')).not.toBeNull();
   });
 
   it('opens away from position 0, unlike the slash picker', () => {
