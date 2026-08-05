@@ -63,8 +63,30 @@ describe('DetailSlot', () => {
 
     it('renders the kind as a small chip next to the title, not a kv-grid row', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-      const titleRow = screen.getByTestId('detail-title').parentElement as HTMLElement;
-      expect(within(titleRow).getByText('dataset / csv')).toBeInTheDocument();
+      const titleLine = screen.getByTestId('detail-title').closest('.detail__titleline') as HTMLElement;
+      expect(within(titleLine).getByText('dataset / csv')).toBeInTheDocument();
+    });
+
+    it('is panel CHROME: renders above the tab strip and stays visible across every tab, never repeated in tab content', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      const identity = screen.getByTestId('detail-identity');
+      const tabs = screen.getByRole('tablist', { name: /detail views/i });
+      // DOCUMENT_POSITION_FOLLOWING (4): identity precedes the tab strip.
+      expect(identity.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.getByTestId('detail-identity')).toBeInTheDocument();
+      expect(screen.getByTestId('detail-title')).toHaveTextContent('art_5f21c9d0e83a');
+
+      fireEvent.click(screen.getByRole('tab', { name: /recreate/i }));
+      expect(screen.getByTestId('detail-identity')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('tab', { name: /artifact/i }));
+      // Back on the artifact tab, the identity never re-appears inside the
+      // tab body — the Overview tab holds only the preview now.
+      const overview = screen.getByTestId('detail-overview');
+      expect(within(overview).queryByTestId('detail-title')).toBeNull();
+      expect(within(overview).queryByTestId('detail-meta')).toBeNull();
     });
 
     it('drops the old id/kind/size/sha kv-grid from the Overview tab entirely', () => {
@@ -123,13 +145,16 @@ describe('DetailSlot', () => {
     expect(screen.getByText('ARTIFACT')).toBeInTheDocument();
   });
 
-  it('renders a clickable breadcrumb trail when the record carries one', () => {
+  it('renders a clickable breadcrumb prefix when the record carries one, WITHOUT repeating the name the title already shows (owner refinement 2026-08-05: the repetition the owner circled)', () => {
     render(
       <DetailSlot record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }} onClose={vi.fn()} />,
     );
     const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
     expect(crumbs).toHaveTextContent('session');
-    expect(crumbs).toHaveTextContent('earthscope_stations.csv');
+    // The record's own (self) name is NOT repeated inside the crumb trail —
+    // it renders exactly once, as the title.
+    expect(crumbs).not.toHaveTextContent('earthscope_stations.csv');
+    expect(screen.getByTestId('detail-title')).toHaveTextContent('earthscope_stations.csv');
   });
 
   it('omits the breadcrumb row entirely when the record carries none', () => {
@@ -160,13 +185,16 @@ describe('DetailSlot', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('the trailing (self) crumb is not a button — there is no stack level for it to navigate to', () => {
+  it('the trailing (self) crumb is not a button — it is the plain title heading, not a nav entry with nowhere to navigate to', () => {
     render(
       <DetailSlot record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }} onClose={vi.fn()} />,
     );
     const crumbs = screen.getByRole('navigation', { name: /breadcrumb/i });
     expect(within(crumbs).queryByRole('button', { name: 'earthscope_stations.csv' })).toBeNull();
-    expect(within(crumbs).getByText('earthscope_stations.csv')).toBeInTheDocument();
+    expect(within(crumbs).queryByText('earthscope_stations.csv')).toBeNull();
+    const title = screen.getByTestId('detail-title');
+    expect(title).toHaveTextContent('earthscope_stations.csv');
+    expect(title.tagName).not.toBe('BUTTON');
   });
 
   it('copies an artifact summary to the clipboard', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Client } from '@clio/core';
 import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
 import { Markdown } from '../transcript/markdown';
@@ -19,8 +19,8 @@ export interface DetailSlotProps {
   client?: Client;
   /**
    * Opens the workspace files layer at the artifact's storage location
-   * (the prototype's `artLoc`). When absent the Overview's storage row
-   * renders as a plain, non-interactive path — never a dead affordance.
+   * (the prototype's `artLoc`). When absent the identity header's storage
+   * affordance omits the ↗ open control — never a dead affordance.
    */
   onOpenStorage?: (storage: { path: string; workspaceId?: string }) => void;
 }
@@ -102,6 +102,8 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
 
   const body = (
     <>
+      <IdentityHeader record={record} onClose={onClose} {...(onOpenStorage ? { onOpenStorage } : {})} />
+
       <div className="detail__tabs">
         <Tabs
           label="Detail views"
@@ -116,9 +118,7 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
       </div>
 
       <div className="detail__body">
-        {tab === 'artifact' ? (
-          <Overview record={record} {...(onOpenStorage ? { onOpenStorage } : {})} />
-        ) : null}
+        {tab === 'artifact' ? <Overview record={record} /> : null}
         {tab === 'provenance' ? <Provenance record={record} /> : null}
         {tab === 'recreate' ? <Recreate record={record} /> : null}
       </div>
@@ -275,41 +275,161 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
         />
       </header>
 
-      {record.breadcrumb && record.breadcrumb.length > 0 ? (
-        <nav className="detail__crumbs" aria-label="Detail breadcrumb">
-          {record.breadcrumb.map((crumb, index) => {
-            const isLast = index === record.breadcrumb!.length - 1;
-            // Prototype truth (crumbs[]/c.go, design/prototype/Clio Session.html):
-            // every crumb but the last drills the detail stack UP a level; the
-            // last (self) crumb's own handler resets the stack to itself, an
-            // observable no-op. This app has no multi-level detail stack yet
-            // (a single record, not a drill-down chain — E7's reachability
-            // gap covers minting the chain), so the only crumb with a real,
-            // well-defined destination today is the first ("session"): going
-            // up from a single-level record means leaving the detail slot
-            // entirely, i.e. onClose. Later, non-first, non-last crumbs stay
-            // display-only rather than wired to a stack level that does not
-            // exist in the data model — an honest scope limit, not a silent
-            // drop of prototype behavior.
-            const clickable = index === 0 && !isLast;
-            return (
-              <span key={`${crumb}-${index}`}>
-                {index > 0 ? <span className="detail__crumbsep">›</span> : null}
-                {clickable ? (
-                  <button type="button" className="detail__crumbbtn" onClick={onClose}>
-                    {crumb}
-                  </button>
-                ) : (
-                  <span className={isLast ? 'detail__crumbcurrent' : undefined}>{crumb}</span>
-                )}
-              </span>
-            );
-          })}
-        </nav>
-      ) : null}
-
       {body}
     </aside>
+  );
+}
+
+/**
+ * The identity header — panel CHROME, not tab content: sits ABOVE the
+ * artifact|provenance|recreate tab strip (shared by every tab, not just
+ * Overview) as a compact 3-line block (owner refinement 2026-08-05, second
+ * pass on the 2026-08-05 identity-block redesign).
+ *
+ * Line 1: the crumb prefix ("session ›", tiny) directly before the artifact
+ * NAME — shown exactly ONCE now. The prior pass still repeated the name
+ * between the breadcrumb's trailing (self) crumb and the Overview tab's own
+ * title; the owner circled that repetition, so the breadcrumb no longer
+ * renders its own last segment at all — `artifactDisplayName` already reads
+ * that same segment for the title. The kind chip sits right-aligned on the
+ * same line.
+ *
+ * Line 2: the compact metadata affordances (size · id · sha · storage) on
+ * one line, via {@link MetaLine}.
+ *
+ * Line 3: the note/description, small, muted, full width.
+ */
+function IdentityHeader({
+  record,
+  onClose,
+  onOpenStorage,
+}: {
+  record: ArtifactRecord;
+  onClose: () => void;
+  onOpenStorage?: DetailSlotProps['onOpenStorage'];
+}) {
+  const displayName = artifactDisplayName(record);
+  // Every crumb but the last is a real ancestor stop; the last is the
+  // record's own (self) name, already shown once as the title below.
+  const breadcrumbPrefix = record.breadcrumb ? record.breadcrumb.slice(0, -1) : [];
+
+  return (
+    <div className="detail__identityheader" data-testid="detail-identity">
+      <div className="detail__titleline">
+        <div className="detail__titlemain">
+          <CrumbPrefix crumbs={breadcrumbPrefix} onClose={onClose} />
+          <h3 className="detail__title" data-testid="detail-title" title={displayName}>
+            {displayName}
+          </h3>
+        </div>
+        {record.kind ? <Chip>{record.kind}</Chip> : null}
+      </div>
+      <MetaLine record={record} {...(onOpenStorage ? { onOpenStorage } : {})} />
+      {record.note ? (
+        <p className="detail__note" data-testid="detail-note">
+          {record.note}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The ancestor breadcrumb trail before the title (proto crumbs[]/c.go,
+ * design/prototype/Clio Session.html): every crumb but the record's own
+ * (self) segment, which the caller already excludes. Only the first
+ * ("session") crumb has a real, well-defined destination today — this app
+ * has no multi-level detail stack yet (a single record, not a drill-down
+ * chain — E7's reachability gap covers minting the chain), so going up from
+ * a single-level record means leaving the detail slot entirely, i.e.
+ * onClose. Deeper ancestor crumbs (none exist yet, but the shape allows
+ * them) stay display-only rather than wired to a stack level that doesn't
+ * exist in the data model — an honest scope limit, not a silent drop.
+ */
+function CrumbPrefix({ crumbs, onClose }: { crumbs: string[]; onClose: () => void }) {
+  if (crumbs.length === 0) return null;
+  return (
+    <nav className="detail__crumbs" aria-label="Detail breadcrumb">
+      {crumbs.map((crumb, index) => (
+        <span key={`${crumb}-${index}`}>
+          {index > 0 ? <span className="detail__crumbsep">›</span> : null}
+          {index === 0 ? (
+            <button type="button" className="detail__crumbbtn" onClick={onClose}>
+              {crumb}
+            </button>
+          ) : (
+            <span>{crumb}</span>
+          )}
+        </span>
+      ))}
+      <span className="detail__crumbsep" aria-hidden="true">
+        ›
+      </span>
+    </nav>
+  );
+}
+
+/**
+ * The identity header's compact metadata line: size · id · sha · storage,
+ * all on one row, separated by a middle-dot. Each segment is optional except
+ * the id (always present); only segments with real data render — nothing is
+ * padded or fabricated.
+ */
+function MetaLine({
+  record,
+  onOpenStorage,
+}: {
+  record: ArtifactRecord;
+  onOpenStorage?: DetailSlotProps['onOpenStorage'];
+}) {
+  const items: { key: string; node: ReactNode }[] = [];
+  if (record.size) {
+    items.push({ key: 'size', node: <span className="detail__metasize">{record.size}</span> });
+  }
+  items.push({
+    key: 'id',
+    node: (
+      <span className="detail__metaid" data-testid="detail-meta-id" title={record.id}>
+        {truncateMiddle(record.id, ID_TRUNCATE_MAX)}
+      </span>
+    ),
+  });
+  if (record.sha) {
+    items.push({ key: 'sha', node: <ShaField sha={record.sha} /> });
+  }
+  if (record.storagePath) {
+    items.push({
+      key: 'storage',
+      node: (
+        <StorageRow
+          path={record.storagePath}
+          {...(onOpenStorage
+            ? {
+                onOpen: () =>
+                  onOpenStorage({
+                    path: record.storagePath!,
+                    ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
+                  }),
+              }
+            : {})}
+        />
+      ),
+    });
+  }
+
+  return (
+    <div className="detail__metaline" data-testid="detail-meta">
+      {items.map((item, index) => (
+        <Fragment key={item.key}>
+          {index > 0 ? (
+            <span className="detail__metasep" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
+          {item.node}
+        </Fragment>
+      ))}
+    </div>
   );
 }
 
@@ -380,56 +500,13 @@ function selectFullText(node: Node | null): void {
 }
 
 /**
- * The Overview identity block (owner redesign 2026-08-05): the artifact NAME
- * is the largest element with the kind as a small chip beside it, one small
- * muted meta line carries size + the (truncatable) id, and the sha gets its
- * own compact copy/hover affordance below — converging what used to be a
- * five-row kv-grid that let the id outweigh the title.
+ * The Overview (artifact) tab body. Owner refinement 2026-08-05, second
+ * pass: the identity (name/kind/meta/note) is panel CHROME now — it moved to
+ * {@link IdentityHeader}, shared above the tab strip — so this tab holds
+ * ONLY the content preview, nothing repeated from the header.
  */
-function Overview({
-  record,
-  onOpenStorage,
-}: {
-  record: ArtifactRecord;
-  onOpenStorage?: DetailSlotProps['onOpenStorage'];
-}) {
-  const displayName = artifactDisplayName(record);
-
-  return (
-    <div data-testid="detail-overview">
-      <div className="detail__identity" data-testid="detail-identity">
-        <div className="detail__titlerow">
-          <h3 className="detail__title" data-testid="detail-title" title={displayName}>
-            {displayName}
-          </h3>
-          {record.kind ? <Chip>{record.kind}</Chip> : null}
-        </div>
-        <div className="detail__metaline" data-testid="detail-meta">
-          {record.size ? <span className="detail__metasize">{record.size}</span> : null}
-          <span className="detail__metaid" data-testid="detail-meta-id" title={record.id}>
-            {truncateMiddle(record.id, ID_TRUNCATE_MAX)}
-          </span>
-        </div>
-        {record.sha ? <ShaField sha={record.sha} /> : null}
-      </div>
-      {record.storagePath ? (
-        <StorageRow
-          path={record.storagePath}
-          {...(onOpenStorage
-            ? {
-                onOpen: () =>
-                  onOpenStorage({
-                    path: record.storagePath!,
-                    ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
-                  }),
-              }
-            : {})}
-        />
-      ) : null}
-      {record.note ? <p className="detail__note">{record.note}</p> : null}
-      {record.preview ? <Preview preview={record.preview} /> : null}
-    </div>
-  );
+function Overview({ record }: { record: ArtifactRecord }) {
+  return <div data-testid="detail-overview">{record.preview ? <Preview preview={record.preview} /> : null}</div>;
 }
 
 /**

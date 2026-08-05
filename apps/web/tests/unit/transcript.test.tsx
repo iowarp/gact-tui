@@ -454,12 +454,61 @@ describe('Transcript', () => {
     expect(part).toHaveTextContent('also profile the uncertainty columns');
   });
 
-  it('wraps a message stamped with metadata.delegation_return in the return card', () => {
-    // Wire contract (owner, 2026-08-05): a child session's returning
-    // assistant message carries metadata.delegation_return = {
-    // parent_session_id, task_id, parent_agent } on GET
-    // /v1/sessions/{child_sid}/messages — the server's own "this message is
-    // my response to my parent" stamp, never inferred from position.
+  it('splits a stamped message: the answer part goes in the return card, narration renders normally outside it', () => {
+    // Wire contract (owner, 2026-08-05, refined with live evidence from
+    // child sess_c025378f8e7f): a child session's returning assistant
+    // message carries metadata.delegation_return = { parent_session_id,
+    // task_id, parent_agent } — but that message's OWN parts are still a
+    // mix of streamed narration (metadata.signature_field_name ==
+    // "next_thought", stream_source "live") and the extract-produced
+    // response (signature_field_name == "answer", stream_source "batch").
+    // The owner's sketch: the child transcript ends with the narration
+    // bubble(s) as normal, then a "returned to <parent>" card containing
+    // ONLY the answer.
+    render(
+      <Transcript
+        messages={[
+          {
+            id: 'm1',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'text',
+                text: 'Resolving the station catalog now.',
+                metadata: { signature_field_name: 'next_thought', stream_source: 'live' },
+              },
+              {
+                type: 'text',
+                text: 'Center resolved: 34.0537, -118.2428.',
+                metadata: { signature_field_name: 'answer', stream_source: 'batch' },
+              },
+            ],
+            metadata: {
+              delegation_return: {
+                parent_session_id: 'sess_parent',
+                task_id: 'task_8562bd68e4d5',
+                parent_agent: 'main',
+              },
+            },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    const card = screen.getByTestId('return-card');
+    expect(card).toHaveTextContent('returned to main');
+    // The answer lives INSIDE the card, rendered through the normal
+    // markdown pipeline...
+    expect(within(card).getByText('Center resolved: 34.0537, -118.2428.')).toBeInTheDocument();
+    // ...the narration is NOT inside it — it renders normally, outside.
+    expect(within(card).queryByText('Resolving the station catalog now.')).toBeNull();
+    expect(screen.getByText('Resolving the station catalog now.')).toBeInTheDocument();
+  });
+
+  it('falls back to wrapping the whole message when a stamped message has no answer-field part', () => {
+    // Edge case: a batch-only shape (or any stamped message where no part
+    // carries signature_field_name == "answer") must never silently drop
+    // the delegation_return stamp — the whole message wraps instead, same
+    // as before the narration/answer split existed.
     render(
       <Transcript
         messages={[
@@ -480,7 +529,6 @@ describe('Transcript', () => {
     );
     const card = screen.getByTestId('return-card');
     expect(card).toHaveTextContent('returned to main');
-    // The body still renders through the normal markdown pipeline.
     expect(within(card).getByText('Center resolved: 34.0537, -118.2428.')).toBeInTheDocument();
   });
 
@@ -534,7 +582,18 @@ describe('return card in the child transcript views', () => {
           {
             id: 'c2',
             role: 'assistant',
-            parts: [{ type: 'text', text: 'Resolved LA to center 34.0537, -118.2428.' }],
+            parts: [
+              {
+                type: 'text',
+                text: 'Geocoding the requested place name.',
+                metadata: { signature_field_name: 'next_thought', stream_source: 'live' },
+              },
+              {
+                type: 'text',
+                text: 'Resolved LA to center 34.0537, -118.2428.',
+                metadata: { signature_field_name: 'answer', stream_source: 'batch' },
+              },
+            ],
             metadata: {
               delegation_return: {
                 parent_session_id: 'sess_parent',
@@ -549,6 +608,10 @@ describe('return card in the child transcript views', () => {
     expect(screen.getByTestId('child-focus-view')).toBeInTheDocument();
     const card = screen.getByTestId('return-card');
     expect(card).toHaveTextContent('returned to main');
+    // Only the answer is inside the card...
     expect(within(card).getByText('Resolved LA to center 34.0537, -118.2428.')).toBeInTheDocument();
+    // ...the narration renders normally outside it, same context.
+    expect(within(card).queryByText('Geocoding the requested place name.')).toBeNull();
+    expect(screen.getByText('Geocoding the requested place name.')).toBeInTheDocument();
   });
 });

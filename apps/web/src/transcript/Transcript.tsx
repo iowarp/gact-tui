@@ -45,13 +45,29 @@ function delegationReturnOf(message: Message): DelegationReturn | undefined {
 }
 
 /**
+ * A part IS the child's answer to its parent, distinguishable from narration
+ * on the wire (live child sess_c025378f8e7f): the DSPy signature field that
+ * produced it rides `metadata.signature_field_name` — `"next_thought"` for
+ * streamed narration (`stream_source: "live"`), `"answer"` for the
+ * extract-produced return (`stream_source: "batch"`). Only the `"answer"`
+ * part is the response; narration is not, even on a stamped message.
+ */
+function isAnswerPart(part: WirePart): boolean {
+  const meta = part['metadata'];
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return false;
+  return (meta as Record<string, unknown>)['signature_field_name'] === 'answer';
+}
+
+/**
  * The return-to-parent card (owner, 2026-08-05: "the last message on the
  * sub-agents is the response of the sub agent to the parent, and it should
- * be marked as such") — the prototype's teal RETURN -> MAIN card. A
- * message-level wrapper, not a part renderer: the whole message's already-
- * rendered parts sit inside ONE teal-accented container under a "returned to
- * <parent>" eyebrow, same body rendering (markdown, tool rows, …) as any
- * other message — only the frame around it changes.
+ * be marked as such"; refined 2026-08-05 with wire evidence: the card holds
+ * ONLY the answer-field part, narration renders normally outside it) — the
+ * prototype's teal RETURN -> MAIN card, sized to just the response. A
+ * message-level wrapper, not a part renderer: the answer part's already-
+ * rendered output sits inside ONE teal-accented container under a "returned
+ * to <parent>" eyebrow, same body rendering (markdown, tool rows, …) as any
+ * other part — only the frame around it changes.
  */
 function ReturnCard({ parentAgent, children }: { parentAgent: string; children: ReactNode }) {
   return (
@@ -147,6 +163,26 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
   return groups;
 }
 
+interface TranscriptHandlers {
+  onOpenChild?: TranscriptProps['onOpenChild'];
+  onOpenArtifact?: TranscriptProps['onOpenArtifact'];
+  childPreviews?: TranscriptProps['childPreviews'];
+}
+
+/** Groups + renders one part list under one key namespace — the shared tail
+ *  of both the plain path and the split return-card path below. */
+function renderPartGroups(parts: WirePart[], keyPrefix: string, handlers: TranscriptHandlers): ReactNode[] {
+  return groupParts(parts, keyPrefix).map((group) => (
+    <RenderedGroup
+      key={group.key}
+      group={group}
+      {...(handlers.onOpenChild ? { onOpenChild: handlers.onOpenChild } : {})}
+      {...(handlers.onOpenArtifact ? { onOpenArtifact: handlers.onOpenArtifact } : {})}
+      {...(handlers.childPreviews ? { childPreviews: handlers.childPreviews } : {})}
+    />
+  ));
+}
+
 /**
  * The transcript — ONE pipeline from wire parts to rendered parts.
  *
@@ -155,8 +191,16 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
  * way — that duplication is what the legacy tree carried and what dies with it.
  * The one pre-pass this owns is pairing (above): grouping related parts
  * before they reach the registry, never re-rendering a kind a different way.
+ *
+ * A stamped message (`delegationReturnOf`) is a second, narrower pre-pass:
+ * its answer-field part(s) (`isAnswerPart`) split out into the return card,
+ * everything else — narration, tool rows, artifacts — renders normally
+ * outside it, in wire order. A stamped message with no answer-field part
+ * (a batch-only shape) falls back to wrapping the whole message, so the
+ * stamp is never silently dropped.
  */
 export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreviews }: TranscriptProps) {
+  const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, childPreviews };
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -169,16 +213,29 @@ export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreview
           // visual noise implying content that does not exist.
           if (parts.length === 0) return null;
 
-          const rendered = groupParts(parts, message.id).map((group) => (
-            <RenderedGroup
-              key={group.key}
-              group={group}
-              {...(onOpenChild ? { onOpenChild } : {})}
-              {...(onOpenArtifact ? { onOpenArtifact } : {})}
-              {...(childPreviews ? { childPreviews } : {})}
-            />
-          ));
           const delegationReturn = delegationReturnOf(message);
+          const answerParts = delegationReturn ? parts.filter(isAnswerPart) : [];
+
+          let body: ReactNode;
+          if (delegationReturn && answerParts.length > 0) {
+            const otherParts = parts.filter((part) => !isAnswerPart(part));
+            body = [
+              ...(otherParts.length > 0 ? renderPartGroups(otherParts, message.id, handlers) : []),
+              <ReturnCard key="return-card" parentAgent={str(delegationReturn.parent_agent)}>
+                {renderPartGroups(answerParts, `${message.id}:answer`, handlers)}
+              </ReturnCard>,
+            ];
+          } else if (delegationReturn) {
+            // No answer-field part on a stamped message (batch-only shape) —
+            // wrap the whole message rather than dropping the stamp.
+            body = (
+              <ReturnCard parentAgent={str(delegationReturn.parent_agent)}>
+                {renderPartGroups(parts, message.id, handlers)}
+              </ReturnCard>
+            );
+          } else {
+            body = renderPartGroups(parts, message.id, handlers);
+          }
 
           return (
             <article
@@ -188,11 +245,7 @@ export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreview
               data-message-id={message.id}
               aria-label={`${message.role} message`}
             >
-              {delegationReturn ? (
-                <ReturnCard parentAgent={str(delegationReturn.parent_agent)}>{rendered}</ReturnCard>
-              ) : (
-                rendered
-              )}
+              {body}
             </article>
           );
         })}

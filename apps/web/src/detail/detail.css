@@ -105,17 +105,21 @@
   flex: 1;
 }
 
+/* owner redesign 2026-08-05: the crumb trail no longer carries the artifact's
+   own (self) segment — that segment IS the identity header's title now (see
+   `.detail__identityheader` below), so showing it a second time here would
+   be exactly the repetition the owner circled. Only the ancestor prefix
+   ("session ›" etc.) renders, inline, immediately before the title. */
 .detail__crumbs {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
-  padding: 6px 12px 0;
+  flex-shrink: 0;
   overflow: hidden;
   color: var(--t-mu);
   font-family: var(--f-mono);
   font-size: calc(10.5px * var(--ts));
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .detail__crumbsep {
@@ -139,12 +143,6 @@
   background: var(--t-sf2);
 }
 
-/* The trailing (self) crumb — c.color = var(--t-hd) in the prototype when
-   it's the active/last stack entry. */
-.detail__crumbcurrent {
-  color: var(--t-hd);
-}
-
 .detail__tabs {
   padding: 8px 12px;
 }
@@ -157,7 +155,7 @@
 }
 
 .detail__note {
-  margin: 10px 0 0;
+  margin: 2px 0 0;
   color: var(--t-mu);
   font-family: var(--f-prose);
   font-size: calc(13px * var(--ts));
@@ -186,22 +184,34 @@
   font-style: italic;
 }
 
-/* ---- artifact identity block (owner redesign 2026-08-05) ----
-   The name is the panel's largest element, with the kind as a small chip
-   beside it; size + id demote into one small muted meta line; the sha gets
-   its own compact copy/hover affordance. Replaces the old five-row
-   id/kind/size/sha kv-grid, which let the id render bigger than the title. */
+/* ---- identity header (owner refinement 2026-08-05, second pass) ----
+   Panel CHROME, not tab content: sits above the artifact|provenance|recreate
+   tab strip (shared by every tab, not just Overview) as a compact 3-line
+   block. Line 1: the crumb prefix + the NAME (the panel's largest element,
+   shown exactly ONCE — the prior pass still repeated it between the
+   breadcrumb and the Overview tab, which the owner circled), kind chip
+   right-aligned. Line 2: size · id · sha · storage, all inline on one
+   compact meta line. Line 3: the note, small, muted, full width. */
 
-.detail__identity {
+.detail__identityheader {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--t-bd3);
 }
 
-.detail__titlerow {
+.detail__titleline {
   display: flex;
   align-items: baseline;
   gap: 8px;
+}
+
+.detail__titlemain {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -221,12 +231,18 @@
 
 .detail__metaline {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  row-gap: 4px;
+  column-gap: 8px;
   min-width: 0;
   color: var(--t-mu);
   font-family: var(--f-mono);
   font-size: calc(10.5px * var(--ts));
+}
+
+.detail__metasep {
+  color: var(--t-dis);
 }
 
 .detail__metasize {
@@ -236,6 +252,7 @@
 
 .detail__metaid {
   min-width: 0;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -247,9 +264,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  align-self: flex-start;
-  margin-top: 6px;
-  padding: 3px 8px;
+  padding: 2px 7px;
   background: transparent;
   border: 1px solid var(--t-bd3);
   border-radius: 6px;
@@ -270,31 +285,29 @@
   letter-spacing: 0.08em;
 }
 
-/* ---- storage row (prototype artLoc: `storage <path> ↗`) ----
-   Same compact grammar as sha: the path truncates from the middle with the
-   full path on hover, a click copies it; the ↗ affordance stays a separate,
-   optional control (only rendered when a real open handler is threaded). */
+/* ---- storage affordance (prototype artLoc: `storage <path> ↗`) ----
+   Same compact-pill grammar as sha, now inline in the meta line: the path
+   truncates from the middle with the full path on hover, a click copies it;
+   the ↗ affordance stays a separate, optional control (only rendered when a
+   real open handler is threaded). */
 
 .detail__storage {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 10px;
-  padding: 6px 10px;
-  background: var(--t-bg);
+  gap: 6px;
+  max-width: 220px;
+  padding: 2px 7px;
+  background: transparent;
   border: 1px solid var(--t-bd3);
-  border-radius: 7px;
-  color: var(--t-tx);
+  border-radius: 6px;
+  color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(11px * var(--ts));
-  text-align: left;
+  font-size: calc(10.5px * var(--ts));
 }
 
 .detail__storagekey {
   flex-shrink: 0;
-  color: var(--t-mu);
-  font-size: calc(10px * var(--ts));
+  font-size: calc(9.5px * var(--ts));
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
