@@ -321,10 +321,6 @@
   cursor: default;
 }
 
-.shell-rail__footcell--unknown:disabled {
-  color: var(--t-mu);
-}
-
 .shell-rail__footcount {
   color: var(--t-hd);
 }

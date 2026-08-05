@@ -6,6 +6,7 @@ import {
   subscribeSessionTraceEvents,
   type Client,
   type Message,
+  type RelayStatus,
   type Session,
   type SessionAgentTask,
   type Workspace,
@@ -194,6 +195,27 @@ export function SessionView({
   );
   const [removedWorkspaceIds, setRemovedWorkspaceIds] = useState<Set<string>>(new Set());
   const [createdWorkspaces, setCreatedWorkspaces] = useState<Record<string, string>>({});
+  // Which Settings page to land on next open — the gear opens whatever page
+  // was open last (undefined leaves Settings' own default), the rail
+  // footer's "relay" cell always wants 'relays' specifically.
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
+  const [relayStatus, setRelayStatus] = useState<RelayStatus | undefined>(undefined);
+
+  // This backend's own configured relay + a fresh reachability probe (GET
+  // /v1/relay/status, clio-agent#1179) — feeds the rail footer's "relay"
+  // dot the same way RelaysPage's own row does. One-shot per connection,
+  // same shape as the provider/model catalogue fetch above; the relay's
+  // own reachability is not expected to flap within a session's lifetime.
+  useEffect(() => {
+    let cancelled = false;
+    setRelayStatus(undefined);
+    void optionalFetch(() => client.relayStatus()).then((status) => {
+      if (!cancelled && status) setRelayStatus(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   useEffect(() => {
     setPinnedIds(loadPins(client.baseUrl));
@@ -1069,7 +1091,10 @@ export function SessionView({
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
         onModelChange={(next) => void setModel(next)}
-        onOpenProviderSettings={() => setPanel('settings')}
+        onOpenProviderSettings={() => {
+          setSettingsSection(undefined);
+          setPanel('settings');
+        }}
         onOpenPlacement={() => {
           // Matches the topbar's plain "files" toggle: THIS session's
           // workspace, not a stale rail/search request for a different one.
@@ -1152,8 +1177,12 @@ export function SessionView({
         {...(connections ? { connections } : {})}
         {...(activeConnectionId ? { activeConnectionId } : {})}
         {...(onSwitchConnection ? { onSwitchConnection } : {})}
-        onOpenSettings={() => setPanel('settings')}
+        onOpenSettings={(section) => {
+          setSettingsSection(section);
+          setPanel('settings');
+        }}
         onOpenSearch={() => setSearchOpen(true)}
+        {...(relayStatus ? { relayStatus } : {})}
         onTogglePanel={(next) => {
           // 'artifacts'/'ctx' deep-link into the SAME observability layer on a
           // specific tab (proto tgArtifacts/tgTelemetry: unlike the eye icon,
@@ -1265,6 +1294,7 @@ export function SessionView({
         >
           <Settings
             client={client}
+            {...(settingsSection ? { initialSection: settingsSection } : {})}
             {...(connections ? { connections } : {})}
             {...(activeConnectionId ? { activeConnectionId } : {})}
             {...(activePill?.contextPercent !== undefined

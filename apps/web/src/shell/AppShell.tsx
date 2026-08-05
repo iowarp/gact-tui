@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import type { RelayStatus } from '@clio/core';
 import { Splitter, Tabs, type TabDef } from '../kit';
 import { Rail, type RailConnection, type RailGroup } from './Rail';
 import { Topbar } from './Topbar';
@@ -35,8 +36,14 @@ export interface AppShellProps {
   connections?: RailConnection[];
   activeConnectionId?: string;
   onSwitchConnection?: (id: string) => void;
-  onOpenSettings?: () => void;
+  /** See Rail's own doc: an optional `section` deep-links Settings straight
+   *  to a SETTINGS_PAGES id (the rail footer's "relay" cell uses this to
+   *  land on Settings > Relays rather than whatever page opened last). */
+  onOpenSettings?: (section?: string) => void;
   onOpenSearch?: () => void;
+  /** This backend's own relay reachability (GET /v1/relay/status), for the
+   *  rail footer's "relay" cell. */
+  relayStatus?: RelayStatus;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -77,6 +84,7 @@ export function AppShell({
   onSwitchConnection,
   onOpenSettings,
   onOpenSearch,
+  relayStatus,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -98,6 +106,7 @@ export function AppShell({
               {...(onSwitchConnection ? { onSwitchConnection } : {})}
               {...(onOpenSettings ? { onOpenSettings } : {})}
               {...(onOpenSearch ? { onOpenSearch } : {})}
+              {...(relayStatus ? { relayStatus } : {})}
             />
           </div>
           <Splitter

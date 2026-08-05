@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { brand } from '@brand';
+import type { RelayStatus } from '@clio/core';
 import {
   ContextMenu,
   Eyebrow,
@@ -99,7 +100,17 @@ export interface RailProps {
   connections?: RailConnection[];
   activeConnectionId?: string;
   onSwitchConnection?: (id: string) => void;
-  onOpenSettings?: () => void;
+  /** Opens the Settings layer. An optional `section` deep-links straight to
+   *  a SETTINGS_PAGES id (e.g. `'relays'`) instead of landing on whatever
+   *  page Settings opened to last — the prototype's `goSettingsRelays` /
+   *  `goSettingsAgents` footer handlers each target their own page, not a
+   *  shared generic "open settings" click. */
+  onOpenSettings?: (section?: string) => void;
+  /** This backend's own configured relay + a fresh reachability probe
+   *  (GET /v1/relay/status, clio-agent#1179). `undefined` = not fetched yet
+   *  (renders the same honest "unknown" idle dot as before the probe
+   *  resolves, never a false-positive green). */
+  relayStatus?: RelayStatus;
 }
 
 interface RailActions {
@@ -164,6 +175,7 @@ export function Rail({
   activeConnectionId,
   onSwitchConnection,
   onOpenSettings,
+  relayStatus,
 }: RailProps) {
   const contextualActions = useContext(RailActionsContext);
   const newSession = onNewSession ?? contextualActions.onNewSession;
@@ -187,6 +199,20 @@ export function Rail({
     ? connections.filter((c) => c.status === 'ready').length
     : (agentCount ?? 0);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+
+  // Same honesty rule as `readyCount` above: the dot is 'idle' (never a
+  // false-positive green) until a real probe says otherwise, and 'error'
+  // (never a silent green) when the probe reports unreachable.
+  const relayDotStatus: SessionStatus = !relayStatus?.configured
+    ? 'idle'
+    : relayStatus.reachable
+      ? 'ok'
+      : 'error';
+  const relayTitle = !relayStatus
+    ? 'Relays — opens settings'
+    : !relayStatus.configured
+      ? 'No relay configured — opens settings'
+      : `Relay ${relayStatus.reachable ? 'reachable' : 'unreachable'}${relayStatus.detail ? ` · ${relayStatus.detail}` : ''} — opens settings`;
 
   function openMenu(event: React.MouseEvent, sessionId: string) {
     event.preventDefault();
@@ -517,16 +543,21 @@ export function Rail({
           <span>agents </span>
           <span className="shell-rail__footcount">{readyCount}</span>
         </button>
-        {/* Relay has no reachability wire surface. Its explicit unknown label
-            prevents the idle dot from being mistaken for an offline report. */}
+        {/* GET /v1/relay/status (clio-agent#1179) landed: this backend's own
+            configured relay + a fresh reachability probe. Plain navigation
+            to Settings > Relays, same as the prototype's `goSettingsRelays`
+            — unlike the agents cell above, there is no second live axis
+            here (one backend has exactly one configured relay) forcing a
+            richer control. */}
         <button
           type="button"
-          className="shell-rail__footcell shell-rail__footcell--unknown"
-          disabled
-          title="relay reachability has no wire surface yet (clio-agent#1179)"
+          className="shell-rail__footcell"
+          data-testid="rail-relay"
+          title={relayTitle}
+          onClick={() => onOpenSettings?.('relays')}
         >
-          <StatusDot status="idle" quiet />
-          <span>relay unknown</span>
+          <StatusDot status={relayDotStatus} quiet />
+          <span>relay</span>
         </button>
       </div>
 

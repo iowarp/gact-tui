@@ -33,7 +33,17 @@
    way back short of scrolling the whole popover including its own head.
    Bounding + scrolling the panes THEMSELVES instead keeps head/thinking
    always visible, matching the prototype's own "always shows it". */
-.provider-model-picker__panes { display: grid; max-height: 240px; }
+/* `max-height` alone does not make an implicit `auto` grid row respect it —
+   with no row-track constraint, the row grows to its content's max-content
+   size and the overflow paints straight through onto whatever comes after
+   in normal flow (caught live: with the real ~10-provider catalogue, the
+   provider list grew past 240px and its bottom rows painted OVER the
+   "thinking" row below, rather than being clipped/scrolled by the children's
+   own `overflow-y: auto`). `minmax(0, 1fr)` makes the row a definite,
+   shrinkable size once `max-height` clamps the container, which is what lets
+   `.provider-model-picker__providers`/`__models`'s own scroll actually
+   engage instead of silently overflowing. */
+.provider-model-picker__panes { display: grid; grid-template-rows: minmax(0, 1fr); max-height: 240px; overflow: hidden; }
 .provider-model-picker__providers { min-height: 0; overflow-y: auto; padding: 8px; border-right: 1px solid var(--t-bd3); background: var(--t-bg); }
 /* Measured on the prototype's own popRouter row: ONE line — name, the
    per-provider config indicator, then status — not two stacked lines.

@@ -23,6 +23,12 @@ import './settings.css';
 
 export interface SettingsProps {
   client: Client;
+  /** A SETTINGS_PAGES id to land on instead of the first backed page — the
+   * rail footer's "relay" cell deep-links straight to 'relays', matching the
+   * prototype's own `goSettingsRelays`/`goSettingsAgents` per-cell targets.
+   * Ignored (falls back to the first backed page) when the id names a page
+   * that is not currently backed/visible. */
+  initialSection?: string;
   /** Live connection pool (App's ConnectionPool), for Backends/Agents. */
   connections?: RailConnection[];
   activeConnectionId?: string;
@@ -42,6 +48,7 @@ export interface SettingsProps {
  */
 export function Settings({
   client,
+  initialSection,
   connections,
   activeConnectionId,
   contextPercent,
@@ -49,7 +56,8 @@ export function Settings({
   onOpenObservability,
 }: SettingsProps) {
   const pages = backedPages();
-  const [active, setActive] = useState(pages[0]?.id ?? 'backends');
+  const requestedPage = initialSection ? pages.find((p) => p.id === initialSection) : undefined;
+  const [active, setActive] = useState(requestedPage?.id ?? pages[0]?.id ?? 'backends');
   const page = SETTINGS_PAGES.find((p) => p.id === active);
 
   return (

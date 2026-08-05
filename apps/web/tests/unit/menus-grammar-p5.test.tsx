@@ -15,7 +15,26 @@
  * 210px, clamp 150-360, independent of the outer panel-width `pmDragW`
  * handle already implemented) was missing; the provider column was a fixed
  * 178px that matched neither the prototype's default nor its resizability.
+ *
+ * PASS 3 addition: the rail footer's "relay" cell was a permanently disabled
+ * dead control carrying a title claiming "no wire surface yet
+ * (clio-agent#1179)" — but #1179 had already landed GET /v1/relay/status,
+ * and Settings > Relays already consumed it (settings.test.tsx). Wired the
+ * cell to the same relayStatus() call and restored click-through to
+ * Settings > Relays (prototype's own `goSettingsRelays`, plain navigation —
+ * unlike the "agents" cell, there is no live multi-relay axis here to force
+ * a richer switcher).
+ *
+ * PASS 3 also found (sweeping the provider/model picker's layout under the
+ * real ~10-provider catalogue, side-by-side.mjs model-picker capture): its
+ * `.panes` grid had a `max-height` with no row-track constraint, so an
+ * implicit `auto` row grew past it uncapped and the overflow painted
+ * straight over the "thinking" row below instead of being clipped/scrolled
+ * by the children's own `overflow-y: auto`. Fixed with `grid-template-rows:
+ * minmax(0, 1fr)` + `overflow: hidden` on the row.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Client, Session, Workspace } from '@clio/core';
 import { describe, expect, it, vi } from 'vitest';
@@ -238,5 +257,125 @@ describe('model picker — the provider column\'s own resize handle (pmDragCol)'
     expect(panes().style.gridTemplateColumns).toBe('360px minmax(0, 1fr)');
     for (let i = 0; i < 40; i += 1) fireEvent.keyDown(handle, { key: 'ArrowLeft' });
     expect(panes().style.gridTemplateColumns).toBe('150px minmax(0, 1fr)');
+  });
+});
+
+describe('model picker — the panes area actually clips at its max-height, never paints over "thinking"', () => {
+  it('gives the implicit grid row a shrinkable track so max-height clips instead of silently overflowing', () => {
+    const css = readFileSync(
+      resolve(__dirname, '../../src/composer/provider-model-picker.css'),
+      'utf8',
+    );
+    const rule = css.match(/\.provider-model-picker__panes\s*\{([^}]*)\}/s)?.[1] ?? '';
+    // `max-height` alone does nothing to an unconstrained `auto` row — it
+    // must be paired with a track that can shrink to fit (minmax(0, ...))
+    // and a hard clip, or the real ~10-provider catalogue overflows past it
+    // and paints over the "thinking" row that follows in normal flow.
+    expect(rule).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)/);
+    expect(rule).toMatch(/max-height:\s*240px/);
+    expect(rule).toMatch(/overflow:\s*hidden/);
+  });
+});
+
+describe('Rail — footer "relay" cell (GET /v1/relay/status, clio-agent#1179)', () => {
+  function renderRail(extra: Partial<RailProps> = {}) {
+    return render(
+      <Rail groups={[]} activeSessionId={null} onSelectSession={vi.fn()} onCollapse={vi.fn()} {...extra} />,
+    );
+  }
+
+  it('is a live, clickable control — never permanently disabled like the old "no wire surface" placeholder', () => {
+    renderRail();
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell).not.toBeDisabled();
+  });
+
+  it('renders the "idle" dot and a plain title before the probe resolves', () => {
+    renderRail();
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell.querySelector('.kit-statusdot')).toHaveAttribute('data-state', 'idle');
+    expect(cell).toHaveAttribute('title', 'Relays — opens settings');
+  });
+
+  it('renders "idle" (never a false-positive green) when no relay is configured', () => {
+    renderRail({ relayStatus: { configured: false } });
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell.querySelector('.kit-statusdot')).toHaveAttribute('data-state', 'idle');
+    expect(cell).toHaveAttribute('title', 'No relay configured — opens settings');
+  });
+
+  it('renders "ok" (green) when the probe reports the relay reachable', () => {
+    renderRail({
+      relayStatus: { configured: true, reachable: true, host: 'ares.example.com' },
+    });
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell.querySelector('.kit-statusdot')).toHaveAttribute('data-state', 'ok');
+    expect(cell).toHaveAttribute('title', 'Relay reachable — opens settings');
+  });
+
+  it('renders "error" (never silently green) when the probe reports unreachable, and surfaces the detail', () => {
+    renderRail({
+      relayStatus: {
+        configured: true,
+        reachable: false,
+        host: 'ares.example.com',
+        detail: 'connection refused',
+      },
+    });
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell.querySelector('.kit-statusdot')).toHaveAttribute('data-state', 'error');
+    expect(cell).toHaveAttribute('title', 'Relay unreachable · connection refused — opens settings');
+  });
+
+  it('clicking calls onOpenSettings with the \'relays\' section — restoring click-through to Settings > Relays', () => {
+    const onOpenSettings = vi.fn();
+    renderRail({ onOpenSettings });
+    fireEvent.click(screen.getByTestId('rail-relay'));
+    expect(onOpenSettings).toHaveBeenCalledWith('relays');
+  });
+});
+
+describe('SessionView — the rail relay cell deep-links Settings straight to the Relays page', () => {
+  const SESSIONS = [
+    { id: 'sess_a', title: 'alpha', status: 'idle', workspace_id: 'ws_default' },
+  ] as unknown as Session[];
+
+  function makeClient(overrides: Record<string, unknown> = {}) {
+    return {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => ({ messages: [] })),
+      workspaces: vi.fn(async () => ({
+        workspaces: [{ id: 'ws_default', name: 'default' }] as unknown as Workspace[],
+      })),
+      relayStatus: vi.fn(async () => ({ configured: true, reachable: true, host: 'ares.example.com' })),
+      capabilities: vi.fn(async () => ({})),
+      ...overrides,
+    } as unknown as Client;
+  }
+
+  it('opens the Settings layer with Relays already selected, not whatever page opened last', async () => {
+    const client = makeClient();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    await screen.findByTestId('rail-relay');
+    fireEvent.click(screen.getByTestId('rail-relay'));
+
+    const layer = await screen.findByRole('dialog', { name: 'Settings' });
+    const nav = within(layer).getByRole('navigation', { name: 'Settings' });
+    expect(within(nav).getByRole('button', { name: /^relays$/i })).toHaveAttribute('aria-current', 'page');
+    // The real RelaysPage content, not a placeholder — client.relayStatus()
+    // fed straight through, matching settings.test.tsx's own assertion.
+    await within(layer).findByText('ares.example.com');
+  });
+
+  it('the plain settings gear still opens Settings without forcing a section', async () => {
+    const client = makeClient();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    const gear = await screen.findByRole('button', { name: 'Settings' });
+    fireEvent.click(gear);
+    const layer = await screen.findByRole('dialog', { name: 'Settings' });
+    const nav = within(layer).getByRole('navigation', { name: 'Settings' });
+    // Falls back to Settings' own first-page default (backends) — untouched
+    // by the relay cell's deep-link.
+    expect(within(nav).getByRole('button', { name: /^backends$/i })).toHaveAttribute('aria-current', 'page');
   });
 });
