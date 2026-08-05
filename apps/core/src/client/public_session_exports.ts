@@ -1,3 +1,4 @@
+export type { ArtifactExportResult } from './artifact_export.js';
 export type {
   AnswerSessionQuestionInput,
   CompactSessionInput,

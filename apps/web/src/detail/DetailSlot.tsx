@@ -1,11 +1,21 @@
 import { useState } from 'react';
-import { Chip, Eyebrow, Icon, KvGrid, Layer, Tabs, ToolbarButton, type KvRow } from '../kit';
+import type { Client } from '@clio/core';
+import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
 import type { ArtifactRecord, RouteStep } from './types';
 import './detail.css';
 
 export interface DetailSlotProps {
   record: ArtifactRecord;
   onClose: () => void;
+  /**
+   * Live backend connection, used ONLY by the Download menu (GET
+   * /v1/artifacts/{artifact_id}/export — clio-agent #973, the RO-Crate
+   * lineage bundle). Optional: DetailSlot has no live caller yet that opens
+   * it against a real record (E7, tracked separately, is the reachability
+   * gap) — without a client the control degrades honestly instead of
+   * pretending a route it has no way to reach.
+   */
+  client?: Client;
 }
 
 type DetailTab = 'artifact' | 'provenance' | 'recreate';
@@ -24,7 +34,7 @@ type DetailTab = 'artifact' | 'provenance' | 'recreate';
  * measures (kind badge, breadcrumb, copy/download, maximize) independent of
  * that wiring gap, so it is ready when E7 lands.
  */
-export function DetailSlot({ record, onClose }: DetailSlotProps) {
+export function DetailSlot({ record, onClose, client }: DetailSlotProps) {
   const [tab, setTab] = useState<DetailTab>('artifact');
   const [maximized, setMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -33,7 +43,55 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
   // control and a vertical kind badge. Client-only layout state, same as
   // `maximized` above.
   const [collapsed, setCollapsed] = useState(false);
+  // tgArtMenu/popArtMenu in the prototype — the Download button opens a
+  // small menu (download file / open storage location / copy link) rather
+  // than downloading directly.
+  const [artMenuOpen, setArtMenuOpen] = useState(false);
+  const [downloadState, setDownloadState] = useState<'idle' | 'pending' | 'error'>('idle');
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const kind = record.recordKind ?? 'artifact';
+
+  // GET /v1/artifacts/{artifact_id}/export (clio-agent #973) is the real
+  // route behind BOTH "download file" and "copy link to artifact" — only
+  // "open storage location" has no browser-reachable surface (desktop/OS
+  // concern), so that row alone stays the honest degraded pattern.
+  const exportUrl = client ? `${client.baseUrl}/v1/artifacts/${encodeURIComponent(record.id)}/export` : null;
+
+  async function downloadArtifactFile(): Promise<void> {
+    if (!client) return;
+    setDownloadState('pending');
+    setDownloadError(null);
+    try {
+      const { blob, filename } = await client.exportArtifact(record.id);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      setDownloadState('idle');
+      setArtMenuOpen(false);
+    } catch (reason) {
+      // No silent fallback: a failed export stays visible in the menu
+      // (typed reason, not a swallowed rejection) so the user can retry
+      // instead of clicking a control that quietly did nothing.
+      setDownloadState('error');
+      setDownloadError(reason instanceof Error ? reason.message : String(reason));
+    }
+  }
+
+  async function copyArtifactLink(): Promise<void> {
+    if (!exportUrl) return;
+    await navigator.clipboard?.writeText(exportUrl);
+    setLinkCopied(true);
+    setTimeout(() => {
+      setLinkCopied(false);
+      setArtMenuOpen(false);
+    }, 900);
+  }
 
   const body = (
     <>
@@ -103,7 +161,7 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
         <Chip tone="accent">{kind.toUpperCase()}</Chip>
         <span className="detail__spacer" />
         {kind === 'artifact' ? (
-          <>
+          <div className="detail__artifactactions">
             <ToolbarButton
               label={copied ? 'Copied' : 'Copy as markdown'}
               title={copied ? 'Copied' : 'Copy'}
@@ -112,21 +170,75 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
               icon={<Icon name={copied ? 'check' : 'copy'} size={12} />}
               onClick={copyMarkdown}
             />
-            {/* The prototype's Download opens a menu (download file / open
-                storage location / copy link) — clio-agent serves no
-                artifact-content route to back any of the three, so this stays
-                the visible-degraded pattern (disabled + explanatory title)
-                rather than a fabricated menu with nothing behind it. */}
-            <ToolbarButton
-              label="Download"
-              title="Not wired — no artifact-download endpoint."
-              iconOnly
-              size="small"
-              icon={<Icon name="download" size={12} />}
-              unbacked
-              onClick={() => {}}
-            />
-          </>
+            {client ? (
+              <ToolbarButton
+                label="Download"
+                title="Download"
+                iconOnly
+                size="small"
+                icon={<Icon name="download" size={12} />}
+                pressed={artMenuOpen}
+                onClick={() => setArtMenuOpen((open) => !open)}
+              />
+            ) : (
+              <ToolbarButton
+                label="Download"
+                title="Download requires a live connection — not available in this view."
+                iconOnly
+                size="small"
+                icon={<Icon name="download" size={12} />}
+                unbacked
+                onClick={() => {}}
+              />
+            )}
+            <Popover
+              open={artMenuOpen}
+              label="Artifact actions"
+              placement="down"
+              onClose={() => setArtMenuOpen(false)}
+              style={{
+                top: 28,
+                left: 'auto',
+                right: 0,
+                minWidth: 180,
+                background: 'var(--t-sf2)',
+                border: '1px solid var(--t-bd35)',
+                borderRadius: 8,
+                padding: 4,
+                boxShadow: '0 10px 28px rgba(0, 0, 0, .5)',
+                zIndex: 60,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <button
+                type="button"
+                className="detail__artmenurow"
+                disabled={downloadState === 'pending'}
+                onClick={() => void downloadArtifactFile()}
+              >
+                {downloadState === 'pending' ? 'downloading…' : 'download file'}
+              </button>
+              {downloadState === 'error' ? (
+                <p className="detail__artmenu-error">{downloadError ?? 'Download failed.'}</p>
+              ) : null}
+              {/* No browser API opens the host OS file manager — desktop-only,
+                  the same honest-degraded pattern as the window chrome's
+                  pop-out control. */}
+              <button
+                type="button"
+                className="detail__artmenurow"
+                data-unbacked="true"
+                disabled
+                title="Opening the OS file location is not wired — no browser API for it (desktop-only)."
+              >
+                open storage location
+              </button>
+              <button type="button" className="detail__artmenurow" onClick={() => void copyArtifactLink()}>
+                {linkCopied ? 'copied' : 'copy link to artifact'}
+              </button>
+            </Popover>
+          </div>
         ) : null}
         <ToolbarButton
           label="Maximize detail"

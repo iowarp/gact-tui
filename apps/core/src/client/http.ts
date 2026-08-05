@@ -1,3 +1,4 @@
+import { fetchArtifactExport, type ArtifactExportResult } from './artifact_export.js';
 import {
   synthesizeSessionVoice,
   transcribeSessionVoice,
@@ -94,5 +95,15 @@ export class Client extends SessionOperationsClient {
    */
   sseUrl(sessionId: string): string {
     return sessionSseUrl(this.baseUrl, sessionId, this.options.bearerToken);
+  }
+
+  /**
+   * GET /v1/artifacts/{artifact_id}/export — download one artifact's
+   * RO-Crate lineage bundle (clio-agent #973). Returns the raw zip bytes
+   * plus the backend-proposed filename so the caller can trigger a real
+   * browser download (the detail slot's Download menu).
+   */
+  async exportArtifact(artifactId: string): Promise<ArtifactExportResult> {
+    return fetchArtifactExport(this, artifactId);
   }
 }

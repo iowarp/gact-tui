@@ -10,7 +10,7 @@
  *   setup: none | session | obs | obs-gantt | fresh | menus-session |
  *          files | artifacts | context | console | search | new-dialog |
  *          execute-menu | model-picker | update-panel | settings | queue |
- *          async | settings-<page-label> (e.g. settings-appearance,
+ *          async | detail | settings-<page-label> (e.g. settings-appearance,
  *          settings-about, settings-providers — any settings nav label,
  *          lowercased/hyphenated)
  */
@@ -289,6 +289,33 @@ const SETUPS = {
     // against a real backend — 900ms is enough for a mocked test but leaves
     // the layer on "Loading observability…" here.
     app: async (p) => { await selectAppSession(p); await p.getByRole('button', { name: 'artifacts' }).click(); await p.waitForTimeout(2500); },
+  },
+  detail: {
+    // The detail slot (DetailSlot.tsx) has no live caller yet in the app
+    // (E7, tracked separately) — the app side renders it through the
+    // dedicated `?shell` fixture harness instead of a session click-through.
+    // The prototype side opens the SAME record by clicking its transcript
+    // artifact-grid chip (artGo('earthscope_stations.csv') -> key 'cat'),
+    // then opens the Download menu (tgArtMenu/popArtMenu) on both sides.
+    proto: async (p) => {
+      await p.waitForTimeout(500);
+      await p.evaluate(() => {
+        const chip = [...document.querySelectorAll('*')].find(
+          (el) => el.children.length === 0 && (el.textContent || '').trim() === 'earthscope_stations.csv',
+        );
+        const clickable = chip?.closest('button, [style*="cursor:pointer"], [style*="cursor: pointer"]');
+        (clickable ?? chip)?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await p.waitForTimeout(700);
+      await p.locator('button[title="Download"]').click();
+      await p.waitForTimeout(400);
+    },
+    app: async (p) => {
+      await p.goto(`${APP}/?shell`);
+      await p.getByRole('complementary', { name: /detail/i }).waitFor({ timeout: 15000 });
+      await p.getByRole('button', { name: 'Download' }).click();
+      await p.waitForTimeout(300);
+    },
   },
   context: {
     proto: async (p) => { await clickPrototypeTextPrefix(p, 'ctx'); await p.waitForTimeout(800); },

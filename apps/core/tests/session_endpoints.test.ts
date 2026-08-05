@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Client } from '../src/client/http.js';
+import { HttpError } from '../src/client/transport.js';
 
 function mockFetch(handler: (url: string) => Response | Promise<Response>) {
   return (input: string | URL | Request) =>
@@ -183,5 +184,49 @@ describe('Client session endpoints', () => {
       { action: 'allow' },
       { action: 'deny' },
     ]);
+  });
+
+  it('exportArtifact GETs /v1/artifacts/{id}/export and names the file from Content-Disposition', async () => {
+    let seenUrl: string | null = null;
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: (input) => {
+        seenUrl = typeof input === 'string' ? input : input.toString();
+        return Promise.resolve(
+          new Response(new Blob(['zip bytes']), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/zip',
+              'Content-Disposition': 'attachment; filename="artifact_abc.crate.zip"',
+            },
+          }),
+        );
+      },
+    });
+    const result = await c.exportArtifact('artifact_abc');
+    expect(seenUrl).toBe('http://localhost:7777/v1/artifacts/artifact_abc/export');
+    expect(result.filename).toBe('artifact_abc.crate.zip');
+    expect(result.blob.size).toBeGreaterThan(0);
+  });
+
+  it('exportArtifact falls back to the backend naming convention when Content-Disposition is absent', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: () =>
+        Promise.resolve(new Response(new Blob(['zip bytes']), { status: 200 })),
+    });
+    const result = await c.exportArtifact('artifact_xyz');
+    expect(result.filename).toBe('artifact_xyz.crate.zip');
+  });
+
+  it('exportArtifact throws a typed HttpError on an unknown artifact (real 404, not a silent empty download)', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ error: { error: 'not_found' } }), { status: 404 }),
+        ),
+    });
+    await expect(c.exportArtifact('artifact_missing')).rejects.toBeInstanceOf(HttpError);
   });
 });

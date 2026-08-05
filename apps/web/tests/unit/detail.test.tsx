@@ -7,6 +7,7 @@
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { Client } from '@clio/core';
 import { DetailSlot } from '../../src/detail/DetailSlot';
 import type { ArtifactRecord } from '../../src/detail/types';
 
@@ -71,11 +72,107 @@ describe('DetailSlot', () => {
     expect(writeText.mock.calls[0]?.[0]).toContain(RECORD.id);
   });
 
-  it('renders the download control disabled with an honest unbacked reason', () => {
+  it('renders the download control disabled with an honest reason when no client is wired', () => {
+    // gact-tui#335 icons-and-buttons audit_correction: a real backend route
+    // exists (GET /v1/artifacts/{id}/export, clio-agent #973) — this is no
+    // longer a permanent "not wired" gap, only degraded when DetailSlot has
+    // no live connection to call through (see the `client` prop).
     render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-    const download = screen.getByRole('button', { name: /download/i });
+    const download = screen.getByRole('button', { name: 'Download' });
     expect(download).toBeDisabled();
-    expect(download).toHaveAttribute('title', expect.stringMatching(/not wired/i));
+    expect(download).toHaveAttribute('title', expect.stringMatching(/live connection/i));
+  });
+
+  describe('Download menu (tgArtMenu/popArtMenu, client wired)', () => {
+    function fakeClient(overrides: Partial<Client> = {}): Client {
+      return {
+        baseUrl: 'http://localhost:7777',
+        exportArtifact: vi.fn(async () => ({
+          blob: new Blob(['zip bytes'], { type: 'application/zip' }),
+          filename: 'art_5f21c9d0e83a.crate.zip',
+        })),
+        ...overrides,
+      } as unknown as Client;
+    }
+
+    it('opens the three-row menu (download file / open storage location / copy link)', () => {
+      render(<DetailSlot record={RECORD} client={fakeClient()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+      expect(screen.getByRole('button', { name: 'download file' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'open storage location' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'copy link to artifact' })).toBeInTheDocument();
+    });
+
+    it('keeps "open storage location" disabled with an honest desktop-only reason', () => {
+      render(<DetailSlot record={RECORD} client={fakeClient()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+      const openFolder = screen.getByRole('button', { name: 'open storage location' });
+      expect(openFolder).toBeDisabled();
+      expect(openFolder).toHaveAttribute('title', expect.stringMatching(/desktop-only/i));
+    });
+
+    it('downloads the real export bundle via GET /v1/artifacts/{id}/export', async () => {
+      const blob = new Blob(['zip bytes'], { type: 'application/zip' });
+      const exportArtifact = vi.fn(async (id: string) => {
+        expect(id).toBe(RECORD.id);
+        return { blob, filename: 'art_5f21c9d0e83a.crate.zip' };
+      });
+      const client = fakeClient({ exportArtifact });
+      const createObjectURL = vi.fn(() => 'blob:mock-url');
+      const revokeObjectURL = vi.fn();
+      Object.assign(URL, { createObjectURL, revokeObjectURL });
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+      render(<DetailSlot record={RECORD} client={client} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+      fireEvent.click(screen.getByRole('button', { name: 'download file' }));
+
+      await waitFor(() => expect(exportArtifact).toHaveBeenCalledWith(RECORD.id));
+      expect(createObjectURL).toHaveBeenCalledWith(blob);
+      expect(clickSpy).toHaveBeenCalledOnce();
+      await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
+      // The menu closes on a successful download.
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'download file' })).toBeNull());
+
+      clickSpy.mockRestore();
+    });
+
+    it('surfaces a typed error in the menu (never a silent no-op) and keeps it open to retry', async () => {
+      const exportArtifact = vi.fn(async () => {
+        throw new Error('artifact not found: art_5f21c9d0e83a');
+      });
+      render(<DetailSlot record={RECORD} client={fakeClient({ exportArtifact })} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+      fireEvent.click(screen.getByRole('button', { name: 'download file' }));
+
+      await waitFor(() => expect(screen.getByText(/artifact not found/i)).toBeInTheDocument());
+      // The menu is still open and the row is clickable again — a failed
+      // export never silently closes the only path to retry it.
+      expect(screen.getByRole('button', { name: 'download file' })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: 'copy link to artifact' })).toBeInTheDocument();
+    });
+
+    it('copies the real export URL to the clipboard, not a fabricated link', async () => {
+      const writeText = vi.fn(async (_text: string) => {});
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<DetailSlot record={RECORD} client={fakeClient()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+      fireEvent.click(screen.getByRole('button', { name: 'copy link to artifact' }));
+
+      await waitFor(() =>
+        expect(writeText).toHaveBeenCalledWith(`http://localhost:7777/v1/artifacts/${RECORD.id}/export`),
+      );
+      expect(await screen.findByRole('button', { name: 'copied' })).toBeInTheDocument();
+    });
+
+    it('toggles closed on a second click of the Download button', () => {
+      render(<DetailSlot record={RECORD} client={fakeClient()} onClose={vi.fn()} />);
+      const download = screen.getByRole('button', { name: 'Download' });
+      fireEvent.click(download);
+      expect(screen.getByRole('button', { name: 'download file' })).toBeInTheDocument();
+      fireEvent.click(download);
+      expect(screen.queryByRole('button', { name: 'download file' })).toBeNull();
+    });
   });
 
   it('renders the toolbar with the prototype-transcribed SVGs, not Unicode placeholders', () => {

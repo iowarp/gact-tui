@@ -154,7 +154,11 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
   const [model, setModel] = useState('sonnet');
   // This harness is fixtures everywhere else (GROUPS/MESSAGES/OBS above), but
   // Settings needs a real client for its GET-backed pages — point it at the
-  // conventional local dev backend rather than fabricate one.
+  // conventional local dev backend rather than fabricate one. The detail
+  // slot's Download menu reuses the same client (GET /v1/artifacts/*/export)
+  // so this harness exercises the real wired code path, not a mock — the
+  // fixture RECORD's id won't resolve against a live backend, which is an
+  // honest 404 through the menu's own error state, not a fabricated success.
   const settingsClient = useMemo(() => createClient('http://127.0.0.1:17900'), []);
 
   return (
@@ -173,7 +177,7 @@ export function ShellPreview({ surface = 'detail' }: { surface?: 'detail' | 'obs
       ]}
       activeRibbonId={ribbon}
       onSelectRibbon={setRibbon}
-      detail={<DetailSlot record={RECORD} onClose={() => {}} />}
+      detail={<DetailSlot record={RECORD} client={settingsClient} onClose={() => {}} />}
     >
       <Transcript messages={MESSAGES} />
       <Composer
