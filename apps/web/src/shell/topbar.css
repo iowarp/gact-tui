@@ -4,9 +4,11 @@
 
 .shell-topbar {
   /* Slimmed from 64px (owner, 2026-08-05): with the detail panel moved
-     below the bar the full-width topbar reads too tall. */
-  height: 52px;
-  flex: 0 0 64px;
+     below the bar the full-width topbar reads too tall. NOTE the flex-basis
+     is the real height in the shell column — the first 52px attempt changed
+     only `height` and the 64px basis silently won. */
+  height: 40px;
+  flex: 0 0 40px;
   display: flex;
   align-items: center;
   gap: 12px;
