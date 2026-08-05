@@ -237,12 +237,22 @@ const SETUPS = {
     },
     // The app's rail "+" opens the +new dialog rather than creating instantly
     // (owner-review-1) — submit it the same way a user would to reach the
-    // same idle/empty-composer state on this side.
+    // same idle/empty-composer state on this side. The real POST
+    // /v1/sessions round-trip against the live backend varies a lot (~0.5s
+    // to ~4s+ observed) — a fixed 1200ms timeout was flaky, sometimes
+    // capturing the dialog still open instead of the true idle screen.
+    // Wait for the dialog to actually close (network-driven), not a guess.
     app: async (p) => {
       await p.getByRole('button', { name: /new session/i }).click().catch(() => {});
       await p.waitForTimeout(400);
       await p.getByRole('button', { name: /create session/i }).click().catch(() => {});
-      await p.waitForTimeout(1200);
+      await p.getByRole('dialog').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+      // Session creation lands the composer pill, but its ctx% chip only
+      // renders once refreshPill's OWN follow-up GET /context/state resolves
+      // (a second live round-trip after the POST above, timed independently)
+      // — wait for it directly rather than guessing a fixed delay again.
+      await p.getByText(/ctx \d+%/).first().waitFor({ timeout: 10000 }).catch(() => {});
+      await p.waitForTimeout(300);
     },
   },
   'ask-menu': {

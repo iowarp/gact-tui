@@ -169,3 +169,21 @@ describe('composer ask toggle before any session exists', () => {
     await screen.findByTestId('suggested-prompts');
   });
 });
+
+describe('composer model chip before any session exists (fresh-session.json — audit correction)', () => {
+  // PASS 2's independent audit caught the trigger rendering "model not set /
+  // model not set" (doubled) once a session's model options loaded — root
+  // cause was ProviderModelPicker treating the synthetic {id:'',
+  // label:'model not set'} sentinel SessionView threads through pre-session
+  // as a genuinely selected group/model. Fixed at the picker level
+  // (composer-pill pass 3); this locks the fix through the actual idle
+  // SessionView path fresh-session.json's own item measures, not just the
+  // picker in isolation.
+  it('shows a single plain "model not set", never doubled, on the true idle/no-session screen', async () => {
+    render(<SessionView client={idleClient()} sessions={[]} />);
+    await screen.findByTestId('suggested-prompts');
+    const model = screen.getByTestId('composer-model');
+    expect(model.textContent).toBe('model not set⌄');
+    expect(model.textContent).not.toContain('model not set / model not set');
+  });
+});
