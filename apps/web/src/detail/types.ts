@@ -51,6 +51,17 @@ export interface ArtifactRecord {
   /** The call that produced it — the recreate instrument. */
   instrument?: string;
   revision?: string;
+  /** Where the version's bytes live — the version wire's `path`
+   *  (routes/artifacts.py `_version_wire`). Backs the Overview storage row. */
+  storagePath?: string;
+  /** The workspace custodying those bytes (`workspace_id` on the version),
+   *  so the storage row can open the right workspace's files layer. */
+  workspaceId?: string;
+  /** The replay-contract label on the TRANSFORM RECORD fold's pill. Only the
+   *  wire's honest `custody_gap` → 'gap' marker is mintable from the
+   *  session-artifacts route today; reproducible/re-runnable ride the
+   *  transform payloads (#971) and stay absent rather than guessed. */
+  transformStatus?: 'reproducible' | 're-runnable' | 'gap';
 
   route?: RouteStep[];
 

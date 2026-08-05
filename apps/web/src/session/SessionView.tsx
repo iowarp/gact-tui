@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  appendPart,
-  applyPartCompleted,
-  applyTextAppend,
   fetchArtifactLineage,
   fetchLmConfig,
   fetchSessionAgentTasks,
@@ -11,10 +8,8 @@ import {
   mergeMessages,
   subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
-  upsertMessage,
   type Client,
   type Message,
-  type Part,
   type RelayStatus,
   type Session,
   type SessionAgentTask,
@@ -45,6 +40,7 @@ import { Transcript } from '../transcript/Transcript';
 import type { ChildPreview } from '../transcript/parts/HandoffPart';
 import { DetailSlot } from '../detail/DetailSlot';
 import { headVersion, mintArtifactRecord, routeFromLineage } from '../detail/mintRecord';
+import { fetchArtifactPreview } from '../detail/preview';
 import type { ArtifactRecord } from '../detail/types';
 import {
   CHILD_PREVIEW_MAX_CONCURRENT,
@@ -54,9 +50,17 @@ import {
   selectSubscriptionSlots,
   type ChildPreviewAccumulator,
 } from './childPreview';
+import { AgentPeekView } from './AgentPeekView';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
+import { applyMessageLifecycleEvent } from './messageEvents';
+import {
+  openRightEntry,
+  patchTopArtifact,
+  rightEntryLabel,
+  type RightStackEntry,
+} from './rightStack';
 import { FilesLayer } from './FilesLayer';
 import { FreshHeadline, FreshStarting, SuggestedPrompts, type FreshStarter } from './FreshState';
 import { NewDialog, RemoveWorkspaceConfirm, SearchDialog } from './SessionDialogs';
@@ -223,9 +227,10 @@ export function SessionView({
     messages: Message[];
     status: string;
   } | null>(null);
-  // The prototype's RIGHT panel stack (stack[]): artifact detail records.
-  // Opening from a chip/obs REPLACES; provenance navigation PUSHES.
-  const [rightStack, setRightStack] = useState<ArtifactRecord[]>([]);
+  // The prototype's RIGHT panel stack (stack[]): artifact detail records
+  // plus the shift-click agent peek. Opening from a chip/Call box REPLACES;
+  // provenance navigation PUSHES (see session/rightStack.ts).
+  const [rightStack, setRightStack] = useState<RightStackEntry[]>([]);
   const [pillState, setPillState] = useState<ComposerPillState | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPins(client.baseUrl));
   const [pinnedWorkspaceIds, setPinnedWorkspaceIds] = useState<Set<string>>(() =>
@@ -387,7 +392,7 @@ export function SessionView({
       const usedFraction = context?.used_pct ?? context?.pct_used;
       const usedPercent =
         typeof usedFraction === 'number' && Number.isFinite(usedFraction)
-          ? Math.round(usedFraction <= 1 ? usedFraction * 100 : usedFraction)
+          ? Math.round(usedFraction * 100)
           : null;
       // Real per-message cost, summed — never estimated from token counts.
       // costSeen distinguishes "no message reported a cost" (undefined, shown
@@ -615,12 +620,16 @@ export function SessionView({
       }
 
       if (contextResult.status === 'fulfilled') {
-        // Both used_pct and pct_used are RATIOS of window_tokens (context_types
-        // declares X / window_tokens), not percents — the meter read "ctx 0%"
-        // for a whole run because 0.0068 rounded to 0 (owner capture).
-        const usedRatio = contextResult.value.used_pct ?? contextResult.value.pct_used;
-        if (typeof usedRatio === 'number' && Number.isFinite(usedRatio)) {
-          next.contextPercent = Math.round(usedRatio * 100);
+        // used_pct AND pct_used are RATIOS of window_tokens — declared in
+        // context_types (X / window_tokens) and emitted exactly so by the
+        // server (routes/context.py: live_tokens / window, both sites).
+        // No mixed-unit guessing: a 0.5 ratio and "0.5%" are
+        // indistinguishable to a heuristic, so the wire contract is the
+        // only authority. (The old "7.4 meant 7.4%" fixture lore misread
+        // the wire; the fixture is repinned to 0.074.)
+        const used = contextResult.value.used_pct ?? contextResult.value.pct_used;
+        if (typeof used === 'number' && Number.isFinite(used)) {
+          next.contextPercent = Math.round(used * 100);
         }
         const tokens = contextResult.value.used_tokens ?? contextResult.value.live_tokens;
         if (typeof tokens === 'number' && Number.isFinite(tokens)) {
@@ -741,15 +750,11 @@ export function SessionView({
       }, 250);
     };
     const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
-      const payload = event.payload;
+      // Feed application is the shared pure helper (session/messageEvents.ts);
+      // only the side effects stay here.
+      applyToLoaded((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
       switch (event.type) {
         case 'message.created': {
-          // The payload IS the message wire object (transcript.py publishes
-          // Message.to_wire() directly).
-          const flat = payload['id'] && payload['role'] ? (payload as unknown as Message) : undefined;
-          const nested = payload['message'] as Message | undefined;
-          const message = nested ?? flat;
-          if (message) applyToLoaded((prev) => upsertMessage(prev, { ...message, parts: message.parts ?? [] }));
           // The session record may have changed since selection (blueprint
           // activation, model patch) — a page opened before an activation kept
           // reading "no blueprint" forever (owner capture). A turn starting is
@@ -760,31 +765,6 @@ export function SessionView({
             .catch(() => {});
           break;
         }
-        case 'message.part.added':
-        case 'message.part.updated': {
-          const messageId = payload['message_id'] as string | undefined;
-          const part = payload['part'] as Part | undefined;
-          if (messageId && part) applyToLoaded((prev) => appendPart(prev, messageId, part));
-          break;
-        }
-        case 'message.part.delta': {
-          const messageId = payload['message_id'] as string | undefined;
-          const partId = payload['part_id'] as string | undefined;
-          const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
-          if (messageId && partId && delta.text_append) {
-            applyToLoaded((prev) => applyTextAppend(prev, messageId, partId, delta.text_append!));
-          }
-          break;
-        }
-        case 'message.part.completed': {
-          const messageId = payload['message_id'] as string | undefined;
-          const partId = payload['part_id'] as string | undefined;
-          const finalText = payload['final_text'];
-          if (messageId && partId && typeof finalText === 'string') {
-            applyToLoaded((prev) => applyPartCompleted(prev, messageId, partId, finalText));
-          }
-          break;
-        }
         case 'message.completed':
         case 'message.error':
         case 'message.deleted':
@@ -793,6 +773,8 @@ export function SessionView({
           // send-time refreshes — a settled turn is exactly when its numbers
           // changed (owner: 'artifacts 5 for the whole run', 'ctx 0%').
           void refreshPill(activeId, activeScope);
+          break;
+        default:
           break;
       }
     });
@@ -996,44 +978,7 @@ export function SessionView({
     const subscription =
       typeof EventSource !== 'undefined'
         ? subscribeSessionMessageEvents(client.sseUrl(focusTop.sessionId), (event) => {
-            const payload = event.payload;
-            switch (event.type) {
-              case 'message.created': {
-                const flat =
-                  payload['id'] && payload['role'] ? (payload as unknown as Message) : undefined;
-                const nested = payload['message'] as Message | undefined;
-                const message = nested ?? flat;
-                if (message) applyToChild((prev) => upsertMessage(prev, { ...message, parts: message.parts ?? [] }));
-                break;
-              }
-              case 'message.part.added':
-              case 'message.part.updated': {
-                const messageId = payload['message_id'] as string | undefined;
-                const part = payload['part'] as Part | undefined;
-                if (messageId && part) applyToChild((prev) => appendPart(prev, messageId, part));
-                break;
-              }
-              case 'message.part.delta': {
-                const messageId = payload['message_id'] as string | undefined;
-                const partId = payload['part_id'] as string | undefined;
-                const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
-                if (messageId && partId && delta.text_append) {
-                  applyToChild((prev) => applyTextAppend(prev, messageId, partId, delta.text_append!));
-                }
-                break;
-              }
-              case 'message.part.completed': {
-                const messageId = payload['message_id'] as string | undefined;
-                const partId = payload['part_id'] as string | undefined;
-                const finalText = payload['final_text'];
-                if (messageId && partId && typeof finalText === 'string') {
-                  applyToChild((prev) => applyPartCompleted(prev, messageId, partId, finalText));
-                }
-                break;
-              }
-              default:
-                break;
-            }
+            applyToChild((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
           })
         : null;
     const timer = window.setInterval(() => void pull(), 5000);
@@ -1045,9 +990,13 @@ export function SessionView({
   }, [focusTop?.sessionId, client]);
 
   // A Call box names its delegation by handle_id (== the agent-task id); the
-  // child session id comes from the parent's agent-task records.
+  // child session id comes from the parent's agent-task records. Plain click
+  // drills into the CENTER (prototype goCall/setFocus, steerable); shift-click
+  // (`peek: true`, the third argument HandoffPart passes) opens the RIGHT
+  // panel's read-only peek instead (prototype setStack) — the main transcript
+  // stays put.
   const openChildByHandle = useCallback(
-    async (handleId: string, agent: string) => {
+    async (handleId: string, agent: string, opts?: { peek?: boolean }) => {
       const parentId = focusTop?.sessionId ?? activeId;
       if (!parentId || !handleId) return;
       try {
@@ -1056,13 +1005,25 @@ export function SessionView({
           (t) => t.task_id === handleId || (t as { handle_id?: string }).handle_id === handleId,
         );
         const childId = task?.child_session_id;
-        if (childId) setFocus((cur) => [...cur, { sessionId: childId, agent }]);
+        if (!childId) return;
+        if (opts?.peek) {
+          setRightStack((cur) =>
+            openRightEntry(cur, {
+              kind: 'agent-peek',
+              sessionId: childId,
+              agent,
+              parentLabel: focusTop?.agent ?? 'main',
+            }),
+          );
+          return;
+        }
+        setFocus((cur) => [...cur, { sessionId: childId, agent }]);
       } catch {
         // No resolvable destination — the box simply doesn't navigate; never a
         // silent wrong jump.
       }
     },
-    [client, activeId, focusTop?.sessionId],
+    [client, activeId, focusTop?.sessionId, focusTop?.agent],
   );
 
   // Opens an artifact in the right panel (prototype artGo → setStack). The
@@ -1089,41 +1050,35 @@ export function SessionView({
         }
         if (!minted) return;
         const record = minted;
-        setRightStack((cur) => (opts?.push ? [...cur, record] : [record]));
+        setRightStack((cur) => openRightEntry(cur, { kind: 'artifact', record }, opts));
         const patchTop = (patch: Partial<ArtifactRecord>) =>
-          setRightStack((cur) => {
-            const top = cur[cur.length - 1];
-            if (!top || top.id !== record.id) return cur;
-            return [...cur.slice(0, -1), { ...top, ...patch }];
-          });
+          setRightStack((cur) => patchTopArtifact(cur, record.id, patch));
         void fetchArtifactLineage(client, record.id, { direction: 'both' })
           .then((graph) => patchTop({ route: routeFromLineage(graph) }))
-          .catch(() => {});
-        void client
-          .response(`/v1/artifacts/${encodeURIComponent(record.id)}/bytes`)
-          .then(async (res) => {
-            if (!res.ok) throw new Error(`bytes route ${res.status}`);
-            const blob = await res.blob();
-            const kind = record.kind ?? '';
-            if (kind === 'image') {
-              patchTop({ preview: { kind: 'image', url: URL.createObjectURL(blob) } });
-              return;
-            }
-            const text = await blob.text();
-            if (kind === 'dataset' || /\.csv$/i.test(record.breadcrumb?.[1] ?? '')) {
-              const lines = text.split(new RegExp('\r?\n')).filter((l) => l.length > 0);
-              const header = (lines[0] ?? '').split(',');
-              const rows = lines.slice(1, 201).map((l) => l.split(','));
-              patchTop({ preview: { kind: 'csv', header, rows, totalRows: lines.length - 1 } });
-              return;
-            }
-            if (kind === 'report' || /\.md$/i.test(record.breadcrumb?.[1] ?? '')) {
-              patchTop({ preview: { kind: 'markdown', text: text.slice(0, 20000) } });
-              return;
-            }
-            patchTop({ preview: { kind: 'text', text: text.slice(0, 20000) } });
-          })
-          .catch(() => {});
+          .catch((reason: unknown) => {
+            // The chain section states its absence honestly; the WHY still
+            // reaches the console as a typed reason (no silent catch).
+            console.warn('[detail] artifact lineage unavailable', {
+              artifactId: record.id,
+              reason: reason instanceof Error ? reason.message : String(reason),
+            });
+          });
+        // The preview flow (detail/preview.ts) follows the bytes route's
+        // typed custody_not_cas redirect; a real failure surfaces as a typed
+        // console reason while the panel's preview section stays honestly
+        // absent — never a silent catch.
+        void fetchArtifactPreview(client, {
+          id: record.id,
+          ...(record.kind ? { kind: record.kind } : {}),
+          ...(record.breadcrumb?.[1] ? { name: record.breadcrumb[1] } : {}),
+        })
+          .then((preview) => patchTop({ preview }))
+          .catch((reason: unknown) => {
+            console.warn('[detail] artifact preview unavailable', {
+              artifactId: record.id,
+              reason: reason instanceof Error ? reason.message : String(reason),
+            });
+          });
       } catch {
         // No record reachable — the chip simply doesn't open; never a blank
         // panel.
@@ -1660,6 +1615,10 @@ export function SessionView({
       />
     ) : null;
 
+  // The right slot renders whatever entry is on top of the stack: an
+  // artifact detail record, or the shift-click agent peek.
+  const rightTop = rightStack.length > 0 ? rightStack[rightStack.length - 1]! : null;
+
   const pendingRemoveWorkspace =
     pendingRemoveWorkspaceId === null
       ? null
@@ -1715,23 +1674,35 @@ export function SessionView({
           else setActiveScope(tabId);
         }}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
-        {...(rightStack.length > 0
+        {...(rightTop
           ? {
-              detail: (
-                <DetailSlot
-                  record={{
-                    ...rightStack[rightStack.length - 1]!,
-                    breadcrumb: [
-                      'session',
-                      ...rightStack.map(
-                        (entry) => entry.breadcrumb?.[entry.breadcrumb.length - 1] ?? entry.id,
-                      ),
-                    ],
-                  }}
-                  client={client}
-                  onClose={() => setRightStack([])}
-                />
-              ),
+              detail:
+                rightTop.kind === 'agent-peek' ? (
+                  <AgentPeekView
+                    client={client}
+                    sessionId={rightTop.sessionId}
+                    agent={rightTop.agent}
+                    parentLabel={rightTop.parentLabel}
+                    onClose={() => setRightStack([])}
+                  />
+                ) : (
+                  <DetailSlot
+                    record={{
+                      ...rightTop.record,
+                      breadcrumb: ['session', ...rightStack.map(rightEntryLabel)],
+                    }}
+                    client={client}
+                    onOpenStorage={({ workspaceId }) => {
+                      // The prototype's artLoc: the storage row opens the
+                      // workspace files layer, scoped to the workspace that
+                      // custodies the artifact's bytes when the record names
+                      // one (else the active session's own workspace wins).
+                      if (workspaceId) setFilesWorkspaceRequest(workspaceId);
+                      setPanel('files');
+                    }}
+                    onClose={() => setRightStack([])}
+                  />
+                ),
             }
           : {})}
         panel={panel}

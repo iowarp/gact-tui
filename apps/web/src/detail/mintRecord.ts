@@ -47,6 +47,14 @@ export function mintArtifactRecord(
   const producerTool = str(version.producer?.tool);
   if (producerTool) out.instrument = producerTool;
   if (typeof version.version === 'number') out.revision = `v${version.version}`;
+  const storagePath = str(version['path']);
+  if (storagePath) out.storagePath = storagePath;
+  const workspaceId = str(version.workspace_id ?? record.workspace_id);
+  if (workspaceId) out.workspaceId = workspaceId;
+  // The S4 honest custody-break marker is the ONE replay-contract fact this
+  // wire carries; reproducible/re-runnable live on the transform payloads
+  // (#971) and are never fabricated here.
+  if (version['custody_gap']) out.transformStatus = 'gap';
   return out;
 }
 

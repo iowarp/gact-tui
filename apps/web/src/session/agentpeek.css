@@ -1,0 +1,50 @@
+/* The shift-click agent peek in the right detail slot — same chrome grammar
+   as .detail (detail.css): surface, left hairline, header row. */
+.agentpeek {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--t-sf);
+  border-left: 1px solid var(--t-bd3);
+}
+
+.agentpeek__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.agentpeek__status {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}
+
+.agentpeek__status[data-state='running'] {
+  color: var(--t-ok);
+}
+
+.agentpeek__status[data-state='failed'],
+.agentpeek__status[data-state='error'] {
+  color: var(--t-er);
+}
+
+.agentpeek__spacer {
+  flex: 1;
+}
+
+.agentpeek__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.agentpeek__loading {
+  margin: 12px;
+  color: var(--t-mu);
+  font-family: var(--f-prose);
+  font-size: calc(12.5px * var(--ts));
+}

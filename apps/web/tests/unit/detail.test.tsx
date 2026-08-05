@@ -7,8 +7,9 @@
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { Client } from '@clio/core';
+import type { Client, SessionArtifactRecord, SessionArtifactVersion } from '@clio/core';
 import { DetailSlot } from '../../src/detail/DetailSlot';
+import { mintArtifactRecord } from '../../src/detail/mintRecord';
 import type { ArtifactRecord } from '../../src/detail/types';
 
 const RECORD: ArtifactRecord = {
@@ -242,6 +243,104 @@ describe('DetailSlot', () => {
     expect(screen.getByRole('complementary', { name: /detail/i })).toBeInTheDocument();
   });
 
+  describe('storage row (round-3 defect 3 — prototype `storage <path> ↗` / artLoc)', () => {
+    const stored = { ...RECORD, storagePath: 'data/earthscope_stations.csv', workspaceId: 'ws_1' };
+
+    it('renders the persistent storage row with the REAL version path under the meta line', () => {
+      render(<DetailSlot record={stored} onClose={vi.fn()} />);
+      const row = screen.getByTestId('detail-storage');
+      expect(row).toHaveTextContent('storage');
+      expect(row).toHaveTextContent('data/earthscope_stations.csv');
+    });
+
+    it('is a clickable button opening the workspace files layer when a handler is threaded', () => {
+      const onOpenStorage = vi.fn();
+      render(<DetailSlot record={stored} onOpenStorage={onOpenStorage} onClose={vi.fn()} />);
+      const row = screen.getByTestId('detail-storage');
+      expect(row.tagName).toBe('BUTTON');
+      expect(row).toHaveTextContent('↗');
+      fireEvent.click(row);
+      expect(onOpenStorage).toHaveBeenCalledWith({
+        path: 'data/earthscope_stations.csv',
+        workspaceId: 'ws_1',
+      });
+    });
+
+    it('renders as a NON-interactive path row without a handler — never a dead affordance', () => {
+      render(<DetailSlot record={stored} onClose={vi.fn()} />);
+      const row = screen.getByTestId('detail-storage');
+      expect(row.tagName).not.toBe('BUTTON');
+      // The open glyph only appears when opening actually works.
+      expect(row).not.toHaveTextContent('↗');
+    });
+
+    it('renders no storage row at all when the record carries no path', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      expect(screen.queryByTestId('detail-storage')).toBeNull();
+    });
+  });
+
+  describe('minting the storage fields from the real version wire', () => {
+    it('mints storagePath and workspaceId from the version wire path/workspace_id', () => {
+      const wireRecord = {
+        workspace_id: 'ws_eacd',
+        name: 'MTA1_LA_GNSS_report.md',
+        kind: 'report',
+        versions: [],
+      } as unknown as SessionArtifactRecord;
+      const version = {
+        artifact_id: 'artifact_56ff',
+        workspace_id: 'ws_eacd',
+        name: 'MTA1_LA_GNSS_report.md',
+        version: 1,
+        kind: 'report',
+        path: 'MTA1_LA_GNSS_report.md',
+      } as unknown as SessionArtifactVersion;
+      const minted = mintArtifactRecord(wireRecord, version);
+      expect(minted.storagePath).toBe('MTA1_LA_GNSS_report.md');
+      expect(minted.workspaceId).toBe('ws_eacd');
+    });
+
+    it('mints ONLY the honest custody_gap → gap transform status, never a guessed contract', () => {
+      const wireRecord = { name: 'a', versions: [] } as unknown as SessionArtifactRecord;
+      const clean = mintArtifactRecord(wireRecord, {
+        artifact_id: 'artifact_1',
+        name: 'a',
+        version: 1,
+      } as unknown as SessionArtifactVersion);
+      expect(clean.transformStatus).toBeUndefined();
+      const gapped = mintArtifactRecord(wireRecord, {
+        artifact_id: 'artifact_2',
+        name: 'a',
+        version: 2,
+        custody_gap: 'workspace file changed underneath the record',
+      } as unknown as SessionArtifactVersion);
+      expect(gapped.transformStatus).toBe('gap');
+    });
+  });
+
+  describe('content preview rendering (round-3 defect 2, component half)', () => {
+    it('renders a markdown preview body on the Overview once the record carries one', () => {
+      render(
+        <DetailSlot
+          record={{
+            ...RECORD,
+            preview: { kind: 'markdown', text: '# EarthScope GNSS Report\n\nStation MTA1 body text.' },
+          }}
+          onClose={vi.fn()}
+        />,
+      );
+      const preview = screen.getByTestId('detail-preview-markdown');
+      expect(preview).toHaveTextContent('EarthScope GNSS Report');
+      expect(preview).toHaveTextContent('Station MTA1 body text.');
+    });
+
+    it('renders no preview section while the record has none (loading or unfetchable)', () => {
+      const { container } = render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      expect(container.querySelector('[data-testid^="detail-preview"]')).toBeNull();
+    });
+  });
+
   it('renders the four provenance axes on the provenance tab', () => {
     const { container } = render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
@@ -268,6 +367,95 @@ describe('DetailSlot', () => {
     render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
     expect(screen.getByTestId('route-node-self')).toHaveTextContent('this version');
+  });
+
+  describe('provenance record folds + lineage eyebrow (round-3 defect 4, proto-d2)', () => {
+    it('names the chain eyebrow "lineage", not "route"', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.getByText('lineage')).toBeInTheDocument();
+      expect(screen.queryByText('route')).toBeNull();
+    });
+
+    it('renders BOTH record folds collapsed by default', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const versionFold = screen.getByRole('button', { name: /version record/i });
+      const transformFold = screen.getByRole('button', { name: /transform record/i });
+      expect(versionFold).toHaveAttribute('aria-expanded', 'false');
+      expect(transformFold).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByTestId('fold-version-record-body')).toBeNull();
+      expect(screen.queryByTestId('fold-transform-record-body')).toBeNull();
+    });
+
+    it('expands the VERSION RECORD fold to the 8 version rows', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      fireEvent.click(screen.getByRole('button', { name: /version record/i }));
+      const body = screen.getByTestId('fold-version-record-body');
+      for (const key of [
+        'artifact_id',
+        'sha256',
+        'size',
+        'kind',
+        'mechanism',
+        'designation',
+        'evidence',
+        'custody',
+      ]) {
+        expect(within(body).getByText(key)).toBeInTheDocument();
+      }
+      // The rows carry the record's REAL values, not placeholders.
+      expect(within(body).getByText('art_5f21c9d0e83a')).toBeInTheDocument();
+      expect(within(body).getByText('sha256:b3c94ff0a2e1…41ad')).toBeInTheDocument();
+    });
+
+    it('collapses the fold again on a second click', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const fold = screen.getByRole('button', { name: /version record/i });
+      fireEvent.click(fold);
+      expect(screen.getByTestId('fold-version-record-body')).toBeInTheDocument();
+      fireEvent.click(fold);
+      expect(screen.queryByTestId('fold-version-record-body')).toBeNull();
+    });
+
+    it('the TRANSFORM RECORD fold shows the SAME instrument content the recreate tab carries', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      fireEvent.click(screen.getByRole('button', { name: /transform record/i }));
+      const body = screen.getByTestId('fold-transform-body');
+      expect(body).toHaveTextContent('stage_resource');
+      // Recreate keeps its own copy of the same content (both places, per
+      // the prototype).
+      fireEvent.click(screen.getByRole('tab', { name: /recreate/i }));
+      expect(screen.getByTestId('detail-recreate')).toHaveTextContent('stage_resource');
+    });
+
+    it('states the absence inside the transform fold when no instrument was recorded', () => {
+      const record = { ...RECORD };
+      delete (record as { instrument?: string }).instrument;
+      render(<DetailSlot record={record} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      fireEvent.click(screen.getByRole('button', { name: /transform record/i }));
+      expect(screen.getByTestId('fold-transform-absent')).toBeInTheDocument();
+    });
+
+    it('carries the replay-contract pill on the transform fold button when the record has one', () => {
+      render(
+        <DetailSlot record={{ ...RECORD, transformStatus: 'reproducible' }} onClose={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const fold = screen.getByRole('button', { name: /transform record/i });
+      expect(fold).toHaveTextContent('reproducible');
+    });
+
+    it('shows NO pill when the record carries no replay contract — absence, not a guess', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const fold = screen.getByRole('button', { name: /transform record/i });
+      expect(fold.querySelector('.detail__foldpill')).toBeNull();
+    });
   });
 
   it('shows the instrument on the recreate tab', () => {

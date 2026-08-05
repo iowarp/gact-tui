@@ -80,7 +80,7 @@ function client(overrides: Record<string, unknown> = {}): Client {
       }
       if (path.includes('/context')) {
         return {
-          used_pct: 38,
+          used_pct: 0.38,
           used_tokens: 3800,
           window_tokens: 10000,
           categories: [{ name: 'messages', tokens: 2400 }],

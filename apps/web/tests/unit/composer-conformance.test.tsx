@@ -95,10 +95,11 @@ describe('pill wiring (D1)', () => {
   it('the pill persists when async work is zero and the model-grounded read is empty', async () => {
     // Live finding (2026-08-03): a fresh session has used_pct null and no
     // tasks, and the whole pill vanished. Placement is ALWAYS known while a
-    // session is open; ctx falls back to the segment-attributed pct_used.
+    // session is open; ctx falls back to the segment-attributed pct_used —
+    // a RATIO of window_tokens like used_pct (server: live_tokens / window).
     const client = makeClient({
       '/agent-tasks': { tasks: [] },
-      '/context/state': { used_pct: null, pct_used: 7.4 },
+      '/context/state': { used_pct: null, pct_used: 0.074 },
     });
     await openSession(client);
     await waitFor(() => expect(screen.getByText(/local:/)).toBeInTheDocument());

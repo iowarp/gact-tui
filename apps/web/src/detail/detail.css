@@ -186,6 +186,107 @@
   font-style: italic;
 }
 
+/* ---- storage row (prototype artLoc: `storage <path> ↗`) ---- */
+
+.detail__storage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--t-bg);
+  border: 1px solid var(--t-bd3);
+  border-radius: 7px;
+  color: var(--t-tx);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  text-align: left;
+}
+
+button.detail__storage {
+  cursor: pointer;
+}
+
+button.detail__storage:hover {
+  border-color: var(--t-bd6);
+  color: var(--t-hd);
+}
+
+.detail__storagekey {
+  color: var(--t-mu);
+  font-size: calc(10px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail__storagepath {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.detail__storagego {
+  color: var(--t-cy);
+}
+
+/* ---- provenance record folds (provRec/provTr in the prototype) ---- */
+
+.detail__fold {
+  margin-top: 10px;
+}
+
+.detail__foldbtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail__foldbtn:hover {
+  color: var(--t-hd);
+}
+
+.detail__foldchev {
+  display: inline-flex;
+  justify-content: center;
+  width: 14px;
+}
+
+.detail__foldpill {
+  padding: 1px 7px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 999px;
+  font-size: calc(10px * var(--ts));
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.detail__foldpill[data-status='reproducible'] {
+  color: var(--t-ok);
+  border-color: var(--t-ok);
+}
+
+.detail__foldpill[data-status='re-runnable'] {
+  color: var(--t-ac);
+  border-color: var(--t-ac);
+}
+
+.detail__foldpill[data-status='gap'] {
+  color: var(--t-mu);
+}
+
+.detail__foldbody {
+  margin-top: 8px;
+}
+
 /* ---- route DAG ---- */
 
 .detail__route {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Client } from '@clio/core';
 import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
 import { Markdown } from '../transcript/markdown';
@@ -17,6 +17,12 @@ export interface DetailSlotProps {
    * pretending a route it has no way to reach.
    */
   client?: Client;
+  /**
+   * Opens the workspace files layer at the artifact's storage location
+   * (the prototype's `artLoc`). When absent the Overview's storage row
+   * renders as a plain, non-interactive path — never a dead affordance.
+   */
+  onOpenStorage?: (storage: { path: string; workspaceId?: string }) => void;
 }
 
 type DetailTab = 'artifact' | 'provenance' | 'recreate';
@@ -35,7 +41,7 @@ type DetailTab = 'artifact' | 'provenance' | 'recreate';
  * measures (kind badge, breadcrumb, copy/download, maximize) independent of
  * that wiring gap, so it is ready when E7 lands.
  */
-export function DetailSlot({ record, onClose, client }: DetailSlotProps) {
+export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlotProps) {
   const [tab, setTab] = useState<DetailTab>('artifact');
   const [maximized, setMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -110,7 +116,9 @@ export function DetailSlot({ record, onClose, client }: DetailSlotProps) {
       </div>
 
       <div className="detail__body">
-        {tab === 'artifact' ? <Overview record={record} /> : null}
+        {tab === 'artifact' ? (
+          <Overview record={record} {...(onOpenStorage ? { onOpenStorage } : {})} />
+        ) : null}
         {tab === 'provenance' ? <Provenance record={record} /> : null}
         {tab === 'recreate' ? <Recreate record={record} /> : null}
       </div>
@@ -305,7 +313,13 @@ export function DetailSlot({ record, onClose, client }: DetailSlotProps) {
   );
 }
 
-function Overview({ record }: { record: ArtifactRecord }) {
+function Overview({
+  record,
+  onOpenStorage,
+}: {
+  record: ArtifactRecord;
+  onOpenStorage?: DetailSlotProps['onOpenStorage'];
+}) {
   const rows: KvRow[] = [{ key: 'id', value: record.id }];
   if (record.kind) rows.push({ key: 'kind', value: record.kind });
   if (record.size) rows.push({ key: 'size', value: record.size });
@@ -314,9 +328,60 @@ function Overview({ record }: { record: ArtifactRecord }) {
   return (
     <div data-testid="detail-overview">
       <KvGrid label="Artifact identity" rows={rows} />
+      {record.storagePath ? (
+        <StorageRow
+          path={record.storagePath}
+          {...(onOpenStorage
+            ? {
+                onOpen: () =>
+                  onOpenStorage({
+                    path: record.storagePath!,
+                    ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
+                  }),
+              }
+            : {})}
+        />
+      ) : null}
       {record.note ? <p className="detail__note">{record.note}</p> : null}
       {record.preview ? <Preview preview={record.preview} /> : null}
     </div>
+  );
+}
+
+/**
+ * The prototype's persistent storage row under the meta line (`storage
+ * <path> ↗`, proto-d1 / artLoc): where the version's bytes actually live.
+ * Clickable only when a real destination is threaded (the workspace files
+ * layer); without one it is a plain path row, because an affordance that
+ * does nothing is a lie.
+ */
+function StorageRow({ path, onOpen }: { path: string; onOpen?: () => void }) {
+  const inner = (
+    <>
+      <span className="detail__storagekey">storage</span>
+      <span className="detail__storagepath">{path}</span>
+    </>
+  );
+  if (!onOpen) {
+    return (
+      <div className="detail__storage" data-testid="detail-storage">
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="detail__storage"
+      data-testid="detail-storage"
+      title="Open in workspace files"
+      onClick={onOpen}
+    >
+      {inner}
+      <span className="detail__storagego" aria-hidden="true">
+        ↗
+      </span>
+    </button>
   );
 }
 
@@ -393,12 +458,25 @@ function Provenance({ record }: { record: ArtifactRecord }) {
 
   const route = record.route ?? [];
 
+  // The prototype's VERSION RECORD fold: always all 8 rows, absences stated
+  // (same convention as the axes grid above).
+  const versionRows: KvRow[] = [
+    { key: 'artifact_id', value: record.id },
+    { key: 'sha256', value: record.sha ?? unrecorded() },
+    { key: 'size', value: record.size ?? unrecorded() },
+    { key: 'kind', value: record.kind ?? unrecorded() },
+    { key: 'mechanism', value: record.mechanism ?? unrecorded() },
+    { key: 'designation', value: record.designation ?? unrecorded() },
+    { key: 'evidence', value: record.evidence ?? unrecorded() },
+    { key: 'custody', value: record.custody ?? unrecorded() },
+  ];
+
   return (
     <div data-testid="detail-provenance">
       <KvGrid label="Provenance" rows={rows} />
 
       <div className="detail__section">
-        <Eyebrow>route</Eyebrow>
+        <Eyebrow>lineage</Eyebrow>
         {route.length === 0 ? (
           <p className="detail__absent" data-testid="route-absent">
             No route recorded for this artifact.
@@ -411,6 +489,70 @@ function Provenance({ record }: { record: ArtifactRecord }) {
           </ol>
         )}
       </div>
+
+      {/* The prototype's two collapsed record folds under the chain
+          (provRec/provTr, proto-d2). */}
+      <div className="detail__section">
+        <RecordFold label="version record" testId="fold-version-record">
+          <KvGrid label="Version record" rows={versionRows} />
+        </RecordFold>
+        <RecordFold
+          label="transform record"
+          testId="fold-transform-record"
+          {...(record.transformStatus ? { pill: record.transformStatus } : {})}
+        >
+          <TransformRecordContent
+            record={record}
+            bodyTestId="fold-transform-body"
+            absentTestId="fold-transform-absent"
+          />
+        </RecordFold>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One collapsed-by-default record fold (the prototype's `▸ version record` /
+ * `▸ transform record` buttons — provRecOpen/provTrOpen state, chevron flip
+ * on toggle). The optional pill is the transform's replay-contract label
+ * (reproducible / re-runnable / gap), shown on the button itself.
+ */
+function RecordFold({
+  label,
+  pill,
+  testId,
+  children,
+}: {
+  label: string;
+  pill?: string;
+  testId: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="detail__fold" data-testid={testId}>
+      <button
+        type="button"
+        className="detail__foldbtn"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="detail__foldchev" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="detail__foldlabel">{label}</span>
+        {pill ? (
+          <span className="detail__foldpill" data-status={pill}>
+            {pill}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="detail__foldbody" data-testid={`${testId}-body`}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -437,20 +579,43 @@ function renderStep(step: RouteStep, index: number) {
   );
 }
 
-function Recreate({ record }: { record: ArtifactRecord }) {
+/**
+ * The transform-record content — the instrument, or the stated absence. ONE
+ * owner shown in BOTH places the prototype shows it: the recreate tab and
+ * the provenance tab's TRANSFORM RECORD fold (proto-d2).
+ */
+function TransformRecordContent({
+  record,
+  bodyTestId,
+  absentTestId,
+}: {
+  record: ArtifactRecord;
+  bodyTestId: string;
+  absentTestId: string;
+}) {
   if (!record.instrument) {
     return (
-      <p className="detail__absent" data-testid="recreate-absent">
+      <p className="detail__absent" data-testid={absentTestId}>
         This artifact has no recorded instrument, so it cannot be recreated from
         the trace.
       </p>
     );
   }
   return (
-    <div data-testid="detail-recreate">
+    <div data-testid={bodyTestId}>
       <Eyebrow>instrument</Eyebrow>
       <pre className="detail__instrument">{record.instrument}</pre>
     </div>
+  );
+}
+
+function Recreate({ record }: { record: ArtifactRecord }) {
+  return (
+    <TransformRecordContent
+      record={record}
+      bodyTestId="detail-recreate"
+      absentTestId="recreate-absent"
+    />
   );
 }
 
