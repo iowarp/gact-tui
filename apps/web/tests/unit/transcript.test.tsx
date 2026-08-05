@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Message } from '@clio/core';
 import { describe, expect, it } from 'vitest';
+import { ChildFocusView } from '../../src/session/ChildFocusView';
 import { Transcript } from '../../src/transcript/Transcript';
 import { PART_RENDERERS } from '../../src/transcript/registry';
 
@@ -453,6 +454,51 @@ describe('Transcript', () => {
     expect(part).toHaveTextContent('also profile the uncertainty columns');
   });
 
+  it('wraps a message stamped with metadata.delegation_return in the return card', () => {
+    // Wire contract (owner, 2026-08-05): a child session's returning
+    // assistant message carries metadata.delegation_return = {
+    // parent_session_id, task_id, parent_agent } on GET
+    // /v1/sessions/{child_sid}/messages — the server's own "this message is
+    // my response to my parent" stamp, never inferred from position.
+    render(
+      <Transcript
+        messages={[
+          {
+            id: 'm1',
+            role: 'assistant',
+            parts: [{ type: 'text', text: 'Center resolved: 34.0537, -118.2428.' }],
+            metadata: {
+              delegation_return: {
+                parent_session_id: 'sess_parent',
+                task_id: 'task_8562bd68e4d5',
+                parent_agent: 'main',
+              },
+            },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    const card = screen.getByTestId('return-card');
+    expect(card).toHaveTextContent('returned to main');
+    // The body still renders through the normal markdown pipeline.
+    expect(within(card).getByText('Center resolved: 34.0537, -118.2428.')).toBeInTheDocument();
+  });
+
+  it('renders a message with no delegation_return metadata unchanged (interim wire honesty)', () => {
+    // Older sessions written before the stamp landed carry no metadata at
+    // all — they must render exactly as any other assistant message, never
+    // wrapped and never inferred to be a return just because it's the last one.
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [{ type: 'text', text: 'plain assistant reply' }]),
+        ]}
+      />,
+    );
+    expect(screen.getByText('plain assistant reply')).toBeInTheDocument();
+    expect(screen.queryByTestId('return-card')).toBeNull();
+  });
+
   it('names the routed agent using the wire field the backend actually sends', () => {
     // `selected_agent` per gact/tool_observer.py:533. Guessing `expert` here
     // produced a bare "routed to" with no name against a live backend.
@@ -468,5 +514,41 @@ describe('Transcript', () => {
     const part = screen.getByTestId('part-routing');
     expect(part).toHaveTextContent('geospatial');
     expect(part).toHaveTextContent('place name');
+  });
+});
+
+describe('return card in the child transcript views', () => {
+  it('renders the return card inside ChildFocusView, sharing the same transcript pipeline', () => {
+    // The center child view (and AgentPeekView, which mounts ChildFocusView
+    // for the read-only right panel) both render through <Transcript>, so a
+    // stamped message must show the card wherever the child's own
+    // transcript renders — this is the message-level wrapper, not a
+    // ChildFocusView-specific special case.
+    render(
+      <ChildFocusView
+        agent="geospatial"
+        parentLabel="main"
+        status="completed"
+        messages={[
+          msg('c1', 'user', [{ type: 'text', text: 'Resolve LA into coordinates.' }]),
+          {
+            id: 'c2',
+            role: 'assistant',
+            parts: [{ type: 'text', text: 'Resolved LA to center 34.0537, -118.2428.' }],
+            metadata: {
+              delegation_return: {
+                parent_session_id: 'sess_parent',
+                task_id: 'task_8562bd68e4d5',
+                parent_agent: 'main',
+              },
+            },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('child-focus-view')).toBeInTheDocument();
+    const card = screen.getByTestId('return-card');
+    expect(card).toHaveTextContent('returned to main');
+    expect(within(card).getByText('Resolved LA to center 34.0537, -118.2428.')).toBeInTheDocument();
   });
 });

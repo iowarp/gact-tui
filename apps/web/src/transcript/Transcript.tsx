@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import type { Message } from '@clio/core';
 import { PartCard } from '../kit';
+import '../session/returncard.css';
 import { ArtifactGrid } from './parts/ArtifactChip';
 import { MergedHandoff, type ChildPreview } from './parts/HandoffPart';
 import { ToolPart } from './parts/ToolPart';
@@ -19,6 +21,49 @@ export interface TranscriptProps {
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
+
+/**
+ * The wire's stamp on a child session's returning assistant message (SPEC
+ * interim, owner 2026-08-05): `metadata.delegation_return` on
+ * GET /v1/sessions/{child_sid}/messages, `{ parent_session_id, task_id,
+ * parent_agent }`. This IS the "this message is my response to my parent"
+ * signal — the client never infers it from position (e.g. "last message"),
+ * only ever reads this field. Older sessions written before the stamp landed
+ * simply lack it, and render exactly as any other assistant message.
+ */
+interface DelegationReturn {
+  parent_session_id?: string;
+  task_id?: string;
+  parent_agent?: string;
+}
+
+function delegationReturnOf(message: Message): DelegationReturn | undefined {
+  const meta = message.metadata;
+  if (!meta || typeof meta !== 'object') return undefined;
+  const raw = (meta as Record<string, unknown>)['delegation_return'];
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as DelegationReturn) : undefined;
+}
+
+/**
+ * The return-to-parent card (owner, 2026-08-05: "the last message on the
+ * sub-agents is the response of the sub agent to the parent, and it should
+ * be marked as such") — the prototype's teal RETURN -> MAIN card. A
+ * message-level wrapper, not a part renderer: the whole message's already-
+ * rendered parts sit inside ONE teal-accented container under a "returned to
+ * <parent>" eyebrow, same body rendering (markdown, tool rows, …) as any
+ * other message — only the frame around it changes.
+ */
+function ReturnCard({ parentAgent, children }: { parentAgent: string; children: ReactNode }) {
+  return (
+    <div className="returncard" data-testid="return-card">
+      <div className="returncard__head">
+        <span className="returncard__dot" aria-hidden="true" />
+        <span className="returncard__label">returned to {parentAgent}</span>
+      </div>
+      <div className="returncard__body">{children}</div>
+    </div>
+  );
+}
 
 type PartGroup =
   | { key: string; kind: 'part'; part: WirePart }
@@ -124,6 +169,17 @@ export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreview
           // visual noise implying content that does not exist.
           if (parts.length === 0) return null;
 
+          const rendered = groupParts(parts, message.id).map((group) => (
+            <RenderedGroup
+              key={group.key}
+              group={group}
+              {...(onOpenChild ? { onOpenChild } : {})}
+              {...(onOpenArtifact ? { onOpenArtifact } : {})}
+              {...(childPreviews ? { childPreviews } : {})}
+            />
+          ));
+          const delegationReturn = delegationReturnOf(message);
+
           return (
             <article
               key={message.id}
@@ -132,15 +188,11 @@ export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreview
               data-message-id={message.id}
               aria-label={`${message.role} message`}
             >
-              {groupParts(parts, message.id).map((group) => (
-                <RenderedGroup
-                  key={group.key}
-                  group={group}
-                  {...(onOpenChild ? { onOpenChild } : {})}
-                  {...(onOpenArtifact ? { onOpenArtifact } : {})}
-                  {...(childPreviews ? { childPreviews } : {})}
-                />
-              ))}
+              {delegationReturn ? (
+                <ReturnCard parentAgent={str(delegationReturn.parent_agent)}>{rendered}</ReturnCard>
+              ) : (
+                rendered
+              )}
             </article>
           );
         })}
