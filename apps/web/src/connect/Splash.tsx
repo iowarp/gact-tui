@@ -10,8 +10,11 @@ import { Lockup } from '../shell/Lockup';
 import type { ProbeCandidate } from './candidates';
 import './splash.css';
 
-/** Per-candidate probe budget, carried over from the legacy splash. */
-export const PROBE_TIMEOUT_MS = 2_500;
+/* Per-candidate probe budget. 2.5s (the legacy value) lost races against a
+   momentarily-loaded backend mid-demo and dumped the connect screen (owner
+   capture, round 5); 6s tolerates a busy box while still failing fast when
+   nothing answers. */
+export const PROBE_TIMEOUT_MS = 6_000;
 
 export interface SplashProps {
   candidates: ProbeCandidate[];
@@ -41,6 +44,11 @@ export function Splash(props: SplashProps): ReactElement {
 
     const probe = async (): Promise<void> => {
       if (cancelled) return;
+      // The reported failure is the FIRST candidate's (the saved/current
+      // backend) — blaming the last brand-default fallback showed the user an
+      // address they never configured (owner capture: 'UNREACHABLE
+      // localhost:17800' while the saved backend was 127.0.0.1:17900).
+      let firstFailure: ConnectFailure | null = null;
       let lastFailure: ConnectFailure | null = null;
 
       for (const candidate of initial.candidates) {
@@ -85,6 +93,7 @@ export function Splash(props: SplashProps): ReactElement {
 
         if (cancelled || result === null) return;
         if (result.kind === 'failed') {
+          if (firstFailure === null) firstFailure = result;
           lastFailure = result;
           continue;
         }
@@ -93,7 +102,7 @@ export function Splash(props: SplashProps): ReactElement {
         return;
       }
 
-      if (!cancelled) initial.onFallback(lastFailure);
+      if (!cancelled) initial.onFallback(firstFailure ?? lastFailure);
     };
 
     // Deferring one microtask prevents React StrictMode's development-only
