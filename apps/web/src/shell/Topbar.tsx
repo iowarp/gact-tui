@@ -128,7 +128,13 @@ export function Topbar({
         icon={
           <>
             <Icon name="ctx" />
-            <span className="shell-topbar__count">{contextPercent ?? 0}%</span>
+            <span className="shell-topbar__count">
+              {contextPercent === undefined
+                ? '—'
+                : contextPercent > 0 && contextPercent < 1
+                  ? '<1%'
+                  : `${Math.round(contextPercent)}%`}
+            </span>
           </>
         }
         pressed={panel === 'obs' && obsTab === 'context'}

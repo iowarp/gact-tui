@@ -230,21 +230,6 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
     },
   },
 
-  transcript_activity: {
-    render: (part) => {
-      const count = Number(part['count']);
-      const noun = count === 1 ? 'agent' : 'agents';
-      return (
-        <p className="transcript__activity" data-testid="transcript-activity">
-          <span className="transcript__activity-mark" aria-hidden="true">
-            ✻
-          </span>
-          {` Waiting for ${count} background ${noun} to finish`}
-        </p>
-      );
-    },
-  },
-
   error: {
     render: (part) => (
       <p className="part-error" data-testid="part-error" role="alert">

@@ -70,21 +70,5 @@
   display: none;
 }
 
-.transcript__activity {
-  margin: 0;
-  color: var(--t-mu);
-  font-family: var(--f-mono);
-  font-size: calc(12px * var(--ts));
-  line-height: 1.5;
-}
-
-.transcript__activity-mark {
-  color: var(--t-ac);
-  animation: clio-pulse 1.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .transcript__activity-mark {
-    animation: none;
-  }
-}
+/* transcript__activity is gone: the client-synthesized waiting marker was
+   deleted (the wire-driven running wait row is the one representation). */

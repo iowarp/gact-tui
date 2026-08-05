@@ -430,7 +430,9 @@ export function Composer({
                 {...(onOpenContext ? { onClick: onOpenContext, title: 'Open context telemetry' } : {})}
               >
                 <span className="composer__contextlabel" data-percent={`${contextPercent}%`}>
-                  {`ctx ${contextPercent}%`}
+                  {contextPercent !== undefined && contextPercent > 0 && contextPercent < 1
+                    ? 'ctx <1%'
+                    : `ctx ${Math.round(contextPercent ?? 0)}%`}
                 </span>
               </Chip>
             </span>

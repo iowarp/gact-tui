@@ -629,7 +629,9 @@ export function SessionView({
         // the wire; the fixture is repinned to 0.074.)
         const used = contextResult.value.used_pct ?? contextResult.value.pct_used;
         if (typeof used === 'number' && Number.isFinite(used)) {
-          next.contextPercent = Math.round(used * 100);
+          // One decimal of precision so the render can tell a true 0% from a
+          // sub-1% reading ('<1%') — an integer collapsed both to 0.
+          next.contextPercent = Math.round(used * 1000) / 10;
         }
         const tokens = contextResult.value.used_tokens ?? contextResult.value.live_tokens;
         if (typeof tokens === 'number' && Number.isFinite(tokens)) {
@@ -1108,24 +1110,11 @@ export function SessionView({
   const placement = `${activeConnectionLabel}:${resolvedWorkspaceLabel ?? 'ungrouped'}`;
   const activePill =
     pillState?.sessionId === activeId && pillState.scope === activeScope ? pillState : null;
-  const waitingCount = activePill?.asyncCount ?? 0;
-  const transcriptMessages: Message[] =
-    state.kind === 'loaded' && waitingCount > 0
-      ? [
-          ...state.messages,
-          {
-            id: `${activeId ?? 'session'}:transcript-activity`,
-            role: 'assistant',
-            // This marker is UI-owned and never written back to the backend's
-            // closed wire Part union.
-            parts: [
-              { type: 'transcript_activity', count: waitingCount },
-            ] as unknown as Message['parts'],
-          },
-        ]
-      : state.kind === 'loaded'
-        ? state.messages
-        : [];
+  // The client-synthesized transcript_activity marker is DELETED (owner
+  // capture 2026-08-05: the waiting state printed twice — the wire-driven
+  // running wait row already renders '✻ waiting for N background agents…').
+  // The transcript renders ONLY what the wire carries.
+  const transcriptMessages: Message[] = state.kind === 'loaded' ? state.messages : [];
 
   const createAndSelectSession = useCallback(
     async (workspaceId?: string, title = 'untitled session'): Promise<Session> => {
