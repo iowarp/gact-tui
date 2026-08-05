@@ -606,9 +606,12 @@ export function SessionView({
       }
 
       if (contextResult.status === 'fulfilled') {
-        const usedPercent = contextResult.value.used_pct ?? contextResult.value.pct_used;
-        if (typeof usedPercent === 'number' && Number.isFinite(usedPercent)) {
-          next.contextPercent = Math.round(usedPercent);
+        // Both used_pct and pct_used are RATIOS of window_tokens (context_types
+        // declares X / window_tokens), not percents — the meter read "ctx 0%"
+        // for a whole run because 0.0068 rounded to 0 (owner capture).
+        const usedRatio = contextResult.value.used_pct ?? contextResult.value.pct_used;
+        if (typeof usedRatio === 'number' && Number.isFinite(usedRatio)) {
+          next.contextPercent = Math.round(usedRatio * 100);
         }
         const tokens = contextResult.value.used_tokens ?? contextResult.value.live_tokens;
         if (typeof tokens === 'number' && Number.isFinite(tokens)) {
