@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { StatusDot, type SessionStatus } from '../../kit';
+import { Markdown } from '../markdown';
 import type { WirePart } from '../registry';
 
 export interface HandoffPartProps {
@@ -115,6 +117,99 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
   );
 }
 
+/** `72000` → `"1m 12s"`, `4300` → `"4.3s"` — the prototype's duration idiom. */
+function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  const totalSeconds = ms / 1000;
+  if (totalSeconds < 60) {
+    const rounded = Math.round(totalSeconds * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  return `${minutes}m ${seconds}s`;
+}
+
+export interface MergedHandoffProps {
+  /** The `delegate.started` part — carries `metadata.question` (the brief). */
+  started?: WirePart;
+  /** The terminal part (completed/failed/superseded) — carries `metadata.output`. */
+  terminal?: WirePart;
+}
+
+/**
+ * ONE Call block per delegation (the prototype's grammar): the started and
+ * terminal `expert_handoff` parts of one handle merge into a single
+ * `Call(child)` heading, one brief, one handle pill at the FINAL state, and
+ * one child card carrying the child's answer with its duration. Rendering
+ * each stage as its own full block duplicated every Call and drew an empty
+ * running card next to the completed one — the "unreadable transcript".
+ */
+export function MergedHandoff({ started, terminal }: MergedHandoffProps) {
+  const final = terminal ?? started;
+  if (!final) return null;
+  const startedMeta = started ? metadataOf(started) : {};
+  const finalMeta = metadataOf(final);
+  const child = str(
+    final['child_agent'] ?? final['expert'] ?? final['agent'] ?? started?.['child_agent'],
+  );
+  const runLabel = str(final['run_label'] ?? started?.['run_label']);
+  const placement = str(final['placement'] ?? started?.['placement']);
+  const handleId = str(final['handle_id'] ?? started?.['handle_id']);
+  const rawState = str(final['status'] ?? final['live_state']).toLowerCase();
+  const status = delegateStatus(final, Boolean(terminal));
+  const question = str(startedMeta['question'] ?? finalMeta['question']);
+  const answer = terminal ? str(finalMeta['output']) : '';
+  const durationRaw = Number(terminal?.['duration_ms'] ?? 0);
+  const duration = formatDurationMs(durationRaw) || str(final['duration'] ?? final['elapsed']);
+
+  return (
+    <div className="part-handoff">
+      <p className="part-handoff__title">Call({child})</p>
+      {question ? <ClampedBrief text={question} /> : null}
+      {handleId ? <HandlePill handleId={handleId} status={status} rawState={rawState} /> : null}
+      <ChildCard
+        child={child}
+        runLabel={runLabel}
+        placement={placement}
+        duration={duration}
+        body={answer}
+        status={status}
+      />
+    </div>
+  );
+}
+
+/**
+ * The delegation brief, clamped. The prototype renders its (short, fixture)
+ * briefs unfolded; real briefs carry the parent's full grounded context and
+ * run to hundreds of lines — a deliberate deviation: clamp at 6 lines with an
+ * explicit expand, so the brief never buries the conversation.
+ */
+function ClampedBrief({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > 420 || text.split('\n').length > 6;
+  return (
+    <div className="part-handoff__brief">
+      <p
+        className="part-handoff__question"
+        data-clamped={long && !expanded ? 'true' : undefined}
+      >
+        {text}
+      </p>
+      {long ? (
+        <button
+          type="button"
+          className="part-handoff__briefmore"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'show less' : 'show more'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function ChildCard({
   child,
   runLabel,
@@ -148,7 +243,11 @@ function ChildCard({
         {remote ? <span className="part-childcard__host">{placement}</span> : null}
         {duration ? <span className="part-childcard__dur">{duration}</span> : null}
       </div>
-      {body ? <div className="part-childcard__body">{body}</div> : null}
+      {body ? (
+        <div className="part-childcard__body">
+          <Markdown text={body} />
+        </div>
+      ) : null}
     </div>
   );
 }

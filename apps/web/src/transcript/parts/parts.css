@@ -592,9 +592,15 @@
   text-decoration: none;
 }
 
+/* The global `a:hover` rule (styles/base.css) sets text-decoration:underline,
+   which draws a line clean through every descendant's text regardless of
+   their own color — the prototype's own card hover (pixel-verified,
+   screenshots/side-by-side/proto-artcard-hover-after.png) only tints the
+   border, never underlines the filename/meta text like a plain text link. */
 .part-artchip:hover {
   background: var(--t-hv);
   border-color: var(--t-cy4);
+  text-decoration: none;
 }
 
 .part-artchip__icon {
@@ -631,4 +637,31 @@
   font-size: calc(11px * var(--ts));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* W1 (NDP showcase): preserved newlines — agent prose and briefs are written
+ * with real line structure; collapsing it was part of "unreadable". */
+.part-text,
+.part-handoff__question,
+.part-childcard__body {
+  white-space: pre-wrap;
+}
+
+/* The delegation brief clamp (long real-wire briefs; expand on demand). */
+.part-handoff__question[data-clamped='true'] {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.part-handoff__briefmore {
+  margin: 2px 0 0 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t-cy, #0aa6ad);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
 }

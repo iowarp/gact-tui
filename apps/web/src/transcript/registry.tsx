@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '../kit';
+import { Markdown } from './markdown';
 import { HandoffPart } from './parts/HandoffPart';
 import { extractToolResultText } from './parts/toolResultText';
 import './parts/parts.css';
@@ -54,7 +55,13 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
         ●
       </span>
     ),
-    render: (part) => <p className="part-text">{str(part['text'])}</p>,
+    // Markdown everywhere (ported render contract, web.old RENDERING_SPEC:338):
+    // agent prose renders its structure — never literal `##`/`**asterisks**`.
+    render: (part) => (
+      <div className="part-text">
+        <Markdown text={str(part['text'])} />
+      </div>
+    ),
   },
 
   thinking: {

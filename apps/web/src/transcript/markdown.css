@@ -1,0 +1,101 @@
+/* Markdown in the transcript's own type system — ONE mono font at body size,
+ * differentiation by weight + color only (ported from web.old
+ * inline-markdown.css / RENDERING_SPEC). */
+
+.md {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  color: var(--t-tx, #a8adb8);
+}
+
+.md p,
+.md li,
+.md pre,
+.md code,
+.md a,
+.md strong,
+.md em,
+.md th,
+.md td {
+  font-family: inherit;
+  font-size: inherit;
+  max-width: none;
+}
+
+.md p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.md .md-h {
+  margin: 10px 0 2px;
+  font-weight: 700;
+  color: var(--t-hd, #c5cad3);
+}
+
+.md strong {
+  font-weight: 700;
+  color: var(--t-hd, #c5cad3);
+}
+
+.md em {
+  font-style: italic;
+}
+
+.md code {
+  color: var(--t-cy, #0aa6ad);
+  background: rgba(10, 166, 173, 0.08);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.md pre {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--t-sf2, #1c1f25);
+  border: 1px solid rgba(45, 99, 139, 0.3);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.md pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.md a {
+  color: var(--t-cy, #0aa6ad);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.md a:hover {
+  color: var(--t-hd, #c5cad3);
+}
+
+.md ul,
+.md ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.md table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.md th,
+.md td {
+  border: 1px solid rgba(45, 99, 139, 0.3);
+  padding: 3px 8px;
+  text-align: left;
+}
+
+.md th {
+  color: var(--t-hd, #c5cad3);
+  font-weight: 700;
+}

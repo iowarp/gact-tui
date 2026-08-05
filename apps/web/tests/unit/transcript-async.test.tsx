@@ -201,3 +201,87 @@ describe('run-handle pill (isTask sg.handle, PASS 3 — tree moved since the pas
     expect(pill).not.toHaveAttribute('tabindex');
   });
 });
+
+describe('handoff pair merge — ONE Call block per delegation (W1, NDP showcase)', () => {
+  const COMPLETED_PAIR = {
+    ...STARTED_HANDOFF,
+    id: 'live_handoff_done',
+    text: 'main <- geospatial',
+    stage: 'delegate.completed',
+    live_state: 'completed',
+    status: 'completed',
+    duration_ms: 72000,
+    metadata: { output: 'Resolved LA to center 34.0537, -118.2428.' },
+  };
+
+  it('renders started+completed sharing a handle_id as ONE Call block, ONE card, ONE pill', () => {
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { ...STARTED_HANDOFF, metadata: { question: 'Resolve LA into coordinates.' } },
+            { type: 'text', text: 'The geospatial child is running.' },
+            COMPLETED_PAIR,
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getAllByText('Call(geospatial)')).toHaveLength(1);
+    expect(screen.getAllByTestId('part-child-card')).toHaveLength(1);
+    expect(screen.getAllByTestId('part-handle')).toHaveLength(1);
+    // The pill lands on the FINAL state; the card carries the child's answer.
+    expect(screen.getByTestId('part-handle')).toHaveTextContent('completed');
+    expect(screen.getByTestId('part-child-card')).toHaveTextContent(
+      'Resolved LA to center 34.0537, -118.2428.',
+    );
+    // The brief from the started part renders once; narration between the pair survives.
+    expect(container.textContent).toContain('Resolve LA into coordinates.');
+    expect(container.textContent).toContain('The geospatial child is running.');
+  });
+
+  it('renders the child duration from the wire duration_ms', () => {
+    render(<Transcript messages={[msg('m1', 'assistant', [STARTED_HANDOFF, COMPLETED_PAIR])]} />);
+    expect(screen.getByTestId('part-child-card')).toHaveTextContent('1m 12s');
+  });
+
+  it('a failed terminal merges into the same single block and marks it red', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            STARTED_HANDOFF,
+            { ...COMPLETED_PAIR, id: 'live_handoff_f', stage: 'delegate.failed', live_state: 'failed', status: 'failed', metadata: {} },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId('part-child-card')).toHaveLength(1);
+    const dot = screen.getByTestId('part-child-card').querySelector('.kit-statusdot');
+    expect(dot?.getAttribute('data-state')).toBe('error');
+  });
+
+  it('pairs are matched by handle_id, not adjacency — two interleaved delegations stay two blocks', () => {
+    const other = (over: Record<string, unknown>) => ({
+      ...STARTED_HANDOFF,
+      child_agent: 'ndp',
+      run_label: 'ndp #1',
+      handle_id: 'task_other',
+      ...over,
+    });
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            STARTED_HANDOFF,
+            other({ id: 'h2' }),
+            { ...COMPLETED_PAIR, id: 'h3', metadata: {} },
+            other({ id: 'h4', stage: 'delegate.completed', live_state: 'completed', status: 'completed' }),
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId('part-child-card')).toHaveLength(2);
+    expect(screen.getAllByText('Call(geospatial)')).toHaveLength(1);
+    expect(screen.getAllByText('Call(ndp)')).toHaveLength(1);
+  });
+});

@@ -1414,7 +1414,7 @@ export function SessionView({
 }
 
 /** Group sessions by workspace, preserving backend order within each group. */
-function groupByWorkspace(
+export function groupByWorkspace(
   sessions: Session[],
   workspaces: Workspace[],
   renamed: Record<string, string> = {},
@@ -1431,6 +1431,10 @@ function groupByWorkspace(
   }
   const groups = new Map<string, RailSession[]>();
   for (const session of sessions) {
+    // A session spawned by another session is that parent's child agent —
+    // it renders inside the parent's transcript (Call boxes), never as a
+    // top-level rail row of its own.
+    if (session.parent_session_id) continue;
     const key = session.workspace_id || 'ungrouped';
     if (removedWorkspaceIds.has(key)) continue;
     const rows = groups.get(key) ?? [];

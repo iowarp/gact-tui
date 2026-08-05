@@ -5,6 +5,8 @@
  * there is exactly one path from a wire part to a rendered part, and an
  * unknown kind is SURFACED, never dropped.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Message } from '@clio/core';
 import { describe, expect, it } from 'vitest';
@@ -297,6 +299,18 @@ describe('Transcript', () => {
     );
     const chip = container.querySelector('.part-artchip');
     expect(chip?.querySelector('svg')?.getAttribute('data-icon')).toBe('csv');
+  });
+
+  it('suppresses the global link-hover underline on the artifact card (PASS 4)', () => {
+    // The global `a:hover` rule (styles/base.css) sets text-decoration:underline,
+    // which draws a line through every descendant's text regardless of their
+    // own color — live-verified this pass (screenshots/side-by-side/
+    // artchip-after.png before the fix) to bleed through onto BOTH the
+    // filename and meta line. Pixel-confirmed against the prototype's own
+    // card hover (screenshots/side-by-side/proto-artcard-hover-after.png):
+    // it tints the border only, never underlines the tile like a text link.
+    const css = readFileSync(resolve(__dirname, '../../src/transcript/parts/parts.css'), 'utf8');
+    expect(css).toMatch(/\.part-artchip:hover\s*{[^}]*text-decoration:\s*none/s);
   });
 
   it('marks assistant narration with the prototype\'s mono bullet, not a bar', () => {

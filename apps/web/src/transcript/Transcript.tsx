@@ -1,6 +1,7 @@
 import type { Message } from '@clio/core';
 import { PartCard } from '../kit';
 import { ArtifactGrid } from './parts/ArtifactChip';
+import { MergedHandoff } from './parts/HandoffPart';
 import { ToolPart } from './parts/ToolPart';
 import { PART_RENDERERS, WrenchGlyph, type WirePart } from './registry';
 import './transcript.css';
@@ -14,7 +15,8 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined
 type PartGroup =
   | { key: string; kind: 'part'; part: WirePart }
   | { key: string; kind: 'tool'; call: WirePart; result?: WirePart }
-  | { key: string; kind: 'artifacts'; parts: WirePart[] };
+  | { key: string; kind: 'artifacts'; parts: WirePart[] }
+  | { key: string; kind: 'handoff'; started?: WirePart; terminal?: WirePart };
 
 function toolCallId(part: WirePart): string {
   return str(part['call_id']) || str(part['id']);
@@ -78,6 +80,42 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
       continue;
     }
 
+    if (part.type === 'expert_handoff') {
+      // One delegation = one Call block. The started and terminal parts share
+      // a handle_id but are separated by narration, so pairing is id-keyed
+      // lookahead (the tool_call rule), never adjacency.
+      const handleId = str(part['handle_id']);
+      const stage = str(part['stage']);
+      if (stage === 'delegate.started' && handleId) {
+        let terminalIndex = -1;
+        for (let j = i + 1; j < parts.length; j++) {
+          if (consumed.has(j)) continue;
+          const candidate = parts[j]!;
+          if (
+            candidate.type === 'expert_handoff' &&
+            str(candidate['handle_id']) === handleId &&
+            str(candidate['stage']) !== 'delegate.started'
+          ) {
+            terminalIndex = j;
+            break;
+          }
+        }
+        if (terminalIndex >= 0) {
+          consumed.add(terminalIndex);
+          groups.push({ key, kind: 'handoff', started: part, terminal: parts[terminalIndex]! });
+        } else {
+          groups.push({ key, kind: 'handoff', started: part });
+        }
+      } else if (stage === 'delegate.started') {
+        groups.push({ key, kind: 'handoff', started: part });
+      } else {
+        // A terminal (completed/failed/superseded) with no earlier started in
+        // this message still renders — a group of one, never dropped.
+        groups.push({ key, kind: 'handoff', terminal: part });
+      }
+      continue;
+    }
+
     groups.push({ key, kind: 'part', part });
   }
 
@@ -137,6 +175,13 @@ function RenderedGroup({ group }: { group: PartGroup }) {
     return (
       <PartCard kind="artifacts">
         <ArtifactGrid parts={group.parts} />
+      </PartCard>
+    );
+  }
+  if (group.kind === 'handoff') {
+    return (
+      <PartCard kind="expert_handoff" gutter={<WrenchGlyph />}>
+        <MergedHandoff started={group.started} terminal={group.terminal} />
       </PartCard>
     );
   }
