@@ -3,22 +3,27 @@
 Source: 9 element-level conformance JSON files in `docs/p5/conformance/` (`panels`,
 `settings`, `icons-and-buttons`, `transcript-parts`, `composer-pill`, `fresh-session`,
 `observability`, `menus-grammar`, `rail-and-topbar`). Every count below is a literal
-tally of the `status` field across all 188 items in those 9 files — not an estimate.
+tally of the `status` field across all 191 items in those 9 files — not an estimate.
 Statuses: `match` / `deviates` / `missing` / `not-wired` / `unbacked`.
 
-**State: post-grind-pass-2, independently audited (2026-08-05).** The 8 pass-2 grind
-commits (`34bf95da`..`4d0079f2`) rewrote code and JSONs; an independent audit then
-re-measured every pass-2 status change (15) plus 3+ spot-checks per surface against the
-rebuilt preview (:4191), the live backend (127.0.0.1:17900, read-only), fresh
-side-by-side composites (`apps/web/screenshots/side-by-side/audit2-*.png`), live wire
-probes, and the source tree — and corrected 6 wrong statuses (see §3). Item count went
-186 → 188 (the combined queued-tray item split in two; the collapsed-rail brand mark was
-found and added). The pass-1 audited state (186 items, 142 match, 76.3%) is preserved in
-git at `8c0267c6`; the original measurement (185 items, 49 match, 26.5%) at `d1498ed5`.
+**State: post-grind-pass-3, independently audited (2026-08-05).** The 9 pass-3 grind
+commits (`23aa7afd`..`fae44587`) rewrote code and JSONs; an independent audit then
+re-measured every pass-3 status change (9 changed + 1 new item, all upgrades to
+`match`) plus 3+ spot-checks per surface against the rebuilt preview (:4191), the live
+backend (127.0.0.1:17900, read-only — note the store was rebuilt today: ndp/materio
+demo workspaces, sessions mid-recreation), fresh side-by-side composites
+(`apps/web/screenshots/side-by-side/audit3-*.png`), live wire probes, DOM bounding-box
+probes, and the source tree. Result: **7 of the 10 pass-3 upgrades held; 3 statuses
+were corrected back** (see §3), and the audit's spot-checks surfaced **2 previously
+un-inventoried deviations** now added as items (settings nav typography; observability
+log-row duration placement). Item count went 188 → 191. Prior states preserved in git:
+pass-2 audit (188 items, 150 match, 79.8%) at `90647b38`; pass-1 audit (186, 142,
+76.3%) at `8c0267c6`; original measurement (185, 49, 26.5%) at `d1498ed5`.
 
-**Headline: 188 items measured, 150 match (79.8% implemented-and-aligned), 38 non-match,
-of which 37 count as remaining work** (1 unbacked item — the composer attach button —
-carries the agreed visible-degraded marker and is excluded per the audit rule).
+**Headline: 191 items measured, 157 match (82.2% implemented-and-aligned), 34
+non-match, of which 33 count as remaining work** (1 unbacked item — the composer attach
+button — carries the agreed visible-degraded marker and is excluded per the audit
+rule).
 
 ---
 
@@ -29,28 +34,32 @@ Sorted worst-aligned first. Literal tallies of the corrected JSONs.
 | Surface | Total | Match | Deviates | Missing | Not-wired | Unbacked | % aligned |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | transcript-parts | 20 | 13 | 2 | 5 | 0 | 0 | 65.0% |
-| composer-pill | 17 | 12 | 3 | 1 | 0 | 1 | 70.6% |
-| menus-grammar | 16 | 12 | 3 | 0 | 1 | 0 | 75.0% |
-| observability | 18 | 14 | 4 | 0 | 0 | 0 | 77.8% |
-| icons-and-buttons | 15 | 12 | 2 | 0 | 1 | 0 | 80.0% |
-| settings | 47 | 38 | 9 | 0 | 0 | 0 | 80.9% |
-| rail-and-topbar | 19 | 16 | 1 | 1 | 1 | 0 | 84.2% |
+| observability | 19 | 14 | 5 | 0 | 0 | 0 | 73.7% |
+| composer-pill | 17 | 13 | 2 | 1 | 0 | 1 | 76.5% |
+| settings | 48 | 39 | 9 | 0 | 0 | 0 | 81.3% |
+| menus-grammar | 17 | 14 | 3 | 0 | 0 | 0 | 82.4% |
 | panels | 13 | 11 | 1 | 1 | 0 | 0 | 84.6% |
-| fresh-session | 23 | 22 | 1 | 0 | 0 | 0 | 95.7% |
-| **TOTAL** | **188** | **150** | **26** | **8** | **3** | **1** | **79.8%** |
+| icons-and-buttons | 15 | 13 | 2 | 0 | 0 | 0 | 86.7% |
+| rail-and-topbar | 19 | 17 | 1 | 1 | 0 | 0 | 89.5% |
+| fresh-session | 23 | 23 | 0 | 0 | 0 | 0 | 100.0% |
+| **TOTAL** | **191** | **157** | **25** | **8** | **0** | **1** | **82.2%** |
 
-Movement since the pass-1 audit: 76.3% → 79.8% aligned. Pass 2 genuinely closed the two
-`"dir"`/`'directory'` wire defects (files-layer tree + `@` picker, both re-verified
-live), the queue-tray geometry, the detail-slot collapse-to-strip, the prose-font
-labels, the picker resize handles, and landed a real Settings > Relays page against the
-newly-shipped `GET /v1/relay/status`. `not-wired` went 0 → 3 — not because controls
-died, but because the audit found two live backend routes the JSONs wrongly recorded as
-nonexistent (see §3): honest-degraded markers over real routes are dead controls, and
-they count as remaining work.
+Movement since the pass-2 audit: 79.8% → 82.2% aligned. Pass 3 genuinely closed the
+async-runs popover (new sanctioned `async` capture setup, canned-route technique, no
+server mutation), the artifact Download menu end-to-end (`Client.exportArtifact()`
+against the real `GET /v1/artifacts/{id}/export` — re-probed this audit: 200,
+`application/zip`, 21,569 bytes on a real materio artifact), both rail relay cells
+(dot driven by the live `GET /v1/relay/status`, click-through to Settings > Relays —
+re-verified in code and on `audit3-session.png`), the doubled "model not set / model
+not set" trigger (single label re-probed live on a real model-less session), the
+picker panes' max-height clip (DOM-probed: 240px row track, thinking row fully
+in-viewport), and a real per-session Metrics pane (`audit3-metrics.png`). `not-wired`
+went 3 → 0 — all three dead-controls-over-live-routes from the pass-2 audit are now
+genuinely wired. The three walk-backs and two new items are §3.
 
 ---
 
-## 2. Remaining items (37)
+## 2. Remaining items (33)
 
 One row per item whose corrected status is not `match`, excluding the 1 unbacked item
 carrying the visible-degraded marker (composer attach button). Grouped by surface,
@@ -59,156 +68,150 @@ worst first.
 ### transcript-parts (7)
 | Item | Status | Gap |
 |---|---|---|
-| expert_handoff Call card | deviates | full isTask grammar (handle pill, arrow, clamp rules) is E9 |
+| expert_handoff Call card | deviates | full isTask grammar (arrow, clamp rules) is E9; pass 3 added the real run-handle pill |
 | Child-card click → focused transcript | missing | destination pane does not exist (E9) |
-| Artifact chips inline | deviates | meta line shows description/mime — size/row-count not on `resource_link` (E7 grounds it in ArtifactRecord) |
+| Artifact chips inline | deviates | pass 3 grounded size via `metadata.size_bytes` where present; full grounding in ArtifactRecord is E7 |
 | HITL 'ask' card | missing | backend does not emit the part kind (documented P3 gap) |
 | HITL 'permission required' card | missing | same |
 | a2ui / mcp-ui live widget | missing | tracked gact-tui#324; honest placeholder renders today |
 | Streaming text cursor | missing | no part-level still-streaming flag reaches the transcript renderer |
 
-### composer-pill (4)
-| Item | Status | Gap |
-|---|---|---|
-| Async chip ("async N") | deviates | popover real + wired, but not pixel-verified (no live in-flight async task at capture time) |
-| Steering-context panel | missing | the focused/finished-child view it docks under does not exist (E9); split out of the queued-tray item, which is now a verified match |
-| Model selector and its menu | deviates | **audit correction §3.1:** per-provider "default ⌄" silently omitted; two-line rows vs one-line; thinking row scrolls out of view; "model not set / model not set" doubled placeholder |
-| Shift+Tab expand | deviates | owner-approved intentional addition beyond the prototype (not a gap to fix) |
-
-### menus-grammar (4)
-| Item | Status | Gap |
-|---|---|---|
-| Provider/model picker popover | deviates | per-provider "default ⌄" config sub-picker + sampling editor unbuilt (mutation-scope is a product call; sampling store has no wire) |
-| Rail footer "agents N" cell | deviates | deliberate documented divergence: connection switcher instead of Settings navigation |
-| Rail footer "relay" cell | not-wired | **audit correction §3.5:** `GET /v1/relay/status` is live and `relayStatus()` shipped — the cell still claims no wire surface exists |
-| Capture-fixture mislabel note | deviates | data-integrity note about `proto-composer-menus.json`, not an app defect |
-
-### observability (4)
+### observability (5)
 | Item | Status | Gap |
 |---|---|---|
 | Pop-out (↗) header button | deviates | desktop-only; disabled + flagged (prototype's own button is inert too) |
 | Row click-to-navigate | deviates | 4 of 5 surfaces navigate; artifact rows await a viewer (E7) |
-| Artifacts tab row click-to-open | deviates | structural button present, disabled + flagged until a viewer exists (E7) — note the export route itself is live (§3.3) |
+| Artifacts tab row click-to-open | deviates | structural button present, disabled + flagged until a viewer exists (E7); export route itself is live |
 | Context tab "LIVE NOW" panel | deviates | honest in-session substitute; cross-session feed has no backend surface |
+| Log-row duration placement | deviates | **audit-added §3.4:** app renders duration as a 5th right-aligned grid column; prototype puts it inline in the action text |
 
-### icons-and-buttons (3)
+### composer-pill (3)
 | Item | Status | Gap |
 |---|---|---|
-| Detail-panel Download button/menu | not-wired | **audit correction §3.3:** `GET /v1/artifacts/{id}/export` has existed since #973 and serves bytes on the live backend — the disabled control and its "no route" title are wrong |
-| Settings sub-pages rollup (13 pages) | deviates | rollup of settings.json's own statuses (7 of the named 13 deviate) |
-| Settings Relays/Plugins/Data&backups rollup | deviates | Relays pane deviates (singleton vs registry); Plugins + Data & backups match |
+| Model selector and its menu | deviates | **audit correction §3.1:** the per-provider "default ⌄" badge is crushed to ≤4px (invisible) on 8 of 10 real provider rows — still a silent omission on the live catalogue |
+| Steering-context panel | missing | the focused/finished-child view it docks under does not exist (E9) |
+| Shift+Tab expand | deviates | owner-approved intentional addition beyond the prototype (not a gap to fix) |
 
 ### settings (9)
 | Item | Status | Gap |
 |---|---|---|
+| Nav page-item rows typography | deviates | **audit-added §3.3:** mono-12px/cyan-active/180px rail vs the prototype's prose-14px/`--t-hd`-active/218px |
 | Backends pane | deviates | Refresh real only for the active connection; add/connect-others disabled (gact-tui#338) |
 | Providers pane | deviates | multi-config UI + editable NAME/ENDPOINT/key-save have no backend analog |
 | Models pane | deviates | 'router lm' role does not exist on the wire; rows not yet expandable pickers |
 | Agents pane | deviates | detach/disconnect unbacked (no such wire concept) |
-| Relays pane | deviates | real singleton reachability row (live `GET /v1/relay/status`); the prototype's multi-host registry (add/remove, per-host latency) has no registry route |
+| Relays pane | deviates | real singleton reachability row (live `GET /v1/relay/status`); the prototype's multi-host registry has no registry route |
 | Agent blueprints pane | deviates | children/files counts not in the summary wire shape |
 | Policies pane | deviates | PUT deliberately unwired (whole-document replace unsafe against shared backend) |
 | Memory pane | deviates | real cache stats instead of the prototype's false "no memory capability" claim |
-| Metrics pane | deviates | tool-calls/child-tasks rows have no source at this layer; real global metrics instead |
 
-### rail-and-topbar (3)
+### menus-grammar (3)
 | Item | Status | Gap |
 |---|---|---|
-| Rail footer "agents N" cell | deviates | same divergence menus-grammar records — click opens switcher, never navigates (dot color fixed pass 2, verified) |
-| Rail footer "relay" cell | not-wired | **audit correction §3.5:** same as menus-grammar — live route, dead cell, now-false tooltip |
-| Hierarchy ribbon | missing | hardcoded `['main']`; needs the E9 focus-stack + view-swap model |
+| Provider/model picker popover | deviates | **audit correction §3.1** (same defect as composer-pill's model selector); per-session config mutation + sampling store remain wire gaps |
+| Rail footer "agents N" cell | deviates | deliberate documented divergence: connection switcher instead of Settings navigation |
+| Capture-fixture mislabel note | deviates | data-integrity note about `proto-composer-menus.json`, not an app defect |
 
 ### panels (2)
 | Item | Status | Gap |
 |---|---|---|
 | Detail slot reachability | missing | nothing in the live transcript opens DetailSlot (E7) |
-| Detail slot chrome | deviates | **audit correction §3.4:** chrome is real, but the download button's honest-degraded story is false — the export route exists; menu is client work now |
+| Detail slot chrome | deviates | **audit correction §3.2:** sub-tab row paints lowercase where the prototype's own artTab buttons are `text-transform:uppercase`; everything else in the item (menu, breadcrumb, export wiring) verified real |
 
-### fresh-session (1)
+### icons-and-buttons (2)
 | Item | Status | Gap |
 |---|---|---|
-| Composer model selector, fresh state | deviates | **audit correction §3.2:** renders "model not set / model not set" (doubled placeholder) once model options load — `SessionView.tsx:1058` + `ProviderModelPicker.tsx:105-107` |
+| Settings sub-pages rollup (13 pages) | deviates | rollup of settings.json's own statuses (6 of the named 13 deviate) |
+| Settings Relays/Plugins/Data&backups rollup | deviates | Relays pane deviates (singleton vs registry); Plugins + Data & backups match |
+
+### rail-and-topbar (2)
+| Item | Status | Gap |
+|---|---|---|
+| Rail footer "agents N" cell | deviates | same divergence menus-grammar records — click opens switcher, never navigates |
+| Hierarchy ribbon | missing | hardcoded `['main']`; needs the E9 focus-stack + view-swap model |
+
+### fresh-session (0)
+All 23 items match — the surface is fully aligned (the doubled model-chip label was
+fixed at the root in pass 3 and re-verified here on a real model-less session).
 
 ---
 
-## 3. Audit corrections (what the pass-2 independent audit changed)
+## 3. Audit findings (what the pass-3 independent audit changed)
 
-Six statuses in the pass-2 JSONs were wrong and were corrected in place (each JSON row
-carries an `audit_correction` field with the full evidence). The two route findings are
-the significant ones: both "honest-degraded" stories were built on wire claims that a
-one-call live probe disproves.
+Ten pass-3 status changes were re-measured. Seven held: async chip (`audit3-async.png`
+— bolt rows, right-aligned elapsed, ✓ finished row with dismiss, lowercase
+'run history ↗'), download button/menu (`audit3-detail.png` + live export probe + code
+in `apps/core/src/client/artifact_export.ts` / `DetailSlot.tsx`), both relay cells
+(`Rail.tsx:195-215,546-561` honesty rule + click-through; `GET /v1/relay/status`
+probed live: `reachable:true`; green dot on `audit3-session.png`), the fresh-state
+model chip (root guard in `ProviderModelPicker.tsx` + `fresh-session-pass3.png` +
+locked test), the new panes max-height item (DOM probe: 240px clip, no overlap), and
+Metrics (`audit3-metrics.png`: real context/tool-calls/child-tasks/artifacts rows in
+the prototype's exact 4-row grammar). Three did not survive, and two new items were
+added:
 
-1. **composer-pill / Model selector: match → deviates.** The pass-2 fixes are real
-   (resize handle, plain eyebrows, the anchoring regression genuinely fixed —
-   re-verified on `audit2-model.png`), but the item contradicted menus-grammar's
-   `deviates` for the same control, silently omits the prototype's per-provider
-   "default ⌄" sub-picker, renders two-line provider rows (pushing the thinking row
-   behind scroll on the live catalogue), and shows a doubled "model not set / model not
-   set" trigger label.
-2. **fresh-session / Composer model selector: match → deviates.** Same doubled-label
-   defect, visible on `audit2-fresh.png`: the synthetic placeholder row
-   (`SessionView.tsx:1058`) is formatted as `{group} / {model}` with both halves the
-   placeholder (`ProviderModelPicker.tsx:105-107`).
-3. **icons-and-buttons / Download button: unbacked → not-wired.** The recorded claim
-   "no artifact-content/download route confirmed on clio-agent" is false — clio-agent
-   has served `GET /v1/artifacts/{artifact_id}/export` (hash-verified bytes,
-   `routes/artifact_export.py`) since 2026-07-22 (#973). Probed live this audit: a real
-   artifact id returned 200 with 5,282 bytes. A disabled control over a live route is a
-   dead control, not an agreed degraded treatment.
-4. **panels / Detail slot chrome: match → deviates.** Consequence of §3.3: the single
-   disabled download button was justified by "no endpoint exists"; the endpoint exists,
-   so the prototype's 3-item menu is (mostly) backable today and the item deviates.
-5. **rail-and-topbar + menus-grammar / relay cell: unbacked → not-wired (both files).**
-   clio-agent#1179 landed `GET /v1/relay/status` (probed live: 200, `reachable:true`),
-   and the settings pass-2 commit (`62a732ce`) shipped `Client.relayStatus()` plus a
-   working Settings > Relays page consuming it — *before* the rail pass-2 commit
-   (`4d0079f2`) re-affirmed the cell as "unbacked". `Rail.tsx` still renders a disabled
-   cell titled "relay reachability has no wire surface yet (clio-agent#1179)" — a
-   now-false claim shown to users. Fix: drive the dot/label from `relayStatus()` and
-   restore click-through to Settings > Relays.
-6. **icons-and-buttons / settings rollups: evidence refreshed (statuses unchanged).**
-   Both rollup rows cited a pre-`62a732ce` settings.json (Relays "missing"/"unbacked",
-   36/9/1/1 tallies); text updated to the current 38-match/9-deviates reality.
+1. **composer-pill / Model selector: match → deviates.** The claim that the
+   per-provider "default ⌄" indicator "now renders visible, disabled, and flagged"
+   fails on the real catalogue: a Playwright bounding-box probe of the rebuilt preview
+   measured `.provider-model-picker__cfg` at ≤4px wide — invisible — on 8 of 10
+   provider rows (all but Anthropic API and OpenRouter). The row grid
+   (`minmax(0,auto) minmax(0,1fr) minmax(0,72px)`) hands the badge the leftover 1fr,
+   and real provider names consume the 210px column. The jsdom lock can't see it (no
+   layout) — the same trap pass 3 itself documented for the status-text blowout it did
+   catch and fix. The rest of the pass-3 work on this control is real and verified
+   (one-line 28px rows, names never swallowed, clipped status with title, single
+   trigger label).
+2. **menus-grammar / Provider/model picker popover: match → deviates.** Same evidence;
+   its reclassification rested on "none [of the grammar] is silently absent", which
+   the invisible badge disproves. Its second pass-3 fix (the panes row-track clip) is
+   genuinely fixed and keeps its own item's `match`.
+3. **panels / Detail slot chrome: match → deviates.** The ARTIFACT/PROVENANCE/RECREATE
+   sub-tab row paints lowercase: the prototype's own artTab buttons carry inline
+   `text-transform:uppercase; letter-spacing:.08em` (verified byte-level), while the
+   app's kit Tabs css has no text-transform — visible on `audit3-detail.png`. All
+   other pass-3 claims in the item verified real (download menu + live export route,
+   '›' breadcrumb, clickable first crumb, maximize/collapse).
+4. **Two audit-added items (spot-check finds, both `deviates`):**
+   **settings / Nav page-item rows** — the prototype's settings nav rows are prose
+   14px, idle `--t-tx`, active `--t-hd` in a 218px rail; the app's MasterDetail rows
+   are mono 12px, idle `--t-mu`, active cyan, 180px (visible on every settings
+   composite; no prior item owned nav typography — items 2-21 are presence/order
+   claims). **observability / Log-row duration placement** — the app renders
+   durations as a separate right-aligned `auto` grid column
+   (`Observability.tsx:622`, `observability.css:262`); the prototype's durations are
+   inline in the action text (`'tool call (2.8s)'`), visible on `audit3-obs.png`.
+5. **icons-and-buttons / settings rollup: evidence refreshed (status unchanged).**
+   The 13-page rollup cited the pre-pass-3 settings tallies (Metrics still counted as
+   deviating); text updated to the current 39-match/9-deviates reality (6 of its named
+   13 deviate).
 
-Everything else re-measured held up. Verified pass-2 wins, confirmed by code + tests +
-fresh composites: the mainQ queue tray (`audit2-queue.png` — header string, per-row
-hints, ↑↓✎✕, pill-then-tray geometry), the files-layer real folder tree against the
-live workspace (`audit2-files.png`), the `@`-picker `"dir"` filter fix (failing-first
-test with the real wire spelling), prose-font display names + per-face previews
-(`audit2-appearance.png`), the Relays nav item + pane (`audit2-relays.png`), timeline
-thread connectors (live brackets on the anchor session, `audit2-obs-anchor-app.png`),
-the collapsed-rail brand mark (`audit2-collapsed-rail-app.png`), the detail-slot
-collapse-to-strip (code + 3 tests), and the MODE popover / new-dialog / fresh-state /
-gantt spot-checks (`audit2-exec/newdialog/fresh/gantt-anchor*.png`). Suite green at
-41 files / 478 tests; build green.
-
-Tooling notes, disclosed: the `console` composite still cannot be captured (the
-`isTauri` spoof crashes the boot probe — tracked in panels.json). The side-by-side
-`fresh` setup creates a real session on the live backend each run (it drives the +new
-dialog's CREATE SESSION for real) — this audit's run added one more "untitled session"
-to the store, as every prior grind run did; cleanup is already a tracked task, but the
-setup should be reworked before the store cleanup lands or it will re-pollute it.
+Tooling notes, disclosed: the audit did NOT run the `fresh` side-by-side setup — it
+creates a real session on the live backend each run and the store was just rebuilt
+(ndp/materio demo redo in flight); the fresh-state item was verified from the
+checked-in pass-3 composite, the root-cause code, its locked test, and a live probe of
+a real model-less session instead. The `console` composite remains uncapturable per
+panels.json's standing note. Suite green at 41 files / 521 tests; build green.
 
 ---
 
 ## 4. Wire-gap ledger — prototype semantics with no clio-agent surface
 
-Every unbacked prototype semantic, with the clio-agent surface it would need. These are
-the candidate clio-agent issues; items marked *(desktop)* are Tauri-shell gaps, not
-clio-agent routes. Two entries from the pass-1 ledger are **deleted because the routes
-exist** (relay reachability — #1179 shipped; artifact download — #973 shipped): those
-are now client wiring work, not wire gaps.
+Every unbacked prototype semantic, with the clio-agent surface it would need. These
+are the candidate clio-agent issues; items marked *(desktop)* are Tauri-shell gaps,
+not clio-agent routes. One entry is new this audit (#17, disclosed by pass 3's own
+async work). Previously-deleted entries stay deleted (relay reachability #1179 and
+artifact export #973 shipped and are now consumed end-to-end).
 
 | # | Prototype semantic | Surface(s) | clio-agent surface needed |
 |---|---|---|---|
 | 1 | Composer attach ("+") upload flow | composer-pill, fresh-session | file-upload endpoint (e.g. `POST /v1/sessions/{id}/attachments` or workspace upload) |
-| 2 | Relay REGISTRY (named hosts, add/remove, per-host latency) + Settings Relays parity | settings, rail-and-topbar, menus-grammar | relay-registry route (list/add/remove + per-host probe); reachability itself is live (`GET /v1/relay/status`, #1179) |
+| 2 | Relay REGISTRY (named hosts, add/remove, per-host latency) + Settings Relays parity | settings, rail-and-topbar, menus-grammar | relay-registry route (list/add/remove + per-host probe); reachability itself is live (`GET /v1/relay/status`, #1179) and consumed |
 | 3 | Console dock — live shell REPL | panels | session/workspace-scoped shell-execution (PTY) route |
-| 4 | "Open storage location" row of the artifact download menu | icons-and-buttons, panels | *(desktop)* OS reveal-in-folder — download-file/copy-link are backable today via `GET /v1/artifacts/{id}/export` (#973) |
+| 4 | "Open storage location" row of the artifact download menu | icons-and-buttons, panels | *(desktop)* OS reveal-in-folder — download-file/copy-link are live via `GET /v1/artifacts/{id}/export` (#973) |
 | 5 | Files layer SAVE | panels | workspace file-write endpoint (`/v1/workspaces/{id}/files` write — verified absent: only GET `/files` + `/files/read` exist) |
 | 6 | Files layer "browse…" above the workspace root | panels, fresh-session | filesystem browse route above the registered root *(or desktop OS picker — no surface on either side today)* |
 | 7 | Per-model sampling-parameter editor (picker gear) | menus-grammar, composer-pill | per-model sampling-override store (nothing populates PATCH `model.variant`) |
-| 8 | Per-provider "default ⌄" config picked per session | menus-grammar, composer-pill | per-session provider-config selection (only global `PUT /v1/providers/lm` exists; presets[] data is already there) |
+| 8 | Per-provider "default ⌄" config picked per session | menus-grammar, composer-pill | per-session provider-config selection (only global `PUT /v1/providers/lm` exists; presets[] data is already there). NOTE: the client-side badge also has a rendering defect (§3.1) — fixing the badge does not close this wire gap, and vice versa |
 | 9 | Provider NAME/ENDPOINT edit + API-key save | settings | provider-config write route + credential-bearing auth (current authenticate call carries no credential body) |
 | 10 | Context tab relay-latency + thinking-tokens tiles | observability, panels | new fields on `GET /v1/sessions/{id}/context/state` (or a relay-metrics route); thinking-token count also absent per-part (#1177) |
 | 11 | "LIVE NOW" cross-session running-jobs feed | observability | active-runs-across-sessions endpoint, or a running-status filter on `GET /v1/sessions` |
@@ -217,27 +220,25 @@ are now client wiring work, not wire gaps.
 | 14 | Models page "router lm" default role | settings | a router-lm role in the LM config wire (`LmConfigSnapshot` is a single global pair) |
 | 15 | Observability pop-out window | observability, icons-and-buttons | *(desktop)* Tauri open-window API — not a clio-agent route; prototype's own button is inert |
 | 16 | Steering-context panel state (live/reawaken/warning) | composer-pill | child-session live-state feed consumable by a focused-child view (E9 client work first; wire shape TBD with it) |
+| 17 | Async runs popover per-row live progress ticker ('watching 155 in-region stations · sampling hourly') + finished-row meta ('awaiting review · 1 artifact') | composer-pill | progress/status-text (and artifact-count) fields on `GET /v1/sessions/{id}/agent-tasks`, or a live task-progress feed — today the rows carry only status/label/host/timestamps |
 
 Already-correct visible-degraded treatments (no action needed until a surface ships):
 composer attach button, console dock marker, new-dialog browse…, per-model gear,
-files-layer SAVE/browse. **No longer on this list** (routes exist — wire the client):
-rail relay cell, Settings Relays add/remove *(registry still needed for parity)*,
-detail-slot/artifacts download button.
+files-layer SAVE/browse, download menu's "open storage location" row.
 
 ---
 
 ## Return summary
 
-- **Total items measured:** 188 (across 9 surfaces)
-- **Overall alignment:** 150/188 match = **79.8%** (pass-1 audit: 142/186 = 76.3%;
-  original: 49/185 = 26.5%)
-- **Non-match breakdown:** 26 deviates, 8 missing, 3 not-wired, 1 unbacked (sums to 38)
-- **Remaining work items:** **37** (38 non-match minus the 1 visible-degraded unbacked)
-- **Scoreboard (worst → best):** transcript-parts 65.0% · composer-pill 70.6% ·
-  menus-grammar 75.0% · observability 77.8% · icons-and-buttons 80.0% · settings 80.9% ·
-  rail-and-topbar 84.2% · panels 84.6% · fresh-session 95.7%
-- **Audit corrections:** 6 statuses fixed. 2 findings are live-probe route
-  discoveries — `GET /v1/artifacts/{id}/export` (#973) and `GET /v1/relay/status`
-  (#1179) both exist while the JSONs claimed otherwise — plus 1 new visible defect
-  (the doubled "model not set / model not set" label) and cross-file consistency on the
-  model picker.
+- **Total items measured:** 191 (across 9 surfaces)
+- **Overall alignment:** 157/191 match = **82.2%** (pass-2 audit: 150/188 = 79.8%;
+  pass-1 audit: 142/186 = 76.3%; original: 49/185 = 26.5%)
+- **Non-match breakdown:** 25 deviates, 8 missing, 0 not-wired, 1 unbacked (sums to 34)
+- **Remaining work items:** **33** (34 non-match minus the 1 visible-degraded unbacked)
+- **Scoreboard (worst → best):** transcript-parts 65.0% · observability 73.7% ·
+  composer-pill 76.5% · settings 81.3% · menus-grammar 82.4% · panels 84.6% ·
+  icons-and-buttons 86.7% · rail-and-topbar 89.5% · fresh-session 100.0%
+- **Audit outcome:** 7 of 10 pass-3 upgrades confirmed; 3 corrected back (invisible
+  cfg badge ×2 files, lowercase sub-tabs); 2 new deviations inventoried (settings nav
+  typography, obs duration column); 1 new wire-gap ledger entry (#17, async task
+  progress fields).

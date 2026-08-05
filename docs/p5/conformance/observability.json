@@ -59,6 +59,14 @@
       "fix_hint": ""
     },
     {
+      "element": "Timeline log row: duration rendered inline in the action text, not as a trailing column",
+      "proto_truth": "The prototype's timeline rows carry the duration INSIDE the action string — row('19:53','geo_geocode','tool call (2.8s)', ...), row('19:55','ndp_search','tool call (6.1s)', ...) — one text run, no separate right-aligned cell (verified on the trace-builder row() calls in design/prototype/Clio Session.html; all 16 inline '(Ns)' durations in the demo data are part of the action text).",
+      "status": "deviates",
+      "app_evidence": "Found by the pass-3 INDEPENDENT AUDIT (2026-08-05) while spot-checking the re-verified log rows: apps/web/src/observability/Observability.tsx:622 renders `row.duration` as its own `<span class=\"obs-log__duration\">` in a 5th `auto` grid column (observability.css:262 `grid-template-columns: 70px 46px minmax(90px,max-content) minmax(0,1fr) auto`), so durations paint right-aligned at the row's far edge — visibly different from the prototype's inline '(2.8s)' on audit3-obs.png (app rows: 'shell_bash  tool call ......... (2s)'). Glyphs/markers/threading themselves match (that neighbouring item keeps its status).",
+      "backend_surface": "n/a — the wire already carries the duration; this is placement only",
+      "fix_hint": "Append the duration to the action text (`${action} (${duration})`) and drop the 5th column, or keep the column but only if the prototype is re-measured to justify it — current measurement says inline."
+    },
+    {
       "element": "Timeline's opening row for the user's turn",
       "proto_truth": "prototype's very first log row is always the user message, e.g. '19:52 · user · \"What recent ground-motion is EarthScope's GNSS network showing around...\"' (proto-obs.json rows[0-1]); every subsequent user turn gets its own row the same way",
       "status": "match",

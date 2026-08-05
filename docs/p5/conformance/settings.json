@@ -17,6 +17,14 @@
       "backend_surface": "unbacked (client-only nav structure)"
     },
     {
+      "element": "Nav page-item rows: label typography + idle/active colors (all 21 pages)",
+      "proto_truth": "Each page row in the settings nav is a full-width button in the PROSE face at 14px — `font-family:var(--f-prose,'Inter',...); font-size:calc(14px * var(--ts,1))` — idle color var(--t-tx,#a8adb8); the active page gets bg var(--t-sf2) with color var(--t-hd,#c5cad3) (grey-white, NOT accent cyan). Nav column is flex-basis 218px. Transcribed verbatim from the settingsNav sc-for template + the settingsNav state builder (bg/color ternaries) in design/prototype/Clio Session.html.",
+      "status": "deviates",
+      "app_evidence": "Found by the pass-3 INDEPENDENT AUDIT (2026-08-05) — no prior item owned the nav rows' typography (items 2-21 record presence/order only, and both were audited as such). apps/web/src/kit/masterdetail.css renders the same rows mono-12px (`font-family: var(--f-mono); font-size: calc(12px * var(--ts))`), idle var(--t-mu) (vs the prototype's brighter --t-tx), active color var(--t-cy) (accent cyan vs the prototype's --t-hd grey-white), in a 180px column (vs 218px). Clearly visible on every settings composite this audit captured (audit3-metrics.png, audit3-relays.png): the top pane's nav is prose and larger, the bottom pane's is mono, smaller, cyan-highlighted. Group headers are NOT part of this deviation — they are mono-10.5 uppercase on both sides and stay 'match' as their own item.",
+      "backend_surface": "n/a (pure presentation)",
+      "fix_hint": "MasterDetail is shared chrome — check other MasterDetail consumers against the prototype before changing the kit default; if settings is its only prototype-anchored consumer, move the rows to prose 14px / --t-tx / active --t-hd and widen the rail to 218px there."
+    },
+    {
       "element": "Nav item: Backends",
       "proto_truth": "Visible, default-active page under CONNECTION.",
       "status": "match",
