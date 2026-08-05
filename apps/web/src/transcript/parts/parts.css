@@ -665,3 +665,14 @@
   font-size: 11.5px;
   cursor: pointer;
 }
+
+/* Interactive child result box (prototype goCall): hover teal border. */
+.part-childcard[data-interactive='true'] {
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.part-childcard[data-interactive='true']:hover {
+  background: var(--t-hv, #1f232b);
+  border-color: rgba(10, 166, 173, 0.4);
+}

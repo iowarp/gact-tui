@@ -135,6 +135,8 @@ export interface MergedHandoffProps {
   started?: WirePart;
   /** The terminal part (completed/failed/superseded) — carries `metadata.output`. */
   terminal?: WirePart;
+  /** When present, the RESULT BOX becomes the prototype's open-agent target. */
+  onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
 }
 
 /**
@@ -145,7 +147,7 @@ export interface MergedHandoffProps {
  * each stage as its own full block duplicated every Call and drew an empty
  * running card next to the completed one — the "unreadable transcript".
  */
-export function MergedHandoff({ started, terminal }: MergedHandoffProps) {
+export function MergedHandoff({ started, terminal, onOpenChild }: MergedHandoffProps) {
   const final = terminal ?? started;
   if (!final) return null;
   const startedMeta = started ? metadataOf(started) : {};
@@ -175,6 +177,15 @@ export function MergedHandoff({ started, terminal }: MergedHandoffProps) {
         duration={duration}
         body={answer}
         status={status}
+        {...(onOpenChild && handleId
+          ? {
+              onOpen: (peek: boolean) => onOpenChild(handleId, child, { peek }),
+              openTitle:
+                status === 'running'
+                  ? 'Open live agent · shift-click to peek in the side panel'
+                  : 'Open agent · shift-click to peek in the side panel',
+            }
+          : {})}
       />
     </div>
   );
@@ -217,6 +228,8 @@ function ChildCard({
   duration,
   body,
   status,
+  onOpen,
+  openTitle,
 }: {
   child: string;
   runLabel: string;
@@ -224,6 +237,8 @@ function ChildCard({
   duration: string;
   body: string;
   status: SessionStatus;
+  onOpen?: (peek: boolean) => void;
+  openTitle?: string;
 }) {
   // A run placed elsewhere is not the same event as a local one (mirrors
   // background_exit's own placement convention).
@@ -234,8 +249,27 @@ function ChildCard({
   // here; running and failed are the two states worth a mark.
   const showDot = status !== 'idle';
 
+  // Interactive ONLY when a real destination exists (the prototype's goCall:
+  // click → center child view, shift-click → right peek). Without a handler
+  // the card claims nothing — an affordance that does nothing is a lie.
+  const interactive = onOpen
+    ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        title: openTitle ?? 'Open agent · shift-click to peek in the side panel',
+        onClick: (e: { shiftKey: boolean }) => onOpen(Boolean(e.shiftKey)),
+        onKeyDown: (e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen(Boolean(e.shiftKey));
+          }
+        },
+        'data-interactive': 'true' as const,
+      }
+    : {};
+
   return (
-    <div className="part-childcard" data-testid="part-child-card">
+    <div className="part-childcard" data-testid="part-child-card" {...interactive}>
       <div className="part-childcard__head">
         {showDot ? <StatusDot status={status} quiet={status !== 'running'} /> : null}
         <span className="part-childcard__name">{child}</span>

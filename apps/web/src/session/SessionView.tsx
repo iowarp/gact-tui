@@ -34,6 +34,7 @@ import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import { BlueprintWindow } from './BlueprintWindow';
+import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
 import { FilesLayer } from './FilesLayer';
 import { FreshHeadline, FreshStarting, SuggestedPrompts, type FreshStarter } from './FreshState';
@@ -192,6 +193,15 @@ export function SessionView({
   const [modelProviders, setModelProviders] = useState<ProviderModelGroup[]>([]);
   const [thinkingLevel, setThinkingLevel] = useState<string | undefined>(undefined);
   const [activeScope, setActiveScope] = useState('main');
+  // The prototype's CENTER drill-in stack (focus[]): each entry is a child
+  // session opened from its Call box for maximum reading + steering. A
+  // breadcrumb ribbon navigates back; selecting another session wipes it.
+  const [focus, setFocus] = useState<{ sessionId: string; agent: string }[]>([]);
+  const [childView, setChildView] = useState<{
+    sessionId: string;
+    messages: Message[];
+    status: string;
+  } | null>(null);
   const [pillState, setPillState] = useState<ComposerPillState | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPins(client.baseUrl));
   const [pinnedWorkspaceIds, setPinnedWorkspaceIds] = useState<Set<string>>(() =>
@@ -667,9 +677,72 @@ export function SessionView({
       setPillState(null);
       return;
     }
+    // Selecting a session wipes the drill-in stack (the prototype's
+    // selectSession does exactly this).
+    setFocus([]);
     void load(activeId);
     void refreshPill(activeId, activeScope);
   }, [activeId, activeScope, load, refreshPill]);
+
+  const focusTop = focus.length > 0 ? focus[focus.length - 1]! : null;
+
+  // The focused child's live-ish view: fetched on focus and refreshed while
+  // focused (children run in background; their transcript grows under us).
+  useEffect(() => {
+    if (!focusTop) {
+      setChildView(null);
+      return;
+    }
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const [result, row] = await Promise.all([
+          client.messages(focusTop.sessionId),
+          Promise.resolve()
+            .then(() => client.getSession(focusTop.sessionId))
+            .catch(() => null),
+        ]);
+        if (!cancelled) {
+          setChildView({
+            sessionId: focusTop.sessionId,
+            messages: result.messages ?? [],
+            status: String((row as { status?: unknown } | null)?.status ?? ''),
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setChildView({ sessionId: focusTop.sessionId, messages: [], status: 'failed' });
+        }
+      }
+    };
+    void pull();
+    const timer = window.setInterval(() => void pull(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [focusTop?.sessionId, client]);
+
+  // A Call box names its delegation by handle_id (== the agent-task id); the
+  // child session id comes from the parent's agent-task records.
+  const openChildByHandle = useCallback(
+    async (handleId: string, agent: string) => {
+      const parentId = focusTop?.sessionId ?? activeId;
+      if (!parentId || !handleId) return;
+      try {
+        const { tasks } = await fetchSessionAgentTasks(client, parentId);
+        const task = tasks.find(
+          (t) => t.task_id === handleId || (t as { handle_id?: string }).handle_id === handleId,
+        );
+        const childId = task?.child_session_id;
+        if (childId) setFocus((cur) => [...cur, { sessionId: childId, agent }]);
+      } catch {
+        // No resolvable destination — the box simply doesn't navigate; never a
+        // silent wrong jump.
+      }
+    },
+    [client, activeId, focusTop?.sessionId],
+  );
 
   const active = sessions.find((s) => s.id === activeId);
   const activeBlueprintId = detail?.metadata?.active_agent_blueprint_id;
@@ -941,6 +1014,18 @@ export function SessionView({
         // No session selected means a FRESH one, not a dead end: the default
         // view is an empty session you can type into, so the first send is
         // what brings the session into being.
+        // Steering: with a child focused, the composer talks to THAT session
+        // (the prototype's child composer), leaving its mode untouched.
+        if (focusTop) {
+          await client.sendMessage(focusTop.sessionId, { text });
+          const result = await client.messages(focusTop.sessionId);
+          setChildView((cur) =>
+            cur && cur.sessionId === focusTop.sessionId
+              ? { ...cur, messages: result.messages ?? [] }
+              : cur,
+          );
+          return;
+        }
         let target = activeId;
         if (!target) {
           const created = await createAndSelectSession();
@@ -962,7 +1047,7 @@ export function SessionView({
         setSending(false);
       }
     },
-    [activeId, activeScope, client, createAndSelectSession, load, refreshPill],
+    [activeId, activeScope, client, createAndSelectSession, focusTop, load, refreshPill],
   );
 
   const queueTurnMode = detail?.mode === 'plan' ? 'plan' : 'execute';
@@ -1188,9 +1273,21 @@ export function SessionView({
         breadcrumbTitle={
           activeBlueprintId ? 'Agent blueprint · click to view or edit' : 'Pick a blueprint for this session'
         }
-        ribbon={[{ id: 'main', label: 'main' }]}
-        activeRibbonId={activeScope}
-        onSelectRibbon={setActiveScope}
+        ribbon={[
+          { id: 'main', label: 'main' },
+          ...focus.map((entry) => ({ id: entry.sessionId, label: entry.agent })),
+        ]}
+        activeRibbonId={focusTop?.sessionId ?? activeScope}
+        onSelectRibbon={(tabId: string) => {
+          if (tabId === 'main') {
+            setFocus([]);
+            setActiveScope('main');
+            return;
+          }
+          const at = focus.findIndex((entry) => entry.sessionId === tabId);
+          if (at >= 0) setFocus(focus.slice(0, at + 1));
+          else setActiveScope(tabId);
+        }}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
         panel={panel}
         obsTab={obsTab}
@@ -1299,8 +1396,16 @@ export function SessionView({
           </>
         ) : (
           <>
-            {state.kind === 'loaded' && transcriptMessages.length > 0 ? (
-              <Transcript messages={transcriptMessages} />
+            {focusTop && childView?.sessionId === focusTop.sessionId ? (
+              <ChildFocusView
+                agent={focusTop.agent}
+                parentLabel={focus.length > 1 ? focus[focus.length - 2]!.agent : 'main'}
+                messages={childView.messages}
+                status={childView.status}
+                onOpenChild={openChildByHandle}
+              />
+            ) : state.kind === 'loaded' && transcriptMessages.length > 0 ? (
+              <Transcript messages={transcriptMessages} onOpenChild={openChildByHandle} />
             ) : null}
             {composerElement}
           </>

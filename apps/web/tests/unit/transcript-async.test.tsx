@@ -285,3 +285,37 @@ describe('handoff pair merge — ONE Call block per delegation (W1, NDP showcase
     expect(screen.getAllByText('Call(ndp)')).toHaveLength(1);
   });
 });
+
+describe('Call result box interactivity (W2 — a real destination now exists)', () => {
+  const COMPLETED = {
+    ...STARTED_HANDOFF,
+    id: 'live_handoff_click',
+    stage: 'delegate.completed',
+    live_state: 'completed',
+    status: 'completed',
+    metadata: { output: 'done' },
+  };
+
+  it('is a button with the prototype title when onOpenChild is provided, and clicks back with the handle', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const calls: unknown[] = [];
+    render(
+      <Transcript
+        messages={[msg('m1', 'assistant', [STARTED_HANDOFF, COMPLETED])]}
+        onOpenChild={(handleId, agent, opts) => calls.push([handleId, agent, opts])}
+      />,
+    );
+    const card = screen.getByTestId('part-child-card');
+    expect(card).toHaveAttribute('role', 'button');
+    expect(card).toHaveAttribute('title', 'Open agent · shift-click to peek in the side panel');
+    fireEvent.click(card);
+    expect(calls).toEqual([['task_8562bd68e4d5', 'geospatial', { peek: false }]]);
+    fireEvent.click(card, { shiftKey: true });
+    expect(calls[1]).toEqual(['task_8562bd68e4d5', 'geospatial', { peek: true }]);
+  });
+
+  it('stays non-interactive without a handler (an affordance that does nothing is a lie)', () => {
+    render(<Transcript messages={[msg('m1', 'assistant', [STARTED_HANDOFF, COMPLETED])]} />);
+    expect(screen.getByTestId('part-child-card')).not.toHaveAttribute('role');
+  });
+});

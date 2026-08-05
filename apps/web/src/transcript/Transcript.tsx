@@ -8,6 +8,8 @@ import './transcript.css';
 
 export interface TranscriptProps {
   messages: Message[];
+  /** Opens a delegation's child (center focus; peek=true → right panel). */
+  onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -131,7 +133,7 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
  * The one pre-pass this owns is pairing (above): grouping related parts
  * before they reach the registry, never re-rendering a kind a different way.
  */
-export function Transcript({ messages }: TranscriptProps) {
+export function Transcript({ messages, onOpenChild }: TranscriptProps) {
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -153,7 +155,7 @@ export function Transcript({ messages }: TranscriptProps) {
               aria-label={`${message.role} message`}
             >
               {groupParts(parts, message.id).map((group) => (
-                <RenderedGroup key={group.key} group={group} />
+                <RenderedGroup key={group.key} group={group} {...(onOpenChild ? { onOpenChild } : {})} />
               ))}
             </article>
           );
@@ -163,7 +165,13 @@ export function Transcript({ messages }: TranscriptProps) {
   );
 }
 
-function RenderedGroup({ group }: { group: PartGroup }) {
+function RenderedGroup({
+  group,
+  onOpenChild,
+}: {
+  group: PartGroup;
+  onOpenChild?: TranscriptProps['onOpenChild'];
+}) {
   if (group.kind === 'tool') {
     return (
       <PartCard kind="tool" gutter={<WrenchGlyph />}>
@@ -181,7 +189,11 @@ function RenderedGroup({ group }: { group: PartGroup }) {
   if (group.kind === 'handoff') {
     return (
       <PartCard kind="expert_handoff" gutter={<WrenchGlyph />}>
-        <MergedHandoff started={group.started} terminal={group.terminal} />
+        <MergedHandoff
+          started={group.started}
+          terminal={group.terminal}
+          {...(onOpenChild ? { onOpenChild } : {})}
+        />
       </PartCard>
     );
   }
