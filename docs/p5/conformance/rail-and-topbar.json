@@ -77,7 +77,8 @@
     {
       "element": "Rail footer: 'agents N' cell",
       "proto_truth": "green dot + 'agents' + live count; title 'Connected agents — opens settings' — clicking navigates to Settings",
-      "status": "match",
+      "status": "deviates",
+      "audit_correction": "Corrected match -> deviates by the independent audit (2026-08-04): the ground truth's click semantics are 'navigates to Settings > Agents'; the app's click still opens a connection-switcher popover and never navigates — a deliberate, well-documented divergence, but a divergence. menus-grammar.json records the SAME control as 'deviates' for the same reason; two files may not carry contradictory statuses for one element. The honesty fix (real title text) and the live count both stand.",
       "app_evidence": "RESOLVED this pass (was 'deviates'). Content divergence remains deliberate (apps/web/src/shell/Rail.tsx:482-492 comment): the app manages MULTIPLE live clio deployments the prototype's single-backend demo never modelled, so the click opens a connection switcher rather than only navigating — but the prototype's own 'opens settings' contract is still honoured, since Settings has its own Agents page (apps/web/src/settings/Settings.tsx case 'agents') listing the same connections. What was actually missing was honesty about the click target: added `title=\"Connected agents — click to switch the connected backend\"` (Rail.tsx) so the cell states what it does rather than nothing. Count itself is live (GET-driven readyCount).",
       "backend_surface": "count is client-owned (connection pool), not /v1/agents",
       "fix_hint": ""
@@ -85,7 +86,8 @@
     {
       "element": "Rail footer: 'relay' cell",
       "proto_truth": "green dot + clickable 'relay' text; title 'Relays — opens settings'",
-      "status": "deviates",
+      "status": "unbacked",
+      "audit_correction": "Status aligned deviates -> unbacked by the independent audit (2026-08-04): this is the SAME element menus-grammar.json records as 'unbacked' (no relay-reachability wire surface, clio-agent#1179), already carrying the agreed visible-degraded treatment (disabled cell, 'relay unknown' label, explanatory title — confirmed live on audit-session.png). Two files may not carry different statuses for one element; 'unbacked + visibly degraded' is the accurate classification on both.",
       "app_evidence": "Unchanged this pass — re-verified still accurate. apps/web/src/shell/Rail.tsx:495-503 renders a permanently `disabled` cell with an idle/muted dot and the label 'relay unknown', title citing clio-agent#1179; apps/web/screenshots/side-by-side/rail-topbar-session.png shows 'relay unknown' live",
       "backend_surface": "unbacked (clio-agent#1179 — no relay-reachability endpoint exists yet); this is a deliberate typed-degradation (no-silent-fallback), not an oversight",
       "fix_hint": "Once #1179 lands a reachability endpoint, restore the live green dot + click-to-settings behavior. WIRE GAP — carried forward, not fixed here."

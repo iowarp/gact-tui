@@ -295,7 +295,8 @@
     {
       "element": "Appearance detail pane -- Prose font",
       "proto_truth": "Row label 'PROSE FONT', five buttons: Inter, Source Sans 3, Literata, Atkinson Hyperlegible, OpenDyslexic (wraps to 2 rows). Caption: 'Applies to prose and UI text. Code and metadata stay monospace.'",
-      "status": "match",
+      "status": "deviates",
+      "audit_correction": "Downgraded match -> deviates by the independent audit (2026-08-04): the app renders the ProseFont union KEYS as button labels ('inter', 'source', 'literata', 'atkinson', 'dyslexic' — theme.ts:15 has no display-label map), not the prototype's full names ('Inter', 'Source Sans 3', 'Literata', 'Atkinson Hyperlegible', 'OpenDyslexic'). Visually confirmed on screenshots/side-by-side/audit-set-appearance.png. Mechanism and caption are correct; the visible label text is not. Fix: add a per-font display label (ideally rendered in its own face, as the prototype does).",
       "app_evidence": "apps/web/src/settings/AppearancePage.tsx + theme.ts (unchanged ProseFont union/PROSE_STACKS keys). Now on PillRow (wraps naturally via flex-wrap) and the caption line was added (`.settings__caption`).",
       "backend_surface": "client (localStorage, theme.ts)"
     },

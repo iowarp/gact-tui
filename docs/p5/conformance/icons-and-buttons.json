@@ -77,7 +77,8 @@
     {
       "element": "Settings sub-pages: Providers / Models / Agents / Commands / Prompts / Agent blueprints / Expert packs / MCP servers / Hooks / Policies / Memory / Metrics / Doctor (13 pages)",
       "proto_truth": "See docs/p5/conformance/settings.json for the full measured item-by-item truth.",
-      "status": "match",
+      "status": "deviates",
+      "audit_correction": "Corrected match -> deviates by the independent audit (2026-08-04): this row defers to settings.json as the source of truth, and settings.json itself records 7 of these 13 panes as 'deviates' (Providers, Models, Agents, Agent blueprints, Policies, Memory, Metrics) with only 6 as 'match'. A cross-reference row cannot summarize a majority-deviating set as 'match'. All 13 are genuinely BUILT (the original 'missing' is dead) — the correct rollup of settings.json's own statuses is 'deviates'.",
       "app_evidence": "NOT re-verified by this pass — a parallel PASS 1 already fully built these 13 pages under the dedicated 'settings' surface (docs/p5/conformance/settings.json, 2026-08-04), which is the current source of truth for Settings. Re-stating stale 'missing' here would contradict that already-landed, already-tested work. Only Relays remains genuinely unbacked there (ships hidden, documented).",
       "backend_surface": "see settings.json per-page",
       "fix_hint": "Tracked and closed under the 'settings' surface, not here — this entry exists only so a reader of THIS file does not see a stale 'missing' claim settings.json has already superseded."
