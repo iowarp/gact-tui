@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Chip, Eyebrow, KvGrid, Layer, Tabs, ToolbarButton, type KvRow } from '../kit';
+import { Chip, Eyebrow, Icon, KvGrid, Layer, Tabs, ToolbarButton, type KvRow } from '../kit';
 import type { ArtifactRecord, RouteStep } from './types';
 import './detail.css';
 
@@ -84,34 +84,42 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
           <>
             <ToolbarButton
               label={copied ? 'Copied' : 'Copy as markdown'}
+              title={copied ? 'Copied' : 'Copy'}
               iconOnly
               size="small"
-              icon={<span aria-hidden="true">{copied ? '✓' : '⧉'}</span>}
+              icon={<Icon name={copied ? 'check' : 'copy'} size={12} />}
               onClick={copyMarkdown}
             />
+            {/* The prototype's Download opens a menu (download file / open
+                storage location / copy link) — clio-agent serves no
+                artifact-content route to back any of the three, so this stays
+                the visible-degraded pattern (disabled + explanatory title)
+                rather than a fabricated menu with nothing behind it. */}
             <ToolbarButton
               label="Download"
+              title="Not wired — no artifact-download endpoint."
               iconOnly
               size="small"
-              icon={<span aria-hidden="true">⭳</span>}
+              icon={<Icon name="download" size={12} />}
               unbacked
-              title="Not wired — no artifact-download endpoint."
               onClick={() => {}}
             />
           </>
         ) : null}
         <ToolbarButton
           label="Maximize detail"
+          title="Maximize"
           iconOnly
           size="small"
-          icon={<span aria-hidden="true">⛶</span>}
+          icon={<Icon name="expand" size={12} />}
           onClick={() => setMaximized(true)}
         />
         <ToolbarButton
           label="Close detail"
+          title="Close"
           iconOnly
           size="small"
-          icon={<span aria-hidden="true">×</span>}
+          icon={<Icon name="x" size={11} />}
           onClick={onClose}
         />
       </header>

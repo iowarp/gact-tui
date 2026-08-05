@@ -67,8 +67,12 @@
   border-bottom: 1px solid var(--t-bd3);
 }
 
-.kit-modal__title {
+.kit-modal__headerslot {
   flex: 1;
+  min-width: 0;
+}
+
+.kit-modal__title {
   margin: 0;
   color: var(--t-hd);
   font-family: var(--f-prose);

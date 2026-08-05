@@ -109,11 +109,17 @@ export function Modal({
         tabIndex={-1}
       >
         <div className="kit-modal__header">
-          {header ?? (
-            <h2 className="kit-modal__title" id={titleId}>
-              {title}
-            </h2>
-          )}
+          {/* Always the flex:1 slot so the close button sits at the far right
+              (the prototype's own layout) whether this is the default
+              heading or a caller's custom `header` — a custom header used to
+              hug the close button instead of pushing it to the edge. */}
+          <div className="kit-modal__headerslot">
+            {header ?? (
+              <h2 className="kit-modal__title" id={titleId}>
+                {title}
+              </h2>
+            )}
+          </div>
           {header ? (
             <span className="kit-modal__sr-title" id={titleId}>
               {title}

@@ -92,6 +92,103 @@ describe('Composer', () => {
   });
 });
 
+/**
+ * Send-while-busy message queue (mainQ) — prototype's queueRows()/mq.up/
+ * mq.down/mq.startEdit/mq.rm/mainQNow, transcribed from LayerChrome-adjacent
+ * source (design/prototype/Clio Session.html). Enqueueing only replaces the
+ * hard block when the caller actually wires a destination for it
+ * (`onQueueMessage`) — supplying `busy` alone keeps the old block, matching
+ * the plain-busy test above.
+ */
+describe('send-while-busy message queue', () => {
+  it('keeps a hard block when busy and no queue destination is wired', () => {
+    renderComposer({ busy: true, busyReason: 'turn in progress' });
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+  });
+
+  it('enqueues instead of blocking once a queue destination is wired', () => {
+    const onSubmit = vi.fn();
+    const onQueueMessage = vi.fn();
+    renderComposer({ busy: true, onSubmit, onQueueMessage });
+    const box = screen.getByRole('textbox');
+    expect(box).not.toBeDisabled();
+    fireEvent.change(box, { target: { value: 'check on that' } });
+    const send = screen.getByRole('button', { name: /queue for the next step boundary/i });
+    expect(send).not.toBeDisabled();
+    fireEvent.click(send);
+    expect(onQueueMessage).toHaveBeenCalledWith('check on that');
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(box).toHaveValue('');
+  });
+
+  it('renders the tray with reorder/edit/remove controls and delivers on demand', () => {
+    const onReorderQueuedMessage = vi.fn();
+    const onEditQueuedMessage = vi.fn();
+    const onRemoveQueuedMessage = vi.fn();
+    const onDeliverQueuedNow = vi.fn();
+    renderComposer({
+      busy: true,
+      onQueueMessage: vi.fn(),
+      queuedMessages: [
+        { id: 'q1', text: 'first held message' },
+        { id: 'q2', text: 'second held message' },
+      ],
+      onReorderQueuedMessage,
+      onEditQueuedMessage,
+      onRemoveQueuedMessage,
+      onDeliverQueuedNow,
+    });
+
+    expect(screen.getByText('2 messages queued')).toBeInTheDocument();
+    expect(screen.getByText('first held message')).toBeInTheDocument();
+    expect(screen.getByText('second held message')).toBeInTheDocument();
+    expect(screen.getByTestId('composer-frame')).toHaveAttribute('data-queued', 'true');
+
+    const downs = screen.getAllByRole('button', { name: 'Move later in the queue', hidden: true });
+    fireEvent.click(downs[0]!);
+    expect(onReorderQueuedMessage).toHaveBeenCalledWith('q1', 'down');
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit in place', hidden: true });
+    fireEvent.click(editButtons[0]!);
+    const editInput = screen.getByRole('textbox', { name: /edit queued message 1/i });
+    fireEvent.change(editInput, { target: { value: 'first held message, revised' } });
+    fireEvent.blur(editInput);
+    expect(onEditQueuedMessage).toHaveBeenCalledWith('q1', 'first held message, revised');
+
+    const removeButtons = screen.getAllByRole('button', { name: 'Remove from queue', hidden: true });
+    fireEvent.click(removeButtons[1]!);
+    expect(onRemoveQueuedMessage).toHaveBeenCalledWith('q2');
+
+    fireEvent.click(screen.getByRole('button', { name: /interrupt and deliver/i }));
+    expect(onDeliverQueuedNow).toHaveBeenCalled();
+  });
+
+  it('disables the boundary reorder controls on the first and last row', () => {
+    renderComposer({
+      busy: true,
+      onQueueMessage: vi.fn(),
+      queuedMessages: [
+        { id: 'q1', text: 'a' },
+        { id: 'q2', text: 'b' },
+      ],
+      onReorderQueuedMessage: vi.fn(),
+    });
+    const ups = screen.getAllByRole('button', { name: 'Move earlier in the queue', hidden: true });
+    const downs = screen.getAllByRole('button', { name: 'Move later in the queue', hidden: true });
+    expect(ups[0]).toBeDisabled();
+    expect(downs[1]).toBeDisabled();
+    expect(ups[1]).not.toBeDisabled();
+    expect(downs[0]).not.toBeDisabled();
+  });
+
+  it('renders no tray at all when the queue is empty', () => {
+    renderComposer({ busy: true, onQueueMessage: vi.fn(), queuedMessages: [] });
+    expect(screen.queryByTestId('composer-queue')).toBeNull();
+    expect(screen.getByTestId('composer-frame')).not.toHaveAttribute('data-queued');
+  });
+});
+
 describe('Shift+Tab expand (S2)', () => {
   // Not in the bundled prototype export — `'Tab'` appears nowhere in it — but
   // the owner added it deliberately to the design, so it is built to spec.

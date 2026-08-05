@@ -212,6 +212,10 @@ export function FilesLayer({
           browse…
         </button>
       }
+      // The prototype's Files layer uses the SAME LayerChrome.dc.html partial
+      // as observability (kind="files"), so it carries the same Expand/Pop
+      // out/Close-as-SVG-X chrome — not just the eye window.
+      windowControls
       width={680}
       height={height}
       onClose={onClose}

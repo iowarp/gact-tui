@@ -10,7 +10,7 @@ import {
   type Workspace,
 } from '@clio/core';
 import type { PickerItem } from '../composer/Picker';
-import { Composer, type ApprovalMode, type ComposerMode } from '../composer/Composer';
+import { Composer, type ApprovalMode, type ComposerMode, type QueuedMessage } from '../composer/Composer';
 import type { ProviderModelGroup } from '../composer/ProviderModelPicker';
 import { VersionUpdate } from '../composer/VersionUpdate';
 import { AppShell } from '../shell/AppShell';
@@ -141,6 +141,11 @@ export function SessionView({
   const [renamedWorkspaces, setRenamedWorkspaces] = useState<Record<string, string>>({});
   const [commands, setCommands] = useState<PickerItem[]>([]);
   const [sending, setSending] = useState(false);
+  // Messages held back while `sending` is true — the composer's mainQ tray.
+  // `sending` is this client's own send-round-trip window (POST -> load ->
+  // refreshPill), not the full multi-step turn the backend may still be
+  // running; see the queue effect below for what that means honestly.
+  const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
@@ -812,6 +817,68 @@ export function SessionView({
     [activeId, activeScope, client, createAndSelectSession, load, refreshPill],
   );
 
+  const queueTurnMode = detail?.mode === 'plan' ? 'plan' : 'execute';
+
+  const onQueueMessage = useCallback((text: string) => {
+    setQueue((current) => [
+      ...current,
+      { id: `mq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, text },
+    ]);
+  }, []);
+
+  const onReorderQueuedMessage = useCallback((id: string, direction: 'up' | 'down') => {
+    setQueue((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      const swapWith = direction === 'up' ? index - 1 : index + 1;
+      if (index === -1 || swapWith < 0 || swapWith >= current.length) return current;
+      const next = current.slice();
+      [next[index], next[swapWith]] = [next[swapWith]!, next[index]!];
+      return next;
+    });
+  }, []);
+
+  const onEditQueuedMessage = useCallback((id: string, text: string) => {
+    setQueue((current) => current.map((item) => (item.id === id ? { ...item, text } : item)));
+  }, []);
+
+  const onRemoveQueuedMessage = useCallback((id: string) => {
+    setQueue((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  // mainQNow/fv.deliverNow: interrupt the current step (a real backend call,
+  // POST /v1/sessions/{id}/cancel) and deliver the whole held queue right
+  // away, oldest first, instead of waiting for the next step boundary.
+  const onDeliverQueuedNow = useCallback(() => {
+    if (!activeId || queue.length === 0) return;
+    const items = queue;
+    setQueue([]);
+    void (async () => {
+      try {
+        await client.cancelSession(activeId);
+      } catch {
+        // The run may already have finished on its own — delivering the held
+        // messages is still the right outcome either way.
+      }
+      for (const item of items) {
+        await send(item.text, queueTurnMode);
+      }
+    })();
+  }, [activeId, client, queue, queueTurnMode, send]);
+
+  // Deliver the next held message as soon as this client's own send
+  // round-trip clears — "delivered as soon as main resumes", the prototype's
+  // own hint for the common case where the agent finishes before the user
+  // queues a second message.
+  useEffect(() => {
+    if (sending) return;
+    setQueue((current) => {
+      if (current.length === 0) return current;
+      const [next, ...rest] = current;
+      void send(next!.text, queueTurnMode);
+      return rest;
+    });
+  }, [sending, send, queueTurnMode]);
+
   const observabilityData = obs
     ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
     : null;
@@ -889,6 +956,12 @@ export function SessionView({
         onSubmit={({ text, mode }) => void send(text, mode)}
         busy={sending}
         {...(sending ? { busyReason: 'Sending…' } : {})}
+        queuedMessages={queue}
+        onQueueMessage={onQueueMessage}
+        onReorderQueuedMessage={onReorderQueuedMessage}
+        onEditQueuedMessage={onEditQueuedMessage}
+        onRemoveQueuedMessage={onRemoveQueuedMessage}
+        onDeliverQueuedNow={onDeliverQueuedNow}
         {...(starterPrompt ? { insertPrompt: starterPrompt } : {})}
         {...(composerFooter ? { footer: composerFooter } : {})}
       />

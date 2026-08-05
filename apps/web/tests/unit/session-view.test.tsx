@@ -379,3 +379,75 @@ describe('new-build notice (C8, client-side)', () => {
     expect(notice.textContent).not.toMatch(/0\.9\.0/);
   });
 });
+
+describe('send-while-busy message queue, wired end to end', () => {
+  /** A sendMessage the test can resolve on its own schedule. */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it('holds a second message while the first is still in flight, then delivers it automatically', async () => {
+    const first = deferred<Record<string, never>>();
+    const sendMessage = vi.fn((_id: string, body: { text: string }) => {
+      return body.text === 'first' ? first.promise : Promise.resolve({});
+    });
+    const client = makeClient({ sendMessage, messages: vi.fn(async () => ({ messages: [] })) });
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeInTheDocument());
+
+    // Send #1 — goes straight through, leaving `sending` true until resolved.
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'first' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledWith('sess_a', { text: 'first' }));
+
+    // Send #2 arrives while #1 is still outstanding — it must be HELD, not
+    // dropped and not sent as a second concurrent turn.
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'second' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() => expect(screen.getByText('1 message queued')).toBeInTheDocument());
+    expect(sendMessage).not.toHaveBeenCalledWith('sess_a', { text: 'second' });
+
+    // #1 finishes — the held message goes out on its own, no further click.
+    first.resolve({});
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith('sess_a', { text: 'second' }),
+    );
+    await waitFor(() => expect(screen.queryByTestId('composer-queue')).toBeNull());
+  });
+
+  it('interrupt-and-deliver cancels the real run before sending the held message', async () => {
+    const first = deferred<Record<string, never>>();
+    const sendMessage = vi.fn((_id: string, body: { text: string }) => {
+      return body.text === 'first' ? first.promise : Promise.resolve({});
+    });
+    const cancelSession = vi.fn(async () => {});
+    const client = makeClient({
+      sendMessage,
+      cancelSession,
+      messages: vi.fn(async () => ({ messages: [] })),
+    });
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'first' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledWith('sess_a', { text: 'first' }));
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'urgent' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() => expect(screen.getByText('1 message queued')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /interrupt and deliver/i }));
+    // The real POST /v1/sessions/{id}/cancel — not a fabricated local clear.
+    await waitFor(() => expect(cancelSession).toHaveBeenCalledWith('sess_a'));
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith('sess_a', { text: 'urgent' }),
+    );
+  });
+});

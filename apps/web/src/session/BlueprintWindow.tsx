@@ -58,7 +58,10 @@ export function BlueprintWindow({ blueprintId, client, open, onClose }: Blueprin
   const layerOpen = open && state.kind !== 'loading';
 
   return (
-    <Layer open={layerOpen} title={title} onClose={onClose}>
+    // The prototype's blueprint window uses the same LayerChrome.dc.html
+    // partial as observability/files (kind="bp") — same Expand/Pop out/
+    // Close-as-SVG-X chrome.
+    <Layer open={layerOpen} title={title} windowControls onClose={onClose}>
       {!blueprintId ? (
         <p data-testid="blueprint-window-empty">
           No blueprint is attached to this session. Picking one from here is not wired yet.

@@ -164,6 +164,20 @@ describe('control row (D2–D4)', () => {
     expect(execute.querySelector('[data-icon="play"]')).not.toBeNull();
   });
 
+  it('opening the ask/permissions menu never flips the real execute/plan mode', () => {
+    // Regression: approval mode (ask/auto-edits/bypass/ai-review) and turn
+    // mode (execute/plan) are independent wire axes. Merely checking
+    // permissions used to force setMode('ask') as a side effect, silently
+    // reverting a session already in 'execute' back to 'ask' — which then
+    // submitted as 'edit' instead of the user's real choice.
+    renderComposer({ sessionMode: 'execute' });
+    expect(screen.getByRole('button', { name: /execute/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('composer-approval'));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /execute/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^plan$/i })).toBeNull();
+  });
+
   it('the model selector reads Provider / model behind the sparkle', () => {
     renderComposer();
     const model = screen.getByTestId('composer-model');

@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { Icon } from './Icon';
 import './layer.css';
 
 export type LayerSize = 'settings' | 'window';
@@ -143,16 +144,25 @@ export function Layer({
           {headerActions}
           {windowControls ? (
             <>
+              {/* LayerChrome.dc.html titles this "Expand" (the detail-slot's
+                  own equivalent button says "Maximize" — same glyph, see
+                  kit/Icon.tsx). `maximized` toggling to a "Restore" label/title
+                  is a real, working superset of the prototype's own chrome,
+                  whose Expand button carries no click handler at all. */}
               <button
                 type="button"
                 className="kit-layer__windowbtn"
                 aria-label={maximized ? `Restore ${title}` : `Maximize ${title}`}
                 aria-pressed={maximized}
-                title={maximized ? 'restore window' : 'maximize window'}
+                title={maximized ? 'Restore' : 'Expand'}
                 onClick={() => setMaximized((value) => !value)}
               >
-                <span aria-hidden="true">&#x26F6;</span>
+                <Icon name="expand" size={12} />
               </button>
+              {/* "Pop out" — same shared chrome. The prototype's own button has
+                  no onClick either (decorative there too); this build is
+                  explicit about WHY it does nothing on web (no Tauri window
+                  API here) rather than silently mimicking an inert control. */}
               <button
                 type="button"
                 className="kit-layer__windowbtn"
@@ -160,7 +170,7 @@ export function Layer({
                 title="opens in a window on desktop only"
                 disabled
               >
-                <span aria-hidden="true">&#x2197;</span>
+                <Icon name="popout" size={12} />
               </button>
             </>
           ) : null}
@@ -168,9 +178,13 @@ export function Layer({
             type="button"
             className="kit-layer__windowbtn kit-layer__close"
             aria-label={`Close ${title}`}
+            title="Close"
             onClick={onClose}
           >
-            ✕
+            {/* LayerChrome.dc.html's own Close is an SVG X; the bespoke
+                Settings/diff header (never routed through LayerChrome in the
+                prototype) uses plain text — matched here per chrome kind. */}
+            {windowControls ? <Icon name="x" size={11} /> : '✕'}
           </button>
         </header>
         <div className="kit-layer__body">{children}</div>

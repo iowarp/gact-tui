@@ -56,7 +56,15 @@ export type IconName =
   | 'search'
   | 'pin'
   | 'plus'
-  | 'dots';
+  | 'dots'
+  // From LayerChrome.dc.html (the shared window-chrome partial, base64+gzip
+  // embedded in the prototype's own resource bundle — decoded verbatim) and
+  // the detail-slot's own toolbar SVGs (design/prototype template, detail
+  // slot header block).
+  | 'copy'
+  | 'download'
+  | 'expand'
+  | 'popout';
 
 export interface IconProps {
   name: IconName;
@@ -289,10 +297,15 @@ const GLYPHS: Record<IconName, ReactNode> = {
   ),
 
   // ---- inline template glyphs, transcribed verbatim ----
+  // Rail collapse/expand (tgLeft, both directions): viewBox 0 0 14 14, rect
+  // 1.5,2.2,11x9.6 rx1.8, divider at x=5.4 (left-of-centre — marks the LEFT
+  // panel's edge). The detail-panel's own collapse control is a DIFFERENT
+  // instance of this same shape family (divider at x=8.6, right-of-centre) —
+  // transcribed separately since no such control exists in the app yet.
   panel: (
     <>
-      <rect x={1.5} y={1.5} width={9} height={9} rx={1.5} stroke="currentColor" strokeWidth={1.2} />
-      {P('M4.5 1.5v9')}
+      <rect x={1.5} y={2.2} width={11} height={9.6} rx={1.8} stroke="currentColor" strokeWidth={1.2} />
+      {P('M5.4 2.2v9.6', 1.2)}
     </>
   ),
   console: (
@@ -352,13 +365,40 @@ const GLYPHS: Record<IconName, ReactNode> = {
       {C(9.8, 6, 1, true)}
     </>
   ),
+  // Detail-slot toolbar "Copy" — two overlapping squares, transcribed from
+  // the detail-slot header block ([title="Copy"], sc-camel-on-click=artCopyMd).
+  copy: (
+    <>
+      <rect x={4} y={4} width={6.5} height={6.5} rx={1} stroke="currentColor" strokeWidth={1.2} />
+      {P('M8 4V2.6A1.1 1.1 0 006.9 1.5H2.6A1.1 1.1 0 001.5 2.6v4.3A1.1 1.1 0 002.6 8H4', 1.2)}
+    </>
+  ),
+  // Detail-slot toolbar "Download" — arrow into a tray, transcribed from the
+  // same block ([title="Download"], sc-camel-on-click=tgArtMenu).
+  download: (
+    <>
+      {P('M6 1.5v6M3.2 5l2.8 2.8L8.8 5', 1.2)}
+      {P('M2 10.5h8', 1.2)}
+    </>
+  ),
+  // "Expand"/"Maximize" — LayerChrome.dc.html's window-chrome partial (base64
+  // +gzip embedded in the prototype's own resource bundle, decoded verbatim;
+  // titled "Expand" there, "Maximize" on the detail-slot's own equivalent
+  // button — same path both places).
+  expand: P('M7.2 1.5h3.3v3.3M4.8 10.5H1.5V7.2M10.5 1.5L7 5M1.5 10.5L5 7', 1.3),
+  // "Pop out" — LayerChrome.dc.html, same decoding. Note: the prototype's OWN
+  // button carries no click handler at all (decorative chrome even there).
+  popout: P(
+    'M4.8 2H2.6c-.6 0-1.1.5-1.1 1.1v6.3c0 .6.5 1.1 1.1 1.1h6.3c.6 0 1.1-.5 1.1-1.1V7.2M7.2 1.5h3.3v3.3M10.3 1.7L5.8 6.2',
+    1.3,
+  ),
 };
 
 export function Icon({ name, size = 12 }: IconProps) {
   const box =
     name === 'tool'
       ? '0 0 24 24'
-      : name === 'arrow-up' || name === 'eye'
+      : name === 'arrow-up' || name === 'eye' || name === 'panel'
         ? '0 0 14 14'
         : name === 'x'
           ? '0 0 11 11'

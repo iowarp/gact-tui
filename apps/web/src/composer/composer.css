@@ -285,3 +285,139 @@
 .composer__frame[data-expanded='true'] .composer__input {
   min-height: 180px;
 }
+
+/* Queued-messages tray — docks directly above the pill; the frame below it
+   squares its top corners (data-queued, matching data-pill's own square
+   docking corner) so the two read as one stacked surface. */
+.composer__queue {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 14px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd3);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  margin-bottom: -8px;
+}
+
+.composer__frame[data-queued='true'] {
+  border-radius: 0 0 14px 14px;
+}
+
+.composer__queuehead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.composer__queuelabel {
+  color: var(--t-wa);
+}
+
+.composer__queuehint {
+  color: var(--t-mu);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: calc(11px * var(--ts));
+}
+
+.composer__queuedeliver {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--t-cy);
+}
+
+.composer__queuedeliver:hover {
+  text-decoration: underline;
+}
+
+.composer__queuerow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  column-gap: 9px;
+  align-items: center;
+}
+
+.composer__queuenum {
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  color: var(--t-mu);
+}
+
+.composer__queuebody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.composer__queuetext {
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  color: var(--t-tx);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.composer__queueinput {
+  width: 100%;
+  min-width: 0;
+  background: var(--t-bg);
+  border: 1px solid var(--t-cy4);
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+}
+
+.composer__queuerowhint {
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  color: var(--t-mu);
+}
+
+.composer__queueactions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.composer__queueactions button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  line-height: 1;
+}
+
+.composer__queueactions button:hover:not(:disabled) {
+  color: var(--t-hd);
+  border-color: var(--t-bd3);
+}
+
+.composer__queueactions button:disabled {
+  color: var(--t-bd6);
+  cursor: default;
+}

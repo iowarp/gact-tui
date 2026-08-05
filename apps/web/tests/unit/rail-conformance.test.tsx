@@ -50,6 +50,19 @@ describe('workspaces heading (B1)', () => {
     fireEvent.click(screen.getByRole('button', { name: /new session/i }));
     expect(onNewSession).toHaveBeenCalledTimes(1);
   });
+
+  it('the collapse toggle is the prototype\'s tgLeft rounded-rect, not a generic centered divider', () => {
+    // Transcribed from the prototype's [title="Collapse sessions"]/[title=
+    // "Expand sessions"] (both tgLeft): viewBox 0 0 14 14, rect 1.5,2.2,11x9.6
+    // rx1.8, divider at x=5.4 (left-of-centre — this is the LEFT panel).
+    renderRail();
+    const collapse = screen.getByRole('button', { name: /collapse sessions/i });
+    const svg = collapse.querySelector('[data-icon="panel"]');
+    expect(svg).not.toBeNull();
+    expect(svg).toHaveAttribute('viewBox', '0 0 14 14');
+    const divider = svg!.querySelector('path');
+    expect(divider).toHaveAttribute('d', 'M5.4 2.2v9.6');
+  });
 });
 
 describe('group head (B2)', () => {

@@ -87,4 +87,65 @@ describe('Layer', () => {
     // Focus starts on the labelled surface, not on its close button.
     expect(dialog).toHaveFocus();
   });
+
+  it('closes with plain text — the settings/diff header never routes through LayerChrome', () => {
+    render(
+      <Layer open title="Settings" size="settings" onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    const close = screen.getByRole('button', { name: /close settings/i });
+    expect(close).toHaveTextContent('✕');
+    expect(close.querySelector('svg')).toBeNull();
+  });
+
+  it('windowControls closes with the real SVG X, matching LayerChrome.dc.html', () => {
+    render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    const close = screen.getByRole('button', { name: /close observability/i });
+    expect(close.querySelector('[data-icon="x"]')).not.toBeNull();
+    expect(close.textContent).not.toContain('✕');
+  });
+
+  it('windowControls renders a real, working Expand and an honestly-disabled Pop out', () => {
+    render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    const expand = screen.getByRole('button', { name: /maximize observability/i });
+    expect(expand.querySelector('[data-icon="expand"]')).not.toBeNull();
+    expect(expand).not.toBeDisabled();
+
+    const popOut = screen.getByRole('button', { name: /pop out observability/i });
+    expect(popOut.querySelector('[data-icon="popout"]')).not.toBeNull();
+    expect(popOut).toBeDisabled();
+  });
+
+  it('Expand actually maximizes the card — a real feature, not decoration', () => {
+    render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /maximize observability/i }));
+    expect(screen.getByRole('dialog').closest('.kit-layer')).toHaveAttribute(
+      'data-maximized',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /restore observability/i })).toBeInTheDocument();
+  });
+
+  it('omits window controls entirely for the plain (settings) chrome', () => {
+    render(
+      <Layer open title="Settings" size="settings" onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    expect(screen.queryByRole('button', { name: /maximize/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /pop out/i })).toBeNull();
+  });
 });

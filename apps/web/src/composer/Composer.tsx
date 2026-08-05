@@ -29,6 +29,15 @@ export interface ComposerSubmission {
 }
 
 /**
+ * A message held back for the busy agent's next step boundary — the
+ * prototype's `mainQ` row (mq.up/mq.down/mq.startEdit/mq.rm, `queueRows()`).
+ */
+export interface QueuedMessage {
+  id: string;
+  text: string;
+}
+
+/**
  * Tail-biased path compaction for the placement chip. The prototype's paths
  * are naturally short (`/scratch/j4471`); a deep path keeps its LAST segments
  * — the part that names the place — behind a leading ellipsis. Done in code:
@@ -58,9 +67,26 @@ export interface ComposerProps {
   thinkingLevel?: string;
   /** Real session execution axis: backend edit is labelled execute in the UI. */
   sessionMode?: 'execute' | 'plan';
-  /** Blocks input; `busyReason` is then REQUIRED to be shown. */
+  /**
+   * Blocks input; `busyReason` is then REQUIRED to be shown. When
+   * `onQueueMessage` is ALSO supplied, the prototype's real behavior applies
+   * instead of a hard block: the field stays open and Send enqueues
+   * (`sendTitle` becomes "Queue for the next step boundary") rather than
+   * doing nothing.
+   */
   busy?: boolean;
   busyReason?: string;
+  /** Messages held back for the next step boundary while busy (mainQ). */
+  queuedMessages?: QueuedMessage[];
+  /** Supplying this is what turns a busy Send into "enqueue" instead of a
+   *  disabled no-op — see `busy`. */
+  onQueueMessage?: (text: string) => void;
+  onReorderQueuedMessage?: (id: string, direction: 'up' | 'down') => void;
+  onEditQueuedMessage?: (id: string, text: string) => void;
+  onRemoveQueuedMessage?: (id: string) => void;
+  /** mainQNow/fv.deliverNow — interrupt the current step and deliver the
+   *  whole queue immediately. */
+  onDeliverQueuedNow?: () => void;
   placeholder?: string;
   /** Slash commands, from client.commands(). Empty disables the `/` picker. */
   commands?: PickerItem[];
@@ -109,6 +135,12 @@ export function Composer({
   onApprovalModeChange,
   busy = false,
   busyReason,
+  queuedMessages,
+  onQueueMessage,
+  onReorderQueuedMessage,
+  onEditQueuedMessage,
+  onRemoveQueuedMessage,
+  onDeliverQueuedNow,
   placeholder = `Message ${brand.name.toLowerCase()} (@ to reference, / for commands)`,
   commands = [],
   files = [],
@@ -126,7 +158,12 @@ export function Composer({
   const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [queueEdit, setQueueEdit] = useState<{ id: string; text: string } | null>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
+  const queue = queuedMessages ?? [];
+  // Enqueueing is only real when the caller wired somewhere for the message
+  // to land — otherwise busy stays a hard block, same as before.
+  const canQueue = busy && Boolean(onQueueMessage);
 
   useEffect(() => {
     if (sessionMode) setMode(sessionMode);
@@ -170,7 +207,7 @@ export function Composer({
     boxRef.current?.focus();
   }
 
-  const canSend = !busy && text.trim().length > 0;
+  const canSend = text.trim().length > 0 && (!busy || canQueue);
   const hasAsync = asyncCount !== undefined && asyncCount > 0;
   const hasContext = contextPercent !== undefined;
   const hasPill = Boolean(placement) || hasAsync || hasContext;
@@ -228,6 +265,13 @@ export function Composer({
 
   function submit() {
     if (!canSend) return;
+    // Busy with a real queue destination: hold the message rather than
+    // submitting into a turn that is already running (sendMain, prototype).
+    if (busy && onQueueMessage) {
+      onQueueMessage(text.trim());
+      setText('');
+      return;
+    }
     onSubmit({ text: text.trim(), mode });
     setText('');
   }
@@ -274,6 +318,106 @@ export function Composer({
 
   return (
     <div className="composer">
+      {queue.length > 0 ? (
+        <div className="composer__queue" data-testid="composer-queue">
+          <div className="composer__queuehead">
+            <span className="composer__queuelabel">
+              {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
+            </span>
+            <span className="composer__queuehint">delivers at the next step boundary</span>
+            <span className="composer__spacer" />
+            {onDeliverQueuedNow ? (
+              <button
+                type="button"
+                className="composer__queuedeliver"
+                title="Interrupt the current step and deliver immediately"
+                onClick={onDeliverQueuedNow}
+              >
+                interrupt and deliver
+              </button>
+            ) : null}
+          </div>
+          {queue.map((item, index) => {
+            const editing = queueEdit?.id === item.id;
+            return (
+              <div className="composer__queuerow" key={item.id}>
+                <span className="composer__queuenum">{`#${index + 1}`}</span>
+                <div className="composer__queuebody">
+                  {editing ? (
+                    <input
+                      className="composer__queueinput"
+                      aria-label={`Edit queued message ${index + 1}`}
+                      value={queueEdit.text}
+                      autoFocus
+                      onChange={(e) => setQueueEdit({ id: item.id, text: e.currentTarget.value })}
+                      onBlur={() => {
+                        const next = queueEdit.text.trim();
+                        setQueueEdit(null);
+                        if (next && next !== item.text) onEditQueuedMessage?.(item.id, next);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setQueueEdit(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="composer__queuetext">{item.text}</span>
+                  )}
+                  <span className="composer__queuerowhint">
+                    {index === 0 ? 'delivers at the next step boundary' : `after message #${index}`}
+                  </span>
+                </div>
+                <span className="composer__queueactions">
+                  <button
+                    type="button"
+                    aria-label="Move earlier in the queue"
+                    title="Move earlier in the queue"
+                    disabled={index === 0}
+                    onClick={() => onReorderQueuedMessage?.(item.id, 'up')}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move later in the queue"
+                    title="Move later in the queue"
+                    disabled={index === queue.length - 1}
+                    onClick={() => onReorderQueuedMessage?.(item.id, 'down')}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Edit in place"
+                    title="Edit in place"
+                    onClick={() => setQueueEdit({ id: item.id, text: item.text })}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove from queue"
+                    title="Remove from queue"
+                    onClick={() => {
+                      if (editing) setQueueEdit(null);
+                      onRemoveQueuedMessage?.(item.id);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       {hasPill ? (
         <div className="composer__pillbox">
           {placement ? (
@@ -326,7 +470,7 @@ export function Composer({
         className="composer__frame"
         data-testid="composer-frame"
         data-expanded={expanded ? 'true' : undefined}
-        data-queued={asyncCount ? 'true' : undefined}
+        data-queued={queue.length > 0 ? 'true' : undefined}
         data-picker-open={pickerOpen ? 'true' : undefined}
         data-pill={hasPill ? 'true' : undefined}
       >
@@ -344,7 +488,7 @@ export function Composer({
           rows={1}
           value={text}
           placeholder={placeholder}
-          disabled={busy}
+          disabled={busy && !canQueue}
           aria-label="Message"
           onChange={(e) => {
             setText(e.currentTarget.value);
@@ -384,7 +528,11 @@ export function Composer({
               aria-pressed={approvalMenuOpen}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => {
-                setMode('ask');
+                // Approval mode and turn mode (execute/plan) are independent
+                // wire axes — this control only ever opens ITS OWN menu. It
+                // used to also force `setMode('ask')` on every click, which
+                // silently flipped a user's real execute/plan choice back to
+                // 'ask' as a side effect of merely checking permissions.
                 if (approvalMode && onApprovalModeChange) {
                   setApprovalMenuOpen((open) => !open);
                 }
@@ -452,7 +600,8 @@ export function Composer({
           <button
             type="button"
             className="composer__send"
-            aria-label="Send message"
+            aria-label={canQueue ? 'Queue for the next step boundary' : 'Send message'}
+            title={canQueue ? 'Queue for the next step boundary' : undefined}
             disabled={!canSend}
             onClick={submit}
           >

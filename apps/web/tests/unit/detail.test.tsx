@@ -78,6 +78,31 @@ describe('DetailSlot', () => {
     expect(download).toHaveAttribute('title', expect.stringMatching(/not wired/i));
   });
 
+  it('renders the toolbar with the prototype-transcribed SVGs, not Unicode placeholders', () => {
+    // Regression: Copy/Download/Maximize/Close all shipped as bare Unicode
+    // spans (⧉/⭳/⛶/×) instead of the prototype's own transcribed paths.
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    const copy = screen.getByRole('button', { name: /copy as markdown/i });
+    expect(copy.querySelector('[data-icon="copy"]')).not.toBeNull();
+    const download = screen.getByRole('button', { name: /download/i });
+    expect(download.querySelector('[data-icon="download"]')).not.toBeNull();
+    const maximize = screen.getByRole('button', { name: /maximize detail/i });
+    expect(maximize.querySelector('[data-icon="expand"]')).not.toBeNull();
+    const close = screen.getByRole('button', { name: /close detail/i });
+    expect(close.querySelector('[data-icon="x"]')).not.toBeNull();
+    expect(close.textContent).not.toContain('×');
+  });
+
+  it('swaps to a checkmark after a successful copy', async () => {
+    const writeText = vi.fn(async (_text: string) => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /copy as markdown/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /copied/i }).querySelector('[data-icon="check"]')).not.toBeNull(),
+    );
+  });
+
   it('maximizes into a centered modal and restores on close', () => {
     render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /maximize detail/i }));
