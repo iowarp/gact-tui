@@ -57,6 +57,7 @@ export type IconName =
   | 'eye'
   | 'send'
   | 'arrow-up'
+  | 'stop'
   | 'search'
   | 'pin'
   | 'plus'
@@ -382,6 +383,9 @@ const GLYPHS: Record<IconName, ReactNode> = {
       strokeLinejoin="round"
     />
   ),
+  // The composer send button's running state — a filled square, the
+  // universal "stop" glyph (gact-tui, owner request 2026-08-05).
+  stop: <rect x={1} y={1} width={10} height={10} fill="currentColor" />,
   search: (
     <g>
       <circle cx={5.2} cy={5.2} r={3.7} stroke="currentColor" strokeWidth={1.3} />

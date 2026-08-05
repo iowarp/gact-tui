@@ -257,6 +257,21 @@
   opacity: 0.45;
 }
 
+/* Running state — the send button becomes a stop control while the
+   session's turn is in flight (owner request 2026-08-05). Amber running
+   color, matching the handoff "running" state's own color
+   (transcript/parts/parts.css) — a tint, not a flat fill, so it still reads
+   as "the send button, but different" rather than a wholly new control. */
+.composer__send--stop {
+  background: rgba(196, 104, 42, 0.18);
+  border: 1px solid var(--t-am, #c4682a);
+  color: var(--t-am, #c4682a);
+}
+
+.composer__send--stop:hover {
+  background: rgba(196, 104, 42, 0.28);
+}
+
 .composer__busy {
   margin: 0;
   color: var(--t-wa);

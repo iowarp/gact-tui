@@ -199,10 +199,9 @@ export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
       >
         <div className="part-childcard__head">
           {status !== 'idle' ? <StatusDot status={status} quiet={status !== 'running'} /> : null}
-          <span className="part-childcard__name">{child}</span>
-          {runLabel && runLabel !== child ? (
-            <span className="part-childcard__run">{runLabel}</span>
-          ) : null}
+          {/* ONE identity token (owner: the head duplicated "geospatial
+              geospatial #1") — the run label IS the name plus its ordinal. */}
+          <span className="part-childcard__name">{runLabel || child}</span>
           {remote ? <span className="part-childcard__host">{placement}</span> : null}
         </div>
         {answer ? (

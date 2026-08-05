@@ -250,7 +250,10 @@
 
 .part-toolrow__grid {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
+  /* Key column sized by content (owner 2026-08-05: a fixed 110px track
+     overflowed on long keys like merged_workflow_state), capped so a
+     pathological key never squeezes the value out. */
+  grid-template-columns: minmax(90px, min(max-content, 240px)) minmax(0, 1fr);
   row-gap: 3px;
   column-gap: 12px;
 }
@@ -261,6 +264,7 @@
 
 .part-toolrow__k {
   color: var(--t-mu);
+  overflow-wrap: anywhere;
 }
 
 .part-toolrow__v {
@@ -290,6 +294,18 @@
   color: var(--t-mu);
   font-family: var(--f-prose);
   font-size: calc(12.5px * var(--ts));
+}
+
+/* The step's reasoning (tool_call.thought) renders as the prose block above
+   its tool row — the prototype's text-then-tool grammar; without it a child
+   transcript reads as a bare tool list (owner, 2026-08-05). */
+.part-toolrow__thought {
+  margin: 0 0 4px;
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(14px * var(--ts));
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 /* ---- handoff ---- */
@@ -620,9 +636,10 @@ button.part-artchip {
 /* The child's answer clamp: ~4 lines in the box (owner: 3-5); show more
  * expands in place, the box itself opens the full child transcript. */
 .part-childcard__body[data-clamped='true'] {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  /* line-clamp counts BLOCK children (each markdown <p> = one "line"), so a
+     <=4-paragraph answer never clamped and one box ate 1000px of transcript
+     (owner capture). A max-height in line-units clamps REAL lines. */
+  max-height: calc(4 * 1.6em);
   overflow: hidden;
 }
 
@@ -639,6 +656,49 @@ button.part-artchip {
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
+}
+
+/* The ONE unified delegation box (prototype div.scpg): heading, brief,
+   answer, and status footer share a single bordered card at the 18px hang.
+   Same shape running/done/failed — only dot + footer tone change. */
+.part-handoff__box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 18px;
+  padding: 10px 14px;
+  background: rgb(22, 24, 29);
+  border: 1px solid var(--t-bd3);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.part-handoff__box[data-state='running'] {
+  border-color: rgba(196, 104, 42, 0.45);
+}
+
+.part-handoff__box[data-interactive='true'] {
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.part-handoff__box[data-interactive='true']:hover {
+  background: var(--t-hv, #1f232b);
+  border-color: rgba(10, 166, 173, 0.4);
+}
+
+.part-handoff__foot {
+  color: var(--t-cy, #0aa6ad);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11.5px * var(--ts));
+}
+
+.part-handoff__foot[data-state='running'] {
+  color: var(--t-am, #c4682a);
+}
+
+.part-handoff__foot[data-state='error'] {
+  color: var(--t-er, #f87171);
 }
 
 /* Interactive child result box (prototype goCall): hover teal border. */

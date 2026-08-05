@@ -22,6 +22,7 @@ export type {
   ProvidersResult,
   SetLmInput,
 } from './providers.js';
+export { fetchLmConfig } from './providers.js';
 export type {
   CapabilityGapsResult,
   CommandsResult,

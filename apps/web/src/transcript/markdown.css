@@ -6,7 +6,10 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  /* Prose is the prototype's Inter lane; mono belongs ONLY to code (owner
+     font census 2026-08-05: reasoning paragraphs rendered mono while the
+     prototype's are proportional). */
+  font-family: var(--f-prose, 'Inter', system-ui, sans-serif);
   color: var(--t-tx, #a8adb8);
 }
 
@@ -98,4 +101,10 @@
 .md th {
   color: var(--t-hd, #c5cad3);
   font-weight: 700;
+}
+
+/* md-codefix: code spans/fences keep the mono lane now that .md's base is prose. */
+.md code,
+.md pre {
+  font-family: var(--f-mono, 'JetBrains Mono', ui-monospace, monospace);
 }

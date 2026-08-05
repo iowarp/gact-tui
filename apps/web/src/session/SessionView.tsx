@@ -4,6 +4,7 @@ import {
   applyPartCompleted,
   applyTextAppend,
   fetchArtifactLineage,
+  fetchLmConfig,
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
   fetchSessionContextState,
@@ -737,6 +738,14 @@ export function SessionView({
           const nested = payload['message'] as Message | undefined;
           const message = nested ?? flat;
           if (message) applyToLoaded((prev) => upsertMessage(prev, { ...message, parts: message.parts ?? [] }));
+          // The session record may have changed since selection (blueprint
+          // activation, model patch) — a page opened before an activation kept
+          // reading "no blueprint" forever (owner capture). A turn starting is
+          // the natural moment to re-read the record.
+          void Promise.resolve()
+            .then(() => client.getSession(activeId))
+            .then((row) => setDetail(row as unknown as SessionDetail))
+            .catch(() => {});
           break;
         }
         case 'message.part.added':
@@ -777,6 +786,23 @@ export function SessionView({
       subscription.close();
     };
   }, [activeId, client]);
+
+  // The global LM binding (provider + model), the session-model fallback.
+  const [globalLm, setGlobalLm] = useState<{ provider?: string; model?: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve()
+      .then(() => fetchLmConfig(client))
+      .then((snapshot) => {
+        if (!cancelled) setGlobalLm(snapshot as { provider?: string; model?: string });
+      })
+      .catch(() => {
+        // No binding readable: the pill honestly falls back to "model not set".
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   const focusTop = focus.length > 0 ? focus[focus.length - 1]! : null;
 
@@ -1183,10 +1209,15 @@ export function SessionView({
   );
 
   // The composer's model id is "<provider>/<model>", matching the option ids.
+  // A session with no per-session model runs on the GLOBAL provider binding —
+  // the pill shows that effective binding rather than lying "model not set"
+  // (owner, 2026-08-05; the wire truth is /v1/providers/lm).
   const modelId =
     detail?.model?.provider_id && detail.model.model_id
       ? `${detail.model.provider_id}/${detail.model.model_id}`
-      : '';
+      : globalLm && globalLm.provider && globalLm.model
+        ? `${globalLm.provider}/${globalLm.model}`
+        : '';
 
   const setApprovalMode = useCallback(
     async (next: ApprovalMode) => {
@@ -1312,6 +1343,19 @@ export function SessionView({
     })();
   }, [activeId, client, queue, queueTurnMode, send]);
 
+  // The composer's stop control (owner request 2026-08-05): the same real
+  // cancel call `onDeliverQueuedNow` already uses, but targeting whatever
+  // session the composer is CURRENTLY talking to — the focused child while
+  // one is drilled into (send() steers there too), else the active session.
+  const onStop = useCallback(() => {
+    const targetId = focusTop?.sessionId ?? activeId;
+    if (!targetId) return;
+    void client.cancelSession(targetId).catch(() => {
+      // Best-effort: the turn may already have finished server-side by the
+      // time this reaches the backend.
+    });
+  }, [activeId, client, focusTop]);
+
   // Deliver the next held message as soon as this client's own send
   // round-trip clears — "delivered as soon as main resumes", the prototype's
   // own hint for the common case where the agent finishes before the user
@@ -1396,6 +1440,24 @@ export function SessionView({
     ) : (
       versionLine
     );
+  // running: the ACTIVE session's turn is actually in flight on the
+  // backend — NOT the same thing as `sending`, which only covers this
+  // client's own POST round-trip (the server accepts and streams the rest
+  // over SSE, see session_messages_client.ts). The message-events effect
+  // above keeps `state.messages` current on every lifecycle event
+  // regardless of which panel is open (the trace-events effect that reads
+  // session.status_changed only runs for the obs panel), so the trailing
+  // assistant message's settledness is the freshest live signal available
+  // here; the `sessions` row status is the fallback for the gap before that
+  // message exists yet.
+  const activeMessages = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
+  const latestActiveAssistant = latestAssistantMessage(activeMessages);
+  const activeSessionRow = sessions.find((row) => row.id === activeId);
+  const activeRunning =
+    sending ||
+    (latestActiveAssistant
+      ? !(latestActiveAssistant.stop_reason || latestActiveAssistant.error_info)
+      : toStatus(activeSessionRow?.status) === 'running');
   const composerElement =
     state.kind !== 'missing' ? (
       <Composer
@@ -1437,6 +1499,8 @@ export function SessionView({
         onSubmit={({ text, mode }) => void send(text, mode)}
         busy={sending}
         {...(sending ? { busyReason: 'Sending…' } : {})}
+        running={activeRunning}
+        onStop={onStop}
         queuedMessages={queue}
         onQueueMessage={onQueueMessage}
         onReorderQueuedMessage={onReorderQueuedMessage}
@@ -1882,6 +1946,16 @@ function toStatus(status: unknown): SessionStatus {
   if (value === 'error' || value === 'failed') return 'error';
   if (value === 'queued' || value === 'pending') return 'queued';
   return 'idle';
+}
+
+/** The trailing assistant message, if any — read backwards since it is
+ *  always the last few entries, never the whole transcript. */
+function latestAssistantMessage(messages: Message[]): Message | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === 'assistant') return message;
+  }
+  return undefined;
 }
 
 function relativeAge(iso: string): string {

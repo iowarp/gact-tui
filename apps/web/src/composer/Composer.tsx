@@ -101,6 +101,18 @@ export interface ComposerProps {
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
   onSubmit: (submission: ComposerSubmission) => void;
+  /**
+   * True while the session's turn is actually in flight on the backend (not
+   * just this client's own send round-trip). Combined with `onStop`, it
+   * repurposes the send button into a stop control — owner request
+   * 2026-08-05: "this should be changing to enable me to stop the session".
+   * `running` alone (no `onStop`) leaves the send button unchanged, same as
+   * every other optional wiring in this component.
+   */
+  running?: boolean;
+  /** Cancels the in-flight run (POST /v1/sessions/{id}/cancel). Only takes
+   *  effect while `running` is true. */
+  onStop?: () => void;
   /** Pill chip click-throughs — the placement chip opens the workspace files
       browser, the async chip opens the runs view/popover, ctx opens
       telemetry. Omitted = the chip renders as text. */
@@ -140,6 +152,8 @@ export function Composer({
   sessionMode,
   approvalMode,
   onApprovalModeChange,
+  running = false,
+  onStop,
   busy = false,
   busyReason,
   queuedMessages,
@@ -231,6 +245,9 @@ export function Composer({
   }
 
   const canSend = text.trim().length > 0 && (!busy || canQueue);
+  // `onStop` gates this like every other optional callback here: `running`
+  // alone (no wired destination) leaves the send button exactly as it was.
+  const stopControl = running && Boolean(onStop);
   const hasAsync = asyncCount !== undefined && asyncCount > 0;
   const hasContext = contextPercent !== undefined;
   const hasPill = Boolean(placement) || hasAsync || hasContext;
@@ -664,13 +681,21 @@ export function Composer({
 
           <button
             type="button"
-            className="composer__send"
-            aria-label={canQueue ? 'Queue for the next step boundary' : 'Send message'}
-            title={canQueue ? 'Queue for the next step boundary' : undefined}
-            disabled={!canSend}
-            onClick={submit}
+            className={
+              stopControl ? 'composer__send composer__send--stop' : 'composer__send'
+            }
+            aria-label={
+              stopControl
+                ? 'Stop the run'
+                : canQueue
+                  ? 'Queue for the next step boundary'
+                  : 'Send message'
+            }
+            title={stopControl ? undefined : canQueue ? 'Queue for the next step boundary' : undefined}
+            disabled={stopControl ? false : !canSend}
+            onClick={stopControl ? onStop : submit}
           >
-            <Icon name="arrow-up" size={13} />
+            <Icon name={stopControl ? 'stop' : 'arrow-up'} size={13} />
           </button>
         </div>
       </div>

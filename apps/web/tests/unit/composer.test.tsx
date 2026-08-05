@@ -100,6 +100,48 @@ describe('Composer', () => {
 });
 
 /**
+ * The send button becomes a stop control while the session's turn is
+ * running (owner request 2026-08-05: "this should be changing to enable me
+ * to stop the session"). Gated on `onStop` like every other optional wiring
+ * in this component — `running` alone is not enough to change the button.
+ */
+describe('running / stop control', () => {
+  it('renders the stop control when running and onStop is wired, and clicking it stops (not sends)', () => {
+    const onSubmit = vi.fn();
+    const onStop = vi.fn();
+    renderComposer({ onSubmit, running: true, onStop });
+
+    const stop = screen.getByRole('button', { name: 'Stop the run' });
+    expect(stop).not.toBeDisabled();
+    expect(stop).toHaveClass('composer__send--stop');
+    expect(stop.querySelector('[data-icon="stop"]')).not.toBeNull();
+
+    fireEvent.click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('leaves the send arrow in place when running is true but no onStop is wired', () => {
+    renderComposer({ running: true });
+    const send = screen.getByRole('button', { name: /send/i });
+    expect(send.querySelector('[data-icon="arrow-up"]')).not.toBeNull();
+    expect(send).not.toHaveClass('composer__send--stop');
+  });
+
+  it('renders the ordinary send arrow when not running, even with onStop wired', () => {
+    const onSubmit = vi.fn();
+    const onStop = vi.fn();
+    renderComposer({ onSubmit, onStop });
+    const send = screen.getByRole('button', { name: /send/i });
+    expect(send.querySelector('[data-icon="arrow-up"]')).not.toBeNull();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'go' } });
+    fireEvent.click(send);
+    expect(onSubmit).toHaveBeenCalledWith({ text: 'go', mode: 'ask' });
+    expect(onStop).not.toHaveBeenCalled();
+  });
+});
+
+/**
  * Send-while-busy message queue (mainQ) — prototype's queueRows()/mq.up/
  * mq.down/mq.startEdit/mq.rm/mainQNow, transcribed from LayerChrome-adjacent
  * source (design/prototype/Clio Session.html). Enqueueing only replaces the

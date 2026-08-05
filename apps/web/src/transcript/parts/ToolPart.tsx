@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Markdown } from '../markdown';
 import { formatDurationSeconds } from '../../wire/formatters';
 import { normalizeWhitespace, truncate } from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
@@ -78,8 +79,15 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const text = result ? extractToolResultText(result) : '';
   const previewLine = !open && text ? truncate(normalizeWhitespace(text), PREVIEW_MAX) : '';
 
+  const thought = str(call['thought']);
+
   return (
     <div className="part-toolrow" data-error={isError ? 'true' : undefined} data-testid="part-tool">
+      {thought ? (
+        <div className="part-toolrow__thought" data-testid="part-tool-thought">
+          <Markdown text={thought} />
+        </div>
+      ) : null}
       <button
         type="button"
         className="part-toolrow__head"
