@@ -574,9 +574,12 @@
   letter-spacing: 0.1em;
 }
 
+/* Chips sit side-by-side at the prototype's card width (~203.5px measured,
+   proto-walk chip spec) — minmax capped at that width so a lone chip renders
+   as a card, never a full-width bar stacking into a vertical list. */
 .part-artgrid__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 203.5px));
   gap: 8px;
 }
 
@@ -585,11 +588,22 @@
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+  margin: 0;
   padding: 10px 12px;
   background: var(--t-sf);
   border: 1px solid var(--t-bd3);
   border-radius: 10px;
   text-decoration: none;
+  /* Button reset: the interactive chip is a <button> and must render
+     identically to the span variant — no UA font/center/outset leakage. */
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  appearance: none;
+}
+
+button.part-artchip {
+  cursor: pointer;
 }
 
 /* The global `a:hover` rule (styles/base.css) sets text-decoration:underline,

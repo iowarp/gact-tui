@@ -17,6 +17,7 @@ export interface ChildFocusViewProps {
   messages: Message[];
   status: string;
   onOpenChild?: ((handleId: string, agent: string, opts: { peek: boolean }) => void) | undefined;
+  onOpenArtifact?: ((artifactId: string, name: string) => void) | undefined;
 }
 
 function briefText(first: Message | undefined): string {
@@ -28,7 +29,14 @@ function briefText(first: Message | undefined): string {
     .join('\n');
 }
 
-export function ChildFocusView({ agent, parentLabel, messages, status, onOpenChild }: ChildFocusViewProps) {
+export function ChildFocusView({
+  agent,
+  parentLabel,
+  messages,
+  status,
+  onOpenChild,
+  onOpenArtifact,
+}: ChildFocusViewProps) {
   const [briefOpen, setBriefOpen] = useState(false);
   const first = messages[0];
   const brief = briefText(first);
@@ -50,7 +58,11 @@ export function ChildFocusView({ agent, parentLabel, messages, status, onOpenChi
           {briefOpen ? <pre className="childfocus__briefbody">{brief}</pre> : null}
         </div>
       ) : null}
-      <Transcript messages={rest} {...(onOpenChild ? { onOpenChild } : {})} />
+      <Transcript
+        messages={rest}
+        {...(onOpenChild ? { onOpenChild } : {})}
+        {...(onOpenArtifact ? { onOpenArtifact } : {})}
+      />
       <p className="childfocus__status" data-state={running ? 'running' : status}>
         {running ? `● ${agent} running` : status ? `${agent} · ${status}` : agent}
       </p>

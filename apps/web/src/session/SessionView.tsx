@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  fetchArtifactLineage,
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
   fetchSessionContextState,
@@ -33,6 +34,9 @@ import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../ob
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
+import { DetailSlot } from '../detail/DetailSlot';
+import { headVersion, mintArtifactRecord, routeFromLineage } from '../detail/mintRecord';
+import type { ArtifactRecord } from '../detail/types';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
@@ -202,6 +206,9 @@ export function SessionView({
     messages: Message[];
     status: string;
   } | null>(null);
+  // The prototype's RIGHT panel stack (stack[]): artifact detail records.
+  // Opening from a chip/obs REPLACES; provenance navigation PUSHES.
+  const [rightStack, setRightStack] = useState<ArtifactRecord[]>([]);
   const [pillState, setPillState] = useState<ComposerPillState | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPins(client.baseUrl));
   const [pinnedWorkspaceIds, setPinnedWorkspaceIds] = useState<Set<string>>(() =>
@@ -742,6 +749,73 @@ export function SessionView({
       }
     },
     [client, activeId, focusTop?.sessionId],
+  );
+
+  // Opens an artifact in the right panel (prototype artGo → setStack). The
+  // record renders immediately from the artifacts route; the provenance chain
+  // (lineage route) and the content preview (export route) enrich it as they
+  // arrive — each failure leaves its section honestly absent, never a blank
+  // panel pretending success.
+  const openArtifactById = useCallback(
+    async (artifactId: string, opts?: { push?: boolean }) => {
+      if (!activeId) return;
+      try {
+        const result = await fetchSessionArtifacts(client, activeId, { includeChildren: true });
+        let minted: ArtifactRecord | null = null;
+        for (const rec of result.artifacts ?? []) {
+          const version = (rec.versions ?? []).find((v) => v.artifact_id === artifactId);
+          if (version) {
+            minted = mintArtifactRecord(rec, version);
+            break;
+          }
+          if (!minted && rec.head_artifact_id === artifactId) {
+            const head = headVersion(rec);
+            if (head) minted = mintArtifactRecord(rec, head);
+          }
+        }
+        if (!minted) return;
+        const record = minted;
+        setRightStack((cur) => (opts?.push ? [...cur, record] : [record]));
+        const patchTop = (patch: Partial<ArtifactRecord>) =>
+          setRightStack((cur) => {
+            const top = cur[cur.length - 1];
+            if (!top || top.id !== record.id) return cur;
+            return [...cur.slice(0, -1), { ...top, ...patch }];
+          });
+        void fetchArtifactLineage(client, record.id, { direction: 'both' })
+          .then((graph) => patchTop({ route: routeFromLineage(graph) }))
+          .catch(() => {});
+        void client
+          .response(`/v1/artifacts/${encodeURIComponent(record.id)}/bytes`)
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`bytes route ${res.status}`);
+            const blob = await res.blob();
+            const kind = record.kind ?? '';
+            if (kind === 'image') {
+              patchTop({ preview: { kind: 'image', url: URL.createObjectURL(blob) } });
+              return;
+            }
+            const text = await blob.text();
+            if (kind === 'dataset' || /\.csv$/i.test(record.breadcrumb?.[1] ?? '')) {
+              const lines = text.split(new RegExp('\r?\n')).filter((l) => l.length > 0);
+              const header = (lines[0] ?? '').split(',');
+              const rows = lines.slice(1, 201).map((l) => l.split(','));
+              patchTop({ preview: { kind: 'csv', header, rows, totalRows: lines.length - 1 } });
+              return;
+            }
+            if (kind === 'report' || /\.md$/i.test(record.breadcrumb?.[1] ?? '')) {
+              patchTop({ preview: { kind: 'markdown', text: text.slice(0, 20000) } });
+              return;
+            }
+            patchTop({ preview: { kind: 'text', text: text.slice(0, 20000) } });
+          })
+          .catch(() => {});
+      } catch {
+        // No record reachable — the chip simply doesn't open; never a blank
+        // panel.
+      }
+    },
+    [activeId, client],
   );
 
   const active = sessions.find((s) => s.id === activeId);
@@ -1289,6 +1363,25 @@ export function SessionView({
           else setActiveScope(tabId);
         }}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
+        {...(rightStack.length > 0
+          ? {
+              detail: (
+                <DetailSlot
+                  record={{
+                    ...rightStack[rightStack.length - 1]!,
+                    breadcrumb: [
+                      'session',
+                      ...rightStack.map(
+                        (entry) => entry.breadcrumb?.[entry.breadcrumb.length - 1] ?? entry.id,
+                      ),
+                    ],
+                  }}
+                  client={client}
+                  onClose={() => setRightStack([])}
+                />
+              ),
+            }
+          : {})}
         panel={panel}
         obsTab={obsTab}
         artifactCount={activePill?.artifactCount}
@@ -1403,9 +1496,14 @@ export function SessionView({
                 messages={childView.messages}
                 status={childView.status}
                 onOpenChild={openChildByHandle}
+                onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
               />
             ) : state.kind === 'loaded' && transcriptMessages.length > 0 ? (
-              <Transcript messages={transcriptMessages} onOpenChild={openChildByHandle} />
+              <Transcript
+                messages={transcriptMessages}
+                onOpenChild={openChildByHandle}
+                onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+              />
             ) : null}
             {composerElement}
           </>

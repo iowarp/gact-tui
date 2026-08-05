@@ -10,6 +10,8 @@ export interface TranscriptProps {
   messages: Message[];
   /** Opens a delegation's child (center focus; peek=true → right panel). */
   onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
+  /** Opens an artifact in the right detail panel (prototype artGo). */
+  onOpenArtifact?: (artifactId: string, name: string) => void;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -18,7 +20,7 @@ type PartGroup =
   | { key: string; kind: 'part'; part: WirePart }
   | { key: string; kind: 'tool'; call: WirePart; result?: WirePart }
   | { key: string; kind: 'artifacts'; parts: WirePart[] }
-  | { key: string; kind: 'handoff'; started?: WirePart; terminal?: WirePart };
+  | { key: string; kind: 'handoff'; terminal: WirePart };
 
 function toolCallId(part: WirePart): string {
   return str(part['call_id']) || str(part['id']);
@@ -83,38 +85,10 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
     }
 
     if (part.type === 'expert_handoff') {
-      // One delegation = one Call block. The started and terminal parts share
-      // a handle_id but are separated by narration, so pairing is id-keyed
-      // lookahead (the tool_call rule), never adjacency.
-      const handleId = str(part['handle_id']);
-      const stage = str(part['stage']);
-      if (stage === 'delegate.started' && handleId) {
-        let terminalIndex = -1;
-        for (let j = i + 1; j < parts.length; j++) {
-          if (consumed.has(j)) continue;
-          const candidate = parts[j]!;
-          if (
-            candidate.type === 'expert_handoff' &&
-            str(candidate['handle_id']) === handleId &&
-            str(candidate['stage']) !== 'delegate.started'
-          ) {
-            terminalIndex = j;
-            break;
-          }
-        }
-        if (terminalIndex >= 0) {
-          consumed.add(terminalIndex);
-          groups.push({ key, kind: 'handoff', started: part, terminal: parts[terminalIndex]! });
-        } else {
-          groups.push({ key, kind: 'handoff', started: part });
-        }
-      } else if (stage === 'delegate.started') {
-        groups.push({ key, kind: 'handoff', started: part });
-      } else {
-        // A terminal (completed/failed/superseded) with no earlier started in
-        // this message still renders — a group of one, never dropped.
-        groups.push({ key, kind: 'handoff', terminal: part });
-      }
+      // ONE delegation = ONE part on the clean wire (the terminal updates the
+      // started part in place server-side; metadata carries brief AND output).
+      // No client-side pairing — the UI renders exactly what arrives.
+      groups.push({ key, kind: 'handoff', terminal: part });
       continue;
     }
 
@@ -133,7 +107,7 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
  * The one pre-pass this owns is pairing (above): grouping related parts
  * before they reach the registry, never re-rendering a kind a different way.
  */
-export function Transcript({ messages, onOpenChild }: TranscriptProps) {
+export function Transcript({ messages, onOpenChild, onOpenArtifact }: TranscriptProps) {
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -155,7 +129,12 @@ export function Transcript({ messages, onOpenChild }: TranscriptProps) {
               aria-label={`${message.role} message`}
             >
               {groupParts(parts, message.id).map((group) => (
-                <RenderedGroup key={group.key} group={group} {...(onOpenChild ? { onOpenChild } : {})} />
+                <RenderedGroup
+                  key={group.key}
+                  group={group}
+                  {...(onOpenChild ? { onOpenChild } : {})}
+                  {...(onOpenArtifact ? { onOpenArtifact } : {})}
+                />
               ))}
             </article>
           );
@@ -168,9 +147,11 @@ export function Transcript({ messages, onOpenChild }: TranscriptProps) {
 function RenderedGroup({
   group,
   onOpenChild,
+  onOpenArtifact,
 }: {
   group: PartGroup;
   onOpenChild?: TranscriptProps['onOpenChild'];
+  onOpenArtifact?: TranscriptProps['onOpenArtifact'];
 }) {
   if (group.kind === 'tool') {
     return (
@@ -182,18 +163,14 @@ function RenderedGroup({
   if (group.kind === 'artifacts') {
     return (
       <PartCard kind="artifacts">
-        <ArtifactGrid parts={group.parts} />
+        <ArtifactGrid parts={group.parts} onOpenArtifact={onOpenArtifact} />
       </PartCard>
     );
   }
   if (group.kind === 'handoff') {
     return (
       <PartCard kind="expert_handoff" gutter={<WrenchGlyph />}>
-        <MergedHandoff
-          started={group.started}
-          terminal={group.terminal}
-          {...(onOpenChild ? { onOpenChild } : {})}
-        />
+        <MergedHandoff terminal={group.terminal} {...(onOpenChild ? { onOpenChild } : {})} />
       </PartCard>
     );
   }

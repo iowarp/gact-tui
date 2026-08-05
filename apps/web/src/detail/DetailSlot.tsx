@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Client } from '@clio/core';
 import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
+import { Markdown } from '../transcript/markdown';
 import type { ArtifactRecord, RouteStep } from './types';
 import './detail.css';
 
@@ -314,7 +315,69 @@ function Overview({ record }: { record: ArtifactRecord }) {
     <div data-testid="detail-overview">
       <KvGrid label="Artifact identity" rows={rows} />
       {record.note ? <p className="detail__note">{record.note}</p> : null}
+      {record.preview ? <Preview preview={record.preview} /> : null}
     </div>
+  );
+}
+
+const CSV_PAGE = 20;
+
+/** The prototype's per-kind preview: CSV table (first rows + pager), inline
+ * image, rendered markdown, plain text. */
+function Preview({ preview }: { preview: NonNullable<ArtifactRecord['preview']> }) {
+  const [shown, setShown] = useState(CSV_PAGE);
+  if (preview.kind === 'image') {
+    return (
+      <div className="detail__preview" data-testid="detail-preview-image">
+        <img src={preview.url} alt="artifact preview" />
+      </div>
+    );
+  }
+  if (preview.kind === 'markdown') {
+    return (
+      <div className="detail__preview" data-testid="detail-preview-markdown">
+        <Markdown text={preview.text} />
+      </div>
+    );
+  }
+  if (preview.kind === 'csv') {
+    const visible = preview.rows.slice(0, shown);
+    const total = preview.totalRows ?? preview.rows.length;
+    return (
+      <div className="detail__preview" data-testid="detail-preview-csv">
+        <table className="detail__csv">
+          <thead>
+            <tr>
+              {preview.header.map((cell, i) => (
+                <th key={i}>{cell}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => (
+                  <td key={ci}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="detail__csvfoot">
+          first {Math.min(shown, preview.rows.length)} of {total.toLocaleString()} rows
+          {shown < preview.rows.length ? (
+            <button type="button" className="detail__csvmore" onClick={() => setShown((n) => n + 50)}>
+              show 50 more
+            </button>
+          ) : null}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <pre className="detail__preview detail__previewtext" data-testid="detail-preview-text">
+      {preview.text}
+    </pre>
   );
 }
 

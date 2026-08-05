@@ -54,3 +54,10 @@ export {
   type SessionArtifactsResult,
   type SessionArtifactVersion,
 } from './session_artifacts.js';
+export {
+  fetchArtifactLineage,
+  type ArtifactLineageEdge,
+  type ArtifactLineageNode,
+  type ArtifactLineageOptions,
+  type ArtifactLineageResult,
+} from './artifact_lineage.js';

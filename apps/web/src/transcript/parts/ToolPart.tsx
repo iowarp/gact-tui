@@ -33,6 +33,31 @@ function argRows(input: unknown): Array<{ k: string; v: string }> {
 }
 
 /**
+ * A JSON-object tool result rendered as the prototype's key/value result
+ * table (isToolSeg's "results tables") instead of a raw JSON blob. Only a
+ * top-level OBJECT becomes rows — arrays and scalars keep the verbatim
+ * `<pre>`, and anything unparseable falls through untouched. Presentation
+ * only: every key and value from the wire still renders, nothing is dropped.
+ */
+function resultRows(text: string): Array<{ k: string; v: string }> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || trimmed.length > 20000) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const entries = Object.entries(parsed as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  return entries.map(([k, v]) => ({
+    k,
+    v: typeof v === 'string' ? v : (JSON.stringify(v, null, 1) ?? String(v)),
+  }));
+}
+
+/**
  * The prototype's isToolSeg row (design/prototype/Clio Session.html:391) — ONE
  * collapsible line per call, not two permanently-open cards. Closed by
  * default: the header carries the name(argHint), duration, and ✓/✗ mark; a
@@ -91,7 +116,22 @@ export function ToolPart({ call, result }: ToolPartProps) {
             </div>
           ) : null}
           {result ? (
-            <pre className="part-toolrow__result">{text || '(empty result)'}</pre>
+            (() => {
+              const rows = resultRows(text);
+              if (rows) {
+                return (
+                  <div className="part-toolrow__grid" data-testid="part-tool-result-table">
+                    {rows.map((row) => (
+                      <div className="part-toolrow__row" key={row.k}>
+                        <span className="part-toolrow__k">{row.k}</span>
+                        <span className="part-toolrow__v">{row.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return <pre className="part-toolrow__result">{text || '(empty result)'}</pre>;
+            })()
           ) : (
             <p className="part-toolrow__waiting">waiting for the tool to return…</p>
           )}

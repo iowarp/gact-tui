@@ -131,11 +131,10 @@ function formatDurationMs(ms: number): string {
 }
 
 export interface MergedHandoffProps {
-  /** The `delegate.started` part — carries `metadata.question` (the brief). */
-  started?: WirePart;
-  /** The terminal part (completed/failed/superseded) — carries `metadata.output`. */
-  terminal?: WirePart;
-  /** When present, the RESULT BOX becomes the prototype's open-agent target. */
+  /** The delegation's ONE part (clean wire): started fields updated in place
+   *  at the terminal; metadata carries the brief AND the output. */
+  terminal: WirePart;
+  /** When present, the box becomes the prototype's open-agent target. */
   onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
 }
 
@@ -147,46 +146,77 @@ export interface MergedHandoffProps {
  * each stage as its own full block duplicated every Call and drew an empty
  * running card next to the completed one — the "unreadable transcript".
  */
-export function MergedHandoff({ started, terminal, onOpenChild }: MergedHandoffProps) {
-  const final = terminal ?? started;
-  if (!final) return null;
-  const startedMeta = started ? metadataOf(started) : {};
+export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
+  const final = terminal;
   const finalMeta = metadataOf(final);
-  const child = str(
-    final['child_agent'] ?? final['expert'] ?? final['agent'] ?? started?.['child_agent'],
-  );
-  const runLabel = str(final['run_label'] ?? started?.['run_label']);
-  const placement = str(final['placement'] ?? started?.['placement']);
-  const handleId = str(final['handle_id'] ?? started?.['handle_id']);
+  const child = str(final['child_agent'] ?? final['expert'] ?? final['agent']);
+  const runLabel = str(final['run_label']);
+  const placement = str(final['placement']);
+  const handleId = str(final['handle_id']);
   const rawState = str(final['status'] ?? final['live_state']).toLowerCase();
-  const status = delegateStatus(final, Boolean(terminal));
-  const question = str(startedMeta['question'] ?? finalMeta['question']);
-  const answer = terminal ? str(finalMeta['output']) : '';
-  const durationRaw = Number(terminal?.['duration_ms'] ?? 0);
+  const settled = str(final['stage']) !== 'delegate.started';
+  const status = delegateStatus(final, settled);
+  const question = str(finalMeta['question']);
+  const answer = settled ? str(finalMeta['output']) : '';
+  const durationRaw = Number(final['duration_ms'] ?? 0);
   const duration = formatDurationMs(durationRaw) || str(final['duration'] ?? final['elapsed']);
+
+  const remote = Boolean(placement) && placement !== 'local';
+  // ONE unified box (owner correction 2026-08-05 + prototype div.scpg): the
+  // whole delegation — heading, brief, answer, status — is a single bordered
+  // container, clickable as a whole (click → center, shift-click → right
+  // peek). NO handle pill in this presentation.
+  const interactive =
+    onOpenChild && handleId
+      ? {
+          role: 'button' as const,
+          tabIndex: 0,
+          title:
+            status === 'running'
+              ? 'Open live agent · shift-click to peek in the side panel'
+              : 'Open agent · shift-click to peek in the side panel',
+          onClick: (e: { shiftKey: boolean }) => onOpenChild(handleId, child, { peek: Boolean(e.shiftKey) }),
+          onKeyDown: (e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpenChild(handleId, child, { peek: Boolean(e.shiftKey) });
+            }
+          },
+          'data-interactive': 'true' as const,
+        }
+      : {};
 
   return (
     <div className="part-handoff">
       <p className="part-handoff__title">Call({child})</p>
       {question ? <ClampedBrief text={question} /> : null}
-      {handleId ? <HandlePill handleId={handleId} status={status} rawState={rawState} /> : null}
-      <ChildCard
-        child={child}
-        runLabel={runLabel}
-        placement={placement}
-        duration={duration}
-        body={answer}
-        status={status}
-        {...(onOpenChild && handleId
-          ? {
-              onOpen: (peek: boolean) => onOpenChild(handleId, child, { peek }),
-              openTitle:
-                status === 'running'
-                  ? 'Open live agent · shift-click to peek in the side panel'
-                  : 'Open agent · shift-click to peek in the side panel',
-            }
-          : {})}
-      />
+      <div
+        className="part-handoff__box"
+        data-testid="part-child-card"
+        data-state={status}
+        {...interactive}
+      >
+        <div className="part-childcard__head">
+          {status !== 'idle' ? <StatusDot status={status} quiet={status !== 'running'} /> : null}
+          <span className="part-childcard__name">{child}</span>
+          {runLabel && runLabel !== child ? (
+            <span className="part-childcard__run">{runLabel}</span>
+          ) : null}
+          {remote ? <span className="part-childcard__host">{placement}</span> : null}
+        </div>
+        {answer ? (
+          <div className="part-childcard__body">
+            <Markdown text={answer} />
+          </div>
+        ) : null}
+        <div className="part-handoff__foot" data-state={status}>
+          {status === 'running'
+            ? `● running${duration ? ` (${duration})` : ''}`
+            : status === 'error'
+              ? `failed ✗${duration ? ` ${duration}` : ''}`
+              : `completed ✓${duration ? ` ${duration}` : ''}`}
+        </div>
+      </div>
     </div>
   );
 }

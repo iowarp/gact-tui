@@ -261,3 +261,60 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* W3: content previews (prototype 09c/12a/23c). */
+.detail__preview {
+  margin-top: 12px;
+  overflow: auto;
+}
+
+.detail__preview img {
+  max-width: 100%;
+  border: 1px solid rgba(45, 99, 139, 0.3);
+  border-radius: 8px;
+}
+
+.detail__previewtext {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  color: var(--t-tx, #a8adb8);
+  white-space: pre-wrap;
+}
+
+.detail__csv {
+  border-collapse: collapse;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+}
+
+.detail__csv th,
+.detail__csv td {
+  border: 1px solid rgba(45, 99, 139, 0.25);
+  padding: 3px 8px;
+  text-align: left;
+  color: var(--t-tx, #a8adb8);
+  white-space: nowrap;
+}
+
+.detail__csv th {
+  color: var(--t-hd, #c5cad3);
+}
+
+.detail__csvfoot {
+  margin: 6px 0 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--t-mu, #6b7280);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.detail__csvmore {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t-cy, #0aa6ad);
+  font: inherit;
+  cursor: pointer;
+}

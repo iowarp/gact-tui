@@ -53,4 +53,14 @@ export interface ArtifactRecord {
   revision?: string;
 
   route?: RouteStep[];
+
+  /** Fetched content preview for the ARTIFACT tab (prototype: CSV table,
+   *  inline PNG, rendered markdown). Absent while loading or unfetchable. */
+  preview?: ArtifactPreview;
 }
+
+export type ArtifactPreview =
+  | { kind: 'image'; url: string }
+  | { kind: 'markdown'; text: string }
+  | { kind: 'csv'; header: string[]; rows: string[][]; totalRows?: number }
+  | { kind: 'text'; text: string };

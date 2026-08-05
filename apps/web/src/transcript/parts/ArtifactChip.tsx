@@ -6,6 +6,8 @@ export interface ArtifactGridProps {
   /** One or more resource_link parts minted together — always a real N,
    *  never padded or dropped. */
   parts: WirePart[];
+  /** Opens the artifact in the right detail panel (prototype artGo). */
+  onOpenArtifact?: ((artifactId: string, name: string) => void) | undefined;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -71,7 +73,7 @@ function iconForMime(mimeType: string): IconName {
  * `metadata` at all (older/synthetic fixtures, or a link that isn't a
  * clio-artifacts mint) falls back to description/mime_type, same as before.
  */
-export function ArtifactGrid({ parts }: ArtifactGridProps) {
+export function ArtifactGrid({ parts, onOpenArtifact }: ArtifactGridProps) {
   if (parts.length === 0) return null;
   return (
     <div className="part-artgrid" data-testid="part-artifacts">
@@ -88,15 +90,9 @@ export function ArtifactGrid({ parts }: ArtifactGridProps) {
             typeof sizeBytes === 'number' && Number.isFinite(sizeBytes) ? humanSize(sizeBytes) : '';
           const metaLine = realSize || str(part['description']) || mimeType || 'resource';
           const icon = iconForKind(kind) ?? iconForMime(mimeType);
-          return (
-            <a
-              key={uri || index}
-              className="part-artchip"
-              href={uri || undefined}
-              target="_blank"
-              rel="noreferrer"
-              title={name}
-            >
+          const artifactId = str(meta['artifact_id']);
+          const body = (
+            <>
               <span className="part-artchip__icon">
                 <Icon name={icon} size={13} />
               </span>
@@ -104,7 +100,34 @@ export function ArtifactGrid({ parts }: ArtifactGridProps) {
                 <span className="part-artchip__name">{name}</span>
                 <span className="part-artchip__meta">{metaLine}</span>
               </span>
-            </a>
+            </>
+          );
+          // The prototype's chip opens the artifact in the RIGHT panel — never
+          // a browser navigation (artifact:// resolves nowhere; target=_blank
+          // opened a dead tab). Without a destination handler or an id the
+          // chip states its own limit instead of pretending.
+          if (onOpenArtifact && artifactId) {
+            return (
+              <button
+                key={uri || index}
+                type="button"
+                className="part-artchip"
+                title="Open artifact"
+                onClick={() => onOpenArtifact(artifactId, name)}
+              >
+                {body}
+              </button>
+            );
+          }
+          return (
+            <span
+              key={uri || index}
+              className="part-artchip"
+              data-unbacked="true"
+              title={artifactId ? 'Artifact viewer not wired in this view' : name}
+            >
+              {body}
+            </span>
           );
         })}
       </div>
