@@ -233,9 +233,70 @@ describe('Transcript', () => {
     const chips = container.querySelectorAll('.part-artchip');
     expect(chips).toHaveLength(2);
     expect(screen.getByText('earthscope_stations.csv')).toBeInTheDocument();
-    // No fabricated size/row count (the wire carries neither) — the real
-    // mime_type is what's shown instead.
+    // No fabricated size/row count when the wire carries neither (no
+    // `metadata` on this fixture) — the real mime_type is shown instead.
     expect(chips[0]?.textContent).toContain('text/csv');
+  });
+
+  it('grounds the artifact meta line in the real metadata.size_bytes, not mime_type (PASS 3)', () => {
+    // Live-observed shape (sess_db1a38403472, visualization task): clio-agent
+    // gact/artifacts/wire.py:resource_link_metadata mints size_bytes/kind onto
+    // EVERY real artifact resource_link's metadata — a prior pass read this
+    // field as absent from the wire; it is real.
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'resource_link',
+              uri: 'artifact://ws_default/MTA1.CI.LY_.30_timeseries.png@v1',
+              name: 'MTA1.CI.LY_.30_timeseries.png',
+              mime_type: 'image/png',
+              metadata: {
+                artifact_id: 'artifact_64025a4401054b88b32dd863f435c438',
+                sha256: 'fdecc2c2',
+                size_bytes: 123120,
+                kind: 'image',
+                version: 1,
+                custody: 'cas',
+                fetch_url: '/v1/artifacts/artifact_64025a4401054b88b32dd863f435c438/bytes',
+                producer_activity_id: 'call_126e124a6217',
+                mechanism: 'tool-schema',
+                workspace_id: 'ws_default',
+                name: 'MTA1.CI.LY_.30_timeseries.png',
+              },
+            },
+          ]),
+        ]}
+      />,
+    );
+    const chip = container.querySelector('.part-artchip');
+    // Real formatted byte size (123120 bytes -> 120.2 KB), not the mime_type.
+    expect(chip?.textContent).toContain('120.2 KB');
+    expect(chip?.textContent).not.toContain('image/png');
+    // metadata.kind="image" selects the dedicated photo icon, not the generic
+    // diamond or the doc icon a mime-type guess of "image/png" would miss.
+    expect(chip?.querySelector('svg')?.getAttribute('data-icon')).toBe('image');
+  });
+
+  it('selects the dataset (csv) icon from metadata.kind even when mime_type would not match', () => {
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'resource_link',
+              uri: 'artifact://ws_default/results.parquet@v1',
+              name: 'results.parquet',
+              mime_type: 'application/vnd.apache.parquet',
+              metadata: { kind: 'dataset', size_bytes: 4096 },
+            },
+          ]),
+        ]}
+      />,
+    );
+    const chip = container.querySelector('.part-artchip');
+    expect(chip?.querySelector('svg')?.getAttribute('data-icon')).toBe('csv');
   });
 
   it('marks assistant narration with the prototype\'s mono bullet, not a bar', () => {

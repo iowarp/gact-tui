@@ -155,3 +155,49 @@ describe('running child card (E5, captured shape)', () => {
     expect(dot?.getAttribute('data-state')).toBe('error');
   });
 });
+
+describe('run-handle pill (isTask sg.handle, PASS 3 — tree moved since the pass-2 measurement)', () => {
+  // Pass 2 read `handle_id` as absent from every observed sample and left the
+  // prototype's optional handle pill unbuilt on that basis. Re-measured
+  // against the CURRENT live backend (10/10 expert_handoff samples across 5
+  // full delegation chains, 2026-08): handle_id is real and always present.
+  it('shows the real handle id with a pulsing dot while the delegation is running', () => {
+    render(<Transcript messages={[msg('m1', 'assistant', [STARTED_HANDOFF])]} />);
+    const pill = screen.getByTestId('part-handle');
+    expect(pill).toHaveTextContent('task_8562bd68e4d5');
+    // The literal wire word, not invented copy.
+    expect(pill).toHaveTextContent('running');
+    expect(pill.querySelector('.part-handle__dot')).not.toBeNull();
+  });
+
+  it('drops the pulsing dot and shows the real completed state on a finished delegation', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { ...STARTED_HANDOFF, stage: 'delegate.completed', live_state: 'completed', status: 'completed' },
+          ]),
+        ]}
+      />,
+    );
+    const pill = screen.getByTestId('part-handle');
+    expect(pill).toHaveTextContent('task_8562bd68e4d5');
+    expect(pill).toHaveTextContent('completed');
+    expect(pill.querySelector('.part-handle__dot')).toBeNull();
+  });
+
+  it('never invents a handle id or pill when the wire carries none', () => {
+    const { handle_id: _drop, ...withoutHandle } = STARTED_HANDOFF as typeof STARTED_HANDOFF & {
+      handle_id?: string;
+    };
+    render(<Transcript messages={[msg('m1', 'assistant', [withoutHandle])]} />);
+    expect(screen.queryByTestId('part-handle')).toBeNull();
+  });
+
+  it('is not interactive — no destination pane exists for it to open honestly (paired with E9, same rule as the child card)', () => {
+    render(<Transcript messages={[msg('m1', 'assistant', [STARTED_HANDOFF])]} />);
+    const pill = screen.getByTestId('part-handle');
+    expect(pill).not.toHaveAttribute('role');
+    expect(pill).not.toHaveAttribute('tabindex');
+  });
+});

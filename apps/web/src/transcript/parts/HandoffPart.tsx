@@ -54,6 +54,15 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
   const runLabel = str(part['run_label']);
   const placement = str(part['placement']);
   const duration = str(part['duration'] ?? part['elapsed']);
+  // The prototype's optional isTask `sg.handle` pill (design/prototype/Clio
+  // Session.html ~8451822, handleRows/hasHandle): live-verified across 10
+  // delegate.started/delegate.completed pairs (2026-08) — clio-agent's real
+  // expert_handoff wire carries `handle_id` on every sample, though the
+  // bundled PROTOTYPE fixture (what a prior pass measured) never populates
+  // its own `sg.handle`. The two are different questions; the app's live
+  // wire answers the first one "yes".
+  const handleId = str(part['handle_id']);
+  const rawState = str(part['status'] ?? part['live_state']).toLowerCase();
   // expert_handoff's `text` is a router-only arrow summary ("main ->
   // geospatial"), never a question — the real question rides in
   // `metadata.question` (contract/testdata/observed-parts-v0.3.json). Reading
@@ -89,6 +98,9 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
     <div className="part-handoff">
       <p className="part-handoff__title">Call({child})</p>
       {question ? <p className="part-handoff__question">{question}</p> : null}
+      {isExpertHandoff && handleId ? (
+        <HandlePill handleId={handleId} status={status} rawState={rawState} />
+      ) : null}
       {isExpertHandoff ? (
         <ChildCard
           child={child}
@@ -138,5 +150,46 @@ function ChildCard({
       </div>
       {body ? <div className="part-childcard__body">{body}</div> : null}
     </div>
+  );
+}
+
+/**
+ * The prototype's optional `sg.handle` pill (design/prototype/Clio Session
+ * .html ~8451822): a pulsing dot while running, the real handle id, and a
+ * colour-coded state word — the SAME compact-pill box as the async-injection
+ * pill (padding 2px 9px, `--t-sf2` background, `--t-bd35` border, 6px radius,
+ * mono 11.5px), base text cyan per the prototype's own style.
+ *
+ * `rawState` is the wire's own literal `status`/`live_state` string
+ * ("running" / "completed" / "delegate.failed" → normalised by the caller),
+ * never invented copy — the derived-status fallback only covers a
+ * hypothetical part missing both fields entirely.
+ *
+ * Deliberately non-interactive: the prototype's pill opens the observability
+ * layer's runs tab on click (`role="button"`, a real destination this app
+ * already has — SessionView's `onOpenAsync`), but wiring that click needs a
+ * callback threaded through the part-registry's pure `(part) => ReactNode`
+ * contract every kind shares. That's a shared-architecture change, not a
+ * one-off exception here — deferred alongside the child-card click (E9)
+ * rather than adding an affordance only this one pill can honour.
+ */
+function HandlePill({
+  handleId,
+  status,
+  rawState,
+}: {
+  handleId: string;
+  status: SessionStatus;
+  rawState: string;
+}) {
+  const label = rawState || (status === 'running' ? 'running' : status === 'error' ? 'failed' : 'done');
+  return (
+    <span className="part-handle" data-testid="part-handle">
+      {status === 'running' ? <span className="part-handle__dot" aria-hidden="true" /> : null}
+      <span className="part-handle__id">{handleId}</span>
+      <span className="part-handle__state" data-tone={status}>
+        {label}
+      </span>
+    </span>
   );
 }

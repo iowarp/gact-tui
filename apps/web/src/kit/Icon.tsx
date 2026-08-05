@@ -19,6 +19,7 @@ export type IconName =
   | 'folder'
   | 'csv'
   | 'doc'
+  | 'image'
   | 'term'
   | 'conf'
   | 'bin'
@@ -111,6 +112,16 @@ const GLYPHS: Record<IconName, ReactNode> = {
     <>
       {P('M2.5 1.5h4.5L9.5 4v6.5h-7V1.5z', 1.1)}
       {P('M4 6h4M4 8h4', 1.1)}
+    </>
+  ),
+  // The durable-artifacts grid's PNG card (design/prototype/Clio Session.html
+  // ~7876221, the MTA1_timeseries.png entry): a photo glyph — frame, sun dot,
+  // mountain silhouette — distinct from `doc`'s page-and-lines.
+  image: (
+    <>
+      <rect x={1.5} y={1.5} width={9} height={9} rx={1.5} stroke="currentColor" strokeWidth={1.1} />
+      {C(4.4, 4.4, 1, true)}
+      {P('M2.5 9l2.5-2.5 1.7 1.7 1.6-1.6 1.2 1.2', 1.1)}
     </>
   ),
   term: (
