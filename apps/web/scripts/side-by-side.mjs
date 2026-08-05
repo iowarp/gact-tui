@@ -9,7 +9,7 @@
  * Usage: node scripts/side-by-side.mjs <name> <setup>
  *   setup: none | session | obs | obs-gantt | fresh | menus-session |
  *          files | artifacts | context | console | search | new-dialog |
- *          execute-menu | model-picker | update-panel | settings |
+ *          execute-menu | model-picker | update-panel | settings | queue |
  *          settings-<page-label> (e.g. settings-appearance, settings-about,
  *          settings-providers — any settings nav label, lowercased/hyphenated)
  */
@@ -336,6 +336,74 @@ const SETUPS = {
   settings: {
     proto: async (p) => { await openPrototypeSettings(p); },
     app: async (p) => { await openAppSettings(p); },
+  },
+  // Send-while-busy message queue (mainQ). The prototype pushes straight
+  // into client-side state on send, so two real sends against its own
+  // default LIVE session (no backend involved at all) genuinely queue.
+  // The app's queue is real too, but reaching `busy` means an in-flight
+  // POST — never allowed against the shared LIVE backend per this
+  // harness's read-only rule, so the two send POSTs are intercepted and
+  // held open (never fulfilled, never forwarded) purely to keep the real
+  // React `sending` state true long enough to capture it; the request
+  // never reaches the server.
+  queue: {
+    proto: async (p) => {
+      const send = async (text) => {
+        await p.evaluate((t) => {
+          const ta = document.querySelector('textarea[placeholder^="Message"]');
+          const setter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype,
+            'value',
+          ).set;
+          setter.call(ta, t);
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }, text);
+        await p.waitForTimeout(120);
+        await p.evaluate(() => {
+          const ta = document.querySelector('textarea[placeholder^="Message"]');
+          let el = ta;
+          let btn = null;
+          for (let i = 0; i < 8 && el && !btn; i += 1) {
+            el = el.parentElement;
+            const buttons = el ? [...el.querySelectorAll('button')] : [];
+            if (buttons.length >= 4) btn = buttons[buttons.length - 1];
+          }
+          btn?.click();
+        });
+        await p.waitForTimeout(250);
+      };
+      await send('first queued message for review');
+      await send('second queued message for review');
+      await p.waitForTimeout(300);
+    },
+    app: async (p) => {
+      // GETs (loading the session list/detail) pass through untouched; only
+      // the two real mutations `send()` makes (PATCH the mode, POST the
+      // message) are held open forever — never fulfilled, never forwarded —
+      // so the real backend never sees them.
+      await p.route(/\/v1\/sessions\/[^/]+(\/messages)?$/, (route) => {
+        const method = route.request().method();
+        if (method === 'PATCH' || method === 'POST') return;
+        return route.continue();
+      });
+      await selectAppSession(p);
+      const box = p.getByRole('textbox', { name: 'Message' });
+      const send = p.getByRole('button', { name: /send message|queue for the next step boundary/i });
+      // Unlike the prototype's canned demo session (already mid-step before
+      // the first send), a real session here starts idle — its OWN first
+      // send is what makes `busy` true (the in-flight, intercepted POST).
+      // Only the sends AFTER that one queue, so three sends are needed to
+      // land two queued rows comparable to the prototype's two-row capture.
+      await box.fill('turn already sending, held open for this capture');
+      await send.click();
+      await p.waitForTimeout(300);
+      await box.fill('first queued message for review');
+      await send.click();
+      await p.waitForTimeout(300);
+      await box.fill('second queued message for review');
+      await send.click();
+      await p.waitForTimeout(500);
+    },
   },
 };
 

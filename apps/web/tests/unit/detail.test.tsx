@@ -168,4 +168,31 @@ describe('DetailSlot', () => {
     fireEvent.click(screen.getByRole('button', { name: /close detail/i }));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  describe('collapse-to-strip (rightOpen/tgRight)', () => {
+    it('collapses to a narrow strip carrying only the re-expand control and a vertical kind badge', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /collapse panel/i }));
+      // The full panel's tabs/body are gone — only the strip remains.
+      expect(screen.queryByRole('tab', { name: /artifact/i })).toBeNull();
+      expect(screen.getByRole('complementary', { name: /detail \(collapsed\)/i })).toBeInTheDocument();
+      const expandBtn = screen.getByRole('button', { name: /expand panel/i });
+      expect(expandBtn).toHaveTextContent('‹');
+      expect(screen.getByText('ARTIFACT')).toBeInTheDocument();
+    });
+
+    it('re-expands the full panel from the strip', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /collapse panel/i }));
+      fireEvent.click(screen.getByRole('button', { name: /expand panel/i }));
+      expect(screen.getByRole('tab', { name: /artifact/i })).toBeInTheDocument();
+      expect(screen.getByText('art_5f21c9d0e83a')).toBeInTheDocument();
+    });
+
+    it('uses a DIFFERENT icon geometry than the rail collapse control (divider at x=8.6, not x=5.4)', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      const collapseBtn = screen.getByRole('button', { name: /collapse panel/i });
+      expect(collapseBtn.querySelector('[data-icon="panel-right"]')).not.toBeNull();
+    });
+  });
 });

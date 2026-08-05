@@ -28,6 +28,11 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
   const [tab, setTab] = useState<DetailTab>('artifact');
   const [maximized, setMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
+  // rightOpen/tgRight in the prototype — a simple boolean flip between the
+  // full panel and a 38px collapsed strip carrying only the re-expand
+  // control and a vertical kind badge. Client-only layout state, same as
+  // `maximized` above.
+  const [collapsed, setCollapsed] = useState(false);
   const kind = record.recordKind ?? 'artifact';
 
   const body = (
@@ -75,6 +80,23 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
     );
   }
 
+  if (collapsed) {
+    return (
+      <aside className="detail detail--strip" aria-label="Detail (collapsed)">
+        <button
+          type="button"
+          className="detail__stripbtn"
+          title="Expand panel"
+          aria-label="Expand panel"
+          onClick={() => setCollapsed(false)}
+        >
+          ‹
+        </button>
+        <span className="detail__stripbadge">{kind.toUpperCase()}</span>
+      </aside>
+    );
+  }
+
   return (
     <aside className="detail" aria-label="Detail">
       <header className="detail__head">
@@ -113,6 +135,14 @@ export function DetailSlot({ record, onClose }: DetailSlotProps) {
           size="small"
           icon={<Icon name="expand" size={12} />}
           onClick={() => setMaximized(true)}
+        />
+        <ToolbarButton
+          label="Collapse panel"
+          title="Collapse panel"
+          iconOnly
+          size="small"
+          icon={<Icon name="panel-right" size={13} />}
+          onClick={() => setCollapsed(true)}
         />
         <ToolbarButton
           label="Close detail"

@@ -1,9 +1,16 @@
 /**
  * Composer contract (gact-tui#334) + the user-bubble correction to #333.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '../../src/composer/Composer';
+
+const COMPOSER_CSS = readFileSync(
+  resolve(__dirname, '..', '..', 'src', 'composer', 'composer.css'),
+  'utf8',
+);
 
 function renderComposer(overrides: Partial<Parameters<typeof Composer>[0]> = {}) {
   const props = {
@@ -162,6 +169,41 @@ describe('send-while-busy message queue', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /interrupt and deliver/i }));
     expect(onDeliverQueuedNow).toHaveBeenCalled();
+  });
+
+  it('docks the tray directly below the pill row, never above it (prototype DOM order)', () => {
+    const { container } = renderComposer({
+      busy: true,
+      onQueueMessage: vi.fn(),
+      queuedMessages: [{ id: 'q1', text: 'held' }],
+    });
+    const pill = container.querySelector('.composer__pillbox');
+    const tray = screen.getByTestId('composer-queue');
+    expect(pill).toBeInTheDocument();
+    // DOCUMENT_POSITION_FOLLOWING (4) on `pill` means pill comes BEFORE tray.
+    // eslint-disable-next-line no-bitwise
+    expect(pill!.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The queue tray's own top-left corner stays square (only the top-right
+    // rounds) so it continues the pill's square bottom-left corner in one
+    // unbroken left edge — verified live against the prototype's own
+    // computed style (border-radius: 0px 14px 0px 0px). jsdom does not apply
+    // imported stylesheets, so the rule itself is asserted straight from
+    // composer.css rather than a computed style.
+    expect(COMPOSER_CSS).toMatch(/\.composer__queue\s*\{[^}]*border-radius:\s*0\s+14px\s+0\s+0;/);
+  });
+
+  it('states the header hint verbatim from the prototype (mainQHint), distinct from the row hint', () => {
+    renderComposer({
+      busy: true,
+      onQueueMessage: vi.fn(),
+      queuedMessages: [{ id: 'q1', text: 'held' }],
+    });
+    expect(
+      screen.getByText('main is mid-step · delivered at the next step boundary'),
+    ).toBeInTheDocument();
+    // The row's own hint is a DIFFERENT prototype string (present tense,
+    // no "main is mid-step" prefix) — the two must not collapse to one.
+    expect(screen.getByText('delivers at the next step boundary')).toBeInTheDocument();
   });
 
   it('disables the boundary reorder controls on the first and last row', () => {

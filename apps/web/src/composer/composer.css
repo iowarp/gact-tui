@@ -297,9 +297,14 @@
   min-height: 180px;
 }
 
-/* Queued-messages tray — docks directly above the pill; the frame below it
-   squares its top corners (data-queued, matching data-pill's own square
-   docking corner) so the two read as one stacked surface. */
+/* Queued-messages tray — sits directly BELOW the pill row (prototype DOM
+   order: pill, then this tray, then the input frame) and docks into both
+   neighbors: its top-left corner stays square to continue the pill's own
+   square bottom-left corner in one unbroken left edge (measured live from
+   the prototype: pill border-radius 10px 10px 10px 0, tray border-radius
+   0 14px 0 0 — only the OUTER top-right corner rounds), and its
+   margin-bottom cancels the flex gap so it sits flush with the frame below
+   (frame squares its own top corners via data-queued) with no visible seam. */
 .composer__queue {
   box-sizing: border-box;
   display: flex;
@@ -309,8 +314,8 @@
   background: var(--t-sf);
   border: 1px solid var(--t-bd3);
   border-bottom: 0;
-  border-radius: 14px 14px 0 0;
-  margin-bottom: -8px;
+  border-radius: 0 14px 0 0;
+  margin-bottom: -6px;
 }
 
 .composer__frame[data-queued='true'] {

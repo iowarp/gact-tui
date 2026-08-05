@@ -341,13 +341,101 @@ export function Composer({
 
   return (
     <div className="composer">
+      {hasPill ? (
+        <div className="composer__pillbox">
+          {placement ? (
+            <span className="composer__placementchip">
+              <Chip
+                {...(onOpenPlacement ? { onClick: onOpenPlacement, title: 'Open files' } : {})}
+              >
+                {/* Static, not an activity indicator — placement is a
+                    location, never pulses like a running/queued/error dot. */}
+                <span className="composer__placementdot" aria-hidden="true" />
+                <span
+                  className="composer__placementlabel"
+                  data-host={placementHost}
+                  data-path={placementPath}
+                >
+                  {placement}
+                </span>
+              </Chip>
+            </span>
+          ) : null}
+          {/* This separator gates WITH the async chip — it only exists to
+              divide placement from async, so it must not render when there
+              is no async chip to divide (the ctx-side separator below covers
+              placement-to-ctx on its own in that case). */}
+          {placement && hasAsync ? (
+            <span className="composer__pillsep" aria-hidden="true" />
+          ) : null}
+          {hasAsync ? (
+            <span
+              className="composer__asyncchip"
+              data-badge={
+                asyncTasks?.some((t) => t.terminal && !dismissedAsyncIds.has(t.id))
+                  ? 'true'
+                  : undefined
+              }
+            >
+              <Chip
+                icon={<Icon name="zap" size={11} />}
+                {...(asyncTasks
+                  ? { onClick: () => setAsyncPopoverOpen((open) => !open), title: 'Open runs' }
+                  : onOpenAsync
+                    ? { onClick: onOpenAsync, title: 'Open runs' }
+                    : {})}
+              >{`async ${asyncCount}`}</Chip>
+              {asyncTasks ? (
+                <AsyncRunsPopover
+                  open={asyncPopoverOpen}
+                  tasks={asyncTasks}
+                  dismissedIds={dismissedAsyncIds}
+                  onDismiss={(id) =>
+                    setDismissedAsyncIds((current) => new Set(current).add(id))
+                  }
+                  {...(onOpenAsync ? { onOpenHistory: onOpenAsync } : {})}
+                  onClose={() => setAsyncPopoverOpen(false)}
+                />
+              ) : null}
+            </span>
+          ) : null}
+          {/* The ctx-side separator is unconditional on `hasContext` alone —
+              it must still render when async is absent/zero (the common
+              single-session case), not only when both chips are present. */}
+          {placement && hasContext ? (
+            <span className="composer__pillsep" aria-hidden="true" />
+          ) : null}
+          {hasContext ? (
+            <span className="composer__contextchip">
+              {/* No dot: the prototype's ctx chip is bare muted text; the amber
+                  activity dot rides the ASYNC chip (finished-agent badge). */}
+              <Chip
+                {...(onOpenContext ? { onClick: onOpenContext, title: 'Open context telemetry' } : {})}
+              >
+                <span className="composer__contextlabel" data-percent={`${contextPercent}%`}>
+                  {`ctx ${contextPercent}%`}
+                </span>
+              </Chip>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Queued-messages tray docks directly BELOW the pill row (prototype
+          DOM order: context strip, then the queue tray, then the input
+          frame — verified live against the ground truth: the pill's own
+          bottom-left corner is already square to meet this tray's square
+          top-left corner, see composer.css). */}
       {queue.length > 0 ? (
         <div className="composer__queue" data-testid="composer-queue">
           <div className="composer__queuehead">
             <span className="composer__queuelabel">
               {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
             </span>
-            <span className="composer__queuehint">delivers at the next step boundary</span>
+            {/* The header hint (mainQHint) and each row's own hint (baseHint,
+                below) are two DIFFERENT prototype strings, not one reused —
+                "main is mid-step" only ever appears here. */}
+            <span className="composer__queuehint">main is mid-step · delivered at the next step boundary</span>
             <span className="composer__spacer" />
             {onDeliverQueuedNow ? (
               <button
@@ -438,86 +526,6 @@ export function Composer({
               </div>
             );
           })}
-        </div>
-      ) : null}
-
-      {hasPill ? (
-        <div className="composer__pillbox">
-          {placement ? (
-            <span className="composer__placementchip">
-              <Chip
-                {...(onOpenPlacement ? { onClick: onOpenPlacement, title: 'Open files' } : {})}
-              >
-                {/* Static, not an activity indicator — placement is a
-                    location, never pulses like a running/queued/error dot. */}
-                <span className="composer__placementdot" aria-hidden="true" />
-                <span
-                  className="composer__placementlabel"
-                  data-host={placementHost}
-                  data-path={placementPath}
-                >
-                  {placement}
-                </span>
-              </Chip>
-            </span>
-          ) : null}
-          {/* This separator gates WITH the async chip — it only exists to
-              divide placement from async, so it must not render when there
-              is no async chip to divide (the ctx-side separator below covers
-              placement-to-ctx on its own in that case). */}
-          {placement && hasAsync ? (
-            <span className="composer__pillsep" aria-hidden="true" />
-          ) : null}
-          {hasAsync ? (
-            <span
-              className="composer__asyncchip"
-              data-badge={
-                asyncTasks?.some((t) => t.terminal && !dismissedAsyncIds.has(t.id))
-                  ? 'true'
-                  : undefined
-              }
-            >
-              <Chip
-                icon={<Icon name="zap" size={11} />}
-                {...(asyncTasks
-                  ? { onClick: () => setAsyncPopoverOpen((open) => !open), title: 'Open runs' }
-                  : onOpenAsync
-                    ? { onClick: onOpenAsync, title: 'Open runs' }
-                    : {})}
-              >{`async ${asyncCount}`}</Chip>
-              {asyncTasks ? (
-                <AsyncRunsPopover
-                  open={asyncPopoverOpen}
-                  tasks={asyncTasks}
-                  dismissedIds={dismissedAsyncIds}
-                  onDismiss={(id) =>
-                    setDismissedAsyncIds((current) => new Set(current).add(id))
-                  }
-                  {...(onOpenAsync ? { onOpenHistory: onOpenAsync } : {})}
-                  onClose={() => setAsyncPopoverOpen(false)}
-                />
-              ) : null}
-            </span>
-          ) : null}
-          {/* The ctx-side separator is unconditional on `hasContext` alone —
-              it must still render when async is absent/zero (the common
-              single-session case), not only when both chips are present. */}
-          {placement && hasContext ? (
-            <span className="composer__pillsep" aria-hidden="true" />
-          ) : null}
-          {hasContext ? (
-            <span className="composer__contextchip">
-              {/* No dot: the prototype's ctx chip is bare muted text; the amber
-                  activity dot rides the ASYNC chip (finished-agent badge). */}
-              <Chip
-                {...(onOpenContext ? { onClick: onOpenContext, title: 'Open context telemetry' } : {})}
-              >
-                <span className="composer__contextlabel" data-percent={`${contextPercent}%`}>
-                  {`ctx ${contextPercent}%`}
-                </span>
-              </Chip>
-            </span>
-          ) : null}
         </div>
       ) : null}
 

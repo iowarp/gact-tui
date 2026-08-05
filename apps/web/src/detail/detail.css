@@ -7,6 +7,47 @@
   border-left: 1px solid var(--t-bd3);
 }
 
+/* rightClosed in the prototype — the panel collapsed to a narrow strip
+   carrying only the re-expand control and a vertical kind badge. */
+.detail--strip {
+  width: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.detail__stripbtn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
+  color: var(--t-mu);
+  font-size: calc(12.5px * var(--ts));
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detail__stripbtn:hover {
+  color: var(--t-hd);
+  border-color: var(--t-bd6);
+}
+
+.detail__stripbadge {
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  color: var(--t-mu);
+  writing-mode: vertical-rl;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .detail__head {
   display: flex;
   align-items: center;

@@ -48,6 +48,7 @@ export type IconName =
   | 'key'
   // From the prototype's inline template SVGs (toolbar / composer / rail).
   | 'panel'
+  | 'panel-right'
   | 'console'
   | 'artifacts'
   | 'ctx'
@@ -315,13 +316,21 @@ const GLYPHS: Record<IconName, ReactNode> = {
   // ---- inline template glyphs, transcribed verbatim ----
   // Rail collapse/expand (tgLeft, both directions): viewBox 0 0 14 14, rect
   // 1.5,2.2,11x9.6 rx1.8, divider at x=5.4 (left-of-centre — marks the LEFT
-  // panel's edge). The detail-panel's own collapse control is a DIFFERENT
-  // instance of this same shape family (divider at x=8.6, right-of-centre) —
-  // transcribed separately since no such control exists in the app yet.
+  // panel's edge).
   panel: (
     <>
       <rect x={1.5} y={2.2} width={11} height={9.6} rx={1.8} stroke="currentColor" strokeWidth={1.2} />
       {P('M5.4 2.2v9.6', 1.2)}
+    </>
+  ),
+  // The detail-panel's own "Collapse panel" control (tgRight, panel open):
+  // SAME rect shape family as `panel`, divider at x=8.6 (right-of-centre —
+  // marks the RIGHT panel's edge), transcribed from the same LayerChrome-
+  // adjacent template block as the detail slot's Maximize button.
+  'panel-right': (
+    <>
+      <rect x={1.5} y={2.2} width={11} height={9.6} rx={1.8} stroke="currentColor" strokeWidth={1.2} />
+      {P('M8.6 2.2v9.6', 1.2)}
     </>
   ),
   console: (
@@ -418,7 +427,7 @@ export function Icon({ name, size = 12 }: IconProps) {
   const box =
     name === 'tool'
       ? '0 0 24 24'
-      : name === 'arrow-up' || name === 'eye' || name === 'panel'
+      : name === 'arrow-up' || name === 'eye' || name === 'panel' || name === 'panel-right'
         ? '0 0 14 14'
         : name === 'x'
           ? '0 0 11 11'
