@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
@@ -75,6 +75,10 @@ interface ComposerPillState {
   /** The raw rows behind asyncCount — backs the async chip's runs popover. */
   asyncTasks?: SessionAgentTask[];
   contextPercent?: number;
+  /** Raw token numbers behind contextPercent — Settings' Metrics page renders
+   * the same "82.1k / 200k" shape the prototype's context row carries. */
+  contextTokens?: number;
+  contextLimit?: number;
   artifactCount?: number;
 }
 
@@ -416,6 +420,20 @@ export function SessionView({
 
   const observabilityMessages = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
 
+  // Settings' Metrics page renders the prototype's "tool calls" row from the
+  // real transcript already loaded for this session — the same `tool_call`
+  // parts the Observability tools tab counts (obsToolCount backs both rows
+  // in the prototype's own JS) — with no extra network round-trip.
+  const sessionToolCallCount = useMemo(
+    () =>
+      observabilityMessages.reduce(
+        (total, message) =>
+          total + message.parts.filter((part) => part.type === 'tool_call').length,
+        0,
+      ),
+    [observabilityMessages],
+  );
+
   useEffect(() => {
     if (panel !== 'obs') return;
     setObs(null);
@@ -566,6 +584,14 @@ export function SessionView({
         const usedPercent = contextResult.value.used_pct ?? contextResult.value.pct_used;
         if (typeof usedPercent === 'number' && Number.isFinite(usedPercent)) {
           next.contextPercent = Math.round(usedPercent);
+        }
+        const tokens = contextResult.value.used_tokens ?? contextResult.value.live_tokens;
+        if (typeof tokens === 'number' && Number.isFinite(tokens)) {
+          next.contextTokens = tokens;
+        }
+        const limit = contextResult.value.window_tokens;
+        if (typeof limit === 'number' && Number.isFinite(limit)) {
+          next.contextLimit = limit;
         }
       }
 
@@ -1300,9 +1326,20 @@ export function SessionView({
             {...(activePill?.contextPercent !== undefined
               ? { contextPercent: activePill.contextPercent }
               : {})}
+            {...(activePill?.contextTokens !== undefined
+              ? { contextTokens: activePill.contextTokens }
+              : {})}
+            {...(activePill?.contextLimit !== undefined
+              ? { contextLimit: activePill.contextLimit }
+              : {})}
             {...(activePill?.artifactCount !== undefined
               ? { artifactCount: activePill.artifactCount }
               : {})}
+            {...(activeId ? { toolCallCount: sessionToolCallCount } : {})}
+            {...(activePill?.asyncTasks ? { asyncTasks: activePill.asyncTasks } : {})}
+            {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
+            onApprovalModeChange={(next) => void setApprovalMode(next)}
+            {...(activeBlueprintId ? { activeBlueprintId } : {})}
             onOpenObservability={() => setPanel('obs')}
           />
         </Layer>

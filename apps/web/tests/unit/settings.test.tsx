@@ -42,6 +42,9 @@ function makeClient(overrides: Record<string, unknown> = {}) {
     providers: vi.fn(async () => ({ providers: [] })),
     lmConfig: vi.fn(async () => ({ configured: false, provider: '', api_base: '', model: '' })),
     relayStatus: vi.fn(async () => ({ configured: false })),
+    // `fetchAgentBlueprint` (BlueprintsPage/BlueprintWindow) goes through the
+    // generic transport, not a dedicated Client method.
+    get: vi.fn(async () => ({ agent_blueprint: {}, agents: [], mcp_descriptors: [] })),
     ...overrides,
   } as unknown as Client;
 }
@@ -171,14 +174,53 @@ describe('Settings', () => {
     expect(screen.getByText(/Backend reachable/i)).toBeInTheDocument();
   });
 
-  it('renders the Metrics page from metrics(), not a placeholder', async () => {
-    const client = makeClient({
-      metrics: vi.fn(async () => ({ uptime_s: 10, sessions: { total: 3, active: 1 } })),
-    });
+  it('renders an honest empty state on Metrics with no active session', async () => {
+    // No pill props threaded (no active session) — there is no per-session
+    // metrics route to fall back to, so the page says so rather than
+    // fetching/rendering global counters that aren't what the prototype's
+    // row set asks for.
+    const client = makeClient();
     render(<Settings client={client} />);
     fireEvent.click(screen.getByRole('button', { name: /metrics/i }));
-    await waitFor(() => expect(client.metrics).toHaveBeenCalled());
     expect(screen.queryByTestId('settings-unbuilt')).toBeNull();
+    expect(client.metrics).not.toHaveBeenCalled();
+    expect(screen.getByText(/No active session to report metrics for/i)).toBeInTheDocument();
+  });
+
+  it('renders real per-session Metrics rows from the composer-pill props, not a placeholder', async () => {
+    const client = makeClient();
+    render(
+      <Settings
+        client={client}
+        contextPercent={41}
+        contextTokens={82100}
+        contextLimit={200000}
+        toolCallCount={14}
+        artifactCount={5}
+        asyncTasks={
+          [
+            { task_id: 't1', status: 'completed' },
+            { task_id: 't2', status: 'completed' },
+            { task_id: 't3', status: 'running' },
+          ] as never
+        }
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /metrics/i }));
+    expect(screen.queryByTestId('settings-unbuilt')).toBeNull();
+    // context: real percent + real token/limit breakdown.
+    expect(screen.getByText('41%')).toBeInTheDocument();
+    expect(screen.getByText('82.1k / 200k')).toBeInTheDocument();
+    // tool calls: real transcript-derived count, honestly session-scoped
+    // (not the prototype's literal, misleading "all sessions" label).
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('this session')).toBeInTheDocument();
+    // child tasks: real count + a real status breakdown, not the
+    // prototype's hardcoded "4 completed · 2 running" mock string.
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('2 completed · 1 running')).toBeInTheDocument();
+    // artifacts: real composer-pill count.
+    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   it('shows the prototype empty state for a genuinely empty Prompts catalog', async () => {
@@ -186,5 +228,74 @@ describe('Settings', () => {
     render(<Settings client={client} />);
     fireEvent.click(screen.getByRole('button', { name: /^prompts$/i }));
     await waitFor(() => expect(screen.getByText(/No saved prompts/i)).toBeInTheDocument());
+  });
+
+  it("derives a real 'N declared children' count for the ACTIVE session's blueprint row, leaving the others' real descriptions alone", async () => {
+    const client = makeClient({
+      agentBlueprints: vi.fn(async () => ({
+        blueprints: [
+          { id: 'earthscope-gnss-region', name: 'earthscope-gnss-region', version: '0.1.0' },
+          {
+            id: 'ndp-wildfire-smoke',
+            name: 'ndp-wildfire-smoke',
+            version: '0.2.1',
+            description: 'depth-2 nested chain',
+          },
+        ],
+      })),
+      get: vi.fn(async (path: string) => {
+        if (path.includes('earthscope-gnss-region')) {
+          return {
+            agent_blueprint: { id: 'earthscope-gnss-region' },
+            // tier 1 = root orchestrator, tier 2/3 = declared children.
+            agents: [{ id: 'root', tier: 1 }, { id: 'a', tier: 2 }, { id: 'b', tier: 2 }, { id: 'c', tier: 3 }],
+            mcp_descriptors: [],
+          };
+        }
+        throw new Error(`unexpected blueprint detail fetch: ${path}`);
+      }),
+    });
+    render(<Settings client={client} activeBlueprintId="earthscope-gnss-region" />);
+    fireEvent.click(screen.getByRole('button', { name: /^Agent blueprints$/i }));
+    await waitFor(() => expect(client.get).toHaveBeenCalledWith(expect.stringContaining('earthscope-gnss-region')));
+    expect(
+      await screen.findByText('this session · 3 declared children'),
+    ).toBeInTheDocument();
+    // The other row keeps its own real description — no fetch, no fabricated count.
+    expect(screen.getByText('depth-2 nested chain')).toBeInTheDocument();
+  });
+
+  it("reflects the active session's real approval mode on Policies, not the (nonexistent) policies-document field", async () => {
+    const client = makeClient({ policies: vi.fn(async () => ({ policies: [] })) });
+    const onApprovalModeChange = vi.fn();
+    render(
+      <Settings client={client} approvalMode="bypass" onApprovalModeChange={onApprovalModeChange} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^policies$/i }));
+    await waitFor(() => expect(client.policies).toHaveBeenCalled());
+    const askButton = await screen.findByRole('button', { name: /^Ask/i });
+    const executeButton = screen.getByRole('button', { name: /^Execute/i });
+    // Real state: the session is in 'bypass', not 'ask' — Execute (the
+    // honest "not asking" reflection) is checked, Ask is not.
+    expect(askButton).toHaveTextContent('Ask');
+    expect(askButton.textContent).not.toContain('✓');
+    expect(executeButton.textContent).toContain('✓');
+    expect(executeButton).toBeDisabled();
+    // Ask is the one unambiguous safe write — clicking it PATCHes for real.
+    expect(askButton).not.toBeDisabled();
+    fireEvent.click(askButton);
+    expect(onApprovalModeChange).toHaveBeenCalledWith('ask');
+  });
+
+  it('shows an honest disabled Policies approval-mode row with no active session', async () => {
+    const client = makeClient({ policies: vi.fn(async () => ({ policies: [] })) });
+    render(<Settings client={client} />);
+    fireEvent.click(screen.getByRole('button', { name: /^policies$/i }));
+    const askButton = await screen.findByRole('button', { name: /^Ask/i });
+    const executeButton = screen.getByRole('button', { name: /^Execute/i });
+    expect(askButton).toBeDisabled();
+    expect(executeButton).toBeDisabled();
+    expect(askButton.textContent).not.toContain('✓');
+    expect(executeButton.textContent).not.toContain('✓');
   });
 });

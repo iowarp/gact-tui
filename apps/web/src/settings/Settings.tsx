@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { Client } from '@clio/core';
+import type { Client, SessionAgentTask } from '@clio/core';
 import { MasterDetail } from '../kit';
 import type { RailConnection } from '../shell/Rail';
+import type { ApprovalMode } from '../composer/Composer';
 import { loadRegistry } from '../connect/registry';
 import { AppearancePage } from './AppearancePage';
 import { AboutPage } from './AboutPage';
@@ -35,7 +36,30 @@ export interface SettingsProps {
   /** The active session's own composer-pill numbers (real, already computed
    * by SessionView) — Metrics renders them rather than refetching. */
   contextPercent?: number;
+  /** Raw token numbers behind contextPercent — Metrics' "82.1k / 200k". */
+  contextTokens?: number;
+  contextLimit?: number;
   artifactCount?: number;
+  /** Real `tool_call` part count from the loaded transcript (SessionView),
+   * backing Metrics' "tool calls" row — session-scoped, no extra fetch. */
+  toolCallCount?: number;
+  /** The pill's raw agent-task rows (real, already fetched) — Metrics'
+   * "child tasks" row derives its count + completed/running breakdown from
+   * these instead of a route this layer does not have. */
+  asyncTasks?: SessionAgentTask[];
+  /** The active session's own real approval mode (SessionView's `detail`,
+   * the same value the composer's own approval picker reads/writes) —
+   * Policies' "default approval mode" row renders and can move it to the
+   * safe 'ask' direction via the same PATCH /v1/sessions/{id} the composer
+   * uses, instead of the unrelated (and never-matching) /v1/policies
+   * document shape the row used to read from. */
+  approvalMode?: ApprovalMode;
+  onApprovalModeChange?: (mode: ApprovalMode) => void;
+  /** The active session's real blueprint id (SessionView's
+   * `detail.metadata.active_agent_blueprint_id`) — Agent blueprints' list
+   * derives a real "N declared children" count for the ONE row it matches,
+   * instead of an N+1 fetch for the whole catalog. */
+  activeBlueprintId?: string;
   onOpenObservability?: () => void;
 }
 
@@ -52,7 +76,14 @@ export function Settings({
   connections,
   activeConnectionId,
   contextPercent,
+  contextTokens,
+  contextLimit,
   artifactCount,
+  toolCallCount,
+  asyncTasks,
+  approvalMode,
+  onApprovalModeChange,
+  activeBlueprintId,
   onOpenObservability,
 }: SettingsProps) {
   const pages = backedPages();
@@ -76,7 +107,14 @@ export function Settings({
               connections={connections}
               activeConnectionId={activeConnectionId}
               contextPercent={contextPercent}
+              contextTokens={contextTokens}
+              contextLimit={contextLimit}
               artifactCount={artifactCount}
+              toolCallCount={toolCallCount}
+              asyncTasks={asyncTasks}
+              approvalMode={approvalMode}
+              onApprovalModeChange={onApprovalModeChange}
+              activeBlueprintId={activeBlueprintId}
               onOpenObservability={onOpenObservability}
             />
           }
@@ -92,7 +130,14 @@ function PageBody({
   connections,
   activeConnectionId,
   contextPercent,
+  contextTokens,
+  contextLimit,
   artifactCount,
+  toolCallCount,
+  asyncTasks,
+  approvalMode,
+  onApprovalModeChange,
+  activeBlueprintId,
   onOpenObservability,
 }: {
   page: SettingsPage | undefined;
@@ -120,7 +165,7 @@ function PageBody({
       case 'prompts':
         return <PromptsPage client={client} />;
       case 'blueprints':
-        return <BlueprintsPage client={client} />;
+        return <BlueprintsPage client={client} activeBlueprintId={activeBlueprintId} />;
       case 'expert-packs':
         return <ExpertPacksPage client={client} />;
       case 'mcp':
@@ -128,15 +173,24 @@ function PageBody({
       case 'hooks':
         return <HooksPage client={client} />;
       case 'policies':
-        return <PoliciesPage client={client} />;
+        return (
+          <PoliciesPage
+            client={client}
+            approvalMode={approvalMode}
+            onApprovalModeChange={onApprovalModeChange}
+          />
+        );
       case 'memory':
         return <MemoryPage client={client} />;
       case 'metrics':
         return (
           <MetricsPage
-            client={client}
             contextPercent={contextPercent}
+            contextTokens={contextTokens}
+            contextLimit={contextLimit}
             artifactCount={artifactCount}
+            toolCallCount={toolCallCount}
+            asyncTasks={asyncTasks}
             onOpenObservability={onOpenObservability}
           />
         );
