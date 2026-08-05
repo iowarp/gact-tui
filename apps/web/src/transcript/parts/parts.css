@@ -324,58 +324,6 @@
   line-height: 1.6;
 }
 
-/* The optional run-handle pill (design/prototype/Clio Session.html ~8451822,
-   isTask's `sg.handle`) — a pulsing dot while running, the real handle id,
-   and a colour-coded state word. Same compact-pill box as the async-
-   injection pill (.part-inj__pill): padding 2px 9px, --t-sf2 background,
-   --t-bd35 border, 6px radius, mono 11.5px — base text cyan per the
-   prototype's own style (isInj's own base is --t-hd, a different family). */
-.part-handle {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 6px;
-  margin-left: 26px;
-  padding: 2px 9px;
-  background: var(--t-sf2);
-  border: 1px solid var(--t-bd35);
-  border-radius: 6px;
-  color: var(--t-cy);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: calc(11.5px * var(--ts));
-  white-space: nowrap;
-}
-
-.part-handle__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--t-ac);
-  animation: clio-pulse 1.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .part-handle__dot {
-    animation: none;
-  }
-}
-
-.part-handle__state {
-  color: var(--t-mu);
-}
-
-.part-handle__state[data-tone='running'] {
-  color: var(--t-ac);
-}
-
-.part-handle__state[data-tone='error'] {
-  color: var(--t-er);
-}
-
-.part-handle__state[data-tone='idle'] {
-  color: var(--t-ok);
-}
-
 /* The child's return is its own card at the same 18px hang — an object you
    can open, not a paragraph of the parent's message. */
 /*
@@ -667,6 +615,19 @@ button.part-artchip {
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* The child's answer clamp: ~4 lines in the box (owner: 3-5); show more
+ * expands in place, the box itself opens the full child transcript. */
+.part-childcard__body[data-clamped='true'] {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.part-handoff__answermore {
+  margin-left: 0;
 }
 
 .part-handoff__briefmore {

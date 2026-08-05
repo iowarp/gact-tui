@@ -100,9 +100,6 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
     <div className="part-handoff">
       <p className="part-handoff__title">Call({child})</p>
       {question ? <p className="part-handoff__question">{question}</p> : null}
-      {isExpertHandoff && handleId ? (
-        <HandlePill handleId={handleId} status={status} rawState={rawState} />
-      ) : null}
       {isExpertHandoff ? (
         <ChildCard
           child={child}
@@ -147,6 +144,7 @@ export interface MergedHandoffProps {
  * running card next to the completed one — the "unreadable transcript".
  */
 export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
+  const [answerExpanded, setAnswerExpanded] = useState(false);
   const final = terminal;
   const finalMeta = metadataOf(final);
   const child = str(final['child_agent'] ?? final['expert'] ?? final['agent']);
@@ -158,6 +156,9 @@ export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
   const status = delegateStatus(final, settled);
   const question = str(finalMeta['question']);
   const answer = settled ? str(finalMeta['output']) : '';
+  // The child's full return rides the wire; the box shows ~4 lines (owner:
+  // 3-5) — expand in place, or open the box for the whole child transcript.
+  const answerLong = answer.length > 320 || answer.split('\n').length > 4;
   const durationRaw = Number(final['duration_ms'] ?? 0);
   const duration = formatDurationMs(durationRaw) || str(final['duration'] ?? final['elapsed']);
 
@@ -205,9 +206,25 @@ export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
           {remote ? <span className="part-childcard__host">{placement}</span> : null}
         </div>
         {answer ? (
-          <div className="part-childcard__body">
+          <div
+            className="part-childcard__body"
+            data-clamped={answerLong && !answerExpanded ? 'true' : undefined}
+          >
             <Markdown text={answer} />
           </div>
+        ) : null}
+        {answerLong ? (
+          <button
+            type="button"
+            className="part-handoff__briefmore part-handoff__answermore"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAnswerExpanded((v) => !v);
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {answerExpanded ? 'show less' : 'show more'}
+          </button>
         ) : null}
         <div className="part-handoff__foot" data-state={status}>
           {status === 'running'
@@ -316,43 +333,3 @@ function ChildCard({
   );
 }
 
-/**
- * The prototype's optional `sg.handle` pill (design/prototype/Clio Session
- * .html ~8451822): a pulsing dot while running, the real handle id, and a
- * colour-coded state word — the SAME compact-pill box as the async-injection
- * pill (padding 2px 9px, `--t-sf2` background, `--t-bd35` border, 6px radius,
- * mono 11.5px), base text cyan per the prototype's own style.
- *
- * `rawState` is the wire's own literal `status`/`live_state` string
- * ("running" / "completed" / "delegate.failed" → normalised by the caller),
- * never invented copy — the derived-status fallback only covers a
- * hypothetical part missing both fields entirely.
- *
- * Deliberately non-interactive: the prototype's pill opens the observability
- * layer's runs tab on click (`role="button"`, a real destination this app
- * already has — SessionView's `onOpenAsync`), but wiring that click needs a
- * callback threaded through the part-registry's pure `(part) => ReactNode`
- * contract every kind shares. That's a shared-architecture change, not a
- * one-off exception here — deferred alongside the child-card click (E9)
- * rather than adding an affordance only this one pill can honour.
- */
-function HandlePill({
-  handleId,
-  status,
-  rawState,
-}: {
-  handleId: string;
-  status: SessionStatus;
-  rawState: string;
-}) {
-  const label = rawState || (status === 'running' ? 'running' : status === 'error' ? 'failed' : 'done');
-  return (
-    <span className="part-handle" data-testid="part-handle">
-      {status === 'running' ? <span className="part-handle__dot" aria-hidden="true" /> : null}
-      <span className="part-handle__id">{handleId}</span>
-      <span className="part-handle__state" data-tone={status}>
-        {label}
-      </span>
-    </span>
-  );
-}

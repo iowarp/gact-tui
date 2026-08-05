@@ -210,6 +210,39 @@ describe('Transcript', () => {
     expect(screen.getByText(longError)).toBeInTheDocument();
   });
 
+  it('renders a JSON-object tool result as a key/value table, not a raw blob (owner point d)', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { type: 'tool_call', call_id: 'call_3', tool_name: 'pandas_profile_csv', input: {} },
+            {
+              type: 'tool_result',
+              call_id: 'call_3',
+              is_error: false,
+              content: [
+                {
+                  type: 'text',
+                  text: '{"rows": 1101, "columns": ["time", "value"], "path": "gnss.csv"}',
+                },
+              ],
+            },
+          ]),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /pandas_profile_csv/ }));
+    const table = screen.getByTestId('part-tool-result-table');
+    // Every key/value from the wire renders — restructured, never dropped.
+    expect(table).toHaveTextContent('rows');
+    expect(table).toHaveTextContent('1101');
+    expect(table).toHaveTextContent('columns');
+    expect(table).toHaveTextContent('time');
+    expect(table).toHaveTextContent('gnss.csv');
+    // The raw single-blob <pre> is gone for this shape.
+    expect(document.querySelector('.part-toolrow__result')).toBeNull();
+  });
+
   it('renders resource_link parts as an icon-tile artifact grid, not a bare link', () => {
     const { container } = render(
       <Transcript
