@@ -190,6 +190,62 @@ describe('timeline legend and row markers', () => {
   });
 });
 
+describe('timeline parent/child thread connectors (P5 grind, PASS 2)', () => {
+  it('renders one continuing rail per ancestor depth, and suppresses the plain marker on a branch-open row', () => {
+    const { container } = render(
+      <Observability
+        data={data({
+          timeline: [
+            { actor: 'geospatial', action: 'task started', kind: 'running', depth: 0, branch: 'open' },
+          ],
+        })}
+        initialTab="timeline"
+      />,
+    );
+    const row = container.querySelector('.obs-log__row[data-kind="running"]')!;
+    // depth 0 still draws the always-present main-thread rail (index 0).
+    expect(row.querySelectorAll('.obs-log__rail')).toHaveLength(1);
+    expect(row.querySelector('.obs-log__rail[data-i="0"]')).not.toBeNull();
+    // The elbow is the only marker on a branch row — no ring/dot/etc.
+    expect(row.querySelector('.obs-log__elbow[data-edge="open"]')).not.toBeNull();
+    expect(row.querySelector('.obs-log__node')).toBeNull();
+  });
+
+  it('draws a closing elbow at the post-pop depth and still renders the normal marker on non-branch rows', () => {
+    const { container } = render(
+      <Observability
+        data={data({
+          timeline: [
+            { actor: 'geo_geocode', action: 'tool call', kind: 'tool', depth: 1 },
+            { actor: 'geospatial', action: 'returned to main', kind: 'event', depth: 0, branch: 'close' },
+          ],
+        })}
+        initialTab="timeline"
+      />,
+    );
+    const rows = container.querySelectorAll('.obs-log__row');
+    const toolRow = rows[0]!;
+    expect(toolRow.querySelectorAll('.obs-log__rail')).toHaveLength(2);
+    expect(toolRow.querySelector('.obs-log__node[data-shape]')).not.toBeNull();
+    const closeRow = rows[1]!;
+    expect(closeRow.querySelectorAll('.obs-log__rail')).toHaveLength(1);
+    expect(closeRow.querySelector('.obs-log__elbow[data-edge="close"]')).not.toBeNull();
+  });
+
+  it('renders a flat single rail with no elbow when a row carries no branch (the common case)', () => {
+    const { container } = render(
+      <Observability
+        data={data({ timeline: [{ actor: 'main', action: 'thinking + plan', kind: 'event', depth: 0 }] })}
+        initialTab="timeline"
+      />,
+    );
+    const row = container.querySelector('.obs-log__row')!;
+    expect(row.querySelectorAll('.obs-log__rail')).toHaveLength(1);
+    expect(row.querySelector('.obs-log__elbow')).toBeNull();
+    expect(row.querySelector('.obs-log__node')).not.toBeNull();
+  });
+});
+
 describe('timeline row click-through (jump to message / open agent)', () => {
   it('fires onNavigate with the row nav on click, and is keyboard-activatable', () => {
     const onNavigate = vi.fn();

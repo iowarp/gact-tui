@@ -60,6 +60,38 @@ function handoffMessage(id: string, childAgent: string, runLabel: string): Messa
   } as unknown as Message;
 }
 
+function handoffCompletedMessage(id: string, childAgent: string, runLabel: string): Message {
+  return {
+    id,
+    role: 'assistant',
+    parts: [
+      {
+        id: `${id}_p0`,
+        type: 'expert_handoff',
+        stage: 'delegate.completed',
+        child_agent: childAgent,
+        run_label: runLabel,
+        parent_agent: 'main',
+      },
+    ],
+  } as unknown as Message;
+}
+
+function backgroundExitMessage(id: string, runLabel: string, status = 'completed'): Message {
+  return {
+    id,
+    role: 'assistant',
+    parts: [
+      {
+        id: `${id}_p0`,
+        type: 'background_exit',
+        run_label: runLabel,
+        exit_status: status,
+      },
+    ],
+  } as unknown as Message;
+}
+
 const NO_ARTIFACTS: SessionArtifactRecord[] = [];
 
 describe('buildObservabilityTrace — user turn row', () => {
@@ -127,6 +159,110 @@ describe('buildObservabilityTrace — agent nav (open agent)', () => {
     });
     const row = trace.timeline[0]!;
     expect(row.nav).toBeUndefined();
+  });
+});
+
+describe('buildObservabilityTrace — timeline thread depth/branch (P5 grind, PASS 2)', () => {
+  it('opens at the parent depth, threads a child tool call one level deeper, and closes back at the parent depth', () => {
+    const trace = buildObservabilityTrace({
+      messages: [
+        handoffMessage('m1', 'geospatial', 'geospatial #1'),
+        toolCallMessage('m2', 'geospatial', 'geo_geocode', { region: 'LA' }),
+        handoffCompletedMessage('m3', 'geospatial', 'geospatial #1'),
+      ],
+      agentTasks: [],
+      artifacts: NO_ARTIFACTS,
+    });
+    const [started, toolCall, returned] = trace.timeline;
+    expect(started!.depth).toBe(0);
+    expect(started!.branch).toBe('open');
+    expect(toolCall!.depth).toBe(1);
+    expect(toolCall!.branch).toBeUndefined();
+    expect(returned!.depth).toBe(0);
+    expect(returned!.branch).toBe('close');
+  });
+
+  it('threads two nesting levels deep (task started by data, sub-task spawned by data, its own tool call)', () => {
+    const trace = buildObservabilityTrace({
+      messages: [
+        handoffMessage('m1', 'data', 'data #1'),
+        handoffMessage('m2', 'ndp_dataset_discovery', 'ndp_dataset_discovery #1'),
+        toolCallMessage('m3', 'ndp_dataset_discovery', 'ndp_search', { q: 'stations' }),
+        handoffCompletedMessage('m4', 'ndp_dataset_discovery', 'ndp_dataset_discovery #1'),
+        handoffCompletedMessage('m5', 'data', 'data #1'),
+      ],
+      agentTasks: [],
+      artifacts: NO_ARTIFACTS,
+    });
+    const depths = trace.timeline.map((row) => [row.depth, row.branch]);
+    expect(depths).toEqual([
+      [0, 'open'], // data: task started
+      [1, 'open'], // ndp_dataset_discovery: spawned by data
+      [2, undefined], // ndp_search: tool call
+      [1, 'close'], // ndp_dataset_discovery: returned to data
+      [0, 'close'], // data: returned to main
+    ]);
+  });
+
+  it('lane-allocates two concurrently-open siblings (LIFO close order) without collapsing their depths', () => {
+    // analysis opens; while it is still open, gnss opens, then station opens
+    // (station is now the innermost); station closes first (matches its own
+    // open order), then gnss, then analysis — mirrors the prototype's own
+    // "spawned in parallel" demo rows (~8330210).
+    const trace = buildObservabilityTrace({
+      messages: [
+        handoffMessage('m1', 'analysis', 'analysis #1'),
+        handoffMessage('m2', 'gnss_timeseries_analysis', 'gnss #1'),
+        handoffMessage('m3', 'station_network_analysis', 'station #1'),
+        toolCallMessage('m4', 'station_network_analysis', 'station_metadata', {}),
+        handoffCompletedMessage('m5', 'station_network_analysis', 'station #1'),
+        toolCallMessage('m6', 'gnss_timeseries_analysis', 'csv_profile', {}),
+        handoffCompletedMessage('m7', 'gnss_timeseries_analysis', 'gnss #1'),
+        handoffCompletedMessage('m8', 'analysis', 'analysis #1'),
+      ],
+      agentTasks: [],
+      artifacts: NO_ARTIFACTS,
+    });
+    const depths = trace.timeline.map((row) => [row.depth, row.branch]);
+    expect(depths).toEqual([
+      [0, 'open'], // analysis: task started
+      [1, 'open'], // gnss: spawned in parallel
+      [2, 'open'], // station: spawned in parallel (gnss still open)
+      [3, undefined], // station_metadata: tool call
+      [2, 'close'], // station: returned to analysis
+      [2, undefined], // csv_profile: tool call (belongs to gnss, still open)
+      [1, 'close'], // gnss: returned to analysis
+      [0, 'close'], // analysis: returned to main
+    ]);
+  });
+
+  it('closes an open branch via background_exit (not just delegate.completed)', () => {
+    const trace = buildObservabilityTrace({
+      messages: [
+        handoffMessage('m1', 'io-monitor', 'io-monitor #1'),
+        toolCallMessage('m2', 'io-monitor', 'sample', {}),
+        backgroundExitMessage('m3', 'io-monitor #1'),
+      ],
+      agentTasks: [],
+      artifacts: NO_ARTIFACTS,
+    });
+    const depths = trace.timeline.map((row) => [row.depth, row.branch]);
+    expect(depths).toEqual([
+      [0, 'open'],
+      [1, undefined],
+      [0, 'close'],
+    ]);
+  });
+
+  it('never marks a branch close when no matching open exists (history starting mid-task)', () => {
+    const trace = buildObservabilityTrace({
+      messages: [handoffCompletedMessage('m1', 'geospatial', 'geospatial #1')],
+      agentTasks: [],
+      artifacts: NO_ARTIFACTS,
+    });
+    const row = trace.timeline[0]!;
+    expect(row.depth).toBe(0);
+    expect(row.branch).toBeUndefined();
   });
 });
 

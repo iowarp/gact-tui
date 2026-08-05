@@ -602,23 +602,27 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
       {mode === 'log' ? (
         rows.length > 0 ? (
           <ol className="obs-log">
-            {rows.map((row, index) => (
-              <li
-                className="obs-log__row"
-                data-kind={row.kind}
-                key={row.sourceId ?? `${row.at ?? ''}-${row.actor}-${row.action}-${index}`}
-                style={{ '--obs-depth': row.depth ?? 0 } as CSSProperties}
-                {...navProps(row.nav, onNavigate)}
-              >
-                <span className="obs-log__thread" aria-hidden="true">
-                  <LogNode kind={row.kind} />
-                </span>
-                <time className="obs-log__time">{row.at ?? ''}</time>
-                <span className="obs-log__actor">{row.actor}</span>
-                <span className="obs-log__action">{row.action}</span>
-                {row.duration ? <span className="obs-log__duration">({row.duration})</span> : null}
-              </li>
-            ))}
+            {rows.map((row, index) => {
+              const depth = row.depth ?? 0;
+              return (
+                <li
+                  className="obs-log__row"
+                  data-kind={row.kind}
+                  key={row.sourceId ?? `${row.at ?? ''}-${row.actor}-${row.action}-${index}`}
+                  style={{ '--obs-depth': depth } as CSSProperties}
+                  {...navProps(row.nav, onNavigate)}
+                >
+                  <span className="obs-log__thread" aria-hidden="true">
+                    <ThreadRails depth={depth} branch={row.branch} />
+                    {row.branch ? null : <LogNode kind={row.kind} />}
+                  </span>
+                  <time className="obs-log__time">{row.at ?? ''}</time>
+                  <span className="obs-log__actor">{row.actor}</span>
+                  <span className="obs-log__action">{row.action}</span>
+                  {row.duration ? <span className="obs-log__duration">({row.duration})</span> : null}
+                </li>
+              );
+            })}
           </ol>
         ) : (
           <p className="obs__empty" data-testid="obs-empty">
@@ -633,6 +637,36 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
         </p>
       )}
     </div>
+  );
+}
+
+/** Parent/child thread connectors (~8244025's `r.lines`/`hasOut`/`hasIn`):
+ *  one continuing vertical rail per currently-open ancestor branch (index 0
+ *  is the always-present main thread), plus — on the exact row that opens or
+ *  closes a nesting level — an elbow bridging the last rail over to the
+ *  column the child branch begins (or just stopped) at. `depth` is a real
+ *  open/close-stack count from build.ts's threadHistoryTimeline, never the
+ *  optional/unreliable wire `depth` field. */
+function ThreadRails({ depth, branch }: { depth: number; branch?: 'open' | 'close' }) {
+  const rails = Array.from({ length: depth + 1 }, (_, i) => i);
+  return (
+    <>
+      {rails.map((i) => (
+        <span
+          className="obs-log__rail"
+          data-i={i}
+          key={i}
+          style={{ '--obs-rail-i': i } as CSSProperties}
+        />
+      ))}
+      {branch ? (
+        <span
+          className="obs-log__elbow"
+          data-edge={branch}
+          style={{ '--obs-rail-i': depth } as CSSProperties}
+        />
+      ) : null}
+    </>
   );
 }
 

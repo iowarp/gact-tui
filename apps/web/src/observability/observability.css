@@ -251,24 +251,15 @@
 }
 
 .obs-log {
+  --obs-indent: 11px;
   position: relative;
   font-family: var(--f-mono);
   font-size: calc(12px * var(--ts));
 }
 
-.obs-log::before {
-  position: absolute;
-  top: 10px;
-  bottom: 10px;
-  left: 11px;
-  width: 1px;
-  background: var(--t-cy5);
-  content: '';
-}
-
 .obs-log__row {
   display: grid;
-  grid-template-columns: 24px 46px minmax(90px, max-content) minmax(0, 1fr) auto;
+  grid-template-columns: 70px 46px minmax(90px, max-content) minmax(0, 1fr) auto;
   align-items: baseline;
   min-height: 26px;
   column-gap: 8px;
@@ -294,13 +285,61 @@
 .obs-log__thread {
   position: relative;
   align-self: stretch;
-  transform: translateX(calc(var(--obs-depth) * 3px));
+}
+
+/* Parent/child thread rails (~8244025's `r.lines`): one continuous vertical
+ * segment per currently-open ancestor branch, index 0 is the main thread
+ * (its own distinct color, matching L0), deeper indices are the muted
+ * ancestor-branch color (L1+). Rendered per row rather than as one
+ * container-spanning line so each row can independently reflect how many
+ * branches are open around it — the SAME per-row-segment technique the
+ * prototype's own template uses (it has no canvas, only per-row divs). */
+.obs-log__rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(4px + var(--obs-rail-i) * var(--obs-indent));
+  width: 0;
+  border-left: 1px solid var(--t-bd6);
+}
+
+.obs-log__rail[data-i='0'] {
+  border-left-color: var(--t-grad1);
+}
+
+/* Branch-open/close elbow (~8244025's `hasOut`/`hasIn`): bridges the last
+ * open rail over to the column a child branch begins (or just stopped) at,
+ * curving with the row's own top/bottom half — the prototype's exact
+ * border-top/border-right vs border-bottom/border-right rounded-corner
+ * technique. Rows that carry one never also render `.obs-log__node`: the
+ * elbow itself is the marker, matching the prototype's own `isDot:false`
+ * pairing on every hasOut/hasIn row. */
+.obs-log__elbow {
+  position: absolute;
+  left: calc(4px + var(--obs-rail-i) * var(--obs-indent));
+  width: var(--obs-indent);
+  box-sizing: border-box;
+  border-right: 2px solid var(--t-bd6);
+}
+
+.obs-log__elbow[data-edge='open'] {
+  top: 50%;
+  height: 50%;
+  border-top: 2px solid var(--t-bd6);
+  border-top-right-radius: 8px;
+}
+
+.obs-log__elbow[data-edge='close'] {
+  top: 0;
+  height: 50%;
+  border-bottom: 2px solid var(--t-bd6);
+  border-bottom-right-radius: 8px;
 }
 
 .obs-log__node {
   position: absolute;
   top: 50%;
-  left: 4px;
+  left: calc(4px + var(--obs-depth) * var(--obs-indent));
   z-index: 1;
   display: grid;
   place-items: center;
@@ -787,6 +826,12 @@
   text-align: left;
 }
 
+.obs-toollog__toggle:focus-visible,
+.obs-toollog__agent:not(:disabled):focus-visible {
+  outline: 2px solid var(--t-cy3);
+  outline-offset: 1px;
+}
+
 .obs-toollog__name {
   overflow: hidden;
   color: var(--t-hd);
@@ -1006,7 +1051,11 @@
   }
 
   .obs-log__row {
-    grid-template-columns: 24px 44px minmax(78px, max-content) minmax(120px, 1fr) auto;
+    /* The thread column stays full width even here — it carries real
+     * structural information (nesting depth, branch elbows) whose position
+     * is independent of the row's overall width; only the other columns
+     * compress. */
+    grid-template-columns: 70px 44px minmax(78px, max-content) minmax(120px, 1fr) auto;
   }
 
   .obs-artifact__button {

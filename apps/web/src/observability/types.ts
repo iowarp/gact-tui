@@ -62,7 +62,16 @@ export interface ObsTimelineRow {
   action: string;
   duration?: string;
   kind: ObsTimelineKind;
+  /** Nesting depth computed from a real open/close stack over expert_handoff
+   *  delegate.started/delegate.completed (and background_exit) pairs — how
+   *  many ancestor thread rails should draw through this row. 0 = top level. */
   depth?: number;
+  /** This exact row opens ('open': a task-started row, rendered at the
+   *  PARENT's depth) or closes ('close': a returned/exited row, rendered
+   *  AFTER popping back to the parent's depth) a nesting level — the
+   *  prototype's `hasOut`/`hasIn` elbow brackets (~8244025). Undefined for
+   *  every row that neither starts nor ends a branch. */
+  branch?: 'open' | 'close';
   /** Stable backend identity used to discard SSE reconnect replays. */
   sourceId?: string;
   nav?: ObsNavigation;

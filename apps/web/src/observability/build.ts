@@ -60,9 +60,7 @@ export function buildObservabilityTrace({
   const resultByCall = toolResultsByCall(entries);
   const versions = artifacts.map(latestArtifactVersion).filter(isPresent);
   const agentLookup = agentSessionLookup(agentTasks);
-  const timeline = entries
-    .map((entry) => toHistoryTimelineRow(entry, resultByCall, agentLookup))
-    .filter(isPresent);
+  const timeline = threadHistoryTimeline(entries, resultByCall, agentLookup);
   const reconstructedSpans = reconstructPartSpans(entries, resultByCall);
   const spansById = new Map(reconstructedSpans.map((span) => [span.id, span]));
 
@@ -174,6 +172,55 @@ function toolResultsByCall(entries: PartEntry[]): Map<string, PartEntry> {
   return results;
 }
 
+/**
+ * Walks entries in chronological order, threading each row through a real
+ * open/close stack keyed by `handoffKey` — the SAME key reconstructPartSpans
+ * uses to pair a `delegate.started` row with its `delegate.completed` (or
+ * `background_exit`) counterpart. This replaces the wire's optional, often
+ * absent `depth` field with a depth CLIO can prove from the actual call/
+ * return structure, and marks the exact row that opens ('branch: open') or
+ * closes ('branch: close') a nesting level so the timeline can render the
+ * prototype's own parent/child thread-connector brackets (~8244025) instead
+ * of a single flat line. A close with no matching open (session history
+ * starting mid-task) renders as a flat row rather than guessing.
+ */
+function threadHistoryTimeline(
+  entries: PartEntry[],
+  resultByCall: Map<string, PartEntry>,
+  agentLookup: Map<string, string>,
+): ObsTimelineRow[] {
+  const openStack: string[] = [];
+  const rows: ObsTimelineRow[] = [];
+  for (const entry of entries) {
+    const type = visibleString(entry.part['type']);
+    const stage = visibleString(entry.part['stage']);
+    const isClose =
+      (type === 'expert_handoff' && stage === 'delegate.completed') || type === 'background_exit';
+    let branch: 'open' | 'close' | undefined;
+    if (isClose) {
+      const key = handoffKey(entry.part);
+      const index = key ? openStack.indexOf(key) : -1;
+      if (index !== -1) {
+        openStack.splice(index, 1);
+        branch = 'close';
+      }
+    }
+    const depth = openStack.length;
+    const row = toHistoryTimelineRow(entry, resultByCall, agentLookup);
+    if (row) rows.push({ ...row, depth, ...(branch ? { branch } : {}) });
+
+    const isOpen = type === 'expert_handoff' && stage === 'delegate.started';
+    if (isOpen) {
+      const key = handoffKey(entry.part);
+      if (key) {
+        openStack.push(key);
+        if (row) rows[rows.length - 1] = { ...rows[rows.length - 1]!, branch: 'open' };
+      }
+    }
+  }
+  return rows;
+}
+
 function toHistoryTimelineRow(
   entry: PartEntry,
   resultByCall: Map<string, PartEntry>,
@@ -182,10 +229,8 @@ function toHistoryTimelineRow(
   const type = visibleString(entry.part['type']);
   if (!type) return null;
   const sourceId = historySourceId(entry);
-  const depth = partDepth(entry.part);
   const common = {
     ...withTime(entry.atMs),
-    ...(depth !== null ? { depth } : {}),
     sourceId,
   };
 
