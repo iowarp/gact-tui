@@ -25,16 +25,40 @@
 .provider-model-picker__settingsgear[data-unbacked='true'] { color: var(--t-er); cursor: not-allowed; }
 .provider-model-picker__settingsgear[data-unbacked='true']:hover { background: var(--t-erc06); }
 /* grid-template-columns is set inline (the provider column is drag-resizable
-   via pmDragCol below — a fixed rule here would fight the inline style). */
-.provider-model-picker__panes { display: grid; min-height: 270px; }
-.provider-model-picker__providers { padding: 8px; border-right: 1px solid var(--t-bd3); background: var(--t-bg); }
-.provider-model-picker__provider { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
-.provider-model-picker__provider:hover, .provider-model-picker__provider[data-active='true'] { background: var(--t-hv); color: var(--t-cy); }
-.provider-model-picker__provider small { color: var(--t-mu); font-size: calc(8.5px * var(--ts)); }
+   via pmDragCol below — a fixed rule here would fight the inline style).
+   height is CAPPED (not just min'd) — the live provider catalogue (10
+   entries on the real backend) is longer than the prototype's 3-item demo
+   set, and letting the panes grow past the base .kit-popover's own 320px
+   ceiling used to push the bottom "thinking" row (below) off-screen with no
+   way back short of scrolling the whole popover including its own head.
+   Bounding + scrolling the panes THEMSELVES instead keeps head/thinking
+   always visible, matching the prototype's own "always shows it". */
+.provider-model-picker__panes { display: grid; max-height: 240px; }
+.provider-model-picker__providers { min-height: 0; overflow-y: auto; padding: 8px; border-right: 1px solid var(--t-bd3); background: var(--t-bg); }
+/* Measured on the prototype's own popRouter row: ONE line — name, the
+   per-provider config indicator, then status — not two stacked lines.
+   min-width:0 on the row is required for the grid to actually respect its
+   own 100% width instead of "blowing out" wider than its column: a real
+   backend status_message can be long ("stored Globus token could not be
+   refreshed; authenticate ALCF" — argonne_sophia/argonne_metis today), and
+   without it the trailing `auto` status track demands its own full nowrap
+   min-content width, pushing the row past the 210px provider column and
+   visually swallowing the provider name (caught live, not by jsdom). */
+.provider-model-picker__provider { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, 72px); align-items: baseline; column-gap: 6px; width: 100%; min-width: 0; padding: 7px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
+.provider-model-picker__provider:hover, .provider-model-picker__provider[data-active='true'] { background: var(--t-hv); }
+.provider-model-picker__providername { font-weight: 600; color: var(--t-hd); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.provider-model-picker__provider:hover .provider-model-picker__providername, .provider-model-picker__provider[data-active='true'] .provider-model-picker__providername { color: var(--t-cy); }
+.provider-model-picker__cfg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t-mu); font-size: calc(9.5px * var(--ts)); cursor: not-allowed; }
+.provider-model-picker__cfg[data-unbacked='true'] { color: var(--t-er); }
+/* overflow+ellipsis truncate — some real status_message text is long
+   ("stored Globus token could not be refreshed; authenticate ALCF") and
+   must clip with a title tooltip rather than blow out the row's grid (see
+   the row rule's own comment above); title carries the full text. */
+.provider-model-picker__provider small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--t-mu); font-size: calc(8.5px * var(--ts)); }
 .provider-model-picker__provider small[data-tone='ok'] { color: var(--t-ok); }
 .provider-model-picker__provider small[data-tone='warn'] { color: var(--t-wa); }
 .provider-model-picker__provider small[data-tone='error'] { color: var(--t-er); }
-.provider-model-picker__models { position: relative; padding: 12px; }
+.provider-model-picker__models { position: relative; min-height: 0; overflow-y: auto; padding: 12px; }
 /* Measured on the prototype's own popRouter handle: the SAME 6px col-resize
    strip convention as .provider-model-picker__resize above, mounted at the
    model pane's own left edge (pmDragCol — resizes the provider column

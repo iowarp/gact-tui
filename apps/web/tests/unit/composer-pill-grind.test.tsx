@@ -348,6 +348,135 @@ describe('model picker — drag-to-resize handle (the prototype\'s pmDragW)', ()
   });
 });
 
+describe('model picker — trigger label on a model-less session (PASS-3 audit correction)', () => {
+  const PROVIDERS_ONLY = [
+    {
+      id: 'anthropic',
+      label: 'Anthropic API',
+      status: 'missing_key',
+      statusLabel: 'missing key',
+      models: [{ id: 'anthropic/claude-sonnet', value: 'anthropic/claude-sonnet', label: 'claude-sonnet' }],
+    },
+  ];
+
+  it('shows a single plain "model not set", never doubled, once the real provider catalogue has loaded', () => {
+    // value='' (no model chosen) but the REAL modelProviders catalogue is
+    // already populated (the common post-load case) — must not fall back to
+    // groupsFromOptions and must not match the sentinel against a real group.
+    render(<ProviderModelPicker value="" options={[]} providers={PROVIDERS_ONLY} onChange={vi.fn()} />);
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveTextContent('model not set');
+    expect(screen.queryByText('model not set / model not set')).toBeNull();
+  });
+
+  it('shows a single plain "model not set" even during the loading window, when only the synthetic placeholder option exists', () => {
+    // No `providers` prop yet (real catalogue still in flight) — the picker
+    // falls back to groupsFromOptions(options), and `options` is exactly
+    // what SessionView threads through before data arrives: only the
+    // synthetic `{id:'', label:'model not set'}` sentinel. This is the
+    // window the "model not set / model not set" regression (audit2-fresh
+    // .png) actually came from.
+    render(
+      <ProviderModelPicker value="" options={[{ id: '', label: 'model not set' }]} onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveTextContent('model not set');
+    expect(screen.queryByText('model not set / model not set')).toBeNull();
+  });
+
+  it('never lists the placeholder sentinel as a selectable provider/model in the popover', () => {
+    render(
+      <ProviderModelPicker value="" options={[{ id: '', label: 'model not set' }]} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    expect(screen.queryByRole('option', { name: 'model not set' })).toBeNull();
+  });
+});
+
+describe('model picker — provider row grammar (PASS-3 audit correction)', () => {
+  const TWO_PROVIDERS = [
+    {
+      id: 'anthropic',
+      label: 'Anthropic API',
+      status: 'missing_key',
+      statusLabel: 'missing key',
+      models: [],
+    },
+    {
+      id: 'argonne_sophia',
+      label: 'ALCF Sophia (Globus Auth)',
+      status: 'auth_required',
+      statusLabel: 'auth required',
+      models: [],
+    },
+  ];
+
+  it('renders name and status on ONE row (a single 3-column grid, not two stacked lines)', () => {
+    const { container } = render(
+      <ProviderModelPicker value="" options={[]} providers={TWO_PROVIDERS} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const rows = container.querySelectorAll('.provider-model-picker__provider');
+    expect(rows).toHaveLength(2);
+    const first = rows[0] as HTMLElement;
+    // Name and status are DIRECT children of the same row element (a single
+    // grid, `auto minmax(0,1fr) auto`) — not each wrapped in their own
+    // stacked-line container, which is what the two-line layout did.
+    expect(first.children).toHaveLength(3);
+    expect(within(first).getByText('Anthropic API')).toBeInTheDocument();
+    expect(within(first).getByText('missing key')).toBeInTheDocument();
+  });
+
+  it('never silently omits the prototype\'s per-provider config control — shows it visible, disabled, and flagged (attach-button convention)', () => {
+    const { container } = render(
+      <ProviderModelPicker value="" options={[]} providers={TWO_PROVIDERS} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const cfgBadges = container.querySelectorAll('.provider-model-picker__cfg');
+    expect(cfgBadges).toHaveLength(2);
+    cfgBadges.forEach((badge) => {
+      expect(badge).toHaveAttribute('data-unbacked', 'true');
+      expect(badge.textContent).toContain('default');
+      // Not its own nested interactive control — session-scoped switching
+      // has no wire, so it must never be a second clickable button inside
+      // the provider row's own button.
+      expect(badge.tagName).not.toBe('BUTTON');
+    });
+  });
+
+  it('carries the full status text in a title even though the row visually truncates it (grid-blowout regression)', () => {
+    // Probed live against the real backend: argonne_sophia/argonne_metis
+    // report a long status_message ("stored Globus token could not be
+    // refreshed; authenticate ALCF"). Without an explicit shrink target the
+    // row's own grid demanded that text's full nowrap width and squeezed
+    // the provider NAME out of view entirely — caught on a live capture
+    // (screenshots/side-by-side/_probe-pop2.png), not by jsdom, which
+    // never computes layout. The fix constrains the status column's
+    // min-content contribution; this locks that the FULL text still
+    // reaches the DOM (via title) even once visually clipped.
+    const LONG_STATUS = 'stored Globus token could not be refreshed; authenticate ALCF';
+    const providers = [
+      {
+        id: 'argonne_sophia',
+        label: 'ALCF Sophia (Globus Auth)',
+        status: 'auth_required',
+        statusLabel: LONG_STATUS,
+        models: [],
+      },
+    ];
+    const { container } = render(
+      <ProviderModelPicker value="" options={[]} providers={providers} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const status = container.querySelector('.provider-model-picker__provider small');
+    expect(status).toHaveAttribute('title', LONG_STATUS);
+    expect(status).toHaveTextContent(LONG_STATUS);
+    // The provider name must still be present and unobscured in the DOM —
+    // the actual defect was CSS layout squeezing it out of the visible box,
+    // which jsdom can't see, but the name node must at least still exist
+    // and read correctly regardless.
+    expect(within(container).getByText('ALCF Sophia (Globus Auth)')).toBeInTheDocument();
+  });
+});
+
 const SESSIONS = [
   { id: 'sess_a', title: 'LA ground motion', status: 'running', workspace_id: 'ws_default' },
 ] as unknown as Session[];

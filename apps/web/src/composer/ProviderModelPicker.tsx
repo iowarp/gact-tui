@@ -88,7 +88,18 @@ export function ProviderModelPicker({
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [columnWidth, setColumnWidth] = useState(COLUMN_DEFAULT_WIDTH);
   const groups = useMemo(() => providers?.length ? providers : groupsFromOptions(options), [options, providers]);
-  const selectedGroup = groups.find((group) => group.models.some((model) => model.value === value));
+  // `value` is '' on a model-less session (SessionView threads a synthetic
+  // `{id:'', label:'model not set'}` placeholder option through so the
+  // picker's list still shows "model not set" as a row). Searching for a
+  // "selected" model/group by `value` when `value` IS that empty sentinel
+  // must never match — otherwise groupsFromOptions' own placeholder-derived
+  // group (built while the real provider catalogue is still loading) gets
+  // treated as a genuinely selected model, and the trigger renders the
+  // placeholder text on BOTH sides of the slash: "model not set / model not
+  // set" (caught on a real fresh-session capture, audit2-fresh.png).
+  const selectedGroup = value
+    ? groups.find((group) => group.models.some((model) => model.value === value))
+    : undefined;
   const selectedGroupId = selectedGroup?.id;
   const [activeProviderId, setActiveProviderId] = useState(selectedGroup?.id ?? groups[0]?.id ?? '');
 
@@ -101,7 +112,9 @@ export function ProviderModelPicker({
   }, [activeProviderId, groups]);
 
   const activeProvider = groups.find((group) => group.id === activeProviderId) ?? groups[0];
-  const selectedModel = groups.flatMap((group) => group.models).find((model) => model.value === value);
+  const selectedModel = value
+    ? groups.flatMap((group) => group.models).find((model) => model.value === value)
+    : undefined;
   const selectedLabel = selectedModel
     ? `${selectedGroup?.label || activeProvider?.label || ''} / ${selectedModel.label}`
     : value || 'model not set';
@@ -173,8 +186,36 @@ export function ProviderModelPicker({
                 data-active={provider.id === activeProvider?.id ? 'true' : undefined}
                 onClick={() => setActiveProviderId(provider.id)}
               >
-                <span>{provider.label}</span>
-                <small data-tone={statusTone(provider.status)}>
+                {/* Measured on the prototype's own popRouter row: ONE line
+                    (name, a per-provider "default ⌄" config sub-picker, then
+                    status) via `grid-template-columns:auto minmax(0,1fr)
+                    auto`, not two stacked lines. Two lines was real drift:
+                    on the live ~10-provider catalogue it made the providers
+                    column tall enough to push the bottom "thinking" row out
+                    of view (see .provider-model-picker__panes below). */}
+                <span className="provider-model-picker__providername">{provider.label}</span>
+                {/* The prototype's `o.cfg`/`o.cfgClick` lets a user pick
+                    among a provider's own named alternate configs (different
+                    api_base/auth profiles). clio-agent HAS that concept
+                    server-side (GET /v1/providers/lm's presets[], several of
+                    which do share one `provider`, e.g. argonne_metis /
+                    argonne_sophia) but exposes no session-scoped field to
+                    switch it — PATCH /v1/sessions/{id}'s model ref carries
+                    only {provider_id, model_id, variant}. Shown, disabled,
+                    and flagged rather than silently dropped or faked as
+                    interactive (same convention as the composer's attach
+                    button and this panel's own per-model gear below). */}
+                <span
+                  className="provider-model-picker__cfg"
+                  data-unbacked="true"
+                  title="No per-session alternate-configuration switch is wired for this provider"
+                >
+                  default<span aria-hidden="true"> ⌄</span>
+                </span>
+                <small
+                  data-tone={statusTone(provider.status)}
+                  title={provider.statusLabel || provider.status || 'catalog'}
+                >
                   {provider.statusLabel || provider.status || 'catalog'}
                 </small>
               </button>
@@ -241,6 +282,12 @@ export function ProviderModelPicker({
 function groupsFromOptions(options: SelectOption[]): ProviderModelGroup[] {
   const byProvider = new Map<string, ProviderModelGroup>();
   for (const option of options) {
+    // The synthetic "model not set" sentinel (id: '') exists so the flat
+    // options list still shows a row when no model is chosen — it is not a
+    // real provider/model and must never become one of its own (see the
+    // `value ? ... : undefined` guards above for the matching trigger-label
+    // half of this fix).
+    if (option.id === '') continue;
     const detail = typeof option.detail === 'string' ? option.detail : '';
     const providerLabel = detail || option.label.split(' / ')[0] || 'models';
     const modelLabel = detail ? option.label : option.label.split(' / ').at(-1) || option.label;

@@ -10,8 +10,9 @@
  *   setup: none | session | obs | obs-gantt | fresh | menus-session |
  *          files | artifacts | context | console | search | new-dialog |
  *          execute-menu | model-picker | update-panel | settings | queue |
- *          settings-<page-label> (e.g. settings-appearance, settings-about,
- *          settings-providers — any settings nav label, lowercased/hyphenated)
+ *          async | settings-<page-label> (e.g. settings-appearance,
+ *          settings-about, settings-providers — any settings nav label,
+ *          lowercased/hyphenated)
  */
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -431,6 +432,56 @@ const SETUPS = {
       await box.fill('second queued message for review');
       await send.click();
       await p.waitForTimeout(500);
+    },
+  },
+  // The composer's async chip + runs popover (composer-pill.json). The
+  // prototype's own popover data is entirely client-local canned state
+  // (isEarth/isAst demo branches), reached just by clicking the chip on its
+  // default session — but the read-only shared LIVE backend this harness
+  // points at currently carries zero non-terminal agent-tasks, so the app's
+  // OWN chip never shows (asyncCount stays 0, the chip doesn't render at
+  // all). Route-intercept ONLY the GET .../agent-tasks response with canned
+  // rows shaped like the prototype's own demo set (gnss-region-watch 2h14m,
+  // catalog-refresh 12m, one recently-finished row) — no session/message
+  // mutation, nothing forwarded to the real server, same technique as the
+  // `queue` setup's held-open POSTs above.
+  async: {
+    proto: async (p) => { await clickPrototypeTextPrefix(p, 'async'); await p.waitForTimeout(800); },
+    app: async (p) => {
+      const now = Date.now();
+      await p.route(/\/v1\/sessions\/[^/]+\/agent-tasks(\?.*)?$/, (route) =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            tasks: [
+              {
+                task_id: 'review-watch-1',
+                status: 'running',
+                run_label: 'gnss-region-watch',
+                host: 'detached',
+                created_at: new Date(now - (2 * 60 + 14) * 60_000).toISOString(),
+              },
+              {
+                task_id: 'review-catalog-1',
+                status: 'running',
+                run_label: 'catalog-refresh',
+                host: 'parallel',
+                created_at: new Date(now - 12 * 60_000).toISOString(),
+              },
+              {
+                task_id: 'review-done-1',
+                status: 'completed',
+                run_label: 'station-inventory-sync',
+                created_at: new Date(now - 40 * 60_000).toISOString(),
+                completed_at: new Date(now - 26 * 60_000).toISOString(),
+              },
+            ],
+          }),
+        }),
+      );
+      await selectAppSession(p);
+      await p.getByRole('button', { name: /^async \d+$/ }).click();
+      await p.waitForTimeout(700);
     },
   },
 };

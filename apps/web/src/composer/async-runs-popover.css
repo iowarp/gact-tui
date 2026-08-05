@@ -170,6 +170,10 @@
   color: var(--t-hd);
 }
 
+/* Measured directly on the prototype's own `goRunHistory` button: plain
+   lowercase "run history ↗" at 11.5px — no uppercase transform, no extra
+   letter-spacing. Those were an invented, unmeasured guess (this surface's
+   own eyebrows are the ones that carry that treatment, not this link). */
 .async-runs__history {
   margin: 4px 5px 2px;
   padding: 0;
@@ -179,9 +183,7 @@
   cursor: pointer;
   text-align: left;
   font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: calc(11.5px * var(--ts));
 }
 
 .async-runs__history:hover {
