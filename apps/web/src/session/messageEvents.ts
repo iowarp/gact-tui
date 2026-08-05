@@ -40,7 +40,23 @@ export function applyMessageLifecycleEvent(
       const nested = payload['message'] as Message | undefined;
       const message = nested ?? flat;
       if (!message) return null;
-      return upsertMessage(messages, { ...message, parts: message.parts ?? [] });
+      const incoming = { ...message, parts: message.parts ?? [] };
+      // SSE replay re-delivers message.created with the CREATION-TIME shell
+      // (parts [], metadata {}) for messages the client already fetched in
+      // full — a wholesale upsert wiped the delegation_return stamp and every
+      // part for ~5s until reconcile (owner capture, round 5). A historical
+      // empty shell never clobbers richer local state; anything non-empty
+      // keeps the wire's replacement semantics.
+      const existing = messages.find((m) => m.id === incoming.id);
+      const incomingEmpty =
+        incoming.parts.length === 0 &&
+        (!incoming.metadata || Object.keys(incoming.metadata).length === 0);
+      const localRicher =
+        existing !== undefined &&
+        (existing.parts.length > 0 ||
+          (existing.metadata !== undefined && Object.keys(existing.metadata).length > 0));
+      if (incomingEmpty && localRicher) return messages;
+      return upsertMessage(messages, incoming);
     }
     case 'message.part.added':
     case 'message.part.updated': {

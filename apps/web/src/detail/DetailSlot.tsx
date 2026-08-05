@@ -258,8 +258,8 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
           onClick={() => setMaximized(true)}
         />
         <ToolbarButton
-          label="Collapse panel"
-          title="Collapse panel"
+          label="Collapse artifact panel"
+          title="Collapse artifact panel"
           iconOnly
           size="small"
           icon={<Icon name="panel-right" size={13} />}
