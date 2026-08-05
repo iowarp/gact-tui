@@ -5,7 +5,7 @@
  * would otherwise be reimplemented (and forgotten) per surface — the exact
  * failure mode the kit exists to prevent.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Chip, ContextMenu, Popover, Splitter, Tabs, ToolbarButton } from '../../src/kit';
@@ -200,5 +200,46 @@ describe('Splitter', () => {
     render(<Splitter label="Sidebar width" value={460} min={200} max={460} onResize={onResize} />);
     fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
     expect(onResize).toHaveBeenCalledWith(460);
+  });
+
+  it('inverts drag/arrow direction for a right-side pane', () => {
+    // On a right pane the separator rides the pane's LEFT edge: moving the
+    // pointer (or arrowing) RIGHT shrinks the pane, LEFT grows it.
+    const onResize = vi.fn();
+    render(<Splitter label="Detail width" value={480} min={320} max={720} invert onResize={onResize} />);
+    const sep = screen.getByRole('separator', { name: 'Detail width' });
+    fireEvent.keyDown(sep, { key: 'ArrowRight' });
+    expect(onResize).toHaveBeenCalledWith(472);
+    fireEvent.keyDown(sep, { key: 'ArrowLeft' });
+    expect(onResize).toHaveBeenCalledWith(488);
+  });
+
+  it('resets through double-click when the caller provides a reset', () => {
+    const onReset = vi.fn();
+    render(
+      <Splitter label="Detail width" value={640} min={320} max={720} invert onResize={vi.fn()} onReset={onReset} />,
+    );
+    fireEvent.doubleClick(screen.getByRole('separator', { name: 'Detail width' }));
+    expect(onReset).toHaveBeenCalledOnce();
+  });
+
+  it('drags through pointer moves and ends the drag on pointercancel', () => {
+    // Live-observed regression: a double-click selects the word under the
+    // strip, the NEXT press starts a browser text-drag, and its
+    // pointercancel killed the resize one step in. The grab must (a)
+    // prevent the press default so no selection/text-drag ever starts and
+    // (b) treat pointercancel as end-of-drag.
+    const onResize = vi.fn();
+    render(<Splitter label="Detail width" value={480} min={320} max={720} invert onResize={onResize} />);
+    const sep = screen.getByRole('separator', { name: 'Detail width' });
+    const press = createEvent.pointerDown(sep, { clientX: 1000 });
+    fireEvent(sep, press);
+    expect(press.defaultPrevented).toBe(true);
+    fireEvent.pointerMove(document, { clientX: 900 });
+    expect(onResize).toHaveBeenLastCalledWith(580);
+    fireEvent.pointerCancel(document);
+    onResize.mockClear();
+    fireEvent.pointerMove(document, { clientX: 700 });
+    expect(onResize).not.toHaveBeenCalled();
   });
 });

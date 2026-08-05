@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Client } from '@clio/core';
 import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
 import { Markdown } from '../transcript/markdown';
@@ -313,6 +313,79 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
   );
 }
 
+/** Max visible characters before the meta line's artifact id truncates from
+ *  the middle (owner redesign 2026-08-05) — high enough that today's real
+ *  ids (`art_`/`artifact_` + a short hex suffix) render in full; a
+ *  genuinely long id still truncates rather than eating the panel width. */
+const ID_TRUNCATE_MAX = 24;
+
+/** Same convention for the storage path row. */
+const PATH_TRUNCATE_MAX = 40;
+
+/**
+ * The artifact's human display name for the Overview title row. The
+ * breadcrumb's last segment is always the real session-artifact `name`
+ * (`mintArtifactRecord` sets `breadcrumb: ['session', record.name]`
+ * unconditionally), so that is the honest source for "the file title" the
+ * owner wants distinguished from the id. A record minted without a
+ * breadcrumb (a bare fixture, or a future record shape) has no other name to
+ * show, so it falls back to the id itself — never a fabricated label.
+ */
+function artifactDisplayName(record: ArtifactRecord): string {
+  const crumbs = record.breadcrumb;
+  const last = crumbs && crumbs.length > 0 ? crumbs[crumbs.length - 1] : undefined;
+  return last || record.id;
+}
+
+/** Truncates the middle of `text`, keeping head and tail characters and a
+ *  single ellipsis — the id/path/hash convention this app already uses
+ *  elsewhere for compact identifiers (route labels, the `sha` fixture). */
+function truncateMiddle(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const keep = Math.max(0, max - 1);
+  const head = Math.ceil(keep / 2);
+  const tail = Math.floor(keep / 2);
+  return `${text.slice(0, head)}…${text.slice(text.length - tail)}`;
+}
+
+/** The sha's short display prefix — strips an optional `algo:` label
+ *  (`sha256:…`) before taking the first `len` characters, so the compact
+ *  affordance shows real hash characters, not the algorithm name. */
+function shortSha(sha: string, len = 8): string {
+  const bare = sha.includes(':') ? sha.slice(sha.indexOf(':') + 1) : sha;
+  return bare.length <= len ? bare : bare.slice(0, len);
+}
+
+type CopyStatus = 'idle' | 'copied' | 'selected';
+
+/**
+ * Selects `node`'s full text so a clipboard-API failure still leaves the
+ * value selected for a manual Ctrl+C — never a silent no-op. Best-effort
+ * only: the full value is already rendered as real text regardless of
+ * whether the Selection API itself is available/succeeds.
+ */
+function selectFullText(node: Node | null): void {
+  if (!node) return;
+  try {
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } catch {
+    // Selection is a convenience on top of the real fallback (the full
+    // value is already in the DOM as text) — never worth crashing the click.
+  }
+}
+
+/**
+ * The Overview identity block (owner redesign 2026-08-05): the artifact NAME
+ * is the largest element with the kind as a small chip beside it, one small
+ * muted meta line carries size + the (truncatable) id, and the sha gets its
+ * own compact copy/hover affordance below — converging what used to be a
+ * five-row kv-grid that let the id outweigh the title.
+ */
 function Overview({
   record,
   onOpenStorage,
@@ -320,14 +393,25 @@ function Overview({
   record: ArtifactRecord;
   onOpenStorage?: DetailSlotProps['onOpenStorage'];
 }) {
-  const rows: KvRow[] = [{ key: 'id', value: record.id }];
-  if (record.kind) rows.push({ key: 'kind', value: record.kind });
-  if (record.size) rows.push({ key: 'size', value: record.size });
-  if (record.sha) rows.push({ key: 'sha', value: record.sha });
+  const displayName = artifactDisplayName(record);
 
   return (
     <div data-testid="detail-overview">
-      <KvGrid label="Artifact identity" rows={rows} />
+      <div className="detail__identity" data-testid="detail-identity">
+        <div className="detail__titlerow">
+          <h3 className="detail__title" data-testid="detail-title" title={displayName}>
+            {displayName}
+          </h3>
+          {record.kind ? <Chip>{record.kind}</Chip> : null}
+        </div>
+        <div className="detail__metaline" data-testid="detail-meta">
+          {record.size ? <span className="detail__metasize">{record.size}</span> : null}
+          <span className="detail__metaid" data-testid="detail-meta-id" title={record.id}>
+            {truncateMiddle(record.id, ID_TRUNCATE_MAX)}
+          </span>
+        </div>
+        {record.sha ? <ShaField sha={record.sha} /> : null}
+      </div>
       {record.storagePath ? (
         <StorageRow
           path={record.storagePath}
@@ -349,39 +433,108 @@ function Overview({
 }
 
 /**
- * The prototype's persistent storage row under the meta line (`storage
- * <path> ↗`, proto-d1 / artLoc): where the version's bytes actually live.
- * Clickable only when a real destination is threaded (the workspace files
- * layer); without one it is a plain path row, because an affordance that
- * does nothing is a lie.
+ * The sha's compact affordance: a short mono prefix, the full hash on hover
+ * (title attr), and a click that copies the full hash — with an honest
+ * transient outcome (a 'copied' text swap on success, the full hash shown
+ * selected on a clipboard failure, never a pretend confirmation).
  */
-function StorageRow({ path, onOpen }: { path: string; onOpen?: () => void }) {
-  const inner = (
-    <>
-      <span className="detail__storagekey">storage</span>
-      <span className="detail__storagepath">{path}</span>
-    </>
-  );
-  if (!onOpen) {
-    return (
-      <div className="detail__storage" data-testid="detail-storage">
-        {inner}
-      </div>
-    );
+function ShaField({ sha }: { sha: string }) {
+  const [status, setStatus] = useState<CopyStatus>('idle');
+  const valueRef = useRef<HTMLSpanElement | null>(null);
+
+  // Selection has to run AFTER the DOM shows the full hash (the 'selected'
+  // render below), not against the still-short text at click time.
+  useEffect(() => {
+    if (status === 'selected') selectFullText(valueRef.current);
+  }, [status]);
+
+  async function handleClick(): Promise<void> {
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard API unavailable');
+      await navigator.clipboard.writeText(sha);
+      setStatus('copied');
+      setTimeout(() => setStatus('idle'), 1200);
+    } catch {
+      // No silent fallback: a denied/unavailable clipboard still leaves the
+      // real full hash on screen, selected, instead of pretending it copied.
+      setStatus('selected');
+    }
   }
+
+  const label = status === 'copied' ? 'copied' : status === 'selected' ? sha : shortSha(sha);
+
   return (
     <button
       type="button"
-      className="detail__storage"
-      data-testid="detail-storage"
-      title="Open in workspace files"
-      onClick={onOpen}
+      className="detail__sha"
+      data-testid="detail-sha"
+      title={sha}
+      onClick={() => void handleClick()}
     >
-      {inner}
-      <span className="detail__storagego" aria-hidden="true">
-        ↗
+      <span className="detail__shakey">sha</span>
+      <span className="detail__shaval" ref={valueRef}>
+        {label}
       </span>
     </button>
+  );
+}
+
+/**
+ * The prototype's persistent storage row under the meta line (`storage
+ * <path> ↗`, proto-d1 / artLoc): where the version's bytes actually live.
+ * The path itself is always copyable (owner redesign 2026-08-05: compact
+ * grammar matching the sha field — truncated middle, full path on hover,
+ * click copies). The ↗ open-in-files affordance stays separate and is only
+ * rendered when a real destination is threaded (the workspace files layer);
+ * without one, showing it would be a dead affordance.
+ */
+function StorageRow({ path, onOpen }: { path: string; onOpen?: () => void }) {
+  const [status, setStatus] = useState<CopyStatus>('idle');
+  const valueRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (status === 'selected') selectFullText(valueRef.current);
+  }, [status]);
+
+  async function handleCopy(): Promise<void> {
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard API unavailable');
+      await navigator.clipboard.writeText(path);
+      setStatus('copied');
+      setTimeout(() => setStatus('idle'), 1200);
+    } catch {
+      setStatus('selected');
+    }
+  }
+
+  const label =
+    status === 'copied' ? 'copied' : status === 'selected' ? path : truncateMiddle(path, PATH_TRUNCATE_MAX);
+
+  return (
+    <div className="detail__storage" data-testid="detail-storage">
+      <span className="detail__storagekey">storage</span>
+      <button
+        type="button"
+        className="detail__storagepath"
+        data-testid="detail-storage-copy"
+        title={path}
+        onClick={() => void handleCopy()}
+      >
+        <span ref={valueRef}>{label}</span>
+      </button>
+      {onOpen ? (
+        <button
+          type="button"
+          className="detail__storagego"
+          data-testid="detail-storage-open"
+          title="Open in workspace files"
+          aria-label="Open in workspace files"
+          onClick={onOpen}
+        >
+          ↗
+        </button>
+      ) : null}
+    </div>
   );
 }
 

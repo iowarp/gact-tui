@@ -17,10 +17,31 @@
   border-bottom: 1px solid var(--t-bd3);
 }
 
+/* The header names WHAT is being peeked — the child agent. */
+.agentpeek__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  font-weight: 600;
+}
+
+/* The status is its OWN chip (kit StatusDot + the word), matching the
+   session-row/topbar status grammar — never glued into the header label. */
 .agentpeek__status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 999px;
   color: var(--t-mu);
   font-family: var(--f-mono);
-  font-size: calc(11px * var(--ts));
+  font-size: calc(10.5px * var(--ts));
 }
 
 .agentpeek__status[data-state='running'] {
@@ -36,10 +57,18 @@
   flex: 1;
 }
 
+/* MUST be a flex column, not a block scroller: ChildFocusView's transcript
+   sizes itself with `flex: 1 1 0` + `min-height: 0`, which contributes ZERO
+   height inside a plain block (the panel rendered "empty" — fold + footer
+   only, transcript collapsed to 0px). With a flex parent of definite height
+   the chain resolves and the transcript scrolls inside the panel, exactly
+   as it does in the center column (.shell__content). */
 .agentpeek__body {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .agentpeek__loading {

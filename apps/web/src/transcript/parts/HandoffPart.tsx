@@ -216,6 +216,13 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
               ? 'Open live agent · shift-click to peek in the side panel'
               : 'Open agent · shift-click to peek in the side panel',
           onClick: (e: { shiftKey: boolean }) => onOpenChild(handleId, child, { peek: Boolean(e.shiftKey) }),
+          // Shift-click means "peek", but the browser's DEFAULT shift-mousedown
+          // extends the native text selection from its last anchor to the click
+          // point before our click handler ever runs. Killing the default at
+          // mousedown kills the selection extension without harming the click.
+          onMouseDown: (e: { shiftKey: boolean; preventDefault: () => void }) => {
+            if (e.shiftKey) e.preventDefault();
+          },
           onKeyDown: (e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -242,6 +249,16 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
               geospatial #1") — the run label IS the name plus its ordinal. */}
           <span className="part-childcard__name">{runLabel || child}</span>
           {remote ? <span className="part-childcard__host">{placement}</span> : null}
+          {/* The status line rides the head's top-right (owner request
+              2026-08-05; prototype grammar: duration right-aligned in the
+              head) — not a separate footer row under the answer. */}
+          <span className="part-handoff__foot" data-state={status}>
+            {status === 'running'
+              ? `● running${duration ? ` (${duration})` : ''}`
+              : status === 'error'
+                ? `failed ✗${duration ? ` ${duration}` : ''}`
+                : `completed ✓${duration ? ` ${duration}` : ''}`}
+          </span>
         </div>
         {previewText ? (
           <div className="part-childcard__body part-childcard__body--preview" data-testid="part-childcard-preview">
@@ -271,13 +288,6 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
             {answerExpanded ? 'show less' : 'show more'}
           </button>
         ) : null}
-        <div className="part-handoff__foot" data-state={status}>
-          {status === 'running'
-            ? `● running${duration ? ` (${duration})` : ''}`
-            : status === 'error'
-              ? `failed ✗${duration ? ` ${duration}` : ''}`
-              : `completed ✓${duration ? ` ${duration}` : ''}`}
-        </div>
       </div>
     </div>
   );
@@ -350,6 +360,11 @@ function ChildCard({
         tabIndex: 0,
         title: openTitle ?? 'Open agent · shift-click to peek in the side panel',
         onClick: (e: { shiftKey: boolean }) => onOpen(Boolean(e.shiftKey)),
+        // Same guard as MergedHandoff: shift-mousedown's default is "extend
+        // the native text selection", which must never fire on a peek click.
+        onMouseDown: (e: { shiftKey: boolean; preventDefault: () => void }) => {
+          if (e.shiftKey) e.preventDefault();
+        },
         onKeyDown: (e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

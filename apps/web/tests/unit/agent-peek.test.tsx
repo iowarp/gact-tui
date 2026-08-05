@@ -8,11 +8,12 @@
  * `openChildByHandle`, so shift-click was byte-identical to click (round-3
  * DOM dumps app-b vs app-c). These cases pin both routes end to end.
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
 import { describe, expect, it, vi } from 'vitest';
 import { AgentPeekView } from '../../src/session/AgentPeekView';
 import { SessionView } from '../../src/session/SessionView';
+import { Transcript } from '../../src/transcript/Transcript';
 
 const SETTLED_HANDOFF = {
   type: 'expert_handoff',
@@ -91,9 +92,15 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
     );
     expect(screen.getByTestId('agent-peek')).toBeInTheDocument();
     expect(screen.getByText('AGENT')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByTestId('agent-peek-status')).toHaveTextContent('· completed'),
-    );
+    // The header names WHAT is being peeked in its own element.
+    expect(screen.getByTestId('agent-peek-name')).toHaveTextContent('geospatial');
+    // The status is its OWN chip — kit StatusDot + the bare word — never
+    // "· status" text glued onto the header label (owner defect 3).
+    const status = await screen.findByTestId('agent-peek-status');
+    expect(status).toHaveTextContent('completed');
+    expect(status.textContent).not.toContain('·');
+    expect(status.querySelector('.kit-statusdot')).not.toBeNull();
+    expect(status.querySelector('.agentpeek__statusword')).toHaveTextContent(/^completed$/);
     // The child's first user message IS the delegation brief — its own fold.
     expect(screen.getByRole('button', { name: /prompt from main/ })).toBeInTheDocument();
     // The child transcript renders through the shared grammar.
@@ -127,6 +134,43 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /close peek/i }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('shift-click selection guard (owner defect 1)', () => {
+  // Shift-mousedown's browser default is "extend the native text selection
+  // to the click point" — it fired BEFORE the peek handler and painted a
+  // selection across the whole transcript. The box kills the default at
+  // mousedown for shift only; a plain mousedown keeps its default (caret
+  // placement, drag-select) untouched.
+  it('prevents the default on shift-mousedown so no selection extends', () => {
+    const onOpenChild = vi.fn();
+    render(
+      <Transcript
+        messages={[{ id: 'm2', role: 'assistant', parts: [SETTLED_HANDOFF] }] as unknown as Message[]}
+        onOpenChild={onOpenChild}
+      />,
+    );
+    const box = screen.getByTestId('part-child-card');
+    const shiftDown = createEvent.mouseDown(box, { shiftKey: true });
+    fireEvent(box, shiftDown);
+    expect(shiftDown.defaultPrevented).toBe(true);
+    // The click itself still routes to the peek.
+    fireEvent.click(box, { shiftKey: true });
+    expect(onOpenChild).toHaveBeenCalledWith('task_8562bd68e4d5', 'geospatial', { peek: true });
+  });
+
+  it('leaves a plain mousedown default alone', () => {
+    render(
+      <Transcript
+        messages={[{ id: 'm2', role: 'assistant', parts: [SETTLED_HANDOFF] }] as unknown as Message[]}
+        onOpenChild={vi.fn()}
+      />,
+    );
+    const box = screen.getByTestId('part-child-card');
+    const plainDown = createEvent.mouseDown(box);
+    fireEvent(box, plainDown);
+    expect(plainDown.defaultPrevented).toBe(false);
   });
 });
 

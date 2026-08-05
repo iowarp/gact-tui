@@ -177,6 +177,15 @@
   font-weight: 600;
 }
 
+/* The dimmed raw-name that stays visible next to a `tool_title` label
+   (owner design 2026-08-05) — the label is for the user, this is what
+   actually went to the model, and it must stay on screen when a call
+   fails. Same monospace face as the row, just muted instead of bold. */
+.part-toolrow__rawname {
+  color: var(--t-mu);
+  font-weight: 400;
+}
+
 .part-toolrow__hint {
   color: var(--t-mu);
 }
@@ -287,6 +296,102 @@
 
 .part-toolrow__well[data-error='true'] .part-toolrow__result {
   color: var(--t-er);
+}
+
+/* ---- result render ladder (owner design 2026-08-05): structured_content
+   and content-block mime types replace "print the JSON string and hope"
+   with a real table / inline image, with the verbatim text always one
+   toggle away. ---- */
+
+.part-toolrow__tablewrap {
+  overflow-x: auto;
+}
+
+.part-toolrow__table {
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11.5px * var(--ts));
+}
+
+.part-toolrow__table th,
+.part-toolrow__table td {
+  padding: 3px 8px;
+  border: 1px solid var(--t-bd3);
+  color: var(--t-tx);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.part-toolrow__table th {
+  color: var(--t-hd);
+}
+
+.part-toolrow__tablefoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+}
+
+.part-toolrow__tablemore {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--t-cy, #0aa6ad);
+  font: inherit;
+  cursor: pointer;
+}
+
+.part-toolrow__imagewrap {
+  max-width: 100%;
+}
+
+/* Bounded, not just width-capped — an unbounded height would let one huge
+   result image push the rest of the transcript off-screen. */
+.part-toolrow__image {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
+}
+
+.part-toolrow__raw {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.part-toolrow__rawtoggle {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+  cursor: pointer;
+}
+
+.part-toolrow__rawtoggle:hover {
+  color: var(--t-hd);
+}
+
+.part-toolrow__rawpre {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--t-well);
+  border-radius: 4px;
+  color: var(--t-tx);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .part-toolrow__waiting {
@@ -708,6 +813,11 @@ button.part-artchip {
 .part-handoff__box[data-interactive='true'] {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease;
+  /* Belt for the shift-click peek: the box's content is OPENABLE, not
+     copy-first — the full text lives in the child view. Without this (and
+     the mousedown preventDefault) a shift-click extends the browser's
+     native selection across the transcript before the peek opens. */
+  user-select: none;
 }
 
 .part-handoff__box[data-interactive='true']:hover {
@@ -715,7 +825,12 @@ button.part-artchip {
   border-color: rgba(10, 166, 173, 0.4);
 }
 
+/* The status line rides right-aligned in the box HEAD (owner request
+   2026-08-05: compact box, no separate footer row) — the prototype's own
+   right-aligned duration slot, same tones as before. */
 .part-handoff__foot {
+  margin-left: auto;
+  white-space: nowrap;
   color: var(--t-cy, #0aa6ad);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: calc(11.5px * var(--ts));

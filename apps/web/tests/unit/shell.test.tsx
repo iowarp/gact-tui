@@ -112,6 +112,63 @@ describe('AppShell', () => {
   });
 });
 
+describe('AppShell right detail pane (owner defects 4/5)', () => {
+  it('mounts the pane INSIDE the content row, below the full-width topbar', () => {
+    const { container } = renderShell({ detail: <p>peeked child</p> });
+    const detail = container.querySelector('.shell__detail');
+    expect(detail).not.toBeNull();
+    // Structural, not z-index: the pane sits in .shell__row, which is a
+    // SIBLING of the topbar inside the column — the topbar keeps the whole
+    // top band and its right-side controls never share space with the pane.
+    expect(detail!.closest('.shell__row')).not.toBeNull();
+    const banner = screen.getByRole('banner');
+    expect(banner.closest('.shell__row')).toBeNull();
+    expect(banner.parentElement).toBe(detail!.closest('.shell__row')!.parentElement);
+  });
+
+  // The pane's width rides the --detail-width custom property (never a hard
+  // inline `width`), so the stylesheet can defer to the collapsed strip.
+  const paneWidth = (container: HTMLElement) => {
+    const pane = container.querySelector<HTMLElement>('.shell__detail')!;
+    expect(pane.style.width).toBe('');
+    return pane.style.getPropertyValue('--detail-width');
+  };
+
+  it('is resizable through its left-edge separator within [320, 720]', () => {
+    const { container } = renderShell({ detail: <p>peeked child</p> });
+    const sep = screen.getByRole('separator', { name: /detail width/i });
+    expect(sep).toHaveAttribute('aria-valuenow', '480');
+    expect(sep).toHaveAttribute('aria-valuemin', '320');
+    expect(sep).toHaveAttribute('aria-valuemax', '720');
+    // Inverted direction: ArrowLeft grows a right-side pane.
+    fireEvent.keyDown(sep, { key: 'ArrowLeft' });
+    expect(screen.getByRole('separator', { name: /detail width/i })).toHaveAttribute(
+      'aria-valuenow',
+      '488',
+    );
+    expect(paneWidth(container)).toBe('488px');
+    // End = max, Home = min: the clamp holds at both edges.
+    fireEvent.keyDown(sep, { key: 'End' });
+    expect(paneWidth(container)).toBe('720px');
+    fireEvent.keyDown(sep, { key: 'Home' });
+    expect(paneWidth(container)).toBe('320px');
+  });
+
+  it('resets to the 480px default on double-click', () => {
+    const { container } = renderShell({ detail: <p>peeked child</p> });
+    const sep = screen.getByRole('separator', { name: /detail width/i });
+    fireEvent.keyDown(sep, { key: 'End' });
+    expect(paneWidth(container)).toBe('720px');
+    fireEvent.doubleClick(sep);
+    expect(paneWidth(container)).toBe('480px');
+  });
+
+  it('mounts no separator when nothing is peeked', () => {
+    renderShell();
+    expect(screen.queryByRole('separator', { name: /detail width/i })).toBeNull();
+  });
+});
+
 describe('rail rename', () => {
   it('turns the row into an edit field when Rename is chosen', () => {
     renderShell({ onRenameSession: vi.fn() });

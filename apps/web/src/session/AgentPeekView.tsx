@@ -11,10 +11,20 @@
  */
 import { useEffect, useState } from 'react';
 import { subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
-import { Chip, Icon, ToolbarButton } from '../kit';
+import { Chip, Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
 import { ChildFocusView } from './ChildFocusView';
 import { applyMessageLifecycleEvent } from './messageEvents';
 import './agentpeek.css';
+
+/** The child session's raw status word mapped onto the shared dot vocabulary
+ *  (the same mapping the delegation box uses: running pulses, failed is red,
+ *  everything settled is the neutral idle dot). */
+function dotStatus(status: string): SessionStatus {
+  if (status === 'running') return 'running';
+  if (status === 'failed' || status === 'error') return 'error';
+  if (status === 'queued') return 'queued';
+  return 'idle';
+}
 
 export interface AgentPeekViewProps {
   client: Client;
@@ -27,7 +37,8 @@ export interface AgentPeekViewProps {
   onClose: () => void;
 }
 
-/** A read-only right-panel view of a child session; header shows AGENT · status. */
+/** A read-only right-panel view of a child session; the header carries the
+ *  AGENT eyebrow + the agent's name, with the live status as its own chip. */
 export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }: AgentPeekViewProps) {
   const [view, setView] = useState<{ messages: Message[]; status: string } | null>(null);
 
@@ -80,9 +91,15 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
     <aside className="agentpeek" aria-label="Agent peek" data-testid="agent-peek">
       <header className="agentpeek__head">
         <Chip tone="accent">AGENT</Chip>
+        <span className="agentpeek__name" data-testid="agent-peek-name">
+          {agent}
+        </span>
         {status ? (
+          // The status is its OWN chip — dot + word, the same grammar as the
+          // rail's session rows — never text glued onto the header label.
           <span className="agentpeek__status" data-state={status} data-testid="agent-peek-status">
-            · {status}
+            <StatusDot status={dotStatus(status)} quiet={status !== 'running'} />
+            <span className="agentpeek__statusword">{status}</span>
           </span>
         ) : null}
         <span className="agentpeek__spacer" />

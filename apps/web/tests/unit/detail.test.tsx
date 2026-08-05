@@ -41,8 +41,81 @@ describe('DetailSlot', () => {
   it('opens on the artifact tab showing identity', () => {
     render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
     expect(screen.getByRole('tab', { name: /artifact/i })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('art_5f21c9d0e83a')).toBeInTheDocument();
+    // No breadcrumb on this fixture, so the title honestly falls back to the
+    // id (the id also appears again, small, on the meta line below it).
+    expect(screen.getByTestId('detail-title')).toHaveTextContent('art_5f21c9d0e83a');
+    expect(screen.getByTestId('detail-meta-id')).toHaveTextContent('art_5f21c9d0e83a');
     expect(screen.getByText(/48 KB/)).toBeInTheDocument();
+  });
+
+  describe('Overview identity block (owner redesign 2026-08-05)', () => {
+    it('prefers the real filename from the breadcrumb as the title, over the opaque id', () => {
+      render(
+        <DetailSlot
+          record={{ ...RECORD, breadcrumb: ['session', 'earthscope_stations.csv'] }}
+          onClose={vi.fn()}
+        />,
+      );
+      expect(screen.getByTestId('detail-title')).toHaveTextContent('earthscope_stations.csv');
+      // The id still renders, demoted onto the small meta line.
+      expect(screen.getByTestId('detail-meta-id')).toHaveTextContent('art_5f21c9d0e83a');
+    });
+
+    it('renders the kind as a small chip next to the title, not a kv-grid row', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      const titleRow = screen.getByTestId('detail-title').parentElement as HTMLElement;
+      expect(within(titleRow).getByText('dataset / csv')).toBeInTheDocument();
+    });
+
+    it('drops the old id/kind/size/sha kv-grid from the Overview tab entirely', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      const overview = screen.getByTestId('detail-overview');
+      expect(overview.querySelector('.kit-kvgrid')).toBeNull();
+    });
+
+    it('truncates a long id from the middle on the meta line, with the full id on hover', () => {
+      const longId = `art_${'f'.repeat(60)}`;
+      render(<DetailSlot record={{ ...RECORD, id: longId }} onClose={vi.fn()} />);
+      const metaId = screen.getByTestId('detail-meta-id');
+      expect(metaId.textContent).not.toBe(longId);
+      expect(metaId.textContent).toContain('…');
+      expect(metaId).toHaveAttribute('title', longId);
+    });
+  });
+
+  describe('sha compact affordance (owner redesign 2026-08-05)', () => {
+    it('shows a short mono prefix, not the full hash', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      const sha = screen.getByTestId('detail-sha');
+      expect(sha).toHaveTextContent('b3c94ff0');
+      expect(sha.textContent).not.toContain(RECORD.sha!);
+    });
+
+    it('reveals the full hash on hover via the title attribute', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      expect(screen.getByTestId('detail-sha')).toHaveAttribute('title', RECORD.sha!);
+    });
+
+    it('copies the full hash to the clipboard on click, with a transient "copied" swap', async () => {
+      const writeText = vi.fn(async (_text: string) => {});
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('detail-sha'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(RECORD.sha!));
+      await waitFor(() => expect(screen.getByTestId('detail-sha')).toHaveTextContent('copied'));
+    });
+
+    it('on a clipboard failure, shows the full hash selected instead of pretending it copied', async () => {
+      const writeText = vi.fn(async () => {
+        throw new Error('clipboard permission denied');
+      });
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('detail-sha'));
+      await waitFor(() => expect(screen.getByTestId('detail-sha')).toHaveTextContent(RECORD.sha!));
+      // Never a silent no-op: it never claims "copied" when it didn't.
+      expect(screen.getByTestId('detail-sha')).not.toHaveTextContent('copied');
+    });
   });
 
   it('shows an uppercase kind badge, defaulting to ARTIFACT', () => {
@@ -253,25 +326,59 @@ describe('DetailSlot', () => {
       expect(row).toHaveTextContent('data/earthscope_stations.csv');
     });
 
-    it('is a clickable button opening the workspace files layer when a handler is threaded', () => {
+    it('opens the workspace files layer via the separate ↗ affordance when a handler is threaded (owner redesign 2026-08-05: onOpenStorage wiring preserved exactly)', () => {
       const onOpenStorage = vi.fn();
       render(<DetailSlot record={stored} onOpenStorage={onOpenStorage} onClose={vi.fn()} />);
-      const row = screen.getByTestId('detail-storage');
-      expect(row.tagName).toBe('BUTTON');
-      expect(row).toHaveTextContent('↗');
-      fireEvent.click(row);
+      const openBtn = screen.getByTestId('detail-storage-open');
+      expect(openBtn.tagName).toBe('BUTTON');
+      fireEvent.click(openBtn);
       expect(onOpenStorage).toHaveBeenCalledWith({
         path: 'data/earthscope_stations.csv',
         workspaceId: 'ws_1',
       });
     });
 
-    it('renders as a NON-interactive path row without a handler — never a dead affordance', () => {
+    it('omits the ↗ affordance without a handler — never a dead affordance — but the path stays copyable', () => {
       render(<DetailSlot record={stored} onClose={vi.fn()} />);
-      const row = screen.getByTestId('detail-storage');
-      expect(row.tagName).not.toBe('BUTTON');
-      // The open glyph only appears when opening actually works.
-      expect(row).not.toHaveTextContent('↗');
+      expect(screen.queryByTestId('detail-storage-open')).toBeNull();
+      expect(screen.getByTestId('detail-storage-copy')).toBeInTheDocument();
+    });
+
+    it('clicking the path copies the full path to the clipboard, with a transient "copied" swap — the ↗ open control is untouched', async () => {
+      const writeText = vi.fn(async (_text: string) => {});
+      Object.assign(navigator, { clipboard: { writeText } });
+      const onOpenStorage = vi.fn();
+      render(<DetailSlot record={stored} onOpenStorage={onOpenStorage} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('detail-storage-copy'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('data/earthscope_stations.csv'));
+      await waitFor(() => expect(screen.getByTestId('detail-storage-copy')).toHaveTextContent('copied'));
+      expect(onOpenStorage).not.toHaveBeenCalled();
+    });
+
+    it('on a clipboard failure, shows the full path selected instead of pretending it copied', async () => {
+      const writeText = vi.fn(async () => {
+        throw new Error('clipboard permission denied');
+      });
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<DetailSlot record={stored} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByTestId('detail-storage-copy'));
+      await waitFor(() =>
+        expect(screen.getByTestId('detail-storage-copy')).toHaveTextContent('data/earthscope_stations.csv'),
+      );
+      expect(screen.getByTestId('detail-storage-copy')).not.toHaveTextContent('copied');
+    });
+
+    it('truncates a long storage path from the middle, with the full path on hover and copied in full', async () => {
+      const longPath = `workspaces/ws_1/${'nested/'.repeat(10)}report.md`;
+      const writeText = vi.fn(async (_text: string) => {});
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<DetailSlot record={{ ...RECORD, storagePath: longPath }} onClose={vi.fn()} />);
+      const pathBtn = screen.getByTestId('detail-storage-copy');
+      expect(pathBtn.textContent).not.toBe(longPath);
+      expect(pathBtn.textContent).toContain('…');
+      expect(pathBtn).toHaveAttribute('title', longPath);
+      fireEvent.click(pathBtn);
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(longPath));
     });
 
     it('renders no storage row at all when the record carries no path', () => {
@@ -503,7 +610,7 @@ describe('DetailSlot', () => {
       fireEvent.click(screen.getByRole('button', { name: /collapse panel/i }));
       fireEvent.click(screen.getByRole('button', { name: /expand panel/i }));
       expect(screen.getByRole('tab', { name: /artifact/i })).toBeInTheDocument();
-      expect(screen.getByText('art_5f21c9d0e83a')).toBeInTheDocument();
+      expect(screen.getByTestId('detail-title')).toHaveTextContent('art_5f21c9d0e83a');
     });
 
     it('uses a DIFFERENT icon geometry than the rail collapse control (divider at x=8.6, not x=5.4)', () => {

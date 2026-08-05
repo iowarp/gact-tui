@@ -186,7 +186,94 @@
   font-style: italic;
 }
 
-/* ---- storage row (prototype artLoc: `storage <path> ↗`) ---- */
+/* ---- artifact identity block (owner redesign 2026-08-05) ----
+   The name is the panel's largest element, with the kind as a small chip
+   beside it; size + id demote into one small muted meta line; the sha gets
+   its own compact copy/hover affordance. Replaces the old five-row
+   id/kind/size/sha kv-grid, which let the id render bigger than the title. */
+
+.detail__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail__titlerow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.detail__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(16px * var(--ts));
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detail__metaline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+}
+
+.detail__metasize {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.detail__metaid {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- sha compact affordance (short prefix, hover-full, click-to-copy) ---- */
+
+.detail__sha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  cursor: pointer;
+}
+
+.detail__sha:hover {
+  border-color: var(--t-bd6);
+  color: var(--t-hd);
+}
+
+.detail__shakey {
+  font-size: calc(9.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ---- storage row (prototype artLoc: `storage <path> ↗`) ----
+   Same compact grammar as sha: the path truncates from the middle with the
+   full path on hover, a click copies it; the ↗ affordance stays a separate,
+   optional control (only rendered when a real open handler is threaded). */
 
 .detail__storage {
   display: flex;
@@ -204,16 +291,8 @@
   text-align: left;
 }
 
-button.detail__storage {
-  cursor: pointer;
-}
-
-button.detail__storage:hover {
-  border-color: var(--t-bd6);
-  color: var(--t-hd);
-}
-
 .detail__storagekey {
+  flex-shrink: 0;
   color: var(--t-mu);
   font-size: calc(10px * var(--ts));
   text-transform: uppercase;
@@ -222,11 +301,37 @@ button.detail__storage:hover {
 
 .detail__storagepath {
   flex: 1;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail__storagepath:hover {
+  color: var(--t-hd);
 }
 
 .detail__storagego {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
   color: var(--t-cy);
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail__storagego:hover {
+  color: var(--t-hd);
 }
 
 /* ---- provenance record folds (provRec/provTr in the prototype) ---- */

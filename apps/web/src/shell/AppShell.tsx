@@ -1,6 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { RelayStatus } from '@clio/core';
 import { Splitter, Tabs, type TabDef } from '../kit';
+import {
+  clampDetailWidth,
+  DETAIL_WIDTH_DEFAULT,
+  DETAIL_WIDTH_MAX,
+  DETAIL_WIDTH_MIN,
+} from './detailWidth';
 import { Rail, type RailConnection, type RailGroup } from './Rail';
 import { Topbar } from './Topbar';
 import './appshell.css';
@@ -50,8 +56,6 @@ export interface AppShellProps {
 const RAIL_DEFAULT = 300;
 const RAIL_MIN = 200;
 const RAIL_MAX = 460;
-/** The prototype's right pane width. */
-const DETAIL_DEFAULT = 480;
 
 /**
  * The application shell — rail, topbar, hierarchy ribbon, content region.
@@ -88,6 +92,9 @@ export function AppShell({
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
+  // The right pane's width persists for the session (the prototype's
+  // drag-resizable 320-720 band, default 480; double-click resets).
+  const [detailWidth, setDetailWidth] = useState(DETAIL_WIDTH_DEFAULT);
 
   return (
     <div className="shell">
@@ -136,25 +143,51 @@ export function AppShell({
             : {})}
         />
 
-        <div className="shell__ribbon">
-          <Tabs
-            label="Agent hierarchy"
-            tabs={ribbon}
-            activeId={activeRibbonId}
-            onChange={onSelectRibbon}
-            variant="quiet"
-          />
-        </div>
+        {/* The content row UNDER the full-width topbar: the centre column
+            (ribbon, transcript, dock) beside the optional right detail pane.
+            The pane lives here — inside the row, below the topbar — so it
+            never competes with the topbar's own controls for the top band. */}
+        <div className="shell__row">
+          <div className="shell__main">
+            <div className="shell__ribbon">
+              <Tabs
+                label="Agent hierarchy"
+                tabs={ribbon}
+                activeId={activeRibbonId}
+                onChange={onSelectRibbon}
+                variant="quiet"
+              />
+            </div>
 
-        <main className="shell__content">{children}</main>
-        {dock ? <div className="shell__dock">{dock}</div> : null}
+            <main className="shell__content">{children}</main>
+            {dock ? <div className="shell__dock">{dock}</div> : null}
+          </div>
+
+          {detail ? (
+            <>
+              <Splitter
+                label="Detail width"
+                value={detailWidth}
+                min={DETAIL_WIDTH_MIN}
+                max={DETAIL_WIDTH_MAX}
+                invert
+                onResize={(next) => setDetailWidth(clampDetailWidth(next))}
+                onReset={() => setDetailWidth(DETAIL_WIDTH_DEFAULT)}
+              />
+              {/* Width rides a custom property, not a hard inline width, so
+                  the stylesheet can defer to the panel's own collapsed strip
+                  (.detail--strip) — a fixed width outliving the full panel
+                  left the freed space as a black void. */}
+              <div
+                className="shell__detail"
+                style={{ '--detail-width': `${detailWidth}px` } as CSSProperties}
+              >
+                {detail}
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
-
-      {detail ? (
-        <div className="shell__detail" style={{ width: `${DETAIL_DEFAULT}px` }}>
-          {detail}
-        </div>
-      ) : null}
     </div>
   );
 }

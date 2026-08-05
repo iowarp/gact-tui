@@ -7,6 +7,11 @@
   margin-left: -6px;
   cursor: col-resize;
   background: transparent;
+  /* A grab strip is never text: without these, a double-click selects the
+     word under it and the next press starts a browser text-drag whose
+     pointercancel kills the resize mid-drag. */
+  user-select: none;
+  touch-action: none;
 }
 
 .kit-splitter:hover,
