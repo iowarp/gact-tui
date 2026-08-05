@@ -48,9 +48,43 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  height: 34px;
+  height: 28px;
   padding: 0 36px;
   border-bottom: 1px solid var(--t-bd3);
+}
+
+/* The agent-hierarchy ribbon reads as a BREADCRUMB (main › ndp), not a
+   segmented control (owner, 2026-08-05): no inset track, labels centered
+   in the slimmer bar, crumbs joined by a wide chevron. Scoped here so the
+   kit segmented control keeps its track everywhere else. */
+.shell__ribbon .kit-tabs {
+  align-self: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  gap: 0;
+}
+
+.shell__ribbon .kit-tabs__tab {
+  padding: 2px 8px;
+  line-height: 1;
+}
+
+.shell__ribbon .kit-tabs__tab + .kit-tabs__tab {
+  position: relative;
+  margin-left: 18px;
+}
+
+.shell__ribbon .kit-tabs__tab + .kit-tabs__tab::before {
+  content: '›';
+  position: absolute;
+  top: 50%;
+  left: -14px;
+  transform: translateY(-50%);
+  color: var(--t-mu);
+  font-size: calc(15px * var(--ts));
+  font-weight: 700;
+  pointer-events: none;
 }
 
 /*

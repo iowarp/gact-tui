@@ -3,7 +3,9 @@
    a visibly shorter bar than the design. */
 
 .shell-topbar {
-  height: 64px;
+  /* Slimmed from 64px (owner, 2026-08-05): with the detail panel moved
+     below the bar the full-width topbar reads too tall. */
+  height: 52px;
   flex: 0 0 64px;
   display: flex;
   align-items: center;
