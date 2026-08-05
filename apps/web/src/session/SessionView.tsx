@@ -30,7 +30,7 @@ import { Observability, ObservabilityTrace } from '../observability/Observabilit
 import type { ObsTab } from '../observability/Observability';
 import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../observability/build';
 import { Settings } from '../settings/Settings';
-import type { AgentStatus, ObservabilityData } from '../observability/types';
+import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ConsoleDock } from './ConsoleDock';
@@ -280,13 +280,23 @@ export function SessionView({
         agentTasks,
         artifacts: artifactRecords,
       });
-      const durationById = new Map(trace.spans.map((span) => [span.id, span.duration]));
+      const spanById = new Map(trace.spans.map((span) => [span.id, span]));
       const taskRuns = agentTasks.flatMap((task) => {
         const id = task.task_id || task.id;
         if (!id) return [];
         const label = task.run_label || task.agent_ref?.expert_id;
         const host = task.host || task.placement;
-        const duration = durationById.get(id);
+        const span = spanById.get(id);
+        // Real, derived-only description — never a fabricated summary of what
+        // the task actually did (SessionAgentTask carries no such field).
+        const requestingExpert = task.agent_ref?.requesting_expert_id;
+        const artifactCount = span?.artifacts;
+        const description = [
+          requestingExpert ? `requested by ${requestingExpert}` : null,
+          artifactCount ? `${artifactCount} artifact${artifactCount === 1 ? '' : 's'}` : null,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' · ');
         return [
           {
             id,
@@ -294,7 +304,9 @@ export function SessionView({
             state: task.status || task.live_state || 'unknown',
             ...(label ? { label } : {}),
             ...(host ? { host } : {}),
-            ...(duration ? { duration } : {}),
+            ...(span?.duration ? { duration: span.duration } : {}),
+            ...(description ? { description } : {}),
+            ...(span?.nav ? { nav: span.nav } : {}),
           },
         ];
       });
@@ -339,19 +351,23 @@ export function SessionView({
           depth: Math.max(0, (agent.tier ?? 1) - 1),
         })),
         runs: [...taskRuns, ...existingRuns],
+        // GET /v1/mcp/servers returns `tools` as a plain string[] (tool
+        // names), never `{name, description}` objects — mapping `tool.name`
+        // on a string always read `undefined`, rendering every row blank.
         toolsByExpert: Object.fromEntries(
           (servers?.servers ?? []).map((server) => {
             const row = server as {
               name?: string;
               id?: string;
-              tools?: Array<{ name?: string; description?: string }>;
+              tools?: Array<string | { name?: string; description?: string }>;
             };
             return [
               row.name ?? row.id ?? 'server',
-              (row.tools ?? []).map((tool) => ({
-                name: tool.name ?? '',
-                ...(tool.description ? { description: tool.description } : {}),
-              })),
+              (row.tools ?? []).flatMap((tool) => {
+                if (typeof tool === 'string') return tool ? [{ name: tool }] : [];
+                if (!tool.name) return [];
+                return [{ name: tool.name, ...(tool.description ? { description: tool.description } : {}) }];
+              }),
             ];
           }),
         ),
@@ -575,6 +591,24 @@ export function SessionView({
     },
     [client],
   );
+
+  // The prototype's obsTl row builder (`r.go`): 'agent' switches the active
+  // session and closes the layer, 'message' closes the layer and scrolls the
+  // transcript to that message. The obs Layer is an overlay — Transcript
+  // stays mounted underneath it the whole time, so the target element is
+  // already in the DOM; only the overlay covering it needs to go away.
+  const handleObsNavigate = useCallback((nav: ObsNavigation) => {
+    setPanel(null);
+    if (nav.kind === 'agent') {
+      setActiveId(nav.targetId);
+      return;
+    }
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-message-id="${nav.targetId}"]`)
+        ?.scrollIntoView({ block: 'center' });
+    });
+  }, []);
 
   useEffect(() => {
     if (!activeId) {
@@ -1246,6 +1280,7 @@ export function SessionView({
               key={obsTab ?? 'default'}
               data={observabilityData}
               showTraceHeader={false}
+              onNavigate={handleObsNavigate}
               {...(obsTab ? { initialTab: obsTab } : {})}
             />
           ) : (

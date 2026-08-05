@@ -25,6 +25,7 @@ export type IconName =
   | 'bot'
   | 'tool'
   | 'wrench'
+  | 'person'
   | 'compact'
   | 'diff'
   | 'detach'
@@ -64,7 +65,8 @@ export type IconName =
   | 'copy'
   | 'download'
   | 'expand'
-  | 'popout';
+  | 'popout'
+  | 'resize';
 
 export interface IconProps {
   name: IconName;
@@ -178,6 +180,20 @@ const GLYPHS: Record<IconName, ReactNode> = {
       strokeWidth="1.1"
       strokeLinejoin="round"
     />
+  ),
+  // The observability timeline's per-row USER marker (design/prototype
+  // Clio Session.html ~8244025, `r.isUser`): a head-and-shoulders glyph,
+  // viewBox 0 0 12 12, stroke-width 1.5.
+  person: (
+    <>
+      <circle cx={6} cy={4} r={2.2} stroke="currentColor" strokeWidth={1.5} />
+      <path
+        d="M1.8 11c.6-2.2 2.3-3.3 4.2-3.3s3.6 1.1 4.2 3.3"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </>
   ),
   compact: (
     <>
@@ -392,6 +408,10 @@ const GLYPHS: Record<IconName, ReactNode> = {
     'M4.8 2H2.6c-.6 0-1.1.5-1.1 1.1v6.3c0 .6.5 1.1 1.1 1.1h6.3c.6 0 1.1-.5 1.1-1.1V7.2M7.2 1.5h3.3v3.3M10.3 1.7L5.8 6.2',
     1.3,
   ),
+  // The window chrome's bottom-right drag-to-resize grip (design/prototype
+  // Clio Session.html ~8108118, repeated per window kind): viewBox 0 0 9 9,
+  // stroke-width 1.2, rendered at 9x9 — kept at its own scale like `tool`.
+  resize: P('M8 1L1 8M8 5L5 8', 1.2),
 };
 
 export function Icon({ name, size = 12 }: IconProps) {
@@ -402,7 +422,9 @@ export function Icon({ name, size = 12 }: IconProps) {
         ? '0 0 14 14'
         : name === 'x'
           ? '0 0 11 11'
-        : '0 0 12 12';
+          : name === 'resize'
+            ? '0 0 9 9'
+            : '0 0 12 12';
   return (
     <svg
       width={size}

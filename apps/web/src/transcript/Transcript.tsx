@@ -111,6 +111,7 @@ export function Transcript({ messages }: TranscriptProps) {
               key={message.id}
               className="transcript__message"
               data-role={message.role}
+              data-message-id={message.id}
               aria-label={`${message.role} message`}
             >
               {groupParts(parts, message.id).map((group) => (

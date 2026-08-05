@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { Icon } from './Icon';
@@ -62,6 +63,48 @@ export function Layer({
   const restoreRef = useRef<HTMLElement | null>(null);
   const titleId = useRef(`layer-${Math.random().toString(36).slice(2, 9)}`).current;
 
+  // The prototype's `dragWin` handler (design/prototype/Clio Session.html
+  // ~8108118): a bottom-right corner grip that tracks pointer movement into
+  // explicit width/height state, persisting across opens the same way its
+  // `winW`/`winH` state does. Only the `window` variant is resizable —
+  // `settings` stays the prototype's fixed panel.
+  const [dragSize, setDragSize] = useState<{ width: number; height: number } | null>(null);
+  const dragStart = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const onGripPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (maximized) return;
+      const rect = cardRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      dragStart.current = {
+        x: event.clientX,
+        y: event.clientY,
+        width: dragSize?.width ?? rect.width,
+        height: dragSize?.height ?? rect.height,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      document.body.style.cursor = 'nwse-resize';
+    },
+    [maximized, dragSize],
+  );
+
+  const onGripPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = dragStart.current;
+    if (!start) return;
+    setDragSize({
+      width: Math.max(360, start.width + (event.clientX - start.x)),
+      height: Math.max(240, start.height + (event.clientY - start.y)),
+    });
+  }, []);
+
+  const onGripPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    dragStart.current = null;
+    document.body.style.cursor = '';
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     restoreRef.current = document.activeElement as HTMLElement | null;
@@ -106,15 +149,21 @@ export function Layer({
 
   if (!open) return null;
 
+  const effectiveWidth = dragSize?.width ?? width;
+  const effectiveHeight = dragSize?.height ?? height;
   const style = maximized
     ? {
         width: 'calc(100vw - 32px)',
         height: 'calc(100vh - 32px)',
         maxHeight: 'none',
       }
-    : size === 'window' && (width || height)
-      ? { ...(width ? { width: `${width}px` } : {}), ...(height ? { height: `${height}px` } : {}) }
+    : size === 'window' && (effectiveWidth || effectiveHeight)
+      ? {
+          ...(effectiveWidth ? { width: `${effectiveWidth}px` } : {}),
+          ...(effectiveHeight ? { height: `${effectiveHeight}px`, maxHeight: 'none' } : {}),
+        }
       : undefined;
+  const resizable = size === 'window' && !maximized;
 
   return (
     <div
@@ -168,6 +217,7 @@ export function Layer({
                 className="kit-layer__windowbtn"
                 aria-label={`Pop out ${title}`}
                 title="opens in a window on desktop only"
+                data-unbacked="true"
                 disabled
               >
                 <Icon name="popout" size={12} />
@@ -188,6 +238,19 @@ export function Layer({
           </button>
         </header>
         <div className="kit-layer__body">{children}</div>
+        {resizable ? (
+          <div
+            className="kit-layer__grip"
+            title="Drag to resize"
+            aria-hidden="true"
+            onPointerDown={onGripPointerDown}
+            onPointerMove={onGripPointerMove}
+            onPointerUp={onGripPointerUp}
+            onPointerCancel={onGripPointerUp}
+          >
+            <Icon name="resize" size={9} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

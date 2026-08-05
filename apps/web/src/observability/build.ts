@@ -8,10 +8,13 @@ import type {
 } from '@clio/core';
 import type {
   ObsArtifactRow,
+  ObsNavigation,
   ObsSpan,
   ObsSpanState,
   ObsTimelineKind,
   ObsTimelineRow,
+  ObsToolCallRow,
+  ObsToolCallState,
 } from './types';
 
 const TERMINAL_TASK_STATES = new Set([
@@ -44,6 +47,7 @@ export interface ObservabilityTrace {
   timeline: ObsTimelineRow[];
   spans: ObsSpan[];
   artifactRows: ObsArtifactRow[];
+  toolCalls: ObsToolCallRow[];
 }
 
 /** Build history from transcript parts, plus task spans and artifact records. */
@@ -55,8 +59,9 @@ export function buildObservabilityTrace({
   const entries = messagePartEntries(messages);
   const resultByCall = toolResultsByCall(entries);
   const versions = artifacts.map(latestArtifactVersion).filter(isPresent);
+  const agentLookup = agentSessionLookup(agentTasks);
   const timeline = entries
-    .map((entry) => toHistoryTimelineRow(entry, resultByCall))
+    .map((entry) => toHistoryTimelineRow(entry, resultByCall, agentLookup))
     .filter(isPresent);
   const reconstructedSpans = reconstructPartSpans(entries, resultByCall);
   const spansById = new Map(reconstructedSpans.map((span) => [span.id, span]));
@@ -69,7 +74,31 @@ export function buildObservabilityTrace({
     timeline,
     spans: [...spansById.values()],
     artifactRows: versions.map((entry) => toArtifactRow(entry.record, entry.version, agentTasks)),
+    toolCalls: toolCallRows(entries, resultByCall),
   };
+}
+
+/** child_session_id keyed by every real name a timeline actor might carry
+ *  for that task (run_label, expert_id, handle_id, task_id) — the prototype's
+ *  `childViews[r.jump || r.name]` lookup, backed by the real agent-task
+ *  projection instead of a hardcoded demo dict. */
+function agentSessionLookup(agentTasks: SessionAgentTask[]): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const task of agentTasks) {
+    const sessionId = visibleString(task.child_session_id ?? null);
+    if (!sessionId) continue;
+    for (const key of [
+      task.run_label,
+      task.agent_ref?.expert_id,
+      task['handle_id'],
+      task.task_id,
+      task.id,
+    ]) {
+      const name = visibleString(key ?? null);
+      if (name && !lookup.has(name)) lookup.set(name, sessionId);
+    }
+  }
+  return lookup;
 }
 
 /** Map one filtered session SSE event to a visible trace row. */
@@ -148,6 +177,7 @@ function toolResultsByCall(entries: PartEntry[]): Map<string, PartEntry> {
 function toHistoryTimelineRow(
   entry: PartEntry,
   resultByCall: Map<string, PartEntry>,
+  agentLookup: Map<string, string>,
 ): ObsTimelineRow | null {
   const type = visibleString(entry.part['type']);
   if (!type) return null;
@@ -158,6 +188,23 @@ function toHistoryTimelineRow(
     ...(depth !== null ? { depth } : {}),
     sourceId,
   };
+
+  // The prototype's very first (and every subsequent) log row is the user's
+  // own turn (proto-obs.json rows[0]) — a plain text part on a user message,
+  // rendered with the dedicated person-in-circle marker rather than the
+  // generic event dot. Real, backed by the message this part lives on: the
+  // row's nav scrolls the transcript straight to it (Go to message).
+  if (type === 'text' && entry.message.role === 'user') {
+    const text = visibleString(entry.part['text']);
+    if (!text) return null;
+    return {
+      ...common,
+      actor: 'user',
+      action: quoteExcerpt(text),
+      kind: 'user',
+      nav: { kind: 'message', targetId: entry.message.id },
+    };
+  }
 
   if (type === 'expert_handoff') {
     const stage = visibleString(entry.part['stage']);
@@ -179,6 +226,7 @@ function toHistoryTimelineRow(
             ? 'running'
             : 'event',
       ...(duration ? { duration } : {}),
+      ...agentNav(agentLookup, actor, entry.part),
     };
   }
 
@@ -193,6 +241,7 @@ function toHistoryTimelineRow(
       action: 'tool call',
       kind: failed ? 'failure' : 'tool',
       ...(duration ? { duration } : {}),
+      nav: { kind: 'message', targetId: entry.message.id },
     };
   }
 
@@ -201,14 +250,16 @@ function toHistoryTimelineRow(
       visibleString(
         entry.part['exit_status'] ?? entry.part['status'] ?? entry.part['live_state'],
       ) ?? 'unknown';
+    const actor =
+      visibleString(
+        entry.part['run_label'] ?? entry.part['child_agent'] ?? entry.part['handle_id'],
+      ) ?? 'background task';
     return {
       ...common,
-      actor:
-        visibleString(
-          entry.part['run_label'] ?? entry.part['child_agent'] ?? entry.part['handle_id'],
-        ) ?? 'background task',
+      actor,
       action: `exited (${status})`,
       kind: FAILED_TASK_STATES.has(status.toLowerCase()) ? 'failure' : 'event',
+      ...agentNav(agentLookup, actor, entry.part),
     };
   }
 
@@ -224,6 +275,32 @@ function toHistoryTimelineRow(
   }
 
   return null;
+}
+
+/** The prototype's `else if (cv[r.jump || r.name]) go = () => this.goView(jk)`
+ *  — an "Open agent" nav, only ever attached when a real agent-task record
+ *  names this exact actor (or the part's own handle/task id) as the key to a
+ *  child session. Never guessed from string similarity. */
+function agentNav(
+  lookup: Map<string, string>,
+  actor: string,
+  part: Record<string, unknown>,
+): { nav: ObsNavigation } | Record<string, never> {
+  const candidates = [actor, visibleString(part['handle_id']), visibleString(part['task_id'])];
+  for (const key of candidates) {
+    if (!key) continue;
+    const sessionId = lookup.get(key);
+    if (sessionId) return { nav: { kind: 'agent', targetId: sessionId } };
+  }
+  return {};
+}
+
+/** The prototype's opening user row quotes the question, truncated with an
+ *  ellipsis (proto-obs.json: '"What recent ground-motion is…"'). */
+function quoteExcerpt(text: string, max = 90): string {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  const truncated = collapsed.length > max ? `${collapsed.slice(0, max).trimEnd()}…` : collapsed;
+  return `"${truncated}"`;
 }
 
 function historySourceId(entry: PartEntry): string {
@@ -340,6 +417,60 @@ function reconstructPartSpans(
   return spans;
 }
 
+/**
+ * The tools tab's chronological call log (prototype `obsToolRows`,
+ * ~8256494) — one row per real `tool_call` part made THIS session, sourced
+ * from the same entries/resultByCall the timeline and gantt already build
+ * from. Replaces the static per-server catalog (`client.mcpServers()`),
+ * which described what a server CAN do, never what was actually called.
+ */
+function toolCallRows(
+  entries: PartEntry[],
+  resultByCall: Map<string, PartEntry>,
+): ObsToolCallRow[] {
+  const rows: ObsToolCallRow[] = [];
+  for (const entry of entries) {
+    if (entry.part['type'] !== 'tool_call') continue;
+    const name = visibleString(entry.part['tool_name'] ?? entry.part['name']);
+    if (!name) continue;
+    const callId = visibleString(entry.part['call_id'] ?? entry.part['id']);
+    const result = callId ? resultByCall.get(callId) : undefined;
+    const state: ObsToolCallState = !result
+      ? 'running'
+      : result.part['is_error'] === true
+        ? 'failed'
+        : 'done';
+    rows.push({
+      sourceId: historySourceId(entry),
+      ...withTime(entry.atMs),
+      name,
+      ...(toolArgHint(entry.part) ? { argHint: toolArgHint(entry.part)! } : {}),
+      agent: visibleString(entry.part['agent_id']) ?? 'main',
+      state,
+      ...(explicitDuration(result?.part ?? entry.part)
+        ? { duration: explicitDuration(result?.part ?? entry.part)! }
+        : {}),
+      nav: { kind: 'message', targetId: entry.message.id },
+    });
+  }
+  return rows.sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''));
+}
+
+/** A short, real rendering of the call's own first input key/value — never a
+ *  fabricated description of what the tool does (that lives on the server,
+ *  not on the call). `input` is the wire's own field name for tool_call args. */
+function toolArgHint(part: Record<string, unknown>): string | null {
+  const input = part['input'];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const entries = Object.entries(input as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  const [key, value] = entries[0]!;
+  const rendered = typeof value === 'string' ? value : JSON.stringify(value);
+  if (rendered === undefined) return null;
+  const truncated = rendered.length > 40 ? `${rendered.slice(0, 40)}…` : rendered;
+  return `${key}=${truncated}`;
+}
+
 function handoffKey(part: Record<string, unknown>): string | null {
   return visibleString(
     part['handle_id'] ?? part['task_id'] ?? part['run_label'] ?? part['child_agent'],
@@ -377,6 +508,7 @@ function toTaskSpan(
     .filter(isPresent);
   const id = task.task_id || task.id || `task-${startMs}`;
   const label = task.run_label || task.agent_ref?.expert_id || id;
+  const childSessionId = visibleString(task.child_session_id ?? null);
 
   return {
     id,
@@ -387,6 +519,7 @@ function toTaskSpan(
     state,
     ...(endMs !== null ? { duration: formatDuration(endMs - startMs) } : {}),
     ...(artifactAtMs.length > 0 ? { artifacts: artifactAtMs.length, artifactAtMs } : {}),
+    ...(childSessionId ? { nav: { kind: 'agent' as const, targetId: childSessionId } } : {}),
   };
 }
 

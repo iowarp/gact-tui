@@ -1,6 +1,14 @@
-import { useState, type CSSProperties } from 'react';
-import { Chip, Eyebrow, Select, Tabs, type TabDef } from '../kit';
-import type { ObsContext, ObsRun, ObsSpan, ObsTimelineKind, ObservabilityData } from './types';
+import { useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { Chip, Eyebrow, Icon, Select, Tabs, type TabDef } from '../kit';
+import type {
+  ObsContext,
+  ObsNavigation,
+  ObsRun,
+  ObsSpan,
+  ObsTimelineKind,
+  ObsToolCallRow,
+  ObservabilityData,
+} from './types';
 import './observability.css';
 
 export interface ObservabilityProps {
@@ -9,18 +17,26 @@ export interface ObservabilityProps {
   showTraceHeader?: boolean;
   /** Tab to land on when the layer opens — the pill chips deep-link here. */
   initialTab?: ObsTab;
+  /** Timeline/gantt/runs/tools row click-through — the prototype's `r.go`
+   *  (jump to message / open agent). Omitted rows render inert, matching the
+   *  prototype's own `cursor:default` for rows with no real target. */
+  onNavigate?: (nav: ObsNavigation) => void;
 }
 
 export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
 type TimelineMode = 'log' | 'gantt';
 
-const GLYPHS: Record<ObsTimelineKind, string> = {
+/** Legend-only glyphs — the prototype's compact legend iconography is
+ *  deliberately simpler than the row markers themselves (design/prototype
+ *  Clio Session.html ~8239011): plain characters for event/artifact/
+ *  failure/running, a tiny bordered wrench circle for tool. */
+const LEGEND_CHAR: Partial<Record<ObsTimelineKind, string>> = {
   event: '○',
-  tool: '◉',
   artifact: '◆',
-  failure: '×',
+  failure: '✗',
   running: '●',
 };
+const LEGEND_KINDS: ObsTimelineKind[] = ['event', 'tool', 'artifact', 'failure', 'running'];
 
 /** Inline trace label shared by the standalone contract and Layer header. */
 export function ObservabilityTrace() {
@@ -35,7 +51,12 @@ export function ObservabilityTrace() {
 }
 
 /** The session observability layer: live timeline, runs, tools, artifacts and context. */
-export function Observability({ data, showTraceHeader = true, initialTab }: ObservabilityProps) {
+export function Observability({
+  data,
+  showTraceHeader = true,
+  initialTab,
+  onNavigate,
+}: ObservabilityProps) {
   const legacy =
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
   const [tab, setTab] = useState<ObsTab>(initialTab ?? (legacy ? 'agents' : 'timeline'));
@@ -46,10 +67,7 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
   const timeline = data.timeline ?? [];
   const spans = data.spans ?? [];
   const artifactRows = data.artifactRows ?? [];
-  const toolCount = Object.values(data.toolsByExpert).reduce(
-    (count, tools) => count + tools.length,
-    0,
-  );
+  const toolCalls = data.toolCalls ?? [];
   const activeTab = !legacy && tab === 'agents' ? 'timeline' : tab;
   const tabs: TabDef[] = legacy
     ? [
@@ -62,7 +80,10 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
     : [
         { id: 'timeline', label: 'timeline' },
         { id: 'runs', label: 'runs', badge: data.runs.length },
-        { id: 'tools', label: 'tools', badge: toolCount },
+        // The badge counts real CALLS made this session (obsToolRows.length in
+        // the prototype), not the catalog's declared tool count — the two
+        // numbers mean different things and only one matches what the tab shows.
+        { id: 'tools', label: 'tools', badge: toolCalls.length },
         { id: 'artifacts', label: 'artifacts', badge: artifactRows.length },
         { id: 'context', label: 'context' },
       ];
@@ -75,7 +96,7 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
     : timeline.length === 0 &&
       spans.length === 0 &&
       data.runs.length === 0 &&
-      experts.length === 0 &&
+      toolCalls.length === 0 &&
       artifactRows.length === 0;
 
   return (
@@ -105,6 +126,7 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
             spans={spans}
             mode={timelineMode}
             onModeChange={setTimelineMode}
+            {...(onNavigate ? { onNavigate } : {})}
           />
         ) : null}
 
@@ -125,50 +147,58 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
         ) : null}
 
         {activeTab === 'runs' ? (
-          <ul className="obs__list obs-runs" data-testid="obs-runs">
-            {data.runs.map((run) => (
-              <li className="obs-run__row" key={run.id}>
-                <span className="obs-run__identity">
-                  <span className="obs-run__label">{run.label ?? run.id}</span>
-                  {run.label && run.label !== run.id ? (
-                    <span className="obs-run__id">{run.id}</span>
-                  ) : null}
-                </span>
-                {run.agent ? <span className="obs-run__agent">{run.agent}</span> : null}
-                <span className="obs-run__state" data-state={run.state.toLowerCase()}>
-                  {run.state}
-                </span>
-                {run.host ? <span className="obs-run__host">{run.host}</span> : null}
-                {run.duration ? <span className="obs-run__duration">{run.duration}</span> : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {activeTab === 'tools' ? (
-          <div data-testid="obs-tools">
-            <div className="obs__toolbar">
-              <Select
-                label="Expert"
-                value={selectedExpert}
-                options={experts.map((id) => ({ id, label: id }))}
-                onChange={setExpert}
-              />
-              <span className="obs__meta" data-testid="obs-tools-count">
-                {(data.toolsByExpert[selectedExpert] ?? []).length} tools
-              </span>
-            </div>
-            <ul className="obs__list obs-tools__list">
-              {(data.toolsByExpert[selectedExpert] ?? []).map((tool) => (
-                <li className="obs-tool__row" key={tool.name}>
-                  <span className="obs-tool__name">{tool.name}</span>
-                  {tool.description ? (
-                    <span className="obs-tool__description">{tool.description}</span>
-                  ) : null}
+          legacy ? (
+            <ul className="obs__list obs-runs" data-testid="obs-runs">
+              {data.runs.map((run) => (
+                <li className="obs-run__row" key={run.id}>
+                  <span className="obs-run__identity">
+                    <span className="obs-run__label">{run.label ?? run.id}</span>
+                    {run.label && run.label !== run.id ? (
+                      <span className="obs-run__id">{run.id}</span>
+                    ) : null}
+                  </span>
+                  {run.agent ? <span className="obs-run__agent">{run.agent}</span> : null}
+                  <span className="obs-run__state" data-state={run.state.toLowerCase()}>
+                    {run.state}
+                  </span>
+                  {run.host ? <span className="obs-run__host">{run.host}</span> : null}
+                  {run.duration ? <span className="obs-run__duration">{run.duration}</span> : null}
                 </li>
               ))}
             </ul>
-          </div>
+          ) : (
+            <RunsTab runs={data.runs} {...(onNavigate ? { onNavigate } : {})} />
+          )
+        ) : null}
+
+        {activeTab === 'tools' ? (
+          legacy ? (
+            <div data-testid="obs-tools">
+              <div className="obs__toolbar">
+                <Select
+                  label="Expert"
+                  value={selectedExpert}
+                  options={experts.map((id) => ({ id, label: id }))}
+                  onChange={setExpert}
+                />
+                <span className="obs__meta" data-testid="obs-tools-count">
+                  {(data.toolsByExpert[selectedExpert] ?? []).length} tools
+                </span>
+              </div>
+              <ul className="obs__list obs-tools__list">
+                {(data.toolsByExpert[selectedExpert] ?? []).map((tool) => (
+                  <li className="obs-tool__row" key={tool.name}>
+                    <span className="obs-tool__name">{tool.name}</span>
+                    {tool.description ? (
+                      <span className="obs-tool__description">{tool.description}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <ToolLog rows={toolCalls} {...(onNavigate ? { onNavigate } : {})} />
+          )
         ) : null}
 
         {activeTab === 'artifacts' ? (
@@ -180,13 +210,26 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
                   data-testid="obs-artifact-row"
                   key={`${artifact.name}-${artifact.at}-${index}`}
                 >
-                  <time className="obs-artifact__time">{artifact.at}</time>
-                  <span className="obs-artifact__glyph" aria-hidden="true">
-                    ◆
-                  </span>
-                  <span className="obs-artifact__name">{artifact.name}</span>
-                  <span className="obs-artifact__producer">· {artifact.producer}</span>
-                  <span className="obs-artifact__meta">{artifact.meta}</span>
+                  {/* No artifact viewer is reachable anywhere in this build yet
+                      (tracked separately — "mint real artifacts and ground the
+                      chips"); the row is still a real button, matching the
+                      prototype's structure, honestly disabled rather than a
+                      dead-looking static row. */}
+                  <button
+                    type="button"
+                    className="obs-artifact__button"
+                    disabled
+                    data-unbacked="true"
+                    title="Artifact viewer not wired yet"
+                  >
+                    <time className="obs-artifact__time">{artifact.at}</time>
+                    <span className="obs-artifact__glyph" aria-hidden="true">
+                      ◆
+                    </span>
+                    <span className="obs-artifact__name">{artifact.name}</span>
+                    <span className="obs-artifact__producer">· {artifact.producer}</span>
+                    <span className="obs-artifact__meta">{artifact.meta}</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -210,18 +253,221 @@ export function Observability({ data, showTraceHeader = true, initialTab }: Obse
   );
 }
 
-/** Non-terminal run states — anything else counts as "live now". Mirrors
- *  SessionView's TERMINAL_AGENT_TASK_STATUSES; kept local since ObsRun.state
- *  is a display string, not the raw wire enum SessionView normalizes. */
+// ---- runs tab (P5): RUNNING / COMPLETED (N) / FAILED, grouped ----
+
+/** Non-terminal run states — anything else counts as "live now"/"running".
+ *  Mirrors SessionView's TERMINAL_AGENT_TASK_STATUSES; kept local since
+ *  ObsRun.state is a display string, not the raw wire enum SessionView
+ *  normalizes. 'succeeded' is a real terminal value some task projections
+ *  use that the original set missed. */
 const TERMINAL_RUN_STATES = new Set([
   'completed',
   'failed',
   'cancelled',
+  'canceled',
   'detached',
   'done',
   'error',
+  'succeeded',
 ]);
+const FAILED_RUN_STATES = new Set(['failed', 'error', 'cancelled', 'canceled']);
 
+function classifyRun(run: ObsRun): 'running' | 'completed' | 'failed' {
+  const state = run.state.toLowerCase();
+  if (!TERMINAL_RUN_STATES.has(state)) return 'running';
+  return FAILED_RUN_STATES.has(state) ? 'failed' : 'completed';
+}
+
+interface RunsTabProps {
+  runs: ObsRun[];
+  onNavigate?: (nav: ObsNavigation) => void;
+}
+
+/** Prototype markup (~8250004): three uppercase-labelled sections — running
+ *  (orange bolt), completed (N) (green check), failed (red x) — each row a
+ *  full-width button naming the run, its host, a status line, a description
+ *  line, and a transcript action. */
+function RunsTab({ runs, onNavigate }: RunsTabProps) {
+  if (runs.length === 0) {
+    return (
+      <p className="obs__empty" data-testid="obs-empty">
+        no trace recorded for this session
+      </p>
+    );
+  }
+  const running = runs.filter((run) => classifyRun(run) === 'running');
+  const completed = runs.filter((run) => classifyRun(run) === 'completed');
+  const failed = runs.filter((run) => classifyRun(run) === 'failed');
+
+  return (
+    <div className="obs-runs2" data-testid="obs-runs">
+      {running.length > 0 ? (
+        <RunGroup
+          title="running"
+          tone="running"
+          runs={running}
+          actionLabel="live transcript"
+          navTitle="Open the live view for this run"
+          {...(onNavigate ? { onNavigate } : {})}
+        />
+      ) : null}
+      {completed.length > 0 ? (
+        <RunGroup
+          title={`completed (${completed.length})`}
+          tone="completed"
+          runs={completed}
+          actionLabel="transcript"
+          navTitle="Open this run's transcript"
+          {...(onNavigate ? { onNavigate } : {})}
+        />
+      ) : null}
+      {failed.length > 0 ? (
+        <RunGroup
+          title="failed"
+          tone="failed"
+          runs={failed}
+          actionLabel="transcript"
+          navTitle="Open the failure log"
+          {...(onNavigate ? { onNavigate } : {})}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+interface RunGroupProps {
+  title: string;
+  tone: 'running' | 'completed' | 'failed';
+  runs: ObsRun[];
+  actionLabel: string;
+  navTitle: string;
+  onNavigate?: (nav: ObsNavigation) => void;
+}
+
+function RunGroup({ title, tone, runs, actionLabel, navTitle, onNavigate }: RunGroupProps) {
+  return (
+    <div className="obs-rungroup" data-tone={tone}>
+      <div className="obs-rungroup__title">{title}</div>
+      <ul className="obs-rungroup__list">
+        {runs.map((run) => {
+          const clickable = Boolean(run.nav && onNavigate);
+          return (
+            <li key={run.id}>
+              <button
+                type="button"
+                className="obs-run2__row"
+                data-tone={tone}
+                disabled={!clickable}
+                title={clickable ? navTitle : 'No transcript available for this run'}
+                onClick={clickable ? () => onNavigate!(run.nav!) : undefined}
+              >
+                <span className="obs-run2__icon" aria-hidden="true">
+                  {tone === 'running' ? (
+                    <Icon name="bolt" size={11} />
+                  ) : tone === 'completed' ? (
+                    '✓'
+                  ) : (
+                    '✗'
+                  )}
+                </span>
+                <span className="obs-run2__identity">
+                  <span className="obs-run2__name">{run.label ?? run.id}</span>
+                  {run.host ? <span className="obs-run2__host">{run.host}</span> : null}
+                </span>
+                <span className="obs-run2__status">{run.duration ?? run.state}</span>
+                <span className="obs-run2__desc">{run.description ?? ''}</span>
+                <span className="obs-run2__act">{clickable ? `${actionLabel} ↗` : ''}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ---- tools tab (P5): chronological call log ----
+
+interface ToolLogProps {
+  rows: ObsToolCallRow[];
+  onNavigate?: (nav: ObsNavigation) => void;
+}
+
+/** Prototype markup (`obsToolRows`, ~8256494): one row per real tool call —
+ *  time, orange wrench, an expandable `name(argHint) ▸` toggle, an agent tag,
+ *  a trailing status glyph. Replaces the static per-server catalog: this tab
+ *  is a LOG of what was actually called, not a directory of what could be. */
+function ToolLog({ rows, onNavigate }: ToolLogProps) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  if (rows.length === 0) {
+    return (
+      <p className="obs__empty" data-testid="obs-empty">
+        no tool calls recorded for this session
+      </p>
+    );
+  }
+
+  const toggle = (id: string) =>
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <ol className="obs-toollog" data-testid="obs-tools">
+      {rows.map((row) => {
+        const isOpen = expanded.has(row.sourceId);
+        const canJump = Boolean(row.nav && onNavigate);
+        return (
+          <li className="obs-toollog__row" key={row.sourceId} data-state={row.state}>
+            <time className="obs-toollog__time">{row.at ?? ''}</time>
+            <span className="obs-toollog__glyph" aria-hidden="true">
+              <Icon name="wrench" size={11} />
+            </span>
+            <button
+              type="button"
+              className="obs-toollog__toggle"
+              aria-expanded={isOpen}
+              onClick={() => toggle(row.sourceId)}
+            >
+              <span className="obs-toollog__name">{row.name}</span>
+              {row.argHint ? <span className="obs-toollog__arghint">({row.argHint})</span> : null}
+              <span className="obs-toollog__caret" aria-hidden="true">
+                {isOpen ? '▾' : '▸'}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="obs-toollog__agent"
+              disabled={!canJump}
+              title={canJump ? 'Go to message' : undefined}
+              onClick={canJump ? () => onNavigate!(row.nav!) : undefined}
+            >
+              {row.agent} {canJump ? '↗' : null}
+            </button>
+            <span className="obs-toollog__status" data-state={row.state} aria-hidden="true">
+              {row.state === 'done' ? '✓' : row.state === 'failed' ? '✗' : '●'}
+            </span>
+            {isOpen ? (
+              <div className="obs-toollog__detail">
+                {row.duration ? `duration ${row.duration}` : 'no further detail recorded'}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ---- context tab ----
+
+/** Non-terminal run states — anything else counts as "live now". Reuses the
+ *  same terminal vocabulary the runs tab groups by, so "live now" always
+ *  agrees with what the runs tab itself calls running. */
 interface ContextTabProps {
   context?: ObsContext;
   runs: ObsRun[];
@@ -242,7 +488,7 @@ function ContextTab({ context, runs }: ContextTabProps) {
       </div>
     );
   }
-  const liveRuns = runs.filter((run) => !TERMINAL_RUN_STATES.has(run.state.toLowerCase()));
+  const liveRuns = runs.filter((run) => classifyRun(run) === 'running');
   return (
     <div className="obs-context" data-testid="obs-context">
       <div className="obs-context__hero">
@@ -295,14 +541,36 @@ function ContextTile({ label, value, meta }: { label: string; value: string | nu
   );
 }
 
+// ---- timeline (log + gantt) ----
+
 interface TimelineProps {
   rows: NonNullable<ObservabilityData['timeline']>;
   spans: NonNullable<ObservabilityData['spans']>;
   mode: TimelineMode;
   onModeChange: (mode: TimelineMode) => void;
+  onNavigate?: (nav: ObsNavigation) => void;
 }
 
-function Timeline({ rows, spans, mode, onModeChange }: TimelineProps) {
+/** Attributes for a row that may or may not be clickable — the prototype's
+ *  `cursor:{{r.cur}}` (pointer when a real target exists, default otherwise)
+ *  plus real keyboard activation for whatever click handler this authors. */
+function navProps(nav: ObsNavigation | undefined, onNavigate: ((nav: ObsNavigation) => void) | undefined) {
+  if (!nav || !onNavigate) return { 'data-nav': 'false' as const };
+  return {
+    role: 'button' as const,
+    tabIndex: 0,
+    'data-nav': 'true' as const,
+    onClick: () => onNavigate(nav),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onNavigate(nav);
+      }
+    },
+  };
+}
+
+function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps) {
   return (
     <div className="obs-timeline" data-testid="obs-timeline">
       <div className="obs-timeline__toolbar">
@@ -320,10 +588,10 @@ function Timeline({ rows, spans, mode, onModeChange }: TimelineProps) {
           ))}
         </div>
         <div className="obs-legend" data-testid="obs-legend">
-          {(Object.keys(GLYPHS) as ObsTimelineKind[]).map((kind) => (
+          {LEGEND_KINDS.map((kind) => (
             <span className="obs-legend__item" data-kind={kind} key={kind}>
               <span className="obs-legend__glyph" aria-hidden="true">
-                {GLYPHS[kind]}
+                {kind === 'tool' ? <Icon name="wrench" size={6} /> : LEGEND_CHAR[kind]}
               </span>
               {kind}
             </span>
@@ -340,9 +608,10 @@ function Timeline({ rows, spans, mode, onModeChange }: TimelineProps) {
                 data-kind={row.kind}
                 key={row.sourceId ?? `${row.at ?? ''}-${row.actor}-${row.action}-${index}`}
                 style={{ '--obs-depth': row.depth ?? 0 } as CSSProperties}
+                {...navProps(row.nav, onNavigate)}
               >
                 <span className="obs-log__thread" aria-hidden="true">
-                  <span className="obs-log__node">{GLYPHS[row.kind]}</span>
+                  <LogNode kind={row.kind} />
                 </span>
                 <time className="obs-log__time">{row.at ?? ''}</time>
                 <span className="obs-log__actor">{row.actor}</span>
@@ -357,7 +626,7 @@ function Timeline({ rows, spans, mode, onModeChange }: TimelineProps) {
           </p>
         )
       ) : spans.length > 0 ? (
-        <Gantt spans={spans} />
+        <Gantt spans={spans} {...(onNavigate ? { onNavigate } : {})} />
       ) : (
         <p className="obs__empty" data-testid="obs-empty">
           no trace recorded for this session
@@ -367,7 +636,42 @@ function Timeline({ rows, spans, mode, onModeChange }: TimelineProps) {
   );
 }
 
-function Gantt({ spans }: { spans: ObsSpan[] }) {
+/** The prototype's per-row marker chain (~8244025): a plain ring for generic
+ *  events, an 8x8 diamond for artifacts, a bold ✗ for failures, a pulsing
+ *  filled dot for running, and 16x16 icon-in-circle badges for user/tool —
+ *  six distinct shapes, not one flat character set. */
+function LogNode({ kind }: { kind: ObsTimelineKind }) {
+  if (kind === 'failure') {
+    return (
+      <span className="obs-log__node" data-shape="x" aria-hidden="true">
+        ✗
+      </span>
+    );
+  }
+  if (kind === 'user') {
+    return (
+      <span className="obs-log__node" data-shape="badge" data-kind="user" aria-hidden="true">
+        <Icon name="person" size={9} />
+      </span>
+    );
+  }
+  if (kind === 'tool') {
+    return (
+      <span className="obs-log__node" data-shape="badge" data-kind="tool" aria-hidden="true">
+        <Icon name="wrench" size={9} />
+      </span>
+    );
+  }
+  const shape = kind === 'artifact' ? 'diamond' : kind === 'running' ? 'dot' : 'ring';
+  return <span className="obs-log__node" data-shape={shape} aria-hidden="true" />;
+}
+
+interface GanttProps {
+  spans: ObsSpan[];
+  onNavigate?: (nav: ObsNavigation) => void;
+}
+
+function Gantt({ spans, onNavigate }: GanttProps) {
   const bounds = ganttBounds(spans);
   const ticks = Array.from({ length: 6 }, (_, index) => {
     const ratio = index / 5;
@@ -402,7 +706,12 @@ function Gantt({ spans }: { spans: ObsSpan[] }) {
           : Array.from({ length: span.artifacts ?? 0 }, () => span.endMs ?? span.startMs);
 
         return (
-          <div className="obs-gantt__row" data-depth={span.depth} key={span.id}>
+          <div
+            className="obs-gantt__row"
+            data-depth={span.depth}
+            key={span.id}
+            {...navProps(span.nav, onNavigate)}
+          >
             <span className="obs-gantt__label" style={{ paddingLeft: `${span.depth * 9}px` }}>
               {span.label}
             </span>

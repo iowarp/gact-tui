@@ -60,6 +60,20 @@ async function appPage() {
   return p;
 }
 
+/** Observability fans out to several endpoints against the real live backend
+ *  (agents/tasks/mcp-servers/context/agent-tasks/artifacts); how long that
+ *  takes varies a lot by which session happens to be selected (a running
+ *  session with a large transcript is much slower than an idle short one) —
+ *  wait for the "Loading observability…" notice to actually clear rather
+ *  than guessing a fixed delay. */
+async function waitForObservabilityLoaded(p) {
+  await p
+    .getByText('Loading observability…')
+    .waitFor({ state: 'detached', timeout: 15000 })
+    .catch(() => {});
+  await p.waitForTimeout(400);
+}
+
 async function selectAppSession(p) {
   await p.locator('.shell-rail__session').first().click();
   // The live backend's session count varies run to run (including
@@ -128,6 +142,35 @@ async function clickSettingsNavLabel(p, label) {
   await p.waitForTimeout(500);
 }
 
+/** Opens observability then clicks a tab by its label prefix (the badge
+ *  count rides after it on both sides, so an exact match never hits). */
+function obsSubTabSetup(tabLabel) {
+  return {
+    proto: async (p) => {
+      await p.mouse.click(1407, 32);
+      await p.waitForTimeout(1000);
+      await p.evaluate((label) => {
+        const b = [...document.querySelectorAll('button')].find((x) =>
+          (x.textContent || '').trim().toLowerCase().startsWith(label),
+        );
+        b?.click();
+      }, tabLabel);
+      await p.waitForTimeout(800);
+    },
+    app: async (p) => {
+      await p.locator('.shell-rail__session').first().click();
+      await p.waitForTimeout(1000);
+      await p.getByRole('button', { name: /observability/i }).click();
+      await waitForObservabilityLoaded(p);
+      await p
+        .getByRole('tab', { name: new RegExp(`^${tabLabel}`, 'i') })
+        .click()
+        .catch(() => {});
+      await p.waitForTimeout(800);
+    },
+  };
+}
+
 /** Per-state setup on each side. Extend as review states grow. */
 const SETUPS = {
   none: { proto: async () => {}, app: async () => {} },
@@ -148,7 +191,7 @@ const SETUPS = {
       await p.locator('.shell-rail__session').first().click();
       await p.waitForTimeout(1000);
       await p.getByRole('button', { name: /observability/i }).click();
-      await p.waitForTimeout(1200);
+      await waitForObservabilityLoaded(p);
     },
   },
   'obs-gantt': {
@@ -167,11 +210,15 @@ const SETUPS = {
       await p.locator('.shell-rail__session').first().click();
       await p.waitForTimeout(1000);
       await p.getByRole('button', { name: /observability/i }).click();
-      await p.waitForTimeout(1000);
+      await waitForObservabilityLoaded(p);
       await p.getByRole('button', { name: /^gantt$/i }).click().catch(() => {});
       await p.waitForTimeout(800);
     },
   },
+  'obs-runs': obsSubTabSetup('runs'),
+  'obs-tools': obsSubTabSetup('tools'),
+  'obs-context': obsSubTabSetup('context'),
+  'obs-artifacts-tab': obsSubTabSetup('artifacts'),
   fresh: {
     // The prototype's own default landing session is one of its canned demo
     // transcripts — reaching its true idle/"New session" screen means going

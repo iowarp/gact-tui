@@ -148,4 +148,63 @@ describe('Layer', () => {
     expect(screen.queryByRole('button', { name: /maximize/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /pop out/i })).toBeNull();
   });
+
+  it('the pop-out button is flagged unbacked for the composer-attach visible-degraded pattern', () => {
+    render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    expect(screen.getByRole('button', { name: /pop out observability/i })).toHaveAttribute(
+      'data-unbacked',
+      'true',
+    );
+  });
+
+  it('carries a bottom-right drag-to-resize grip on the window variant (design/prototype ~8108118)', () => {
+    const { container } = render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    expect(container.querySelector('.kit-layer__grip')).not.toBeNull();
+  });
+
+  it('omits the resize grip for the fixed settings chrome', () => {
+    const { container } = render(
+      <Layer open title="Settings" size="settings" onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    expect(container.querySelector('.kit-layer__grip')).toBeNull();
+  });
+
+  it('dragging the grip resizes the card via real pointer events', () => {
+    const { container } = render(
+      <Layer open title="observability" windowControls width={860} height={600} onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    const grip = container.querySelector('.kit-layer__grip') as HTMLElement;
+    const card = container.querySelector('.kit-layer__card') as HTMLElement;
+    card.getBoundingClientRect = () =>
+      ({ width: 860, height: 600, top: 0, left: 0, right: 860, bottom: 600 }) as DOMRect;
+
+    fireEvent.pointerDown(grip, { clientX: 860, clientY: 600, pointerId: 1 });
+    fireEvent.pointerMove(grip, { clientX: 960, clientY: 660, pointerId: 1 });
+    fireEvent.pointerUp(grip, { clientX: 960, clientY: 660, pointerId: 1 });
+
+    expect(card.style.width).toBe('960px');
+    expect(card.style.height).toBe('660px');
+  });
+
+  it('the grip does not resize while maximized', () => {
+    const { container } = render(
+      <Layer open title="observability" windowControls onClose={vi.fn()}>
+        body
+      </Layer>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /maximize observability/i }));
+    expect(container.querySelector('.kit-layer__grip')).toBeNull();
+  });
 });

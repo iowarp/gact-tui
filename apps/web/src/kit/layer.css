@@ -143,3 +143,23 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+/* Bottom-right drag-to-resize grip (design/prototype Clio Session.html
+   ~8108118): 16x16 hit target, diagonal glyph, `cursor:nwse-resize`. */
+.kit-layer__grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  color: var(--t-mu);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.kit-layer__grip:hover {
+  color: var(--t-hd);
+}
