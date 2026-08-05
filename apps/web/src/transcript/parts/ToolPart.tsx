@@ -16,6 +16,27 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined
 const ARG_HINT_MAX = 42;
 const PREVIEW_MAX = 96;
 
+/** The curated durable-job polling tools (JARVIS/Spack surface, P2.14) whose
+ *  RUNNING call renders as the prototype's activity line rather than a
+ *  collapsed tool row — the call itself IS "waiting on N background agents",
+ *  not a discrete action worth a name/args/chevron row. */
+const WAIT_AGENT_TOOL_NAMES = new Set(['wait_agent_tasks', 'check_agent_tasks']);
+
+/**
+ * `wait_agent_tasks`/`check_agent_tasks` calls carry the polled `task_ids`
+ * array in their input; this reads its length. Returns null when the call is
+ * neither of those two tools, or carries no such array — never a guessed
+ * count.
+ */
+export function waitingTaskCount(call: WirePart): number | null {
+  const name = str(call['tool_name'] ?? call['name']);
+  if (!WAIT_AGENT_TOOL_NAMES.has(name)) return null;
+  const input = call['input'];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const taskIds = (input as Record<string, unknown>)['task_ids'];
+  return Array.isArray(taskIds) ? taskIds.length : null;
+}
+
 function firstArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
   const entries = Object.entries(input as Record<string, unknown>);
@@ -70,6 +91,23 @@ function resultRows(text: string): Array<{ k: string; v: string }> | null {
 export function ToolPart({ call, result }: ToolPartProps) {
   const [open, setOpen] = useState(false);
   const name = str(call['tool_name'] ?? call['name']);
+
+  // A RUNNING wait_agent_tasks/check_agent_tasks call (no result yet) is the
+  // prototype's activity line, not a plain collapsed row — once the result
+  // lands this falls straight through to the normal row below.
+  const waitingCount = !result ? waitingTaskCount(call) : null;
+  if (waitingCount !== null) {
+    const noun = waitingCount === 1 ? 'agent' : 'agents';
+    return (
+      <p className="transcript__activity" data-testid="tool-wait-activity">
+        <span className="transcript__activity-mark" aria-hidden="true">
+          ✻
+        </span>
+        {` waiting for ${waitingCount} background ${noun}…`}
+      </p>
+    );
+  }
+
   const argHint = firstArgHint(call['input']);
   const params = argRows(call['input']);
   const isError = result ? result['is_error'] === true : false;

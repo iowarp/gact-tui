@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusDot, type SessionStatus } from '../../kit';
 import { Markdown } from '../markdown';
 import type { WirePart } from '../registry';
@@ -7,6 +7,17 @@ export interface HandoffPartProps {
   part: WirePart;
   /** A returning handoff renders the child's answer rather than its question. */
   returned?: boolean;
+}
+
+/**
+ * A RUNNING delegation's live preview: the child's own streamed text tail
+ * (SessionView's `childPreviews`, resolved by handle_id) plus the task's
+ * `created_at` the elapsed clock ticks against. Absent until a child-session
+ * subscription resolves real text — the box never fabricates one.
+ */
+export interface ChildPreview {
+  text: string;
+  startedAt?: string;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -133,6 +144,11 @@ export interface MergedHandoffProps {
   terminal: WirePart;
   /** When present, the box becomes the prototype's open-agent target. */
   onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
+  /** The child's live streamed text while this delegation is still running
+   *  (SessionView's `childPreviews`, resolved by this box's own handle_id).
+   *  Absent while no child text has arrived yet — the box never fabricates
+   *  a preview, it just keeps showing the plain footer until one exists. */
+  preview?: ChildPreview;
 }
 
 /**
@@ -143,7 +159,7 @@ export interface MergedHandoffProps {
  * each stage as its own full block duplicated every Call and drew an empty
  * running card next to the completed one — the "unreadable transcript".
  */
-export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
+export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffProps) {
   const [answerExpanded, setAnswerExpanded] = useState(false);
   const final = terminal;
   const finalMeta = metadataOf(final);
@@ -160,7 +176,30 @@ export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
   // 3-5) — expand in place, or open the box for the whole child transcript.
   const answerLong = answer.length > 320 || answer.split('\n').length > 4;
   const durationRaw = Number(final['duration_ms'] ?? 0);
-  const duration = formatDurationMs(durationRaw) || str(final['duration'] ?? final['elapsed']);
+
+  // The running elapsed clock: while the delegation streams, the wire's own
+  // `duration_ms` isn't populated yet (it lands only at settle), so a live
+  // "running (1m 22s)" reading ticks off the task's real `created_at`
+  // (`preview.startedAt`) against a 1s interval clock instead. Settled boxes
+  // never tick — they show the wire's own final duration exactly as before.
+  const running = status === 'running';
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running || !preview?.startedAt) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [running, preview?.startedAt]);
+  const startedAtMs = preview?.startedAt ? Date.parse(preview.startedAt) : NaN;
+  const liveElapsedMs = running && Number.isFinite(startedAtMs) ? Math.max(0, now - startedAtMs) : undefined;
+  const duration =
+    (liveElapsedMs !== undefined ? formatDurationMs(liveElapsedMs) : '') ||
+    formatDurationMs(durationRaw) ||
+    str(final['duration'] ?? final['elapsed']);
+
+  // The live preview tail (SessionView streams the child's own SSE wire into
+  // it) only ever shows while running — a settled box always shows the
+  // wire's real `metadata.output` instead, never a stale streamed fragment.
+  const previewText = running ? (preview?.text ?? '') : '';
 
   const remote = Boolean(placement) && placement !== 'local';
   // ONE unified box (owner correction 2026-08-05 + prototype div.scpg): the
@@ -204,7 +243,14 @@ export function MergedHandoff({ terminal, onOpenChild }: MergedHandoffProps) {
           <span className="part-childcard__name">{runLabel || child}</span>
           {remote ? <span className="part-childcard__host">{placement}</span> : null}
         </div>
-        {answer ? (
+        {previewText ? (
+          <div className="part-childcard__body part-childcard__body--preview" data-testid="part-childcard-preview">
+            <span className="part-childcard__previewtext">{previewText}</span>
+            <span className="part-childcard__cursor" aria-hidden="true">
+              ▍
+            </span>
+          </div>
+        ) : answer ? (
           <div
             className="part-childcard__body"
             data-clamped={answerLong && !answerExpanded ? 'true' : undefined}

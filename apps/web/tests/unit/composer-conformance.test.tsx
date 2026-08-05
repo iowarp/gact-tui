@@ -64,7 +64,7 @@ describe('pill wiring (D1)', () => {
           { id: 't3', status: 'completed' },
         ],
       },
-      '/context/state': { used_pct: 41 },
+      '/context/state': { used_pct: 0.41 },
     });
     await openSession(client);
     await waitFor(() => expect(screen.getByText(/async 2/)).toBeInTheDocument());
@@ -73,7 +73,7 @@ describe('pill wiring (D1)', () => {
   it('reads the context percentage for the ACTIVE scope — never a bare state call', async () => {
     const client = makeClient({
       '/agent-tasks': { tasks: [] },
-      '/context/state': { used_pct: 41 },
+      '/context/state': { used_pct: 0.41 },
     });
     await openSession(client);
     await waitFor(() => expect(screen.getByText(/ctx 41%/)).toBeInTheDocument());

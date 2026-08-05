@@ -1,7 +1,7 @@
 import type { Message } from '@clio/core';
 import { PartCard } from '../kit';
 import { ArtifactGrid } from './parts/ArtifactChip';
-import { MergedHandoff } from './parts/HandoffPart';
+import { MergedHandoff, type ChildPreview } from './parts/HandoffPart';
 import { ToolPart } from './parts/ToolPart';
 import { PART_RENDERERS, WrenchGlyph, type WirePart } from './registry';
 import './transcript.css';
@@ -12,6 +12,10 @@ export interface TranscriptProps {
   onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
   /** Opens an artifact in the right detail panel (prototype artGo). */
   onOpenArtifact?: (artifactId: string, name: string) => void;
+  /** Live child-session previews for RUNNING delegations, keyed by handle_id
+   *  (SessionView's `childPreviews`). A handoff with no entry here just shows
+   *  its plain running footer — never a fabricated preview. */
+  childPreviews?: Record<string, ChildPreview>;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -107,7 +111,7 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
  * The one pre-pass this owns is pairing (above): grouping related parts
  * before they reach the registry, never re-rendering a kind a different way.
  */
-export function Transcript({ messages, onOpenChild, onOpenArtifact }: TranscriptProps) {
+export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreviews }: TranscriptProps) {
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -134,6 +138,7 @@ export function Transcript({ messages, onOpenChild, onOpenArtifact }: Transcript
                   group={group}
                   {...(onOpenChild ? { onOpenChild } : {})}
                   {...(onOpenArtifact ? { onOpenArtifact } : {})}
+                  {...(childPreviews ? { childPreviews } : {})}
                 />
               ))}
             </article>
@@ -148,10 +153,12 @@ function RenderedGroup({
   group,
   onOpenChild,
   onOpenArtifact,
+  childPreviews,
 }: {
   group: PartGroup;
   onOpenChild?: TranscriptProps['onOpenChild'];
   onOpenArtifact?: TranscriptProps['onOpenArtifact'];
+  childPreviews?: TranscriptProps['childPreviews'];
 }) {
   if (group.kind === 'tool') {
     return (
@@ -168,9 +175,15 @@ function RenderedGroup({
     );
   }
   if (group.kind === 'handoff') {
+    const handleId = str(group.terminal['handle_id']);
+    const preview = handleId ? childPreviews?.[handleId] : undefined;
     return (
       <PartCard kind="expert_handoff" gutter={<WrenchGlyph />}>
-        <MergedHandoff terminal={group.terminal} {...(onOpenChild ? { onOpenChild } : {})} />
+        <MergedHandoff
+          terminal={group.terminal}
+          {...(onOpenChild ? { onOpenChild } : {})}
+          {...(preview ? { preview } : {})}
+        />
       </PartCard>
     );
   }
