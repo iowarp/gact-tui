@@ -119,6 +119,18 @@ describe('running child card (E5, captured shape)', () => {
     );
   });
 
+  it('never claims clickability it cannot honor (no focused-agent-transcript pane exists yet, E9)', () => {
+    // The prototype's own goChild div is role="button" tabindex="0" with a
+    // real click destination (the focused agent transcript). This build has
+    // no such pane anywhere under apps/web/src, so the card must not LIE
+    // about being interactive — no role, no tabindex, no cursor:pointer click
+    // target. An affordance that does nothing on click is worse than none.
+    render(<Transcript messages={[msg('m1', 'assistant', [STARTED_HANDOFF])]} />);
+    const card = screen.getByTestId('part-child-card');
+    expect(card).not.toHaveAttribute('role');
+    expect(card).not.toHaveAttribute('tabindex');
+  });
+
   it('marks a failed delegation red, never the neutral idle dot (E5 addendum)', () => {
     // Live-observed: the narration explicitly says the child "fully failed
     // (delegate.failed, error_reason=agent_error)" while the card still
