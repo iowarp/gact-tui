@@ -23,6 +23,7 @@ import { resolve } from 'node:path';
 import type { Client, Message, Session, Workspace } from '@clio/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Rail } from '../../src/shell/Rail';
+import { SearchDialog } from '../../src/session/SessionDialogs';
 import { SessionView } from '../../src/session/SessionView';
 
 const WORKSPACES: Workspace[] = [
@@ -280,5 +281,88 @@ describe('topbar title + blueprint crumb carry the prototype\'s click-to-rename/
     expect(css).toMatch(
       /\[aria-label='Show sessions'\]:hover\s*{[^}]*border-color:\s*var\(--t-bd6\)/s,
     );
+  });
+});
+
+/**
+ * P5 grind, PASS 3. Re-verifying every non-"match" item found the relay
+ * footer cell already wired (a cross-surface commit, menus-grammar pass 3,
+ * touched Rail.tsx directly — see docs/p5/conformance/rail-and-topbar.json's
+ * updated status). Sweeping the surface for gaps of the SAME CLASS PASS 2
+ * fixed elsewhere (hover-token drift, wrong colour tokens at rest) turned up
+ * two real ones PASS 2's sweep had missed because they live in a different
+ * file (session/owner-surfaces.css, not shell/rail.css or shell/topbar.css):
+ * the search modal's session rows used the `ask` (question-mark) icon
+ * instead of the prototype's own chat-bubble glyph, and the row's text used
+ * the wrong colour tokens (bodytext var(--t-tx) for the label, and the whole
+ * workspace row dimmed to var(--t-mu)) plus an invented cyan hover-colour
+ * change the prototype's own style-hover never has (background-only).
+ */
+describe('search modal session rows carry the prototype\'s chat-bubble icon, not `ask`\'s question mark', () => {
+  it('a session row renders the chat icon; a workspace row keeps the folder icon', () => {
+    render(
+      <SearchDialog
+        open
+        sessions={SESSIONS}
+        workspaces={WORKSPACES}
+        onChooseSession={vi.fn()}
+        onChooseWorkspace={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const sessionRow = screen.getByRole('button', { name: 'alpha run' });
+    expect(sessionRow.querySelector('svg[data-icon]')).toHaveAttribute('data-icon', 'chat');
+    expect(sessionRow.querySelector('svg[data-icon="ask"]')).toBeNull();
+
+    // Workspace rows only render once the query is non-empty (they match on
+    // the workspace path/name, unlike session rows which show unfiltered).
+    fireEvent.change(screen.getByRole('searchbox', { name: /search sessions and workspaces/i }), {
+      target: { value: 'alpha' },
+    });
+    const workspaceRow = screen.getByRole('button', { name: /\/scratch\/alpha/ });
+    expect(workspaceRow.querySelector('svg[data-icon]')).toHaveAttribute('data-icon', 'folder');
+  });
+});
+
+describe('search modal row colours match the prototype\'s measured tokens (session/owner-surfaces.css)', () => {
+  it('the row label sits at var(--t-hd) for BOTH row kinds — the prototype shares one label span after its workspace/session icon branches', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/session/owner-surfaces.css'), 'utf8');
+    expect(css).toMatch(/\.session-search__row\s*{[^}]*color:\s*var\(--t-hd\)/s);
+    // The workspace variant no longer dims the whole row (was var(--t-mu));
+    // only its spacing is variant-specific now.
+    const workspaceRule = css.match(/\.session-search__row\[data-kind='workspace'\]\s*{([^}]*)}/s)?.[1] ?? '';
+    expect(workspaceRule).not.toMatch(/color/);
+  });
+
+  it('the row icon is muted (var(--t-mu)), distinct from the bright label', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/session/owner-surfaces.css'), 'utf8');
+    expect(css).toMatch(/\.session-search__row svg\s*{[^}]*color:\s*var\(--t-mu\)/s);
+  });
+
+  it('hover is background-only (var(--t-sf2)) — the prototype\'s own style-hover on this row never changes colour', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/session/owner-surfaces.css'), 'utf8');
+    const hoverRule =
+      css.match(/button\.session-search__row:hover,\s*button\.session-search__row:focus-visible\s*{([^}]*)}/s)?.[1] ??
+      '';
+    expect(hoverRule).toMatch(/background:\s*var\(--t-sf2\)/);
+    expect(hoverRule).not.toMatch(/color/);
+  });
+});
+
+describe('rail footer "relay" cell — re-verified live-wired (fixed cross-surface by menus-grammar pass 3, commit 835546f0)', () => {
+  it('is no longer the permanently-disabled dead control the PASS 1/2 notes described', () => {
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        relayStatus={{ configured: true, reachable: true, host: 'ares.example.com' }}
+        onOpenSettings={vi.fn()}
+      />,
+    );
+    const cell = screen.getByTestId('rail-relay');
+    expect(cell).not.toBeDisabled();
+    expect(cell).toHaveAttribute('title', expect.stringMatching(/reachable/i));
   });
 });

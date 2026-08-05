@@ -184,10 +184,18 @@
 
 .session-search { display: flex; flex-direction: column; min-height: 320px; }
 .session-search__results { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow: auto; }
-.session-search__row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 10px; border: 0; border-radius: 6px; background: transparent; color: var(--t-tx); font: calc(11.5px * var(--ts))/1.4 var(--f-mono); text-align: left; }
+/* Row text is the prototype's own `sr.label` span colour (var(--t-hd), the
+   bright heading token) for BOTH row kinds — the prototype's markup shares
+   ONE label span after its workspace/session icon sc-if branches, so a
+   workspace row's name is exactly as bright as a session row's. Only the
+   icon (svg, next rule) carries the muted tone. */
+.session-search__row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 10px; border: 0; border-radius: 6px; background: transparent; color: var(--t-hd); font: calc(11.5px * var(--ts))/1.4 var(--f-mono); text-align: left; }
+.session-search__row svg { color: var(--t-mu); }
 button.session-search__row { cursor: pointer; }
-button.session-search__row:hover, button.session-search__row:focus-visible { outline: 0; background: var(--t-hv); color: var(--t-cy); }
-.session-search__row[data-kind='workspace'] { margin-top: 4px; color: var(--t-mu); }
+/* Prototype's style-hover on this row is background-only (var(--t-sf2)) —
+   no colour change, unlike the rail's own rows which DO turn cyan. */
+button.session-search__row:hover, button.session-search__row:focus-visible { outline: 0; background: var(--t-sf2); }
+.session-search__row[data-kind='workspace'] { margin-top: 4px; }
 .session-search__hint { color: var(--t-mu); font-size: calc(9.5px * var(--ts)); }
 .session-search__empty { padding: 40px 0; color: var(--t-mu); text-align: center; }
 

@@ -112,7 +112,7 @@ export function SearchDialog({
                 onClose();
               }}
             >
-              <Icon name="ask" />
+              <Icon name="chat" />
               <span>{session.title || session.id}</span>
               <span className="session-search__hint">
                 {rows.workspaceRows.length === 0 && index === 0

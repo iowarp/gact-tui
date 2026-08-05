@@ -37,6 +37,7 @@ export type IconName =
   | 'sparkle'
   | 'swap'
   | 'ask'
+  | 'chat'
   | 'pencil'
   | 'trash'
   | 'x'
@@ -265,6 +266,10 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <circle cx="6" cy="9" r="0.5" fill="currentColor" />
     </>
   ),
+  // Search modal session rows (`sr.isChat`, design/prototype/Clio Session.html
+  // ~offset 8079057): a speech-bubble, distinct from `ask`'s question-mark
+  // glyph — a session in the search results is not the "ask" approval mode.
+  chat: <path d="M1.5 5.5a4 4 0 014-4h1a4 4 0 010 8H3l-1.5 1.5v-5.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />,
   pencil: (
     <path
       d="M7.5 1.8l2.7 2.7L4 10.7l-3 .3.3-3 6.2-6.2z"
