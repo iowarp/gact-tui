@@ -1,19 +1,40 @@
 .provider-model-picker { position: relative; min-width: 0; }
 .provider-model-picker__trigger { display: flex; align-items: center; gap: 5px; max-width: 260px; padding: 0; border: 0; background: transparent; color: var(--t-mu); font: calc(10.5px * var(--ts))/1 var(--f-mono); cursor: pointer; }
 .provider-model-picker__trigger span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.provider-model-picker > .kit-popover { right: 0; left: auto; width: min(520px, 82vw); padding: 0; overflow: hidden; }
-.provider-model-picker__head { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-bottom: 1px solid var(--t-bd3); color: var(--t-mu); font: calc(9.5px * var(--ts))/1 var(--f-mono); }
+/* Keep the base kit-popover's own max-height:320px (up placement) — taller
+   would push the panel above the viewport's top edge when the composer sits
+   low on the page, which clips worse than a scrollbar does. Override only
+   `overflow-x`, since the parent rule's `overflow: hidden` was silently
+   killing the inherited `overflow-y: auto` this needs to scroll when the
+   live provider catalogue (up to ten entries) outgrows the prototype's
+   fixed placeholder set. */
+.provider-model-picker > .kit-popover { right: 0; left: auto; width: min(520px, 82vw); padding: 0; overflow-x: hidden; overflow-y: auto; }
+.provider-model-picker__head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-bottom: 1px solid var(--t-bd3); color: var(--t-mu); font: calc(9.5px * var(--ts))/1 var(--f-mono); }
+.provider-model-picker__settingsgear { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--t-mu); cursor: pointer; }
+.provider-model-picker__settingsgear:not(:disabled):hover { background: var(--t-sf2); color: var(--t-hd); }
+.provider-model-picker__settingsgear[data-unbacked='true'] { color: var(--t-er); cursor: not-allowed; }
+.provider-model-picker__settingsgear[data-unbacked='true']:hover { background: var(--t-erc06); }
 .provider-model-picker__panes { display: grid; grid-template-columns: 178px minmax(0, 1fr); min-height: 270px; }
 .provider-model-picker__providers { padding: 8px; border-right: 1px solid var(--t-bd3); background: var(--t-bg); }
-.provider-model-picker__providers button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
-.provider-model-picker__providers button:hover, .provider-model-picker__providers button[data-active='true'] { background: var(--t-hv); color: var(--t-cy); }
-.provider-model-picker__providers small { color: var(--t-mu); font-size: calc(8.5px * var(--ts)); }
+.provider-model-picker__provider { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
+.provider-model-picker__provider:hover, .provider-model-picker__provider[data-active='true'] { background: var(--t-hv); color: var(--t-cy); }
+.provider-model-picker__provider small { color: var(--t-mu); font-size: calc(8.5px * var(--ts)); }
+.provider-model-picker__provider small[data-tone='ok'] { color: var(--t-ok); }
+.provider-model-picker__provider small[data-tone='warn'] { color: var(--t-wa); }
+.provider-model-picker__provider small[data-tone='error'] { color: var(--t-er); }
 .provider-model-picker__models { padding: 12px; }
-.provider-model-picker__models [role='listbox'] { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
-.provider-model-picker__models [role='option'] { display: grid; grid-template-columns: minmax(0, 1fr) 12px; align-items: center; gap: 8px; width: 100%; padding: 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
-.provider-model-picker__models [role='option']:hover { background: var(--t-hv); }
-.provider-model-picker__models [role='option'][aria-selected='true'] { border-color: var(--t-cy3); color: var(--t-cy); }
-.provider-model-picker__models [role='option'] > span { display: flex; flex-direction: column; min-width: 0; }
+.provider-model-picker__models [role='listbox'] { display: flex; flex-direction: column; gap: 3px; }
+.provider-model-picker__modelrow { position: relative; }
+.provider-model-picker__modelrow [role='option'] { display: grid; grid-template-columns: minmax(0, 1fr) 12px; align-items: center; gap: 8px; width: 100%; padding: 7px 24px 7px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--t-tx); font: calc(10.5px * var(--ts))/1.3 var(--f-mono); text-align: left; cursor: pointer; }
+.provider-model-picker__modelrow [role='option']:hover { background: var(--t-hv); }
+.provider-model-picker__modelrow [role='option'][aria-selected='true'] { border-color: var(--t-cy3); color: var(--t-cy); }
+.provider-model-picker__modelrow [role='option'] > span { display: flex; flex-direction: column; min-width: 0; }
+.provider-model-picker__modelrow [role='option'] svg { color: var(--t-cy); }
+/* Always visible (muted), same as the prototype's own gear — never
+   hover-revealed, since a hidden hint about a missing wire would undercut
+   the "visible, not silently absent" convention. */
+.provider-model-picker__modelgear { position: absolute; top: 50%; right: 3px; width: 18px; height: 18px; margin-top: -9px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--t-mu); cursor: not-allowed; }
+.provider-model-picker__modelgear[data-unbacked='true'] { color: var(--t-er); }
 .provider-model-picker__models small { color: var(--t-mu); font-size: calc(8.5px * var(--ts)); }
 .provider-model-picker__models p { color: var(--t-mu); font: calc(10px * var(--ts))/1.5 var(--f-mono); }
 .provider-model-picker__thinking { display: flex; align-items: center; gap: 5px; padding: 8px 12px; border-top: 1px solid var(--t-bd3); }

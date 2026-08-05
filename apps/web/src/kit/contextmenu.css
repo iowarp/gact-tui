@@ -114,7 +114,17 @@
   place-items: center;
   flex: 0 0 12px;
   align-self: center;
-  color: var(--t-ac);
+  /* Teal, not the orange accent — verified against both the approve and mode
+     popover templates (design/prototype/Clio Session.html). */
+  color: var(--t-cy);
+}
+
+/* The prototype's hairline divider before a destructive row (both ctxOpen
+   and wsCtxOpen blocks): `border-top:1px solid var(--t-bd3); margin:4px 4px;`. */
+.kit-contextmenu__separator {
+  height: 0;
+  margin: 4px 4px;
+  border-top: 1px solid var(--t-bd3);
 }
 
 .kit-contextmenu__item[data-tone='danger'] .kit-contextmenu__icon,

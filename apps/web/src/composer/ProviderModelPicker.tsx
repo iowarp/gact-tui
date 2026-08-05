@@ -23,6 +23,33 @@ export interface ProviderModelPickerProps {
   providers?: ProviderModelGroup[];
   thinkingLevel?: string;
   onChange: (value: string) => void;
+  /** Supplying this wires the header gear ("provider settings" in the
+   *  prototype's popRouter head) to a real navigation target. Omitted =
+   *  the gear is shown disabled, same visible-degraded convention as the
+   *  composer's attach button. */
+  onOpenProviderSettings?: () => void;
+}
+
+/** Readiness tone for a provider's status label — ready/green,
+ *  needs-auth/amber, catalog trouble/red, anything else muted. Vocabulary
+ *  is the real backend's (LmPreset.status via GET /v1/providers/lm), not
+ *  the prototype's placeholder ready/no-key/signed-out/offline strings. */
+function statusTone(status: string | undefined): 'ok' | 'warn' | 'error' | 'muted' {
+  if (!status) return 'muted';
+  const normalized = status.toLowerCase();
+  if (normalized === 'ready' || normalized === 'configured') return 'ok';
+  if (
+    normalized.includes('auth') ||
+    normalized.includes('missing_key') ||
+    normalized.includes('not configured') ||
+    normalized.includes('needs')
+  ) {
+    return 'warn';
+  }
+  if (normalized.includes('unavailable') || normalized.includes('error') || normalized.includes('offline')) {
+    return 'error';
+  }
+  return 'muted';
 }
 
 /** Prototype two-pane picker: provider navigation left, model catalogue right. */
@@ -32,6 +59,7 @@ export function ProviderModelPicker({
   providers,
   thinkingLevel,
   onChange,
+  onOpenProviderSettings,
 }: ProviderModelPickerProps) {
   const [open, setOpen] = useState(false);
   const groups = useMemo(() => providers?.length ? providers : groupsFromOptions(options), [options, providers]);
@@ -67,39 +95,83 @@ export function ProviderModelPicker({
         <span>{selectedLabel}</span><span aria-hidden="true">⌄</span>
       </button>
       <Popover open={open} label="Model picker" placement="up" onClose={() => setOpen(false)}>
-        <div className="provider-model-picker__head"><Eyebrow strong>providers</Eyebrow><span /><Icon name="tool" size={11} /><span>provider settings</span></div>
+        <div className="provider-model-picker__head">
+          <Eyebrow strong>providers</Eyebrow>
+          <span />
+          {/* clio-agent has no session-scoped "which provider config panel" deep
+              link yet — this opens Settings generally (same convention as the
+              rail's own settings gear) rather than pretending to land on a
+              specific tab. Shown disabled + flagged when no opener at all is
+              wired, never a silent no-op click. */}
+          <button
+            type="button"
+            className="provider-model-picker__settingsgear"
+            title="Provider settings"
+            aria-label="Provider settings"
+            data-unbacked={onOpenProviderSettings ? undefined : 'true'}
+            disabled={!onOpenProviderSettings}
+            onClick={() => {
+              onOpenProviderSettings?.();
+              setOpen(false);
+            }}
+          >
+            <Icon name="tool" size={11} />
+          </button>
+        </div>
         <div className="provider-model-picker__panes">
           <div className="provider-model-picker__providers">
             {groups.map((provider) => (
               <button
                 type="button"
+                className="provider-model-picker__provider"
                 key={provider.id}
                 data-active={provider.id === activeProvider?.id ? 'true' : undefined}
                 onClick={() => setActiveProviderId(provider.id)}
               >
-                <span>{provider.label}</span><small>{provider.statusLabel || provider.status || 'catalog'}</small>
+                <span>{provider.label}</span>
+                <small data-tone={statusTone(provider.status)}>
+                  {provider.statusLabel || provider.status || 'catalog'}
+                </small>
               </button>
             ))}
           </div>
           <div className="provider-model-picker__models">
-            <Eyebrow strong>models</Eyebrow>
             <div role="listbox" aria-label="Models">
-              {(activeProvider?.models ?? []).map((model) => (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={model.value === value}
-                  aria-label={model.label}
-                  key={model.value}
-                  onClick={() => {
-                    onChange(model.value);
-                    setOpen(false);
-                  }}
-                >
-                  <span>{model.label}<small>{model.detail}</small></span>
-                  {model.value === value ? <Icon name="check" /> : <Icon name="tool" size={10} />}
-                </button>
-              ))}
+              {(activeProvider?.models ?? []).map((model) => {
+                const active = model.value === value;
+                return (
+                  <div className="provider-model-picker__modelrow" key={model.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      aria-label={model.label}
+                      onClick={() => {
+                        onChange(model.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <span>{model.label}<small>{model.detail}</small></span>
+                      {active ? <Icon name="check" /> : <span aria-hidden="true" />}
+                    </button>
+                    {/* Sampling params ("saved per model on this provider" in the
+                        prototype) have no wire surface — PATCH /v1/sessions/{id}
+                        carries only {provider_id, model_id, variant}, and `variant`
+                        is never populated from a real per-model settings store.
+                        Shown and flagged rather than omitted. */}
+                    <button
+                      type="button"
+                      className="provider-model-picker__modelgear"
+                      title="Model settings — sampling overrides are not wired yet"
+                      aria-label={`${model.label} settings`}
+                      data-unbacked="true"
+                      disabled
+                    >
+                      <Icon name="tool" size={10} />
+                    </button>
+                  </div>
+                );
+              })}
               {(activeProvider?.models.length ?? 0) === 0 ? <p>No models reported by this provider.</p> : null}
             </div>
           </div>

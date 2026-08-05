@@ -4,6 +4,14 @@ import './contextmenu.css';
 
 export interface MenuItemDef {
   id: string;
+  /**
+   * `separator` renders the prototype's hairline divider (both ctxOpen and
+   * wsCtxOpen blocks: `border-top:1px solid var(--t-bd3); margin:4px 4px;`)
+   * instead of a row — every other field is ignored. Never focusable, never
+   * selectable: it carries no `role="menuitem"` and is skipped by arrow-key
+   * navigation exactly like a disabled row.
+   */
+  type?: 'item' | 'separator';
   label: string;
   ariaLabel?: string;
   description?: string;
@@ -69,11 +77,12 @@ export function ContextMenu({
     const count = items.length;
     if (count === 0) return -1;
     let next = from;
-    // Skip disabled entries; give up after a full lap so an all-disabled menu
-    // cannot spin forever.
+    // Skip disabled entries and separators; give up after a full lap so an
+    // all-disabled (or all-separator) menu cannot spin forever.
     for (let hops = 0; hops < count; hops += 1) {
       next = (next + delta + count) % count;
-      if (!items[next]?.disabled) return next;
+      const candidate = items[next];
+      if (candidate && !candidate.disabled && candidate.type !== 'separator') return next;
     }
     return from;
   }
@@ -109,37 +118,41 @@ export function ContextMenu({
       onKeyDown={onKeyDown}
     >
       {eyebrow ? <div className="kit-contextmenu__eyebrow">{eyebrow}</div> : null}
-      {items.map((item, index) => (
-        <button
-          key={item.id}
-          type="button"
-          role="menuitem"
-          aria-label={item.ariaLabel}
-          className="kit-contextmenu__item"
-          data-tone={item.tone === 'danger' ? 'danger' : undefined}
-          data-active={index === activeIndex ? 'true' : undefined}
-          data-description={item.description ? 'true' : undefined}
-          disabled={item.disabled}
-          title={item.title}
-          onClick={() => {
-            onSelect(item.id);
-            onClose();
-          }}
-        >
-          {item.icon ? <span className="kit-contextmenu__icon">{item.icon}</span> : null}
-          <span className="kit-contextmenu__copy">
-            <span className="kit-contextmenu__label">{item.label}</span>
-            {item.description ? (
-              <span className="kit-contextmenu__description">{item.description}</span>
-            ) : null}
-          </span>
-          {item.checked ? (
-            <span className="kit-contextmenu__check" data-checked="true">
-              <Icon name="check" />
+      {items.map((item, index) =>
+        item.type === 'separator' ? (
+          <div key={item.id} className="kit-contextmenu__separator" role="separator" />
+        ) : (
+          <button
+            key={item.id}
+            type="button"
+            role="menuitem"
+            aria-label={item.ariaLabel}
+            className="kit-contextmenu__item"
+            data-tone={item.tone === 'danger' ? 'danger' : undefined}
+            data-active={index === activeIndex ? 'true' : undefined}
+            data-description={item.description ? 'true' : undefined}
+            disabled={item.disabled}
+            title={item.title}
+            onClick={() => {
+              onSelect(item.id);
+              onClose();
+            }}
+          >
+            {item.icon ? <span className="kit-contextmenu__icon">{item.icon}</span> : null}
+            <span className="kit-contextmenu__copy">
+              <span className="kit-contextmenu__label">{item.label}</span>
+              {item.description ? (
+                <span className="kit-contextmenu__description">{item.description}</span>
+              ) : null}
             </span>
-          ) : null}
-        </button>
-      ))}
+            {item.checked ? (
+              <span className="kit-contextmenu__check" data-checked="true">
+                <Icon name="check" />
+              </span>
+            ) : null}
+          </button>
+        ),
+      )}
     </div>
   );
 }

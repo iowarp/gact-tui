@@ -34,7 +34,7 @@ import { BlueprintWindow } from './BlueprintWindow';
 import { ConsoleDock } from './ConsoleDock';
 import { FilesLayer } from './FilesLayer';
 import { FreshHeadline, FreshStarting, SuggestedPrompts, type FreshStarter } from './FreshState';
-import { NewDialog, SearchDialog } from './SessionDialogs';
+import { NewDialog, RemoveWorkspaceConfirm, SearchDialog } from './SessionDialogs';
 import './sessionview.css';
 
 export interface SessionViewProps {
@@ -152,6 +152,10 @@ export function SessionView({
   const [searchOpen, setSearchOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [newWorkspaceId, setNewWorkspaceId] = useState<string | undefined>(undefined);
+  // The workspace group-menu's "remove workspace" — gated on the prototype's
+  // wsConfirmOpen modal (SessionDialogs.RemoveWorkspaceConfirm) rather than
+  // firing the DELETE on click; null = nothing pending.
+  const [pendingRemoveWorkspaceId, setPendingRemoveWorkspaceId] = useState<string | null>(null);
   // A SUGGESTED row click fills the composer; token forces the effect to
   // refire even when the same starter is picked twice in a row.
   const [starterPrompt, setStarterPrompt] = useState<{ text: string; token: number } | null>(
@@ -681,24 +685,34 @@ export function SessionView({
         return;
       }
       if (action !== 'remove') return;
-      void (async () => {
-        try {
-          await client.deleteWorkspace(workspaceId);
-          setRemovedWorkspaceIds((current) => new Set(current).add(workspaceId));
-          setWorkspaces((current) => current.filter((workspace) => workspace.id !== workspaceId));
-          if (active?.workspace_id === workspaceId) {
-            setActiveId(null);
-            setState({ kind: 'idle' });
-          }
-        } catch (error) {
-          setActionError(
-            `Remove workspace failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      })();
+      // The prototype's wsConfirmOpen gate: 'remove workspace' opens a
+      // confirmation rather than firing the DELETE straight from the
+      // context-menu click (design/prototype/Clio Session.html, ~offset
+      // 8104304). The actual delete lives in confirmRemoveWorkspace below.
+      setPendingRemoveWorkspaceId(workspaceId);
     },
-    [active?.workspace_id, client],
+    [],
   );
+
+  const confirmRemoveWorkspace = useCallback(async (): Promise<void> => {
+    const workspaceId = pendingRemoveWorkspaceId;
+    if (!workspaceId) return;
+    setPendingRemoveWorkspaceId(null);
+    setActionError(null);
+    try {
+      await client.deleteWorkspace(workspaceId);
+      setRemovedWorkspaceIds((current) => new Set(current).add(workspaceId));
+      setWorkspaces((current) => current.filter((workspace) => workspace.id !== workspaceId));
+      if (active?.workspace_id === workspaceId) {
+        setActiveId(null);
+        setState({ kind: 'idle' });
+      }
+    } catch (error) {
+      setActionError(
+        `Remove workspace failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }, [active?.workspace_id, client, pendingRemoveWorkspaceId]);
 
   const renameWorkspace = useCallback(
     async (workspaceId: string, next: string): Promise<void> => {
@@ -945,6 +959,7 @@ export function SessionView({
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
         onModelChange={(next) => void setModel(next)}
+        onOpenProviderSettings={() => setPanel('settings')}
         onOpenAsync={() => {
           setObsTab('runs');
           setPanel('obs');
@@ -966,6 +981,17 @@ export function SessionView({
         {...(composerFooter ? { footer: composerFooter } : {})}
       />
     ) : null;
+
+  const pendingRemoveWorkspace =
+    pendingRemoveWorkspaceId === null
+      ? null
+      : {
+          id: pendingRemoveWorkspaceId,
+          name:
+            renamedWorkspaces[pendingRemoveWorkspaceId] ??
+            workspaceDisplayLabel(pendingRemoveWorkspaceId, workspaces),
+          sessionCount: sessions.filter((s) => s.workspace_id === pendingRemoveWorkspaceId).length,
+        };
 
   return (
     <RailActionsProvider
@@ -1179,6 +1205,11 @@ export function SessionView({
           onCreateSession={createFromDialog}
           onCreateWorkspace={createWorkspaceFromDialog}
           onClose={() => setNewOpen(false)}
+        />
+        <RemoveWorkspaceConfirm
+          workspace={pendingRemoveWorkspace}
+          onCancel={() => setPendingRemoveWorkspaceId(null)}
+          onConfirm={() => void confirmRemoveWorkspace()}
         />
       </AppShell>
     </RailActionsProvider>

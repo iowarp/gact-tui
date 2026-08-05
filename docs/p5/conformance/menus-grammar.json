@@ -1,110 +1,110 @@
 {
   "surface": "menus-grammar",
-  "summary": "Roughly a third of the ground-truth menu grammar matches: the session/workspace right-click menus have the right items in the right order, and the permissions menu's SOURCE has the right icon+desc+eyebrow+check shape. But two whole menus from the prototype's grammar family are effectively absent from the app (the 'mode' execute/plan popover doesn't exist at all despite a fully-built backend behind it; the model picker is a flat single-column Select standing in for a two-pane provider/model/thinking widget), the shared ContextMenu kit component has no separator primitive at all (so both destructive items lose their visual break), the active-item check renders in the wrong accent color kit-wide, and 'remove workspace' fires its DELETE immediately with no confirmation step the prototype requires. A live DOM dump also proved the deployed preview bundle is stale for composer menus (bare-text buttons, no icon/desc/eyebrow) and Rail's context menu (a stale 6-item 'Rename/Fork/Export/Share/Pin/Delete' set that doesn't exist anywhere in current source) — source was used as the authority per instructions, but both need a fresh build to confirm visually.",
+  "summary": "P5 grind pass (2026-08-04): re-measured every item against the CURRENT tree — the mode popover and a two-pane provider/model picker had already landed since this map was written, ahead of this pass. Fixed in this pass: kit ContextMenu's separator primitive (both danger-item menus now carry the prototype's hairline), the active-item check icon's color (kit-wide, was the orange accent, now teal), the workspace menu's pin label (now toggles pin/unpin workspace like the session menu, with no check-icon column), and 'remove workspace' now goes through a confirmation modal instead of firing the DELETE straight from the click. The provider/model picker gained status-colored provider rows, a wired 'provider settings' gear, and honestly-flagged (visible, disabled, red) per-model settings gears — real grammar it lacked (a per-provider multi-config sub-picker, a live sampling-parameter editor) has no backend surface and is left unbuilt rather than faked; see wire gaps. Also fixed a kit-wide popover bug found while measuring: the composer's up-placement popovers inherit `max-height:320px; overflow-y:auto` from the shared kit-popover, but the provider/model picker's own CSS was overriding it to `overflow:hidden`, silently discarding any provider past the visible fold with no way to reach it. One deliberate, documented non-fix: the rail's 'agents' footer cell opens a live multi-backend switcher instead of the prototype's plain Settings navigation — a real axis (multiple connected clio deployments) the prototype's single-backend demo never modelled; Settings > Agents still serves the nav-equivalent path.",
   "items": [
     {
       "element": "Permissions/approval popover — eyebrow header + option list (composer footer 'ask' pill)",
       "proto_truth": "Panel eyebrow text node 'permissions' (CSS text-transform:uppercase, JetBrains Mono 10.5px, letter-spacing .1em, color var(--t-mu,#6b7280)). 4 rows, each icon(14px col)+name(12px mono #c5cad3)+desc(10.5px mono #6b7280)+check(14px col, teal): ask/'Prompt me before every tool call', auto-edits/'Auto-approve safe file edits; ask for the rest', auto/'Auto-approve every action (use with care)', bypass/'Skip permissions entirely'. Verified live at design/prototype/Clio Session.html (popApprove block, ~byte-offset 7949105) and screenshot apps/web/screenshots/visual-check/proto-ask-menu.png.",
-      "status": "deviates",
-      "app_evidence": "apps/web/src/composer/Composer.tsx:153-178 (approvalMenuItems)",
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:225-250 (approvalMenuItems); verified visually against a fresh build in apps/web/screenshots/side-by-side/menus-grammar-ask.png (composer-approval popover)",
       "backend_surface": "PATCH /v1/sessions/{id} body.approval_mode — Literal['ask','auto-edits','bypass','ai-review'] (clio-agent src/clio_agent/gact/types.py:446)",
-      "fix_hint": "Content divergence is DELIBERATE and documented (Composer.tsx:17-21 comment): the app's 4 values are the real backend Literal, not the prototype's placeholder 'auto'. That's a correct grounding call, not a bug — but the prototype's copy for the 3 shared values should stay verbatim (it does), and 'ai-review' needs its own description reconciled with backend semantics if it isn't already user-facing copy elsewhere."
+      "fix_hint": null
     },
     {
       "element": "Permissions/mode-menu active-item check icon color (kit-wide)",
       "proto_truth": "Check icon on the active row explicitly colored teal: `color:var(--t-cy,#0aa6ad)` in both the approve and mode popover templates (design/prototype/Clio Session.html, ~offsets 7949105 and 8459004). Confirmed visually teal in apps/web/screenshots/visual-check/proto-ask-menu.png (checkmark next to 'ask').",
-      "status": "deviates",
-      "app_evidence": "apps/web/src/kit/contextmenu.css:112-118 (.kit-contextmenu__check { color: var(--t-ac); })",
+      "status": "match",
+      "app_evidence": "apps/web/src/kit/contextmenu.css:112-119 (.kit-contextmenu__check { color: var(--t-cy); })",
       "backend_surface": "unbacked (pure CSS)",
-      "fix_hint": "Kit ContextMenu's check uses --t-ac (orange accent, #c4682a) instead of --t-cy (teal, #0aa6ad). One-line CSS fix, but it's kit-wide so it silently mis-colors every menu that uses `checked` (permissions menu, and Rail's workspace-pin checkmark once that's fixed too)."
+      "fix_hint": null
     },
     {
       "element": "Permissions popover — deployed preview bundle freshness",
       "proto_truth": "N/A (a build-verification finding, not a prototype-vs-source comparison).",
-      "status": "not-wired",
-      "app_evidence": "Live DOM dump of localhost:4191's open .kit-contextmenu returned `<button class=\"kit-contextmenu__item\">ask</button>` ×4 — no eyebrow div, no icon span, no description span, no check span — which contradicts current Composer.tsx/ContextMenu.tsx source (icon+description+eyebrow+checked all present). Consistent with the task brief's caveat that composer files are mid-flight.",
+      "status": "match",
+      "app_evidence": "Rebuilt preview (npm run build) re-captured at apps/web/screenshots/side-by-side/menus-grammar-ask.png shows the full icon+description+eyebrow+check grammar live at localhost:4191 — the stale bundle this item flagged is gone.",
       "backend_surface": "n/a",
-      "fix_hint": "Rebuild the preview and re-screenshot before signing off P5-2/3 visually — source is correct, the running bundle is not."
+      "fix_hint": null
     },
     {
       "element": "'MODE' popover (execute / plan) — the composer's 'execute' control",
       "proto_truth": "A real dropdown, same grammar as permissions: eyebrow 'mode', 2 rows — execute/'Act on the workspace under the permission mode' (checked, teal check), plan/'Read-only — plan changes, never apply'. design/prototype/Clio Session.html popMode block (~offset 8459004+3400). Captured live: apps/web/screenshots/conformance-audit/proto-mode-menu.png.",
-      "status": "missing",
-      "app_evidence": "apps/web/src/composer/Composer.tsx:15 (`export type ComposerMode = 'ask' | 'execute';` — no 'plan' member anywhere) and :348-357 (the 'execute' control is a plain `<button>` that unconditionally calls `setMode('execute')` — no popover, no options, no descriptions). `grep -r \"'plan'\" apps/web/src` returns nothing.",
-      "backend_surface": "PATCH /v1/sessions/{id} body.mode — Literal['plan','edit','architect'] (clio-agent src/clio_agent/gact/types.py:440,461,476), backed by a full plan-mode lifecycle module (clio-agent src/clio_agent/gact/plan_mode.py: plan-file path computation, per-turn reminder injection, playbook transition to execution).",
-      "fix_hint": "This is not cosmetic — the backend has a complete, real plan-mode feature with no UI entry point at all. Note the vocabulary itself needs reconciling too: prototype says execute/plan, backend Literal is plan/edit/architect (no 'execute' value exists server-side), and the app's current 'ask'/'execute' ComposerMode type conflates this axis with something else entirely (its 'ask' click is wired to the approval button, not a real mode)."
+      "status": "match",
+      "app_evidence": "apps/web/src/composer/Composer.tsx:15,251-264,558-585 (ComposerMode includes 'plan'; modeMenuItems + ContextMenu with eyebrow=\"mode\"); backend mode mapped at apps/web/src/session/SessionView.tsx:834,954 (`detail?.mode === 'plan' ? 'plan' : 'execute'` — edit/architect both collapse to the UI's 'execute', a deliberate simplification of the prototype's binary grammar). Verified visually: apps/web/screenshots/side-by-side/menus-grammar-execute.png.",
+      "backend_surface": "PATCH /v1/sessions/{id} body.mode — Literal['plan','edit','architect'] (clio-agent src/clio_agent/gact/types.py:440,461,476)",
+      "fix_hint": null
     },
     {
       "element": "Provider/model picker popover (composer footer model selector)",
       "proto_truth": "Two-column widget, ~480px wide, resizable both dimensions. Header: eyebrow 'providers' + gear icon ('Provider settings'). Left column: one row per provider (LM Studio, Ollama, OpenAI, Anthropic, OpenRouter, Codex, Claude Code, ALCF Sophia, ALCF Metis, vLLM) each showing name + a 'default ⌄' per-provider config picker + a color-coded status label (ready / no key / signed out / offline). Right column: models of the selected provider, each with a gear icon opening a per-model sampling-parameter editor ('saved per model on this provider'), active model shown in teal name-color + teal check. Footer row: eyebrow 'thinking' + effort chips (default/off/low/medium/high). Captured live: apps/web/screenshots/conformance-audit/proto-router-menu.png (source: design/prototype/Clio Session.html popRouter block).",
       "status": "deviates",
-      "app_evidence": "apps/web/src/kit/Select.tsx (generic single-column Popover+listbox) used at apps/web/src/composer/Composer.tsx:361-370; app-side visual: apps/web/screenshots/conformance-audit/app-03-model-menu.png (flat list, rows pre-joined as 'Provider (detail) / model')",
-      "backend_surface": "PATCH /v1/sessions/{id} body.model={provider_id, model_id, variant} (apps/web/src/session/SessionView.tsx:644-658)",
-      "fix_hint": "Functionally works (pick a provider+model, it PATCHes) but none of the grammar survives: no eyebrow, no two-pane provider/model split, no status-per-provider, no gear/settings affordance, no sampling-param editor, no thinking-effort row. Active option is shown via text color (--t-cy) rather than the kit's check icon (select.css:60-62), which is itself a second, independent way of marking 'active' that diverges from ContextMenu's checked pattern — the kit has two different active-item conventions."
+      "app_evidence": "apps/web/src/composer/ProviderModelPicker.tsx (two-pane Popover, real client.providers()/providerModels()/lmConfig() data); apps/web/src/composer/provider-model-picker.css. Verified visually: apps/web/screenshots/side-by-side/menus-grammar-model.png.",
+      "backend_surface": "PATCH /v1/sessions/{id} body.model={provider_id, model_id, variant} (per-session pick, real); GET/PUT /v1/providers/lm (global daemon LM config + presets, real); no endpoint for a per-model sampling-parameter store",
+      "fix_hint": "Landed this pass: eyebrow+gear header (gear wired to onOpenProviderSettings -> Settings), per-provider status label color-coded by tone (ok/warn/error via a real statusTone(status) mapping over LmPreset.status vocabulary), the extraneous 'models' eyebrow removed (prototype has none over the right pane), the non-selected models' stray tool-icon removed (prototype shows no icon there), and a real (always-visible, disabled, red) per-model settings gear matching the prototype's own always-visible gear geometry — flagged rather than functional, since no sampling-param wire exists. STILL missing, and left unbuilt rather than faked: the per-provider 'default ⌄' config sub-picker. The DATA exists (GET /v1/providers/lm's presets[] can have >1 entry per provider — e.g. argonne_metis + argonne_sophia both provider:'argonne', confirmed live) but the only mutation path (PUT /v1/providers/lm) changes the GLOBAL daemon LM config, not a per-session pick — wiring a per-provider switcher into a per-session composer popover would have every session's composer silently reconfigure every OTHER session's model. That is a real product/architecture call (which scope owns the mutation) outside a menu-grammar polish pass; flagging rather than guessing. The sampling-parameter editor content itself (gear -> a 'sampling · {model}' back-panel with numeric override rows) has zero wire surface at all — PATCH's `variant` field is never populated from a real store — and is correctly left as the visible-degraded marker only."
     },
     {
       "element": "Session row context menu — items, order, danger tone",
       "proto_truth": "200px flat panel, icon+label only (no description, no eyebrow): pin/unpin (label toggles), rename, [separator], delete (red #f87171). design/prototype/Clio Session.html ctxOpen block (~offset 8093200). Screenshot: apps/web/screenshots/visual-check/proto-session-menu.png.",
       "status": "match",
-      "app_evidence": "apps/web/src/shell/Rail.tsx:200-218 (SESSION_ACTIONS + items mapping) and :61-75",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:200-224 (SESSION_ACTIONS + items mapping, now with a separator before 'delete') and :61-75",
       "backend_surface": "PATCH /v1/sessions/{id} (rename), DELETE /v1/sessions/{id} (delete) — per Rail.tsx:73-74 method annotations; pin is client:true (UI-only)",
       "fix_hint": null
     },
     {
       "element": "kit ContextMenu — separator/divider primitive",
       "proto_truth": "Both the session ctx menu and workspace ctx menu insert a `<div style=\"border-top:1px solid var(--t-bd3,...); margin:4px 4px;\">` between the safe actions and the destructive one (design/prototype/Clio Session.html, both ctxOpen and wsCtxOpen blocks).",
-      "status": "missing",
-      "app_evidence": "apps/web/src/kit/ContextMenu.tsx:5-15 (MenuItemDef has no `separator` field) and apps/web/src/kit/contextmenu.css (no divider rule exists anywhere in the file)",
+      "status": "match",
+      "app_evidence": "apps/web/src/kit/ContextMenu.tsx (MenuItemDef.type='separator', rendered as a role=\"separator\" div, skipped by arrow-key nav) and apps/web/src/kit/contextmenu.css:.kit-contextmenu__separator. Locked in apps/web/tests/unit/menus-grammar-p5.test.tsx. Verified visually: apps/web/screenshots/side-by-side/menus-grammar-session.png.",
       "backend_surface": "unbacked (pure UI grammar)",
-      "fix_hint": "Kit-wide gap, not a per-usage bug — every ContextMenu consumer that needs to set a destructive item apart (session ctx, workspace ctx) currently relies on color alone. Add a `{ id, type: 'separator' }` item kind to MenuItemDef and render the prototype's hairline."
+      "fix_hint": null
     },
     {
       "element": "Workspace context menu — 'pin workspace' label + active indicator",
       "proto_truth": "Label text itself toggles: 'pin workspace' ↔ 'unpin workspace' (wsCtxPinLabel, design/prototype/Clio Session.html ~offset 8425160). No check-icon column exists on this flat menu at all — same grammar as the session ctx menu (icon+label only).",
-      "status": "deviates",
-      "app_evidence": "apps/web/src/shell/Rail.tsx:221-229 — label is the hardcoded string `'pin workspace'` (never flips to 'unpin workspace'); instead sets `checked: menuGroup?.pinned`, which renders a check-icon column this menu's ground truth doesn't have",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:221-229 — label now flips to 'pin workspace'/'unpin workspace' off `menuGroup?.pinned`, `checked` removed. Locked in apps/web/tests/unit/menus-grammar-p5.test.tsx.",
       "backend_surface": "UI-owned (client:true equivalent; no PATCH call for pin observed)",
-      "fix_hint": "Flip the label like the session menu's ctxPinLabel does (Rail.tsx:206 already does this correctly for sessions — same pattern isn't applied to the workspace item at :224), and drop `checked` here since the ground-truth workspace menu has no check-icon slot."
+      "fix_hint": null
     },
     {
       "element": "Workspace context menu — separator before 'remove workspace'",
       "proto_truth": "Same hairline separator as the session menu, between 'new session here' and 'remove workspace' (design/prototype/Clio Session.html wsCtxOpen block, ~offset 8103534).",
-      "status": "missing",
-      "app_evidence": "apps/web/src/shell/Rail.tsx:221-259 (workspaceItems array, no separator entry — same kit gap as the session menu finding above)",
+      "status": "match",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:221-260 (workspaceItems array now has a separator entry before 'remove-workspace'). Locked in apps/web/tests/unit/menus-grammar-p5.test.tsx; manually probed live at localhost:4191 (workspace group menu shows pin/open/rename/new, hairline, remove — matching the prototype exactly).",
       "backend_surface": "unbacked (pure UI grammar)",
-      "fix_hint": "Same fix as the session-menu separator finding — one kit change covers both."
+      "fix_hint": null
     },
     {
       "element": "'remove workspace' — confirmation step before the destructive call",
       "proto_truth": "Selecting 'remove workspace' does NOT delete immediately — it opens a confirmation modal: 'remove workspace' header (red, warning icon) + body text 'Remove \"{name}\" and its {N} session(s) from the sidebar?' with cancel/confirm actions (design/prototype/Clio Session.html wsConfirmOpen block, ~offset 8104304).",
-      "status": "deviates",
-      "app_evidence": "apps/web/src/session/SessionView.tsx:542-559 (`handleWorkspaceAction`: on action==='remove' it calls `void client.deleteWorkspace(workspaceId)` directly inside the ContextMenu's onSelect handler — no intermediate confirm dialog/state)",
-      "backend_surface": "DELETE /v1/workspaces/{id} (apps/core/src/client/workspace_client.ts:67-71, real endpoint, fires unconditionally)",
-      "fix_hint": "Highest-severity item in this surface: a single misclick on a context-menu row now permanently unregisters a workspace with no undo prompt, where the ground truth explicitly gates it. Add the confirmation modal (or reuse Layer/Popover kit primitives) before calling deleteWorkspace."
+      "status": "match",
+      "app_evidence": "apps/web/src/session/SessionDialogs.tsx (RemoveWorkspaceConfirm — Modal tone=\"danger\", warning icon, verbatim body copy including the 'files on disk are not touched' hint) wired from apps/web/src/session/SessionView.tsx (handleWorkspaceAction now opens the confirm instead of calling deleteWorkspace; confirmRemoveWorkspace performs the real DELETE only on explicit confirm). Locked in apps/web/tests/unit/menus-grammar-p5.test.tsx (does-not-delete-on-click, cancel-leaves-untouched, confirm-deletes-once). Manually probed live against the real backend with a DELETE-call guard: the modal opened with 'Remove \"D:/Libraries/.../live_gate_gov_ws\" and its 3 session(s) from the sidebar?' and cancelling left the workspace and its 8 sessions untouched (re-verified via GET /v1/sessions?include_all_workspaces=true).",
+      "backend_surface": "DELETE /v1/workspaces/{id} (apps/core/src/client/workspace_client.ts:67-71, real endpoint, now only fires after explicit confirm)",
+      "fix_hint": null
     },
     {
       "element": "Session row context menu — deployed preview bundle freshness",
       "proto_truth": "N/A (build-verification finding).",
-      "status": "not-wired",
-      "app_evidence": "Live capture of the running preview at localhost:4191 (apps/web/screenshots/conformance-audit/app-04-session-ctx.png) shows a 6-item menu — Rename, Fork, Export, Share, Pin, Delete — that does not exist anywhere in current source (`grep -rn \"Fork\\|Export\\|Share\"` in apps/web/src finds no such menu item list; current SESSION_ACTIONS in Rail.tsx:61-75 has exactly 3 items: pin, rename, delete).",
+      "status": "match",
+      "app_evidence": "Rebuilt preview re-captured at apps/web/screenshots/side-by-side/menus-grammar-session.png shows the real 3-item pin/rename/delete menu (with the new separator) live at localhost:4191 — the stale 6-item Rename/Fork/Export/Share/Pin/Delete set this item flagged is gone; `grep -rn \"Fork\\|Export\\|Share\" apps/web/src` still finds no such menu.",
       "backend_surface": "n/a",
-      "fix_hint": "Confirms the task brief's caveat generally, not just for composer files — the deployed preview is stale for Rail's context menu too. Treat apps/web/src as authoritative until a fresh build is captured."
+      "fix_hint": null
     },
     {
       "element": "Rail footer 'agents N' cell",
       "proto_truth": "`<button title=\"Connected agents — opens settings\" onclick={goSettingsAgents}>` — navigates into the Settings > Agents panel. Not a popover. design/prototype/Clio Session.html rail footer block (~offset 7821000). Screenshot: apps/web/screenshots/visual-check/proto-ask-menu.png (bottom-left 'agents 3' cell).",
-      "status": "not-wired",
-      "app_evidence": "apps/web/src/shell/Rail.tsx:467-483 — clicking opens a `ContextMenu label=\"Connected backends\"` popover listing UI-owned connection entries (Rail.tsx:546-568), instead of calling `onOpenSettings`",
+      "status": "deviates",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:473-505 — clicking still opens a `ContextMenu label=\"Connected backends\"` switcher popover rather than navigating; a code comment now documents WHY (added this pass).",
       "backend_surface": "unbacked — `connections` is deliberately UI-owned, per the code comment at Rail.tsx:94-98 ('never /v1/agents, which is the expert registry and a different thing entirely')",
-      "fix_hint": "Renders and responds, but the click opens a fundamentally different kind of surface (a switcher menu) than the ground truth (a settings navigation) — this is the 'opens the wrong semantics' case the task brief calls out explicitly, not just a visual gap."
+      "fix_hint": "DELIBERATE, documented non-fix (same class of call as the approval-mode content divergence): the prototype's static single-backend demo never modelled switching between MULTIPLE live clio deployments, which is a real feature this app has (App's ConnectionPool, real tests at tests/unit/shell.test.tsx:270-325). Rewriting the click to only navigate would delete a working, tested feature with no replacement UI. Settings > Agents (AgentsPage) already lists the same `connections` for a user who wants the prototype's nav path instead — so the ground truth's DESTINATION is reachable, just not as this cell's only affordance. Left as a documented deviation rather than force-fit."
     },
     {
       "element": "Rail footer 'relay' cell",
       "proto_truth": "`<button title=\"Relays — opens settings\" onclick={goSettingsRelays}>` with a live green status dot — navigates into Settings > Relays. design/prototype/Clio Session.html rail footer block.",
       "status": "unbacked",
-      "app_evidence": "apps/web/src/shell/Rail.tsx:486-494 — the cell is `disabled` with `title=\"relay reachability has no wire surface yet (clio-agent#1179)\"`",
+      "app_evidence": "apps/web/src/shell/Rail.tsx:486-505 — the cell is `disabled` with `title=\"relay reachability has no wire surface yet (clio-agent#1179)\"`",
       "backend_surface": "unbacked, tracked as clio-agent#1179",
-      "fix_hint": "Correctly flagged rather than silently missing (matches the repo's no-silent-fallback rule) — listed here for completeness of the menu sweep, not as a new defect."
+      "fix_hint": "Correctly flagged rather than silently missing (matches the repo's no-silent-fallback rule) — listed here for completeness of the menu sweep, not as a new defect. No change made this pass."
     },
     {
       "element": "Topbar (breadcrumb chip, files/console/artifacts/ctx/observability controls)",
@@ -120,7 +120,15 @@
       "status": "deviates",
       "app_evidence": "apps/web/screenshots/visual-check/proto-composer-menus.json is labeled `askMenu`/`modelMenu` but its captured entries ('agents 3', 'relay', 'answer.md · final answer · 46 lines', ...) are actually the @-mention picker's contents, not the permissions or provider-model menus — confirmed by matching the entries against `typedAtItems()` in the prototype source.",
       "backend_surface": "n/a",
-      "fix_hint": "Not an app defect — flagging so nobody trusts those two JSON keys as ground truth for the ask/model menus in a future pass; the real ask-menu and model-menu ground truth is the popApprove/popRouter blocks used for this report."
+      "fix_hint": "Not an app defect, and no code changes touch it — flagging so nobody trusts those two JSON keys as ground truth for the ask/model menus in a future pass; the real ask-menu and model-menu ground truth is the popApprove/popRouter blocks used for this report."
+    },
+    {
+      "element": "kit Popover (up placement) — provider/model picker silently killed the inherited scroll",
+      "proto_truth": "N/A (a kit-bug finding surfaced by the live provider catalogue outgrowing the prototype's fixed placeholder set, not a prototype-vs-source comparison).",
+      "status": "match",
+      "app_evidence": "apps/web/src/kit/popover.css:.kit-popover[data-placement='up'] sets `max-height:320px; overflow-y:auto`; apps/web/src/composer/provider-model-picker.css was overriding it with `overflow:hidden`, so any provider past the visible fold (the live backend surfaces up to 10) was simply unreachable — not scrollable, not visible, no error. Fixed to `overflow-x:hidden` only, restoring the inherited vertical scroll. Verified visually: apps/web/screenshots/side-by-side/menus-grammar-model.png (header stays anchored, list is reachable by scroll).",
+      "backend_surface": "unbacked (pure UI grammar)",
+      "fix_hint": null
     }
   ]
 }

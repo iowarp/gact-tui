@@ -62,7 +62,16 @@ async function appPage() {
 
 async function selectAppSession(p) {
   await p.locator('.shell-rail__session').first().click();
-  await p.waitForTimeout(900);
+  // The live backend's session count varies run to run (including
+  // occasional empty "untitled session" rows from other in-flight work) and
+  // the composer's provider/model catalogue fan-out competes for the same
+  // connections, so a fixed short wait is flaky — wait for the transcript's
+  // OWN loading notice to clear instead, with a generous cap.
+  await p
+    .locator('.sessionview__notice', { hasText: 'Loading' })
+    .waitFor({ state: 'detached', timeout: 10000 })
+    .catch(() => {});
+  await p.waitForTimeout(400);
 }
 
 async function clickPrototypeText(p, label) {
@@ -199,8 +208,7 @@ const SETUPS = {
       await p.waitForTimeout(700);
     },
     app: async (p) => {
-      await p.locator('.shell-rail__session').first().click();
-      await p.waitForTimeout(900);
+      await selectAppSession(p);
       await p.getByTestId('composer-approval').click();
       await p.waitForTimeout(700);
     },

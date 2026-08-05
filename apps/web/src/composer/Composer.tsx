@@ -93,6 +93,9 @@ export interface ComposerProps {
   /** Workspace files, from client.workspaceFiles(). Empty disables `@`. */
   files?: PickerItem[];
   onModelChange?: (id: string) => void;
+  /** Wires the model picker's header gear ("provider settings") to real
+   *  navigation. Omitted = shown disabled + flagged, never a silent no-op. */
+  onOpenProviderSettings?: () => void;
   /** Current approval mode; omit when no session is open to carry one. */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
@@ -145,6 +148,7 @@ export function Composer({
   commands = [],
   files = [],
   onModelChange = () => {},
+  onOpenProviderSettings,
   onSubmit,
   onOpenAsync,
   onOpenContext,
@@ -593,6 +597,7 @@ export function Composer({
               options={modelOptions}
               {...(modelProviders ? { providers: modelProviders } : {})}
               {...(thinkingLevel ? { thinkingLevel } : {})}
+              {...(onOpenProviderSettings ? { onOpenProviderSettings } : {})}
               onChange={onModelChange}
             />
           </span>

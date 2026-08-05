@@ -112,6 +112,69 @@ export function SearchDialog({
   );
 }
 
+export interface RemoveWorkspaceConfirmProps {
+  /** `null` = nothing pending, closed. Non-null carries what the modal names. */
+  workspace: { id: string; name: string; sessionCount: number } | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * The prototype's `wsConfirmOpen` gate (design/prototype/Clio Session.html,
+ * ~offset 8104304): selecting "remove workspace" from the rail's group menu
+ * does NOT delete immediately — it opens this confirmation first. A single
+ * misclick on a context-menu row must not permanently unregister a workspace
+ * with no way back.
+ */
+export function RemoveWorkspaceConfirm({
+  workspace,
+  onCancel,
+  onConfirm,
+}: RemoveWorkspaceConfirmProps) {
+  return (
+    <Modal
+      open={workspace !== null}
+      title="remove workspace"
+      tone="danger"
+      header={
+        <h2 className="remove-workspace-confirm__title">
+          <Icon name="warning" size={15} />
+          remove workspace
+        </h2>
+      }
+      footer={
+        <div className="remove-workspace-confirm__footer">
+          <button
+            type="button"
+            className="remove-workspace-confirm__cancel"
+            onClick={onCancel}
+          >
+            cancel
+          </button>
+          <button
+            type="button"
+            className="remove-workspace-confirm__confirm"
+            onClick={onConfirm}
+          >
+            remove workspace
+          </button>
+        </div>
+      }
+      onClose={onCancel}
+    >
+      {workspace ? (
+        <p className="remove-workspace-confirm__body">
+          {`Remove "${workspace.name}" and its ${workspace.sessionCount} session(s) from the sidebar?`}
+          <br />
+          <span className="remove-workspace-confirm__hint">
+            files on disk are not touched — this only removes it from clio.
+          </span>
+        </p>
+      ) : null}
+    </Modal>
+  );
+}
+
 function formatSearchTime(value: string): string {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return '';

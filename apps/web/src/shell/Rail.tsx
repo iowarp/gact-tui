@@ -201,29 +201,39 @@ export function Rail({
     // Offering an action the surface cannot perform promises something that
     // does nothing when clicked.
     (action) => action.id !== 'rename' || onRenameSession !== undefined,
-  ).map((action) => ({
-    id: action.id,
-    label: action.id === 'pin' && menuSession?.pinned ? 'unpin' : action.label,
-    ariaLabel:
-      action.id === 'pin' && menuSession?.pinned
-        ? 'Unpin'
-        : `${action.label.charAt(0).toUpperCase()}${action.label.slice(1)}`,
-    icon: <Icon name={action.icon} size={11} />,
-    // Unsupported actions are shown in the destructive tone — visible, not
-    // silently absent — and cannot be invoked.
-    ...((action.id === 'pin' || action.id === 'delete') && !sessionAction
-      ? { disabled: true, title: 'This session action is unavailable here' }
-      : {}),
-    ...(action.id === 'delete' ? { tone: 'danger' as const } : {}),
-  }));
+  ).flatMap((action) => {
+    const item: MenuItemDef = {
+      id: action.id,
+      label: action.id === 'pin' && menuSession?.pinned ? 'unpin' : action.label,
+      ariaLabel:
+        action.id === 'pin' && menuSession?.pinned
+          ? 'Unpin'
+          : `${action.label.charAt(0).toUpperCase()}${action.label.slice(1)}`,
+      icon: <Icon name={action.icon} size={11} />,
+      // Unsupported actions are shown in the destructive tone — visible, not
+      // silently absent — and cannot be invoked.
+      ...((action.id === 'pin' || action.id === 'delete') && !sessionAction
+        ? { disabled: true, title: 'This session action is unavailable here' }
+        : {}),
+      ...(action.id === 'delete' ? { tone: 'danger' as const } : {}),
+    };
+    // The prototype's hairline between the safe actions and the destructive
+    // one (ctxOpen block): pin/rename, [separator], delete.
+    return action.id === 'delete'
+      ? [{ id: 'session-danger-separator', type: 'separator' as const, label: '' }, item]
+      : [item];
+  });
 
   const menuGroup = groupMenu ? groups.find((group) => group.id === groupMenu.groupId) : undefined;
   const workspaceItems: MenuItemDef[] = [
     {
       id: 'pin-workspace',
-      label: 'pin workspace',
+      // The prototype's wsCtxPinLabel: the LABEL itself flips (there is no
+      // check-icon column on this flat menu — same grammar as the session
+      // menu's pin/unpin, not the checked-icon permissions grammar).
+      label: menuGroup?.pinned ? 'unpin workspace' : 'pin workspace',
+      ariaLabel: menuGroup?.pinned ? 'Unpin workspace' : 'Pin workspace',
       icon: <Icon name="pin" size={11} />,
-      checked: menuGroup?.pinned,
       disabled: !workspaceAction,
       ...(!workspaceAction ? { title: 'Workspace pinning is unavailable here' } : {}),
     },
@@ -248,6 +258,11 @@ export function Rail({
       disabled: !newSession,
       ...(!newSession ? { title: 'Session creation is unavailable here' } : {}),
     },
+    // The prototype's hairline between the safe actions and the destructive
+    // one (wsCtxOpen block) — separates 'new session here' from 'remove
+    // workspace' exactly like the session menu separates 'rename' from
+    // 'delete'.
+    { id: 'ws-danger-separator', type: 'separator', label: '' },
     {
       id: 'remove-workspace',
       label: 'remove workspace',
@@ -464,6 +479,17 @@ export function Rail({
         >
           <Icon name="tool" size={14} />
         </button>
+        {/*
+         * Content divergence is DELIBERATE, same class of call as
+         * Composer.tsx's approval-mode comment: the prototype's static demo
+         * is a single-backend world, so its 'agents' cell is plain
+         * navigation (`goSettingsAgents` — opens Settings > Agents). This app
+         * manages MULTIPLE live clio deployments the user can swap between
+         * (`connections`, owned by App's ConnectionPool), a real axis the
+         * prototype never modelled — so the click opens the switcher rather
+         * than only navigating. Settings > Agents still exists and lists the
+         * same connections for the user who wants the nav path instead.
+         */}
         <button
           type="button"
           className="shell-rail__footcell"

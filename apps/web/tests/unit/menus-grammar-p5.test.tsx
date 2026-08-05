@@ -1,0 +1,198 @@
+/**
+ * P5 grind menus-grammar (docs/p5/conformance/menus-grammar.json) — locks the
+ * items that were `deviates`/`missing` when this pass started:
+ *
+ *  - the kit ContextMenu separator primitive (both danger-item menus lost
+ *    their visual break without it)
+ *  - the active-item check icon's teal color (kit-wide, was the orange accent)
+ *  - the workspace menu's pin LABEL toggling (was a hardcoded string plus a
+ *    check-icon column the ground truth's flat menu never has)
+ *  - 'remove workspace' going through a confirmation step instead of firing
+ *    the DELETE straight from the context-menu click
+ */
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { Client, Session, Workspace } from '@clio/core';
+import { describe, expect, it, vi } from 'vitest';
+import { ContextMenu, type MenuItemDef } from '../../src/kit';
+import { Rail, type RailGroup, type RailProps } from '../../src/shell/Rail';
+import { SessionView } from '../../src/session/SessionView';
+
+describe('kit ContextMenu — separator primitive', () => {
+  const ITEMS: MenuItemDef[] = [
+    { id: 'rename', label: 'rename' },
+    { id: 'sep', type: 'separator', label: '' },
+    { id: 'delete', label: 'delete', tone: 'danger' },
+  ];
+
+  it('renders a divider that carries role="separator", never role="menuitem"', () => {
+    render(
+      <ContextMenu open x={0} y={0} items={ITEMS} onSelect={vi.fn()} onClose={vi.fn()} />,
+    );
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getByRole('separator')).toBeInTheDocument();
+    expect(within(menu).queryAllByRole('menuitem')).toHaveLength(2);
+  });
+
+  it('is skipped by arrow-key navigation (never becomes the active row)', () => {
+    const onSelect = vi.fn();
+    render(
+      <ContextMenu open x={0} y={0} items={ITEMS} onSelect={onSelect} onClose={vi.fn()} />,
+    );
+    const menu = screen.getByRole('menu');
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    fireEvent.keyDown(menu, { key: 'Enter' });
+    // Two ArrowDown hops from -1 must land on 'delete' (index 2), not the
+    // separator at index 1 — confirming step() treats it as unnavigable.
+    expect(onSelect).toHaveBeenCalledWith('delete');
+  });
+
+  it('the checked-item check uses the kit-contextmenu__check class (teal, not the orange accent)', () => {
+    render(
+      <ContextMenu
+        open
+        x={0}
+        y={0}
+        items={[{ id: 'ask', label: 'ask', checked: true }]}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(document.querySelector('.kit-contextmenu__check')).not.toBeNull();
+  });
+});
+
+describe('Rail — workspace/session menu separators + pin label', () => {
+  const GROUPS: RailGroup[] = [
+    {
+      id: 'g1',
+      label: '/scratch/j4471',
+      count: 1,
+      sessions: [{ id: 's1', title: 'alpha', status: 'idle', age: 'now' }],
+    },
+  ];
+
+  function renderRail(extra: Partial<RailProps> = {}) {
+    return render(
+      <Rail
+        groups={GROUPS}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        {...extra}
+      />,
+    );
+  }
+
+  it('session menu carries a separator between rename and delete', () => {
+    const { container } = renderRail({
+      onSessionAction: vi.fn(),
+      onRenameSession: vi.fn(),
+    });
+    const row = container.querySelector('.shell-rail__session')!;
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: /session menu/i }));
+    const menu = screen.getByRole('menu');
+    const rows = [...menu.children].filter((el) => el !== menu.querySelector('.kit-contextmenu__eyebrow'));
+    const kinds = rows.map((el) => (el.getAttribute('role') === 'separator' ? 'sep' : 'item'));
+    expect(kinds).toEqual(['item', 'item', 'sep', 'item']);
+  });
+
+  it('workspace menu carries a separator between "new session here" and "remove workspace"', () => {
+    const { container } = renderRail({ onNewSession: vi.fn(), onWorkspaceAction: vi.fn() });
+    const head = container.querySelector('.shell-rail__grouphead')!;
+    fireEvent.click(within(head as HTMLElement).getByRole('button', { name: /workspace menu/i }));
+    const menu = screen.getByRole('menu');
+    const items = [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')];
+    const labels = items.map((el) =>
+      el.getAttribute('role') === 'separator' ? '<sep>' : el.textContent?.trim(),
+    );
+    expect(labels).toEqual([
+      'pin workspace',
+      'open in files',
+      'rename workspace',
+      'new session here',
+      '<sep>',
+      'remove workspace',
+    ]);
+  });
+
+  it('the workspace pin item toggles its LABEL rather than showing a check icon', () => {
+    const pinnedGroups: RailGroup[] = [{ ...GROUPS[0]!, pinned: true }];
+    const { container } = render(
+      <Rail
+        groups={pinnedGroups}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        onWorkspaceAction={vi.fn()}
+      />,
+    );
+    const head = container.querySelector('.shell-rail__grouphead')!;
+    fireEvent.click(within(head as HTMLElement).getByRole('button', { name: /workspace menu/i }));
+    const menu = screen.getByRole('menu');
+    const pinItem = within(menu).getByText('unpin workspace').closest('[role="menuitem"]');
+    expect(pinItem).not.toBeNull();
+    // The ground-truth workspace menu has no check-icon slot at all.
+    expect(pinItem?.querySelector('.kit-contextmenu__check')).toBeNull();
+  });
+});
+
+describe('SessionView — remove workspace confirmation (wsConfirmOpen)', () => {
+  const SESSIONS = [
+    { id: 'sess_a', title: 'alpha', status: 'idle', workspace_id: 'ws_default' },
+    { id: 'sess_b', title: 'beta', status: 'idle', workspace_id: 'ws_default' },
+  ] as unknown as Session[];
+
+  function makeClient(overrides: Record<string, unknown> = {}) {
+    return {
+      baseUrl: 'http://live.test',
+      messages: vi.fn(async () => ({ messages: [] })),
+      workspaces: vi.fn(async () => ({
+        workspaces: [{ id: 'ws_default', name: 'default' }] as unknown as Workspace[],
+      })),
+      deleteWorkspace: vi.fn(async () => undefined),
+      ...overrides,
+    } as unknown as Client;
+  }
+
+  async function openWorkspaceMenu() {
+    const nav = await screen.findByRole('navigation', { name: /workspaces/i });
+    const head = within(nav).getAllByRole('button', { name: /workspace menu/i })[0]!;
+    fireEvent.click(head);
+    return screen.getByRole('menu', { name: /workspace actions/i });
+  }
+
+  it('does not call deleteWorkspace on click — it opens a confirm dialog first', async () => {
+    const client = makeClient();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    const menu = await openWorkspaceMenu();
+    fireEvent.click(within(menu).getByText('remove workspace'));
+
+    const dialog = await screen.findByRole('dialog', { name: /remove workspace/i });
+    expect(dialog.textContent).toMatch(/remove "default" and its 2 session\(s\)/i);
+    expect(client.deleteWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('cancel leaves the workspace untouched', async () => {
+    const client = makeClient();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    const menu = await openWorkspaceMenu();
+    fireEvent.click(within(menu).getByText('remove workspace'));
+    const dialog = await screen.findByRole('dialog', { name: /remove workspace/i });
+    fireEvent.click(within(dialog).getByText('cancel'));
+    expect(screen.queryByRole('dialog', { name: /remove workspace/i })).toBeNull();
+    expect(client.deleteWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('confirming calls deleteWorkspace exactly once', async () => {
+    const client = makeClient();
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    const menu = await openWorkspaceMenu();
+    fireEvent.click(within(menu).getByText('remove workspace'));
+    const dialog = await screen.findByRole('dialog', { name: /remove workspace/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'remove workspace' }));
+    await screen.findByRole('navigation', { name: /workspaces/i });
+    expect(client.deleteWorkspace).toHaveBeenCalledTimes(1);
+    expect(client.deleteWorkspace).toHaveBeenCalledWith('ws_default');
+  });
+});

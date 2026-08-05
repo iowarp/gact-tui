@@ -239,7 +239,11 @@ describe('owner review 1 contracts', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
     const picker = screen.getByRole('dialog', { name: /model/i });
     expect(within(picker).getByText('providers')).toBeInTheDocument();
-    expect(within(picker).getByText('models')).toBeInTheDocument();
+    // The prototype's popRouter block has no "models" eyebrow over the right
+    // pane (only the left pane's header carries one) — the model column
+    // starts directly at the row list. p5 grind menus-grammar: this used to
+    // assert an extraneous eyebrow the app had added; removed to match.
+    expect(within(picker).queryByText('models')).toBeNull();
     expect(within(picker).getByRole('button', { name: /anthropic/i })).toBeInTheDocument();
     fireEvent.click(within(picker).getByRole('button', { name: /codex/i }));
     expect(within(picker).getByRole('option', { name: /gpt-5\.6/i })).toBeInTheDocument();
