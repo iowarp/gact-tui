@@ -95,3 +95,56 @@ export function extractCsvBlock(part: Record<string, unknown>): string | null {
 export function extractStructuredContent(part: Record<string, unknown>): unknown {
   return part['structured_content'] ?? part['structuredContent'];
 }
+
+/**
+ * One entry of a tool_result's OPTIONAL top-level `content_blocks` array
+ * (clio-agent 285434f5, landing alongside kit 2.7.1's plot tools) — a
+ * showcase a tool can declare ALONGSIDE its `structured_content`/`content`,
+ * not instead of them: `{type, mimeType?, data?|uri?, text?, elided?,
+ * bytes?}`. Distinct from the legacy MCP `content` array's own blocks
+ * ({@link extractImageBlock}/{@link extractCsvBlock} read that field) — this
+ * is a separate, newer wire field with its own shape (`uri` rather than
+ * `url`; an `elided`/`bytes` pair for an oversize block the server declined
+ * to inline, e.g. a >512KiB plot PNG).
+ */
+export interface WireContentBlock {
+  type: string;
+  mimeType?: string;
+  data?: string;
+  uri?: string;
+  text?: string;
+  /** A typed reason the payload was withheld (e.g.
+   *  `content_block_oversize`) — `type`/`mimeType`/`bytes` still describe
+   *  what was elided, so the reader sees an honest marker, never a broken
+   *  `<img>` or a silently missing block. */
+  elided?: string;
+  bytes?: number;
+}
+
+/**
+ * Reads and validates `content_blocks` off a tool_result part. Absent field
+ * (every session before 285434f5, or a tool that simply has nothing to show)
+ * -> `[]`, zero change from before. Each entry only keeps fields whose wire
+ * type actually matches the declared shape — a malformed entry's `type` is
+ * required (it drives every downstream dispatch), everything else is
+ * optional and read defensively.
+ */
+export function extractContentBlocks(part: Record<string, unknown>): WireContentBlock[] {
+  const raw = part['content_blocks'];
+  if (!Array.isArray(raw)) return [];
+  const blocks: WireContentBlock[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const type = item['type'];
+    if (typeof type !== 'string' || type.length === 0) continue;
+    const block: WireContentBlock = { type };
+    if (typeof item['mimeType'] === 'string') block.mimeType = item['mimeType'];
+    if (typeof item['data'] === 'string') block.data = item['data'];
+    if (typeof item['uri'] === 'string') block.uri = item['uri'];
+    if (typeof item['text'] === 'string') block.text = item['text'];
+    if (typeof item['elided'] === 'string') block.elided = item['elided'];
+    if (typeof item['bytes'] === 'number') block.bytes = item['bytes'];
+    blocks.push(block);
+  }
+  return blocks;
+}

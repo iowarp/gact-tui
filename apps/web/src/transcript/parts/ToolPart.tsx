@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Markdown } from '../markdown';
-import { formatDurationSeconds } from '../../wire/formatters';
+import { formatCount, formatDurationSeconds } from '../../wire/formatters';
 import {
   elidePathMiddle,
+  humanSize,
   isRecord,
   looksLikePath,
   normalizeWhitespace,
@@ -11,11 +12,13 @@ import {
 } from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
 import {
+  extractContentBlocks,
   extractCsvBlock,
   extractImageBlock,
   extractStructuredContent,
   extractToolResultText,
   type ContentImageBlock,
+  type WireContentBlock,
 } from './toolResultText';
 import { sanitizeTitle } from './titleSanitizer';
 import { formatDurationMs } from './HandoffPart';
@@ -377,10 +380,247 @@ function objectArrayToTable(items: Array<Record<string, unknown>>): { header: st
 
 /** A splitStructuredObject bucket: a nested plain-object VALUE (not an
  *  array), pulled out to render as its own collapsible section instead of a
- *  pretty-printed JSON blob sitting inline in the KV grid. */
+ *  pretty-printed JSON blob sitting inline in the KV grid. `flat` marks the
+ *  rule-5 "details" fold specifically ({@link buildLimitLadder}): its own
+ *  fields are already-classified housekeeping (an unfired flag + its knob),
+ *  not a fresh payload to re-run rules 3/4/5 over — recursing the full split
+ *  on it would re-detect the SAME flag/knob pair it was just built from and
+ *  nest an identical "details" fold inside itself. A flat section renders
+ *  its fields as plain KV rows, no further pattern-mining. */
 export interface StructuredSection {
   key: string;
   value: Record<string, unknown>;
+  flat?: boolean;
+}
+
+/**
+ * General result-ladder rule 3 (owner design, P4R): fields whose VALUES are
+ * identical string values (e.g. `data_path` and `file_path` both the exact
+ * same CSV path) are the same fact stated twice — they dedupe to ONE
+ * identity line instead of two rows repeating the same string. Grouped by
+ * exact string-value equality only — never numbers/booleans, where two
+ * counts coincidentally matching is not "the same identity fact", it's a
+ * coincidence this rule must not merge.
+ *
+ * A path-like shared value ({@link looksLikePath}) renders middle-elided
+ * ({@link elidePathMiddle}) and PAIRS with `size_bytes` (->
+ * {@link humanSize}) and `row_count` × `column_count` (a "R rows × C cols"
+ * fragment, only when BOTH are present) into one compact
+ * "path · size · shape" line — those literal companion keys, not a
+ * naming-pattern guess, matching this file's existing "consumed field"
+ * discipline ({@link declaredSummaryOf}, {@link isRedundantStatusField}). A
+ * non-path shared value still dedupes to one line, just the bare value with
+ * no pairing (no path to elide, no companion facts to compose onto it).
+ *
+ * Every key folded into a line — the dup group, and any companion consumed
+ * alongside it — comes back in `consumed` so the per-key split below never
+ * ALSO renders it as a separate row; nothing is dropped, it just moves from
+ * "one row per key" to "one composed line".
+ */
+const IDENTITY_SIZE_KEY = 'size_bytes';
+const IDENTITY_ROW_COUNT_KEY = 'row_count';
+const IDENTITY_COLUMN_COUNT_KEY = 'column_count';
+const IDENTITY_PATH_MAX = 64;
+
+function buildIdentityFacts(obj: Record<string, unknown>): { lines: string[]; consumed: Set<string> } {
+  const groups = new Map<string, string[]>();
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v !== 'string' || v.length === 0) continue;
+    const keys = groups.get(v) ?? [];
+    keys.push(k);
+    groups.set(v, keys);
+  }
+  const lines: string[] = [];
+  const consumed = new Set<string>();
+  for (const [value, keys] of groups) {
+    if (keys.length < 2) continue;
+    for (const k of keys) consumed.add(k);
+    if (!looksLikePath(value)) {
+      lines.push(value);
+      continue;
+    }
+    const parts = [elidePathMiddle(value, IDENTITY_PATH_MAX)];
+    const size = obj[IDENTITY_SIZE_KEY];
+    if (typeof size === 'number') {
+      parts.push(humanSize(size));
+      consumed.add(IDENTITY_SIZE_KEY);
+    }
+    const rowCount = obj[IDENTITY_ROW_COUNT_KEY];
+    const columnCount = obj[IDENTITY_COLUMN_COUNT_KEY];
+    if (typeof rowCount === 'number' && typeof columnCount === 'number') {
+      parts.push(`${formatCount(rowCount)} rows × ${formatCount(columnCount)} cols`);
+      consumed.add(IDENTITY_ROW_COUNT_KEY);
+      consumed.add(IDENTITY_COLUMN_COUNT_KEY);
+    }
+    lines.push(parts.join(' · '));
+  }
+  return { lines, consumed };
+}
+
+/** A plain-object VALUE shaped like a lookup map — every entry a scalar —
+ *  the shape {@link buildSiblingMapJoins} looks for. A value carrying its
+ *  own nested object/array isn't a "sibling map", it stays
+ *  {@link splitStructuredObject}'s existing nested-section/array-table
+ *  rungs untouched. */
+function isScalarMap(value: unknown): value is Record<string, string | number | boolean | null> {
+  if (!isRecord(value) || Object.keys(value).length === 0) return false;
+  return Object.values(value).every(
+    (v) => v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean',
+  );
+}
+
+/** Order-independent identity for a key SET — sorted then joined, so two
+ *  maps sharing the same keys (in any order) always land in the same
+ *  group. */
+function keySetSignature(keys: string[]): string {
+  return JSON.stringify([...keys].sort());
+}
+
+/**
+ * General result-ladder rule 4 (owner design, P4R): two or more dict-valued
+ * fields keyed by the SAME key set (e.g. `dtypes: {Site: "object", ...}` and
+ * `null_counts: {Site: 0, ...}`, both keyed by column name) join into ONE
+ * table — first column the shared key, one column per source map (header =
+ * the map's own field name). Shape-inferred purely from the key SETS
+ * matching (order-independent, ≥ 2 maps) — never by field-name knowledge, so
+ * this fires for any group of sibling lookup maps, not just
+ * dtypes/null_counts specifically.
+ *
+ * A plain string array elsewhere on the object whose own values, AS A SET,
+ * equal the same key set (the wire's own `columns` list, in the
+ * pandas_profile_csv shape) supplies BOTH the shared-key column's header
+ * (its own field name, singularized: `columns` -> `column`) and the table's
+ * row order — the wire's declared ordering, when present — and is itself
+ * consumed (it's now fully redundant with the table's own key column).
+ * Absent such an array, the header falls back to the generic `key` and row
+ * order follows the first map's own key order.
+ *
+ * The joined table is returned keyed by its ANCHOR field — the first
+ * sibling map encountered, in wire order — so the caller can splice it into
+ * the per-key split at that field's natural position rather than always
+ * pinning it first/last.
+ */
+function buildSiblingMapJoins(obj: Record<string, unknown>): {
+  tableByAnchor: Map<string, { key: string; header: string[]; rows: string[][] }>;
+  consumed: Set<string>;
+} {
+  const maps: Array<[string, Record<string, unknown>]> = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (isScalarMap(v)) maps.push([k, v as Record<string, unknown>]);
+  }
+  const groups = new Map<string, Array<[string, Record<string, unknown>]>>();
+  for (const entry of maps) {
+    const sig = keySetSignature(Object.keys(entry[1]));
+    const list = groups.get(sig) ?? [];
+    list.push(entry);
+    groups.set(sig, list);
+  }
+  const tableByAnchor = new Map<string, { key: string; header: string[]; rows: string[][] }>();
+  const consumed = new Set<string>();
+  for (const [sig, group] of groups) {
+    if (group.length < 2) continue;
+    const keySet = Object.keys(group[0]![1]);
+    let sharedHeader = 'key';
+    let orderedKeys = Object.keys(group[0]![1]);
+    for (const [arrKey, arrVal] of Object.entries(obj)) {
+      if (!Array.isArray(arrVal) || arrVal.length !== keySet.length) continue;
+      if (!arrVal.every((item) => typeof item === 'string')) continue;
+      if (keySetSignature(arrVal as string[]) !== sig) continue;
+      sharedHeader = arrKey.replace(/s$/i, '') || arrKey;
+      orderedKeys = arrVal as string[];
+      consumed.add(arrKey);
+      break;
+    }
+    const header = [sharedHeader, ...group.map(([k]) => humanizeHeader(k))];
+    const rows = orderedKeys.map((key) => [
+      key,
+      ...group.map(([fieldKey, map]) => cellValueForKey(fieldKey, map[key])),
+    ]);
+    const anchor = group[0]![0];
+    tableByAnchor.set(anchor, { key: group.map(([k]) => k).join(' + '), header, rows });
+    for (const [k] of group) consumed.add(k);
+  }
+  return { tableByAnchor, consumed };
+}
+
+/** Boolean field NAMES this ladder treats as a "limit-ish" flag (general
+ *  result-ladder rule 5, owner design) — `truncated` verbatim, or any key
+ *  ending in `_limited`/`_capped`. Name-pattern + the caller's own
+ *  `typeof value === 'boolean'` check, never a per-tool list. Returns the
+ *  flag's STEM (the name with that suffix stripped — the bare key itself,
+ *  `truncated`, when there's no suffix to strip) used both to compose the
+ *  caveat line and to search for a numeric knob companion; `null` when
+ *  `key` doesn't match the pattern at all. */
+function limitFlagStem(key: string): string | null {
+  if (key === 'truncated') return key;
+  const limited = /^(.+)_limited$/i.exec(key);
+  if (limited) return limited[1]!;
+  const capped = /^(.+)_capped$/i.exec(key);
+  if (capped) return capped[1]!;
+  return null;
+}
+
+/** The numeric fields on `obj` whose own NAME contains a limit flag's stem
+ *  (`row_scan_cap` for stem `scan`, `rows_profiled` for stem `profile`) —
+ *  its knob companion(s), the same substring-on-name discipline the rest of
+ *  this rule uses, never a fixed per-tool key list. `exclude` keeps an
+ *  already-claimed knob from also pairing with a second flag whose stem
+ *  happens to match it. */
+function limitKnobCompanions(stem: string, obj: Record<string, unknown>, exclude: Set<string>): Array<[string, number]> {
+  const needle = stem.toLowerCase();
+  if (!needle) return [];
+  const found: Array<[string, number]> = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (exclude.has(k) || typeof v !== 'number') continue;
+    if (k.toLowerCase().includes(needle)) found.push([k, v]);
+  }
+  return found;
+}
+
+/**
+ * General result-ladder rule 5 (owner design, P4R): a limit-ish boolean flag
+ * that fired (`true`) is a real caveat the reader must not have to hunt a KV
+ * grid for — it surfaces as its own visible line, composed generically as
+ * "<flag stem> capped at <knob value>" (or the bare stem when no numeric
+ * knob companion exists to compose onto it). A flag that did NOT fire
+ * (`false`) is exactly the opposite: an unbound cap nobody hit is detail,
+ * not a caveat — it moves, together with its knob companion(s), into ONE
+ * shared collapsed "details" fold rather than cluttering the main grid with
+ * per-flag noise.
+ *
+ * Detection is name-pattern + boolean type + the false/true split
+ * ({@link limitFlagStem}) — general, never gated on a tool name. Every
+ * matched flag (and any knob it claims) is returned in `consumed` so the
+ * per-key split below never ALSO renders it as an ordinary row — a `false`
+ * flag's fact still fully renders, just inside the fold rather than dropped.
+ */
+function buildLimitLadder(obj: Record<string, unknown>): {
+  caveats: string[];
+  foldFields: Record<string, unknown>;
+  consumed: Set<string>;
+} {
+  const caveats: string[] = [];
+  const foldFields: Record<string, unknown> = {};
+  const consumed = new Set<string>();
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value !== 'boolean') continue;
+    const stem = limitFlagStem(key);
+    if (stem === null) continue;
+    const companions = limitKnobCompanions(stem, obj, consumed);
+    consumed.add(key);
+    if (value) {
+      const knob = companions[0];
+      caveats.push(knob ? `${stem} capped at ${formatCount(knob[1])}` : stem);
+      for (const [k] of companions) consumed.add(k);
+    } else {
+      foldFields[key] = value;
+      for (const [k, v] of companions) {
+        foldFields[k] = v;
+        consumed.add(k);
+      }
+    }
+  }
+  return { caveats, foldFields, consumed };
 }
 
 /**
@@ -388,29 +628,53 @@ export interface StructuredSection {
  * count: 72, ok: true }`) was collapsing its 72-row array into a single
  * opaque KV value — the exact case the table rung exists for, just one
  * level down from the root. This walks the object's OWN values (never
- * recursing further into arrays) and splits them three ways: a
- * uniform-object-array value with MORE THAN ONE row is pulled out as its own
- * table (labeled by its key); a non-empty nested PLAIN OBJECT value (e.g. a
+ * recursing further into arrays) and splits them: a uniform-object-array
+ * value with MORE THAN ONE row is pulled out as its own table (labeled by
+ * its key); a non-empty nested PLAIN OBJECT value (e.g. a
  * `merged_workflow_state` dict) is pulled out as its own collapsible
  * {@link StructuredSection} instead of overflowing the KV grid as one giant
  * pretty-printed string; everything else — scalars, single-row arrays,
  * non-uniform arrays, empty objects — stays a KV value via the existing
- * {@link kvValue} stringification, verbatim. The two exceptions: a
- * `message`/`summary` key (consumed by the caller as its own dedicated
- * summary line, {@link declaredSummaryOf}) and a redundant status field
- * ({@link isRedundantStatusField}) are never turned into a row — neither is
- * "dropped" in the silent-fallback sense, both are still fully readable via
- * the untouched raw-text toggle one keypress away.
+ * {@link kvValue} stringification, verbatim. Two exceptions never turn into
+ * a row: a `message`/`summary` key (consumed by the caller as its own
+ * dedicated summary line, {@link declaredSummaryOf}) and a redundant status
+ * field ({@link isRedundantStatusField}) — neither is "dropped" in the
+ * silent-fallback sense, both are still fully readable via the untouched
+ * raw-text toggle one keypress away.
+ *
+ * Ahead of that per-key split, three more general result-ladder rules
+ * (owner design, P4R) each pre-consume a subset of the object's own
+ * top-level keys, unioned into one shared skip-list so a field claimed by
+ * one rule is never ALSO rendered by another: rule 3, identical-valued
+ * fields fold into one composed identity line
+ * ({@link buildIdentityFacts}); rule 4, same-key-set sibling maps join into
+ * one table ({@link buildSiblingMapJoins}), spliced in at its anchor
+ * field's natural wire-order position; rule 5, limit-ish boolean flags split
+ * into a visible caveat line (fired) or a shared collapsed "details" fold
+ * (unfired), ({@link buildLimitLadder}).
  */
 function splitStructuredObject(obj: Record<string, unknown>): {
   rows: Array<{ k: string; v: string }>;
   tables: Array<{ key: string; header: string[]; rows: string[][] }>;
   sections: StructuredSection[];
+  identityLines: string[];
+  caveats: string[];
 } {
+  const identity = buildIdentityFacts(obj);
+  const joins = buildSiblingMapJoins(obj);
+  const limits = buildLimitLadder(obj);
+  const consumed = new Set<string>([...identity.consumed, ...joins.consumed, ...limits.consumed]);
+
   const rows: Array<{ k: string; v: string }> = [];
   const tables: Array<{ key: string; header: string[]; rows: string[][] }> = [];
   const sections: StructuredSection[] = [];
   for (const [k, v] of Object.entries(obj)) {
+    const anchoredTable = joins.tableByAnchor.get(k);
+    if (anchoredTable) {
+      tables.push(anchoredTable);
+      continue;
+    }
+    if (consumed.has(k)) continue;
     if (isSuppressedRowKey(k, v)) continue;
     if (isUniformObjectArray(v) && v.length > 1) {
       const { header, rows: tableRows } = objectArrayToTable(v);
@@ -423,7 +687,10 @@ function splitStructuredObject(obj: Record<string, unknown>): {
     }
     rows.push({ k, v: kvValueForKey(k, v) });
   }
-  return { rows, tables, sections };
+  if (Object.keys(limits.foldFields).length > 0) {
+    sections.push({ key: 'details', value: limits.foldFields, flat: true });
+  }
+  return { rows, tables, sections, identityLines: identity.lines, caveats: limits.caveats };
 }
 
 /** Naive comma-split CSV, matching the existing DetailSlot Preview idiom
@@ -452,6 +719,12 @@ type InterpretedResult =
       rows: Array<{ k: string; v: string }>;
       tables: Array<{ key: string; header: string[]; rows: string[][] }>;
       sections: StructuredSection[];
+      /** General result-ladder rule 3: composed "path · size · shape"
+       *  identity line(s) — see {@link buildIdentityFacts}. */
+      identityLines: string[];
+      /** General result-ladder rule 5: visible caveat line(s) for a
+       *  limit-ish flag that fired — see {@link buildLimitLadder}. */
+      caveats: string[];
       summary?: string;
     }
   | {
@@ -570,9 +843,13 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     // on — computed off the ORIGINAL object, since splitStructuredObject
     // already excludes these two keys from every bucket it builds.
     const summary = declaredSummaryOf(structured);
-    const { rows, tables, sections } = splitStructuredObject(structured);
-    if (tables.length > 0 || sections.length > 0) {
-      return { kind: 'object', rows, tables, sections, ...(summary ? { summary } : {}) };
+    const { rows, tables, sections, identityLines, caveats } = splitStructuredObject(structured);
+    // Rules 3/4/5 route through the SAME 'object' kind as tables/sections —
+    // an identity line or caveat is exactly as "extra" as a table, and must
+    // never be silently dropped by falling into the plain 'kv' branch below
+    // (which doesn't carry either field).
+    if (tables.length > 0 || sections.length > 0 || identityLines.length > 0 || caveats.length > 0) {
+      return { kind: 'object', rows, tables, sections, identityLines, caveats, ...(summary ? { summary } : {}) };
     }
     if (rows.length > 0 || summary) return { kind: 'kv', rows, ...(summary ? { summary } : {}) };
   }
@@ -746,6 +1023,120 @@ function ResultImage({ block }: { block: ContentImageBlock }) {
   );
 }
 
+/** An image/* `content_blocks` entry, per the owner's declared dispatch
+ *  (type `image`, or a mimeType starting `image/`) — the same predicate
+ *  {@link extractImageBlock} already uses for the legacy `content` array,
+ *  applied to the newer field. */
+function isImageContentBlock(block: WireContentBlock): boolean {
+  return block.type === 'image' || (block.mimeType ?? '').startsWith('image/');
+}
+
+/** Adapts a `content_blocks` entry to {@link ResultImage}'s existing
+ *  `ContentImageBlock` shape — `uri` (this field's own spelling) maps onto
+ *  the same `url` slot `content`-array images already render through, so an
+ *  inline image looks identical no matter which wire field produced it.
+ *  `null` when the block carries neither payload (an elided block never
+ *  reaches here — the caller dispatches on `elided` first). */
+function contentBlockImage(block: WireContentBlock): ContentImageBlock | null {
+  if (!block.data && !block.uri) return null;
+  return {
+    mimeType: block.mimeType || 'image/*',
+    ...(block.data ? { data: block.data } : {}),
+    ...(block.uri ? { url: block.uri } : {}),
+  };
+}
+
+/**
+ * An elided `content_blocks` entry's honest marker line (owner's exact
+ * wording: `"image (image/png) elided — 2.3 MB, over the wire cap"`) —
+ * composed generically from the block's own `type`/`mimeType`/`bytes`
+ * fields, never a broken `<img>` standing in for the withheld payload.
+ * `bytes` is optional on the wire (the size clause only appears when it's
+ * there); `mimeType` likewise (the parenthetical only appears when present).
+ */
+function elidedBlockText(block: WireContentBlock): string {
+  const label = block.mimeType ? `${block.type} (${block.mimeType})` : block.type;
+  const size = typeof block.bytes === 'number' ? `${humanSize(block.bytes)}, ` : '';
+  return `${label} elided — ${size}over the wire cap`;
+}
+
+/**
+ * The `content_blocks` rung (clio-agent 285434f5, kit 2.7.1's plot tools):
+ * an OPTIONAL top-level array on the tool_result part, independent of both
+ * `content` (the legacy MCP envelope {@link extractImageBlock} reads) and
+ * `structured_content` — a tool can declare an image/text showcase
+ * ALONGSIDE its structured rows, not instead of them (a plot tool's
+ * structured_content might carry the data points while content_blocks
+ * carries the rendered PNG). Renders as its own section ABOVE the
+ * interpreted-kind switch below, rather than as one more InterpretedResult
+ * kind, since it composes with every other kind instead of replacing any of
+ * them.
+ *
+ * Dispatch per block: an elided marker (present `elided` reason) always
+ * wins — never a broken `<img>`; an image/* block with a real payload
+ * renders inline via the SAME {@link ResultImage} presentation the legacy
+ * image rung uses; a text block with non-empty `.text` renders as prose
+ * (multiple text blocks stack, each its own paragraph). Absent field ->
+ * `blocks` is `[]` -> renders nothing, zero change from before (pin).
+ */
+function ContentBlocks({ blocks }: { blocks: WireContentBlock[] }) {
+  if (blocks.length === 0) return null;
+  return (
+    <>
+      {blocks.map((block, i) => {
+        if (block.elided) {
+          return (
+            <p className="part-toolrow__blockelided" data-testid="part-tool-block-elided" key={i}>
+              {elidedBlockText(block)}
+            </p>
+          );
+        }
+        if (isImageContentBlock(block)) {
+          const image = contentBlockImage(block);
+          return image ? (
+            <div data-testid="part-tool-block-image" key={i}>
+              <ResultImage block={image} />
+            </div>
+          ) : null;
+        }
+        if (typeof block.text === 'string' && block.text.length > 0) {
+          return (
+            <div className="part-toolrow__blocktext" data-testid="part-tool-block-text" key={i}>
+              <Markdown text={block.text} />
+            </div>
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
+/** General result-ladder rules 3 & 5's visible lines — a composed identity
+ *  fact ({@link buildIdentityFacts}) and a fired-flag caveat
+ *  ({@link buildLimitLadder}), both the same "plain fact line" register the
+ *  wait ladder's own summary/conflicts lines already use. Shared by the
+ *  well's top-level 'object' render and {@link NestedSection} so a nested
+ *  dict gets the identical treatment, recursively — nothing found inside a
+ *  collapsed section is dropped just because it's one level down. */
+function IdentityAndCaveats({ identityLines, caveats }: { identityLines: string[]; caveats: string[] }) {
+  if (identityLines.length === 0 && caveats.length === 0) return null;
+  return (
+    <>
+      {identityLines.map((line, i) => (
+        <p className="part-toolrow__identity" data-testid="part-tool-identity" key={`identity-${i}`}>
+          {line}
+        </p>
+      ))}
+      {caveats.map((line, i) => (
+        <p className="part-toolrow__caveat" data-testid="part-tool-caveat" key={`caveat-${i}`}>
+          {line}
+        </p>
+      ))}
+    </>
+  );
+}
+
 /**
  * A nested plain-object value (a {@link StructuredSection}, e.g.
  * `merged_workflow_state`) rendered as its own collapsed section instead of
@@ -755,9 +1146,25 @@ function ResultImage({ block }: { block: ContentImageBlock }) {
  * nested dict never falls back to raw JSON until the reader actually asks
  * for it (the existing raw toggle, still one keypress away at the top).
  */
-function NestedSection({ label, value }: { label: string; value: Record<string, unknown> }) {
+function NestedSection({
+  label,
+  value,
+  flat,
+}: {
+  label: string;
+  value: Record<string, unknown>;
+  flat?: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const { rows, tables, sections } = splitStructuredObject(value);
+  const { rows, tables, sections, identityLines, caveats } = flat
+    ? {
+        rows: Object.entries(value).map(([k, v]) => ({ k, v: kvValueForKey(k, v) })),
+        tables: [] as Array<{ key: string; header: string[]; rows: string[][] }>,
+        sections: [] as StructuredSection[],
+        identityLines: [] as string[],
+        caveats: [] as string[],
+      }
+    : splitStructuredObject(value);
   return (
     <div className="part-toolrow__section" data-testid="part-tool-result-section">
       <button
@@ -774,6 +1181,7 @@ function NestedSection({ label, value }: { label: string; value: Record<string, 
       </button>
       {open ? (
         <div className="part-toolrow__sectionbody">
+          <IdentityAndCaveats identityLines={identityLines} caveats={caveats} />
           {rows.length > 0 ? <KvRows rows={rows} variant="result" /> : null}
           {tables.map((t) => (
             <div className="part-toolrow__subtable" key={t.key}>
@@ -784,7 +1192,7 @@ function NestedSection({ label, value }: { label: string; value: Record<string, 
             </div>
           ))}
           {sections.map((s) => (
-            <NestedSection key={s.key} label={s.key} value={s.value} />
+            <NestedSection key={s.key} label={s.key} value={s.value} flat={s.flat} />
           ))}
         </div>
       ) : null}
@@ -856,6 +1264,11 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const meta = durationMs !== undefined ? `${formatDurationSeconds(durationMs)}s` : '';
   const mark = result ? (isError ? '✗' : '✓') : '';
   const text = result ? extractToolResultText(result) : '';
+  // content_blocks rung (clio-agent 285434f5): gated on !isError for the
+  // same reason the interpreted-kind switch is (see interpretResult's
+  // docstring, P4R live finding) — a failed call's content_blocks must
+  // never dress up as a polished showcase contradicting its own ✗ mark.
+  const blocks = result && !isError ? extractContentBlocks(result) : [];
 
   // A settled wait_agent_tasks/check_agent_tasks call: `wait(<name>, <name>,
   // <name>)` — the server-resolved names verbatim (owner, round-7 live
@@ -955,6 +1368,11 @@ export function ToolPart({ call, result }: ToolPartProps) {
               params well contributes nothing here and is skipped rather
               than showing the ids a second time. */}
           {!waited && params.length > 0 ? <KvRows rows={params} /> : null}
+          {/* content_blocks: an image is the strongest presentation a tool
+              can declare, so its showcase sits ABOVE the structured rows
+              below — composing with whichever InterpretedResult kind the
+              switch resolves, not replacing it. */}
+          <ContentBlocks blocks={blocks} />
           {result ? (
             (() => {
               const interpreted = interpretResult(result, text, name);
@@ -993,6 +1411,10 @@ export function ToolPart({ call, result }: ToolPartProps) {
                           {interpreted.summary}
                         </p>
                       ) : null}
+                      <IdentityAndCaveats
+                        identityLines={interpreted.identityLines}
+                        caveats={interpreted.caveats}
+                      />
                       {interpreted.rows.length > 0 ? (
                         <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
                       ) : null}
@@ -1008,7 +1430,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
                         </div>
                       ))}
                       {interpreted.sections.map((s) => (
-                        <NestedSection key={s.key} label={s.key} value={s.value} />
+                        <NestedSection key={s.key} label={s.key} value={s.value} flat={s.flat} />
                       ))}
                       <RawToggle text={text} />
                     </>

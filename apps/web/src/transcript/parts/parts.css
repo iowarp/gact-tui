@@ -549,6 +549,43 @@
   white-space: pre-wrap;
 }
 
+/* General result-ladder rule 3: a composed "path · size · shape" identity
+   line — same visible-fact treatment as .part-toolrow__summary. */
+.part-toolrow__identity {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+}
+
+/* General result-ladder rule 5: a TRUE limit-ish flag's visible caveat —
+   warning tone, same treatment as .part-toolrow__conflicts, since it's
+   telling the reader their result was truncated. */
+.part-toolrow__caveat {
+  margin: 0;
+  color: var(--t-wa);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+}
+
+/* content_blocks rung (clio-agent 285434f5): an elided block's honest
+   marker line — never a broken <img>. */
+.part-toolrow__blockelided {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
+}
+
+/* content_blocks rung: a text block rendered as normal prose, stacked with
+   any siblings — the same prose register as .part-toolrow__thought. */
+.part-toolrow__blocktext {
+  color: var(--t-tx);
+  font-family: var(--f-prose);
+  font-size: calc(12.5px * var(--ts));
+  line-height: 1.6;
+}
+
 /* ---- handoff ---- */
 
 .part-handoff {

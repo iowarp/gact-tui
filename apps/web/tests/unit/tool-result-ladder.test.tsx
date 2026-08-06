@@ -1169,3 +1169,390 @@ describe('general result ladder -- redundant status/success/ok fields never rend
     expect(kv).toHaveTextContent('pending');
   });
 });
+
+/**
+ * General result-ladder rules 3-5 (owner design, P4R) — a general shape-
+ * interpreter, zero tool-specific code, proven on the real acceptance
+ * payload: pandas_profile_csv's own structured_content.
+ *
+ *   3. IDENTITY ONCE — fields with an identical VALUE (data_path/file_path,
+ *      both the same path) dedupe to one line; a path-like value renders
+ *      middle-elided and pairs with size_bytes/row_count×column_count.
+ *   4. SIBLING-MAP JOIN — two-or-more dict-valued fields keyed by the SAME
+ *      key set (dtypes/null_counts, both keyed by column name) join into
+ *      one table; a matching scalar array (`columns`) supplies the shared
+ *      key column's header and row order.
+ *   5. CAPS/CAVEATS ONLY WHEN BOUND — an unfired `*_limited`/`*_capped`
+ *      flag + its numeric knob fold into one collapsed "details" section; a
+ *      fired flag surfaces as a visible caveat line instead.
+ */
+const PROFILE_PATH =
+  'D:\\Libraries\\Documents\\projects\\clio-agent\\data\\earthscope\\earthscope_stations_clean.csv';
+// elidePathMiddle(PROFILE_PATH, 64): head "D:" survives, full basename
+// survives (30 chars fits the 59-char budget left after the skeleton).
+const PROFILE_PATH_ELIDED = 'D:/\u2026/earthscope_stations_clean.csv';
+
+function profilePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    data_path: PROFILE_PATH,
+    columns: ['Site', 'Latitude', '(deg)'],
+    success: true,
+    file_path: PROFILE_PATH,
+    size_bytes: 162790,
+    column_count: 3,
+    row_count: 1101,
+    rows_profiled: 1101,
+    row_scan_cap: 250000,
+    scan_limited: false,
+    profile_limited: false,
+    message: 'Profiled 3 columns across 1101 of 1101 scanned rows',
+    sample_rows: [
+      { Site: 'P001', Latitude: 34.05, '(deg)': -118.24 },
+      { Site: 'P002', Latitude: 34.06, '(deg)': -118.25 },
+    ],
+    dtypes: { Site: 'object', Latitude: 'float64', '(deg)': 'float64' },
+    null_counts: { Site: 0, Latitude: 0, '(deg)': 0 },
+    ...overrides,
+  };
+}
+
+describe('general result ladder -- rule 3, identity once (pandas_profile_csv acceptance payload)', () => {
+  it('the declared message leads both the collapsed preview and the opened well, with no success row', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_80')}
+        result={toolResult('call_80', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: profilePayload(),
+        })}
+      />,
+    );
+    expect(screen.getByText('Profiled 3 columns across 1101 of 1101 scanned rows')).toBeInTheDocument();
+    openRow(/pandas_profile_csv/);
+    expect(screen.getByTestId('part-tool-summary')).toHaveTextContent(
+      'Profiled 3 columns across 1101 of 1101 scanned rows',
+    );
+    expect(screen.queryByText('success')).toBeNull();
+  });
+
+  it('data_path/file_path (identical values) fold into ONE elided-path * size * shape identity line', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_81')}
+        result={toolResult('call_81', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: profilePayload(),
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    const identityLines = screen.getAllByTestId('part-tool-identity');
+    expect(identityLines).toHaveLength(1);
+    expect(identityLines[0]).toHaveTextContent(
+      `${PROFILE_PATH_ELIDED} · 159.0 KB · 1,101 rows × 3 cols`,
+    );
+    // The consumed fields never ALSO render as separate rows.
+    expect(screen.queryByText('data_path')).toBeNull();
+    expect(screen.queryByText('file_path')).toBeNull();
+    expect(screen.queryByText('size_bytes')).toBeNull();
+    expect(screen.queryByText('row_count')).toBeNull();
+    expect(screen.queryByText('column_count')).toBeNull();
+  });
+
+  it('a non-path duplicate value still dedupes to one line, just the bare value with no size/shape pairing', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_dedup_tool', {}, 'call_82')}
+        result={toolResult('call_82', {
+          content: [{ type: 'text', text: 'done' }],
+          structured_content: { region: 'Los Angeles', label: 'Los Angeles', size_bytes: 999 },
+        })}
+      />,
+    );
+    openRow(/some_dedup_tool/);
+    const identity = screen.getByTestId('part-tool-identity');
+    expect(identity).toHaveTextContent('Los Angeles');
+    expect(identity.textContent).not.toContain('·');
+    // size_bytes has no path-like identity fact to pair onto here, so it's
+    // untouched by rule 3 -- it still renders as its own ordinary row.
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('size_bytes');
+    expect(kv).toHaveTextContent('999');
+  });
+});
+
+describe('general result ladder -- rule 4, sibling-map join (pandas_profile_csv acceptance payload)', () => {
+  it('dtypes/null_counts join into ONE column|dtypes|null_counts table, ordered by the columns array', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_83')}
+        result={toolResult('call_83', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: profilePayload(),
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    const grids = screen.getAllByTestId('part-tool-result-grid');
+    // sample_rows table + the ONE joined dtypes/null_counts table -- never
+    // two separate collapsed sections for dtypes and null_counts.
+    expect(grids).toHaveLength(2);
+    const joined = grids[1]!;
+    expect(within(joined).getByRole('columnheader', { name: 'column' })).toBeInTheDocument();
+    expect(within(joined).getByRole('columnheader', { name: 'dtypes' })).toBeInTheDocument();
+    expect(within(joined).getByRole('columnheader', { name: 'null_counts' })).toBeInTheDocument();
+    expect(within(joined).getAllByRole('row')).toHaveLength(1 + 3);
+    const rows = within(joined).getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Site');
+    expect(rows[0]).toHaveTextContent('object');
+    expect(rows[0]).toHaveTextContent('0');
+    // columns/dtypes/null_counts never ALSO land in a generic KV row.
+    expect(screen.queryByTestId('part-tool-result-table')).toBeNull();
+    expect(screen.queryByText('columns')).toBeNull();
+    // sample_rows is still a real table alongside it.
+    const labels = screen.getAllByTestId('part-tool-result-subtable-label');
+    expect(labels[0]).toHaveTextContent('sample_rows (2)');
+  });
+
+  it('without a matching array field, the join still fires: header falls back to "key", row order follows the first map', () => {
+    render(
+      <ToolPart
+        call={toolCall('sibling_probe', {}, 'call_84')}
+        result={toolResult('call_84', {
+          content: [{ type: 'text', text: 'probed' }],
+          structured_content: {
+            dtypes: { b: 'int64', a: 'object' },
+            null_counts: { b: 1, a: 0 },
+          },
+        })}
+      />,
+    );
+    openRow(/sibling_probe/);
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getByRole('columnheader', { name: 'key' })).toBeInTheDocument();
+    const rows = within(grid).getAllByRole('row').slice(1);
+    // Row order follows dtypes' own key order (b, then a) -- no columns
+    // array present to reorder it.
+    expect(rows[0]).toHaveTextContent('b');
+    expect(rows[1]).toHaveTextContent('a');
+  });
+
+  it('a lone scalar map (no sibling with the same key set) never joins -- stays a plain nested section', () => {
+    render(
+      <ToolPart
+        call={toolCall('lone_map_probe', {}, 'call_85')}
+        result={toolResult('call_85', {
+          content: [{ type: 'text', text: 'probed' }],
+          structured_content: { dtypes: { a: 'object' } },
+        })}
+      />,
+    );
+    openRow(/lone_map_probe/);
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+    expect(screen.getByTestId('part-tool-result-section')).toHaveTextContent('dtypes');
+  });
+});
+
+describe('general result ladder -- rule 5, caps/caveats only when bound (pandas_profile_csv acceptance payload)', () => {
+  it('unfired scan_limited/profile_limited + their knobs fold into ONE collapsed "details" section, no caveat line', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_86')}
+        result={toolResult('call_86', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: profilePayload(),
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    expect(screen.queryByTestId('part-tool-caveat')).toBeNull();
+    const sections = screen.getAllByTestId('part-tool-result-section');
+    expect(sections).toHaveLength(1);
+    expect(sections[0]).toHaveTextContent('details');
+    // Collapsed by default.
+    expect(screen.queryByText('row_scan_cap')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(screen.getByText('scan_limited')).toBeInTheDocument();
+    expect(screen.getByText('row_scan_cap')).toBeInTheDocument();
+    expect(screen.getByText('250000')).toBeInTheDocument();
+    expect(screen.getByText('profile_limited')).toBeInTheDocument();
+    expect(screen.getByText('rows_profiled')).toBeInTheDocument();
+    // The fold never re-detects itself and nests a second "details" fold.
+    expect(screen.queryAllByTestId('part-tool-result-section')).toHaveLength(1);
+  });
+
+  it('a TRUE scan_limited surfaces a visible "scan capped at 250,000" caveat instead of the fold', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_87')}
+        result={toolResult('call_87', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: profilePayload({ scan_limited: true }),
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    const caveat = screen.getByTestId('part-tool-caveat');
+    expect(caveat).toHaveTextContent('scan capped at 250,000');
+    // scan_limited/row_scan_cap never ALSO land in the details fold --
+    // profile_limited (still false) does.
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(screen.queryByText('scan_limited')).toBeNull();
+    expect(screen.queryByText('row_scan_cap')).toBeNull();
+    expect(screen.getByText('profile_limited')).toBeInTheDocument();
+  });
+
+  it('a fired flag with no numeric knob companion surfaces the bare stem', () => {
+    render(
+      <ToolPart
+        call={toolCall('bare_flag_probe', {}, 'call_88')}
+        result={toolResult('call_88', {
+          content: [{ type: 'text', text: 'done' }],
+          structured_content: { truncated: true, note: 'partial output' },
+        })}
+      />,
+    );
+    openRow(/bare_flag_probe/);
+    expect(screen.getByTestId('part-tool-caveat')).toHaveTextContent('truncated');
+  });
+
+  it('no-op: a payload with none of the rules 3-5 shapes renders exactly as before (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('geo_geocode', {}, 'call_89')}
+        result={toolResult('call_89', {
+          content: [{ type: 'text', text: 'resolved' }],
+          structured_content: { center: '34.05,-118.24', provenance: 'osm_nominatim' },
+        })}
+      />,
+    );
+    openRow(/geo_geocode/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('center');
+    expect(kv).toHaveTextContent('provenance');
+    expect(screen.queryByTestId('part-tool-identity')).toBeNull();
+    expect(screen.queryByTestId('part-tool-caveat')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-section')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+  });
+});
+
+/**
+ * The `content_blocks` rung (clio-agent 285434f5, kit 2.7.1's plot tools):
+ * an OPTIONAL top-level array on the tool_result part, distinct from both
+ * `content` (the legacy MCP envelope) and `structured_content` -- a tool
+ * showcase that composes ABOVE the structured rows rather than replacing
+ * them.
+ */
+describe('content_blocks rung (clio-agent 285434f5, kit 2.7.1 plot tools)', () => {
+  it('an image/* block with base64 data renders inline via a data: URI, above the structured rows', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', {}, 'call_90')}
+        result={toolResult('call_90', {
+          content: [{ type: 'text', text: 'plotted' }],
+          content_blocks: [{ type: 'image', mimeType: 'image/png', data: 'AAAA' }],
+          structured_content: { data_points: 1101 },
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    const wrap = screen.getByTestId('part-tool-block-image');
+    const img = within(wrap).getByRole('img');
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+    const kv = screen.getByTestId('part-tool-result-table');
+    // The image showcase precedes the structured rows in document order.
+    expect(wrap.compareDocumentPosition(kv) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('an image/* block carrying a `uri` (not `url`) renders through the same inline image path', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', {}, 'call_91')}
+        result={toolResult('call_91', {
+          content: [{ type: 'text', text: 'plotted' }],
+          content_blocks: [
+            { type: 'image', mimeType: 'image/png', uri: 'https://example.test/plot.png' },
+          ],
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    const img = screen.getByRole('img');
+    expect(img.getAttribute('src')).toBe('https://example.test/plot.png');
+  });
+
+  it('an elided block renders an honest marker line, never a broken <img>', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', {}, 'call_92')}
+        result={toolResult('call_92', {
+          content: [{ type: 'text', text: 'plotted' }],
+          content_blocks: [
+            { type: 'image', mimeType: 'image/png', elided: 'content_block_oversize', bytes: 2411725 },
+          ],
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    expect(screen.getByTestId('part-tool-block-elided')).toHaveTextContent(
+      'image (image/png) elided — 2.3 MB, over the wire cap',
+    );
+    expect(screen.queryByTestId('part-tool-block-image')).toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('text blocks render as prose; multiple blocks stack, each its own paragraph', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_narrating_tool', {}, 'call_93')}
+        result={toolResult('call_93', {
+          content: [{ type: 'text', text: 'done' }],
+          content_blocks: [
+            { type: 'text', text: 'First paragraph of narration.' },
+            { type: 'text', text: 'Second paragraph of narration.' },
+          ],
+        })}
+      />,
+    );
+    openRow(/some_narrating_tool/);
+    const blocks = screen.getAllByTestId('part-tool-block-text');
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toHaveTextContent('First paragraph of narration.');
+    expect(blocks[1]).toHaveTextContent('Second paragraph of narration.');
+  });
+
+  it('absent content_blocks field -> zero change from before (pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_94')}
+        result={toolResult('call_94', {
+          content: [{ type: 'text', text: '{"rows": 1101, "path": "gnss.csv"}' }],
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    expect(screen.queryByTestId('part-tool-block-image')).toBeNull();
+    expect(screen.queryByTestId('part-tool-block-elided')).toBeNull();
+    expect(screen.queryByTestId('part-tool-block-text')).toBeNull();
+    const table = screen.getByTestId('part-tool-result-table');
+    expect(table).toHaveTextContent('rows');
+    expect(table).toHaveTextContent('1101');
+  });
+
+  it('a FAILED result never shows its content_blocks showcase (same is_error discipline as the rest of the ladder)', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', {}, 'call_95')}
+        result={toolResult('call_95', {
+          is_error: true,
+          content: [{ type: 'text', text: 'failed: timeout' }],
+          content_blocks: [{ type: 'image', mimeType: 'image/png', data: 'AAAA' }],
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    expect(screen.queryByTestId('part-tool-block-image')).toBeNull();
+    expect(screen.getByText('failed: timeout')).toBeInTheDocument();
+  });
+});
