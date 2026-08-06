@@ -90,15 +90,22 @@
 
 /* Segmented mode toggle — shared visual grammar for the timeline's log|gantt
  * switch AND the tools tab's called|available switch (same classes, same
- * rules; only the choice labels differ). */
+ * rules; only the choice labels differ). Prototype's own skin (measured,
+ * design/prototype/Clio Session.html tlLogBg/tlGanttBg/tlViewLog markup): a
+ * TRANSPARENT track with a hairline border and no padding/gap — the two
+ * segments butt against a divider border, not sit in a filled/gapped pill
+ * (round-10 gate finding D13). `display: inline-flex` (finding D6) keeps the
+ * track sized to its own content even when the parent isn't itself a flex
+ * row the way the timeline toolbar is — the tools tab's plain block
+ * container let `.obs-toollog__modes` silently stretch to the panel's full
+ * width (`flex: 0 0 auto` only sizes an element that IS a flex item). */
 .obs-timeline__modes,
 .obs-toollog__modes {
+  display: inline-flex;
   flex: 0 0 auto;
-  gap: 1px;
-  padding: 1px;
-  background: var(--t-bg);
-  border: 1px solid var(--t-bd3);
+  border: 1px solid var(--t-bd35);
   border-radius: 6px;
+  overflow: hidden;
 }
 
 .obs-toollog__modes {
@@ -108,14 +115,20 @@
 .obs-timeline__mode,
 .obs-toollog__mode {
   min-width: 43px;
-  padding: 4px 8px;
+  padding: 3px 12px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 5px;
+  border: 0;
   color: var(--t-mu);
   cursor: pointer;
   font-family: var(--f-mono);
   font-size: calc(10.5px * var(--ts));
+}
+
+/* The hairline divider BETWEEN segments (prototype: the second button's own
+ * border-left) — never on the first segment, and never a track-level gap. */
+.obs-timeline__mode:not(:first-child),
+.obs-toollog__mode:not(:first-child) {
+  border-left: 1px solid var(--t-bd35);
 }
 
 .obs-timeline__mode:hover,
@@ -123,10 +136,12 @@
   color: var(--t-hd);
 }
 
+/* Flat cyan wash, no border, square corners (the track's own border-radius +
+ * overflow:hidden clips the outer two corners) — matches the prototype's
+ * `tlLogBg: 'var(--t-cy1,rgba(10,166,173,.1))'` exactly. */
 .obs-timeline__mode[aria-pressed='true'],
 .obs-toollog__mode[aria-pressed='true'] {
-  background: var(--t-sf2);
-  border-color: var(--t-cy4);
+  background: var(--t-cy1);
   color: var(--t-cy);
 }
 
@@ -899,8 +914,15 @@
   gap: 6px;
 }
 
+/* The title is contractually short (<=24 chars) — it never needs to shrink,
+   and letting it compete for space with the raw name clipped BOTH at once
+   (round-10 gate finding D9: `search(datase… ndp_search_datas…`). All the
+   shrink pressure now falls on `.obs-toollog__rawname` alone, so the title
+   always renders whole and the raw name ellipsizes only when genuinely out
+   of space. */
 .obs-toollog__name {
   overflow: hidden;
+  flex-shrink: 0;
   color: var(--t-hd);
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1034,10 +1056,16 @@
  * is a real <button> (matching the prototype's `<button on-click=goArtCat>`
  * structure), honestly disabled — no artifact viewer is reachable anywhere
  * in this build yet. */
+/* Six columns, not five (round-10 gate finding D2): time, glyph, name,
+   producer, meta, AND the conditional `.obs-artifact__usedtag` — with only
+   5 explicit tracks the tag was the row's 6th grid child, so auto-placement
+   wrapped it to a new row starting at column 1, where it clipped against
+   the modal edge. The trailing `auto` column costs nothing on a row that
+   never renders the tag (an empty track sizes to 0). */
 .obs-artifact__button {
   display: grid;
   width: 100%;
-  grid-template-columns: 48px 12px minmax(130px, max-content) minmax(0, 1fr) auto;
+  grid-template-columns: 48px 12px minmax(130px, max-content) minmax(0, 1fr) auto auto;
   align-items: baseline;
   gap: 8px;
   min-height: 29px;
@@ -1225,7 +1253,10 @@
   }
 
   .obs-artifact__button {
-    grid-template-columns: 44px 12px minmax(120px, 1fr) auto;
+    /* Same 6th-column fix as the desktop template above — `-1` still means
+       "the last line" once this grows a track, so the producer span below
+       needs no change. */
+    grid-template-columns: 44px 12px minmax(120px, 1fr) auto auto;
   }
 
   .obs-artifact__producer {

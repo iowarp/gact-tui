@@ -149,6 +149,7 @@ export function Topbar({
       />
       <ToolbarButton
         label="Observability"
+        title="Observability"
         iconOnly
         icon={<Icon name="eye" size={14} />}
         pressed={panel === 'obs'}
