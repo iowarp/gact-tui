@@ -60,20 +60,34 @@ export interface LogRowTree {
  * it (`agent_id`), but the CHILD's own rows carry the agent-task run label, and
  * the two can spell one agent differently — which would draw the fork elbow in
  * a different colour from the rail it opens. Looking ahead to the child's own
- * first row settles it. Branches that already hold a column are skipped, so a
- * concurrent sibling's rows cannot be mistaken for this spawn's child.
+ * first row settles it. `spawned` — agents CURRENTLY holding a column because
+ * their OWN 'open' row put them there — are skipped, so a concurrent sibling's
+ * rows cannot be mistaken for this spawn's child.
+ *
+ * `spawned` is deliberately narrower than "every agent with a column right
+ * now": traces merge chronologically across sessions (root trace, then each
+ * child's), and a child's own first event can sort a beat ahead of the
+ * `blueprint.delegation.started` row that names it (its own clock reads a
+ * hair earlier than the parent's delegation-started stamp is recorded) — that
+ * child ends up with a column via the plain depth fallback below BEFORE this
+ * function ever runs for its spawn row. If that fallback placeholder were
+ * treated as "someone else's branch," the real child would be skipped and
+ * this would mint a second, orphaned column for the same agent: the fork
+ * elbow lands on a column nothing else ever draws on, and the real rail —
+ * now named twice — never gets released by its own merge row. Only a column
+ * some OTHER row's spawn explicitly claimed is a genuine sibling to avoid.
  */
 function childBranchAt(
   rows: ObsTimelineRow[],
   index: number,
   parentDepth: number,
-  taken: ReadonlySet<string>,
+  spawned: ReadonlySet<string>,
 ): string {
   for (let i = index + 1; i < rows.length; i += 1) {
     const row = rows[i]!;
     const depth = row.depth ?? 0;
     if (row.branch === 'close' && depth <= parentDepth) break;
-    if (depth > parentDepth && row.agent && !taken.has(row.agent)) return row.agent;
+    if (depth > parentDepth && row.agent && !spawned.has(row.agent)) return row.agent;
   }
   return rows[index]!.actor || `depth-${parentDepth + 1}`;
 }
@@ -86,6 +100,11 @@ export function buildLogTree(
   const occupied = new Map<number, string>([[0, MAIN_BRANCH]]);
   /** agent -> the column it holds. */
   const columnOf = new Map<string, number>([[MAIN_BRANCH, 0]]);
+  /** Agents holding a column because their OWN 'open' row put them there —
+   *  see `childBranchAt`'s doc. Same add/release lifecycle as `columnOf`,
+   *  tracked separately because a column can ALSO be pre-claimed by the
+   *  depth fallback for a row whose real spawn hasn't been processed yet. */
+  const spawnedBranches = new Set<string>([MAIN_BRANCH]);
 
   const firstFreeColumn = (): number => {
     for (let column = 1; ; column += 1) {
@@ -132,6 +151,7 @@ export function buildLogTree(
       const childColumn = named ?? innermost ?? column + 1;
       const childBranch = occupied.get(childColumn) ?? row.actor ?? `depth-${childColumn}`;
       release(childColumn);
+      spawnedBranches.delete(childBranch);
       elbow = {
         edge: 'close',
         column,
@@ -148,10 +168,11 @@ export function buildLogTree(
     if (row.branch === 'open') {
       // Allocate AFTER the rails are read: the row that creates a branch draws
       // the elbow, not yet a rail — the branch's line starts here.
-      const childBranch = childBranchAt(rows, index, depth, new Set(columnOf.keys()));
+      const childBranch = childBranchAt(rows, index, depth, spawnedBranches);
       const childColumn = columnOf.get(childBranch) ?? firstFreeColumn();
       occupied.set(childColumn, childBranch);
       columnOf.set(childBranch, childColumn);
+      spawnedBranches.add(childBranch);
       elbow = {
         edge: 'open',
         column,

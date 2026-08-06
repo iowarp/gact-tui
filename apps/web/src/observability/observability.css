@@ -280,10 +280,13 @@
 }
 
 .obs-log {
-  /* The prototype's own rail grid (~8326614: L0 x=12, L1 x=38, L2 x=64,
-     L3 x=90): 26px between rail centers, first center at x=13. */
-  --obs-indent: 26px;
-  --obs-rail-x: 13px;
+  /* `--obs-rail-x` / `--obs-indent` / `--obs-row-height` / `--obs-elbow-radius`
+     are set as inline custom properties by `railGeometryVars()`
+     (railGeometry.ts) — the ONE place these numbers are authored. Every rail,
+     elbow and node badge rule below reads them back through var(), never a
+     second hand-typed literal; the `, Npx` fallbacks only cover a caller that
+     renders `.obs-log` without that inline style (e.g. a raw CSS-only probe)
+     and mirror the module's own defaults. */
   position: relative;
   font-family: var(--f-mono);
   font-size: calc(12px * var(--ts));
@@ -297,7 +300,7 @@
      track width (~8244025) — it must hold the depth-3 rail at x=90. */
   grid-template-columns: 112px 40px minmax(90px, max-content) minmax(0, 1fr);
   align-items: baseline;
-  min-height: 26px;
+  min-height: var(--obs-row-height, 26px);
   column-gap: 8px;
   border-radius: 5px;
   cursor: default;
@@ -343,7 +346,7 @@
   bottom: 0;
   /* 2px rail whose CENTER sits at 13 + 26i — the same x every row marker is
      translate-centered on, so circles and rail read as one spine. */
-  left: calc(var(--obs-rail-x) - 1px + var(--obs-rail-i) * var(--obs-indent));
+  left: calc(var(--obs-rail-x, 13px) - 1px + var(--obs-rail-i) * var(--obs-indent, 26px));
   width: 0;
   /* Git-branch treatment (viz rebuild 2026-08): the rail draws in the colour of
      the AGENT occupying this column at this row (logTreeModel), the SAME colour
@@ -374,8 +377,8 @@
    when a spawn's child lands past a concurrent sibling's column). */
 .obs-log__elbow {
   position: absolute;
-  left: calc(var(--obs-rail-x) + var(--obs-rail-i) * var(--obs-indent));
-  width: calc(var(--obs-elbow-span, 1) * var(--obs-indent) + 1px);
+  left: calc(var(--obs-rail-x, 13px) + var(--obs-rail-i) * var(--obs-indent, 26px));
+  width: calc(var(--obs-elbow-span, 1) * var(--obs-indent, 26px) + 1px);
   box-sizing: border-box;
   border-right: 2px solid var(--obs-rail-color, var(--t-bd6));
 }
@@ -384,14 +387,14 @@
   top: 50%;
   height: 50%;
   border-top: 2px solid var(--obs-rail-color, var(--t-bd6));
-  border-top-right-radius: 9px;
+  border-top-right-radius: var(--obs-elbow-radius, 9px);
 }
 
 .obs-log__elbow[data-edge='close'] {
   top: 0;
   height: 50%;
   border-bottom: 2px solid var(--obs-rail-color, var(--t-bd6));
-  border-bottom-right-radius: 9px;
+  border-bottom-right-radius: var(--obs-elbow-radius, 9px);
 }
 
 /* The generic-event ring sits ON its branch's rail and carries no other
@@ -411,7 +414,7 @@
   top: 50%;
   /* The marker sits on its AGENT's rail column (`--obs-node-col`), which equals
      the row's depth until concurrent siblings force separate columns. */
-  left: calc(var(--obs-rail-x) + var(--obs-node-col) * var(--obs-indent));
+  left: calc(var(--obs-rail-x, 13px) + var(--obs-node-col) * var(--obs-indent, 26px));
   z-index: 1;
   display: grid;
   place-items: center;

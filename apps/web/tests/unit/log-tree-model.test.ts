@@ -139,6 +139,49 @@ describe('buildLogTree — fork and merge elbows', () => {
     expect(tree[0]!.elbow?.branch).toBe('ndp #1');
     expect(tree[0]!.elbow?.color).toBe(tree[1]!.rails[1]!.color);
   });
+
+  it('lands the fork elbow on the child\'s REAL column even when the child\'s own row sorts BEFORE its "task started" row (owner report 2026-08-06)', () => {
+    // Traces merge chronologically across sessions (root's, then each
+    // child's); a child's own first event can sort a beat ahead of the
+    // `blueprint.delegation.started` row that names it — its own clock reads
+    // a hair earlier than the parent's delegation-started stamp gets
+    // recorded. That early row claims the child's column via the plain
+    // depth fallback BEFORE the spawn row's own elbow logic ever runs.
+    //
+    // Before the fix, `childBranchAt`'s collision guard treated that
+    // fallback placeholder as "an unrelated already-open sibling", skipped
+    // the real child, and fell back to the spawn row's own actor label
+    // ('geospatial #1') — a name distinct from the agent field the child's
+    // OWN rows use ('geospatial'). That minted a SECOND, orphaned column:
+    // the elbow pointed at a column nothing else ever draws on (visible as
+    // a curve landing past the real rail, never meeting it), while the
+    // real rail — now claimed under two names — never got released by its
+    // own merge row either.
+    const rows: ObsTimelineRow[] = [
+      row({ actor: 'routing_decision', kind: 'event', depth: 1, agent: 'geospatial' }),
+      row({ actor: 'geospatial #1', kind: 'running', branch: 'open', depth: 0, agent: 'main' }),
+      row({ actor: 'geo_geocode', kind: 'tool', depth: 1, agent: 'geospatial' }),
+      row({ actor: 'geospatial #1', kind: 'event', branch: 'close', depth: 0, agent: 'main' }),
+    ];
+    const tree = buildLogTree(rows);
+
+    // The child's real column, per the row that actually carries its work.
+    const realColumn = tree[2]!.nodeColumn;
+    expect(realColumn).toBe(1);
+
+    // The fork elbow must land EXACTLY there — not on some other column.
+    const elbow = tree[1]!.elbow!;
+    expect(elbow.column + elbow.span).toBe(realColumn);
+    expect(elbow.branch).toBe('geospatial');
+
+    // No orphaned third column, and no duplicate rail for the same agent.
+    expect(tree[2]!.rails.map((rail) => rail.branch)).toEqual(['main', 'geospatial']);
+
+    // The merge row releases the SAME column the fork opened — the branch
+    // does not leak open for the rest of the session.
+    expect(tree[3]!.elbow?.column).toBe(0);
+    expect(tree[3]!.rails).toEqual([{ column: 0, branch: 'main', color: branchColor('main') }]);
+  });
 });
 
 describe('buildLogTree — column reuse', () => {

@@ -149,25 +149,51 @@ const spans: ObsSpan[] = [
 const clock = (at: number) =>
   new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
 
+/**
+ * Round-8 shape (gact-tui#1183 owner screenshot, 2026-08-06): a
+ * `spawn_agent_task` tool call on MAIN, then the child's `task started` row
+ * (still attributed to main's own trace — the delegation event fires in the
+ * PARENT's session), then MAIN's own `wait_agent_tasks` blocking call sitting
+ * BETWEEN the open row and the child's real first row, and only THEN the
+ * child's own first tool call. Two sequential 3-child fanouts, mirroring the
+ * screenshot's `geospatial` -> `ndp` sequence extended to a third child.
+ */
+function fanout(child: string, tool: string, atBase: number, dur: string) {
+  return [
+    { at: clock(s(atBase)), atMs: s(atBase), actor: 'spawn_agent_task', action: 'tool call', duration: '5s', kind: 'tool' as const, depth: 0, agent: 'main' },
+    { at: clock(s(atBase + 1)), atMs: s(atBase + 1), actor: child, action: 'task started', kind: 'running' as const, depth: 0, branch: 'open' as const, agent: 'main' },
+    { at: clock(s(atBase + 1)), atMs: s(atBase + 2), actor: 'wait_agent_tasks', action: 'tool call', duration: '35s', kind: 'tool' as const, depth: 0, agent: 'main' },
+    { at: clock(s(atBase + 2)), atMs: s(atBase + 3), actor: tool, action: 'tool call', duration: dur, kind: 'tool' as const, depth: 1, agent: child },
+    { at: clock(s(atBase + 3)), atMs: s(atBase + 4), actor: child, action: 'returned to main', kind: 'event' as const, depth: 0, branch: 'close' as const, agent: 'main' },
+  ];
+}
+
 const timeline: ObsTimelineRow[] = [
   { at: clock(s(0)), atMs: s(0), actor: 'user', action: '"Ground motion near LA…"', kind: 'user', depth: 0, agent: 'main' },
   { at: clock(s(9)), atMs: s(9), actor: 'routing_decision', action: 'react → main', kind: 'event', depth: 0, agent: 'main' },
-  { at: clock(s(14)), atMs: s(14), actor: 'ndp #1', action: 'task started', kind: 'running', depth: 0, branch: 'open', agent: 'main' },
-  { at: clock(s(21)), atMs: s(21), actor: 'ndp_dataset_discovery', action: 'tool call', duration: '6.2s', kind: 'tool', depth: 1, agent: 'ndp #1' },
-  { at: clock(s(15)), atMs: s(24), actor: 'geospatial #1', action: 'task started', kind: 'running', depth: 0, branch: 'open', agent: 'main' },
-  { at: clock(s(24)), atMs: s(26), actor: 'geo_geocode', action: 'tool call', duration: '2.8s', kind: 'tool', depth: 1, agent: 'geospatial #1' },
-  { at: clock(s(58)), atMs: s(58), actor: 'ndp_stage_resource', action: 'tool call', duration: '31.4s', kind: 'tool', depth: 1, agent: 'ndp #1' },
-  { at: clock(s(80)), atMs: s(80), actor: 'stations_clean.csv', action: 'artifact (214 KB)', kind: 'artifact', depth: 1, agent: 'geospatial #1' },
-  { at: clock(s(88)), atMs: s(88), actor: 'geospatial #1', action: 'returned to main', kind: 'event', depth: 0, branch: 'close', agent: 'main' },
-  { at: clock(s(96)), atMs: s(96), actor: 'MTA1.CI.LY_.30.csv', action: 'artifact (50.4 MB)', kind: 'artifact', depth: 1, agent: 'ndp #1' },
-  { at: clock(s(112)), atMs: s(112), actor: 'create_artifact', action: 'tool call', duration: '1.4s', kind: 'tool', depth: 1, agent: 'ndp #1' },
-  { at: clock(s(133)), atMs: s(133), actor: 'ndp #1', action: 'returned to main', kind: 'event', depth: 0, branch: 'close', agent: 'main' },
-  { at: clock(s(140)), atMs: s(140), actor: 'report #1', action: 'task started', kind: 'running', depth: 0, branch: 'open', agent: 'main' },
-  { at: clock(s(160)), atMs: s(160), actor: 'create_artifact', action: 'tool call failed', duration: '0.9s', kind: 'failure', depth: 1, agent: 'report #1' },
-  { at: clock(s(212)), atMs: s(212), actor: 'report #1', action: 'returned to main', kind: 'failure', depth: 0, branch: 'close', agent: 'main' },
-  { at: clock(s(214)), atMs: s(214), actor: 'turn.completed', action: 'stop_reason end_turn', kind: 'event', depth: 0, agent: 'main' },
-  { at: clock(s(248)), atMs: s(248), actor: 'ndp #2', action: 'task started', kind: 'running', depth: 0, branch: 'open', agent: 'main' },
-  { at: clock(s(255)), atMs: s(255), actor: 'ndp_dataset_discovery', action: 'tool call', kind: 'running', depth: 1, agent: 'ndp #2' },
+  // Fanout A — 3 children, sequential, each with a wait_agent_tasks gap
+  // between the open row and the child's real first row.
+  ...fanout('geospatial #1', 'geo_geocode', 14, '14s'),
+  ...fanout('ndp #1', 'ndp_search_datasets', 22, '5s'),
+  ...fanout('plot #1', 'plot_timeseries', 30, '9s'),
+  { at: clock(s(40)), atMs: s(40), actor: 'turn.completed', action: 'stop_reason end_turn', kind: 'event', depth: 0, agent: 'main' },
+  // Fanout B — a second, later, sequential 3-child fanout (round-8's own
+  // "two fanouts back to back" shape).
+  ...fanout('geospatial #2', 'geo_station_filter', 48, '11s'),
+  ...fanout('ndp #2', 'ndp_stage_resource', 56, '31s'),
+  ...fanout('plot #2', 'plot_timeseries', 64, '7s'),
+  { at: clock(s(74)), atMs: s(74), actor: 'turn.completed', action: 'stop_reason end_turn', kind: 'event', depth: 0, agent: 'main' },
+  // Root-cause fixture: the child session's OWN first event (its own
+  // routing_decision) sorts a beat ahead of the `blueprint.delegation.started`
+  // row that names it — its own clock reads a hair earlier than the parent's
+  // delegation-started stamp is recorded. Before the fix this minted a
+  // second, orphaned column for the fork elbow (logTreeModel.ts's
+  // `childBranchAt` collision guard skipped the real child).
+  { at: clock(s(80)), atMs: s(80), actor: 'spawn_agent_task', action: 'tool call', duration: '5s', kind: 'tool', depth: 0, agent: 'main' },
+  { at: clock(s(81)), atMs: s(81) - 50, actor: 'routing_decision', action: 'react → geospatial', kind: 'event', depth: 1, agent: 'geospatial' },
+  { at: clock(s(81)), atMs: s(81), actor: 'geospatial #3', action: 'task started', kind: 'running', depth: 0, branch: 'open', agent: 'main' },
+  { at: clock(s(82)), atMs: s(82), actor: 'geo_geocode', action: 'tool call', duration: '6s', kind: 'tool', depth: 1, agent: 'geospatial' },
+  { at: clock(s(83)), atMs: s(83), actor: 'geospatial #3', action: 'returned to main', kind: 'event', depth: 0, branch: 'close', agent: 'main' },
 ];
 
 const obsData: ObservabilityData = {

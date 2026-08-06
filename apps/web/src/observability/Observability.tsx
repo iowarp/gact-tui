@@ -4,6 +4,7 @@ import { sanitizeTitle } from '../transcript/parts/titleSanitizer';
 import { Gantt } from './Gantt';
 import { assignBranchColors, branchKey, type BranchColorResolver } from './ganttModel';
 import { buildLogTree, type LogRowTree } from './logTreeModel';
+import { railGeometryVars } from './railGeometry';
 import type {
   ObsContext,
   ObsNavigation,
@@ -869,7 +870,7 @@ function Timeline({ rows, spans, colorOf, mode, onModeChange, readFailed, onNavi
 
       {mode === 'log' ? (
         rows.length > 0 ? (
-          <ol className="obs-log">
+          <ol className="obs-log" style={railGeometryVars() as CSSProperties}>
             {rows.map((row, index) => {
               const depth = row.depth ?? 0;
               const branches = tree[index];
