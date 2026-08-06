@@ -17,6 +17,7 @@ import {
   type Session,
   type SessionAgentTask,
   type SessionArtifactVersion,
+  type SessionMessageEvent,
   type Workspace,
 } from '@clio/core';
 import type { AsyncRunItem } from '../composer/AsyncRunsPopover';
@@ -1145,6 +1146,25 @@ export function SessionView({
     );
   });
 
+  // Same reasoning as `activeRunningRef` above, for the OTHER half of the
+  // mid-turn refresh gate (isPillRefreshArmed, below): a fanned-out child is
+  // a real background task that can keep running AFTER the parent turn
+  // settles — isTurnRunning goes false the moment the parent's own assistant
+  // message gets a stop_reason, but an orphaned child can still be streaming
+  // for minutes after that. Gating the refresh on isTurnRunning alone froze
+  // the chip at its last value for the rest of the session the instant the
+  // parent turn ended, even while a background child was still live (round-9
+  // owner finding). Mirrors the active session's latest known agent-task rows
+  // (pillState, scoped the same way `activePill` below is) so the throttle
+  // can stay armed off THAT state, not the turn's.
+  const activeAsyncTasksRef = useRef<SessionAgentTask[] | undefined>(undefined);
+  useEffect(() => {
+    activeAsyncTasksRef.current =
+      pillState?.sessionId === activeId && pillState.scope === activeScope
+        ? pillState.asyncTasks
+        : undefined;
+  });
+
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
   // parts via part.added, and the clean delegation wire's IN-PLACE settle
@@ -1177,18 +1197,21 @@ export function SessionView({
     // Mid-turn pill refresh (async chip count, ctx %, artifact count) —
     // event-driven off the SAME SSE stream this effect already consumes,
     // throttled to at most once per PILL_REFRESH_THROTTLE_MS and gated on
-    // the turn actually being live (shouldRefreshPillMidTurn, above — pure,
-    // directly unit tested). A multi-minute fan-out otherwise leaves the
-    // pill frozen at its last settle-time value for the whole run (the chip
-    // never appears, `ctx 0%` never moves) because message.completed/error/
-    // deleted — the only prior triggers, below — don't fire until every
-    // child has returned. Throttled, not per-delta: an unthrottled refetch
-    // here reproduces the round-7 "13x amplification" bug this file already
-    // has scar tissue for (see the observability effect above).
+    // isPillRefreshArmed (below — pure, directly unit tested), not on
+    // isTurnRunning alone: a background child outliving the parent turn
+    // (round-9 owner finding) must keep the throttle armed until IT settles
+    // too. A multi-minute fan-out otherwise leaves the pill frozen at its
+    // last settle-time value for the whole run (the chip never appears,
+    // `ctx 0%` never moves) because message.completed/error/deleted — the
+    // only prior triggers, below — don't fire until every child has
+    // returned. Throttled, not per-delta: an unthrottled refetch here
+    // reproduces the round-7 "13x amplification" bug this file already has
+    // scar tissue for (see the observability effect above).
     let lastPillRefreshAt = 0;
     const refreshPillMidTurn = () => {
       const now = Date.now();
-      if (!shouldRefreshPillMidTurn(activeRunningRef.current, now, lastPillRefreshAt)) return;
+      const armed = isPillRefreshArmed(activeRunningRef.current, activeAsyncTasksRef.current);
+      if (!shouldRefreshPillMidTurn(armed, now, lastPillRefreshAt)) return;
       lastPillRefreshAt = now;
       void refreshPill(activeId, activeScope);
     };
@@ -1214,12 +1237,18 @@ export function SessionView({
           refreshPillMidTurn();
           break;
         }
+        case 'message.part.added':
         case 'message.part.updated': {
-          // The clean delegation wire's terminal settle rides this event —
-          // a fan-out child returning to main is exactly the moment
-          // asyncCount/ctx/artifact totals move mid-turn.
-          const part = event.payload['part'] as { type?: string } | undefined;
-          if (part?.type === 'expert_handoff') refreshPillMidTurn();
+          // A delegation carries an expert_handoff part on BOTH ends of its
+          // lifecycle: part.added is the spawn (status=running — a fan-out
+          // child just started), part.updated is the clean delegation
+          // wire's terminal settle (a child returning to main, including an
+          // ORPHANED child settling after its parent turn already ended).
+          // Both are exactly when asyncCount/ctx/artifact totals move
+          // mid-turn — gating on part.updated alone left the chip's first
+          // paint lagging ~40s behind the real spawn (round-9 owner finding,
+          // live SSE capture).
+          if (isPillRefreshTriggerEvent(event)) refreshPillMidTurn();
           break;
         }
         case 'message.completed':
@@ -2836,14 +2865,15 @@ export const PILL_REFRESH_THROTTLE_MS = 2000;
 
 /**
  * The mid-turn pill-refresh gate: true when a refresh should actually fire
- * right now. Two conditions, both required — the turn must be genuinely
- * live (never refresh a settled/idle session off a stray late SSE event),
- * and at least `throttleMs` must have elapsed since the last refresh (an
- * unthrottled refetch-per-delta reproduces the round-7 "13x amplification"
- * bug this file has scar tissue for elsewhere). Pure and exported so the
- * throttle math itself — the part with real edge cases (exactly-at-the-
- * boundary, back-to-back events, idle-then-running) — is directly testable
- * without a live SSE connection.
+ * right now. Two conditions, both required — the refresh must be genuinely
+ * ARMED (see `isPillRefreshArmed` — never refresh a settled/idle session
+ * with no live background task off a stray late SSE event), and at least
+ * `throttleMs` must have elapsed since the last refresh (an unthrottled
+ * refetch-per-delta reproduces the round-7 "13x amplification" bug this
+ * file has scar tissue for elsewhere). Pure and exported so the throttle
+ * math itself — the part with real edge cases (exactly-at-the-boundary,
+ * back-to-back events, idle-then-running) — is directly testable without a
+ * live SSE connection.
  */
 export function shouldRefreshPillMidTurn(
   isRunning: boolean,
@@ -2852,6 +2882,49 @@ export function shouldRefreshPillMidTurn(
   throttleMs: number = PILL_REFRESH_THROTTLE_MS,
 ): boolean {
   return isRunning && now - lastRefreshAt >= throttleMs;
+}
+
+/**
+ * Whether the mid-turn pill refresh should stay ARMED — a separate question
+ * from `isTurnRunning`. A fanned-out child is a real background task that
+ * can keep running (and later complete) AFTER the parent turn itself
+ * settles; gating the refresh purely on turn status disarmed it the instant
+ * the parent turn ended, freezing the async chip/ctx%/artifact count for
+ * the rest of the session even while an orphaned child was still streaming
+ * (round-9 owner finding, live SSE capture). Armed while the turn is live,
+ * OR at least one known async task is not yet terminal; disarmed only once
+ * BOTH are false — i.e. driven off the asyncTasks state itself, not the
+ * turn's. Pure and exported for the same reason as `isTurnRunning`/
+ * `shouldRefreshPillMidTurn` above.
+ */
+export function isPillRefreshArmed(
+  isTurnRunningNow: boolean,
+  asyncTasks: SessionAgentTask[] | undefined,
+): boolean {
+  if (isTurnRunningNow) return true;
+  return (asyncTasks ?? []).some(
+    (task) => !TERMINAL_AGENT_TASK_STATUSES.has(String(task.status ?? '').toLowerCase()),
+  );
+}
+
+/**
+ * Whether a session message-lifecycle SSE event is one of the mid-turn
+ * pill-refresh triggers. message.created starts a new step. A delegation
+ * carries an expert_handoff part on BOTH ends of its lifecycle — spawning
+ * (message.part.added, status=running) and settling (message.part.updated,
+ * terminal, including an orphaned child settling after its parent turn
+ * already ended) — and both must trigger a refresh, not only the terminal
+ * one: gating on part.updated alone left the async chip's first paint
+ * lagging ~40s behind the real spawn (round-9 owner finding). Pure and
+ * exported for the same reason as `isTurnRunning`/`shouldRefreshPillMidTurn`
+ * above — jsdom has no EventSource, so the SSE effect that consumes this
+ * never runs under the test harness.
+ */
+export function isPillRefreshTriggerEvent(event: SessionMessageEvent): boolean {
+  if (event.type === 'message.created') return true;
+  if (event.type !== 'message.part.added' && event.type !== 'message.part.updated') return false;
+  const part = event.payload['part'] as { type?: string } | undefined;
+  return part?.type === 'expert_handoff';
 }
 
 function relativeAge(iso: string): string {
