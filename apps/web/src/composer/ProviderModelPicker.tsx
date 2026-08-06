@@ -46,6 +46,17 @@ export interface ProviderModelPickerProps {
    *  the gear is shown disabled, same visible-degraded convention as the
    *  composer's attach button. */
   onOpenProviderSettings?: () => void;
+  /**
+   * Trigger text when `value` is empty — defaults to the genuinely-nothing-
+   * configured fact, 'model not set'. A caller whose model-binding reads
+   * (session record + global LM) have not BOTH resolved yet passes '—'
+   * instead, so an UNRESOLVED read never renders the same fact a real empty
+   * binding earns (round-6 CONCURRENCY finding: this rendered "model not
+   * set" while a real model was bound, because a failed read fell through
+   * to the same hardcoded fallback a genuinely-unset session uses). Only
+   * takes effect while `value` is empty — a known value always wins.
+   */
+  emptyLabel?: string;
 }
 
 /** Readiness tone for a provider's status label — ready/green,
@@ -78,6 +89,7 @@ export function ProviderModelPicker({
   thinkingLevel,
   onChange,
   onOpenProviderSettings,
+  emptyLabel = 'model not set',
 }: ProviderModelPickerProps) {
   const [open, setOpen] = useState(false);
   // The panel is right-anchored (`right:0; left:auto`), so its left edge is
@@ -117,7 +129,7 @@ export function ProviderModelPicker({
     : undefined;
   const selectedLabel = selectedModel
     ? `${selectedGroup?.label || activeProvider?.label || ''} / ${selectedModel.label}`
-    : value || 'model not set';
+    : value || emptyLabel;
 
   return (
     <span className="provider-model-picker">

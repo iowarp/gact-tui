@@ -161,6 +161,28 @@ function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
     .catch(() => null);
 }
 
+/**
+ * Typed outcome for a fetch whose FAILURE must stay distinguishable from a
+ * genuinely empty success. `optionalFetch`'s `null` collapses both into the
+ * same falsy value — which is exactly how a slow/failed trace read under
+ * 3-way concurrent-session contention rendered as a confident "no trace
+ * recorded" while the backend actually held 167 real trace events (round-6
+ * CONCURRENCY finding,
+ * screenshots/round6/2026-08-06_03-25-28-CONCURRENCY-transcript.png). Callers
+ * that only ever wanted "best-effort, don't care why" keep using
+ * optionalFetch; callers that render an empty-state CLAIM from the result
+ * (obs layer, model pill) use this instead so they can render an honest
+ * "unresolved" state rather than fabricate an empty fact.
+ */
+type FetchOutcome<T> = { ok: true; value: T } | { ok: false };
+
+function fetchOutcome<T>(request: () => Promise<T>): Promise<FetchOutcome<T>> {
+  return Promise.resolve()
+    .then(request)
+    .then((value): FetchOutcome<T> => ({ ok: true, value }))
+    .catch((): FetchOutcome<T> => ({ ok: false }));
+}
+
 type LoadState =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -250,6 +272,16 @@ export function SessionView({
     [],
   );
   const [detail, setDetail] = useState<SessionDetail | null>(null);
+  // Paired with `detail`: whether the session-RECORD read (GET /v1/sessions/
+  // {id}) that carries `model` has actually SUCCEEDED this visit. The
+  // composer's model pill needs this to tell "the record says no per-session
+  // model" (a real fact) from "we couldn't read the record yet/at all" (round-
+  // 6 CONCURRENCY finding: a failed read rendered "model not set" while
+  // claude_code/cc-sonnet was actually bound) — `detail` alone collapses both
+  // into the same null/undefined `model` field.
+  const [detailStatus, setDetailStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>(
+    'idle',
+  );
   const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
   const [modelProviders, setModelProviders] = useState<ProviderModelGroup[]>([]);
   const [thinkingLevel, setThinkingLevel] = useState<string | undefined>(undefined);
@@ -370,16 +402,30 @@ export function SessionView({
 
   const loadObservability = useCallback(
     async (sessionId: string, scope: string, messages: Message[]): Promise<ObservabilityData> => {
-      const [agents, sessionRuns, servers, context, agentTasksResult, artifactResult, rootTrace] =
-        await Promise.all([
-          optionalFetch(() => client.agents()),
-          optionalFetch(() => client.sessionTasks(sessionId)),
-          optionalFetch(() => client.mcpServers()),
-          optionalFetch(() => fetchSessionContextState(client, sessionId, scope)),
-          optionalFetch(() => fetchSessionAgentTasks(client, sessionId)),
-          optionalFetch(() => fetchSessionArtifacts(client, sessionId, { includeChildren: true })),
-          optionalFetch(() => fetchSessionTrace(client, sessionId, { limit: 2000 })),
-        ]);
+      const [
+        agentsOutcome,
+        sessionRunsOutcome,
+        serversOutcome,
+        contextOutcome,
+        agentTasksOutcome,
+        artifactOutcome,
+        rootTraceOutcome,
+      ] = await Promise.all([
+        fetchOutcome(() => client.agents()),
+        fetchOutcome(() => client.sessionTasks(sessionId)),
+        fetchOutcome(() => client.mcpServers()),
+        fetchOutcome(() => fetchSessionContextState(client, sessionId, scope)),
+        fetchOutcome(() => fetchSessionAgentTasks(client, sessionId)),
+        fetchOutcome(() => fetchSessionArtifacts(client, sessionId, { includeChildren: true })),
+        fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 })),
+      ]);
+      const agents = agentsOutcome.ok ? agentsOutcome.value : null;
+      const sessionRuns = sessionRunsOutcome.ok ? sessionRunsOutcome.value : null;
+      const servers = serversOutcome.ok ? serversOutcome.value : null;
+      const context = contextOutcome.ok ? contextOutcome.value : null;
+      const agentTasksResult = agentTasksOutcome.ok ? agentTasksOutcome.value : null;
+      const artifactResult = artifactOutcome.ok ? artifactOutcome.value : null;
+      const rootTrace = rootTraceOutcome.ok ? rootTraceOutcome.value : null;
       const agentTasks = agentTasksResult?.tasks ?? [];
       const artifactRecords = artifactResult?.artifacts ?? [];
       // The observed tree: the parent's own trace plus EVERY child's — child
@@ -395,14 +441,32 @@ export function SessionView({
           ...(artifactResult?.child_session_ids ?? []),
         ]),
       ].filter((id): id is string => Boolean(id) && id !== sessionId);
-      const childTraces = await Promise.all(
+      const childTraceOutcomes = await Promise.all(
         childSessionIds.map(async (childSessionId) => ({
           sessionId: childSessionId,
-          events:
-            (await optionalFetch(() => fetchSessionTrace(client, childSessionId, { limit: 2000 })))
-              ?.events ?? [],
+          outcome: await fetchOutcome(() => fetchSessionTrace(client, childSessionId, { limit: 2000 })),
         })),
       );
+      const childTraces = childTraceOutcomes.map(({ sessionId: id, outcome }) => ({
+        sessionId: id,
+        events: outcome.ok ? (outcome.value.events ?? []) : [],
+      }));
+      // Whether the timeline/runs/tools/gantt tabs can trust their own zero.
+      // Only the PRIMARY reads that actually feed those tabs count: the
+      // session's own trace, every child's trace, and the real agent-task
+      // delegations (agentTasksOutcome — taskRuns). `sessionTasks`
+      // (existingRuns, a supplementary/legacy TODO-style source folded into
+      // the same tab) failing does NOT flip this — a backend that simply
+      // doesn't carry that secondary endpoint would otherwise permanently
+      // read "unavailable" for a genuinely healthy session. agents/servers/
+      // context failing degrades OTHER tabs, which already have their own
+      // honest fallbacks (ContextTab's "not reported", the legacy tools
+      // catalog simply reading empty). A FAILED read here must never render
+      // as the same "no trace recorded" a genuinely empty session earns.
+      const traceReadFailed =
+        !rootTraceOutcome.ok ||
+        !agentTasksOutcome.ok ||
+        childTraceOutcomes.some(({ outcome }) => !outcome.ok);
       const trace = buildObservabilityTrace({
         rootSessionId: sessionId,
         traces: [{ sessionId, events: rootTrace?.events ?? [] }, ...childTraces],
@@ -516,6 +580,7 @@ export function SessionView({
               },
             }
           : {}),
+        ...(traceReadFailed ? { traceReadFailed: true } : {}),
       };
     },
     [client],
@@ -555,6 +620,32 @@ export function SessionView({
       cancelled = true;
     };
   }, [panel, activeId, activeScope, loadObservability, observabilityMessages]);
+
+  // Auto-retry the trace/runs/tools read exactly ONCE after a short backoff
+  // when it comes back FAILED (ObservabilityData.traceReadFailed) — never
+  // looping; a read that keeps failing needs the human "retry now" click
+  // (TraceUnavailable's button below) rather than an infinite poll. A fresh
+  // session/scope, or reopening the panel, earns a fresh attempt.
+  const obsAutoRetriedRef = useRef(false);
+  useEffect(() => {
+    obsAutoRetriedRef.current = false;
+  }, [activeId, activeScope, panel]);
+
+  useEffect(() => {
+    if (panel !== 'obs' || !activeId || !obs?.traceReadFailed || obsAutoRetriedRef.current) return;
+    obsAutoRetriedRef.current = true;
+    const timer = window.setTimeout(() => {
+      void loadObservability(activeId, activeScope, observabilityMessages).then(setObs);
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [panel, activeId, activeScope, obs?.traceReadFailed, loadObservability, observabilityMessages]);
+
+  // Manual retry — the TraceUnavailable button's escape hatch, same call the
+  // effects above already make.
+  const retryObsTrace = useCallback(() => {
+    if (!activeId) return;
+    void loadObservability(activeId, activeScope, observabilityMessages).then(setObs);
+  }, [activeId, activeScope, observabilityMessages, loadObservability]);
 
   useEffect(() => {
     if (panel !== 'obs' || !activeId || typeof EventSource === 'undefined') return;
@@ -824,14 +915,21 @@ export function SessionView({
     async (sessionId: string) => {
       setState({ kind: 'loading' });
       setDetail(null);
+      setDetailStatus('loading');
       // The record carries model + approval_mode, which the composer renders.
       // A failure here must not fail the transcript, so it is read separately.
       void Promise.resolve()
         .then(() => client.getSession(sessionId))
-        .then((row) => setDetail(row as unknown as SessionDetail))
+        .then((row) => {
+          setDetail(row as unknown as SessionDetail);
+          setDetailStatus('loaded');
+        })
         // A backend that cannot serve the record leaves the composer without
-        // model/approval controls rather than failing the transcript with it.
-        .catch(() => setDetail(null));
+        // model/approval controls rather than failing the transcript with it —
+        // but `detailStatus` stays 'failed' rather than silently 'loaded', so
+        // the model pill knows this session's `detail.model` is UNRESOLVED,
+        // not "the record really has none" (round-6 CONCURRENCY finding).
+        .catch(() => setDetailStatus('failed'));
       try {
         // Progressive paint (#232 paging; owner 2026-08-06 "small detail,
         // big presentation help"): fetch the NEWEST page first so the
@@ -1024,7 +1122,12 @@ export function SessionView({
           // the natural moment to re-read the record.
           void Promise.resolve()
             .then(() => client.getSession(activeId))
-            .then((row) => setDetail(row as unknown as SessionDetail))
+            .then((row) => {
+              setDetail(row as unknown as SessionDetail);
+              setDetailStatus('loaded');
+            })
+            // A failed refresh keeps whatever `detail`/`detailStatus` this
+            // session already had — never downgrades a known-good last read.
             .catch(() => {});
           break;
         }
@@ -1182,15 +1285,27 @@ export function SessionView({
 
   // The global LM binding (provider + model), the session-model fallback.
   const [globalLm, setGlobalLm] = useState<{ provider?: string; model?: string } | null>(null);
+  // Paired with `globalLm` the same way `detailStatus` pairs with `detail` —
+  // the model pill must only read "model not set" once THIS read (not just
+  // the session record) has genuinely succeeded and come back empty.
+  const [globalLmStatus, setGlobalLmStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>(
+    'idle',
+  );
   useEffect(() => {
     let cancelled = false;
+    setGlobalLmStatus('loading');
     void Promise.resolve()
       .then(() => fetchLmConfig(client))
       .then((snapshot) => {
-        if (!cancelled) setGlobalLm(snapshot as { provider?: string; model?: string });
+        if (!cancelled) {
+          setGlobalLm(snapshot as { provider?: string; model?: string });
+          setGlobalLmStatus('loaded');
+        }
       })
       .catch(() => {
-        // No binding readable: the pill honestly falls back to "model not set".
+        // No binding readable — `globalLmStatus` stays 'failed' so the model
+        // pill renders unresolved rather than fabricating "model not set".
+        if (!cancelled) setGlobalLmStatus('failed');
       });
     return () => {
       cancelled = true;
@@ -1603,12 +1718,31 @@ export function SessionView({
   // A session with no per-session model runs on the GLOBAL provider binding —
   // the pill shows that effective binding rather than lying "model not set"
   // (owner, 2026-08-05; the wire truth is /v1/providers/lm).
-  const modelId =
+  const sessionModelId =
     detail?.model?.provider_id && detail.model.model_id
       ? `${detail.model.provider_id}/${detail.model.model_id}`
-      : globalLm && globalLm.provider && globalLm.model
-        ? `${globalLm.provider}/${globalLm.model}`
-        : '';
+      : undefined;
+  const globalModelId =
+    globalLm && globalLm.provider && globalLm.model ? `${globalLm.provider}/${globalLm.model}` : undefined;
+  // Prefer whichever real value is known, session over global — matches the
+  // old fallback order exactly. Never depends on WHICH read produced it,
+  // only on whether either one HAS.
+  const lastKnownModelId = sessionModelId ?? globalModelId;
+  // 'model not set' may only render once BOTH the session-record read AND
+  // the global-LM read have genuinely SUCCEEDED and come back empty — a
+  // FAILED or still-in-flight read must render unresolved instead, never a
+  // fabricated "not set" (round-6 CONCURRENCY finding: this rendered "model
+  // not set" while claude_code/cc-sonnet was actually bound, because
+  // optionalFetch's null made "failed to read" indistinguishable from
+  // "genuinely nothing configured"). Pre-session (no `activeId` at all)
+  // keeps the prototype's own immediate default instead of waiting on any
+  // read — there is no per-session record to resolve yet, same convention as
+  // the composer pill's ctx/asyncCount pre-session defaults elsewhere here.
+  const modelUnresolved =
+    Boolean(activeId) &&
+    lastKnownModelId === undefined &&
+    !(detailStatus === 'loaded' && globalLmStatus === 'loaded');
+  const modelId = lastKnownModelId ?? '';
 
   const setApprovalMode = useCallback(
     async (next: ApprovalMode) => {
@@ -1867,9 +2001,13 @@ export function SessionView({
       <Composer
         // A session can carry no model, and clio-agent exposes no endpoint
         // for the model that would ACTUALLY answer the turn (/v1/models and
-        // /v1/system both 404). Say so rather than render a bare chevron.
+        // /v1/system both 404). Say so rather than render a bare chevron —
+        // unless the reads behind that claim haven't actually resolved yet,
+        // in which case `modelUnresolved` below renders an honest dash
+        // instead of an asserted fact (round-6 CONCURRENCY finding).
         models={modelId ? modelOptions : [{ id: '', label: 'model not set' }, ...modelOptions]}
         modelId={modelId}
+        {...(modelUnresolved ? { modelUnresolved: true } : {})}
         modelProviders={modelProviders}
         {...(thinkingLevel ? { thinkingLevel } : {})}
         sessionMode={detail?.mode === 'plan' ? 'plan' : 'execute'}
@@ -2237,6 +2375,7 @@ export function SessionView({
               showTraceHeader={false}
               onNavigate={handleObsNavigate}
               onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+              onRetryTrace={retryObsTrace}
               {...(obsTab ? { initialTab: obsTab } : {})}
             />
           ) : (

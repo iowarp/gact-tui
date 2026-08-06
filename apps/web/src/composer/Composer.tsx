@@ -63,6 +63,13 @@ export interface ComposerProps {
   contextPercent?: number;
   models?: SelectOption[];
   modelId?: string;
+  /**
+   * True while the reads behind an empty `modelId` (the session record and
+   * the global LM binding) have not BOTH resolved — the model pill shows
+   * '—' instead of asserting "model not set" (round-6 CONCURRENCY finding).
+   * Only meaningful when `modelId` is empty; a known id always wins.
+   */
+  modelUnresolved?: boolean;
   /** Live provider catalogue for the prototype's two-pane model picker. */
   modelProviders?: ProviderModelGroup[];
   thinkingLevel?: string;
@@ -147,6 +154,7 @@ export function Composer({
   contextPercent,
   models = [],
   modelId = '',
+  modelUnresolved = false,
   modelProviders,
   thinkingLevel,
   sessionMode,
@@ -677,6 +685,7 @@ export function Composer({
               {...(modelProviders ? { providers: modelProviders } : {})}
               {...(thinkingLevel ? { thinkingLevel } : {})}
               {...(onOpenProviderSettings ? { onOpenProviderSettings } : {})}
+              {...(modelUnresolved ? { emptyLabel: '—' } : {})}
               onChange={onModelChange}
             />
           </span>

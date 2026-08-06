@@ -1098,6 +1098,33 @@
   font-size: calc(12px * var(--ts));
 }
 
+/* The distinct FAILED-read state (round-6 CONCURRENCY finding): a slow/
+   failed trace read must never look like the same quiet "no trace recorded"
+   line a genuinely empty session earns — it gets its own affordance so the
+   user can tell "nothing happened" from "we couldn't read it". */
+.obs__empty--unavailable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--t-am, #c4682a);
+}
+
+.obs__retry {
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.obs__retry:hover {
+  opacity: 0.88;
+}
+
 @media (max-width: 42.5rem) {
   .obs-timeline__toolbar {
     align-items: flex-start;

@@ -27,6 +27,11 @@ export interface ObservabilityProps {
    *  artifact id, renders the row visibly disabled and flagged rather than
    *  a silently dead click. */
   onOpenArtifact?: (artifactId: string, name: string) => void;
+  /** Re-runs the trace/runs/tools read that produced `data.traceReadFailed`
+   *  — SessionView's loadObservability. Omitted renders the unavailable
+   *  state with no retry action (fixtures/harness callers that pass static
+   *  data have nothing real to re-fetch). */
+  onRetryTrace?: () => void;
 }
 
 export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
@@ -56,6 +61,27 @@ export function ObservabilityTrace() {
   );
 }
 
+/**
+ * The distinct, honest state for a trace-derived tab (timeline/runs/tools/
+ * gantt) when the underlying read FAILED or timed out — never collapsed
+ * into the same "no trace recorded" a genuinely empty session earns (see
+ * ObservabilityData.traceReadFailed). `onRetry` re-runs the same load
+ * SessionView already owns; the one-shot auto-retry-after-backoff lives
+ * there too — this is just the honest state plus a manual escape hatch.
+ */
+function TraceUnavailable({ subject, onRetry }: { subject: string; onRetry?: () => void }) {
+  return (
+    <div className="obs__empty obs__empty--unavailable" data-testid="obs-unavailable">
+      <p>{subject} unavailable — retrying</p>
+      {onRetry ? (
+        <button type="button" className="obs__retry" onClick={onRetry}>
+          retry now
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** The session observability layer: live timeline, runs, tools, artifacts and context. */
 export function Observability({
   data,
@@ -63,6 +89,7 @@ export function Observability({
   initialTab,
   onNavigate,
   onOpenArtifact,
+  onRetryTrace,
 }: ObservabilityProps) {
   const legacy =
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
@@ -122,9 +149,13 @@ export function Observability({
 
       <div className="obs__body">
         {legacy && isEmpty ? (
-          <p className="obs__empty" data-testid="obs-empty">
-            no trace recorded for this session
-          </p>
+          data.traceReadFailed ? (
+            <TraceUnavailable subject="trace" {...(onRetryTrace ? { onRetry: onRetryTrace } : {})} />
+          ) : (
+            <p className="obs__empty" data-testid="obs-empty">
+              no trace recorded for this session
+            </p>
+          )
         ) : null}
 
         {activeTab === 'timeline' ? (
@@ -133,7 +164,9 @@ export function Observability({
             spans={spans}
             mode={timelineMode}
             onModeChange={setTimelineMode}
+            {...(data.traceReadFailed ? { readFailed: true } : {})}
             {...(onNavigate ? { onNavigate } : {})}
+            {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
           />
         ) : null}
 
@@ -174,7 +207,12 @@ export function Observability({
               ))}
             </ul>
           ) : (
-            <RunsTab runs={data.runs} {...(onNavigate ? { onNavigate } : {})} />
+            <RunsTab
+              runs={data.runs}
+              {...(data.traceReadFailed ? { readFailed: true } : {})}
+              {...(onNavigate ? { onNavigate } : {})}
+              {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
+            />
           )
         ) : null}
 
@@ -204,7 +242,12 @@ export function Observability({
               </ul>
             </div>
           ) : (
-            <ToolLog rows={toolCalls} {...(onNavigate ? { onNavigate } : {})} />
+            <ToolLog
+              rows={toolCalls}
+              {...(data.traceReadFailed ? { readFailed: true } : {})}
+              {...(onNavigate ? { onNavigate } : {})}
+              {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
+            />
           )
         ) : null}
 
@@ -304,16 +347,22 @@ function classifyRun(run: ObsRun): 'running' | 'completed' | 'failed' {
 
 interface RunsTabProps {
   runs: ObsRun[];
+  /** True when the read behind these runs FAILED rather than genuinely
+   *  reporting none — see ObservabilityData.traceReadFailed. */
+  readFailed?: boolean;
   onNavigate?: (nav: ObsNavigation) => void;
+  onRetry?: () => void;
 }
 
 /** Prototype markup (~8250004): three uppercase-labelled sections — running
  *  (orange bolt), completed (N) (green check), failed (red x) — each row a
  *  full-width button naming the run, its host, a status line, a description
  *  line, and a transcript action. */
-function RunsTab({ runs, onNavigate }: RunsTabProps) {
+function RunsTab({ runs, readFailed, onNavigate, onRetry }: RunsTabProps) {
   if (runs.length === 0) {
-    return (
+    return readFailed ? (
+      <TraceUnavailable subject="runs" {...(onRetry ? { onRetry } : {})} />
+    ) : (
       <p className="obs__empty" data-testid="obs-empty">
         no trace recorded for this session
       </p>
@@ -421,18 +470,24 @@ function RunGroup({ title, tone, runs, actionLabel, navTitle, onNavigate }: RunG
 
 interface ToolLogProps {
   rows: ObsToolCallRow[];
+  /** True when the read behind these calls FAILED rather than genuinely
+   *  reporting none — see ObservabilityData.traceReadFailed. */
+  readFailed?: boolean;
   onNavigate?: (nav: ObsNavigation) => void;
+  onRetry?: () => void;
 }
 
 /** Prototype markup (`obsToolRows`, ~8256494): one row per real tool call —
  *  time, orange wrench, an expandable `name(argHint) ▸` toggle, an agent tag,
  *  a trailing status glyph. Replaces the static per-server catalog: this tab
  *  is a LOG of what was actually called, not a directory of what could be. */
-function ToolLog({ rows, onNavigate }: ToolLogProps) {
+function ToolLog({ rows, readFailed, onNavigate, onRetry }: ToolLogProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   if (rows.length === 0) {
-    return (
+    return readFailed ? (
+      <TraceUnavailable subject="tool calls" {...(onRetry ? { onRetry } : {})} />
+    ) : (
       <p className="obs__empty" data-testid="obs-empty">
         no tool calls recorded for this session
       </p>
@@ -579,7 +634,11 @@ interface TimelineProps {
   spans: NonNullable<ObservabilityData['spans']>;
   mode: TimelineMode;
   onModeChange: (mode: TimelineMode) => void;
+  /** True when the read behind these rows/spans FAILED rather than
+   *  genuinely reporting none — see ObservabilityData.traceReadFailed. */
+  readFailed?: boolean;
   onNavigate?: (nav: ObsNavigation) => void;
+  onRetry?: () => void;
 }
 
 /** Attributes for a row that may or may not be clickable — the prototype's
@@ -601,7 +660,7 @@ function navProps(nav: ObsNavigation | undefined, onNavigate: ((nav: ObsNavigati
   };
 }
 
-function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps) {
+function Timeline({ rows, spans, mode, onModeChange, readFailed, onNavigate, onRetry }: TimelineProps) {
   return (
     <div className="obs-timeline" data-testid="obs-timeline">
       <div className="obs-timeline__toolbar">
@@ -662,6 +721,8 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
               );
             })}
           </ol>
+        ) : readFailed ? (
+          <TraceUnavailable subject="timeline" {...(onRetry ? { onRetry } : {})} />
         ) : (
           <p className="obs__empty" data-testid="obs-empty">
             no trace recorded for this session
@@ -669,6 +730,8 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
         )
       ) : spans.length > 0 ? (
         <Gantt spans={spans} {...(onNavigate ? { onNavigate } : {})} />
+      ) : readFailed ? (
+        <TraceUnavailable subject="gantt" {...(onRetry ? { onRetry } : {})} />
       ) : (
         <p className="obs__empty" data-testid="obs-empty">
           no trace recorded for this session

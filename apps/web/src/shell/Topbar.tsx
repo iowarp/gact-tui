@@ -117,7 +117,14 @@ export function Topbar({
         icon={
           <>
             <Icon name="artifacts" />
-            <span className="shell-topbar__count">{artifactCount ?? 0}</span>
+            {/* undefined means "we don't know yet / the read failed" — never
+                the same glyph as a genuine, successfully-read zero (the ctx
+                badge just below already gets this right; round-6 CONCURRENCY
+                finding: a failed artifacts fetch rendered a confident "0"
+                while 5 artifacts actually existed). */}
+            <span className="shell-topbar__count">
+              {artifactCount === undefined ? '—' : artifactCount}
+            </span>
           </>
         }
         pressed={panel === 'obs' && obsTab === 'artifacts'}

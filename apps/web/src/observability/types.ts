@@ -151,4 +151,18 @@ export interface ObservabilityData {
   artifactRows?: ObsArtifactRow[];
   /** Optional only for compatibility with pre-P5 captured fixtures. */
   toolCalls?: ObsToolCallRow[];
+  /**
+   * True when one or more of the reads that feed the trace/runs/tools/gantt
+   * tabs (the session's own trace, every child session's trace, or the
+   * agent-task rows) failed or timed out on this load — set by
+   * SessionView.loadObservability's typed fetch outcomes. Distinguishes "the
+   * backend genuinely reports nothing" from "we could not read it": under
+   * 3-way concurrent-session load a slow/failed trace read rendered as a
+   * confident "no trace recorded" while the backend actually held 167 real
+   * events (round-6 CONCURRENCY finding,
+   * screenshots/round6/2026-08-06_03-25-28-CONCURRENCY-transcript.png).
+   * Absent/false = every relevant read succeeded, so an empty tab is a real
+   * fact.
+   */
+  traceReadFailed?: boolean;
 }
