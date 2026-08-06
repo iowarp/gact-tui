@@ -1,6 +1,11 @@
-/* The async chip's runs popover — anchored to `.composer__asyncchip`
-   (position:relative), rising above the chip like the model/picker popovers. */
-.composer__asyncchip {
+/* The async chip's runs popover — anchored to `.composer__pillbox`
+   (position:relative), rising above the chip like the model/picker popovers.
+   Anchoring the POSITIONING CONTEXT on the pillbox rather than the narrower
+   `.composer__asyncchip` (round-10 gate finding D18) is what makes `left:0`
+   below land at the pillbox's own left edge — the prototype's own
+   `tgRuns`/`popRuns` pairing — instead of the async chip's much-further-
+   right position. */
+.composer__pillbox {
   position: relative;
 }
 
@@ -80,6 +85,21 @@
   justify-self: center;
   padding-top: 3px;
   color: var(--t-ac);
+}
+
+/* The still-running rows tick (prototype's own `clio-ticker`, defined once,
+ * globally, in composer/composer.css — every row under `.async-runs__list`
+ * is by construction a live/non-terminal task, see AsyncRunsPopover's own
+ * `active` filter). Absent everywhere in this build until now (round-10
+ * gate finding D5). */
+.async-runs__list .async-runs__icon {
+  animation: clio-ticker 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .async-runs__list .async-runs__icon {
+    animation: none;
+  }
 }
 
 .async-runs__check {

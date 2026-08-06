@@ -39,10 +39,23 @@
   padding: 4px 9px;
   background: transparent;
   border: 0;
-  border-radius: 0;
+  border-radius: 7px;
   font-family: var(--f-mono);
   font-size: calc(11.5px * var(--ts));
   line-height: 1;
+}
+
+/* Prototype's own hover (measured: tgRuns/openFilesLayer/tgTelemetry —
+   background var(--t-sf2), radius stays 7px, label var(--t-hd)), scoped
+   here so it wins over kit-chip's generic button hover (border-color
+   var(--t-cy4) + cyan label) leaking through onto these pills (round-10
+   gate finding D4: transparent bg, radius reset to 0, label turned cyan).
+   The async chip's own "async N" text keeps its dedicated amber color
+   regardless — a nested span with its own explicit color, unaffected by
+   the button's hover color, same as the prototype's own async chip. */
+.composer__pillbox .kit-chip:hover {
+  background: var(--t-sf2);
+  color: var(--t-hd);
 }
 
 .composer__pillsep {
@@ -96,6 +109,35 @@
 
 .composer__asyncchip .kit-chip {
   color: var(--t-ac);
+}
+
+/* Prototype's own "still working" pulse (measured, design/prototype/Clio
+ * Session.html: `@keyframes clio-ticker { 0%,100%{opacity:.65;} 50%{opacity:1;}
+ * }`) — defined once, globally, here (async-runs-popover.css's own live rows
+ * reuse this same keyframe by name, same convention as parts.css's
+ * clio-pulse). Absent everywhere in this build until now (round-10 gate
+ * finding D5). */
+@keyframes clio-ticker {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The async chip's own zap glyph ticks while a run is actually in flight
+ * (`data-running`, set below `runningAsyncCount > 0`) — a chip that only
+ * carries undismissed FINISHED tasks stays still. */
+.composer__asyncchip[data-running='true'] .kit-chip__icon {
+  animation: clio-ticker 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__asyncchip[data-running='true'] .kit-chip__icon {
+    animation: none;
+  }
 }
 
 .composer__contextlabel::before {

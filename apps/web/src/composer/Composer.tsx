@@ -420,6 +420,7 @@ export function Composer({
             <span
               className="composer__asyncchip"
               data-badge={finishedAsyncCount > 0 ? 'true' : undefined}
+              data-running={runningAsyncCount > 0 ? 'true' : undefined}
             >
               <Chip
                 icon={<Icon name="zap" size={11} />}
