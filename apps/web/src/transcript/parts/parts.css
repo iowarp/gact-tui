@@ -166,6 +166,8 @@
 
 .part-toolrow__namewrap {
   display: flex;
+  align-items: baseline;
+  gap: 7px;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
