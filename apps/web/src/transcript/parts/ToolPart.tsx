@@ -44,6 +44,35 @@ export function waitingTaskCount(call: WirePart): number | null {
   return Array.isArray(taskIds) ? taskIds.length : null;
 }
 
+/**
+ * A collapsed, re-polled `wait_agent_tasks`/`check_agent_tasks` call carries
+ * its retry facts as `attempts`/`budgets` on the tool_call part's
+ * `metadata` (round-7 wire finding: attempts=2, budgets=[60.0,90.0] — never
+ * surfaced in the expanded well). Only these two keys are read here —
+ * `stream_source`/`telemetry_source` and anything else on `metadata` stay
+ * internal, never dumped. `attempts` only counts once it's actually a retry
+ * (>1); a single value doesn't earn a chip.
+ */
+function metadataFacts(call: WirePart): { attempts?: number; budgets?: number[] } {
+  const metadata = call['metadata'];
+  if (!isRecord(metadata)) return {};
+  const attemptsRaw = metadata['attempts'];
+  const attempts = typeof attemptsRaw === 'number' && attemptsRaw > 1 ? attemptsRaw : undefined;
+  const budgetsRaw = metadata['budgets'];
+  const budgets =
+    Array.isArray(budgetsRaw) && budgetsRaw.length > 0 && budgetsRaw.every((b) => typeof b === 'number')
+      ? (budgetsRaw as number[])
+      : undefined;
+  return { attempts, budgets };
+}
+
+/** Compact seconds formatting for the budgets chip: whole seconds render bare
+ *  (`60s`), fractional seconds keep one decimal (`1.5s`) — never the raw
+ *  float noise of `Number.prototype.toString()`. */
+function formatSecondsCompact(seconds: number): string {
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}s`;
+}
+
 function firstArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
   const entries = Object.entries(input as Record<string, unknown>);
@@ -212,6 +241,30 @@ function interpretResult(result: WirePart, text: string): InterpretedResult {
   return { kind: 'raw' };
 }
 
+/**
+ * The metadata chips (attempts/budgets) — spaced, not middot-joined (owner's
+ * ruling), pinned at the top of the well ahead of params. Absent facts
+ * render nothing, individually: an attempts-only call shows one chip, a
+ * budgets-only call shows the other, never an empty container.
+ */
+function MetadataChips({ attempts, budgets }: { attempts?: number; budgets?: number[] }) {
+  if (attempts === undefined && budgets === undefined) return null;
+  return (
+    <div className="part-toolrow__metachips" data-testid="part-tool-metachips">
+      {attempts !== undefined ? (
+        <span className="part-toolrow__metachip" data-testid="part-tool-metachip-attempts">
+          {`attempts ${attempts}`}
+        </span>
+      ) : null}
+      {budgets !== undefined ? (
+        <span className="part-toolrow__metachip" data-testid="part-tool-metachip-budgets">
+          {`budgets ${budgets.map(formatSecondsCompact).join(' ')}`}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function KvRows({ rows, testId }: { rows: Array<{ k: string; v: string }>; testId?: string }) {
   return (
     <div className="part-toolrow__grid" data-testid={testId}>
@@ -341,6 +394,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
 
   const argHint = firstArgHint(call['input']);
   const params = argRows(call['input']);
+  const { attempts, budgets } = metadataFacts(call);
   const isError = result ? result['is_error'] === true : false;
   const durationMs = typeof result?.['duration_ms'] === 'number' ? (result['duration_ms'] as number) : undefined;
   const meta = durationMs !== undefined ? `${formatDurationSeconds(durationMs)}s` : '';
@@ -401,6 +455,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {previewLine ? <p className="part-toolrow__preview">{previewLine}</p> : null}
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
+          <MetadataChips attempts={attempts} budgets={budgets} />
           {params.length > 0 ? <KvRows rows={params} /> : null}
           {result ? (
             (() => {

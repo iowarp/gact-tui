@@ -259,6 +259,30 @@
   border-left-color: var(--t-erc5);
 }
 
+/* The re-polled wait's attempts/budgets metadata (round-7 wire finding) —
+   spaced small chips at the top of the well, not middot-joined into the
+   name (owner's ruling). Extends the async-injection pill (part-inj__pill)
+   styling rather than reusing that class directly, so this stays scoped to
+   the toolrow family like every other part-toolrow__* element. */
+.part-toolrow__metachips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.part-toolrow__metachip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
 .part-toolrow__grid {
   display: grid;
   /* Key column sized by content (owner 2026-08-05: a fixed 110px track
