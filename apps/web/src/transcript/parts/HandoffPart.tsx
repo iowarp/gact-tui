@@ -240,6 +240,10 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
           'data-interactive': 'true' as const,
         }
       : {};
+  // Same gate `interactive` itself applies — the ↗ open affordance only
+  // renders when the box genuinely has somewhere to go (round-10 gate
+  // finding D14; "an affordance that does nothing is a lie").
+  const openable = Boolean(onOpenChild && handleId);
 
   return (
     <div className="part-handoff">
@@ -255,7 +259,10 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
           {status !== 'idle' ? <StatusDot status={status} quiet={status !== 'running'} /> : null}
           {/* ONE identity token (owner: the head duplicated "geospatial
               geospatial #1") — the run label IS the name plus its ordinal. */}
-          <span className="part-childcard__name">{runLabel || child}</span>
+          <span className="part-childcard__name">
+            {runLabel || child}
+            {openable ? <span className="part-open-affordance">{' ↗'}</span> : null}
+          </span>
           {remote ? <span className="part-childcard__host">{placement}</span> : null}
           {/* The status line rides the head's top-right (owner request
               2026-08-05; prototype grammar: duration right-aligned in the

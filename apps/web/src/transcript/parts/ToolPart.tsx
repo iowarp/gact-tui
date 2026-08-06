@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Markdown } from '../markdown';
 import { formatDurationSeconds } from '../../wire/formatters';
-import { isRecord, normalizeWhitespace, truncate } from '../../wire/presentationUtils';
+import { isRecord, normalizeWhitespace, stringValue, truncate } from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
 import {
   extractCsvBlock,
@@ -158,10 +158,35 @@ function formatDurationField(key: string, v: unknown): string | null {
   return formatDurationMs(v) || '0s';
 }
 
+/**
+ * A `loser_runs` field — the not-the-winner siblings of a resolved
+ * conflict — prints as the raw per-run JSON off the wire
+ * (`{"run_index":2,...}`) through every plain stringifier above (round-10
+ * gate finding D11). Each entry's own resolved `run_label`/`name` wins when
+ * present (the same resolved-name contract {@link waitedTasksOf} already
+ * reads); otherwise falls back to `agent #<run_index + 1>` off the one field
+ * every entry carries. Matches on the exact key only, same discipline as
+ * {@link formatDurationField} — never a heuristic guess. `null` when `v`
+ * isn't shaped like a run-descriptor array, so the caller falls through to
+ * the ordinary stringifier untouched.
+ */
+function formatLoserRuns(key: string, v: unknown): string | null {
+  if (key !== 'loser_runs' || !Array.isArray(v) || v.length === 0) return null;
+  if (!v.every((entry) => isRecord(entry))) return null;
+  const names = v.map((entry) => {
+    const label = entry['run_label'] ?? entry['name'];
+    if (typeof label === 'string' && label.length > 0) return label;
+    const index = entry['run_index'];
+    return typeof index === 'number' && Number.isFinite(index) ? `agent #${index + 1}` : null;
+  });
+  return names.every((name): name is string => Boolean(name)) ? names.join(', ') : null;
+}
+
 /** {@link kvValue}, but for a KNOWN object key — routes `duration_ms`
- *  through {@link formatDurationField} first. */
+ *  through {@link formatDurationField} and `loser_runs` through
+ *  {@link formatLoserRuns} first. */
 function kvValueForKey(key: string, v: unknown): string {
-  return formatDurationField(key, v) ?? kvValue(v);
+  return formatDurationField(key, v) ?? formatLoserRuns(key, v) ?? kvValue(v);
 }
 
 function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: string }> {
@@ -207,9 +232,24 @@ function cellValue(v: unknown): string {
 }
 
 /** {@link cellValue}, but for a KNOWN column name — routes a `duration_ms`
- *  column through {@link formatDurationField} first (see kvValueForKey). */
+ *  column through {@link formatDurationField} and a `loser_runs` column
+ *  through {@link formatLoserRuns} first (see kvValueForKey). */
 function cellValueForKey(key: string, v: unknown): string {
-  return formatDurationField(key, v) ?? cellValue(v);
+  return formatDurationField(key, v) ?? formatLoserRuns(key, v) ?? cellValue(v);
+}
+
+/**
+ * A raw wire key rendered as a table HEADER (round-10 gate finding D11):
+ * `duration_ms` is fine as a column NAME in the data, but once the CELLS in
+ * that column are reformatted away from raw milliseconds
+ * ({@link formatDurationField}) the header should say what the reader is
+ * actually looking at. Strips the `_ms` suffix on that one literal key only
+ * — never a blanket underscore/casing rewrite of every header, which would
+ * silently touch wire vocabulary this ladder has deliberately left alone
+ * everywhere else.
+ */
+function humanizeHeader(key: string): string {
+  return key === 'duration_ms' ? 'duration' : key;
 }
 
 /**
@@ -227,8 +267,9 @@ function isUniformObjectArray(value: unknown): value is Array<Record<string, unk
 }
 
 function objectArrayToTable(items: Array<Record<string, unknown>>): { header: string[]; rows: string[][] } {
-  const header = Object.keys(items[0] ?? {});
-  const rows = items.map((item) => header.map((key) => cellValueForKey(key, item[key])));
+  const keys = Object.keys(items[0] ?? {});
+  const header = keys.map(humanizeHeader);
+  const rows = items.map((item) => keys.map((key) => cellValueForKey(key, item[key])));
   return { header, rows };
 }
 
@@ -417,6 +458,47 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
 }
 
 /**
+ * The collapsed row's PREVIEW LINE (round-10 gate finding D3): prefers a
+ * short summary derived from `structured_content` — reusing the SAME shape
+ * predicates the opened well's ladder uses ({@link isUniformObjectArray},
+ * {@link isRecord}, {@link isWaitResultShape}) — over the raw MCP envelope
+ * text. Before this, a collapsed `ndp_search_datasets` row showed
+ * `{"content": [{"text": "{\"datasets\"...` (the raw wire shape) instead of
+ * anything a reader could actually use.
+ *
+ * A uniform table's first row's first column reads as its natural label
+ * ("earthscope_stations (1 row)"); a wait result's own designed `summary`
+ * sentence wins outright when present; otherwise the first genuinely SCALAR
+ * top-level field (skipping array/object values, which are never a one-line
+ * summary) — never a keyword/field-name guess, purely structural, matching
+ * this file's existing discipline. `''` when there is no structured content
+ * to summarize (or nothing in it is scalar), so the caller falls back to the
+ * raw text — never invented, never blank-when-something-real-exists.
+ */
+function structuredPreview(result: WirePart): string {
+  const structured = extractStructuredContent(result);
+  if (isUniformObjectArray(structured)) {
+    const { rows } = objectArrayToTable(structured);
+    const label = rows[0]?.[0];
+    const count = `${rows.length} row${rows.length === 1 ? '' : 's'}`;
+    return label ? `${label} (${count})` : count;
+  }
+  if (isRecord(structured)) {
+    if (isWaitResultShape(structured)) {
+      const summary = structured['summary'];
+      if (typeof summary === 'string' && summary.trim().length > 0) return summary.trim();
+    }
+    for (const [k, v] of Object.entries(structured)) {
+      if (v === null || v === undefined || Array.isArray(v) || isRecord(v)) continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        return `${k}: ${stringValue(v)}`;
+      }
+    }
+  }
+  return '';
+}
+
+/**
  * The metadata chips (attempts/budgets) — spaced, not middot-joined (owner's
  * ruling), pinned at the top of the well ahead of params. Absent facts
  * render nothing, individually: an attempts-only call shows one chip, a
@@ -440,9 +522,25 @@ function MetadataChips({ attempts, budgets }: { attempts?: number; budgets?: num
   );
 }
 
-function KvRows({ rows, testId }: { rows: Array<{ k: string; v: string }>; testId?: string }) {
+/**
+ * `variant="result"` (round-10 gate finding D10) adds the prototype's own
+ * shaded card around a RESULT grid (P-12: center/bbox/provenance sit in a
+ * rounded `var(--t-well)` box) — params stay plain so a reader can tell
+ * "what was sent" from "what came back" without reading every row.
+ */
+function KvRows({
+  rows,
+  testId,
+  variant,
+}: {
+  rows: Array<{ k: string; v: string }>;
+  testId?: string;
+  variant?: 'result';
+}) {
+  const className =
+    variant === 'result' ? 'part-toolrow__grid part-toolrow__grid--result' : 'part-toolrow__grid';
   return (
-    <div className="part-toolrow__grid" data-testid={testId}>
+    <div className={className} data-testid={testId}>
       {rows.map((row) => (
         <div className="part-toolrow__row" key={row.k}>
           <span className="part-toolrow__k">{row.k}</span>
@@ -538,7 +636,7 @@ function NestedSection({ label, value }: { label: string; value: Record<string, 
       </button>
       {open ? (
         <div className="part-toolrow__sectionbody">
-          {rows.length > 0 ? <KvRows rows={rows} /> : null}
+          {rows.length > 0 ? <KvRows rows={rows} variant="result" /> : null}
           {tables.map((t) => (
             <div className="part-toolrow__subtable" key={t.key}>
               <p className="part-toolrow__subtablelabel" data-testid="part-tool-result-subtable-label">
@@ -627,16 +725,23 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // `wait_agent_tasks(["task_cc806f98b07c", ...])`, raw ids). Absent field
   // (older sessions) falls through to today's name(argHint) row unchanged.
   const waited = waitedTasksOf(call);
-  // The collapsed one-line preview is drawn straight from the RAW result
-  // text — for a resolved wait row that text is `{"results": [{"agent_id":
-  // ..., "task_id": "task_...", ...`, the exact raw-id leak the header
-  // above already resolved to names (round-8 owner finding, anomaly A: the
-  // header read `wait (geospatial #1, geospatial #2, geospatia...)` while
-  // the preview line right below it still leaked the raw JSON). The
-  // resolved names are already on screen in the header/argHint, so the
-  // preview is elided entirely here rather than repeating them a second
-  // time or re-parsing structured_content just for this one line.
-  const previewLine = !open && text && !waited ? truncate(normalizeWhitespace(text), PREVIEW_MAX) : '';
+  // The collapsed one-line preview prefers a structured_content-derived
+  // summary (round-10 gate finding D3) over the raw MCP envelope text — a
+  // collapsed `ndp_search_datasets` row used to show `{"content": [{"text":
+  // "{\"datasets\"...` (the raw wire shape) instead of anything a reader
+  // could use. Never for a FAILED result (the raw text/error IS the useful
+  // preview there — unchanged) or a resolved wait row: for a resolved wait
+  // row that text is `{"results": [{"agent_id": ..., "task_id": "task_...",
+  // ...`, the exact raw-id leak the header above already resolved to names
+  // (round-8 owner finding, anomaly A: the header read `wait (geospatial #1,
+  // geospatial #2, geospatia...)` while the preview line right below it
+  // still leaked the raw JSON). The resolved names are already on screen in
+  // the header/argHint, so the preview is elided entirely here rather than
+  // repeating them a second time.
+  const structuredSummary = result && !isError && !waited ? structuredPreview(result) : '';
+  const previewSource = structuredSummary || text;
+  const previewLine =
+    !open && previewSource && !waited ? truncate(normalizeWhitespace(previewSource), PREVIEW_MAX) : '';
 
   const thought = str(call['thought']);
 
@@ -711,7 +816,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
                 case 'kv':
                   return (
                     <>
-                      <KvRows rows={interpreted.rows} testId="part-tool-result-table" />
+                      <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
                       <RawToggle text={text} />
                     </>
                   );
@@ -726,7 +831,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
                   return (
                     <>
                       {interpreted.rows.length > 0 ? (
-                        <KvRows rows={interpreted.rows} testId="part-tool-result-table" />
+                        <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
                       ) : null}
                       {interpreted.tables.map((t) => (
                         <div className="part-toolrow__subtable" key={t.key}>
@@ -771,7 +876,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
                           <ResultTable header={resultsTable.header} rows={resultsTable.rows} />
                         </div>
                       ) : resultsRows.length > 0 ? (
-                        <KvRows rows={resultsRows} testId="part-tool-wait-results" />
+                        <KvRows rows={resultsRows} testId="part-tool-wait-results" variant="result" />
                       ) : null}
                       {/* workflow_state_conflicts, WHEN PRESENT, as its own
                           typed line — never blended into a generic KV row a
@@ -794,10 +899,11 @@ export function ToolPart({ call, result }: ToolPartProps) {
                           <KvRows
                             rows={conflicts.map((c, i) => ({ k: String(i), v: kvValue(c) }))}
                             testId="part-tool-wait-conflicts-rows"
+                            variant="result"
                           />
                         )
                       ) : null}
-                      {otherRows.length > 0 ? <KvRows rows={otherRows} /> : null}
+                      {otherRows.length > 0 ? <KvRows rows={otherRows} variant="result" /> : null}
                       {mergedState ? <NestedSection label="merged_workflow_state" value={mergedState} /> : null}
                       <RawToggle text={text} />
                     </>

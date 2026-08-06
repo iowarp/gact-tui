@@ -812,3 +812,202 @@ describe('wait ladder gate -- BOTH tool_name AND structured_content are required
     expect(kv).toHaveTextContent('pending');
   });
 });
+
+describe('collapsed preview prefers a structured_content summary over the raw envelope (round-10 gate finding D3)', () => {
+  it('shows the first scalar field off structured_content instead of the raw MCP envelope', () => {
+    render(
+      <ToolPart
+        call={toolCall('ndp_search_datasets', { search_terms: ['earthscope'] }, 'call_50')}
+        result={toolResult('call_50', {
+          content: [
+            {
+              type: 'text',
+              text: '{"content": [{"text": "{\\"datasets\\": [{\\"id\\": \\"abc\\"}]"}]}',
+            },
+          ],
+          structured_content: {
+            datasets: [{ id: 'abc', name: 'earthscope_stations' }],
+            count: 1,
+            total_found: 1,
+            server: 'global',
+          },
+        })}
+      />,
+    );
+    // Collapsed — the row was never opened.
+    expect(screen.getByText('count: 1')).toBeInTheDocument();
+    expect(screen.queryByText(/"datasets"/)).toBeNull();
+    expect(screen.queryByText(/\{"content"/)).toBeNull();
+  });
+
+  it('falls back to the raw text when structured_content has no top-level scalar', () => {
+    render(
+      <ToolPart
+        call={toolCall('geo_geocode', { query: 'LA' }, 'call_51')}
+        result={toolResult('call_51', {
+          content: [{ type: 'text', text: 'plain prose result' }],
+          structured_content: { points: [{ lat: 1 }, { lat: 2 }] },
+        })}
+      />,
+    );
+    expect(screen.getByText('plain prose result')).toBeInTheDocument();
+  });
+
+  it('falls back to the raw text when there is no structured_content at all', () => {
+    render(
+      <ToolPart
+        call={toolCall('shell_exec', {}, 'call_54')}
+        result={toolResult('call_54', { content: [{ type: 'text', text: 'stdout only' }] })}
+      />,
+    );
+    expect(screen.getByText('stdout only')).toBeInTheDocument();
+  });
+
+  it('a FAILED result keeps its raw text preview, never a structured summary (failed rows already correct)', () => {
+    render(
+      <ToolPart
+        call={toolCall('ndp_search_datasets', {}, 'call_52')}
+        result={toolResult('call_52', {
+          is_error: true,
+          content: [{ type: 'text', text: 'search failed: timeout' }],
+          structured_content: { count: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('search failed: timeout')).toBeInTheDocument();
+    expect(screen.queryByText('count: 0')).toBeNull();
+  });
+
+  it('a wait-shaped structured_content prefers its own designed summary sentence', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_other_wait_lookalike', {}, 'call_53')}
+        result={toolResult('call_53', {
+          content: [{ type: 'text', text: 'raw envelope text' }],
+          structured_content: {
+            results: [],
+            merged_workflow_state: {},
+            summary: 'waited 1.2s for 3 tasks',
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText('waited 1.2s for 3 tasks')).toBeInTheDocument();
+  });
+});
+
+describe('table headers humanize duration_ms -> duration (round-10 gate finding D11)', () => {
+  it('renders "duration" as the column header while the raw key still drives the cell lookup', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_60')}
+        result={toolResult('call_60', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', duration_ms: 4300 }],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getByRole('columnheader', { name: 'duration' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'duration_ms' })).toBeNull();
+    expect(screen.getByText('4.3s')).toBeInTheDocument();
+  });
+
+  it('leaves every other header exactly as it was on the wire', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_61')}
+        result={toolResult('call_61', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [{ task_id: 't1', run_index: 0 }],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getByRole('columnheader', { name: 'task_id' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'run_index' })).toBeInTheDocument();
+  });
+});
+
+describe('loser_runs cells resolve to run names, not raw JSON (round-10 gate finding D11)', () => {
+  it('renders "agent #<run_index + 1>" when no resolved name is present on the entry', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_62')}
+        result={toolResult('call_62', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [],
+            workflow_state_conflicts: [
+              {
+                key: 'region',
+                parent_value: 'LA',
+                child_value: 'SF',
+                loser_runs: [
+                  { run_index: 1, agent_id: 'geospatial' },
+                  { run_index: 2, agent_id: 'geospatial' },
+                ],
+              },
+            ],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(grid).toHaveTextContent('agent #2, agent #3');
+    expect(grid).not.toHaveTextContent('run_index');
+    expect(screen.queryByText(/"run_index":2/)).toBeNull();
+  });
+
+  it('prefers the entry\'s own resolved run_label over the agent-#N fallback', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_63')}
+        result={toolResult('call_63', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [],
+            workflow_state_conflicts: [
+              {
+                key: 'region',
+                loser_runs: [{ run_index: 0, run_label: 'geospatial #1' }],
+              },
+            ],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(grid).toHaveTextContent('geospatial #1');
+  });
+});
+
+describe('the result well is visually separated from params (round-10 gate finding D10)', () => {
+  it('shades the RESULT grid but leaves the params grid plain', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall('geo_geocode', { query: 'Los Angeles, California' }, 'call_70')}
+        result={toolResult('call_70', {
+          content: [{ type: 'text', text: 'resolved' }],
+          structured_content: { center: '34.05,-118.24', provenance: 'osm_nominatim' },
+        })}
+      />,
+    );
+    openRow(/geo_geocode/);
+    const resultGrid = screen.getByTestId('part-tool-result-table');
+    expect(resultGrid.className).toContain('part-toolrow__grid--result');
+    const paramsGrid = container.querySelector('.part-toolrow__well > .part-toolrow__grid');
+    expect(paramsGrid).not.toBeNull();
+    expect(paramsGrid?.className).not.toContain('part-toolrow__grid--result');
+  });
+});

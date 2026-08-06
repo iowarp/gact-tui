@@ -140,6 +140,24 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
     expect(onOpenChild).toHaveBeenCalledWith('task_a', 'geospatial', { peek: false });
   });
 
+  it('the collapsed one-line summary never uses a middot separator — not dangling, not anywhere (round-10 gate finding D7)', () => {
+    const onOpenChild = vi.fn();
+    render(<Transcript messages={[msg('m1', THREE_SIBLINGS)]} onOpenChild={onOpenChild} />);
+    fireEvent.click(screen.getByRole('button', { name: /fanout\(geospatial × 3\)/ }));
+
+    const rows = screen.getAllByTestId('part-fanout-child');
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.textContent).not.toContain('·');
+    }
+    // The completed rows (A and C) still carry a duration, right-aligned —
+    // proving duration wasn't silently dropped along with the separators.
+    expect(rows[0]).toHaveTextContent('12s');
+    // The name still carries the ↗ open affordance (D14) right next to it,
+    // not a middot-joined field.
+    expect(rows[0]).toHaveTextContent('geospatial #1 ↗');
+  });
+
   it('names the total from metadata.group_size even before every sibling part has streamed in', () => {
     // Only 2 of 3 declared siblings have arrived on the wire so far — the
     // group_size field is the declared total, not a count of what rendered.

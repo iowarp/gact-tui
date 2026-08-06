@@ -197,6 +197,10 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
             formatDurationMs(row.durationRaw) ||
             str(row.part['duration'] ?? row.part['elapsed']);
           const interactive = rowInteractive(onOpenChild, row.handleId, row.child, row.running);
+          // Same gate rowInteractive itself applies — the ↗ affordance only
+          // renders when the row genuinely has somewhere to go (round-10
+          // gate finding D14; "an affordance that does nothing is a lie").
+          const openable = Boolean(onOpenChild && row.handleId);
           const name = row.runLabel || row.child;
           const rowKey = row.handleId || `${row.child}:${row.runLabel}`;
 
@@ -210,17 +214,19 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
                 {...interactive}
               >
                 <StatusDot status={row.status} quiet={row.status !== 'running'} />
-                <span className="part-fanout__linename">{name}</span>
-                <span className="part-fanout__linesep">·</span>
+                {/* No middot separators (round-10 gate finding D7 — the app's
+                    no-middot separator grammar, see detail.css/DetailSlot's
+                    owner 3c deletion): the flex `gap` plus each segment's own
+                    color/weight already reads as distinct fields, and
+                    duration stays right-aligned via its own margin-left:auto. */}
+                <span className="part-fanout__linename">
+                  {name}
+                  {openable ? <span className="part-open-affordance">{' ↗'}</span> : null}
+                </span>
                 <span className="part-fanout__linestatus" data-state={row.status}>
                   {row.status === 'running' ? 'running' : row.status === 'error' ? 'failed' : 'completed'}
                 </span>
-                {duration ? (
-                  <>
-                    <span className="part-fanout__linesep">·</span>
-                    <span className="part-fanout__lineduration">{duration}</span>
-                  </>
-                ) : null}
+                {duration ? <span className="part-fanout__lineduration">{duration}</span> : null}
               </div>
             );
           }
@@ -235,7 +241,10 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
             >
               <div className="part-fanout__rowhead">
                 <StatusDot status={row.status} quiet={row.status !== 'running'} />
-                <span className="part-fanout__rowname">{name}</span>
+                <span className="part-fanout__rowname">
+                  {name}
+                  {openable ? <span className="part-open-affordance">{' ↗'}</span> : null}
+                </span>
                 {row.handleId ? <span className="part-fanout__handle">{row.handleId}</span> : null}
                 <span className="part-fanout__rowfoot" data-state={row.status}>
                   {footText(row.status, duration)}

@@ -298,8 +298,16 @@
   display: grid;
   /* Key column sized by content (owner 2026-08-05: a fixed 110px track
      overflowed on long keys like merged_workflow_state), capped so a
-     pathological key never squeezes the value out. */
-  grid-template-columns: minmax(90px, min(max-content, 240px)) minmax(0, 1fr);
+     pathological key never squeezes the value out.
+     `minmax(90px, min(max-content, 240px))` — a math function mixing the
+     `max-content` KEYWORD with a length — is invalid per the CSS Values
+     spec (round-10 gate finding D10 root cause): browsers silently drop the
+     whole declaration, so this fell back to its initial `none` and every
+     row's key/value stacked into one implicit column instead of two. A
+     plain `max-content` bound is valid; the 240px cap moves to the cell
+     itself (`.part-toolrow__k`'s `max-width`) instead of nesting inside
+     minmax(). */
+  grid-template-columns: minmax(90px, max-content) minmax(0, 1fr);
   row-gap: 3px;
   column-gap: 12px;
 }
@@ -309,6 +317,7 @@
 }
 
 .part-toolrow__k {
+  max-width: 240px;
   color: var(--t-mu);
   overflow-wrap: anywhere;
 }
@@ -316,6 +325,16 @@
 .part-toolrow__v {
   color: var(--t-pr);
   word-break: break-word;
+}
+
+/* The RESULT half of the well gets the prototype's own shaded box (P-12:
+   query/countrycodes render plain, center/bbox/provenance sit in a rounded
+   var(--t-well) card) — params stay plain so a reader can tell "what was
+   sent" from "what came back" at a glance (round-10 gate finding D10). */
+.part-toolrow__grid--result {
+  padding: 8px 10px;
+  background: var(--t-well);
+  border-radius: 4px;
 }
 
 .part-toolrow__result {
@@ -595,6 +614,49 @@
   gap: 8px;
   font-family: var(--f-prose);
   font-size: calc(14px * var(--ts));
+}
+
+/* The open-agent affordance (↗) next to a Call box's / fanout row's name —
+ * the prototype's own `sg.child`/`pp.name` grammar: cyan against the bold
+ * name, rendered only when the row genuinely has somewhere to go (round-10
+ * gate finding D14). Shared by HandoffPart's MergedHandoff and
+ * FanoutGroup's rows — both live in this stylesheet. */
+.part-open-affordance {
+  color: var(--t-cy, #0aa6ad);
+}
+
+/* The prototype's OWN running-dot curve for Call/fanout boxes (measured:
+ * the isTask dot's `animation:clio-pulse 1.4s ease-in-out infinite` —
+ * opacity .5->1 AND scale .85->1.15, i.e. it GROWS and brightens) — distinct
+ * from kit-statusdot's default `kit-pip` (shrinks/dims), which is the right
+ * curve everywhere else but wrong here (round-10 gate finding D17). Named
+ * apart from this file's OWN (differently-curved) `clio-pulse` below to
+ * avoid colliding with that unrelated usage; scoped to these two box heads
+ * only — every other kit-statusdot usage keeps its default. */
+@keyframes part-callbox-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.part-childcard__head .kit-statusdot[data-state='running'],
+.part-fanout__rowhead .kit-statusdot[data-state='running'],
+.part-fanout__line .kit-statusdot[data-state='running'] {
+  animation: part-callbox-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part-childcard__head .kit-statusdot[data-state='running'],
+  .part-fanout__rowhead .kit-statusdot[data-state='running'],
+  .part-fanout__line .kit-statusdot[data-state='running'] {
+    animation: none;
+  }
 }
 
 @keyframes clio-pulse {
@@ -1121,12 +1183,15 @@ button.part-artchip {
   -webkit-box-orient: vertical;
 }
 
-/* The collapsed one-line summary — "name · status · duration" per child,
-   never fewer rows than the expanded frame, just less of each row. */
+/* The collapsed one-line summary — "name status duration" per child, never
+   fewer rows than the expanded frame, just less of each row. No middot
+   separators (round-10 gate finding D7): each segment's own color/weight
+   plus the flex `gap` already reads as distinct fields; duration stays
+   right-aligned via its own margin-left: auto below. */
 .part-fanout__line {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 4px 6px;
   border-radius: 6px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -1144,10 +1209,6 @@ button.part-artchip {
 .part-fanout__linename {
   color: var(--t-hd);
   font-weight: 600;
-}
-
-.part-fanout__linesep {
-  color: var(--t-mu);
 }
 
 .part-fanout__linestatus {
