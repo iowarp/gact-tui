@@ -192,4 +192,52 @@ describe('a settled wait row renders resolved names, never raw task-id JSON', ()
     expect(screen.getByText('wait_agent_tasks')).toBeInTheDocument();
     expect(screen.queryByText('wait(geospatial #1, hydrology #1)')).toBeNull();
   });
+
+  // Round-8 anomaly A: the header above already reads
+  // `wait (geospatial #1, hydrology #1)` (resolved names), but the
+  // collapsed one-line PREVIEW right below it was drawn straight from the
+  // raw result text and leaked
+  // `{"results": [{"agent_id": "geospatial", "parent_id": "main",
+  // "task_id": "task_138520408721", ...` — a live-captured regression, not
+  // reproducible with the trivial `{"results": []}` fixture the tests above
+  // use.
+  it('elides the collapsed preview line entirely rather than leaking raw task-id JSON under the resolved header', () => {
+    const call = waitCallWithMetadata(NAMES);
+    const result: WirePart = {
+      type: 'tool_result',
+      call_id: 'call_wait',
+      is_error: false,
+      content: [
+        {
+          type: 'text',
+          text: '{"results": [{"agent_id": "geospatial", "parent_id": "main", "task_id": "task_138520408721", "status": "completed"}]}',
+        },
+      ],
+    };
+    render(<ToolPart call={call} result={result} />);
+    // The resolved header is still there…
+    expect(screen.getByText('(geospatial #1, hydrology #1)')).toBeInTheDocument();
+    // …but no preview paragraph, and no raw id, leaked below it while closed.
+    expect(screen.queryByText(/task_138520408721/)).toBeNull();
+    expect(document.querySelector('.part-toolrow__preview')).toBeNull();
+  });
+
+  it('a non-wait row keeps its collapsed preview line (only wait rows elide it)', () => {
+    const call: WirePart = {
+      type: 'tool_call',
+      id: 'call_geo',
+      call_id: 'call_geo',
+      tool_name: 'geo_geocode',
+      input: { query: 'Los Angeles, California' },
+    };
+    const result: WirePart = {
+      type: 'tool_result',
+      call_id: 'call_geo',
+      is_error: false,
+      content: [{ type: 'text', text: '{"display_name": "Los Angeles, California"}' }],
+    };
+    render(<ToolPart call={call} result={result} />);
+    expect(document.querySelector('.part-toolrow__preview')).not.toBeNull();
+    expect(screen.getByText(/display_name/)).toBeInTheDocument();
+  });
 });

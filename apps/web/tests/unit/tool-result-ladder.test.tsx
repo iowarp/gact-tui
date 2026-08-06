@@ -605,6 +605,153 @@ describe('wait result shape -- results/workflow_state_conflicts/merged_workflow_
   });
 });
 
+describe('wait result shape -- summary leads the well (round-8 owner finding: it used to render after conflicts)', () => {
+  it('renders the wire summary string as its own line, BEFORE the results table', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_36')}
+        result={toolResult('call_36', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            summary: 'waited 1.2s for 3 tasks — 3 completed',
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            workflow_state_conflicts: [{ key: 'region', parent_value: 'LA', child_value: 'SF' }],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const summary = screen.getByTestId('part-tool-wait-summary');
+    expect(summary).toHaveTextContent('waited 1.2s for 3 tasks — 3 completed');
+
+    // Declared order: summary, results, conflicts, merged. (Not
+    // `part-tool-result-grid`: BOTH the results table and the uniform
+    // conflicts table share that testid, so it can't anchor a single well.)
+    const well = summary.closest('.part-toolrow__well')!;
+    const order = Array.from(well.children).map((el) => el.className);
+    const summaryIndex = order.findIndex((c) => c.includes('part-toolrow__summary'));
+    const resultsIndex = order.findIndex((c) => c.includes('part-toolrow__subtable'));
+    const conflictsIndex = order.findIndex((c) => c.includes('part-toolrow__conflicts'));
+    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(summaryIndex).toBeLessThan(resultsIndex);
+    expect(resultsIndex).toBeLessThan(conflictsIndex);
+  });
+
+  it('never double-renders summary in the generic KV grid', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_37')}
+        result={toolResult('call_37', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            summary: 'waited 1.2s for 3 tasks — 3 completed',
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getAllByText(/waited 1\.2s for 3 tasks/)).toHaveLength(1);
+    expect(screen.queryByText('summary')).toBeNull();
+  });
+
+  it('omits the summary line entirely when the wire carries none (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_38')}
+        result={toolResult('call_38', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.queryByTestId('part-tool-wait-summary')).toBeNull();
+  });
+});
+
+describe('duration_ms renders human-readable, not raw float noise (round-8 owner finding, anomaly C)', () => {
+  it('formats a duration_ms column in the results table as "Nm Ns" / "N.Ns", never the raw float', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_39')}
+        result={toolResult('call_39', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [
+              { task_id: 't1', name: 'geospatial #1', status: 'completed', duration_ms: 73215.67400000001 },
+              { task_id: 't2', name: 'ndp #1', status: 'completed', duration_ms: 70664.295 },
+            ],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getByText('1m 13s')).toBeInTheDocument();
+    expect(screen.getByText('1m 11s')).toBeInTheDocument();
+    expect(screen.queryByText(/73215\.67/)).toBeNull();
+    expect(screen.queryByText(/70664\.295/)).toBeNull();
+  });
+
+  it('formats a sub-minute duration_ms with one decimal (matches the header badge\'s own idiom)', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_40')}
+        result={toolResult('call_40', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed', duration_ms: 4300 }],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getByText('4.3s')).toBeInTheDocument();
+  });
+
+  it('leaves every OTHER numeric column exactly as it was — only the literal `duration_ms` key is reformatted', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_41')}
+        result={toolResult('call_41', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [
+              { task_id: 't1', name: 'geospatial #1', status: 'completed', duration_ms: 4300, retry_count: 73215 },
+            ],
+            merged_workflow_state: {},
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.getByText('4.3s')).toBeInTheDocument();
+    expect(screen.getByText('73215')).toBeInTheDocument();
+  });
+
+  it('a non-wait structured object with its own duration_ms field is formatted the same way, in the KV grid', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_other_tool', {}, 'call_42')}
+        result={toolResult('call_42', {
+          content: [{ type: 'text', text: 'done' }],
+          structured_content: { ok: true, duration_ms: 4300 },
+        })}
+      />,
+    );
+    openRow(/some_other_tool/);
+    expect(screen.getByText('4.3s')).toBeInTheDocument();
+    expect(screen.queryByText(/^4300$/)).toBeNull();
+  });
+});
+
 /**
  * Finding A (adversarial review, P4R): the wait interpretation branch
  * requires BOTH the call's own tool_name being wait-family AND a real

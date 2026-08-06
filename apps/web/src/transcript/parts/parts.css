@@ -143,6 +143,16 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Without this, a wide result table (long answer_excerpt/loser_runs cells)
+     stretched this whole flex column past the transcript's 860px reading
+     column instead of scrolling inside .part-toolrow__tablewrap's own
+     overflow-x — the column has no horizontal scroller of its own, so the
+     table just clipped at the viewport edge with no visible affordance
+     (round-8 owner finding, anomaly B). min-width: 0 on every flex
+     container down this chain (this rule, __well, __subtable below) lets
+     the table's own wrapper be the one that actually scrolls, matching
+     .kit-partcard__body's and .transcript__message's own min-width: 0. */
+  min-width: 0;
 }
 
 .part-toolrow__head {
@@ -253,6 +263,7 @@
   border-left: 2px solid var(--t-bd3);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: calc(12px * var(--ts));
+  min-width: 0;
 }
 
 .part-toolrow__well[data-error='true'] {
@@ -359,6 +370,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .part-toolrow__subtablelabel {
@@ -493,6 +505,17 @@
 
 .part-toolrow__conflicts[data-empty='true'] {
   color: var(--t-mu);
+}
+
+/* The wait row's own `summary` string ("waited 1.2s for 3 tasks — 3
+   completed") — a visible typed line leading the well, same treatment as
+   .part-toolrow__conflicts (a fact the reader should not have to skim a KV
+   grid to find). */
+.part-toolrow__summary {
+  margin: 0;
+  color: var(--t-mu);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(12px * var(--ts));
 }
 
 /* The step's reasoning (tool_call.thought) renders as the prose block above

@@ -11,6 +11,7 @@ import {
   type ContentImageBlock,
 } from './toolResultText';
 import { sanitizeTitle } from './titleSanitizer';
+import { formatDurationMs } from './HandoffPart';
 
 export interface ToolPartProps {
   call: WirePart;
@@ -142,8 +143,29 @@ function kvValue(v: unknown): string {
   return typeof v === 'string' ? v : (JSON.stringify(v, null, 1) ?? String(v));
 }
 
+/**
+ * A field literally named `duration_ms` prints as raw float noise straight
+ * off the wire (`73215.67400000001`) through every plain stringifier above
+ * — the collapsed row's own duration badge already reads a clean "1.4s"
+ * (`formatDurationSeconds`, imported above), but a `duration_ms` KV/table
+ * cell inside the OPENED well did not (round-8 owner finding, anomaly C).
+ * Reuses HandoffPart's shared "1m 13.2s" / "73.2s" idiom rather than
+ * growing a second formatter here. Matches on the exact key only — never a
+ * heuristic guess at "this number looks like a duration."
+ */
+function formatDurationField(key: string, v: unknown): string | null {
+  if (key !== 'duration_ms' || typeof v !== 'number' || !Number.isFinite(v)) return null;
+  return formatDurationMs(v) || '0s';
+}
+
+/** {@link kvValue}, but for a KNOWN object key — routes `duration_ms`
+ *  through {@link formatDurationField} first. */
+function kvValueForKey(key: string, v: unknown): string {
+  return formatDurationField(key, v) ?? kvValue(v);
+}
+
 function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: string }> {
-  return Object.entries(obj).map(([k, v]) => ({ k, v: kvValue(v) }));
+  return Object.entries(obj).map(([k, v]) => ({ k, v: kvValueForKey(k, v) }));
 }
 
 /**
@@ -184,6 +206,12 @@ function cellValue(v: unknown): string {
   return typeof v === 'string' ? v : (JSON.stringify(v) ?? String(v));
 }
 
+/** {@link cellValue}, but for a KNOWN column name — routes a `duration_ms`
+ *  column through {@link formatDurationField} first (see kvValueForKey). */
+function cellValueForKey(key: string, v: unknown): string {
+  return formatDurationField(key, v) ?? cellValue(v);
+}
+
 /**
  * `structured_content` (or a text/csv content block) only earns the real
  * table renderer when every array element is a plain object carrying the
@@ -200,7 +228,7 @@ function isUniformObjectArray(value: unknown): value is Array<Record<string, unk
 
 function objectArrayToTable(items: Array<Record<string, unknown>>): { header: string[]; rows: string[][] } {
   const header = Object.keys(items[0] ?? {});
-  const rows = items.map((item) => header.map((key) => cellValue(item[key])));
+  const rows = items.map((item) => header.map((key) => cellValueForKey(key, item[key])));
   return { header, rows };
 }
 
@@ -245,7 +273,7 @@ function splitStructuredObject(obj: Record<string, unknown>): {
       sections.push({ key: k, value: v });
       continue;
     }
-    rows.push({ k, v: kvValue(v) });
+    rows.push({ k, v: kvValueForKey(k, v) });
   }
   return { rows, tables, sections };
 }
@@ -271,6 +299,13 @@ type InterpretedResult =
     }
   | {
       kind: 'wait';
+      /** The wire's own `summary` string ("waited 1.2s for 3 tasks — 3
+       *  completed"), when present — rendered as its OWN first line, ahead
+       *  of the results table (round-8 owner finding: it used to fall into
+       *  the generic `otherRows` KV grid, which rendered AFTER the
+       *  conflicts block instead of leading the well as the declared shape
+       *  says: summary, results, conflicts, merged). */
+      summary: string | undefined;
       resultsTable: { header: string[]; rows: string[][] } | null;
       resultsRows: Array<{ k: string; v: string }>;
       conflicts: unknown[] | undefined;
@@ -313,7 +348,7 @@ function isWaitResultShape(obj: Record<string, unknown>): boolean {
  * order.
  */
 function buildWaitInterpretation(obj: Record<string, unknown>): Extract<InterpretedResult, { kind: 'wait' }> {
-  const { results, workflow_state_conflicts, merged_workflow_state, ...rest } = obj;
+  const { results, workflow_state_conflicts, merged_workflow_state, summary, ...rest } = obj;
   const resultsArray = Array.isArray(results) ? results : [];
   const resultsTable = isUniformObjectArray(resultsArray) ? objectArrayToTable(resultsArray) : null;
   const resultsRows =
@@ -322,8 +357,11 @@ function buildWaitInterpretation(obj: Record<string, unknown>): Extract<Interpre
       : [];
   const conflicts = Array.isArray(workflow_state_conflicts) ? workflow_state_conflicts : undefined;
   const mergedState = isRecord(merged_workflow_state) ? merged_workflow_state : null;
+  // Pulled out of `rest` (never double-rendered in otherRows below) — its
+  // own dedicated typed line, not a generic KV row.
+  const summaryText = typeof summary === 'string' && summary.trim().length > 0 ? summary : undefined;
   const otherRows = kvRowsFromObject(rest);
-  return { kind: 'wait', resultsTable, resultsRows, conflicts, mergedState, otherRows };
+  return { kind: 'wait', summary: summaryText, resultsTable, resultsRows, conflicts, mergedState, otherRows };
 }
 
 /**
@@ -582,9 +620,6 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const meta = durationMs !== undefined ? `${formatDurationSeconds(durationMs)}s` : '';
   const mark = result ? (isError ? '✗' : '✓') : '';
   const text = result ? extractToolResultText(result) : '';
-  const previewLine = !open && text ? truncate(normalizeWhitespace(text), PREVIEW_MAX) : '';
-
-  const thought = str(call['thought']);
 
   // A settled wait_agent_tasks/check_agent_tasks call: `wait(<name>, <name>,
   // <name>)` — the server-resolved names verbatim (owner, round-7 live
@@ -592,6 +627,18 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // `wait_agent_tasks(["task_cc806f98b07c", ...])`, raw ids). Absent field
   // (older sessions) falls through to today's name(argHint) row unchanged.
   const waited = waitedTasksOf(call);
+  // The collapsed one-line preview is drawn straight from the RAW result
+  // text — for a resolved wait row that text is `{"results": [{"agent_id":
+  // ..., "task_id": "task_...", ...`, the exact raw-id leak the header
+  // above already resolved to names (round-8 owner finding, anomaly A: the
+  // header read `wait (geospatial #1, geospatial #2, geospatia...)` while
+  // the preview line right below it still leaked the raw JSON). The
+  // resolved names are already on screen in the header/argHint, so the
+  // preview is elided entirely here rather than repeating them a second
+  // time or re-parsing structured_content just for this one line.
+  const previewLine = !open && text && !waited ? truncate(normalizeWhitespace(text), PREVIEW_MAX) : '';
+
+  const thought = str(call['thought']);
 
   // A) Tool titles (owner design 2026-08-05): `tool_title`/`server_title` are
   // OPTIONAL wire fields on the tool_call. Presence is judged on the RAW
@@ -699,9 +746,20 @@ export function ToolPart({ call, result }: ToolPartProps) {
                     </>
                   );
                 case 'wait': {
-                  const { resultsTable, resultsRows, conflicts, mergedState, otherRows } = interpreted;
+                  const { summary, resultsTable, resultsRows, conflicts, mergedState, otherRows } =
+                    interpreted;
                   return (
                     <>
+                      {/* Declared shape: summary, results, conflicts, merged
+                          — leads the well, right after the metachips above
+                          (round-8 owner finding: this used to render AFTER
+                          the conflicts block, folded anonymously into the
+                          generic otherRows KV grid). */}
+                      {summary ? (
+                        <p className="part-toolrow__summary" data-testid="part-tool-wait-summary">
+                          {summary}
+                        </p>
+                      ) : null}
                       {resultsTable ? (
                         <div className="part-toolrow__subtable">
                           <p
