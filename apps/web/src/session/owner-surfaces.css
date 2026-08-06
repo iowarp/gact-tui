@@ -32,21 +32,41 @@
 .files-layer__browse[data-unbacked='true']:hover { background: var(--t-erc06); }
 
 .files-layer__body {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  display: flex;
   height: 100%;
   min-height: 0;
 }
 .files-layer__tree {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 0;
   padding: 10px 8px;
   overflow-y: auto;
   border-right: 1px solid var(--t-bd3);
 }
+.files-layer__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 8px;
+  color: var(--t-mu);
+  font: calc(10px * var(--ts))/1.5 var(--f-mono);
+}
+.files-layer__crumbs button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t-cy);
+  font: inherit;
+  cursor: pointer;
+}
+.files-layer__crumbs button:disabled { color: var(--t-hd); cursor: default; }
+.files-layer__crumbs button:not(:disabled):hover { text-decoration: underline; }
 .files-layer__preview {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
   min-height: 0;
 }
@@ -105,6 +125,29 @@
 }
 .files-layer__empty, .files-layer__error { margin: 24px 0; color: var(--t-mu); font-family: var(--f-mono); font-size: calc(11px * var(--ts)); text-align: center; }
 .files-layer__error { color: var(--t-er); }
+
+.files-layer__imagewrap {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 14px;
+  overflow: auto;
+}
+.files-layer__image { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.files-layer__csvwrap { flex: 1; min-height: 0; overflow: auto; padding: 0 14px; }
+.files-layer__csv { width: 100%; border-collapse: collapse; font: calc(10.5px * var(--ts))/1.4 var(--f-mono); }
+.files-layer__csv th, .files-layer__csv td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--t-bd3);
+  white-space: nowrap;
+  text-align: left;
+}
+.files-layer__csv th { color: var(--t-hd); position: sticky; top: 0; background: var(--t-bg); }
+.files-layer__csv td { color: var(--t-tx); }
+.files-layer__csvfoot { margin: 8px 0; color: var(--t-mu); font: calc(10px * var(--ts))/1.4 var(--f-mono); }
 
 .session-files__filter {
   display: flex;
@@ -177,10 +220,7 @@
   color: var(--t-mu);
   font-size: calc(11px * var(--ts));
   line-height: 1;
-  transform: rotate(0deg);
-  transition: transform 120ms ease;
 }
-.files-layer__chev[data-open='true'] { transform: rotate(90deg); }
 
 .session-search { display: flex; flex-direction: column; min-height: 320px; }
 .session-search__results { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow: auto; }

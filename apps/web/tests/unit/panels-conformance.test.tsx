@@ -45,6 +45,18 @@ function client(overrides: Record<string, unknown> = {}): Client {
       mime: 'text/markdown',
       size: 512,
     })),
+    // FilesLayer reads through `readWorkspaceFile` (base64 + media_type —
+    // the actual shape the raw-bytes read route normalizes to), not
+    // `workspaceReadFile`'s JSON-content sibling.
+    readWorkspaceFile: vi.fn(async () => ({
+      path: 'notes/run_notes.md',
+      display_path: 'notes/run_notes.md',
+      size: 512,
+      media_type: 'text/markdown',
+      source_media_type: 'text/markdown',
+      encoding: 'base64',
+      data: Buffer.from('first line of the run notes', 'utf-8').toString('base64'),
+    })),
     commands: vi.fn(async () => ({ commands: [] })),
     providers: vi.fn(async () => ({ providers: [] })),
     get: vi.fn(async () => ({ tasks: [] })),
@@ -76,6 +88,9 @@ describe('files layer — modal window, not a right pane', () => {
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
     const dialog = await screen.findByRole('dialog', { name: 'files' });
 
+    // run_notes.md lives under notes/ — descend into it first (drill-down
+    // navigation, owner defect A3), then select the file.
+    fireEvent.click(await within(dialog).findByRole('button', { name: /^notes/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: /run_notes\.md/i }));
     await within(dialog).findByText(/first line of the run notes/i);
 
@@ -110,7 +125,7 @@ describe('files layer — folder tree, not a flat list', () => {
     });
   }
 
-  it('groups a flat backend listing into real nested folders, root level open by default', async () => {
+  it('groups a flat backend listing into real nested folders, root children visible without descending', async () => {
     render(<SessionView client={treeClient()} sessions={SESSIONS} />);
     await selectSession();
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
@@ -123,15 +138,37 @@ describe('files layer — folder tree, not a flat list', () => {
     expect(within(dialog).queryByRole('button', { name: /deep\.txt/i })).toBeNull();
   });
 
-  it('expands a nested folder on click to reveal its file', async () => {
+  it('descends into a directory on click to reveal exactly its children, one level at a time', async () => {
     render(<SessionView client={treeClient()} sessions={SESSIONS} />);
     await selectSession();
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
     const dialog = await screen.findByRole('dialog', { name: 'files' });
+    await within(dialog).findByRole('button', { name: /^data/ });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /^data/ }));
     await within(dialog).findByRole('button', { name: /earthscope_stations\.csv/i });
+    expect(within(dialog).getByRole('button', { name: /^nested/ })).toBeInTheDocument();
+    // README.md, a sibling of data/ at root, is no longer shown once we've
+    // descended — a real directory listing, not an always-expanded accordion.
+    expect(within(dialog).queryByRole('button', { name: /readme\.md/i })).toBeNull();
 
     fireEvent.click(within(dialog).getByRole('button', { name: /^nested/ }));
     expect(within(dialog).getByRole('button', { name: /deep\.txt/i })).toBeInTheDocument();
+  });
+
+  it('goes back up via the breadcrumb, restoring the parent directory listing', async () => {
+    render(<SessionView client={treeClient()} sessions={SESSIONS} />);
+    await selectSession();
+    fireEvent.click(screen.getByRole('button', { name: 'files' }));
+    const dialog = await screen.findByRole('dialog', { name: 'files' });
+
+    fireEvent.click(await within(dialog).findByRole('button', { name: /^data/ }));
+    await within(dialog).findByRole('button', { name: /earthscope_stations\.csv/i });
+    expect(within(dialog).queryByRole('button', { name: /readme\.md/i })).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'root' }));
+    expect(await within(dialog).findByRole('button', { name: /readme\.md/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /earthscope_stations\.csv/i })).toBeNull();
   });
 
   it('filtering reveals a deep match without requiring the user to expand its ancestors first', async () => {
@@ -172,29 +209,28 @@ describe('files layer — the wire spells directories "dir", not "directory"', (
     });
   }
 
-  it('renders a wire-listed "dir" entry as a folder chevron row, not a flat file row', async () => {
+  it('renders a wire-listed "dir" entry as a folder-icon row, not a flat file row', async () => {
     render(<SessionView client={dirWireClient()} sessions={SESSIONS} />);
     await selectSession();
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
     const dialog = await screen.findByRole('dialog', { name: 'files' });
 
     const claudeRow = await within(dialog).findByRole('button', { name: /^\.claude/ });
-    expect(claudeRow.querySelector('[data-open]')).not.toBeNull();
+    expect(claudeRow.querySelector('[data-icon="folder"]')).not.toBeNull();
     // An empty directory (no children ever reference it as a parent) still
     // renders as a folder, not a 0 B file.
     const emptyRow = within(dialog).getByRole('button', { name: /^empty-dir/ });
-    expect(emptyRow.querySelector('[data-open]')).not.toBeNull();
+    expect(emptyRow.querySelector('[data-icon="folder"]')).not.toBeNull();
   });
 
-  it('still nests and expands a directory entry\'s children instead of orphaning them under a file-typed node', async () => {
+  it('still nests a directory entry\'s children instead of orphaning them under a file-typed node — descending reveals them', async () => {
     render(<SessionView client={dirWireClient()} sessions={SESSIONS} />);
     await selectSession();
     fireEvent.click(screen.getByRole('button', { name: 'files' }));
     const dialog = await screen.findByRole('dialog', { name: 'files' });
 
-    await within(dialog).findByRole('button', { name: /^\.claude/ });
-    // Root-level directories start open (matches the prototype's demo tree),
-    // so the child is visible without an extra click.
+    const claudeRow = await within(dialog).findByRole('button', { name: /^\.claude/ });
+    fireEvent.click(claudeRow);
     expect(within(dialog).getByRole('button', { name: /claude\.md/i })).toBeInTheDocument();
   });
 });

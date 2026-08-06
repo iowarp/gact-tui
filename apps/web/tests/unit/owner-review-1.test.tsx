@@ -59,6 +59,18 @@ function client(overrides: Record<string, unknown> = {}): Client {
       mime: 'text/markdown',
       size: 42,
     })),
+    // FilesLayer reads through `readWorkspaceFile` (base64 + media_type,
+    // the raw-bytes route — never `workspaceReadFile`'s JSON-shaped
+    // sibling, which the real read route doesn't actually return).
+    readWorkspaceFile: vi.fn(async () => ({
+      path: 'README.md',
+      display_path: 'README.md',
+      size: 42,
+      media_type: 'text/markdown',
+      source_media_type: 'text/markdown',
+      encoding: 'base64',
+      data: Buffer.from('# hello from the workspace', 'utf-8').toString('base64'),
+    })),
     agentBlueprints: vi.fn(async () => ({
       blueprints: [{ id: 'earthscope-flat', title: 'EarthScope flat' }],
     })),
