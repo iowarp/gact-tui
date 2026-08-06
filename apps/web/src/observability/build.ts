@@ -502,6 +502,11 @@ function toolCallRowsFromTrace(
     const payload = payloadOf(completed ?? anchor);
     const name = visibleString(payload['tool']) ?? visibleString(payloadOf(anchor)['tool']);
     if (!name) continue;
+    // `tool_title` is an OPTIONAL wire field a tool server stamps onto the
+    // call (same field the transcript's own tool rows read) — same
+    // completed-preferred-over-started precedence as `name` above, since
+    // either payload may carry it.
+    const title = visibleString(payload['tool_title']) ?? visibleString(payloadOf(anchor)['tool_title']);
     const atMs = parseTimestamp(anchor.occurred_at);
     const state: ObsToolCallState = !completed
       ? 'running'
@@ -517,6 +522,7 @@ function toolCallRowsFromTrace(
       ...withTime(anchor.occurred_at),
       ...(atMs !== null ? { atMs } : {}),
       name,
+      ...(title ? { title } : {}),
       ...(argHint ? { argHint } : {}),
       agent: meta.agent,
       state,

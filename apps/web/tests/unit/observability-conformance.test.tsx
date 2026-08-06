@@ -265,6 +265,62 @@ describe('artifacts tab — artifact.used dedup-reuse rows (round-8 owner findin
   });
 });
 
+/**
+ * Round-9 owner finding: the transcript's own tool rows and the tools tab's
+ * "available" inventory both render the wire's optional `tool_title`, but
+ * the "called" log printed the raw tool name regardless — build.ts never
+ * read the field. Same grammar as the transcript's own part-toolrow: bold
+ * title + a separately-rendered, muted raw name (obs-toollog-rawname);
+ * absent title falls through to exactly the old raw-name-only row.
+ */
+describe('tools tab "called" rows — tool_title (round-9 owner finding)', () => {
+  const TOOL_CALLS = [
+    {
+      sourceId: 'call_1',
+      at: '19:53',
+      name: 'ndp_dataset_discovery',
+      title: 'Discover datasets',
+      agent: 'main',
+      state: 'done',
+      duration: '4.6s',
+    },
+    {
+      sourceId: 'call_2',
+      at: '19:54',
+      name: 'geo_geocode',
+      agent: 'main',
+      state: 'done',
+      duration: '2.8s',
+    },
+  ];
+
+  it('renders the bold title with the muted raw name beside it when tool_title is present', () => {
+    render(
+      <Observability
+        data={{ ...DATA, toolCalls: TOOL_CALLS } as unknown as ObservabilityData}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^tools/ }));
+    const row = screen.getByText('Discover datasets').closest('.obs-toollog__row') as HTMLElement;
+    expect(within(row).getByText('Discover datasets')).toHaveClass('obs-toollog__name');
+    const rawname = within(row).getByTestId('obs-toollog-rawname');
+    expect(rawname).toHaveTextContent('ndp_dataset_discovery');
+    expect(rawname).toHaveClass('obs-toollog__rawname');
+  });
+
+  it('renders exactly the raw name alone when tool_title is absent — old sessions, unchanged', () => {
+    render(
+      <Observability
+        data={{ ...DATA, toolCalls: TOOL_CALLS } as unknown as ObservabilityData}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^tools/ }));
+    const row = screen.getByText('geo_geocode').closest('.obs-toollog__row') as HTMLElement;
+    expect(within(row).queryByTestId('obs-toollog-rawname')).toBeNull();
+    expect(within(row).getByText('geo_geocode')).toHaveClass('obs-toollog__name');
+  });
+});
+
 describe('trace header', () => {
   it('states the scope and liveness: session trace · live', () => {
     renderObs();

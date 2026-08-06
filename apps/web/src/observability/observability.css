@@ -891,15 +891,37 @@
   outline-offset: 1px;
 }
 
+.obs-toollog__namewrap {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .obs-toollog__name {
   overflow: hidden;
   color: var(--t-hd);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .obs-toollog__row[data-state='failed'] .obs-toollog__name {
   color: var(--t-er);
+}
+
+/* The dimmed raw tool name that stays visible next to a `tool_title` label —
+   same grammar as the transcript's own tool rows
+   (transcript/parts/parts.css .part-toolrow__rawname, owner design
+   2026-08-05): the label is for the user, this is what actually went to the
+   model. */
+.obs-toollog__rawname {
+  overflow: hidden;
+  color: var(--t-mu);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .obs-toollog__arghint {

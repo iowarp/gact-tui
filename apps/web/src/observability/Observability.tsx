@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { Chip, Eyebrow, Icon, Select, Tabs, type TabDef } from '../kit';
+import { sanitizeTitle } from '../transcript/parts/titleSanitizer';
 import type {
   ObsContext,
   ObsNavigation,
@@ -584,7 +585,16 @@ function ToolLog({ rows, readFailed, onNavigate, onRetry }: ToolLogProps) {
               aria-expanded={isOpen}
               onClick={() => toggle(row.sourceId)}
             >
-              <span className="obs-toollog__name">{row.name}</span>
+              <span className="obs-toollog__namewrap">
+                <span className="obs-toollog__name">
+                  {row.title ? sanitizeTitle(row.title, row.name) : row.name}
+                </span>
+                {row.title ? (
+                  <span className="obs-toollog__rawname" data-testid="obs-toollog-rawname">
+                    {row.name}
+                  </span>
+                ) : null}
+              </span>
               {row.argHint ? <span className="obs-toollog__arghint">({row.argHint})</span> : null}
               <span className="obs-toollog__caret" aria-hidden="true">
                 {isOpen ? '▾' : '▸'}

@@ -180,6 +180,84 @@ describe('trace→row mapping — the wire payload keys', () => {
   });
 });
 
+/**
+ * Round-9 owner finding: the transcript's own tool rows and the tools tab's
+ * "available" inventory both render the wire's optional `tool_title` (a
+ * display label a tool server stamps onto the call), but the tools tab's
+ * "called" log — sourced from THIS trace→row mapping — kept printing the
+ * raw `tool` name because toolCallRowsFromTrace never read the field at all.
+ */
+describe('trace→row mapping — tool_title (round-9 owner finding: "called" rows only ever printed the raw name)', () => {
+  it('carries the completed payload\'s tool_title onto the row', () => {
+    const trace = build([
+      {
+        sessionId: ROOT,
+        events: [
+          toolStarted(at(53, 24), 'call_1', 'ndp_dataset_discovery'),
+          ev('tool.call.completed', at(53, 29), {
+            subject: { call_id: 'call_1' },
+            payload: {
+              call_id: 'call_1',
+              tool: 'ndp_dataset_discovery',
+              ok: true,
+              duration_ms: 4592.8,
+              tool_title: 'Discover datasets',
+            },
+          }),
+        ],
+      },
+    ]);
+    expect(trace.toolCalls[0]!.title).toBe('Discover datasets');
+    expect(trace.toolCalls[0]!.name).toBe('ndp_dataset_discovery');
+  });
+
+  it('falls back to the started payload\'s tool_title when the completion carries none', () => {
+    const trace = build([
+      {
+        sessionId: ROOT,
+        events: [
+          ev('tool.call.started', at(53, 24), {
+            subject: { call_id: 'call_1' },
+            payload: { call_id: 'call_1', tool: 'ndp_dataset_discovery', tool_title: 'Discover datasets' },
+          }),
+          toolCompleted(at(53, 29), 'call_1', 'ndp_dataset_discovery', 4592.8),
+        ],
+      },
+    ]);
+    expect(trace.toolCalls[0]!.title).toBe('Discover datasets');
+  });
+
+  it('leaves title undefined for an old session with no tool_title on either payload', () => {
+    const trace = build([
+      {
+        sessionId: ROOT,
+        events: [
+          toolStarted(at(53, 24), 'call_1', 'ndp_dataset_discovery'),
+          toolCompleted(at(53, 29), 'call_1', 'ndp_dataset_discovery', 4592.8),
+        ],
+      },
+    ]);
+    expect(trace.toolCalls[0]!.title).toBeUndefined();
+    expect(trace.toolCalls[0]!.name).toBe('ndp_dataset_discovery');
+  });
+
+  it('a running call (no completion yet) still carries the started payload\'s tool_title', () => {
+    const trace = build([
+      {
+        sessionId: ROOT,
+        events: [
+          ev('tool.call.started', at(55, 0), {
+            subject: { call_id: 'call_1' },
+            payload: { call_id: 'call_1', tool: 'stage_resource', tool_title: 'Stage resource' },
+          }),
+        ],
+      },
+    ]);
+    expect(trace.toolCalls[0]!.state).toBe('running');
+    expect(trace.toolCalls[0]!.title).toBe('Stage resource');
+  });
+});
+
 describe('trace→row mapping — owning agent and depth from the agent-task records', () => {
   const traces: SessionTraceEvents[] = [
     {

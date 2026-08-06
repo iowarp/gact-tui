@@ -141,6 +141,12 @@ export interface ObsToolCallRow {
    *  chronological sort key (HH:mm strings cannot order across midnight). */
   atMs?: number;
   name: string;
+  /** Optional display title the tool server stamped onto the tool.call.*
+   *  trace payload (`tool_title` — same wire field the transcript's tool
+   *  rows already render, owner design 2026-08-05). Present = render bold
+   *  title + muted raw name; absent = the raw name alone (old sessions,
+   *  pre-dating the field). */
+  title?: string;
   /** Short rendering of the call's own input, e.g. `(region="LA")` — real,
    *  never a fabricated description of what the tool does. */
   argHint?: string;
