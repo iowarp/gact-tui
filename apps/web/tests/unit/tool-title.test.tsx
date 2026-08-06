@@ -11,7 +11,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ToolPart } from '../../src/transcript/parts/ToolPart';
-import { sanitizeTitle } from '../../src/transcript/parts/titleSanitizer';
+import { sanitizeTitle, titleIsRedundantWithRawName } from '../../src/transcript/parts/titleSanitizer';
 import type { WirePart } from '../../src/transcript/registry';
 
 function toolCall(fields: Record<string, unknown>, id = 'call_1'): WirePart {
@@ -61,6 +61,36 @@ describe('sanitizeTitle', () => {
   });
 });
 
+/**
+ * Row-render defect #1 (owner-quoted, live wire): `Create Artifact` bold,
+ * with `create_artifact` repeated directly below in the muted raw-name slot,
+ * is visual duplication -- the title alone already carries the fact.
+ * Normalize both sides (lowercase, strip `[_ -]`) and compare for exact
+ * equality; `Describe` vs. `jarvis_describe` are NOT the same fact stated
+ * twice and must keep both.
+ */
+describe('titleIsRedundantWithRawName', () => {
+  it('is redundant when the title is the raw name with spaces instead of underscores (owner example)', () => {
+    expect(titleIsRedundantWithRawName('Create Artifact', 'create_artifact')).toBe(true);
+  });
+
+  it('is redundant modulo case as well as spacing', () => {
+    expect(titleIsRedundantWithRawName('CREATE ARTIFACT', 'create_artifact')).toBe(true);
+  });
+
+  it('is redundant when the raw name uses hyphens instead of underscores', () => {
+    expect(titleIsRedundantWithRawName('Add Step', 'add-step')).toBe(true);
+  });
+
+  it('is NOT redundant for a genuinely distinct title (owner example)', () => {
+    expect(titleIsRedundantWithRawName('Describe', 'jarvis_describe')).toBe(false);
+  });
+
+  it('is NOT redundant when the title is merely a prefix/suffix of the raw name', () => {
+    expect(titleIsRedundantWithRawName('Search', 'ndp_search_datasets')).toBe(false);
+  });
+});
+
 describe('ToolPart header -- tool_title/server_title present', () => {
   it('shows the title as the label and keeps the raw name visible, dimmed', () => {
     render(<ToolPart call={toolCall({ tool_name: 'fs_read', tool_title: 'Read File', input: {} })} />);
@@ -107,6 +137,55 @@ describe('ToolPart header -- absence of tool_title/server_title (regression pin)
     expect(screen.queryByTestId('part-tool-rawname')).toBeNull();
     const namewrap = container.querySelector('.part-toolrow__namewrap');
     expect(namewrap?.hasAttribute('title')).toBe(false);
+  });
+});
+
+/**
+ * Row-render defect #1 (owner-quoted, live wire finding, session
+ * sess_0f25a6ac6f36): a `create_artifact` call carries `tool_title: "Create
+ * Artifact"` -- the raw-name line beneath it repeated the exact same fact
+ * (`Create Artifact` bold, `create_artifact` muted directly below). Suppress
+ * the muted raw-name line ONLY when it is that same fact restated; a title
+ * that adds real information (`Describe` vs. `jarvis_describe`) keeps both.
+ */
+describe('ToolPart header -- title/raw-name redundancy suppression (row-render defect #1)', () => {
+  it('suppresses the raw-name line when the title is the raw name with spaces (the exact create_artifact wire shape)', () => {
+    const { container } = render(
+      <ToolPart call={toolCall({ tool_name: 'create_artifact', tool_title: 'Create Artifact', input: { name: 'smoke_hostname.sh' } })} />,
+    );
+    expect(screen.getByText('Create Artifact')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool-rawname')).toBeNull();
+    // The raw identifier is still available via the namewrap's title
+    // attribute pathway is unaffected -- it just isn't duplicated as a
+    // second visible line.
+    const namewrap = container.querySelector('.part-toolrow__namewrap');
+    expect(namewrap?.textContent).not.toContain('create_artifact');
+  });
+
+  it('keeps BOTH the title and the raw name when they are genuinely distinct (jarvis_describe wire shape)', () => {
+    render(
+      <ToolPart
+        call={toolCall({ tool_name: 'jarvis_describe', tool_title: 'Describe', input: { cluster: 'ares-p5run2' } })}
+      />,
+    );
+    expect(screen.getByText('Describe')).toBeInTheDocument();
+    const rawname = screen.getByTestId('part-tool-rawname');
+    expect(rawname).toHaveTextContent('jarvis_describe');
+  });
+
+  it('a title differing from the raw name only by case still suppresses the raw-name line', () => {
+    render(
+      <ToolPart call={toolCall({ tool_name: 'add_step', tool_title: 'ADD STEP', input: {} })} />,
+    );
+    expect(screen.getByText('ADD STEP')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool-rawname')).toBeNull();
+  });
+
+  it('a title differing from the raw name only by hyphen-vs-underscore still suppresses the raw-name line', () => {
+    render(
+      <ToolPart call={toolCall({ tool_name: 'add-step', tool_title: 'add_step', input: {} })} />,
+    );
+    expect(screen.queryByTestId('part-tool-rawname')).toBeNull();
   });
 });
 
@@ -186,6 +265,84 @@ describe('ToolPart header -- injected (args) grammar', () => {
       />,
     );
     expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('("earthscope")');
+  });
+
+  /**
+   * Row-render defect #2 (owner-quoted, live wire finding, session
+   * sess_0f25a6ac6f36, sub-session sess_f3c3a6b2f608, call_1ecf27ea77ec):
+   * `jarvis_add_step ("ares-p5run2")` showed only the positionally-first
+   * arg. The exact wire-verified input shape (`cluster, pipeline_id,
+   * package_name, config, step_id, idempotency_key, timeout_seconds`) must
+   * now yield `(ares-p5run2, smoke-hostname-p1, print-hostname)` -- the
+   * three resource-identity coordinates (`cluster`, `pipeline_id`, `step_id`)
+   * fill the up-to-3 hint budget ahead of `package_name` (a descriptive
+   * field, not an identity coordinate), and the `config` dict never joins
+   * the hint at all (owner: "the config would be too much").
+   */
+  it('the jarvis_add_step shape yields (cluster, pipeline_id, step_id) -- up to 3 identifying args, unquoted, comma-joined', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'jarvis_add_step',
+          input: {
+            cluster: 'ares-p5run2',
+            pipeline_id: 'smoke-hostname-p1',
+            package_name: 'builtin.my_shell',
+            config: { script: 'smoke_hostname.sh' },
+            step_id: 'print-hostname',
+            idempotency_key: 'smoke-hostname-addstep-1',
+            timeout_seconds: 60,
+          },
+        })}
+      />,
+    );
+    const hint = container.querySelector('.part-toolrow__hint');
+    expect(hint?.textContent).toBe('(ares-p5run2, smoke-hostname-p1, print-hostname)');
+    // package_name never displaces an identity coordinate, and the config
+    // dict never joins the hint at all.
+    expect(hint?.textContent).not.toContain('builtin.my_shell');
+    expect(hint?.textContent).not.toContain('script');
+  });
+
+  it('two identifying args render unquoted and comma-joined (below the 3-value cap)', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'jarvis_run',
+          input: { cluster: 'ares-p5run2', pipeline_id: 'smoke-hostname-p1', timeout_seconds: 60 },
+        })}
+      />,
+    );
+    expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('(ares-p5run2, smoke-hostname-p1)');
+  });
+
+  it('caps at 3 identifying args even when more identity-shaped keys are present', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'jarvis_get_execution',
+          input: {
+            cluster: 'ares-p5run2',
+            pipeline_id: 'smoke-hostname-p1',
+            execution_id: 'exec-42',
+            include_progress: true,
+            idempotency_key: 'smoke-hostname-getexec-1',
+            timeout_seconds: 60,
+          },
+        })}
+      />,
+    );
+    const hint = container.querySelector('.part-toolrow__hint')?.textContent;
+    expect(hint).toBe('(ares-p5run2, smoke-hostname-p1, exec-42)');
+    // The boolean is never rendered into the hint at all.
+    expect(hint).not.toContain('true');
+  });
+
+  it('a single identifying arg still renders quoted, matching every existing single-arg hint (regression pin)', () => {
+    const { container } = render(
+      <ToolPart call={toolCall({ tool_name: 'geo_geocode', input: { query: 'Los Angeles, CA' } })} />,
+    );
+    expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('("Los Angeles, CA")');
   });
 });
 

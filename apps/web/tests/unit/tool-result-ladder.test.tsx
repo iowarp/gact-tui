@@ -347,10 +347,15 @@ describe('absence of every new field/shape -- regression pin', () => {
    * existed on this tool) silently rendered through the wait ladder anyway.
    * The gate now requires BOTH the call's own tool_name AND a real
    * `structured_content` payload -- a text-only wait-shaped result must
-   * render EXACTLY as it did before the wait ladder existed: the plain
-   * JSON-object KV path above, never any wait-specific rung.
+   * NEVER enter the wait-specific rung. That invariant is unchanged by
+   * row-render defect #4 (owner-quoted, P4R): the "plain JSON-object path"
+   * this falls through to is now the SAME general object grammar
+   * `structured_content` gets (rules 1-5, tables, collapsible sections) --
+   * so `merged_workflow_state` (a non-empty nested dict) becomes its own
+   * collapsed section, same as it would if it had arrived via
+   * `structured_content`, rather than an inline JSON blob.
    */
-  it('a wait-shaped TEXT result with no structured_content renders via the generic KV path, not the wait ladder (regression pin)', () => {
+  it('a wait-shaped TEXT result with no structured_content renders via the generic OBJECT path, not the wait ladder (regression pin)', () => {
     render(
       <ToolPart
         call={toolCall('wait_agent_tasks', {}, 'call_40')}
@@ -372,14 +377,21 @@ describe('absence of every new field/shape -- regression pin', () => {
     expect(screen.queryByTestId('part-tool-result-subtable-label')).toBeNull();
     expect(screen.queryByTestId('part-tool-wait-results')).toBeNull();
     expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
-    expect(screen.queryByTestId('part-tool-result-section')).toBeNull();
     expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
-    // Instead: the exact same plain JSON-object KV path every other
-    // non-wait JSON result gets -- both top-level keys present verbatim,
-    // nothing swallowed by the wait interpretation.
+    // `results` (a single-row array, below the table threshold) stays a flat
+    // row -- nothing swallowed by the wait interpretation.
     const table = screen.getByTestId('part-tool-result-table');
     expect(table).toHaveTextContent('results');
-    expect(table).toHaveTextContent('merged_workflow_state');
+    // `merged_workflow_state` is a nested dict -- the SAME object grammar
+    // structured_content gets pulls it into its own collapsed section
+    // (defect #4), never an inline JSON blob nor a raw dump.
+    expect(table).not.toHaveTextContent('merged_workflow_state');
+    const section = screen.getByTestId('part-tool-result-section');
+    expect(section).toHaveTextContent('merged_workflow_state');
+    expect(within(section).queryByText('region')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(within(section).getByText('region')).toBeInTheDocument();
+    expect(within(section).getByText('LA')).toBeInTheDocument();
   });
 });
 
@@ -1614,5 +1626,210 @@ describe('content_blocks rung (clio-agent 285434f5, kit 2.7.1 plot tools)', () =
     openRow(/plot_plot_timeseries/);
     expect(screen.queryByTestId('part-tool-block-image')).toBeNull();
     expect(screen.getByText('failed: timeout')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Row-render defect #3 (owner-quoted, live wire finding, session
+ * sess_0f25a6ac6f36, sub-session sess_f3c3a6b2f608, call_1ecf27ea77ec): the
+ * expanded well for `jarvis_add_step` read as though only `cluster` mattered
+ * -- the other inputs (`pipeline_id`, `step_id`, the `config` dict) never
+ * stood out from an unbroken single-cell JSON blob. Fix: every input key
+ * renders -- scalars in the flat two-column params grid, a non-empty
+ * dict/list value as its own collapsible section (the SAME NestedSection
+ * idiom the result well already uses), nothing ever silently omitted.
+ */
+describe('params well -- every input key renders, dict/list values become collapsible sections (row-render defect #3)', () => {
+  it('the jarvis_add_step shape: scalars stay flat rows, the config dict becomes its own collapsed section', () => {
+    render(
+      <ToolPart
+        call={toolCall(
+          'jarvis_add_step',
+          {
+            cluster: 'ares-p5run2',
+            pipeline_id: 'smoke-hostname-p1',
+            package_name: 'builtin.my_shell',
+            config: { script: 'smoke_hostname.sh' },
+            step_id: 'print-hostname',
+            idempotency_key: 'smoke-hostname-addstep-1',
+            timeout_seconds: 60,
+          },
+          'call_add_step',
+        )}
+      />,
+    );
+    openRow(/jarvis_add_step/);
+    // Every scalar key/value from the wire renders in the flat params grid.
+    const paramsGrid = document.querySelector('.part-toolrow__well > .part-toolrow__grid')!;
+    expect(paramsGrid).toHaveTextContent('cluster');
+    expect(paramsGrid).toHaveTextContent('ares-p5run2');
+    expect(paramsGrid).toHaveTextContent('pipeline_id');
+    expect(paramsGrid).toHaveTextContent('smoke-hostname-p1');
+    expect(paramsGrid).toHaveTextContent('package_name');
+    expect(paramsGrid).toHaveTextContent('builtin.my_shell');
+    expect(paramsGrid).toHaveTextContent('step_id');
+    expect(paramsGrid).toHaveTextContent('print-hostname');
+    expect(paramsGrid).toHaveTextContent('idempotency_key');
+    expect(paramsGrid).toHaveTextContent('timeout_seconds');
+    // The config dict never lands in the flat grid as a JSON blob cell.
+    expect(paramsGrid).not.toHaveTextContent('script');
+    expect(paramsGrid).not.toHaveTextContent('smoke_hostname.sh');
+    // ...instead it's its OWN collapsible section, collapsed by default.
+    const section = screen.getByTestId('part-tool-param-section');
+    expect(section).toHaveTextContent('config');
+    expect(within(section).queryByText('script')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-param-section-toggle'));
+    expect(within(section).getByText('script')).toBeInTheDocument();
+    expect(within(section).getByText('smoke_hostname.sh')).toBeInTheDocument();
+  });
+
+  it('a list-valued param that is not a uniform object array becomes a section of index -> value rows', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', { output_path: 'plot.png', y_columns: ['Latitude', 'Longitude'] }, 'call_ycols')}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    const section = screen.getByTestId('part-tool-param-section');
+    expect(section).toHaveTextContent('y_columns');
+    expect(within(section).queryByText('Latitude')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-param-section-toggle'));
+    expect(within(section).getByText('Latitude')).toBeInTheDocument();
+    expect(within(section).getByText('Longitude')).toBeInTheDocument();
+  });
+
+  it('a uniform-object-array param (more than one row) renders as a real table inside its collapsible section', () => {
+    render(
+      <ToolPart
+        call={toolCall(
+          'batch_configure',
+          { steps: [{ id: 'a', kind: 'x' }, { id: 'b', kind: 'y' }] },
+          'call_steps',
+        )}
+      />,
+    );
+    openRow(/batch_configure/);
+    fireEvent.click(screen.getByTestId('part-tool-param-section-toggle'));
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getByText('a')).toBeInTheDocument();
+    expect(within(grid).getByText('b')).toBeInTheDocument();
+  });
+
+  it('an empty dict/array param value stays an inline flat row (a typed marker, not a pointless section)', () => {
+    render(
+      <ToolPart call={toolCall('create_artifact', { name: 'x.sh', artifacts: null, used: null, tags: [] }, 'call_empty')} />,
+    );
+    openRow(/create_artifact/);
+    const paramsGrid = document.querySelector('.part-toolrow__well > .part-toolrow__grid')!;
+    expect(paramsGrid).toHaveTextContent('artifacts');
+    expect(paramsGrid).toHaveTextContent('null');
+    expect(paramsGrid).toHaveTextContent('tags');
+    expect(screen.queryByTestId('part-tool-param-section')).toBeNull();
+  });
+
+  it('an all-scalar input renders exactly as before -- flat grid only, no sections (regression pin)', () => {
+    render(<ToolPart call={toolCall('geo_geocode', { query: 'Los Angeles, CA' }, 'call_scalar')} />);
+    openRow(/geo_geocode/);
+    expect(screen.getByText('query')).toBeInTheDocument();
+    expect(screen.getByText('Los Angeles, CA')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool-param-section')).toBeNull();
+  });
+});
+
+/**
+ * Row-render defect #4 (owner-quoted, live wire finding, session
+ * sess_0f25a6ac6f36, sub-session sess_f3c3a6b2f608): `jarvis_describe`/
+ * `create_artifact` wells showed a `{"result": {"inventory_revision": ...`
+ * raw dump. Verified against the live wire parts: `create_artifact`'s
+ * tool_result carries NO `structured_content` field at all, only this text
+ * -- the object grammar (rules 1-5, tables, collapsible sections) only ever
+ * engaged for a real `structured_content` payload. Fix: when there is no
+ * `structured_content` and the text parses as a JSON object, run the SAME
+ * object grammar on the parsed text.
+ */
+describe('text-only JSON-object result runs the SAME object grammar as structured_content (row-render defect #4)', () => {
+  it('the jarvis_describe shape: a nested result dict becomes a collapsible section, never a raw dump', () => {
+    render(
+      <ToolPart
+        call={toolCall('jarvis_describe', { cluster: 'ares-p5run2', target: 'package_search' }, 'call_describe')}
+        result={toolResult('call_describe', {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                result: {
+                  inventory_revision: '69b0d3644540c7cd3024f00df6b19aca75c0acb81a315fd89beebfe48bd15136',
+                  query: 'shell',
+                  packages: [{ name: 'builtin.my_shell', repository: 'builtin' }],
+                },
+              }),
+            },
+          ],
+          // No structured_content field -- the exact live wire shape.
+        })}
+      />,
+    );
+    openRow(/jarvis_describe/);
+    // Never a raw <pre> dump of the JSON text.
+    expect(document.querySelector('.part-toolrow__result')).toBeNull();
+    expect(screen.queryByText(/inventory_revision/)).toBeNull();
+    // Instead: `result` (a nested dict) is its own collapsed section.
+    const section = screen.getByTestId('part-tool-result-section');
+    expect(section).toHaveTextContent('result');
+    expect(within(section).queryByText('inventory_revision')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(within(section).getByText('inventory_revision')).toBeInTheDocument();
+    expect(
+      within(section).getByText('69b0d3644540c7cd3024f00df6b19aca75c0acb81a315fd89beebfe48bd15136'),
+    ).toBeInTheDocument();
+    expect(within(section).getByText('query')).toBeInTheDocument();
+    // Raw stays one keypress away, verbatim.
+    fireEvent.click(screen.getByTestId('part-tool-raw-toggle'));
+    expect(screen.getByTestId('part-tool-raw')).toHaveTextContent('inventory_revision');
+  });
+
+  it('the create_artifact shape (accepted/artifacts/deduplicated/rejected, no structured_content) renders via the KV rung, not a raw dump', () => {
+    render(
+      <ToolPart
+        call={toolCall('create_artifact', { name: 'smoke_hostname.sh', kind: 'script' }, 'call_artifact')}
+        result={toolResult('call_artifact', {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                accepted: 0,
+                artifacts: [{ accepted: true, name: 'smoke_hostname.sh', reason: 'already_registered' }],
+                deduplicated: 1,
+                rejected: 0,
+              }),
+            },
+          ],
+        })}
+      />,
+    );
+    openRow(/create_artifact/);
+    expect(document.querySelector('.part-toolrow__result')).toBeNull();
+    const table = screen.getByTestId('part-tool-result-table');
+    expect(table).toHaveTextContent('accepted');
+    expect(table).toHaveTextContent('deduplicated');
+    expect(table).toHaveTextContent('rejected');
+    // Raw stays reachable, never removed.
+    fireEvent.click(screen.getByTestId('part-tool-raw-toggle'));
+    expect(screen.getByTestId('part-tool-raw')).toHaveTextContent('already_registered');
+  });
+
+  it('a non-JSON text well is unchanged: still the verbatim <pre>, no interpreted rung, no raw toggle (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('shell_bash', { command: 'hostname' }, 'call_plain')}
+        result={toolResult('call_plain', { content: [{ type: 'text', text: 'compute-node-07' }] })}
+      />,
+    );
+    openRow(/shell_bash/);
+    expect(screen.getByText('compute-node-07')).toBeInTheDocument();
+    expect(document.querySelector('.part-toolrow__result')).not.toBeNull();
+    expect(screen.queryByTestId('part-tool-result-table')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-section')).toBeNull();
+    expect(screen.queryByTestId('part-tool-raw-toggle')).toBeNull();
   });
 });

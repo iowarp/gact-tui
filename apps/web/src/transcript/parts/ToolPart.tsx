@@ -20,7 +20,7 @@ import {
   type ContentImageBlock,
   type WireContentBlock,
 } from './toolResultText';
-import { sanitizeTitle } from './titleSanitizer';
+import { sanitizeTitle, titleIsRedundantWithRawName } from './titleSanitizer';
 import { formatDurationMs } from './HandoffPart';
 
 export interface ToolPartProps {
@@ -52,7 +52,23 @@ const NOISE_ARG_KEYS = new Set([
   'budget',
   'top_k',
   'max_results',
+  'cursor',
 ]);
+
+/** Row-render defect #2 (owner-quoted): the wire-verified `jarvis_add_step`
+ *  call carries `idempotency_key`/`timeout_seconds` — transport plumbing,
+ *  never what identifies the call — that the exact-match {@link
+ *  NOISE_ARG_KEYS} set doesn't catch (`timeout_seconds` !== `timeout`).
+ *  Owner's noise list is given as prefixes (`timeout*`, `idempotency*`,
+ *  `include_*`); matched case-insensitively by prefix only, same
+ *  no-substring-guess discipline as the exact set above. */
+const NOISE_ARG_PREFIXES = ['timeout', 'idempotency', 'include_'];
+
+function isNoiseArgKey(key: string): boolean {
+  if (NOISE_ARG_KEYS.has(key)) return true;
+  const lower = key.toLowerCase();
+  return NOISE_ARG_PREFIXES.some((prefix) => lower.startsWith(prefix));
+}
 
 /** The curated durable-job polling tools (JARVIS/Spack surface, P2.14) whose
  *  RUNNING call renders as the prototype's activity line rather than a
@@ -146,20 +162,82 @@ function formatSecondsCompact(seconds: number): string {
   return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}s`;
 }
 
+/** Up to this many identifying scalars fill the collapsed row's `(args)`
+ *  hint (row-render defect #2, owner-quoted) — a hard cap, not a suggestion:
+ *  the hint is a glance-summary, the FULL input always still renders in full
+ *  in the opened params well ({@link splitParams}), so capping here never
+ *  loses anything, it just stays out of the compact header. */
+const IDENTIFYING_ARG_MAX = 3;
+
+/**
+ * A resource-identity coordinate (row-render defect #2, owner-quoted wire
+ * finding: `jarvis_add_step`'s `cluster`/`pipeline_id`/`step_id` — the
+ * fields that answer "WHICH call is this", as opposed to `package_name`/
+ * `config`, which answer "what did it configure"). Matched by key SHAPE
+ * only — the literal `cluster` key, or any key ending in `_id` — never a
+ * per-tool name list; this is the same key-name-pattern discipline
+ * {@link limitFlagStem} already uses elsewhere in this file for a different
+ * rule. Identity coordinates win placement in the hint ahead of other
+ * identifying scalars (see {@link identifyingArgValues}).
+ */
+function isIdentityArgKey(key: string): boolean {
+  return key === 'cluster' || /_id$/i.test(key);
+}
+
+/** A value the injected args hint is willing to show at all: a non-empty
+ *  string, or a finite number — never a dict/list/boolean/null (owner rule:
+ *  "skip dicts/lists/booleans"), which stay well-only ({@link splitParams}). */
+function isIdentifyingScalar(value: unknown): value is string | number {
+  if (typeof value === 'string') return value.length > 0;
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/**
+ * The up-to-{@link IDENTIFYING_ARG_MAX} identifying scalar values behind the
+ * collapsed row's `(args)` hint (row-render defect #2, owner-quoted:
+ * `jarvis_add_step ("ares-p5run2")` showed only the positionally-first arg).
+ * Two tiers, each internally in wire order: identity coordinates
+ * ({@link isIdentityArgKey} — `cluster`, any `*_id`) fill first, then the
+ * remaining slots (if any) fill with the next non-noise scalar values —
+ * config-shaped fields (e.g. `package_name`, sitting right next to the
+ * `config` dict rule 2 keeps OUT of the hint: "the config would be too much")
+ * never displace an identity coordinate. On the wire-verified
+ * `jarvis_add_step` shape (`cluster, pipeline_id, package_name, config,
+ * step_id, idempotency_key, timeout_seconds`) the three identity coordinates
+ * alone already fill the cap, so the hint reads `(ares-p5run2,
+ * smoke-hostname-p1, print-hostname)` — every call answers "which", never
+ * "what did it configure". The combined output preserves each selected
+ * value's own relative wire order.
+ */
+function identifyingArgValues(entries: Array<[string, unknown]>): Array<string | number> {
+  const identity: Array<string | number> = [];
+  const other: Array<string | number> = [];
+  for (const [key, value] of entries) {
+    if (isNoiseArgKey(key) || !isIdentifyingScalar(value)) continue;
+    (isIdentityArgKey(key) ? identity : other).push(value);
+  }
+  return [...identity, ...other].slice(0, IDENTIFYING_ARG_MAX);
+}
+
 /**
  * The collapsed row's injected `(args)` hint (owner design: the title is a
  * plain human name, the client injects the parens filled with the call's
  * OBJECT — `Plot Timeseries ("D:/…/file.csv")`, `Profile (file.csv)` — never
  * just the positionally-first key). A path-like string value wins outright
  * and renders middle-elided ({@link elidePathMiddle}) so the meaningful
- * basename always survives; otherwise the first non-noise string value,
- * quoted (final-sxs ledger #12: `geo_geocode("Los Angeles, CA")`, not the
- * bare, ambiguous `geo_geocode(Los Angeles, CA)`); otherwise the
- * positionally-first entry, exactly today's behavior for a shape neither
- * rule recognizes — every other JSON type already reads unambiguously via
- * JSON.stringify.
+ * basename always survives (paths never join the up-to-3 identifying list —
+ * one path already says enough, and multiple elided paths would blow the
+ * hint's width budget). Otherwise up to {@link IDENTIFYING_ARG_MAX}
+ * identifying values ({@link identifyingArgValues}): exactly one renders
+ * quoted, matching every existing single-arg hint verbatim (final-sxs ledger
+ * #12: `geo_geocode("Los Angeles, CA")`); two or more render bare and
+ * comma-joined, the same unquoted-join idiom the resolved `wait` row's own
+ * name list already uses, since a run of quoted strings reads as noise once
+ * there's more than one. Otherwise the positionally-first entry, exactly
+ * today's behavior for a shape neither rule recognizes — every other JSON
+ * type already reads unambiguously via JSON.stringify.
  */
-function firstArgHint(input: unknown): string {
+function renderArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
   const entries = Object.entries(input as Record<string, unknown>);
   if (entries.length === 0) return '…';
@@ -168,22 +246,49 @@ function firstArgHint(input: unknown): string {
       return elidePathMiddle(value, ARG_HINT_MAX);
     }
   }
-  for (const [key, value] of entries) {
-    if (typeof value === 'string' && value.length > 0 && !NOISE_ARG_KEYS.has(key)) {
-      return truncate(normalizeWhitespace(`"${value}"`), ARG_HINT_MAX);
-    }
+  const identifying = identifyingArgValues(entries);
+  if (identifying.length === 1) {
+    return truncate(normalizeWhitespace(`"${identifying[0]}"`), ARG_HINT_MAX);
+  }
+  if (identifying.length > 1) {
+    return truncate(normalizeWhitespace(identifying.map(String).join(', ')), ARG_HINT_MAX);
   }
   const [, value] = entries[0]!;
   const rendered = typeof value === 'string' ? `"${value}"` : (JSON.stringify(value) ?? String(value));
   return truncate(normalizeWhitespace(rendered), ARG_HINT_MAX);
 }
 
-function argRows(input: unknown): Array<{ k: string; v: string }> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return [];
-  return Object.entries(input as Record<string, unknown>).map(([k, v]) => ({
-    k,
-    v: typeof v === 'string' ? v : (JSON.stringify(v) ?? String(v)),
-  }));
+/**
+ * Row-render defect #3 (owner-quoted): the opened well's params grid must
+ * render EVERY input key, never silently omit one. Splits `input` into flat
+ * scalar rows (unchanged two-column KV, including an empty `{}`/`[]` or
+ * `null`/`undefined` value, which still renders as an honest typed marker
+ * via {@link kvValueForKey} — `{}`/`[]`/`null` — never a blank cell) and
+ * non-empty dict/list values, which become their own collapsible
+ * {@link NestedSection} instead of a single-cell `JSON.stringify` blob (the
+ * SAME idiom the result well already uses for a nested structured_content
+ * value — a reader opens exactly the section they care about, rather than
+ * parsing an unbroken run of escaped JSON inline in a table cell).
+ */
+function splitParams(input: unknown): {
+  rows: Array<{ k: string; v: string }>;
+  sections: Array<{ key: string; value: Record<string, unknown> | unknown[] }>;
+} {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return { rows: [], sections: [] };
+  const rows: Array<{ k: string; v: string }> = [];
+  const sections: Array<{ key: string; value: Record<string, unknown> | unknown[] }> = [];
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (Array.isArray(v) && v.length > 0) {
+      sections.push({ key: k, value: v });
+      continue;
+    }
+    if (isRecord(v) && Object.keys(v).length > 0) {
+      sections.push({ key: k, value: v });
+      continue;
+    }
+    rows.push({ k, v: kvValueForKey(k, v) });
+  }
+  return { rows, sections };
 }
 
 /** Shared KV-value stringification (pretty-printed — these are read as a
@@ -297,9 +402,11 @@ function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: s
 }
 
 /**
- * The shared top-level-object JSON parse both `resultRows` and the wait-
- * shape detector use — a bounded, defensive parse (size-capped, object-only)
- * rather than each caller re-deriving its own guard.
+ * The shared top-level-object JSON parse the wait-shape detector AND the
+ * text-fallback object grammar (row-render defect #4, {@link
+ * classifyStructuredObject}'s caller in {@link interpretResult}) both use —
+ * a bounded, defensive parse (size-capped, object-only) rather than each
+ * caller re-deriving its own guard.
  */
 function parseJsonObject(text: string): Record<string, unknown> | null {
   const trimmed = text.trim();
@@ -310,22 +417,6 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-}
-
-/**
- * A JSON-object tool result rendered as the prototype's key/value result
- * table (isToolSeg's "results tables") instead of a raw JSON blob. Only a
- * top-level OBJECT becomes rows — arrays and scalars keep the verbatim
- * `<pre>`, and anything unparseable falls through untouched. Presentation
- * only: every key and value from the wire still renders somewhere (a row, or
- * the declared summary line), nothing is silently dropped.
- */
-function resultRows(text: string): { rows: Array<{ k: string; v: string }>; summary: string } | null {
-  const parsed = parseJsonObject(text);
-  if (!parsed) return null;
-  const rows = kvRowsFromObject(parsed);
-  const summary = declaredSummaryOf(parsed);
-  return rows.length > 0 || summary ? { rows, summary } : null;
 }
 
 /** Compact single-line cell stringification for the real-table renderer
@@ -844,6 +935,34 @@ function buildWaitInterpretation(obj: Record<string, unknown>): Extract<Interpre
  * never dressed up in the success ladder's presentation — the row's own ✗
  * mark already carries the failure fact; the well must not contradict it.
  */
+/**
+ * Classifies a parsed top-level JSON OBJECT into the ladder's 'object' or
+ * 'kv' kind — the SAME grammar (rules 1-5, tables, collapsible sections; see
+ * {@link splitStructuredObject}) shared by BOTH callers below: a real
+ * `structured_content` payload, and — row-render defect #4 (owner-quoted)
+ * — the model-facing TEXT when no `structured_content` field exists at all.
+ * `null` when the object carries nothing renderable (no rows, no summary),
+ * so the caller falls through to whatever rung comes next rather than
+ * forcing an empty well.
+ */
+function classifyStructuredObject(obj: Record<string, unknown>): InterpretedResult | null {
+  // Rule 1: the payload's own declared message/summary wins as the well's
+  // first line regardless of which rung (object/kv) the rest of it lands
+  // on — computed off the ORIGINAL object, since splitStructuredObject
+  // already excludes these two keys from every bucket it builds.
+  const summary = declaredSummaryOf(obj);
+  const { rows, tables, sections, identityFacts, caveats } = splitStructuredObject(obj);
+  // Rules 3/4/5 route through the SAME 'object' kind as tables/sections —
+  // an identity fact or caveat is exactly as "extra" as a table, and must
+  // never be silently dropped by falling into the plain 'kv' branch below
+  // (which doesn't carry either field).
+  if (tables.length > 0 || sections.length > 0 || identityFacts.length > 0 || caveats.length > 0) {
+    return { kind: 'object', rows, tables, sections, identityFacts, caveats, ...(summary ? { summary } : {}) };
+  }
+  if (rows.length > 0 || summary) return { kind: 'kv', rows, ...(summary ? { summary } : {}) };
+  return null;
+}
+
 function interpretResult(result: WirePart, text: string, toolName: string): InterpretedResult {
   if (result['is_error'] === true) return { kind: 'raw' };
   const structured = extractStructuredContent(result);
@@ -856,20 +975,8 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     return { kind: 'table', header, rows };
   }
   if (isRecord(structured)) {
-    // Rule 1: the payload's own declared message/summary wins as the well's
-    // first line regardless of which rung (object/kv) the rest of it lands
-    // on — computed off the ORIGINAL object, since splitStructuredObject
-    // already excludes these two keys from every bucket it builds.
-    const summary = declaredSummaryOf(structured);
-    const { rows, tables, sections, identityFacts, caveats } = splitStructuredObject(structured);
-    // Rules 3/4/5 route through the SAME 'object' kind as tables/sections —
-    // an identity fact or caveat is exactly as "extra" as a table, and must
-    // never be silently dropped by falling into the plain 'kv' branch below
-    // (which doesn't carry either field).
-    if (tables.length > 0 || sections.length > 0 || identityFacts.length > 0 || caveats.length > 0) {
-      return { kind: 'object', rows, tables, sections, identityFacts, caveats, ...(summary ? { summary } : {}) };
-    }
-    if (rows.length > 0 || summary) return { kind: 'kv', rows, ...(summary ? { summary } : {}) };
+    const classified = classifyStructuredObject(structured);
+    if (classified) return classified;
   }
 
   const image = extractImageBlock(result);
@@ -881,8 +988,22 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     if (header.length > 0 && rows.length > 0) return { kind: 'table', header, rows };
   }
 
-  const parsedText = resultRows(text);
-  if (parsedText) return { kind: 'kv', rows: parsedText.rows, ...(parsedText.summary ? { summary: parsedText.summary } : {}) };
+  // Row-render defect #4 (owner-quoted): `jarvis_describe`/`create_artifact`
+  // wells showed a `{"result": {"inventory_revision": ...` raw dump when
+  // there is NO `structured_content` field on the wire at all (verified
+  // against the live parts: create_artifact's tool_result carries no
+  // `structured_content`, only this text). Extend the SAME object grammar
+  // used above to the parsed TEXT — this is presentation of what the wire
+  // already says (the text is already a JSON object the model itself read),
+  // never semantic invention. The wait ladder's own gate above is untouched
+  // and stays structured-content-only (P4R adversarial finding A regression
+  // pin) — this fallback only ever reaches the GENERIC object/kv rungs,
+  // never the wait-specific one, since it runs strictly AFTER that gate.
+  const parsedTextObj = parseJsonObject(text);
+  if (parsedTextObj) {
+    const classified = classifyStructuredObject(parsedTextObj);
+    if (classified) return classified;
+  }
 
   return { kind: 'raw' };
 }
@@ -1183,33 +1304,57 @@ function IdentityAndCaveats({
  * {@link splitStructuredObject} split, recursively, so an arbitrarily deep
  * nested dict never falls back to raw JSON until the reader actually asks
  * for it (the existing raw toggle, still one keypress away at the top).
+ *
+ * Row-render defect #3 (owner-quoted) reuses this SAME idiom for a
+ * dict/list-valued CALL PARAM ({@link splitParams}) instead of growing a
+ * second collapsible-section component: `value` now also accepts a plain
+ * array. An array renders as the SAME uniform-object table the result
+ * ladder already uses when it qualifies (more than one row, every element a
+ * same-shaped record); otherwise as index → value KV rows, matching how the
+ * wait ladder already stringifies a non-table array elsewhere in this file
+ * ({@link buildWaitInterpretation}'s `resultsRows`) — every element still
+ * renders somewhere, nothing silently dropped. `testId` lets a caller outside
+ * the result well (the params well) use its own testid prefix without
+ * colliding with the result-well's `part-tool-result-section*` ids that
+ * existing tests already pin; the toggle's testid is always `${testId}-toggle`.
  */
 function NestedSection({
   label,
   value,
   flat,
+  testId = 'part-tool-result-section',
 }: {
   label: string;
-  value: Record<string, unknown>;
+  value: Record<string, unknown> | unknown[];
   flat?: boolean;
+  testId?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const { rows, tables, sections, identityFacts, caveats } = flat
+  const arrayTable = Array.isArray(value) && isUniformObjectArray(value) && value.length > 1 ? objectArrayToTable(value) : null;
+  const { rows, tables, sections, identityFacts, caveats } = Array.isArray(value)
     ? {
-        rows: Object.entries(value).map(([k, v]) => ({ k, v: kvValueForKey(k, v) })),
+        rows: arrayTable ? [] : value.map((item, i) => ({ k: String(i), v: kvValue(item) })),
         tables: [] as Array<{ key: string; header: string[]; rows: string[][] }>,
         sections: [] as StructuredSection[],
         identityFacts: [] as IdentityFact[],
         caveats: [] as string[],
       }
-    : splitStructuredObject(value);
+    : flat
+      ? {
+          rows: Object.entries(value).map(([k, v]) => ({ k, v: kvValueForKey(k, v) })),
+          tables: [] as Array<{ key: string; header: string[]; rows: string[][] }>,
+          sections: [] as StructuredSection[],
+          identityFacts: [] as IdentityFact[],
+          caveats: [] as string[],
+        }
+      : splitStructuredObject(value);
   return (
-    <div className="part-toolrow__section" data-testid="part-tool-result-section">
+    <div className="part-toolrow__section" data-testid={testId}>
       <button
         type="button"
         className="part-toolrow__sectiontoggle"
         aria-expanded={open}
-        data-testid="part-tool-result-section-toggle"
+        data-testid={`${testId}-toggle`}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="part-toolrow__chev" data-open={open ? 'true' : undefined} aria-hidden="true">
@@ -1221,6 +1366,14 @@ function NestedSection({
         <div className="part-toolrow__sectionbody">
           <IdentityAndCaveats identityFacts={identityFacts} caveats={caveats} />
           {rows.length > 0 ? <KvRows rows={rows} variant="result" /> : null}
+          {arrayTable ? (
+            <div className="part-toolrow__subtable">
+              <p className="part-toolrow__subtablelabel" data-testid="part-tool-result-subtable-label">
+                {`${label} (${arrayTable.rows.length})`}
+              </p>
+              <ResultTable header={arrayTable.header} rows={arrayTable.rows} />
+            </div>
+          ) : null}
           {tables.map((t) => (
             <div className="part-toolrow__subtable" key={t.key}>
               <p className="part-toolrow__subtablelabel" data-testid="part-tool-result-subtable-label">
@@ -1295,7 +1448,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
     );
   }
 
-  const params = argRows(call['input']);
+  const params = splitParams(call['input']);
   const { attempts, budgets } = metadataFacts(call);
   const isError = result ? result['is_error'] === true : false;
   const durationMs = typeof result?.['duration_ms'] === 'number' ? (result['duration_ms'] as number) : undefined;
@@ -1344,10 +1497,19 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // applies alongside it.
   const rawTitle = call['tool_title'];
   const hasTitle = !waited && typeof rawTitle === 'string';
-  const displayName = waited ? 'wait' : hasTitle ? sanitizeTitle(rawTitle, name) : name;
+  const sanitizedTitle = hasTitle ? sanitizeTitle(rawTitle, name) : '';
+  const displayName = waited ? 'wait' : hasTitle ? sanitizedTitle : name;
+  // Row-render defect #1 (owner-quoted): `Create Artifact` bold, with
+  // `create_artifact` repeated directly below in the muted raw-name slot, is
+  // visual duplication once the title already carries the fact — the raw
+  // name earns its place only when it says something the title didn't
+  // ({@link titleIsRedundantWithRawName}: normalized modulo case/`[_ -]`).
+  // `Describe` vs. `jarvis_describe` are NOT redundant under that
+  // normalization (`describe` !== `jarvisdescribe`) and both stay visible.
+  const showRawName = hasTitle && !titleIsRedundantWithRawName(sanitizedTitle, name);
   const argHint = waited
     ? truncate(normalizeWhitespace(waited.map((t) => t.name).join(', ')), ARG_HINT_MAX)
-    : firstArgHint(call['input']);
+    : renderArgHint(call['input']);
   // server_title has no display surface yet beyond a `title` attribute
   // (grouping/breadcrumb is a later surface) — never a fabricated group
   // header.
@@ -1377,7 +1539,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
         <span className="part-toolrow__namewrap" title={serverTitle || undefined}>
           <span className="part-toolrow__name">{displayName}</span>
           <span className="part-toolrow__hint">({argHint})</span>
-          {hasTitle ? (
+          {showRawName ? (
             <span className="part-toolrow__rawname" data-testid="part-tool-rawname">
               {name}
             </span>
@@ -1405,7 +1567,16 @@ export function ToolPart({ call, result }: ToolPartProps) {
               header and, once it lands, the results table below), so the
               params well contributes nothing here and is skipped rather
               than showing the ids a second time. */}
-          {!waited && params.length > 0 ? <KvRows rows={params} /> : null}
+          {!waited && params.rows.length > 0 ? <KvRows rows={params.rows} /> : null}
+          {/* Row-render defect #3 (owner-quoted): every input key renders —
+              a dict/list-valued param (e.g. jarvis_add_step's `config`) gets
+              its own collapsible section instead of vanishing into an
+              unreadable single-cell JSON blob among the scalar rows above. */}
+          {!waited
+            ? params.sections.map((s) => (
+                <NestedSection key={s.key} label={s.key} value={s.value} testId="part-tool-param-section" />
+              ))
+            : null}
           {/* content_blocks: an image is the strongest presentation a tool
               can declare, so its showcase sits ABOVE the structured rows
               below — composing with whichever InterpretedResult kind the

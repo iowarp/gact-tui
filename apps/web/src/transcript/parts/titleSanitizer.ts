@@ -30,3 +30,25 @@ export function sanitizeTitle(raw: unknown, fallback: string): string {
   const stripped = raw.replace(CONTROL_CHARS_RE, '').trim();
   return stripped ? truncate(stripped, MAX_TITLE_LEN) : fallback;
 }
+
+/** Lowercase, then drop underscores/hyphens/spaces — the shared shape both
+ *  {@link titleIsRedundantWithRawName} sides compare on, so `Create Artifact`
+ *  and `create_artifact` collapse to the identical `createartifact`. */
+const TITLE_COMPARE_STRIP_RE = /[_\- ]+/g;
+
+/**
+ * Row-render defect #1 (owner-quoted, P4R): `Create Artifact` bold, with
+ * `create_artifact` repeated directly below it in the muted raw-name slot,
+ * is visual duplication — the title already carries the fact, the raw name
+ * beneath it says nothing new. Two names are "the same fact twice" when they
+ * match modulo case and `[_ -]` — normalize both sides (lowercase, strip
+ * underscores/hyphens/spaces) and compare for exact equality; nothing
+ * fuzzier (a substring or edit-distance match would risk hiding a genuinely
+ * distinct raw name, e.g. `Describe` vs. `jarvis_describe`, which must keep
+ * BOTH — the raw identifier is what actually went to the model and stays
+ * visible whenever it adds information the title doesn't already state).
+ */
+export function titleIsRedundantWithRawName(title: string, rawName: string): boolean {
+  const normalize = (value: string) => value.toLowerCase().replace(TITLE_COMPARE_STRIP_RE, '');
+  return normalize(title) === normalize(rawName);
+}
