@@ -189,3 +189,9 @@ checked off with the commit that lands it. Newest first.
     first attempt then a ~135s retry before learning. If clio-kit is ever
     REINSTALLED, rerun a full stage→filter→plot pipeline turn as the warm-up
     (not just ndp) so all four plans re-learn before the audience.
+13. **Port hygiene**: exactly ONE UI server — vite preview on 4173 with
+    `--host` (all stacks, so localhost AND 127.0.0.1 work). Stale previews
+    from old sessions (4191 etc.) serve old bundles AND fail the backend's
+    CORS allow-list — the browser shows "Failed to fetch" while the backend
+    is healthy. Sweep before the demo:
+    `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? { $_.CommandLine -match 'vite.*preview|http-server' }`
