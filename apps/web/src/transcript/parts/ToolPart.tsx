@@ -44,6 +44,48 @@ export function waitingTaskCount(call: WirePart): number | null {
   return Array.isArray(taskIds) ? taskIds.length : null;
 }
 
+/** One resolved sibling of a `wait_agent_tasks`/`check_agent_tasks` call
+ *  (wire contract: `tool_call.metadata.waited_tasks`). `name` is the
+ *  server-resolved display name — rendered verbatim, never composed from
+ *  `agent_id`/`run_label` client-side. */
+export interface WaitedTask {
+  task_id: string;
+  agent_id: string;
+  run_index: number;
+  run_label: string;
+  child_session_id: string;
+  name: string;
+}
+
+/**
+ * Reads `metadata.waited_tasks` off a wait-family tool_call. `null` when the
+ * field is absent (older sessions, or a call this build doesn't recognize as
+ * resolved yet) OR when an entry doesn't carry the one field this renders
+ * verbatim (`name`) — a partially-malformed list falls back to today's
+ * behavior entirely rather than rendering a mix of resolved and raw ids.
+ */
+export function waitedTasksOf(call: WirePart): WaitedTask[] | null {
+  const metadata = call['metadata'];
+  if (!isRecord(metadata)) return null;
+  const raw = metadata['waited_tasks'];
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const tasks: WaitedTask[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) return null;
+    const name = entry['name'];
+    if (typeof name !== 'string' || name.length === 0) return null;
+    tasks.push({
+      task_id: str(entry['task_id']),
+      agent_id: str(entry['agent_id']),
+      run_index: typeof entry['run_index'] === 'number' ? entry['run_index'] : 0,
+      run_label: str(entry['run_label']),
+      child_session_id: str(entry['child_session_id']),
+      name,
+    });
+  }
+  return tasks;
+}
+
 /**
  * A collapsed, re-polled `wait_agent_tasks`/`check_agent_tasks` call carries
  * its retry facts as `attempts`/`budgets` on the tool_call part's
@@ -105,6 +147,22 @@ function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: s
 }
 
 /**
+ * The shared top-level-object JSON parse both `resultRows` and the wait-
+ * shape detector use — a bounded, defensive parse (size-capped, object-only)
+ * rather than each caller re-deriving its own guard.
+ */
+function parseJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || trimmed.length > 20000) return null;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A JSON-object tool result rendered as the prototype's key/value result
  * table (isToolSeg's "results tables") instead of a raw JSON blob. Only a
  * top-level OBJECT becomes rows — arrays and scalars keep the verbatim
@@ -112,15 +170,8 @@ function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: s
  * only: every key and value from the wire still renders, nothing is dropped.
  */
 function resultRows(text: string): Array<{ k: string; v: string }> | null {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith('{') || trimmed.length > 20000) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-  if (!isRecord(parsed)) return null;
+  const parsed = parseJsonObject(text);
+  if (!parsed) return null;
   const rows = kvRowsFromObject(parsed);
   return rows.length > 0 ? rows : null;
 }
@@ -153,32 +204,50 @@ function objectArrayToTable(items: Array<Record<string, unknown>>): { header: st
   return { header, rows };
 }
 
+/** A splitStructuredObject bucket: a nested plain-object VALUE (not an
+ *  array), pulled out to render as its own collapsible section instead of a
+ *  pretty-printed JSON blob sitting inline in the KV grid. */
+export interface StructuredSection {
+  key: string;
+  value: Record<string, unknown>;
+}
+
 /**
  * Round-6 live finding: a WRAPPER object (`{ points: [72 station objects],
  * count: 72, ok: true }`) was collapsing its 72-row array into a single
  * opaque KV value — the exact case the table rung exists for, just one
  * level down from the root. This walks the object's OWN values (never
- * recursing further) and splits them: a uniform-object-array value with
- * MORE THAN ONE row is pulled out as its own table (labeled by its key);
- * everything else — scalars, single-row arrays, non-uniform arrays, nested
- * objects — stays a KV value via the existing {@link kvValue}
- * stringification, verbatim. No key is ever dropped from either bucket.
+ * recursing further into arrays) and splits them three ways: a
+ * uniform-object-array value with MORE THAN ONE row is pulled out as its own
+ * table (labeled by its key); a non-empty nested PLAIN OBJECT value (e.g. a
+ * `merged_workflow_state` dict) is pulled out as its own collapsible
+ * {@link StructuredSection} instead of overflowing the KV grid as one giant
+ * pretty-printed string; everything else — scalars, single-row arrays,
+ * non-uniform arrays, empty objects — stays a KV value via the existing
+ * {@link kvValue} stringification, verbatim. No key is ever dropped from any
+ * bucket.
  */
 function splitStructuredObject(obj: Record<string, unknown>): {
   rows: Array<{ k: string; v: string }>;
   tables: Array<{ key: string; header: string[]; rows: string[][] }>;
+  sections: StructuredSection[];
 } {
   const rows: Array<{ k: string; v: string }> = [];
   const tables: Array<{ key: string; header: string[]; rows: string[][] }> = [];
+  const sections: StructuredSection[] = [];
   for (const [k, v] of Object.entries(obj)) {
     if (isUniformObjectArray(v) && v.length > 1) {
       const { header, rows: tableRows } = objectArrayToTable(v);
       tables.push({ key: k, header, rows: tableRows });
       continue;
     }
+    if (isRecord(v) && Object.keys(v).length > 0) {
+      sections.push({ key: k, value: v });
+      continue;
+    }
     rows.push({ k, v: kvValue(v) });
   }
-  return { rows, tables };
+  return { rows, tables, sections };
 }
 
 /** Naive comma-split CSV, matching the existing DetailSlot Preview idiom
@@ -198,16 +267,67 @@ type InterpretedResult =
       kind: 'object';
       rows: Array<{ k: string; v: string }>;
       tables: Array<{ key: string; header: string[]; rows: string[][] }>;
+      sections: StructuredSection[];
+    }
+  | {
+      kind: 'wait';
+      resultsTable: { header: string[]; rows: string[][] } | null;
+      resultsRows: Array<{ k: string; v: string }>;
+      conflicts: unknown[] | undefined;
+      mergedState: Record<string, unknown> | null;
+      otherRows: Array<{ k: string; v: string }>;
     }
   | { kind: 'image'; block: ContentImageBlock }
   | { kind: 'raw' };
 
 /**
+ * `wait_agent_tasks`/`check_agent_tasks`' own result shape (owner, round-7
+ * live fan-out session: the expanded well showed a raw
+ * `{"merged_workflow_state": {...}` dump): a `results` array alongside
+ * `merged_workflow_state` and/or `workflow_state_conflicts`. Detected by
+ * shape (duck-typed) rather than by re-reading the call's tool name here —
+ * `interpretResult` only ever sees the result part, not the call.
+ */
+function isWaitResultShape(obj: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(obj['results']) &&
+    ('merged_workflow_state' in obj || 'workflow_state_conflicts' in obj)
+  );
+}
+
+/**
+ * Splits the wait-result object into the ladder's dedicated rungs (owner
+ * design): `results` -> the table rung when uniform, else a KV fallback
+ * (never dropped either way); `workflow_state_conflicts`, WHEN PRESENT, ->
+ * its own typed line + rows (never silently swallowed into the generic KV
+ * grid); `merged_workflow_state` -> a collapsed {@link NestedSection}
+ * instead of a raw dump; everything else on the object still renders as
+ * plain KV rows. Presentation order here is the display contract itself
+ * (results, conflicts, merged state) regardless of the wire's own key
+ * order.
+ */
+function buildWaitInterpretation(obj: Record<string, unknown>): Extract<InterpretedResult, { kind: 'wait' }> {
+  const { results, workflow_state_conflicts, merged_workflow_state, ...rest } = obj;
+  const resultsArray = Array.isArray(results) ? results : [];
+  const resultsTable = isUniformObjectArray(resultsArray) ? objectArrayToTable(resultsArray) : null;
+  const resultsRows =
+    !resultsTable && resultsArray.length > 0
+      ? resultsArray.map((item, i) => ({ k: String(i), v: kvValue(item) }))
+      : [];
+  const conflicts = Array.isArray(workflow_state_conflicts) ? workflow_state_conflicts : undefined;
+  const mergedState = isRecord(merged_workflow_state) ? merged_workflow_state : null;
+  const otherRows = kvRowsFromObject(rest);
+  return { kind: 'wait', resultsTable, resultsRows, conflicts, mergedState, otherRows };
+}
+
+/**
  * The result render ladder (owner design 2026-08-05), replacing "print the
- * JSON string and hope": `structured_content` first (a root array of
- * uniform objects -> a real table; a root OBJECT -> the KV grid, or —
- * round-6 fix — KV grid + a labeled table per qualifying array-valued key
- * when one is present, see {@link splitStructuredObject}), then content
+ * JSON string and hope": the wait-family result shape first (its own
+ * dedicated rungs, see {@link buildWaitInterpretation}), then
+ * `structured_content` (a root array of uniform objects -> a real table; a
+ * root OBJECT -> the KV grid, or — round-6 fix — KV grid + a labeled table
+ * per qualifying array-valued key + a collapsed section per qualifying
+ * nested-object-valued key, see {@link splitStructuredObject}), then content
  * blocks by mime type (image, text/csv -> table), then the existing
  * text/JSON-object handling, and finally the verbatim fallback that was
  * already here. Every step only fires on a shape it can actually interpret
@@ -216,13 +336,18 @@ type InterpretedResult =
  */
 function interpretResult(result: WirePart, text: string): InterpretedResult {
   const structured = extractStructuredContent(result);
+  const candidate = isRecord(structured) ? structured : parseJsonObject(text);
+  if (candidate && isWaitResultShape(candidate)) {
+    return buildWaitInterpretation(candidate);
+  }
+
   if (isUniformObjectArray(structured)) {
     const { header, rows } = objectArrayToTable(structured);
     return { kind: 'table', header, rows };
   }
   if (isRecord(structured)) {
-    const { rows, tables } = splitStructuredObject(structured);
-    if (tables.length > 0) return { kind: 'object', rows, tables };
+    const { rows, tables, sections } = splitStructuredObject(structured);
+    if (tables.length > 0 || sections.length > 0) return { kind: 'object', rows, tables, sections };
     if (rows.length > 0) return { kind: 'kv', rows };
   }
 
@@ -336,6 +461,52 @@ function ResultImage({ block }: { block: ContentImageBlock }) {
 }
 
 /**
+ * A nested plain-object value (a {@link StructuredSection}, e.g.
+ * `merged_workflow_state`) rendered as its own collapsed section instead of
+ * overflowing the KV grid as one giant pretty-printed string — collapsed by
+ * default, one click reveals its own KV rows/tables/sections via the SAME
+ * {@link splitStructuredObject} split, recursively, so an arbitrarily deep
+ * nested dict never falls back to raw JSON until the reader actually asks
+ * for it (the existing raw toggle, still one keypress away at the top).
+ */
+function NestedSection({ label, value }: { label: string; value: Record<string, unknown> }) {
+  const [open, setOpen] = useState(false);
+  const { rows, tables, sections } = splitStructuredObject(value);
+  return (
+    <div className="part-toolrow__section" data-testid="part-tool-result-section">
+      <button
+        type="button"
+        className="part-toolrow__sectiontoggle"
+        aria-expanded={open}
+        data-testid="part-tool-result-section-toggle"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="part-toolrow__chev" data-open={open ? 'true' : undefined} aria-hidden="true">
+          ▸
+        </span>
+        {label}
+      </button>
+      {open ? (
+        <div className="part-toolrow__sectionbody">
+          {rows.length > 0 ? <KvRows rows={rows} /> : null}
+          {tables.map((t) => (
+            <div className="part-toolrow__subtable" key={t.key}>
+              <p className="part-toolrow__subtablelabel" data-testid="part-tool-result-subtable-label">
+                {`${t.key} (${t.rows.length})`}
+              </p>
+              <ResultTable header={t.header} rows={t.rows} />
+            </div>
+          ))}
+          {sections.map((s) => (
+            <NestedSection key={s.key} label={s.key} value={s.value} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * Result ladder step B3: whenever a renderer INTERPRETED the payload
  * (table/image/KV), the verbatim original text stays one keypress away —
  * never removed, never re-serialized from the parsed shape. Collapsed by
@@ -392,7 +563,6 @@ export function ToolPart({ call, result }: ToolPartProps) {
     );
   }
 
-  const argHint = firstArgHint(call['input']);
   const params = argRows(call['input']);
   const { attempts, budgets } = metadataFacts(call);
   const isError = result ? result['is_error'] === true : false;
@@ -404,15 +574,27 @@ export function ToolPart({ call, result }: ToolPartProps) {
 
   const thought = str(call['thought']);
 
+  // A settled wait_agent_tasks/check_agent_tasks call: `wait(<name>, <name>,
+  // <name>)` — the server-resolved names verbatim (owner, round-7 live
+  // fan-out session: the row was rendering
+  // `wait_agent_tasks(["task_cc806f98b07c", ...])`, raw ids). Absent field
+  // (older sessions) falls through to today's name(argHint) row unchanged.
+  const waited = waitedTasksOf(call);
+
   // A) Tool titles (owner design 2026-08-05): `tool_title`/`server_title` are
   // OPTIONAL wire fields on the tool_call. Presence is judged on the RAW
   // field (a string, even an empty one, counts as "the wire sent this"), so
   // absence renders EXACTLY today's raw-name-only row (regression pin) while
   // presence always keeps the raw identifier on screen — it's what went to
-  // the model, and it must be visible when a call fails.
+  // the model, and it must be visible when a call fails. A resolved wait row
+  // has already replaced the whole name(args) segment, so a tool_title never
+  // applies alongside it.
   const rawTitle = call['tool_title'];
-  const hasTitle = typeof rawTitle === 'string';
-  const displayName = hasTitle ? sanitizeTitle(rawTitle, name) : name;
+  const hasTitle = !waited && typeof rawTitle === 'string';
+  const displayName = waited ? 'wait' : hasTitle ? sanitizeTitle(rawTitle, name) : name;
+  const argHint = waited
+    ? truncate(waited.map((t) => t.name).join(', '), ARG_HINT_MAX)
+    : firstArgHint(call['input']);
   // server_title has no display surface yet beyond a `title` attribute
   // (grouping/breadcrumb is a later surface) — never a fabricated group
   // header.
@@ -456,7 +638,13 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
           <MetadataChips attempts={attempts} budgets={budgets} />
-          {params.length > 0 ? <KvRows rows={params} /> : null}
+          {/* A resolved wait row's own params are raw task_ids — the same
+              raw-id leak the header just fixed. waited_tasks already carries
+              richer, resolved identity for each task (surfaced via the
+              header and, once it lands, the results table below), so the
+              params well contributes nothing here and is skipped rather
+              than showing the ids a second time. */}
+          {!waited && params.length > 0 ? <KvRows rows={params} /> : null}
           {result ? (
             (() => {
               const interpreted = interpretResult(result, text);
@@ -492,9 +680,59 @@ export function ToolPart({ call, result }: ToolPartProps) {
                           <ResultTable header={t.header} rows={t.rows} />
                         </div>
                       ))}
+                      {interpreted.sections.map((s) => (
+                        <NestedSection key={s.key} label={s.key} value={s.value} />
+                      ))}
                       <RawToggle text={text} />
                     </>
                   );
+                case 'wait': {
+                  const { resultsTable, resultsRows, conflicts, mergedState, otherRows } = interpreted;
+                  return (
+                    <>
+                      {resultsTable ? (
+                        <div className="part-toolrow__subtable">
+                          <p
+                            className="part-toolrow__subtablelabel"
+                            data-testid="part-tool-result-subtable-label"
+                          >
+                            {`results (${resultsTable.rows.length})`}
+                          </p>
+                          <ResultTable header={resultsTable.header} rows={resultsTable.rows} />
+                        </div>
+                      ) : resultsRows.length > 0 ? (
+                        <KvRows rows={resultsRows} testId="part-tool-wait-results" />
+                      ) : null}
+                      {/* workflow_state_conflicts, WHEN PRESENT, as its own
+                          typed line — never blended into a generic KV row a
+                          reader could skim past. */}
+                      {conflicts !== undefined ? (
+                        <p
+                          className="part-toolrow__conflicts"
+                          data-testid="part-tool-wait-conflicts"
+                          data-empty={conflicts.length === 0 ? 'true' : undefined}
+                        >
+                          {conflicts.length > 0
+                            ? `⚠ ${conflicts.length} workflow state conflict${conflicts.length === 1 ? '' : 's'}`
+                            : 'no workflow state conflicts'}
+                        </p>
+                      ) : null}
+                      {conflicts && conflicts.length > 0 ? (
+                        isUniformObjectArray(conflicts) ? (
+                          <ResultTable {...objectArrayToTable(conflicts)} />
+                        ) : (
+                          <KvRows
+                            rows={conflicts.map((c, i) => ({ k: String(i), v: kvValue(c) }))}
+                            testId="part-tool-wait-conflicts-rows"
+                          />
+                        )
+                      ) : null}
+                      {otherRows.length > 0 ? <KvRows rows={otherRows} /> : null}
+                      {mergedState ? <NestedSection label="merged_workflow_state" value={mergedState} /> : null}
+                      <RawToggle text={text} />
+                    </>
+                  );
+                }
                 case 'image':
                   return (
                     <>

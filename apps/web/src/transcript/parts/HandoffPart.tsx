@@ -22,7 +22,10 @@ export interface ChildPreview {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
 
-function metadataOf(part: WirePart): Record<string, unknown> {
+/** Exported for FanoutGroup — the fanout frame reads each sibling's own
+ *  `metadata.question`/`metadata.group_size` through the same accessor
+ *  MergedHandoff uses, rather than re-deriving a second copy. */
+export function metadataOf(part: WirePart): Record<string, unknown> {
   const meta = part['metadata'];
   return meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
 }
@@ -36,7 +39,10 @@ function metadataOf(part: WirePart): Record<string, unknown> {
  * never visually identical to a successful one anywhere else in the
  * prototype, and this is the one place that rule was being broken.
  */
-function delegateStatus(part: WirePart, returned: boolean): SessionStatus {
+/** Exported for FanoutGroup, same reason as {@link metadataOf} — one child
+ *  row inside the fanout frame is status-classified exactly like a lone
+ *  Call box, never a second status vocabulary. */
+export function delegateStatus(part: WirePart, returned: boolean): SessionStatus {
   const raw = str(part['status'] ?? part['live_state']).toLowerCase();
   const stage = str(part['stage']);
   if (raw === 'error' || raw === 'failed' || stage === 'delegate.failed') return 'error';

@@ -336,3 +336,227 @@ describe('absence of every new field/shape -- regression pin', () => {
     expect(document.querySelector('.part-toolrow__result')).toBeNull();
   });
 });
+
+/**
+ * Nested-dict ladder rung (extends splitStructuredObject): a nested PLAIN
+ * OBJECT value (not an array) collapses into a giant pretty-printed JSON
+ * string inline in the KV grid today — this is exactly the wait row's
+ * `merged_workflow_state` complaint (owner, round-7), generalized: any
+ * structured result carrying a nested dict value gets a collapsible section
+ * instead, collapsed by default, raw JSON still one keypress away via the
+ * existing raw toggle.
+ */
+describe('nested-dict ladder rung -- a nested plain-object VALUE renders as a collapsible section', () => {
+  it('pulls a nested object value into its own collapsed section, not an inline JSON blob', () => {
+    render(
+      <ToolPart
+        call={toolCall('workflow_probe', {}, 'call_20')}
+        result={toolResult('call_20', {
+          content: [{ type: 'text', text: 'probe result' }],
+          structured_content: { ok: true, state: { steps_completed: 3, notes: 'on track' } },
+        })}
+      />,
+    );
+    openRow(/workflow_probe/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('ok');
+    expect(kv).toHaveTextContent('true');
+    // The nested object never renders as one giant inline JSON string.
+    expect(kv).not.toHaveTextContent('steps_completed');
+    const section = screen.getByTestId('part-tool-result-section');
+    expect(section).toHaveTextContent('state');
+    // Collapsed by default.
+    expect(within(section).queryByText('steps_completed')).toBeNull();
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(within(section).getByText('steps_completed')).toBeInTheDocument();
+    expect(within(section).getByText('on track')).toBeInTheDocument();
+    // Raw stays one keypress away, verbatim.
+    fireEvent.click(screen.getByTestId('part-tool-raw-toggle'));
+    expect(screen.getByTestId('part-tool-raw')).toHaveTextContent('probe result');
+  });
+
+  it('an empty nested object stays an inline KV value ({}), no section for nothing', () => {
+    render(
+      <ToolPart
+        call={toolCall('empty_state_probe', {}, 'call_21')}
+        result={toolResult('call_21', {
+          content: [{ type: 'text', text: 'probe result' }],
+          structured_content: { ok: true, state: {} },
+        })}
+      />,
+    );
+    openRow(/empty_state_probe/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('state');
+    expect(screen.queryByTestId('part-tool-result-section')).toBeNull();
+  });
+
+  it('nests recursively: a section\'s own nested object gets its own nested section', () => {
+    render(
+      <ToolPart
+        call={toolCall('deep_probe', {}, 'call_22')}
+        result={toolResult('call_22', {
+          content: [{ type: 'text', text: 'deep probe' }],
+          structured_content: { outer: { inner: { leaf: 'value' } } },
+        })}
+      />,
+    );
+    openRow(/deep_probe/);
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    const toggles = screen.getAllByTestId('part-tool-result-section-toggle');
+    expect(toggles).toHaveLength(2);
+    fireEvent.click(toggles[1]!);
+    expect(screen.getByText('leaf')).toBeInTheDocument();
+    expect(screen.getByText('value')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The wait row's own result shape (owner, round-7 live fan-out session: the
+ * expanded well showed a raw `{"merged_workflow_state": {...}` dump).
+ * Detected by shape (a `results` array alongside `merged_workflow_state`
+ * and/or `workflow_state_conflicts`), independent of tool name — the ladder
+ * only ever sees the result part.
+ */
+describe('wait result shape -- results/workflow_state_conflicts/merged_workflow_state ladder', () => {
+  it('results renders as the table rung, merged_workflow_state as a collapsed section, raw one keypress away', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_30')}
+        result={toolResult('call_30', {
+          content: [{ type: 'text', text: 'wait complete' }],
+          structured_content: {
+            results: [
+              { task_id: 't1', name: 'geospatial #1', status: 'completed' },
+              { task_id: 't2', name: 'hydrology #1', status: 'completed' },
+            ],
+            merged_workflow_state: { steps_completed: 5, notes: 'merged ok' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const label = screen.getByTestId('part-tool-result-subtable-label');
+    expect(label).toHaveTextContent('results (2)');
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getByText('geospatial #1')).toBeInTheDocument();
+    expect(within(grid).getByText('hydrology #1')).toBeInTheDocument();
+
+    // merged_workflow_state is a collapsed section, never a raw inline dump.
+    expect(screen.queryByText('steps_completed')).toBeNull();
+    const section = screen.getByTestId('part-tool-result-section');
+    expect(section).toHaveTextContent('merged_workflow_state');
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+    expect(screen.getByText('steps_completed')).toBeInTheDocument();
+
+    // No conflicts key on the wire here -> no conflicts line at all.
+    expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('part-tool-raw-toggle'));
+    expect(screen.getByTestId('part-tool-raw')).toHaveTextContent('wait complete');
+  });
+
+  it('workflow_state_conflicts renders a visible typed line when present and non-empty, never swallowed', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_31')}
+        result={toolResult('call_31', {
+          content: [{ type: 'text', text: 'wait complete with conflicts' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            workflow_state_conflicts: [
+              { key: 'region', parent_value: 'LA', child_value: 'SF' },
+            ],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const conflictsLine = screen.getByTestId('part-tool-wait-conflicts');
+    expect(conflictsLine).toHaveTextContent('1 workflow state conflict');
+    expect(conflictsLine).not.toHaveAttribute('data-empty');
+    // The conflict's own detail is visible too, not just the count.
+    expect(screen.getByText('region')).toBeInTheDocument();
+  });
+
+  it('workflow_state_conflicts renders an honest empty line when present but empty (never dropped)', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_32')}
+        result={toolResult('call_32', {
+          content: [{ type: 'text', text: 'wait complete, no conflicts' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            workflow_state_conflicts: [],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    const conflictsLine = screen.getByTestId('part-tool-wait-conflicts');
+    expect(conflictsLine).toHaveTextContent('no workflow state conflicts');
+    expect(conflictsLine).toHaveAttribute('data-empty', 'true');
+  });
+
+  it('a wait result with only ONE task still renders through the results table rung, not the plain fallback', () => {
+    render(
+      <ToolPart
+        call={toolCall('check_agent_tasks', {}, 'call_33')}
+        result={toolResult('call_33', {
+          content: [{ type: 'text', text: 'single task done' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/check_agent_tasks/);
+    // results is always the table rung for the wait shape, even a single
+    // row — the reader's mental model is "one row per waited task," never a
+    // KV/table split based on row count for THIS field specifically.
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getByText('geospatial #1')).toBeInTheDocument();
+    expect(screen.getByTestId('part-tool-result-section')).toHaveTextContent('merged_workflow_state');
+  });
+
+  it('a non-uniform results array (mixed keys) falls back to the resolved KV rows, still no raw dump', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_35')}
+        result={toolResult('call_35', {
+          content: [{ type: 'text', text: 'mixed results' }],
+          structured_content: {
+            results: [{ task_id: 't1', name: 'geospatial #1' }, { task_id: 't2' }],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+    const kv = screen.getByTestId('part-tool-wait-results');
+    expect(kv).toHaveTextContent('geospatial #1');
+  });
+
+  it('a shape without merged_workflow_state or workflow_state_conflicts is NOT treated as a wait result', () => {
+    // Guards the duck-type: a `results` array alone (some other tool's own
+    // "results" key) must not be swept into the wait-specific ladder.
+    render(
+      <ToolPart
+        call={toolCall('generic_batch_tool', {}, 'call_34')}
+        result={toolResult('call_34', {
+          content: [{ type: 'text', text: 'batch done' }],
+          structured_content: { results: [{ id: 1 }, { id: 2 }, { id: 3 }] },
+        })}
+      />,
+    );
+    openRow(/generic_batch_tool/);
+    expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
+    // Falls through to the plain uniform-array table rung instead.
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getAllByRole('row')).toHaveLength(1 + 3);
+  });
+});

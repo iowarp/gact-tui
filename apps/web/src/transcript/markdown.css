@@ -38,6 +38,27 @@
   color: var(--t-hd, #c5cad3);
 }
 
+/* Root cause of the gutter-dot misalignment (owner, round-7: the final
+   answer's `.md-h[data-level="2"]` sat visibly lower than the ● gutter dot
+   of its part row): `.md` is a flex column (`gap: 6px`), so a flex item's
+   OWN margin is never collapsed away by its container the way a block-level
+   first-child's would be — `.md-h`'s `margin-top: 10px` above therefore
+   still pushes it down from the top of `.md` even when it is the very
+   first block. The gutter dot (`.part-textdot`, PartCard's fixed-height
+   gutter column) has no such offset and renders flush at the row's top, so
+   ANY block whose top margin survives as the first child reads as shifted
+   down against it — headings are simply the block kind with the largest
+   top margin, so the drift is most visible there. Zeroing the top margin
+   of whichever block is actually first (heading, paragraph, list, table,
+   code — never just `.md-h`) aligns the first line of ANY answer against
+   its dot, not a `.md-h`-specific patch. Same specificity as the rule
+   above (two classes vs. one class + one pseudo-class); source order
+   below makes this win for `margin-top` on the first child only, leaving
+   every non-first heading's rhythm untouched. */
+.md > *:first-child {
+  margin-top: 0;
+}
+
 .md strong {
   font-weight: 700;
   color: var(--t-hd, #c5cad3);

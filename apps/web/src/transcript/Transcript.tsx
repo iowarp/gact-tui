@@ -3,6 +3,7 @@ import type { Message } from '@clio/core';
 import { PartCard } from '../kit';
 import '../session/returncard.css';
 import { ArtifactGrid } from './parts/ArtifactChip';
+import { FanoutGroup } from './parts/FanoutGroup';
 import { MergedHandoff, type ChildPreview } from './parts/HandoffPart';
 import { ToolPart } from './parts/ToolPart';
 import { PART_RENDERERS, WrenchGlyph, type WirePart } from './registry';
@@ -94,7 +95,8 @@ type PartGroup =
   | { key: string; kind: 'part'; part: WirePart }
   | { key: string; kind: 'tool'; call: WirePart; result?: WirePart }
   | { key: string; kind: 'artifacts'; parts: WirePart[] }
-  | { key: string; kind: 'handoff'; terminal: WirePart };
+  | { key: string; kind: 'handoff'; terminal: WirePart }
+  | { key: string; kind: 'fanout'; parts: WirePart[] };
 
 function toolCallId(part: WirePart): string {
   return str(part['call_id']) || str(part['id']);
@@ -102,6 +104,21 @@ function toolCallId(part: WirePart): string {
 
 function toolResultCallId(part: WirePart): string {
   return str(part['call_id']) || str(part['tool_call_id']);
+}
+
+/**
+ * `metadata.spawn_group_id` (wire contract, P4R fanout: `fanout_<hex12>`) —
+ * stamped on EVERY sibling of one `spawn_agents_parallel` call, both the
+ * `delegate.started` and `delegate.completed` stages of each. Absent on a
+ * single (non-fanout) delegation, and absent entirely on sessions written
+ * before this field landed — those keep rendering through the old
+ * one-part-per-delegation path below, unchanged. Never inferred from
+ * adjacency or timing, only ever this field.
+ */
+function spawnGroupIdOf(part: WirePart): string {
+  const meta = part['metadata'];
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return '';
+  return str((meta as Record<string, unknown>)['spawn_group_id']);
 }
 
 /**
@@ -159,6 +176,24 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
     }
 
     if (part.type === 'expert_handoff') {
+      const groupId = spawnGroupIdOf(part);
+      if (groupId) {
+        // N siblings of ONE spawn_agents_parallel call fold into ONE fanout
+        // frame (owner, round-7 live fan-out session) — collected by the
+        // wire's own spawn_group_id, wherever in the part list each sibling
+        // lands, never by adjacency.
+        const siblings = [part];
+        for (let j = i + 1; j < parts.length; j++) {
+          if (consumed.has(j)) continue;
+          const candidate = parts[j]!;
+          if (candidate.type === 'expert_handoff' && spawnGroupIdOf(candidate) === groupId) {
+            siblings.push(candidate);
+            consumed.add(j);
+          }
+        }
+        groups.push({ key, kind: 'fanout', parts: siblings });
+        continue;
+      }
       // ONE delegation = ONE part on the clean wire (the terminal updates the
       // started part in place server-side; metadata carries brief AND output).
       // No client-side pairing — the UI renders exactly what arrives.
@@ -303,6 +338,17 @@ function RenderedGroup({
           terminal={group.terminal}
           {...(onOpenChild ? { onOpenChild } : {})}
           {...(preview ? { preview } : {})}
+        />
+      </PartCard>
+    );
+  }
+  if (group.kind === 'fanout') {
+    return (
+      <PartCard kind="fanout" gutter={<WrenchGlyph />}>
+        <FanoutGroup
+          parts={group.parts}
+          {...(onOpenChild ? { onOpenChild } : {})}
+          {...(childPreviews ? { childPreviews } : {})}
         />
       </PartCard>
     );
