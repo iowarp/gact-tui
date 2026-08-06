@@ -1,22 +1,26 @@
 /**
- * The provenance lineage graph model (viz rebuild, 2026-08).
+ * Geometry for the provenance data-flow graph (regrammar, 2026-08-06).
  *
- * Turns the flattened `RouteStep[]` into a laid-out DAG for React Flow. Pure:
- * no React, no DOM, no measurement — layout is computed by dagre from character
- * counts, which is exact here because every lineage line is set in JetBrains
- * Mono. That is what makes the layout deterministic (same route ⇒ same
- * coordinates) and unit-testable without a browser.
+ * {@link ./provenanceModel} decides WHAT the graph is — which transforms
+ * collapsed, what converges where, which foreign sessions keep a box. This
+ * module only decides where it sits: a dagre layered pass, top→bottom, so
+ * chronology reads downward and every input's edge converges on the transform
+ * that consumed it.
  *
- * The APPROVED semantics of docs/design/provenance-graph-2026-08.md are
- * preserved, not replaced: one-line minimal nodes (◆ artifact / ⚙ activity /
- * ▢ gap + name + muted sub-info), `verb → evidence` edge labels, foreign-session
- * clusters with a clickable header, the self node anchored and highlighted,
- * chronology reading top→bottom. What the graph library adds is pan/zoom, a
- * proper layered layout, and REAL branch/merge geometry for multi-input
- * activities — the thing the flattened list could only hint at with a `╮`.
+ * Pure and deterministic: node sizes are computed from character counts (the
+ * lines are monospace, so that is exact, not an estimate), no DOM is consulted,
+ * and nothing here depends on the environment — the same route yields the same
+ * coordinates in jsdom and in Chrome, which is what makes the layout
+ * unit-testable at all.
+ *
+ * Cluster boxes are laid out by dagre itself, as a COMPOUND graph
+ * (`setParent`), not fitted around the members afterwards. That is the fix for
+ * the routing bug the owner marked "under": a box dagre does not know about is
+ * a box dagre routes edges straight through.
  */
 import dagre from '@dagrejs/dagre';
-import type { RouteEdge, RouteNode, RouteStep } from './types';
+import { provenanceModel, type ProvEdge, type ProvNode, type ProvProducer } from './provenanceModel';
+import type { RouteNode, RouteStep } from './types';
 
 /** JetBrains Mono advance width at the lineage font size (11.5px * --ts, --ts
  *  defaults to 1). Mono, so character count × this IS the text width. */
@@ -28,24 +32,33 @@ const CHIP_PADDING_PX = 13;
 /** Glyph column + the flex gaps + the node's own padding. */
 const NODE_CHROME_PX = 34;
 const NODE_MIN_PX = 130;
-const NODE_MAX_PX = 460;
+/** Wide enough for the real EarthScope line — a 35-character artifact name
+ *  plus the producer badge, version, size and the you-are-here marker — so the
+ *  self node's own facts are not the first thing the clamp eats. The canvas
+ *  pans, so a wide node costs nothing a narrow panel cannot reach. */
+const NODE_MAX_PX = 545;
 const NODE_HEIGHT_PX = 26;
 
-/** Cluster box padding around its member nodes, and the header strip height. */
-const CLUSTER_PAD_PX = 10;
-const CLUSTER_HEADER_PX = 24;
+/** The cluster header strip drawn inside dagre's own top padding
+ *  (`ranksep / 2`, measured), so it never overlaps a member line. */
+export const CLUSTER_HEADER_PX = 18;
 
 /** Dagre spacing. `ranksep` has to clear an edge label line (`generated →
- *  hashed-at-use`) drawn at the midpoint of every edge. */
-const RANK_SEP_PX = 46;
-const NODE_SEP_PX = 26;
+ *  hash-pair`) drawn at the midpoint of every edge, AND leave room above a
+ *  cluster's first member for its header strip. `edgesep` keeps converging
+ *  inputs from stacking their labels on one another. */
+const RANK_SEP_PX = 52;
+const NODE_SEP_PX = 30;
+const EDGE_SEP_PX = 22;
 
 export interface LineageGraphNode {
-  /** Stable id — the node's own step index, which is also its testid suffix. */
+  /** The primary run's route step index, as a string — also the testid
+   *  suffix (`route-node-{index}`). */
   id: string;
-  /** The step index this node came from (drives `route-node-{index}`). */
   index: number;
   node: RouteNode;
+  /** The collapsed model node: run list, multiplicity, producer. */
+  prov: ProvNode;
   /** The foreign session whose cluster holds this node, if any. */
   clusterId?: string;
   x: number;
@@ -60,13 +73,13 @@ export interface LineageGraphEdge {
   index: number;
   source: string;
   target: string;
-  edge: RouteEdge;
+  prov: ProvEdge;
 }
 
 export interface LineageCluster {
   id: string;
   sessionId: string;
-  /** The cluster header's timestamp — the first (oldest) member's mint time. */
+  /** The cluster header's timestamp — the first member's mint time. */
   createdAt?: string;
   memberIds: string[];
   x: number;
@@ -83,6 +96,13 @@ export interface LineageLayout {
   height: number;
 }
 
+/** Resolves a producer to the short NAME shown on a node's badge (rule 4:
+ *  names, never raw ids). Defaults to the agent-task run label; a caller with
+ *  the session-title map resolves foreign producers to their session name. */
+export type ProducerBadge = (producer: ProvProducer) => string | undefined;
+
+const defaultBadge: ProducerBadge = (producer) => producer.runLabel;
+
 /** The sub-info chips a node line shows, in order — the exact list the node
  *  component renders, so width and render never disagree. */
 export function nodeChips(node: RouteNode): string[] {
@@ -98,212 +118,125 @@ export function nodeChips(node: RouteNode): string[] {
   return parts;
 }
 
+/** `×7` — the multiplicity badge, absent for a single-run node. */
+export function multiplicityLabel(prov: ProvNode): string | undefined {
+  return prov.multiplicity > 1 ? `×${prov.multiplicity}` : undefined;
+}
+
 /**
  * A node's laid-out width. Deterministic by construction: monospace advance ×
  * character count for the name, plus a measured-constant box per chip/pill/
- * badge/self-marker, clamped to a readable band. No DOM is consulted, so the
- * same route lays out identically in jsdom and in the browser.
+ * badge/self-marker, clamped to a readable band. No DOM is consulted.
  */
-export function nodeWidth(node: RouteNode): number {
+export function nodeWidth(node: RouteNode, badges: string[] = []): number {
   let width = NODE_CHROME_PX + node.label.length * CHAR_PX;
-  for (const chip of nodeChips(node)) {
-    width += chip.length * CHIP_CHAR_PX + CHIP_PADDING_PX + 6;
-  }
-  if (node.treeSession && node.runLabel) {
-    width += node.runLabel.length * CHIP_CHAR_PX + CHIP_PADDING_PX + 6;
-  }
-  if (node.status) width += node.status.length * CHIP_CHAR_PX + CHIP_PADDING_PX + 6;
-  if (node.self) width += 'you are here'.length * CHIP_CHAR_PX + CHIP_PADDING_PX + 6;
+  const box = (text: string) => text.length * CHIP_CHAR_PX + CHIP_PADDING_PX + 6;
+  for (const chip of nodeChips(node)) width += box(chip);
+  for (const badge of badges) width += box(badge);
+  if (node.status) width += box(node.status);
+  if (node.self) width += box('you are here');
   return Math.max(NODE_MIN_PX, Math.min(NODE_MAX_PX, Math.round(width)));
 }
 
-/**
- * One contiguous run of lineage steps belonging to a foreign session — the
- * cluster grammar from the design spec (rule 3), unchanged. An edge belongs to
- * the cluster of the node it leads INTO (the following node).
- *
- * Moved here from DetailSlot so the graph layout and the rendering agree on one
- * segmentation instead of computing it twice.
- */
-export interface LineageSegment {
-  sessionId?: string;
-  createdAt?: string;
-  steps: { step: RouteStep; index: number }[];
-}
-
-export function segmentRoute(route: RouteStep[]): LineageSegment[] {
-  const keyAt = (from: number): string | null => {
-    for (let i = from; i < route.length; i += 1) {
-      const step = route[i]!;
-      if (step.kind === 'node') return step.foreignSession && step.sessionId ? step.sessionId : null;
-    }
-    return null;
-  };
-  const segments: LineageSegment[] = [];
-  route.forEach((step, index) => {
-    const key = keyAt(index);
-    const last = segments[segments.length - 1];
-    const lastKey = last ? (last.sessionId ?? null) : undefined;
-    if (!last || lastKey !== key) {
-      segments.push({ ...(key ? { sessionId: key } : {}), steps: [] });
-    }
-    const segment = segments[segments.length - 1]!;
-    segment.steps.push({ step, index });
-    if (step.kind === 'node' && step.createdAt && !segment.createdAt) {
-      segment.createdAt = step.createdAt;
-    }
-  });
-  return segments;
+/** Every badge a node line renders, in order — the width and the component
+ *  read the SAME list, so they can never disagree. */
+export function nodeBadges(prov: ProvNode, badge: ProducerBadge = defaultBadge): string[] {
+  const badges: string[] = [];
+  // A node inside a cluster is already named by the cluster header; badging it
+  // again would say the same thing twice.
+  if (prov.producer && !prov.clusterId) {
+    const text = badge(prov.producer);
+    if (text) badges.push(text);
+  }
+  const multiplicity = multiplicityLabel(prov);
+  if (multiplicity) badges.push(multiplicity);
+  return badges;
 }
 
 /**
- * Resolve an edge step's two endpoints to node step indices.
+ * Lay the collapsed data-flow graph out top→bottom.
  *
- * `fromIndex`/`toIndex` are authoritative when present (routeFromLineage records
- * the walk's own positions). A route built before those existed falls back to
- * the flattened list's own adjacency — the node line immediately above the edge
- * and the next node line below it — which is exactly what the old connector-rail
- * rendering drew, so an old fixture still produces the same chain rather than
- * silently losing edges.
+ * Only non-`back` edges constrain rank: the wire genuinely records a
+ * re-designation that both used and generated the same artifact, and a cycle
+ * has no layering. The edge is still returned and still drawn — it is a
+ * recorded fact — it just does not decide who sits above whom.
  */
-function edgeEndpoints(
-  route: RouteStep[],
-  index: number,
-  edge: RouteEdge,
-): { from: number; to: number } | null {
-  if (edge.fromIndex !== undefined && edge.toIndex !== undefined) {
-    if (route[edge.fromIndex]?.kind === 'node' && route[edge.toIndex]?.kind === 'node') {
-      return { from: edge.fromIndex, to: edge.toIndex };
-    }
-  }
-  let before = -1;
-  for (let i = index - 1; i >= 0; i -= 1) {
-    if (route[i]?.kind === 'node') {
-      before = i;
-      break;
-    }
-  }
-  let after = -1;
-  for (let i = index + 1; i < route.length; i += 1) {
-    if (route[i]?.kind === 'node') {
-      after = i;
-      break;
-    }
-  }
-  if (before === -1 || after === -1) return null;
-  return { from: before, to: after };
-}
-
-/**
- * Lay the route out as a layered DAG, top→bottom (chronology reads downward,
- * matching the spec's "oldest first, self normally last").
- *
- * Determinism: dagre is seeded with the nodes in route order and the edges in
- * route order, node sizes are computed not measured, and no option here depends
- * on the environment — so the same `RouteStep[]` always yields the same
- * coordinates. `tests/unit/lineage-graph.test.ts` asserts that directly.
- */
-export function layoutLineage(route: RouteStep[]): LineageLayout {
-  const graph = new dagre.graphlib.Graph({ multigraph: true });
-  graph.setGraph({ rankdir: 'TB', ranksep: RANK_SEP_PX, nodesep: NODE_SEP_PX, marginx: 8, marginy: 8 });
-  graph.setDefaultEdgeLabel(() => ({}));
-
-  const segments = segmentRoute(route);
-  // A cluster id is per SEGMENT, not per session: the same foreign session can
-  // appear twice non-contiguously (with another session's work between), and
-  // the design's contiguity rule gives each run its own header. Keying on the
-  // session alone would collapse the two into one box.
-  const segmentId = (segment: LineageSegment): string =>
-    `cluster:${segment.sessionId}:${segment.steps[0]?.index ?? 0}`;
-  const clusterOfIndex = new Map<number, string>();
-  for (const segment of segments) {
-    if (!segment.sessionId) continue;
-    const id = segmentId(segment);
-    for (const { index } of segment.steps) clusterOfIndex.set(index, id);
-  }
-
-  const nodeIndices: number[] = [];
-  route.forEach((step, index) => {
-    if (step.kind !== 'node') return;
-    nodeIndices.push(index);
-    graph.setNode(String(index), { width: nodeWidth(step), height: NODE_HEIGHT_PX });
-  });
-  if (nodeIndices.length === 0) {
+export function layoutLineage(route: RouteStep[], badge: ProducerBadge = defaultBadge): LineageLayout {
+  const model = provenanceModel(route);
+  if (model.nodes.length === 0) {
     return { nodes: [], edges: [], clusters: [], width: 0, height: 0 };
   }
 
-  const edges: Array<{ index: number; from: number; to: number; edge: RouteEdge }> = [];
-  route.forEach((step, index) => {
-    if (step.kind !== 'edge') return;
-    const ends = edgeEndpoints(route, index, step);
-    if (!ends || ends.from === ends.to) return;
-    edges.push({ index, from: ends.from, to: ends.to, edge: step });
-    graph.setEdge(String(ends.from), String(ends.to), {}, `e${index}`);
+  const graph = new dagre.graphlib.Graph({ compound: true, multigraph: true });
+  graph.setGraph({
+    rankdir: 'TB',
+    ranksep: RANK_SEP_PX,
+    nodesep: NODE_SEP_PX,
+    edgesep: EDGE_SEP_PX,
+    marginx: 8,
+    marginy: 8,
   });
+  graph.setDefaultEdgeLabel(() => ({}));
+
+  for (const cluster of model.clusters) graph.setNode(cluster.id, {});
+  for (const node of model.nodes) {
+    graph.setNode(node.id, {
+      width: nodeWidth(node.node, nodeBadges(node, badge)),
+      height: NODE_HEIGHT_PX,
+    });
+    // A compound parent is what makes dagre reserve the box and route edges
+    // AROUND it instead of under it.
+    if (node.clusterId) graph.setParent(node.id, node.clusterId);
+  }
+  for (const edge of model.edges) {
+    if (edge.back) continue;
+    graph.setEdge(edge.source, edge.target, {}, edge.id);
+  }
 
   dagre.layout(graph);
 
-  const laidOut: LineageGraphNode[] = nodeIndices.map((index) => {
-    const positioned = graph.node(String(index)) as { x: number; y: number; width: number; height: number };
-    const step = route[index] as RouteNode;
-    const clusterId = clusterOfIndex.get(index);
+  // dagre reports centres; React Flow positions by top-left.
+  const boxOf = (id: string) => {
+    const positioned = graph.node(id) as { x: number; y: number; width: number; height: number };
     return {
-      id: String(index),
-      index,
-      node: step,
-      ...(clusterId ? { clusterId } : {}),
-      // dagre reports centres; React Flow positions by top-left.
       x: Math.round(positioned.x - positioned.width / 2),
       y: Math.round(positioned.y - positioned.height / 2),
       width: Math.round(positioned.width),
       height: Math.round(positioned.height),
     };
-  });
+  };
 
-  const byId = new Map(laidOut.map((node) => [node.id, node]));
-  const clusters: LineageCluster[] = [];
-  for (const segment of segments) {
-    if (!segment.sessionId) continue;
-    const members = segment.steps
-      .filter(({ step }) => step.kind === 'node')
-      .map(({ index }) => byId.get(String(index)))
-      .filter((node): node is LineageGraphNode => node !== undefined);
-    if (members.length === 0) continue;
-    const left = Math.min(...members.map((node) => node.x)) - CLUSTER_PAD_PX;
-    const right = Math.max(...members.map((node) => node.x + node.width)) + CLUSTER_PAD_PX;
-    const top = Math.min(...members.map((node) => node.y)) - CLUSTER_PAD_PX - CLUSTER_HEADER_PX;
-    const bottom = Math.max(...members.map((node) => node.y + node.height)) + CLUSTER_PAD_PX;
-    clusters.push({
-      id: segmentId(segment),
-      sessionId: segment.sessionId,
-      ...(segment.createdAt ? { createdAt: segment.createdAt } : {}),
-      memberIds: members.map((node) => node.id),
-      x: left,
-      y: top,
-      width: right - left,
-      height: bottom - top,
-    });
-  }
+  const nodes: LineageGraphNode[] = model.nodes.map((node) => ({
+    id: node.id,
+    index: node.index,
+    node: node.node,
+    prov: node,
+    ...(node.clusterId ? { clusterId: node.clusterId } : {}),
+    ...boxOf(node.id),
+  }));
 
-  // The whole drawing's extent, including cluster boxes (a cluster header sits
-  // ABOVE its first member, so it can be the topmost thing on the canvas).
-  const boxes = [
-    ...laidOut.map((node) => ({ x: node.x, y: node.y, w: node.width, h: node.height })),
-    ...clusters.map((cluster) => ({ x: cluster.x, y: cluster.y, w: cluster.width, h: cluster.height })),
-  ];
+  const clusters: LineageCluster[] = model.clusters.map((cluster) => ({
+    id: cluster.id,
+    sessionId: cluster.sessionId,
+    ...(cluster.createdAt ? { createdAt: cluster.createdAt } : {}),
+    memberIds: cluster.memberIds,
+    ...boxOf(cluster.id),
+  }));
+
+  const boxes = [...nodes, ...clusters];
   const minX = Math.min(...boxes.map((box) => box.x));
   const minY = Math.min(...boxes.map((box) => box.y));
-  const width = Math.max(...boxes.map((box) => box.x + box.w)) - minX;
-  const height = Math.max(...boxes.map((box) => box.y + box.h)) - minY;
+  const width = Math.max(...boxes.map((box) => box.x + box.width)) - minX;
+  const height = Math.max(...boxes.map((box) => box.y + box.height)) - minY;
 
   return {
-    nodes: laidOut,
-    edges: edges.map((entry) => ({
-      id: `e${entry.index}`,
-      index: entry.index,
-      source: String(entry.from),
-      target: String(entry.to),
-      edge: entry.edge,
+    nodes,
+    edges: model.edges.map((edge) => ({
+      id: edge.id,
+      index: edge.index,
+      source: edge.source,
+      target: edge.target,
+      prov: edge,
     })),
     clusters,
     width,

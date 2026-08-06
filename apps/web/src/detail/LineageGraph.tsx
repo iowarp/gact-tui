@@ -1,85 +1,55 @@
 /**
- * The provenance lineage graph (viz rebuild, 2026-08) — React Flow (MIT) over
- * the deterministic dagre layout in `lineageGraph.ts`.
+ * The provenance data-flow graph (regrammar, owner sketch 2026-08-06) — React
+ * Flow (MIT) over the deterministic dagre layout in `lineageLayout.ts`.
  *
- * Everything the approved design spec (docs/design/provenance-graph-2026-08.md)
- * settled is preserved verbatim: a node is ONE line (glyph + name + muted
- * sub-info chips + status pill), edges carry `verb → evidence` with the evidence
- * term in teal, foreign sessions group under a clickable cluster header, the
- * self node is anchored and highlighted, every provenance term keeps its
- * plain-words hover glossary, and clicks mean what they meant (artifact → push
- * the panel, activity → its producing session).
+ * The structure is `artifact → transform → artifact`: transforms are
+ * first-class nodes, every input's edge converges into the transform that
+ * consumed it, and the transform's `generated` edge lands on the artifact it
+ * produced. Agent identity is a BADGE on the transform, not a box around it;
+ * only a genuinely foreign session (outside this session's tree) still gets a
+ * light cluster box. N recorded re-derivations that the wire says produced the
+ * same bytes from the same inputs collapse to ONE node carrying `×N`, which
+ * expands to the per-run list.
  *
- * What the library adds is what the hand-rolled rail could not do: pan and zoom,
- * a real layered layout, and true branch/merge geometry — a multi-input activity
- * now shows each input's edge converging on it, instead of a `╮` standing in for
- * a join the flat list could not draw.
+ * Preserved verbatim from the approved spec: one-line minimal nodes, the
+ * ◆ ⚙ ▢ glyph vocabulary, `verb → evidence` edge labels with the evidence term
+ * teal, reproducible/gap pills, the anchored highlighted self node, plain-words
+ * glossary hovers, and the click semantics (artifact → push the panel, activity
+ * → its producing session).
  */
-import { useMemo, type CSSProperties } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
-  BaseEdge,
   Background,
   BackgroundVariant,
   Controls,
-  EdgeLabelRenderer,
-  Handle,
   Position,
   ReactFlow,
-  getSmoothStepPath,
   type Edge,
-  type EdgeProps,
   type Node,
-  type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { layoutLineage, nodeChips } from './lineageLayout';
-import type { RouteEdge, RouteNode, RouteStep } from './types';
+import { layoutLineage, nodeBadges, type ProducerBadge } from './lineageLayout';
+import { ClusterNode, LineageEdge, LineageNode } from './LineageNodes';
+import type { ClusterNodeData, LineageEdgeData, LineageNodeData } from './LineageNodes';
+import type { ProvRun } from './provenanceModel';
+import type { RouteStep } from './types';
 
 /** Canvas height band. Small graphs stay compact; a long chain scrolls by
  *  panning rather than growing the panel past what a 320px column can hold. */
 const MIN_CANVAS_PX = 168;
 const MAX_CANVAS_PX = 440;
 
-const NODE_GLYPHS: Record<RouteNode['nodeType'], string> = {
-  artifact: '◆',
-  activity: '⚙',
-  gap: '▢',
-};
-
 export interface LineageGraphProps {
   route: RouteStep[];
-  sessionTitles?: Record<string, string>;
   /** Plain-words hover expansion for a provenance vocabulary term. */
   glossary: (term: string) => string | undefined;
-  /** Compact display name for a session reference (title + short id). */
-  sessionLabel: (sessionId: string) => string;
+  /** A session's display NAME (title, else an honest fallback). Raw ids are
+   *  never part of it — they ride `title` hovers only. */
+  sessionName: (sessionId: string) => string;
   /** `2026-08-05T12:43:10Z` → `05 Aug 12:43`. */
   clusterTime: (iso: string) => string;
   onOpenSession?: (sessionId: string) => void;
   onOpenArtifact?: (artifactId: string) => void;
-}
-
-interface LineageNodeData extends Record<string, unknown> {
-  node: RouteNode;
-  index: number;
-  clusterId?: string;
-  onActivate?: () => void;
-  activateTitle?: string;
-  glossary: (term: string) => string | undefined;
-}
-
-interface ClusterNodeData extends Record<string, unknown> {
-  sessionId: string;
-  label: string;
-  time: string;
-  onOpenSession?: (sessionId: string) => void;
-}
-
-interface LineageEdgeData extends Record<string, unknown> {
-  edge: RouteEdge;
-  index: number;
-  clusterId?: string;
-  glossary: (term: string) => string | undefined;
 }
 
 const nodeTypes = { lineage: LineageNode, cluster: ClusterNode };
@@ -87,14 +57,37 @@ const edgeTypes = { lineage: LineageEdge };
 
 export function LineageGraph({
   route,
-  sessionTitles: _sessionTitles,
   glossary,
-  sessionLabel,
+  sessionName,
   clusterTime,
   onOpenSession,
   onOpenArtifact,
 }: LineageGraphProps) {
-  const layout = useMemo(() => layoutLineage(route), [route]);
+  // The producing agent's badge: its agent-task run label when the session is
+  // in this session's tree, else the foreign session's own name. Never an id.
+  const badge = useCallback<ProducerBadge>(
+    (producer) => producer.runLabel ?? (producer.sessionId ? sessionName(producer.sessionId) : undefined),
+    [sessionName],
+  );
+  const runName = useCallback(
+    (run: ProvRun) => run.runLabel ?? (run.sessionId ? sessionName(run.sessionId) : 'unnamed run'),
+    [sessionName],
+  );
+  // Ids live HERE and only here (names-not-ids), together with the parent-turn
+  // context the owner asked a transform to carry.
+  const runTitle = useCallback(
+    (run: ProvRun) =>
+      [
+        `Run ${runName(run)}`,
+        run.sessionId ? `session ${run.sessionId}` : '',
+        run.turnId ? `turn ${run.turnId}` : '',
+      ]
+        .filter(Boolean)
+        .join(' — '),
+    [runName],
+  );
+
+  const layout = useMemo(() => layoutLineage(route, badge), [route, badge]);
 
   const nodes = useMemo<Node[]>(() => {
     // Cluster boxes come first so they paint BEHIND their members (React Flow
@@ -110,7 +103,7 @@ export function LineageGraph({
       zIndex: 0,
       data: {
         sessionId: cluster.sessionId,
-        label: sessionLabel(cluster.sessionId),
+        name: sessionName(cluster.sessionId),
         time: cluster.createdAt ? clusterTime(cluster.createdAt) : '',
         ...(onOpenSession ? { onOpenSession } : {}),
       } satisfies ClusterNodeData,
@@ -118,17 +111,25 @@ export function LineageGraph({
 
     const stepNodes: Node[] = layout.nodes.map((entry) => {
       const node = entry.node;
+      const prov = entry.prov;
+      // A collapsed transform has no ONE producing session, so the line is not
+      // a session affordance — its run rows are.
+      const single = prov.multiplicity === 1;
       const onActivate =
-        node.nodeType === 'artifact' && !node.self && node.artifactId && onOpenArtifact
+        prov.kind === 'artifact' && !node.self && node.artifactId && onOpenArtifact
           ? () => onOpenArtifact(node.artifactId!)
-          : node.nodeType === 'activity' && node.sessionId && onOpenSession
+          : prov.kind === 'transform' && single && node.sessionId && onOpenSession
             ? () => onOpenSession(node.sessionId!)
             : undefined;
       const activateTitle = onActivate
-        ? node.nodeType === 'activity'
-          ? `Open producing session ${sessionLabel(node.sessionId!)}`
+        ? prov.kind === 'transform'
+          ? `Open producing session ${sessionName(node.sessionId!)} (${node.sessionId})`
           : 'Open artifact'
         : undefined;
+      const badges = nodeBadges(prov, badge);
+      const badgeText = prov.producer && !prov.clusterId ? badge(prov.producer) : undefined;
+      const producerTitle =
+        prov.producer && badgeText ? runTitle({ index: entry.index, ...prov.producer }) : undefined;
       return {
         id: entry.id,
         type: 'lineage',
@@ -141,16 +142,20 @@ export function LineageGraph({
         // frame for a ResizeObserver, and the geometry is identical in the
         // browser and under jsdom — which is what makes it unit-testable.
         handles: [
+          { id: 'in', type: 'target' as const, position: Position.Top, x: entry.width / 2, y: 0, width: 1, height: 1 },
+          { id: 'up', type: 'source' as const, position: Position.Top, x: entry.width / 2, y: 0, width: 1, height: 1 },
           {
-            type: 'target' as const,
-            position: Position.Top,
+            id: 'out',
+            type: 'source' as const,
+            position: Position.Bottom,
             x: entry.width / 2,
-            y: 0,
+            y: entry.height,
             width: 1,
             height: 1,
           },
           {
-            type: 'source' as const,
+            id: 'down',
+            type: 'target' as const,
             position: Position.Bottom,
             x: entry.width / 2,
             y: entry.height,
@@ -160,20 +165,30 @@ export function LineageGraph({
         ],
         draggable: false,
         selectable: false,
-        zIndex: 1,
+        // A collapsed transform can open a run list that floats over its
+        // neighbours, so its whole node rides above them; every other line
+        // shares one band and paints in route order.
+        zIndex: prov.multiplicity > 1 ? 5 : 1,
         data: {
-          node,
+          prov,
           index: entry.index,
           glossary,
+          runName,
+          runTitle,
+          ...(badges.length > 0 && badgeText ? { badgeText } : {}),
+          ...(producerTitle ? { producerTitle } : {}),
           ...(entry.clusterId ? { clusterId: entry.clusterId } : {}),
           ...(onActivate ? { onActivate } : {}),
           ...(activateTitle ? { activateTitle } : {}),
+          ...(onOpenSession
+            ? { onOpenRun: (run: ProvRun) => run.sessionId && onOpenSession(run.sessionId) }
+            : {}),
         } satisfies LineageNodeData,
       };
     });
 
     return [...clusterNodes, ...stepNodes];
-  }, [layout, sessionLabel, clusterTime, glossary, onOpenSession, onOpenArtifact]);
+  }, [layout, sessionName, clusterTime, glossary, onOpenSession, onOpenArtifact, badge, runName, runTitle]);
 
   const edges = useMemo<Edge[]>(() => {
     const clusterOf = new Map(layout.nodes.map((entry) => [entry.id, entry.clusterId]));
@@ -182,14 +197,20 @@ export function LineageGraph({
         clusterOf.get(entry.source) && clusterOf.get(entry.source) === clusterOf.get(entry.target)
           ? clusterOf.get(entry.source)
           : undefined;
+      // A back edge (the wire's re-designation: the same transform used AND
+      // generated one artifact) attaches top→bottom so it reads as the loop it
+      // is, instead of crossing the whole drawing.
+      const back = entry.prov.back === true;
       return {
         id: entry.id,
         type: 'lineage',
         source: entry.source,
         target: entry.target,
+        sourceHandle: back ? 'up' : 'out',
+        targetHandle: back ? 'down' : 'in',
         zIndex: 2,
         data: {
-          edge: entry.edge,
+          prov: entry.prov,
           index: entry.index,
           ...(shared ? { clusterId: shared } : {}),
           glossary,
@@ -201,11 +222,7 @@ export function LineageGraph({
   const height = Math.min(MAX_CANVAS_PX, Math.max(MIN_CANVAS_PX, layout.height + 40));
 
   return (
-    <div
-      className="detail__lineage"
-      data-testid="route-graph"
-      style={{ height: `${height}px` }}
-    >
+    <div className="detail__lineage" data-testid="route-graph" style={{ height: `${height}px` }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -231,176 +248,5 @@ export function LineageGraph({
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
     </div>
-  );
-}
-
-/**
- * ONE line per node (spec rule 1): glyph + name + inline muted sub-info chips,
- * never a bordered rectangle. The whole line is the hit target when it has a
- * real destination; otherwise it renders inert — never a dead affordance.
- */
-function LineageNode({ data }: NodeProps) {
-  const { node, index, clusterId, onActivate, activateTitle, glossary } = data as LineageNodeData;
-  const chips = nodeChips(node);
-  const body = (
-    <>
-      <span className="detail__lglyph" data-nodetype={node.nodeType} aria-hidden="true">
-        {NODE_GLYPHS[node.nodeType]}
-      </span>
-      <span className="detail__lname">{node.label}</span>
-      {node.treeSession && node.runLabel ? (
-        <span className="detail__lbadge" data-testid="route-node-badge" title={`Run: ${node.runLabel}`}>
-          {node.runLabel}
-        </span>
-      ) : null}
-      {chips.map((part, i) => (
-        <span key={i} className="detail__lchip">
-          {part}
-        </span>
-      ))}
-      {node.status ? (
-        <span className="detail__lpill" data-status={node.status} title={glossary(node.status)}>
-          {node.status}
-        </span>
-      ) : null}
-      {node.self ? <span className="detail__lselfmark">you are here</span> : null}
-    </>
-  );
-
-  const testId = node.self ? 'route-node-self' : `route-node-${index}`;
-  const common = {
-    className: 'detail__lnode',
-    'data-testid': testId,
-    'data-self': node.self ? ('true' as const) : undefined,
-    'data-cluster': clusterId,
-  };
-
-  return (
-    <>
-      <Handle type="target" position={Position.Top} className="detail__lhandle" isConnectable={false} />
-      {onActivate ? (
-        <button type="button" {...common} title={activateTitle} onClick={onActivate}>
-          {body}
-        </button>
-      ) : (
-        <div {...common}>{body}</div>
-      )}
-      <Handle type="source" position={Position.Bottom} className="detail__lhandle" isConnectable={false} />
-    </>
-  );
-}
-
-/**
- * A foreign session's cluster (spec rule 3), now a real region rather than a
- * per-line `┆` glyph: a dimmed bordered box holding every node that session
- * produced, with a one-line header — `● <session> · 05 Aug 12:43 ↗` — as the
- * click target (jumps to that session, the same channel obs agent-navigation
- * uses). Without a navigation callback the header renders as a plain line
- * WITHOUT the ↗ — never a dead affordance.
- */
-function ClusterNode({ data }: NodeProps) {
-  const { sessionId, label, time, onOpenSession } = data as ClusterNodeData;
-  const headBody = (
-    <>
-      <span className="detail__clusterdot" aria-hidden="true">
-        ●
-      </span>
-      <span className="detail__clustersess" title={sessionId}>
-        {label}
-      </span>
-      {time ? <span className="detail__clustertime">{time}</span> : null}
-      {onOpenSession ? (
-        <span className="detail__clustergo" aria-hidden="true">
-          ↗
-        </span>
-      ) : null}
-    </>
-  );
-  return (
-    <div className="detail__cluster" data-testid="route-cluster" data-session={sessionId}>
-      {onOpenSession ? (
-        <button
-          type="button"
-          className="detail__clusterhead"
-          data-testid="route-cluster-header"
-          title={`Open session ${sessionId}`}
-          onClick={() => onOpenSession(sessionId)}
-        >
-          {headBody}
-        </button>
-      ) : (
-        <div className="detail__clusterhead" data-testid="route-cluster-header">
-          {headBody}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * An edge: the real connector path plus its `verb → evidence` label (spec rule
- * 2), the evidence term teal. `data-join` still marks an edge whose consumer is
- * not the immediately following line — but the geometry now DRAWS the join
- * instead of standing in for it with a `╮`, so multi-input activities read as
- * real converging branches.
- */
-function LineageEdge({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  data,
-  markerEnd,
-}: EdgeProps) {
-  const { edge, index, clusterId, glossary } = data as unknown as LineageEdgeData;
-  const [path, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 10,
-  });
-  return (
-    <>
-      <BaseEdge
-        id={id}
-        path={path}
-        markerEnd={markerEnd}
-        className="detail__ledgepath"
-        data-verb={edge.edge}
-      />
-      <EdgeLabelRenderer>
-        <div
-          className="detail__ledge"
-          data-testid={`route-edge-${index}`}
-          data-join={edge.join ? 'true' : undefined}
-          data-cluster={clusterId}
-          style={
-            {
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            } as CSSProperties
-          }
-        >
-          <span className="detail__ledgeverb" title={glossary(edge.edge)}>
-            {edge.edge}
-          </span>
-          {edge.stance ? (
-            <>
-              <span className="detail__ledgearrow" aria-hidden="true">
-                →
-              </span>
-              <span className="detail__ledgeevidence" title={glossary(edge.stance)}>
-                {edge.stance}
-              </span>
-            </>
-          ) : null}
-        </div>
-      </EdgeLabelRenderer>
-    </>
   );
 }

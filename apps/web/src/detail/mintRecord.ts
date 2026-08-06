@@ -5,7 +5,7 @@
  */
 import type { SessionArtifactRecord, SessionArtifactVersion } from '@clio/core';
 import { humanSize } from '../wire/presentationUtils';
-import type { ArtifactRecord, RouteEdgeKind, RouteStep } from './types';
+import type { ArtifactRecord, RouteEdge as RouteEdgeStep, RouteEdgeKind, RouteStep } from './types';
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined || v === null ? '' : String(v));
 
@@ -359,9 +359,19 @@ export function routeFromLineage(graphIn: LineageGraph, context: RouteMintContex
   const position = new Map(order.map((id, index) => [id, index]));
   const usedEdges = new Set<LineageEdge>();
   const steps: RouteStep[] = [];
+  // The walk numbers nodes by their WALK position; `RouteEdge.fromIndex` /
+  // `.toIndex` are indices into the emitted `RouteStep[]`, which also holds
+  // the edge lines. Those two numberings are not the same, so every emitted
+  // edge records its walk positions here and they are remapped to real step
+  // indices once the walk knows where each node landed. (Recording the walk
+  // position directly is what made a branchy route point its edges at the
+  // wrong nodes — the consumer then read an edge line's index as a node's.)
+  const stepIndexOfPosition: number[] = [];
+  const pending: { step: RouteEdgeStep; from: number; to: number }[] = [];
   order.forEach((id, index) => {
     const node = nodesById.get(id);
     if (!node) return;
+    stepIndexOfPosition[index] = steps.length;
     steps.push(nodeStep(node, graph.root, producerSession, context));
     // Every edge between this node and a LATER one renders as a connector
     // under this line, nearest consumer first. `join` marks a consumer that is
@@ -389,19 +399,25 @@ export function routeFromLineage(graphIn: LineageGraph, context: RouteMintContex
       // own positions, never a guess.
       const here = index;
       const older = edge.type === 'revision_of' ? (edge.to === id ? here : target) : undefined;
-      const fromIndex =
-        older !== undefined ? older : edge.from === id ? here : target;
-      const toIndex = fromIndex === here ? target : here;
-      steps.push({
+      const from = older !== undefined ? older : edge.from === id ? here : target;
+      const to = from === here ? target : here;
+      const step: RouteEdgeStep = {
         kind: 'edge',
         edge: EDGE_KINDS[edge.type] ?? 'derived',
         ...(edge.evidence ? { stance: str(edge.evidence) } : {}),
         ...(target > index + 1 ? { join: true } : {}),
-        fromIndex,
-        toIndex,
-      });
+      };
+      pending.push({ step, from, to });
+      steps.push(step);
     }
   });
+  for (const { step, from, to } of pending) {
+    const fromIndex = stepIndexOfPosition[from];
+    const toIndex = stepIndexOfPosition[to];
+    if (fromIndex === undefined || toIndex === undefined) continue;
+    step.fromIndex = fromIndex;
+    step.toIndex = toIndex;
+  }
   return steps;
 }
 

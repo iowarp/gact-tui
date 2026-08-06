@@ -727,8 +727,8 @@ function Provenance({
 }) {
   const route = record.route ?? [];
   const sessionTitles = record.sessionTitles;
-  const labelForSession = useCallback(
-    (sessionId: string) => sessionLabel(sessionId, sessionTitles),
+  const nameForSession = useCallback(
+    (sessionId: string) => sessionName(sessionId, sessionTitles),
     [sessionTitles],
   );
   return (
@@ -744,9 +744,8 @@ function Provenance({
           <LineageGraph
             route={route}
             glossary={glossaryTitle}
-            sessionLabel={labelForSession}
+            sessionName={nameForSession}
             clusterTime={clusterTime}
-            {...(record.sessionTitles ? { sessionTitles: record.sessionTitles } : {})}
             {...(onOpenSession ? { onOpenSession } : {})}
             {...(onOpenArtifact ? { onOpenArtifact } : {})}
           />
@@ -840,29 +839,28 @@ function ProvenanceLine({ record }: { record: ArtifactRecord }) {
   );
 }
 
-/** `sess_c6241fc8906f` → `sess_c624…` — the cluster header's compact id. */
-function shortSessionId(sessionId: string): string {
-  return sessionId.length > 10 ? `${sessionId.slice(0, 9)}…` : sessionId;
-}
-
 /** Max visible characters for a session title before it truncates from the
  *  middle — same convention as the identity header's id/path truncation. */
 const SESSION_TITLE_TRUNCATE_MAX = 28;
 
 /**
- * Any session REFERENCE (foreign cluster headers, an activity node's
- * producing-session tooltip) shows the session's real NAME/title, the id in
- * parens AT MOST, truncated (owner 3b, 2026-08-06) — never a bare raw
- * session id. `sessionTitles` is threaded from sessions the client already
- * has, or a cached `client.getSession` fetch for a foreign one
- * (SessionView); a lookup miss falls back to the short id alone, never
- * blank.
+ * The honest fallback when no title resolves for a session. The regrammar's
+ * standing names-not-ids rule (owner, 2026-08-06) puts raw `sess_` ids in
+ * hovers ONLY, so an unresolved session says what it is rather than showing
+ * the id as if it were a name — the id is still one hover away.
  */
-function sessionLabel(sessionId: string, sessionTitles?: Record<string, string>): string {
+export const UNNAMED_SESSION = 'unnamed session';
+
+/**
+ * Any session REFERENCE (a foreign cluster header, a transform's producer
+ * badge, a collapsed transform's run rows) shows the session's real NAME —
+ * never its id, which rides the `title` hover the caller composes.
+ * `sessionTitles` is threaded from sessions the client already has, or a
+ * cached `client.getSession` fetch for a foreign one (SessionView).
+ */
+function sessionName(sessionId: string, sessionTitles?: Record<string, string>): string {
   const title = sessionTitles?.[sessionId];
-  const short = shortSessionId(sessionId);
-  if (!title) return short;
-  return `${truncateMiddle(title, SESSION_TITLE_TRUNCATE_MAX)} (${short})`;
+  return title ? truncateMiddle(title, SESSION_TITLE_TRUNCATE_MAX) : UNNAMED_SESSION;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

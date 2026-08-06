@@ -1006,7 +1006,11 @@ describe('DetailSlot', () => {
       expect(cluster).toHaveAttribute('data-session', 'sess_9f17aa20bb31');
       const header = screen.getByTestId('route-cluster-header');
       expect(header.tagName).toBe('BUTTON');
-      expect(header).toHaveTextContent('sess_9f17…');
+      // PIN UPDATED — regrammar 2026-08-06 (names, not ids). The header shows
+      // the session's NAME; the raw id moved to the hover, which is now the
+      // ONLY channel a `sess_` id appears through.
+      expect(header.textContent).not.toContain('sess_9f17');
+      expect(header).toHaveAttribute('title', expect.stringContaining('sess_9f17aa20bb31'));
       expect(header).toHaveTextContent('↗');
       // The header carries the cluster's mint time from the version wire.
       expect(header).toHaveTextContent('05 Aug 12:43');
@@ -1261,8 +1265,13 @@ describe('round-6 provenance panel rulings (2026-08-06)', () => {
     });
   });
 
-  describe('session references show the NAME, id in parens at most, never a bare id (owner 3b)', () => {
-    it('a foreign cluster header shows the resolved session title with the short id in parens', () => {
+  // PINS UPDATED — regrammar 2026-08-06. Owner 3b allowed the id "in parens at
+  // most"; the regrammar's standing rule tightens that to NAMES ONLY on every
+  // human-facing label, with raw `sess_`/`artifact_` ids reaching the user
+  // through the hover channel alone. An unresolvable session says so honestly
+  // rather than showing its id as if the id were its name.
+  describe('session references show the NAME only, ids on hover (regrammar rule 4)', () => {
+    it('a foreign cluster header shows the resolved session title, id on the hover', () => {
       const record = {
         ...RECORD,
         route: CROSS_SESSION_ROUTE,
@@ -1272,15 +1281,38 @@ describe('round-6 provenance panel rulings (2026-08-06)', () => {
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const header = screen.getByTestId('route-cluster-header');
       expect(header).toHaveTextContent('EarthScope station discovery');
-      expect(header).toHaveTextContent('sess_9f17…');
+      expect(header.textContent).not.toContain('sess_');
+      expect(header).toHaveAttribute('title', expect.stringContaining('sess_9f17aa20bb31'));
     });
 
-    it('falls back to the short id — never blank — when no title is known', () => {
+    it('says "unnamed session" — never the raw id — when no title is known', () => {
       render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const header = screen.getByTestId('route-cluster-header');
-      expect(header).toHaveTextContent('sess_9f17…');
-      expect(header.textContent?.trim().length).toBeGreaterThan(0);
+      expect(header).toHaveTextContent('unnamed session');
+      expect(header.textContent).not.toContain('sess_');
+      expect(header).toHaveAttribute('title', expect.stringContaining('sess_9f17aa20bb31'));
+    });
+
+    it('NO rendered label anywhere in the lineage graph is a raw sess_/artifact_ id', () => {
+      const record = {
+        ...RECORD,
+        route: TREE_AND_FOREIGN_ROUTE,
+        sessionTitles: { sess_foreign_x: 'EarthScope staging run' },
+      };
+      const { container } = render(
+        <DetailSlot record={record} onOpenSession={vi.fn()} onOpenArtifact={vi.fn()} onClose={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const graph = screen.getByTestId('route-graph');
+      expect(graph.textContent).not.toMatch(/sess_|artifact_|art_/);
+      // The names ARE there — the labels are real, not blanked.
+      expect(graph.textContent).toContain('ndp #1');
+      expect(graph.textContent).toContain('EarthScope staging run');
+      expect(graph.textContent).toContain('stations.csv');
+      // …and the ids are still reachable, on the hover channel.
+      const titles = [...container.querySelectorAll('[title]')].map((el) => el.getAttribute('title') ?? '');
+      expect(titles.some((title) => title.includes('sess_foreign_x'))).toBe(true);
     });
 
     it("an activity node's producing-session tooltip carries the resolved name too", () => {
@@ -1460,6 +1492,252 @@ describe('round-6 provenance panel rulings (2026-08-06)', () => {
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const evidence = screen.getByText('a-totally-unknown-stance');
       expect(evidence).not.toHaveAttribute('title');
+    });
+  });
+});
+
+/**
+ * The provenance REGRAMMAR (owner annotated sketch, 2026-08-06): the rendered
+ * graph is a data-flow skeleton — artifacts and transforms, transforms badged
+ * with their agent identity, N equivalent re-derivations folded into ONE node,
+ * and the produced artifact's uses hanging off it.
+ */
+describe('provenance regrammar (owner sketch 2026-08-06)', () => {
+  /** The live EarthScope shape: six same-tool, same-input, same-output runs in
+   *  six sessions (the six one-node boxes the owner struck out). */
+  const SIX_RE_DERIVATIONS: RouteStep[] = (() => {
+    const route: RouteStep[] = [
+      { kind: 'node', nodeType: 'artifact', label: 'converted.csv', artifactId: 'artifact_in' },
+    ];
+    ['sess_a', 'sess_b', 'sess_c', 'sess_d', 'sess_e', 'sess_f'].forEach((sessionId, at) => {
+      const nodeIndex = 2 + at * 3;
+      route.push({ kind: 'edge', edge: 'used', stance: 'hash-pair', fromIndex: 0, toIndex: nodeIndex });
+      route.push({
+        kind: 'node',
+        nodeType: 'activity',
+        label: 'pandas_filter_data',
+        tool: 'pandas_filter_data',
+        status: 'reproducible',
+        sessionId,
+        foreignSession: true,
+        turnId: `msg_${sessionId}`,
+      });
+      route.push({ kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: nodeIndex, toIndex: 19 });
+    });
+    route.push({
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'clean.csv',
+      artifactId: 'artifact_out',
+      version: 'v1',
+      self: true,
+    });
+    return route;
+  })();
+
+  const open = (route: RouteStep[], props: Record<string, unknown> = {}) => {
+    const result = render(
+      <DetailSlot
+        record={{ ...RECORD, route, sessionTitles: { sess_a: 'ndp task' } }}
+        onClose={vi.fn()}
+        {...props}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+    return result;
+  };
+
+  describe('dedup collapse (rule 2)', () => {
+    it('draws ONE transform line for six re-derivations, badged ×6', () => {
+      open(SIX_RE_DERIVATIONS);
+      expect(screen.getAllByText('pandas_filter_data')).toHaveLength(1);
+      expect(screen.getByTestId('route-node-multiplicity')).toHaveTextContent('×6');
+    });
+
+    it('draws NO session box for any of the six — identity is on the line, not around it', () => {
+      open(SIX_RE_DERIVATIONS);
+      expect(screen.queryAllByTestId('route-cluster')).toHaveLength(0);
+    });
+
+    it('expands to the per-run list on click, one row per recorded run', () => {
+      open(SIX_RE_DERIVATIONS);
+      expect(screen.queryByTestId('route-node-runs')).toBeNull();
+      fireEvent.click(screen.getByTestId('route-node-multiplicity'));
+      const runs = screen.getByTestId('route-node-runs');
+      expect(runs.children).toHaveLength(6);
+      // Names, not ids — with the ids reachable on the hover.
+      expect(screen.getByTestId('route-node-run-0')).toHaveTextContent('ndp task');
+      expect(screen.getByTestId('route-node-run-0')).toHaveAttribute(
+        'title',
+        expect.stringContaining('sess_a'),
+      );
+      expect(runs.textContent).not.toContain('sess_');
+    });
+
+    it('a run row opens THAT run’s session — the collapsed line itself never claims one', () => {
+      const onOpenSession = vi.fn();
+      open(SIX_RE_DERIVATIONS, { onOpenSession });
+      // The collapsed line has no single producing session, so it is not a
+      // session affordance — never a lying click target.
+      expect(screen.getByTestId('route-node-2').tagName).not.toBe('BUTTON');
+      fireEvent.click(screen.getByTestId('route-node-multiplicity'));
+      fireEvent.click(screen.getByTestId('route-node-run-3'));
+      expect(onOpenSession).toHaveBeenCalledWith('sess_d');
+    });
+
+    it('the collapsed edges keep their count instead of silently swallowing five', () => {
+      open(SIX_RE_DERIVATIONS);
+      const counts = screen.getAllByTestId(/route-edge-mult-/).map((el) => el.textContent);
+      expect(counts).toEqual(['×6', '×6']);
+    });
+  });
+
+  describe('convergence and usage (rules 1 and 3)', () => {
+    const TWO_IN_ONE_OUT: RouteStep[] = [
+      { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'artifact_a' },
+      { kind: 'edge', edge: 'used', stance: 'hash-pair', fromIndex: 0, toIndex: 4 },
+      { kind: 'node', nodeType: 'artifact', label: 'b.csv', artifactId: 'artifact_b' },
+      { kind: 'edge', edge: 'used', stance: 'hash-pair', fromIndex: 2, toIndex: 4 },
+      { kind: 'node', nodeType: 'activity', label: 'create_artifact', tool: 'create_artifact' },
+      { kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: 4, toIndex: 6 },
+      { kind: 'node', nodeType: 'artifact', label: 'report.md', artifactId: 'artifact_r', self: true },
+      { kind: 'edge', edge: 'used', stance: 'hash-pair', fromIndex: 6, toIndex: 8 },
+      { kind: 'node', nodeType: 'activity', label: 'report_publish', tool: 'report_publish', sessionId: 'sess_z' },
+    ];
+
+    it('both inputs converge on the ONE transform — in-degree 2 on the rendered edges', () => {
+      const { container } = open(TWO_IN_ONE_OUT);
+      const into = [...container.querySelectorAll('.react-flow__edge')].filter((edge) =>
+        edge.getAttribute('aria-label')?.endsWith(' to 4'),
+      );
+      expect(into).toHaveLength(2);
+    });
+
+    it('the self artifact’s use hangs off it as an outgoing edge, marked as a usage', () => {
+      open(TWO_IN_ONE_OUT);
+      const usage = screen.getByTestId('route-edge-7');
+      expect(usage).toHaveAttribute('data-usage', 'true');
+      expect(usage).toHaveTextContent('used');
+      expect(screen.getByTestId('route-edge-5')).not.toHaveAttribute('data-usage');
+    });
+
+    it('the self artifact keeps its highlight while its uses hang below', () => {
+      open(TWO_IN_ONE_OUT);
+      expect(screen.getByTestId('route-node-self')).toHaveAttribute('data-self', 'true');
+      expect(screen.getByTestId('route-node-self')).toHaveTextContent('you are here');
+    });
+  });
+
+  describe('routeFromLineage records STEP indices, not walk positions', () => {
+    // Found live on sess_5c6ac7c103ac: the walk recorded each edge's position
+    // in the NODE walk, but `fromIndex`/`toIndex` are read as indices into the
+    // emitted RouteStep[] — which also holds the edge lines. The two agree
+    // only on a chain with exactly one edge per node, so every branchy real
+    // route wired its edges to the wrong nodes (and drew them straight under
+    // whatever sat between). This is the shape that broke it: one artifact
+    // feeding three transforms, so three edge lines land under one node.
+    const FAN_OUT: LineageGraph = {
+      root: 'artifact_out',
+      nodes: [
+        { id: 'artifact_in', type: 'artifact', name: 'in.csv', version: 1 },
+        { id: 'activity:c1', type: 'activity', call_id: 'c1', tool: 'filter_a' },
+        { id: 'activity:c2', type: 'activity', call_id: 'c2', tool: 'filter_b' },
+        { id: 'activity:c3', type: 'activity', call_id: 'c3', tool: 'filter_c' },
+        { id: 'artifact_out', type: 'artifact', name: 'out.csv', version: 1 },
+      ],
+      edges: [
+        { from: 'artifact_in', to: 'activity:c1', type: 'used', evidence: 'hash-pair' },
+        { from: 'artifact_in', to: 'activity:c2', type: 'used', evidence: 'hash-pair' },
+        { from: 'artifact_in', to: 'activity:c3', type: 'used', evidence: 'hash-pair' },
+        { from: 'activity:c1', to: 'artifact_out', type: 'generated', evidence: 'hash-pair' },
+        { from: 'activity:c2', to: 'artifact_out', type: 'generated', evidence: 'hash-pair' },
+        { from: 'activity:c3', to: 'artifact_out', type: 'generated', evidence: 'hash-pair' },
+      ],
+    };
+
+    it('points every edge at two real NODE steps', () => {
+      const route = routeFromLineage(FAN_OUT);
+      const edges = route.filter((step) => step.kind === 'edge');
+      expect(edges).toHaveLength(6);
+      for (const edge of edges) {
+        expect(edge.fromIndex).toBeDefined();
+        expect(edge.toIndex).toBeDefined();
+        expect(route[edge.fromIndex!]!.kind).toBe('node');
+        expect(route[edge.toIndex!]!.kind).toBe('node');
+      }
+    });
+
+    it('points them at the endpoints the WIRE named, producer side first', () => {
+      const route = routeFromLineage(FAN_OUT);
+      const label = (at: number) => (route[at] as { label: string }).label;
+      const wired = route
+        .filter((step) => step.kind === 'edge')
+        .map((edge) => `${label(edge.fromIndex!)} -${edge.edge}-> ${label(edge.toIndex!)}`)
+        .sort();
+      expect(wired).toEqual(
+        [
+          'in.csv -used-> filter_a',
+          'in.csv -used-> filter_b',
+          'in.csv -used-> filter_c',
+          'filter_a -generated-> out.csv',
+          'filter_b -generated-> out.csv',
+          'filter_c -generated-> out.csv',
+        ].sort(),
+      );
+    });
+  });
+
+  describe('producer context on a transform (rule 5 — the owner’s "parent?")', () => {
+    const IN_TREE: RouteStep[] = [
+      {
+        kind: 'node',
+        nodeType: 'activity',
+        label: 'plot_plot_timeseries',
+        tool: 'plot_plot_timeseries',
+        sessionId: 'sess_child_v',
+        treeSession: true,
+        runLabel: 'visualization #1',
+        turnId: 'msg_user_e04863d63720',
+      },
+      { kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: 0, toIndex: 2 },
+      { kind: 'node', nodeType: 'artifact', label: 'chart.png', artifactId: 'artifact_png', self: true },
+    ];
+
+    it('shows the producing agent as a badge — the run label, not a session box', () => {
+      open(IN_TREE);
+      expect(screen.queryAllByTestId('route-cluster')).toHaveLength(0);
+      const badges = screen.getAllByTestId('route-node-badge');
+      expect(badges[0]).toHaveTextContent('visualization #1');
+    });
+
+    it('carries the session AND the turn it served on the hover', () => {
+      open(IN_TREE);
+      const badge = screen.getAllByTestId('route-node-badge')[0]!;
+      expect(badge).toHaveAttribute('title', expect.stringContaining('visualization #1'));
+      expect(badge).toHaveAttribute('title', expect.stringContaining('sess_child_v'));
+      expect(badge).toHaveAttribute('title', expect.stringContaining('msg_user_e04863d63720'));
+    });
+
+    it('never badges the VIEWING session’s own work — that context is implicit', () => {
+      const local: RouteStep[] = [
+        { kind: 'node', nodeType: 'activity', label: 'local_tool', tool: 'local_tool', sessionId: 'sess_viewer' },
+        { kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: 0, toIndex: 2 },
+        { kind: 'node', nodeType: 'artifact', label: 'out.csv', artifactId: 'artifact_o', self: true },
+      ];
+      open(local);
+      expect(screen.queryAllByTestId('route-node-badge')).toHaveLength(0);
+    });
+  });
+
+  describe('preserved grammar', () => {
+    it('keeps the one-line node vocabulary: ◆ artifact, ⚙ transform, teal evidence', () => {
+      const { container } = open(SIX_RE_DERIVATIONS);
+      expect(screen.getByTestId('route-node-self').querySelector('.detail__lglyph')).toHaveTextContent('◆');
+      expect(screen.getByTestId('route-node-2').querySelector('.detail__lglyph')).toHaveTextContent('⚙');
+      expect(container.querySelector('.detail__ledgeevidence')).toHaveTextContent('hash-pair');
+      expect(screen.getByTestId('route-node-2').querySelector('.detail__lpill')).toHaveTextContent(
+        'reproducible',
+      );
     });
   });
 });

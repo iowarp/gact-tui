@@ -1,17 +1,19 @@
 /**
- * The provenance lineage DAG layout (viz rebuild, 2026-08).
+ * The provenance DAG layout (regrammar, 2026-08-06).
  *
  * The graph is drawn by React Flow, but the GEOMETRY is ours: dagre over node
  * widths computed from character counts (the lines are monospace, so that is
- * exact). These pin the properties that makes that choice defensible —
- * determinism, real branch/merge topology, and cluster boxes that actually
- * contain their members — none of which need a browser to assert.
+ * exact). These pin the properties that make that choice defensible —
+ * determinism, real convergence, cluster boxes dagre itself owns, and the
+ * routing invariant behind the owner's "under" annotation: nothing is ever
+ * drawn through a box it does not belong to.
  */
 import { describe, expect, it } from 'vitest';
-import { layoutLineage, nodeChips, nodeWidth, segmentRoute } from '../../src/detail/lineageLayout';
+import { layoutLineage, nodeBadges, nodeChips, nodeWidth } from '../../src/detail/lineageLayout';
+import { provenanceModel } from '../../src/detail/provenanceModel';
 import type { RouteStep } from '../../src/detail/types';
 
-/** The design spec's Mockup 1: a simple local chain, all one session. */
+/** A simple local chain, all one session. */
 const SIMPLE_CHAIN: RouteStep[] = [
   {
     kind: 'node',
@@ -35,7 +37,7 @@ const SIMPLE_CHAIN: RouteStep[] = [
   },
 ];
 
-/** The design spec's Mockup 3: three inputs converging on one activity. */
+/** Three inputs converging on one transform. */
 const MULTI_INPUT: RouteStep[] = [
   { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'art_a' },
   { kind: 'edge', edge: 'used', stance: 'declared', join: true, fromIndex: 0, toIndex: 6 },
@@ -48,7 +50,7 @@ const MULTI_INPUT: RouteStep[] = [
   { kind: 'node', nodeType: 'artifact', label: 'report.md', artifactId: 'art_r', self: true },
 ];
 
-/** The design spec's Mockup 2: a foreign session minted the CSV. */
+/** A genuinely foreign session minted the CSV. */
 const CROSS_SESSION: RouteStep[] = [
   {
     kind: 'node',
@@ -73,6 +75,15 @@ const CROSS_SESSION: RouteStep[] = [
   { kind: 'edge', edge: 'generated', stance: 'hashed-at-use', fromIndex: 4, toIndex: 6 },
   { kind: 'node', nodeType: 'artifact', label: 'plot.png', artifactId: 'art_png', self: true },
 ];
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+const overlaps = (a: Box, b: Box): boolean =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 describe('layoutLineage — determinism', () => {
   it('produces byte-identical coordinates for the same route, every time', () => {
@@ -113,7 +124,7 @@ describe('layoutLineage — topology', () => {
     expect(layout.edges.map((edge) => edge.index)).toEqual([1, 3]);
   });
 
-  it('converges every input of a multi-input activity onto that ONE activity', () => {
+  it('converges every input of a multi-input transform onto that ONE transform', () => {
     const layout = layoutLineage(MULTI_INPUT);
     const consuming = layout.nodes.find((node) => node.node.label === 'create_artifact')!;
     const incoming = layout.edges.filter((edge) => edge.target === consuming.id);
@@ -158,8 +169,90 @@ describe('layoutLineage — topology', () => {
   });
 });
 
+describe('layoutLineage — nothing is drawn through a box (the "under" bug)', () => {
+  /** The shape that produced the bug: a long input edge that must travel PAST
+   *  a foreign session's box on its way to the transform that consumed it. */
+  const PAST_A_CLUSTER: RouteStep[] = [
+    { kind: 'node', nodeType: 'artifact', label: 'seed.csv', artifactId: 'art_seed' },
+    { kind: 'edge', edge: 'used', stance: 'hash-pair', join: true, fromIndex: 0, toIndex: 8 },
+    {
+      kind: 'node',
+      nodeType: 'activity',
+      label: 'ndp_stage_resource',
+      tool: 'ndp_stage_resource',
+      sessionId: 'sess_far',
+      foreignSession: true,
+    },
+    { kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: 2, toIndex: 4 },
+    {
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'staged.csv',
+      artifactId: 'art_staged',
+      sessionId: 'sess_far',
+      foreignSession: true,
+    },
+    { kind: 'edge', edge: 'used', stance: 'hash-pair', fromIndex: 4, toIndex: 8 },
+    { kind: 'node', nodeType: 'artifact', label: 'extra.csv', artifactId: 'art_extra' },
+    { kind: 'edge', edge: 'used', stance: 'hash-pair', join: true, fromIndex: 6, toIndex: 8 },
+    { kind: 'node', nodeType: 'activity', label: 'pandas_filter_data', tool: 'pandas_filter_data' },
+    { kind: 'edge', edge: 'generated', stance: 'hash-pair', fromIndex: 8, toIndex: 10 },
+    { kind: 'node', nodeType: 'artifact', label: 'clean.csv', artifactId: 'art_clean', self: true },
+  ];
+
+  it('never overlaps two node boxes', () => {
+    for (const route of [SIMPLE_CHAIN, MULTI_INPUT, CROSS_SESSION, PAST_A_CLUSTER]) {
+      const layout = layoutLineage(route);
+      for (const a of layout.nodes) {
+        for (const b of layout.nodes) {
+          if (a.id >= b.id) continue;
+          expect(overlaps(a, b)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('never places a non-member node inside a cluster box', () => {
+    for (const route of [CROSS_SESSION, PAST_A_CLUSTER]) {
+      const layout = layoutLineage(route);
+      for (const cluster of layout.clusters) {
+        for (const node of layout.nodes) {
+          if (cluster.memberIds.includes(node.id)) continue;
+          expect(overlaps(cluster, node)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('never routes an outsider edge through a cluster box — dagre OWNS the box', () => {
+    // The bug: the box was fitted around its members AFTER layout, so dagre
+    // never reserved its space and drew edges straight under it. The box is a
+    // compound parent now, so the corridor between two non-members can never
+    // enter it.
+    const layout = layoutLineage(PAST_A_CLUSTER);
+    expect(layout.clusters).toHaveLength(1);
+    const byId = new Map(layout.nodes.map((node) => [node.id, node]));
+    for (const edge of layout.edges) {
+      const source = byId.get(edge.source)!;
+      const target = byId.get(edge.target)!;
+      for (const cluster of layout.clusters) {
+        if (cluster.memberIds.includes(source.id) || cluster.memberIds.includes(target.id)) continue;
+        const sx = source.x + source.width / 2;
+        const tx = target.x + target.width / 2;
+        const corridor = {
+          x: Math.min(sx, tx),
+          y: Math.min(source.y + source.height, target.y),
+          width: Math.abs(tx - sx),
+          height: Math.abs(target.y - (source.y + source.height)),
+        };
+        expect(overlaps(corridor, cluster)).toBe(false);
+      }
+    }
+  });
+});
+
 describe('layoutLineage — session clusters', () => {
-  it('boxes a foreign session\'s nodes, with room above for the header', () => {
+  it("boxes a foreign session's nodes, with room above for the header", () => {
     const layout = layoutLineage(CROSS_SESSION);
     expect(layout.clusters).toHaveLength(1);
     const cluster = layout.clusters[0]!;
@@ -200,12 +293,12 @@ describe('layoutLineage — session clusters', () => {
     expect(new Set(layout.clusters.map((cluster) => cluster.id)).size).toBe(3);
   });
 
-  it('gives the viewing session\'s own nodes no cluster at all', () => {
+  it("gives the viewing session's own nodes no cluster at all", () => {
     expect(layoutLineage(SIMPLE_CHAIN).clusters).toEqual([]);
   });
 });
 
-describe('node width + chips', () => {
+describe('node width + chips + badges', () => {
   it('lists exactly the sub-info chips the node line renders, in order', () => {
     expect(nodeChips(SIMPLE_CHAIN[0] as never)).toEqual(['v1', '50.4 MB']);
     expect(nodeChips(SIMPLE_CHAIN[2] as never)).toEqual(['7.9s']);
@@ -224,9 +317,54 @@ describe('node width + chips', () => {
     expect(long).toBeGreaterThan(short);
   });
 
+  it('reserves room for the badges the line will actually draw', () => {
+    const bare = nodeWidth({ kind: 'node', nodeType: 'activity', label: 'pandas_filter_data' });
+    const badged = nodeWidth(
+      { kind: 'node', nodeType: 'activity', label: 'pandas_filter_data' },
+      ['ndp #1', '×6'],
+    );
+    expect(badged).toBeGreaterThan(bare);
+  });
+
+  it('lists the badges the collapsed transform renders — producer, then ×N', () => {
+    const model = provenanceModel([
+      { kind: 'node', nodeType: 'artifact', label: 'in.csv', artifactId: 'art_in' },
+      { kind: 'edge', edge: 'used', fromIndex: 0, toIndex: 2 },
+      {
+        kind: 'node',
+        nodeType: 'activity',
+        label: 'pandas_filter_data',
+        tool: 'pandas_filter_data',
+        sessionId: 'sess_child',
+        treeSession: true,
+        runLabel: 'ndp #1',
+      },
+      { kind: 'edge', edge: 'generated', fromIndex: 2, toIndex: 6 },
+      { kind: 'edge', edge: 'used', fromIndex: 0, toIndex: 5 },
+      {
+        kind: 'node',
+        nodeType: 'activity',
+        label: 'pandas_filter_data',
+        tool: 'pandas_filter_data',
+        sessionId: 'sess_child',
+        treeSession: true,
+        runLabel: 'ndp #1',
+      },
+      { kind: 'node', nodeType: 'artifact', label: 'out.csv', artifactId: 'art_out', self: true },
+      { kind: 'edge', edge: 'generated', fromIndex: 5, toIndex: 6 },
+    ]);
+    const transform = model.nodes.find((node) => node.kind === 'transform')!;
+    expect(transform.multiplicity).toBe(2);
+    expect(nodeBadges(transform)).toEqual(['ndp #1', '×2']);
+  });
+
   it('clamps to a readable band so one huge name cannot blow out the canvas', () => {
+    // PIN UPDATED — regrammar 2026-08-06: the ceiling rose from 460 to 545 so
+    // the REAL EarthScope self line (a 35-character name plus its producer
+    // badge, version, size and you-are-here marker) fits without the clamp
+    // eating its own facts. It is still a hard ceiling.
     const huge = nodeWidth({ kind: 'node', nodeType: 'artifact', label: 'x'.repeat(500) });
-    expect(huge).toBeLessThanOrEqual(460);
+    expect(huge).toBeLessThanOrEqual(545);
     const tiny = nodeWidth({ kind: 'node', nodeType: 'artifact', label: 'a' });
     expect(tiny).toBeGreaterThanOrEqual(130);
   });
@@ -234,14 +372,5 @@ describe('node width + chips', () => {
   it('is a pure function of the node — no ambient state', () => {
     const node = { kind: 'node', nodeType: 'activity', label: 'tool', duration: '1s' } as const;
     expect(nodeWidth(node)).toBe(nodeWidth({ ...node }));
-  });
-});
-
-describe('segmentRoute', () => {
-  it('groups contiguous foreign steps and leaves local runs headerless', () => {
-    const segments = segmentRoute(CROSS_SESSION);
-    expect(segments.map((segment) => segment.sessionId)).toEqual(['sess_9f17aa20bb31', undefined]);
-    expect(segments[0]!.steps.map(({ index }) => index)).toEqual([0, 1, 2]);
-    expect(segments[1]!.steps.map(({ index }) => index)).toEqual([3, 4, 5, 6]);
   });
 });

@@ -420,6 +420,28 @@
   box-shadow: none;
 }
 
+/* React Flow paints a node wrapper `pointer-events: none` whenever the node is
+   neither selectable nor draggable — which is exactly how this graph
+   configures them, so the approved click semantics (artifact → push the panel,
+   transform → its producing session) and every glossary hover were reaching
+   nothing in a real browser; only jsdom, which ignores pointer-events, made
+   them look alive. The interactive surface opts itself back in. The WRAPPER
+   stays inert, so drag-to-pan still works everywhere a line isn't. */
+.detail__lineage .detail__lnode,
+.detail__lineage .detail__lmult,
+.detail__lineage .detail__lruns,
+.detail__lineage .detail__cluster {
+  pointer-events: auto;
+}
+
+/* Edge labels are portalled into their own layer, which React Flow stacks
+   BELOW the node layer — so a cluster box's fill was painting over the
+   `verb → evidence` of every edge inside it. The labels carry the graph's
+   evidence vocabulary; they sit above the boxes. */
+.detail__lineage .react-flow__edgelabel-renderer {
+  z-index: 4;
+}
+
 .detail__lineage .react-flow__controls-button {
   width: 18px;
   height: 18px;
@@ -432,6 +454,18 @@
 .detail__lineage .react-flow__controls-button:hover {
   background: var(--t-hv);
   fill: var(--t-cy);
+}
+
+/* The node's own stacking context: the one line, plus the collapsed
+   transform's `×N` control and (when opened) its run list, which float BELOW
+   the line without taking layout space — the laid-out box is the line. */
+.detail__lrow {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  gap: 4px;
 }
 
 /* One node line: glyph + name + inline muted sub-info. Whole-line hit target;
@@ -518,6 +552,76 @@ button.detail__lnode:hover .detail__lname {
   color: var(--t-ac);
   font-size: calc(10px * var(--ts));
   line-height: 1.5;
+}
+
+/* The multiplicity badge on a COLLAPSED transform (regrammar, 2026-08-06):
+   N recorded runs the wire says produced identical bytes from identical
+   inputs, folded into one node. It is the run list's control, so it reads as
+   a control (accent border, pointer) rather than as more sub-info. */
+.detail__lmult {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--t-cy);
+  border-radius: 4px;
+  background: var(--t-sf);
+  color: var(--t-cy);
+  cursor: pointer;
+  font: inherit;
+  font-size: calc(10px * var(--ts));
+  line-height: 1.6;
+}
+
+.detail__lmult:hover,
+.detail__lmult[aria-expanded='true'] {
+  background: var(--t-hv);
+}
+
+/* The expanded per-run list. Floats under the line (absolute) so opening it
+   never moves the graph — the layout's node box stays the one line. */
+.detail__lruns {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 3px);
+  left: 18px;
+  display: flex;
+  min-width: 140px;
+  flex-direction: column;
+  padding: 3px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
+  background: var(--t-sf2);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 45%);
+}
+
+.detail__lrun {
+  display: flex;
+  gap: 6px;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--t-mu);
+  font: inherit;
+  font-size: calc(10px * var(--ts));
+  line-height: 1.6;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.detail__lrunno {
+  flex-shrink: 0;
+  min-width: 10px;
+  color: var(--t-dis);
+  text-align: right;
+}
+
+button.detail__lrun {
+  cursor: pointer;
+}
+
+button.detail__lrun:hover {
+  background: var(--t-hv);
+  color: var(--t-cy);
 }
 
 /* The SELF node (owner 3a, 2026-08-06): a UNIQUE, anchored presentation —
@@ -620,6 +724,27 @@ button.detail__lnode:hover .detail__lname {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--t-cy);
+}
+
+/* N recorded edges, identical on both ends, folded into this one — the edge
+   twin of the transform's `×N`, so a collapse never silently eats a count. */
+.detail__ledgemult {
+  flex-shrink: 0;
+  color: var(--t-dis);
+}
+
+/* An outgoing USE of the "you are here" artifact — the usages the owner drew
+   hanging below the produced artifact. Accented so they read as the
+   artifact's own downstream story, not as more upstream plumbing. */
+.detail__ledge[data-usage='true'] {
+  border-color: var(--t-cy4);
+}
+
+/* A re-designation: the wire records the same transform having USED the
+   artifact it also GENERATED. It is drawn (it happened) but it cannot rank, so
+   it says so. */
+.detail__ledge[data-back='true'] {
+  border-style: dotted;
 }
 
 /* Foreign session cluster (spec rule 3): the nodes that session produced sit

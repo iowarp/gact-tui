@@ -1638,8 +1638,9 @@ export function SessionView({
               sessionTitleCacheRef.current[id] = row.title;
             }
           } catch {
-            // Stays unresolved — DetailSlot's own sessionLabel fallback
-            // renders the short id instead, never blank.
+            // Stays unresolved — DetailSlot's own sessionName fallback says
+            // "unnamed session" (names-not-ids, 2026-08-06) and keeps the raw
+            // id on the hover, never blank and never an id posing as a name.
           }
         }),
       );
