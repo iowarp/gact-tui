@@ -1130,6 +1130,21 @@ export function SessionView({
     void refreshPill(activeId, activeScope);
   }, [activeId, activeScope, load, refreshPill]);
 
+  // Mirrors `activeRunning` (computed once per render, below, from
+  // `state`/`sending`/`sessions`) into a ref the SSE effect can read without
+  // depending on it — depending on it directly would tear the whole
+  // subscription down and reopen it on every streaming delta, the same
+  // reasoning the observability effect above already documents for
+  // `observabilityMessages`.
+  const activeRunningRef = useRef(false);
+  useEffect(() => {
+    activeRunningRef.current = isTurnRunning(
+      sending,
+      state.kind === 'loaded' ? state.messages : NO_MESSAGES,
+      sessions.find((row) => row.id === activeId)?.status,
+    );
+  });
+
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
   // parts via part.added, and the clean delegation wire's IN-PLACE settle
@@ -1159,6 +1174,24 @@ export function SessionView({
           });
       }, 250);
     };
+    // Mid-turn pill refresh (async chip count, ctx %, artifact count) —
+    // event-driven off the SAME SSE stream this effect already consumes,
+    // throttled to at most once per PILL_REFRESH_THROTTLE_MS and gated on
+    // the turn actually being live (shouldRefreshPillMidTurn, above — pure,
+    // directly unit tested). A multi-minute fan-out otherwise leaves the
+    // pill frozen at its last settle-time value for the whole run (the chip
+    // never appears, `ctx 0%` never moves) because message.completed/error/
+    // deleted — the only prior triggers, below — don't fire until every
+    // child has returned. Throttled, not per-delta: an unthrottled refetch
+    // here reproduces the round-7 "13x amplification" bug this file already
+    // has scar tissue for (see the observability effect above).
+    let lastPillRefreshAt = 0;
+    const refreshPillMidTurn = () => {
+      const now = Date.now();
+      if (!shouldRefreshPillMidTurn(activeRunningRef.current, now, lastPillRefreshAt)) return;
+      lastPillRefreshAt = now;
+      void refreshPill(activeId, activeScope);
+    };
     const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
       // Feed application is the shared pure helper (session/messageEvents.ts);
       // only the side effects stay here.
@@ -1178,6 +1211,15 @@ export function SessionView({
             // A failed refresh keeps whatever `detail`/`detailStatus` this
             // session already had — never downgrades a known-good last read.
             .catch(() => {});
+          refreshPillMidTurn();
+          break;
+        }
+        case 'message.part.updated': {
+          // The clean delegation wire's terminal settle rides this event —
+          // a fan-out child returning to main is exactly the moment
+          // asyncCount/ctx/artifact totals move mid-turn.
+          const part = event.payload['part'] as { type?: string } | undefined;
+          if (part?.type === 'expert_handoff') refreshPillMidTurn();
           break;
         }
         case 'message.completed':
@@ -1186,7 +1228,9 @@ export function SessionView({
           reconcile();
           // The pill (ctx %, artifact count, async tasks) goes stale between
           // send-time refreshes — a settled turn is exactly when its numbers
-          // changed (owner: 'artifacts 5 for the whole run', 'ctx 0%').
+          // changed (owner: 'artifacts 5 for the whole run', 'ctx 0%'). Not
+          // throttled: a settle is a bounded, low-frequency event, not a
+          // per-delta stream.
           void refreshPill(activeId, activeScope);
           break;
         default:
@@ -2175,13 +2219,8 @@ export function SessionView({
   // here; the `sessions` row status is the fallback for the gap before that
   // message exists yet.
   const activeMessages = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
-  const latestActiveAssistant = latestAssistantMessage(activeMessages);
   const activeSessionRow = sessions.find((row) => row.id === activeId);
-  const activeRunning =
-    sending ||
-    (latestActiveAssistant
-      ? !(latestActiveAssistant.stop_reason || latestActiveAssistant.error_info)
-      : toStatus(activeSessionRow?.status) === 'running');
+  const activeRunning = isTurnRunning(sending, activeMessages, activeSessionRow?.status);
   // The composer keeps talking to a focused child (see `send` above), so
   // once that child settles the composer that reaches it is a "reawaken"
   // action, not a plain send — the prototype states that plainly rather
@@ -2763,6 +2802,56 @@ function latestAssistantMessage(messages: Message[]): Message | undefined {
     if (message?.role === 'assistant') return message;
   }
   return undefined;
+}
+
+/**
+ * Whether the active session's turn is actually in flight on the backend —
+ * NOT the same thing as the client's own send round-trip alone. Shared by
+ * the composer's `running` prop and the mid-turn pill-refresh throttle (the
+ * message-lifecycle SSE effect below): both must read the exact same
+ * signal, or the pill can keep refreshing after the turn has actually
+ * settled, or stop refreshing while it is still genuinely running. Exported
+ * for direct unit testing — jsdom has no EventSource (the SSE effect that
+ * consumes this never runs under the test harness), so the gate this
+ * function decides is only reachable as a pure function, not through a live
+ * subscription.
+ */
+export function isTurnRunning(
+  sending: boolean,
+  messages: Message[],
+  sessionStatus: unknown,
+): boolean {
+  const assistant = latestAssistantMessage(messages);
+  return (
+    sending ||
+    (assistant
+      ? !(assistant.stop_reason || assistant.error_info)
+      : toStatus(sessionStatus) === 'running')
+  );
+}
+
+/** Default throttle window for the mid-turn pill refresh below — at most
+ *  one `refreshPill` round trip per this many ms while a turn is live. */
+export const PILL_REFRESH_THROTTLE_MS = 2000;
+
+/**
+ * The mid-turn pill-refresh gate: true when a refresh should actually fire
+ * right now. Two conditions, both required — the turn must be genuinely
+ * live (never refresh a settled/idle session off a stray late SSE event),
+ * and at least `throttleMs` must have elapsed since the last refresh (an
+ * unthrottled refetch-per-delta reproduces the round-7 "13x amplification"
+ * bug this file has scar tissue for elsewhere). Pure and exported so the
+ * throttle math itself — the part with real edge cases (exactly-at-the-
+ * boundary, back-to-back events, idle-then-running) — is directly testable
+ * without a live SSE connection.
+ */
+export function shouldRefreshPillMidTurn(
+  isRunning: boolean,
+  now: number,
+  lastRefreshAt: number,
+  throttleMs: number = PILL_REFRESH_THROTTLE_MS,
+): boolean {
+  return isRunning && now - lastRefreshAt >= throttleMs;
 }
 
 function relativeAge(iso: string): string {
