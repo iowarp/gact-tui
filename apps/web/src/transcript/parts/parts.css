@@ -328,6 +328,22 @@
   color: var(--t-hd);
 }
 
+/* Round-6 fix: a wrapper object's uniform-array VALUE (e.g. `points` inside
+   `{ ok, count, points }`) gets pulled out as its own labeled table below
+   the KV grid, instead of collapsing into one opaque KV value. */
+.part-toolrow__subtable {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.part-toolrow__subtablelabel {
+  margin: 4px 0 0;
+  color: var(--t-hd);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11.5px * var(--ts));
+}
+
 .part-toolrow__tablefoot {
   display: flex;
   align-items: center;

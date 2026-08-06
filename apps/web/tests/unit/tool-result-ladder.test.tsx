@@ -9,6 +9,14 @@
  *      payload, a small 'raw' toggle reveals the verbatim original text.
  * Unknown shapes fall through to the existing verbatim <pre> -- pinned here
  * as a regression case (absence of every new field/shape).
+ *
+ * Round-6 live finding fix: a WRAPPER object ({ points: [72 station
+ * objects], count: 72, ok: true }) was collapsing its uniform array into a
+ * single opaque KV value instead of a table. Scalar keys still render as
+ * the KV grid; a uniform-object-array VALUE with more than one row now
+ * gets pulled out as its own labeled table beneath ('points (72)'), first
+ * 20 rows + the same show-more idiom. Non-uniform / single-row array
+ * values stay in the KV grid, verbatim.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -85,6 +93,106 @@ describe('structured_content -- uniform array renders as a real table with show-
       />,
     );
     openRow(/mixed_rows/);
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+  });
+});
+
+describe('structured_content -- object wrapping a uniform array pulls out a labeled table (round-6)', () => {
+  const points = Array.from({ length: 72 }, (_, i) => ({ station: `ST${i}`, lat: 34 + i * 0.001 }));
+
+  it('renders scalar keys as the KV grid and the array key as its own labeled table with show-more', () => {
+    render(
+      <ToolPart
+        call={toolCall('station_query', {}, 'call_12')}
+        result={toolResult('call_12', {
+          content: [{ type: 'text', text: 'station query result' }],
+          structured_content: { ok: true, count: 72, points },
+        })}
+      />,
+    );
+    openRow(/station_query/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('ok');
+    expect(kv).toHaveTextContent('true');
+    expect(kv).toHaveTextContent('count');
+    expect(kv).toHaveTextContent('72');
+    // The 72-row array is never collapsed into the KV grid.
+    expect(kv).not.toHaveTextContent('ST0');
+    const label = screen.getByTestId('part-tool-result-subtable-label');
+    expect(label).toHaveTextContent('points (72)');
+    const grid = screen.getByTestId('part-tool-result-grid');
+    expect(within(grid).getAllByRole('row')).toHaveLength(1 + 20);
+    expect(within(grid).getByText('ST0')).toBeInTheDocument();
+    expect(within(grid).queryByText('ST71')).toBeNull();
+    fireEvent.click(within(grid).getByRole('button', { name: /show more/i }));
+    expect(within(grid).getAllByRole('row')).toHaveLength(1 + 72);
+    expect(within(grid).getByText('ST71')).toBeInTheDocument();
+    // Raw stays one keypress away, verbatim.
+    fireEvent.click(screen.getByTestId('part-tool-raw-toggle'));
+    expect(screen.getByTestId('part-tool-raw')).toHaveTextContent('station query result');
+  });
+});
+
+describe('structured_content -- two uniform-array keys each get their own labeled table', () => {
+  it('renders two labeled tables, one per qualifying array key, no key dropped', () => {
+    const stations = Array.from({ length: 3 }, (_, i) => ({ id: `ST${i}` }));
+    const readings = Array.from({ length: 4 }, (_, i) => ({ value: i }));
+    render(
+      <ToolPart
+        call={toolCall('dual_query', {}, 'call_13')}
+        result={toolResult('call_13', {
+          content: [{ type: 'text', text: 'dual query result' }],
+          structured_content: { stations, readings },
+        })}
+      />,
+    );
+    openRow(/dual_query/);
+    const labels = screen.getAllByTestId('part-tool-result-subtable-label');
+    expect(labels.map((l) => l.textContent)).toEqual(['stations (3)', 'readings (4)']);
+    const grids = screen.getAllByTestId('part-tool-result-grid');
+    expect(grids).toHaveLength(2);
+    expect(within(grids[0]!).getByText('ST0')).toBeInTheDocument();
+    expect(within(grids[1]!).getAllByRole('row')).toHaveLength(1 + 4);
+    // No standalone scalar keys here, so the KV grid itself is absent.
+    expect(screen.queryByTestId('part-tool-result-table')).toBeNull();
+  });
+});
+
+describe('structured_content -- an array value that is not table-worthy stays a KV value, verbatim', () => {
+  it('a non-uniform (mixed-key) array value keeps that key inline in the KV grid', () => {
+    render(
+      <ToolPart
+        call={toolCall('mixed_wrapper', {}, 'call_14')}
+        result={toolResult('call_14', {
+          content: [{ type: 'text', text: '{"ok":true,"items":[{"a":1},{"b":2}]}' }],
+          structured_content: { ok: true, items: [{ a: 1 }, { b: 2 }] },
+        })}
+      />,
+    );
+    openRow(/mixed_wrapper/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('items');
+    expect(kv).toHaveTextContent(/"a":\s*1/);
+    expect(kv).toHaveTextContent(/"b":\s*2/);
+    expect(screen.queryByTestId('part-tool-result-subtable-label')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+  });
+
+  it('a single-row uniform array value also stays a KV value (the table threshold is more than one row)', () => {
+    render(
+      <ToolPart
+        call={toolCall('single_row_wrapper', {}, 'call_15')}
+        result={toolResult('call_15', {
+          content: [{ type: 'text', text: '{"ok":true,"points":[{"station":"ST0"}]}' }],
+          structured_content: { ok: true, points: [{ station: 'ST0' }] },
+        })}
+      />,
+    );
+    openRow(/single_row_wrapper/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('points');
+    expect(kv).toHaveTextContent('ST0');
+    expect(screen.queryByTestId('part-tool-result-subtable-label')).toBeNull();
     expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
   });
 });

@@ -124,6 +124,34 @@ function objectArrayToTable(items: Array<Record<string, unknown>>): { header: st
   return { header, rows };
 }
 
+/**
+ * Round-6 live finding: a WRAPPER object (`{ points: [72 station objects],
+ * count: 72, ok: true }`) was collapsing its 72-row array into a single
+ * opaque KV value — the exact case the table rung exists for, just one
+ * level down from the root. This walks the object's OWN values (never
+ * recursing further) and splits them: a uniform-object-array value with
+ * MORE THAN ONE row is pulled out as its own table (labeled by its key);
+ * everything else — scalars, single-row arrays, non-uniform arrays, nested
+ * objects — stays a KV value via the existing {@link kvValue}
+ * stringification, verbatim. No key is ever dropped from either bucket.
+ */
+function splitStructuredObject(obj: Record<string, unknown>): {
+  rows: Array<{ k: string; v: string }>;
+  tables: Array<{ key: string; header: string[]; rows: string[][] }>;
+} {
+  const rows: Array<{ k: string; v: string }> = [];
+  const tables: Array<{ key: string; header: string[]; rows: string[][] }> = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (isUniformObjectArray(v) && v.length > 1) {
+      const { header, rows: tableRows } = objectArrayToTable(v);
+      tables.push({ key: k, header, rows: tableRows });
+      continue;
+    }
+    rows.push({ k, v: kvValue(v) });
+  }
+  return { rows, tables };
+}
+
 /** Naive comma-split CSV, matching the existing DetailSlot Preview idiom
  *  (`src/detail/preview.ts`) — no quoted-comma handling, same tradeoff the
  *  rest of this codebase already accepts for CSV previews. */
@@ -137,17 +165,25 @@ function parseCsv(text: string): { header: string[]; rows: string[][] } {
 type InterpretedResult =
   | { kind: 'kv'; rows: Array<{ k: string; v: string }> }
   | { kind: 'table'; header: string[]; rows: string[][] }
+  | {
+      kind: 'object';
+      rows: Array<{ k: string; v: string }>;
+      tables: Array<{ key: string; header: string[]; rows: string[][] }>;
+    }
   | { kind: 'image'; block: ContentImageBlock }
   | { kind: 'raw' };
 
 /**
  * The result render ladder (owner design 2026-08-05), replacing "print the
- * JSON string and hope": `structured_content` first (object -> KV, uniform
- * array -> table), then content blocks by mime type (image, text/csv ->
- * table), then the existing text/JSON-object handling, and finally the
- * verbatim fallback that was already here. Every step only fires on a shape
- * it can actually interpret — anything else falls through to the next rung,
- * and the bottom rung is the untouched raw `<pre>`.
+ * JSON string and hope": `structured_content` first (a root array of
+ * uniform objects -> a real table; a root OBJECT -> the KV grid, or —
+ * round-6 fix — KV grid + a labeled table per qualifying array-valued key
+ * when one is present, see {@link splitStructuredObject}), then content
+ * blocks by mime type (image, text/csv -> table), then the existing
+ * text/JSON-object handling, and finally the verbatim fallback that was
+ * already here. Every step only fires on a shape it can actually interpret
+ * — anything else falls through to the next rung, and the bottom rung is
+ * the untouched raw `<pre>`.
  */
 function interpretResult(result: WirePart, text: string): InterpretedResult {
   const structured = extractStructuredContent(result);
@@ -156,7 +192,8 @@ function interpretResult(result: WirePart, text: string): InterpretedResult {
     return { kind: 'table', header, rows };
   }
   if (isRecord(structured)) {
-    const rows = kvRowsFromObject(structured);
+    const { rows, tables } = splitStructuredObject(structured);
+    if (tables.length > 0) return { kind: 'object', rows, tables };
     if (rows.length > 0) return { kind: 'kv', rows };
   }
 
@@ -380,6 +417,26 @@ export function ToolPart({ call, result }: ToolPartProps) {
                   return (
                     <>
                       <ResultTable header={interpreted.header} rows={interpreted.rows} />
+                      <RawToggle text={text} />
+                    </>
+                  );
+                case 'object':
+                  return (
+                    <>
+                      {interpreted.rows.length > 0 ? (
+                        <KvRows rows={interpreted.rows} testId="part-tool-result-table" />
+                      ) : null}
+                      {interpreted.tables.map((t) => (
+                        <div className="part-toolrow__subtable" key={t.key}>
+                          <p
+                            className="part-toolrow__subtablelabel"
+                            data-testid="part-tool-result-subtable-label"
+                          >
+                            {`${t.key} (${t.rows.length})`}
+                          </p>
+                          <ResultTable header={t.header} rows={t.rows} />
+                        </div>
+                      ))}
                       <RawToggle text={text} />
                     </>
                   );
