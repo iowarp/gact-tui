@@ -55,17 +55,16 @@
   }
 }
 
-.kit-partcard[data-kind='transcript_activity'] {
-  display: block;
+/* The durable-artifacts grid is its own full-width section, not a
+   gutter-marked narration row (design/prototype/Clio Session.html — no icon
+   column precedes "artifacts (N)"). Hiding ONLY the gutter removed it from
+   grid flow and auto-placed the body into the 14px gutter track — chips
+   stacked vertically at 14px width (final side-by-side, BLOCKER). The card
+   itself must become single-column. */
+.kit-partcard[data-kind='artifacts'] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.kit-partcard[data-kind='transcript_activity'] > .kit-partcard__gutter {
-  display: none;
-}
-
-/* The durable-artifacts grid is its own section, not a gutter-marked
-   narration row (design/prototype/Clio Session.html — no icon column
-   precedes "artifacts (N)"). */
 .kit-partcard[data-kind='artifacts'] > .kit-partcard__gutter {
   display: none;
 }

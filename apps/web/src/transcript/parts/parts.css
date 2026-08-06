@@ -659,12 +659,22 @@
 }
 
 .part-artgrid__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
   color: var(--t-mu);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: calc(10.5px * var(--ts));
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+/* The prototype's trailing dotted rule: ARTIFACTS (N) ┈┈┈ to the column edge. */
+.part-artgrid__label::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dotted var(--t-bd3);
 }
 
 /* Chips sit side-by-side at the prototype's card width (~203.5px measured,
