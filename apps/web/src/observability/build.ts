@@ -13,6 +13,8 @@ import type {
   ObsTimelineRow,
   ObsToolCallRow,
   ObsToolCallState,
+  ObsToolInventory,
+  ObsToolInventoryRow,
 } from './types';
 
 const TERMINAL_TASK_STATES = new Set([
@@ -46,6 +48,7 @@ export interface ObservabilityTrace {
   spans: ObsSpan[];
   artifactRows: ObsArtifactRow[];
   toolCalls: ObsToolCallRow[];
+  toolInventory: ObsToolInventory;
 }
 
 /** Which trace session a row was recorded in, and what that session is to
@@ -104,6 +107,7 @@ export function buildObservabilityTrace({
         (left, right) =>
           (left.atMs ?? Number.POSITIVE_INFINITY) - (right.atMs ?? Number.POSITIVE_INFINITY),
       ),
+    toolInventory: toolInventoryFromTraces(traces),
   };
 }
 
@@ -520,6 +524,61 @@ function toolArgHint(args: unknown): string | null {
   if (rendered === undefined) return null;
   const truncated = rendered.length > 40 ? `${rendered.slice(0, 40)}…` : rendered;
   return `${key}=${truncated}`;
+}
+
+// ---- tools tab: built toolset inventory ("available") ----
+
+/**
+ * Parse every `agent.toolset.recorded` event across the given traces (the
+ * SAME root + child-session trace set every other tab reads) into one group
+ * per agent — verbatim server data, no client-side composition or inference.
+ *
+ * Grouping key is the event's own `payload.agent_id` (never a looked-up
+ * display label). Render order is first-seen across `traces`, which the
+ * caller already orders root-then-children (SessionView.loadObservability),
+ * so "main first, then children by first-seen order" falls out for free.
+ * When an agent rebuilds mid-session (a re-run of the same react module),
+ * later events for the SAME agent_id replace earlier ones — the inventory
+ * reflects the LATEST built toolset, never a stale union of every build.
+ *
+ * Session-tree scoping (main sees the whole tree; a child's own obs view
+ * sees only itself + its children) is NOT decided here — it falls out of
+ * which traces the caller fetched (gact-tui#356's existing scoping), so this
+ * function stays a pure, verbatim projection of whatever traces it is given.
+ */
+function toolInventoryFromTraces(traces: SessionTraceEvents[]): ObsToolInventory {
+  const order: string[] = [];
+  const toolsByAgent = new Map<string, ObsToolInventoryRow[]>();
+  for (const trace of traces) {
+    for (const event of trace.events) {
+      if (event.event_type !== 'agent.toolset.recorded') continue;
+      const payload = payloadOf(event);
+      const agentId = visibleString(payload['agent_id']);
+      if (!agentId) continue;
+      if (!toolsByAgent.has(agentId)) order.push(agentId);
+      toolsByAgent.set(agentId, toolInventoryRowsFromPayload(payload['tools']));
+    }
+  }
+  return { groups: order.map((agentId) => ({ agentId, tools: toolsByAgent.get(agentId) ?? [] })) };
+}
+
+/** One `agent.toolset.recorded` event's `tools` array, mapped verbatim — a
+ *  malformed/missing entry is dropped rather than rendered with invented
+ *  fields (a nameless tool row is not a real tool). */
+function toolInventoryRowsFromPayload(value: unknown): ObsToolInventoryRow[] {
+  if (!Array.isArray(value)) return [];
+  const rows: ObsToolInventoryRow[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const row = entry as Record<string, unknown>;
+    const name = visibleString(row['name']);
+    if (!name) continue;
+    const title = visibleString(row['title']);
+    const source = visibleString(row['source']) ?? 'unknown';
+    const representation = visibleString(row['representation']) ?? 'row';
+    rows.push({ name, source, representation, ...(title ? { title } : {}) });
+  }
+  return rows;
 }
 
 // ---- gantt: turn roots, nested agents, real-time bars/marks ----

@@ -136,6 +136,36 @@ export interface ObsToolCallRow {
   nav?: ObsNavigation;
 }
 
+/** One row of the tools tab's "available" view — a single entry from the
+ *  server's own `agent.toolset.recorded` inventory, carried onto the wire
+ *  VERBATIM (name/title/source/representation). `source` is either the
+ *  concrete MCP server/namespace name, or one of the literal buckets
+ *  `"native"` / `"spawn-runtime"` — never invented or recomposed client-side. */
+export interface ObsToolInventoryRow {
+  name: string;
+  title?: string;
+  source: string;
+  representation: string;
+}
+
+/** One agent's built toolset, keyed by its own real `agent_id` (never a
+ *  looked-up display label — the event's own field, verbatim). */
+export interface ObsToolInventoryGroup {
+  agentId: string;
+  tools: ObsToolInventoryRow[];
+}
+
+/** The Tools tab's "available" view: the tool surface available to the
+ *  observed agent tree, session-tree scoped (main's own view covers every
+ *  agent in the tree; a child agent's own obs view covers only that agent
+ *  plus its own children — enforced upstream by which traces are fetched,
+ *  never filtered client-side here). */
+export interface ObsToolInventory {
+  /** Render order: the observed session's own agent first (when it built),
+   *  then every child agent in first-recorded order. */
+  groups: ObsToolInventoryGroup[];
+}
+
 export interface ObservabilityData {
   agents: ObsAgent[];
   runs: ObsRun[];
@@ -151,6 +181,11 @@ export interface ObservabilityData {
   artifactRows?: ObsArtifactRow[];
   /** Optional only for compatibility with pre-P5 captured fixtures. */
   toolCalls?: ObsToolCallRow[];
+  /** Optional only for compatibility with pre-P5 captured fixtures / sessions
+   *  recorded before agent.toolset.recorded existed. An absent value (or one
+   *  with an empty `groups` list) renders the honest unavailable state, never
+   *  an empty list presented as "no tools". */
+  toolInventory?: ObsToolInventory;
   /**
    * True when one or more of the reads that feed the trace/runs/tools/gantt
    * tabs (the session's own trace, every child session's trace, or the

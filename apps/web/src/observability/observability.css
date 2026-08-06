@@ -71,6 +71,7 @@
 .obs__toolbar,
 .obs-timeline__toolbar,
 .obs-timeline__modes,
+.obs-toollog__modes,
 .obs-legend {
   display: flex;
   align-items: center;
@@ -87,7 +88,11 @@
   padding-bottom: 12px;
 }
 
-.obs-timeline__modes {
+/* Segmented mode toggle — shared visual grammar for the timeline's log|gantt
+ * switch AND the tools tab's called|available switch (same classes, same
+ * rules; only the choice labels differ). */
+.obs-timeline__modes,
+.obs-toollog__modes {
   flex: 0 0 auto;
   gap: 1px;
   padding: 1px;
@@ -96,7 +101,12 @@
   border-radius: 6px;
 }
 
-.obs-timeline__mode {
+.obs-toollog__modes {
+  margin-bottom: 10px;
+}
+
+.obs-timeline__mode,
+.obs-toollog__mode {
   min-width: 43px;
   padding: 4px 8px;
   background: transparent;
@@ -108,17 +118,20 @@
   font-size: calc(10.5px * var(--ts));
 }
 
-.obs-timeline__mode:hover {
+.obs-timeline__mode:hover,
+.obs-toollog__mode:hover {
   color: var(--t-hd);
 }
 
-.obs-timeline__mode[aria-pressed='true'] {
+.obs-timeline__mode[aria-pressed='true'],
+.obs-toollog__mode[aria-pressed='true'] {
   background: var(--t-sf2);
   border-color: var(--t-cy4);
   color: var(--t-cy);
 }
 
-.obs-timeline__mode:focus-visible {
+.obs-timeline__mode:focus-visible,
+.obs-toollog__mode:focus-visible {
   outline: 2px solid var(--t-cy3);
   outline-offset: 1px;
 }
@@ -958,6 +971,35 @@
   .obs-toollog__status[data-state='running'] {
     animation: none;
   }
+}
+
+/* ---- tools tab (P5): "available" toolset inventory ---- */
+
+.obs-toolinv {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.obs-toolinv__group + .obs-toolinv__group {
+  margin-top: 6px;
+}
+
+.obs-toolinv__header {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+
+.obs-toolinv__header:hover {
+  background: var(--t-sf2);
+}
+
+/* Rows reuse the legacy per-server catalog's own row/kv register
+ * (.obs-tool__row/__name/__description) — same small-title mono register,
+ * just re-scoped to a real per-agent build instead of a static server list. */
+.obs-toolinv__list {
+  padding-left: 17px;
 }
 
 .obs-artifacts {

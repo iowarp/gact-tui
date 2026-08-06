@@ -7,6 +7,7 @@ import type {
   ObsSpan,
   ObsTimelineKind,
   ObsToolCallRow,
+  ObsToolInventoryGroup,
   ObservabilityData,
 } from './types';
 import './observability.css';
@@ -36,6 +37,9 @@ export interface ObservabilityProps {
 
 export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
 type TimelineMode = 'log' | 'gantt';
+/** The tools tab's own sub-toggle: 'called' is the existing chronological
+ *  call log; 'available' is the built-toolset inventory (agent.toolset.recorded). */
+type ToolsMode = 'called' | 'available';
 
 /** Legend-only glyphs — the prototype's compact legend iconography is
  *  deliberately simpler than the row markers themselves (design/prototype
@@ -95,6 +99,7 @@ export function Observability({
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
   const [tab, setTab] = useState<ObsTab>(initialTab ?? (legacy ? 'agents' : 'timeline'));
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('log');
+  const [toolsMode, setToolsMode] = useState<ToolsMode>('called');
   const experts = Object.keys(data.toolsByExpert);
   const [expert, setExpert] = useState(experts[0] ?? '');
   const selectedExpert = data.toolsByExpert[expert] ? expert : (experts[0] ?? '');
@@ -102,6 +107,7 @@ export function Observability({
   const spans = data.spans ?? [];
   const artifactRows = data.artifactRows ?? [];
   const toolCalls = data.toolCalls ?? [];
+  const toolInventoryGroups = data.toolInventory?.groups ?? [];
   const activeTab = !legacy && tab === 'agents' ? 'timeline' : tab;
   const tabs: TabDef[] = legacy
     ? [
@@ -254,12 +260,35 @@ export function Observability({
               </ul>
             </div>
           ) : (
-            <ToolLog
-              rows={toolCalls}
-              {...(data.traceReadFailed ? { readFailed: true } : {})}
-              {...(onNavigate ? { onNavigate } : {})}
-              {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
-            />
+            <div className="obs-tools-tab">
+              <div className="obs-toollog__modes" aria-label="Tools view" role="group">
+                {(['called', 'available'] as const).map((choice) => (
+                  <button
+                    type="button"
+                    className="obs-toollog__mode"
+                    aria-pressed={toolsMode === choice}
+                    key={choice}
+                    onClick={() => setToolsMode(choice)}
+                  >
+                    {choice}
+                  </button>
+                ))}
+              </div>
+              {toolsMode === 'called' ? (
+                <ToolLog
+                  rows={toolCalls}
+                  {...(data.traceReadFailed ? { readFailed: true } : {})}
+                  {...(onNavigate ? { onNavigate } : {})}
+                  {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
+                />
+              ) : (
+                <ToolInventoryPanel
+                  groups={toolInventoryGroups}
+                  {...(data.traceReadFailed ? { readFailed: true } : {})}
+                  {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
+                />
+              )}
+            </div>
           )
         ) : null}
 
@@ -563,6 +592,83 @@ function ToolLog({ rows, readFailed, onNavigate, onRetry }: ToolLogProps) {
         );
       })}
     </ol>
+  );
+}
+
+interface ToolInventoryPanelProps {
+  groups: ObsToolInventoryGroup[];
+  /** True when the read behind these groups FAILED rather than genuinely
+   *  finding none — see ObservabilityData.traceReadFailed. */
+  readFailed?: boolean;
+  onRetry?: () => void;
+}
+
+/**
+ * The tools tab's "available" view: the tool surface AVAILABLE to the
+ * observed agent tree, rendered from the server's own
+ * `agent.toolset.recorded` inventory VERBATIM (build.ts's
+ * toolInventoryFromTraces) — no client-side composition or inference. One
+ * collapsible group per agent (main first, then children in first-recorded
+ * order — already the render order `groups` arrives in); a session with no
+ * recorded inventory (predates the event, or the agent never built) renders
+ * the honest unavailable state, never an empty list presented as "no tools".
+ */
+function ToolInventoryPanel({ groups, readFailed, onRetry }: ToolInventoryPanelProps) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  if (groups.length === 0) {
+    return readFailed ? (
+      <TraceUnavailable subject="tool inventory" {...(onRetry ? { onRetry } : {})} />
+    ) : (
+      <p className="obs__empty" data-testid="obs-empty">
+        inventory unavailable for sessions recorded before toolset events
+      </p>
+    );
+  }
+
+  const toggle = (agentId: string) =>
+    setCollapsed((previous) => {
+      const next = new Set(previous);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
+
+  return (
+    <div className="obs-toolinv" data-testid="obs-tools-available">
+      {groups.map((group) => {
+        const isOpen = !collapsed.has(group.agentId);
+        return (
+          <div className="obs-toolinv__group" key={group.agentId}>
+            <button
+              type="button"
+              className="obs-toollog__toggle obs-toolinv__header"
+              aria-expanded={isOpen}
+              onClick={() => toggle(group.agentId)}
+            >
+              <span className="obs-toollog__caret" aria-hidden="true">
+                {isOpen ? '▾' : '▸'}
+              </span>
+              <span className="obs-tool__name">{group.agentId}</span>
+              <span className="obs__meta">({group.tools.length} tools)</span>
+            </button>
+            {isOpen ? (
+              <ul className="obs__list obs-toolinv__list">
+                {group.tools.map((tool) => (
+                  <li className="obs-tool__row" key={`${group.agentId}:${tool.name}`}>
+                    <span className="obs-tool__name">
+                      {tool.title ? `${tool.title} — ` : ''}
+                      {tool.name}
+                    </span>
+                    <span className="obs-tool__description">· {tool.source}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
