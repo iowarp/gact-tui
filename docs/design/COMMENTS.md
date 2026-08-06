@@ -183,3 +183,9 @@ checked off with the commit that lands it. Newest first.
 11. **UI serve**: vite preview binds IPv6 — the browser URL is
     http://localhost:4173 (NOT 127.0.0.1). If it's down:
     `cd apps/web && pnpm exec vite preview --port 4173 --strictPort`.
+12. **Spawn plans all learned** (2026-08-06 grounding run): ndp, pandas, plot,
+    geo launcher plans are persisted in mcp_spawn_diet.json — first calls are
+    fast now. Evidence of the unlearned path: pandas/plot each burned a 180s
+    first attempt then a ~135s retry before learning. If clio-kit is ever
+    REINSTALLED, rerun a full stage→filter→plot pipeline turn as the warm-up
+    (not just ndp) so all four plans re-learn before the audience.
