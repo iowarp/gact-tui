@@ -189,6 +189,82 @@ describe('artifacts tab (producer paths)', () => {
   });
 });
 
+describe('artifacts tab — honest empty state (round-8 owner finding: this panel used to render blank)', () => {
+  it('states plainly when a genuinely artifact-less, successfully-read session has none — never a silent blank panel', () => {
+    render(
+      <Observability
+        data={{ ...DATA, artifacts: [], artifactRows: [] } as unknown as ObservabilityData}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    expect(screen.getByTestId('obs-empty')).toHaveTextContent(/no artifacts recorded/i);
+    expect(screen.queryByTestId('obs-artifact-row')).toBeNull();
+  });
+
+  it('still shows the honest "unavailable" state (not the empty-state copy) when the read failed', () => {
+    render(
+      <Observability
+        data={
+          {
+            ...DATA,
+            artifacts: [],
+            artifactRows: [],
+            artifactsReadFailed: true,
+          } as unknown as ObservabilityData
+        }
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    expect(screen.getByTestId('obs-unavailable')).toHaveTextContent(/artifacts unavailable/i);
+    expect(screen.queryByTestId('obs-empty')).toBeNull();
+  });
+});
+
+describe('artifacts tab — artifact.used dedup-reuse rows (round-8 owner finding: reuse was invisible)', () => {
+  const USED_ROW = {
+    at: '19:56',
+    name: 'earthscope_stations_clean.csv',
+    producer: 'ndp #1',
+    meta: 'v1 · dedup',
+    id: 'art_used_1',
+    used: true,
+  };
+
+  it('renders a used row distinctly tagged, alongside a minted row', () => {
+    render(
+      <Observability
+        data={
+          { ...DATA, artifactRows: [...(DATA.artifactRows ?? []), USED_ROW] } as unknown as ObservabilityData
+        }
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    const rows = screen.getAllByTestId('obs-artifact-row');
+    expect(rows).toHaveLength(2);
+    const usedRow = rows.find((r) => r.textContent?.includes('earthscope_stations_clean.csv'))!;
+    expect(usedRow).toHaveAttribute('data-used', 'true');
+    expect(usedRow.textContent).toContain('used (dedup)');
+    const mintedRow = rows.find((r) => r.textContent?.includes('earthscope_stations.csv'))!;
+    expect(mintedRow).not.toHaveAttribute('data-used');
+    expect(mintedRow.textContent).not.toContain('used (dedup)');
+  });
+
+  it('opens the same right-panel viewer as a minted row, through the same onOpenArtifact channel', () => {
+    const onOpenArtifact = vi.fn();
+    render(
+      <Observability
+        data={{ ...DATA, artifactRows: [USED_ROW] } as unknown as ObservabilityData}
+        onOpenArtifact={onOpenArtifact}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    const button = screen.getByTestId('obs-artifact-row').querySelector('button')!;
+    expect(button).not.toBeDisabled();
+    fireEvent.click(button);
+    expect(onOpenArtifact).toHaveBeenCalledWith('art_used_1', 'earthscope_stations_clean.csv');
+  });
+});
+
 describe('trace header', () => {
   it('states the scope and liveness: session trace · live', () => {
     renderObs();

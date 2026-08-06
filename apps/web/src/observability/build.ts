@@ -81,26 +81,41 @@ export function buildObservabilityTrace({
 
   const timeline: ObsTimelineRow[] = [];
   const toolCalls: ObsToolCallRow[] = [];
+  const usedArtifactRows: ObsArtifactRow[] = [];
   for (const trace of traces) {
     const meta = metaById.get(trace.sessionId) ?? fallbackMeta(trace.sessionId);
     timeline.push(...timelineRowsFromTrace(trace, meta, agentLookup));
     toolCalls.push(...toolCallRowsFromTrace(trace, meta));
+    for (const event of trace.events) {
+      const row = usedArtifactRowFromEvent(event, meta);
+      if (row) usedArtifactRows.push(row);
+    }
   }
 
   const rootTrace = traces.find((trace) => trace.sessionId === rootSessionId);
   const spans = assembleSpans(rootTrace, traces, agentTasks, versions);
 
+  const mintedArtifactRows = versions
+    .slice()
+    .sort(
+      (left, right) =>
+        (parseTimestamp(left.version.created_at) ?? Number.POSITIVE_INFINITY) -
+        (parseTimestamp(right.version.created_at) ?? Number.POSITIVE_INFINITY),
+    )
+    .map((entry) => toArtifactRow(entry.record, entry.version, agentTasks));
+
   return {
     timeline: sortTimelineRows(timeline),
     spans,
-    artifactRows: versions
-      .slice()
-      .sort(
-        (left, right) =>
-          (parseTimestamp(left.version.created_at) ?? Number.POSITIVE_INFINITY) -
-          (parseTimestamp(right.version.created_at) ?? Number.POSITIVE_INFINITY),
-      )
-      .map((entry) => toArtifactRow(entry.record, entry.version, agentTasks)),
+    // Minted versions AND same-sha dedup reuse, one chronological list — a
+    // child re-staging an artifact main already minted is a real, distinct
+    // fact (`artifact.used`, clio versions.py#1191) that had NO surface
+    // anywhere in the UI before this (round-8 owner finding: "reuse
+    // happened and is invisible"). `used` rows render visually muted,
+    // tagged `used (dedup)`, never confused with a mint.
+    artifactRows: [...mintedArtifactRows, ...usedArtifactRows].sort(
+      (left, right) => (left.atMs ?? Number.POSITIVE_INFINITY) - (right.atMs ?? Number.POSITIVE_INFINITY),
+    ),
     toolCalls: toolCalls
       .slice()
       .sort(
@@ -836,6 +851,36 @@ function toArtifactRow(
     producer: artifactProducer(version, tasks),
     meta: artifactMeta(record, version),
     id: version.artifact_id,
+  };
+}
+
+/**
+ * One `artifact.used` semantic event (clio versions.py `emit_artifact_used`,
+ * #1191) as an artifacts-tab row, or null for any other event type. Wire
+ * shape verified against the emitter: `subject={artifact_id, name,
+ * workspace_id}`, `payload={...subject, event_id, version, session_id,
+ * reason:"same_sha_dedup"}`. `producer` names the session that DID the
+ * dedup use (this trace's own agent label) — there is no minting producer
+ * to report, only a use.
+ */
+function usedArtifactRowFromEvent(
+  event: SemanticEventPayload,
+  meta: TraceSessionMeta,
+): ObsArtifactRow | null {
+  if (event.event_type !== 'artifact.used') return null;
+  const subject = (event.subject ?? {}) as Record<string, unknown>;
+  const payload = payloadOf(event);
+  const name = visibleString(subject['name']) ?? visibleString(payload['name']);
+  if (!name) return null;
+  const id = visibleString(subject['artifact_id']) ?? visibleString(payload['artifact_id']);
+  const version = finiteNumber(payload['version']);
+  return {
+    ...withTime(event.occurred_at),
+    name,
+    producer: meta.agent,
+    meta: version !== null ? `v${version} · dedup` : 'dedup',
+    ...(id ? { id } : {}),
+    used: true,
   };
 }
 

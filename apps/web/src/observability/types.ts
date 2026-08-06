@@ -104,6 +104,10 @@ export interface ObsSpan {
 
 export interface ObsArtifactRow {
   at?: string;
+  /** Raw epoch-ms sort key backing `at` — the cross-session chronological
+   *  merge (minted versions AND `artifact.used` dedup rows, one list) sorts
+   *  on this, the same idiom ObsTimelineRow/ObsToolCallRow already use. */
+  atMs?: number;
   name: string;
   producer: string;
   meta: string;
@@ -113,6 +117,16 @@ export interface ObsArtifactRow {
    *  pre-P5 captured fixtures that predate the viewer wiring; a row with no
    *  id renders honestly disabled rather than a dead-looking click. */
   id?: string;
+  /**
+   * True for a same-sha dedup REUSE, not a mint — the session's own
+   * `artifact.used` semantic event (clio versions.py `emit_artifact_used`,
+   * #1191): this session used an existing artifact version rather than
+   * producing a new one, so there is no `generated` edge to show, only the
+   * use. Absent/false = a real minted version (the pre-existing behavior).
+   * Rendered as a visually distinct, muted "used (dedup)" row — these were
+   * silently invisible everywhere in the UI before (round-8 owner finding).
+   */
+  used?: boolean;
 }
 
 export type ObsToolCallState = 'done' | 'running' | 'failed';

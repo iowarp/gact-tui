@@ -322,6 +322,108 @@ describe('trace→row mapping — root-only rows and the branch brackets', () =>
   });
 });
 
+describe('artifact.used — dedup-reuse rows in the artifacts tab (#1191, round-8 owner finding)', () => {
+  // Wire shape verified against the emitter (clio versions.py emit_artifact_used):
+  // subject={artifact_id, name, workspace_id}, payload={...subject, event_id,
+  // version, session_id, reason:"same_sha_dedup"}. Before this, these events had
+  // NO surface anywhere in the UI — reuse happened and was invisible.
+  it('folds an artifact.used event into artifactRows, tagged `used`, with the real wire fields', () => {
+    const trace = build(
+      [
+        { sessionId: ROOT, events: [] },
+        {
+          sessionId: VIS_CHILD,
+          events: [
+            ev('artifact.used', at(59, 1), {
+              subject: {
+                artifact_id: 'art_abc123',
+                name: 'earthscope_converted_data.csv',
+                workspace_id: 'ws_1',
+              },
+              payload: {
+                artifact_id: 'art_abc123',
+                name: 'earthscope_converted_data.csv',
+                workspace_id: 'ws_1',
+                version: 1,
+                session_id: VIS_CHILD,
+                reason: 'same_sha_dedup',
+              },
+            }),
+          ],
+        },
+      ],
+      [visTask()],
+    );
+    expect(trace.artifactRows).toHaveLength(1);
+    const row = trace.artifactRows[0]!;
+    expect(row.name).toBe('earthscope_converted_data.csv');
+    expect(row.id).toBe('art_abc123');
+    expect(row.used).toBe(true);
+    expect(row.meta).toBe('v1 · dedup');
+    // Names the session that DID the dedup use — there is no minting
+    // producer to report for a reuse, only a use.
+    expect(row.producer).toBe('visualization #1');
+  });
+
+  it('never fabricates a row for any other event_type', () => {
+    const trace = build([
+      { sessionId: ROOT, events: [ev('artifact.transform.recorded', at(59, 1))] },
+    ]);
+    expect(trace.artifactRows).toHaveLength(0);
+  });
+
+  it('drops a used event with no name rather than rendering a blank row', () => {
+    const trace = build([
+      { sessionId: ROOT, events: [ev('artifact.used', at(59, 1), { subject: {}, payload: {} })] },
+    ]);
+    expect(trace.artifactRows).toHaveLength(0);
+  });
+
+  it('merges used rows chronologically alongside minted versions, both present and distinct', () => {
+    const minted: SessionArtifactRecord[] = [
+      {
+        name: 'station.csv',
+        kind: 'dataset',
+        workspace_id: 'ws_1',
+        head_artifact_id: 'art_minted',
+        latest_version: 1,
+        versions: [
+          {
+            artifact_id: 'art_minted',
+            name: 'station.csv',
+            version: 1,
+            kind: 'dataset',
+            size_bytes: 128,
+            created_at: at(55, 0),
+          },
+        ],
+      } as unknown as SessionArtifactRecord,
+    ];
+    const trace = build(
+      [
+        { sessionId: ROOT, events: [] },
+        {
+          sessionId: VIS_CHILD,
+          events: [
+            ev('artifact.used', at(59, 1), {
+              subject: { artifact_id: 'art_used', name: 'earthscope_converted_data.csv' },
+              payload: { artifact_id: 'art_used', name: 'earthscope_converted_data.csv', version: 1 },
+            }),
+          ],
+        },
+      ],
+      [visTask()],
+      minted,
+    );
+    expect(trace.artifactRows).toHaveLength(2);
+    // Chronological: the mint (55:00) sorts before the use (59:01).
+    expect(trace.artifactRows[0]!.name).toBe('station.csv');
+    expect(trace.artifactRows[0]!.used).toBeUndefined();
+    expect(trace.artifactRows[1]!.name).toBe('earthscope_converted_data.csv');
+    expect(trace.artifactRows[1]!.used).toBe(true);
+  });
+});
+
 describe('chronological merge — strictly sorted across sessions', () => {
   it('interleaves parent and child rows by raw occurred-at ms, not per-trace segments', () => {
     // Deliberately out of order: the child trace's events fall BETWEEN the

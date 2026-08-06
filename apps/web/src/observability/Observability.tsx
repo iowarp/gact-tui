@@ -293,7 +293,16 @@ export function Observability({
         ) : null}
 
         {activeTab === 'artifacts' ? (
-          artifactRows.length > 0 ? (
+          legacy ? (
+            <ul className="obs__list" data-testid="obs-artifacts">
+              {data.artifacts.map((artifact) => (
+                <li className="obs__row" key={artifact.id}>
+                  <span className="obs__label">{artifact.label}</span>
+                  {artifact.kind ? <span className="obs__meta">{artifact.kind}</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : artifactRows.length > 0 ? (
             <ul className="obs-artifacts" data-testid="obs-artifacts">
               {artifactRows.map((artifact, index) => {
                 // The viewer exists (SessionView.openArtifactById -> AppShell
@@ -302,7 +311,9 @@ export function Observability({
                 // (ArtifactGrid). A row still renders honestly disabled when
                 // either half of that is missing — no callback wired, or a
                 // pre-P5 fixture row with no real artifact id — rather than a
-                // dead-looking click (ArtifactChip's own convention).
+                // dead-looking click (ArtifactChip's own convention). Applies
+                // equally to a `used` (dedup) row — it carries the same real
+                // artifact_id off the wire, so it opens the same way.
                 const openable = Boolean(onOpenArtifact && artifact.id);
                 const body = (
                   <>
@@ -313,12 +324,21 @@ export function Observability({
                     <span className="obs-artifact__name">{artifact.name}</span>
                     <span className="obs-artifact__producer">· {artifact.producer}</span>
                     <span className="obs-artifact__meta">{artifact.meta}</span>
+                    {artifact.used ? (
+                      // A same-sha dedup REUSE, not a mint (clio versions.py
+                      // emit_artifact_used, #1191) — visually distinct and
+                      // muted so it never reads as a second mint of the same
+                      // name (round-8 owner finding: this was invisible
+                      // everywhere in the UI before).
+                      <span className="obs-artifact__usedtag">used (dedup)</span>
+                    ) : null}
                   </>
                 );
                 return (
                   <li
                     className="obs-artifact__row"
                     data-testid="obs-artifact-row"
+                    data-used={artifact.used ? 'true' : undefined}
                     key={`${artifact.name}-${artifact.at}-${index}`}
                   >
                     <button
@@ -341,20 +361,19 @@ export function Observability({
                 );
               })}
             </ul>
-          ) : data.artifacts.length === 0 && data.artifactsReadFailed ? (
+          ) : data.artifactsReadFailed ? (
             // The artifacts read itself failed — never render the same
             // silent-empty list a genuinely artifact-less session earns (see
             // ObservabilityData.artifactsReadFailed).
             <TraceUnavailable subject="artifacts" {...(onRetryTrace ? { onRetry: onRetryTrace } : {})} />
           ) : (
-            <ul className="obs__list" data-testid="obs-artifacts">
-              {data.artifacts.map((artifact) => (
-                <li className="obs__row" key={artifact.id}>
-                  <span className="obs__label">{artifact.label}</span>
-                  {artifact.kind ? <span className="obs__meta">{artifact.kind}</span> : null}
-                </li>
-              ))}
-            </ul>
+            // Genuinely zero minted OR used artifacts this session — the
+            // honest empty state the tools/runs tabs already carry (round-8
+            // owner finding: this tab rendered a completely blank panel,
+            // no rows and no text, the one tab strip surface without one).
+            <p className="obs__empty" data-testid="obs-empty">
+              no artifacts recorded for this session
+            </p>
           )
         ) : null}
 

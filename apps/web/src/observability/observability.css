@@ -1071,6 +1071,23 @@
   white-space: nowrap;
 }
 
+/* A same-sha dedup REUSE row (artifact.used, #1191) — same grid, but muted:
+ * never let a reuse read as a second mint of the same name. */
+.obs-artifact__row[data-used='true'] .obs-artifact__glyph,
+.obs-artifact__row[data-used='true'] .obs-artifact__name {
+  color: var(--t-mu);
+}
+
+.obs-artifact__usedtag {
+  justify-self: end;
+  padding: 1px 6px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 999px;
+  color: var(--t-mu);
+  font-size: calc(9.5px * var(--ts));
+  white-space: nowrap;
+}
+
 .obs-context {
   display: flex;
   flex-direction: column;
