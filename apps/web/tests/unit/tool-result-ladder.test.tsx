@@ -112,8 +112,10 @@ describe('structured_content -- object wrapping a uniform array pulls out a labe
     );
     openRow(/station_query/);
     const kv = screen.getByTestId('part-tool-result-table');
-    expect(kv).toHaveTextContent('ok');
-    expect(kv).toHaveTextContent('true');
+    // `ok` is a redundant pass/fail boolean the row's own ✓ mark already
+    // states (general result-ladder rule: "status never renders as text")
+    // -- it never earns a row.
+    expect(kv).not.toHaveTextContent('ok');
     expect(kv).toHaveTextContent('count');
     expect(kv).toHaveTextContent('72');
     // The 72-row array is never collapsed into the KV grid.
@@ -397,14 +399,21 @@ describe('nested-dict ladder rung -- a nested plain-object VALUE renders as a co
         call={toolCall('workflow_probe', {}, 'call_20')}
         result={toolResult('call_20', {
           content: [{ type: 'text', text: 'probe result' }],
-          structured_content: { ok: true, state: { steps_completed: 3, notes: 'on track' } },
+          structured_content: {
+            ok: true,
+            probe_id: 'probe_1',
+            state: { steps_completed: 3, notes: 'on track' },
+          },
         })}
       />,
     );
     openRow(/workflow_probe/);
     const kv = screen.getByTestId('part-tool-result-table');
-    expect(kv).toHaveTextContent('ok');
-    expect(kv).toHaveTextContent('true');
+    // `ok` is a redundant pass/fail boolean the row's own ✓ mark already
+    // states (general result-ladder rule) -- it never earns a row; a real
+    // scalar field alongside it still does.
+    expect(kv).not.toHaveTextContent('ok');
+    expect(kv).toHaveTextContent('probe_1');
     // The nested object never renders as one giant inline JSON string.
     expect(kv).not.toHaveTextContent('steps_completed');
     const section = screen.getByTestId('part-tool-result-section');
@@ -878,6 +887,44 @@ describe('collapsed preview prefers a structured_content summary over the raw en
     expect(screen.queryByText('count: 0')).toBeNull();
   });
 
+  it('a FAILED result never climbs the success ladder in the OPENED well either, even when its own raw text happens to be JSON-object-shaped (P4R live finding, sess_6d904ef19328)', () => {
+    // The exact wire shape a timed-out plot_plot_timeseries call produced:
+    // is_error=true, NO structured_content field, but content[0].text is
+    // itself a valid JSON object (the tool actually finished writing its
+    // output after the caller's 180s budget already gave up, and the
+    // observer captured the late text anyway). Before the isError gate,
+    // `resultRows(text)` duck-typed this into the same "kv" ladder a REAL
+    // success result gets — a failed row's well showing a polished
+    // "status: success" table, contradicting its own ✗ header.
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', { output_path: 'plot.png' }, 'call_ed36393d9738')}
+        result={toolResult('call_ed36393d9738', {
+          is_error: true,
+          duration_ms: 180362.64,
+          content: [
+            {
+              type: 'text',
+              text: '{"status": "success", "plot_type": "timeseries", "data_points": 1101}',
+            },
+          ],
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    // The raw JSON renders verbatim (the honest wire fact) ...
+    expect(
+      screen.getByText('{"status": "success", "plot_type": "timeseries", "data_points": 1101}'),
+    ).toBeInTheDocument();
+    // ... but never as the success ladder's polished KV/table presentation —
+    // no separate "status" row, no results-table testid, no raw-toggle (that
+    // toggle only exists once a renderer has INTERPRETED the payload).
+    expect(screen.queryByTestId('part-tool-result-table')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+    expect(screen.queryByTestId('part-tool-raw-toggle')).toBeNull();
+    expect(screen.queryByText('status')).toBeNull();
+  });
+
   it('a wait-shaped structured_content prefers its own designed summary sentence', () => {
     render(
       <ToolPart
@@ -1009,5 +1056,116 @@ describe('the result well is visually separated from params (round-10 gate findi
     const paramsGrid = container.querySelector('.part-toolrow__well > .part-toolrow__grid');
     expect(paramsGrid).not.toBeNull();
     expect(paramsGrid?.className).not.toContain('part-toolrow__grid--result');
+  });
+});
+
+/**
+ * General result-ladder rules (owner design, generalizing the wait ladder's
+ * own summary/no-status treatment to EVERY structured result, shape-driven,
+ * never gated on a tool name):
+ *   1. a `message`/`summary` string field IS the declared one-liner --
+ *      collapsed preview AND the opened well's first line.
+ *   2. a redundant pass/fail field (`success`/`ok`, or a `status` whose own
+ *      value just restates success/failure) never renders as a row -- the
+ *      row's own ✓/✗ mark already states that fact.
+ */
+describe('general result ladder -- declared message/summary as the one-liner (rule 1)', () => {
+  it('prefers a declared `message` field over a raw-JSON-object dump, both in the collapsed preview and the opened well', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_60')}
+        result={toolResult('call_60', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: {
+            success: true,
+            message: 'Profiled 1,101 rows across 3 columns.',
+            file_path: 'earthscope_stations_clean.csv',
+          },
+        })}
+      />,
+    );
+    // Collapsed preview: the declared message, never a raw JSON dump and
+    // never the `success` scalar.
+    expect(screen.getByText('Profiled 1,101 rows across 3 columns.')).toBeInTheDocument();
+    expect(screen.queryByText(/"success"/)).toBeNull();
+    openRow(/pandas_profile_csv/);
+    const summary = screen.getByTestId('part-tool-summary');
+    expect(summary).toHaveTextContent('Profiled 1,101 rows across 3 columns.');
+    // The message never ALSO renders as a generic KV row underneath.
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).not.toHaveTextContent('message');
+    expect(kv).not.toHaveTextContent('Profiled 1,101 rows');
+  });
+
+  it('a `summary` field earns the same treatment as `message`', () => {
+    render(
+      <ToolPart
+        call={toolCall('geo_filter_points_by_radius', {}, 'call_61')}
+        result={toolResult('call_61', {
+          content: [{ type: 'text', text: 'filtered' }],
+          structured_content: { summary: '72 stations within 50 km of Los Angeles.', filter_ok: true },
+        })}
+      />,
+    );
+    expect(screen.getByText('72 stations within 50 km of Los Angeles.')).toBeInTheDocument();
+  });
+});
+
+describe('general result ladder -- redundant status/success/ok fields never render as rows (rule 2)', () => {
+  it('drops a `success: true` field but keeps every other key (the exact pandas_profile_csv shape)', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', {}, 'call_62')}
+        result={toolResult('call_62', {
+          content: [{ type: 'text', text: 'profiled' }],
+          structured_content: {
+            success: true,
+            file_path: 'earthscope_stations_clean.csv',
+            row_count: 1101,
+            column_count: 3,
+          },
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).not.toHaveTextContent('success');
+    expect(kv).toHaveTextContent('file_path');
+    expect(kv).toHaveTextContent('row_count');
+    expect(kv).toHaveTextContent('1101');
+  });
+
+  it('drops a `status: "success"` field (the exact plot_plot_timeseries success shape)', () => {
+    render(
+      <ToolPart
+        call={toolCall('plot_plot_timeseries', {}, 'call_63')}
+        result={toolResult('call_63', {
+          content: [{ type: 'text', text: 'plotted' }],
+          structured_content: { status: 'success', plot_type: 'timeseries', data_points: 1101 },
+        })}
+      />,
+    );
+    openRow(/plot_plot_timeseries/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).not.toHaveTextContent('status');
+    expect(kv).not.toHaveTextContent('success');
+    expect(kv).toHaveTextContent('plot_type');
+    expect(kv).toHaveTextContent('data_points');
+  });
+
+  it('keeps a genuinely informative status word that is NOT a pass/fail restatement (e.g. "pending")', () => {
+    render(
+      <ToolPart
+        call={toolCall('check_agent_tasks', {}, 'call_64')}
+        result={toolResult('call_64', {
+          content: [{ type: 'text', text: 'polled' }],
+          structured_content: { status: 'pending', polled_at: '2026-08-06T00:00:00Z' },
+        })}
+      />,
+    );
+    openRow(/check_agent_tasks/);
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('status');
+    expect(kv).toHaveTextContent('pending');
   });
 });

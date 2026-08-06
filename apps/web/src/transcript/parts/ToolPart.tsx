@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { Markdown } from '../markdown';
 import { formatDurationSeconds } from '../../wire/formatters';
-import { isRecord, normalizeWhitespace, stringValue, truncate } from '../../wire/presentationUtils';
+import {
+  elidePathMiddle,
+  isRecord,
+  looksLikePath,
+  normalizeWhitespace,
+  stringValue,
+  truncate,
+} from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
 import {
   extractCsvBlock,
@@ -21,8 +28,28 @@ export interface ToolPartProps {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
 
-const ARG_HINT_MAX = 42;
+// Bumped from 42 (owner refinement, injected-args grammar): a path-like hint
+// needs enough room for `drive/…/basename` to survive with the basename
+// intact (elidePathMiddle's own budget) — a tighter cap re-truncated the
+// already-elided string from its tail, chewing the basename right back off.
+const ARG_HINT_MAX = 56;
 const PREVIEW_MAX = 96;
+
+/** Numeric/boolean tuning knobs that never identify WHAT a call is about
+ *  (owner refinement: "numeric knobs like limit/timeout are noise — skip
+ *  them in the hint") — matched by exact key name only, never a
+ *  substring/heuristic guess. Skipped when picking the injected args hint,
+ *  but never hidden from the opened well's own params grid. */
+const NOISE_ARG_KEYS = new Set([
+  'limit',
+  'timeout',
+  'max_rows',
+  'max_tokens',
+  'row_scan_cap',
+  'budget',
+  'top_k',
+  'max_results',
+]);
 
 /** The curated durable-job polling tools (JARVIS/Spack surface, P2.14) whose
  *  RUNNING call renders as the prototype's activity line rather than a
@@ -116,15 +143,34 @@ function formatSecondsCompact(seconds: number): string {
   return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}s`;
 }
 
+/**
+ * The collapsed row's injected `(args)` hint (owner design: the title is a
+ * plain human name, the client injects the parens filled with the call's
+ * OBJECT — `Plot Timeseries ("D:/…/file.csv")`, `Profile (file.csv)` — never
+ * just the positionally-first key). A path-like string value wins outright
+ * and renders middle-elided ({@link elidePathMiddle}) so the meaningful
+ * basename always survives; otherwise the first non-noise string value,
+ * quoted (final-sxs ledger #12: `geo_geocode("Los Angeles, CA")`, not the
+ * bare, ambiguous `geo_geocode(Los Angeles, CA)`); otherwise the
+ * positionally-first entry, exactly today's behavior for a shape neither
+ * rule recognizes — every other JSON type already reads unambiguously via
+ * JSON.stringify.
+ */
 function firstArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
   const entries = Object.entries(input as Record<string, unknown>);
   if (entries.length === 0) return '…';
+  for (const [, value] of entries) {
+    if (typeof value === 'string' && looksLikePath(value)) {
+      return elidePathMiddle(value, ARG_HINT_MAX);
+    }
+  }
+  for (const [key, value] of entries) {
+    if (typeof value === 'string' && value.length > 0 && !NOISE_ARG_KEYS.has(key)) {
+      return truncate(normalizeWhitespace(`"${value}"`), ARG_HINT_MAX);
+    }
+  }
   const [, value] = entries[0]!;
-  // A string value keeps its quotes (final-sxs ledger #12: the prototype
-  // shows `geo_geocode("Los Angeles, CA")`, not the bare, ambiguous-looking
-  // `geo_geocode(Los Angeles, CA)`) — every other JSON type already reads
-  // unambiguously via JSON.stringify.
   const rendered = typeof value === 'string' ? `"${value}"` : (JSON.stringify(value) ?? String(value));
   return truncate(normalizeWhitespace(rendered), ARG_HINT_MAX);
 }
@@ -189,8 +235,62 @@ function kvValueForKey(key: string, v: unknown): string {
   return formatDurationField(key, v) ?? formatLoserRuns(key, v) ?? kvValue(v);
 }
 
+/** Values a `status`-named field carries when it's simply restating the
+ *  pass/fail fact the row's own ✓/✗ mark already states — never a real
+ *  informative status word like `pending`/`running`/`queued`, which stays
+ *  visible since nothing else on the row carries that fact. */
+const REDUNDANT_STATUS_VALUES = new Set(['success', 'ok', 'complete', 'completed', 'failed', 'error']);
+
+/**
+ * General result-ladder rule (owner design): "status never renders as
+ * text" — the row's own ✓/✗ mark already states whether a call succeeded,
+ * so a structured payload's own boolean "it worked" field is noise as a
+ * table row (P4R live finding: a `pandas_profile_csv` result showing
+ * `success: true` as its own row, or a `plot_plot_timeseries` result
+ * showing `status: success`). `success`/`ok` are always pure pass/fail
+ * booleans in this codebase's tool shapes and drop outright; `status` drops
+ * ONLY when its own value restates that same pass/fail fact — a genuinely
+ * informative status word is never dropped, shape-driven, never gated on a
+ * tool name.
+ */
+function isRedundantStatusField(key: string, value: unknown): boolean {
+  if (key === 'success' || key === 'ok') return typeof value === 'boolean';
+  if (key === 'status') return typeof value === 'string' && REDUNDANT_STATUS_VALUES.has(value.trim().toLowerCase());
+  return false;
+}
+
+/**
+ * A tool's own declared one-line summary (owner design, general result-
+ * ladder rule 1): a `message`/`summary` string field IS the declared
+ * one-liner — the collapsed preview AND the opened well's first line,
+ * ahead of everything else, the same precedence the wait ladder's own
+ * `summary` field already earns (this generalizes that idiom to every
+ * structured result, not just the wait family). `message` wins when both
+ * are present — arbitrary but consistent precedence. Never a scalar-field
+ * guess dressed up as a summary; only these two literal keys count.
+ */
+function declaredSummaryOf(obj: Record<string, unknown>): string {
+  const message = obj['message'];
+  if (typeof message === 'string' && message.trim().length > 0) return message.trim();
+  const summary = obj['summary'];
+  if (typeof summary === 'string' && summary.trim().length > 0) return summary.trim();
+  return '';
+}
+
+/** Keys {@link kvRowsFromObject} never turns into a generic KV row: the
+ *  declared summary (consumed as its own dedicated line, see
+ *  {@link declaredSummaryOf}) and redundant status fields (see
+ *  {@link isRedundantStatusField}) — both filtered in this ONE shared spot
+ *  so every caller (the plain KV rung, the object rung, the wait rung's
+ *  `otherRows`) gets the same treatment automatically. */
+function isSuppressedRowKey(key: string, value: unknown): boolean {
+  return (key === 'message' || key === 'summary') || isRedundantStatusField(key, value);
+}
+
 function kvRowsFromObject(obj: Record<string, unknown>): Array<{ k: string; v: string }> {
-  return Object.entries(obj).map(([k, v]) => ({ k, v: kvValueForKey(k, v) }));
+  return Object.entries(obj)
+    .filter(([k, v]) => !isSuppressedRowKey(k, v))
+    .map(([k, v]) => ({ k, v: kvValueForKey(k, v) }));
 }
 
 /**
@@ -214,13 +314,15 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
  * table (isToolSeg's "results tables") instead of a raw JSON blob. Only a
  * top-level OBJECT becomes rows — arrays and scalars keep the verbatim
  * `<pre>`, and anything unparseable falls through untouched. Presentation
- * only: every key and value from the wire still renders, nothing is dropped.
+ * only: every key and value from the wire still renders somewhere (a row, or
+ * the declared summary line), nothing is silently dropped.
  */
-function resultRows(text: string): Array<{ k: string; v: string }> | null {
+function resultRows(text: string): { rows: Array<{ k: string; v: string }>; summary: string } | null {
   const parsed = parseJsonObject(text);
   if (!parsed) return null;
   const rows = kvRowsFromObject(parsed);
-  return rows.length > 0 ? rows : null;
+  const summary = declaredSummaryOf(parsed);
+  return rows.length > 0 || summary ? { rows, summary } : null;
 }
 
 /** Compact single-line cell stringification for the real-table renderer
@@ -293,8 +395,12 @@ export interface StructuredSection {
  * {@link StructuredSection} instead of overflowing the KV grid as one giant
  * pretty-printed string; everything else — scalars, single-row arrays,
  * non-uniform arrays, empty objects — stays a KV value via the existing
- * {@link kvValue} stringification, verbatim. No key is ever dropped from any
- * bucket.
+ * {@link kvValue} stringification, verbatim. The two exceptions: a
+ * `message`/`summary` key (consumed by the caller as its own dedicated
+ * summary line, {@link declaredSummaryOf}) and a redundant status field
+ * ({@link isRedundantStatusField}) are never turned into a row — neither is
+ * "dropped" in the silent-fallback sense, both are still fully readable via
+ * the untouched raw-text toggle one keypress away.
  */
 function splitStructuredObject(obj: Record<string, unknown>): {
   rows: Array<{ k: string; v: string }>;
@@ -305,6 +411,7 @@ function splitStructuredObject(obj: Record<string, unknown>): {
   const tables: Array<{ key: string; header: string[]; rows: string[][] }> = [];
   const sections: StructuredSection[] = [];
   for (const [k, v] of Object.entries(obj)) {
+    if (isSuppressedRowKey(k, v)) continue;
     if (isUniformObjectArray(v) && v.length > 1) {
       const { header, rows: tableRows } = objectArrayToTable(v);
       tables.push({ key: k, header, rows: tableRows });
@@ -330,13 +437,22 @@ function parseCsv(text: string): { header: string[]; rows: string[][] } {
 }
 
 type InterpretedResult =
-  | { kind: 'kv'; rows: Array<{ k: string; v: string }> }
+  | {
+      kind: 'kv';
+      rows: Array<{ k: string; v: string }>;
+      /** General result-ladder rule 1: the payload's own declared
+       *  `message`/`summary` string ({@link declaredSummaryOf}), rendered as
+       *  its own first line ahead of the KV grid — `undefined` when the
+       *  payload carries neither field. */
+      summary?: string;
+    }
   | { kind: 'table'; header: string[]; rows: string[][] }
   | {
       kind: 'object';
       rows: Array<{ k: string; v: string }>;
       tables: Array<{ key: string; header: string[]; rows: string[][] }>;
       sections: StructuredSection[];
+      summary?: string;
     }
   | {
       kind: 'wait';
@@ -425,8 +541,20 @@ function buildWaitInterpretation(obj: Record<string, unknown>): Extract<Interpre
  * already here. Every step only fires on a shape it can actually interpret
  * — anything else falls through to the next rung, and the bottom rung is
  * the untouched raw `<pre>`.
+ *
+ * An `is_error` result NEVER climbs this ladder (P4R live finding, session
+ * sess_6d904ef19328: a `plot_plot_timeseries` call that timed out client-
+ * side after 180s still carried a late, coincidentally success-SHAPED
+ * `{"status": "success", ...}` text block — the underlying tool actually
+ * finished writing its output after the caller had already given up. Duck-
+ * typing that text as a structured/table result rendered a polished
+ * "status: success" grid under a red ✗ header — a failed row visually
+ * reporting success. A failed call earns exactly the raw wire text, verbatim,
+ * never dressed up in the success ladder's presentation — the row's own ✗
+ * mark already carries the failure fact; the well must not contradict it.
  */
 function interpretResult(result: WirePart, text: string, toolName: string): InterpretedResult {
+  if (result['is_error'] === true) return { kind: 'raw' };
   const structured = extractStructuredContent(result);
   if (WAIT_AGENT_TOOL_NAMES.has(toolName) && isRecord(structured) && isWaitResultShape(structured)) {
     return buildWaitInterpretation(structured);
@@ -437,9 +565,16 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     return { kind: 'table', header, rows };
   }
   if (isRecord(structured)) {
+    // Rule 1: the payload's own declared message/summary wins as the well's
+    // first line regardless of which rung (object/kv) the rest of it lands
+    // on — computed off the ORIGINAL object, since splitStructuredObject
+    // already excludes these two keys from every bucket it builds.
+    const summary = declaredSummaryOf(structured);
     const { rows, tables, sections } = splitStructuredObject(structured);
-    if (tables.length > 0 || sections.length > 0) return { kind: 'object', rows, tables, sections };
-    if (rows.length > 0) return { kind: 'kv', rows };
+    if (tables.length > 0 || sections.length > 0) {
+      return { kind: 'object', rows, tables, sections, ...(summary ? { summary } : {}) };
+    }
+    if (rows.length > 0 || summary) return { kind: 'kv', rows, ...(summary ? { summary } : {}) };
   }
 
   const image = extractImageBlock(result);
@@ -451,8 +586,8 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     if (header.length > 0 && rows.length > 0) return { kind: 'table', header, rows };
   }
 
-  const rows = resultRows(text);
-  if (rows) return { kind: 'kv', rows };
+  const parsedText = resultRows(text);
+  if (parsedText) return { kind: 'kv', rows: parsedText.rows, ...(parsedText.summary ? { summary: parsedText.summary } : {}) };
 
   return { kind: 'raw' };
 }
@@ -484,11 +619,14 @@ function structuredPreview(result: WirePart): string {
     return label ? `${label} (${count})` : count;
   }
   if (isRecord(structured)) {
-    if (isWaitResultShape(structured)) {
-      const summary = structured['summary'];
-      if (typeof summary === 'string' && summary.trim().length > 0) return summary.trim();
-    }
+    // Rule 1: the payload's own declared message/summary IS the preview —
+    // wins outright, the same field the opened well's first line now reads
+    // ({@link declaredSummaryOf}). Subsumes the wait ladder's own prior
+    // `summary`-first check (a wait shape's `summary` key is exactly this).
+    const declared = declaredSummaryOf(structured);
+    if (declared) return declared;
     for (const [k, v] of Object.entries(structured)) {
+      if (isSuppressedRowKey(k, v)) continue;
       if (v === null || v === undefined || Array.isArray(v) || isRecord(v)) continue;
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
         return `${k}: ${stringValue(v)}`;
@@ -777,14 +915,22 @@ export function ToolPart({ call, result }: ToolPartProps) {
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
+        {/* Grammar (owner design): bold plain-word title, then the CLIENT-
+            injected `(args)` in the existing muted hint style, then the raw
+            tool identifier last as the muted secondary — never parsed out of
+            the title string itself (verbatim, sanitized as today). This
+            renders correctly whether `tool_title` is already a plain name
+            or still the older `verb(object)` shape (e.g. `plot(timeseries)`)
+            mid-migration — the parens are injected regardless, never parsed
+            out of what the wire sent. */}
         <span className="part-toolrow__namewrap" title={serverTitle || undefined}>
           <span className="part-toolrow__name">{displayName}</span>
+          <span className="part-toolrow__hint">({argHint})</span>
           {hasTitle ? (
             <span className="part-toolrow__rawname" data-testid="part-tool-rawname">
               {name}
             </span>
           ) : null}
-          <span className="part-toolrow__hint">({argHint})</span>
         </span>
         <span className="part-toolrow__spacer" />
         {!result ? <span className="part-toolrow__pending">running…</span> : null}
@@ -816,7 +962,19 @@ export function ToolPart({ call, result }: ToolPartProps) {
                 case 'kv':
                   return (
                     <>
-                      <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
+                      {/* Rule 1: the payload's own declared message/summary
+                          leads the well as its own line, ahead of the KV
+                          grid — same first-line contract the wait ladder's
+                          own `summary` already had, generalized to every
+                          structured result. */}
+                      {interpreted.summary ? (
+                        <p className="part-toolrow__summary" data-testid="part-tool-summary">
+                          {interpreted.summary}
+                        </p>
+                      ) : null}
+                      {interpreted.rows.length > 0 ? (
+                        <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
+                      ) : null}
                       <RawToggle text={text} />
                     </>
                   );
@@ -830,6 +988,11 @@ export function ToolPart({ call, result }: ToolPartProps) {
                 case 'object':
                   return (
                     <>
+                      {interpreted.summary ? (
+                        <p className="part-toolrow__summary" data-testid="part-tool-summary">
+                          {interpreted.summary}
+                        </p>
+                      ) : null}
                       {interpreted.rows.length > 0 ? (
                         <KvRows rows={interpreted.rows} testId="part-tool-result-table" variant="result" />
                       ) : null}

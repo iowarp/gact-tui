@@ -155,7 +155,12 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
   // didn't promise.
   const total = Math.max(groupSizeOf(parts), rows.length);
   const names = Array.from(new Set(rows.map((r) => r.child).filter(Boolean)));
-  const title = names.length === 1 ? `fanout(${names[0]} × ${total})` : `fanout(${total} agents)`;
+  // Same title/(args) grammar as a plain tool row (owner alignment, injected-
+  // args refinement): a bold plain word, "Fanout", then the client-injected
+  // parens naming which agent × how many — never a single lowercase
+  // `fanout(...)` string baking the count into what reads as a function
+  // call.
+  const titleHint = names.length === 1 ? `${names[0]} × ${total}` : `${total} agents`;
 
   // ONE shared clock for the whole frame (not one interval per running
   // child) — every running row's elapsed reading ticks off the same `now`,
@@ -185,7 +190,9 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
         <span className="part-fanout__chev" data-open={open ? 'true' : undefined} aria-hidden="true">
           ▸
         </span>
-        <span className="part-fanout__title">{title}</span>
+        <span className="part-fanout__title">
+          <span className="part-toolrow__name">Fanout</span> <span className="part-toolrow__hint">({titleHint})</span>
+        </span>
       </button>
       <div className="part-fanout__body">
         {rows.map((row) => {

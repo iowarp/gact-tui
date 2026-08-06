@@ -19,6 +19,14 @@ function msg(id: string, parts: unknown[]): Message {
   return { id, role: 'assistant', parts: parts as Message['parts'] };
 }
 
+/** The fanout header now injects `(args)` the same way a plain tool row
+ *  does — "Fanout" and its `(name × N)` hint are two separate DOM elements
+ *  (bold word, muted parens), never one flat string — so title assertions
+ *  read the combined `.part-fanout__title` text rather than `getByText`. */
+function fanoutTitleText(scope: { querySelector: (sel: string) => Element | null } = document): string {
+  return scope.querySelector('.part-fanout__title')?.textContent ?? '';
+}
+
 const GROUP_ID = 'fanout_abc123def456';
 
 function sibling(overrides: Record<string, unknown>): Record<string, unknown> {
@@ -76,7 +84,7 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
     render(<Transcript messages={[msg('m1', THREE_SIBLINGS)]} />);
     const frames = screen.getAllByTestId('part-fanout-group');
     expect(frames).toHaveLength(1);
-    expect(within(frames[0]!).getByText('fanout(geospatial × 3)')).toBeInTheDocument();
+    expect(fanoutTitleText(frames[0]!)).toBe('Fanout (geospatial × 3)');
     expect(screen.getAllByTestId('part-fanout-child')).toHaveLength(3);
     // No individual Call() headings — the siblings are folded, not duplicated.
     expect(screen.queryByText(/^Call\(geospatial\)$/)).toBeNull();
@@ -89,7 +97,7 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
       sibling({ handle_id: 'task_c', child_agent: 'seismic' }),
     ];
     render(<Transcript messages={[msg('m1', mixed)]} />);
-    expect(screen.getByText('fanout(3 agents)')).toBeInTheDocument();
+    expect(fanoutTitleText()).toBe('Fanout (3 agents)');
   });
 
   it('shows each child\'s own differentiator (metadata.question), status, and duration when expanded', () => {
@@ -121,7 +129,7 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
   it('collapsing the frame keeps ONE line per child (name · status · duration) and their click targets', () => {
     const onOpenChild = vi.fn();
     render(<Transcript messages={[msg('m1', THREE_SIBLINGS)]} onOpenChild={onOpenChild} />);
-    const toggle = screen.getByRole('button', { name: /fanout\(geospatial × 3\)/ });
+    const toggle = screen.getByRole('button', { name: /Fanout \(geospatial × 3\)/ });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(toggle);
@@ -143,7 +151,7 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
   it('the collapsed one-line summary never uses a middot separator — not dangling, not anywhere (round-10 gate finding D7)', () => {
     const onOpenChild = vi.fn();
     render(<Transcript messages={[msg('m1', THREE_SIBLINGS)]} onOpenChild={onOpenChild} />);
-    fireEvent.click(screen.getByRole('button', { name: /fanout\(geospatial × 3\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Fanout \(geospatial × 3\)/ }));
 
     const rows = screen.getAllByTestId('part-fanout-child');
     expect(rows).toHaveLength(3);
@@ -163,7 +171,7 @@ describe('fanout group — siblings sharing spawn_group_id fold into ONE frame',
     // group_size field is the declared total, not a count of what rendered.
     const partial = [THREE_SIBLINGS[0]!, THREE_SIBLINGS[1]!];
     render(<Transcript messages={[msg('m1', partial)]} />);
-    expect(screen.getByText('fanout(geospatial × 3)')).toBeInTheDocument();
+    expect(fanoutTitleText()).toBe('Fanout (geospatial × 3)');
     expect(screen.getAllByTestId('part-fanout-child')).toHaveLength(2);
   });
 });
@@ -243,8 +251,7 @@ describe('fanout group — title never understates the actual sibling count (fin
       }),
     );
     render(<Transcript messages={[msg('m1', fourSiblings)]} />);
-    expect(screen.getByText('fanout(geospatial × 4)')).toBeInTheDocument();
-    expect(screen.queryByText('fanout(geospatial × 3)')).toBeNull();
+    expect(fanoutTitleText()).toBe('Fanout (geospatial × 4)');
     expect(screen.getAllByTestId('part-fanout-child')).toHaveLength(4);
   });
 });
@@ -320,7 +327,7 @@ describe('fanout group — a failed sibling renders sanely (finding D)', () => {
 
   it('collapsing the frame still shows the failed sibling as its own "failed" line, in error state', () => {
     render(<Transcript messages={[msg('m1', MIXED_WITH_FAILURE)]} />);
-    const toggle = screen.getByRole('button', { name: /fanout\(geospatial × 3\)/ });
+    const toggle = screen.getByRole('button', { name: /Fanout \(geospatial × 3\)/ });
     fireEvent.click(toggle);
     const rows = screen.getAllByTestId('part-fanout-child');
     expect(rows[1]).toHaveAttribute('data-state', 'error');

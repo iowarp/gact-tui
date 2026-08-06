@@ -138,3 +138,39 @@ export function truncate(text: string, max: number): string {
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+/** Detects a filesystem-path-like string (a `/` or `\` separator) — never a
+ *  heuristic on prose content, purely structural. Used to decide whether a
+ *  value earns path-aware middle-elision ({@link elidePathMiddle}) instead
+ *  of the ordinary scalar truncate. */
+export function looksLikePath(value: string): boolean {
+  return /[\\/]/.test(value);
+}
+
+/**
+ * Middle-elides a long path so BOTH meaningful ends always survive: the
+ * drive/first segment (WHERE it starts) and the basename (WHAT it is) —
+ * `truncate`'s head-only ellipsis instead chews the basename away first,
+ * leaving something like `D:/some/very/long/prefix/tha...` with no filename
+ * at all (owner finding, gact-tui live session: a collapsed tool-call args
+ * hint did exactly this). One shared helper for every path-like arg,
+ * everywhere a path renders as a short identity hint — never a bespoke
+ * truncate per call site. Backslashes normalize to forward slashes for
+ * display only (the wire's own raw Windows paths elsewhere are untouched).
+ * A path at or under `maxLen` passes through unchanged; a basename that
+ * alone still overflows the budget is truncated from ITS tail (a rare,
+ * pathological case) rather than ever giving up the head+ellipsis skeleton.
+ */
+export function elidePathMiddle(path: string, maxLen = 44): string {
+  const norm = path.replace(/\\/g, '/');
+  if (norm.length <= maxLen) return norm;
+  const segments = norm.split('/').filter(Boolean);
+  const basename = segments[segments.length - 1] ?? norm;
+  if (segments.length <= 1) return truncate(norm, maxLen);
+  const head = segments[0] ?? '';
+  const prefix = norm.startsWith('/') ? `/${head}` : head;
+  const skeleton = `${prefix}/\u2026/`;
+  const budget = maxLen - skeleton.length;
+  const shownBasename = budget > 3 && basename.length > budget ? truncate(basename, budget) : basename;
+  return `${skeleton}${shownBasename}`;
+}

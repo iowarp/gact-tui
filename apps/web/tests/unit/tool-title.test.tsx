@@ -111,6 +111,85 @@ describe('ToolPart header -- absence of tool_title/server_title (regression pin)
 });
 
 /**
+ * Grammar (owner design, injected-args refinement): a plain-word title, the
+ * client-INJECTED `(args)` right after it, and the raw tool identifier last
+ * as the muted secondary -- title/(args)/rawname, in that DOM order, never
+ * parsed out of the title string itself. Works identically whether
+ * `tool_title` is already a plain name or still the transitional
+ * `verb(object)` shape.
+ */
+describe('ToolPart header -- injected (args) grammar', () => {
+  it('orders title, then injected (args), then the raw name secondary', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({ tool_name: 'plot_plot_timeseries', tool_title: 'Plot Timeseries', input: { output_path: 'plot.png' } })}
+      />,
+    );
+    const namewrap = container.querySelector('.part-toolrow__namewrap')!;
+    const children = Array.from(namewrap.children).map((el) => el.className);
+    expect(children).toEqual([
+      'part-toolrow__name',
+      'part-toolrow__hint',
+      'part-toolrow__rawname',
+    ]);
+    expect(namewrap.textContent).toBe('Plot Timeseries("plot.png")plot_plot_timeseries');
+  });
+
+  it('injects (args) even for a title still in the older verb(object) wire shape, verbatim, untransformed', () => {
+    render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'plot_plot_timeseries',
+          tool_title: 'plot(timeseries)',
+          input: { output_path: 'plot.png' },
+        })}
+      />,
+    );
+    // The title renders EXACTLY as the wire sent it -- never parsed/rewritten.
+    expect(screen.getByText('plot(timeseries)')).toBeInTheDocument();
+    const hint = screen.getByText('("plot.png")');
+    expect(hint).toHaveClass('part-toolrow__hint');
+  });
+
+  it('injects (args) for a bare tool name with no title at all (no regression on the no-title path)', () => {
+    const { container } = render(
+      <ToolPart call={toolCall({ tool_name: 'geo_geocode', input: { query: 'Los Angeles, CA' } })} />,
+    );
+    const namewrap = container.querySelector('.part-toolrow__namewrap')!;
+    expect(namewrap.textContent).toBe('geo_geocode("Los Angeles, CA")');
+    expect(screen.queryByTestId('part-tool-rawname')).toBeNull();
+  });
+
+  it('picks the path-like argument over a positionally-earlier noise knob, middle-elided so the basename survives', () => {
+    const longPath =
+      'D:\\Libraries\\Documents\\projects\\clio-runs\\test-fanout\\earthscope_station_distribution.png';
+    const { container } = render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'plot_plot_timeseries',
+          tool_title: 'Plot Timeseries',
+          input: { max_rows: 1101, output_path: longPath },
+        })}
+      />,
+    );
+    // Never head-truncated into uselessness -- the basename is always intact.
+    const hint = container.querySelector('.part-toolrow__hint');
+    expect(hint?.textContent).toBe('(D:/\u2026/earthscope_station_distribution.png)');
+    // The noise numeric knob never wins the hint slot.
+    expect(hint?.textContent).not.toContain('1101');
+  });
+
+  it('skips a noise numeric-knob key and prefers a real string argument elsewhere in the input', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({ tool_name: 'ndp_search_datasets', input: { limit: 10, search_terms: 'earthscope' } })}
+      />,
+    );
+    expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('("earthscope")');
+  });
+});
+
+/**
  * Round-7 finding: a collapsed re-polled wait carries `metadata.attempts`
  * and `metadata.budgets` on the tool_call part (wire-verified: attempts=2,
  * budgets=[60.0,90.0]) but the expanded well rendered only params+result --

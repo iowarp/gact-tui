@@ -265,6 +265,89 @@ describe('Transcript', () => {
     expect(document.querySelector('.part-toolrow__result')).toBeNull();
   });
 
+  it('pairs two same-tool, same-args retry calls into TWO independent rows by call_id — never adjacency, never fused (P4R live finding, sess_6d904ef19328)', () => {
+    // The exact reported wire shape: a plot_plot_timeseries call that timed
+    // out client-side (is_error=true, NO structured_content, duration
+    // 180362ms) immediately followed by an identical-args retry that
+    // succeeded (structured_content present, duration 132021ms). Both share
+    // the same tool_name and input — the ONLY thing that tells them apart is
+    // call_id. A row that says failed and shows success is a fabricated
+    // fact; the client must render exactly what the wire says, one row per
+    // call_id, each paired to ITS OWN result only.
+    const plotInput = {
+      data_path: 'earthscope_stations_clean.csv',
+      x_column: '(deg)',
+      y_columns: ['Latitude'],
+      output_path: 'earthscope_station_distribution.png',
+    };
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'tool_call',
+              call_id: 'call_ed36393d9738',
+              tool_name: 'plot_plot_timeseries',
+              input: plotInput,
+            },
+            {
+              type: 'tool_result',
+              call_id: 'call_ed36393d9738',
+              is_error: true,
+              duration_ms: 180362.64,
+              content: [
+                {
+                  type: 'text',
+                  text: '{"status": "success", "plot_type": "timeseries", "data_points": 1101}',
+                },
+              ],
+            },
+            {
+              type: 'tool_call',
+              call_id: 'call_8a5a1dd83799',
+              tool_name: 'plot_plot_timeseries',
+              input: plotInput,
+            },
+            {
+              type: 'tool_result',
+              call_id: 'call_8a5a1dd83799',
+              is_error: false,
+              duration_ms: 132021.42,
+              content: [
+                {
+                  type: 'text',
+                  text: '{"status": "success", "plot_type": "timeseries", "data_points": 1101}',
+                },
+              ],
+              structured_content: { status: 'success', plot_type: 'timeseries', data_points: 1101 },
+            },
+          ]),
+        ]}
+      />,
+    );
+
+    // TWO rows, not one fused row.
+    const rows = screen.getAllByTestId('part-tool');
+    expect(rows).toHaveLength(2);
+
+    const [failedRow, successRow] = rows;
+    expect(failedRow).toHaveTextContent('✗');
+    expect(failedRow).toHaveTextContent('180.4s');
+    expect(successRow).toHaveTextContent('✓');
+    expect(successRow).toHaveTextContent('132.0s');
+    // The failed row's own duration/status never leaks onto the success row
+    // or vice versa.
+    expect(failedRow).not.toHaveTextContent('132.0s');
+    expect(successRow).not.toHaveTextContent('180.4s');
+
+    // Open both wells: the failed one shows raw text, never the polished
+    // structured ladder the success one gets.
+    fireEvent.click(within(failedRow!).getByRole('button', { name: /plot_plot_timeseries/ }));
+    fireEvent.click(within(successRow!).getByRole('button', { name: /plot_plot_timeseries/ }));
+    expect(within(failedRow!).queryByTestId('part-tool-result-table')).toBeNull();
+    expect(within(successRow!).getByTestId('part-tool-result-table')).toBeInTheDocument();
+  });
+
   it('renders resource_link parts as an icon-tile artifact grid, not a bare link', () => {
     const { container } = render(
       <Transcript
