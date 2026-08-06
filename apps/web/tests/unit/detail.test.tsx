@@ -835,14 +835,21 @@ describe('DetailSlot', () => {
       expect(screen.queryByText('route')).toBeNull();
     });
 
-    it('renders every step in order: one line per node, connector lines between', () => {
+    // PIN UPDATED — viz rebuild 2026-08. The graph is now React Flow, which
+    // paints nodes and edge labels in SEPARATE layers, so DOM order is layer
+    // order, not route order. Every step still renders exactly once and every
+    // edge still carries its `verb → evidence`; the step ORDER is now the
+    // layout's business and is asserted on the model
+    // (tests/unit/lineage-layout.test.ts), not on the DOM.
+    it('renders every step exactly once, each edge carrying verb → evidence', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const steps = screen.getAllByTestId(/route-(node|edge)/);
       expect(steps).toHaveLength(5);
-      expect(steps[1]).toHaveTextContent('used');
-      expect(steps[1]).toHaveTextContent('authority-asserted');
-      expect(steps[3]).toHaveTextContent('generated');
+      const used = screen.getByTestId('route-edge-1');
+      expect(used).toHaveTextContent('used');
+      expect(used).toHaveTextContent('authority-asserted');
+      expect(screen.getByTestId('route-edge-3')).toHaveTextContent('generated');
     });
 
     it('an artifact node is ONE line: ◆ glyph + name + version/size sub-info, no bordered kv rows', () => {
@@ -902,20 +909,30 @@ describe('DetailSlot', () => {
       expect(self).toHaveAttribute('data-self', 'true');
     });
 
-    it('a join edge (multi-input branch) draws the ╮ elbow toward its consumer', () => {
+    // PIN UPDATED — viz rebuild 2026-08. The `╮` character was a stand-in for
+    // a join the flat list could not draw. The graph draws the real converging
+    // geometry now, so the glyph is DELETED; `data-join` survives as the fact
+    // (this edge's consumer is not the next line) and both inputs really do
+    // terminate on the one consuming activity, which is asserted here on the
+    // edges' own endpoints instead of on a character.
+    it('a join edge (multi-input branch) converges on its consumer', () => {
       const route: RouteStep[] = [
         { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'artifact_a' },
-        { kind: 'edge', edge: 'used', stance: 'declared', join: true },
+        { kind: 'edge', edge: 'used', stance: 'declared', join: true, fromIndex: 0, toIndex: 4 },
         { kind: 'node', nodeType: 'artifact', label: 'b.csv', artifactId: 'artifact_b' },
-        { kind: 'edge', edge: 'used', stance: 'declared' },
+        { kind: 'edge', edge: 'used', stance: 'declared', fromIndex: 2, toIndex: 4 },
         { kind: 'node', nodeType: 'activity', label: 'create_artifact' },
       ];
-      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      const { container } = render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const joined = screen.getByTestId('route-edge-1');
       expect(joined).toHaveAttribute('data-join', 'true');
-      expect(joined).toHaveTextContent('╮');
+      expect(joined).toHaveTextContent('used');
       expect(screen.getByTestId('route-edge-3')).not.toHaveAttribute('data-join');
+      // Both inputs land on the SAME consuming activity — the branch merge.
+      const edges = [...container.querySelectorAll('.react-flow__edge')];
+      expect(edges).toHaveLength(2);
+      for (const edge of edges) expect(edge.getAttribute('aria-label')).toMatch(/ to 4$/);
     });
 
     it('a non-self artifact line opens that artifact in the panel (push) on click', () => {
@@ -997,23 +1014,28 @@ describe('DetailSlot', () => {
       expect(onOpenSession).toHaveBeenCalledWith('sess_9f17aa20bb31');
     });
 
-    it('the foreign cluster owns its nodes AND internal edges behind the dimmed ┆ rail; the joining used edge stays outside', () => {
+    // PIN UPDATED — viz rebuild 2026-08. React Flow paints every node into one
+    // flat layer, so a cluster can no longer be a DOM ANCESTOR of its members;
+    // it is a real bordered region positioned around them. The per-line `┆`
+    // rail glyph that used to stand in for a group is DELETED — the box IS the
+    // group. Membership is therefore asserted on each element's own
+    // `data-cluster` attribute, which is the same fact the old nesting encoded.
+    it('the foreign cluster owns its nodes AND internal edges; the joining used edge stays outside', () => {
       render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const cluster = screen.getByTestId('route-cluster');
-      // ndp_stage_resource + generated edge + the csv are INSIDE the cluster…
-      expect(within(cluster).getByTestId('route-node-0')).toBeInTheDocument();
-      expect(within(cluster).getByTestId('route-edge-1')).toBeInTheDocument();
-      expect(within(cluster).getByTestId('route-node-2')).toBeInTheDocument();
-      // …each behind the dimmed rail glyph…
-      expect(within(cluster).getByTestId('route-node-0').querySelector('.detail__lrail')).toHaveTextContent('┆');
-      expect(within(cluster).getByTestId('route-edge-1').querySelector('.detail__lrail')).toHaveTextContent('┆');
+      const clusterId = cluster.closest('.react-flow__node')?.getAttribute('data-id');
+      expect(clusterId).toBeTruthy();
+      // ndp_stage_resource + generated edge + the csv belong to the cluster…
+      expect(screen.getByTestId('route-node-0')).toHaveAttribute('data-cluster', clusterId!);
+      expect(screen.getByTestId('route-edge-1')).toHaveAttribute('data-cluster', clusterId!);
+      expect(screen.getByTestId('route-node-2')).toHaveAttribute('data-cluster', clusterId!);
       // …while the used edge INTO the viewing session's activity, and
-      // everything after it, sit outside the cluster (no rail).
-      expect(within(cluster).queryByTestId('route-edge-3')).toBeNull();
-      expect(within(cluster).queryByTestId('route-node-4')).toBeNull();
-      expect(screen.getByTestId('route-edge-3').querySelector('.detail__lrail')).toBeNull();
-      expect(screen.getByTestId('route-node-self').querySelector('.detail__lrail')).toBeNull();
+      // everything after it, sit outside it.
+      expect(screen.getByTestId('route-edge-3')).not.toHaveAttribute('data-cluster');
+      expect(screen.getByTestId('route-node-self')).not.toHaveAttribute('data-cluster');
+      // The `┆` stand-in rail is gone everywhere — the region replaced it.
+      expect(document.querySelector('.detail__lrail')).toBeNull();
     });
 
     it('the viewing session\'s own nodes render with NO cluster header (default context)', () => {
@@ -1190,9 +1212,15 @@ describe('round-6 provenance panel rulings (2026-08-06)', () => {
       const clusters = screen.getAllByTestId('route-cluster');
       const foreignClusters = clusters.filter((c) => c.getAttribute('data-session') === 'sess_foreign_x');
       expect(foreignClusters).toHaveLength(1);
-      // Both foreign nodes sit inside that ONE cluster.
-      expect(within(foreignClusters[0]!).getByText('external_transform')).toBeInTheDocument();
-      expect(within(foreignClusters[0]!).getByText('external.csv')).toBeInTheDocument();
+      // Both foreign nodes belong to that ONE cluster. (PIN UPDATED — viz
+      // rebuild 2026-08: membership is the node's own `data-cluster`, not DOM
+      // nesting; React Flow paints all nodes into one flat layer.)
+      const clusterId = foreignClusters[0]!.closest('.react-flow__node')?.getAttribute('data-id');
+      expect(clusterId).toBeTruthy();
+      const memberOf = (text: string) =>
+        screen.getByText(text).closest('.detail__lnode')?.getAttribute('data-cluster');
+      expect(memberOf('external_transform')).toBe(clusterId);
+      expect(memberOf('external.csv')).toBe(clusterId);
     });
 
     it('the SAME foreign session repeated NON-contiguously (a different session between) still gets separate headers', () => {

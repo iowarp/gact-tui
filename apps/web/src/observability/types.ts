@@ -71,6 +71,12 @@ export interface ObsTimelineRow {
    *  0 for the observed session itself, the agent-task record's `depth` for
    *  each child (how many ancestor thread rails draw through this row). */
   depth?: number;
+  /** The AGENT whose session recorded this row — `'main'` for the observed
+   *  session, else the agent-task record's own run label / expert id (the
+   *  session meta's `agent`, verbatim). Backs the git-branch rail's per-branch
+   *  colour, which must agree with the gantt's lane colour for the same agent.
+   *  Absent only for pre-P5 captured fixtures recorded before the field. */
+  agent?: string;
   /** This exact row opens ('open': a task-started row, rendered at the
    *  PARENT's depth) or closes ('close': a returned/exited row, rendered
    *  AFTER popping back to the parent's depth) a nesting level — the

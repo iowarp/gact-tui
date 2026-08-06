@@ -1,11 +1,13 @@
-import { useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { Chip, Eyebrow, Icon, Select, Tabs, type TabDef } from '../kit';
 import { sanitizeTitle } from '../transcript/parts/titleSanitizer';
+import { Gantt } from './Gantt';
+import { assignBranchColors, branchKey, type BranchColorResolver } from './ganttModel';
+import { buildLogTree, type LogRowTree } from './logTreeModel';
 import type {
   ObsContext,
   ObsNavigation,
   ObsRun,
-  ObsSpan,
   ObsTimelineKind,
   ObsToolCallRow,
   ObsToolInventoryGroup,
@@ -104,12 +106,30 @@ export function Observability({
   const experts = Object.keys(data.toolsByExpert);
   const [expert, setExpert] = useState(experts[0] ?? '');
   const selectedExpert = data.toolsByExpert[expert] ? expert : (experts[0] ?? '');
-  const timeline = data.timeline ?? [];
-  const spans = data.spans ?? [];
+  // Memoised because the `?? []` fallback mints a fresh array every render,
+  // which would re-derive the branch palette (and the whole log tree) on every
+  // keystroke elsewhere in the layer.
+  const timeline = useMemo(() => data.timeline ?? [], [data.timeline]);
+  const spans = useMemo(() => data.spans ?? [], [data.spans]);
   const artifactRows = data.artifactRows ?? [];
   const toolCalls = data.toolCalls ?? [];
   const toolInventoryGroups = data.toolInventory?.groups ?? [];
   const activeTab = !legacy && tab === 'agents' ? 'timeline' : tab;
+
+  /**
+   * ONE branch palette for the whole layer, composed from the union of every
+   * agent the gantt's spans and the log's rows name. Both surfaces read it, so
+   * an agent draws in the same colour in each; computing it per surface would
+   * let them disagree whenever their branch sets differed (a child that logged
+   * rows but has no span, or vice versa).
+   */
+  const colorOf: BranchColorResolver = useMemo(() => {
+    const branches = new Set<string>();
+    for (const span of spans) branches.add(branchKey(span));
+    for (const row of timeline) if (row.agent) branches.add(row.agent);
+    const palette = assignBranchColors(branches);
+    return (branch: string) => palette.get(branch) ?? assignBranchColors([branch]).get(branch)!;
+  }, [spans, timeline]);
   const tabs: TabDef[] = legacy
     ? [
         { id: 'agents', label: 'agents', badge: data.agents.length || undefined },
@@ -181,6 +201,7 @@ export function Observability({
           <Timeline
             rows={timeline}
             spans={spans}
+            colorOf={colorOf}
             mode={timelineMode}
             onModeChange={setTimelineMode}
             {...(data.traceReadFailed ? { readFailed: true } : {})}
@@ -784,6 +805,8 @@ function ContextTile({ label, value, meta }: { label: string; value: string | nu
 interface TimelineProps {
   rows: NonNullable<ObservabilityData['timeline']>;
   spans: NonNullable<ObservabilityData['spans']>;
+  /** The layer's single branch palette — see Observability's `colorOf`. */
+  colorOf: BranchColorResolver;
   mode: TimelineMode;
   onModeChange: (mode: TimelineMode) => void;
   /** True when the read behind these rows/spans FAILED rather than
@@ -812,7 +835,10 @@ function navProps(nav: ObsNavigation | undefined, onNavigate: ((nav: ObsNavigati
   };
 }
 
-function Timeline({ rows, spans, mode, onModeChange, readFailed, onNavigate, onRetry }: TimelineProps) {
+function Timeline({ rows, spans, colorOf, mode, onModeChange, readFailed, onNavigate, onRetry }: TimelineProps) {
+  // The git-branch tree state for the whole row list — which agent owns each
+  // open rail column at each row, and therefore what colour it draws in.
+  const tree = useMemo(() => buildLogTree(rows, colorOf), [rows, colorOf]);
   return (
     <div className="obs-timeline" data-testid="obs-timeline">
       <div className="obs-timeline__toolbar">
@@ -846,16 +872,25 @@ function Timeline({ rows, spans, mode, onModeChange, readFailed, onNavigate, onR
           <ol className="obs-log">
             {rows.map((row, index) => {
               const depth = row.depth ?? 0;
+              const branches = tree[index];
               return (
                 <li
                   className="obs-log__row"
                   data-kind={row.kind}
+                  data-branch={branches?.nodeBranch}
                   key={row.sourceId ?? `${row.at ?? ''}-${row.actor}-${row.action}-${index}`}
-                  style={{ '--obs-depth': depth } as CSSProperties}
+                  style={
+                    {
+                      // The marker sits on its AGENT's column, which is the
+                      // row's depth only until concurrent siblings appear.
+                      '--obs-node-col': branches?.nodeColumn ?? depth,
+                      ...(branches ? { '--obs-branch': branches.nodeColor } : {}),
+                    } as CSSProperties
+                  }
                   {...navProps(row.nav, onNavigate)}
                 >
                   <span className="obs-log__thread" aria-hidden="true">
-                    <ThreadRails depth={depth} branch={row.branch} />
+                    <ThreadRails depth={depth} branch={row.branch} tree={branches} />
                     {row.branch ? null : <LogNode kind={row.kind} />}
                   </span>
                   <time className="obs-log__time">{row.at ?? ''}</time>
@@ -881,7 +916,7 @@ function Timeline({ rows, spans, mode, onModeChange, readFailed, onNavigate, onR
           </p>
         )
       ) : spans.length > 0 ? (
-        <Gantt spans={spans} {...(onNavigate ? { onNavigate } : {})} />
+        <Gantt spans={spans} colorOf={colorOf} {...(onNavigate ? { onNavigate } : {})} />
       ) : readFailed ? (
         <TraceUnavailable subject="gantt" {...(onRetry ? { onRetry } : {})} />
       ) : (
@@ -894,29 +929,58 @@ function Timeline({ rows, spans, mode, onModeChange, readFailed, onNavigate, onR
 }
 
 /** Parent/child thread connectors (~8244025's `r.lines`/`hasOut`/`hasIn`):
- *  one continuing vertical rail per currently-open ancestor branch (index 0
- *  is the always-present main thread), plus — on the exact row that opens or
- *  closes a nesting level — an elbow bridging the last rail over to the
- *  column the child branch begins (or just stopped) at. `depth` is the row's
- *  real trace-session depth mapped by the agent-task records (build.ts's
- *  trace seeding), never a guessed value. */
-function ThreadRails({ depth, branch }: { depth: number; branch?: 'open' | 'close' }) {
-  const rails = Array.from({ length: depth + 1 }, (_, i) => i);
+ *  one continuing vertical rail per OCCUPIED branch column (column 0 is the
+ *  always-present main thread), plus — on the exact row that opens or closes a
+ *  branch — an elbow bridging the parent's column over to the child's.
+ *
+ *  Git-branch treatment (viz rebuild 2026-08): a column is held by an AGENT for
+ *  as long as that agent runs, so its rail is CONTINUOUS through rows other
+ *  agents logged, and two concurrent siblings get two columns instead of
+ *  colliding on their shared depth. Each rail is stroked in its occupant's own
+ *  colour and each elbow in the colour of the branch it creates or retires —
+ *  all computed by `logTreeModel.buildLogTree` over the whole row list. Without
+ *  a tree (a fixture with no branch facts) this falls back to one rail per
+ *  ancestor depth in the neutral border token, exactly as before. */
+function ThreadRails({
+  depth,
+  branch,
+  tree,
+}: {
+  depth: number;
+  branch?: 'open' | 'close';
+  tree?: LogRowTree;
+}) {
+  const rails = tree
+    ? tree.rails
+    : Array.from({ length: depth + 1 }, (_, column) => ({ column, branch: '', color: '' }));
   return (
     <>
-      {rails.map((i) => (
+      {rails.map((rail) => (
         <span
           className="obs-log__rail"
-          data-i={i}
-          key={i}
-          style={{ '--obs-rail-i': i } as CSSProperties}
+          data-i={rail.column}
+          data-branch={rail.branch || undefined}
+          key={rail.column}
+          style={
+            {
+              '--obs-rail-i': rail.column,
+              ...(rail.color ? { '--obs-rail-color': rail.color } : {}),
+            } as CSSProperties
+          }
         />
       ))}
       {branch ? (
         <span
           className="obs-log__elbow"
           data-edge={branch}
-          style={{ '--obs-rail-i': depth } as CSSProperties}
+          data-branch={tree?.elbow?.branch}
+          style={
+            {
+              '--obs-rail-i': tree?.elbow?.column ?? depth,
+              '--obs-elbow-span': tree?.elbow?.span ?? 1,
+              ...(tree?.elbow ? { '--obs-rail-color': tree.elbow.color } : {}),
+            } as CSSProperties
+          }
         />
       ) : null}
     </>
@@ -951,134 +1015,4 @@ function LogNode({ kind }: { kind: ObsTimelineKind }) {
   }
   const shape = kind === 'artifact' ? 'diamond' : kind === 'running' ? 'dot' : 'ring';
   return <span className="obs-log__node" data-shape={shape} aria-hidden="true" />;
-}
-
-interface GanttProps {
-  spans: ObsSpan[];
-  onNavigate?: (nav: ObsNavigation) => void;
-}
-
-function Gantt({ spans, onNavigate }: GanttProps) {
-  const bounds = ganttBounds(spans);
-  const ticks = Array.from({ length: 6 }, (_, index) => {
-    const ratio = index / 5;
-    return { at: bounds.min + bounds.range * ratio, ratio };
-  });
-
-  return (
-    <div className="obs-gantt">
-      <div className="obs-gantt__axis">
-        <span className="obs-gantt__axis-spacer" />
-        <span className="obs-gantt__ticks">
-          {ticks.map((tick) => (
-            <time
-              className="obs-gantt__tick"
-              key={tick.ratio}
-              style={{ left: `${tick.ratio * 100}%` }}
-            >
-              {formatAxisTime(tick.at)}
-            </time>
-          ))}
-        </span>
-      </div>
-
-      {spans.map((span) => {
-        // Settled bars sit at their REAL start with width = real duration on
-        // the shared axis — no artificial floors or left-clamps (gact-tui
-        // #356: a wait_agent_tasks bar must visibly align with the child
-        // span it blocked on). CSS min-width keeps a short call visible. A
-        // RUNNING bar has no real end yet: it extends to the axis edge, its
-        // left held inside the lane so the amber shimmer stays readable.
-        const rawLeft = percentAt(span.startMs, bounds);
-        const left = span.state === 'running' ? Math.min(rawLeft, 92) : rawLeft;
-        const end = span.endMs ?? bounds.max;
-        const width = Math.max(0, percentAt(end, bounds) - left);
-        const markerTimes = span.artifactAtMs?.length
-          ? span.artifactAtMs
-          : Array.from({ length: span.artifacts ?? 0 }, () => span.endMs ?? span.startMs);
-
-        return (
-          <div
-            className="obs-gantt__row"
-            data-depth={span.depth}
-            key={span.id}
-            {...navProps(span.nav, onNavigate)}
-          >
-            <span className="obs-gantt__label" style={{ paddingLeft: `${span.depth * 9}px` }}>
-              {span.label}
-            </span>
-            <span className="obs-gantt__lane">
-              <span
-                className="obs-gantt__bar"
-                data-state={span.state}
-                {...(span.tool ? { 'data-tool': 'true' } : {})}
-                style={{ left: `${left}%`, width: `${width}%` }}
-              >
-                {span.state === 'running' ? 'running' : null}
-              </span>
-              {(span.toolMarks ?? []).map((mark, index) => (
-                <span
-                  className="obs-gantt__toolmark"
-                  title={mark.label}
-                  aria-label={`tool ${mark.label}`}
-                  key={`${mark.atMs}-${mark.label}-${index}`}
-                  style={{ left: `${percentAt(mark.atMs, bounds)}%` }}
-                >
-                  <Icon name="wrench" size={6} />
-                </span>
-              ))}
-              {markerTimes.map((time, index) => (
-                <span
-                  className="obs-gantt__artifact"
-                  aria-label="artifact"
-                  key={`${time}-${index}`}
-                  style={{ left: `${Math.min(percentAt(time, bounds), 99)}%` }}
-                >
-                  ◆
-                </span>
-              ))}
-              {span.duration ? (
-                <span
-                  className="obs-gantt__duration"
-                  style={{ left: `${Math.min(left + width, 97)}%` }}
-                >
-                  {span.duration}
-                </span>
-              ) : null}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-interface GanttBounds {
-  min: number;
-  max: number;
-  range: number;
-}
-
-function ganttBounds(spans: ObsSpan[]): GanttBounds {
-  const timestamps = spans.flatMap((span) => [
-    span.startMs,
-    ...(span.endMs === null ? [] : [span.endMs]),
-  ]);
-  if (timestamps.length === 0) return { min: 0, max: 1, range: 1 };
-  const min = Math.min(...timestamps);
-  const rawMax = Math.max(...timestamps);
-  const max = rawMax > min ? rawMax : min + 1_000;
-  return { min, max, range: max - min };
-}
-
-function percentAt(timestamp: number, bounds: GanttBounds): number {
-  return Math.max(0, Math.min(100, ((timestamp - bounds.min) / bounds.range) * 100));
-}
-
-function formatAxisTime(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(timestamp);
 }

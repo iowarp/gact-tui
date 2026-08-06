@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Client } from '@clio/core';
 import { Chip, Eyebrow, Icon, Layer, Popover, Tabs, ToolbarButton } from '../kit';
 import { Markdown } from '../transcript/markdown';
-import type { ArtifactRecord, RouteEdge, RouteNode, RouteStep } from './types';
+import { LineageGraph } from './LineageGraph';
+import type { ArtifactRecord } from './types';
 import './detail.css';
 
 export interface DetailSlotProps {
@@ -706,11 +707,12 @@ function Preview({ preview }: { preview: NonNullable<ArtifactRecord['preview']> 
 }
 
 /**
- * The provenance tab (rework, docs/design/provenance-graph-2026-08.md): ONE
- * compact axes line directly under the tab strip, then the lineage graph —
- * one line per node, connector-rail edges, foreign-session clusters. The
+ * The provenance tab (rework, docs/design/provenance-graph-2026-08.md, rebuilt
+ * on React Flow 2026-08): ONE compact axes line directly under the tab strip,
+ * then the lineage DAG — one-line nodes, `verb → evidence` edges, foreign
+ * session clusters, now with pan/zoom and a real layered layout. The
  * mechanism/designation/evidence/custody KvGrid and BOTH record folds
- * (VERSION RECORD / TRANSFORM RECORD) are DELETED per the spec: their rows
+ * (VERSION RECORD / TRANSFORM RECORD) stay DELETED per the spec: their rows
  * ride the identity header, this line, and the graph itself; the Recreate tab
  * keeps the full transform detail.
  */
@@ -724,6 +726,11 @@ function Provenance({
   onOpenArtifact?: (artifactId: string) => void;
 }) {
   const route = record.route ?? [];
+  const sessionTitles = record.sessionTitles;
+  const labelForSession = useCallback(
+    (sessionId: string) => sessionLabel(sessionId, sessionTitles),
+    [sessionTitles],
+  );
   return (
     <div data-testid="detail-provenance">
       <ProvenanceLine record={record} />
@@ -734,8 +741,11 @@ function Provenance({
             No route recorded for this artifact.
           </p>
         ) : (
-          <LineageGraphView
+          <LineageGraph
             route={route}
+            glossary={glossaryTitle}
+            sessionLabel={labelForSession}
+            clusterTime={clusterTime}
             {...(record.sessionTitles ? { sessionTitles: record.sessionTitles } : {})}
             {...(onOpenSession ? { onOpenSession } : {})}
             {...(onOpenArtifact ? { onOpenArtifact } : {})}
@@ -830,42 +840,6 @@ function ProvenanceLine({ record }: { record: ArtifactRecord }) {
   );
 }
 
-/** One contiguous run of lineage lines: the viewing session's (no header) or
- *  a foreign session's cluster (dimmed rail + clickable header). An edge
- *  belongs to the cluster of the node it leads INTO (the following node). */
-interface LineageSegment {
-  /** The foreign producing session — undefined for the default context. */
-  sessionId?: string;
-  /** The cluster header's timestamp: the first (oldest) node's mint time. */
-  createdAt?: string;
-  steps: { step: RouteStep; index: number }[];
-}
-
-function segmentRoute(route: RouteStep[]): LineageSegment[] {
-  const keyAt = (from: number): string | null => {
-    for (let i = from; i < route.length; i += 1) {
-      const step = route[i]!;
-      if (step.kind === 'node') return step.foreignSession && step.sessionId ? step.sessionId : null;
-    }
-    return null;
-  };
-  const segments: LineageSegment[] = [];
-  route.forEach((step, index) => {
-    const key = keyAt(index);
-    const last = segments[segments.length - 1];
-    const lastKey = last ? (last.sessionId ?? null) : undefined;
-    if (!last || lastKey !== key) {
-      segments.push({ ...(key ? { sessionId: key } : {}), steps: [] });
-    }
-    const segment = segments[segments.length - 1]!;
-    segment.steps.push({ step, index });
-    if (step.kind === 'node' && step.createdAt && !segment.createdAt) {
-      segment.createdAt = step.createdAt;
-    }
-  });
-  return segments;
-}
-
 /** `sess_c6241fc8906f` → `sess_c624…` — the cluster header's compact id. */
 function shortSessionId(sessionId: string): string {
   return sessionId.length > 10 ? `${sessionId.slice(0, 9)}…` : sessionId;
@@ -899,275 +873,6 @@ function clusterTime(iso: string): string {
   if (Number.isNaN(at.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(at.getDate())} ${MONTHS[at.getMonth()]} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
-}
-
-function LineageGraphView({
-  route,
-  sessionTitles,
-  onOpenSession,
-  onOpenArtifact,
-}: {
-  route: RouteStep[];
-  sessionTitles?: Record<string, string>;
-  onOpenSession?: (sessionId: string) => void;
-  onOpenArtifact?: (artifactId: string) => void;
-}) {
-  const segments = segmentRoute(route);
-  return (
-    <div className="detail__lineage" data-testid="route-graph">
-      {segments.map((segment, si) =>
-        segment.sessionId ? (
-          <ForeignCluster
-            key={`cluster-${segment.sessionId}-${si}`}
-            segment={segment}
-            {...(sessionTitles ? { sessionTitles } : {})}
-            {...(onOpenSession ? { onOpenSession } : {})}
-            {...(onOpenArtifact ? { onOpenArtifact } : {})}
-          />
-        ) : (
-          <Fragment key={`run-${si}`}>
-            {segment.steps.map(({ step, index }) =>
-              step.kind === 'edge' ? (
-                <EdgeLine key={index} edge={step} index={index} />
-              ) : (
-                <NodeLine
-                  key={index}
-                  node={step}
-                  index={index}
-                  {...(sessionTitles ? { sessionTitles } : {})}
-                  {...(onOpenSession ? { onOpenSession } : {})}
-                  {...(onOpenArtifact ? { onOpenArtifact } : {})}
-                />
-              ),
-            )}
-          </Fragment>
-        ),
-      )}
-    </div>
-  );
-}
-
-/**
- * A foreign session's cluster (spec rule 3): a one-line header — `● sess_…
- * · 05 Aug 12:43 ↗` — then the nodes it produced behind a dimmed `┆` rail.
- * The header is the click target (jumps to that session, the obs
- * agent-navigation channel); without a navigation callback it renders as a
- * plain line WITHOUT the ↗ — never a dead affordance.
- */
-function ForeignCluster({
-  segment,
-  sessionTitles,
-  onOpenSession,
-  onOpenArtifact,
-}: {
-  segment: LineageSegment;
-  sessionTitles?: Record<string, string>;
-  onOpenSession?: (sessionId: string) => void;
-  onOpenArtifact?: (artifactId: string) => void;
-}) {
-  const sessionId = segment.sessionId!;
-  const time = segment.createdAt ? clusterTime(segment.createdAt) : '';
-  const label = sessionLabel(sessionId, sessionTitles);
-  const headBody = (
-    <>
-      <span className="detail__clusterdot" aria-hidden="true">
-        ●
-      </span>
-      <span className="detail__clustersess" title={sessionId}>
-        {label}
-      </span>
-      {time ? <span className="detail__clustertime">{time}</span> : null}
-      {onOpenSession ? (
-        <span className="detail__clustergo" aria-hidden="true">
-          ↗
-        </span>
-      ) : null}
-    </>
-  );
-  return (
-    <div className="detail__cluster" data-testid="route-cluster" data-session={sessionId}>
-      {onOpenSession ? (
-        <button
-          type="button"
-          className="detail__clusterhead"
-          data-testid="route-cluster-header"
-          title={`Open session ${sessionId}`}
-          onClick={() => onOpenSession(sessionId)}
-        >
-          {headBody}
-        </button>
-      ) : (
-        <div className="detail__clusterhead" data-testid="route-cluster-header">
-          {headBody}
-        </div>
-      )}
-      {segment.steps.map(({ step, index }) =>
-        step.kind === 'edge' ? (
-          <EdgeLine key={index} edge={step} index={index} dimRail />
-        ) : (
-          <NodeLine
-            key={index}
-            node={step}
-            index={index}
-            dimRail
-            {...(sessionTitles ? { sessionTitles } : {})}
-            {...(onOpenSession ? { onOpenSession } : {})}
-            {...(onOpenArtifact ? { onOpenArtifact } : {})}
-          />
-        ),
-      )}
-    </div>
-  );
-}
-
-const NODE_GLYPHS: Record<RouteNode['nodeType'], string> = {
-  artifact: '◆',
-  activity: '⚙',
-  gap: '▢',
-};
-
-/**
- * ONE line per node (spec rule 1): glyph + name + inline muted sub-info,
- * never a bordered rectangle. The whole line is the hit target when it has a
- * real destination — a non-self artifact opens in the panel (push), an
- * activity jumps to its producing session; otherwise the line is inert.
- *
- * Owner 3c (2026-08-06): sub-info renders as small chips, never
- * middot-joined text. Owner round-6 cluster-fix: an IN-TREE producer (a
- * descendant session, not a true foreign one) gets a small inline agent-run
- * badge here instead of a cluster header. Owner 3a: the SELF node carries a
- * distinct `data-self` anchor treatment (detail.css) — max-left, prominent,
- * with edges flowing into and out of it via the surrounding lines as usual.
- */
-function NodeLine({
-  node,
-  index,
-  dimRail,
-  sessionTitles,
-  onOpenSession,
-  onOpenArtifact,
-}: {
-  node: RouteNode;
-  index: number;
-  dimRail?: boolean;
-  sessionTitles?: Record<string, string>;
-  onOpenSession?: (sessionId: string) => void;
-  onOpenArtifact?: (artifactId: string) => void;
-}) {
-  const subParts: string[] = [];
-  if (node.nodeType === 'gap') {
-    subParts.push(node.gapReason ?? 'no transform recorded');
-  } else if (node.nodeType === 'activity') {
-    if (node.duration) subParts.push(node.duration);
-  } else {
-    if (node.version) subParts.push(node.version);
-    if (node.size) subParts.push(node.size);
-  }
-  if (node.sub) subParts.push(node.sub);
-
-  const open =
-    node.nodeType === 'artifact' && !node.self && node.artifactId && onOpenArtifact
-      ? () => onOpenArtifact(node.artifactId!)
-      : node.nodeType === 'activity' && node.sessionId && onOpenSession
-        ? () => onOpenSession(node.sessionId!)
-        : undefined;
-
-  const body = (
-    <>
-      {dimRail ? (
-        <span className="detail__lrail" aria-hidden="true">
-          ┆
-        </span>
-      ) : null}
-      <span className="detail__lglyph" data-nodetype={node.nodeType} aria-hidden="true">
-        {NODE_GLYPHS[node.nodeType]}
-      </span>
-      <span className="detail__lname">{node.label}</span>
-      {node.treeSession && node.runLabel ? (
-        <span className="detail__lbadge" data-testid="route-node-badge" title={`Run: ${node.runLabel}`}>
-          {node.runLabel}
-        </span>
-      ) : null}
-      {subParts.map((part, pi) => (
-        <span key={pi} className="detail__lchip">
-          {part}
-        </span>
-      ))}
-      {node.status ? (
-        <span className="detail__lpill" data-status={node.status} title={glossaryTitle(node.status)}>
-          {node.status}
-        </span>
-      ) : null}
-      {node.self ? <span className="detail__lselfmark">you are here</span> : null}
-    </>
-  );
-
-  const testId = node.self ? 'route-node-self' : `route-node-${index}`;
-  if (open) {
-    return (
-      <button
-        type="button"
-        className="detail__lnode"
-        data-testid={testId}
-        data-self={node.self ? 'true' : undefined}
-        title={
-          node.nodeType === 'activity'
-            ? `Open producing session ${sessionLabel(node.sessionId!, sessionTitles)}`
-            : 'Open artifact'
-        }
-        onClick={open}
-      >
-        {body}
-      </button>
-    );
-  }
-  return (
-    <div className="detail__lnode" data-testid={testId} data-self={node.self ? 'true' : undefined}>
-      {body}
-    </div>
-  );
-}
-
-/**
- * A connector line on the left rail (spec rule 2): `╰ verb → evidence`, the
- * evidence term teal. A `join` edge leads into a consumer that is not the
- * next line — the trailing `╮` elbow (multi-input branches, rule 4).
- */
-function EdgeLine({ edge, index, dimRail }: { edge: RouteEdge; index: number; dimRail?: boolean }) {
-  return (
-    <div
-      className="detail__ledge"
-      data-testid={`route-edge-${index}`}
-      data-join={edge.join ? 'true' : undefined}
-    >
-      {dimRail ? (
-        <span className="detail__lrail" aria-hidden="true">
-          ┆
-        </span>
-      ) : null}
-      <span className="detail__lelbow" aria-hidden="true">
-        ╰
-      </span>
-      <span className="detail__ledgeverb" title={glossaryTitle(edge.edge)}>
-        {edge.edge}
-      </span>
-      {edge.stance ? (
-        <>
-          <span className="detail__ledgearrow" aria-hidden="true">
-            →
-          </span>
-          <span className="detail__ledgeevidence" title={glossaryTitle(edge.stance)}>
-            {edge.stance}
-          </span>
-        </>
-      ) : null}
-      {edge.join ? (
-        <span className="detail__ljoin" aria-hidden="true">
-          ╮
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 /**

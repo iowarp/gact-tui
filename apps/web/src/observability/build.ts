@@ -296,7 +296,7 @@ function timelineRowsFromTrace(
  */
 export function timelineRowFromSemanticEvent(
   event: SemanticEventPayload,
-  meta: Pick<TraceSessionMeta, 'root' | 'depth' | 'nav' | 'sessionId'>,
+  meta: Pick<TraceSessionMeta, 'root' | 'depth' | 'nav' | 'sessionId'> & { agent?: string },
   agentLookup?: Map<string, string>,
 ): ObsTimelineRow | null {
   const payload = payloadOf(event);
@@ -304,6 +304,9 @@ export function timelineRowFromSemanticEvent(
   const common = {
     ...withTime(event.occurred_at),
     depth: meta.depth,
+    // The recording session's own agent identity (session meta, verbatim) —
+    // the git-branch rail colours each column by it.
+    ...(meta.agent ? { agent: meta.agent } : {}),
     sourceId: semanticSourceId(event, meta.sessionId),
   };
 
@@ -416,13 +419,14 @@ export function timelineRowFromSessionTraceEvent(event: SessionTraceEvent): ObsT
         ? 'failure'
         : 'event',
       depth: 0,
+      agent: 'main',
       sourceId: `status:${event.occurred_at}:${status}`,
     };
   }
   const payload = event.payload;
   return timelineRowFromSemanticEvent(
     { ...payload, occurred_at: payload.occurred_at ?? event.occurred_at },
-    { root: true, depth: 0, sessionId: visibleString(payload.session_id) ?? '' },
+    { root: true, depth: 0, agent: 'main', sessionId: visibleString(payload.session_id) ?? '' },
   );
 }
 

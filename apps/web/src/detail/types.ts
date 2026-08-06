@@ -77,6 +77,20 @@ export interface RouteEdge {
   /** A used edge joining INTO a consumer that is not the next line — drawn
    *  with a join elbow (`╮`) toward the consumer (spec rule 2/4). */
   join?: boolean;
+  /**
+   * The step indices of this edge's two endpoint NODES — producer side first,
+   * consumer side second, in the same `RouteStep[]` this edge lives in.
+   *
+   * `routeFromLineage` always knew both (it computes the consumer's position to
+   * decide `join`) and used to throw them away, which made the flattened route
+   * lossy: an edge kept its verb and evidence but not what it connected, so
+   * real branch/merge geometry was unreachable. Recording them derives nothing
+   * new — the wire's own `edges[].from`/`.to` are the source — it just stops
+   * discarding a fact the walk already had. Absent only on routes built by
+   * older callers/fixtures that pre-date the field.
+   */
+  fromIndex?: number;
+  toIndex?: number;
 }
 
 export type RouteStep = RouteNode | RouteEdge;

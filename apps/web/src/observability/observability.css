@@ -345,11 +345,15 @@
      translate-centered on, so circles and rail read as one spine. */
   left: calc(var(--obs-rail-x) - 1px + var(--obs-rail-i) * var(--obs-indent));
   width: 0;
-  border-left: 2px solid var(--t-bd6);
+  /* Git-branch treatment (viz rebuild 2026-08): the rail draws in the colour of
+     the AGENT occupying this column at this row (logTreeModel), the SAME colour
+     that agent's gantt lane uses. Rows with no branch facts (pre-P5 fixtures)
+     fall back to the neutral border token, the pre-existing look. */
+  border-left: 2px solid var(--obs-rail-color, var(--t-bd6));
 }
 
 .obs-log__rail[data-i='0'] {
-  border-left-color: var(--t-grad1);
+  border-left-color: var(--obs-rail-color, var(--t-grad1));
 }
 
 /* Branch-open/close elbow (~8244025's `hasOut`/`hasIn`): bridges the last
@@ -363,26 +367,40 @@
  * rail's center (ex = 13 + 26·depth), spans 27px so its 2px right border
  * lands exactly over the child rail one indent to the right, and rounds
  * with a 9px corner radius. */
+/* The fork (open) / merge (close) elbow draws in the CHILD branch's colour —
+   the elbow belongs to the branch it creates or retires, so a spawn visibly
+   hands off from the parent's rail into the child's own colour. */
+/* `--obs-elbow-span` is how many columns the elbow reaches (1 normally; more
+   when a spawn's child lands past a concurrent sibling's column). */
 .obs-log__elbow {
   position: absolute;
   left: calc(var(--obs-rail-x) + var(--obs-rail-i) * var(--obs-indent));
-  width: calc(var(--obs-indent) + 1px);
+  width: calc(var(--obs-elbow-span, 1) * var(--obs-indent) + 1px);
   box-sizing: border-box;
-  border-right: 2px solid var(--t-bd6);
+  border-right: 2px solid var(--obs-rail-color, var(--t-bd6));
 }
 
 .obs-log__elbow[data-edge='open'] {
   top: 50%;
   height: 50%;
-  border-top: 2px solid var(--t-bd6);
+  border-top: 2px solid var(--obs-rail-color, var(--t-bd6));
   border-top-right-radius: 9px;
 }
 
 .obs-log__elbow[data-edge='close'] {
   top: 0;
   height: 50%;
-  border-bottom: 2px solid var(--t-bd6);
+  border-bottom: 2px solid var(--obs-rail-color, var(--t-bd6));
   border-bottom-right-radius: 9px;
+}
+
+/* The generic-event ring sits ON its branch's rail and carries no other
+   meaning, so it takes the branch colour. The markers whose colour is already
+   SEMANTIC are left alone on purpose: the artifact diamond stays teal, the
+   running dot stays amber, the failure ✗ stays red, the user/tool badges keep
+   their kind colours — a branch colour must never overwrite a status colour. */
+.obs-log__node[data-shape='ring'] {
+  border-color: var(--obs-branch, var(--t-bd6));
 }
 
 /* Every marker shape is translate-CENTERED on its rail center (13 + 26·depth,
@@ -391,7 +409,9 @@
 .obs-log__node {
   position: absolute;
   top: 50%;
-  left: calc(var(--obs-rail-x) + var(--obs-depth) * var(--obs-indent));
+  /* The marker sits on its AGENT's rail column (`--obs-node-col`), which equals
+     the row's depth until concurrent siblings force separate columns. */
+  left: calc(var(--obs-rail-x) + var(--obs-node-col) * var(--obs-indent));
   z-index: 1;
   display: grid;
   place-items: center;
@@ -432,6 +452,70 @@
 .obs-gantt {
   min-width: 580px;
   font-family: var(--f-mono);
+}
+
+/* Zoom controls + the visible-window readout. The gantt's time axis is a real
+   zoomable scale now (d3-scale/d3-zoom), so the surface states its current
+   window and offers keyboard-reachable zoom in/out/fit alongside the wheel and
+   drag gestures — the gesture is never the ONLY way in. */
+.obs-gantt__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 6px;
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+}
+
+.obs-gantt__window {
+  color: var(--t-tx);
+}
+
+.obs-gantt__zoomgroup {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.obs-gantt__zoombtn {
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 4px;
+  background: var(--t-sf2);
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.obs-gantt__zoombtn:hover {
+  border-color: var(--t-cy4);
+  color: var(--t-cy);
+}
+
+.obs-gantt__zoombtn:focus-visible {
+  outline: 2px solid var(--t-cy3);
+  outline-offset: 1px;
+}
+
+.obs-gantt__zoombtn--fit[data-zoomed='true'] {
+  border-color: var(--t-cy4);
+  color: var(--t-cy);
+}
+
+.obs-gantt__hint {
+  margin-left: auto;
+  color: var(--t-dis);
+}
+
+/* The zoom/pan capture target. `touch-action: none` is required for d3-zoom's
+   pointer gestures; overflow is hidden so a bar clipped by the current window
+   cannot paint outside the plot. */
+.obs-gantt__plot {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .obs-gantt__axis,
@@ -498,13 +582,35 @@
 }
 
 .obs-gantt__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
   padding-right: 12px;
   color: var(--t-mu);
   font-size: calc(11.5px * var(--ts));
   line-height: 26px;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The lane's branch swatch — the one place the branch colour is stated as
+   identity rather than as part of a bar, so the legend is the row itself. */
+.obs-gantt__swatch {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--obs-branch, var(--t-cy));
+}
+
+.obs-gantt__labeltext {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Continuation marker on a branch's 2nd+ lane (an overlap forced the split). */
+.obs-gantt__cont {
+  color: var(--t-dis);
 }
 
 .obs-gantt__row[data-depth='0'] .obs-gantt__label {
@@ -526,13 +632,38 @@
   height: 12px;
   overflow: hidden;
   padding: 0 4px;
-  border: 1px solid var(--t-cy5);
+  /* Per-branch identity colour (ganttModel.branchColor) — fanout siblings are
+     separate lanes AND separate colours, so two concurrent children can never
+     be confused for one. `color-mix` keeps one palette entry driving border,
+     fill and text at three different weights. */
+  border: 1px solid color-mix(in srgb, var(--obs-branch, var(--t-cy)) 60%, transparent);
   border-radius: 3px;
-  background: var(--t-cy12);
-  color: var(--t-cy);
+  background: color-mix(in srgb, var(--obs-branch, var(--t-cy)) 16%, transparent);
+  color: var(--obs-branch, var(--t-cy));
   font-size: calc(9.5px * var(--ts));
   line-height: 1;
   white-space: nowrap;
+  cursor: default;
+}
+
+/* A bar whose real start/end lies outside the current zoom window squares off
+   on that side — the flat edge says "this continues past the view" instead of
+   pretending the span ends where the viewport does. */
+.obs-gantt__bar[data-clip-start='true'] {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left-style: dashed;
+}
+
+.obs-gantt__bar[data-clip-end='true'] {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right-style: dashed;
+}
+
+.obs-gantt__barlabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .obs-gantt__bar[data-state='running'] {
@@ -572,11 +703,64 @@
 
 /* The root session's own calls (spawn/wait/…) as nested bars: dimmer than
  * agent spans, same real-time placement. Mirrors the prototype's dim
- * depth-2 bar treatment. */
-.obs-gantt__bar[data-tool='true'] {
+ * depth-2 bar treatment. They stay on main's branch (and main's colour) but
+ * read quieter, so main's own turn bar still leads the lane group. */
+.obs-gantt__bar[data-tool='true']:not([data-state='running']):not([data-state='failed']) {
   border-color: var(--t-bd6);
   background: var(--t-sf2);
   color: var(--t-mu);
+}
+
+/* Hover detail. Fixed-positioned against the viewport because the plot clips
+   its own overflow — a tooltip inside it would be cut off at the lane edge. */
+.obs-gantt__tip {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  max-width: 320px;
+  margin: 14px 0 0 14px;
+  padding: 7px 9px;
+  border: 1px solid var(--t-bd4);
+  border-left: 3px solid var(--obs-branch, var(--t-cy));
+  border-radius: 5px;
+  background: var(--t-sf);
+  box-shadow: var(--t-shadow);
+  color: var(--t-tx);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.obs-gantt__tipname {
+  overflow: hidden;
+  color: var(--t-hd);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-gantt__tipagent {
+  color: var(--obs-branch, var(--t-cy));
+}
+
+.obs-gantt__tiprow {
+  color: var(--t-mu);
+}
+
+.obs-gantt__tipstate {
+  color: var(--t-mu);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.obs-gantt__tipstate[data-state='running'] {
+  color: var(--t-ac);
+}
+
+.obs-gantt__tipstate[data-state='failed'] {
+  color: var(--t-er);
 }
 
 /* Per-call wrench mark on an agent's lane (the prototype's `toolMarks`,

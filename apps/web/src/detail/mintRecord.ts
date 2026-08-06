@@ -382,11 +382,23 @@ export function routeFromLineage(graphIn: LineageGraph, context: RouteMintContex
     for (const edge of outgoing) {
       usedEdges.add(edge);
       const target = position.get(edge.from === id ? edge.to : edge.from) ?? index + 1;
+      // The wire's own direction decides which endpoint is the producer side:
+      // `generated` runs activity→artifact and `used` runs artifact→activity,
+      // so `edge.from` always feeds `edge.to`; `revision_of` runs newer→older,
+      // so the OLDER (`to`) side is the producer. Both indices are the walk's
+      // own positions, never a guess.
+      const here = index;
+      const older = edge.type === 'revision_of' ? (edge.to === id ? here : target) : undefined;
+      const fromIndex =
+        older !== undefined ? older : edge.from === id ? here : target;
+      const toIndex = fromIndex === here ? target : here;
       steps.push({
         kind: 'edge',
         edge: EDGE_KINDS[edge.type] ?? 'derived',
         ...(edge.evidence ? { stance: str(edge.evidence) } : {}),
         ...(target > index + 1 ? { join: true } : {}),
+        fromIndex,
+        toIndex,
       });
     }
   });

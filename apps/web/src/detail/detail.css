@@ -375,25 +375,83 @@
   font-size: calc(10.5px * var(--ts));
 }
 
+/* The lineage DAG canvas (React Flow). Height is set inline from the laid-out
+   graph's own extent, clamped to a band — small chains stay compact, long ones
+   pan rather than pushing the panel open. */
 .detail__lineage {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--t-bd2);
+  border-radius: 7px;
+  background: var(--t-bg);
   font-family: var(--f-mono);
   font-size: calc(11.5px * var(--ts));
+}
+
+/* React Flow ships its own light-ish chrome; the panel owns the palette, so
+   every surface it paints is re-tokenised here rather than left to the vendor
+   stylesheet. */
+.detail__lineage .react-flow__background {
+  color: var(--t-bd12);
+}
+
+.detail__lineage .react-flow__edge-path,
+.detail__lineage .detail__ledgepath {
+  stroke: var(--t-bd5);
+  stroke-width: 1.5;
+}
+
+.detail__lineage .react-flow__edge:hover .detail__ledgepath {
+  stroke: var(--t-cy);
+}
+
+.detail__lineage .react-flow__handle {
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+}
+
+.detail__lineage .react-flow__controls {
+  box-shadow: none;
+}
+
+.detail__lineage .react-flow__controls-button {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-bottom: 1px solid var(--t-bd2);
+  background: var(--t-sf2);
+  fill: var(--t-mu);
+}
+
+.detail__lineage .react-flow__controls-button:hover {
+  background: var(--t-hv);
+  fill: var(--t-cy);
 }
 
 /* One node line: glyph + name + inline muted sub-info. Whole-line hit target;
    never a bordered rectangle spanning the column. */
 .detail__lnode {
   display: flex;
-  align-items: baseline;
+  width: 100%;
+  height: 100%;
+  align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 2px 4px;
+  box-sizing: border-box;
+  padding: 2px 6px;
   border: 0;
   border-radius: 5px;
-  background: transparent;
+  /* The node sits on the canvas (and sometimes over a cluster box), so it owns
+     an opaque backing — otherwise an edge path would read straight through the
+     line's own text. */
+  background: var(--t-sf);
+  box-shadow: 0 0 0 1px var(--t-bd12);
   color: var(--t-tx);
   font: inherit;
   text-align: left;
@@ -469,10 +527,10 @@ button.detail__lnode:hover .detail__lname {
    artifact has downstream consumers) below it. Brighter glyph +
    highlighted name + the you-are-here marker. */
 .detail__lnode[data-self='true'] {
-  margin-left: -8px;
   padding-left: 6px;
   border-left: 2px solid var(--t-cy);
   background: var(--t-hv);
+  box-shadow: 0 0 0 1px var(--t-cy4);
 }
 
 .detail__lnode[data-self='true'] .detail__lglyph {
@@ -524,22 +582,27 @@ button.detail__lnode:hover .detail__lname {
   border-color: var(--t-er);
 }
 
-/* Edge connector line: `╰ verb → evidence` on the left rail, evidence teal.
-   A join edge trails a ╮ elbow toward its non-adjacent consumer. */
+/* Edge label: `verb → evidence`, evidence teal, drawn at the midpoint of the
+   real connector path (the `╰` rail glyph and the `╮` join stand-in are gone —
+   the geometry itself now draws the branch and the join). */
 .detail__ledge {
+  position: absolute;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  padding: 1px 4px;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 5px;
+  border: 1px solid var(--t-bd2);
   border-radius: 5px;
+  background: var(--t-sf);
   white-space: nowrap;
   font-size: calc(10.5px * var(--ts));
+  pointer-events: all;
 }
 
-.detail__lelbow {
-  flex-shrink: 0;
-  color: var(--t-dis);
+/* An edge whose consumer is not the immediately following node — a real
+   converging branch. The dotted border says "this one travels". */
+.detail__ledge[data-join='true'] {
+  border-style: dashed;
 }
 
 .detail__ledgeverb {
@@ -559,16 +622,19 @@ button.detail__lnode:hover .detail__lname {
   color: var(--t-cy);
 }
 
-.detail__ljoin {
-  flex-shrink: 0;
-  color: var(--t-dis);
-}
-
-/* Foreign session cluster: one-line clickable header, dimmed ┆ rail on every
-   line the foreign session produced. */
+/* Foreign session cluster (spec rule 3): the nodes that session produced sit
+   inside a real dimmed region with a one-line clickable header, replacing the
+   per-line `┆` rail glyph the flat list used to stand in for a group. */
 .detail__cluster {
   display: flex;
+  width: 100%;
+  height: 100%;
   flex-direction: column;
+  box-sizing: border-box;
+  border: 1px dashed var(--t-bd35);
+  border-radius: 7px;
+  background: var(--t-sf2);
+  opacity: 0.92;
 }
 
 .detail__clusterhead {
@@ -618,11 +684,6 @@ button.detail__clusterhead:hover .detail__clustersess {
 .detail__clustergo {
   flex-shrink: 0;
   color: var(--t-cy);
-}
-
-.detail__lrail {
-  flex-shrink: 0;
-  color: var(--t-dis);
 }
 
 /* The recreate tab's eyebrow + replay pill row. */

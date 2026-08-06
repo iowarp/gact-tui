@@ -15,7 +15,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { Observability, type ObservabilityProps } from '../../src/observability/Observability';
 import type { ObservabilityData } from '../../src/observability/types';
 
-/** Captured-shape fixture: two completed spans + one running, one artifact. */
+/**
+ * Captured-shape fixture: two completed spans + one running, one artifact.
+ *
+ * FIXTURE REPAIRED — viz rebuild 2026-08: the span timestamps used to be raw
+ * offsets from 0, i.e. 1 Jan 1970. That was invisible while the gantt's axis was
+ * bounded purely by the data, but a RUNNING span now extends to the wall clock
+ * (it really is still elapsing), which put the axis 56 years wide and squashed
+ * every bar to a sliver. The offsets are unchanged and every assertion below
+ * still means what it meant; they are simply anchored to a real recent instant,
+ * the way any captured session's stamps would be.
+ */
+const BASE = Date.now() - 15 * 60_000;
 const DATA = {
   agents: [],
   runs: [],
@@ -47,8 +58,8 @@ const DATA = {
       id: 'sp1',
       label: 'main · turn 1',
       depth: 0,
-      startMs: 0,
-      endMs: 540000,
+      startMs: BASE,
+      endMs: BASE + 540000,
       state: 'done',
       duration: '9m',
     },
@@ -56,8 +67,8 @@ const DATA = {
       id: 'sp2',
       label: 'geospatial',
       depth: 1,
-      startMs: 10000,
-      endMs: 70000,
+      startMs: BASE + 10000,
+      endMs: BASE + 70000,
       state: 'done',
       duration: '1m',
       artifacts: 0,
@@ -66,8 +77,8 @@ const DATA = {
       id: 'sp3',
       label: 'data',
       depth: 1,
-      startMs: 80000,
-      endMs: 320000,
+      startMs: BASE + 80000,
+      endMs: BASE + 320000,
       state: 'done',
       duration: '4m',
       artifacts: 1,
@@ -76,7 +87,7 @@ const DATA = {
       id: 'sp4',
       label: 'main · turn 2',
       depth: 0,
-      startMs: 700000,
+      startMs: BASE + 700000,
       endMs: null,
       state: 'running',
     },
@@ -142,7 +153,13 @@ describe('timeline (log + gantt)', () => {
     const { container } = renderObs();
     fireEvent.click(screen.getByRole('button', { name: /^gantt$/i }));
     const rows = container.querySelectorAll('.obs-gantt__row');
-    expect(rows.length).toBe(4);
+    // PIN UPDATED — viz rebuild 2026-08 (was 4, one row per span). A row is now
+    // a LANE, not a span: `main · turn 1` and `main · turn 2` are the same
+    // agent's consecutive, non-overlapping turns, so they share main's lane.
+    // The four spans still render as four bars; the three lanes are
+    // main / geospatial / data, and no two overlapping spans share one.
+    expect(rows.length).toBe(3);
+    expect(container.querySelectorAll('.obs-gantt__bar').length).toBe(4);
     expect(rows[1]!.getAttribute('data-depth')).toBe('1');
     const running = container.querySelector('.obs-gantt__bar[data-state="running"]');
     expect(running).not.toBeNull();
