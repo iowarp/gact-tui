@@ -161,3 +161,25 @@ checked off with the commit that lands it. Newest first.
    teal "returned to main" card wrapping the answer.
 7. **If anything looks wrong**: do not reset mid-demo — the transcript is
    durable; a reload is safe (replay shells no longer clobber state).
+
+### Round-9 additions (2026-08-06, after the fanout/instrumentation wave + kit 2.7.0)
+
+8. **NDP warm-up call** (issue evidence: clio-kit#351, round-9 timeouts): before
+   the demo, drive ONE real `ndp_search_datasets` through the live server (a
+   throwaway session is fine). This (a) proves the NDP pilot host
+   (155.101.6.191:8003, plain HTTP, no fallback) is healthy RIGHT NOW, and
+   (b) lets spawn_diet learn/persist the fast launcher plan for ndp (it drops
+   the plan on a failed first spawn — currently only geo is learned).
+9. **No duplicate serve**: `Get-CimInstance Win32_Process | ? { $_.CommandLine
+   -like '*clio-agent.exe*serve*' }` — expect ONE spawn chain (launcher →
+   venv python → uv python). Port-collided strays raced the real serve twice
+   today. Also check for orphaned `clio-kit.exe mcp-server` processes from
+   prior stops (clio-agent#1197) — they hold the tool venv and eat RAM.
+10. **Cold-catalog cost is paid**: envs for geo/ndp/pandas/plot were rebuilt
+    for kit 2.7.0 on 2026-08-06 and the catalog is warm on the current serve.
+    If the server restarts, first-turn catalog build is fast on warm envs —
+    but after any kit reinstall expect the ~2.5 min synchronous stall
+    (clio-agent#1198) ONCE; pay it with a throwaway turn before the audience.
+11. **UI serve**: vite preview binds IPv6 — the browser URL is
+    http://localhost:4173 (NOT 127.0.0.1). If it's down:
+    `cd apps/web && pnpm exec vite preview --port 4173 --strictPort`.
