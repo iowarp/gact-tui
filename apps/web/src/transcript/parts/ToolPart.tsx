@@ -284,9 +284,15 @@ type InterpretedResult =
  * `wait_agent_tasks`/`check_agent_tasks`' own result shape (owner, round-7
  * live fan-out session: the expanded well showed a raw
  * `{"merged_workflow_state": {...}` dump): a `results` array alongside
- * `merged_workflow_state` and/or `workflow_state_conflicts`. Detected by
- * shape (duck-typed) rather than by re-reading the call's tool name here —
- * `interpretResult` only ever sees the result part, not the call.
+ * `merged_workflow_state` and/or `workflow_state_conflicts`.
+ *
+ * This is a VALIDITY check on an already-gated structured payload, never a
+ * discovery mechanism on its own (adversarial review, P4R finding A): the
+ * caller must first confirm the call's own tool name is wait-family AND a
+ * real `structured_content` is present — see the gate in
+ * {@link interpretResult}. Duck-typing this shape off the model-facing TEXT
+ * lane silently swept every historical wait result (written before
+ * `structured_content` existed) into this ladder; that fallback is gone.
  */
 function isWaitResultShape(obj: Record<string, unknown>): boolean {
   return (
@@ -322,8 +328,15 @@ function buildWaitInterpretation(obj: Record<string, unknown>): Extract<Interpre
 
 /**
  * The result render ladder (owner design 2026-08-05), replacing "print the
- * JSON string and hope": the wait-family result shape first (its own
- * dedicated rungs, see {@link buildWaitInterpretation}), then
+ * JSON string and hope": the wait-family result shape first — gated on BOTH
+ * the call's own `tool_name` (`wait_agent_tasks`/`check_agent_tasks`) AND a
+ * real `structured_content` payload, never duck-typed off the model-facing
+ * text (adversarial review, P4R finding A: a text-shape guess silently
+ * swept every HISTORICAL wait result — written before `structured_content`
+ * existed — into this ladder; those old sessions must keep rendering exactly
+ * as they did before this ladder existed, off the same rungs below /
+ * generic KV/table/raw handling everything else gets) — its own dedicated
+ * rungs, see {@link buildWaitInterpretation}, then
  * `structured_content` (a root array of uniform objects -> a real table; a
  * root OBJECT -> the KV grid, or — round-6 fix — KV grid + a labeled table
  * per qualifying array-valued key + a collapsed section per qualifying
@@ -334,11 +347,10 @@ function buildWaitInterpretation(obj: Record<string, unknown>): Extract<Interpre
  * — anything else falls through to the next rung, and the bottom rung is
  * the untouched raw `<pre>`.
  */
-function interpretResult(result: WirePart, text: string): InterpretedResult {
+function interpretResult(result: WirePart, text: string, toolName: string): InterpretedResult {
   const structured = extractStructuredContent(result);
-  const candidate = isRecord(structured) ? structured : parseJsonObject(text);
-  if (candidate && isWaitResultShape(candidate)) {
-    return buildWaitInterpretation(candidate);
+  if (WAIT_AGENT_TOOL_NAMES.has(toolName) && isRecord(structured) && isWaitResultShape(structured)) {
+    return buildWaitInterpretation(structured);
   }
 
   if (isUniformObjectArray(structured)) {
@@ -593,7 +605,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const hasTitle = !waited && typeof rawTitle === 'string';
   const displayName = waited ? 'wait' : hasTitle ? sanitizeTitle(rawTitle, name) : name;
   const argHint = waited
-    ? truncate(waited.map((t) => t.name).join(', '), ARG_HINT_MAX)
+    ? truncate(normalizeWhitespace(waited.map((t) => t.name).join(', ')), ARG_HINT_MAX)
     : firstArgHint(call['input']);
   // server_title has no display surface yet beyond a `title` attribute
   // (grouping/breadcrumb is a later surface) — never a fabricated group
@@ -647,7 +659,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
           {!waited && params.length > 0 ? <KvRows rows={params} /> : null}
           {result ? (
             (() => {
-              const interpreted = interpretResult(result, text);
+              const interpreted = interpretResult(result, text, name);
               switch (interpreted.kind) {
                 case 'kv':
                   return (

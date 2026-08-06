@@ -335,6 +335,50 @@ describe('absence of every new field/shape -- regression pin', () => {
     expect(table).toHaveTextContent('1101');
     expect(document.querySelector('.part-toolrow__result')).toBeNull();
   });
+
+  /**
+   * Finding A (adversarial review, P4R): the wait ladder used to duck-type
+   * off `isRecord(structured_content) ? structured_content :
+   * parseJsonObject(text)` — a wait-family tool result with wait-shaped JSON
+   * in its TEXT lane but no `structured_content` field (exactly what every
+   * HISTORICAL wait result looks like, written before `structured_content`
+   * existed on this tool) silently rendered through the wait ladder anyway.
+   * The gate now requires BOTH the call's own tool_name AND a real
+   * `structured_content` payload -- a text-only wait-shaped result must
+   * render EXACTLY as it did before the wait ladder existed: the plain
+   * JSON-object KV path above, never any wait-specific rung.
+   */
+  it('a wait-shaped TEXT result with no structured_content renders via the generic KV path, not the wait ladder (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('wait_agent_tasks', {}, 'call_40')}
+        result={toolResult('call_40', {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                results: [{ task_id: 't1', name: 'geospatial #1', status: 'completed' }],
+                merged_workflow_state: { region: 'LA' },
+              }),
+            },
+          ],
+        })}
+      />,
+    );
+    openRow(/wait_agent_tasks/);
+    // None of the wait-ladder's dedicated rungs fire.
+    expect(screen.queryByTestId('part-tool-result-subtable-label')).toBeNull();
+    expect(screen.queryByTestId('part-tool-wait-results')).toBeNull();
+    expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-section')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result-grid')).toBeNull();
+    // Instead: the exact same plain JSON-object KV path every other
+    // non-wait JSON result gets -- both top-level keys present verbatim,
+    // nothing swallowed by the wait interpretation.
+    const table = screen.getByTestId('part-tool-result-table');
+    expect(table).toHaveTextContent('results');
+    expect(table).toHaveTextContent('merged_workflow_state');
+  });
 });
 
 /**
@@ -558,5 +602,66 @@ describe('wait result shape -- results/workflow_state_conflicts/merged_workflow_
     // Falls through to the plain uniform-array table rung instead.
     const grid = screen.getByTestId('part-tool-result-grid');
     expect(within(grid).getAllByRole('row')).toHaveLength(1 + 3);
+  });
+});
+
+/**
+ * Finding A (adversarial review, P4R): the wait interpretation branch
+ * requires BOTH the call's own tool_name being wait-family AND a real
+ * `structured_content` payload -- `isWaitResultShape` alone is a validity
+ * check on that payload, never a discovery mechanism. These pin each half
+ * of the AND independently.
+ */
+describe('wait ladder gate -- BOTH tool_name AND structured_content are required (adversarial review finding A)', () => {
+  it('structured_content matching the wait shape on a NON-wait-family tool never enters the wait ladder', () => {
+    // The shape alone (results + merged_workflow_state) would satisfy
+    // isWaitResultShape -- the tool_name half of the gate is what must stop
+    // it here.
+    render(
+      <ToolPart
+        call={toolCall('not_a_wait_tool', {}, 'call_41')}
+        result={toolResult('call_41', {
+          content: [{ type: 'text', text: 'batch done' }],
+          structured_content: {
+            results: [
+              { task_id: 't1', name: 'geospatial #1', status: 'completed' },
+              { task_id: 't2', name: 'hydrology #1', status: 'completed' },
+            ],
+            merged_workflow_state: { region: 'LA' },
+          },
+        })}
+      />,
+    );
+    openRow(/not_a_wait_tool/);
+    expect(screen.queryByTestId('part-tool-wait-results')).toBeNull();
+    expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
+    // Falls through to the generic per-key table/section split instead --
+    // `results` still renders in full (nothing dropped), just off the
+    // generic object rung rather than the wait-specific one.
+    const label = screen.getByTestId('part-tool-result-subtable-label');
+    expect(label).toHaveTextContent('results (2)');
+    expect(screen.getByTestId('part-tool-result-section')).toHaveTextContent('merged_workflow_state');
+  });
+
+  it('a wait-family tool with structured_content that does NOT match the wait shape falls through to the generic rungs, no crash (finding D gap)', () => {
+    // tool_name matches, structured_content is present, but the payload
+    // shape itself is not a wait result (no `results` array) -- proves
+    // isWaitResultShape still gates as a VALIDITY check even once the
+    // tool_name half of the gate is satisfied.
+    render(
+      <ToolPart
+        call={toolCall('check_agent_tasks', {}, 'call_42')}
+        result={toolResult('call_42', {
+          content: [{ type: 'text', text: 'polled' }],
+          structured_content: { status: 'pending', polled_at: '2026-08-06T00:00:00Z' },
+        })}
+      />,
+    );
+    openRow(/check_agent_tasks/);
+    expect(screen.queryByTestId('part-tool-wait-results')).toBeNull();
+    expect(screen.queryByTestId('part-tool-wait-conflicts')).toBeNull();
+    const kv = screen.getByTestId('part-tool-result-table');
+    expect(kv).toHaveTextContent('status');
+    expect(kv).toHaveTextContent('pending');
   });
 });

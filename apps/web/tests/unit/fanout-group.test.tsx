@@ -202,3 +202,110 @@ describe('fanout group — absent spawn_group_id renders exactly as before (regr
     expect(screen.getByText('Call(geospatial)')).toBeInTheDocument();
   });
 });
+
+/**
+ * Finding C (adversarial review, P4R): the title's count must never
+ * UNDERSTATE what's actually rendered. `group_size` is normally the true
+ * declared total, but when more sibling parts are actually on screen than
+ * it claims, the header must name the larger, actually-visible count.
+ */
+describe('fanout group — title never understates the actual sibling count (finding C)', () => {
+  it('when more sibling parts render than the declared group_size, the title uses the larger count', () => {
+    const fourSiblings = ['a', 'b', 'c', 'd'].map((letter, i) =>
+      sibling({
+        handle_id: `task_${letter}`,
+        run_label: `geospatial #${i + 1}`,
+        metadata: {
+          question: `Resolve station ${letter.toUpperCase()}.`,
+          output: `${letter.toUpperCase()} resolved.`,
+          spawn_group_id: GROUP_ID,
+          // Every sibling declares the SAME (understated) group_size.
+          group_size: 3,
+        },
+      }),
+    );
+    render(<Transcript messages={[msg('m1', fourSiblings)]} />);
+    expect(screen.getByText('fanout(geospatial × 4)')).toBeInTheDocument();
+    expect(screen.queryByText('fanout(geospatial × 3)')).toBeNull();
+    expect(screen.getAllByTestId('part-fanout-child')).toHaveLength(4);
+  });
+});
+
+/**
+ * Finding D (adversarial review, P4R + a parallel clio-agent change): a
+ * terminal failed-sibling handoff part for a failed spawn in a batch — same
+ * `spawn_group_id` as its successful siblings, `status: "failed"`, and its
+ * own failure reason on `metadata.error`. Extends the existing
+ * mixed-success handling (frameState/footText already fold a per-row
+ * 'error' status into the shared vocabulary) with the actual error
+ * AFFORDANCE: the failure reason rendered on the row, not just the
+ * generic "failed" label the dot/foot already carry.
+ */
+describe('fanout group — a failed sibling renders sanely (finding D)', () => {
+  const MIXED_WITH_FAILURE = [
+    sibling({
+      handle_id: 'task_a',
+      run_label: 'geospatial #1',
+      metadata: {
+        question: 'Resolve station A into coordinates.',
+        output: 'A resolved.',
+        spawn_group_id: GROUP_ID,
+        group_size: 3,
+      },
+    }),
+    sibling({
+      handle_id: 'task_b',
+      run_label: 'geospatial #2',
+      status: 'failed',
+      stage: 'delegate.failed',
+      duration_ms: 4200,
+      metadata: {
+        question: 'Resolve station B into coordinates.',
+        spawn_group_id: GROUP_ID,
+        group_size: 3,
+        error: 'agent_error: tool timeout after 60s',
+      },
+    }),
+    sibling({
+      handle_id: 'task_c',
+      run_label: 'geospatial #3',
+      metadata: {
+        question: 'Resolve station C into coordinates.',
+        output: 'C resolved.',
+        spawn_group_id: GROUP_ID,
+        group_size: 3,
+      },
+    }),
+  ];
+
+  it('one failed sibling in an otherwise successful batch still marks the FRAME-level error state, not just its own row', () => {
+    render(<Transcript messages={[msg('m1', MIXED_WITH_FAILURE)]} />);
+    const frame = screen.getByTestId('part-fanout-group');
+    expect(frame).toHaveAttribute('data-state', 'error');
+  });
+
+  it('the failed row shows the error dot, a "failed" status, and its own metadata.error text — the other siblings are unaffected', () => {
+    render(<Transcript messages={[msg('m1', MIXED_WITH_FAILURE)]} />);
+    const rows = screen.getAllByTestId('part-fanout-child');
+    const failedRow = rows[1]!;
+    expect(failedRow).toHaveAttribute('data-state', 'error');
+    expect(failedRow.querySelector('.kit-statusdot')).toHaveAttribute('data-state', 'error');
+    expect(failedRow).toHaveTextContent('failed');
+    const errorText = within(failedRow).getByTestId('part-fanout-child-error');
+    expect(errorText).toHaveTextContent('agent_error: tool timeout after 60s');
+    // The error text never leaks onto a successful sibling's row.
+    expect(rows[0]).not.toHaveTextContent('agent_error');
+    expect(rows[2]).not.toHaveTextContent('agent_error');
+    expect(within(rows[0]!).queryByTestId('part-fanout-child-error')).toBeNull();
+    expect(within(rows[2]!).queryByTestId('part-fanout-child-error')).toBeNull();
+  });
+
+  it('collapsing the frame still shows the failed sibling as its own "failed" line, in error state', () => {
+    render(<Transcript messages={[msg('m1', MIXED_WITH_FAILURE)]} />);
+    const toggle = screen.getByRole('button', { name: /fanout\(geospatial × 3\)/ });
+    fireEvent.click(toggle);
+    const rows = screen.getAllByTestId('part-fanout-child');
+    expect(rows[1]).toHaveAttribute('data-state', 'error');
+    expect(rows[1]).toHaveTextContent('failed');
+  });
+});

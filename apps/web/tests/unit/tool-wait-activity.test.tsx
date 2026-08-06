@@ -165,6 +165,21 @@ describe('a settled wait row renders resolved names, never raw task-id JSON', ()
     expect(screen.queryByText('task_ids')).toBeNull();
   });
 
+  it('normalizes an embedded newline in a resolved name so the header stays one line (finding B)', () => {
+    // A server-carried name with a literal newline (or other run of
+    // whitespace) must collapse to a single space the same way every other
+    // arg-hint site in this file does (firstArgHint, ARG_HINT_MAX truncate)
+    // -- otherwise it breaks the single-line flex row.
+    const namesWithNewline = [
+      { ...NAMES[0]!, name: 'geospatial\n#1' },
+      NAMES[1]!,
+    ];
+    const call = waitCallWithMetadata(namesWithNewline);
+    render(<ToolPart call={call} result={waitResult('call_wait')} />);
+    expect(screen.getByText('(geospatial #1, hydrology #1)')).toBeInTheDocument();
+    expect(screen.queryByText(/geospatial\n#1/)).toBeNull();
+  });
+
   it('fallback: absent waited_tasks renders exactly today\'s name(argHint) row (regression pin)', () => {
     const call: WirePart = {
       type: 'tool_call',

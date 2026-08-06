@@ -54,6 +54,12 @@ interface FanoutRow {
   handleId: string;
   status: SessionStatus;
   question: string;
+  /** `metadata.error` off a failed sibling (wire contract: a terminal
+   *  failed-sibling handoff part in a fanout batch carries `status:
+   *  "failed"` plus its own `metadata.error`) — read only when the row
+   *  actually classified as `error`, never surfaced for a running/completed
+   *  sibling even if some stray `error` key were present on its metadata. */
+  error: string;
   durationRaw: number;
   preview: ChildPreview | undefined;
   running: boolean;
@@ -65,10 +71,23 @@ function buildRow(part: WirePart, childPreviews: FanoutGroupProps['childPreviews
   const handleId = handleIdOf(part);
   const settled = settledOf(part);
   const status = delegateStatus(part, settled);
-  const question = str(metadataOf(part)['question']);
+  const meta = metadataOf(part);
+  const question = str(meta['question']);
+  const error = status === 'error' ? str(meta['error']) : '';
   const durationRaw = Number(part['duration_ms'] ?? 0);
   const preview = handleId ? childPreviews?.[handleId] : undefined;
-  return { part, child, runLabel, handleId, status, question, durationRaw, preview, running: status === 'running' };
+  return {
+    part,
+    child,
+    runLabel,
+    handleId,
+    status,
+    question,
+    error,
+    durationRaw,
+    preview,
+    running: status === 'running',
+  };
 }
 
 /** Same click/shift-click/keyboard contract MergedHandoff's box uses — one
@@ -128,7 +147,13 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
   const [open, setOpen] = useState(true);
 
   const rows = parts.map((part) => buildRow(part, childPreviews));
-  const total = groupSizeOf(parts);
+  // The declared `group_size` is normally the true total, but it must never
+  // UNDERSTATE what's actually on screen (adversarial review, P4R finding
+  // C) — if more sibling parts rendered than the declared size claims (a
+  // stale/wrong field, or a batch that grew), the header names the larger,
+  // actually-visible count rather than silently hiding rows the title
+  // didn't promise.
+  const total = Math.max(groupSizeOf(parts), rows.length);
   const names = Array.from(new Set(rows.map((r) => r.child).filter(Boolean)));
   const title = names.length === 1 ? `fanout(${names[0]} × ${total})` : `fanout(${total} agents)`;
 
@@ -217,6 +242,15 @@ export function FanoutGroup({ parts, onOpenChild, childPreviews }: FanoutGroupPr
                 </span>
               </div>
               {row.question ? <p className="part-fanout__rowbrief">{row.question}</p> : null}
+              {/* The failure REASON, not just the "failed" label the dot/foot
+                  already carry — a batch sibling can fail before it ever
+                  produces a question/answer, so this is often the only
+                  content the row has to show for itself. */}
+              {row.error ? (
+                <p className="part-fanout__rowerror" data-testid="part-fanout-child-error">
+                  {row.error}
+                </p>
+              ) : null}
             </div>
           );
         })}
