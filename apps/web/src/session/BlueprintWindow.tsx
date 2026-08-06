@@ -15,7 +15,7 @@ import {
   type FileRow,
 } from './fileTree';
 import { DirRow } from './FilesLayer';
-import { decodeWorkspaceFilePreview, type FilePreview } from './filePreview';
+import { decodeWorkspaceFilePreview, splitFrontmatter, type FilePreview } from './filePreview';
 import './owner-surfaces.css';
 import './blueprintwindow.css';
 
@@ -418,7 +418,17 @@ const EXPLORER_CSV_SHOWN_ROWS = 50;
  * becomes a bounded table, binary files get a byte-count notice), plus a
  * markdown lane through the shared Markdown module for `.md`/`.markdown`
  * paths (decodeWorkspaceFilePreview reports those as plain `text`, since
- * `.md` isn't specifically an image/binary media type). */
+ * `.md` isn't specifically an image/binary media type).
+ *
+ * Blueprint expert files (`experts/main.md`, `AGENT.md`) open with a
+ * `---`-delimited YAML frontmatter block *before* their real markdown body
+ * (round-7 finding) — unlike transcript prose, which never carries
+ * frontmatter, so the shared Markdown module is correctly frontmatter-naive.
+ * `splitFrontmatter` peels that leading block off here: it renders as an
+ * honest dimmed raw block (never dropped), and only the remainder goes
+ * through the block parser — otherwise YAML comment lines inside the
+ * frontmatter (`# some note`) collide with the parser's heading token and
+ * the raw `key: value` / `---` lines leak into the body as unstyled prose. */
 function ExplorerPreview({
   selectedPath,
   preview,
@@ -482,9 +492,18 @@ function ExplorerPreview({
     );
   }
   if (isMarkdownPath(selectedPath)) {
+    const { frontmatter, body } = splitFrontmatter(preview.text);
     return (
       <div className="blueprintwindow__markdown" data-testid="blueprint-window-explorer-markdown">
-        <Markdown text={preview.text} />
+        {frontmatter !== null ? (
+          <pre
+            className="blueprintwindow__frontmatter"
+            data-testid="blueprint-window-explorer-frontmatter"
+          >
+            <code>{frontmatter}</code>
+          </pre>
+        ) : null}
+        <Markdown text={body} />
       </div>
     );
   }

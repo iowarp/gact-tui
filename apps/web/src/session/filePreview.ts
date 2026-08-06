@@ -64,3 +64,50 @@ export function decodeWorkspaceFilePreview(
   }
   return { kind: 'text', text };
 }
+
+export interface FrontmatterSplit {
+  /**
+   * The raw block between the delimiters, or `null` when the text doesn't
+   * open with a *closed* frontmatter block. An opening `---` with no
+   * matching close is left alone (frontmatter stays `null`, `body` is the
+   * whole input) rather than guessed at — a bare `---` is also valid
+   * markdown (a horizontal rule / setext heading underline) and misreading
+   * one as an unclosed frontmatter open would silently eat real content.
+   */
+  frontmatter: string | null;
+  /** Everything after the closing delimiter, or the whole input verbatim
+   * when there's no frontmatter block — never truncated, never re-flowed. */
+  body: string;
+}
+
+/**
+ * Split a LEADING YAML-frontmatter block (bp blueprint `experts/*.md`,
+ * `AGENT.md`) off the markdown body that follows it.
+ *
+ * Root cause this exists for (round-7 finding, blueprint explorer):
+ * `experts/main.md` opens with `---\nid: main\n...\n---` before its real
+ * `# heading`, and that frontmatter block itself contains YAML *comment*
+ * lines (`# Small-model-friendly pack: ...`) that collide with the
+ * transcript Markdown module's block grammar — `# ` at the start of a line
+ * is a first-class markdown heading token there, so those comments were
+ * misparsed as extra headings while the raw `key: value` lines and both
+ * `---` delimiters leaked into the rendered body as unstyled prose. Neither
+ * half is dropped by this split: the frontmatter is returned separately for
+ * an honest raw (dimmed, non-parsed) render, and only the real body is fed
+ * to the markdown block parser.
+ */
+export function splitFrontmatter(text: string): FrontmatterSplit {
+  const lines = text.split(/\r?\n/);
+  if ((lines[0] ?? '').trim() !== '---') {
+    return { frontmatter: null, body: text };
+  }
+  for (let i = 1; i < lines.length; i += 1) {
+    if ((lines[i] ?? '').trim() === '---') {
+      return {
+        frontmatter: lines.slice(1, i).join('\n'),
+        body: lines.slice(i + 1).join('\n'),
+      };
+    }
+  }
+  return { frontmatter: null, body: text };
+}

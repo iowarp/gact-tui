@@ -174,6 +174,112 @@ describe('BlueprintWindow', () => {
     expect(explorerMarkdown).toHaveTextContent('Drives sub-agent routing.');
   });
 
+  it('round-7: experts/main.md-shaped frontmatter renders as a dimmed raw block, headings still parse', async () => {
+    // The real defect shape: frontmatter with an internal `# comment` line
+    // that collides with the markdown parser's heading token, followed by
+    // the actual body headings.
+    const mainMd = [
+      '---',
+      'id: main',
+      'title: EarthScope GNSS Region Orchestrator',
+      'tier: 1',
+      '# Small-model-friendly pack: the four leaves proved solid under Haiku, but final',
+      '# synthesis is the one step that needs a stronger model.',
+      'default_model: sonnet',
+      '---',
+      '',
+      '# EarthScope GNSS Region Orchestrator',
+      '',
+      'You are the orchestrator.',
+      '',
+      '## Writing the final answer',
+      '',
+      'Prose only.',
+    ].join('\n');
+    const listBlueprintFiles = vi.fn(async () => ({
+      entries: [{ path: 'experts/main.md', type: 'file', size: mainMd.length }],
+    }));
+    const readBlueprintFile = vi.fn(async () => ({
+      data: Buffer.from(mainMd, 'utf-8').toString('base64'),
+      media_type: 'text/markdown',
+      size: mainMd.length,
+    }));
+    const client = stubClient(BACKED_DETAIL, { listBlueprintFiles, readBlueprintFile });
+    render(
+      <BlueprintWindow blueprintId="earthscope-flat" client={client} open onClose={() => {}} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('blueprint-window-explorer-tree')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText('experts'));
+    fireEvent.click(await screen.findByText('main.md'));
+
+    const explorerMarkdown = await screen.findByTestId('blueprint-window-explorer-markdown');
+    // The frontmatter renders as an honest, separate raw block...
+    const frontmatter = await screen.findByTestId('blueprint-window-explorer-frontmatter');
+    expect(frontmatter).toHaveTextContent('id: main');
+    expect(frontmatter).toHaveTextContent(
+      'Small-model-friendly pack: the four leaves proved solid under Haiku, but final',
+    );
+    // ...content preserved, never dropped...
+    expect(frontmatter).toHaveTextContent('default_model: sonnet');
+    // ...and is NOT parsed as markdown: the YAML comment line must not
+    // produce a heading role.
+    expect(frontmatter.querySelector('[role="heading"]')).toBeNull();
+
+    // The real body headings DO parse, now that they're not preceded/
+    // tangled with the frontmatter's own '# comment' lines.
+    const headings = explorerMarkdown.querySelectorAll('[role="heading"]');
+    const headingTexts = [...headings].map((h) => h.textContent);
+    expect(headingTexts).toContain('EarthScope GNSS Region Orchestrator');
+    expect(headingTexts).toContain('Writing the final answer');
+    // Exactly the 2 real body headings — none of the frontmatter's internal
+    // "# comment" lines leaked through as extra (fake) heading elements.
+    expect(headings.length).toBe(2);
+    expect(explorerMarkdown).toHaveTextContent('You are the orchestrator.');
+  });
+
+  it('a markdown file with no frontmatter renders unchanged — no frontmatter block, headings parse as before', async () => {
+    const listBlueprintFiles = vi.fn(async () => ({
+      entries: [
+        { path: 'AGENT.md', type: 'file', size: 32 },
+        { path: 'experts', type: 'dir' },
+        { path: 'experts/root.md', type: 'file', size: 48 },
+      ],
+    }));
+    const readBlueprintFile = vi.fn(async (_id: string, path: string) => {
+      if (path === 'experts/root.md') {
+        return {
+          data: Buffer.from('# Root Expert\n\nDrives sub-agent routing.', 'utf-8').toString(
+            'base64',
+          ),
+          media_type: 'text/markdown',
+          size: 40,
+        };
+      }
+      return {
+        data: Buffer.from('# EarthScope GNSS Region Agent', 'utf-8').toString('base64'),
+        media_type: 'text/markdown',
+        size: 30,
+      };
+    });
+    const client = stubClient(BACKED_DETAIL, { listBlueprintFiles, readBlueprintFile });
+    render(
+      <BlueprintWindow blueprintId="earthscope-flat" client={client} open onClose={() => {}} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('blueprint-window-explorer-tree')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText('experts'));
+    fireEvent.click(await screen.findByText('root.md'));
+
+    const explorerMarkdown = await screen.findByTestId('blueprint-window-explorer-markdown');
+    expect(explorerMarkdown.querySelector('[role="heading"]')).not.toBeNull();
+    expect(explorerMarkdown).toHaveTextContent('Root Expert');
+    expect(explorerMarkdown).toHaveTextContent('Drives sub-agent routing.');
+    expect(screen.queryByTestId('blueprint-window-explorer-frontmatter')).toBeNull();
+  });
+
   it('still lists the real served agents alongside the definition', async () => {
     const client = stubClient(BACKED_DETAIL);
     render(

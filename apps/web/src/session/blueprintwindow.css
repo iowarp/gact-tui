@@ -55,6 +55,24 @@
   background: var(--t-bg);
 }
 
+/* Leading YAML frontmatter block of a blueprint expert file (experts/*.md,
+   AGENT.md) — split off before markdown parsing (BlueprintWindow.tsx
+   ExplorerPreview / filePreview.ts splitFrontmatter) so it can't collide
+   with the block parser's heading token. Rendered honestly (never dropped),
+   just visually de-emphasized against the parsed body below it. */
+.blueprintwindow__frontmatter {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
+  background: var(--t-bg);
+  color: var(--t-mu);
+  font: calc(10.5px * var(--ts))/1.5 var(--f-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .blueprintwindow__empty { margin: 0; color: var(--t-mu); font: calc(11px * var(--ts))/1.5 var(--f-mono); }
 
 /* Honest-degrade notice — same red-hairline convention as the files layer's

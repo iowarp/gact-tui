@@ -10,7 +10,7 @@
  * "binary" notice instead of an attempted (corrupting) UTF-8 decode.
  */
 import { describe, expect, it } from 'vitest';
-import { base64ToUtf8, decodeWorkspaceFilePreview } from '../../src/session/filePreview';
+import { base64ToUtf8, decodeWorkspaceFilePreview, splitFrontmatter } from '../../src/session/filePreview';
 
 function toBase64(text: string): string {
   return Buffer.from(text, 'utf-8').toString('base64');
@@ -96,5 +96,63 @@ describe('decodeWorkspaceFilePreview', () => {
       expect(result.rows.length).toBe(200);
       expect(result.totalRows).toBe(500);
     }
+  });
+});
+
+/**
+ * Round-7 finding: the blueprint explorer renders `experts/main.md` through
+ * the markdown lane, but its leading YAML frontmatter (`---\nid: main\n...`)
+ * — which itself contains `# comment` lines that collide with the shared
+ * Markdown module's heading token — leaked into the parsed body instead of
+ * being split off. These cases pin the split in isolation from the render.
+ */
+describe('splitFrontmatter', () => {
+  it('splits a real blueprint expert file: frontmatter (including internal # comments) separate from the body', () => {
+    const text = [
+      '---',
+      'id: main',
+      'title: EarthScope GNSS Region Orchestrator',
+      'tier: 1',
+      '# Small-model-friendly pack: the four leaves proved solid under Haiku.',
+      'default_model: sonnet',
+      '---',
+      '',
+      '# EarthScope GNSS Region Orchestrator',
+      '',
+      'You are the orchestrator.',
+    ].join('\n');
+    const result = splitFrontmatter(text);
+    expect(result.frontmatter).toBe(
+      [
+        'id: main',
+        'title: EarthScope GNSS Region Orchestrator',
+        'tier: 1',
+        '# Small-model-friendly pack: the four leaves proved solid under Haiku.',
+        'default_model: sonnet',
+      ].join('\n'),
+    );
+    expect(result.body).toBe(['', '# EarthScope GNSS Region Orchestrator', '', 'You are the orchestrator.'].join('\n'));
+    // Neither delimiter line survives into either half.
+    expect(result.frontmatter).not.toContain('---');
+    expect(result.body).not.toContain('---');
+  });
+
+  it('a file with no frontmatter is returned unchanged as the body', () => {
+    const text = '# Root Expert\n\nDrives sub-agent routing.';
+    expect(splitFrontmatter(text)).toEqual({ frontmatter: null, body: text });
+  });
+
+  it('an opening --- with no matching close is left alone, not guessed at', () => {
+    const text = '---\nsome text that never closes the block\n\nmore text';
+    expect(splitFrontmatter(text)).toEqual({ frontmatter: null, body: text });
+  });
+
+  it('a bare --- that is really a horizontal rule (no frontmatter keys before it) still splits honestly, never eaten as body loss', () => {
+    // Even this degenerate case must never DROP content — the two halves
+    // rejoined (with delimiters) reconstruct the original substance.
+    const text = '---\n---\n\nBody after an empty frontmatter block.';
+    const result = splitFrontmatter(text);
+    expect(result.frontmatter).toBe('');
+    expect(result.body).toBe('\nBody after an empty frontmatter block.');
   });
 });
