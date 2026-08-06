@@ -165,4 +165,16 @@ export interface ObservabilityData {
    * fact.
    */
   traceReadFailed?: boolean;
+  /**
+   * True when the artifacts read (fetchSessionArtifacts) failed or timed
+   * out on this load. A DIFFERENT read than the ones behind
+   * `traceReadFailed` above — the artifacts tab/badge can be resolved while
+   * the trace tabs are unavailable, or vice versa, so it earns its own flag
+   * rather than overloading `traceReadFailed` (round-7 FANOUT finding: the
+   * artifacts tab-strip badge read a confident "0" under load, in the same
+   * frame the trace tabs correctly rendered "unavailable — retrying").
+   * Absent/false = the artifacts read succeeded, so an empty artifacts tab
+   * is a real fact.
+   */
+  artifactsReadFailed?: boolean;
 }

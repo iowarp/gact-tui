@@ -113,12 +113,24 @@ export function Observability({
       ]
     : [
         { id: 'timeline', label: 'timeline' },
-        { id: 'runs', label: 'runs', badge: data.runs.length },
+        // An UNRESOLVED read renders the same em-dash the topbar's own
+        // artifact/ctx counts use (round-7 FANOUT finding: these badges read
+        // a confident "0" under load in the same frame the tab BODY below
+        // correctly rendered "unavailable — retrying" — the honesty
+        // treatment reached the body but missed the strip). A genuinely
+        // resolved, empty read still shows a real "0".
+        { id: 'runs', label: 'runs', badge: data.traceReadFailed ? '—' : data.runs.length },
         // The badge counts real CALLS made this session (obsToolRows.length in
         // the prototype), not the catalog's declared tool count — the two
         // numbers mean different things and only one matches what the tab shows.
-        { id: 'tools', label: 'tools', badge: toolCalls.length },
-        { id: 'artifacts', label: 'artifacts', badge: artifactRows.length },
+        { id: 'tools', label: 'tools', badge: data.traceReadFailed ? '—' : toolCalls.length },
+        {
+          id: 'artifacts',
+          label: 'artifacts',
+          // artifactsReadFailed, not traceReadFailed — a different read (see
+          // ObservabilityData.artifactsReadFailed).
+          badge: data.artifactsReadFailed ? '—' : artifactRows.length,
+        },
         { id: 'context', label: 'context' },
       ];
 
@@ -300,6 +312,11 @@ export function Observability({
                 );
               })}
             </ul>
+          ) : data.artifacts.length === 0 && data.artifactsReadFailed ? (
+            // The artifacts read itself failed — never render the same
+            // silent-empty list a genuinely artifact-less session earns (see
+            // ObservabilityData.artifactsReadFailed).
+            <TraceUnavailable subject="artifacts" {...(onRetryTrace ? { onRetry: onRetryTrace } : {})} />
           ) : (
             <ul className="obs__list" data-testid="obs-artifacts">
               {data.artifacts.map((artifact) => (

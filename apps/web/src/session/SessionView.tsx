@@ -401,31 +401,37 @@ export function SessionView({
   }, [client]);
 
   const loadObservability = useCallback(
-    async (sessionId: string, scope: string, messages: Message[]): Promise<ObservabilityData> => {
-      const [
-        agentsOutcome,
-        sessionRunsOutcome,
-        serversOutcome,
-        contextOutcome,
-        agentTasksOutcome,
-        artifactOutcome,
-        rootTraceOutcome,
-      ] = await Promise.all([
-        fetchOutcome(() => client.agents()),
-        fetchOutcome(() => client.sessionTasks(sessionId)),
-        fetchOutcome(() => client.mcpServers()),
-        fetchOutcome(() => fetchSessionContextState(client, sessionId, scope)),
-        fetchOutcome(() => fetchSessionAgentTasks(client, sessionId)),
-        fetchOutcome(() => fetchSessionArtifacts(client, sessionId, { includeChildren: true })),
-        fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 })),
+    async (sessionId: string, scope: string): Promise<ObservabilityData> => {
+      // Every read is FIRED immediately and independently (a promise starts
+      // running the instant it's constructed, regardless of when it's
+      // awaited) — nothing here may sit behind an unrelated call before it
+      // has even issued its own request. The previous single
+      // `Promise.all([...7])` awaited every one of the 7 primary reads
+      // before computing the child session ids, which needlessly held the
+      // child-trace fetches — ready to start as soon as agentTasks+
+      // artifacts resolve — behind whichever of the OTHER five (agents/
+      // sessionTasks/mcpServers/context/rootTrace) happened to be slowest
+      // (round-7 FANOUT finding: the obs layer took 33s to open under load
+      // while the backend's own trace read answered in <3s).
+      const agentsPromise = fetchOutcome(() => client.agents());
+      const sessionRunsPromise = fetchOutcome(() => client.sessionTasks(sessionId));
+      const serversPromise = fetchOutcome(() => client.mcpServers());
+      const contextPromise = fetchOutcome(() => fetchSessionContextState(client, sessionId, scope));
+      const agentTasksPromise = fetchOutcome(() => fetchSessionAgentTasks(client, sessionId));
+      const artifactPromise = fetchOutcome(() =>
+        fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+      );
+      const rootTracePromise = fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 }));
+
+      // Only agentTasks + artifacts gate the child-trace fan-out (they're
+      // the only two that name the child session ids) — awaiting just these
+      // two lets that fan-out start as early as physically possible.
+      const [agentTasksOutcome, artifactOutcome] = await Promise.all([
+        agentTasksPromise,
+        artifactPromise,
       ]);
-      const agents = agentsOutcome.ok ? agentsOutcome.value : null;
-      const sessionRuns = sessionRunsOutcome.ok ? sessionRunsOutcome.value : null;
-      const servers = serversOutcome.ok ? serversOutcome.value : null;
-      const context = contextOutcome.ok ? contextOutcome.value : null;
       const agentTasksResult = agentTasksOutcome.ok ? agentTasksOutcome.value : null;
       const artifactResult = artifactOutcome.ok ? artifactOutcome.value : null;
-      const rootTrace = rootTraceOutcome.ok ? rootTraceOutcome.value : null;
       const agentTasks = agentTasksResult?.tasks ?? [];
       const artifactRecords = artifactResult?.artifacts ?? [];
       // The observed tree: the parent's own trace plus EVERY child's — child
@@ -451,6 +457,20 @@ export function SessionView({
         sessionId: id,
         events: outcome.ok ? (outcome.value.events ?? []) : [],
       }));
+
+      const [agentsOutcome, sessionRunsOutcome, serversOutcome, contextOutcome, rootTraceOutcome] =
+        await Promise.all([
+          agentsPromise,
+          sessionRunsPromise,
+          serversPromise,
+          contextPromise,
+          rootTracePromise,
+        ]);
+      const agents = agentsOutcome.ok ? agentsOutcome.value : null;
+      const sessionRuns = sessionRunsOutcome.ok ? sessionRunsOutcome.value : null;
+      const servers = serversOutcome.ok ? serversOutcome.value : null;
+      const context = contextOutcome.ok ? contextOutcome.value : null;
+      const rootTrace = rootTraceOutcome.ok ? rootTraceOutcome.value : null;
       // Whether the timeline/runs/tools/gantt tabs can trust their own zero.
       // Only the PRIMARY reads that actually feed those tabs count: the
       // session's own trace, every child's trace, and the real agent-task
@@ -467,6 +487,13 @@ export function SessionView({
         !rootTraceOutcome.ok ||
         !agentTasksOutcome.ok ||
         childTraceOutcomes.some(({ outcome }) => !outcome.ok);
+      // The artifacts tab/badge's own honest-zero signal — a DIFFERENT read
+      // (fetchSessionArtifacts) than the trace/runs/tools primaries above,
+      // so it earns its own flag rather than overloading traceReadFailed
+      // (round-7 FANOUT finding: the artifacts tab-strip badge read a
+      // confident "0" while genuinely unresolved, in the same frame the
+      // trace tabs correctly rendered "unavailable — retrying").
+      const artifactsReadFailed = !artifactOutcome.ok;
       const trace = buildObservabilityTrace({
         rootSessionId: sessionId,
         traces: [{ sessionId, events: rootTrace?.events ?? [] }, ...childTraces],
@@ -522,17 +549,13 @@ export function SessionView({
         typeof usedFraction === 'number' && Number.isFinite(usedFraction)
           ? Math.round(usedFraction * 100)
           : null;
-      // Real per-message cost, summed — never estimated from token counts.
-      // costSeen distinguishes "no message reported a cost" (undefined, shown
-      // as "not reported") from a genuine $0.00.
-      let costSum = 0;
-      let costSeen = false;
-      for (const message of messages) {
-        if (typeof message.cost_usd === 'number' && Number.isFinite(message.cost_usd)) {
-          costSum += message.cost_usd;
-          costSeen = true;
-        }
-      }
+      // costUsd is deliberately NOT computed here from `messages` — see
+      // `sessionCostUsd` below, computed locally off the live transcript and
+      // merged into `observabilityData` at render time instead of being
+      // threaded through this network call (round-7 FANOUT finding: passing
+      // the ever-changing live message array into this async chain made its
+      // caller's effect re-fire, and re-issue every fetch above, on EVERY
+      // streaming SSE delta).
 
       return {
         // Agent definitions remain available for legacy consumers; the P5 UI
@@ -576,11 +599,11 @@ export function SessionView({
                 usedPercent,
                 tokens: context?.used_tokens ?? context?.live_tokens ?? 0,
                 limit: context?.window_tokens ?? 0,
-                ...(costSeen ? { costUsd: costSum } : {}),
               },
             }
           : {}),
         ...(traceReadFailed ? { traceReadFailed: true } : {}),
+        ...(artifactsReadFailed ? { artifactsReadFailed: true } : {}),
       };
     },
     [client],
@@ -602,6 +625,23 @@ export function SessionView({
     [observabilityMessages],
   );
 
+  // Real per-message cost, summed locally off the already-loaded transcript
+  // — never estimated from token counts, and never threaded through
+  // loadObservability's network call (see the comment above its return).
+  // `undefined` distinguishes "no message reported a cost" (ContextTab's
+  // "not reported") from a genuine $0.00.
+  const sessionCostUsd = useMemo(() => {
+    let sum = 0;
+    let seen = false;
+    for (const message of observabilityMessages) {
+      if (typeof message.cost_usd === 'number' && Number.isFinite(message.cost_usd)) {
+        sum += message.cost_usd;
+        seen = true;
+      }
+    }
+    return seen ? sum : undefined;
+  }, [observabilityMessages]);
+
   useEffect(() => {
     if (panel !== 'obs') return;
     setObs(null);
@@ -612,14 +652,19 @@ export function SessionView({
     if (panel !== 'obs' || !activeId) return;
     let cancelled = false;
     const refresh = async () => {
-      const next = await loadObservability(activeId, activeScope, observabilityMessages);
+      const next = await loadObservability(activeId, activeScope);
       if (!cancelled) setObs(next);
     };
     void refresh();
     return () => {
       cancelled = true;
     };
-  }, [panel, activeId, activeScope, loadObservability, observabilityMessages]);
+    // Deliberately NOT depending on `observabilityMessages`: this effect
+    // fires the full multi-fetch observability read, and that array is a
+    // NEW reference on every streaming SSE delta — depending on it here
+    // re-issued the whole fetch chain on every delta (round-7 FANOUT
+    // finding: a 33s open against a backend that itself answers in <3s).
+  }, [panel, activeId, activeScope, loadObservability]);
 
   // Auto-retry the trace/runs/tools read exactly ONCE after a short backoff
   // when it comes back FAILED (ObservabilityData.traceReadFailed) — never
@@ -635,17 +680,17 @@ export function SessionView({
     if (panel !== 'obs' || !activeId || !obs?.traceReadFailed || obsAutoRetriedRef.current) return;
     obsAutoRetriedRef.current = true;
     const timer = window.setTimeout(() => {
-      void loadObservability(activeId, activeScope, observabilityMessages).then(setObs);
+      void loadObservability(activeId, activeScope).then(setObs);
     }, 2500);
     return () => window.clearTimeout(timer);
-  }, [panel, activeId, activeScope, obs?.traceReadFailed, loadObservability, observabilityMessages]);
+  }, [panel, activeId, activeScope, obs?.traceReadFailed, loadObservability]);
 
   // Manual retry — the TraceUnavailable button's escape hatch, same call the
   // effects above already make.
   const retryObsTrace = useCallback(() => {
     if (!activeId) return;
-    void loadObservability(activeId, activeScope, observabilityMessages).then(setObs);
-  }, [activeId, activeScope, observabilityMessages, loadObservability]);
+    void loadObservability(activeId, activeScope).then(setObs);
+  }, [activeId, activeScope, loadObservability]);
 
   useEffect(() => {
     if (panel !== 'obs' || !activeId || typeof EventSource === 'undefined') return;
@@ -662,7 +707,7 @@ export function SessionView({
       }
 
       if (event.type === 'session.status_changed') {
-        void loadObservability(activeId, activeScope, observabilityMessages).then((next) => {
+        void loadObservability(activeId, activeScope).then((next) => {
           if (!cancelled) setObs(next);
         });
       }
@@ -671,7 +716,11 @@ export function SessionView({
       cancelled = true;
       subscription.close();
     };
-  }, [panel, activeId, activeScope, client, loadObservability, observabilityMessages]);
+    // Same reason as the initial-load effect above: this subscribes an SSE
+    // connection for as long as the effect's deps hold — depending on
+    // `observabilityMessages` tore the connection down and reopened it on
+    // every streaming delta instead of once per obs-panel-open.
+  }, [panel, activeId, activeScope, client, loadObservability]);
 
   // Slash commands come from the backend. If it cannot serve them the picker
   // stays closed rather than opening empty, which would read as broken.
@@ -2030,8 +2079,23 @@ export function SessionView({
   // Live SSE rows merge INTO chronological position (and dedupe against the
   // seeded trace, which publishes the same semantic payloads) — plain
   // concatenation used to render two unsorted segments (gact-tui#356).
+  // `sessionCostUsd` (locally memoized off the transcript, never threaded
+  // through loadObservability's network call — see its definition above)
+  // merges onto `context` here, the same render-time join the live timeline
+  // rows already use, so it stays current without retriggering the fetch.
   const observabilityData = obs
-    ? { ...obs, timeline: mergeTimelineRows(obs.timeline ?? [], liveTraceRows) }
+    ? {
+        ...obs,
+        timeline: mergeTimelineRows(obs.timeline ?? [], liveTraceRows),
+        ...(obs.context
+          ? {
+              context: {
+                ...obs.context,
+                ...(sessionCostUsd !== undefined ? { costUsd: sessionCostUsd } : {}),
+              },
+            }
+          : {}),
+      }
     : null;
   const filesWorkspaceId = filesWorkspaceRequest ?? activeWorkspaceId ?? workspaces[0]?.id;
   const filesWorkspaceLabel = filesWorkspaceId
