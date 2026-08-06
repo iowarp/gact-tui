@@ -12,13 +12,15 @@
   border-right: 1px solid var(--t-bd3);
 }
 
+/* No border-bottom: the prototype draws no divider under the brand lockup
+   (final-sxs ledger #10) — the WORKSPACES heading below carries its own
+   border-bottom already, so a second hairline here was never in the design. */
 .shell-rail__brand {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   padding: 0;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--t-bd3);
 }
 
 .shell-rail__brand > .kit-toolbarbutton {
@@ -193,7 +195,11 @@
 
 .shell-rail__session[aria-current='true'] {
   background: rgb(25, 50, 56);
-  border-color: transparent;
+  /* The prototype outlines the active row with a faint teal hairline on top
+     of the fill — a transparent border here dropped it (final-sxs ledger
+     #6); the base row already carries a 1px solid border, so only the
+     color needs to change. */
+  border-color: rgba(10, 166, 173, 0.3);
 }
 
 /* Centred, not baseline-aligned. The row mixes an 11.5px title, a 10px

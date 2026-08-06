@@ -104,6 +104,28 @@ describe('Transcript', () => {
     expect(args?.textContent).toContain('Los Angeles, California');
   });
 
+  it('quotes a string first-arg in the collapsed hint (final-sxs ledger #12)', () => {
+    const { container } = render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'tool_call',
+              id: 'tc1',
+              name: 'geo_geocode',
+              input: { query: 'Los Angeles, CA' },
+            },
+          ]),
+        ]}
+      />,
+    );
+    // `geo_geocode("Los Angeles, CA")`, never the ambiguous unquoted
+    // `geo_geocode(Los Angeles, CA)` — a non-string value (object/number/
+    // array) already reads unambiguously via JSON.stringify and is untouched.
+    const hint = container.querySelector('.part-toolrow__hint');
+    expect(hint).toHaveTextContent('("Los Angeles, CA")');
+  });
+
   it('renders an expert handoff as the prototype Call(child) heading', () => {
     render(
       <Transcript

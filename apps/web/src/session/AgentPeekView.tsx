@@ -6,12 +6,14 @@
  * drill-in (plain click), which this view deliberately is not.
  *
  * The child renders through ChildFocusView — its own "prompt from …" fold,
- * the shared transcript grammar, the status footer — which is read-only by
- * construction (the composer is owned by SessionView and never mounts here).
+ * the shared transcript grammar — which is read-only by construction (the
+ * composer is owned by SessionView and never mounts here). ChildFocusView's
+ * own status footer is suppressed here: this view's header already states
+ * the child's status in its "AGENT · <status>" eyebrow row.
  */
 import { useEffect, useState } from 'react';
 import { subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
-import { Chip, Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
+import { Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
 import { ChildFocusView } from './ChildFocusView';
 import { applyMessageLifecycleEvent } from './messageEvents';
 import './agentpeek.css';
@@ -89,28 +91,38 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
   const status = view?.status ?? '';
   return (
     <aside className="agentpeek" aria-label="Agent peek" data-testid="agent-peek">
+      {/*
+       * Two rows (final-sxs ledger #3), not the single chip-row this used to
+       * be: an "AGENT · <status>" eyebrow naming WHAT is being peeked and its
+       * live state in one glance, then a "session › <agent>" breadcrumb row
+       * underneath. The StatusDot survives the restructure — it still rides
+       * the eyebrow row, just no longer inside its own bordered chip.
+       */}
       <header className="agentpeek__head">
-        <Chip tone="accent">AGENT</Chip>
-        <span className="agentpeek__name" data-testid="agent-peek-name">
-          {agent}
-        </span>
-        {status ? (
-          // The status is its OWN chip — dot + word, the same grammar as the
-          // rail's session rows — never text glued onto the header label.
-          <span className="agentpeek__status" data-state={status} data-testid="agent-peek-status">
-            <StatusDot status={dotStatus(status)} quiet={status !== 'running'} />
-            <span className="agentpeek__statusword">{status}</span>
+        <div className="agentpeek__eyebrowrow">
+          <span className="agentpeek__eyebrow" data-testid="agent-peek-eyebrow">
+            AGENT{status ? ` · ${status}` : ''}
           </span>
-        ) : null}
-        <span className="agentpeek__spacer" />
-        <ToolbarButton
-          label="Close peek"
-          title="Close"
-          iconOnly
-          size="small"
-          icon={<Icon name="x" size={11} />}
-          onClick={onClose}
-        />
+          {status ? <StatusDot status={dotStatus(status)} quiet={status !== 'running'} /> : null}
+          <span className="agentpeek__spacer" />
+          <ToolbarButton
+            label="Close peek"
+            title="Close"
+            iconOnly
+            size="small"
+            icon={<Icon name="x" size={11} />}
+            onClick={onClose}
+          />
+        </div>
+        <div className="agentpeek__crumbrow">
+          <span className="agentpeek__crumblabel">session</span>
+          <span className="agentpeek__crumbsep" aria-hidden="true">
+            ›
+          </span>
+          <span className="agentpeek__name" data-testid="agent-peek-name">
+            {agent}
+          </span>
+        </div>
       </header>
       <div className="agentpeek__body">
         {view ? (
@@ -119,6 +131,10 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
             parentLabel={parentLabel}
             messages={view.messages}
             status={view.status}
+            // This view's own eyebrow row above already states the child's
+            // status — ChildFocusView's footer would only repeat it as a
+            // trailing "<agent> · idle" line the prototype never shows here.
+            showStatusFooter={false}
           />
         ) : (
           <p className="agentpeek__loading">Loading agent…</p>

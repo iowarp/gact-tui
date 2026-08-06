@@ -49,7 +49,11 @@ function firstArgHint(input: unknown): string {
   const entries = Object.entries(input as Record<string, unknown>);
   if (entries.length === 0) return '…';
   const [, value] = entries[0]!;
-  const rendered = typeof value === 'string' ? value : (JSON.stringify(value) ?? String(value));
+  // A string value keeps its quotes (final-sxs ledger #12: the prototype
+  // shows `geo_geocode("Los Angeles, CA")`, not the bare, ambiguous-looking
+  // `geo_geocode(Los Angeles, CA)`) — every other JSON type already reads
+  // unambiguously via JSON.stringify.
+  const rendered = typeof value === 'string' ? `"${value}"` : (JSON.stringify(value) ?? String(value));
   return truncate(normalizeWhitespace(rendered), ARG_HINT_MAX);
 }
 

@@ -9,12 +9,44 @@
   border-left: 1px solid var(--t-bd3);
 }
 
+/* Two rows (final-sxs ledger #3): an "AGENT · <status>" eyebrow, then a
+   "session › <agent>" breadcrumb underneath — replacing the single chip-row
+   this used to be. */
 .agentpeek__head {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--t-bd3);
+}
+
+.agentpeek__eyebrowrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.agentpeek__eyebrow {
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.agentpeek__crumbrow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agentpeek__crumblabel,
+.agentpeek__crumbsep {
+  flex-shrink: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
 }
 
 /* The header names WHAT is being peeked — the child agent. */
@@ -27,30 +59,6 @@
   font-family: var(--f-mono);
   font-size: calc(12px * var(--ts));
   font-weight: 600;
-}
-
-/* The status is its OWN chip (kit StatusDot + the word), matching the
-   session-row/topbar status grammar — never glued into the header label. */
-.agentpeek__status {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 5px;
-  padding: 1px 8px;
-  border: 1px solid var(--t-bd3);
-  border-radius: 999px;
-  color: var(--t-mu);
-  font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-}
-
-.agentpeek__status[data-state='running'] {
-  color: var(--t-ok);
-}
-
-.agentpeek__status[data-state='failed'],
-.agentpeek__status[data-state='error'] {
-  color: var(--t-er);
 }
 
 .agentpeek__spacer {

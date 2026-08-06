@@ -10,6 +10,8 @@
  * directed).
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { Rail, type RailProps, type RailGroup } from '../../src/shell/Rail';
 
@@ -119,6 +121,18 @@ describe('session rows (B3 + B11)', () => {
     expect(unpin).toHaveAccessibleName('Unpin');
     fireEvent.click(unpin);
     expect(onSessionAction).toHaveBeenCalledWith('s2', 'pin');
+  });
+});
+
+describe('active session row border (final-sxs ledger #6)', () => {
+  it('carries a visible 1px teal-tinted border, not a transparent one', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/shell/rail.css'), 'utf8');
+    expect(css).toMatch(
+      /\.shell-rail__session\[aria-current='true'\]\s*{[^}]*border-color:\s*rgba\(10,\s*166,\s*173,\s*0\.3\)/s,
+    );
+    expect(css).not.toMatch(
+      /\.shell-rail__session\[aria-current='true'\]\s*{[^}]*border-color:\s*transparent/s,
+    );
   });
 });
 

@@ -16,7 +16,13 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-width: 860px;
+  /* Matches the composer's own box exactly (composer.css: `calc(860px + 2 *
+     36px)` + `padding: 0 36px`) — an 860px reading column plus its own 36px
+     gutter, so the two frames' RIGHT edges land on the same x. A bare
+     `max-width: 860px` here (border-box) subtracted the 36px padding INTO
+     the 860, leaving the transcript's own content 72px narrower than the
+     composer's and its right edge 36px short of it (final-sxs ledger #1). */
+  max-width: calc(860px + 2 * 36px);
   margin: 0 auto;
   padding: 18px 36px 40px;
 }
@@ -45,7 +51,23 @@
 
 /* The bubble carries the user's words directly; a bullet marker in the gutter
    is an assistant-output affordance and reads as noise here. */
-.transcript__message[data-role='user'] .part-gutter-dot {
+.transcript__message[data-role='user'] .part-textdot {
+  display: none;
+}
+
+/* Hiding the gutter DOT still left its 14px+8px grid track reserved (kit's
+   PartCard always allots the column), so the bubble's text sat ~22px from
+   the left border but only its own 14px padding from the right — an
+   asymmetric gutter the prototype's bubble never has (final-sxs ledger
+   #11). The user bubble carries no gutter marker at all, so it drops the
+   grid column entirely; the bubble's own 14px padding (above) is then the
+   ONLY inset on both sides. */
+.transcript__message[data-role='user'] .kit-partcard {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+}
+
+.transcript__message[data-role='user'] .kit-partcard__gutter {
   display: none;
 }
 

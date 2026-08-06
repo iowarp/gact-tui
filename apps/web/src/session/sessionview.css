@@ -36,6 +36,41 @@
   font-size: calc(13px * var(--ts));
 }
 
+/* The child composer's "reawaken" notice (final-sxs ledger #5) — same warm
+   bordered-box idiom as .sessionview__missing above, sized down to a single
+   small line and docked directly above the composer frame it explains.
+   Split in two like composer.css's own frame: a gutter wrapper (identical
+   36px-inset box formula) positions the card so its edges land exactly on
+   the composer frame's own edges below it. */
+.sessionview__reawakenwrap {
+  box-sizing: border-box;
+  max-width: calc(860px + 2 * 36px);
+  margin: 0 auto;
+  padding: 0 36px;
+}
+
+.sessionview__reawaken {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  background: var(--t-wm08);
+  border: 1px solid var(--t-wm35);
+  border-radius: 8px;
+  color: var(--t-wa);
+  font-family: var(--f-prose);
+  font-size: calc(12px * var(--ts));
+  line-height: 1.5;
+}
+
+.sessionview__reawaken-mark {
+  flex-shrink: 0;
+  color: var(--t-wa);
+  font-family: var(--f-mono);
+  font-weight: 700;
+}
+
 .sessionview__removebtn {
   padding: 5px 10px;
   background: transparent;

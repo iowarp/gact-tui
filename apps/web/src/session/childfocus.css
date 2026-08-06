@@ -9,20 +9,33 @@
 }
 
 .childfocus__brief {
+  box-sizing: border-box;
   margin: 10px auto 0;
-  width: min(860px, 100%);
-  padding: 0 16px;
+  max-width: calc(860px + 2 * 36px);
+  width: 100%;
+  /* Left inset matches a transcript part's own fold: the transcript
+     column's 36px gutter PLUS PartCard's 14px-gutter + 8px-gap (this fold
+     isn't wrapped in a PartCard, so that offset has to be reproduced by
+     hand). Without it this fold's ▸ sat 42px left of every "thinking" fold
+     below it (final-sxs ledger #4: measured x=496 vs x=538). Right side
+     stays the transcript's own 36px, matching PartCard's unindented body. */
+  padding: 0 36px 0 58px;
 }
 
 .childfocus__brieftoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 0;
   border: 0;
   background: none;
   color: var(--t-mu, #6b7280);
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* Prose lane, lowercase — matching the "thinking" fold right below it
+     (registry.tsx's .part-thinkinghead), not the mono/uppercase eyebrow
+     treatment this used before (final-sxs ledger #4: proto reads "prompt
+     from main", never "PROMPT FROM MAIN"). */
+  font-family: var(--f-prose);
+  font-size: calc(13px * var(--ts));
   cursor: pointer;
 }
 

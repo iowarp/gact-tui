@@ -80,7 +80,10 @@ const SESSIONS = [
 ] as unknown as Session[];
 
 describe('AgentPeekView (right-panel read-only child view)', () => {
-  it('renders the AGENT header with the child status and its own prompt-from fold', async () => {
+  // final-sxs ledger #3: the header is TWO rows — "AGENT · <status>" eyebrow
+  // (StatusDot still rides this row) then "session › <agent>" breadcrumb —
+  // replacing the single chip-row this used to pin.
+  it('renders the two-row header (AGENT · status eyebrow, session › agent crumb) and its own prompt-from fold', async () => {
     render(
       <AgentPeekView
         client={peekClient()}
@@ -91,20 +94,33 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
       />,
     );
     expect(screen.getByTestId('agent-peek')).toBeInTheDocument();
-    expect(screen.getByText('AGENT')).toBeInTheDocument();
-    // The header names WHAT is being peeked in its own element.
+    // The eyebrow row states WHAT is being peeked and its live status
+    // together, "AGENT · <status>" — the StatusDot still rides this row.
+    const eyebrow = await screen.findByTestId('agent-peek-eyebrow');
+    expect(eyebrow).toHaveTextContent('AGENT · completed');
+    expect(screen.getByTestId('agent-peek').querySelector('.kit-statusdot')).not.toBeNull();
+    // The breadcrumb row names the child agent in its own element.
     expect(screen.getByTestId('agent-peek-name')).toHaveTextContent('geospatial');
-    // The status is its OWN chip — kit StatusDot + the bare word — never
-    // "· status" text glued onto the header label (owner defect 3).
-    const status = await screen.findByTestId('agent-peek-status');
-    expect(status).toHaveTextContent('completed');
-    expect(status.textContent).not.toContain('·');
-    expect(status.querySelector('.kit-statusdot')).not.toBeNull();
-    expect(status.querySelector('.agentpeek__statusword')).toHaveTextContent(/^completed$/);
+    expect(screen.getByText('session')).toBeInTheDocument();
+    expect(screen.getByText('›')).toBeInTheDocument();
     // The child's first user message IS the delegation brief — its own fold.
     expect(screen.getByRole('button', { name: /prompt from main/ })).toBeInTheDocument();
     // The child transcript renders through the shared grammar.
     expect(screen.getByText('Center resolved: 34.0537, -118.2428.')).toBeInTheDocument();
+  });
+
+  it('drops ChildFocusView\'s own trailing status footer — the eyebrow row already states it (final-sxs ledger #3)', async () => {
+    render(
+      <AgentPeekView
+        client={peekClient()}
+        sessionId="sess_child"
+        agent="geospatial"
+        parentLabel="main"
+        onClose={vi.fn()}
+      />,
+    );
+    const view = await screen.findByTestId('child-focus-view');
+    expect(view.querySelector('.childfocus__status')).toBeNull();
   });
 
   it('is read-only: no composer input mounts inside the peek', async () => {
@@ -187,7 +203,7 @@ describe('SessionView peek routing (openChildByHandle receives { peek })', () =>
     await waitFor(() =>
       expect(within(peek).getByTestId('child-focus-view')).toBeInTheDocument(),
     );
-    expect(within(peek).getByText('AGENT')).toBeInTheDocument();
+    expect(within(peek).getByTestId('agent-peek-eyebrow')).toHaveTextContent(/^AGENT/);
     // …while the CENTER still shows the parent transcript's Call box.
     expect(screen.getByTestId('part-child-card')).toBeInTheDocument();
     expect(screen.getByText('map the stations')).toBeInTheDocument();
@@ -203,5 +219,25 @@ describe('SessionView peek routing (openChildByHandle receives { peek })', () =>
     await waitFor(() => expect(screen.getByTestId('child-focus-view')).toBeInTheDocument());
     // No right peek for a plain click.
     expect(screen.queryByTestId('agent-peek')).toBeNull();
+  });
+
+  // final-sxs ledger #5: a settled child's composer states that sending a
+  // message REAWAKENS it, rather than leaving the generic main-session copy
+  // in place as though this were an ordinary, still-live conversation.
+  it('a settled child\'s composer carries the reawaken placeholder + amber notice', async () => {
+    render(<SessionView client={peekClient()} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+    const card = await screen.findByTestId('part-child-card');
+    fireEvent.click(card);
+    await waitFor(() => expect(screen.getByTestId('child-focus-view')).toBeInTheDocument());
+
+    // sess_child's stubbed getSession resolves status: 'completed' — settled.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Message geospatial to reawaken it')).toBeInTheDocument(),
+    );
+    const notice = screen.getByTestId('reawaken-notice');
+    expect(notice).toHaveTextContent(
+      'This agent finished and returned to main. Sending a message reawakens it with its full context.',
+    );
   });
 });

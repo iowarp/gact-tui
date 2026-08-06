@@ -398,7 +398,14 @@ function RunGroup({ title, tone, runs, actionLabel, navTitle, onNavigate }: RunG
                   <span className="obs-run2__name">{run.label ?? run.id}</span>
                   {run.host ? <span className="obs-run2__host">{run.host}</span> : null}
                 </span>
-                <span className="obs-run2__status">{run.duration ?? run.state}</span>
+                {/* The status WORD (the group's own real classification —
+                    running/completed/failed, the same vocabulary the group
+                    title above already uses), with the real duration inline
+                    after it when one exists (final-sxs ledger #7: this used
+                    to show ONLY the duration, with no status word on the
+                    row at all). The subtitle line below is untouched — it
+                    already only ever carries real, derived data. */}
+                <span className="obs-run2__status">{run.duration ? `${tone} · ${run.duration}` : tone}</span>
                 <span className="obs-run2__desc">{run.description ?? ''}</span>
                 <span className="obs-run2__act">{clickable ? `${actionLabel} ↗` : ''}</span>
               </button>

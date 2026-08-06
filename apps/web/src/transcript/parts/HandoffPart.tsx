@@ -125,8 +125,10 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
   );
 }
 
-/** `72000` → `"1m 12s"`, `4300` → `"4.3s"` — the prototype's duration idiom. */
-function formatDurationMs(ms: number): string {
+/** `72000` → `"1m 12s"`, `4300` → `"4.3s"` — the prototype's duration idiom.
+ *  Exported for ChildFocusView's own settled-footer duration (same idiom,
+ *  same math — not worth a second copy). */
+export function formatDurationMs(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '';
   const totalSeconds = ms / 1000;
   if (totalSeconds < 60) {

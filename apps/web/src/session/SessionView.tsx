@@ -226,6 +226,11 @@ export function SessionView({
     sessionId: string;
     messages: Message[];
     status: string;
+    // The child session's own real created_at/updated_at (getSession) — the
+    // center child view's settled footer computes its "completed ✓ <dur>"
+    // duration from these, never a guessed number.
+    createdAt?: string;
+    updatedAt?: string;
   } | null>(null);
   // The prototype's RIGHT panel stack (stack[]): artifact detail records
   // plus the shift-click agent peek. Opening from a chip/Call box REPLACES;
@@ -955,10 +960,13 @@ export function SessionView({
             .catch(() => null),
         ]);
         if (!cancelled) {
+          const sessionRow = row as { status?: unknown; created_at?: unknown; updated_at?: unknown } | null;
           setChildView({
             sessionId: focusTop.sessionId,
             messages: result.messages ?? [],
-            status: String((row as { status?: unknown } | null)?.status ?? ''),
+            status: String(sessionRow?.status ?? ''),
+            ...(typeof sessionRow?.created_at === 'string' ? { createdAt: sessionRow.created_at } : {}),
+            ...(typeof sessionRow?.updated_at === 'string' ? { updatedAt: sessionRow.updated_at } : {}),
           });
         }
       } catch {
@@ -1550,6 +1558,16 @@ export function SessionView({
     (latestActiveAssistant
       ? !(latestActiveAssistant.stop_reason || latestActiveAssistant.error_info)
       : toStatus(activeSessionRow?.status) === 'running');
+  // The composer keeps talking to a focused child (see `send` above), so
+  // once that child settles the composer that reaches it is a "reawaken"
+  // action, not a plain send — the prototype states that plainly rather
+  // than leaving the generic main-session placeholder in place (final-sxs
+  // ledger #5). `childView.status` is the same live status ChildFocusView's
+  // own footer reads; an empty string (not yet loaded) never counts as
+  // settled.
+  const focusedChildStatus =
+    focusTop && childView && childView.sessionId === focusTop.sessionId ? childView.status : '';
+  const focusedChildSettled = Boolean(focusedChildStatus && focusedChildStatus !== 'running');
   const composerElement =
     state.kind !== 'missing' ? (
       <Composer
@@ -1564,6 +1582,9 @@ export function SessionView({
         commands={commands}
         files={files}
         placement={placement}
+        {...(focusedChildSettled && focusTop
+          ? { placeholder: `Message ${focusTop.agent} to reawaken it` }
+          : {})}
         {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
         {...(composerAsyncTasks ? { asyncTasks: composerAsyncTasks } : {})}
         {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
@@ -1808,6 +1829,8 @@ export function SessionView({
                 parentLabel={focus.length > 1 ? focus[focus.length - 2]!.agent : 'main'}
                 messages={childView.messages}
                 status={childView.status}
+                {...(childView.createdAt ? { createdAt: childView.createdAt } : {})}
+                {...(childView.updatedAt ? { updatedAt: childView.updatedAt } : {})}
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
               />
@@ -1818,6 +1841,22 @@ export function SessionView({
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
                 childPreviews={childPreviews}
               />
+            ) : null}
+            {focusedChildSettled && focusTop ? (
+              // The visible card sits in its own 36px gutter wrapper — the
+              // SAME box formula composer.css uses for the composer frame
+              // below it — so the two share one left/right edge rather than
+              // the notice sticking out wider (or narrower) than what it's
+              // explaining.
+              <div className="sessionview__reawakenwrap">
+                <p className="sessionview__reawaken" data-testid="reawaken-notice" role="note">
+                  <span className="sessionview__reawaken-mark" aria-hidden="true">
+                    !
+                  </span>
+                  This agent finished and returned to main. Sending a message reawakens it with
+                  its full context.
+                </p>
+              </div>
             ) : null}
             {composerElement}
           </>
@@ -1866,6 +1905,15 @@ export function SessionView({
           title="observability"
           headerIcon={<Icon name="eye" size={14} />}
           headerMeta={<ObservabilityTrace />}
+          // Explicit width/height (the prototype's own 679x640) give the
+          // window variant a FIXED initial size — Layer.tsx sets
+          // `maxHeight: 'none'` once a height is supplied, which is what
+          // stops the panel auto-growing/shrinking to each tab's content
+          // height (final-sxs ledger #8: switching tabs "jumped" the whole
+          // modal). Still resizable afterward via the drag grip, same as
+          // FilesLayer's own width={680}/height precedent.
+          width={679}
+          height={640}
           windowControls
           onClose={() => setPanel(null)}
         >

@@ -105,7 +105,10 @@
 
 .composer__contextlabel::after {
   content: attr(data-percent);
-  color: var(--t-tx);
+  /* Muted like the prototype's ctx value (final-sxs ledger #13) — the pill
+     is a quiet telemetry read, not a value worth the same weight as the
+     placement path next to it. */
+  color: var(--t-mu);
 }
 
 /* THE chat pill. Geometry is the prototype's, including the asymmetric bottom
@@ -250,11 +253,14 @@
   background: var(--t-ach);
 }
 
+/* Full saturation at rest even when disabled (final-sxs ledger #9) — the
+   prototype's send circle never dims. Disabled semantics still carry
+   through `cursor` here and `disabled`/`aria-label` on the element itself,
+   never a visual fade. */
 .composer__send:disabled {
   background: var(--t-ac);
   color: var(--t-sf);
   cursor: default;
-  opacity: 0.45;
 }
 
 /* Running state — the send button becomes a stop control while the
