@@ -59,16 +59,6 @@ describe('mock wire conformance', () => {
     expect(offenders, `invented fields: ${offenders.join(', ')}`).toEqual([]);
   });
 
-  it('names the routing target selected_agent, never expert', () => {
-    // The exact bug the live backend caught: the UI rendered "routed to" with
-    // no name because the mock agreed with the wrong field.
-    const routing = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
-      (p) => p['type'] === 'routing_decision',
-    );
-    expect(routing?.['selected_agent']).toBeTruthy();
-    expect(routing).not.toHaveProperty('expert');
-  });
-
   it('carries tool identity in call_id / tool_name', () => {
     const call = (MOCK_WIRE_MESSAGE.parts as Array<Record<string, unknown>>).find(
       (p) => p['type'] === 'tool_call',
@@ -107,7 +97,6 @@ describe('mock wire conformance', () => {
     );
     for (const required of [
       'expert_handoff',
-      'routing_decision',
       'mcp_app',
       'resource_link',
       'file_diff',

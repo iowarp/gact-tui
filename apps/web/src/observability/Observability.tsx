@@ -21,6 +21,12 @@ export interface ObservabilityProps {
    *  (jump to message / open agent). Omitted rows render inert, matching the
    *  prototype's own `cursor:default` for rows with no real target. */
   onNavigate?: (nav: ObsNavigation) => void;
+  /** Opens an artifact in the right detail panel — the SAME channel the
+   *  transcript's artifact chips use (SessionView.openArtifactById via
+   *  ArtifactGrid's onOpenArtifact). Omitted, or a row with no real
+   *  artifact id, renders the row visibly disabled and flagged rather than
+   *  a silently dead click. */
+  onOpenArtifact?: (artifactId: string, name: string) => void;
 }
 
 export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
@@ -56,6 +62,7 @@ export function Observability({
   showTraceHeader = true,
   initialTab,
   onNavigate,
+  onOpenArtifact,
 }: ObservabilityProps) {
   const legacy =
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
@@ -204,24 +211,17 @@ export function Observability({
         {activeTab === 'artifacts' ? (
           artifactRows.length > 0 ? (
             <ul className="obs-artifacts" data-testid="obs-artifacts">
-              {artifactRows.map((artifact, index) => (
-                <li
-                  className="obs-artifact__row"
-                  data-testid="obs-artifact-row"
-                  key={`${artifact.name}-${artifact.at}-${index}`}
-                >
-                  {/* No artifact viewer is reachable anywhere in this build yet
-                      (tracked separately — "mint real artifacts and ground the
-                      chips"); the row is still a real button, matching the
-                      prototype's structure, honestly disabled rather than a
-                      dead-looking static row. */}
-                  <button
-                    type="button"
-                    className="obs-artifact__button"
-                    disabled
-                    data-unbacked="true"
-                    title="Artifact viewer not wired yet"
-                  >
+              {artifactRows.map((artifact, index) => {
+                // The viewer exists (SessionView.openArtifactById -> AppShell
+                // detail -> DetailSlot) and reaches this row through the same
+                // onOpenArtifact channel the transcript's artifact chips use
+                // (ArtifactGrid). A row still renders honestly disabled when
+                // either half of that is missing — no callback wired, or a
+                // pre-P5 fixture row with no real artifact id — rather than a
+                // dead-looking click (ArtifactChip's own convention).
+                const openable = Boolean(onOpenArtifact && artifact.id);
+                const body = (
+                  <>
                     <time className="obs-artifact__time">{artifact.at}</time>
                     <span className="obs-artifact__glyph" aria-hidden="true">
                       ◆
@@ -229,9 +229,33 @@ export function Observability({
                     <span className="obs-artifact__name">{artifact.name}</span>
                     <span className="obs-artifact__producer">· {artifact.producer}</span>
                     <span className="obs-artifact__meta">{artifact.meta}</span>
-                  </button>
-                </li>
-              ))}
+                  </>
+                );
+                return (
+                  <li
+                    className="obs-artifact__row"
+                    data-testid="obs-artifact-row"
+                    key={`${artifact.name}-${artifact.at}-${index}`}
+                  >
+                    <button
+                      type="button"
+                      className="obs-artifact__button"
+                      title="Open artifact"
+                      {...(openable
+                        ? { onClick: () => onOpenArtifact!(artifact.id!, artifact.name) }
+                        : {
+                            disabled: true,
+                            'data-unbacked': 'true',
+                            title: artifact.id
+                              ? 'Artifact viewer not wired in this view'
+                              : 'No artifact id on this row',
+                          })}
+                    >
+                      {body}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <ul className="obs__list" data-testid="obs-artifacts">
@@ -618,8 +642,15 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
                   </span>
                   <time className="obs-log__time">{row.at ?? ''}</time>
                   <span className="obs-log__actor">{row.actor}</span>
-                  <span className="obs-log__action">{row.action}</span>
-                  {row.duration ? <span className="obs-log__duration">({row.duration})</span> : null}
+                  {/* The prototype puts the duration INLINE in the action
+                      text ("tool call (2.8s)"), not in its own trailing
+                      grid column — matching that keeps the row's column
+                      count (and the CSS grid-template-columns track list)
+                      in sync with what's actually rendered. */}
+                  <span className="obs-log__action">
+                    {row.action}
+                    {row.duration ? ` (${row.duration})` : ''}
+                  </span>
                 </li>
               );
             })}

@@ -5,6 +5,8 @@
  * click-through + static dot, the async-runs popover (component + wiring),
  * textarea autogrow, and the `@` picker's real workspace-files backing.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
 import { describe, expect, it, vi } from 'vitest';
@@ -474,6 +476,49 @@ describe('model picker — provider row grammar (PASS-3 audit correction)', () =
     // which jsdom can't see, but the name node must at least still exist
     // and read correctly regardless.
     expect(within(container).getByText('ALCF Sophia (Globus Auth)')).toBeInTheDocument();
+  });
+
+  it('gives the default-config badge a guaranteed minimum width against a long provider name (P5-3, gact-tui#346)', () => {
+    // jsdom never computes real layout (getBoundingClientRect stays zeroed),
+    // so this can't measure the badge's actual box the way the live capture
+    // did. What it CAN prove is the grid contract itself: the name track
+    // must be the one that shrinks (flexible, floor 0, already ellipsis-
+    // truncated by .provider-model-picker__providername) rather than the
+    // unbounded `auto` max that let a long name claim the row and squeeze
+    // the badge column to ~4px. Reading the stylesheet locks that contract
+    // the same way the panes max-height regression test above does.
+    const css = readFileSync(
+      resolve(__dirname, '../../src/composer/provider-model-picker.css'),
+      'utf8',
+    );
+    const rule = css.match(/\.provider-model-picker__provider\s*\{([^}]*)\}/s)?.[1] ?? '';
+    const columns = rule.match(/grid-template-columns:\s*([^;]+);/)?.[1] ?? '';
+    // Name track: flexible with no unbounded max, so it yields space first.
+    expect(columns).toMatch(/minmax\(0,\s*1fr\)/);
+    // Badge track: a real floor (not 0, not auto-only) so "default ⌄" always
+    // has room to render in full.
+    expect(columns).toMatch(/minmax\(48px,\s*auto\)/);
+    expect(columns).not.toMatch(/minmax\(0,\s*auto\)/);
+
+    // Structural sanity against the exact long-name fixture the audit named:
+    // the badge still renders in full with its real text, never dropped or
+    // emptied by the layout fix.
+    const providers = [
+      {
+        id: 'argonne_sophia',
+        label: 'ALCF Sophia (Globus Auth)',
+        status: 'auth_required',
+        statusLabel: 'auth required',
+        models: [],
+      },
+    ];
+    const { container } = render(
+      <ProviderModelPicker value="" options={[]} providers={providers} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const badge = container.querySelector('.provider-model-picker__cfg');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toContain('default');
   });
 });
 

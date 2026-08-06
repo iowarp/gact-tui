@@ -165,22 +165,6 @@ export const MOCK_WIRE_MESSAGE = {
       },
     },
     {
-      // tool_observer.py:533 — `selected_agent`. Getting this wrong rendered
-      // "routed to" with no name against the live backend.
-      type: 'routing_decision',
-      id: 'live_route_data',
-      agent_id: 'main',
-      selected_agent: 'data',
-      rationale: 'Agent planner selected data for tool stage_resource.',
-      execution_path: 'orchestrator -> data',
-      sequence: 6,
-      metadata: {
-        route_reason: 'Resolved from live tool owner data.',
-        route_source: 'live_tool_observer',
-        stream_source: 'live',
-      },
-    },
-    {
       type: 'tool_call',
       id: 'live_call_a4c19b2e_call',
       agent_id: 'data',

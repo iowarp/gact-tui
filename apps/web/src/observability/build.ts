@@ -595,6 +595,7 @@ function toArtifactRow(
     name: record.name || version.name,
     producer: artifactProducer(version, tasks),
     meta: artifactMeta(record, version),
+    id: version.artifact_id,
   };
 }
 

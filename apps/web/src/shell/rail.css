@@ -73,6 +73,18 @@
   color: var(--t-cy);
 }
 
+/* Pins the same accent look the button already shows on hover for as long
+   as the dialog it opened (SessionView's newOpen) stays up — otherwise the
+   button reads as idle the instant the pointer leaves it, even though the
+   modal it launched is still on screen. Matches the persistent-pressed
+   treatment other toggle controls use (.kit-toolbarbutton[aria-pressed
+   ='true']). */
+.shell-rail__headingbutton--active[aria-pressed='true'] {
+  background: var(--t-sf2);
+  border-color: var(--t-cy4);
+  color: var(--t-cy);
+}
+
 .shell-rail__headingbutton:disabled {
   color: var(--t-dis);
   cursor: default;

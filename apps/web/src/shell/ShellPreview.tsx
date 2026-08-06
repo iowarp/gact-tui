@@ -98,7 +98,6 @@ const MESSAGES = [
         name: 'ndp_dataset_discovery',
         input: { center_lat: 34.0536909, center_lon: -118.242766, radius_km: 100 },
       },
-      { type: 'routing_decision', expert: 'data' },
       { type: 'some_future_kind', payload: 1 },
     ],
   },

@@ -60,15 +60,11 @@ describe('real-wire coverage', () => {
 describe('corrected wire fields actually reach the screen', () => {
   // Not hitting the unrenderable fallback is a weak guarantee: a part can
   // render an empty frame and still pass it. These assert the substantive
-  // value from each corrected field is visible, which is what "routed to"
-  // with no name looked like against the live backend.
-  it('names the routed agent from selected_agent', () => {
-    // Scoped to the routing frame: "data" is also the agent_id on several
-    // other parts, so a document-wide query proves nothing about this one.
-    render(<Transcript messages={[MOCK_WIRE_MESSAGE as unknown as Message]} />);
-    expect(screen.getByTestId('part-routing').textContent).toContain('data');
-  });
-
+  // value from each corrected field is visible — the routing_decision case
+  // that motivated this pattern ("routed to" with no name) no longer applies:
+  // the wire stopped emitting that kind entirely (P5-5, gact-tui#348), and
+  // transcript.test.tsx locks that a legacy sample now surfaces through the
+  // unknown-kind fallback instead of a bespoke renderer.
   it('names the tool from tool_name', () => {
     render(<Transcript messages={[MOCK_WIRE_MESSAGE as unknown as Message]} />);
     expect(screen.getAllByText(/stage_resource/).length).toBeGreaterThan(0);

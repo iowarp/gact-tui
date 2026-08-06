@@ -28,7 +28,6 @@ describe('part renderer registry', () => {
       'tool_call',
       'tool_result',
       'expert_handoff',
-      'routing_decision',
       'resource_link',
       'file_diff',
       'compaction',
@@ -547,9 +546,14 @@ describe('Transcript', () => {
     expect(screen.queryByTestId('return-card')).toBeNull();
   });
 
-  it('names the routed agent using the wire field the backend actually sends', () => {
-    // `selected_agent` per gact/tool_observer.py:533. Guessing `expert` here
-    // produced a bare "routed to" with no name against a live backend.
+  it('surfaces a routing_decision part through the unknown-kind path, never a "routed to" line (P5-5, gact-tui#348)', () => {
+    // The wire no longer emits routing_decision (clio-agent a0e1d9a9) and
+    // every old session that carried one was deleted — routing left the
+    // transcript entirely. The renderer is GONE, not fixed, so a
+    // hypothetical legacy part with this kind must fall through to the
+    // registry's own no-silent-drop fallback (RenderedPart in Transcript.tsx)
+    // exactly like any other kind this build doesn't know, rather than the
+    // old bespoke "routed to X" line.
     render(
       <Transcript
         messages={[
@@ -559,9 +563,11 @@ describe('Transcript', () => {
         ]}
       />,
     );
-    const part = screen.getByTestId('part-routing');
-    expect(part).toHaveTextContent('geospatial');
-    expect(part).toHaveTextContent('place name');
+    expect(screen.queryByTestId('part-routing')).toBeNull();
+    expect(screen.queryByText(/routed to/i)).toBeNull();
+    const unrenderable = screen.getByTestId('part-unrenderable');
+    expect(unrenderable).toHaveTextContent('routing_decision');
+    expect(unrenderable).toHaveTextContent('this build has no renderer for this part kind');
   });
 });
 

@@ -53,6 +53,12 @@ function client(overrides: Record<string, unknown> = {}): Client {
     commands: vi.fn(async () => ({ commands: [] })),
     get: vi.fn(async () => ({ tasks: [] })),
     workspaceFiles: vi.fn(async () => ({ files: [], next_cursor: null })),
+    // The New dialog's own effect fetches these on open (SessionDialogs.tsx
+    // NewDialog) — only exercised by the "+" wiring test below, but every
+    // caller of client() gets a real mock rather than a thrown TypeError.
+    agentBlueprints: vi.fn(async () => ({ blueprints: [] })),
+    expertPacks: vi.fn(async () => ({ packs: [] })),
+    createSession: vi.fn(async () => ({ id: 'sess_new', workspace_id: 'ws_a' })),
     ...overrides,
   } as unknown as Client;
 }
@@ -107,6 +113,59 @@ describe('rail search + New affordances', () => {
     );
     const cell = screen.getByTestId('rail-connections');
     expect(cell).toHaveAttribute('title', expect.stringMatching(/switch/i));
+  });
+
+  // P5-7 (gact-tui#350): New(+) gets an active state while the dialog it
+  // opens is up — aria-pressed plus the same accent-modifier convention the
+  // button already carries, not a bespoke look.
+  it('New carries aria-pressed=false and no active modifier while the dialog is closed', () => {
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        onNewSession={vi.fn()}
+        newDialogOpen={false}
+      />,
+    );
+    const add = screen.getByRole('button', { name: 'New session' });
+    expect(add).toHaveAttribute('aria-pressed', 'false');
+    expect(add.className).not.toMatch(/--active/);
+  });
+
+  it('New carries aria-pressed=true and the active modifier while newDialogOpen is true', () => {
+    render(
+      <Rail
+        groups={[]}
+        activeSessionId={null}
+        onSelectSession={vi.fn()}
+        onCollapse={vi.fn()}
+        onNewSession={vi.fn()}
+        newDialogOpen
+      />,
+    );
+    const add = screen.getByRole('button', { name: 'New session' });
+    expect(add).toHaveAttribute('aria-pressed', 'true');
+    expect(add.className).toMatch(/--active/);
+  });
+
+  it('wired end-to-end through SessionView: clicking + pins the button active while the new-session dialog is open', async () => {
+    const wire = client();
+    render(<SessionView client={wire} sessions={SESSIONS} />);
+    await screen.findByText('/scratch/bravo');
+
+    const add = screen.getByRole('button', { name: 'New session' });
+    expect(add).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(add);
+    await screen.findByRole('dialog', { name: /new/i });
+    expect(add).toHaveAttribute('aria-pressed', 'true');
+    expect(add.className).toMatch(/--active/);
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /new/i })).toBeNull());
+    expect(add).toHaveAttribute('aria-pressed', 'false');
   });
 });
 

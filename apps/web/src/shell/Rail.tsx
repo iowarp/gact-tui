@@ -81,6 +81,11 @@ export interface RailProps {
   onSelectSession: (id: string) => void;
   onCollapse: () => void;
   onNewSession?: (workspaceId?: string) => void;
+  /** True while SessionView's "new session/workspace" dialog is open — pins
+   *  the New(+) button's own accent look so it reads as active for as long
+   *  as the dialog it opened is still up, matching how the topbar's own
+   *  panel-toggle controls carry `aria-pressed` for their open panel. */
+  newDialogOpen?: boolean;
   onOpenSearch?: () => void;
   onSessionAction?: (sessionId: string, action: SessionAction) => void;
   /** Supplying this enables rename-in-place from the row menu. */
@@ -164,6 +169,7 @@ export function Rail({
   onSelectSession,
   onCollapse,
   onNewSession,
+  newDialogOpen,
   onOpenSearch,
   onSessionAction,
   onRenameSession,
@@ -333,8 +339,13 @@ export function Rail({
           </button>
           <button
             type="button"
-            className="shell-rail__headingbutton shell-rail__headingbutton--accent"
+            className={
+              newDialogOpen
+                ? 'shell-rail__headingbutton shell-rail__headingbutton--accent shell-rail__headingbutton--active'
+                : 'shell-rail__headingbutton shell-rail__headingbutton--accent'
+            }
             aria-label="New session"
+            aria-pressed={Boolean(newDialogOpen)}
             title="New session"
             disabled={!newSession}
             onClick={() => newSession?.()}

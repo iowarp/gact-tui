@@ -99,6 +99,12 @@ export interface ObsArtifactRow {
   name: string;
   producer: string;
   meta: string;
+  /** The version's real artifact_id (SessionArtifactVersion.artifact_id) —
+   *  wires the row to SessionView.openArtifactById, the same right-panel
+   *  channel the transcript's artifact chips use. Optional only for
+   *  pre-P5 captured fixtures that predate the viewer wiring; a row with no
+   *  id renders honestly disabled rather than a dead-looking click. */
+  id?: string;
 }
 
 export type ObsToolCallState = 'done' | 'running' | 'failed';

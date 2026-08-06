@@ -11,8 +11,8 @@
  * sources: memory/events + semantic feed, agent-tasks, runs, artifacts.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { Observability } from '../../src/observability/Observability';
+import { describe, expect, it, vi } from 'vitest';
+import { Observability, type ObservabilityProps } from '../../src/observability/Observability';
 import type { ObservabilityData } from '../../src/observability/types';
 
 /** Captured-shape fixture: two completed spans + one running, one artifact. */
@@ -87,12 +87,13 @@ const DATA = {
       name: 'earthscope_stations.csv',
       producer: 'data / ndp_dataset_discovery',
       meta: '1,101 rows',
+      id: 'art_5f21c9d0e83a',
     },
   ],
 } as unknown as ObservabilityData;
 
-function renderObs() {
-  return render(<Observability data={DATA} />);
+function renderObs(overrides: Partial<ObservabilityProps> = {}) {
+  return render(<Observability data={DATA} {...overrides} />);
 }
 
 describe('tab set (prototype order + counts)', () => {
@@ -126,6 +127,17 @@ describe('timeline (log + gantt)', () => {
     expect(rows[2]!.getAttribute('data-kind')).toBe('artifact');
   });
 
+  it('puts the duration INLINE in the action text, not a separate trailing column (P5-4, gact-tui#347)', () => {
+    const { container } = renderObs();
+    const rows = container.querySelectorAll('.obs-log__row');
+    const toolRow = rows[1]!;
+    // No standalone duration element any more.
+    expect(toolRow.querySelector('.obs-log__duration')).toBeNull();
+    // The action cell itself carries the "tool call (2.8s)" text.
+    const action = toolRow.querySelector('.obs-log__action')!;
+    expect(action.textContent).toBe('tool call (2.8s)');
+  });
+
   it('gantt renders hierarchical bars, running accented, artifact diamonds', () => {
     const { container } = renderObs();
     fireEvent.click(screen.getByRole('button', { name: /^gantt$/i }));
@@ -150,6 +162,30 @@ describe('artifacts tab (producer paths)', () => {
     expect(row.textContent).toContain('earthscope_stations.csv');
     expect(row.textContent).toContain('data / ndp_dataset_discovery');
     expect(row.textContent).toContain('1,101 rows');
+  });
+
+  // P5-4 (gact-tui#347): the viewer exists (SessionView.openArtifactById ->
+  // AppShell detail -> DetailSlot) — the rows were stale-disabled behind a
+  // comment claiming otherwise. Wired through onOpenArtifact, the SAME
+  // channel the transcript's artifact chips use (ArtifactChip's own
+  // `onOpenArtifact && artifactId` gate).
+  it('is a real enabled button that opens the artifact when onOpenArtifact is wired', () => {
+    const onOpenArtifact = vi.fn();
+    renderObs({ onOpenArtifact });
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    const button = screen.getByTestId('obs-artifact-row').querySelector('button')!;
+    expect(button).not.toBeDisabled();
+    expect(button).not.toHaveAttribute('data-unbacked');
+    fireEvent.click(button);
+    expect(onOpenArtifact).toHaveBeenCalledWith('art_5f21c9d0e83a', 'earthscope_stations.csv');
+  });
+
+  it('renders honestly disabled and flagged when no onOpenArtifact is supplied — never a silent dead click', () => {
+    renderObs();
+    fireEvent.click(screen.getByRole('tab', { name: /^artifacts/ }));
+    const button = screen.getByTestId('obs-artifact-row').querySelector('button')!;
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('data-unbacked', 'true');
   });
 });
 

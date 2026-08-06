@@ -1710,6 +1710,7 @@ export function SessionView({
           setPanel('settings');
         }}
         onOpenSearch={() => setSearchOpen(true)}
+        newDialogOpen={newOpen}
         {...(relayStatus ? { relayStatus } : {})}
         onTogglePanel={(next) => {
           // 'artifacts'/'ctx' deep-link into the SAME observability layer on a
@@ -1874,6 +1875,7 @@ export function SessionView({
               data={observabilityData}
               showTraceHeader={false}
               onNavigate={handleObsNavigate}
+              onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
               {...(obsTab ? { initialTab: obsTab } : {})}
             />
           ) : (

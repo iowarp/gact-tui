@@ -259,7 +259,10 @@
 
 .obs-log__row {
   display: grid;
-  grid-template-columns: 70px 46px minmax(90px, max-content) minmax(0, 1fr) auto;
+  /* The trailing `auto` duration column is gone — the prototype renders
+     duration INLINE in the action text ("tool call (2.8s)"), not as its
+     own right-aligned track. */
+  grid-template-columns: 70px 46px minmax(90px, max-content) minmax(0, 1fr);
   align-items: baseline;
   min-height: 26px;
   column-gap: 8px;
@@ -370,19 +373,10 @@
   white-space: nowrap;
 }
 
-.obs-log__action,
-.obs-log__duration {
+.obs-log__action {
   color: var(--t-mu);
   font-size: calc(11.5px * var(--ts));
-}
-
-.obs-log__action {
   overflow-wrap: anywhere;
-}
-
-.obs-log__duration {
-  padding-right: 5px;
-  white-space: nowrap;
 }
 
 .obs-log__row[data-kind='artifact'] .obs-log__actor {

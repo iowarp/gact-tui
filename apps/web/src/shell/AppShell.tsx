@@ -50,6 +50,9 @@ export interface AppShellProps {
   /** This backend's own relay reachability (GET /v1/relay/status), for the
    *  rail footer's "relay" cell. */
   relayStatus?: RelayStatus;
+  /** True while the "new session/workspace" dialog SessionView owns is open
+   *  — drives the rail's New(+) button's own active state. */
+  newDialogOpen?: boolean;
 }
 
 /** The prototype's rail defaults: 300px, clamped 200–460. */
@@ -89,6 +92,7 @@ export function AppShell({
   onOpenSettings,
   onOpenSearch,
   relayStatus,
+  newDialogOpen,
 }: AppShellProps) {
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -114,6 +118,7 @@ export function AppShell({
               {...(onOpenSettings ? { onOpenSettings } : {})}
               {...(onOpenSearch ? { onOpenSearch } : {})}
               {...(relayStatus ? { relayStatus } : {})}
+              newDialogOpen={Boolean(newDialogOpen)}
             />
           </div>
           <Splitter

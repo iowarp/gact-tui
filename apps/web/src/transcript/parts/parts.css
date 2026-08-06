@@ -642,10 +642,6 @@
   color: var(--t-er);
 }
 
-.part-routing__why {
-  color: var(--t-dis);
-}
-
 .part-handoff__glyph {
   display: flex;
   justify-content: center;
