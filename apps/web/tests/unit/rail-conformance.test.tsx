@@ -146,4 +146,34 @@ describe('footer band (B5 + B11)', () => {
     expect(footer!.querySelector('.shell-rail__footcount')?.textContent).toBe('1');
     expect(footer!.querySelectorAll('.kit-statusdot').length).toBeGreaterThanOrEqual(2);
   });
+
+  /**
+   * Round-9 owner finding: "agents 1" while a session ran 3 live children
+   * read as a mislabeled/miswired count. Re-verified against the
+   * prototype's own source (design/prototype/Clio Session.html, ~offset
+   * 7821625) rather than assumed: the footer button is literally
+   * `agents {{ agentCount }}` where `agentCount: s.agentsList.length`, and
+   * `agentsList` is the prototype's own list of CONNECTED CLIO DEPLOYMENTS
+   * (seeded `clio@ares` / `clio@polaris`, each `name@host:port`, added
+   * through the "+agent" host:port dialog and closable/detachable per
+   * entry) — its title reads "Connected agents — opens settings". The
+   * prototype's OWN grammar is "agents" = connected backends, never the
+   * active session's live child-agent count; a session with three running
+   * children reading "agents 1" (one connected backend) is correct BY
+   * PROTOTYPE DESIGN, not a residual. This app already matches it
+   * (`readyCount` sources only from `connections`/the connected-backend
+   * registry — see SessionView's `connectedCount`, never agent-task or
+   * session-children data). Pinned here so a future "fix" cannot blend a
+   * session's live child count into this cell: `connections`, when
+   * supplied, is the WHOLE answer — an `agentCount` shaped like "3 running
+   * children" must have zero effect once `connections` is present.
+   */
+  it('counts connected backends only — an agentCount shaped like a session\'s live child count has no effect once connections is present', () => {
+    const { container } = renderRail({
+      connections: [{ id: 'c1', label: 'local', url: 'http://x', status: 'ready' }],
+      agentCount: 3,
+    });
+    const footer = container.querySelector('.shell-rail__foot');
+    expect(footer!.querySelector('.shell-rail__footcount')?.textContent).toBe('1');
+  });
 });
