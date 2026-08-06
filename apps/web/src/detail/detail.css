@@ -347,124 +347,250 @@
   color: var(--t-hd);
 }
 
-/* ---- provenance record folds (provRec/provTr in the prototype) ---- */
+/* ---- provenance (rework, docs/design/provenance-graph-2026-08.md) ----
+   The 4-row axes KvGrid and BOTH record folds are DELETED. One compact axes
+   line under the tab strip, then the lineage graph: ONE line per node
+   (glyph + name + muted sub-info), connector-rail edges carrying
+   `verb → evidence` in teal, foreign-session clusters behind a dimmed ┆
+   rail with a clickable header. Must read at 320px: sub-info truncates
+   before the name; connectors and glyphs never wrap. */
 
-.detail__fold {
-  margin-top: 10px;
-}
-
-.detail__foldbtn {
+.detail__provline {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  row-gap: 2px;
+  margin: 6px 0 0;
   color: var(--t-mu);
   font-family: var(--f-mono);
   font-size: calc(10.5px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
-.detail__foldbtn:hover {
+.detail__provdot {
+  color: var(--t-dis);
+}
+
+.detail__lineage {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+}
+
+/* One node line: glyph + name + inline muted sub-info. Whole-line hit target;
+   never a bordered rectangle spanning the column. */
+.detail__lnode {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--t-tx);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+
+button.detail__lnode {
+  cursor: pointer;
+}
+
+.detail__lnode:hover,
+.detail__ledge:hover,
+.detail__clusterhead:hover {
+  background: var(--t-hv);
+}
+
+.detail__lglyph {
+  flex-shrink: 0;
+  color: var(--t-ac);
+}
+
+.detail__lglyph[data-nodetype='activity'] {
+  color: var(--t-mu);
+}
+
+.detail__lglyph[data-nodetype='gap'] {
+  color: var(--t-dis);
+}
+
+.detail__lname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--t-hd);
 }
 
-.detail__foldchev {
-  display: inline-flex;
-  justify-content: center;
-  width: 14px;
+button.detail__lnode:hover .detail__lname {
+  text-decoration: underline;
 }
 
-.detail__foldpill {
-  padding: 1px 7px;
+/* Sub-info gives way FIRST at narrow widths (flex-shrink ≫ name's). */
+.detail__lsub {
+  flex-shrink: 999;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+}
+
+/* Self node: brighter glyph + highlighted name + the you-are-here marker. */
+.detail__lnode[data-self='true'] .detail__lglyph {
+  color: var(--t-cy);
+}
+
+.detail__lnode[data-self='true'] .detail__lname {
+  color: var(--t-cy);
+  font-weight: 600;
+}
+
+.detail__lselfmark {
+  flex-shrink: 0;
+  color: var(--t-cy);
+  font-size: calc(10.5px * var(--ts));
+}
+
+/* The activity line's replay/status pill (reproducible / gap / failed). */
+.detail__lpill {
+  flex-shrink: 0;
+  padding: 0 6px;
   border: 1px solid var(--t-bd3);
   border-radius: 999px;
-  font-size: calc(10px * var(--ts));
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: calc(9.5px * var(--ts));
+  line-height: 1.5;
 }
 
-.detail__foldpill[data-status='reproducible'] {
+.detail__lpill[data-status='reproducible'] {
   color: var(--t-ok);
   border-color: var(--t-ok);
 }
 
-.detail__foldpill[data-status='re-runnable'] {
+.detail__lpill[data-status='re-runnable'] {
   color: var(--t-ac);
   border-color: var(--t-ac);
 }
 
-.detail__foldpill[data-status='gap'] {
+.detail__lpill[data-status='gap'] {
   color: var(--t-mu);
 }
 
-.detail__foldbody {
-  margin-top: 8px;
+.detail__lpill[data-status='failed'] {
+  color: var(--t-er);
+  border-color: var(--t-er);
 }
 
-/* ---- route DAG ---- */
-
-.detail__route {
+/* Edge connector line: `╰ verb → evidence` on the left rail, evidence teal.
+   A join edge trails a ╮ elbow toward its non-adjacent consumer. */
+.detail__ledge {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 1px 4px;
+  border-radius: 5px;
+  white-space: nowrap;
+  font-size: calc(10.5px * var(--ts));
 }
 
-.detail__node {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 10px;
-  background: var(--t-bg);
-  border: 1px solid var(--t-bd3);
-  border-radius: 7px;
+.detail__lelbow {
+  flex-shrink: 0;
+  color: var(--t-dis);
 }
 
-.detail__node[data-self='true'] {
-  border-color: var(--t-cy4);
-  background: var(--t-cy08);
-}
-
-.detail__nodetype {
+.detail__ledgeverb {
+  flex-shrink: 0;
   color: var(--t-mu);
-  font-family: var(--f-mono);
-  font-size: calc(10px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
-.detail__nodelabel {
+.detail__ledgearrow {
+  flex-shrink: 0;
+  color: var(--t-dis);
+}
+
+.detail__ledgeevidence {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t-cy);
+}
+
+.detail__ljoin {
+  flex-shrink: 0;
+  color: var(--t-dis);
+}
+
+/* Foreign session cluster: one-line clickable header, dimmed ┆ rail on every
+   line the foreign session produced. */
+.detail__cluster {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail__clusterhead {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--t-mu);
+  font: inherit;
+  font-size: calc(10.5px * var(--ts));
+  text-align: left;
+  white-space: nowrap;
+}
+
+button.detail__clusterhead {
+  cursor: pointer;
+}
+
+button.detail__clusterhead:hover .detail__clustersess {
   color: var(--t-hd);
-  font-family: var(--f-mono);
-  font-size: calc(11.5px * var(--ts));
-  overflow-wrap: anywhere;
+  text-decoration: underline;
 }
 
-.detail__nodesub {
-  color: var(--t-mu);
-  font-family: var(--f-prose);
-  font-size: calc(11.5px * var(--ts));
+.detail__clusterdot {
+  flex-shrink: 0;
+  color: var(--t-dis);
 }
 
-.detail__edge {
+.detail__clustersess {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail__clustertime {
+  flex-shrink: 999;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t-dis);
+}
+
+.detail__clustergo {
+  flex-shrink: 0;
+  color: var(--t-cy);
+}
+
+.detail__lrail {
+  flex-shrink: 0;
+  color: var(--t-dis);
+}
+
+/* The recreate tab's eyebrow + replay pill row. */
+.detail__recreatehead {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 10px 3px 18px;
-}
-
-.detail__edgelabel {
-  color: var(--t-cy);
-  font-family: var(--f-mono);
-  font-size: calc(10.5px * var(--ts));
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .detail__instrument {

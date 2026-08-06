@@ -122,12 +122,15 @@ const RECORD: ArtifactRecord = {
   // already-tested rendering (DetailSlot.tsx's own breadcrumb branch,
   // tests/unit/detail.test.tsx) rather than looking unimplemented.
   breadcrumb: ['session', 'earthscope_stations.csv'],
+  // The provenance rework's one-line-per-node grammar
+  // (docs/design/provenance-graph-2026-08.md): typed facts on each line, the
+  // external source as a leaf with no click target, the self line last.
   route: [
     { kind: 'node', nodeType: 'artifact', label: 'ds2.datacollaboratory.org/…/earthscope_stations.csv', sub: 'external source on NDP' },
     { kind: 'edge', edge: 'used', stance: 'authority-asserted' },
-    { kind: 'node', nodeType: 'activity', label: 'stage_resource', sub: 'call_a4c19b2e' },
+    { kind: 'node', nodeType: 'activity', label: 'stage_resource', tool: 'stage_resource', duration: '4.2s' },
     { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
-    { kind: 'node', nodeType: 'artifact', label: 'earthscope_stations.csv', sub: 'this version', self: true },
+    { kind: 'node', nodeType: 'artifact', label: 'earthscope_stations.csv', version: 'v1', size: '48 KB', self: true },
   ],
 };
 

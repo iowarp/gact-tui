@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Client } from '@clio/core';
-import { Chip, Eyebrow, Icon, KvGrid, Layer, Popover, Tabs, ToolbarButton, type KvRow } from '../kit';
+import { Chip, Eyebrow, Icon, Layer, Popover, Tabs, ToolbarButton } from '../kit';
 import { Markdown } from '../transcript/markdown';
-import type { ArtifactRecord, RouteStep } from './types';
+import type { ArtifactRecord, RouteEdge, RouteNode, RouteStep } from './types';
 import './detail.css';
 
 export interface DetailSlotProps {
@@ -23,6 +23,21 @@ export interface DetailSlotProps {
    * affordance omits the ↗ open control — never a dead affordance.
    */
   onOpenStorage?: (storage: { path: string; workspaceId?: string }) => void;
+  /**
+   * Navigates the CENTER view to another session — the provenance graph's
+   * cross-session channel (gact-tui#355 drawn into the graph): a foreign
+   * cluster header click, or an activity-line click when the producing
+   * session is known. Same channel as the obs layer's agent navigation.
+   * When absent those lines render inert — no fake affordance.
+   */
+  onOpenSession?: (sessionId: string) => void;
+  /**
+   * Opens another artifact of the lineage graph in this panel, PUSHING the
+   * detail stack (the existing provenance push-onto-stack behavior,
+   * rightStack.ts `openRightEntry(..., { push: true })`). When absent,
+   * non-self artifact lines render inert.
+   */
+  onOpenArtifact?: (artifactId: string) => void;
 }
 
 type DetailTab = 'artifact' | 'provenance' | 'recreate';
@@ -41,7 +56,14 @@ type DetailTab = 'artifact' | 'provenance' | 'recreate';
  * measures (kind badge, breadcrumb, copy/download, maximize) independent of
  * that wiring gap, so it is ready when E7 lands.
  */
-export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlotProps) {
+export function DetailSlot({
+  record,
+  onClose,
+  client,
+  onOpenStorage,
+  onOpenSession,
+  onOpenArtifact,
+}: DetailSlotProps) {
   const [tab, setTab] = useState<DetailTab>('artifact');
   const [maximized, setMaximized] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -119,7 +141,13 @@ export function DetailSlot({ record, onClose, client, onOpenStorage }: DetailSlo
 
       <div className="detail__body">
         {tab === 'artifact' ? <Overview record={record} /> : null}
-        {tab === 'provenance' ? <Provenance record={record} /> : null}
+        {tab === 'provenance' ? (
+          <Provenance
+            record={record}
+            {...(onOpenSession ? { onOpenSession } : {})}
+            {...(onOpenArtifact ? { onOpenArtifact } : {})}
+          />
+        ) : null}
         {tab === 'recreate' ? <Recreate record={record} /> : null}
       </div>
     </>
@@ -676,35 +704,28 @@ function Preview({ preview }: { preview: NonNullable<ArtifactRecord['preview']> 
   );
 }
 
-function Provenance({ record }: { record: ArtifactRecord }) {
-  // The four axes, always all four — a missing axis is shown as unrecorded
-  // rather than omitted, so "we don't know" never looks like "not applicable".
-  const rows: KvRow[] = [
-    { key: 'mechanism', value: record.mechanism ?? unrecorded() },
-    { key: 'designation', value: record.designation ?? unrecorded() },
-    { key: 'evidence', value: record.evidence ?? unrecorded() },
-    { key: 'custody', value: record.custody ?? unrecorded() },
-  ];
-
+/**
+ * The provenance tab (rework, docs/design/provenance-graph-2026-08.md): ONE
+ * compact axes line directly under the tab strip, then the lineage graph —
+ * one line per node, connector-rail edges, foreign-session clusters. The
+ * mechanism/designation/evidence/custody KvGrid and BOTH record folds
+ * (VERSION RECORD / TRANSFORM RECORD) are DELETED per the spec: their rows
+ * ride the identity header, this line, and the graph itself; the Recreate tab
+ * keeps the full transform detail.
+ */
+function Provenance({
+  record,
+  onOpenSession,
+  onOpenArtifact,
+}: {
+  record: ArtifactRecord;
+  onOpenSession?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
+}) {
   const route = record.route ?? [];
-
-  // The prototype's VERSION RECORD fold: always all 8 rows, absences stated
-  // (same convention as the axes grid above).
-  const versionRows: KvRow[] = [
-    { key: 'artifact_id', value: record.id },
-    { key: 'sha256', value: record.sha ?? unrecorded() },
-    { key: 'size', value: record.size ?? unrecorded() },
-    { key: 'kind', value: record.kind ?? unrecorded() },
-    { key: 'mechanism', value: record.mechanism ?? unrecorded() },
-    { key: 'designation', value: record.designation ?? unrecorded() },
-    { key: 'evidence', value: record.evidence ?? unrecorded() },
-    { key: 'custody', value: record.custody ?? unrecorded() },
-  ];
-
   return (
     <div data-testid="detail-provenance">
-      <KvGrid label="Provenance" rows={rows} />
-
+      <ProvenanceLine record={record} />
       <div className="detail__section">
         <Eyebrow>lineage</Eyebrow>
         {route.length === 0 ? (
@@ -712,140 +733,364 @@ function Provenance({ record }: { record: ArtifactRecord }) {
             No route recorded for this artifact.
           </p>
         ) : (
-          <ol className="detail__route">
-            {route.map((step, index) => (
-              <li key={index}>{renderStep(step, index)}</li>
-            ))}
-          </ol>
-        )}
-      </div>
-
-      {/* The prototype's two collapsed record folds under the chain
-          (provRec/provTr, proto-d2). */}
-      <div className="detail__section">
-        <RecordFold label="version record" testId="fold-version-record">
-          <KvGrid label="Version record" rows={versionRows} />
-        </RecordFold>
-        <RecordFold
-          label="transform record"
-          testId="fold-transform-record"
-          {...(record.transformStatus ? { pill: record.transformStatus } : {})}
-        >
-          <TransformRecordContent
-            record={record}
-            bodyTestId="fold-transform-body"
-            absentTestId="fold-transform-absent"
+          <LineageGraphView
+            route={route}
+            {...(onOpenSession ? { onOpenSession } : {})}
+            {...(onOpenArtifact ? { onOpenArtifact } : {})}
           />
-        </RecordFold>
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * One collapsed-by-default record fold (the prototype's `▸ version record` /
- * `▸ transform record` buttons — provRecOpen/provTrOpen state, chevron flip
- * on toggle). The optional pill is the transform's replay-contract label
- * (reproducible / re-runnable / gap), shown on the button itself.
+ * The compact provenance line — the four axes dot-separated on one muted mono
+ * line (two only if it wraps at 320px). Always all four, in order; a missing
+ * axis is stated as unrecorded rather than omitted, so "we don't know" never
+ * looks like "not applicable" (the deleted KvGrid's honesty rule, kept).
  */
-function RecordFold({
-  label,
-  pill,
-  testId,
-  children,
-}: {
-  label: string;
-  pill?: string;
-  testId: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
+function ProvenanceLine({ record }: { record: ArtifactRecord }) {
+  const axes = [record.mechanism, record.designation, record.evidence, record.custody];
   return (
-    <div className="detail__fold" data-testid={testId}>
+    <p className="detail__provline" data-testid="detail-prov-line">
+      {axes.map((value, index) => (
+        <Fragment key={index}>
+          {index > 0 ? (
+            <span className="detail__provdot" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
+          {value ?? unrecorded()}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
+/** One contiguous run of lineage lines: the viewing session's (no header) or
+ *  a foreign session's cluster (dimmed rail + clickable header). An edge
+ *  belongs to the cluster of the node it leads INTO (the following node). */
+interface LineageSegment {
+  /** The foreign producing session — undefined for the default context. */
+  sessionId?: string;
+  /** The cluster header's timestamp: the first (oldest) node's mint time. */
+  createdAt?: string;
+  steps: { step: RouteStep; index: number }[];
+}
+
+function segmentRoute(route: RouteStep[]): LineageSegment[] {
+  const keyAt = (from: number): string | null => {
+    for (let i = from; i < route.length; i += 1) {
+      const step = route[i]!;
+      if (step.kind === 'node') return step.foreignSession && step.sessionId ? step.sessionId : null;
+    }
+    return null;
+  };
+  const segments: LineageSegment[] = [];
+  route.forEach((step, index) => {
+    const key = keyAt(index);
+    const last = segments[segments.length - 1];
+    const lastKey = last ? (last.sessionId ?? null) : undefined;
+    if (!last || lastKey !== key) {
+      segments.push({ ...(key ? { sessionId: key } : {}), steps: [] });
+    }
+    const segment = segments[segments.length - 1]!;
+    segment.steps.push({ step, index });
+    if (step.kind === 'node' && step.createdAt && !segment.createdAt) {
+      segment.createdAt = step.createdAt;
+    }
+  });
+  return segments;
+}
+
+/** `sess_c6241fc8906f` → `sess_c624…` — the cluster header's compact id. */
+function shortSessionId(sessionId: string): string {
+  return sessionId.length > 10 ? `${sessionId.slice(0, 9)}…` : sessionId;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** `2026-08-05T12:43:10Z` → `05 Aug 12:43` (local time, mockup grammar). */
+function clusterTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(at.getDate())} ${MONTHS[at.getMonth()]} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
+function LineageGraphView({
+  route,
+  onOpenSession,
+  onOpenArtifact,
+}: {
+  route: RouteStep[];
+  onOpenSession?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
+}) {
+  const segments = segmentRoute(route);
+  return (
+    <div className="detail__lineage" data-testid="route-graph">
+      {segments.map((segment, si) =>
+        segment.sessionId ? (
+          <ForeignCluster
+            key={`cluster-${segment.sessionId}-${si}`}
+            segment={segment}
+            {...(onOpenSession ? { onOpenSession } : {})}
+            {...(onOpenArtifact ? { onOpenArtifact } : {})}
+          />
+        ) : (
+          <Fragment key={`run-${si}`}>
+            {segment.steps.map(({ step, index }) =>
+              step.kind === 'edge' ? (
+                <EdgeLine key={index} edge={step} index={index} />
+              ) : (
+                <NodeLine
+                  key={index}
+                  node={step}
+                  index={index}
+                  {...(onOpenSession ? { onOpenSession } : {})}
+                  {...(onOpenArtifact ? { onOpenArtifact } : {})}
+                />
+              ),
+            )}
+          </Fragment>
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * A foreign session's cluster (spec rule 3): a one-line header — `● sess_…
+ * · 05 Aug 12:43 ↗` — then the nodes it produced behind a dimmed `┆` rail.
+ * The header is the click target (jumps to that session, the obs
+ * agent-navigation channel); without a navigation callback it renders as a
+ * plain line WITHOUT the ↗ — never a dead affordance.
+ */
+function ForeignCluster({
+  segment,
+  onOpenSession,
+  onOpenArtifact,
+}: {
+  segment: LineageSegment;
+  onOpenSession?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
+}) {
+  const sessionId = segment.sessionId!;
+  const time = segment.createdAt ? clusterTime(segment.createdAt) : '';
+  const headBody = (
+    <>
+      <span className="detail__clusterdot" aria-hidden="true">
+        ●
+      </span>
+      <span className="detail__clustersess" title={sessionId}>
+        {shortSessionId(sessionId)}
+      </span>
+      {time ? <span className="detail__clustertime">· {time}</span> : null}
+      {onOpenSession ? (
+        <span className="detail__clustergo" aria-hidden="true">
+          ↗
+        </span>
+      ) : null}
+    </>
+  );
+  return (
+    <div className="detail__cluster" data-testid="route-cluster" data-session={sessionId}>
+      {onOpenSession ? (
+        <button
+          type="button"
+          className="detail__clusterhead"
+          data-testid="route-cluster-header"
+          title={`Open session ${sessionId}`}
+          onClick={() => onOpenSession(sessionId)}
+        >
+          {headBody}
+        </button>
+      ) : (
+        <div className="detail__clusterhead" data-testid="route-cluster-header">
+          {headBody}
+        </div>
+      )}
+      {segment.steps.map(({ step, index }) =>
+        step.kind === 'edge' ? (
+          <EdgeLine key={index} edge={step} index={index} dimRail />
+        ) : (
+          <NodeLine
+            key={index}
+            node={step}
+            index={index}
+            dimRail
+            {...(onOpenSession ? { onOpenSession } : {})}
+            {...(onOpenArtifact ? { onOpenArtifact } : {})}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+const NODE_GLYPHS: Record<RouteNode['nodeType'], string> = {
+  artifact: '◆',
+  activity: '⚙',
+  gap: '▢',
+};
+
+/**
+ * ONE line per node (spec rule 1): glyph + name + inline muted sub-info,
+ * never a bordered rectangle. The whole line is the hit target when it has a
+ * real destination — a non-self artifact opens in the panel (push), an
+ * activity jumps to its producing session; otherwise the line is inert.
+ */
+function NodeLine({
+  node,
+  index,
+  dimRail,
+  onOpenSession,
+  onOpenArtifact,
+}: {
+  node: RouteNode;
+  index: number;
+  dimRail?: boolean;
+  onOpenSession?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
+}) {
+  const subParts: string[] = [];
+  if (node.nodeType === 'gap') {
+    subParts.push(node.gapReason ?? 'no transform recorded');
+  } else if (node.nodeType === 'activity') {
+    if (node.duration) subParts.push(node.duration);
+  } else {
+    if (node.version) subParts.push(node.version);
+    if (node.size) subParts.push(node.size);
+  }
+  if (node.sub) subParts.push(node.sub);
+
+  const open =
+    node.nodeType === 'artifact' && !node.self && node.artifactId && onOpenArtifact
+      ? () => onOpenArtifact(node.artifactId!)
+      : node.nodeType === 'activity' && node.sessionId && onOpenSession
+        ? () => onOpenSession(node.sessionId!)
+        : undefined;
+
+  const body = (
+    <>
+      {dimRail ? (
+        <span className="detail__lrail" aria-hidden="true">
+          ┆
+        </span>
+      ) : null}
+      <span className="detail__lglyph" data-nodetype={node.nodeType} aria-hidden="true">
+        {NODE_GLYPHS[node.nodeType]}
+      </span>
+      <span className="detail__lname">{node.label}</span>
+      {subParts.map((part, pi) => (
+        <span key={pi} className="detail__lsub">
+          · {part}
+        </span>
+      ))}
+      {node.status ? (
+        <span className="detail__lpill" data-status={node.status}>
+          {node.status}
+        </span>
+      ) : null}
+      {node.self ? <span className="detail__lselfmark">· you are here</span> : null}
+    </>
+  );
+
+  const testId = node.self ? 'route-node-self' : `route-node-${index}`;
+  if (open) {
+    return (
       <button
         type="button"
-        className="detail__foldbtn"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        className="detail__lnode"
+        data-testid={testId}
+        data-self={node.self ? 'true' : undefined}
+        title={
+          node.nodeType === 'activity' ? `Open producing session ${node.sessionId}` : 'Open artifact'
+        }
+        onClick={open}
       >
-        <span className="detail__foldchev" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        <span className="detail__foldlabel">{label}</span>
-        {pill ? (
-          <span className="detail__foldpill" data-status={pill}>
-            {pill}
-          </span>
-        ) : null}
+        {body}
       </button>
-      {open ? (
-        <div className="detail__foldbody" data-testid={`${testId}-body`}>
-          {children}
-        </div>
+    );
+  }
+  return (
+    <div className="detail__lnode" data-testid={testId} data-self={node.self ? 'true' : undefined}>
+      {body}
+    </div>
+  );
+}
+
+/**
+ * A connector line on the left rail (spec rule 2): `╰ verb → evidence`, the
+ * evidence term teal. A `join` edge leads into a consumer that is not the
+ * next line — the trailing `╮` elbow (multi-input branches, rule 4).
+ */
+function EdgeLine({ edge, index, dimRail }: { edge: RouteEdge; index: number; dimRail?: boolean }) {
+  return (
+    <div
+      className="detail__ledge"
+      data-testid={`route-edge-${index}`}
+      data-join={edge.join ? 'true' : undefined}
+    >
+      {dimRail ? (
+        <span className="detail__lrail" aria-hidden="true">
+          ┆
+        </span>
+      ) : null}
+      <span className="detail__lelbow" aria-hidden="true">
+        ╰
+      </span>
+      <span className="detail__ledgeverb">{edge.edge}</span>
+      {edge.stance ? (
+        <>
+          <span className="detail__ledgearrow" aria-hidden="true">
+            →
+          </span>
+          <span className="detail__ledgeevidence">{edge.stance}</span>
+        </>
+      ) : null}
+      {edge.join ? (
+        <span className="detail__ljoin" aria-hidden="true">
+          ╮
+        </span>
       ) : null}
     </div>
   );
 }
 
-function renderStep(step: RouteStep, index: number) {
-  if (step.kind === 'edge') {
-    return (
-      <div className="detail__edge" data-testid={`route-edge-${index}`}>
-        <span className="detail__edgelabel">{step.edge}</span>
-        {step.stance ? <Chip>{step.stance}</Chip> : null}
-      </div>
-    );
-  }
-  return (
-    <div
-      className="detail__node"
-      data-self={step.self ? 'true' : undefined}
-      data-testid={step.self ? 'route-node-self' : `route-node-${index}`}
-    >
-      <span className="detail__nodetype">{step.nodeType}</span>
-      <span className="detail__nodelabel">{step.label}</span>
-      {step.sub ? <span className="detail__nodesub">{step.sub}</span> : null}
-    </div>
-  );
-}
-
 /**
- * The transform-record content — the instrument, or the stated absence. ONE
- * owner shown in BOTH places the prototype shows it: the recreate tab and
- * the provenance tab's TRANSFORM RECORD fold (proto-d2).
+ * The recreate tab — the ONE remaining home of the full transform detail
+ * (the provenance tab's TRANSFORM RECORD fold is deleted, provenance rework
+ * 2026-08): the instrument, or the stated absence, plus the replay-contract
+ * pill when the record carries one (the deleted fold's pill, kept honest).
  */
-function TransformRecordContent({
-  record,
-  bodyTestId,
-  absentTestId,
-}: {
-  record: ArtifactRecord;
-  bodyTestId: string;
-  absentTestId: string;
-}) {
+function Recreate({ record }: { record: ArtifactRecord }) {
   if (!record.instrument) {
     return (
-      <p className="detail__absent" data-testid={absentTestId}>
+      <p className="detail__absent" data-testid="recreate-absent">
         This artifact has no recorded instrument, so it cannot be recreated from
         the trace.
       </p>
     );
   }
   return (
-    <div data-testid={bodyTestId}>
-      <Eyebrow>instrument</Eyebrow>
+    <div data-testid="detail-recreate">
+      <div className="detail__recreatehead">
+        <Eyebrow>instrument</Eyebrow>
+        {record.transformStatus ? (
+          <span
+            className="detail__lpill"
+            data-status={record.transformStatus}
+            data-testid="recreate-status"
+          >
+            {record.transformStatus}
+          </span>
+        ) : null}
+      </div>
       <pre className="detail__instrument">{record.instrument}</pre>
     </div>
-  );
-}
-
-function Recreate({ record }: { record: ArtifactRecord }) {
-  return (
-    <TransformRecordContent
-      record={record}
-      bodyTestId="detail-recreate"
-      absentTestId="recreate-absent"
-    />
   );
 }
 

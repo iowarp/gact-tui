@@ -9,8 +9,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import type { Client, SessionArtifactRecord, SessionArtifactVersion } from '@clio/core';
 import { DetailSlot } from '../../src/detail/DetailSlot';
-import { mintArtifactRecord } from '../../src/detail/mintRecord';
-import type { ArtifactRecord } from '../../src/detail/types';
+import { mintArtifactRecord, routeFromLineage, type LineageGraph } from '../../src/detail/mintRecord';
+import type { ArtifactRecord, RouteStep } from '../../src/detail/types';
 
 const RECORD: ArtifactRecord = {
   id: 'art_5f21c9d0e83a',
@@ -23,14 +23,76 @@ const RECORD: ArtifactRecord = {
   custody: 'workspace — data/',
   note: 'Clean station-metadata catalog.',
   instrument: 'stage_resource(resource="earthscope_stations.csv")',
+  // The provenance rework's one-line-per-node route shape
+  // (docs/design/provenance-graph-2026-08.md).
   route: [
     { kind: 'node', nodeType: 'artifact', label: 'ds2.datacollaboratory.org/…csv', sub: 'external source' },
     { kind: 'edge', edge: 'used', stance: 'authority-asserted' },
-    { kind: 'node', nodeType: 'activity', label: 'stage_resource', sub: 'call_a4c19b2e' },
+    {
+      kind: 'node',
+      nodeType: 'activity',
+      label: 'stage_resource',
+      tool: 'stage_resource',
+      duration: '4.2s',
+      sessionId: 'sess_c6241fc8906f',
+    },
     { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
-    { kind: 'node', nodeType: 'artifact', label: 'earthscope_stations.csv', sub: 'this version', self: true },
+    {
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'earthscope_stations.csv',
+      artifactId: 'art_5f21c9d0e83a',
+      version: 'v1',
+      size: '48 KB',
+      self: true,
+    },
   ],
 };
+
+/** Mockup-2's shape: the upstream chain minted by ANOTHER session. */
+const CROSS_SESSION_ROUTE: RouteStep[] = [
+  {
+    kind: 'node',
+    nodeType: 'activity',
+    label: 'ndp_stage_resource',
+    tool: 'ndp_stage_resource',
+    duration: '1.7s',
+    sessionId: 'sess_9f17aa20bb31',
+    foreignSession: true,
+  },
+  { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+  {
+    kind: 'node',
+    nodeType: 'artifact',
+    label: 'MTA1.CI.LY_.30.csv',
+    artifactId: 'artifact_csv01',
+    version: 'v1',
+    size: '50.4 MB',
+    createdAt: '2026-08-05T12:43:00',
+    sessionId: 'sess_9f17aa20bb31',
+    foreignSession: true,
+  },
+  { kind: 'edge', edge: 'used', stance: 'hashed-at-use' },
+  {
+    kind: 'node',
+    nodeType: 'activity',
+    label: 'plot_plot_timeseries',
+    tool: 'plot_plot_timeseries',
+    duration: '7.9s',
+    sessionId: 'sess_c6241fc8906f',
+  },
+  { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+  {
+    kind: 'node',
+    nodeType: 'artifact',
+    label: 'MTA1.CI.LY_.30_position.png',
+    artifactId: 'artifact_png01',
+    version: 'v1',
+    size: '179 KB',
+    sessionId: 'sess_c6241fc8906f',
+    self: true,
+  },
+];
 
 describe('DetailSlot', () => {
   it('is a labelled complementary region', () => {
@@ -454,6 +516,194 @@ describe('DetailSlot', () => {
     });
   });
 
+  describe('routeFromLineage (provenance rework — typed node facts + clusters + joins)', () => {
+    /** Mockup 2's wire: the CSV minted by a foreign session feeds the PNG. */
+    const CROSS_GRAPH: LineageGraph = {
+      root: 'artifact_png01',
+      nodes: [
+        {
+          id: 'artifact_png01',
+          type: 'artifact',
+          name: 'MTA1.CI.LY_.30_position.png',
+          version: 1,
+          producer_call_id: 'call_plot',
+        },
+        {
+          id: 'activity:call_plot',
+          type: 'activity',
+          call_id: 'call_plot',
+          tool: 'plot_plot_timeseries',
+          status: 'success',
+          replay: 're-runnable',
+          session_id: 'sess_c6241fc8906f',
+          turn_id: 'turn_9',
+        },
+        {
+          id: 'artifact_csv01',
+          type: 'artifact',
+          name: 'MTA1.CI.LY_.30.csv',
+          version: 1,
+          producer_call_id: 'call_stage',
+        },
+        {
+          id: 'activity:call_stage',
+          type: 'activity',
+          call_id: 'call_stage',
+          tool: 'ndp_stage_resource',
+          status: 'success',
+          replay: 're-runnable',
+          session_id: 'sess_9f17aa20bb31',
+          turn_id: 'turn_2',
+        },
+      ],
+      edges: [
+        { from: 'activity:call_plot', to: 'artifact_png01', type: 'generated', evidence: 'hashed-at-use' },
+        { from: 'artifact_csv01', to: 'activity:call_plot', type: 'used', evidence: 'hashed-at-use' },
+        { from: 'activity:call_stage', to: 'artifact_csv01', type: 'generated', evidence: 'hashed-at-use' },
+      ],
+    };
+
+    const CONTEXT = {
+      viewerSessionId: 'sess_c6241fc8906f',
+      versionsById: new Map<string, SessionArtifactVersion>([
+        [
+          'artifact_csv01',
+          {
+            artifact_id: 'artifact_csv01',
+            name: 'MTA1.CI.LY_.30.csv',
+            version: 1,
+            size_bytes: 52_848_230,
+            created_at: '2026-08-05T12:43:00',
+          } as unknown as SessionArtifactVersion,
+        ],
+        [
+          'artifact_png01',
+          {
+            artifact_id: 'artifact_png01',
+            name: 'MTA1.CI.LY_.30_position.png',
+            version: 1,
+            size_bytes: 183_296,
+          } as unknown as SessionArtifactVersion,
+        ],
+      ]),
+    };
+
+    it('flattens Mockup 2\'s wire oldest-first with the self artifact LAST', () => {
+      const steps = routeFromLineage(CROSS_GRAPH, CONTEXT);
+      const kinds = steps.map((s) => (s.kind === 'node' ? `${s.nodeType}:${s.label}` : `edge:${s.edge}`));
+      expect(kinds).toEqual([
+        'activity:ndp_stage_resource',
+        'edge:generated',
+        'artifact:MTA1.CI.LY_.30.csv',
+        'edge:used',
+        'activity:plot_plot_timeseries',
+        'edge:generated',
+        'artifact:MTA1.CI.LY_.30_position.png',
+      ]);
+      const last = steps[steps.length - 1]!;
+      expect(last.kind === 'node' && last.self).toBe(true);
+    });
+
+    it('threads size/created_at from the version wire and the producing session from the producer activity', () => {
+      const steps = routeFromLineage(CROSS_GRAPH, CONTEXT);
+      const csv = steps.find((s) => s.kind === 'node' && s.label === 'MTA1.CI.LY_.30.csv');
+      expect(csv).toMatchObject({
+        artifactId: 'artifact_csv01',
+        version: 'v1',
+        size: '50.4 MB',
+        createdAt: '2026-08-05T12:43:00',
+        sessionId: 'sess_9f17aa20bb31',
+        foreignSession: true,
+      });
+      const stage = steps.find((s) => s.kind === 'node' && s.label === 'ndp_stage_resource');
+      expect(stage).toMatchObject({
+        nodeType: 'activity',
+        tool: 'ndp_stage_resource',
+        sessionId: 'sess_9f17aa20bb31',
+        turnId: 'turn_2',
+        foreignSession: true,
+      });
+      // The viewing session's own nodes are NOT marked foreign.
+      const plot = steps.find((s) => s.kind === 'node' && s.label === 'plot_plot_timeseries');
+      expect(plot && 'foreignSession' in plot && plot.foreignSession).toBeFalsy();
+    });
+
+    it('the re-runnable replay default is plain-ok (no pill); failed and reproducible surface', () => {
+      const steps = routeFromLineage(CROSS_GRAPH, CONTEXT);
+      const plot = steps.find((s) => s.kind === 'node' && s.label === 'plot_plot_timeseries');
+      expect(plot && 'status' in plot ? plot.status : undefined).toBeUndefined();
+
+      const variant: LineageGraph = {
+        ...CROSS_GRAPH,
+        nodes: CROSS_GRAPH.nodes.map((n) =>
+          n.id === 'activity:call_plot'
+            ? { ...n, replay: 'reproducible' }
+            : n.id === 'activity:call_stage'
+              ? { ...n, status: 'failed' }
+              : n,
+        ),
+      };
+      const vSteps = routeFromLineage(variant, CONTEXT);
+      const vPlot = vSteps.find((s) => s.kind === 'node' && s.label === 'plot_plot_timeseries');
+      expect(vPlot && 'status' in vPlot ? vPlot.status : undefined).toBe('reproducible');
+      const vStage = vSteps.find((s) => s.kind === 'node' && s.label === 'ndp_stage_resource');
+      expect(vStage && 'status' in vStage ? vStage.status : undefined).toBe('failed');
+    });
+
+    it('a multi-input graph keeps EVERY used edge, marking non-adjacent consumers as joins (Mockup 3)', () => {
+      const graph: LineageGraph = {
+        root: 'artifact_report',
+        nodes: [
+          { id: 'artifact_report', type: 'artifact', name: 'report.md', version: 1, producer_call_id: 'call_create' },
+          { id: 'activity:call_create', type: 'activity', call_id: 'call_create', tool: 'create_artifact', session_id: 'sess_c6241fc8906f' },
+          { id: 'artifact_a', type: 'artifact', name: 'a.csv', version: 1 },
+          { id: 'artifact_b', type: 'artifact', name: 'b.png', version: 1 },
+        ],
+        edges: [
+          { from: 'activity:call_create', to: 'artifact_report', type: 'generated', evidence: 'hashed-at-use' },
+          { from: 'artifact_a', to: 'activity:call_create', type: 'used', evidence: 'declared' },
+          { from: 'artifact_b', to: 'activity:call_create', type: 'used', evidence: 'declared' },
+        ],
+      };
+      const steps = routeFromLineage(graph, { viewerSessionId: 'sess_c6241fc8906f' });
+      const edges = steps.filter((s) => s.kind === 'edge');
+      // BOTH used edges survive the flattening (the old walk dropped
+      // non-adjacent ones), plus the generated edge: 3 total.
+      expect(edges).toHaveLength(3);
+      expect(edges.filter((e) => e.edge === 'used')).toHaveLength(2);
+      // Exactly one of the two inputs is non-adjacent to the activity — its
+      // edge carries the join elbow; the adjacent one does not.
+      expect(edges.filter((e) => e.edge === 'used' && e.join)).toHaveLength(1);
+      // Every node still renders exactly once.
+      expect(steps.filter((s) => s.kind === 'node')).toHaveLength(4);
+    });
+
+    it('falls back to the generated edge for the producing session when producer_call_id names a call outside the graph (observed live on sess_c6241fc8906f)', () => {
+      const graph: LineageGraph = {
+        ...CROSS_GRAPH,
+        nodes: CROSS_GRAPH.nodes.map((n) =>
+          n.id === 'artifact_csv01' ? { ...n, producer_call_id: 'call_redesignated' } : n,
+        ),
+      };
+      const steps = routeFromLineage(graph, CONTEXT);
+      const csv = steps.find((s) => s.kind === 'node' && s.label === 'MTA1.CI.LY_.30.csv');
+      // The generated edge activity:call_stage → csv still proves the
+      // producing session; the node clusters as foreign instead of silently
+      // dropping into the default context.
+      expect(csv).toMatchObject({ sessionId: 'sess_9f17aa20bb31', foreignSession: true });
+    });
+
+    it('never fabricates size/duration/session facts the wires do not carry', () => {
+      const steps = routeFromLineage(CROSS_GRAPH, {});
+      const csv = steps.find((s) => s.kind === 'node' && s.label === 'MTA1.CI.LY_.30.csv');
+      expect(csv && 'size' in csv ? csv.size : undefined).toBeUndefined();
+      const plot = steps.find((s) => s.kind === 'node' && s.label === 'plot_plot_timeseries');
+      expect(plot && 'duration' in plot ? plot.duration : undefined).toBeUndefined();
+      // Without a viewer session nothing is marked foreign.
+      expect(steps.every((s) => s.kind === 'edge' || !s.foreignSession)).toBe(true);
+    });
+  });
+
   describe('content preview rendering (round-3 defect 2, component half)', () => {
     it('renders a markdown preview body on the Overview once the record carries one', () => {
       render(
@@ -476,35 +726,34 @@ describe('DetailSlot', () => {
     });
   });
 
-  it('renders the four provenance axes on the provenance tab', () => {
-    const { container } = render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-    // Scoped to the axes grid: "hashed-at-use" is legitimately BOTH the
-    // evidence axis and a route edge stance, so a panel-wide lookup is
-    // ambiguous by design rather than by accident.
-    const axes = container.querySelector('.kit-kvgrid') as HTMLElement;
-    expect(axes).not.toBeNull();
-    for (const value of ['harness', 'tool-declared', 'hashed-at-use', 'workspace — data/']) {
-      expect(within(axes).getByText(value)).toBeInTheDocument();
-    }
+  describe('compact provenance line (provenance rework — the KvGrid is deleted)', () => {
+    it('renders the four axes as ONE dot-separated muted line under the tab strip', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const line = screen.getByTestId('detail-prov-line');
+      expect(line.textContent).toBe('harness·tool-declared·hashed-at-use·workspace — data/');
+    });
+
+    it('states a missing axis as unrecorded on the line, never omits it', () => {
+      const record = { ...RECORD };
+      delete (record as { evidence?: string }).evidence;
+      render(<DetailSlot record={record} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.getByTestId('detail-prov-line')).toHaveTextContent('unrecorded');
+    });
+
+    it('renders NO KvGrid and NO record folds on the provenance tab (the deletions)', () => {
+      const { container } = render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const prov = screen.getByTestId('detail-provenance');
+      expect(prov.querySelector('.kit-kvgrid')).toBeNull();
+      expect(screen.queryByRole('button', { name: /version record/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /transform record/i })).toBeNull();
+      expect(container.querySelector('.detail__fold')).toBeNull();
+    });
   });
 
-  it('renders the route DAG in order with typed edges', () => {
-    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-    const steps = screen.getAllByTestId(/route-(node|edge)/);
-    expect(steps).toHaveLength(5);
-    expect(steps[1]).toHaveTextContent('used');
-    expect(steps[3]).toHaveTextContent('generated');
-  });
-
-  it('marks the record itself in its own route', () => {
-    render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-    expect(screen.getByTestId('route-node-self')).toHaveTextContent('this version');
-  });
-
-  describe('provenance record folds + lineage eyebrow (round-3 defect 4, proto-d2)', () => {
+  describe('one-line lineage graph (docs/design/provenance-graph-2026-08.md)', () => {
     it('names the chain eyebrow "lineage", not "route"', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
@@ -512,84 +761,218 @@ describe('DetailSlot', () => {
       expect(screen.queryByText('route')).toBeNull();
     });
 
-    it('renders BOTH record folds collapsed by default', () => {
+    it('renders every step in order: one line per node, connector lines between', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      const versionFold = screen.getByRole('button', { name: /version record/i });
-      const transformFold = screen.getByRole('button', { name: /transform record/i });
-      expect(versionFold).toHaveAttribute('aria-expanded', 'false');
-      expect(transformFold).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByTestId('fold-version-record-body')).toBeNull();
-      expect(screen.queryByTestId('fold-transform-record-body')).toBeNull();
+      const steps = screen.getAllByTestId(/route-(node|edge)/);
+      expect(steps).toHaveLength(5);
+      expect(steps[1]).toHaveTextContent('used');
+      expect(steps[1]).toHaveTextContent('authority-asserted');
+      expect(steps[3]).toHaveTextContent('generated');
     });
 
-    it('expands the VERSION RECORD fold to the 8 version rows', () => {
+    it('an artifact node is ONE line: ◆ glyph + name + version/size sub-info, no bordered kv rows', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      fireEvent.click(screen.getByRole('button', { name: /version record/i }));
-      const body = screen.getByTestId('fold-version-record-body');
-      for (const key of [
-        'artifact_id',
-        'sha256',
-        'size',
-        'kind',
-        'mechanism',
-        'designation',
-        'evidence',
-        'custody',
-      ]) {
-        expect(within(body).getByText(key)).toBeInTheDocument();
-      }
-      // The rows carry the record's REAL values, not placeholders.
-      expect(within(body).getByText('art_5f21c9d0e83a')).toBeInTheDocument();
-      expect(within(body).getByText('sha256:b3c94ff0a2e1…41ad')).toBeInTheDocument();
+      const self = screen.getByTestId('route-node-self');
+      expect(self.querySelector('.detail__lglyph')).toHaveTextContent('◆');
+      expect(self.querySelector('.detail__lname')).toHaveTextContent('earthscope_stations.csv');
+      expect(self).toHaveTextContent('v1');
+      expect(self).toHaveTextContent('48 KB');
+      // Never the old column-width rectangle grammar.
+      expect(self.querySelector('.detail__nodetype')).toBeNull();
     });
 
-    it('collapses the fold again on a second click', () => {
+    it('an activity node renders ⚙ + tool + duration on its line', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      const fold = screen.getByRole('button', { name: /version record/i });
-      fireEvent.click(fold);
-      expect(screen.getByTestId('fold-version-record-body')).toBeInTheDocument();
-      fireEvent.click(fold);
-      expect(screen.queryByTestId('fold-version-record-body')).toBeNull();
+      const activity = screen.getByTestId('route-node-2');
+      expect(activity.querySelector('.detail__lglyph')).toHaveTextContent('⚙');
+      expect(activity).toHaveTextContent('stage_resource');
+      expect(activity).toHaveTextContent('4.2s');
     });
 
-    it('the TRANSFORM RECORD fold shows the SAME instrument content the recreate tab carries', () => {
+    it('an activity line carries its status pill when not plain-ok', () => {
+      const route: RouteStep[] = [
+        {
+          kind: 'node',
+          nodeType: 'activity',
+          label: 'create_artifact',
+          tool: 'create_artifact',
+          status: 'gap',
+        },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const pill = screen.getByTestId('route-node-0').querySelector('.detail__lpill');
+      expect(pill).toHaveTextContent('gap');
+      expect(pill).toHaveAttribute('data-status', 'gap');
+    });
+
+    it('a gap node renders ▢ with its reason, muted', () => {
+      const route: RouteStep[] = [
+        { kind: 'node', nodeType: 'gap', label: 'report.md', gapReason: 'no transform recorded' },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const gap = screen.getByTestId('route-node-0');
+      expect(gap.querySelector('.detail__lglyph')).toHaveTextContent('▢');
+      expect(gap).toHaveTextContent('no transform recorded');
+    });
+
+    it('marks the record itself with the you-are-here marker on its own line', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      fireEvent.click(screen.getByRole('button', { name: /transform record/i }));
-      const body = screen.getByTestId('fold-transform-body');
-      expect(body).toHaveTextContent('stage_resource');
-      // Recreate keeps its own copy of the same content (both places, per
-      // the prototype).
-      fireEvent.click(screen.getByRole('tab', { name: /recreate/i }));
-      expect(screen.getByTestId('detail-recreate')).toHaveTextContent('stage_resource');
+      const self = screen.getByTestId('route-node-self');
+      expect(self).toHaveTextContent('you are here');
+      expect(self).toHaveAttribute('data-self', 'true');
     });
 
-    it('states the absence inside the transform fold when no instrument was recorded', () => {
-      const record = { ...RECORD };
-      delete (record as { instrument?: string }).instrument;
-      render(<DetailSlot record={record} onClose={vi.fn()} />);
+    it('a join edge (multi-input branch) draws the ╮ elbow toward its consumer', () => {
+      const route: RouteStep[] = [
+        { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'artifact_a' },
+        { kind: 'edge', edge: 'used', stance: 'declared', join: true },
+        { kind: 'node', nodeType: 'artifact', label: 'b.csv', artifactId: 'artifact_b' },
+        { kind: 'edge', edge: 'used', stance: 'declared' },
+        { kind: 'node', nodeType: 'activity', label: 'create_artifact' },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      fireEvent.click(screen.getByRole('button', { name: /transform record/i }));
-      expect(screen.getByTestId('fold-transform-absent')).toBeInTheDocument();
+      const joined = screen.getByTestId('route-edge-1');
+      expect(joined).toHaveAttribute('data-join', 'true');
+      expect(joined).toHaveTextContent('╮');
+      expect(screen.getByTestId('route-edge-3')).not.toHaveAttribute('data-join');
     });
 
-    it('carries the replay-contract pill on the transform fold button when the record has one', () => {
+    it('a non-self artifact line opens that artifact in the panel (push) on click', () => {
+      const onOpenArtifact = vi.fn();
+      render(
+        <DetailSlot
+          record={{ ...RECORD, route: CROSS_SESSION_ROUTE }}
+          onOpenArtifact={onOpenArtifact}
+          onClose={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const csv = screen.getByTestId('route-node-2');
+      expect(csv.tagName).toBe('BUTTON');
+      fireEvent.click(csv);
+      expect(onOpenArtifact).toHaveBeenCalledWith('artifact_csv01');
+    });
+
+    it('the self line is never a click affordance, even with the callback threaded', () => {
+      const onOpenArtifact = vi.fn();
+      render(
+        <DetailSlot
+          record={{ ...RECORD, route: CROSS_SESSION_ROUTE }}
+          onOpenArtifact={onOpenArtifact}
+          onClose={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const self = screen.getByTestId('route-node-self');
+      expect(self.tagName).not.toBe('BUTTON');
+      fireEvent.click(self);
+      expect(onOpenArtifact).not.toHaveBeenCalled();
+    });
+
+    it('an activity line jumps to its producing session on click', () => {
+      const onOpenSession = vi.fn();
+      render(
+        <DetailSlot
+          record={{ ...RECORD, route: CROSS_SESSION_ROUTE }}
+          onOpenSession={onOpenSession}
+          onClose={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const activity = screen.getByTestId('route-node-0');
+      expect(activity.tagName).toBe('BUTTON');
+      fireEvent.click(activity);
+      expect(onOpenSession).toHaveBeenCalledWith('sess_9f17aa20bb31');
+    });
+
+    it('lines render inert (no button, no fake affordance) without the callbacks', () => {
+      render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.getByTestId('route-node-0').tagName).not.toBe('BUTTON');
+      expect(screen.getByTestId('route-node-2').tagName).not.toBe('BUTTON');
+    });
+  });
+
+  describe('foreign session clusters (cross-session lineage, gact-tui#355)', () => {
+    it('groups a foreign session\'s nodes under a clickable one-line cluster header', () => {
+      const onOpenSession = vi.fn();
+      render(
+        <DetailSlot
+          record={{ ...RECORD, route: CROSS_SESSION_ROUTE }}
+          onOpenSession={onOpenSession}
+          onClose={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const cluster = screen.getByTestId('route-cluster');
+      expect(cluster).toHaveAttribute('data-session', 'sess_9f17aa20bb31');
+      const header = screen.getByTestId('route-cluster-header');
+      expect(header.tagName).toBe('BUTTON');
+      expect(header).toHaveTextContent('sess_9f17…');
+      expect(header).toHaveTextContent('↗');
+      // The header carries the cluster's mint time from the version wire.
+      expect(header).toHaveTextContent('05 Aug 12:43');
+      fireEvent.click(header);
+      expect(onOpenSession).toHaveBeenCalledWith('sess_9f17aa20bb31');
+    });
+
+    it('the foreign cluster owns its nodes AND internal edges behind the dimmed ┆ rail; the joining used edge stays outside', () => {
+      render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const cluster = screen.getByTestId('route-cluster');
+      // ndp_stage_resource + generated edge + the csv are INSIDE the cluster…
+      expect(within(cluster).getByTestId('route-node-0')).toBeInTheDocument();
+      expect(within(cluster).getByTestId('route-edge-1')).toBeInTheDocument();
+      expect(within(cluster).getByTestId('route-node-2')).toBeInTheDocument();
+      // …each behind the dimmed rail glyph…
+      expect(within(cluster).getByTestId('route-node-0').querySelector('.detail__lrail')).toHaveTextContent('┆');
+      expect(within(cluster).getByTestId('route-edge-1').querySelector('.detail__lrail')).toHaveTextContent('┆');
+      // …while the used edge INTO the viewing session's activity, and
+      // everything after it, sit outside the cluster (no rail).
+      expect(within(cluster).queryByTestId('route-edge-3')).toBeNull();
+      expect(within(cluster).queryByTestId('route-node-4')).toBeNull();
+      expect(screen.getByTestId('route-edge-3').querySelector('.detail__lrail')).toBeNull();
+      expect(screen.getByTestId('route-node-self').querySelector('.detail__lrail')).toBeNull();
+    });
+
+    it('the viewing session\'s own nodes render with NO cluster header (default context)', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.queryByTestId('route-cluster')).toBeNull();
+      expect(screen.queryByTestId('route-cluster-header')).toBeNull();
+    });
+
+    it('without onOpenSession the header renders as a plain line without the ↗ — never a dead affordance', () => {
+      render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const header = screen.getByTestId('route-cluster-header');
+      expect(header.tagName).not.toBe('BUTTON');
+      expect(header.textContent).not.toContain('↗');
+    });
+  });
+
+  describe('recreate replay pill (the deleted TRANSFORM RECORD fold\'s pill, rehomed)', () => {
+    it('carries the replay-contract pill on the recreate tab when the record has one', () => {
       render(
         <DetailSlot record={{ ...RECORD, transformStatus: 'reproducible' }} onClose={vi.fn()} />,
       );
-      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      const fold = screen.getByRole('button', { name: /transform record/i });
-      expect(fold).toHaveTextContent('reproducible');
+      fireEvent.click(screen.getByRole('tab', { name: /recreate/i }));
+      const pill = screen.getByTestId('recreate-status');
+      expect(pill).toHaveTextContent('reproducible');
+      expect(pill).toHaveAttribute('data-status', 'reproducible');
     });
 
     it('shows NO pill when the record carries no replay contract — absence, not a guess', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
-      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
-      const fold = screen.getByRole('button', { name: /transform record/i });
-      expect(fold.querySelector('.detail__foldpill')).toBeNull();
+      fireEvent.click(screen.getByRole('tab', { name: /recreate/i }));
+      expect(screen.queryByTestId('recreate-status')).toBeNull();
     });
   });
 

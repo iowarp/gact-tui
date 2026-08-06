@@ -68,7 +68,11 @@ export interface LineageNode {
   tool?: string;
   call_id?: string;
   status?: string;
+  replay?: string;
   session_id?: string;
+  turn_id?: string;
+  producer_call_id?: string;
+  external?: boolean;
   [key: string]: unknown;
 }
 
@@ -93,38 +97,112 @@ const EDGE_KINDS: Record<string, RouteEdgeKind> = {
   revision_of: 'revised',
 };
 
-function nodeStep(node: LineageNode, selfId: string): RouteStep {
+/**
+ * Context for {@link routeFromLineage} (provenance rework 2026-08): the
+ * viewing session (foreign producers group under cluster headers) and the
+ * session-artifacts listing's versions by `artifact_id` — the ONLY wire that
+ * carries an artifact version's `size_bytes` / `created_at` / `producer`
+ * (the lineage route's artifact nodes carry none of these).
+ */
+export interface RouteMintContext {
+  viewerSessionId?: string;
+  versionsById?: Map<string, SessionArtifactVersion>;
+}
+
+/** Human duration for an activity line (`7.9s`, `1m 12s`). */
+function humanDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds >= 10 ? Math.round(seconds) : Math.round(seconds * 10) / 10}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.round(seconds - minutes * 60);
+  return rest > 0 ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+/** The activity node's wire duration, when a wire carries one (`duration_ms`,
+ *  or a `started_at`/`ended_at` ISO pair). Today's lineage wire carries
+ *  neither — the line simply omits the duration rather than inventing one. */
+function activityDuration(node: LineageNode): string {
+  const ms = node['duration_ms'];
+  if (typeof ms === 'number') return humanDuration(ms);
+  const started = Date.parse(str(node['started_at']));
+  const ended = Date.parse(str(node['ended_at']));
+  if (Number.isFinite(started) && Number.isFinite(ended) && ended >= started) {
+    return humanDuration(ended - started);
+  }
+  return '';
+}
+
+/** The activity line's status pill: `failed` from the wire status, else the
+ *  replay contract when it is the noteworthy `reproducible`. The wire's
+ *  `re-runnable` default is the plain-ok baseline — no pill (Mockups 1/2);
+ *  `gap` rides gap NODES, not successful activities. */
+function activityStatus(node: LineageNode): string {
+  if (str(node.status) === 'failed') return 'failed';
+  const replay = str(node.replay);
+  return replay === 'reproducible' ? replay : '';
+}
+
+function nodeStep(
+  node: LineageNode,
+  selfId: string,
+  producerSession: (node: LineageNode) => string,
+  context: RouteMintContext,
+): RouteStep {
+  const viewer = context.viewerSessionId ?? '';
+  const withSession = (sessionId: string) => ({
+    ...(sessionId ? { sessionId } : {}),
+    ...(sessionId && viewer && sessionId !== viewer ? { foreignSession: true } : {}),
+  });
   if (node.type === 'activity') {
     const label = str(node.tool) || str(node.call_id) || node.id;
-    const sub = [str(node.call_id), str(node.session_id)].filter(Boolean).join(' in ');
-    return { kind: 'node', nodeType: 'activity', label, ...(sub ? { sub } : {}) };
+    const tool = str(node.tool);
+    const duration = activityDuration(node);
+    const status = activityStatus(node);
+    const turnId = str(node.turn_id);
+    return {
+      kind: 'node',
+      nodeType: 'activity',
+      label,
+      ...(tool ? { tool } : {}),
+      ...(duration ? { duration } : {}),
+      ...(status ? { status } : {}),
+      ...(turnId ? { turnId } : {}),
+      ...withSession(str(node.session_id)),
+    };
   }
   const label = str(node.name) || node.id;
-  const sub =
-    node.type === 'gap'
-      ? 'no transform recorded'
-      : typeof node.version === 'number'
-        ? `v${node.version}${node.id === selfId ? ' · this version' : ''}`
-        : node.id === selfId
-          ? 'this version'
-          : '';
+  const fact = context.versionsById?.get(node.id);
+  const size = fact ? humanSize(fact.size_bytes) : '';
+  const createdAt = str(fact?.created_at);
+  const sessionId = producerSession(node) || str(fact?.producer?.session_id);
   return {
     kind: 'node',
-    nodeType: 'artifact',
+    nodeType: node.type === 'gap' ? 'gap' : 'artifact',
     label,
-    ...(sub ? { sub } : {}),
+    // An external (authority-only) leaf is not a registry version — no
+    // artifactId means no click affordance, never a dead push target.
+    ...(node.external ? { sub: 'external source' } : { artifactId: node.id }),
+    ...(typeof node.version === 'number' ? { version: `v${node.version}` } : {}),
+    ...(size ? { size } : {}),
+    ...(createdAt ? { createdAt } : {}),
+    ...(node.type === 'gap' ? { gapReason: 'no transform recorded' } : {}),
+    ...withSession(sessionId),
     ...(node.id === selfId ? { self: true } : {}),
   };
 }
 
 /**
- * Flattens the lineage graph into the prototype's vertical chain: a
- * deterministic walk from the upstream-most inputs down to the root and on
- * through downstream derivations. Every node and edge appears exactly once —
- * a branchy graph lists siblings sequentially (the prototype's own treatment
- * of parallel inputs), never drops them.
+ * Flattens the lineage graph into the one-line-per-node vertical chain
+ * (docs/design/provenance-graph-2026-08.md): a deterministic walk from the
+ * upstream-most inputs down to the root and on through downstream
+ * derivations. Every node and edge appears exactly once. Each edge renders as
+ * a connector line under its earlier endpoint; an edge whose consumer is NOT
+ * the next line carries `join: true` (the `╮` elbow into the consumer), so a
+ * branchy multi-input graph keeps every input's edge visible instead of
+ * dropping the non-adjacent ones.
  */
-export function routeFromLineage(graph: LineageGraph): RouteStep[] {
+export function routeFromLineage(graph: LineageGraph, context: RouteMintContext = {}): RouteStep[] {
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
   if (!nodesById.has(graph.root)) return [];
 
@@ -163,28 +241,60 @@ export function routeFromLineage(graph: LineageGraph): RouteStep[] {
     if (!placed.has(node.id)) order.push(node.id);
   }
 
+  // An artifact's producing session is its producer ACTIVITY's session — the
+  // lineage wire's artifact nodes carry `producer_call_id`, and the activity
+  // node `activity:<call_id>` in the same graph carries the session id. The
+  // version's recorded producer call can differ from the TransformRecord that
+  // generated it (observed live: a re-designation mints a new call id) — the
+  // graph's own `generated` edge INTO the node is equally real evidence, so
+  // it is the fallback, never a guess.
+  const producerSession = (node: LineageNode): string => {
+    const callId = str(node.producer_call_id);
+    if (callId) {
+      const producer = nodesById.get(`activity:${callId}`);
+      if (producer) return str(producer.session_id);
+    }
+    const generated = graph.edges.find((e) => e.type === 'generated' && e.to === node.id);
+    if (generated) {
+      const producer = nodesById.get(generated.from);
+      if (producer) return str(producer.session_id);
+    }
+    return '';
+  };
+
+  const position = new Map(order.map((id, index) => [id, index]));
   const usedEdges = new Set<LineageEdge>();
   const steps: RouteStep[] = [];
   order.forEach((id, index) => {
     const node = nodesById.get(id);
     if (!node) return;
-    if (index > 0) {
-      const prev = order[index - 1]!;
-      const edge = graph.edges.find(
-        (e) =>
-          !usedEdges.has(e) &&
-          ((e.from === prev && e.to === id) || (e.from === id && e.to === prev)),
-      );
-      if (edge) {
-        usedEdges.add(edge);
-        steps.push({
-          kind: 'edge',
-          edge: EDGE_KINDS[edge.type] ?? 'derived',
-          ...(edge.evidence ? { stance: str(edge.evidence) } : {}),
-        });
-      }
+    steps.push(nodeStep(node, graph.root, producerSession, context));
+    // Every edge between this node and a LATER one renders as a connector
+    // under this line, nearest consumer first. `join` marks a consumer that is
+    // not the immediately following line (the `╮` elbow, spec rules 2/4).
+    const outgoing = graph.edges
+      .filter((e) => {
+        if (usedEdges.has(e)) return false;
+        const other = e.from === id ? e.to : e.to === id ? e.from : '';
+        if (!other) return false;
+        const at = position.get(other);
+        return at !== undefined && at > index;
+      })
+      .sort((a, b) => {
+        const ja = position.get(a.from === id ? a.to : a.from) ?? 0;
+        const jb = position.get(b.from === id ? b.to : b.from) ?? 0;
+        return ja - jb;
+      });
+    for (const edge of outgoing) {
+      usedEdges.add(edge);
+      const target = position.get(edge.from === id ? edge.to : edge.from) ?? index + 1;
+      steps.push({
+        kind: 'edge',
+        edge: EDGE_KINDS[edge.type] ?? 'derived',
+        ...(edge.evidence ? { stance: str(edge.evidence) } : {}),
+        ...(target > index + 1 ? { join: true } : {}),
+      });
     }
-    steps.push(nodeStep(node, graph.root));
   });
   return steps;
 }
