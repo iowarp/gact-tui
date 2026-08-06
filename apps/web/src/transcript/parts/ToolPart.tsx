@@ -394,35 +394,52 @@ export interface StructuredSection {
 }
 
 /**
+ * One rule-3 identity fact, kept as SEPARATE strings rather than one
+ * pre-joined line (owner correction: a middot-joined `path · size · shape`
+ * string is banned — "a json {path · size · shape} looking slightly
+ * nicer... a general bad practice." Separator glyphs are never composed
+ * into a UI string; separation is the RENDERER's job, via layout/CSS gap,
+ * not punctuation baked into the text). `primary` is the identity value
+ * itself (the elided path, or the bare dedup value); `secondary` is zero or
+ * more companion facts (`159.0 KB`, `1,101 rows × 3 columns`) the renderer
+ * shows in a muted register alongside it — the `×` inside a secondary
+ * fragment is semantic (a shape, not a list separator) and stays.
+ */
+export interface IdentityFact {
+  primary: string;
+  secondary: string[];
+}
+
+/**
  * General result-ladder rule 3 (owner design, P4R): fields whose VALUES are
  * identical string values (e.g. `data_path` and `file_path` both the exact
  * same CSV path) are the same fact stated twice — they dedupe to ONE
- * identity line instead of two rows repeating the same string. Grouped by
+ * identity fact instead of two rows repeating the same string. Grouped by
  * exact string-value equality only — never numbers/booleans, where two
  * counts coincidentally matching is not "the same identity fact", it's a
  * coincidence this rule must not merge.
  *
  * A path-like shared value ({@link looksLikePath}) renders middle-elided
- * ({@link elidePathMiddle}) and PAIRS with `size_bytes` (->
- * {@link humanSize}) and `row_count` × `column_count` (a "R rows × C cols"
- * fragment, only when BOTH are present) into one compact
- * "path · size · shape" line — those literal companion keys, not a
- * naming-pattern guess, matching this file's existing "consumed field"
- * discipline ({@link declaredSummaryOf}, {@link isRedundantStatusField}). A
- * non-path shared value still dedupes to one line, just the bare value with
- * no pairing (no path to elide, no companion facts to compose onto it).
+ * ({@link elidePathMiddle}) as the fact's `primary`, and PAIRS with
+ * `size_bytes` (-> {@link humanSize}) and `row_count` × `column_count` (a
+ * "R rows × C columns" fragment, only when BOTH are present) as separate
+ * `secondary` strings — those literal companion keys, not a naming-pattern
+ * guess, matching this file's existing "consumed field" discipline
+ * ({@link declaredSummaryOf}, {@link isRedundantStatusField}). A non-path
+ * shared value still dedupes to one fact, just `primary` with no
+ * `secondary` (no path to elide, no companion facts to compose onto it).
  *
- * Every key folded into a line — the dup group, and any companion consumed
+ * Every key folded into a fact — the dup group, and any companion consumed
  * alongside it — comes back in `consumed` so the per-key split below never
  * ALSO renders it as a separate row; nothing is dropped, it just moves from
- * "one row per key" to "one composed line".
+ * "one row per key" to "one composed fact".
  */
 const IDENTITY_SIZE_KEY = 'size_bytes';
 const IDENTITY_ROW_COUNT_KEY = 'row_count';
 const IDENTITY_COLUMN_COUNT_KEY = 'column_count';
 const IDENTITY_PATH_MAX = 64;
 
-function buildIdentityFacts(obj: Record<string, unknown>): { lines: string[]; consumed: Set<string> } {
+function buildIdentityFacts(obj: Record<string, unknown>): { facts: IdentityFact[]; consumed: Set<string> } {
   const groups = new Map<string, string[]>();
   for (const [k, v] of Object.entries(obj)) {
     if (typeof v !== 'string' || v.length === 0) continue;
@@ -430,31 +447,31 @@ function buildIdentityFacts(obj: Record<string, unknown>): { lines: string[]; co
     keys.push(k);
     groups.set(v, keys);
   }
-  const lines: string[] = [];
+  const facts: IdentityFact[] = [];
   const consumed = new Set<string>();
   for (const [value, keys] of groups) {
     if (keys.length < 2) continue;
     for (const k of keys) consumed.add(k);
     if (!looksLikePath(value)) {
-      lines.push(value);
+      facts.push({ primary: value, secondary: [] });
       continue;
     }
-    const parts = [elidePathMiddle(value, IDENTITY_PATH_MAX)];
+    const secondary: string[] = [];
     const size = obj[IDENTITY_SIZE_KEY];
     if (typeof size === 'number') {
-      parts.push(humanSize(size));
+      secondary.push(humanSize(size));
       consumed.add(IDENTITY_SIZE_KEY);
     }
     const rowCount = obj[IDENTITY_ROW_COUNT_KEY];
     const columnCount = obj[IDENTITY_COLUMN_COUNT_KEY];
     if (typeof rowCount === 'number' && typeof columnCount === 'number') {
-      parts.push(`${formatCount(rowCount)} rows × ${formatCount(columnCount)} cols`);
+      secondary.push(`${formatCount(rowCount)} rows × ${formatCount(columnCount)} columns`);
       consumed.add(IDENTITY_ROW_COUNT_KEY);
       consumed.add(IDENTITY_COLUMN_COUNT_KEY);
     }
-    lines.push(parts.join(' · '));
+    facts.push({ primary: elidePathMiddle(value, IDENTITY_PATH_MAX), secondary });
   }
-  return { lines, consumed };
+  return { facts, consumed };
 }
 
 /** A plain-object VALUE shaped like a lookup map — every entry a scalar —
@@ -646,7 +663,7 @@ function buildLimitLadder(obj: Record<string, unknown>): {
  * (owner design, P4R) each pre-consume a subset of the object's own
  * top-level keys, unioned into one shared skip-list so a field claimed by
  * one rule is never ALSO rendered by another: rule 3, identical-valued
- * fields fold into one composed identity line
+ * fields fold into one composed identity fact
  * ({@link buildIdentityFacts}); rule 4, same-key-set sibling maps join into
  * one table ({@link buildSiblingMapJoins}), spliced in at its anchor
  * field's natural wire-order position; rule 5, limit-ish boolean flags split
@@ -657,7 +674,7 @@ function splitStructuredObject(obj: Record<string, unknown>): {
   rows: Array<{ k: string; v: string }>;
   tables: Array<{ key: string; header: string[]; rows: string[][] }>;
   sections: StructuredSection[];
-  identityLines: string[];
+  identityFacts: IdentityFact[];
   caveats: string[];
 } {
   const identity = buildIdentityFacts(obj);
@@ -690,7 +707,7 @@ function splitStructuredObject(obj: Record<string, unknown>): {
   if (Object.keys(limits.foldFields).length > 0) {
     sections.push({ key: 'details', value: limits.foldFields, flat: true });
   }
-  return { rows, tables, sections, identityLines: identity.lines, caveats: limits.caveats };
+  return { rows, tables, sections, identityFacts: identity.facts, caveats: limits.caveats };
 }
 
 /** Naive comma-split CSV, matching the existing DetailSlot Preview idiom
@@ -719,9 +736,10 @@ type InterpretedResult =
       rows: Array<{ k: string; v: string }>;
       tables: Array<{ key: string; header: string[]; rows: string[][] }>;
       sections: StructuredSection[];
-      /** General result-ladder rule 3: composed "path · size · shape"
-       *  identity line(s) — see {@link buildIdentityFacts}. */
-      identityLines: string[];
+      /** General result-ladder rule 3: composed identity fact(s) (primary
+       *  path/value + secondary size/shape spans) — see
+       *  {@link buildIdentityFacts}. */
+      identityFacts: IdentityFact[];
       /** General result-ladder rule 5: visible caveat line(s) for a
        *  limit-ish flag that fired — see {@link buildLimitLadder}. */
       caveats: string[];
@@ -843,13 +861,13 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
     // on — computed off the ORIGINAL object, since splitStructuredObject
     // already excludes these two keys from every bucket it builds.
     const summary = declaredSummaryOf(structured);
-    const { rows, tables, sections, identityLines, caveats } = splitStructuredObject(structured);
+    const { rows, tables, sections, identityFacts, caveats } = splitStructuredObject(structured);
     // Rules 3/4/5 route through the SAME 'object' kind as tables/sections —
-    // an identity line or caveat is exactly as "extra" as a table, and must
+    // an identity fact or caveat is exactly as "extra" as a table, and must
     // never be silently dropped by falling into the plain 'kv' branch below
     // (which doesn't carry either field).
-    if (tables.length > 0 || sections.length > 0 || identityLines.length > 0 || caveats.length > 0) {
-      return { kind: 'object', rows, tables, sections, identityLines, caveats, ...(summary ? { summary } : {}) };
+    if (tables.length > 0 || sections.length > 0 || identityFacts.length > 0 || caveats.length > 0) {
+      return { kind: 'object', rows, tables, sections, identityFacts, caveats, ...(summary ? { summary } : {}) };
     }
     if (rows.length > 0 || summary) return { kind: 'kv', rows, ...(summary ? { summary } : {}) };
   }
@@ -1112,20 +1130,40 @@ function ContentBlocks({ blocks }: { blocks: WireContentBlock[] }) {
   );
 }
 
-/** General result-ladder rules 3 & 5's visible lines — a composed identity
- *  fact ({@link buildIdentityFacts}) and a fired-flag caveat
- *  ({@link buildLimitLadder}), both the same "plain fact line" register the
- *  wait ladder's own summary/conflicts lines already use. Shared by the
- *  well's top-level 'object' render and {@link NestedSection} so a nested
- *  dict gets the identical treatment, recursively — nothing found inside a
- *  collapsed section is dropped just because it's one level down. */
-function IdentityAndCaveats({ identityLines, caveats }: { identityLines: string[]; caveats: string[] }) {
-  if (identityLines.length === 0 && caveats.length === 0) return null;
+/**
+ * General result-ladder rules 3 & 5's visible lines — a composed identity
+ * fact ({@link buildIdentityFacts}) and a fired-flag caveat
+ * ({@link buildLimitLadder}). Shared by the well's top-level 'object'
+ * render and {@link NestedSection} so a nested dict gets the identical
+ * treatment, recursively — nothing found inside a collapsed section is
+ * dropped just because it's one level down.
+ *
+ * An identity fact renders as SEPARATE spans — the primary value, then
+ * each secondary fact (size, shape) in a muted register — laid out with a
+ * CSS gap, never punctuation glued between them (owner correction: a
+ * middot-joined `path · size · shape` string is banned; separation is
+ * layout, not a glyph composed into the text). Every string this file
+ * composes stays free of separator glyphs — see the "no separator glyphs"
+ * guard test.
+ */
+function IdentityAndCaveats({
+  identityFacts,
+  caveats,
+}: {
+  identityFacts: IdentityFact[];
+  caveats: string[];
+}) {
+  if (identityFacts.length === 0 && caveats.length === 0) return null;
   return (
     <>
-      {identityLines.map((line, i) => (
+      {identityFacts.map((fact, i) => (
         <p className="part-toolrow__identity" data-testid="part-tool-identity" key={`identity-${i}`}>
-          {line}
+          <span className="part-toolrow__identityprimary">{fact.primary}</span>
+          {fact.secondary.map((s, si) => (
+            <span className="part-toolrow__identitysecondary" key={si}>
+              {s}
+            </span>
+          ))}
         </p>
       ))}
       {caveats.map((line, i) => (
@@ -1156,12 +1194,12 @@ function NestedSection({
   flat?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { rows, tables, sections, identityLines, caveats } = flat
+  const { rows, tables, sections, identityFacts, caveats } = flat
     ? {
         rows: Object.entries(value).map(([k, v]) => ({ k, v: kvValueForKey(k, v) })),
         tables: [] as Array<{ key: string; header: string[]; rows: string[][] }>,
         sections: [] as StructuredSection[],
-        identityLines: [] as string[],
+        identityFacts: [] as IdentityFact[],
         caveats: [] as string[],
       }
     : splitStructuredObject(value);
@@ -1181,7 +1219,7 @@ function NestedSection({
       </button>
       {open ? (
         <div className="part-toolrow__sectionbody">
-          <IdentityAndCaveats identityLines={identityLines} caveats={caveats} />
+          <IdentityAndCaveats identityFacts={identityFacts} caveats={caveats} />
           {rows.length > 0 ? <KvRows rows={rows} variant="result" /> : null}
           {tables.map((t) => (
             <div className="part-toolrow__subtable" key={t.key}>
@@ -1412,7 +1450,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
                         </p>
                       ) : null}
                       <IdentityAndCaveats
-                        identityLines={interpreted.identityLines}
+                        identityFacts={interpreted.identityFacts}
                         caveats={interpreted.caveats}
                       />
                       {interpreted.rows.length > 0 ? (

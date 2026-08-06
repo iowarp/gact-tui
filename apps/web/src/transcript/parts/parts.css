@@ -549,13 +549,27 @@
   white-space: pre-wrap;
 }
 
-/* General result-ladder rule 3: a composed "path · size · shape" identity
-   line — same visible-fact treatment as .part-toolrow__summary. */
+/* General result-ladder rule 3: the identity fact's primary value (an
+   elided path, or a bare dedup value) plus zero or more secondary facts
+   (size, shape) — laid out with a flex gap, NEVER a separator glyph
+   composed into the text (owner correction: a middot-joined
+   "path · size · shape" string is banned; separation is layout). */
 .part-toolrow__identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
   margin: 0;
-  color: var(--t-mu);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: calc(12px * var(--ts));
+}
+
+.part-toolrow__identityprimary {
+  color: var(--t-tx);
+}
+
+.part-toolrow__identitysecondary {
+  color: var(--t-mu);
 }
 
 /* General result-ladder rule 5: a TRUE limit-ish flag's visible caveat —

@@ -1235,7 +1235,7 @@ describe('general result ladder -- rule 3, identity once (pandas_profile_csv acc
     expect(screen.queryByText('success')).toBeNull();
   });
 
-  it('data_path/file_path (identical values) fold into ONE elided-path * size * shape identity line', () => {
+  it('data_path/file_path (identical values) fold into ONE identity fact -- separate spans, never middot-joined', () => {
     render(
       <ToolPart
         call={toolCall('pandas_profile_csv', {}, 'call_81')}
@@ -1248,9 +1248,16 @@ describe('general result ladder -- rule 3, identity once (pandas_profile_csv acc
     openRow(/pandas_profile_csv/);
     const identityLines = screen.getAllByTestId('part-tool-identity');
     expect(identityLines).toHaveLength(1);
-    expect(identityLines[0]).toHaveTextContent(
-      `${PROFILE_PATH_ELIDED} · 159.0 KB · 1,101 rows × 3 cols`,
-    );
+    const identity = identityLines[0]!;
+    // Owner correction: separation is layout (three separate spans), never
+    // a middot glued into the text.
+    expect(identity.textContent).not.toContain('·');
+    const primary = within(identity).getByText(PROFILE_PATH_ELIDED);
+    expect(primary.className).toContain('part-toolrow__identityprimary');
+    const size = within(identity).getByText('159.0 KB');
+    expect(size.className).toContain('part-toolrow__identitysecondary');
+    const shape = within(identity).getByText('1,101 rows × 3 columns');
+    expect(shape.className).toContain('part-toolrow__identitysecondary');
     // The consumed fields never ALSO render as separate rows.
     expect(screen.queryByText('data_path')).toBeNull();
     expect(screen.queryByText('file_path')).toBeNull();
@@ -1259,7 +1266,7 @@ describe('general result ladder -- rule 3, identity once (pandas_profile_csv acc
     expect(screen.queryByText('column_count')).toBeNull();
   });
 
-  it('a non-path duplicate value still dedupes to one line, just the bare value with no size/shape pairing', () => {
+  it('a non-path duplicate value still dedupes to one fact, just the bare primary value with no secondary spans', () => {
     render(
       <ToolPart
         call={toolCall('some_dedup_tool', {}, 'call_82')}
@@ -1273,11 +1280,64 @@ describe('general result ladder -- rule 3, identity once (pandas_profile_csv acc
     const identity = screen.getByTestId('part-tool-identity');
     expect(identity).toHaveTextContent('Los Angeles');
     expect(identity.textContent).not.toContain('·');
+    expect(screen.queryByTestId('part-tool-identity')?.querySelector('.part-toolrow__identitysecondary')).toBeNull();
     // size_bytes has no path-like identity fact to pair onto here, so it's
     // untouched by rule 3 -- it still renders as its own ordinary row.
     const kv = screen.getByTestId('part-tool-result-table');
     expect(kv).toHaveTextContent('size_bytes');
     expect(kv).toHaveTextContent('999');
+  });
+});
+
+describe('general result ladder -- no separator glyphs in UI-composed strings (owner correction, P4R)', () => {
+  /**
+   * Owner correction: a middot-joined "path · size · shape" identity line
+   * "looks like a json {path · size · shape} looking slightly nicer... a
+   * general bad practice" -- separator glyphs are never composed into a UI
+   * string, separation is layout (CSS gap between spans), not punctuation.
+   * This guards every string THIS ladder composes -- identity spans,
+   * caveat lines, the details fold's own toggle label, and content_blocks
+   * elision markers -- never verbatim wire/model content (a `message`, a
+   * sample-row cell, a raw JSON dump), which is free to contain whatever
+   * the tool/model actually said.
+   */
+  it('identity spans, caveat lines, the details fold label, and elision markers all contain no middot', () => {
+    render(
+      <>
+        <ToolPart
+          call={toolCall('pandas_profile_csv', {}, 'call_99')}
+          result={toolResult('call_99', {
+            content: [{ type: 'text', text: 'profiled' }],
+            structured_content: profilePayload({ scan_limited: true }),
+          })}
+        />
+        <ToolPart
+          call={toolCall('plot_plot_timeseries', {}, 'call_100')}
+          result={toolResult('call_100', {
+            content: [{ type: 'text', text: 'plotted' }],
+            content_blocks: [
+              { type: 'image', mimeType: 'image/png', elided: 'content_block_oversize', bytes: 2411725 },
+            ],
+          })}
+        />
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /pandas_profile_csv/ }));
+    fireEvent.click(screen.getByRole('button', { name: /plot_plot_timeseries/ }));
+    // Open the (still-present, profile_limited=false) details fold too, so
+    // its toggle label is on screen.
+    fireEvent.click(screen.getByTestId('part-tool-result-section-toggle'));
+
+    const composed = [
+      ...screen.getAllByTestId('part-tool-identity'),
+      ...screen.getAllByTestId('part-tool-caveat'),
+      ...screen.getAllByTestId('part-tool-result-section-toggle'),
+      ...screen.getAllByTestId('part-tool-block-elided'),
+    ];
+    expect(composed.length).toBeGreaterThan(0);
+    for (const el of composed) {
+      expect(el.textContent ?? '').not.toContain('·');
+    }
   });
 });
 
