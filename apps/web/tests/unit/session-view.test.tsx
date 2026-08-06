@@ -49,7 +49,9 @@ describe('SessionView', () => {
     render(<SessionView client={client} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByText('staging the CSV')).toBeInTheDocument());
-    expect(client.messages).toHaveBeenCalledWith('sess_a');
+    // Progressive load (#232 paging): the initial fetch pages the newest
+    // messages first rather than the historical bare full-ledger call.
+    expect(client.messages).toHaveBeenCalledWith('sess_a', { limit: 50 });
   });
 
   it('renders the fresh/idle greeting for a session with no messages, not a blank notice', async () => {

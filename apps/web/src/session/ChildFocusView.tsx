@@ -6,7 +6,7 @@
  * a status footer. The composer beneath it (owned by SessionView) targets
  * this child while focused.
  */
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import type { Message } from '@clio/core';
 import { Transcript } from '../transcript/Transcript';
 import { formatDurationMs } from '../transcript/parts/HandoffPart';
@@ -39,6 +39,16 @@ export interface ChildFocusViewProps {
    *  the same status twice. The center view (SessionView) never sets this —
    *  it has no other status affordance, so the footer is its only one. */
   showStatusFooter?: boolean | undefined;
+  /** Forwarded straight to the inner `<Transcript>`'s own scroll container
+   *  (SessionView's shared "whichever center view is visible" ref) — the
+   *  center-nav back/forward feature captures/restores scrollTop through
+   *  this exactly the same way it does for the main transcript. */
+  scrollContainerRef?: Ref<HTMLDivElement> | undefined;
+  /** A one-level-back affordance in the brief row, alongside the existing
+   *  breadcrumb ribbon (owner: "small on-screen back affordance ... if
+   *  trivially consistent with the breadcrumb"). Absent = no button, same
+   *  as today — AgentPeekView's read-only mount never passes this. */
+  onBack?: (() => void) | undefined;
 }
 
 function briefText(first: Message | undefined): string {
@@ -60,6 +70,8 @@ export function ChildFocusView({
   createdAt,
   updatedAt,
   showStatusFooter = true,
+  scrollContainerRef,
+  onBack,
 }: ChildFocusViewProps) {
   const [briefOpen, setBriefOpen] = useState(false);
   const first = messages[0];
@@ -92,23 +104,43 @@ export function ChildFocusView({
 
   return (
     <div className="childfocus" data-testid="child-focus-view">
-      {brief ? (
-        <div className="childfocus__brief">
-          <button
-            type="button"
-            className="childfocus__brieftoggle"
-            onClick={() => setBriefOpen((v) => !v)}
-            aria-expanded={briefOpen}
-          >
-            {briefOpen ? '▾' : '▸'} prompt from {parentLabel}
-          </button>
-          {briefOpen ? <pre className="childfocus__briefbody">{brief}</pre> : null}
+      {onBack || brief ? (
+        <div className="childfocus__toprow">
+          {onBack ? (
+            // One level back — the SAME transition as clicking the crumb
+            // just before this one in the breadcrumb ribbon (both go
+            // through navigateCenter), kept here as a closer-at-hand
+            // affordance since the ribbon can be a long reach up top.
+            <button
+              type="button"
+              className="childfocus__back"
+              onClick={onBack}
+              aria-label={`back to ${parentLabel}`}
+              title={`back to ${parentLabel}`}
+            >
+              ‹ back
+            </button>
+          ) : null}
+          {brief ? (
+            <div className="childfocus__brief">
+              <button
+                type="button"
+                className="childfocus__brieftoggle"
+                onClick={() => setBriefOpen((v) => !v)}
+                aria-expanded={briefOpen}
+              >
+                {briefOpen ? '▾' : '▸'} prompt from {parentLabel}
+              </button>
+              {briefOpen ? <pre className="childfocus__briefbody">{brief}</pre> : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
       <Transcript
         messages={rest}
         {...(onOpenChild ? { onOpenChild } : {})}
         {...(onOpenArtifact ? { onOpenArtifact } : {})}
+        {...(scrollContainerRef ? { scrollContainerRef } : {})}
       />
       {/* Renders AFTER the transcript (and so after any return card inside
           it) — the settled duration is the LAST word on this child's own

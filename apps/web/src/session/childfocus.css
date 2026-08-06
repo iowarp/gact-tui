@@ -8,6 +8,36 @@
   flex: 1;
 }
 
+.childfocus__toprow {
+  display: flex;
+  flex-direction: column;
+}
+
+/* One-level-back affordance (owner: "small on-screen back affordance ...
+   if trivially consistent with the breadcrumb") — same centered reading
+   column as .childfocus__brief right below it, left-aligned at the
+   transcript's own 36px gutter (no extra fold indent since this isn't a
+   fold trigger). */
+.childfocus__back {
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  max-width: calc(860px + 2 * 36px);
+  width: 100%;
+  padding: 0 36px;
+  display: block;
+  border: 0;
+  background: none;
+  color: var(--t-mu, #6b7280);
+  font-family: var(--f-prose);
+  font-size: calc(12px * var(--ts));
+  cursor: pointer;
+  text-align: left;
+}
+
+.childfocus__back:hover {
+  color: var(--t-hd, #c5cad3);
+}
+
 .childfocus__brief {
   box-sizing: border-box;
   margin: 10px auto 0;

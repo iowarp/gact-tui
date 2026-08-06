@@ -154,3 +154,22 @@ export function mergeMessages(local: Message[], reconciled: Message[]): Message[
   }
   return merged;
 }
+
+/**
+ * Prepend a backfilled OLDER page under the currently loaded feed (both
+ * sides already ascending chronological — see `fetchSessionMessages`'s own
+ * per-page sort). Used by SessionView's progressive transcript load: paint
+ * the newest page immediately, then page backwards with `before` cursors
+ * and fold each older page in underneath.
+ *
+ * De-dupes by id — a message BOTH sides carry (the older-page fetch raced
+ * the SSE reconcile at the boundary) keeps the CURRENT feed's copy, since
+ * it may already carry newer streamed/merged state; the older page never
+ * overwrites live state. Never mutates either input.
+ */
+export function prependOlderPage(current: Message[], olderPage: Message[]): Message[] {
+  const currentIds = new Set(current.map((m) => m.id));
+  const toPrepend = olderPage.filter((m) => !currentIds.has(m.id));
+  if (toPrepend.length === 0) return current;
+  return [...toPrepend, ...current];
+}

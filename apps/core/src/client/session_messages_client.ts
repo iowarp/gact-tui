@@ -5,6 +5,7 @@ import {
   fetchSessionMessage,
   fetchSessionMessages,
   patchSessionMessagePart,
+  type FetchSessionMessagesOptions,
   removeSessionMessage,
   retrySessionTurn,
   rewindSessionMessages,
@@ -28,8 +29,18 @@ import { searchMessages, type SearchSessionMessagesResult } from './session_sear
 import { SessionRecordsClient } from './session_records_client.js';
 
 export class SessionMessagesClient extends SessionRecordsClient {
-  async messages(sessionId: string): Promise<SessionMessagesResult> {
-    return fetchSessionMessages(this, sessionId);
+  /**
+   * GET /v1/sessions/{sid}/messages — optionally paged (#232). Omitting
+   * `options` reproduces the historical full-ledger fetch every existing
+   * caller (reconcile, child-focus pull, post-send refresh) still uses.
+   * SessionView's initial transcript load is the one caller that pages:
+   * newest page first (paints immediately), then backfills older pages.
+   */
+  async messages(
+    sessionId: string,
+    options?: FetchSessionMessagesOptions,
+  ): Promise<SessionMessagesResult> {
+    return fetchSessionMessages(this, sessionId, options);
   }
 
   /**

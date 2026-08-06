@@ -181,7 +181,9 @@ describe('owner review 1 contracts', () => {
     fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'membudget' } });
     expect(within(dialog).queryByText('LA ground motion')).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: /membudget 1/i }));
-    await waitFor(() => expect(wire.messages).toHaveBeenCalledWith('sess_b'));
+    // Progressive load (#232 paging): the initial fetch pages the newest
+    // messages first rather than the historical bare full-ledger call.
+    await waitFor(() => expect(wire.messages).toHaveBeenCalledWith('sess_b', { limit: 50 }));
     expect(screen.queryByRole('dialog', { name: /search/i })).toBeNull();
   });
 

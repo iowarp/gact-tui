@@ -3,6 +3,7 @@ import {
   applyTextAppend,
   appendPart,
   mergeMessages,
+  prependOlderPage,
   upsertMessage,
 } from '../src/store/transcript.js';
 import type { Message } from '../src/wire/types.js';
@@ -152,5 +153,50 @@ describe('mergeMessages (reconcile race)', () => {
     mergeMessages(local, reconciled);
     expect(local).toEqual(localCopy);
     expect(reconciled).toEqual(reconciledCopy);
+  });
+});
+
+describe('prependOlderPage (progressive transcript backfill)', () => {
+  const m = (id: string): Message => ({ id, role: 'user', parts: [{ id: `${id}p`, type: 'text', text: id }] });
+
+  it('prepends an older page ahead of the currently loaded feed', () => {
+    const current = [m('m3'), m('m4')];
+    const older = [m('m1'), m('m2')];
+    const out = prependOlderPage(current, older);
+    expect(out.map((x) => x.id)).toEqual(['m1', 'm2', 'm3', 'm4']);
+  });
+
+  it('de-dupes a message present on both sides, keeping the current feed copy', () => {
+    const current = [
+      { id: 'm2', role: 'assistant', parts: [{ id: 'p', type: 'text', text: 'live-merged' }] } as Message,
+      m('m3'),
+    ];
+    // The older-page fetch raced a reconcile that already folded m2 in.
+    const older = [m('m1'), m('m2')];
+    const out = prependOlderPage(current, older);
+    expect(out.map((x) => x.id)).toEqual(['m1', 'm2', 'm3']);
+    // current's copy of m2 wins, not the older page's.
+    expect((out[1]!.parts[0] as { text: string }).text).toBe('live-merged');
+  });
+
+  it('returns the SAME array reference when the older page has nothing new', () => {
+    const current = [m('m1'), m('m2')];
+    const out = prependOlderPage(current, [m('m1')]);
+    expect(out).toBe(current);
+  });
+
+  it('does not mutate its inputs', () => {
+    const current = [m('m3')];
+    const older = [m('m1'), m('m2')];
+    const currentCopy = structuredClone(current);
+    const olderCopy = structuredClone(older);
+    prependOlderPage(current, older);
+    expect(current).toEqual(currentCopy);
+    expect(older).toEqual(olderCopy);
+  });
+
+  it('handles an empty current feed (first backfill page on a fresh load)', () => {
+    const out = prependOlderPage([], [m('m1'), m('m2')]);
+    expect(out.map((x) => x.id)).toEqual(['m1', 'm2']);
   });
 });

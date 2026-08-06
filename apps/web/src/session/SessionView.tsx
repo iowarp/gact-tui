@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   fetchArtifactLineage,
   fetchLmConfig,
@@ -7,6 +8,7 @@ import {
   fetchSessionContextState,
   fetchSessionTrace,
   mergeMessages,
+  prependOlderPage,
   subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
   type Client,
@@ -61,6 +63,17 @@ import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
 import { applyMessageLifecycleEvent } from './messageEvents';
+import {
+  emptyNavHistoryState,
+  lookupScroll,
+  nextNavHistoryState,
+  pushFocusEntry,
+  readNavHistoryState,
+  scrollKeyFor,
+  truncateFocusAt,
+  wrapNavHistoryState,
+  type FocusEntry,
+} from './navHistory';
 import {
   openRightEntry,
   patchTopArtifact,
@@ -151,11 +164,28 @@ function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
 type LoadState =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'loaded'; messages: Message[] }
+  | {
+      kind: 'loaded';
+      messages: Message[];
+      // Progressive load bookkeeping (#232 paging; owner 2026-08-06):
+      // `olderCursor` is the backend's `next_cursor` from the last page
+      // fetched — a real message id when older history remains
+      // un-backfilled, null once the ledger's start has been reached.
+      // `loadingOlder` drives no UI today (the backfill is silent
+      // background work, never a fabricated placeholder) but stays
+      // visible on state for tests/devtools to assert against honestly.
+      olderCursor: string | null;
+      loadingOlder: boolean;
+    }
   // A 404 is its own state: the row points at something the backend no longer
   // has, which is actionable (remove it) rather than merely broken.
   | { kind: 'missing' }
   | { kind: 'failed'; detail: string };
+
+/** The newest-page size for progressive transcript load — enough to fill a
+ *  typical viewport without a visible "cut" for a short conversation, small
+ *  enough that a long one still paints its tail well under a second. */
+const TRANSCRIPT_PAGE_SIZE = 50;
 
 /**
  * The connected application.
@@ -694,6 +724,102 @@ export function SessionView({
     [client],
   );
 
+  // ---- Progressive transcript load (#232 paging) + center-nav (Feature C)
+  // shared bookkeeping. Refs, not state: none of this drives a render on
+  // its own — it only feeds imperative DOM scrollTop reads/writes and
+  // `window.history` calls the effects/callbacks below make.
+  //
+  // The MAIN session's own `.transcript` scroll container — attached only
+  // while `focus` is empty (ChildFocusView replaces it otherwise). The
+  // progressive-load backfill below anchors scroll through THIS ref
+  // specifically (never the shared one) because a backfill for a session
+  // the user has since drilled away from has no visible container to keep
+  // steady, and must not be allowed to fight over one that belongs to an
+  // unrelated child view.
+  const mainTranscriptScrollRef = useRef<HTMLDivElement | null>(null);
+  // Whichever center view is CURRENTLY on screen — main or a focused
+  // child, mutually exclusive renders (see the JSX below). Center-nav
+  // reads/writes scrollTop through this one ref regardless of which it is.
+  const visibleTranscriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const setMainTranscriptRef = useCallback((el: HTMLDivElement | null) => {
+    mainTranscriptScrollRef.current = el;
+    visibleTranscriptScrollRef.current = el;
+  }, []);
+  // Mirrors `history.state` — the single source of truth `navigateCenter`
+  // and the `popstate` handler both read and write.
+  const navHistoryRef = useRef(emptyNavHistoryState(null));
+  // Armed by navigateCenter/popstate immediately before an activeId change
+  // they already own the FULL transition for (focus + history already
+  // set); consumed exactly once by the `[activeId, ...]` effect below so
+  // it does not also wipe `focus` / reset the history baseline for a
+  // transition that already set both correctly.
+  const suppressFocusResetRef = useRef(false);
+  // The scroll-map key whose remembered position is still owed a restore
+  // once its content actually paints — a freshly (re-)focused child needs
+  // its own async fetch to land first (see the two restore effects below).
+  const pendingScrollRestoreKeyRef = useRef<string | null>(null);
+  // Kept in sync with `activeId` so `load`'s backfill loop (a long-running
+  // background async loop) can tell whether the session it is still
+  // fetching for is still the active one before touching state.
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  // Backfill older pages under the newest-page paint `load` already did,
+  // one `before`-cursor page at a time, until the backend reports no more
+  // (`next_cursor: null`). Runs silently in the background; a fetch
+  // failure partway through leaves the loaded prefix exactly as correct as
+  // it already was rather than retry-looping or fabricating the gap.
+  const backfillOlder = useCallback(
+    async (sessionId: string, startCursor: string) => {
+      let cursor: string | null = startCursor;
+      while (cursor) {
+        if (activeIdRef.current !== sessionId) return;
+        setState((prev) => (prev.kind === 'loaded' ? { ...prev, loadingOlder: true } : prev));
+        let page;
+        try {
+          page = await client.messages(sessionId, { limit: TRANSCRIPT_PAGE_SIZE, before: cursor });
+        } catch {
+          if (activeIdRef.current === sessionId) {
+            setState((prev) => (prev.kind === 'loaded' ? { ...prev, loadingOlder: false } : prev));
+          }
+          return;
+        }
+        if (activeIdRef.current !== sessionId) return;
+        const pageMessages = page.messages ?? [];
+        const nextCursor = page.next_cursor ?? null;
+        const el = mainTranscriptScrollRef.current;
+        const prevScrollHeight = el?.scrollHeight ?? 0;
+        const prevScrollTop = el?.scrollTop ?? 0;
+        // flushSync forces the DOM to actually reflect the prepended page
+        // before the scrollHeight comparison below — without it the
+        // browser could paint the taller content BEFORE the compensating
+        // scrollTop write lands, which is exactly the visible "jump" this
+        // exists to prevent (owner: "scroll anchored so content doesn't
+        // jump").
+        flushSync(() => {
+          setState((prev) =>
+            prev.kind === 'loaded'
+              ? {
+                  ...prev,
+                  messages: prependOlderPage(prev.messages, pageMessages),
+                  olderCursor: nextCursor,
+                  loadingOlder: false,
+                }
+              : prev,
+          );
+        });
+        if (el) {
+          const delta = el.scrollHeight - prevScrollHeight;
+          el.scrollTop = prevScrollTop + delta;
+        }
+        cursor = nextCursor;
+      }
+    },
+    [client],
+  );
+
   const load = useCallback(
     async (sessionId: string) => {
       setState({ kind: 'loading' });
@@ -707,8 +833,24 @@ export function SessionView({
         // model/approval controls rather than failing the transcript with it.
         .catch(() => setDetail(null));
       try {
-        const result = await client.messages(sessionId);
-        setState({ kind: 'loaded', messages: result.messages ?? [] });
+        // Progressive paint (#232 paging; owner 2026-08-06 "small detail,
+        // big presentation help"): fetch the NEWEST page first so the
+        // transcript's tail — what a returning user actually wants to see
+        // — paints immediately instead of blocking on the whole ledger.
+        // Older pages backfill in the background via backfillOlder.
+        const first = await client.messages(sessionId, { limit: TRANSCRIPT_PAGE_SIZE });
+        if (activeIdRef.current !== sessionId) return;
+        const firstMessages = first.messages ?? [];
+        const firstCursor = first.next_cursor ?? null;
+        setState({
+          kind: 'loaded',
+          messages: firstMessages,
+          olderCursor: firstCursor,
+          loadingOlder: false,
+        });
+        if (firstCursor) {
+          void backfillOlder(sessionId, firstCursor);
+        }
       } catch (err) {
         const status =
           typeof err === 'object' && err !== null && 'status' in err
@@ -725,35 +867,118 @@ export function SessionView({
         });
       }
     },
-    [client],
+    [client, backfillOlder],
   );
+
+  // The single place that changes "what's centered" as a NAVIGATION (Feature
+  // C — Call-box push, breadcrumb pop/root, an obs agent-jump), as opposed
+  // to `setFocus`/`setActiveId` being driven by data arriving elsewhere.
+  // Captures the scrollTop of the view being LEFT, pushes (or replaces) ONE
+  // history entry carrying both dimensions (`activeId` + `focus`) together,
+  // then applies the new state. A `popstate` must NEVER call this — see the
+  // handler below, which applies a popped state directly and never re-enters
+  // here (the loop guard: "popstate applies state, doesn't re-push").
+  const navigateCenter = useCallback(
+    (next: { activeId: string | null; focus: FocusEntry[] }, mode: 'push' | 'replace' = 'push') => {
+      const leavingScrollTop = visibleTranscriptScrollRef.current?.scrollTop ?? 0;
+      const nextHistory = nextNavHistoryState(navHistoryRef.current, next, leavingScrollTop);
+      if (typeof window !== 'undefined' && window.history) {
+        // History entries are IMMUTABLE snapshots at push time — the scroll
+        // map computed above (which now includes the position being left)
+        // has to be written onto the entry CURRENTLY at the top of the
+        // stack before advancing, or a later Back to it would still see
+        // whatever (possibly empty) scroll map it was pushed/replaced with
+        // originally. replaceState touches only the current entry, so this
+        // never grows the stack.
+        window.history.replaceState(
+          wrapNavHistoryState({ ...navHistoryRef.current, scroll: nextHistory.scroll }),
+          '',
+        );
+        if (mode === 'push') {
+          window.history.pushState(wrapNavHistoryState(nextHistory), '');
+        } else {
+          window.history.replaceState(wrapNavHistoryState(nextHistory), '');
+        }
+      }
+      navHistoryRef.current = nextHistory;
+      pendingScrollRestoreKeyRef.current = scrollKeyFor(next.activeId, next.focus);
+      if (next.activeId !== activeId) {
+        suppressFocusResetRef.current = true;
+        setActiveId(next.activeId);
+      }
+      setFocus(next.focus);
+    },
+    [activeId],
+  );
+
+  // Applies browser Back/Forward. Reads the popped state verbatim
+  // (readNavHistoryState) and sets it directly — it must never construct a
+  // NEW NavHistoryState (nextNavHistoryState) or call pushState/
+  // replaceState, or Back would immediately re-push Forward and the two
+  // buttons would stop working.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = (event: PopStateEvent) => {
+      const popped = readNavHistoryState(event.state);
+      if (!popped) return; // not one of ours (foreign entry / initial blank) — ignore
+      navHistoryRef.current = popped;
+      pendingScrollRestoreKeyRef.current = scrollKeyFor(popped.activeId, popped.focus);
+      if (popped.activeId !== activeId) {
+        suppressFocusResetRef.current = true;
+        setActiveId(popped.activeId);
+      }
+      setFocus(popped.focus);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [activeId]);
 
   // The prototype's obsTl row builder (`r.go`): 'agent' switches the active
   // session and closes the layer, 'message' closes the layer and scrolls the
   // transcript to that message. The obs Layer is an overlay — Transcript
   // stays mounted underneath it the whole time, so the target element is
   // already in the DOM; only the overlay covering it needs to go away.
-  const handleObsNavigate = useCallback((nav: ObsNavigation) => {
-    setPanel(null);
-    if (nav.kind === 'agent') {
-      setActiveId(nav.targetId);
-      return;
-    }
-    requestAnimationFrame(() => {
-      document
-        .querySelector(`[data-message-id="${nav.targetId}"]`)
-        ?.scrollIntoView({ block: 'center' });
-    });
-  }, []);
+  const handleObsNavigate = useCallback(
+    (nav: ObsNavigation) => {
+      setPanel(null);
+      if (nav.kind === 'agent') {
+        // Same channel as a Call-box push (Feature C): one history entry,
+        // scroll of the view being left captured first.
+        navigateCenter({ activeId: nav.targetId, focus: [] });
+        return;
+      }
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-message-id="${nav.targetId}"]`)
+          ?.scrollIntoView({ block: 'center' });
+      });
+    },
+    [navigateCenter],
+  );
 
   useEffect(() => {
     if (!activeId) {
       setPillState(null);
       return;
     }
-    // Selecting a session wipes the drill-in stack (the prototype's
-    // selectSession does exactly this).
-    setFocus([]);
+    if (suppressFocusResetRef.current) {
+      // This activeId change was already a full, correct transition applied
+      // by navigateCenter/popstate (focus + history state already set) —
+      // wiping focus here would clobber a restored/obs-jumped stack.
+      suppressFocusResetRef.current = false;
+    } else {
+      // A plain rail click or the very first mount: not a center-nav
+      // transition (Feature C), so this session becomes a fresh history
+      // baseline (the prototype's own selectSession wipes the drill-in
+      // stack outright). replaceState, not pushState — switching sessions
+      // must never grow a "back into a different session's old focus
+      // history" trail.
+      setFocus([]);
+      navHistoryRef.current = emptyNavHistoryState(activeId);
+      if (typeof window !== 'undefined' && window.history) {
+        window.history.replaceState(wrapNavHistoryState(navHistoryRef.current), '');
+      }
+    }
     void load(activeId);
     void refreshPill(activeId, activeScope);
   }, [activeId, activeScope, load, refreshPill]);
@@ -1030,6 +1255,34 @@ export function SessionView({
     };
   }, [focusTop?.sessionId, client]);
 
+  // Restore scroll on the MAIN transcript once it is the visible view AND
+  // its content is loaded — covers both "Back to main" and a fresh
+  // session's first paint (which has no recorded position, so
+  // lookupScroll naturally resolves to 0/top; see the "apply-without-
+  // repush" tests in navHistory.test.ts for the pure half of this).
+  useLayoutEffect(() => {
+    if (focusTop) return;
+    if (state.kind !== 'loaded') return;
+    const key = scrollKeyFor(activeId, []);
+    if (pendingScrollRestoreKeyRef.current !== key) return;
+    const el = visibleTranscriptScrollRef.current;
+    if (el) el.scrollTop = lookupScroll(navHistoryRef.current.scroll, key);
+    pendingScrollRestoreKeyRef.current = null;
+  }, [focusTop, state, activeId]);
+
+  // Restore scroll on a focused CHILD once ITS OWN content has landed — the
+  // child pull effect above fetches asynchronously on every focus change,
+  // so a Forward into a previously-visited child cannot restore scroll
+  // until childView actually matches focusTop again.
+  useLayoutEffect(() => {
+    if (!focusTop || !childView || childView.sessionId !== focusTop.sessionId) return;
+    const key = scrollKeyFor(activeId, focus);
+    if (pendingScrollRestoreKeyRef.current !== key) return;
+    const el = visibleTranscriptScrollRef.current;
+    if (el) el.scrollTop = lookupScroll(navHistoryRef.current.scroll, key);
+    pendingScrollRestoreKeyRef.current = null;
+  }, [focusTop, childView, activeId, focus]);
+
   // A Call box names its delegation by handle_id (== the agent-task id); the
   // child session id comes from the parent's agent-task records. Plain click
   // drills into the CENTER (prototype goCall/setFocus, steerable); shift-click
@@ -1058,13 +1311,15 @@ export function SessionView({
           );
           return;
         }
-        setFocus((cur) => [...cur, { sessionId: childId, agent }]);
+        // Feature C: one history entry per drill-in, scroll of the view
+        // being left captured first.
+        navigateCenter({ activeId, focus: pushFocusEntry(focus, { sessionId: childId, agent }) });
       } catch {
         // No resolvable destination — the box simply doesn't navigate; never a
         // silent wrong jump.
       }
     },
-    [client, activeId, focusTop?.sessionId, focusTop?.agent],
+    [client, activeId, focus, focusTop?.sessionId, focusTop?.agent, navigateCenter],
   );
 
   // Opens an artifact in the right panel (prototype artGo → setStack). The
@@ -1714,12 +1969,14 @@ export function SessionView({
         activeRibbonId={focusTop?.sessionId ?? activeScope}
         onSelectRibbon={(tabId: string) => {
           if (tabId === 'main') {
-            setFocus([]);
+            // Feature C: the 'main' crumb is itself a history entry now —
+            // Back from it returns to wherever the click came from.
+            navigateCenter({ activeId, focus: [] });
             setActiveScope('main');
             return;
           }
           const at = focus.findIndex((entry) => entry.sessionId === tabId);
-          if (at >= 0) setFocus(focus.slice(0, at + 1));
+          if (at >= 0) navigateCenter({ activeId, focus: truncateFocusAt(focus, at) });
           else setActiveScope(tabId);
         }}
         onRenameSession={(sessionId, next) => void rename(sessionId, next)}
@@ -1881,6 +2138,13 @@ export function SessionView({
                 {...(childView.updatedAt ? { updatedAt: childView.updatedAt } : {})}
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+                scrollContainerRef={visibleTranscriptScrollRef}
+                // Feature C's on-screen back affordance — one level up,
+                // the same transition the breadcrumb crumb just before
+                // this one performs.
+                onBack={() =>
+                  navigateCenter({ activeId, focus: truncateFocusAt(focus, focus.length - 2) })
+                }
               />
             ) : state.kind === 'loaded' && transcriptMessages.length > 0 ? (
               <Transcript
@@ -1888,6 +2152,7 @@ export function SessionView({
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
                 childPreviews={childPreviews}
+                scrollContainerRef={setMainTranscriptRef}
               />
             ) : null}
             {focusedChildSettled && focusTop ? (

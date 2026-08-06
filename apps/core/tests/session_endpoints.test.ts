@@ -108,6 +108,78 @@ describe('Client session endpoints', () => {
     expect(a.id).toBe('att_1');
   });
 
+  it('messages() omits query params by default (full-ledger fetch, back-compat)', async () => {
+    const seen: string[] = [];
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch((url) => {
+        seen.push(url);
+        return new Response('{"messages":[]}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    });
+    await c.messages('sess_a');
+    expect(seen).toEqual(['http://localhost:7777/v1/sessions/sess_a/messages']);
+  });
+
+  it('messages() builds limit/before/include_system query params for paging (#232)', async () => {
+    const seen: string[] = [];
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch((url) => {
+        seen.push(url);
+        return new Response('{"messages":[],"next_cursor":null}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    });
+    await c.messages('sess_a', { limit: 50 });
+    await c.messages('sess_a', { limit: 50, before: 'msg_17' });
+    await c.messages('sess_a', { includeSystem: false });
+    expect(seen).toEqual([
+      'http://localhost:7777/v1/sessions/sess_a/messages?limit=50',
+      'http://localhost:7777/v1/sessions/sess_a/messages?limit=50&before=msg_17',
+      'http://localhost:7777/v1/sessions/sess_a/messages?include_system=false',
+    ]);
+  });
+
+  it('messages() surfaces next_cursor for the caller to backfill with', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch(
+        () =>
+          new Response(
+            JSON.stringify({
+              messages: [{ id: 'm5', role: 'user', parts: [], created_at: '2026-01-01T00:00:05Z' }],
+              next_cursor: 'm5',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    });
+    const page = await c.messages('sess_a', { limit: 1 });
+    expect(page.next_cursor).toBe('m5');
+    expect(page.messages).toHaveLength(1);
+  });
+
+  it('messages() reports next_cursor null when the backend omits it (unpaged full ledger)', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch(
+        () =>
+          new Response('{"messages":[]}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    });
+    const page = await c.messages('sess_a');
+    expect(page.next_cursor).toBeNull();
+  });
+
   it('createSession POSTs to /v1/sessions', async () => {
     let calledUrl = '';
     let calledMethod = '';

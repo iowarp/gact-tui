@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import type { Message } from '@clio/core';
 import { PartCard } from '../kit';
 import '../session/returncard.css';
@@ -18,6 +18,15 @@ export interface TranscriptProps {
    *  (SessionView's `childPreviews`). A handoff with no entry here just shows
    *  its plain running footer — never a fabricated preview. */
   childPreviews?: Record<string, ChildPreview>;
+  /** The `.transcript` scroller's own DOM node (`overflow-y: auto` lives
+   *  here — see transcript.css). SessionView reads/writes `scrollTop`
+   *  through this for two things: the progressive-load backfill's
+   *  scroll-anchor compensation (prepending an older page must not move
+   *  what's currently on screen) and the center-nav back/forward scroll
+   *  restore. A plain optional prop rather than `forwardRef` — Transcript
+   *  is exercised directly by several existing tests/callers that never
+   *  pass a ref, so this keeps every one of them unaffected. */
+  scrollContainerRef?: Ref<HTMLDivElement>;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -199,13 +208,19 @@ function renderPartGroups(parts: WirePart[], keyPrefix: string, handlers: Transc
  * (a batch-only shape) falls back to wrapping the whole message, so the
  * stamp is never silently dropped.
  */
-export function Transcript({ messages, onOpenChild, onOpenArtifact, childPreviews }: TranscriptProps) {
+export function Transcript({
+  messages,
+  onOpenChild,
+  onOpenArtifact,
+  childPreviews,
+  scrollContainerRef,
+}: TranscriptProps) {
   const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, childPreviews };
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
     // would inset the scrollbar into the text.
-    <div className="transcript">
+    <div className="transcript" ref={scrollContainerRef}>
       <div className="transcript__column">
           {messages.map((message) => {
           const parts = (message.parts ?? []) as unknown as WirePart[];

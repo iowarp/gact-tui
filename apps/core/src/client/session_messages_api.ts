@@ -3,6 +3,30 @@ import type { SessionTransport } from './session_transport.js';
 
 export interface SessionMessagesResult {
   messages: Message[];
+  /**
+   * Id of the OLDEST message in this page when `limit` truncated the
+   * result (older messages remain beyond this page); `null`/absent when
+   * the page was not truncated — the whole ledger (or its tail) is in
+   * `messages` and there is nothing left to backfill. Mirrors the
+   * backend's `GET /v1/sessions/{sid}/messages` contract (#232).
+   */
+  next_cursor?: string | null;
+}
+
+/**
+ * Optional paging for `GET /v1/sessions/{sid}/messages` (#232). Omitting
+ * every field reproduces the historical full-ledger fetch. Used by
+ * SessionView's progressive transcript load: fetch the newest `limit`
+ * messages first (paints immediately), then page backwards with
+ * successive `before` cursors to backfill the rest.
+ */
+export interface FetchSessionMessagesOptions {
+  /** Return at most this many NEWEST messages (after `before` is applied). */
+  limit?: number;
+  /** Cursor: only messages strictly OLDER than this message id. */
+  before?: string;
+  /** SPEC §4.4: system messages default-included; pass `false` to suppress. */
+  includeSystem?: boolean;
 }
 
 export interface SendMessageInput {
@@ -33,21 +57,38 @@ export function sendMessagePayload(body: SendMessageInput): {
   return payload;
 }
 
-export async function fetchSessionMessages(
+export function fetchSessionMessages(
   client: SessionTransport,
   sessionId: string,
+  options?: FetchSessionMessagesOptions,
 ): Promise<SessionMessagesResult> {
-  const out = await client.get<SessionMessagesResult>(
-    `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+  const qs = new URLSearchParams();
+  if (options?.limit !== undefined) qs.set('limit', String(options.limit));
+  if (options?.before !== undefined) qs.set('before', options.before);
+  if (options?.includeSystem !== undefined) qs.set('include_system', String(options.includeSystem));
+  const query = qs.toString();
+  return fetchSessionMessagesPage(
+    client,
+    `/v1/sessions/${encodeURIComponent(sessionId)}/messages${query ? `?${query}` : ''}`,
   );
-  // Defensive: always present chronological. Some clio versions
-  // return newest-first which renders the conversation backwards.
+}
+
+async function fetchSessionMessagesPage(
+  client: SessionTransport,
+  path: string,
+): Promise<SessionMessagesResult> {
+  const out = await client.get<SessionMessagesResult>(path);
+  // Defensive: always present chronological WITHIN the page. Some clio
+  // versions return newest-first which renders the conversation backwards;
+  // a paginated page's own internal order is re-sorted the same way, while
+  // the page's place relative to OTHER pages is the caller's job (the
+  // backend's `before` cursor + `next_cursor`, not `created_at`).
   const sorted = (out.messages ?? []).slice().sort((a, b) => {
     const ta = Date.parse(a.created_at ?? '') || 0;
     const tb = Date.parse(b.created_at ?? '') || 0;
     return ta - tb;
   });
-  return { messages: sorted };
+  return { messages: sorted, next_cursor: out.next_cursor ?? null };
 }
 
 export function fetchSessionMessage(
