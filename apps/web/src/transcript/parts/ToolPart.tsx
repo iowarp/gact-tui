@@ -12,6 +12,7 @@ import {
 } from '../../wire/presentationUtils';
 import type { WirePart } from '../registry';
 import {
+  commandExitCodeFailure,
   extractContentBlocks,
   extractCsvBlock,
   extractImageBlock,
@@ -1543,9 +1544,26 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const params = splitParams(call['input']);
   const { attempts, budgets } = metadataFacts(call);
   const isError = result ? result['is_error'] === true : false;
+  // A3 (diagnosed live, session sess_cda96b286e4f, call call_79f8fbdc63f7):
+  // `is_error` is honest — it tracks MCP-protocol success, not the
+  // command's own exit status — so a shell command that exited non-zero
+  // still has `is_error` absent/false. `exitCodeFailure` reads that
+  // SEPARATE, equally honest wire fact ({@link commandExitCodeFailure}: a
+  // numeric, non-zero `structured_content.exit_code`; `null` for 0, absent,
+  // or non-numeric — never guessed). `commandFailed` extends the SAME
+  // ✓/✗ vocabulary `isError` already drives for the row's status glyph —
+  // no third state. Deliberately NOT folded into `isError` itself: every
+  // other `isError` gate below (content_blocks, the structured preview
+  // fallback, interpretResult's raw-fallback ladder) stays exactly as it
+  // was — a command failure's own structured_content (exit_code/stderr) is
+  // corroborating detail, not a stale/contradictory payload the way a real
+  // `is_error` result's success-shaped text was (see interpretResult's
+  // docstring), so it still climbs the normal result ladder unchanged.
+  const exitCodeFailure = result ? commandExitCodeFailure(result) : null;
+  const commandFailed = isError || exitCodeFailure !== null;
   const durationMs = typeof result?.['duration_ms'] === 'number' ? (result['duration_ms'] as number) : undefined;
   const meta = durationMs !== undefined ? `${formatDurationSeconds(durationMs)}s` : '';
-  const mark = result ? (isError ? '✗' : '✓') : '';
+  const mark = result ? (commandFailed ? '✗' : '✓') : '';
   const text = result ? extractToolResultText(result) : '';
   // content_blocks rung (clio-agent 285434f5): gated on !isError for the
   // same reason the interpreted-kind switch is (see interpretResult's
@@ -1583,7 +1601,23 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // row's raw text — even JSON-shaped — IS the useful preview, unchanged;
   // see the P4R live finding pinned in the ladder tests).
   const rawTextIsJsonObject = !isError && !waited && parseJsonObject(text) !== null;
-  const previewSource = structuredSummary || (rawTextIsJsonObject ? '' : text);
+  // A3: a command failure earns a short, honest phrase in the collapsed
+  // preview — prose (`exited 1`), never the raw `is_error`/`exit_code`
+  // booleans/numbers dumped as text (the glyph above already owns the
+  // pass/fail fact; this line only adds what it can't: WHICH code). Skipped
+  // when the payload already declares its own `message`/`summary` (Rule 1,
+  // {@link declaredSummaryOf}) — that tool-provided line already covers it,
+  // never doubled up. Otherwise this OUTRANKS `structuredSummary`'s generic
+  // first-scalar-field guess: a shell result's structured_content leads
+  // with `command`, which would otherwise win that fallback and say
+  // nothing about the failure (the exact live shape from A3's diagnosis).
+  const exitStructured = result ? extractStructuredContent(result) : undefined;
+  const exitCodeMessageCovered = isRecord(exitStructured) && declaredSummaryOf(exitStructured).length > 0;
+  const exitPhrase =
+    !isError && !waited && exitCodeFailure !== null && !exitCodeMessageCovered
+      ? `exited ${exitCodeFailure}`
+      : '';
+  const previewSource = exitPhrase || structuredSummary || (rawTextIsJsonObject ? '' : text);
   const previewLine =
     !open && previewSource && !waited ? truncate(normalizeWhitespace(previewSource), PREVIEW_MAX) : '';
 
@@ -1651,7 +1685,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
         {!result ? <span className="part-toolrow__pending">running…</span> : null}
         {meta ? <span className="part-toolrow__meta" data-error={isError ? 'true' : undefined}>{meta}</span> : null}
         {mark ? (
-          <span className="part-toolrow__mark" data-error={isError ? 'true' : undefined}>
+          <span className="part-toolrow__mark" data-error={commandFailed ? 'true' : undefined}>
             {mark}
           </span>
         ) : null}

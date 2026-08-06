@@ -97,6 +97,34 @@ export function extractStructuredContent(part: Record<string, unknown>): unknown
 }
 
 /**
+ * A command's OWN exit status — read off `structured_content.exit_code`
+ * (the shell tool server's own field name, e.g. `shell_server.py`'s
+ * `{"exit_code": completed.returncode, "stdout": ..., "stderr": ...}`) when
+ * it is a NUMBER and non-zero.
+ *
+ * `is_error` on the wire tracks MCP-PROTOCOL success only — the tool call
+ * itself ran and returned — never the command's own outcome. A shell
+ * command that ran fine but exited non-zero still carries `is_error`
+ * absent/false, with the failure carried here instead (A3, diagnosed
+ * live: session sess_cda96b286e4f, call call_79f8fbdc63f7 — `is_error`
+ * absent, `exit_code: 1`, a real `UnauthorizedAccessException` in
+ * `stderr` — the row rendered a green success glyph). Both wire facts are
+ * honest and stay untouched; this only reads the second one so the
+ * renderer can react to it.
+ *
+ * `null` when `structured_content` is not an object, `exit_code` is
+ * absent or not a finite number (never guessed from a string/other type),
+ * or it is exactly `0` (success).
+ */
+export function commandExitCodeFailure(part: Record<string, unknown>): number | null {
+  const structured = extractStructuredContent(part);
+  if (!isRecord(structured)) return null;
+  const exitCode = structured['exit_code'];
+  if (typeof exitCode !== 'number' || !Number.isFinite(exitCode) || exitCode === 0) return null;
+  return exitCode;
+}
+
+/**
  * One entry of a tool_result's OPTIONAL top-level `content_blocks` array
  * (clio-agent 285434f5, landing alongside kit 2.7.1's plot tools) — a
  * showcase a tool can declare ALONGSIDE its `structured_content`/`content`,
