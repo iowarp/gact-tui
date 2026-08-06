@@ -1017,16 +1017,33 @@ function interpretResult(result: WirePart, text: string, toolName: string): Inte
  * `{"content": [{"text": "{\"datasets\"...` (the raw wire shape) instead of
  * anything a reader could actually use.
  *
+ * Row-render defect A10 (owner-quoted, live UI watcher finding, session
+ * sess_0f25a6ac6f36): this fix landed the OPENED well's text-fallback grammar
+ * (row-render defect #4 — no `structured_content` at all, but the
+ * model-facing text parses as a JSON object) but left the COLLAPSED preview
+ * behind, still reading only `structured_content` — a `create_artifact`-
+ * shaped row (no `structured_content`) fell straight to the raw text, and a
+ * `jarvis_describe`-shaped row (`structured_content: {result: {...nested
+ * only...}}`, no top-level scalar) ALSO fell to the raw text, since the raw
+ * MCP envelope text for both happens to be the same JSON object serialized.
+ * `candidate` is now `structured_content` when it's a record, else the SAME
+ * bounded parse of the raw text ({@link parseJsonObject}) the opened well's
+ * text fallback already uses — never a second, looser parse.
+ *
  * A uniform table's first row's first column reads as its natural label
  * ("earthscope_stations (1 row)"); a wait result's own designed `summary`
- * sentence wins outright when present; otherwise the first genuinely SCALAR
- * top-level field (skipping array/object values, which are never a one-line
- * summary) — never a keyword/field-name guess, purely structural, matching
- * this file's existing discipline. `''` when there is no structured content
- * to summarize (or nothing in it is scalar), so the caller falls back to the
- * raw text — never invented, never blank-when-something-real-exists.
+ * sentence wins outright when present; then a rule-3 identity fact's own
+ * primary value (deduped identical-valued fields, e.g. `region`/`label` both
+ * "Los Angeles" -> "Los Angeles", not "region: Los Angeles" — the SAME fact
+ * the opened well leads with, {@link buildIdentityFacts}); otherwise the
+ * first genuinely SCALAR top-level field (skipping array/object values, which
+ * are never a one-line summary) — never a keyword/field-name guess, purely
+ * structural, matching this file's existing discipline. `''` when there is no
+ * summary-worthy field anywhere on the candidate object, so the CALLER
+ * decides whether the raw text is fit to show (see {@link ToolPart}) — never
+ * invented, never blank-when-something-real-exists.
  */
-function structuredPreview(result: WirePart): string {
+function structuredPreview(result: WirePart, text: string): string {
   const structured = extractStructuredContent(result);
   if (isUniformObjectArray(structured)) {
     const { rows } = objectArrayToTable(structured);
@@ -1034,14 +1051,20 @@ function structuredPreview(result: WirePart): string {
     const count = `${rows.length} row${rows.length === 1 ? '' : 's'}`;
     return label ? `${label} (${count})` : count;
   }
-  if (isRecord(structured)) {
+  const candidate = isRecord(structured) ? structured : parseJsonObject(text);
+  if (isRecord(candidate)) {
     // Rule 1: the payload's own declared message/summary IS the preview —
     // wins outright, the same field the opened well's first line now reads
     // ({@link declaredSummaryOf}). Subsumes the wait ladder's own prior
     // `summary`-first check (a wait shape's `summary` key is exactly this).
-    const declared = declaredSummaryOf(structured);
+    const declared = declaredSummaryOf(candidate);
     if (declared) return declared;
-    for (const [k, v] of Object.entries(structured)) {
+    // Rule 3: an identity fact's primary value, e.g. a deduped path/label,
+    // outranks a plain first-scalar guess -- the SAME precedence order the
+    // opened well's ladder gives rules 1/3 over a bare KV row.
+    const { facts } = buildIdentityFacts(candidate);
+    if (facts.length > 0) return facts[0]!.primary;
+    for (const [k, v] of Object.entries(candidate)) {
       if (isSuppressedRowKey(k, v)) continue;
       if (v === null || v === undefined || Array.isArray(v) || isRecord(v)) continue;
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
@@ -1077,6 +1100,46 @@ function MetadataChips({ attempts, budgets }: { attempts?: number; budgets?: num
 }
 
 /**
+ * Row-render defect A7 (owner-quoted, live wire finding, `relay_wait`): the
+ * expanded well rendered a 6393px wall — a WIRE defect (verified against the
+ * live parts: the server double- and triple-serializes the same job payload
+ * — once as a real nested object, again as a JSON-escaped string one field
+ * over, again as a full re-stringified copy in `content_blocks`), never
+ * something this ladder recursively decodes (the clean-wire rule: the client
+ * presents the OUTER layer, it does not parse/repair inner double-encoding).
+ * What the client DOES own is presentation: a value this long is never worth
+ * thousands of unbroken pixels — it clamps by default, one click reveals the
+ * full string, verbatim, never re-serialized or repaired.
+ */
+const LONG_VALUE_CLAMP_MAX = 400;
+
+/**
+ * A single KV/table VALUE, clamped when pathologically long ({@link
+ * LONG_VALUE_CLAMP_MAX} — see {@link LONG_VALUE_CLAMP_MAX}'s docstring for
+ * why). Short values (the overwhelming common case) render exactly as
+ * before — no wrapper, no toggle. A clamped value's toggle button lives
+ * INSIDE the same value span (`part-toolrow__v`), so the reveal reads as
+ * "this row's value, expanded" rather than a separate control.
+ */
+function ClampedValue({ value }: { value: string }) {
+  const [expanded, setExpanded] = useState(false);
+  if (value.length <= LONG_VALUE_CLAMP_MAX) return <>{value}</>;
+  return (
+    <>
+      {expanded ? value : `${value.slice(0, LONG_VALUE_CLAMP_MAX)}…`}
+      <button
+        type="button"
+        className="part-toolrow__valueexpand"
+        data-testid="part-tool-value-expand"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'show less' : 'show more'}
+      </button>
+    </>
+  );
+}
+
+/**
  * `variant="result"` (round-10 gate finding D10) adds the prototype's own
  * shaded card around a RESULT grid (P-12: center/bbox/provenance sit in a
  * rounded `var(--t-well)` box) — params stay plain so a reader can tell
@@ -1098,7 +1161,9 @@ function KvRows({
       {rows.map((row) => (
         <div className="part-toolrow__row" key={row.k}>
           <span className="part-toolrow__k">{row.k}</span>
-          <span className="part-toolrow__v">{row.v}</span>
+          <span className="part-toolrow__v">
+            {row.v.length > LONG_VALUE_CLAMP_MAX ? <ClampedValue value={row.v} /> : row.v}
+          </span>
         </div>
       ))}
     </div>
@@ -1200,6 +1265,37 @@ function elidedBlockText(block: WireContentBlock): string {
 }
 
 /**
+ * A `content_blocks` TEXT entry, clamped when pathologically long — the
+ * SAME {@link LONG_VALUE_CLAMP_MAX} presentation-only clamp {@link
+ * ClampedValue} applies to KV/table values (row-render defect A7): the live
+ * `relay_wait` fixture's own `content_blocks[0].text` is a 38K+-char
+ * re-serialization of the entire result, rendered here as prose via
+ * {@link Markdown} — unclamped, that alone painted most of the 6393px wall.
+ * Short blocks (the common case, e.g. a tool's narration) render exactly as
+ * before — no toggle.
+ */
+function BlockText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const clamped = text.length > LONG_VALUE_CLAMP_MAX;
+  const shown = !clamped || expanded ? text : `${text.slice(0, LONG_VALUE_CLAMP_MAX)}…`;
+  return (
+    <div className="part-toolrow__blocktext" data-testid="part-tool-block-text">
+      <Markdown text={shown} />
+      {clamped ? (
+        <button
+          type="button"
+          className="part-toolrow__blockexpand"
+          data-testid="part-tool-block-text-expand"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'show less' : 'show more'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The `content_blocks` rung (clio-agent 285434f5, kit 2.7.1's plot tools):
  * an OPTIONAL top-level array on the tool_result part, independent of both
  * `content` (the legacy MCP envelope {@link extractImageBlock} reads) and
@@ -1239,11 +1335,7 @@ function ContentBlocks({ blocks }: { blocks: WireContentBlock[] }) {
           ) : null;
         }
         if (typeof block.text === 'string' && block.text.length > 0) {
-          return (
-            <div className="part-toolrow__blocktext" data-testid="part-tool-block-text" key={i}>
-              <Markdown text={block.text} />
-            </div>
-          );
+          return <BlockText text={block.text} key={i} />;
         }
         return null;
       })}
@@ -1480,8 +1572,18 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // still leaked the raw JSON). The resolved names are already on screen in
   // the header/argHint, so the preview is elided entirely here rather than
   // repeating them a second time.
-  const structuredSummary = result && !isError && !waited ? structuredPreview(result) : '';
-  const previewSource = structuredSummary || text;
+  const structuredSummary = result && !isError && !waited ? structuredPreview(result, text) : '';
+  // Row-render defect A10 (owner-quoted): the preview line must NEVER show
+  // raw JSON, even as the last-resort fallback below `structuredSummary`. A
+  // `jarvis_describe`-shaped result (no top-level scalar anywhere) reaches
+  // here with `structuredSummary === ''` and `text` being the SAME payload
+  // re-serialized as a JSON object — falling back to it would just show the
+  // raw dump `structuredPreview` was built to avoid. Gated on the same
+  // `!isError`/`!waited` conditions as `structuredSummary` itself (a failed
+  // row's raw text — even JSON-shaped — IS the useful preview, unchanged;
+  // see the P4R live finding pinned in the ladder tests).
+  const rawTextIsJsonObject = !isError && !waited && parseJsonObject(text) !== null;
+  const previewSource = structuredSummary || (rawTextIsJsonObject ? '' : text);
   const previewLine =
     !open && previewSource && !waited ? truncate(normalizeWhitespace(previewSource), PREVIEW_MAX) : '';
 

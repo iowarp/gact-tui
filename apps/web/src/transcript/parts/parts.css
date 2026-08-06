@@ -327,6 +327,22 @@
   word-break: break-word;
 }
 
+/* Row-render defect A7: a pathologically long KV/table value (server-side
+   double-serialization, never something this ladder decodes -- see
+   ToolPart.tsx's LONG_VALUE_CLAMP_MAX docstring) clamps by default; this is
+   its inline "show more"/"show less" toggle, the same link-style idiom
+   .part-toolrow__tablemore already uses for the result table's row cap. */
+.part-toolrow__valueexpand {
+  display: inline;
+  margin-left: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--t-cy, #0aa6ad);
+  font: inherit;
+  cursor: pointer;
+}
+
 /* The RESULT half of the well gets the prototype's own shaded box (P-12:
    query/countrycodes render plain, center/bbox/provenance sit in a rounded
    var(--t-well) card) — params stay plain so a reader can tell "what was
@@ -598,6 +614,21 @@
   font-family: var(--f-prose);
   font-size: calc(12.5px * var(--ts));
   line-height: 1.6;
+}
+
+/* Row-render defect A7: a pathologically long content_blocks text block
+   (e.g. relay_wait's own 38K+-char re-serialized envelope) clamps the same
+   way a long KV value does -- see .part-toolrow__valueexpand. */
+.part-toolrow__blockexpand {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--t-cy, #0aa6ad);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+  cursor: pointer;
 }
 
 /* ---- handoff ---- */

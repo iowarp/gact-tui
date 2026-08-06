@@ -1833,3 +1833,184 @@ describe('text-only JSON-object result runs the SAME object grammar as structure
     expect(screen.queryByTestId('part-tool-raw-toggle')).toBeNull();
   });
 });
+
+/**
+ * A10 (owner-quoted, live UI watcher finding, session sess_0f25a6ac6f36,
+ * sub-session sess_f3c3a6b2f608): with the row-render defect #4 fallback
+ * landed (the OPENED well now runs the object grammar on parsed text too),
+ * the COLLAPSED preview line was left behind — `structuredPreview` never
+ * knew about that same text fallback, so a `jarvis_describe`-shaped result
+ * (`structured_content: {result: {...}}`, or the equivalent as parsed text
+ * with no `structured_content` at all, e.g. `create_artifact`) still showed
+ * the raw JSON one-liner as its collapsed preview, visible with zero
+ * interaction. Verified live: exactly this shape on 3 of the fixture's 14
+ * rows (both `jarvis_describe` calls, and `create_artifact`).
+ */
+describe('collapsed preview never shows raw JSON (row-render defect A10)', () => {
+  it('the jarvis_describe shape: no top-level scalar anywhere -- preview shows nothing, never the raw JSON one-liner', () => {
+    render(
+      <ToolPart
+        call={toolCall('jarvis_describe', { cluster: 'ares-p5run2', target: 'package_search' }, 'call_a10_1')}
+        result={toolResult('call_a10_1', {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                result: { inventory_revision: 'abc123', packages: [{ name: 'builtin.my_shell' }] },
+              }),
+            },
+          ],
+          structured_content: {
+            result: { inventory_revision: 'abc123', packages: [{ name: 'builtin.my_shell' }] },
+          },
+        })}
+      />,
+    );
+    // Collapsed -- the row was never opened.
+    expect(screen.queryByText(/inventory_revision/)).toBeNull();
+    expect(screen.queryByText(/\{"result"/)).toBeNull();
+    // Nothing summary-worthy anywhere on the payload -- the preview line
+    // itself never renders (never the raw JSON), the row's own status/
+    // duration stand alone.
+    expect(document.querySelector('.part-toolrow__preview')).toBeNull();
+  });
+
+  it('the create_artifact shape: no structured_content at all, but the text parses as JSON with a usable scalar -- preview derives it, never raw JSON', () => {
+    render(
+      <ToolPart
+        call={toolCall('create_artifact', { name: 'smoke_hostname.sh' }, 'call_a10_2')}
+        result={toolResult('call_a10_2', {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ accepted: 0, artifacts: [{ accepted: true }], deduplicated: 1, rejected: 0 }),
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText('accepted: 0')).toBeInTheDocument();
+    expect(screen.queryByText(/\{"accepted"/)).toBeNull();
+  });
+
+  it('a payload with an identity fact (rule 3) but no message/summary derives the preview from it, not the first raw scalar', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_dedup_tool', {}, 'call_a10_3')}
+        result={toolResult('call_a10_3', {
+          content: [{ type: 'text', text: 'done' }],
+          structured_content: { region: 'Los Angeles', label: 'Los Angeles', size_bytes: 999 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Los Angeles')).toBeInTheDocument();
+  });
+
+  it('regression pin: a non-JSON, non-structured result still falls back to its raw text preview (round-10 gate finding D3)', () => {
+    render(
+      <ToolPart
+        call={toolCall('shell_exec', {}, 'call_a10_4')}
+        result={toolResult('call_a10_4', { content: [{ type: 'text', text: 'stdout only' }] })}
+      />,
+    );
+    expect(screen.getByText('stdout only')).toBeInTheDocument();
+  });
+
+  it('regression pin: structured_content with no usable field but genuinely non-JSON text still falls back to that text (round-10 gate finding D3)', () => {
+    render(
+      <ToolPart
+        call={toolCall('geo_geocode', { query: 'LA' }, 'call_a10_5')}
+        result={toolResult('call_a10_5', {
+          content: [{ type: 'text', text: 'plain prose result' }],
+          structured_content: { points: [{ lat: 1 }, { lat: 2 }] },
+        })}
+      />,
+    );
+    expect(screen.getByText('plain prose result')).toBeInTheDocument();
+  });
+});
+
+/**
+ * A7 (owner-quoted, live UI watcher finding, relay_wait row): the wire
+ * carries `structured_content: {job, resolved_via, result}` where
+ * `result.content[0].text` is itself an 18K+-char JSON-shaped string (an MCP
+ * content-block `text` field one layer down from the outer envelope) AND a
+ * `content_blocks` array whose own text block carries the FULL 38K+-char
+ * envelope re-serialized. Both, rendered verbatim (a KV row's
+ * `JSON.stringify`, and a content_blocks paragraph), painted a 6000+px wall.
+ * This is a WIRE defect (server-side double-serialization) to report, not
+ * something the client recursively decodes -- the fix is presentation-only
+ * clamping with an expand affordance, proven here on a representative
+ * fixture (the real fixture's strings are far larger; the mechanism is
+ * length-driven, so a smaller over-cap string exercises the same code path).
+ */
+describe('long string values in wells clamp with an expand affordance, never render unbounded (row-render defect A7)', () => {
+  const HUGE = `{"nested":"${'x'.repeat(2500)}"}`;
+
+  it('a KV row whose value is a pathologically long string clamps by default, with a "show more" toggle to the full value', () => {
+    render(
+      <ToolPart
+        call={toolCall('relay_wait', {}, 'call_a7_1')}
+        result={toolResult('call_a7_1', {
+          content: [{ type: 'text', text: 'ok' }],
+          structured_content: { resolved_via: 'serve_task_record', payload: HUGE },
+        })}
+      />,
+    );
+    openRow(/relay_wait/);
+    const toggle = screen.getByTestId('part-tool-value-expand');
+    expect(toggle).toHaveTextContent(/show more/);
+    const valueSpan = toggle.closest('.part-toolrow__v');
+    expect(valueSpan?.textContent?.length ?? Infinity).toBeLessThan(HUGE.length);
+    fireEvent.click(toggle);
+    expect(valueSpan?.textContent).toContain(HUGE);
+  });
+
+  it('a short KV value renders unchanged -- no wrapper, no toggle (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('jarvis_create_pipeline', {}, 'call_a7_2')}
+        result={toolResult('call_a7_2', {
+          content: [{ type: 'text', text: 'ok' }],
+          structured_content: { pipeline_id: 'smoke-hostname-p1' },
+        })}
+      />,
+    );
+    openRow(/jarvis_create_pipeline/);
+    expect(screen.getByText('smoke-hostname-p1')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool-value-expand')).toBeNull();
+  });
+
+  it('a content_blocks text block that is a pathologically long JSON-shaped string clamps too, never a 6000px wall', () => {
+    render(
+      <ToolPart
+        call={toolCall('relay_wait', {}, 'call_a7_3')}
+        result={toolResult('call_a7_3', {
+          content: [{ type: 'text', text: 'ok' }],
+          content_blocks: [{ type: 'text', text: HUGE }],
+        })}
+      />,
+    );
+    openRow(/relay_wait/);
+    const block = screen.getByTestId('part-tool-block-text');
+    expect(block.textContent?.length).toBeLessThan(HUGE.length);
+    const toggle = screen.getByTestId('part-tool-block-text-expand');
+    fireEvent.click(toggle);
+    expect(block.textContent).toContain(HUGE);
+  });
+
+  it('a short content_blocks text block renders unchanged -- no toggle (regression pin)', () => {
+    render(
+      <ToolPart
+        call={toolCall('some_narrating_tool', {}, 'call_a7_4')}
+        result={toolResult('call_a7_4', {
+          content: [{ type: 'text', text: 'done' }],
+          content_blocks: [{ type: 'text', text: 'Short narration.' }],
+        })}
+      />,
+    );
+    openRow(/some_narrating_tool/);
+    expect(screen.getByText('Short narration.')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool-block-text-expand')).toBeNull();
+  });
+});

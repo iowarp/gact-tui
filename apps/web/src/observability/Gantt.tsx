@@ -38,6 +38,13 @@ const LABEL_COLUMN_PX = 180;
 const FALLBACK_LANE_PX = 600;
 /** Deepest zoom: 400x the full extent — a 10-minute trace resolves to ~1.5s. */
 const MAX_ZOOM = 400;
+/** Row-render defect A6 (owner-quoted, narrow obs modal): pixels reserved
+ *  from the plot's right edge for a bar's duration label, so it always has
+ *  real room to render into — enough for the longest realistic label
+ *  ("16m 40s", the pinned test's own worst case) plus its `padding-left`,
+ *  never just a bare geometry percentage that a narrow container squeezes
+ *  to nothing. See {@link GanttBar}'s duration span. */
+const DURATION_LABEL_RESERVE_PX = 72;
 /** How often a running bar's right edge is re-evaluated against the wall clock. */
 const LIVE_TICK_MS = 1_000;
 
@@ -382,7 +389,18 @@ function GanttBar({ lane, span, window: view, now, onHover }: GanttBarProps) {
       {span.duration && showDuration ? (
         <span
           className="obs-gantt__duration"
-          style={{ left: `${Math.min(geometry.left + geometry.width, 97)}%` }}
+          data-testid="obs-gantt-duration"
+          // Row-render defect A6 (owner-quoted, narrow obs modal): a bare
+          // percentage `left` (up to the 97% cap below) left only a handful
+          // of REAL pixels before the plot's `overflow: hidden` cut the
+          // nowrap label off mid-character ("3m 58s" -> "3m 4"). `min()`
+          // combines the geometry-driven percentage with a PIXEL floor —
+          // DURATION_LABEL_RESERVE_PX worth of room from the plot's right
+          // edge — so the label always has real space to render into,
+          // however narrow the container. Unconditional: even a bar nowhere
+          // near the right edge still carries the same reservation, it just
+          // never binds (the percentage term wins there).
+          style={{ left: `min(${Math.min(geometry.left + geometry.width, 97)}%, calc(100% - ${DURATION_LABEL_RESERVE_PX}px))` }}
         >
           {span.duration}
         </span>
