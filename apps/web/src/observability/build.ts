@@ -1,5 +1,4 @@
 import type {
-  Message,
   SemanticEventPayload,
   SessionAgentTask,
   SessionArtifactRecord,
@@ -11,7 +10,6 @@ import type {
   ObsNavigation,
   ObsSpan,
   ObsSpanState,
-  ObsTimelineKind,
   ObsTimelineRow,
   ObsToolCallRow,
   ObsToolCallState,
@@ -28,17 +26,17 @@ const TERMINAL_TASK_STATES = new Set([
 ]);
 const FAILED_TASK_STATES = new Set(['cancelled', 'canceled', 'error', 'failed']);
 
-interface PartEntry {
-  message: Message;
-  part: Record<string, unknown>;
-  messageIndex: number;
-  partIndex: number;
-  atMs: number | null;
-  partAtMs: number | null;
+/** One session's durable semantic trace (GET /v1/sessions/{sid}/trace). */
+export interface SessionTraceEvents {
+  sessionId: string;
+  events: SemanticEventPayload[];
 }
 
 export interface ObservabilityTraceInput {
-  messages: Message[];
+  /** The session whose observability layer is open — depth 0, agent "main". */
+  rootSessionId: string;
+  /** The root session's trace plus every child session's trace. */
+  traces: SessionTraceEvents[];
   agentTasks: SessionAgentTask[];
   artifacts: SessionArtifactRecord[];
 }
@@ -50,29 +48,99 @@ export interface ObservabilityTrace {
   toolCalls: ObsToolCallRow[];
 }
 
-/** Build history from transcript parts, plus task spans and artifact records. */
+/** Which trace session a row was recorded in, and what that session is to
+ *  the observed tree: the root itself (depth 0, "main") or a child session
+ *  mapped by an agent-task record (its `depth`, its run label). */
+interface TraceSessionMeta {
+  sessionId: string;
+  root: boolean;
+  depth: number;
+  agent: string;
+  nav?: ObsNavigation;
+}
+
+/**
+ * Build the observability layer from the session tree's semantic traces —
+ * the ONE source (gact-tui#356): the root session's trace plus each child's,
+ * merged strictly chronologically by every event's own `occurred_at`. The
+ * former transcript-parts seeding is deleted with this; parts carry message
+ * timestamps, not per-event ones, and never descend into children.
+ */
 export function buildObservabilityTrace({
-  messages,
+  rootSessionId,
+  traces,
   agentTasks,
   artifacts,
 }: ObservabilityTraceInput): ObservabilityTrace {
-  const entries = messagePartEntries(messages);
-  const resultByCall = toolResultsByCall(entries);
-  const versions = artifacts.map(latestArtifactVersion).filter(isPresent);
+  const metaById = sessionMetaById(rootSessionId, agentTasks);
   const agentLookup = agentSessionLookup(agentTasks);
-  const timeline = threadHistoryTimeline(entries, resultByCall, agentLookup);
-  const reconstructedSpans = reconstructPartSpans(entries, resultByCall);
-  const spansById = new Map(reconstructedSpans.map((span) => [span.id, span]));
+  const versions = artifacts.map(latestArtifactVersion).filter(isPresent);
 
-  for (const span of agentTasks.map((task) => toTaskSpan(task, versions)).filter(isPresent)) {
-    spansById.set(span.id, span);
+  const timeline: ObsTimelineRow[] = [];
+  const toolCalls: ObsToolCallRow[] = [];
+  for (const trace of traces) {
+    const meta = metaById.get(trace.sessionId) ?? fallbackMeta(trace.sessionId);
+    timeline.push(...timelineRowsFromTrace(trace, meta, agentLookup));
+    toolCalls.push(...toolCallRowsFromTrace(trace, meta));
   }
 
+  const rootTrace = traces.find((trace) => trace.sessionId === rootSessionId);
+  const spans = assembleSpans(rootTrace, traces, agentTasks, versions);
+
   return {
-    timeline,
-    spans: [...spansById.values()],
-    artifactRows: versions.map((entry) => toArtifactRow(entry.record, entry.version, agentTasks)),
-    toolCalls: toolCallRows(entries, resultByCall),
+    timeline: sortTimelineRows(timeline),
+    spans,
+    artifactRows: versions
+      .slice()
+      .sort(
+        (left, right) =>
+          (parseTimestamp(left.version.created_at) ?? Number.POSITIVE_INFINITY) -
+          (parseTimestamp(right.version.created_at) ?? Number.POSITIVE_INFINITY),
+      )
+      .map((entry) => toArtifactRow(entry.record, entry.version, agentTasks)),
+    toolCalls: toolCalls
+      .slice()
+      .sort(
+        (left, right) =>
+          (left.atMs ?? Number.POSITIVE_INFINITY) - (right.atMs ?? Number.POSITIVE_INFINITY),
+      ),
+  };
+}
+
+/** Root = depth 0 / "main"; children = the agent-task record's own depth and
+ *  run label. A traced session with no task record (reached only through the
+ *  artifacts route's child_session_ids) gets the honest minimum: depth 1 and
+ *  its session id as the label — never a guessed name. */
+function sessionMetaById(
+  rootSessionId: string,
+  agentTasks: SessionAgentTask[],
+): Map<string, TraceSessionMeta> {
+  const meta = new Map<string, TraceSessionMeta>();
+  meta.set(rootSessionId, { sessionId: rootSessionId, root: true, depth: 0, agent: 'main' });
+  for (const task of agentTasks) {
+    const sessionId = visibleString(task.child_session_id ?? null);
+    if (!sessionId || meta.has(sessionId)) continue;
+    meta.set(sessionId, {
+      sessionId,
+      root: false,
+      depth: finiteNumber(task.depth) ?? 1,
+      agent:
+        visibleString(task.run_label ?? null) ??
+        visibleString(task.agent_ref?.expert_id ?? null) ??
+        sessionId,
+      nav: { kind: 'agent', targetId: sessionId },
+    });
+  }
+  return meta;
+}
+
+function fallbackMeta(sessionId: string): TraceSessionMeta {
+  return {
+    sessionId,
+    root: false,
+    depth: 1,
+    agent: sessionId,
+    nav: { kind: 'agent', targetId: sessionId },
   };
 }
 
@@ -99,222 +167,213 @@ function agentSessionLookup(agentTasks: SessionAgentTask[]): Map<string, string>
   return lookup;
 }
 
-/** Map one filtered session SSE event to a visible trace row. */
-export function timelineRowFromSessionTraceEvent(event: SessionTraceEvent): ObsTimelineRow {
-  if (event.type === 'session.status_changed') {
-    const status = event.payload.status;
-    return {
-      ...withTime(event.occurred_at),
-      actor: 'session',
-      action: `status changed to ${status}`,
-      kind: semanticKind('session.status_changed', status),
-      sourceId: `status:${event.occurred_at}:${status}`,
-    };
-  }
+// ---- timeline ----
 
-  const payload = event.payload;
-  const eventType = visibleString(payload.event_type) ?? 'semantic.event';
-  const duration = explicitDuration(payload);
-  return {
-    ...withTime(event.occurred_at),
-    actor: semanticActor(payload) ?? eventType,
-    action: visibleString(payload.summary) ?? eventType.replace(/[._-]+/g, ' '),
-    kind: semanticKind(eventType, payload.status),
-    ...(duration ? { duration } : {}),
-    ...(finiteNumber(payload['depth']) !== null ? { depth: finiteNumber(payload['depth'])! } : {}),
-    sourceId: payload.event_id,
-  };
+/** Strict chronological order by each row's raw occurred-at ms; rows with no
+ *  timestamp sort after every timed row. The sort is stable, so same-instant
+ *  rows keep their per-trace emit order. */
+export function sortTimelineRows(rows: ObsTimelineRow[]): ObsTimelineRow[] {
+  return rows
+    .slice()
+    .sort(
+      (left, right) =>
+        (left.atMs ?? Number.POSITIVE_INFINITY) - (right.atMs ?? Number.POSITIVE_INFINITY),
+    );
 }
 
-function semanticActor(payload: SemanticEventPayload): string | null {
-  const actor = payload.actor;
-  if (!actor) return null;
-  for (const field of ['agent_id', 'tool_name', 'role', 'component', 'name', 'id']) {
-    const value = visibleString(actor[field]);
-    if (value) return value;
-  }
-  return null;
-}
+/** Merge live SSE-appended rows into the seeded timeline: drop replays, then
+ *  re-sort chronologically — the fix for the append path that used to
+ *  concatenate segments unsorted.
+ *
+ *  Two replay guards, both structural:
+ *  - identical sourceId (the same event delivered twice on one stream);
+ *  - the seed watermark: the trace read is authoritative for everything up
+ *    to its newest event, and the SSE stream replays a backlog on connect
+ *    whose copies of those same logical events carry DIFFERENT event_id /
+ *    occurred_at stamps than the ARC log's (live-verified ~300ms apart), so
+ *    id equality cannot catch them. A live row at or before the watermark —
+ *    padded by the measured cross-surface stamp skew, since the highway's
+ *    copy of the seed's own NEWEST event lands a few hundred ms past it —
+ *    is history the seed already covers; only rows beyond are genuinely
+ *    new. (A real event inside the skew window is picked up by the next
+ *    re-seed; the live lane is a transient overlay, not the record.) */
+const SSE_TRACE_STAMP_SKEW_MS = 2_000;
 
-function semanticKind(eventType: string, status: unknown): ObsTimelineKind {
-  const value = `${eventType} ${String(status ?? '')}`.toLowerCase();
-  if (/fail|error|blocked|cancel/.test(value)) return 'failure';
-  if (/artifact|dataset|resource|file/.test(value)) return 'artifact';
-  if (/tool|call/.test(value)) return 'tool';
-  if (/running|started|pending|queued/.test(value)) return 'running';
-  return 'event';
-}
-
-function messagePartEntries(messages: Message[]): PartEntry[] {
-  return messages.flatMap((message, messageIndex) =>
-    message.parts.map((rawPart, partIndex) => {
-      const part = rawPart as unknown as Record<string, unknown>;
-      const partAtMs = recordTimestamp(part);
-      return {
-        message,
-        part,
-        messageIndex,
-        partIndex,
-        partAtMs,
-        atMs: partAtMs ?? parseTimestamp(message.created_at ?? message.updated_at),
-      };
-    }),
+export function mergeTimelineRows(
+  seeded: ObsTimelineRow[],
+  live: ObsTimelineRow[],
+): ObsTimelineRow[] {
+  const newest = seeded.reduce(
+    (max, row) => (row.atMs !== undefined && row.atMs > max ? row.atMs : max),
+    Number.NEGATIVE_INFINITY,
   );
+  const watermark = newest + SSE_TRACE_STAMP_SKEW_MS;
+  const seen = new Set(seeded.map((row) => row.sourceId).filter(isPresentString));
+  const fresh = live.filter((row) => {
+    if (row.atMs !== undefined && row.atMs <= watermark) return false;
+    if (!row.sourceId) return true;
+    if (seen.has(row.sourceId)) return false;
+    seen.add(row.sourceId);
+    return true;
+  });
+  return sortTimelineRows([...seeded, ...fresh]);
 }
 
-function toolResultsByCall(entries: PartEntry[]): Map<string, PartEntry> {
-  const results = new Map<string, PartEntry>();
-  for (const entry of entries) {
-    if (entry.part['type'] !== 'tool_result') continue;
-    const callId = visibleString(entry.part['call_id'] ?? entry.part['tool_call_id']);
-    if (callId) results.set(callId, entry);
-  }
-  return results;
-}
-
-/**
- * Walks entries in chronological order, threading each row through a real
- * open/close stack keyed by `handoffKey` — the SAME key reconstructPartSpans
- * uses to pair a `delegate.started` row with its `delegate.completed` (or
- * `background_exit`) counterpart. This replaces the wire's optional, often
- * absent `depth` field with a depth CLIO can prove from the actual call/
- * return structure, and marks the exact row that opens ('branch: open') or
- * closes ('branch: close') a nesting level so the timeline can render the
- * prototype's own parent/child thread-connector brackets (~8244025) instead
- * of a single flat line. A close with no matching open (session history
- * starting mid-task) renders as a flat row rather than guessing.
- */
-function threadHistoryTimeline(
-  entries: PartEntry[],
-  resultByCall: Map<string, PartEntry>,
+function timelineRowsFromTrace(
+  trace: SessionTraceEvents,
+  meta: TraceSessionMeta,
   agentLookup: Map<string, string>,
 ): ObsTimelineRow[] {
-  const openStack: string[] = [];
-  const rows: ObsTimelineRow[] = [];
-  for (const entry of entries) {
-    const type = visibleString(entry.part['type']);
-    const stage = visibleString(entry.part['stage']);
-    const isClose =
-      (type === 'expert_handoff' && stage === 'delegate.completed') || type === 'background_exit';
-    let branch: 'open' | 'close' | undefined;
-    if (isClose) {
-      const key = handoffKey(entry.part);
-      const index = key ? openStack.indexOf(key) : -1;
-      if (index !== -1) {
-        openStack.splice(index, 1);
-        branch = 'close';
-      }
-    }
-    const depth = openStack.length;
-    const row = toHistoryTimelineRow(entry, resultByCall, agentLookup);
-    if (row) rows.push({ ...row, depth, ...(branch ? { branch } : {}) });
+  const startedByCall = new Map<string, SemanticEventPayload>();
+  for (const event of trace.events) {
+    if (event.event_type !== 'tool.call.started') continue;
+    const callId = visibleString(payloadOf(event)['call_id']);
+    if (callId) startedByCall.set(callId, event);
+  }
+  const completedCallIds = new Set(
+    trace.events
+      .filter((event) => event.event_type === 'tool.call.completed')
+      .map((event) => visibleString(payloadOf(event)['call_id']))
+      .filter(isPresent),
+  );
 
-    const isOpen = type === 'expert_handoff' && stage === 'delegate.started';
-    if (isOpen) {
-      const key = handoffKey(entry.part);
-      if (key) {
-        openStack.push(key);
-        if (row) rows[rows.length - 1] = { ...rows[rows.length - 1]!, branch: 'open' };
-      }
+  const rows: ObsTimelineRow[] = [];
+  for (const event of trace.events) {
+    if (event.event_type === 'tool.call.started') {
+      // A started call whose completion is also in this trace is represented
+      // once, by the completion (it carries ok + duration). Only a genuinely
+      // unfinished call renders its own running row.
+      const callId = visibleString(payloadOf(event)['call_id']);
+      if (callId && completedCallIds.has(callId)) continue;
     }
+    const row = timelineRowFromSemanticEvent(event, meta, agentLookup);
+    if (!row) continue;
+    if (event.event_type === 'tool.call.completed') {
+      // The row REPRESENTS the call, so it sorts at the call's real start
+      // (the same anchor the tools tab uses) — a completion-stamped row
+      // would sort after artifacts the call itself produced mid-execution.
+      const started = startedByCall.get(visibleString(payloadOf(event)['call_id']) ?? '');
+      const startAt = started ? withTime(started.occurred_at) : null;
+      rows.push(startAt?.atMs !== undefined ? { ...row, ...startAt } : row);
+      continue;
+    }
+    rows.push(row);
   }
   return rows;
 }
 
-function toHistoryTimelineRow(
-  entry: PartEntry,
-  resultByCall: Map<string, PartEntry>,
-  agentLookup: Map<string, string>,
+/**
+ * Map one semantic trace event to a visible timeline row, or null for event
+ * types the timeline does not render (hooks, lm internals, react steps, …).
+ *
+ * The curated set is typed on `event_type` only — never on prose:
+ * - root session only: `turn.started` (the user's own turn, quoting the real
+ *   prompt), `routing.decision`, `turn.completed` — a child session's own
+ *   turn bookkeeping is already represented by its delegation rows.
+ * - every session: `tool.call.completed` (+ unfinished `tool.call.started`),
+ *   `blueprint.delegation.started`/`completed` (the branch open/close rows),
+ *   and `artifact.created`.
+ */
+export function timelineRowFromSemanticEvent(
+  event: SemanticEventPayload,
+  meta: Pick<TraceSessionMeta, 'root' | 'depth' | 'nav' | 'sessionId'>,
+  agentLookup?: Map<string, string>,
 ): ObsTimelineRow | null {
-  const type = visibleString(entry.part['type']);
-  if (!type) return null;
-  const sourceId = historySourceId(entry);
+  const payload = payloadOf(event);
+  const subject = (event.subject ?? {}) as Record<string, unknown>;
   const common = {
-    ...withTime(entry.atMs),
-    sourceId,
+    ...withTime(event.occurred_at),
+    depth: meta.depth,
+    sourceId: semanticSourceId(event, meta.sessionId),
   };
 
-  // The prototype's very first (and every subsequent) log row is the user's
-  // own turn (proto-obs.json rows[0]) — a plain text part on a user message,
-  // rendered with the dedicated person-in-circle marker rather than the
-  // generic event dot. Real, backed by the message this part lives on: the
-  // row's nav scrolls the transcript straight to it (Go to message).
-  if (type === 'text' && entry.message.role === 'user') {
-    const text = visibleString(entry.part['text']);
+  if (event.event_type === 'turn.started' && meta.root) {
+    const text = visibleString(payload['text']);
     if (!text) return null;
+    const messageId = visibleString(subject['message_id']) ?? visibleString(event.turn_id);
     return {
       ...common,
       actor: 'user',
       action: quoteExcerpt(text),
       kind: 'user',
-      nav: { kind: 'message', targetId: entry.message.id },
+      ...(messageId ? { nav: { kind: 'message', targetId: messageId } as ObsNavigation } : {}),
     };
   }
 
-  if (type === 'expert_handoff') {
-    const stage = visibleString(entry.part['stage']);
-    if (stage !== 'delegate.started' && stage !== 'delegate.completed') return null;
-    const actor =
-      visibleString(entry.part['child_agent'] ?? entry.part['run_label'] ?? entry.part['expert']) ??
-      'child agent';
-    const parent = visibleString(entry.part['parent_agent']) ?? 'parent';
-    const duration = explicitDuration(entry.part);
-    const status = visibleString(entry.part['status'] ?? entry.part['live_state']);
+  if (event.event_type === 'routing.decision' && meta.root) {
+    const source = visibleString(payload['route_source']);
+    const selected = visibleString(payload['selected_agent']);
+    const action =
+      source && selected
+        ? `${source} → ${selected}`
+        : (visibleString(event.summary) ?? 'routing decision');
+    return { ...common, actor: 'routing_decision', action, kind: 'event' };
+  }
+
+  if (event.event_type === 'turn.completed' && meta.root) {
+    const stop = visibleString(payload['stop_reason']);
     return {
       ...common,
-      actor,
-      action: stage === 'delegate.started' ? 'task started' : `returned to ${parent}`,
-      kind:
-        status && FAILED_TASK_STATES.has(status.toLowerCase())
-          ? 'failure'
-          : stage === 'delegate.started'
-            ? 'running'
-            : 'event',
+      actor: 'turn.completed',
+      action: stop ? `stop_reason ${stop}` : (visibleString(event.summary) ?? 'turn completed'),
+      kind: 'event',
+    };
+  }
+
+  if (event.event_type === 'tool.call.completed' || event.event_type === 'tool.call.started') {
+    const tool = visibleString(payload['tool']);
+    if (!tool) return null;
+    const running = event.event_type === 'tool.call.started';
+    const failed = !running && payload['ok'] === false;
+    const duration = durationFromMs(payload['duration_ms']);
+    const turnId = visibleString(event.turn_id);
+    const nav = meta.nav ?? (turnId ? ({ kind: 'message', targetId: turnId } as ObsNavigation) : undefined);
+    return {
+      ...common,
+      actor: tool,
+      action: failed ? 'tool call failed' : 'tool call',
+      kind: running ? 'running' : failed ? 'failure' : 'tool',
       ...(duration ? { duration } : {}),
-      ...agentNav(agentLookup, actor, entry.part),
+      ...(nav ? { nav } : {}),
     };
   }
 
-  if (type === 'tool_call') {
-    const callId = visibleString(entry.part['call_id'] ?? entry.part['id']);
-    const result = callId ? resultByCall.get(callId) : undefined;
-    const duration = explicitDuration(result?.part ?? entry.part);
-    const failed = result?.part['is_error'] === true;
+  if (event.event_type === 'blueprint.delegation.started') {
+    const child = visibleString(subject['agent_id']) ?? 'child agent';
     return {
       ...common,
-      actor: visibleString(entry.part['tool_name'] ?? entry.part['name']) ?? 'tool',
-      action: 'tool call',
-      kind: failed ? 'failure' : 'tool',
-      ...(duration ? { duration } : {}),
-      nav: { kind: 'message', targetId: entry.message.id },
+      actor: child,
+      action: 'task started',
+      kind: 'running',
+      branch: 'open',
+      ...agentNav(agentLookup, [child, visibleString(payload['task_id'])]),
     };
   }
 
-  if (type === 'background_exit') {
-    const status =
-      visibleString(
-        entry.part['exit_status'] ?? entry.part['status'] ?? entry.part['live_state'],
-      ) ?? 'unknown';
-    const actor =
-      visibleString(
-        entry.part['run_label'] ?? entry.part['child_agent'] ?? entry.part['handle_id'],
-      ) ?? 'background task';
+  if (event.event_type === 'blueprint.delegation.completed') {
+    const actor = (event.actor ?? {}) as Record<string, unknown>;
+    const child =
+      visibleString(payload['agent_id']) ?? visibleString(actor['agent_id']) ?? 'child agent';
+    const parent = visibleString(payload['parent_id']) ?? 'parent';
+    const status = visibleString(payload['status']);
     return {
       ...common,
-      actor,
-      action: `exited (${status})`,
-      kind: FAILED_TASK_STATES.has(status.toLowerCase()) ? 'failure' : 'event',
-      ...agentNav(agentLookup, actor, entry.part),
+      actor: child,
+      action: `returned to ${parent}`,
+      kind: status && FAILED_TASK_STATES.has(status.toLowerCase()) ? 'failure' : 'event',
+      branch: 'close',
+      ...agentNav(agentLookup, [visibleString(payload['task_id']), child]),
     };
   }
 
-  if (isArtifactPart(type)) {
-    const actor = artifactPartName(entry.part, type);
-    if (!actor) return null;
+  if (event.event_type === 'artifact.created') {
+    const name = visibleString(subject['name']) ?? visibleString(payload['name']);
+    if (!name) return null;
+    const size = finiteNumber(payload['size_bytes']);
     return {
       ...common,
-      actor,
-      action: artifactPartAction(type),
+      actor: name,
+      action: size !== null ? `artifact (${formatBytes(size)})` : 'artifact',
       kind: 'artifact',
     };
   }
@@ -322,16 +381,40 @@ function toHistoryTimelineRow(
   return null;
 }
 
+/** Map one live session SSE event to a timeline row (or null for uncurated
+ *  semantic events). Live rows are always the observed session's own stream,
+ *  so they carry the root's meta; a session.status_changed keeps its
+ *  dedicated status row. */
+export function timelineRowFromSessionTraceEvent(event: SessionTraceEvent): ObsTimelineRow | null {
+  if (event.type === 'session.status_changed') {
+    const status = event.payload.status;
+    return {
+      ...withTime(event.occurred_at),
+      actor: 'session',
+      action: `status changed to ${status}`,
+      kind: /fail|error|blocked|cancel/.test(String(status ?? '').toLowerCase())
+        ? 'failure'
+        : 'event',
+      depth: 0,
+      sourceId: `status:${event.occurred_at}:${status}`,
+    };
+  }
+  const payload = event.payload;
+  return timelineRowFromSemanticEvent(
+    { ...payload, occurred_at: payload.occurred_at ?? event.occurred_at },
+    { root: true, depth: 0, sessionId: visibleString(payload.session_id) ?? '' },
+  );
+}
+
 /** The prototype's `else if (cv[r.jump || r.name]) go = () => this.goView(jk)`
  *  — an "Open agent" nav, only ever attached when a real agent-task record
- *  names this exact actor (or the part's own handle/task id) as the key to a
- *  child session. Never guessed from string similarity. */
+ *  names this exact actor/task as the key to a child session. Never guessed
+ *  from string similarity. */
 function agentNav(
-  lookup: Map<string, string>,
-  actor: string,
-  part: Record<string, unknown>,
+  lookup: Map<string, string> | undefined,
+  candidates: Array<string | null | undefined>,
 ): { nav: ObsNavigation } | Record<string, never> {
-  const candidates = [actor, visibleString(part['handle_id']), visibleString(part['task_id'])];
+  if (!lookup) return {};
   for (const key of candidates) {
     if (!key) continue;
     const sessionId = lookup.get(key);
@@ -348,166 +431,89 @@ function quoteExcerpt(text: string, max = 90): string {
   return `"${truncated}"`;
 }
 
-function historySourceId(entry: PartEntry): string {
-  const partId = visibleString(entry.part['id']);
-  return `part:${entry.message.id}:${partId ?? `${entry.messageIndex}:${entry.partIndex}`}`;
+/** Stable identity for one semantic event — the trace and the live SSE
+ *  stream publish the same payload dicts, so seeding and live-append derive
+ *  the SAME id and reconnect replays deduplicate against the seed. */
+function semanticSourceId(event: SemanticEventPayload, fallbackSessionId: string): string {
+  const sessionId = visibleString(event.session_id) ?? fallbackSessionId;
+  const anchor =
+    visibleString(payloadOf(event)['call_id']) ??
+    visibleString(((event.subject ?? {}) as Record<string, unknown>)['call_id']) ??
+    visibleString(event.event_id) ??
+    '';
+  return `sem:${sessionId}:${event.event_type}:${event.occurred_at ?? ''}:${anchor}`;
 }
 
-function isArtifactPart(type: string): boolean {
-  return (
-    type === 'resource_link' ||
-    type === 'resource' ||
-    type === 'document' ||
-    type === 'file_diff' ||
-    type === 'artifact' ||
-    type === 'artifact_ref'
-  );
-}
-
-function artifactPartName(part: Record<string, unknown>, type: string): string | null {
-  const direct = visibleString(part['name'] ?? part['title'] ?? part['path']);
-  if (direct) return direct;
-  const uri = visibleString(part['uri'] ?? part['artifact_ref']);
-  if (!uri) return type.replace(/_/g, ' ');
-  const tail = uri.split('/').at(-1)?.split('@')[0];
-  return tail || uri;
-}
-
-function artifactPartAction(type: string): string {
-  if (type === 'file_diff') return 'file diff';
-  if (type === 'document') return 'document';
-  return 'artifact';
-}
-
-function reconstructPartSpans(
-  entries: PartEntry[],
-  resultByCall: Map<string, PartEntry>,
-): ObsSpan[] {
-  const completions = new Map<string, PartEntry>();
-  for (const entry of entries) {
-    const type = entry.part['type'];
-    if (
-      (type === 'expert_handoff' && entry.part['stage'] === 'delegate.completed') ||
-      type === 'background_exit'
-    ) {
-      const key = handoffKey(entry.part);
-      if (key) completions.set(key, entry);
-    }
-  }
-
-  const spans: ObsSpan[] = [];
-  for (const entry of entries) {
-    if (entry.part['type'] === 'expert_handoff' && entry.part['stage'] === 'delegate.started') {
-      const key = handoffKey(entry.part);
-      if (!key || entry.atMs === null) continue;
-      const completion = completions.get(key);
-      if (!completion) {
-        spans.push({
-          id: key,
-          label: visibleString(entry.part['run_label'] ?? entry.part['child_agent']) ?? key,
-          depth: partDepth(entry.part) ?? 0,
-          startMs: entry.atMs,
-          endMs: null,
-          state: 'running',
-        });
-        continue;
-      }
-
-      const endMs = derivedEndMs(entry.atMs, completion);
-      if (endMs === null) continue;
-      const state = partTerminalState(completion.part);
-      spans.push({
-        id: key,
-        label: visibleString(entry.part['run_label'] ?? entry.part['child_agent']) ?? key,
-        depth: partDepth(entry.part) ?? 0,
-        startMs: entry.atMs,
-        endMs,
-        state,
-        duration: formatDuration(endMs - entry.atMs),
-      });
-    }
-
-    if (entry.part['type'] !== 'tool_call' || entry.atMs === null) continue;
-    const callId = visibleString(entry.part['call_id'] ?? entry.part['id']);
-    if (!callId) continue;
-    const result = resultByCall.get(callId);
-    const label = visibleString(entry.part['tool_name'] ?? entry.part['name']) ?? callId;
-    if (!result) {
-      spans.push({
-        id: `tool:${callId}`,
-        label,
-        depth: partDepth(entry.part) ?? 0,
-        startMs: entry.atMs,
-        endMs: null,
-        state: 'running',
-        tool: true,
-      });
-      continue;
-    }
-
-    const endMs = derivedEndMs(entry.atMs, result);
-    if (endMs === null) continue;
-    spans.push({
-      id: `tool:${callId}`,
-      label,
-      depth: partDepth(entry.part) ?? 0,
-      startMs: entry.atMs,
-      endMs,
-      state: result.part['is_error'] === true ? 'failed' : 'done',
-      duration: formatDuration(endMs - entry.atMs),
-      tool: true,
-    });
-  }
-
-  return spans;
-}
+// ---- tools tab: chronological call log across the tree ----
 
 /**
- * The tools tab's chronological call log (prototype `obsToolRows`,
- * ~8256494) — one row per real `tool_call` part made THIS session, sourced
- * from the same entries/resultByCall the timeline and gantt already build
- * from. Replaces the static per-server catalog (`client.mcpServers()`),
- * which described what a server CAN do, never what was actually called.
+ * One row per real tool call in this trace session — `tool.call.started`
+ * paired to its `tool.call.completed` by `call_id`. The wire's own payload
+ * keys: `tool` (NOT tool_name), `ok`, `duration_ms`, `call_id`. Row time is
+ * the call's real start; a call with no completion renders running.
  */
-function toolCallRows(
-  entries: PartEntry[],
-  resultByCall: Map<string, PartEntry>,
+function toolCallRowsFromTrace(
+  trace: SessionTraceEvents,
+  meta: TraceSessionMeta,
 ): ObsToolCallRow[] {
+  interface PendingCall {
+    started?: SemanticEventPayload;
+    completed?: SemanticEventPayload;
+    order: number;
+  }
+  const calls = new Map<string, PendingCall>();
+  let order = 0;
+  for (const event of trace.events) {
+    if (event.event_type !== 'tool.call.started' && event.event_type !== 'tool.call.completed') {
+      continue;
+    }
+    const payload = payloadOf(event);
+    const callId =
+      visibleString(payload['call_id']) ?? `${event.event_type}:${event.occurred_at ?? order}`;
+    const entry = calls.get(callId) ?? { order: order++ };
+    if (event.event_type === 'tool.call.started') entry.started = event;
+    else entry.completed = event;
+    calls.set(callId, entry);
+  }
+
   const rows: ObsToolCallRow[] = [];
-  for (const entry of entries) {
-    if (entry.part['type'] !== 'tool_call') continue;
-    const name = visibleString(entry.part['tool_name'] ?? entry.part['name']);
+  for (const [callId, { started, completed }] of calls) {
+    const anchor = started ?? completed;
+    if (!anchor) continue;
+    const payload = payloadOf(completed ?? anchor);
+    const name = visibleString(payload['tool']) ?? visibleString(payloadOf(anchor)['tool']);
     if (!name) continue;
-    const callId = visibleString(entry.part['call_id'] ?? entry.part['id']);
-    const result = callId ? resultByCall.get(callId) : undefined;
-    const state: ObsToolCallState = !result
+    const atMs = parseTimestamp(anchor.occurred_at);
+    const state: ObsToolCallState = !completed
       ? 'running'
-      : result.part['is_error'] === true
+      : payloadOf(completed)['ok'] === false
         ? 'failed'
         : 'done';
+    const duration = completed ? durationFromMs(payloadOf(completed)['duration_ms']) : null;
+    const argHint = started ? toolArgHint(payloadOf(started)['args']) : null;
+    const turnId = visibleString(anchor.turn_id);
+    const nav = meta.nav ?? (turnId ? ({ kind: 'message', targetId: turnId } as ObsNavigation) : undefined);
     rows.push({
-      sourceId: historySourceId(entry),
-      ...withTime(entry.atMs),
+      sourceId: `trace-tool:${trace.sessionId}:${callId}`,
+      ...withTime(anchor.occurred_at),
+      ...(atMs !== null ? { atMs } : {}),
       name,
-      ...(toolArgHint(entry.part) ? { argHint: toolArgHint(entry.part)! } : {}),
-      agent: visibleString(entry.part['agent_id']) ?? 'main',
+      ...(argHint ? { argHint } : {}),
+      agent: meta.agent,
       state,
-      ...(explicitDuration(result?.part ?? entry.part)
-        ? { duration: explicitDuration(result?.part ?? entry.part)! }
-        : {}),
-      nav: { kind: 'message', targetId: entry.message.id },
+      ...(duration ? { duration } : {}),
+      ...(nav ? { nav } : {}),
     });
   }
-  return rows.sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''));
+  return rows;
 }
 
 /** A short, real rendering of the call's own first input key/value — never a
- *  fabricated description of what the tool does (that lives on the server,
- *  not on the call). `input` is the wire's own field name for tool_call args. */
-function toolArgHint(part: Record<string, unknown>): string | null {
-  const input = part['input'];
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
-  const entries = Object.entries(input as Record<string, unknown>);
+ *  fabricated description of what the tool does. `args` is the trace's own
+ *  field name on tool.call.started. */
+function toolArgHint(args: unknown): string | null {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return null;
+  const entries = Object.entries(args as Record<string, unknown>);
   if (entries.length === 0) return null;
   const [key, value] = entries[0]!;
   const rendered = typeof value === 'string' ? value : JSON.stringify(value);
@@ -516,23 +522,196 @@ function toolArgHint(part: Record<string, unknown>): string | null {
   return `${key}=${truncated}`;
 }
 
-function handoffKey(part: Record<string, unknown>): string | null {
-  return visibleString(
-    part['handle_id'] ?? part['task_id'] ?? part['run_label'] ?? part['child_agent'],
-  );
+// ---- gantt: turn roots, nested agents, real-time bars/marks ----
+
+interface PairedToolCall {
+  callId: string;
+  tool: string;
+  startMs: number;
+  endMs: number | null;
+  failed: boolean;
+  turnId: string | null;
+  duration: string | null;
 }
 
-function derivedEndMs(startMs: number, completion: PartEntry): number | null {
-  const durationMs = explicitDurationMs(completion.part);
-  if (durationMs !== null) return startMs + durationMs;
-  if (completion.partAtMs !== null && completion.partAtMs >= startMs) return completion.partAtMs;
-  if (completion.atMs !== null && completion.atMs > startMs) return completion.atMs;
-  return null;
+/** Pair a trace's tool.call.started/completed by call_id into real windows:
+ *  start = the started event's own occurred_at, end = start + the wire's
+ *  duration_ms (falling back to the completion's occurred_at). */
+function pairedToolCalls(trace: SessionTraceEvents): PairedToolCall[] {
+  const byCall = new Map<string, { started?: SemanticEventPayload; completed?: SemanticEventPayload }>();
+  for (const event of trace.events) {
+    if (event.event_type !== 'tool.call.started' && event.event_type !== 'tool.call.completed') {
+      continue;
+    }
+    const callId = visibleString(payloadOf(event)['call_id']);
+    if (!callId) continue;
+    const entry = byCall.get(callId) ?? {};
+    if (event.event_type === 'tool.call.started') entry.started = event;
+    else entry.completed = event;
+    byCall.set(callId, entry);
+  }
+
+  const out: PairedToolCall[] = [];
+  for (const [callId, { started, completed }] of byCall) {
+    const anchor = started ?? completed;
+    if (!anchor) continue;
+    const payload = payloadOf(completed ?? anchor);
+    const tool = visibleString(payload['tool']) ?? visibleString(payloadOf(anchor)['tool']);
+    if (!tool) continue;
+    const durationMs = completed ? finiteNumber(payloadOf(completed)['duration_ms']) : null;
+    const completedAt = completed ? parseTimestamp(completed.occurred_at) : null;
+    let startMs = started ? parseTimestamp(started.occurred_at) : null;
+    if (startMs === null && completedAt !== null) {
+      // No started event survived the trace bound: derive the real start
+      // from the completion's own timestamp minus its reported duration.
+      startMs = durationMs !== null ? completedAt - durationMs : completedAt;
+    }
+    if (startMs === null) continue;
+    const endMs =
+      completed === undefined
+        ? null
+        : durationMs !== null
+          ? startMs + durationMs
+          : completedAt !== null && completedAt >= startMs
+            ? completedAt
+            : startMs;
+    out.push({
+      callId,
+      tool,
+      startMs,
+      endMs,
+      failed: completed !== undefined && payload['ok'] === false,
+      turnId: visibleString(anchor.turn_id),
+      duration: durationMs !== null ? formatDuration(durationMs) : null,
+    });
+  }
+  return out.sort((left, right) => left.startMs - right.startMs);
 }
 
-function partTerminalState(part: Record<string, unknown>): ObsSpanState {
-  const status = visibleString(part['exit_status'] ?? part['status'] ?? part['live_state']);
-  return status && FAILED_TASK_STATES.has(status.toLowerCase()) ? 'failed' : 'done';
+/**
+ * The gantt's span list: one `main · turn N` root per root-trace turn
+ * (turn.started paired to turn.completed by turn_id), then — nested beneath,
+ * in chronological order — the root's own tool calls as bars (spawn/wait/…,
+ * each positioned at its REAL tool.call.started time with width = real
+ * duration_ms, so a wait bar visibly covers the child window it blocked on)
+ * interleaved with the child-agent spans mapped by the agent-task records.
+ * Child domain tools ride their agent's lane as wrench marks at real times.
+ */
+function assembleSpans(
+  rootTrace: SessionTraceEvents | undefined,
+  traces: SessionTraceEvents[],
+  agentTasks: SessionAgentTask[],
+  versions: Array<{ record: SessionArtifactRecord; version: SessionArtifactVersion }>,
+): ObsSpan[] {
+  // Child-agent spans from the task records, with real per-call tool marks
+  // from each child's own trace.
+  const toolMarksBySession = new Map<string, Array<{ atMs: number; label: string }>>();
+  for (const trace of traces) {
+    if (trace.sessionId === rootTrace?.sessionId) continue;
+    toolMarksBySession.set(
+      trace.sessionId,
+      pairedToolCalls(trace).map((call) => ({ atMs: call.startMs, label: call.tool })),
+    );
+  }
+  interface TaskSpanEntry {
+    span: ObsSpan;
+    turnId: string | null;
+  }
+  const taskSpans: TaskSpanEntry[] = agentTasks.flatMap((task) => {
+    const span = toTaskSpan(task, versions);
+    if (!span) return [];
+    const childId = visibleString(task.child_session_id ?? null);
+    const marks = childId ? toolMarksBySession.get(childId) : undefined;
+    return [
+      {
+        span: marks && marks.length > 0 ? { ...span, toolMarks: marks } : span,
+        turnId: visibleString(task['parent_turn_id']) ?? null,
+      },
+    ];
+  });
+
+  // Root turn spans + the root's own tool bars.
+  interface TurnSpanEntry {
+    turnId: string;
+    span: ObsSpan;
+  }
+  const turns: TurnSpanEntry[] = [];
+  const rootToolSpans: Array<{ span: ObsSpan; turnId: string | null }> = [];
+  if (rootTrace) {
+    const completedByTurn = new Map<string, SemanticEventPayload>();
+    for (const event of rootTrace.events) {
+      if (event.event_type !== 'turn.completed') continue;
+      const turnId = visibleString(event.turn_id);
+      if (turnId) completedByTurn.set(turnId, event);
+    }
+    for (const event of rootTrace.events) {
+      if (event.event_type !== 'turn.started') continue;
+      // The envelope's turn_id; older events may only name the user message
+      // (the turn id IS the user message id) on their subject.
+      const turnId =
+        visibleString(event.turn_id) ??
+        visibleString(((event.subject ?? {}) as Record<string, unknown>)['message_id']);
+      const startMs = parseTimestamp(event.occurred_at);
+      if (!turnId || startMs === null) continue;
+      const completion = completedByTurn.get(turnId);
+      const endMs = completion ? parseTimestamp(completion.occurred_at) : null;
+      const settled = endMs !== null && endMs >= startMs;
+      turns.push({
+        turnId,
+        span: {
+          id: `turn:${turnId}`,
+          label: `main · turn ${turns.length + 1}`,
+          depth: 0,
+          startMs,
+          endMs: settled ? endMs : null,
+          state: settled ? 'done' : 'running',
+          ...(settled ? { duration: formatDuration(endMs - startMs) } : {}),
+          nav: { kind: 'message', targetId: turnId },
+        },
+      });
+    }
+
+    for (const call of pairedToolCalls(rootTrace)) {
+      rootToolSpans.push({
+        turnId: call.turnId,
+        span: {
+          id: `tool:${rootTrace.sessionId}:${call.callId}`,
+          label: call.tool,
+          depth: 1,
+          startMs: call.startMs,
+          endMs: call.endMs,
+          state: call.endMs === null ? 'running' : call.failed ? 'failed' : 'done',
+          ...(call.duration ? { duration: call.duration } : {}),
+          tool: true,
+          ...(call.turnId ? { nav: { kind: 'message', targetId: call.turnId } as ObsNavigation } : {}),
+        },
+      });
+    }
+  }
+
+  // Assemble: each turn root followed by its members (root tool bars +
+  // child-agent spans) in chronological order; members with no known turn
+  // (or no turn roots at all, e.g. ARC unavailable) append chronologically.
+  const memberEntries = [...rootToolSpans, ...taskSpans];
+  const consumed = new Set<number>();
+  const spans: ObsSpan[] = [];
+  for (const turn of turns) {
+    spans.push(turn.span);
+    const members = memberEntries
+      .map((entry, index) => ({ ...entry, index }))
+      .filter((entry) => !consumed.has(entry.index) && entry.turnId === turn.turnId)
+      .sort((left, right) => left.span.startMs - right.span.startMs);
+    for (const member of members) {
+      consumed.add(member.index);
+      spans.push(member.span);
+    }
+  }
+  const leftovers = memberEntries
+    .map((entry, index) => ({ ...entry, index }))
+    .filter((entry) => !consumed.has(entry.index))
+    .sort((left, right) => left.span.startMs - right.span.startMs);
+  spans.push(...leftovers.map((entry) => entry.span));
+  return spans;
 }
 
 function toTaskSpan(
@@ -573,6 +752,8 @@ function taskState(task: SessionAgentTask): ObsSpanState {
   if (FAILED_TASK_STATES.has(value)) return 'failed';
   return TERMINAL_TASK_STATES.has(value) ? 'done' : 'running';
 }
+
+// ---- artifacts tab ----
 
 function latestArtifactVersion(
   record: SessionArtifactRecord,
@@ -619,54 +800,24 @@ function artifactMeta(record: SessionArtifactRecord, version: SessionArtifactVer
   return version.kind || record.kind || `v${version.version}`;
 }
 
-function explicitDuration(record: Record<string, unknown>): string | null {
-  const duration = visibleString(record['duration']);
-  if (duration) return duration;
-  const durationMs = explicitDurationMs(record);
-  if (durationMs !== null) return formatDuration(durationMs);
-  const durationSeconds = finiteNumber(record['duration_seconds']);
-  return durationSeconds !== null ? formatDuration(durationSeconds * 1_000) : null;
+// ---- shared primitives ----
+
+function payloadOf(event: SemanticEventPayload): Record<string, unknown> {
+  const payload = event.payload;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return {};
+  return payload as Record<string, unknown>;
 }
 
-function explicitDurationMs(record: Record<string, unknown>): number | null {
-  const direct = finiteNumber(record['duration_ms']);
-  if (direct !== null && direct >= 0) return direct;
-  for (const containerName of ['payload', 'metadata']) {
-    const container = record[containerName];
-    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
-    const nested = finiteNumber((container as Record<string, unknown>)['duration_ms']);
-    if (nested !== null && nested >= 0) return nested;
-  }
-  return null;
+function durationFromMs(value: unknown): string | null {
+  const durationMs = finiteNumber(value);
+  return durationMs !== null && durationMs >= 0 ? formatDuration(durationMs) : null;
 }
 
-function recordTimestamp(record: Record<string, unknown>): number | null {
-  for (const field of ['occurred_at', 'created_at', 'updated_at', 'timestamp']) {
-    const value = parseTimestamp(record[field]);
-    if (value !== null) return value;
-  }
-  const metadata = record['metadata'];
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-  for (const field of ['occurred_at', 'created_at', 'updated_at', 'timestamp']) {
-    const value = parseTimestamp((metadata as Record<string, unknown>)[field]);
-    if (value !== null) return value;
-  }
-  return null;
-}
-
-function partDepth(part: Record<string, unknown>): number | null {
-  const direct = finiteNumber(part['depth']);
-  if (direct !== null) return direct;
-  const metadata = part['metadata'];
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-  return finiteNumber((metadata as Record<string, unknown>)['depth']);
-}
-
-function withTime(value: unknown): { at?: string } {
+function withTime(value: unknown): { at?: string; atMs?: number } {
   const timestamp =
     typeof value === 'number' && Number.isFinite(value) ? value : parseTimestamp(value);
   const at = formatLocalTime(timestamp);
-  return at ? { at } : {};
+  return { ...(at ? { at } : {}), ...(timestamp !== null ? { atMs: timestamp } : {}) };
 }
 
 function parseTimestamp(value: unknown): number | null {
@@ -711,4 +862,8 @@ function finiteNumber(value: unknown): number | null {
 
 function isPresent<T>(value: T | null): value is T {
   return value !== null;
+}
+
+function isPresentString(value: string | undefined): value is string {
+  return typeof value === 'string' && value.length > 0;
 }

@@ -682,9 +682,9 @@ function Timeline({ rows, spans, mode, onModeChange, onNavigate }: TimelineProps
  *  one continuing vertical rail per currently-open ancestor branch (index 0
  *  is the always-present main thread), plus — on the exact row that opens or
  *  closes a nesting level — an elbow bridging the last rail over to the
- *  column the child branch begins (or just stopped) at. `depth` is a real
- *  open/close-stack count from build.ts's threadHistoryTimeline, never the
- *  optional/unreliable wire `depth` field. */
+ *  column the child branch begins (or just stopped) at. `depth` is the row's
+ *  real trace-session depth mapped by the agent-task records (build.ts's
+ *  trace seeding), never a guessed value. */
 function ThreadRails({ depth, branch }: { depth: number; branch?: 'open' | 'close' }) {
   const rails = Array.from({ length: depth + 1 }, (_, i) => i);
   return (
@@ -768,11 +768,16 @@ function Gantt({ spans, onNavigate }: GanttProps) {
       </div>
 
       {spans.map((span) => {
+        // Settled bars sit at their REAL start with width = real duration on
+        // the shared axis — no artificial floors or left-clamps (gact-tui
+        // #356: a wait_agent_tasks bar must visibly align with the child
+        // span it blocked on). CSS min-width keeps a short call visible. A
+        // RUNNING bar has no real end yet: it extends to the axis edge, its
+        // left held inside the lane so the amber shimmer stays readable.
         const rawLeft = percentAt(span.startMs, bounds);
-        const left = span.state === 'running' ? Math.min(rawLeft, 88) : Math.min(rawLeft, 98);
+        const left = span.state === 'running' ? Math.min(rawLeft, 92) : rawLeft;
         const end = span.endMs ?? bounds.max;
-        const rawWidth = Math.max(0, percentAt(end, bounds) - rawLeft);
-        const width = Math.min(100 - left, Math.max(span.state === 'running' ? 10 : 1, rawWidth));
+        const width = Math.max(0, percentAt(end, bounds) - left);
         const markerTimes = span.artifactAtMs?.length
           ? span.artifactAtMs
           : Array.from({ length: span.artifacts ?? 0 }, () => span.endMs ?? span.startMs);
@@ -791,11 +796,22 @@ function Gantt({ spans, onNavigate }: GanttProps) {
               <span
                 className="obs-gantt__bar"
                 data-state={span.state}
+                {...(span.tool ? { 'data-tool': 'true' } : {})}
                 style={{ left: `${left}%`, width: `${width}%` }}
               >
-                {span.tool ? <span aria-hidden="true">◉</span> : null}
                 {span.state === 'running' ? 'running' : null}
               </span>
+              {(span.toolMarks ?? []).map((mark, index) => (
+                <span
+                  className="obs-gantt__toolmark"
+                  title={mark.label}
+                  aria-label={`tool ${mark.label}`}
+                  key={`${mark.atMs}-${mark.label}-${index}`}
+                  style={{ left: `${percentAt(mark.atMs, bounds)}%` }}
+                >
+                  <Icon name="wrench" size={6} />
+                </span>
+              ))}
               {markerTimes.map((time, index) => (
                 <span
                   className="obs-gantt__artifact"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Client } from '../src/client/http.js';
+import { fetchSessionTrace } from '../src/client/session_trace.js';
 import { HttpError } from '../src/client/transport.js';
 
 function mockFetch(handler: (url: string) => Response | Promise<Response>) {
@@ -228,5 +229,76 @@ describe('Client session endpoints', () => {
         ),
     });
     await expect(c.exportArtifact('artifact_missing')).rejects.toBeInstanceOf(HttpError);
+  });
+});
+
+describe('fetchSessionTrace (GET /v1/sessions/{sid}/trace)', () => {
+  it('reads the bare trace with no query when no options are given', async () => {
+    const seen: string[] = [];
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch((url) => {
+        seen.push(url);
+        return new Response('{"events":[]}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    });
+    const result = await fetchSessionTrace(c, 'sess_abc');
+    expect(seen).toEqual(['http://localhost:7777/v1/sessions/sess_abc/trace']);
+    expect(result.events).toEqual([]);
+  });
+
+  it('passes limit and scope through as query params, URL-encoding the session id', async () => {
+    const seen: string[] = [];
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch((url) => {
+        seen.push(url);
+        return new Response('{"events":[]}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    });
+    await fetchSessionTrace(c, 'sess abc', { limit: 2000, scope: 'tool.call' });
+    expect(seen).toEqual([
+      'http://localhost:7777/v1/sessions/sess%20abc/trace?limit=2000&scope=tool.call',
+    ]);
+  });
+
+  it('surfaces an out-of-range limit as the server 422, never a silent clamp', async () => {
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch(() =>
+        new Response(JSON.stringify({ detail: 'limit out of range' }), { status: 422 }),
+      ),
+    });
+    await expect(fetchSessionTrace(c, 'sess_abc', { limit: 5000 })).rejects.toBeInstanceOf(
+      HttpError,
+    );
+  });
+
+  it('returns the semantic events verbatim (payload keys tool/ok/duration_ms untouched)', async () => {
+    const event = {
+      event_id: '',
+      event_type: 'tool.call.completed',
+      occurred_at: '2026-08-05T22:53:29.343998+00:00',
+      actor: { tool: 'spawn_agent_task' },
+      subject: { call_id: 'call_1' },
+      payload: { call_id: 'call_1', tool: 'spawn_agent_task', ok: true, duration_ms: 4592.8 },
+    };
+    const c = new Client({
+      baseUrl: 'http://localhost:7777',
+      fetch: mockFetch(() =>
+        new Response(JSON.stringify({ events: [event] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    });
+    const result = await fetchSessionTrace(c, 'sess_abc');
+    expect(result.events).toEqual([event]);
   });
 });

@@ -55,6 +55,11 @@ export {
   type SessionArtifactVersion,
 } from './session_artifacts.js';
 export {
+  fetchSessionTrace,
+  type SessionTraceOptions,
+  type SessionTraceResult,
+} from './session_trace.js';
+export {
   fetchArtifactLineage,
   type ArtifactLineageEdge,
   type ArtifactLineageNode,

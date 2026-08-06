@@ -5,6 +5,7 @@ import {
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
   fetchSessionContextState,
+  fetchSessionTrace,
   mergeMessages,
   subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
@@ -13,6 +14,7 @@ import {
   type RelayStatus,
   type Session,
   type SessionAgentTask,
+  type SessionArtifactVersion,
   type Workspace,
 } from '@clio/core';
 import type { AsyncRunItem } from '../composer/AsyncRunsPopover';
@@ -33,7 +35,11 @@ import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
 import { Observability, ObservabilityTrace } from '../observability/Observability';
 import type { ObsTab } from '../observability/Observability';
-import { buildObservabilityTrace, timelineRowFromSessionTraceEvent } from '../observability/build';
+import {
+  buildObservabilityTrace,
+  mergeTimelineRows,
+  timelineRowFromSessionTraceEvent,
+} from '../observability/build';
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
@@ -334,7 +340,7 @@ export function SessionView({
 
   const loadObservability = useCallback(
     async (sessionId: string, scope: string, messages: Message[]): Promise<ObservabilityData> => {
-      const [agents, sessionRuns, servers, context, agentTasksResult, artifactResult] =
+      const [agents, sessionRuns, servers, context, agentTasksResult, artifactResult, rootTrace] =
         await Promise.all([
           optionalFetch(() => client.agents()),
           optionalFetch(() => client.sessionTasks(sessionId)),
@@ -342,11 +348,34 @@ export function SessionView({
           optionalFetch(() => fetchSessionContextState(client, sessionId, scope)),
           optionalFetch(() => fetchSessionAgentTasks(client, sessionId)),
           optionalFetch(() => fetchSessionArtifacts(client, sessionId, { includeChildren: true })),
+          optionalFetch(() => fetchSessionTrace(client, sessionId, { limit: 2000 })),
         ]);
       const agentTasks = agentTasksResult?.tasks ?? [];
       const artifactRecords = artifactResult?.artifacts ?? [];
+      // The observed tree: the parent's own trace plus EVERY child's — child
+      // ids from the agent-task rows' child_session_id ∪ the artifacts
+      // route's child_session_ids (gact-tui#356: main aggregates; a child
+      // session viewed directly simply has no children and keeps its own
+      // scope). Each trace is the wire with per-tool occurred_at + real
+      // duration_ms; a child whose trace read fails contributes no rows
+      // rather than fabricated ones.
+      const childSessionIds = [
+        ...new Set([
+          ...agentTasks.map((task) => task.child_session_id),
+          ...(artifactResult?.child_session_ids ?? []),
+        ]),
+      ].filter((id): id is string => Boolean(id) && id !== sessionId);
+      const childTraces = await Promise.all(
+        childSessionIds.map(async (childSessionId) => ({
+          sessionId: childSessionId,
+          events:
+            (await optionalFetch(() => fetchSessionTrace(client, childSessionId, { limit: 2000 })))
+              ?.events ?? [],
+        })),
+      );
       const trace = buildObservabilityTrace({
-        messages,
+        rootSessionId: sessionId,
+        traces: [{ sessionId, events: rootTrace?.events ?? [] }, ...childTraces],
         agentTasks,
         artifacts: artifactRecords,
       });
@@ -502,12 +531,14 @@ export function SessionView({
     let cancelled = false;
     const subscription = subscribeSessionTraceEvents(client.sseUrl(activeId), (event) => {
       const row = timelineRowFromSessionTraceEvent(event);
-      setLiveTraceRows((previous) => {
-        if (row.sourceId && previous.some((item) => item.sourceId === row.sourceId))
-          return previous;
-        const next = [...previous, row];
-        return next.length > 500 ? next.slice(next.length - 500) : next;
-      });
+      if (row) {
+        setLiveTraceRows((previous) => {
+          if (row.sourceId && previous.some((item) => item.sourceId === row.sourceId))
+            return previous;
+          const next = [...previous, row];
+          return next.length > 500 ? next.slice(next.length - 500) : next;
+        });
+      }
 
       if (event.type === 'session.status_changed') {
         void loadObservability(activeId, activeScope, observabilityMessages).then((next) => {
@@ -1046,25 +1077,30 @@ export function SessionView({
       if (!activeId) return;
       try {
         const result = await fetchSessionArtifacts(client, activeId, { includeChildren: true });
-        let minted: ArtifactRecord | null = null;
+        // The lineage wire's artifact nodes carry no size/created_at/producer;
+        // the artifacts listing's versions do — index them ALL by artifact_id
+        // so routeFromLineage can thread those real facts onto the graph lines.
+        const versionsById = new Map<string, SessionArtifactVersion>();
+        let exact: ArtifactRecord | null = null;
+        let headFallback: ArtifactRecord | null = null;
         for (const rec of result.artifacts ?? []) {
+          for (const v of rec.versions ?? []) versionsById.set(v.artifact_id, v);
           const version = (rec.versions ?? []).find((v) => v.artifact_id === artifactId);
-          if (version) {
-            minted = mintArtifactRecord(rec, version);
-            break;
-          }
-          if (!minted && rec.head_artifact_id === artifactId) {
+          if (version && !exact) exact = mintArtifactRecord(rec, version);
+          if (!headFallback && rec.head_artifact_id === artifactId) {
             const head = headVersion(rec);
-            if (head) minted = mintArtifactRecord(rec, head);
+            if (head) headFallback = mintArtifactRecord(rec, head);
           }
         }
-        if (!minted) return;
-        const record = minted;
+        const record = exact ?? headFallback;
+        if (!record) return;
         setRightStack((cur) => openRightEntry(cur, { kind: 'artifact', record }, opts));
         const patchTop = (patch: Partial<ArtifactRecord>) =>
           setRightStack((cur) => patchTopArtifact(cur, record.id, patch));
         void fetchArtifactLineage(client, record.id, { direction: 'both' })
-          .then((graph) => patchTop({ route: routeFromLineage(graph) }))
+          .then((graph) =>
+            patchTop({ route: routeFromLineage(graph, { viewerSessionId: activeId, versionsById }) }),
+          )
           .catch((reason: unknown) => {
             // The chain section states its absence honestly; the WHY still
             // reaches the console as a typed reason (no silent catch).
@@ -1470,8 +1506,11 @@ export function SessionView({
     });
   }, [sending, send, queueTurnMode]);
 
+  // Live SSE rows merge INTO chronological position (and dedupe against the
+  // seeded trace, which publishes the same semantic payloads) — plain
+  // concatenation used to render two unsorted segments (gact-tui#356).
   const observabilityData = obs
-    ? { ...obs, timeline: [...(obs.timeline ?? []), ...liveTraceRows] }
+    ? { ...obs, timeline: mergeTimelineRows(obs.timeline ?? [], liveTraceRows) }
     : null;
   const filesWorkspaceId = filesWorkspaceRequest ?? activeWorkspaceId ?? workspaces[0]?.id;
   const filesWorkspaceLabel = filesWorkspaceId
@@ -1710,6 +1749,15 @@ export function SessionView({
                       if (workspaceId) setFilesWorkspaceRequest(workspaceId);
                       setPanel('files');
                     }}
+                    onOpenSession={(sessionId) => {
+                      // The provenance graph's cross-session jump (foreign
+                      // cluster header / activity line): navigate the CENTER
+                      // to that session — the same channel as the obs layer's
+                      // agent navigation (handleObsNavigate 'agent').
+                      setPanel(null);
+                      setActiveId(sessionId);
+                    }}
+                    onOpenArtifact={(artifactId) => void openArtifactById(artifactId, { push: true })}
                     onClose={() => setRightStack([])}
                   />
                 ),

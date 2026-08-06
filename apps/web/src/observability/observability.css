@@ -196,7 +196,7 @@
   height: 8px;
   background: var(--t-cy);
   outline: 2px solid var(--t-sf);
-  transform: translateY(-50%) rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .obs-log__node[data-shape='dot'] {
@@ -211,6 +211,7 @@
 
 .obs-log__node[data-shape='x'] {
   width: 13px;
+  height: 14px;
   font-weight: 700;
   font-size: calc(11.5px * var(--ts));
 }
@@ -228,11 +229,11 @@
   0%,
   100% {
     opacity: 0.5;
-    transform: translateY(-50%) scale(0.85);
+    transform: translate(-50%, -50%) scale(0.85);
   }
   50% {
     opacity: 1;
-    transform: translateY(-50%) scale(1.15);
+    transform: translate(-50%, -50%) scale(1.15);
   }
 }
 
@@ -251,7 +252,10 @@
 }
 
 .obs-log {
-  --obs-indent: 11px;
+  /* The prototype's own rail grid (~8326614: L0 x=12, L1 x=38, L2 x=64,
+     L3 x=90): 26px between rail centers, first center at x=13. */
+  --obs-indent: 26px;
+  --obs-rail-x: 13px;
   position: relative;
   font-family: var(--f-mono);
   font-size: calc(12px * var(--ts));
@@ -261,8 +265,9 @@
   display: grid;
   /* The trailing `auto` duration column is gone — the prototype renders
      duration INLINE in the action text ("tool call (2.8s)"), not as its
-     own right-aligned track. */
-  grid-template-columns: 70px 46px minmax(90px, max-content) minmax(0, 1fr);
+     own right-aligned track. The 112px thread column is the prototype's own
+     track width (~8244025) — it must hold the depth-3 rail at x=90. */
+  grid-template-columns: 112px 40px minmax(90px, max-content) minmax(0, 1fr);
   align-items: baseline;
   min-height: 26px;
   column-gap: 8px;
@@ -308,9 +313,11 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(4px + var(--obs-rail-i) * var(--obs-indent));
+  /* 2px rail whose CENTER sits at 13 + 26i — the same x every row marker is
+     translate-centered on, so circles and rail read as one spine. */
+  left: calc(var(--obs-rail-x) - 1px + var(--obs-rail-i) * var(--obs-indent));
   width: 0;
-  border-left: 1px solid var(--t-bd6);
+  border-left: 2px solid var(--t-bd6);
 }
 
 .obs-log__rail[data-i='0'] {
@@ -324,10 +331,14 @@
  * technique. Rows that carry one never also render `.obs-log__node`: the
  * elbow itself is the marker, matching the prototype's own `isDot:false`
  * pairing on every hasOut/hasIn row. */
+/* The prototype's exact fork (~8244025): the elbow starts at the parent
+ * rail's center (ex = 13 + 26·depth), spans 27px so its 2px right border
+ * lands exactly over the child rail one indent to the right, and rounds
+ * with a 9px corner radius. */
 .obs-log__elbow {
   position: absolute;
-  left: calc(4px + var(--obs-rail-i) * var(--obs-indent));
-  width: var(--obs-indent);
+  left: calc(var(--obs-rail-x) + var(--obs-rail-i) * var(--obs-indent));
+  width: calc(var(--obs-indent) + 1px);
   box-sizing: border-box;
   border-right: 2px solid var(--t-bd6);
 }
@@ -336,24 +347,27 @@
   top: 50%;
   height: 50%;
   border-top: 2px solid var(--t-bd6);
-  border-top-right-radius: 8px;
+  border-top-right-radius: 9px;
 }
 
 .obs-log__elbow[data-edge='close'] {
   top: 0;
   height: 50%;
   border-bottom: 2px solid var(--t-bd6);
-  border-bottom-right-radius: 8px;
+  border-bottom-right-radius: 9px;
 }
 
+/* Every marker shape is translate-CENTERED on its rail center (13 + 26·depth,
+ * vertically mid-row) — the circle sits concentric on the rail line and the
+ * grid centers the glyph inside the circle. */
 .obs-log__node {
   position: absolute;
   top: 50%;
-  left: calc(4px + var(--obs-depth) * var(--obs-indent));
+  left: calc(var(--obs-rail-x) + var(--obs-depth) * var(--obs-indent));
   z-index: 1;
   display: grid;
   place-items: center;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   background: var(--t-sf);
   font-size: calc(10px * var(--ts));
   line-height: 1;
@@ -525,6 +539,33 @@
   color: var(--t-cy);
   font-size: calc(12px * var(--ts));
   line-height: 1;
+  transform: translateX(-50%);
+}
+
+/* The root session's own calls (spawn/wait/…) as nested bars: dimmer than
+ * agent spans, same real-time placement. Mirrors the prototype's dim
+ * depth-2 bar treatment. */
+.obs-gantt__bar[data-tool='true'] {
+  border-color: var(--t-bd6);
+  background: var(--t-sf2);
+  color: var(--t-mu);
+}
+
+/* Per-call wrench mark on an agent's lane (the prototype's `toolMarks`,
+ * ~8247351): a 10px bordered circle centered on the call's real start. */
+.obs-gantt__toolmark {
+  position: absolute;
+  top: 7px;
+  z-index: 2;
+  display: grid;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  place-items: center;
+  border: 1px solid var(--t-bd6);
+  border-radius: 50%;
+  background: var(--t-sf);
+  color: var(--t-ac);
   transform: translateX(-50%);
 }
 
@@ -891,7 +932,19 @@
 
 .obs-toollog__status[data-state='running'] {
   color: var(--t-ac);
-  animation: obs-node-pulse 1.4s ease-in-out infinite;
+  /* Opacity-only pulse: this glyph is grid-flowed, not absolutely centered,
+   * so the node pulse's translate() would drag it out of its cell. */
+  animation: obs-glyph-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes obs-glyph-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .obs-toollog__detail {
@@ -1060,7 +1113,7 @@
      * structural information (nesting depth, branch elbows) whose position
      * is independent of the row's overall width; only the other columns
      * compress. */
-    grid-template-columns: 70px 44px minmax(78px, max-content) minmax(120px, 1fr) auto;
+    grid-template-columns: 112px 40px minmax(78px, max-content) minmax(120px, 1fr) auto;
   }
 
   .obs-artifact__button {

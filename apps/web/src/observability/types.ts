@@ -58,13 +58,18 @@ export type ObsTimelineKind = 'event' | 'tool' | 'artifact' | 'failure' | 'runni
 
 export interface ObsTimelineRow {
   at?: string;
+  /** The event's raw `occurred_at` in epoch milliseconds — the single sort
+   *  key every row (seeded from any session's trace, or appended live off
+   *  SSE) is merge-ordered by. Absent only for rows whose source event
+   *  carried no timestamp; those sort after every timed row. */
+  atMs?: number;
   actor: string;
   action: string;
   duration?: string;
   kind: ObsTimelineKind;
-  /** Nesting depth computed from a real open/close stack over expert_handoff
-   *  delegate.started/delegate.completed (and background_exit) pairs — how
-   *  many ancestor thread rails should draw through this row. 0 = top level. */
+  /** Nesting depth of the session this row's trace event was recorded in —
+   *  0 for the observed session itself, the agent-task record's `depth` for
+   *  each child (how many ancestor thread rails draw through this row). */
   depth?: number;
   /** This exact row opens ('open': a task-started row, rendered at the
    *  PARENT's depth) or closes ('close': a returned/exited row, rendered
@@ -90,6 +95,9 @@ export interface ObsSpan {
   artifacts?: number;
   /** Real creation timestamps for artifact diamonds owned by this span. */
   artifactAtMs?: number[];
+  /** Real per-call wrench marks on an agent's lane — each child tool call's
+   *  own `occurred_at`, labelled with the wire's tool name. */
+  toolMarks?: Array<{ atMs: number; label: string }>;
   tool?: boolean;
   nav?: ObsNavigation;
 }
@@ -115,6 +123,9 @@ export type ObsToolCallState = 'done' | 'running' | 'failed';
 export interface ObsToolCallRow {
   sourceId: string;
   at?: string;
+  /** The call's raw start `occurred_at` in epoch ms — the cross-session
+   *  chronological sort key (HH:mm strings cannot order across midnight). */
+  atMs?: number;
   name: string;
   /** Short rendering of the call's own input, e.g. `(region="LA")` — real,
    *  never a fabricated description of what the tool does. */
