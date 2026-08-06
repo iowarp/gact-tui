@@ -16,6 +16,7 @@ import type {
   ObsToolInventory,
   ObsToolInventoryRow,
 } from './types';
+import { humanSize } from '../wire/presentationUtils';
 
 const TERMINAL_TASK_STATES = new Set([
   'cancelled',
@@ -392,7 +393,7 @@ export function timelineRowFromSemanticEvent(
     return {
       ...common,
       actor: name,
-      action: size !== null ? `artifact (${formatBytes(size)})` : 'artifact',
+      action: size !== null ? `artifact (${humanSize(size)})` : 'artifact',
       kind: 'artifact',
     };
   }
@@ -905,7 +906,7 @@ function artifactProducer(version: SessionArtifactVersion, tasks: SessionAgentTa
 
 function artifactMeta(record: SessionArtifactRecord, version: SessionArtifactVersion): string {
   if (typeof version.size_bytes === 'number' && Number.isFinite(version.size_bytes)) {
-    return formatBytes(version.size_bytes);
+    return humanSize(version.size_bytes);
   }
   return version.kind || record.kind || `v${version.version}`;
 }
@@ -952,13 +953,6 @@ function formatDuration(durationMs: number): string {
   const minutes = Math.floor(seconds / 60);
   const remaining = seconds % 60;
   return remaining === 0 ? `${minutes}m` : `${minutes}m ${remaining}s`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1_000) return `${Math.round(bytes)} B`;
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1_000).toLocaleString('en-US')} KB`;
-  const megabytes = bytes / 1_000_000;
-  return `${megabytes >= 10 ? Math.round(megabytes) : megabytes.toFixed(1)} MB`;
 }
 
 function visibleString(value: unknown): string | null {

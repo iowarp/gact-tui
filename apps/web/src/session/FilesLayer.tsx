@@ -12,6 +12,7 @@ import {
   type TreeNode,
 } from './fileTree';
 import { decodeWorkspaceFilePreview, type FilePreview } from './filePreview';
+import { humanSize } from '../wire/presentationUtils';
 import './owner-surfaces.css';
 
 export interface FilesLayerProps {
@@ -24,10 +25,12 @@ export interface FilesLayerProps {
   onClose: () => void;
 }
 
+/** {@link humanSize}, tolerating this surface's own `undefined` convention
+ *  (round-10 gate finding D8: this file used to carry a second, independently
+ *  computed KB formatter — same 1024 math as `humanSize` but capped at KB
+ *  with no MB/GB tier — now unified on the one shared formatter). */
 export function readableSize(value: number | undefined): string {
-  if (value === undefined) return '';
-  if (value < 1024) return `${value} B`;
-  return `${(value / 1024).toFixed(value < 10_240 ? 1 : 0)} KB`;
+  return humanSize(value);
 }
 
 const TREE_WIDTH_DEFAULT = 210;

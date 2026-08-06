@@ -395,7 +395,12 @@ describe('trace→row mapping — root-only rows and the branch brackets', () =>
     const row = trace.timeline[0]!;
     expect(row.kind).toBe('artifact');
     expect(row.actor).toBe('MTA1.CI.LY_.30_position.png');
-    expect(row.action).toBe('artifact (179 KB)');
+    // The ONE shared size formatter (round-10 gate finding D8: this used to
+    // be a private decimal (bytes/1000) formatter, the only one of THREE
+    // independently-computed byte formatters in this codebase not agreeing
+    // with the other two — 179248 bytes is now humanSize's own binary
+    // (bytes/1024) math, same as the artifacts tab's chip/panel.
+    expect(row.action).toBe('artifact (175.0 KB)');
     expect(row.depth).toBe(1);
   });
 });
