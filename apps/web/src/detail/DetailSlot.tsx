@@ -398,10 +398,11 @@ function CrumbPrefix({ crumbs, onClose }: { crumbs: string[]; onClose: () => voi
 }
 
 /**
- * The identity header's compact metadata line: size · id · sha · storage,
- * all on one row, separated by a middle-dot. Each segment is optional except
- * the id (always present); only segments with real data render — nothing is
- * padded or fabricated.
+ * The identity header's compact metadata line: size · id · sha · storage, on
+ * one row. Owner 3c (2026-08-06): middot separators are DELETED from the
+ * detail panel — each segment is its own small chip, separated by spacing
+ * alone. Each segment is optional except the id (always present); only
+ * segments with real data render — nothing is padded or fabricated.
  */
 function MetaLine({
   record,
@@ -412,12 +413,19 @@ function MetaLine({
 }) {
   const items: { key: string; node: ReactNode }[] = [];
   if (record.size) {
-    items.push({ key: 'size', node: <span className="detail__metasize">{record.size}</span> });
+    items.push({
+      key: 'size',
+      node: <span className="detail__metasize detail__metachip">{record.size}</span>,
+    });
   }
   items.push({
     key: 'id',
     node: (
-      <span className="detail__metaid" data-testid="detail-meta-id" title={record.id}>
+      <span
+        className="detail__metaid detail__metachip"
+        data-testid="detail-meta-id"
+        title={record.id}
+      >
         {truncateMiddle(record.id, ID_TRUNCATE_MAX)}
       </span>
     ),
@@ -447,15 +455,8 @@ function MetaLine({
 
   return (
     <div className="detail__metaline" data-testid="detail-meta">
-      {items.map((item, index) => (
-        <Fragment key={item.key}>
-          {index > 0 ? (
-            <span className="detail__metasep" aria-hidden="true">
-              ·
-            </span>
-          ) : null}
-          {item.node}
-        </Fragment>
+      {items.map((item) => (
+        <Fragment key={item.key}>{item.node}</Fragment>
       ))}
     </div>
   );
@@ -735,6 +736,7 @@ function Provenance({
         ) : (
           <LineageGraphView
             route={route}
+            {...(record.sessionTitles ? { sessionTitles: record.sessionTitles } : {})}
             {...(onOpenSession ? { onOpenSession } : {})}
             {...(onOpenArtifact ? { onOpenArtifact } : {})}
           />
@@ -749,21 +751,81 @@ function Provenance({
  * line (two only if it wraps at 320px). Always all four, in order; a missing
  * axis is stated as unrecorded rather than omitted, so "we don't know" never
  * looks like "not applicable" (the deleted KvGrid's honesty rule, kept).
+ *
+ * Owner 3c (2026-08-06): the middot separators are DELETED — each axis
+ * renders as its own small chip, spaced apart, never dot-joined. Owner 3c
+ * also requires every provenance vocabulary term to carry a plain-words
+ * hover expansion (a `title` attr) — {@link PROVENANCE_GLOSSARY} below is
+ * derived honestly from the real wire vocabulary (clio-agent's artifact
+ * provenance design + the `clio_schemas` enums it ships:
+ * `Mechanism`/`Custody`/`EvidenceClass`, and the designation/edge-evidence
+ * strings `minting.py`/`transform_edges.py` actually mint) — never invented.
  */
+const PROVENANCE_GLOSSARY: Record<string, string> = {
+  // mechanism (clio_schemas.Mechanism) — what produced the record.
+  harness: 'the harness itself performed the operation — exact attribution',
+  'tool-schema': "minted from the tool's declared output schema",
+  'change-feed': 'attributed from file-change events correlated to a lease window',
+  model: 'the model designated this artifact — an untrusted assertion',
+  none: 'no producing activity could be attributed',
+  // designation — how the artifact path was named as an artifact.
+  'agent-proposed': 'the agent proposed this path via the create_artifact tool',
+  'tool-arg': "minted from a tool's declared output-path argument",
+  'tool-result': "minted from a key in the tool's structured result",
+  'pack-declared': 'declared by an agent-blueprint workflow — the weaker, optional channel',
+  'reconcile-observed': 're-linked by content hash after a custody gap, not freshly designated',
+  // evidence (clio_schemas.EvidenceClass) — how identity is known.
+  'hashed-at-use': 'bytes were hashed (sha256) while the harness had them in hand',
+  'authority-asserted':
+    'identity comes from an external authority (a DOI, registry checksum, or provider manifest), not a local hash',
+  'stat-pinned': 'identity is size + mtime only — the weakest evidence class',
+  // custody (clio_schemas.Custody) — where the bytes live.
+  cas: "bytes live in the app's own content-addressed store",
+  'workspace-referenced': 'bytes stay in the workspace; identity is pinned by the evidence class at time of use',
+  'external-referenced': 'bytes stay outside any workspace the app controls',
+  // edge verbs (lineage.py: generated activity→artifact, used artifact→activity).
+  generated: 'this activity produced the artifact as an output',
+  used: 'this activity read the artifact as an input',
+  revised: 'this version replaces an earlier version of the same artifact',
+  derived: 'this artifact was derived from the other without a captured transform',
+  // per-edge evidence (transform_edges.py: schema-arg | hash-pair | lease-window | authority | assertion).
+  'schema-arg': "the edge is inferred from the tool's declared argument schema",
+  'hash-pair': 'the edge is confirmed by matching content hashes on both sides',
+  'lease-window': "the edge is attributed because only one activity held the territory's lease in this window",
+  authority: "the edge rides an external authority's own record, not a local hash",
+  assertion: "the edge is the model's own unverified claim",
+  // the replay-contract status pill (design/artifact-provenance-design.md).
+  reproducible:
+    'environment tier and every input identity are pinned — replaying the instrument reproduces this exactly',
+  're-runnable': 'the instrument can run again, but the environment or an input is not pinned enough to guarantee an identical result',
+  gap: 'no transform was recorded for this step',
+  failed: 'the activity did not complete successfully',
+};
+
+/** Best-effort glossary lookup: an axis value can carry free-form prose
+ *  (the custody field observed live as `'workspace — data/'`) alongside the
+ *  curated enum terms above — a plain substring match against the known
+ *  vocabulary still surfaces the right definition without claiming one for
+ *  text that isn't in the glossary at all. */
+function glossaryTitle(value: string): string | undefined {
+  if (PROVENANCE_GLOSSARY[value]) return PROVENANCE_GLOSSARY[value];
+  const hit = Object.keys(PROVENANCE_GLOSSARY).find((term) => value.startsWith(term));
+  return hit ? PROVENANCE_GLOSSARY[hit] : undefined;
+}
+
 function ProvenanceLine({ record }: { record: ArtifactRecord }) {
   const axes = [record.mechanism, record.designation, record.evidence, record.custody];
   return (
     <p className="detail__provline" data-testid="detail-prov-line">
-      {axes.map((value, index) => (
-        <Fragment key={index}>
-          {index > 0 ? (
-            <span className="detail__provdot" aria-hidden="true">
-              ·
-            </span>
-          ) : null}
-          {value ?? unrecorded()}
-        </Fragment>
-      ))}
+      {axes.map((value, index) =>
+        value ? (
+          <Chip key={index} title={glossaryTitle(value)}>
+            {value}
+          </Chip>
+        ) : (
+          <Fragment key={index}>{unrecorded()}</Fragment>
+        ),
+      )}
     </p>
   );
 }
@@ -809,6 +871,26 @@ function shortSessionId(sessionId: string): string {
   return sessionId.length > 10 ? `${sessionId.slice(0, 9)}…` : sessionId;
 }
 
+/** Max visible characters for a session title before it truncates from the
+ *  middle — same convention as the identity header's id/path truncation. */
+const SESSION_TITLE_TRUNCATE_MAX = 28;
+
+/**
+ * Any session REFERENCE (foreign cluster headers, an activity node's
+ * producing-session tooltip) shows the session's real NAME/title, the id in
+ * parens AT MOST, truncated (owner 3b, 2026-08-06) — never a bare raw
+ * session id. `sessionTitles` is threaded from sessions the client already
+ * has, or a cached `client.getSession` fetch for a foreign one
+ * (SessionView); a lookup miss falls back to the short id alone, never
+ * blank.
+ */
+function sessionLabel(sessionId: string, sessionTitles?: Record<string, string>): string {
+  const title = sessionTitles?.[sessionId];
+  const short = shortSessionId(sessionId);
+  if (!title) return short;
+  return `${truncateMiddle(title, SESSION_TITLE_TRUNCATE_MAX)} (${short})`;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** `2026-08-05T12:43:10Z` → `05 Aug 12:43` (local time, mockup grammar). */
@@ -821,10 +903,12 @@ function clusterTime(iso: string): string {
 
 function LineageGraphView({
   route,
+  sessionTitles,
   onOpenSession,
   onOpenArtifact,
 }: {
   route: RouteStep[];
+  sessionTitles?: Record<string, string>;
   onOpenSession?: (sessionId: string) => void;
   onOpenArtifact?: (artifactId: string) => void;
 }) {
@@ -836,6 +920,7 @@ function LineageGraphView({
           <ForeignCluster
             key={`cluster-${segment.sessionId}-${si}`}
             segment={segment}
+            {...(sessionTitles ? { sessionTitles } : {})}
             {...(onOpenSession ? { onOpenSession } : {})}
             {...(onOpenArtifact ? { onOpenArtifact } : {})}
           />
@@ -849,6 +934,7 @@ function LineageGraphView({
                   key={index}
                   node={step}
                   index={index}
+                  {...(sessionTitles ? { sessionTitles } : {})}
                   {...(onOpenSession ? { onOpenSession } : {})}
                   {...(onOpenArtifact ? { onOpenArtifact } : {})}
                 />
@@ -870,24 +956,27 @@ function LineageGraphView({
  */
 function ForeignCluster({
   segment,
+  sessionTitles,
   onOpenSession,
   onOpenArtifact,
 }: {
   segment: LineageSegment;
+  sessionTitles?: Record<string, string>;
   onOpenSession?: (sessionId: string) => void;
   onOpenArtifact?: (artifactId: string) => void;
 }) {
   const sessionId = segment.sessionId!;
   const time = segment.createdAt ? clusterTime(segment.createdAt) : '';
+  const label = sessionLabel(sessionId, sessionTitles);
   const headBody = (
     <>
       <span className="detail__clusterdot" aria-hidden="true">
         ●
       </span>
       <span className="detail__clustersess" title={sessionId}>
-        {shortSessionId(sessionId)}
+        {label}
       </span>
-      {time ? <span className="detail__clustertime">· {time}</span> : null}
+      {time ? <span className="detail__clustertime">{time}</span> : null}
       {onOpenSession ? (
         <span className="detail__clustergo" aria-hidden="true">
           ↗
@@ -921,6 +1010,7 @@ function ForeignCluster({
             node={step}
             index={index}
             dimRail
+            {...(sessionTitles ? { sessionTitles } : {})}
             {...(onOpenSession ? { onOpenSession } : {})}
             {...(onOpenArtifact ? { onOpenArtifact } : {})}
           />
@@ -941,17 +1031,26 @@ const NODE_GLYPHS: Record<RouteNode['nodeType'], string> = {
  * never a bordered rectangle. The whole line is the hit target when it has a
  * real destination — a non-self artifact opens in the panel (push), an
  * activity jumps to its producing session; otherwise the line is inert.
+ *
+ * Owner 3c (2026-08-06): sub-info renders as small chips, never
+ * middot-joined text. Owner round-6 cluster-fix: an IN-TREE producer (a
+ * descendant session, not a true foreign one) gets a small inline agent-run
+ * badge here instead of a cluster header. Owner 3a: the SELF node carries a
+ * distinct `data-self` anchor treatment (detail.css) — max-left, prominent,
+ * with edges flowing into and out of it via the surrounding lines as usual.
  */
 function NodeLine({
   node,
   index,
   dimRail,
+  sessionTitles,
   onOpenSession,
   onOpenArtifact,
 }: {
   node: RouteNode;
   index: number;
   dimRail?: boolean;
+  sessionTitles?: Record<string, string>;
   onOpenSession?: (sessionId: string) => void;
   onOpenArtifact?: (artifactId: string) => void;
 }) {
@@ -984,17 +1083,22 @@ function NodeLine({
         {NODE_GLYPHS[node.nodeType]}
       </span>
       <span className="detail__lname">{node.label}</span>
+      {node.treeSession && node.runLabel ? (
+        <span className="detail__lbadge" data-testid="route-node-badge" title={`Run: ${node.runLabel}`}>
+          {node.runLabel}
+        </span>
+      ) : null}
       {subParts.map((part, pi) => (
-        <span key={pi} className="detail__lsub">
-          · {part}
+        <span key={pi} className="detail__lchip">
+          {part}
         </span>
       ))}
       {node.status ? (
-        <span className="detail__lpill" data-status={node.status}>
+        <span className="detail__lpill" data-status={node.status} title={glossaryTitle(node.status)}>
           {node.status}
         </span>
       ) : null}
-      {node.self ? <span className="detail__lselfmark">· you are here</span> : null}
+      {node.self ? <span className="detail__lselfmark">you are here</span> : null}
     </>
   );
 
@@ -1007,7 +1111,9 @@ function NodeLine({
         data-testid={testId}
         data-self={node.self ? 'true' : undefined}
         title={
-          node.nodeType === 'activity' ? `Open producing session ${node.sessionId}` : 'Open artifact'
+          node.nodeType === 'activity'
+            ? `Open producing session ${sessionLabel(node.sessionId!, sessionTitles)}`
+            : 'Open artifact'
         }
         onClick={open}
       >
@@ -1042,13 +1148,17 @@ function EdgeLine({ edge, index, dimRail }: { edge: RouteEdge; index: number; di
       <span className="detail__lelbow" aria-hidden="true">
         ╰
       </span>
-      <span className="detail__ledgeverb">{edge.edge}</span>
+      <span className="detail__ledgeverb" title={glossaryTitle(edge.edge)}>
+        {edge.edge}
+      </span>
       {edge.stance ? (
         <>
           <span className="detail__ledgearrow" aria-hidden="true">
             →
           </span>
-          <span className="detail__ledgeevidence">{edge.stance}</span>
+          <span className="detail__ledgeevidence" title={glossaryTitle(edge.stance)}>
+            {edge.stance}
+          </span>
         </>
       ) : null}
       {edge.join ? (
@@ -1084,6 +1194,7 @@ function Recreate({ record }: { record: ArtifactRecord }) {
             className="detail__lpill"
             data-status={record.transformStatus}
             data-testid="recreate-status"
+            title={glossaryTitle(record.transformStatus)}
           >
             {record.transformStatus}
           </span>

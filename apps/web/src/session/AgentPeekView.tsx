@@ -12,10 +12,10 @@
  * the child's status in its "AGENT · <status>" eyebrow row.
  */
 import { useEffect, useState } from 'react';
-import { subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
+import { mergeMessages, prependOlderPage, subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
 import { Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
 import { ChildFocusView } from './ChildFocusView';
-import { applyMessageLifecycleEvent } from './messageEvents';
+import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import './agentpeek.css';
 
 /** The child session's raw status word mapped onto the shared dot vocabulary
@@ -44,14 +44,45 @@ export interface AgentPeekViewProps {
 export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }: AgentPeekViewProps) {
   const [view, setView] = useState<{ messages: Message[]; status: string } | null>(null);
 
-  // Same live-ish contract as the center child view: an initial pull, the
-  // child's own SSE wire for streamed parts, and a poll backstop for
-  // everything the part events don't carry (status transitions, adopted
-  // messages).
+  // Same live-ish contract as the center child view: an initial progressive
+  // pull (round-6 paging ruling, 2026-08-06 — the same #232 idiom the main
+  // transcript and ChildFocusView's own data source use: newest page first,
+  // older pages backfilled silently in the background via the shared
+  // `backfillChildMessages` helper), the child's own SSE wire for streamed
+  // parts, and a poll backstop for everything the part events don't carry
+  // (status transitions, adopted messages) — the poll now MERGES
+  // (`mergeMessages`) rather than replacing, so it can never clobber the
+  // progressively-loaded feed with a stale full re-read.
   useEffect(() => {
     let cancelled = false;
     setView(null);
-    const pull = async () => {
+
+    const pullFirst = async () => {
+      try {
+        const [first, row] = await Promise.all([
+          client.messages(sessionId, { limit: CHILD_PAGE_SIZE }),
+          Promise.resolve()
+            .then(() => client.getSession(sessionId))
+            .catch(() => null),
+        ]);
+        if (cancelled) return;
+        setView({
+          messages: first.messages ?? [],
+          status: String((row as { status?: unknown } | null)?.status ?? ''),
+        });
+        const cursor = first.next_cursor ?? null;
+        if (cursor) {
+          void backfillChildMessages(client, sessionId, cursor, {
+            onOlderPage: (older) =>
+              setView((cur) => (cur ? { ...cur, messages: prependOlderPage(cur.messages, older) } : cur)),
+            isStale: () => cancelled,
+          });
+        }
+      } catch {
+        if (!cancelled) setView({ messages: [], status: 'failed' });
+      }
+    };
+    const reconcile = async () => {
       try {
         const [result, row] = await Promise.all([
           client.messages(sessionId),
@@ -59,17 +90,21 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
             .then(() => client.getSession(sessionId))
             .catch(() => null),
         ]);
-        if (!cancelled) {
-          setView({
-            messages: result.messages ?? [],
-            status: String((row as { status?: unknown } | null)?.status ?? ''),
-          });
-        }
+        if (cancelled) return;
+        setView((cur) =>
+          cur
+            ? {
+                messages: mergeMessages(cur.messages, result.messages ?? []),
+                status: String((row as { status?: unknown } | null)?.status ?? cur.status),
+              }
+            : cur,
+        );
       } catch {
-        if (!cancelled) setView({ messages: [], status: 'failed' });
+        // Keeps whatever the progressive load/SSE stream already produced.
       }
     };
-    void pull();
+
+    void pullFirst();
     const subscription =
       typeof EventSource !== 'undefined'
         ? subscribeSessionMessageEvents(client.sseUrl(sessionId), (event) => {
@@ -80,7 +115,7 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
             });
           })
         : null;
-    const timer = window.setInterval(() => void pull(), 5000);
+    const timer = window.setInterval(() => void reconcile(), 5000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);

@@ -107,6 +107,20 @@ const EDGE_KINDS: Record<string, RouteEdgeKind> = {
 export interface RouteMintContext {
   viewerSessionId?: string;
   versionsById?: Map<string, SessionArtifactVersion>;
+  /**
+   * The viewing session's TREE (round-6 cluster-fix ruling): the viewer's
+   * own session id plus every agent-task descendant's `child_session_id`.
+   * 'Foreign' means outside this set, not merely `!== viewerSessionId` — a
+   * session's own children are never foreign. When absent, the tree
+   * defaults to just the viewer itself (the pre-existing behavior), so
+   * callers that never learned the tree keep exact prior semantics.
+   */
+  treeSessionIds?: Set<string>;
+  /**
+   * sessionId -> the agent-task run label (e.g. `'ndp #1'`) for tree
+   * descendants, backing the inline agent-run badge on their node lines.
+   */
+  treeRunLabels?: Map<string, string>;
 }
 
 /** Human duration for an activity line (`7.9s`, `1m 12s`). */
@@ -150,10 +164,25 @@ function nodeStep(
   context: RouteMintContext,
 ): RouteStep {
   const viewer = context.viewerSessionId ?? '';
-  const withSession = (sessionId: string) => ({
-    ...(sessionId ? { sessionId } : {}),
-    ...(sessionId && viewer && sessionId !== viewer ? { foreignSession: true } : {}),
-  });
+  // 'Foreign' = outside the viewing session's TREE (round-6 cluster-fix
+  // ruling), not merely a different session id — a session's own
+  // agent-task descendants are IN-TREE and get an inline badge instead of a
+  // cluster header. Without a supplied tree, this preserves the EXACT prior
+  // semantics: no viewer known at all means nothing is ever marked foreign
+  // (never a false positive from an empty/unset viewer id), and a known
+  // viewer with no tree falls back to plain `sessionId !== viewer`.
+  const withSession = (sessionId: string) => {
+    if (!sessionId) return {};
+    const tree = context.treeSessionIds;
+    if (tree) {
+      if (!tree.has(sessionId)) return { sessionId, foreignSession: true };
+      if (sessionId === viewer) return { sessionId };
+      const runLabel = context.treeRunLabels?.get(sessionId);
+      return { sessionId, treeSession: true, ...(runLabel ? { runLabel } : {}) };
+    }
+    if (!viewer) return { sessionId };
+    return sessionId === viewer ? { sessionId } : { sessionId, foreignSession: true };
+  };
   if (node.type === 'activity') {
     const label = str(node.tool) || str(node.call_id) || node.id;
     const tool = str(node.tool);
@@ -193,6 +222,66 @@ function nodeStep(
 }
 
 /**
+ * Scopes a lineage graph to artifact B's (`graph.root`'s) OWN story (owner
+ * 3a, 2026-08-06): the transform chain feeding it — every
+ * `generated`/`revision_of` link plus the `used` edges that feed those
+ * transforms — and B's own direct uses (edges touching root directly), but
+ * NOT every other place an ancestor was independently, non-transformatively
+ * used elsewhere. Nothing is invented: this only ever DROPS nodes/edges that
+ * neither lie on a generated/revision_of chain to/from root nor touch root
+ * directly — it never adds a fact the graph didn't already carry.
+ *
+ * Algorithm: a fixed-point closure starting from `{root}`. A
+ * `generated`/`revision_of` edge with either endpoint already on the path
+ * always pulls the other endpoint in (the backbone chain is never broken).
+ * A `used` edge pulls its artifact (`from`) in only when its activity
+ * (`to`) is ALREADY on the path (the artifact "feeds that transform"); a
+ * `used` edge whose artifact IS root always pulls its activity in (root's
+ * own direct uses are always part of its story, whatever they lead to).
+ * Everything else — e.g. an ancestor artifact used by some unrelated
+ * activity that never leads back to root — stays off the path and is
+ * dropped.
+ */
+export function scopeToSelfStory(graph: LineageGraph): LineageGraph {
+  if (!graph.nodes.some((n) => n.id === graph.root)) return graph;
+  const onPath = new Set<string>([graph.root]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of graph.edges) {
+      if (edge.type !== 'generated' && edge.type !== 'revision_of') continue;
+      if (onPath.has(edge.from) && !onPath.has(edge.to)) {
+        onPath.add(edge.to);
+        changed = true;
+      }
+      if (onPath.has(edge.to) && !onPath.has(edge.from)) {
+        onPath.add(edge.from);
+        changed = true;
+      }
+    }
+    for (const edge of graph.edges) {
+      if (edge.type !== 'used') continue;
+      // The input feeds an activity already established as part of the
+      // transform chain.
+      if (onPath.has(edge.to) && !onPath.has(edge.from)) {
+        onPath.add(edge.from);
+        changed = true;
+      }
+      // Root's own direct uses are always shown, whatever they lead to.
+      if (edge.from === graph.root && !onPath.has(edge.to)) {
+        onPath.add(edge.to);
+        changed = true;
+      }
+    }
+  }
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((n) => onPath.has(n.id)),
+    edges: graph.edges.filter((e) => onPath.has(e.from) && onPath.has(e.to)),
+  };
+}
+
+/**
  * Flattens the lineage graph into the one-line-per-node vertical chain
  * (docs/design/provenance-graph-2026-08.md): a deterministic walk from the
  * upstream-most inputs down to the root and on through downstream
@@ -201,8 +290,13 @@ function nodeStep(
  * the next line carries `join: true` (the `╮` elbow into the consumer), so a
  * branchy multi-input graph keeps every input's edge visible instead of
  * dropping the non-adjacent ones.
+ *
+ * The graph is first scoped to root's own story via {@link scopeToSelfStory}
+ * (owner 3a) — every ancestor's other, non-transformative uses are dropped
+ * before this walk ever sees them, so callers never have to filter twice.
  */
-export function routeFromLineage(graph: LineageGraph, context: RouteMintContext = {}): RouteStep[] {
+export function routeFromLineage(graphIn: LineageGraph, context: RouteMintContext = {}): RouteStep[] {
+  const graph = scopeToSelfStory(graphIn);
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
   if (!nodesById.has(graph.root)) return [];
 

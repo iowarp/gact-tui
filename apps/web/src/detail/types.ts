@@ -51,9 +51,19 @@ export interface RouteNode {
   sessionId?: string;
   /** The producing turn (activity nodes), for transcript navigation. */
   turnId?: string;
-  /** Set when the producing session differs from the viewing session — the
-   *  node groups under a foreign cluster header (spec rule 3). */
+  /** Set when the producing session is a TRUE foreign session — outside the
+   *  viewing session's TREE (the session plus every agent-task descendant,
+   *  round-6 cluster-fix ruling: a session's OWN children are never
+   *  foreign). Foreign nodes group under a cluster header (spec rule 3). */
   foreignSession?: boolean;
+  /** Set when the producing session is IN the viewing session's tree but is
+   *  not the viewer itself (an agent-task descendant) — renders a small
+   *  inline agent-run badge on the node line instead of a cluster header. */
+  treeSession?: boolean;
+  /** The agent-task run label backing the inline tree badge (e.g.
+   *  `'ndp #1'`), threaded from the session's own agent-task rows. Absent
+   *  when no matching agent-task record names this producing session. */
+  runLabel?: string;
 
   /** Gap node: why the chain is broken here. */
   gapReason?: string;
@@ -110,6 +120,14 @@ export interface ArtifactRecord {
   transformStatus?: 'reproducible' | 're-runnable' | 'gap';
 
   route?: RouteStep[];
+
+  /** Session id -> display title, for any session REFERENCE the panel
+   *  renders (foreign cluster headers, an activity node's producing-session
+   *  tooltip): the session's own real title when known — already-loaded
+   *  sessions, or a cached `client.getSession` fetch for a foreign one
+   *  (owner 3b, 2026-08-06). A lookup miss falls back to the short id at
+   *  render time — never blank, never just a raw long id. */
+  sessionTitles?: Record<string, string>;
 
   /** Fetched content preview for the ARTIFACT tab (prototype: CSV table,
    *  inline PNG, rendered markdown). Absent while loading or unfetchable. */

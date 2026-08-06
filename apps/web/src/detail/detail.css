@@ -241,8 +241,13 @@
   font-size: calc(10.5px * var(--ts));
 }
 
-.detail__metasep {
-  color: var(--t-dis);
+/* Owner 3c (2026-08-06): middot separators are DELETED — each meta segment
+   is its own small chip (border + padding), spaced apart via the flex gap
+   above, never dot-joined. */
+.detail__metachip {
+  padding: 1px 6px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 6px;
 }
 
 .detail__metasize {
@@ -355,20 +360,19 @@
    rail with a clickable header. Must read at 320px: sub-info truncates
    before the name; connectors and glyphs never wrap. */
 
+/* Owner 3c (2026-08-06): the middot-separated axes line is DELETED — each
+   axis is its own small `Chip` (kit/Chip.tsx), spaced apart via the flex
+   gap below, each carrying a plain-words glossary hover (title attr). */
 .detail__provline {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   column-gap: 6px;
-  row-gap: 2px;
+  row-gap: 4px;
   margin: 6px 0 0;
   color: var(--t-mu);
   font-family: var(--f-mono);
   font-size: calc(10.5px * var(--ts));
-}
-
-.detail__provdot {
-  color: var(--t-dis);
 }
 
 .detail__lineage {
@@ -430,19 +434,50 @@ button.detail__lnode:hover .detail__lname {
   text-decoration: underline;
 }
 
-/* Sub-info gives way FIRST at narrow widths (flex-shrink ≫ name's). */
-.detail__lsub {
+/* Sub-info renders as small chips (owner 3c: no middot separators), giving
+   way FIRST at narrow widths (flex-shrink ≫ name's). */
+.detail__lchip {
   flex-shrink: 999;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 0 5px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 4px;
   color: var(--t-mu);
-  font-size: calc(10.5px * var(--ts));
+  font-size: calc(10px * var(--ts));
+  line-height: 1.5;
 }
 
-/* Self node: brighter glyph + highlighted name + the you-are-here marker. */
+/* The in-tree agent-run badge (round-6 cluster-fix: a session's OWN
+   children are never foreign — they render inline with this badge, the
+   agent-task run label, instead of a cluster header). */
+.detail__lbadge {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border: 1px solid var(--t-ac);
+  border-radius: 4px;
+  color: var(--t-ac);
+  font-size: calc(10px * var(--ts));
+  line-height: 1.5;
+}
+
+/* The SELF node (owner 3a, 2026-08-06): a UNIQUE, anchored presentation —
+   max-left (pulled past the other lines' own inset via a negative margin)
+   and visually prominent (accent left rail + tinted background), with the
+   surrounding node/edge lines already flowing in above and (when the
+   artifact has downstream consumers) below it. Brighter glyph +
+   highlighted name + the you-are-here marker. */
+.detail__lnode[data-self='true'] {
+  margin-left: -8px;
+  padding-left: 6px;
+  border-left: 2px solid var(--t-cy);
+  background: var(--t-hv);
+}
+
 .detail__lnode[data-self='true'] .detail__lglyph {
   color: var(--t-cy);
+  font-size: calc(13px * var(--ts));
 }
 
 .detail__lnode[data-self='true'] .detail__lname {
@@ -452,8 +487,12 @@ button.detail__lnode:hover .detail__lname {
 
 .detail__lselfmark {
   flex-shrink: 0;
+  padding: 0 5px;
+  border: 1px solid var(--t-cy);
+  border-radius: 4px;
   color: var(--t-cy);
-  font-size: calc(10.5px * var(--ts));
+  font-size: calc(10px * var(--ts));
+  line-height: 1.5;
 }
 
 /* The activity line's replay/status pill (reproducible / gap / failed). */

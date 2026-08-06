@@ -13,6 +13,7 @@ import {
   applyPartCompleted,
   applyTextAppend,
   upsertMessage,
+  type Client,
   type Message,
   type Part,
   type SessionMessageEvent,
@@ -84,5 +85,51 @@ export function applyMessageLifecycleEvent(
     }
     default:
       return null;
+  }
+}
+
+/**
+ * Newest-first page size for a child/peek session's own message ledger —
+ * the same idiom the main transcript's progressive load uses (#232 paging,
+ * SessionView's `TRANSCRIPT_PAGE_SIZE`), reused here so ChildFocusView
+ * (center drill-in) and AgentPeekView (right-panel peek) both paint their
+ * newest page immediately instead of blocking on the whole ledger (round-6
+ * paging ruling, 2026-08-06).
+ */
+export const CHILD_PAGE_SIZE = 50;
+
+/**
+ * Backfills OLDER pages of a child/peek session's ledger, one `before`
+ * cursor at a time, until the backend reports no more — the background half
+ * of the progressive-load idiom (the caller fetches/paints the newest page
+ * itself; this walks the rest). `isStale` is checked before EVERY network
+ * round trip and bails out silently the moment it turns true — a session
+ * switch or an unmount must never let a stale backfill land on the wrong
+ * view. A failed page leaves whatever was already loaded exactly as correct
+ * as it already was, never a retry loop or a fabricated gap.
+ */
+export async function backfillChildMessages(
+  client: Pick<Client, 'messages'>,
+  sessionId: string,
+  startCursor: string,
+  options: {
+    onOlderPage: (messages: Message[]) => void;
+    isStale: () => boolean;
+    pageSize?: number;
+  },
+): Promise<void> {
+  const pageSize = options.pageSize ?? CHILD_PAGE_SIZE;
+  let cursor: string | null = startCursor;
+  while (cursor) {
+    if (options.isStale()) return;
+    let page;
+    try {
+      page = await client.messages(sessionId, { limit: pageSize, before: cursor });
+    } catch {
+      return;
+    }
+    if (options.isStale()) return;
+    options.onOlderPage(page.messages ?? []);
+    cursor = page.next_cursor ?? null;
   }
 }

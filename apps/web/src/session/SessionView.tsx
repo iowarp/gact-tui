@@ -62,7 +62,7 @@ import { AgentPeekView } from './AgentPeekView';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
 import { ConsoleDock } from './ConsoleDock';
-import { applyMessageLifecycleEvent } from './messageEvents';
+import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import {
   emptyNavHistoryState,
   lookupScroll,
@@ -1316,53 +1316,96 @@ export function SessionView({
 
   // The focused child's live-ish view: fetched on focus and refreshed while
   // focused (children run in background; their transcript grows under us).
+  //
+  // Progressive paint (round-6 paging ruling, 2026-08-06 — the same #232
+  // idiom the main transcript's `load`/`backfillOlder` use above): the
+  // newest page paints immediately via `pullFirst`, older pages backfill
+  // silently in the background via the shared `backfillChildMessages`
+  // helper — a large child ledger no longer blocks the center drill-in on
+  // one full-ledger fetch. The periodic reconcile poll still exists as the
+  // backstop for status transitions / adopted messages the part events
+  // don't carry, but now MERGES (`mergeMessages`) rather than replacing —
+  // a wholesale replace every 5s would otherwise clobber the progressive
+  // load/backfill/SSE state with a stale full re-read. The SSE child feed
+  // itself is untouched.
   useEffect(() => {
     if (!focusTop) {
       setChildView(null);
       return;
     }
+    const sessionId = focusTop.sessionId;
     let cancelled = false;
-    const pull = async () => {
+    const applyToChild = (fn: (messages: Message[]) => Message[]) => {
+      setChildView((cur) => (cur && cur.sessionId === sessionId ? { ...cur, messages: fn(cur.messages) } : cur));
+    };
+    type ChildSessionRow = { status?: unknown; created_at?: unknown; updated_at?: unknown };
+    const rowFields = (row: ChildSessionRow | null, fallbackStatus = '') => ({
+      status: String(row?.status ?? fallbackStatus),
+      ...(typeof row?.created_at === 'string' ? { createdAt: row.created_at } : {}),
+      ...(typeof row?.updated_at === 'string' ? { updatedAt: row.updated_at } : {}),
+    });
+
+    const pullFirst = async () => {
       try {
-        const [result, row] = await Promise.all([
-          client.messages(focusTop.sessionId),
+        const [first, row] = await Promise.all([
+          client.messages(sessionId, { limit: CHILD_PAGE_SIZE }),
           Promise.resolve()
-            .then(() => client.getSession(focusTop.sessionId))
+            .then(() => client.getSession(sessionId))
             .catch(() => null),
         ]);
-        if (!cancelled) {
-          const sessionRow = row as { status?: unknown; created_at?: unknown; updated_at?: unknown } | null;
-          setChildView({
-            sessionId: focusTop.sessionId,
-            messages: result.messages ?? [],
-            status: String(sessionRow?.status ?? ''),
-            ...(typeof sessionRow?.created_at === 'string' ? { createdAt: sessionRow.created_at } : {}),
-            ...(typeof sessionRow?.updated_at === 'string' ? { updatedAt: sessionRow.updated_at } : {}),
+        if (cancelled) return;
+        setChildView({
+          sessionId,
+          messages: first.messages ?? [],
+          ...rowFields(row as ChildSessionRow | null),
+        });
+        const cursor = first.next_cursor ?? null;
+        if (cursor) {
+          void backfillChildMessages(client, sessionId, cursor, {
+            onOlderPage: (older) => applyToChild((prev) => prependOlderPage(prev, older)),
+            isStale: () => cancelled,
           });
         }
       } catch {
-        if (!cancelled) {
-          setChildView({ sessionId: focusTop.sessionId, messages: [], status: 'failed' });
-        }
+        if (!cancelled) setChildView({ sessionId, messages: [], status: 'failed' });
       }
     };
-    void pull();
-    // The child streams over its own session SSE exactly like the main
-    // transcript (children are real sessions); the poll stays as the
-    // reconcile backstop for everything the part events don't carry
-    // (status transitions, adopted messages).
-    const applyToChild = (fn: (messages: Message[]) => Message[]) => {
-      setChildView((cur) =>
-        cur && cur.sessionId === focusTop.sessionId ? { ...cur, messages: fn(cur.messages) } : cur,
-      );
+    // The reconcile backstop: a full re-read MERGED onto whatever the
+    // progressive load/backfill/SSE stream already produced, never a
+    // destructive replace.
+    const reconcile = async () => {
+      try {
+        const [result, row] = await Promise.all([
+          client.messages(sessionId),
+          Promise.resolve()
+            .then(() => client.getSession(sessionId))
+            .catch(() => null),
+        ]);
+        if (cancelled) return;
+        setChildView((cur) =>
+          cur && cur.sessionId === sessionId
+            ? {
+                ...cur,
+                messages: mergeMessages(cur.messages, result.messages ?? []),
+                ...rowFields(row as ChildSessionRow | null, cur.status),
+              }
+            : cur,
+        );
+      } catch {
+        // Keeps whatever the progressive load/SSE stream already produced.
+      }
     };
+
+    void pullFirst();
+    // The child streams over its own session SSE exactly like the main
+    // transcript (children are real sessions).
     const subscription =
       typeof EventSource !== 'undefined'
-        ? subscribeSessionMessageEvents(client.sseUrl(focusTop.sessionId), (event) => {
+        ? subscribeSessionMessageEvents(client.sseUrl(sessionId), (event) => {
             applyToChild((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
           })
         : null;
-    const timer = window.setInterval(() => void pull(), 5000);
+    const timer = window.setInterval(() => void reconcile(), 5000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -1437,6 +1480,52 @@ export function SessionView({
     [client, activeId, focus, focusTop?.sessionId, focusTop?.agent, navigateCenter],
   );
 
+  // sessionId -> real title, backing every session REFERENCE the detail
+  // panel renders (foreign cluster headers, an activity's producing-session
+  // tooltip — owner 3b, 2026-08-06). Sessions the rail already has resolve
+  // for free; a foreign id gets ONE `client.getSession` fetch, cached here
+  // across the whole connection's lifetime so re-opening artifacts never
+  // re-fetches the same title twice. A failed read is simply never cached —
+  // the caller's own fallback (the short id) covers it, honestly, every time.
+  const sessionTitleCacheRef = useRef<Record<string, string>>({});
+  const resolveSessionTitles = useCallback(
+    async (sessionIds: string[]): Promise<Record<string, string>> => {
+      const out: Record<string, string> = {};
+      const toFetch: string[] = [];
+      for (const id of sessionIds) {
+        if (!id) continue;
+        const known = sessions.find((s) => s.id === id)?.title;
+        if (known) {
+          out[id] = known;
+          sessionTitleCacheRef.current[id] = known;
+          continue;
+        }
+        const cached = sessionTitleCacheRef.current[id];
+        if (cached) {
+          out[id] = cached;
+          continue;
+        }
+        toFetch.push(id);
+      }
+      await Promise.all(
+        toFetch.map(async (id) => {
+          try {
+            const row = await client.getSession(id);
+            if (row.title) {
+              out[id] = row.title;
+              sessionTitleCacheRef.current[id] = row.title;
+            }
+          } catch {
+            // Stays unresolved — DetailSlot's own sessionLabel fallback
+            // renders the short id instead, never blank.
+          }
+        }),
+      );
+      return out;
+    },
+    [client, sessions],
+  );
+
   // Opens an artifact in the right panel (prototype artGo → setStack). The
   // record renders immediately from the artifacts route; the provenance chain
   // (lineage route) and the content preview (export route) enrich it as they
@@ -1446,7 +1535,12 @@ export function SessionView({
     async (artifactId: string, opts?: { push?: boolean }) => {
       if (!activeId) return;
       try {
-        const result = await fetchSessionArtifacts(client, activeId, { includeChildren: true });
+        const [result, agentTasksResult] = await Promise.all([
+          fetchSessionArtifacts(client, activeId, { includeChildren: true }),
+          fetchSessionAgentTasks(client, activeId).catch(
+            (): { tasks: SessionAgentTask[] } => ({ tasks: [] }),
+          ),
+        ]);
         // The lineage wire's artifact nodes carry no size/created_at/producer;
         // the artifacts listing's versions do — index them ALL by artifact_id
         // so routeFromLineage can thread those real facts onto the graph lines.
@@ -1467,10 +1561,45 @@ export function SessionView({
         setRightStack((cur) => openRightEntry(cur, { kind: 'artifact', record }, opts));
         const patchTop = (patch: Partial<ArtifactRecord>) =>
           setRightStack((cur) => patchTopArtifact(cur, record.id, patch));
+        // The viewing session's TREE (round-6 cluster-fix ruling): itself
+        // plus every agent-task descendant — 'foreign' means outside this
+        // set, never merely "a different session id" (a session's own
+        // children are not foreign). The run label backs the in-tree
+        // node's inline agent badge.
+        const treeSessionIds = new Set<string>([
+          activeId,
+          ...(result.child_session_ids ?? []),
+        ]);
+        const treeRunLabels = new Map<string, string>();
+        for (const task of agentTasksResult.tasks ?? []) {
+          if (!task.child_session_id) continue;
+          const label = task.run_label || task.agent_ref?.expert_id;
+          if (label) treeRunLabels.set(task.child_session_id, label);
+        }
         void fetchArtifactLineage(client, record.id, { direction: 'both' })
-          .then((graph) =>
-            patchTop({ route: routeFromLineage(graph, { viewerSessionId: activeId, versionsById }) }),
-          )
+          .then((graph) => {
+            const route = routeFromLineage(graph, {
+              viewerSessionId: activeId,
+              versionsById,
+              treeSessionIds,
+              treeRunLabels,
+            });
+            patchTop({ route });
+            // Session names for every reference the graph carries (cluster
+            // headers + activity tooltips) — resolved AFTER the route mints
+            // so only sessions actually present in this artifact's story are
+            // looked up, never the whole tree eagerly.
+            const referenced = [
+              ...new Set(
+                route.flatMap((step) => (step.kind === 'node' && step.sessionId ? [step.sessionId] : [])),
+              ),
+            ];
+            if (referenced.length > 0) {
+              void resolveSessionTitles(referenced).then((sessionTitles) => {
+                if (Object.keys(sessionTitles).length > 0) patchTop({ sessionTitles });
+              });
+            }
+          })
           .catch((reason: unknown) => {
             // The chain section states its absence honestly; the WHY still
             // reaches the console as a typed reason (no silent catch).
@@ -1500,7 +1629,7 @@ export function SessionView({
         // panel.
       }
     },
-    [activeId, client],
+    [activeId, client, resolveSessionTitles],
   );
 
   const active = sessions.find((s) => s.id === activeId);
@@ -1788,10 +1917,13 @@ export function SessionView({
         // (the prototype's child composer), leaving its mode untouched.
         if (focusTop) {
           await client.sendMessage(focusTop.sessionId, { text });
+          // Re-read rather than guessing what the backend appended — MERGED
+          // onto the progressively-loaded feed (never a destructive wholesale
+          // replace, same convention as the child view's own reconcile poll).
           const result = await client.messages(focusTop.sessionId);
           setChildView((cur) =>
             cur && cur.sessionId === focusTop.sessionId
-              ? { ...cur, messages: result.messages ?? [] }
+              ? { ...cur, messages: mergeMessages(cur.messages, result.messages ?? []) }
               : cur,
           );
           return;

@@ -9,7 +9,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import type { Client, SessionArtifactRecord, SessionArtifactVersion } from '@clio/core';
 import { DetailSlot } from '../../src/detail/DetailSlot';
-import { mintArtifactRecord, routeFromLineage, type LineageGraph } from '../../src/detail/mintRecord';
+import {
+  mintArtifactRecord,
+  routeFromLineage,
+  scopeToSelfStory,
+  type LineageGraph,
+} from '../../src/detail/mintRecord';
 import type { ArtifactRecord, RouteStep } from '../../src/detail/types';
 
 const RECORD: ArtifactRecord = {
@@ -702,6 +707,55 @@ describe('DetailSlot', () => {
       // Without a viewer session nothing is marked foreign.
       expect(steps.every((s) => s.kind === 'edge' || !s.foreignSession)).toBe(true);
     });
+
+    describe('treeSessionIds/treeRunLabels (round-6 cluster fix, owner 2026-08-06)', () => {
+      it('a session INSIDE the tree (but not the viewer) is treeSession, not foreignSession, and carries its run label', () => {
+        const steps = routeFromLineage(CROSS_GRAPH, {
+          viewerSessionId: 'sess_c6241fc8906f',
+          versionsById: CONTEXT.versionsById,
+          treeSessionIds: new Set(['sess_c6241fc8906f', 'sess_9f17aa20bb31']),
+          treeRunLabels: new Map([['sess_9f17aa20bb31', 'ndp #1']]),
+        });
+        const stage = steps.find((s) => s.kind === 'node' && s.label === 'ndp_stage_resource');
+        expect(stage).toMatchObject({ sessionId: 'sess_9f17aa20bb31', treeSession: true, runLabel: 'ndp #1' });
+        expect(stage && 'foreignSession' in stage ? stage.foreignSession : undefined).toBeFalsy();
+      });
+
+      it('a session OUTSIDE the tree is still foreignSession, even though it differs from the pre-existing sessionId!==viewer-only rule', () => {
+        const steps = routeFromLineage(CROSS_GRAPH, {
+          viewerSessionId: 'sess_c6241fc8906f',
+          versionsById: CONTEXT.versionsById,
+          // The tree does NOT include sess_9f17aa20bb31 — a genuinely foreign
+          // producer, distinct from an in-tree descendant.
+          treeSessionIds: new Set(['sess_c6241fc8906f']),
+        });
+        const stage = steps.find((s) => s.kind === 'node' && s.label === 'ndp_stage_resource');
+        expect(stage).toMatchObject({ sessionId: 'sess_9f17aa20bb31', foreignSession: true });
+      });
+
+      it('the viewer session itself is never marked treeSession or foreignSession, even when in the tree set', () => {
+        const graph: LineageGraph = {
+          ...CROSS_GRAPH,
+          nodes: CROSS_GRAPH.nodes.map((n) =>
+            n.id === 'activity:call_plot' ? { ...n, session_id: 'sess_c6241fc8906f' } : n,
+          ),
+        };
+        const steps = routeFromLineage(graph, {
+          viewerSessionId: 'sess_c6241fc8906f',
+          treeSessionIds: new Set(['sess_c6241fc8906f', 'sess_9f17aa20bb31']),
+        });
+        const plot = steps.find((s) => s.kind === 'node' && s.label === 'plot_plot_timeseries');
+        expect(plot && 'treeSession' in plot ? plot.treeSession : undefined).toBeFalsy();
+        expect(plot && 'foreignSession' in plot ? plot.foreignSession : undefined).toBeFalsy();
+      });
+
+      it('without a supplied tree, behavior is EXACTLY the prior sessionId!==viewer rule (backward compatible)', () => {
+        const steps = routeFromLineage(CROSS_GRAPH, CONTEXT);
+        const stage = steps.find((s) => s.kind === 'node' && s.label === 'ndp_stage_resource');
+        expect(stage).toMatchObject({ sessionId: 'sess_9f17aa20bb31', foreignSession: true });
+        expect(stage && 'treeSession' in stage ? stage.treeSession : undefined).toBeFalsy();
+      });
+    });
   });
 
   describe('content preview rendering (round-3 defect 2, component half)', () => {
@@ -727,11 +781,31 @@ describe('DetailSlot', () => {
   });
 
   describe('compact provenance line (provenance rework — the KvGrid is deleted)', () => {
-    it('renders the four axes as ONE dot-separated muted line under the tab strip', () => {
+    it('renders the four axes as chips on one line, NEVER middot-separated (owner 3c, 2026-08-06)', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
       const line = screen.getByTestId('detail-prov-line');
-      expect(line.textContent).toBe('harness·tool-declared·hashed-at-use·workspace — data/');
+      expect(line.textContent).not.toContain('·');
+      const chips = within(line).getAllByText(/harness|tool-declared|hashed-at-use|workspace/);
+      expect(chips.length).toBeGreaterThanOrEqual(4);
+      expect(line).toHaveTextContent('harness');
+      expect(line).toHaveTextContent('tool-declared');
+      expect(line).toHaveTextContent('hashed-at-use');
+      expect(line).toHaveTextContent('workspace — data/');
+    });
+
+    it('gives every axis chip a plain-words glossary hover, derived honestly from the wire vocabulary', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const line = screen.getByTestId('detail-prov-line');
+      expect(within(line).getByText('harness')).toHaveAttribute(
+        'title',
+        expect.stringMatching(/harness itself performed the operation/i),
+      );
+      expect(within(line).getByText('hashed-at-use')).toHaveAttribute(
+        'title',
+        expect.stringMatching(/bytes were hashed/i),
+      );
     });
 
     it('states a missing axis as unrecorded on the line, never omits it', () => {
@@ -1028,6 +1102,336 @@ describe('DetailSlot', () => {
       render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
       const collapseBtn = screen.getByRole('button', { name: /collapse artifact panel/i });
       expect(collapseBtn.querySelector('[data-icon="panel-right"]')).not.toBeNull();
+    });
+  });
+});
+
+/**
+ * Round-6 provenance panel rulings (owner, 2026-08-06): the cluster fix
+ * (in-tree vs TRUE foreign), session naming, the self-artifact anchor, the
+ * used-edge spam filter, and the middot deletion + glossary hovers.
+ */
+describe('round-6 provenance panel rulings (2026-08-06)', () => {
+  /** A session's own TREE: an in-tree descendant (badge, no header) feeding
+   *  a TRUE foreign session's contiguous pair (one cluster header), feeding
+   *  the self artifact. */
+  const TREE_AND_FOREIGN_ROUTE: RouteStep[] = [
+    {
+      kind: 'node',
+      nodeType: 'activity',
+      label: 'ndp_stage_resource',
+      tool: 'ndp_stage_resource',
+      sessionId: 'sess_child_a',
+      treeSession: true,
+      runLabel: 'ndp #1',
+    },
+    { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+    {
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'stations.csv',
+      artifactId: 'art_stations',
+      version: 'v1',
+      sessionId: 'sess_child_a',
+      treeSession: true,
+      runLabel: 'ndp #1',
+    },
+    { kind: 'edge', edge: 'used', stance: 'hashed-at-use' },
+    {
+      kind: 'node',
+      nodeType: 'activity',
+      label: 'external_transform',
+      tool: 'external_transform',
+      sessionId: 'sess_foreign_x',
+      foreignSession: true,
+    },
+    { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+    {
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'external.csv',
+      artifactId: 'art_ext',
+      version: 'v1',
+      sessionId: 'sess_foreign_x',
+      foreignSession: true,
+    },
+    { kind: 'edge', edge: 'used', stance: 'hashed-at-use' },
+    {
+      kind: 'node',
+      nodeType: 'artifact',
+      label: 'report.md',
+      artifactId: 'art_report',
+      version: 'v1',
+      self: true,
+    },
+  ];
+
+  describe('cluster fix: in-tree gets a badge, only TRUE foreign gets a header', () => {
+    it('an in-tree descendant session renders NO cluster header at all', () => {
+      render(<DetailSlot record={{ ...RECORD, route: TREE_AND_FOREIGN_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const clusters = screen.queryAllByTestId('route-cluster');
+      for (const cluster of clusters) {
+        expect(cluster).not.toHaveAttribute('data-session', 'sess_child_a');
+      }
+    });
+
+    it('an in-tree node instead carries the inline agent-run badge (the run label)', () => {
+      render(<DetailSlot record={{ ...RECORD, route: TREE_AND_FOREIGN_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const badges = screen.getAllByTestId('route-node-badge');
+      expect(badges.length).toBeGreaterThan(0);
+      for (const badge of badges) expect(badge).toHaveTextContent('ndp #1');
+    });
+
+    it('a TRUE foreign session still groups under exactly one cluster header (contiguity preserved)', () => {
+      render(<DetailSlot record={{ ...RECORD, route: TREE_AND_FOREIGN_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const clusters = screen.getAllByTestId('route-cluster');
+      const foreignClusters = clusters.filter((c) => c.getAttribute('data-session') === 'sess_foreign_x');
+      expect(foreignClusters).toHaveLength(1);
+      // Both foreign nodes sit inside that ONE cluster.
+      expect(within(foreignClusters[0]!).getByText('external_transform')).toBeInTheDocument();
+      expect(within(foreignClusters[0]!).getByText('external.csv')).toBeInTheDocument();
+    });
+
+    it('the SAME foreign session repeated NON-contiguously (a different session between) still gets separate headers', () => {
+      const route: RouteStep[] = [
+        {
+          kind: 'node',
+          nodeType: 'artifact',
+          label: 'a.csv',
+          artifactId: 'art_a',
+          sessionId: 'sess_foreign_x',
+          foreignSession: true,
+        },
+        { kind: 'edge', edge: 'used', stance: 'hashed-at-use' },
+        {
+          kind: 'node',
+          nodeType: 'activity',
+          label: 'mid_tool',
+          sessionId: 'sess_foreign_y',
+          foreignSession: true,
+        },
+        { kind: 'edge', edge: 'generated', stance: 'hashed-at-use' },
+        {
+          kind: 'node',
+          nodeType: 'artifact',
+          label: 'b.csv',
+          artifactId: 'art_b',
+          sessionId: 'sess_foreign_x',
+          foreignSession: true,
+        },
+        { kind: 'edge', edge: 'used', stance: 'hashed-at-use' },
+        { kind: 'node', nodeType: 'artifact', label: 'report.md', artifactId: 'art_report', self: true },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const clusters = screen.getAllByTestId('route-cluster');
+      const xClusters = clusters.filter((c) => c.getAttribute('data-session') === 'sess_foreign_x');
+      expect(xClusters).toHaveLength(2);
+    });
+  });
+
+  describe('session references show the NAME, id in parens at most, never a bare id (owner 3b)', () => {
+    it('a foreign cluster header shows the resolved session title with the short id in parens', () => {
+      const record = {
+        ...RECORD,
+        route: CROSS_SESSION_ROUTE,
+        sessionTitles: { sess_9f17aa20bb31: 'EarthScope station discovery' },
+      };
+      render(<DetailSlot record={record} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const header = screen.getByTestId('route-cluster-header');
+      expect(header).toHaveTextContent('EarthScope station discovery');
+      expect(header).toHaveTextContent('sess_9f17…');
+    });
+
+    it('falls back to the short id — never blank — when no title is known', () => {
+      render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const header = screen.getByTestId('route-cluster-header');
+      expect(header).toHaveTextContent('sess_9f17…');
+      expect(header.textContent?.trim().length).toBeGreaterThan(0);
+    });
+
+    it("an activity node's producing-session tooltip carries the resolved name too", () => {
+      const record = {
+        ...RECORD,
+        route: CROSS_SESSION_ROUTE,
+        sessionTitles: { sess_9f17aa20bb31: 'EarthScope station discovery' },
+      };
+      render(<DetailSlot record={record} onOpenSession={vi.fn()} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const activity = screen.getByTestId('route-node-0');
+      expect(activity).toHaveAttribute('title', expect.stringContaining('EarthScope station discovery'));
+    });
+  });
+
+  describe('the SELF artifact node: a unique, anchored presentation (owner 3a)', () => {
+    it('carries the data-self anchor marker distinct from ordinary node lines', () => {
+      render(<DetailSlot record={RECORD} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const self = screen.getByTestId('route-node-self');
+      expect(self).toHaveAttribute('data-self', 'true');
+      const ordinary = screen.getByTestId('route-node-2');
+      expect(ordinary).not.toHaveAttribute('data-self', 'true');
+    });
+
+    it('is never dimmed behind a foreign rail, even when the chain includes a foreign cluster', () => {
+      render(<DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const self = screen.getByTestId('route-node-self');
+      expect(self.querySelector('.detail__lrail')).toBeNull();
+    });
+  });
+
+  describe('scopeToSelfStory: the used-edge spam filter (owner 3a — drop non-transformative sibling uses)', () => {
+    it('drops a used-edge to an activity that never leads back to root, keeping the direct transform chain', () => {
+      const graph: LineageGraph = {
+        root: 'artifact_report',
+        nodes: [
+          { id: 'artifact_report', type: 'artifact', name: 'report.md', version: 1, producer_call_id: 'call_create' },
+          { id: 'activity:call_create', type: 'activity', call_id: 'call_create', tool: 'create_artifact' },
+          {
+            id: 'artifact_clean',
+            type: 'artifact',
+            name: 'stations_clean.csv',
+            version: 1,
+            producer_call_id: 'call_clean',
+          },
+          { id: 'activity:call_clean', type: 'activity', call_id: 'call_clean', tool: 'pandas_filter_data' },
+          // An ancestor artifact ALSO used by an unrelated sibling activity
+          // that never feeds anything on the path to the report — the spam.
+          {
+            id: 'activity:call_unrelated',
+            type: 'activity',
+            call_id: 'call_unrelated',
+            tool: 'pandas_filter_data',
+          },
+          { id: 'artifact_unrelated_out', type: 'artifact', name: 'unrelated_out.csv', version: 1 },
+        ],
+        edges: [
+          { from: 'activity:call_create', to: 'artifact_report', type: 'generated', evidence: 'hashed-at-use' },
+          { from: 'artifact_clean', to: 'activity:call_create', type: 'used', evidence: 'hashed-at-use' },
+          { from: 'activity:call_clean', to: 'artifact_clean', type: 'generated', evidence: 'hashed-at-use' },
+          { from: 'artifact_clean', to: 'activity:call_unrelated', type: 'used', evidence: 'hashed-at-use' },
+          {
+            from: 'activity:call_unrelated',
+            to: 'artifact_unrelated_out',
+            type: 'generated',
+            evidence: 'hashed-at-use',
+          },
+        ],
+      };
+      const scoped = scopeToSelfStory(graph);
+      expect(scoped.nodes.map((n) => n.id).sort()).toEqual(
+        ['activity:call_clean', 'activity:call_create', 'artifact_clean', 'artifact_report'].sort(),
+      );
+      expect(scoped.nodes.find((n) => n.id === 'activity:call_unrelated')).toBeUndefined();
+      expect(scoped.nodes.find((n) => n.id === 'artifact_unrelated_out')).toBeUndefined();
+      // The direct transform-chain edges all survive: generated(create),
+      // used(clean->create), generated(call_clean->clean).
+      expect(scoped.edges).toHaveLength(3);
+      expect(scoped.edges.every((e) => e.type !== 'used' || e.to !== 'activity:call_unrelated')).toBe(true);
+    });
+
+    it("always keeps root's OWN direct uses, even one that leads nowhere further", () => {
+      const graph: LineageGraph = {
+        root: 'artifact_png',
+        nodes: [
+          { id: 'artifact_png', type: 'artifact', name: 'chart.png', version: 1 },
+          { id: 'activity:call_report', type: 'activity', call_id: 'call_report', tool: 'create_artifact' },
+          { id: 'artifact_report', type: 'artifact', name: 'report.md', version: 1 },
+        ],
+        edges: [
+          { from: 'artifact_png', to: 'activity:call_report', type: 'used', evidence: 'hashed-at-use' },
+          { from: 'activity:call_report', to: 'artifact_report', type: 'generated', evidence: 'hashed-at-use' },
+        ],
+      };
+      const scoped = scopeToSelfStory(graph);
+      expect(scoped.nodes.map((n) => n.id).sort()).toEqual(
+        ['activity:call_report', 'artifact_png', 'artifact_report'].sort(),
+      );
+    });
+
+    it('the DetailSlot never renders the spam node — the panel only ever saw the scoped graph', () => {
+      const graph: LineageGraph = {
+        root: 'artifact_report',
+        nodes: [
+          { id: 'artifact_report', type: 'artifact', name: 'report.md', version: 1, producer_call_id: 'call_create' },
+          { id: 'activity:call_create', type: 'activity', call_id: 'call_create', tool: 'create_artifact' },
+          { id: 'artifact_clean', type: 'artifact', name: 'stations_clean.csv', version: 1, producer_call_id: 'call_clean' },
+          { id: 'activity:call_clean', type: 'activity', call_id: 'call_clean', tool: 'pandas_filter_data' },
+          { id: 'activity:call_unrelated', type: 'activity', call_id: 'call_unrelated', tool: 'unrelated_tool_xyz' },
+          { id: 'artifact_unrelated_out', type: 'artifact', name: 'unrelated_out.csv', version: 1 },
+        ],
+        edges: [
+          { from: 'activity:call_create', to: 'artifact_report', type: 'generated', evidence: 'hashed-at-use' },
+          { from: 'artifact_clean', to: 'activity:call_create', type: 'used', evidence: 'hashed-at-use' },
+          { from: 'activity:call_clean', to: 'artifact_clean', type: 'generated', evidence: 'hashed-at-use' },
+          { from: 'artifact_clean', to: 'activity:call_unrelated', type: 'used', evidence: 'hashed-at-use' },
+          { from: 'activity:call_unrelated', to: 'artifact_unrelated_out', type: 'generated', evidence: 'hashed-at-use' },
+        ],
+      };
+      const route = routeFromLineage(graph);
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.queryByText('unrelated_tool_xyz')).toBeNull();
+      expect(screen.queryByText('unrelated_out.csv')).toBeNull();
+      expect(screen.getByText('pandas_filter_data')).toBeInTheDocument();
+    });
+  });
+
+  describe('middot separators are DELETED from the detail panel (owner 3c)', () => {
+    it('renders NO "·" anywhere in the panel — identity meta, provenance line, node sub-info, cluster time, badges', () => {
+      const record: ArtifactRecord = {
+        ...RECORD,
+        storagePath: 'data/earthscope_stations.csv',
+        workspaceId: 'ws_1',
+        route: TREE_AND_FOREIGN_ROUTE,
+      };
+      const { container } = render(<DetailSlot record={record} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(container.textContent).not.toContain('·');
+    });
+
+    it('a foreign cluster header with a mint time carries no dot between session and time', () => {
+      const { container } = render(
+        <DetailSlot record={{ ...RECORD, route: CROSS_SESSION_ROUTE }} onClose={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const header = screen.getByTestId('route-cluster-header');
+      expect(header).toHaveTextContent('05 Aug 12:43');
+      expect(container.textContent).not.toContain('·');
+    });
+  });
+
+  describe('every provenance vocabulary term carries a plain-words glossary hover (owner 3c)', () => {
+    it('an edge evidence term (hash-pair) carries its own honest definition', () => {
+      const route: RouteStep[] = [
+        { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'artifact_a' },
+        { kind: 'edge', edge: 'used', stance: 'hash-pair' },
+        { kind: 'node', nodeType: 'activity', label: 'create_artifact', self: true },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      expect(screen.getByText('hash-pair')).toHaveAttribute(
+        'title',
+        expect.stringMatching(/matching content hashes/i),
+      );
+    });
+
+    it('an unknown term never fabricates a definition — no title attr at all', () => {
+      const route: RouteStep[] = [
+        { kind: 'node', nodeType: 'artifact', label: 'a.csv', artifactId: 'artifact_a' },
+        { kind: 'edge', edge: 'used', stance: 'a-totally-unknown-stance' },
+        { kind: 'node', nodeType: 'activity', label: 'create_artifact', self: true },
+      ];
+      render(<DetailSlot record={{ ...RECORD, route }} onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('tab', { name: /provenance/i }));
+      const evidence = screen.getByText('a-totally-unknown-stance');
+      expect(evidence).not.toHaveAttribute('title');
     });
   });
 });
