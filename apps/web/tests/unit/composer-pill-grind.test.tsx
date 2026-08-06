@@ -224,6 +224,9 @@ describe('async runs popover — component behavior', () => {
 });
 
 describe('async runs popover — wired through the composer chip', () => {
+  // 1 running + 1 undismissed-terminal — the chip's own count is the sum of
+  // both (round-8 fix: "async N" always matches what the popover underneath
+  // it lists, not just the running count).
   const TASKS: AsyncRunItem[] = [
     { id: 't1', label: 'visualization #1', status: 'running', terminal: false },
     { id: 't2', label: 'analysis #1', status: 'completed', terminal: true },
@@ -234,7 +237,7 @@ describe('async runs popover — wired through the composer chip', () => {
     render(
       <Composer onSubmit={vi.fn()} asyncCount={1} asyncTasks={TASKS} onOpenAsync={onOpenAsync} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /async 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /async 2/ }));
     expect(screen.getByRole('dialog', { name: /async agents/i })).toBeInTheDocument();
     expect(onOpenAsync).not.toHaveBeenCalled();
   });
@@ -247,13 +250,48 @@ describe('async runs popover — wired through the composer chip', () => {
     expect(screen.queryByRole('dialog', { name: /async agents/i })).toBeNull();
   });
 
-  it('shows the recently-finished badge only while an undismissed finished run is pending review', () => {
+  it('shows the recently-finished badge, with a titled dot, only while an undismissed finished run is pending review', () => {
     const { container } = render(<Composer onSubmit={vi.fn()} asyncCount={1} asyncTasks={TASKS} />);
     expect(container.querySelector('.composer__asyncchip[data-badge="true"]')).not.toBeNull();
+    const badge = container.querySelector('.composer__asyncbadge');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveAttribute('title', '1 finished async agent');
 
-    fireEvent.click(screen.getByRole('button', { name: /async 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /async 2/ }));
     fireEvent.click(screen.getByRole('button', { name: /dismiss analysis #1/i }));
     expect(container.querySelector('.composer__asyncchip[data-badge="true"]')).toBeNull();
+    expect(container.querySelector('.composer__asyncbadge')).toBeNull();
+    // The chip itself survives the dismissal (the still-running task keeps
+    // it up) with its count dropped back to just that task.
+    expect(screen.getByRole('button', { name: /async 1/ })).toBeInTheDocument();
+  });
+
+  it('stays reachable — with the finished-dot — even when every task has already settled (the structural bug this round fixed)', () => {
+    // running=0: under the OLD `hasAsync = asyncCount > 0` gate this chip,
+    // and the badge inside it, could never render at all.
+    const ALL_SETTLED: AsyncRunItem[] = [
+      { id: 't1', label: 'geospatial #1', status: 'completed', terminal: true },
+    ];
+    const { container } = render(
+      <Composer onSubmit={vi.fn()} asyncCount={0} asyncTasks={ALL_SETTLED} />,
+    );
+    const chip = screen.getByRole('button', { name: /async 1/ });
+    expect(chip).toBeInTheDocument();
+    expect(container.querySelector('.composer__asyncchip[data-badge="true"]')).not.toBeNull();
+    expect(container.querySelector('.composer__asyncbadge')).toHaveAttribute(
+      'title',
+      '1 finished async agent',
+    );
+  });
+
+  it('renders no chip at all once running=0 and every finished task is dismissed', () => {
+    const ALL_SETTLED: AsyncRunItem[] = [
+      { id: 't1', label: 'geospatial #1', status: 'completed', terminal: true },
+    ];
+    render(<Composer onSubmit={vi.fn()} asyncCount={0} asyncTasks={ALL_SETTLED} />);
+    fireEvent.click(screen.getByRole('button', { name: /async 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /dismiss geospatial #1/i }));
+    expect(screen.queryByText(/^async /)).toBeNull();
   });
 });
 
@@ -636,7 +674,7 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
     render(<SessionView client={client({ get })} sessions={SESSIONS} />);
     await selectSession();
 
-    const chip = await screen.findByRole('button', { name: /async 1/ });
+    const chip = await screen.findByRole('button', { name: /async 2/ });
     fireEvent.click(chip);
 
     const popover = await screen.findByRole('dialog', { name: /async agents/i });
@@ -673,7 +711,7 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
     render(<SessionView client={client({ get })} sessions={SESSIONS} />);
     await selectSession();
 
-    const chip = await screen.findByRole('button', { name: /async 1/ });
+    const chip = await screen.findByRole('button', { name: /async 2/ });
     fireEvent.click(chip);
 
     const popover = await screen.findByRole('dialog', { name: /async agents/i });

@@ -14,13 +14,15 @@
 }
 
 /* The recently-finished badge — a 5x5 amber dot at the chip's top-right,
-   only while an undismissed finished run is pending review. */
+   only while an undismissed finished run is pending review. A real element
+   (composer__asyncbadge), not a CSS ::after pseudo-element, so it can carry
+   its own `title` ("N finished async agent(s)") the way the prototype's own
+   badge does — a pseudo-element's `content` cannot host a hoverable title. */
 .composer__asyncchip[data-badge='true'] .kit-chip {
   position: relative;
 }
 
-.composer__asyncchip[data-badge='true'] .kit-chip::after {
-  content: '';
+.composer__asyncbadge {
   position: absolute;
   top: 2px;
   right: 2px;

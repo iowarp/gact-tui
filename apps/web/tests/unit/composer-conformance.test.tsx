@@ -55,7 +55,12 @@ async function openSession(client: Client) {
 }
 
 describe('pill wiring (D1)', () => {
-  it('counts ALL non-terminal async work from the session agent-tasks', async () => {
+  it('counts non-terminal async work PLUS any undismissed-finished task from the session agent-tasks', async () => {
+    // 2 non-terminal (running/queued) + 1 undismissed-terminal (completed) —
+    // the chip's own count is the sum of both (round-8 fix: gating/counting
+    // on the running count alone made the finished-agent badge structurally
+    // unreachable; "async N" now always matches what the runs popover
+    // underneath it lists).
     const client = makeClient({
       '/agent-tasks': {
         tasks: [
@@ -67,7 +72,7 @@ describe('pill wiring (D1)', () => {
       '/context/state': { used_pct: 0.41 },
     });
     await openSession(client);
-    await waitFor(() => expect(screen.getByText(/async 2/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/async 3/)).toBeInTheDocument());
   });
 
   it('reads the context percentage for the ACTIVE scope — never a bare state call', async () => {

@@ -256,7 +256,30 @@ export function Composer({
   // `onStop` gates this like every other optional callback here: `running`
   // alone (no wired destination) leaves the send button exactly as it was.
   const stopControl = running && Boolean(onStop);
-  const hasAsync = asyncCount !== undefined && asyncCount > 0;
+  // The finished-agent badge (data-badge, below) lives INSIDE this chip, so
+  // gating visibility on `asyncCount` (running count) ALONE made the badge
+  // structurally unreachable: the moment every task in a fan-out settles,
+  // asyncCount drops back to 0 and the chip — badge and all — disappears in
+  // the same tick (round-8 owner finding, live-verified: a mixed running+
+  // finished window existed on the wire but the chip never painted). The
+  // chip now also stays up while any async task is undismissed-finished,
+  // and its own count switches from "running" to "running + undismissed
+  // finished" so the number on screen always matches what the popover
+  // underneath it lists.
+  const finishedAsyncTasks = asyncTasks?.filter(
+    (task) => task.terminal && !dismissedAsyncIds.has(task.id),
+  );
+  const runningAsyncCount = asyncTasks
+    ? asyncTasks.filter((task) => !task.terminal).length
+    : (asyncCount ?? 0);
+  const finishedAsyncCount = finishedAsyncTasks?.length ?? 0;
+  const hasAsync = asyncTasks
+    ? runningAsyncCount > 0 || finishedAsyncCount > 0
+    : asyncCount !== undefined && asyncCount > 0;
+  // Falls back to the raw `asyncCount` prop when the caller has no per-task
+  // detail (asyncTasks omitted) — same convention as the popover-vs-direct-
+  // jump split below.
+  const asyncDisplayCount = asyncTasks ? runningAsyncCount + finishedAsyncCount : asyncCount;
   const hasContext = contextPercent !== undefined;
   const hasPill = Boolean(placement) || hasAsync || hasContext;
   const placementParts = placement?.match(/^([^:]+:)(.*)$/);
@@ -396,11 +419,7 @@ export function Composer({
           {hasAsync ? (
             <span
               className="composer__asyncchip"
-              data-badge={
-                asyncTasks?.some((t) => t.terminal && !dismissedAsyncIds.has(t.id))
-                  ? 'true'
-                  : undefined
-              }
+              data-badge={finishedAsyncCount > 0 ? 'true' : undefined}
             >
               <Chip
                 icon={<Icon name="zap" size={11} />}
@@ -409,7 +428,25 @@ export function Composer({
                   : onOpenAsync
                     ? { onClick: onOpenAsync, title: 'Open runs' }
                     : {})}
-              >{`async ${asyncCount}`}</Chip>
+              >
+                {`async ${asyncDisplayCount}`}
+                {finishedAsyncCount > 0 ? (
+                  // The prototype's own dot (design/prototype/Clio Session.html,
+                  // the `hasRecentDone` badge): a real titled element, not a CSS
+                  // pseudo-element, so the count it carries is actually
+                  // announced/inspectable on hover, same as the prototype's
+                  // `title="1 finished async agent"`.
+                  <span
+                    className="composer__asyncbadge"
+                    aria-hidden="true"
+                    title={
+                      finishedAsyncCount === 1
+                        ? '1 finished async agent'
+                        : `${finishedAsyncCount} finished async agents`
+                    }
+                  />
+                ) : null}
+              </Chip>
               {asyncTasks ? (
                 <AsyncRunsPopover
                   open={asyncPopoverOpen}
