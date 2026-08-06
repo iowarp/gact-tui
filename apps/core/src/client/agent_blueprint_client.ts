@@ -28,6 +28,9 @@ import {
   validateAgentBlueprintDefinition,
 } from './agent_blueprints.js';
 import { AgentCatalogClient } from './agent_catalog_client.js';
+import type { BlueprintFilesOptions, BlueprintFilesResult } from './blueprint_files.js';
+import { fetchAgentBlueprintFiles, readAgentBlueprintFile } from './blueprint_files.js';
+import type { ReadWorkspaceFileResult } from './context_types.js';
 
 export class AgentBlueprintClient extends AgentCatalogClient {
   /** GET /v1/agent-blueprints/{id} - one blueprint and its served definitions. */
@@ -93,5 +96,22 @@ export class AgentBlueprintClient extends AgentCatalogClient {
   /** POST /v1/sessions/{id}/agent-blueprint - bind a blueprint to the session. */
   setSessionBlueprint(sessionId: string, body: SetSessionBlueprintInput): Promise<unknown> {
     return setSessionBlueprintBinding(this, sessionId, body);
+  }
+
+  /** GET /v1/agent-blueprints/{id}/files - flat recursive listing of the blueprint's root directory. */
+  listBlueprintFiles(
+    blueprintId: string,
+    opts?: BlueprintFilesOptions,
+  ): Promise<BlueprintFilesResult> {
+    return fetchAgentBlueprintFiles(this, blueprintId, opts);
+  }
+
+  /** GET /v1/agent-blueprints/{id}/files/read?path=… - read one blueprint file's raw bytes. */
+  readBlueprintFile(
+    blueprintId: string,
+    path: string,
+    opts?: BlueprintFilesOptions,
+  ): Promise<ReadWorkspaceFileResult> {
+    return readAgentBlueprintFile(this, blueprintId, path, opts);
   }
 }

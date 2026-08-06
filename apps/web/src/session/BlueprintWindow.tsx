@@ -2,10 +2,21 @@ import { useEffect, useState } from 'react';
 import {
   fetchAgentBlueprint,
   type AgentBlueprintDetail,
+  type BlueprintFileEntry,
   type Client,
 } from '@clio/core';
 import { Layer } from '../kit';
 import { Markdown } from '../transcript/markdown';
+import {
+  breadcrumbSegments,
+  buildFileTree,
+  findDirNode,
+  parentPath,
+  type FileRow,
+} from './fileTree';
+import { DirRow } from './FilesLayer';
+import { decodeWorkspaceFilePreview, type FilePreview } from './filePreview';
+import './owner-surfaces.css';
 import './blueprintwindow.css';
 
 export interface BlueprintWindowProps {
@@ -13,6 +24,15 @@ export interface BlueprintWindowProps {
   client: Client;
   open: boolean;
   onClose: () => void;
+  /**
+   * Optional session id to resolve a PATH-activated blueprint (a session
+   * whose `active_agent_blueprint_path` names this exact blueprint id) even
+   * when the id isn't in the installed/discovery catalog — the demo case
+   * (`earthscope-flat`). Neither current call site (SessionView,
+   * settings/BlueprintsPage) has one in scope yet; this just lets a future
+   * caller (or a test) pass it through to the file-explorer routes.
+   */
+  sessionId?: string;
 }
 
 type BlueprintLoadState =
@@ -36,17 +56,23 @@ type BlueprintLoadState =
  * definition text as "no wire surface yet". That stub was stale — this
  * renders the real body through the transcript Markdown module.
  *
- * The genuinely missing piece is a per-directory listing/read surface for
- * the blueprint's root (`experts/*.md`, `tools/`, …): the only blueprint
- * routes are `GET /v1/agent-blueprints` and `GET /v1/agent-blueprints/{id}`
- * (metadata + agents + mcp_descriptors, no file tree), and the workspace
- * file routes (`GET /v1/workspaces/{wid}/files[/read]`) are scoped to a
- * REGISTERED workspace id, not an arbitrary filesystem path — a blueprint's
- * `root` is neither. Nothing here fabricates a tree for that; it shows the
- * gap explicitly (see `BlueprintExplorerGap` below) so it can be filed
- * precisely instead of faked.
+ * The formerly-missing piece — a per-directory listing/read surface for the
+ * blueprint's root (`experts/*.md`, `tools/`, …) — is now backed by
+ * `GET /v1/agent-blueprints/{id}/files[/read]` (clio-agent #1192);
+ * `BlueprintFileExplorer` below renders a real tree/content pane off it.
+ * The workspace file routes (`GET /v1/workspaces/{wid}/files[/read]`) don't
+ * apply here — they're scoped to a REGISTERED workspace id, not an
+ * arbitrary filesystem path, and a blueprint's `root` is neither. An older
+ * clio host that doesn't yet expose the new routes gets an honest, typed
+ * gap notice instead of a faked tree (see `BlueprintExplorerGap` below).
  */
-export function BlueprintWindow({ blueprintId, client, open, onClose }: BlueprintWindowProps) {
+export function BlueprintWindow({
+  blueprintId,
+  client,
+  open,
+  onClose,
+  sessionId,
+}: BlueprintWindowProps) {
   const [state, setState] = useState<BlueprintLoadState>({ kind: 'idle' });
 
   useEffect(() => {
@@ -98,12 +124,22 @@ export function BlueprintWindow({ blueprintId, client, open, onClose }: Blueprin
           Could not load blueprint: {state.detail}
         </p>
       ) : null}
-      {state.kind === 'loaded' ? <BlueprintDetail detail={state.detail} /> : null}
+      {state.kind === 'loaded' ? (
+        <BlueprintDetail detail={state.detail} client={client} sessionId={sessionId} />
+      ) : null}
     </Layer>
   );
 }
 
-function BlueprintDetail({ detail }: { detail: AgentBlueprintDetail }) {
+function BlueprintDetail({
+  detail,
+  client,
+  sessionId,
+}: {
+  detail: AgentBlueprintDetail;
+  client: Client;
+  sessionId?: string;
+}) {
   const { agent_blueprint: blueprint } = detail;
   const agents = detail.agents ?? [];
   const rawBody = blueprint.metadata?.['body'];
@@ -139,7 +175,7 @@ function BlueprintDetail({ detail }: { detail: AgentBlueprintDetail }) {
         )}
       </section>
 
-      <BlueprintExplorerGap />
+      <BlueprintFileExplorer client={client} blueprintId={blueprint.id} sessionId={sessionId} />
 
       <section aria-labelledby="blueprint-agents-title" className="blueprintwindow__section">
         <h3 id="blueprint-agents-title">served agents</h3>
@@ -171,10 +207,302 @@ function BlueprintDetail({ detail }: { detail: AgentBlueprintDetail }) {
   );
 }
 
+type ExplorerListState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; entries: BlueprintFileEntry[] }
+  | { kind: 'gap' }
+  | { kind: 'error'; message: string };
+
+type ExplorerPreviewState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | FilePreview;
+
 /**
- * Honest, typed gap notice: there is no backend surface to list or read the
- * blueprint's OTHER files (experts/*.md, tools/, …) — only the AGENT.md body
- * above, via `agent_blueprint.metadata.body`.
+ * A 404 off `listBlueprintFiles`/`readBlueprintFile` means "this clio host
+ * predates #1192's routes" — the honest-degrade case that falls back to
+ * `BlueprintExplorerGap`. Any OTHER failure (network error, 500, …) is a
+ * real bug and must not be conflated with that version-mismatch story.
+ * Duck-typed rather than `instanceof HttpError` so a test can hand back any
+ * 404-shaped rejection without constructing the real error class.
+ */
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    (error as { status?: unknown }).status === 404
+  );
+}
+
+function isMarkdownPath(path: string): boolean {
+  return /\.(md|markdown)$/i.test(path);
+}
+
+/**
+ * The blueprint's file explorer — tree-left/content-right over
+ * `GET /v1/agent-blueprints/{id}/files[/read]` (clio-agent #1192), same
+ * drill-down grammar as `FilesLayer` (reuses `buildFileTree`/`findDirNode`/
+ * `breadcrumbSegments`/`DirRow` verbatim rather than re-implementing the row
+ * markup). Falls back to the honest `BlueprintExplorerGap` notice when the
+ * backend doesn't have the route yet (404), and to a distinct error message
+ * for any other failure so a real bug is never misattributed as a version
+ * mismatch.
+ */
+function BlueprintFileExplorer({
+  client,
+  blueprintId,
+  sessionId,
+}: {
+  client: Client;
+  blueprintId: string;
+  sessionId?: string;
+}) {
+  const [listState, setListState] = useState<ExplorerListState>({ kind: 'loading' });
+  const [currentDir, setCurrentDir] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ExplorerPreviewState>({ kind: 'idle' });
+
+  useEffect(() => {
+    let cancelled = false;
+    setListState({ kind: 'loading' });
+    setCurrentDir('');
+    setSelectedPath(null);
+    setPreview({ kind: 'idle' });
+    void client.listBlueprintFiles(blueprintId, { sessionId }).then(
+      (result) => {
+        if (cancelled) return;
+        setListState({ kind: 'ready', entries: result.entries });
+        // The definition view (AGENT.md) stays the default-selected file —
+        // eagerly fetch+show it on the first successful listing.
+        setSelectedPath('AGENT.md');
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        setListState(
+          isNotFoundError(error)
+            ? { kind: 'gap' }
+            : { kind: 'error', message: error instanceof Error ? error.message : String(error) },
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprintId, client, sessionId]);
+
+  useEffect(() => {
+    if (!selectedPath) {
+      setPreview({ kind: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setPreview({ kind: 'loading' });
+    void client.readBlueprintFile(blueprintId, selectedPath, { sessionId }).then(
+      (result) => {
+        if (cancelled) return;
+        setPreview(decodeWorkspaceFilePreview(result, selectedPath));
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        setPreview({
+          kind: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprintId, client, sessionId, selectedPath]);
+
+  if (listState.kind === 'gap') {
+    return <BlueprintExplorerGap />;
+  }
+  if (listState.kind === 'error') {
+    return (
+      <p className="blueprintwindow__empty" role="alert" data-testid="blueprint-window-explorer-error">
+        Could not load blueprint files: {listState.message}
+      </p>
+    );
+  }
+
+  const entries = listState.kind === 'ready' ? listState.entries : [];
+  const files: FileRow[] = entries.map((entry) => ({
+    path: entry.path,
+    type: entry.type,
+    size: entry.size,
+  }));
+  const tree = buildFileTree(files);
+  const currentNode = findDirNode(tree, currentDir) ?? findDirNode(tree, '');
+  const crumbs = breadcrumbSegments(currentDir);
+
+  function enterDirectory(path: string): void {
+    setCurrentDir(path);
+  }
+
+  return (
+    <section
+      aria-labelledby="blueprint-explorer-title"
+      className="blueprintwindow__section"
+      data-testid="blueprint-window-explorer"
+    >
+      <h3 id="blueprint-explorer-title">files</h3>
+      {listState.kind === 'loading' ? (
+        <p className="blueprintwindow__empty">Loading blueprint files…</p>
+      ) : (
+        <div className="blueprintwindow__explorer">
+          <div className="blueprintwindow__explorertree" data-testid="blueprint-window-explorer-tree">
+            {tree.length > 0 ? (
+              <nav className="files-layer__crumbs" aria-label="Current blueprint directory">
+                <button type="button" onClick={() => enterDirectory('')} disabled={!currentDir}>
+                  root
+                </button>
+                {crumbs.map((crumb, index) => (
+                  <span key={crumb.path}>
+                    <span aria-hidden="true"> / </span>
+                    <button
+                      type="button"
+                      onClick={() => enterDirectory(crumb.path)}
+                      disabled={index === crumbs.length - 1}
+                    >
+                      {crumb.label}
+                    </button>
+                  </span>
+                ))}
+              </nav>
+            ) : null}
+            <div className="session-files__list">
+              {currentDir ? (
+                <button
+                  type="button"
+                  className="files-layer__up"
+                  onClick={() => enterDirectory(parentPath(currentDir))}
+                >
+                  <span className="files-layer__chev" aria-hidden="true">
+                    ‹
+                  </span>
+                  <strong>..</strong>
+                </button>
+              ) : null}
+              {currentNode?.children.map((node) => (
+                <DirRow
+                  key={node.path}
+                  node={node}
+                  selected={selectedPath}
+                  onOpen={() =>
+                    node.type === 'directory' ? enterDirectory(node.path) : setSelectedPath(node.path)
+                  }
+                />
+              ))}
+              {currentNode && currentNode.children.length === 0 ? (
+                <p className="files-layer__empty">This directory is empty.</p>
+              ) : null}
+              {tree.length === 0 ? <p className="files-layer__empty">No files listed.</p> : null}
+            </div>
+          </div>
+          <div className="blueprintwindow__explorercontent" data-testid="blueprint-window-file-content">
+            <ExplorerPreview selectedPath={selectedPath} preview={preview} />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const EXPLORER_CSV_SHOWN_ROWS = 50;
+
+/** Renders the selected blueprint file per its decoded preview kind — same
+ * honest conventions as FilesLayer's PreviewBody (raw text stays raw, CSV
+ * becomes a bounded table, binary files get a byte-count notice), plus a
+ * markdown lane through the shared Markdown module for `.md`/`.markdown`
+ * paths (decodeWorkspaceFilePreview reports those as plain `text`, since
+ * `.md` isn't specifically an image/binary media type). */
+function ExplorerPreview({
+  selectedPath,
+  preview,
+}: {
+  selectedPath: string | null;
+  preview: ExplorerPreviewState;
+}) {
+  if (!selectedPath) {
+    return <p className="blueprintwindow__empty">Select a file to preview it.</p>;
+  }
+  if (preview.kind === 'idle' || preview.kind === 'loading') {
+    return <p className="blueprintwindow__empty">Loading {selectedPath}…</p>;
+  }
+  if (preview.kind === 'error') {
+    return (
+      <p className="blueprintwindow__empty" role="alert">
+        Could not read {selectedPath}: {preview.message}
+      </p>
+    );
+  }
+  if (preview.kind === 'image') {
+    return (
+      <div className="files-layer__imagewrap">
+        <img className="files-layer__image" src={preview.dataUrl} alt="" />
+      </div>
+    );
+  }
+  if (preview.kind === 'binary') {
+    return (
+      <p className="blueprintwindow__empty" data-testid="blueprint-window-binary-notice">
+        binary file ({preview.size.toLocaleString()} bytes, {preview.mediaType}) — no text preview
+      </p>
+    );
+  }
+  if (preview.kind === 'csv') {
+    return (
+      <div className="files-layer__csvwrap">
+        <table className="files-layer__csv">
+          <thead>
+            <tr>
+              {preview.header.map((cell, i) => (
+                <th key={i}>{cell}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {preview.rows.slice(0, EXPLORER_CSV_SHOWN_ROWS).map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => (
+                  <td key={ci}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="files-layer__csvfoot">
+          first {Math.min(EXPLORER_CSV_SHOWN_ROWS, preview.rows.length)} of{' '}
+          {preview.totalRows.toLocaleString()} rows
+        </p>
+      </div>
+    );
+  }
+  if (isMarkdownPath(selectedPath)) {
+    return (
+      <div className="blueprintwindow__markdown" data-testid="blueprint-window-explorer-markdown">
+        <Markdown text={preview.text} />
+      </div>
+    );
+  }
+  return (
+    <pre className="files-layer__content">
+      <code>{preview.text}</code>
+    </pre>
+  );
+}
+
+/**
+ * Honest, typed gap notice: the fallback for a clio host that predates
+ * #1192 — no backend surface to list or read the blueprint's OTHER files
+ * (experts/*.md, tools/, …), only the AGENT.md body above, via
+ * `agent_blueprint.metadata.body`. `BlueprintFileExplorer` renders this
+ * only when `listBlueprintFiles` fails with a 404 (route not present);
+ * any other failure gets a distinct honest error message instead so a
+ * real bug is never misattributed as a version mismatch.
  *
  * `GET /v1/workspaces/{wid}/files[/read]` (clio-agent
  * routes/workspaces.py, mounted per-workspace) only resolves a REGISTERED

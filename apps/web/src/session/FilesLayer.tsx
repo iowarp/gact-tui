@@ -24,7 +24,7 @@ export interface FilesLayerProps {
   onClose: () => void;
 }
 
-function readableSize(value: number | undefined): string {
+export function readableSize(value: number | undefined): string {
   if (value === undefined) return '';
   if (value < 1024) return `${value} B`;
   return `${(value / 1024).toFixed(value < 10_240 ? 1 : 0)} KB`;
@@ -297,7 +297,7 @@ export function FilesLayer({
   );
 }
 
-function DirRow({
+export function DirRow({
   node,
   selected,
   onOpen,
@@ -329,7 +329,7 @@ function DirRow({
   );
 }
 
-function SearchResultRows({
+export function SearchResultRows({
   results,
   selected,
   onOpen,

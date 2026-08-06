@@ -1,5 +1,12 @@
 export { fetchAgentBlueprint } from './agents.js';
 
+export { fetchAgentBlueprintFiles, readAgentBlueprintFile } from './blueprint_files.js';
+export type {
+  BlueprintFileEntry,
+  BlueprintFilesOptions,
+  BlueprintFilesResult,
+} from './blueprint_files.js';
+
 export type {
   AddBlueprintSourceInput,
   AgentBlueprintDefinition,

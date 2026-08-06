@@ -1,4 +1,4 @@
-export { Client, TransportTimeoutError, type ClientOptions } from './http.js';
+export { Client, HttpError, TransportTimeoutError, type ClientOptions } from './http.js';
 export type {
   McpAppPayload,
   McpAppRef,

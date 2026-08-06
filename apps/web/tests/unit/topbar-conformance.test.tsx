@@ -102,6 +102,15 @@ describe('blueprint crumb (C1, corrected)', () => {
         }
         return { tasks: [], used_pct: null, pct_used: 0 };
       }),
+      // BlueprintWindow's file explorer (clio-agent#1192) — this stub client
+      // predates that route, so a 404 exercises the same honest gap-note
+      // fallback a real old backend would hit.
+      listBlueprintFiles: vi.fn(async () => {
+        throw Object.assign(new Error('not found'), { status: 404 });
+      }),
+      readBlueprintFile: vi.fn(async () => {
+        throw Object.assign(new Error('not found'), { status: 404 });
+      }),
     } as unknown as Client;
   }
 

@@ -84,3 +84,37 @@
   font: calc(10.5px * var(--ts))/1.6 var(--f-mono);
   white-space: pre;
 }
+
+/* ---- blueprint file explorer (gact-agent#1192 — tree-left/content-right,
+   reuses FilesLayer's DirRow + owner-surfaces.css row/breadcrumb classes,
+   compact height so it doesn't blow out the window) ---- */
+.blueprintwindow__explorer {
+  display: flex;
+  height: 300px;
+  min-height: 0;
+  border: 1px solid var(--t-bd3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.blueprintwindow__explorertree {
+  display: flex;
+  flex: 0 0 220px;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--t-bd3);
+}
+.blueprintwindow__explorercontent {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--t-bg);
+}
+.blueprintwindow__explorercontent .blueprintwindow__markdown {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
