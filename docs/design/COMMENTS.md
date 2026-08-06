@@ -133,3 +133,31 @@ checked off with the commit that lands it. Newest first.
 - Demo goals: (a) NDP workflow with async agents; (b) intertwined artifact
   provenance graph, maybe clio-relay execution; stretch (c) skills/hooks,
   (d) P3 + P1 visual semantics.
+
+## Pre-demo checklist (P5-9 closing gate — run top to bottom the morning of the demo)
+
+1. **Clean slate, all three layers, the second before launch** (stale state is
+   silent poison): delete the demo workspace's old sessions, empty its staging
+   folder (`clio-runs/ndp`), AND either use a fresh workspace or clear the
+   workspace's artifact registry records — byte-identical re-stages dedup
+   against surviving records and the session then shows no mints.
+2. **Serve**: healthy on :17900 (watchdog running, cwd-pinned), provider
+   `claude_code` bound (`GET /v1/providers/lm` → configured true), latest
+   wire code (restart if any clio-agent commit landed since the last boot).
+3. **Session pre-flight** (never drive unverified): create the session, POST
+   the blueprint activation, then GET the record and CONFIRM
+   `metadata.active_agent_blueprint_id` — an unbound session runs the bare
+   builtin main by design. Confirm the allow-all policy exists.
+4. **Bundle**: `npm run build` on the demo tree, hard-reload the browser
+   (the update badge means a stale page).
+5. **Rehearsal content**: (a) the NDP pipeline run (sequential chain — the
+   Call-box + streaming story); (b) a fan-out turn for the gantt story
+   (a prompt comparing several regions makes main spawn children in
+   parallel); (c) the artifact walk: chip → panel (identity header, preview)
+   → PROVENANCE (lineage chain, record folds) → RECREATE.
+6. **During the run**: the running Call box streams the child's text with the
+   cursor + elapsed; waits collapse to one row with the ✻ activity line;
+   thinking folds appear on parent and children; the child view shows the
+   teal "returned to main" card wrapping the answer.
+7. **If anything looks wrong**: do not reset mid-demo — the transcript is
+   durable; a reload is safe (replay shells no longer clobber state).
