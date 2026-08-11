@@ -38,6 +38,12 @@ WORKDIR /build
 # .dockerignore, so this stays small.
 COPY apps/ ./apps/
 
+# wire-conformance.test.ts type-checks against the captured ground truth at
+# contract/testdata/*.json (`../../../../contract/testdata/...` from
+# apps/web/tests/unit/), so that dir must land at the same relative depth
+# here or `tsc` fails to resolve the module (TS2307).
+COPY contract/ ./contract/
+
 WORKDIR /build/apps
 
 # Install only the @clio/web dependency subtree (pulls in @clio/core); this
