@@ -9,7 +9,7 @@
  * The rail footer's "agents N" counts CONNECTED CLIO DEPLOYMENTS (a UI-owned
  * set, not a backend one), so an unrecorded connection makes that count lie.
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectScreen } from '../../src/connect/ConnectScreen';
 import type { BackendEntry } from '@clio/core';

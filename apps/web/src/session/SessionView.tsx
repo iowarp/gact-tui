@@ -1165,6 +1165,15 @@ export function SessionView({
         : undefined;
   });
 
+  // Same reasoning as `activeRunningRef`/`activeAsyncTasksRef` above: the SSE
+  // effect's mid-turn refresh reads the CURRENT scope, but depending on
+  // `activeScope` directly would tear the subscription down and reopen it on
+  // every scope switch.
+  const activeScopeRef = useRef(activeScope);
+  useEffect(() => {
+    activeScopeRef.current = activeScope;
+  });
+
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
   // parts via part.added, and the clean delegation wire's IN-PLACE settle
@@ -1213,7 +1222,7 @@ export function SessionView({
       const armed = isPillRefreshArmed(activeRunningRef.current, activeAsyncTasksRef.current);
       if (!shouldRefreshPillMidTurn(armed, now, lastPillRefreshAt)) return;
       lastPillRefreshAt = now;
-      void refreshPill(activeId, activeScope);
+      void refreshPill(activeId, activeScopeRef.current);
     };
     const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
       // Feed application is the shared pure helper (session/messageEvents.ts);
@@ -1260,7 +1269,7 @@ export function SessionView({
           // changed (owner: 'artifacts 5 for the whole run', 'ctx 0%'). Not
           // throttled: a settle is a bounded, low-frequency event, not a
           // per-delta stream.
-          void refreshPill(activeId, activeScope);
+          void refreshPill(activeId, activeScopeRef.current);
           break;
         default:
           break;
@@ -1271,7 +1280,11 @@ export function SessionView({
       if (reconcileTimer !== undefined) window.clearTimeout(reconcileTimer);
       subscription.close();
     };
-  }, [activeId, client]);
+    // `refreshPill` is stable modulo `client` (its own deps are `[client]`,
+    // already listed below), so this doesn't add a re-subscribe trigger.
+    // `activeScope` is deliberately read through `activeScopeRef` above, not
+    // listed here — see that ref's comment.
+  }, [activeId, client, refreshPill]);
 
   // Live child-session previews for RUNNING delegations (P4R prototype rule:
   // a Call box must not sit empty while its child streams — children are
@@ -1533,6 +1546,11 @@ export function SessionView({
       window.clearInterval(timer);
       subscription?.close();
     };
+    // Only `focusTop.sessionId` (captured into `sessionId` above) drives this
+    // effect; depending on the whole `focusTop` object would re-subscribe on
+    // any unrelated field change (e.g. peek) even when the child session is
+    // unchanged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusTop?.sessionId, client]);
 
   // Restore scroll on the MAIN transcript once it is the visible view AND
@@ -1896,7 +1914,7 @@ export function SessionView({
       // 8104304). The actual delete lives in confirmRemoveWorkspace below.
       setPendingRemoveWorkspaceId(workspaceId);
     },
-    [],
+    [client.baseUrl],
   );
 
   const confirmRemoveWorkspace = useCallback(async (): Promise<void> => {

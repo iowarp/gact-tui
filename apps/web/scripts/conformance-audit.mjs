@@ -55,9 +55,9 @@ const DUMP = (regionFilter) => `
       align: s.alignItems === 'normal' ? null : s.alignItems,
       // Interaction/motion signature — a static-only sweep is blind to the
       // pulse/glow/hover reactivity the design carries (owner catch, 2026-08-03).
-      animation: s.animationName === 'none' ? null : `${s.animationName} ${s.animationDuration} ${s.animationTimingFunction}`,
+      animation: s.animationName === 'none' ? null : \`\${s.animationName} \${s.animationDuration} \${s.animationTimingFunction}\`,
       shadow: s.boxShadow === 'none' ? null : s.boxShadow,
-      transition: s.transitionProperty === 'all' && s.transitionDuration === '0s' ? null : `${s.transitionProperty} ${s.transitionDuration}`,
+      transition: s.transitionProperty === 'all' && s.transitionDuration === '0s' ? null : \`\${s.transitionProperty} \${s.transitionDuration}\`,
       cursor: s.cursor === 'auto' || s.cursor === 'default' ? null : s.cursor,
       svg: isSvg
         ? { vb: el.getAttribute('viewBox'), d: [...el.querySelectorAll('path')].map((p) => (p.getAttribute('d') || '').slice(0, 40)) }

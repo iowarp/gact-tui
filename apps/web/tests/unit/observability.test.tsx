@@ -6,7 +6,7 @@
  * composition". If that needs anything bespoke, the kit has failed its purpose.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Observability } from '../../src/observability/Observability';
 import type { ObservabilityData } from '../../src/observability/types';
 

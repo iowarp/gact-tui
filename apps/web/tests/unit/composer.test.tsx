@@ -223,7 +223,6 @@ describe('send-while-busy message queue', () => {
     const tray = screen.getByTestId('composer-queue');
     expect(pill).toBeInTheDocument();
     // DOCUMENT_POSITION_FOLLOWING (4) on `pill` means pill comes BEFORE tray.
-    // eslint-disable-next-line no-bitwise
     expect(pill!.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // The queue tray's own top-left corner stays square (only the top-right
     // rounds) so it continues the pill's square bottom-left corner in one

@@ -80,8 +80,6 @@ export function HandoffPart({ part, returned = false }: HandoffPartProps) {
   // bundled PROTOTYPE fixture (what a prior pass measured) never populates
   // its own `sg.handle`. The two are different questions; the app's live
   // wire answers the first one "yes".
-  const handleId = str(part['handle_id']);
-  const rawState = str(part['status'] ?? part['live_state']).toLowerCase();
   // expert_handoff's `text` is a router-only arrow summary ("main ->
   // geospatial"), never a question — the real question rides in
   // `metadata.question` (contract/testdata/observed-parts-v0.3.json). Reading
@@ -175,7 +173,6 @@ export function MergedHandoff({ terminal, onOpenChild, preview }: MergedHandoffP
   const runLabel = str(final['run_label']);
   const placement = str(final['placement']);
   const handleId = str(final['handle_id']);
-  const rawState = str(final['status'] ?? final['live_state']).toLowerCase();
   const settled = str(final['stage']) !== 'delegate.started';
   const status = delegateStatus(final, settled);
   const question = str(finalMeta['question']);
