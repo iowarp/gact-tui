@@ -387,6 +387,23 @@ export async function installMockBackend(
         ],
       });
     }
+    // GET /v1/providers/lm (clio-agent#895/#1179) — the composer's active
+    // provider/model snapshot. Kept consistent with the /v1/providers stub
+    // above (same default provider/model) rather than invented separately.
+    if (url.pathname === '/v1/providers/lm') {
+      return json({
+        configured: true,
+        provider: 'anthropic',
+        api_base: '',
+        model: 'claude-sonnet-4-20250514',
+      });
+    }
+    // GET /v1/relay/status (clio-agent#1179) — this backend's own relay
+    // identity/reachability, read by the rail footer's "relay" indicator.
+    // No relay configured is the honest default for a local/dev backend.
+    if (url.pathname === '/v1/relay/status') {
+      return json({ configured: false });
+    }
     if (url.pathname === '/v1/workspaces') {
       if (options.stress) return json({ workspaces: stressFixtures().workspaces });
       return json({
