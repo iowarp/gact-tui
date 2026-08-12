@@ -1316,16 +1316,33 @@ export function SessionView({
   // the message-lifecycle one above), since mcp_task.* is its own vocabulary
   // with no message part behind it — a jarvis/relay call is not a spawned
   // child, so it never fires the expert_handoff part events the effect above
-  // gates its mid-turn refresh on. Every mcp_task.* event is a bounded,
-  // low-frequency job-state transition (not a token stream), so this
-  // refreshes unthrottled, same as the settle branch above.
+  // gates its mid-turn refresh on.
+  //
+  // Debounced (#1205 review item 5), NOT unthrottled: refreshPill is a
+  // 4-request fan-out (agent-tasks, async-processes, context/state,
+  // artifacts), and the server can legitimately publish a burst for one
+  // logical settle (the write that records a terminal status, then a later
+  // dismiss's removal — see mcp_task_events.py / SPEC §7.3a). A single
+  // trailing-edge refresh per burst, not one fan-out per event, is the
+  // cheapest fix that keeps refreshPill itself untouched (no fetch-layer
+  // redesign) — every event still lands a refresh, just coalesced to the
+  // quiet moment after the burst settles rather than once per event.
   useEffect(() => {
     if (!activeId) return;
     if (typeof EventSource === 'undefined') return;
-    const subscription = subscribeSessionAsyncProcessEvents(client.sseUrl(activeId), () => {
-      void refreshPill(activeId, activeScope);
-    });
-    return () => subscription.close();
+    let debounceTimer: number | undefined;
+    const scheduleRefresh = () => {
+      if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = undefined;
+        void refreshPill(activeId, activeScope);
+      }, ASYNC_PROCESS_REFRESH_DEBOUNCE_MS);
+    };
+    const subscription = subscribeSessionAsyncProcessEvents(client.sseUrl(activeId), scheduleRefresh);
+    return () => {
+      if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+      subscription.close();
+    };
   }, [activeId, activeScope, client, refreshPill]);
 
   // Live child-session previews for RUNNING delegations (P4R prototype rule:
@@ -2948,6 +2965,14 @@ export function isTurnRunning(
 /** Default throttle window for the mid-turn pill refresh below — at most
  *  one `refreshPill` round trip per this many ms while a turn is live. */
 export const PILL_REFRESH_THROTTLE_MS = 2000;
+
+/** Trailing-edge debounce window for the async-processes SSE-triggered pill
+ *  refresh (#1205 review item 5) — a burst of mcp_task.* events (the write
+ *  that records a terminal status, then a later dismiss's removal, or
+ *  several lease/ledger changes in quick succession) collapses into ONE
+ *  `refreshPill` fan-out fired this many ms after the last event in the
+ *  burst, instead of one 4-request fan-out per event. */
+export const ASYNC_PROCESS_REFRESH_DEBOUNCE_MS = 400;
 
 /**
  * The mid-turn pill-refresh gate: true when a refresh should actually fire

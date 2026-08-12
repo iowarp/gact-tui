@@ -416,11 +416,19 @@ function parseSessionMcpTaskEvent(
     if (parsed['type'] !== expectedType) return null;
     const payload = parsed['payload'];
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    // Explicit assertion (matches parseSessionTraceEvent's own `as unknown as
+    // SessionTraceEvent`, the sibling Extract<GactEvent, ...>-typed parser)
+    // rather than relying on the compiler distributing `expectedType`'s
+    // SessionMcpTaskEventType union across GactEvent's discriminated union to
+    // infer this literal's assignability on its own — `tsc --noEmit` confirms
+    // that inference DOES succeed today (#1205 review item 3), but an
+    // explicit cast keeps this immune to a future compiler/flag change
+    // silently making that inference fail instead of erroring loudly here.
     return {
       type: expectedType,
       occurred_at: typeof parsed['occurred_at'] === 'string' ? parsed['occurred_at'] : '',
       payload: payload as Record<string, unknown>,
-    };
+    } as SessionMcpTaskEvent;
   } catch {
     return null;
   }

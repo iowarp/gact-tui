@@ -7,9 +7,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AsyncRunsPopover, type AsyncRunItem } from '../../src/composer/AsyncRunsPopover';
 import { Composer } from '../../src/composer/Composer';
 import { Picker } from '../../src/composer/Picker';
@@ -818,5 +818,134 @@ describe('SessionView wiring — the async chip carries real async-processes row
     // "ready" message from selectSession), never replaced by a center-focus
     // navigation — a durable MCP task has no child session to drill into.
     expect(screen.getByText('ready')).toBeInTheDocument();
+  });
+});
+
+describe('async-processes SSE refresh is debounced (clio-agent#1205 review item 5)', () => {
+  // A real (stubbed-global) EventSource so the mcp_task.* subscription effect
+  // actually runs instead of taking its `typeof EventSource === 'undefined'`
+  // early return (jsdom has none by default — every other SSE test in this
+  // file relies on exactly that early return to make its effects no-ops).
+  type Listener = (event: MessageEvent<string>) => void;
+
+  class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    listeners = new Map<string, Listener[]>();
+    closed = false;
+    constructor(public url: string) {
+      FakeEventSource.instances.push(this);
+    }
+    addEventListener(type: string, listener: EventListener) {
+      const bucket = this.listeners.get(type) ?? [];
+      bucket.push(listener as unknown as Listener);
+      this.listeners.set(type, bucket);
+    }
+    removeEventListener(type: string, listener: EventListener) {
+      const bucket = this.listeners.get(type) ?? [];
+      this.listeners.set(
+        type,
+        bucket.filter((l) => l !== (listener as unknown as Listener)),
+      );
+    }
+    close() {
+      this.closed = true;
+    }
+    emit(type: string, data: string) {
+      for (const listener of this.listeners.get(type) ?? []) {
+        listener({ data } as MessageEvent<string>);
+      }
+    }
+  }
+
+  beforeEach(() => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal('EventSource', FakeEventSource as unknown as typeof EventSource);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function emitMcpTaskUpdated(source: FakeEventSource) {
+    source.emit(
+      'mcp_task.updated',
+      JSON.stringify({
+        type: 'mcp_task.updated',
+        occurred_at: '2026-08-12T00:00:00Z',
+        payload: { key: { task_id: 't1' }, status: 'working' },
+      }),
+    );
+  }
+
+  it('coalesces a burst of mcp_task.* events into ONE refreshPill fan-out, not one per event', async () => {
+    let asyncProcessesCalls = 0;
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        asyncProcessesCalls += 1;
+        return { processes: [] };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 0 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const sseUrl = (id: string) => `http://live.test/v1/sessions/${id}/events`;
+    render(<SessionView client={client({ get, sseUrl })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const mcpSource = FakeEventSource.instances.find((s) => s.listeners.has('mcp_task.updated'));
+    expect(mcpSource).toBeDefined();
+    const before = asyncProcessesCalls;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(100); // well under the debounce window
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(100);
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(500); // past the debounce window
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Three events in one burst, ONE trailing-edge refresh — not the 3x (12
+    // request) fan-out an unthrottled per-event refresh would have produced.
+    expect(asyncProcessesCalls - before).toBe(1);
+  });
+
+  it('still refreshes for a single isolated event once the debounce window elapses', async () => {
+    let asyncProcessesCalls = 0;
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        asyncProcessesCalls += 1;
+        return { processes: [] };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 0 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const sseUrl = (id: string) => `http://live.test/v1/sessions/${id}/events`;
+    render(<SessionView client={client({ get, sseUrl })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const mcpSource = FakeEventSource.instances.find((s) => s.listeners.has('mcp_task.updated'));
+    expect(mcpSource).toBeDefined();
+    const before = asyncProcessesCalls;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(500);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Debouncing must never SUPPRESS a lone event, only coalesce a burst.
+    expect(asyncProcessesCalls - before).toBe(1);
   });
 });
