@@ -51,9 +51,12 @@ function formatDoneAgo(endedAt?: string): string | undefined {
 export interface AsyncRunsPopoverProps {
   open: boolean;
   tasks: AsyncRunItem[];
-  /** Dismissing a "recently finished" row is view-only — there is no backend
-   *  endpoint that deletes a completed agent-task record, so this only hides
-   *  the row from this popover instance. */
+  /** Instant, optimistic, local-only: hides the row from THIS popover
+   *  instance immediately. clio-agent#1205 review (3rd round): the caller
+   *  (SessionView, via Composer's onDismissRun) ALSO fires the durable
+   *  server-side dismiss (POST /v1/runs/{id}/dismiss) alongside this — this
+   *  Set stays the optimistic-UI half, never replaced by it, since the
+   *  server round trip must not gate the visible hide. */
   dismissedIds: Set<string>;
   onDismiss: (id: string) => void;
   /** Route a row click by its `kind` (clio-agent#1205): an agent row pushes

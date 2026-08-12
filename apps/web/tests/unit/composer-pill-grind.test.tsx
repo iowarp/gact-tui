@@ -7,7 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AsyncRunsPopover, type AsyncRunItem } from '../../src/composer/AsyncRunsPopover';
@@ -818,6 +818,39 @@ describe('SessionView wiring — the async chip carries real async-processes row
     // "ready" message from selectSession), never replaced by a center-focus
     // navigation — a durable MCP task has no child session to drill into.
     expect(screen.getByText('ready')).toBeInTheDocument();
+  });
+
+  it('dismissing a settled mcp-task row issues POST /v1/runs/{id}/dismiss (clio-agent#1205 review item 3)', async () => {
+    const post = vi.fn(async (path: string) => ({
+      dismissed: true,
+      handle_id: path.split('/')[3],
+    }));
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-done', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const chip = await screen.findByRole('button', { name: /async 1/ });
+    fireEvent.click(chip);
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+    fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+    // The durable server-side half fires alongside the (already-covered-
+    // elsewhere) optimistic local hide, through the SAME existing dismiss
+    // control the AgentTask branch already used.
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/v1/runs/jarvis-done/dismiss', {}));
   });
 });
 

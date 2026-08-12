@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  dismissRun,
   fetchArtifactLineage,
   fetchLmConfig,
   fetchSessionAgentTasks,
@@ -2304,6 +2305,20 @@ export function SessionView({
     if (!process) return;
     setRightStack((cur) => openRightEntry(cur, { kind: 'mcp-task', sessionId: activeId, process }));
   };
+  // Dismiss (clio-agent#1205 review, 3rd round): Composer's own onDismiss
+  // already hid the row optimistically (its local dismissedAsyncIds Set,
+  // kept exactly as-is); this makes it durable server-side through the
+  // EXISTING dismiss control (POST /v1/runs/{id}/dismiss,
+  // run_registry.dismiss_run) — an AgentTask's dismissed flag, or, the case
+  // that actually matters, the ONE reachable way to clear a settled durable
+  // MCP/relay TaskRecord (#1205 2nd round's retention otherwise accumulates
+  // unboundedly in sessions.json with no way to ever clear it). Fire-and-
+  // forget, matching the optimistic-UI contract: a failed dismiss leaves the
+  // row hidden locally, the same degrade this popover already had before any
+  // backend call existed.
+  const onDismissRun = (id: string) => {
+    void dismissRun(client, id);
+  };
   // The prototype also reads "· update available"; no endpoint reports
   // update state, so that half is omitted, not invented.
   const versionLine = backendVersion ? (
@@ -2379,6 +2394,7 @@ export function SessionView({
         {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
         {...(composerAsyncTasks ? { asyncTasks: composerAsyncTasks } : {})}
         onOpenAsyncRun={onOpenAsyncRun}
+        onDismissRun={onDismissRun}
         {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
