@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  dismissRun,
   fetchArtifactLineage,
   fetchLmConfig,
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
+  fetchSessionAsyncProcesses,
   fetchSessionContextState,
   fetchSessionTrace,
   mergeMessages,
   prependOlderPage,
+  subscribeSessionAsyncProcessEvents,
   subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
   type Client,
@@ -17,6 +20,7 @@ import {
   type Session,
   type SessionAgentTask,
   type SessionArtifactVersion,
+  type SessionAsyncProcess,
   type SessionMessageEvent,
   type Workspace,
 } from '@clio/core';
@@ -62,6 +66,7 @@ import {
 import { AgentPeekView } from './AgentPeekView';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
+import { McpTaskPeekView } from './McpTaskPeekView';
 import { ConsoleDock } from './ConsoleDock';
 import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import {
@@ -120,6 +125,15 @@ interface ComposerPillState {
   asyncCount?: number;
   /** The raw rows behind asyncCount — backs the async chip's runs popover. */
   asyncTasks?: SessionAgentTask[];
+  /**
+   * The session-scoped union of agent AND durable MCP-task rows
+   * (clio-agent#1205, GET /v1/sessions/{id}/async-processes) — the ACTUAL
+   * source the tray renders from (see composerAsyncTasks below). Kept
+   * separate from `asyncTasks` above rather than replacing it: `asyncTasks`
+   * still backs Observability's plain agent-task rows, which have no reason
+   * to carry the mcp-task union along.
+   */
+  asyncProcesses?: SessionAsyncProcess[];
   contextPercent?: number;
   /** Raw token numbers behind contextPercent — Settings' Metrics page renders
    * the same "82.1k / 200k" shape the prototype's context row carries. */
@@ -160,6 +174,25 @@ function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
   return Promise.resolve()
     .then(request)
     .catch(() => null);
+}
+
+/**
+ * A 404 off `dismissRun` (clio-agent#1205 review item 1) is an EXPECTED
+ * outcome, not a bug: a stale handle (already dismissed elsewhere), or the
+ * client/server terminality-vocabulary divergence tracked on the #1205
+ * follow-up list (this UI's own terminal-status read can race the server's
+ * terminal-only dismiss guard). Duck-typed rather than `instanceof
+ * HttpError` — same reasoning as `BlueprintWindow.tsx`'s `isNotFoundError`
+ * — so a test can hand back any 404-shaped rejection without constructing
+ * the real error class.
+ */
+function isHttpNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    (error as { status?: unknown }).status === 404
+  );
 }
 
 /**
@@ -810,13 +843,20 @@ export function SessionView({
 
   const refreshPill = useCallback(
     async (sessionId: string, scope: string) => {
-      const [tasksResult, contextResult, artifactsResult] = await Promise.allSettled([
-        Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
-        Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
-        Promise.resolve().then(() =>
-          fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
-        ),
-      ]);
+      const [tasksResult, processesResult, contextResult, artifactsResult] =
+        await Promise.allSettled([
+          // Kept alongside fetchSessionAsyncProcesses below, NOT a leftover
+          // (#1205 review): Settings' Metrics page (settings/Settings.tsx:49)
+          // takes a plain `SessionAgentTask[]`, not the agent+mcp-task union —
+          // deleting this would either break that consumer or force it to
+          // filter the union back down to agent rows for no reason.
+          Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
+          Promise.resolve().then(() => fetchSessionAsyncProcesses(client, sessionId)),
+          Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
+          Promise.resolve().then(() =>
+            fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+          ),
+        ]);
       const next: ComposerPillState = { sessionId, scope };
 
       if (tasksResult.status === 'fulfilled') {
@@ -824,6 +864,10 @@ export function SessionView({
         next.asyncCount = tasksResult.value.tasks.filter(
           (task) => !TERMINAL_AGENT_TASK_STATUSES.has(String(task.status).toLowerCase()),
         ).length;
+      }
+
+      if (processesResult.status === 'fulfilled') {
+        next.asyncProcesses = processesResult.value.processes;
       }
 
       if (contextResult.status === 'fulfilled') {
@@ -1285,6 +1329,41 @@ export function SessionView({
     // `activeScope` is deliberately read through `activeScopeRef` above, not
     // listed here — see that ref's comment.
   }, [activeId, client, refreshPill]);
+
+  // Async-processes tray live refresh for durable MCP/relay tasks
+  // (clio-agent#1205): a SEPARATE EventSource against the same session URL
+  // (mirrors how the observability trace subscription already coexists with
+  // the message-lifecycle one above), since mcp_task.* is its own vocabulary
+  // with no message part behind it — a jarvis/relay call is not a spawned
+  // child, so it never fires the expert_handoff part events the effect above
+  // gates its mid-turn refresh on.
+  //
+  // Debounced (#1205 review item 5), NOT unthrottled: refreshPill is a
+  // 4-request fan-out (agent-tasks, async-processes, context/state,
+  // artifacts), and the server can legitimately publish a burst for one
+  // logical settle (the write that records a terminal status, then a later
+  // dismiss's removal — see mcp_task_events.py / SPEC §7.3a). A single
+  // trailing-edge refresh per burst, not one fan-out per event, is the
+  // cheapest fix that keeps refreshPill itself untouched (no fetch-layer
+  // redesign) — every event still lands a refresh, just coalesced to the
+  // quiet moment after the burst settles rather than once per event.
+  useEffect(() => {
+    if (!activeId) return;
+    if (typeof EventSource === 'undefined') return;
+    let debounceTimer: number | undefined;
+    const scheduleRefresh = () => {
+      if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = undefined;
+        void refreshPill(activeId, activeScope);
+      }, ASYNC_PROCESS_REFRESH_DEBOUNCE_MS);
+    };
+    const subscription = subscribeSessionAsyncProcessEvents(client.sseUrl(activeId), scheduleRefresh);
+    return () => {
+      if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+      subscription.close();
+    };
+  }, [activeId, activeScope, client, refreshPill]);
 
   // Live child-session previews for RUNNING delegations (P4R prototype rule:
   // a Call box must not sit empty while its child streams — children are
@@ -2206,28 +2285,69 @@ export function SessionView({
   // prototype's own default pill); once a real session exists the REAL
   // fetched value is authoritative, including while it is still loading.
   const composerContextPercent = activeId ? activePill?.contextPercent : 0;
-  // Thin projection of the pill's raw agent-task rows for the async chip's
-  // runs popover — undefined (not []) until a real read has landed, so the
+  // Thin projection of the pill's async-processes union (clio-agent#1205 —
+  // agent AND durable MCP-task rows together) for the async chip's runs
+  // popover — undefined (not []) until a real read has landed, so the
   // composer falls back to its plain onOpenAsync jump instead of opening an
   // empty popover that misrepresents "we don't know yet" as "there is none".
-  const composerAsyncTasks: AsyncRunItem[] | undefined = activePill?.asyncTasks?.map((task) => {
-    const id = task.task_id ?? task.id ?? '';
-    const status = String(task.status ?? '').toLowerCase();
-    const placement = task.placement ?? task.host;
+  const composerAsyncTasks: AsyncRunItem[] | undefined = activePill?.asyncProcesses?.map((row) => {
+    const status = String(row.status ?? '').toLowerCase();
+    const placement =
+      (row['placement'] as string | undefined) ?? (row['host'] as string | undefined);
+    const endedAt = (row['completed_at'] as string | undefined) ?? row.updated_at;
     return {
-      id,
-      label: task.run_label || task.agent_ref?.expert_id || id || 'task',
+      id: row.id,
+      kind: row.kind,
+      label: row.title || row.id || 'task',
       status,
       ...(placement ? { placement } : {}),
       // Real created_at/completed_at|updated_at wire fields drive the
       // popover's "2h 14m" / "done 26m ago" elapsed text — never invented.
-      ...(task.created_at ? { startedAt: task.created_at } : {}),
-      ...(task.completed_at ?? task.updated_at
-        ? { endedAt: task.completed_at ?? task.updated_at }
-        : {}),
+      ...(row.created_at ? { startedAt: row.created_at } : {}),
+      ...(endedAt ? { endedAt } : {}),
       terminal: TERMINAL_AGENT_TASK_STATUSES.has(status),
     };
   });
+  // Route a tray-row click by kind (clio-agent#1205): an agent row pushes to
+  // CENTER FOCUS (reuses openChildByHandle, same destination a plain Call-box
+  // click reaches); an mcp-task row has no child session to drill into, so it
+  // always opens the read-only RIGHT-column peek instead.
+  const onOpenAsyncRun = (task: AsyncRunItem) => {
+    if (!activeId) return;
+    if (task.kind === 'agent') {
+      void openChildByHandle(task.id, task.label);
+      return;
+    }
+    const process = activePill?.asyncProcesses?.find(
+      (row) => row.kind === 'mcp-task' && row.id === task.id,
+    );
+    if (!process) return;
+    setRightStack((cur) => openRightEntry(cur, { kind: 'mcp-task', sessionId: activeId, process }));
+  };
+  // Dismiss (clio-agent#1205 review, 3rd round): Composer's own onDismiss
+  // already hid the row optimistically (its local dismissedAsyncIds Set,
+  // kept exactly as-is); this makes it durable server-side through the
+  // EXISTING dismiss control (POST /v1/runs/{id}/dismiss,
+  // run_registry.dismiss_run) — an AgentTask's dismissed flag, or, the case
+  // that actually matters, the ONE reachable way to clear a settled durable
+  // MCP/relay TaskRecord (#1205 2nd round's retention otherwise accumulates
+  // unboundedly in sessions.json with no way to ever clear it). Fire-and-
+  // forget, matching the optimistic-UI contract: a failed dismiss leaves the
+  // row hidden locally, the same degrade this popover already had before any
+  // backend call existed — but the failure itself must not become an
+  // unhandled rejection (#1205 review item 1). A 404 is EXPECTED (see
+  // isHttpNotFound) and silently absorbed; anything else reaches the
+  // console as a typed reason, matching this file's own "no silent catch"
+  // convention (see the artifact-lineage/preview catches above).
+  const onDismissRun = (id: string) => {
+    dismissRun(client, id).catch((reason: unknown) => {
+      if (isHttpNotFound(reason)) return;
+      console.warn('[async-processes] dismissRun failed', {
+        id,
+        reason: reason instanceof Error ? reason.message : String(reason),
+      });
+    });
+  };
   // The prototype also reads "· update available"; no endpoint reports
   // update state, so that half is omitted, not invented.
   const versionLine = backendVersion ? (
@@ -2302,6 +2422,8 @@ export function SessionView({
           : {})}
         {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
         {...(composerAsyncTasks ? { asyncTasks: composerAsyncTasks } : {})}
+        onOpenAsyncRun={onOpenAsyncRun}
+        onDismissRun={onDismissRun}
         {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
@@ -2410,6 +2532,13 @@ export function SessionView({
                     sessionId={rightTop.sessionId}
                     agent={rightTop.agent}
                     parentLabel={rightTop.parentLabel}
+                    onClose={() => setRightStack([])}
+                  />
+                ) : rightTop.kind === 'mcp-task' ? (
+                  <McpTaskPeekView
+                    client={client}
+                    sessionId={rightTop.sessionId}
+                    process={rightTop.process}
                     onClose={() => setRightStack([])}
                   />
                 ) : (
@@ -2881,6 +3010,14 @@ export function isTurnRunning(
 /** Default throttle window for the mid-turn pill refresh below — at most
  *  one `refreshPill` round trip per this many ms while a turn is live. */
 export const PILL_REFRESH_THROTTLE_MS = 2000;
+
+/** Trailing-edge debounce window for the async-processes SSE-triggered pill
+ *  refresh (#1205 review item 5) — a burst of mcp_task.* events (the write
+ *  that records a terminal status, then a later dismiss's removal, or
+ *  several lease/ledger changes in quick succession) collapses into ONE
+ *  `refreshPill` fan-out fired this many ms after the last event in the
+ *  burst, instead of one 4-request fan-out per event. */
+export const ASYNC_PROCESS_REFRESH_DEBOUNCE_MS = 400;
 
 /**
  * The mid-turn pill-refresh gate: true when a refresh should actually fire

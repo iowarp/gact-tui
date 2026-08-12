@@ -1,15 +1,20 @@
+import type { KeyboardEvent } from 'react';
 import { Eyebrow, Icon, Popover } from '../kit';
 import './async-runs-popover.css';
 
-/** One async agent run as the composer's pill needs it — a thin projection
- *  of the session's real agent-task rows (client.get(`/agent-tasks`)), not
- *  invented data. `terminal` mirrors SessionView's own
- *  TERMINAL_AGENT_TASK_STATUSES classification. `startedAt`/`endedAt` are the
- *  real `created_at`/`updated_at`|`completed_at` wire fields — they drive the
- *  prototype's "2h 14m" / "done 26m ago" elapsed text; omitted entirely when
- *  the caller doesn't have a timestamp rather than showing a guessed one. */
+/** One async process run as the composer's pill needs it — a thin
+ *  projection of the session's real async-processes rows
+ *  (client.get(`/async-processes`), clio-agent#1205), not invented data.
+ *  `kind` discriminates a spawned agent from a durable MCP/relay task —
+ *  each opens a different destination (see `onOpenRun`). `terminal` mirrors
+ *  SessionView's own TERMINAL_AGENT_TASK_STATUSES classification.
+ *  `startedAt`/`endedAt` are the real `created_at`/`updated_at`|`completed_at`
+ *  wire fields — they drive the prototype's "2h 14m" / "done 26m ago"
+ *  elapsed text; omitted entirely when the caller doesn't have a timestamp
+ *  rather than showing a guessed one. */
 export interface AsyncRunItem {
   id: string;
+  kind: 'agent' | 'mcp-task';
   label: string;
   status: string;
   placement?: string;
@@ -46,11 +51,18 @@ function formatDoneAgo(endedAt?: string): string | undefined {
 export interface AsyncRunsPopoverProps {
   open: boolean;
   tasks: AsyncRunItem[];
-  /** Dismissing a "recently finished" row is view-only — there is no backend
-   *  endpoint that deletes a completed agent-task record, so this only hides
-   *  the row from this popover instance. */
+  /** Instant, optimistic, local-only: hides the row from THIS popover
+   *  instance immediately. clio-agent#1205 review (3rd round): the caller
+   *  (SessionView, via Composer's onDismissRun) ALSO fires the durable
+   *  server-side dismiss (POST /v1/runs/{id}/dismiss) alongside this — this
+   *  Set stays the optimistic-UI half, never replaced by it, since the
+   *  server round trip must not gate the visible hide. */
   dismissedIds: Set<string>;
   onDismiss: (id: string) => void;
+  /** Route a row click by its `kind` (clio-agent#1205): an agent row pushes
+   *  to center focus, an mcp-task row opens the read-only right-column peek.
+   *  Omitted = rows render inert, same as before this feature existed. */
+  onOpenRun?: (task: AsyncRunItem) => void;
   /** The full runs view (Observability's runs tab). Omitted = the footer
    *  link is not rendered rather than a dead link. */
   onOpenHistory?: () => void;
@@ -59,42 +71,70 @@ export interface AsyncRunsPopoverProps {
 
 /**
  * The prototype's async-agents runs popover (tgRuns): a floating panel
- * listing detached/running agent runs, a dismissible "recently finished"
- * section, and a "run history" link into the fuller view.
+ * listing detached/running agent AND durable MCP-task runs (clio-agent#1205),
+ * a dismissible "recently finished" section, and a "run history" link into
+ * the fuller view.
  */
 export function AsyncRunsPopover({
   open,
   tasks,
   dismissedIds,
   onDismiss,
+  onOpenRun,
   onOpenHistory,
   onClose,
 }: AsyncRunsPopoverProps) {
   const active = tasks.filter((task) => !task.terminal);
   const finished = tasks.filter((task) => task.terminal && !dismissedIds.has(task.id));
 
+  function openRun(task: AsyncRunItem) {
+    if (!onOpenRun) return;
+    onOpenRun(task);
+    onClose();
+  }
+
   return (
-    <Popover open={open} label="Async agents" placement="up" onClose={onClose}>
+    <Popover open={open} label="async processes" placement="up" onClose={onClose}>
       <div className="async-runs">
-        {/* Measured on the prototype's own popover: the "async agents" and
+        {/* Measured on the prototype's own popover: the "async processes" and
             "recently finished" headers share the SAME plain 10.5px/.1em/muted
-            eyebrow treatment — neither is bold or tight-tracked. */}
-        <Eyebrow>async agents</Eyebrow>
+            eyebrow treatment — neither is bold or tight-tracked. Renamed from
+            "async agents" (clio-agent#1205): the tray now also lists durable
+            MCP/relay tasks, not agents alone. */}
+        <Eyebrow>async processes</Eyebrow>
         {active.length === 0 && finished.length === 0 ? (
           <p className="async-runs__empty">No async runs for this session.</p>
         ) : null}
         {active.length > 0 ? (
-          <div className="async-runs__list" role="list" aria-label="Running agents">
+          <div className="async-runs__list" role="list" aria-label="Running processes">
             {active.map((task) => {
               const elapsed = formatElapsed(task.startedAt);
               return (
-                <div className="async-runs__row" role="listitem" key={task.id}>
-                  {/* Measured on the prototype's own popover: active rows
-                      carry the SAME orange bolt glyph as the pill's async
-                      chip, never a pulsing dot — the dot vocabulary belongs
-                      to session/rail liveness, not this list. */}
+                <div
+                  className={`async-runs__row${onOpenRun ? ' async-runs__row--clickable' : ''}`}
+                  role="listitem"
+                  key={task.id}
+                  {...(onOpenRun
+                    ? {
+                        tabIndex: 0,
+                        onClick: () => openRun(task),
+                        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openRun(task);
+                          }
+                        },
+                      }
+                    : {})}
+                >
+                  {/* Measured on the prototype's own popover: active AGENT
+                      rows carry the SAME orange bolt glyph as the pill's
+                      async chip, never a pulsing dot — the dot vocabulary
+                      belongs to session/rail liveness, not this list. An
+                      MCP-task row (clio-agent#1205) carries a distinct tool
+                      glyph so the two kinds read apart at a glance. */}
                   <span className="async-runs__icon">
-                    <Icon name="zap" size={11} />
+                    <Icon name={task.kind === 'mcp-task' ? 'wrench' : 'zap'} size={11} />
                   </span>
                   <span className="async-runs__lines">
                     <span className="async-runs__line">
@@ -116,7 +156,7 @@ export function AsyncRunsPopover({
         {finished.length > 0 ? (
           <div className="async-runs__finished">
             <Eyebrow>recently finished</Eyebrow>
-            <div role="list" aria-label="Recently finished agents">
+            <div role="list" aria-label="Recently finished processes">
               {finished.map((task) => {
                 const failed = FAILED_STATUSES.has(task.status);
                 const when = formatDoneAgo(task.endedAt);
@@ -128,7 +168,25 @@ export function AsyncRunsPopover({
                     >
                       {failed ? '✗' : '✓'}
                     </span>
-                    <span className="async-runs__lines">
+                    {/* Only this label+status block opens the peek/focus — the
+                        dismiss control below stays its own sibling target so
+                        the two never nest as interactive elements. */}
+                    <span
+                      className={`async-runs__lines${onOpenRun ? ' async-runs__row--clickable' : ''}`}
+                      {...(onOpenRun
+                        ? {
+                            role: 'button',
+                            tabIndex: 0,
+                            onClick: () => openRun(task),
+                            onKeyDown: (event: KeyboardEvent<HTMLSpanElement>) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                openRun(task);
+                              }
+                            },
+                          }
+                        : {})}
+                    >
                       <span className="async-runs__line">
                         <span className="async-runs__label">{task.label}</span>
                         {task.placement ? (

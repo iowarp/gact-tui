@@ -1,0 +1,116 @@
+/* The async-processes tray's MCP-task peek in the right detail slot — same
+   chrome grammar as agentpeek.css (itself matching .detail/detail.css):
+   surface, left hairline, header row. A durable MCP/relay task has no
+   transcript, so the body is a field list instead of ChildFocusView. */
+.mcptaskpeek {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--t-sf);
+  border-left: 1px solid var(--t-bd3);
+}
+
+.mcptaskpeek__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--t-bd3);
+}
+
+.mcptaskpeek__eyebrowrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mcptaskpeek__eyebrow {
+  color: var(--t-cy);
+  font-family: var(--f-mono);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mcptaskpeek__crumbrow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mcptaskpeek__crumblabel,
+.mcptaskpeek__crumbsep {
+  flex-shrink: 0;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11px * var(--ts));
+}
+
+.mcptaskpeek__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  font-weight: 600;
+}
+
+.mcptaskpeek__spacer {
+  flex: 1;
+}
+
+.mcptaskpeek__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  gap: 10px;
+}
+
+/* A typed holding-path degrade (mcp_task_record_held_locally /
+   mcp_task_session_deleted) — surfaced, never hidden, matching the
+   no-silent-fallback rule the record itself already honors server-side. */
+.mcptaskpeek__degrade {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--t-bd3);
+  border-radius: 4px;
+  color: var(--t-wa, var(--t-mu));
+  font-family: var(--f-prose);
+  font-size: calc(11.5px * var(--ts));
+}
+
+.mcptaskpeek__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.mcptaskpeek__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mcptaskpeek__field dt {
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(10px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mcptaskpeek__field dd {
+  margin: 0;
+  color: var(--t-hd);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  overflow-wrap: anywhere;
+}

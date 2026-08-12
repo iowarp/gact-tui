@@ -338,3 +338,98 @@ function parseSessionMessageEvent(
     return null;
   }
 }
+
+/** The MCP-task-lifecycle SSE vocabulary (clio-agent#1205): one event per
+ *  durable TaskRecord write, published to the OWNING session's channel by
+ *  clio-agent's `mcp_task_events.py`. A sibling of SESSION_MESSAGE_EVENT_TYPES
+ *  above, kept independent of it — a different subsystem (durable relay/MCP
+ *  jobs, not message parts) with a different payload shape (the full
+ *  TaskRecord wire projection: key/tool/status/backend/updated_at/...). */
+export const SESSION_MCP_TASK_EVENT_TYPES = [
+  'mcp_task.updated',
+  'mcp_task.completed',
+  'mcp_task.failed',
+  'mcp_task.cancelled',
+] as const;
+
+export type SessionMcpTaskEventType = (typeof SESSION_MCP_TASK_EVENT_TYPES)[number];
+
+/** One parsed mcp-task-lifecycle envelope off the session SSE stream. The
+ *  payload IS the full TaskRecord wire projection, so a subscriber can apply
+ *  it directly to its local state with no follow-up fetch.
+ *
+ *  Sourced from the canonical `GactEvent` union (SPEC §7.7 / WIRE_EVENT_TYPES)
+ *  rather than a standalone sidecar interface (#1205 review D3) — the
+ *  mcp_task.* names are now part of the machine-checked wire vocabulary, so
+ *  this type and that vocabulary can never silently drift apart. */
+export type SessionMcpTaskEvent = Extract<
+  GactEvent,
+  {
+    type:
+      | 'mcp_task.updated'
+      | 'mcp_task.completed'
+      | 'mcp_task.failed'
+      | 'mcp_task.cancelled';
+  }
+>;
+
+/**
+ * Subscribe to the mcp-task-lifecycle events of one session's SSE stream —
+ * the async-processes tray's live-refresh feed for durable MCP/relay task
+ * records (clio-agent#1205). Independent of `subscribeSessionMessageEvents`
+ * (a separate EventSource against the same URL, mirroring how
+ * `subscribeSessionTraceEvents` already coexists with it for the
+ * observability trace panel). No dedup/reshaping — the server's wire is
+ * rendered as delivered.
+ */
+export function subscribeSessionAsyncProcessEvents(
+  url: string,
+  onEvent: (event: SessionMcpTaskEvent) => void,
+  createEventSource: SessionTraceEventSourceFactory = (sourceUrl) => new EventSource(sourceUrl),
+): SessionTraceSubscription {
+  const source = createEventSource(url);
+  const listeners = new Map<SessionMcpTaskEventType, EventListener>();
+
+  for (const type of SESSION_MCP_TASK_EVENT_TYPES) {
+    const listener: EventListener = (rawEvent) => {
+      const event = parseSessionMcpTaskEvent(rawEvent as MessageEvent<string>, type);
+      if (event) onEvent(event);
+    };
+    listeners.set(type, listener);
+    source.addEventListener(type, listener);
+  }
+
+  return {
+    close: () => {
+      for (const [type, listener] of listeners) source.removeEventListener(type, listener);
+      source.close();
+    },
+  };
+}
+
+function parseSessionMcpTaskEvent(
+  rawEvent: MessageEvent<string>,
+  expectedType: SessionMcpTaskEventType,
+): SessionMcpTaskEvent | null {
+  try {
+    const parsed = JSON.parse(rawEvent.data) as Record<string, unknown>;
+    if (parsed['type'] !== expectedType) return null;
+    const payload = parsed['payload'];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    // Explicit assertion (matches parseSessionTraceEvent's own `as unknown as
+    // SessionTraceEvent`, the sibling Extract<GactEvent, ...>-typed parser)
+    // rather than relying on the compiler distributing `expectedType`'s
+    // SessionMcpTaskEventType union across GactEvent's discriminated union to
+    // infer this literal's assignability on its own — `tsc --noEmit` confirms
+    // that inference DOES succeed today (#1205 review item 3), but an
+    // explicit cast keeps this immune to a future compiler/flag change
+    // silently making that inference fail instead of erroring loudly here.
+    return {
+      type: expectedType,
+      occurred_at: typeof parsed['occurred_at'] === 'string' ? parsed['occurred_at'] : '',
+      payload: payload as Record<string, unknown>,
+    } as SessionMcpTaskEvent;
+  } catch {
+    return null;
+  }
+}

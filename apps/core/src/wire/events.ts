@@ -146,6 +146,11 @@ export type GactEvent =
   | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp.resources.list_changed' })
   | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp.resources.updated' })
   | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp.log' })
+  // -- mcp task (durable relay/MCP jobs, SEP-2663/#1115, clio-agent#1205) --
+  | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp_task.updated' })
+  | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp_task.completed' })
+  | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp_task.failed' })
+  | (EventEnvelope<OpaqueEventPayload> & { type: 'mcp_task.cancelled' })
   // -- user questions --
   | (EventEnvelope<UserQuestionEventPayload> & { type: 'user_question.created' })
   | (EventEnvelope<UserQuestionEventPayload> & { type: 'user_question.answered' })
@@ -192,6 +197,10 @@ export const WIRE_EVENT_TYPES = [
   'mcp.server.reconnected',
   'mcp.server.status',
   'mcp.tools.list_changed',
+  'mcp_task.cancelled',
+  'mcp_task.completed',
+  'mcp_task.failed',
+  'mcp_task.updated',
   'memory.search.completed',
   'memory_read_context_frame.completed',
   'memory_read_context_frame.denied',

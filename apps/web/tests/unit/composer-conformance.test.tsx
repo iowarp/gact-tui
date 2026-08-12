@@ -69,6 +69,15 @@ describe('pill wiring (D1)', () => {
           { id: 't3', status: 'completed' },
         ],
       },
+      // clio-agent#1205: the tray's async count now sources from the unified
+      // async-processes projection, not /agent-tasks alone.
+      '/async-processes': {
+        processes: [
+          { kind: 'agent', id: 't1', title: 'agent t1', status: 'running' },
+          { kind: 'agent', id: 't2', title: 'agent t2', status: 'queued' },
+          { kind: 'agent', id: 't3', title: 'agent t3', status: 'completed' },
+        ],
+      },
       '/context/state': { used_pct: 0.41 },
     });
     await openSession(client);

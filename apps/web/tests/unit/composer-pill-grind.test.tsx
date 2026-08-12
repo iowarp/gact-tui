@@ -7,9 +7,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Client, Message, Session } from '@clio/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AsyncRunsPopover, type AsyncRunItem } from '../../src/composer/AsyncRunsPopover';
 import { Composer } from '../../src/composer/Composer';
 import { Picker } from '../../src/composer/Picker';
@@ -86,8 +86,15 @@ describe('placement chip — click-through and the static location dot', () => {
 
 describe('async runs popover — component behavior', () => {
   const TASKS: AsyncRunItem[] = [
-    { id: 't1', label: 'visualization #1', status: 'running', placement: 'local', terminal: false },
-    { id: 't2', label: 'analysis #1', status: 'completed', terminal: true },
+    {
+      id: 't1',
+      kind: 'agent',
+      label: 'visualization #1',
+      status: 'running',
+      placement: 'local',
+      terminal: false,
+    },
+    { id: 't2', kind: 'agent', label: 'analysis #1', status: 'completed', terminal: true },
   ];
 
   it('splits rows into the active list and the recently-finished section', () => {
@@ -167,7 +174,14 @@ describe('async runs popover — component behavior', () => {
       <AsyncRunsPopover
         open
         tasks={[
-          { id: 't1', label: 'gnss-region-watch', status: 'running', startedAt, terminal: false },
+          {
+            id: 't1',
+            kind: 'agent',
+            label: 'gnss-region-watch',
+            status: 'running',
+            startedAt,
+            terminal: false,
+          },
         ]}
         dismissedIds={new Set()}
         onDismiss={vi.fn()}
@@ -183,7 +197,14 @@ describe('async runs popover — component behavior', () => {
       <AsyncRunsPopover
         open
         tasks={[
-          { id: 't2', label: 'aftershock-scan', status: 'completed', endedAt, terminal: true },
+          {
+            id: 't2',
+            kind: 'agent',
+            label: 'aftershock-scan',
+            status: 'completed',
+            endedAt,
+            terminal: true,
+          },
         ]}
         dismissedIds={new Set()}
         onDismiss={vi.fn()}
@@ -199,7 +220,9 @@ describe('async runs popover — component behavior', () => {
     render(
       <AsyncRunsPopover
         open
-        tasks={[{ id: 't3', label: 'catalog-refresh', status: 'failed', terminal: true }]}
+        tasks={[
+          { id: 't3', kind: 'agent', label: 'catalog-refresh', status: 'failed', terminal: true },
+        ]}
         dismissedIds={new Set()}
         onDismiss={vi.fn()}
         onClose={vi.fn()}
@@ -213,7 +236,9 @@ describe('async runs popover — component behavior', () => {
     render(
       <AsyncRunsPopover
         open
-        tasks={[{ id: 't4', label: 'no-timestamp-run', status: 'running', terminal: false }]}
+        tasks={[
+          { id: 't4', kind: 'agent', label: 'no-timestamp-run', status: 'running', terminal: false },
+        ]}
         dismissedIds={new Set()}
         onDismiss={vi.fn()}
         onClose={vi.fn()}
@@ -228,8 +253,8 @@ describe('async runs popover — wired through the composer chip', () => {
   // both (round-8 fix: "async N" always matches what the popover underneath
   // it lists, not just the running count).
   const TASKS: AsyncRunItem[] = [
-    { id: 't1', label: 'visualization #1', status: 'running', terminal: false },
-    { id: 't2', label: 'analysis #1', status: 'completed', terminal: true },
+    { id: 't1', kind: 'agent', label: 'visualization #1', status: 'running', terminal: false },
+    { id: 't2', kind: 'agent', label: 'analysis #1', status: 'completed', terminal: true },
   ];
 
   it('opens the popover instead of jumping straight to onOpenAsync when asyncTasks is supplied', () => {
@@ -238,7 +263,7 @@ describe('async runs popover — wired through the composer chip', () => {
       <Composer onSubmit={vi.fn()} asyncCount={1} asyncTasks={TASKS} onOpenAsync={onOpenAsync} />,
     );
     fireEvent.click(screen.getByRole('button', { name: /async 2/ }));
-    expect(screen.getByRole('dialog', { name: /async agents/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /async processes/i })).toBeInTheDocument();
     expect(onOpenAsync).not.toHaveBeenCalled();
   });
 
@@ -247,7 +272,7 @@ describe('async runs popover — wired through the composer chip', () => {
     render(<Composer onSubmit={vi.fn()} asyncCount={1} onOpenAsync={onOpenAsync} />);
     fireEvent.click(screen.getByRole('button', { name: /async 1/ }));
     expect(onOpenAsync).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog', { name: /async agents/i })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: /async processes/i })).toBeNull();
   });
 
   it('shows the recently-finished badge, with a titled dot, only while an undismissed finished run is pending review', () => {
@@ -270,7 +295,7 @@ describe('async runs popover — wired through the composer chip', () => {
     // running=0: under the OLD `hasAsync = asyncCount > 0` gate this chip,
     // and the badge inside it, could never render at all.
     const ALL_SETTLED: AsyncRunItem[] = [
-      { id: 't1', label: 'geospatial #1', status: 'completed', terminal: true },
+      { id: 't1', kind: 'agent', label: 'geospatial #1', status: 'completed', terminal: true },
     ];
     const { container } = render(
       <Composer onSubmit={vi.fn()} asyncCount={0} asyncTasks={ALL_SETTLED} />,
@@ -286,7 +311,7 @@ describe('async runs popover — wired through the composer chip', () => {
 
   it('renders no chip at all once running=0 and every finished task is dismissed', () => {
     const ALL_SETTLED: AsyncRunItem[] = [
-      { id: 't1', label: 'geospatial #1', status: 'completed', terminal: true },
+      { id: 't1', kind: 'agent', label: 'geospatial #1', status: 'completed', terminal: true },
     ];
     render(<Composer onSubmit={vi.fn()} asyncCount={0} asyncTasks={ALL_SETTLED} />);
     fireEvent.click(screen.getByRole('button', { name: /async 1/ }));
@@ -584,6 +609,7 @@ function client(overrides: Record<string, unknown> = {}): Client {
     commands: vi.fn(async () => ({ commands: [] })),
     get: vi.fn(async (path: string) => {
       if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/async-processes')) return { processes: [] };
       if (path.includes('/context/state')) return { used_pct: 0 };
       if (path.includes('/artifacts')) return { artifacts: [] };
       throw new Error(`unstubbed GET ${path}`);
@@ -656,17 +682,18 @@ describe('SessionView wiring — the placement chip opens this session’s files
   });
 });
 
-describe('SessionView wiring — the async chip carries real agent-task rows', () => {
-  it('opens a popover fed by the session’s own agent-tasks, classified active vs finished', async () => {
+describe('SessionView wiring — the async chip carries real async-processes rows (clio-agent#1205)', () => {
+  it('opens a popover fed by the session’s own async-processes, classified active vs finished', async () => {
     const get = vi.fn(async (path: string) => {
-      if (path.includes('/agent-tasks')) {
+      if (path.includes('/async-processes')) {
         return {
-          tasks: [
-            { task_id: 't1', run_label: 'visualization #1', status: 'running' },
-            { task_id: 't2', run_label: 'analysis #1', status: 'completed' },
+          processes: [
+            { kind: 'agent', id: 't1', title: 'visualization #1', status: 'running' },
+            { kind: 'agent', id: 't2', title: 'analysis #1', status: 'completed' },
           ],
         };
       }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
       if (path.includes('/context/state')) return { used_pct: 10 };
       if (path.includes('/artifacts')) return { artifacts: [] };
       throw new Error(`unstubbed GET ${path}`);
@@ -677,7 +704,7 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
     const chip = await screen.findByRole('button', { name: /async 2/ });
     fireEvent.click(chip);
 
-    const popover = await screen.findByRole('dialog', { name: /async agents/i });
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
     expect(within(popover).getByText('visualization #1')).toBeInTheDocument();
     expect(within(popover).getByText('analysis #1')).toBeInTheDocument();
     expect(within(popover).getByText('recently finished')).toBeInTheDocument();
@@ -685,18 +712,20 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
 
   it('threads the real created_at/completed_at wire fields into the popover\'s elapsed text', async () => {
     const get = vi.fn(async (path: string) => {
-      if (path.includes('/agent-tasks')) {
+      if (path.includes('/async-processes')) {
         return {
-          tasks: [
+          processes: [
             {
-              task_id: 't1',
-              run_label: 'gnss-region-watch',
+              kind: 'agent',
+              id: 't1',
+              title: 'gnss-region-watch',
               status: 'running',
               created_at: new Date(Date.now() - 12 * 60_000).toISOString(),
             },
             {
-              task_id: 't2',
-              run_label: 'aftershock-scan',
+              kind: 'agent',
+              id: 't2',
+              title: 'aftershock-scan',
               status: 'completed',
               created_at: new Date(Date.now() - 40 * 60_000).toISOString(),
               completed_at: new Date(Date.now() - 26 * 60_000).toISOString(),
@@ -704,6 +733,7 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
           ],
         };
       }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
       if (path.includes('/context/state')) return { used_pct: 10 };
       if (path.includes('/artifacts')) return { artifacts: [] };
       throw new Error(`unstubbed GET ${path}`);
@@ -714,8 +744,319 @@ describe('SessionView wiring — the async chip carries real agent-task rows', (
     const chip = await screen.findByRole('button', { name: /async 2/ });
     fireEvent.click(chip);
 
-    const popover = await screen.findByRole('dialog', { name: /async agents/i });
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
     expect(within(popover).getByText('12m')).toBeInTheDocument();
     expect(within(popover).getByText('done 26m ago')).toBeInTheDocument();
+  });
+
+  it('an agent row click resolves via openChildByHandle, never the right-column peek', async () => {
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [{ kind: 'agent', id: 'task_1', title: 'geospatial #1', status: 'running' }],
+        };
+      }
+      if (path.includes('/agent-tasks')) {
+        return {
+          tasks: [{ task_id: 'task_1', handle_id: 'task_1', child_session_id: 'sess_child' }],
+        };
+      }
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    render(<SessionView client={client({ get })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const chip = await screen.findByRole('button', { name: /async 1/ });
+    fireEvent.click(chip);
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
+    fireEvent.click(within(popover).getByText('geospatial #1'));
+
+    // The popover closes on any row click (openRun always calls onClose)...
+    await screen.findByRole('button', { name: /async 1/ });
+    expect(screen.queryByRole('dialog', { name: /async processes/i })).toBeNull();
+    // ...and — the routing decision this test locks — an agent row NEVER
+    // opens the read-only right-column peek (that destination is reserved
+    // for mcp-task rows, see the sibling test below).
+    expect(screen.queryByTestId('mcp-task-peek')).toBeNull();
+    expect(screen.queryByTestId('agent-peek')).toBeNull();
+  });
+
+  it('an mcp-task row click opens the read-only right-column peek, never center focus', async () => {
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            {
+              kind: 'mcp-task',
+              id: 'jarvis-1',
+              title: 'jarvis_run',
+              status: 'working',
+              key: { server_id: 'relay-ares', session_id: 'sess_a', task_id: 'jarvis-1' },
+              backend: { cluster: 'ares' },
+            },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    render(<SessionView client={client({ get })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const chip = await screen.findByRole('button', { name: /async 1/ });
+    fireEvent.click(chip);
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
+    fireEvent.click(within(popover).getByText('jarvis_run'));
+
+    const peek = await screen.findByTestId('mcp-task-peek');
+    expect(within(peek).getByTestId('mcp-task-peek-name')).toHaveTextContent('jarvis_run');
+    // Read-only: the main transcript stays exactly where it was (its own
+    // "ready" message from selectSession), never replaced by a center-focus
+    // navigation — a durable MCP task has no child session to drill into.
+    expect(screen.getByText('ready')).toBeInTheDocument();
+  });
+
+  it('dismissing a settled mcp-task row issues POST /v1/runs/{id}/dismiss (clio-agent#1205 review item 3)', async () => {
+    const post = vi.fn(async (path: string) => ({
+      dismissed: true,
+      handle_id: path.split('/')[3],
+    }));
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-done', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const chip = await screen.findByRole('button', { name: /async 1/ });
+    fireEvent.click(chip);
+    const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+    fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+    // The durable server-side half fires alongside the (already-covered-
+    // elsewhere) optimistic local hide, through the SAME existing dismiss
+    // control the AgentTask branch already used.
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/v1/runs/jarvis-done/dismiss', {}));
+  });
+
+  it('a 404 from dismissRun (stale handle / terminality race) is silently absorbed, never an unhandled rejection (clio-agent#1205 review item 1)', async () => {
+    const post = vi.fn(async () => {
+      throw { status: 404, statusText: 'Not Found', body: '' };
+    });
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-stale', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+      await selectSession();
+
+      const chip = await screen.findByRole('button', { name: /async 1/ });
+      fireEvent.click(chip);
+      const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+      fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+      await waitFor(() =>
+        expect(post).toHaveBeenCalledWith('/v1/runs/jarvis-stale/dismiss', {}),
+      );
+      // A 404 is EXPECTED (stale handle / a client/server terminality race) —
+      // never logged, and critically never an unhandled promise rejection.
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a genuine dismissRun failure (not a 404) is logged as a typed reason, not silently swallowed', async () => {
+    const post = vi.fn(async () => {
+      throw { status: 500, statusText: 'Internal Server Error', body: '' };
+    });
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-broken', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+      await selectSession();
+
+      const chip = await screen.findByRole('button', { name: /async 1/ });
+      fireEvent.click(chip);
+      const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+      fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+      await waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          '[async-processes] dismissRun failed',
+          expect.objectContaining({ id: 'jarvis-broken' }),
+        ),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('async-processes SSE refresh is debounced (clio-agent#1205 review item 5)', () => {
+  // A real (stubbed-global) EventSource so the mcp_task.* subscription effect
+  // actually runs instead of taking its `typeof EventSource === 'undefined'`
+  // early return (jsdom has none by default — every other SSE test in this
+  // file relies on exactly that early return to make its effects no-ops).
+  type Listener = (event: MessageEvent<string>) => void;
+
+  class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    listeners = new Map<string, Listener[]>();
+    closed = false;
+    constructor(public url: string) {
+      FakeEventSource.instances.push(this);
+    }
+    addEventListener(type: string, listener: EventListener) {
+      const bucket = this.listeners.get(type) ?? [];
+      bucket.push(listener as unknown as Listener);
+      this.listeners.set(type, bucket);
+    }
+    removeEventListener(type: string, listener: EventListener) {
+      const bucket = this.listeners.get(type) ?? [];
+      this.listeners.set(
+        type,
+        bucket.filter((l) => l !== (listener as unknown as Listener)),
+      );
+    }
+    close() {
+      this.closed = true;
+    }
+    emit(type: string, data: string) {
+      for (const listener of this.listeners.get(type) ?? []) {
+        listener({ data } as MessageEvent<string>);
+      }
+    }
+  }
+
+  beforeEach(() => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal('EventSource', FakeEventSource as unknown as typeof EventSource);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function emitMcpTaskUpdated(source: FakeEventSource) {
+    source.emit(
+      'mcp_task.updated',
+      JSON.stringify({
+        type: 'mcp_task.updated',
+        occurred_at: '2026-08-12T00:00:00Z',
+        payload: { key: { task_id: 't1' }, status: 'working' },
+      }),
+    );
+  }
+
+  it('coalesces a burst of mcp_task.* events into ONE refreshPill fan-out, not one per event', async () => {
+    let asyncProcessesCalls = 0;
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        asyncProcessesCalls += 1;
+        return { processes: [] };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 0 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const sseUrl = (id: string) => `http://live.test/v1/sessions/${id}/events`;
+    render(<SessionView client={client({ get, sseUrl })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const mcpSource = FakeEventSource.instances.find((s) => s.listeners.has('mcp_task.updated'));
+    expect(mcpSource).toBeDefined();
+    const before = asyncProcessesCalls;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(100); // well under the debounce window
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(100);
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(500); // past the debounce window
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Three events in one burst, ONE trailing-edge refresh — not the 3x (12
+    // request) fan-out an unthrottled per-event refresh would have produced.
+    expect(asyncProcessesCalls - before).toBe(1);
+  });
+
+  it('still refreshes for a single isolated event once the debounce window elapses', async () => {
+    let asyncProcessesCalls = 0;
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        asyncProcessesCalls += 1;
+        return { processes: [] };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 0 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const sseUrl = (id: string) => `http://live.test/v1/sessions/${id}/events`;
+    render(<SessionView client={client({ get, sseUrl })} sessions={SESSIONS} />);
+    await selectSession();
+
+    const mcpSource = FakeEventSource.instances.find((s) => s.listeners.has('mcp_task.updated'));
+    expect(mcpSource).toBeDefined();
+    const before = asyncProcessesCalls;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        emitMcpTaskUpdated(mcpSource!);
+        await vi.advanceTimersByTimeAsync(500);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Debouncing must never SUPPRESS a lone event, only coalesce a burst.
+    expect(asyncProcessesCalls - before).toBe(1);
   });
 });

@@ -126,6 +126,20 @@ export interface ComposerProps {
   onOpenPlacement?: () => void;
   onOpenAsync?: () => void;
   onOpenContext?: () => void;
+  /** A row click inside the async-processes popover (clio-agent#1205),
+   *  forwarded verbatim to AsyncRunsPopover's onOpenRun. Omitted = rows
+   *  render inert, same as before this feature existed. */
+  onOpenAsyncRun?: (task: AsyncRunItem) => void;
+  /** A dismiss-button click inside the async-processes popover
+   *  (clio-agent#1205 review, 3rd round): fired ALONGSIDE the component's own
+   *  optimistic local hide (dismissedAsyncIds below), never instead of it —
+   *  the local Set keeps the row hidden instantly; this is what makes the
+   *  hide durable server-side (an AgentTask's dismissed flag, or — the case
+   *  that actually matters — the ONE reachable way to clear a settled durable
+   *  MCP/relay TaskRecord that would otherwise accumulate unboundedly in
+   *  sessions.json). Omitted = dismiss stays view-only, same as before this
+   *  wiring existed. */
+  onDismissRun?: (id: string) => void;
   /**
    * Rendered inside the composer block, below the frame — the prototype puts
    * its version stamp here, within the same 860px column. A sibling AFTER the
@@ -179,6 +193,8 @@ export function Composer({
   onOpenPlacement,
   onOpenAsync,
   onOpenContext,
+  onOpenAsyncRun,
+  onDismissRun,
   footer,
   insertPrompt,
 }: ComposerProps) {
@@ -453,9 +469,13 @@ export function Composer({
                   open={asyncPopoverOpen}
                   tasks={asyncTasks}
                   dismissedIds={dismissedAsyncIds}
-                  onDismiss={(id) =>
-                    setDismissedAsyncIds((current) => new Set(current).add(id))
-                  }
+                  onDismiss={(id) => {
+                    // Optimistic local hide first (instant, never blocked on
+                    // the network) — onDismissRun then makes it durable.
+                    setDismissedAsyncIds((current) => new Set(current).add(id));
+                    onDismissRun?.(id);
+                  }}
+                  {...(onOpenAsyncRun ? { onOpenRun: onOpenAsyncRun } : {})}
                   {...(onOpenAsync ? { onOpenHistory: onOpenAsync } : {})}
                   onClose={() => setAsyncPopoverOpen(false)}
                 />
