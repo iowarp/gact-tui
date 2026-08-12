@@ -126,6 +126,10 @@ export interface ComposerProps {
   onOpenPlacement?: () => void;
   onOpenAsync?: () => void;
   onOpenContext?: () => void;
+  /** A row click inside the async-processes popover (clio-agent#1205),
+   *  forwarded verbatim to AsyncRunsPopover's onOpenRun. Omitted = rows
+   *  render inert, same as before this feature existed. */
+  onOpenAsyncRun?: (task: AsyncRunItem) => void;
   /**
    * Rendered inside the composer block, below the frame — the prototype puts
    * its version stamp here, within the same 860px column. A sibling AFTER the
@@ -179,6 +183,7 @@ export function Composer({
   onOpenPlacement,
   onOpenAsync,
   onOpenContext,
+  onOpenAsyncRun,
   footer,
   insertPrompt,
 }: ComposerProps) {
@@ -456,6 +461,7 @@ export function Composer({
                   onDismiss={(id) =>
                     setDismissedAsyncIds((current) => new Set(current).add(id))
                   }
+                  {...(onOpenAsyncRun ? { onOpenRun: onOpenAsyncRun } : {})}
                   {...(onOpenAsync ? { onOpenHistory: onOpenAsync } : {})}
                   onClose={() => setAsyncPopoverOpen(false)}
                 />

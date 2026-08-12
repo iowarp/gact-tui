@@ -47,6 +47,11 @@ export {
   type SessionAgentTasksResult,
 } from './session_agent_tasks.js';
 export {
+  fetchSessionAsyncProcesses,
+  type SessionAsyncProcess,
+  type SessionAsyncProcessesResult,
+} from './session_async_processes.js';
+export {
   fetchSessionArtifacts,
   type SessionArtifactProducer,
   type SessionArtifactRecord,

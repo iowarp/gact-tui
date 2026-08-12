@@ -80,6 +80,19 @@
   background: var(--t-hv);
 }
 
+/* A row/label-block wired to onOpenRun (clio-agent#1205): the outer row on
+   an active/running task, or just the label+status block on a finished one
+   (the dismiss button stays its own separate target, see AsyncRunsPopover). */
+.async-runs__row--clickable {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.async-runs__row--clickable:focus-visible {
+  outline: 2px solid var(--t-ac);
+  outline-offset: -2px;
+}
+
 .async-runs__icon {
   display: flex;
   justify-self: center;

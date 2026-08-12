@@ -5,10 +5,12 @@ import {
   fetchLmConfig,
   fetchSessionAgentTasks,
   fetchSessionArtifacts,
+  fetchSessionAsyncProcesses,
   fetchSessionContextState,
   fetchSessionTrace,
   mergeMessages,
   prependOlderPage,
+  subscribeSessionAsyncProcessEvents,
   subscribeSessionMessageEvents,
   subscribeSessionTraceEvents,
   type Client,
@@ -17,6 +19,7 @@ import {
   type Session,
   type SessionAgentTask,
   type SessionArtifactVersion,
+  type SessionAsyncProcess,
   type SessionMessageEvent,
   type Workspace,
 } from '@clio/core';
@@ -62,6 +65,7 @@ import {
 import { AgentPeekView } from './AgentPeekView';
 import { BlueprintWindow } from './BlueprintWindow';
 import { ChildFocusView } from './ChildFocusView';
+import { McpTaskPeekView } from './McpTaskPeekView';
 import { ConsoleDock } from './ConsoleDock';
 import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import {
@@ -120,6 +124,15 @@ interface ComposerPillState {
   asyncCount?: number;
   /** The raw rows behind asyncCount — backs the async chip's runs popover. */
   asyncTasks?: SessionAgentTask[];
+  /**
+   * The session-scoped union of agent AND durable MCP-task rows
+   * (clio-agent#1205, GET /v1/sessions/{id}/async-processes) — the ACTUAL
+   * source the tray renders from (see composerAsyncTasks below). Kept
+   * separate from `asyncTasks` above rather than replacing it: `asyncTasks`
+   * still backs Observability's plain agent-task rows, which have no reason
+   * to carry the mcp-task union along.
+   */
+  asyncProcesses?: SessionAsyncProcess[];
   contextPercent?: number;
   /** Raw token numbers behind contextPercent — Settings' Metrics page renders
    * the same "82.1k / 200k" shape the prototype's context row carries. */
@@ -810,13 +823,15 @@ export function SessionView({
 
   const refreshPill = useCallback(
     async (sessionId: string, scope: string) => {
-      const [tasksResult, contextResult, artifactsResult] = await Promise.allSettled([
-        Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
-        Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
-        Promise.resolve().then(() =>
-          fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
-        ),
-      ]);
+      const [tasksResult, processesResult, contextResult, artifactsResult] =
+        await Promise.allSettled([
+          Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
+          Promise.resolve().then(() => fetchSessionAsyncProcesses(client, sessionId)),
+          Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
+          Promise.resolve().then(() =>
+            fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+          ),
+        ]);
       const next: ComposerPillState = { sessionId, scope };
 
       if (tasksResult.status === 'fulfilled') {
@@ -824,6 +839,10 @@ export function SessionView({
         next.asyncCount = tasksResult.value.tasks.filter(
           (task) => !TERMINAL_AGENT_TASK_STATUSES.has(String(task.status).toLowerCase()),
         ).length;
+      }
+
+      if (processesResult.status === 'fulfilled') {
+        next.asyncProcesses = processesResult.value.processes;
       }
 
       if (contextResult.status === 'fulfilled') {
@@ -1285,6 +1304,24 @@ export function SessionView({
     // `activeScope` is deliberately read through `activeScopeRef` above, not
     // listed here — see that ref's comment.
   }, [activeId, client, refreshPill]);
+
+  // Async-processes tray live refresh for durable MCP/relay tasks
+  // (clio-agent#1205): a SEPARATE EventSource against the same session URL
+  // (mirrors how the observability trace subscription already coexists with
+  // the message-lifecycle one above), since mcp_task.* is its own vocabulary
+  // with no message part behind it — a jarvis/relay call is not a spawned
+  // child, so it never fires the expert_handoff part events the effect above
+  // gates its mid-turn refresh on. Every mcp_task.* event is a bounded,
+  // low-frequency job-state transition (not a token stream), so this
+  // refreshes unthrottled, same as the settle branch above.
+  useEffect(() => {
+    if (!activeId) return;
+    if (typeof EventSource === 'undefined') return;
+    const subscription = subscribeSessionAsyncProcessEvents(client.sseUrl(activeId), () => {
+      void refreshPill(activeId, activeScope);
+    });
+    return () => subscription.close();
+  }, [activeId, activeScope, client, refreshPill]);
 
   // Live child-session previews for RUNNING delegations (P4R prototype rule:
   // a Call box must not sit empty while its child streams — children are
@@ -2206,28 +2243,45 @@ export function SessionView({
   // prototype's own default pill); once a real session exists the REAL
   // fetched value is authoritative, including while it is still loading.
   const composerContextPercent = activeId ? activePill?.contextPercent : 0;
-  // Thin projection of the pill's raw agent-task rows for the async chip's
-  // runs popover — undefined (not []) until a real read has landed, so the
+  // Thin projection of the pill's async-processes union (clio-agent#1205 —
+  // agent AND durable MCP-task rows together) for the async chip's runs
+  // popover — undefined (not []) until a real read has landed, so the
   // composer falls back to its plain onOpenAsync jump instead of opening an
   // empty popover that misrepresents "we don't know yet" as "there is none".
-  const composerAsyncTasks: AsyncRunItem[] | undefined = activePill?.asyncTasks?.map((task) => {
-    const id = task.task_id ?? task.id ?? '';
-    const status = String(task.status ?? '').toLowerCase();
-    const placement = task.placement ?? task.host;
+  const composerAsyncTasks: AsyncRunItem[] | undefined = activePill?.asyncProcesses?.map((row) => {
+    const status = String(row.status ?? '').toLowerCase();
+    const placement =
+      (row['placement'] as string | undefined) ?? (row['host'] as string | undefined);
+    const endedAt = (row['completed_at'] as string | undefined) ?? row.updated_at;
     return {
-      id,
-      label: task.run_label || task.agent_ref?.expert_id || id || 'task',
+      id: row.id,
+      kind: row.kind,
+      label: row.title || row.id || 'task',
       status,
       ...(placement ? { placement } : {}),
       // Real created_at/completed_at|updated_at wire fields drive the
       // popover's "2h 14m" / "done 26m ago" elapsed text — never invented.
-      ...(task.created_at ? { startedAt: task.created_at } : {}),
-      ...(task.completed_at ?? task.updated_at
-        ? { endedAt: task.completed_at ?? task.updated_at }
-        : {}),
+      ...(row.created_at ? { startedAt: row.created_at } : {}),
+      ...(endedAt ? { endedAt } : {}),
       terminal: TERMINAL_AGENT_TASK_STATUSES.has(status),
     };
   });
+  // Route a tray-row click by kind (clio-agent#1205): an agent row pushes to
+  // CENTER FOCUS (reuses openChildByHandle, same destination a plain Call-box
+  // click reaches); an mcp-task row has no child session to drill into, so it
+  // always opens the read-only RIGHT-column peek instead.
+  const onOpenAsyncRun = (task: AsyncRunItem) => {
+    if (!activeId) return;
+    if (task.kind === 'agent') {
+      void openChildByHandle(task.id, task.label);
+      return;
+    }
+    const process = activePill?.asyncProcesses?.find(
+      (row) => row.kind === 'mcp-task' && row.id === task.id,
+    );
+    if (!process) return;
+    setRightStack((cur) => openRightEntry(cur, { kind: 'mcp-task', sessionId: activeId, process }));
+  };
   // The prototype also reads "· update available"; no endpoint reports
   // update state, so that half is omitted, not invented.
   const versionLine = backendVersion ? (
@@ -2302,6 +2356,7 @@ export function SessionView({
           : {})}
         {...(activePill?.asyncCount !== undefined ? { asyncCount: activePill.asyncCount } : {})}
         {...(composerAsyncTasks ? { asyncTasks: composerAsyncTasks } : {})}
+        onOpenAsyncRun={onOpenAsyncRun}
         {...(composerContextPercent !== undefined ? { contextPercent: composerContextPercent } : {})}
         {...(detail?.approval_mode ? { approvalMode: detail.approval_mode } : {})}
         onApprovalModeChange={(next) => void setApprovalMode(next)}
@@ -2410,6 +2465,13 @@ export function SessionView({
                     sessionId={rightTop.sessionId}
                     agent={rightTop.agent}
                     parentLabel={rightTop.parentLabel}
+                    onClose={() => setRightStack([])}
+                  />
+                ) : rightTop.kind === 'mcp-task' ? (
+                  <McpTaskPeekView
+                    client={client}
+                    sessionId={rightTop.sessionId}
+                    process={rightTop.process}
                     onClose={() => setRightStack([])}
                   />
                 ) : (

@@ -29,6 +29,11 @@ const PEEK_ENTRY: RightStackEntry = {
   agent: 'geospatial',
   parentLabel: 'main',
 };
+const MCP_TASK_ENTRY: RightStackEntry = {
+  kind: 'mcp-task',
+  sessionId: 'sess_a',
+  process: { kind: 'mcp-task', id: 'jarvis-1', title: 'jarvis_run', status: 'working' },
+};
 
 describe('openRightEntry', () => {
   it('REPLACES the stack by default (prototype artGo/setStack semantics)', () => {
@@ -50,6 +55,11 @@ describe('openRightEntry', () => {
     const next = openRightEntry([ARTIFACT_ENTRY, ARTIFACT_ENTRY], PEEK_ENTRY);
     expect(next).toEqual([PEEK_ENTRY]);
   });
+
+  it('an mcp-task entry also replaces the stack by default — the tray click is a fresh intent, not a push', () => {
+    const next = openRightEntry([PEEK_ENTRY], MCP_TASK_ENTRY);
+    expect(next).toEqual([MCP_TASK_ENTRY]);
+  });
 });
 
 describe('patchTopArtifact', () => {
@@ -66,6 +76,11 @@ describe('patchTopArtifact', () => {
 
   it('leaves the stack untouched when an agent peek is on top', () => {
     const stack = [PEEK_ENTRY];
+    expect(patchTopArtifact(stack, 'artifact_a1', { sha: 'x' })).toBe(stack);
+  });
+
+  it('leaves the stack untouched when an mcp-task peek is on top', () => {
+    const stack = [MCP_TASK_ENTRY];
     expect(patchTopArtifact(stack, 'artifact_a1', { sha: 'x' })).toBe(stack);
   });
 
@@ -96,5 +111,9 @@ describe('rightEntryLabel', () => {
 
   it('labels an agent peek by the agent name', () => {
     expect(rightEntryLabel(PEEK_ENTRY)).toBe('geospatial');
+  });
+
+  it('labels an mcp-task peek by its title', () => {
+    expect(rightEntryLabel(MCP_TASK_ENTRY)).toBe('jarvis_run');
   });
 });
