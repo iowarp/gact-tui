@@ -852,6 +852,84 @@ describe('SessionView wiring — the async chip carries real async-processes row
     // control the AgentTask branch already used.
     await waitFor(() => expect(post).toHaveBeenCalledWith('/v1/runs/jarvis-done/dismiss', {}));
   });
+
+  it('a 404 from dismissRun (stale handle / terminality race) is silently absorbed, never an unhandled rejection (clio-agent#1205 review item 1)', async () => {
+    const post = vi.fn(async () => {
+      throw { status: 404, statusText: 'Not Found', body: '' };
+    });
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-stale', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+      await selectSession();
+
+      const chip = await screen.findByRole('button', { name: /async 1/ });
+      fireEvent.click(chip);
+      const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+      fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+      await waitFor(() =>
+        expect(post).toHaveBeenCalledWith('/v1/runs/jarvis-stale/dismiss', {}),
+      );
+      // A 404 is EXPECTED (stale handle / a client/server terminality race) —
+      // never logged, and critically never an unhandled promise rejection.
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a genuine dismissRun failure (not a 404) is logged as a typed reason, not silently swallowed', async () => {
+    const post = vi.fn(async () => {
+      throw { status: 500, statusText: 'Internal Server Error', body: '' };
+    });
+    const get = vi.fn(async (path: string) => {
+      if (path.includes('/async-processes')) {
+        return {
+          processes: [
+            { kind: 'mcp-task', id: 'jarvis-broken', title: 'jarvis_run', status: 'completed' },
+          ],
+        };
+      }
+      if (path.includes('/agent-tasks')) return { tasks: [] };
+      if (path.includes('/context/state')) return { used_pct: 10 };
+      if (path.includes('/artifacts')) return { artifacts: [] };
+      throw new Error(`unstubbed GET ${path}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render(<SessionView client={client({ get, post })} sessions={SESSIONS} />);
+      await selectSession();
+
+      const chip = await screen.findByRole('button', { name: /async 1/ });
+      fireEvent.click(chip);
+      const popover = await screen.findByRole('dialog', { name: /async processes/i });
+
+      fireEvent.click(within(popover).getByRole('button', { name: /dismiss jarvis_run/i }));
+
+      await waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          '[async-processes] dismissRun failed',
+          expect.objectContaining({ id: 'jarvis-broken' }),
+        ),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe('async-processes SSE refresh is debounced (clio-agent#1205 review item 5)', () => {

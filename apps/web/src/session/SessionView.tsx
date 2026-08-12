@@ -177,6 +177,25 @@ function optionalFetch<T>(request: () => Promise<T>): Promise<T | null> {
 }
 
 /**
+ * A 404 off `dismissRun` (clio-agent#1205 review item 1) is an EXPECTED
+ * outcome, not a bug: a stale handle (already dismissed elsewhere), or the
+ * client/server terminality-vocabulary divergence tracked on the #1205
+ * follow-up list (this UI's own terminal-status read can race the server's
+ * terminal-only dismiss guard). Duck-typed rather than `instanceof
+ * HttpError` — same reasoning as `BlueprintWindow.tsx`'s `isNotFoundError`
+ * — so a test can hand back any 404-shaped rejection without constructing
+ * the real error class.
+ */
+function isHttpNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    (error as { status?: unknown }).status === 404
+  );
+}
+
+/**
  * Typed outcome for a fetch whose FAILURE must stay distinguishable from a
  * genuinely empty success. `optionalFetch`'s `null` collapses both into the
  * same falsy value — which is exactly how a slow/failed trace read under
@@ -2315,9 +2334,19 @@ export function SessionView({
   // unboundedly in sessions.json with no way to ever clear it). Fire-and-
   // forget, matching the optimistic-UI contract: a failed dismiss leaves the
   // row hidden locally, the same degrade this popover already had before any
-  // backend call existed.
+  // backend call existed — but the failure itself must not become an
+  // unhandled rejection (#1205 review item 1). A 404 is EXPECTED (see
+  // isHttpNotFound) and silently absorbed; anything else reaches the
+  // console as a typed reason, matching this file's own "no silent catch"
+  // convention (see the artifact-lineage/preview catches above).
   const onDismissRun = (id: string) => {
-    void dismissRun(client, id);
+    dismissRun(client, id).catch((reason: unknown) => {
+      if (isHttpNotFound(reason)) return;
+      console.warn('[async-processes] dismissRun failed', {
+        id,
+        reason: reason instanceof Error ? reason.message : String(reason),
+      });
+    });
   };
   // The prototype also reads "· update available"; no endpoint reports
   // update state, so that half is omitted, not invented.
