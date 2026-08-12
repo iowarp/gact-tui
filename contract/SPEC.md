@@ -1964,6 +1964,7 @@ sketch; the rest reflect clio's resource model.
 | `agent.reasoning.delta` | throttled (≥1 s) liveness ping while the model reasons | `{stream_source: "reasoning"}` — carries NO text; vendor |
 | `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | global (`session_id: ""`, broadcast to all streams) |
 | `mcp.server.error` / `mcp.server.reconnected` | MCP server health transitions | global (`session_id: ""`, broadcast to all streams) |
+| `mcp_task.updated` / `.completed` / `.failed` / `.cancelled` | durable MCP/relay task record (SEP-2663, #1115) write — `.completed`/`.failed`/`.cancelled` on the matching terminal status, `.updated` otherwise (lease/ledger/non-terminal-status changes) | full TaskRecord wire projection: `{key: {server_id, session_id, task_id}, tool, backend, status, created_at, updated_at, input_answers, lease_owner, lease_expires_at, cancel_requested, holding_reason}`; published to the OWNING session's channel (clio-agent#1205) |
 | `user_question.created` / `.answered` / `.cancelled` / `.resumed` | ask-user lifecycle (§6.23) | full UserQuestion; `.resumed` = `{question_id, session_id, queued_user_message_id, source_turn_id}` |
 | `semantic.event` | the semantic-execution spine | §7.6 (vendor; `x_clio_semantic_events`) |
 
@@ -2203,6 +2204,10 @@ lm.provider.changed implemented
 lm.provider.failed implemented
 mcp.server.error implemented
 mcp.server.reconnected implemented
+mcp_task.cancelled implemented
+mcp_task.completed implemented
+mcp_task.failed implemented
+mcp_task.updated implemented
 memory.search.completed implemented
 memory_read_context_frame.completed implemented
 memory_read_context_frame.denied implemented

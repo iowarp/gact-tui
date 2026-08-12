@@ -356,12 +356,22 @@ export type SessionMcpTaskEventType = (typeof SESSION_MCP_TASK_EVENT_TYPES)[numb
 
 /** One parsed mcp-task-lifecycle envelope off the session SSE stream. The
  *  payload IS the full TaskRecord wire projection, so a subscriber can apply
- *  it directly to its local state with no follow-up fetch. */
-export interface SessionMcpTaskEvent {
-  type: SessionMcpTaskEventType;
-  occurred_at: string;
-  payload: Record<string, unknown>;
-}
+ *  it directly to its local state with no follow-up fetch.
+ *
+ *  Sourced from the canonical `GactEvent` union (SPEC §7.7 / WIRE_EVENT_TYPES)
+ *  rather than a standalone sidecar interface (#1205 review D3) — the
+ *  mcp_task.* names are now part of the machine-checked wire vocabulary, so
+ *  this type and that vocabulary can never silently drift apart. */
+export type SessionMcpTaskEvent = Extract<
+  GactEvent,
+  {
+    type:
+      | 'mcp_task.updated'
+      | 'mcp_task.completed'
+      | 'mcp_task.failed'
+      | 'mcp_task.cancelled';
+  }
+>;
 
 /**
  * Subscribe to the mcp-task-lifecycle events of one session's SSE stream —

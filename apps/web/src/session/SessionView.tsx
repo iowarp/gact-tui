@@ -825,6 +825,11 @@ export function SessionView({
     async (sessionId: string, scope: string) => {
       const [tasksResult, processesResult, contextResult, artifactsResult] =
         await Promise.allSettled([
+          // Kept alongside fetchSessionAsyncProcesses below, NOT a leftover
+          // (#1205 review): Settings' Metrics page (settings/Settings.tsx:49)
+          // takes a plain `SessionAgentTask[]`, not the agent+mcp-task union —
+          // deleting this would either break that consumer or force it to
+          // filter the union back down to agent rows for no reason.
           Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
           Promise.resolve().then(() => fetchSessionAsyncProcesses(client, sessionId)),
           Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
