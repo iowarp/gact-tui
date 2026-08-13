@@ -605,6 +605,7 @@ sets below are weaker evidence than the group above:
 | `mcp_app` | `gact/mcp_apps.py:439` |
 | `file_diff` | `gact/turn_finalize.py:444` |
 | `compaction` | `gact/routes/compaction.py:60` |
+| `action_card` | `gact/action_cards.py` (generic in-transcript notification/action primitive; `spotter-ai` is the first emitter) |
 
 #### 4.5.2 Field groups
 
@@ -624,6 +625,7 @@ the rest at their defaults.
 | mcp app | `app_instance_id`, `resource_uri`, `source_server`, `data_ref`, `height` |
 | diff | `path`, `unified_diff`, `new_content`, `status`, `edit_mode`, `lines_added`, `lines_removed` |
 | compaction | `summary`, `auto`, `compacted_message_ids` |
+| action card | `source` (emitter identity, open string, e.g. `"spotter-ai"`), `severity` (open string; MVP `"info"\|"warning"\|"critical"`), `title`, `body` (markdown), `status` (reuses the shared `status` slot; open string, MVP always `"active"`, future `"resolved"`), `actions` (list of `{id, label, enabled, behavior}`, `behavior` an open discriminated union on `kind` — `"focus_session"` `{handle_id}`, `"stub"` `{reason}`; unknown `kind`s and unknown `severity` values MUST render safely as disabled/neutral, per §8.3) |
 
 #### 4.5.3 Corrections against v0.2
 
