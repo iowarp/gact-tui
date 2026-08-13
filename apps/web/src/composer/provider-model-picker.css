@@ -12,7 +12,7 @@
    `position: absolute` is what makes `bottom`/`right` (and this rule's own
    `right: 0`) work at all; it is ALSO already a valid containing block for
    the absolutely-positioned resize handle below, so nothing needs relative. */
-.provider-model-picker > .kit-popover { right: 0; left: auto; width: 480px; max-width: 92vw; padding: 0; overflow-x: hidden; overflow-y: auto; }
+.provider-model-picker > .kit-popover { right: 0; left: auto; width: 560px; max-width: 92vw; padding: 0; overflow-x: hidden; overflow-y: auto; }
 /* Measured on the prototype's own popRouter handle: a 6px col-resize strip
    on the LEFT edge (the panel is right-anchored, so dragging its left edge
    is what grows/shrinks it), pulled half-over the border like the rail's own

@@ -381,8 +381,8 @@ describe('model picker — drag-to-resize handle (the prototype\'s pmDragW)', ()
     render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
     const handle = screen.getByRole('separator', { name: /resize model picker/i });
-    expect(handle).toHaveAttribute('aria-valuenow', '-480');
-    expect(handle).toHaveAttribute('aria-valuemin', '-720');
+    expect(handle).toHaveAttribute('aria-valuenow', '-560');
+    expect(handle).toHaveAttribute('aria-valuemin', '-780');
     expect(handle).toHaveAttribute('aria-valuemax', '-360');
   });
 
@@ -391,23 +391,23 @@ describe('model picker — drag-to-resize handle (the prototype\'s pmDragW)', ()
     fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
     const handle = screen.getByRole('separator', { name: /resize model picker/i });
     const panel = () => container.querySelector('.kit-popover') as HTMLElement;
-    expect(panel().style.width).toBe('480px');
+    expect(panel().style.width).toBe('560px');
     // ArrowLeft is the keyboard mirror of dragging the left-edge handle
     // left — the panel is right-anchored, so this must WIDEN it.
     fireEvent.keyDown(handle, { key: 'ArrowLeft' });
-    expect(panel().style.width).toBe('488px');
+    expect(panel().style.width).toBe('568px');
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
-    expect(panel().style.width).toBe('472px');
+    expect(panel().style.width).toBe('552px');
   });
 
-  it('clamps to the measured 360–720 bounds', () => {
+  it('clamps to the 360–780 bounds (repinned 2026-08-13 — owner widened the panel)', () => {
     const { container } = render(<ProviderModelPicker value="" options={[]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('combobox', { name: /model/i }));
     const handle = screen.getByRole('separator', { name: /resize model picker/i });
     const panel = () => container.querySelector('.kit-popover') as HTMLElement;
     for (let i = 0; i < 40; i += 1) fireEvent.keyDown(handle, { key: 'ArrowLeft' });
-    expect(panel().style.width).toBe('720px');
+    expect(panel().style.width).toBe('780px');
     for (let i = 0; i < 60; i += 1) fireEvent.keyDown(handle, { key: 'ArrowRight' });
     expect(panel().style.width).toBe('360px');
   });

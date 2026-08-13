@@ -181,6 +181,14 @@
   z-index: 55;
 }
 
+/* The provider/model picker (and any other kit-popover child) manages its own
+   open state instead of the composer's pickerOpen signal, so raise the frame
+   whenever ANY popover is actually mounted inside it — without this the
+   transcript paints OVER the open panel (the frame sits at z-index: 1). */
+.composer__frame:has(.kit-popover) {
+  z-index: 55;
+}
+
 /* Transcribed from the prototype's composer textarea. */
 .composer__input {
   width: 100%;

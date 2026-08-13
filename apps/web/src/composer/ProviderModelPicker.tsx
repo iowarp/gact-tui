@@ -6,9 +6,9 @@ import './provider-model-picker.css';
  *  for the drag-to-resize handle (`pmDragW`, a left-edge col-resize strip —
  *  the SAME primitive as the rail's own pane splitters, just mounted on a
  *  floating popover instead of a fixed-layout divider). */
-const DEFAULT_WIDTH = 480;
+const DEFAULT_WIDTH = 560;
 const MIN_WIDTH = 360;
-const MAX_WIDTH = 720;
+const MAX_WIDTH = 780;
 
 /** Measured on the prototype's own popRouter panel: the SECOND handle
  *  (`pmDragCol`) that resizes the provider column against the model column,
@@ -16,9 +16,9 @@ const MAX_WIDTH = 720;
  *  210`, clamp `Math.max(150, Math.min(360, ...))`). Grows normally with a
  *  rightward drag — unlike the panel handle, this one is not right-anchored,
  *  so it needs no inverted-value trick. */
-const COLUMN_DEFAULT_WIDTH = 210;
+const COLUMN_DEFAULT_WIDTH = 300;
 const COLUMN_MIN_WIDTH = 150;
-const COLUMN_MAX_WIDTH = 360;
+const COLUMN_MAX_WIDTH = 460;
 
 export interface ProviderModelRow {
   id: string;
