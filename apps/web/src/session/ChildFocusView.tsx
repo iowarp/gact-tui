@@ -8,8 +8,10 @@
  */
 import { useState, type Ref } from 'react';
 import type { Message } from '@clio/core';
-import { Transcript } from '../transcript/Transcript';
+import type { ActionCardAction } from '../transcript/parts/ActionCardPart';
 import { formatDurationMs } from '../transcript/parts/HandoffPart';
+import { Transcript } from '../transcript/Transcript';
+import type { WirePart } from '../transcript/registry';
 import './childfocus.css';
 
 // Matches HandoffPart.tsx's own `delegateStatus()` classification exactly
@@ -27,6 +29,9 @@ export interface ChildFocusViewProps {
   status: string;
   onOpenChild?: ((handleId: string, agent: string, opts: { peek: boolean }) => void) | undefined;
   onOpenArtifact?: ((artifactId: string, name: string) => void) | undefined;
+  /** An action_card's button click, forwarded straight to the inner
+   *  `<Transcript>` — same "just forward it" convention as `onOpenChild`. */
+  onCardAction?: ((part: WirePart, action: ActionCardAction) => void) | undefined;
   /** The child session's own `created_at`/`updated_at` (SessionView's
    *  `getSession` pull) — real wire timestamps the settled footer's
    *  duration is computed from, never a guessed number. Absent = the
@@ -67,6 +72,7 @@ export function ChildFocusView({
   status,
   onOpenChild,
   onOpenArtifact,
+  onCardAction,
   createdAt,
   updatedAt,
   showStatusFooter = true,
@@ -140,6 +146,7 @@ export function ChildFocusView({
         messages={rest}
         {...(onOpenChild ? { onOpenChild } : {})}
         {...(onOpenArtifact ? { onOpenArtifact } : {})}
+        {...(onCardAction ? { onCardAction } : {})}
         {...(scrollContainerRef ? { scrollContainerRef } : {})}
       />
       {/* Renders AFTER the transcript (and so after any return card inside

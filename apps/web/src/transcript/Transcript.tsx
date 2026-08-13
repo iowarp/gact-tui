@@ -4,6 +4,7 @@ import { PartCard } from '../kit';
 import '../session/returncard.css';
 import { ArtifactGrid } from './parts/ArtifactChip';
 import { FanoutGroup } from './parts/FanoutGroup';
+import type { ActionCardAction } from './parts/ActionCardPart';
 import { MergedHandoff, type ChildPreview } from './parts/HandoffPart';
 import { ToolPart } from './parts/ToolPart';
 import { PART_RENDERERS, WrenchGlyph, type WirePart } from './registry';
@@ -15,6 +16,9 @@ export interface TranscriptProps {
   onOpenChild?: (handleId: string, agent: string, opts: { peek: boolean }) => void;
   /** Opens an artifact in the right detail panel (prototype artGo). */
   onOpenArtifact?: (artifactId: string, name: string) => void;
+  /** An action_card's button click (ActionCardPart) — threaded the same way
+   *  `onOpenChild` is: Transcript props -> the registry's render context. */
+  onCardAction?: (part: WirePart, action: ActionCardAction) => void;
   /** Live child-session previews for RUNNING delegations, keyed by handle_id
    *  (SessionView's `childPreviews`). A handoff with no entry here just shows
    *  its plain running footer — never a fabricated preview. */
@@ -210,6 +214,7 @@ function groupParts(parts: WirePart[], messageId: string): PartGroup[] {
 interface TranscriptHandlers {
   onOpenChild?: TranscriptProps['onOpenChild'];
   onOpenArtifact?: TranscriptProps['onOpenArtifact'];
+  onCardAction?: TranscriptProps['onCardAction'];
   childPreviews?: TranscriptProps['childPreviews'];
 }
 
@@ -222,6 +227,7 @@ function renderPartGroups(parts: WirePart[], keyPrefix: string, handlers: Transc
       group={group}
       {...(handlers.onOpenChild ? { onOpenChild: handlers.onOpenChild } : {})}
       {...(handlers.onOpenArtifact ? { onOpenArtifact: handlers.onOpenArtifact } : {})}
+      {...(handlers.onCardAction ? { onCardAction: handlers.onCardAction } : {})}
       {...(handlers.childPreviews ? { childPreviews: handlers.childPreviews } : {})}
     />
   ));
@@ -247,10 +253,11 @@ export function Transcript({
   messages,
   onOpenChild,
   onOpenArtifact,
+  onCardAction,
   childPreviews,
   scrollContainerRef,
 }: TranscriptProps) {
-  const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, childPreviews };
+  const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, onCardAction, childPreviews };
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -308,11 +315,13 @@ function RenderedGroup({
   group,
   onOpenChild,
   onOpenArtifact,
+  onCardAction,
   childPreviews,
 }: {
   group: PartGroup;
   onOpenChild?: TranscriptProps['onOpenChild'];
   onOpenArtifact?: TranscriptProps['onOpenArtifact'];
+  onCardAction?: TranscriptProps['onCardAction'];
   childPreviews?: TranscriptProps['childPreviews'];
 }) {
   if (group.kind === 'tool') {
@@ -353,10 +362,16 @@ function RenderedGroup({
       </PartCard>
     );
   }
-  return <RenderedPart part={group.part} />;
+  return <RenderedPart part={group.part} {...(onCardAction ? { onCardAction } : {})} />;
 }
 
-function RenderedPart({ part }: { part: WirePart }) {
+function RenderedPart({
+  part,
+  onCardAction,
+}: {
+  part: WirePart;
+  onCardAction?: TranscriptProps['onCardAction'];
+}) {
   const renderer = PART_RENDERERS[part.type];
 
   if (!renderer) {
@@ -376,7 +391,7 @@ function RenderedPart({ part }: { part: WirePart }) {
 
   return (
     <PartCard kind={part.type} {...(renderer.gutter ? { gutter: renderer.gutter } : {})}>
-      {renderer.render(part)}
+      {renderer.render(part, { ...(onCardAction ? { onCardAction } : {}) })}
     </PartCard>
   );
 }

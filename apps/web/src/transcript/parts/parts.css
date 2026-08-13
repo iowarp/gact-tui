@@ -911,6 +911,100 @@
   color: var(--t-ac);
 }
 
+/* ---- action_card (generic in-transcript notification/action primitive —
+   spotter-ai is the FIRST emitter, not the only one). Extends the
+   async-injection pill family above: same header-pill shape, plus a
+   markdown body and a button row. ---- */
+
+.part-actioncard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.part-actioncard__pill {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-hd);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11.5px * var(--ts));
+  white-space: nowrap;
+}
+
+.part-actioncard__source {
+  color: var(--t-hd);
+  font-weight: 600;
+}
+
+.part-actioncard__severity {
+  color: var(--t-mu);
+  text-transform: lowercase;
+}
+
+.part-actioncard__title {
+  color: var(--t-hd);
+}
+
+/* Only the two MVP severities the contract names get a distinct tone — any
+   other value (including a future one this build doesn't know yet) stays
+   the neutral/info pill above, never a guessed color. */
+.part-actioncard[data-severity='warning'] .part-actioncard__pill {
+  border-color: var(--t-wm35);
+}
+
+.part-actioncard[data-severity='warning'] .part-actioncard__severity {
+  color: var(--t-wa);
+}
+
+.part-actioncard[data-severity='critical'] .part-actioncard__pill {
+  border-color: var(--t-erc5);
+}
+
+.part-actioncard[data-severity='critical'] .part-actioncard__severity {
+  color: var(--t-er);
+}
+
+.part-actioncard__body {
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  line-height: 1.55;
+}
+
+.part-actioncard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.part-actioncard__btn {
+  padding: 3px 11px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(12px * var(--ts));
+  cursor: pointer;
+}
+
+.part-actioncard__btn:hover:not(:disabled) {
+  background: var(--t-hv, #1f232b);
+  border-color: var(--t-cy4);
+}
+
+.part-actioncard__btn:disabled {
+  color: var(--t-mu);
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* ---- durable artifacts (resource_link — the "artifacts (N)" grid) ---- */
 
 .part-artgrid {

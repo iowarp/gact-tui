@@ -50,7 +50,9 @@ import {
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
+import type { ActionCardAction } from '../transcript/parts/ActionCardPart';
 import type { ChildPreview } from '../transcript/parts/HandoffPart';
+import type { WirePart } from '../transcript/registry';
 import { DetailSlot } from '../detail/DetailSlot';
 import { headVersion, mintArtifactRecord, routeFromLineage } from '../detail/mintRecord';
 import { fetchArtifactPreview } from '../detail/preview';
@@ -1699,6 +1701,24 @@ export function SessionView({
     [client, activeId, focus, focusTop?.sessionId, focusTop?.agent, navigateCenter],
   );
 
+  // action_card button click (ActionCardPart, generic in-transcript
+  // notification/action primitive — spotter-ai is the first emitter). Only
+  // `focus_session` has a real destination today: the same drill-in
+  // `openChildByHandle` a Call box's own click uses, resolved through this
+  // session's agent-tasks. `stub`/unknown behaviors render disabled client-
+  // side (ActionCardPart), so they never reach here in practice — this is
+  // the honest no-op for a defensive call anyway, never a silent wrong jump.
+  const onCardAction = useCallback(
+    (part: WirePart, action: ActionCardAction) => {
+      if (action.behavior['kind'] !== 'focus_session') return;
+      const handleId = String(action.behavior['handle_id'] ?? '');
+      if (!handleId) return;
+      const source = typeof part['source'] === 'string' ? part['source'] : '';
+      void openChildByHandle(handleId, source || 'agent');
+    },
+    [openChildByHandle],
+  );
+
   // sessionId -> real title, backing every session REFERENCE the detail
   // panel renders (foreign cluster headers, an activity's producing-session
   // tooltip — owner 3b, 2026-08-06). Sessions the rail already has resolve
@@ -2688,6 +2708,7 @@ export function SessionView({
                 {...(childView.updatedAt ? { updatedAt: childView.updatedAt } : {})}
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+                onCardAction={onCardAction}
                 scrollContainerRef={visibleTranscriptScrollRef}
                 // Feature C's on-screen back affordance — one level up,
                 // the same transition the breadcrumb crumb just before
@@ -2701,6 +2722,7 @@ export function SessionView({
                 messages={transcriptMessages}
                 onOpenChild={openChildByHandle}
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+                onCardAction={onCardAction}
                 childPreviews={childPreviews}
                 scrollContainerRef={setMainTranscriptRef}
               />
