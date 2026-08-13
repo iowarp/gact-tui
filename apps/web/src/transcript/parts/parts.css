@@ -970,6 +970,14 @@
   color: var(--t-er);
 }
 
+/* Gray-in-place: a resolved card (contract §4.5.2's shared `status` slot)
+   stays in the transcript — never removed, the reader can still see what
+   happened — but reads as settled. Same opacity the disabled-button
+   treatment below already uses, applied to the whole card. */
+.part-actioncard[data-status='resolved'] {
+  opacity: 0.6;
+}
+
 .part-actioncard__body {
   color: var(--t-pr);
   font-family: var(--f-prose);

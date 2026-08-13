@@ -2,7 +2,15 @@ import { isRecord } from '../../wire/presentationUtils';
 import { Markdown } from '../markdown';
 import type { WirePart } from '../registry';
 
-const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
+/** Only string/number wire values render as text. `String(null)` ->
+ *  `"null"` and `String({})` -> `"[object Object]"` would otherwise leak a
+ *  JS coercion artifact straight into the header/body — anything that isn't
+ *  a string or number (null, boolean, array, object) becomes '' instead. */
+const str = (v: unknown): string => {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  return '';
+};
 
 /**
  * `action_card` — a GENERIC in-transcript notification/action primitive
@@ -26,6 +34,12 @@ export interface ActionCardAction {
  *  (future values are expected) — anything outside this set renders with
  *  the same neutral tone as `info`, never a guessed color. */
 const KNOWN_SEVERITIES = new Set(['info', 'warning', 'critical']);
+
+/** `status` is the shared card-lifecycle slot (open string; MVP `"active"`
+ *  now, `"resolved"` later — contract §4.5.2). Unknown or empty values
+ *  render exactly like `"active"` (today's only real value) — forward
+ *  compat, not a guess at what a future status means. */
+const KNOWN_STATUSES = new Set(['active', 'resolved']);
 
 function actionsOf(part: WirePart): ActionCardAction[] {
   const raw = part['actions'];
@@ -57,12 +71,24 @@ export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
   const source = str(part['source']) || 'agent';
   const severityRaw = str(part['severity']);
   const severity = KNOWN_SEVERITIES.has(severityRaw) ? severityRaw : 'info';
+  const statusRaw = str(part['status']);
+  const status = KNOWN_STATUSES.has(statusRaw) ? statusRaw : 'active';
+  // Gray-in-place: a resolved card stays in the transcript (never removed —
+  // the reader can still see what happened) but reads as settled, and every
+  // action button goes inert, regardless of its own kind/enabled state —
+  // there is nothing left to DO on a card that already resolved.
+  const resolved = status === 'resolved';
   const title = str(part['title']);
   const body = str(part['body']);
   const actions = actionsOf(part);
 
   return (
-    <div className="part-actioncard" data-testid="part-action-card" data-severity={severity}>
+    <div
+      className="part-actioncard"
+      data-testid="part-action-card"
+      data-severity={severity}
+      data-status={status}
+    >
       <span className="part-actioncard__pill">
         <span className="part-actioncard__source">{source}</span>
         <span className="part-inj__sep">·</span>
@@ -81,7 +107,7 @@ export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
       ) : null}
       {actions.length > 0 ? (
         <div className="part-actioncard__actions">
-          {actions.map((action) => {
+          {actions.map((action, index) => {
             const kind = str(action.behavior['kind']);
             let disabled: boolean;
             let titleAttr: string | undefined;
@@ -95,9 +121,14 @@ export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
               // control for a behavior this build does not understand.
               disabled = true;
             }
+            // Resolved wins over any per-kind computation above — a card
+            // that already settled offers no live control, full stop.
+            if (resolved) disabled = true;
             return (
               <button
-                key={action.id || action.label}
+                // Index-composited: a wire-authored duplicate `id` (easy for
+                // a model to produce) must not collide two React keys.
+                key={`${index}:${action.id || action.label}`}
                 type="button"
                 className="part-actioncard__btn"
                 disabled={disabled}

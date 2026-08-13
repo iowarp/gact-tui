@@ -133,6 +133,84 @@ describe('action_card part', () => {
     expect(screen.getByTestId('part-action-card')).toBeInTheDocument();
   });
 
+  it('gray-in-place: a resolved card renders every action button disabled, regardless of its own kind/enabled', () => {
+    const resolved = { ...SPOTTER_ALERT, status: 'resolved' };
+    const onCardAction = vi.fn();
+    render(<Transcript messages={[msg('m1', [resolved])]} onCardAction={onCardAction} />);
+    const card = screen.getByTestId('part-action-card');
+    expect(card).toHaveAttribute('data-status', 'resolved');
+    // "Discuss" was an ENABLED focus_session button on the active fixture —
+    // resolved must override that, not just leave the stub buttons alone.
+    const discuss = screen.getByRole('button', { name: 'Discuss' });
+    expect(discuss).toBeDisabled();
+    fireEvent.click(discuss);
+    expect(onCardAction).not.toHaveBeenCalled();
+    for (const label of ['Address', 'Remove']) {
+      expect(screen.getByRole('button', { name: label })).toBeDisabled();
+    }
+  });
+
+  it('treats an unknown or empty status as the active rendering — no gray-in-place', () => {
+    const unknownStatus = { ...SPOTTER_ALERT, status: 'some-future-lifecycle-value' };
+    const first = render(<Transcript messages={[msg('m1', [unknownStatus])]} />);
+    expect(screen.getByTestId('part-action-card')).toHaveAttribute('data-status', 'active');
+    expect(screen.getByRole('button', { name: 'Discuss' })).not.toBeDisabled();
+    first.unmount();
+
+    const noStatus = { ...SPOTTER_ALERT };
+    delete (noStatus as { status?: string }).status;
+    render(<Transcript messages={[msg('m2', [noStatus])]} />);
+    expect(screen.getByTestId('part-action-card')).toHaveAttribute('data-status', 'active');
+  });
+
+  it('never paints a null/object title as "null"/"[object Object]" — non-string, non-number fields render empty', () => {
+    const nullTitle = {
+      type: 'action_card',
+      source: 'spotter-ai',
+      severity: 'info',
+      title: null,
+      body: 'body text stays a string, so it still renders',
+    };
+    render(<Transcript messages={[msg('m1', [nullTitle])]} />);
+    const card = screen.getByTestId('part-action-card');
+    expect(card).not.toHaveTextContent('null');
+    expect(card).not.toHaveTextContent('[object Object]');
+    expect(within(card).getByText(/body text stays a string/)).toBeInTheDocument();
+  });
+
+  it('renders zero action buttons, without throwing, when `actions` is not an array', () => {
+    for (const badActions of ['not-an-array', { id: 'x' }, 42, true]) {
+      const part = {
+        type: 'action_card',
+        source: 'spotter-ai',
+        title: 'malformed actions field',
+        actions: badActions,
+      };
+      const { container, unmount } = render(<Transcript messages={[msg('m1', [part])]} />);
+      expect(container.querySelectorAll('.part-actioncard__btn')).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  it('filters out non-record entries from `actions`, rendering only the valid ones', () => {
+    const mixedActions = {
+      type: 'action_card',
+      source: 'spotter-ai',
+      title: 'mixed actions array',
+      actions: [
+        null,
+        'a bare string',
+        42,
+        ['nested', 'array'],
+        { id: 'ok', label: 'OK', enabled: true, behavior: { kind: 'stub', reason: 'later' } },
+      ],
+    };
+    render(<Transcript messages={[msg('m1', [mixedActions])]} />);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveTextContent('OK');
+  });
+
   it('never crashes when an action is missing its behavior entirely', () => {
     const noBehavior = {
       type: 'action_card',
