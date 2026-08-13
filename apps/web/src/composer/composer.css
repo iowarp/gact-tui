@@ -178,15 +178,19 @@
 /* Raised only while a picker is open, so the popover is not clipped by the
    transcript above it. */
 .composer__frame[data-picker-open='true'] {
-  z-index: 55;
+  z-index: 58;
 }
 
 /* The provider/model picker (and any other kit-popover child) manages its own
    open state instead of the composer's pickerOpen signal, so raise the frame
    whenever ANY popover is actually mounted inside it — without this the
-   transcript paints OVER the open panel (the frame sits at z-index: 1). */
+   transcript paints OVER the open panel (the frame sits at z-index: 1).
+   58, not 55: the topbar/ribbon sits at 55 (a tie resolves by paint order,
+   which the chrome wins) and real popup WINDOWS (the observability overlay)
+   sit at 60 — an open picker clears every bar (topbar, ribbon, rail on
+   narrow viewports) but stays UNDER popup windows (owner, 2026-08-13). */
 .composer__frame:has(.kit-popover) {
-  z-index: 55;
+  z-index: 58;
 }
 
 /* Transcribed from the prototype's composer textarea. */
