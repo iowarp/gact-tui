@@ -114,6 +114,9 @@ export default defineConfig({
       allow: ['..', BRANDING_ROOT],
     },
   },
+  worker: {
+    format: 'es',
+  },
   build: {
     target: 'es2022',
     outDir: 'dist',

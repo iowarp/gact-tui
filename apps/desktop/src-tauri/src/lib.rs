@@ -76,6 +76,7 @@ pub fn run() {
             commands::update_clio,
             commands::open_logs,
             commands::read_logs,
+            commands::open_document_path,
             commands::tunnel_open,
             gact_http::gact_http,
             sse_bridge::gact_sse_open,

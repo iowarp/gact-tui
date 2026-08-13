@@ -3,7 +3,10 @@
  */
 import { Show } from 'solid-js';
 import type { ContextFileContent } from '@clio/core';
+import type { ArtifactRecord } from '@clio/core';
 import { Icon } from './Icon.js';
+import { DocumentWorkspace, type DocumentWorkspaceClient } from './DocumentWorkspace.js';
+import type { PreviewRailClient } from './PreviewRailData.js';
 import { Markdown } from './Markdown.js';
 import {
   humanSize,
@@ -27,6 +30,9 @@ export interface PreviewRailPreviewProps {
   isMarkdownPreview: boolean;
   textBody: string;
   onImageLoadFailed: () => void;
+  artifact?: ArtifactRecord;
+  sessionId?: string;
+  client: PreviewRailClient;
 }
 
 export function PreviewRailPreview(props: PreviewRailPreviewProps) {
@@ -46,16 +52,26 @@ export function PreviewRailPreview(props: PreviewRailPreviewProps) {
             {props.selected}
           </span>
           <Show when={props.fileContent}>
-            <span class="preview-rail__preview-size">
-              {humanSize(props.fileContent!.size)}
-            </span>
+            <span class="preview-rail__preview-size">{humanSize(props.fileContent!.size)}</span>
           </Show>
         </div>
 
         <div class="preview-rail__preview-body">
+          <Show when={props.artifact}>
+            {(artifact) => (
+              <DocumentWorkspace
+                artifact={artifact()}
+                sessionId={props.sessionId}
+                selectedPath={props.selected}
+                client={props.client as DocumentWorkspaceClient}
+              />
+            )}
+          </Show>
           <Show
-            when={!props.contentLoading}
-            fallback={<div class="preview-rail__placeholder">Loading…</div>}
+            when={!props.artifact ? !props.contentLoading : undefined}
+            fallback={
+              !props.artifact ? <div class="preview-rail__placeholder">Loading…</div> : null
+            }
           >
             <Show
               when={!props.readError}

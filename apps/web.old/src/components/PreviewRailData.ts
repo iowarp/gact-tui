@@ -2,9 +2,22 @@
  * Type definitions and helpers for Preview Rail Data. Key export `PreviewRailClient`.
  */
 import { createMemo, createResource, type Accessor } from 'solid-js';
-import type { Client, ContextFileContent, WorkspaceFileEntry } from '@clio/core';
+import type { ArtifactList, Client, ContextFileContent, WorkspaceFileEntry } from '@clio/core';
 
-export type PreviewRailClient = Pick<Client, 'listWorkspaceFiles' | 'readWorkspaceFile'>;
+type DocumentPreviewMethods = Pick<
+  Client,
+  | 'workspaceArtifacts'
+  | 'documentManifest'
+  | 'documentContent'
+  | 'artifactReviews'
+  | 'submitArtifactReview'
+  | 'createDocumentRendition'
+  | 'createDocumentWorkingCopy'
+  | 'createDocumentEditorSession'
+>;
+
+export type PreviewRailClient = Pick<Client, 'listWorkspaceFiles' | 'readWorkspaceFile'> &
+  Partial<DocumentPreviewMethods>;
 
 interface PreviewRailResourcesOptions {
   workspaceId: Accessor<string | undefined>;
@@ -19,6 +32,11 @@ export interface WorkspaceListingResult {
 
 export interface WorkspaceFileReadResult {
   content?: ContextFileContent;
+  error?: true;
+}
+
+export interface WorkspaceArtifactsResult {
+  artifacts: ArtifactList['artifacts'];
   error?: true;
 }
 
@@ -52,6 +70,19 @@ export function createPreviewRailResources(options: PreviewRailResourcesOptions)
     },
   );
 
+  const [artifacts, { refetch: refetchArtifacts }] = createResource(
+    options.workspaceId,
+    async (wid): Promise<WorkspaceArtifactsResult> => {
+      if (!options.client.workspaceArtifacts) return { artifacts: [] };
+      try {
+        const result = await options.client.workspaceArtifacts(wid);
+        return { artifacts: result.artifacts };
+      } catch {
+        return { artifacts: [], error: true };
+      }
+    },
+  );
+
   return {
     listing,
     refetchListing,
@@ -59,5 +90,7 @@ export function createPreviewRailResources(options: PreviewRailResourcesOptions)
     content,
     fileContent: createMemo(() => content()?.content ?? null),
     readError: createMemo(() => content()?.error === true),
+    artifacts,
+    refetchArtifacts,
   };
 }

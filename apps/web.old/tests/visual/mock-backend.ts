@@ -21,6 +21,9 @@ const MOCK_BACKEND = 'http://mock.test';
 const REAL_PLOT_PNG = readFileSync(
   resolve(import.meta.dirname, 'fixtures', 'MTA1_GNSS_timeseries_displacement.png'),
 );
+const REAL_DOCUMENT_PDF = readFileSync(
+  resolve(import.meta.dirname, 'fixtures', 'evidence-brief.pdf'),
+);
 
 export async function connectMockBackend(page: Page, visualCase: VisualCase): Promise<void> {
   const session = sessionForCase(visualCase);
@@ -38,6 +41,7 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
   const session = sessionForCase(visualCase);
   const messages = messagesForCase(visualCase);
   const semanticEvents = semanticEventsForCase(visualCase);
+  const documentReviews: unknown[] = [];
 
   // The web transcript now reads SSE through a fetch/ReadableStream reader
   // (not `EventSource`), so the live stream is mocked by overriding
@@ -53,11 +57,7 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
       const encoder = new TextEncoder();
       window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.href
-              : input.url;
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         if (url.startsWith(payload.baseUrl) && url.includes('/events')) {
           let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
           const stream = new ReadableStream<Uint8Array>({
@@ -100,22 +100,16 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
     const method = route.request().method();
 
     if (method === 'GET' && path === '/v1/capabilities') {
-      return json(route, capabilities());
+      return json(route, capabilities(visualCase === 'documents'));
     }
     if (method === 'GET' && path === '/v1/agents') {
       return json(route, contextAgentRoster());
     }
-    if (
-      method === 'GET' &&
-      path === `/v1/sessions/${session.id}/context/state`
-    ) {
+    if (method === 'GET' && path === `/v1/sessions/${session.id}/context/state`) {
       const scope = url.searchParams.get('scope') ?? undefined;
       return json(route, contextStateForScope(session.id, scope));
     }
-    if (
-      method === 'POST' &&
-      path === `/v1/sessions/${session.id}/context/compact`
-    ) {
+    if (method === 'POST' && path === `/v1/sessions/${session.id}/context/compact`) {
       const scope = url.searchParams.get('scope') ?? undefined;
       return json(route, compactedContextState(session.id, scope));
     }
@@ -137,12 +131,182 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
     }
     if (method === 'GET' && path === '/v1/workspaces/ws-demo/files') {
       return json(route, {
-        entries: [
-          { path: 'README.md', type: 'file', size: 184 },
-          { path: 'analysis.py', type: 'file', size: 122 },
-          { path: 'plots/validation_plot.png', type: 'file', size: 68 },
-        ],
+        entries:
+          visualCase === 'documents'
+            ? [
+                { path: 'evidence-brief.md', type: 'file', size: 412 },
+                { path: 'evidence-brief.pdf', type: 'file', size: REAL_DOCUMENT_PDF.length },
+              ]
+            : [
+                { path: 'README.md', type: 'file', size: 184 },
+                { path: 'analysis.py', type: 'file', size: 122 },
+                { path: 'plots/validation_plot.png', type: 'file', size: 68 },
+              ],
       });
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      path === '/v1/workspaces/ws-demo/artifacts'
+    ) {
+      return json(route, {
+        artifacts: [
+          {
+            workspace_id: 'ws-demo',
+            name: 'evidence-brief.md',
+            kind: 'report',
+            latest_version: 2,
+            head_artifact_id: 'artifact-evidence-v2',
+            versions: [
+              {
+                artifact_id: 'artifact-evidence-v1',
+                version: 1,
+                sha256: '1'.repeat(64),
+                created_at: '2026-07-26T12:00:00Z',
+              },
+              {
+                artifact_id: 'artifact-evidence-v2',
+                version: 2,
+                sha256: '2'.repeat(64),
+                created_at: '2026-07-27T12:00:00Z',
+              },
+            ],
+          },
+          {
+            workspace_id: 'ws-demo',
+            name: 'evidence-brief.pdf',
+            kind: 'report',
+            latest_version: 1,
+            head_artifact_id: 'artifact-evidence-pdf-v1',
+            versions: [
+              {
+                artifact_id: 'artifact-evidence-pdf-v1',
+                version: 1,
+                sha256: '25fec3695da995b1f5561a865f6223a87313199af681c5dd1a0114d425eb8853',
+                created_at: '2026-07-27T12:02:00Z',
+              },
+            ],
+          },
+        ],
+        count: 2,
+        next_cursor: null,
+      });
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      path === '/v1/artifacts/artifact-evidence-pdf-v1/document'
+    ) {
+      return json(route, {
+        artifact_id: 'artifact-evidence-pdf-v1',
+        workspace_id: 'ws-demo',
+        name: 'evidence-brief.pdf',
+        version: 1,
+        sha256: '25fec3695da995b1f5561a865f6223a87313199af681c5dd1a0114d425eb8853',
+        mime_type: 'application/pdf',
+        profile: 'pdf',
+        content_url: `${path}/content`,
+        anchors: ['pdf-quad'],
+        native_open: true,
+        embedded_editors: [],
+        rendition_formats: [],
+        provenance: {
+          mechanism: 'document-rendition',
+          converter: 'pandoc+typst',
+          created_at: '2026-07-27T12:02:00Z',
+        },
+      });
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      /^\/v1\/artifacts\/artifact-evidence-v[12]\/document$/.test(path)
+    ) {
+      const historical = path.includes('v1/document');
+      return json(route, {
+        artifact_id: historical ? 'artifact-evidence-v1' : 'artifact-evidence-v2',
+        workspace_id: 'ws-demo',
+        name: 'evidence-brief.md',
+        version: historical ? 1 : 2,
+        sha256: (historical ? '1' : '2').repeat(64),
+        mime_type: 'text/markdown',
+        profile: 'markdown',
+        content_url: `${path}/content`,
+        anchors: ['text-quote'],
+        native_open: true,
+        embedded_editors: [],
+        rendition_formats: ['pdf'],
+        provenance: {
+          mechanism: historical ? 'tool' : 'change_feed',
+          created_at: historical ? '2026-07-26T12:00:00Z' : '2026-07-27T12:00:00Z',
+        },
+      });
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      /^\/v1\/artifacts\/artifact-evidence-v[12]\/document\/content$/.test(path)
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/markdown',
+        headers: { 'access-control-allow-origin': '*' },
+        body:
+          '# Evidence brief\n\n' +
+          '## Result\n\n' +
+          'The observed displacement is **tentative pending quality review**.\n\n' +
+          '## Evidence boundary\n\n' +
+          '- Source rows: 250,000 scan-limited observations\n' +
+          '- No cadence or completeness claim is made beyond the scanned rows\n',
+      });
+      return;
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      path === '/v1/artifacts/artifact-evidence-pdf-v1/document/content'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: { 'access-control-allow-origin': '*' },
+        body: REAL_DOCUMENT_PDF,
+      });
+      return;
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'GET' &&
+      /^\/v1\/artifacts\/artifact-evidence-(?:v[12]|pdf-v1)\/reviews$/.test(path)
+    ) {
+      return json(route, { reviews: documentReviews });
+    }
+    if (
+      visualCase === 'documents' &&
+      method === 'POST' &&
+      path === `/v1/sessions/${session.id}/artifact-reviews`
+    ) {
+      const input = route.request().postDataJSON() as Record<string, unknown>;
+      const created = {
+        id: 'review-evidence-1',
+        session_id: session.id,
+        workspace_id: 'ws-demo',
+        artifact_id: input['artifact_id'],
+        artifact_name:
+          input['artifact_id'] === 'artifact-evidence-pdf-v1'
+            ? 'evidence-brief.pdf'
+            : 'evidence-brief.md',
+        artifact_version: input['expected_version'],
+        artifact_sha256: input['expected_sha256'],
+        anchor: input['anchor'],
+        text: input['text'],
+        status: 'dispatched',
+        native: false,
+        message_id: 'message-review-1',
+        created_at: '2026-07-27T12:04:00Z',
+      };
+      documentReviews.splice(0, documentReviews.length, created);
+      return json(route, created, 202);
     }
     if (method === 'GET' && path === '/v1/workspaces/ws-demo/files/read') {
       const requested = url.searchParams.get('path') ?? '';
@@ -244,9 +408,9 @@ async function installMockBackend(page: Page, visualCase: VisualCase): Promise<v
   });
 }
 
-async function json(route: Route, body: unknown): Promise<void> {
+async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({
-    status: 200,
+    status,
     contentType: 'application/json',
     headers: { 'access-control-allow-origin': '*' },
     body: JSON.stringify(body),

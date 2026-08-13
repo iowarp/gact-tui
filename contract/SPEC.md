@@ -224,6 +224,7 @@ consumers have an authority for the values.
     "x_clio_retry_attempts": true,                 // §6.24 — /v1/sessions/{id}/messages/{id}/retry
     "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
     "x_clio_semantic_events": true,                // §7.6 — the semantic.event SSE spine
+    "x_clio_artifacts": true,                      // §6.26 — /v1/artifacts + artifact.* events + resource_link artifact:// parts
     "x_clio_semantic_trace_backend": "none",       // "none" | "file" | "factory"
     "x_clio_semantic_trace_detail": "semantic",    // "off" | "metadata" | "semantic" | "full_debug"
     "x_clio_hook_backend": "local_python",         // "local_python" | "none" | "factory" | "unavailable" (init failure)
@@ -654,7 +655,7 @@ field is still present at its default.
 | `routing_decision` (v0.2) | Orchestrator picked an agent for this turn | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = deterministic keyword match; false = LM router). **clio extension**: also carries `execution_path: string` — `"fast"` (deterministic tool template, no LM) or `"expert_loop"` (full expert tool-loop), empty when N/A. SHOULD be the first part of a routed assistant message when `agent_routing` is true. |
 | `subagent_call` | Spawn a subagent | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object` |
 | `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
-| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?` |
+| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism, workspace_id, name}` — the nine identity/provenance keys plus the logical-identity pair `workspace_id`/`name` (which the `uri`/`name` fields already encode, repeated here so a client keying off `metadata` alone need not re-parse the `uri`). `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
 | `resource` | Embedded MCP resource | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64) |
 | `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
@@ -885,6 +886,37 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 | GET | `/v1/workspaces/{id}` | — | `Workspace` |
 | PATCH | `/v1/workspaces/{id}` | partial `Workspace` | `Workspace` |
 | DELETE | `/v1/workspaces/{id}` | — | `204` |
+| POST | `/v1/workspaces/{id}/grants` | `{root?, domain?, deny_mode?}` (any subset) | `{workspace_id, root?, domain?, deny_mode?}` — B5 mid-session grants |
+
+> **Boundary events (B5 #979).** The write-territory **changes** — workspace
+> **create** and a `PATCH` **`root_path` change** — now emit
+> `boundary.granted`/`boundary.revoked` semantic events (§7.6, `kind: "root"`),
+> previously silent. A `root_path` change emits a `revoked` (old root) +
+> `granted` (new root) pair. A plain **session create** does NOT emit a boundary
+> event: a session inherits its workspace's already-established territory, so no
+> grant was made — emitting `boundary.granted{grantor: user}` there would both
+> fabricate a user decision (⚑ grants are user/model decisions, never automatic)
+> and prepend a spurious event to every session's stream ahead of `turn.started`.
+> The session's territory is fully described by its workspace's boundary events.
+
+> **`POST /v1/workspaces/{id}/grants` (B5 #979).** Grants new effective
+> boundary to a workspace mid-session — every grant is a recorded USER decision
+> that emits `boundary.granted` (§7.6). Body (any subset):
+> - `{root: "<path>"}` — grant a writable filesystem root. The OS write-fence
+>   and the advisory file-policy widen LIVE on the next spawn/tool-boundary
+>   check. Returns `root: {granted, pattern, reason, pending_respawn}` where
+>   `reason` is `grant_applied_live` (per-spawn fence — takes effect on the next
+>   spawn), `grant_pending_respawn` (a session-wide srt fence, e.g. Windows —
+>   children already spawned keep their compile-time territory until they
+>   respawn; `pending_respawn: true`), or `grant_recorded_no_active_fence` (the
+>   floor — advisory-only widen). `kind: "root"` boundary event.
+> - `{domain: "<host>"}` — grant a network domain: appends a sticky workspace
+>   `host_pattern` allow policy (§6.11) and emits `boundary.granted{kind:
+>   "domain"}`.
+> - `{deny_mode: true|false}` — toggle the workspace's opt-in network deny mode
+>   (§6.11.d).
+> `404` for an unknown workspace; `400` if the body names none of
+> `root`/`domain`/`deny_mode`.
 
 > **Drift note.** clio's `CreateWorkspaceRequest` requires `name` and
 > takes `storage_root` (not `config`); the implemented `Workspace` adds
@@ -1306,7 +1338,11 @@ Full body/response semantics in §6.2.
 <exact path>, action: "allow", created_from_permission_id}`, appends it
 to `/v1/policies`, and **persists it to disk**
 (`permission_policies.json` — survives restart). The derived policy is
-attached to the resolved row as `.policy`.
+attached to the resolved row as `.policy`. When the resolved request is a
+**`network_egress`** kind (a deny-mode domain prompt, §6.11.d), the derived
+policy carries **`host_pattern`** (the requested domain) instead of
+`path_pattern`, and an `allow_workspace` resolution additionally emits
+`boundary.granted{kind: "domain"}` (§7.6).
 
 ```json
 // Policy (implemented)
@@ -1314,10 +1350,19 @@ attached to the resolved row as `.policy`.
   "scope": "workspace|session",
   "scope_id": "...",                 // empty = wildcard within scope
   "tool_name_pattern": "shell|edit|*",   // fnmatch glob, default "*"
-  "path_pattern": "/src/**|*",           // fnmatch glob, optional
+  "path_pattern": "/src/**|*",           // fnmatch glob, optional (file territory)
+  "host_pattern": "*.ndp.org|*",         // fnmatch glob, optional (B5 — network domain)
   "action": "allow|allow_session|allow_workspace|deny|ask"
 }
 ```
+
+`host_pattern` (B5 #979) is the **network-domain analogue of `path_pattern`**:
+an fnmatch glob matched (case-insensitively) against a CONNECT's requested
+authority host by the deny-mode egress gate (§6.11.d). It is validated with the
+SAME atomic-PUT rule as the other optional string fields — a non-string
+`host_pattern` rejects the WHOLE `/v1/policies` update (422). A row may carry
+`path_pattern` (file territory) or `host_pattern` (network domain); a `host_pattern`
+row's `tool_name_pattern` is unused.
 
 Policy semantics (clio's evaluator, descriptive):
 
@@ -1378,6 +1423,52 @@ observable only via `permission.requested` +
 > must tolerate unmatched ids.
 
 Backends MAY implement policies as simple per-tool toggles, or as rich rule engines (Gemini-style TOML with folder trust + shell safety). The contract specifies the data shape, not the evaluator.
+
+#### §6.11.c Permission-event listing (B5 #979)
+
+`permission.requested` and `permission.resolved` are BOTH first-class UI
+semantic events on the `semantic.event` spine (§7.6) AND raw wire events on the
+per-session SSE stream. Prior to B5, `permission.requested` was emitted as a
+semantic event but not UI-listed while `permission.resolved` was bus-only; both
+are now consistently captured on the durable trace/ARC and served to the UI. The
+timeout carve-out (case 7 above — a `timeout` emits NO `permission.resolved`)
+still holds; a client must not wait on a resolved event for a timed-out request.
+
+#### §6.11.d Deny-mode network egress (B5 #979)
+
+The child network default is **ALLOW + RECORD** (every forwarded egress mints a
+trace-only `net.egress` record). A workspace MAY opt into **deny mode** — a
+per-workspace config flag `network_deny_mode` (set via
+`PATCH /v1/workspaces/{id}` metadata or `POST /v1/workspaces/{id}/grants
+{deny_mode: true}`). In deny mode the clio egress chokepoint consults the
+workspace's `host_pattern` policies at CONNECT time:
+
+- a matching `allow`/`allow_*` `host_pattern` → the CONNECT proceeds, no prompt;
+- a matching `deny` `host_pattern` → the CONNECT is refused (HTTP `403`), a typed
+  `permission.resolved{action: deny}` record is emitted;
+- an **unknown** domain → a `permission.requested` of a new request **kind
+  `network_egress`** is opened on the pending-row (`tool_call.tool_name =
+  "network_egress"`, `tool_call.input = {host, port}`, `kind: "network_egress"`),
+  and the connection blocks (up to 600 s) exactly like the interactive tool gate.
+  Concurrent CONNECTs to the SAME `(workspace, host)` **coalesce** onto one prompt;
+  distinct concurrently-open prompts are bounded, and a connect over that bound
+  fails closed (`reason: egress_gate_prompt_cap_reached`). Resolving `allow_workspace`
+  derives a sticky **workspace-scoped** `host_pattern` policy (with
+  `created_from_permission_id` provenance) and emits `boundary.granted{kind:
+  "domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. Resolving
+  `allow_session` derives a session-scoped `host_pattern` policy that is **NOT honoured
+  at the chokepoint** — a workspace-shared fleet child's egress cannot be attributed to
+  one session, so a session-scoped host grant never widens the network boundary (it
+  re-prompts, fail-safe; the more-restrictive choice must never leak broader).
+
+  **Deny-mode egress is FAIL-CLOSED and always recorded** (unlike the interactive
+  tool-gate timeout of §6.11.c, which emits nothing): every deny-mode block — a
+  `deny` policy, an interactive **timeout**, the concurrency cap, or a decision-path
+  error while the store cannot prove the workspace is NOT in deny mode — emits a typed
+  `permission.resolved{action: "deny", reason}` record (`reason` ∈ `policy_deny` /
+  `egress_gate_timeout` / `egress_gate_prompt_cap_reached` / `egress_gate_store_unresolved`
+  / `egress_gate_decision_error`). A security boundary the user opted into is never
+  silently allowed on an error, and never denied without a record.
 
 ### §6.12 Providers & Models
 
@@ -1851,7 +1942,141 @@ This is the implemented path for both history compaction and the
 user-facing summary (the `/summarize` route is not registered and
 `session_summary` is truthfully advertised `false` — see §6.2).
 
+## §6.26 Artifacts (vendor — `x_clio_artifacts`)
+
+A **first-class session output** — a tool-generated file, a designated report, a
+staged dataset, a `ui_payload` — recorded as a durable, hash-pinned, versioned
+**artifact**. A logical artifact is keyed `(workspace_id, name)`; each immutable
+**version** carries its own `artifact_id` (`artifact_<uuid4hex>`) and a content
+`sha256`. Artifacts gain outbound wire identity as `resource_link` parts (§4.5)
+and `artifact.*` semantic events (§7.6). Server-only in this slice — client
+rendering (an artifacts panel) is a later campaign; the wire contract lands
+first.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/v1/sessions/{sid}/artifacts` | List the artifacts of the session's workspace. `?limit=` (clamped ≤ 200, default 50), `?before=<head artifact_id>` cursor (newest-first). `?include_children=true` (S5 GAP B) also lists the **descendant child sessions'** workspaces so a parent orchestrator sees its delegates' outputs (children resolve via the agent-task registry — `child_session_id` on the parent's tasks, bounded descendants; their workspaces union with the parent's, records dedup by `(workspace_id, name)`). With the flag ON, each `ArtifactRecord` also carries `producing_session_ids: string[]` (the distinct sessions that produced its versions) and the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{artifacts: ArtifactRecord[], count, next_cursor}` (flag off → own workspace only, byte-identical to before). |
+| GET | `/v1/workspaces/{wid}/artifacts` | Same, scoped to a workspace directly. |
+| GET | `/v1/workspaces/{wid}/artifacts/{name}` | Resolve one version by name. `?ref=latest\|vN\|<alias>` — **full resolution is live** (S4): `latest` (the auto-maintained head alias), any `vN`, and any tracked alias resolve. An unknown ref is an honest **`404 not_found`** whose `details.available` lists the full resolvable set (`latest`, every `v1..vN`, every tracked alias name) — the pre-S4 `409 alias_resolution_not_available` placeholder is gone (resolution is complete). Returns `{artifact, resolved, ref}` on success. |
+| POST | `/v1/workspaces/{wid}/artifacts/{name}/aliases` | Move a mutable alias to a version (S4). Body `{alias, ref}` where `ref` is `latest\|vN\|<alias>`. Emits `artifact.alias.moved` (§7.6). The reserved `latest` alias is auto-maintained to the head, so moving it by hand is `422 reserved_alias`; a missing artifact / unresolvable target is `404` (with `details.available`). Returns `{artifact, alias, from_version, to_version}`. |
+| GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
+| GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9). |
+| POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
+| GET | `/v1/artifacts/{artifact_id}/lineage` | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated` is `null` for a complete graph, else `{reason: "node_cap", nodes}` or `{reason: "depth_horizon", at_depth}`; the graph is always well-formed (no edge references a node absent from `nodes`). |
+| GET | `/v1/sessions/{sid}/transforms` | The **TransformRecords** a session produced (S5). `?include_children=true` (S5 GAP B) AGGREGATES the descendant child sessions' records too — a parent orchestrator delegates the tool work to spawned children, so its OWN records are empty while the children hold everything; children resolve via the agent-task registry (bounded descendants). Each `TransformRecord` already carries its producing `session_id` (per-row attribution); with the flag ON the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{transforms: TransformRecord[], count}` (flag off → own records only, byte-identical to before). |
+| GET | `/v1/transforms/{activity_id}` | One TransformRecord by its `activity_id` (the producing tool `call_id`). Returns `{transform: TransformRecord}`; unknown id is `404`. |
+| GET | `/v1/artifacts/{artifact_id}/export` | **RO-Crate export** of one artifact's lineage ("give me the scripts", S7). Returns `application/zip` (`Content-Disposition: attachment`) — an RO-Crate folder: `ro-crate-metadata.json` (JSON-LD; see below), the artifact bytes under `data/` (only versions at/under the CAS max-file size are shipped; a larger one is recorded with `clio:bytes_exported: false`), and a compiled `reproduce.py` + `reproduce.ipynb`. The crate carries the artifact's version chain, its producing TransformRecords (as `CreateAction`s), and the one-hop input records so the reproduce chain is closed. Exporting registers the shipped content hashes as CAS GC roots (never evicted from under a downloaded bundle). Unknown `artifact_id` is `404`. |
+| GET | `/v1/sessions/{sid}/export/bundle` | **RO-Crate export** of a whole session's artifacts + transforms (S7). Same zip shape. `?include_children=true` (default) unions the descendant child sessions' workspaces so a parent orchestrator's bundle carries its delegates' outputs. Unknown session is `404`. |
+
+**RO-Crate bundle** (S7 — `x_clio_artifacts`). `ro-crate-metadata.json` is JSON-LD conforming to RO-Crate 1.1. Each artifact **version** is a `File` entity (`prov:Entity`) carrying `sha256`/`contentSize`, `clio:{artifact_id, version, kind, custody, mechanism, evidence_class}`, and the PROV edges `wasGeneratedBy` (its producing `#activity-<call_id>`) and `wasRevisionOf` (the version it revises). Each **TransformRecord** serializes as a schema.org `CreateAction` (`prov:Activity`) `{object: [used inputs], result: [generated outputs], instrument: {@id}, agent: {@id}, startTime, endTime, actionStatus, clio:{replay, replay_reason, environment_tier, kind}}` — serialization, not translation (the record is already CreateAction-shaped). A **gap** version (mechanism `none`) attributes to `#agent-unknown` (never a false author). `reproduce.py` compiles the lineage into a deterministic re-run: transforms in topological order, each instrument translated to its plain-tool equivalent (a staged download → `requests.get` of the recorded source url; a pandas filter → the pandas expression; a timeseries plot → matplotlib; model-designated inline content → a write-these-bytes stage from the exported bytes), **each stage ending with an executable `assert sha256(output) == <recorded pin>`**. Per-stage honesty banners: `deterministic` (translatable + hash-pinned inputs + env ≥ lockfile-hash) / `write-bytes` / `re-runnable` (a precondition fails — runs but not bit-identical) / `agentic-only` (no translation — the MCP invocation form, re-hand to a live agent) / `gap-break` (an explicit `raise`). `reproduce.ipynb` is the notebook-staged variant (one code cell per stage). Server-only in this campaign; the UI Recreate tab (copy the script / download the bundle / agentic replay) is a later slice. |
+
+**ArtifactRecord** (list/get): `{workspace_id, name, kind, latest_version,
+head_artifact_id, aliases: {alias: versionN}, versions: ArtifactVersion[]}`. The
+`aliases` map always carries the reserved `latest` (auto-maintained to the head);
+user aliases are added via the alias-move route (S4).
+**ArtifactVersion**: `{artifact_id, workspace_id, name, version, kind
+(dataset\|image\|report\|plan\|script\|config\|model\|ui_payload\|other),
+custody (cas\|workspace-referenced\|external-referenced), mechanism
+(harness\|tool-schema\|change-feed\|model\|none), evidence_class
+(hashed-at-use\|authority-asserted\|stat-pinned), sha256, size_bytes, authority,
+path, created_at, annotation, producer, uri, fetch_url}` — **plus the S4
+version-chain fields** `{prior_version: int\|null, prior_sha256: string\|null,
+kind_warning: string, custody_gap: object\|null}`: `prior_version`/`prior_sha256`
+are the PROV `wasRevisionOf` edge (the prior head this version revises; both `null`
+on v1); `kind_warning` is non-empty when a mint requested a kind other than the one
+locked at v1 (the locked kind is kept, never a new kind); `custody_gap` is
+non-`null` on a re-link-by-hash (`{reason: "relink_by_hash", matched_version,
+matched_sha256}`) or an undesignated overwrite detected at observation
+(`{reason: "undesignated_overwrite", lease: "clean"\|"dirty", actor: "unknown"}`).
+All additive. All errors use the §6.0 `ErrorEnvelope`.
+
+**TransformRecord** (S5 — `b = transform(a)`, one per producing tool call, keyed by
+the observer `call_id`): `{call_id, event_id, session_id, turn_id, workspace_id,
+status (success\|failed), kind (ordinary\|contended), agent_role
+(executing\|annotating), agent_id, instrument, environment, replay
+(reproducible\|re-runnable), replay_reason, used: ProvEdge[], generated: ProvEdge[],
+started_at, ended_at, annotation, candidates: string[], notes: object[]}`. A
+**failed** run that wrote outputs is real provenance (recorded, not dropped).
+**notes** carries typed DETECTABLE non-edges (precision over recall): a
+freshly-written output under a non-designation arg (`unminted_output_candidate`), a
+path-looking arg that never resolved to a workspace file (`unresolved_path_arg`), a
+discovery search whose hits were listed not consumed (`catalog_hits_not_consumed`).
+**instrument** = `{tool, args, cmd, script_hash, script_artifact_id}` — a generated
+script the tool ran is itself a `script` artifact and its own hashed dep
+(`script_hash`); a large inline arg (`content`/`cmd`) is bounded to
+`{sha256, size, truncated, head}` so the record stays memory-bounded. **environment**
+= `{tier (declared\|lockfile-hash\|image-digest), clio_version, lockfile_sha256,
+launcher_fingerprint, provider_id, model_id, model_variant, model_source
+(executing_lm\|global_fallback), os, arch, python_version}`; `lockfile_sha256` is
+`sha256` of clio's OWN `uv.lock` resolved at the clio-agent repo-root anchor only (a
+packaged install with no such anchor falls to `declared`, never an unrelated
+lockfile). **replay** is permanent and honest: `reproducible` iff the environment
+tier is at least `lockfile-hash` AND every used input pins its BITS (hash-pair, or an
+authority edge that also carries a content sha), else `re-runnable` with a typed
+`replay_reason` (`env_below_lockfile_hash` \| `inputs_unpinned:<n>` \|
+`inputs_authority_asserted:<n>` — an authority-asserted catalog locator pins IDENTITY,
+not bytes) — never silently upgraded.
+**ProvEdge** = `{role (used\|generated), evidence (schema-arg\|hash-pair\|
+lease-window\|authority\|assertion), artifact_id, sha256, external_ref, authority,
+name, version, path, arg, note}`: a registry-matched edge carries `artifact_id` +
+`sha256` (the relay `ArtifactUse` pair); an external / catalog input carries
+`external_ref` (`external:<path>` or a catalog URL) and/or `authority`. A changed
+input mints a version first and points the edge at it, its `note` naming the ACTUAL
+reconcile class (`gap` \| `auto_revision` \| `relink` \| `stale_fallback`), never a
+stale pin. NDP catalog inputs (no checksum/ETag/DOI on the wire) are identified by
+their catalog URL as `authority` — an identity pin, not a bit-content pin. All
+additive; errors use the §6.0 `ErrorEnvelope`.
+
 ---
+
+## §6.27 Document artifacts (vendor — `x_clio_document_artifacts`)
+
+Document artifacts are format-aware views and review actions over the immutable
+artifact identities in §6.26. They do not create a fourth generated-UI protocol:
+static HTML is non-executable, executable HTML remains Live Web, and A2UI/MCP App
+provenance remains unchanged.
+
+The capability value is an object with `protocol_version`, `profiles`, `anchors`,
+`review_parts`, `floating_comments`, `immutable_revisions`,
+`native_working_copies`, `native_comment_trigger`, `embedded_editors`,
+`static_html_scripts`, and `executable_html_transition`.
+
+| Method | Endpoint | Contract |
+| --- | --- | --- |
+| GET | `/v1/artifacts/{artifact_id}/document` | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open/editor availability, renditions, and provenance. |
+| GET | `/v1/artifacts/{artifact_id}/document/content` | Serve exact bytes. Static HTML carries a sandboxed deny-by-default CSP. |
+| GET | `/v1/artifacts/{artifact_id}/reviews` | Return the durable latest projection of reviews for the logical artifact chain. |
+| POST | `/v1/sessions/{sid}/artifact-reviews` | Validate `artifact_id`, `expected_version`, and `expected_sha256`; reject a stale head with `409 stale_artifact_anchor`; idempotently persist and immediately continue the agent with an `artifact_review` part. |
+| POST | `/v1/artifacts/{artifact_id}/renditions?session_id=...` | Create a real derived PDF artifact or return an explicit unavailable/failure error. |
+| POST | `/v1/artifacts/{artifact_id}/working-copies` | Materialize a confined copy with a single writable lease. Stable saves mint immutable revisions; stale heads become explicit conflicts. |
+| GET/DELETE | `/v1/document-working-copies/{id}` | Read or close a working-copy lease. |
+| POST | `/v1/document-working-copies/{id}/conflict` | Resolve with `keep-current` or `use-working-copy` against an expected head. |
+| GET | `/v1/document-editors/health` | Report configured and reachable ONLYOFFICE/Collabora endpoints. |
+| POST | `/v1/document-working-copies/{id}/editor-sessions` | Issue a short-lived token scoped to one working copy and provider. |
+
+`artifact_review` is a user part:
+
+```json
+{
+  "type": "artifact_review",
+  "review_id": "docreview_...",
+  "artifact_id": "artifact_...",
+  "artifact_version": 3,
+  "artifact_sha256": "...",
+  "review_text": "Clarify this result.",
+  "anchor": { "profile": "text-quote", "exact": "selected text" }
+}
+```
+
+Anchors are version-bound: `text-quote`, normalized `pdf-quad`, `dom`,
+`sheet-range`, `slide-shape`, `native-comment`, and `source-map`. A client must
+never silently reinterpret one against a different version. Native Office or
+OpenDocument comments beginning with `@clio` are exactly-once agent
+instructions; all other native comments are human notes.
+
+The semantic event family is `document.review.created`,
+`document.review.dispatched`, `document.native_comment.imported`,
+`document.working_copy.changed`, and `document.working_copy.conflict`.
 
 ## §7 Streaming Events (SSE)
 
@@ -1980,6 +2205,13 @@ There is no `file.diff.proposed` event — a diff proposal arrives as a
 batch `message.part.added` (`file_diff` part) plus a `semantic.event`
 `artifact.proposed` `{path, unified_diff, new_content, edit_mode,
 lines_added, lines_removed}`.
+
+> **`artifact.proposed` is the proposal stage of the `artifact.*` family**
+> (§7.6, vendor `x_clio_artifacts`). Its payload is unchanged by that widening
+> — a diff proposal still carries exactly the six `file_diff` fields above. Like
+> the diff-lifecycle events it rides the semantic spine only and is NOT on the
+> served-UI allow-list (the `file_diff` part is what a client renders). The
+> distinct **created**-stage events (`artifact.created` etc., §7.6) ARE served.
 
 #### §7.3c Normalized transcript channel — RETIRED (clio e921eec)
 
@@ -2141,12 +2373,51 @@ serves. Only these `event_type` values reach the SSE wire:
 `react.step.completed`, `expert.extract.completed`,
 `expert.response.completed`, `expert.lifecycle.started`,
 `(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
-`.failed`, `memory.search.completed` — **PLUS any event whose `status`
-is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
+`.failed`, `memory.search.completed`, **the artifact `created` family
+(`artifact.created` / `artifact.version.added` / `artifact.alias.moved`,
+vendor `x_clio_artifacts`, §6.26)**, **the grant/boundary family (B5 #979):
+`boundary.granted` / `boundary.revoked` and the permission lifecycle
+`permission.requested` / `permission.resolved`** — **PLUS any event whose
+`status` is `failed`/`error`/`cancelled`** (e.g. `turn.failed`). Everything
 else (turn/agent/hook lifecycle, `tool.call.*` mirrors,
-`lm.token.delta`, `memory.compacted`, `arc.op`) is captured on the
-durable trace/ARC/hooks but NOT served over SSE. The captured set is
-open.
+`lm.token.delta`, `memory.compacted`, `arc.op`, **and the trace-only
+artifact-provenance events `artifact.used` / `artifact.transform.recorded`
+/ `artifact.proposed`, plus the trace-only sandbox substrate `net.egress` /
+`artifact.policy_violation`**) is captured on the durable trace/ARC/hooks but
+NOT served over SSE. The captured set is open.
+
+**Boundary event family** (B5 #979). `boundary.granted` / `boundary.revoked`
+record every change to a workspace/session's effective write-territory or
+network-domain boundary — a recorded USER or MODEL decision, never a
+deterministic backend choice. Payload: `{kind: "root"|"domain", scope:
+"session"|"workspace", grantor: "user"|"model-request"|"policy", pattern,
+workspace_id, created_from_permission_id?, reason?}`. Emit sites: workspace
+create / session attach / `PATCH root_path` (§6.1, `kind: "root"`); the
+`POST /v1/workspaces/{id}/grants` root+domain grants (§6.1); and a deny-mode
+`network_egress` resolution (§6.11.d, `kind: "domain"`, carrying
+`created_from_permission_id`). `reason` on a root grant is one of
+`grant_applied_live` / `grant_pending_respawn` / `grant_recorded_no_active_fence`.
+
+**Artifact event family** (vendor `x_clio_artifacts`, §6.26). `artifact.created`
+fires per **v1** immutable artifact version; its payload is the artifact record
+`{event_id, artifact_id, workspace_id, name, version, kind, custody, mechanism,
+sha256, size_bytes, path, created_at, annotation, producer, evidence}`.
+`artifact.version.added` fires per **v2+** revision (S4): the SAME record payload
+**plus** the version-chain fields `{prior_version, prior_sha256, kind_warning,
+custody_gap}` — `prior_version`/`prior_sha256` are the PROV `wasRevisionOf` edge to
+the prior head; `kind_warning`/`custody_gap` are the honest markers (kind lock,
+re-link-by-hash / undesignated-overwrite gap) described under **ArtifactVersion**
+(§6.26). `artifact.alias.moved` fires when an alias pointer moves (the `latest`
+alias auto-moves on every new version): payload `{event_id, workspace_id, name,
+alias, from_version, to_version, at}` — folded last-writer-wins by `(at, event_id)`
+so a replay of the log in any order rebuilds the identical alias map. All three are
+served. `artifact.transform.recorded` (S5) fires per producing tool call — its
+payload is the full **TransformRecord** (§6.26) keyed by the observer `call_id`. It
+stays **trace-only** (NOT on the SSE UI wire — the same split as `artifact.used`),
+but unlike `artifact.used` it IS folded into the registry projection at boot to
+rebuild the transform/lineage index (queried via the §6.26 lineage routes).
+`artifact.proposed` is the diff-proposal stage (§7.3a). An artifact record carries no
+credential fields, so the served `semantic` projection is the full record.
 
 **Detail levels** (`x_clio_semantic_trace_detail`, also per-event):
 `off` suppresses SSE + hooks but never durable capture; `metadata`

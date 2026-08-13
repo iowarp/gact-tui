@@ -28,6 +28,23 @@ function renderPart(part: Part) {
 }
 
 describe('new transcript part types', () => {
+  it('renders an exact-revision artifact review as a user-facing comment', () => {
+    renderPart({
+      type: 'artifact_review',
+      review_id: 'review-1',
+      artifact_id: 'artifact-1',
+      artifact_version: 3,
+      artifact_sha256: 'a'.repeat(64),
+      review_text: 'Keep the caveat next to the result.',
+      anchor: { profile: 'text-quote', exact: 'tentative result' },
+      metadata: { artifact_name: 'brief.md' },
+    });
+    const el = screen.getByTestId('artifact-review-review-1');
+    expect(el.textContent).toContain('brief.md · v3');
+    expect(el.textContent).toContain('tentative result');
+    expect(el.textContent).toContain('Keep the caveat next to the result.');
+  });
+
   it('renders a document part with title, context and source', () => {
     renderPart({
       type: 'document',
@@ -172,7 +189,9 @@ describe('new transcript part types', () => {
     expect(screen.getByTestId('trx-compaction-summary').textContent).toContain(
       'condensed the earlier exploration into a plan',
     );
-    expect(screen.getByTestId('trx-compaction-count').textContent).toContain('3 messages compacted');
+    expect(screen.getByTestId('trx-compaction-count').textContent).toContain(
+      '3 messages compacted',
+    );
     expect(screen.getByTestId('trx-compaction-mode').textContent).toContain('auto');
   });
 
@@ -228,18 +247,14 @@ describe('new transcript part types', () => {
   it('does not throw and shows a placeholder type for a part with a null type', () => {
     // Odd/degenerate payload: `type` is null. The fallback coalesces to
     // 'unknown' rather than crashing the whole transcript render.
-    expect(() =>
-      renderPart({ type: null, data: undefined } as unknown as Part),
-    ).not.toThrow();
+    expect(() => renderPart({ type: null, data: undefined } as unknown as Part)).not.toThrow();
     const el = screen.getByTestId('trx-unknown-part');
     expect(el.textContent).toContain('unsupported part');
     expect(within(el).getByText('unknown')).toBeTruthy();
   });
 
   it('does not throw for an empty-string part type and labels it unknown', () => {
-    expect(() =>
-      renderPart({ type: '' } as unknown as Part),
-    ).not.toThrow();
+    expect(() => renderPart({ type: '' } as unknown as Part)).not.toThrow();
     const el = screen.getByTestId('trx-unknown-part');
     expect(within(el).getByText('unknown')).toBeTruthy();
   });

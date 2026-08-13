@@ -51,6 +51,8 @@ export interface PreviewRailProps {
    * the Inspector). When this changes to a non-empty path the rail selects
    * and previews it. */
   externalPath?: Accessor<string | undefined>;
+  sessionId?: string;
+  documentArtifactsEnabled?: boolean;
 }
 
 export function PreviewRail(props: PreviewRailProps) {
@@ -61,11 +63,18 @@ export function PreviewRail(props: PreviewRailProps) {
   });
 
   return (
-    <aside class="preview-rail" data-testid="preview-rail">
+    <aside
+      class="preview-rail"
+      classList={{
+        'preview-rail--document':
+          props.documentArtifactsEnabled === true && !!controller.selectedArtifact(),
+      }}
+      data-testid="preview-rail"
+    >
       <header class="preview-rail__head">
         <span class="preview-rail__title">
           <Icon name="folder" size={14} />
-          Files
+          Artifacts & Files
         </span>
         <button
           type="button"
@@ -73,7 +82,10 @@ export function PreviewRail(props: PreviewRailProps) {
           title="Refresh files"
           aria-label="Refresh files"
           data-testid="preview-rail-refresh"
-          onClick={() => void controller.refetchListing()}
+          onClick={() => {
+            void controller.refetchListing();
+            void controller.refetchArtifacts();
+          }}
         >
           <Icon name="refresh" size={14} />
         </button>
@@ -113,6 +125,9 @@ export function PreviewRail(props: PreviewRailProps) {
         isMarkdownPreview={controller.isMarkdownPreview()}
         textBody={controller.textBody()}
         onImageLoadFailed={() => controller.setImageLoadFailed(true)}
+        artifact={props.documentArtifactsEnabled ? controller.selectedArtifact() : undefined}
+        sessionId={props.sessionId}
+        client={props.client}
       />
     </aside>
   );

@@ -7,6 +7,7 @@ import type {
   FileDiff,
   Part,
   PartAgentQuestion,
+  PartArtifactReview,
   PartCitation,
   PartCompaction,
   PartDocument,
@@ -35,6 +36,7 @@ import { TranscriptCompactionPartView } from './TranscriptCompactionPartView.js'
 import { TranscriptRedactedThinkingPartView } from './TranscriptRedactedThinkingPartView.js';
 import { UnknownPartView } from './TranscriptUnknownPartView.js';
 import { McpAppPartView } from './McpAppPartView.js';
+import { ArtifactReviewPartView } from './TranscriptArtifactReviewPartView.js';
 import './transcript-new-parts.css';
 
 export type TranscriptDensity = 'verbose' | 'normal' | 'summary';
@@ -122,6 +124,7 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
   agent_question: (p) => <AgentQuestionPartView part={p as PartAgentQuestion} />,
   // retry_attempt (SPEC §4.5) — a retry boundary marker (attempt N/max + reason).
   retry_attempt: (p) => <RetryAttemptPartView part={p as PartRetryAttempt} />,
+  artifact_review: (p) => <ArtifactReviewPartView part={p as PartArtifactReview} />,
   // error (SPEC §4.5) — a turn-level failure (distinct from a tool-result error);
   // own danger card so the failure leaves a trace.
   error: (p) => <TranscriptErrorPartView part={p as PartError} />,
@@ -129,9 +132,7 @@ const PART_RENDERERS: Record<string, PartRenderer> = {
   compaction: (p) => <TranscriptCompactionPartView part={p as PartCompaction} />,
   // redacted_thinking (SPEC §4.5) — provider-encrypted reasoning; show a compact
   // note, never the opaque `data` blob.
-  redacted_thinking: (p) => (
-    <TranscriptRedactedThinkingPartView part={p as PartRedactedThinking} />
-  ),
+  redacted_thinking: (p) => <TranscriptRedactedThinkingPartView part={p as PartRedactedThinking} />,
   mcp_app: (p, props) =>
     props.mcpAppClient && props.sessionId ? (
       <McpAppPartView

@@ -403,11 +403,13 @@ function buildDepthResolver(list: readonly PartLike[]): (agent: string) => numbe
  */
 function buildUserTurnModel(list: readonly PartLike[]): AssistantTurnModel | null {
   const rows: TurnRow[] = [];
+  const hasArtifactReview = list.some((part) => part?.type === 'artifact_review');
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
     if (!part) continue;
     const id = str(part.id) || `row-${i}`;
     if (part.type === 'text') {
+      if (hasArtifactReview) continue;
       const text = str(part.text);
       if (!text) continue;
       rows.push({ kind: 'text', id, depth: 0, agent: '', text, isUser: true });
@@ -460,8 +462,7 @@ export function buildAssistantTurnModel(
       // doesn't actually name a distinct child (no delegation to show).
       if (stage === 'parent.resumed' || !agent || agent === parent) continue;
       const task =
-        cleanProse(str(part.metadata?.['question'])) ||
-        cleanProse(str(part.metadata?.['input']));
+        cleanProse(str(part.metadata?.['question'])) || cleanProse(str(part.metadata?.['input']));
       if (stage === 'delegate.completed' || stage === 'completed') {
         // The delegation's terminal RETURN lane. The server mints exactly ONE header
         // per delegation at `delegate.started` and routes every conclusion — success
@@ -471,7 +472,9 @@ export function buildAssistantTurnModel(
         // renderer (#880): no dedup. The preceding dspy.extract (SDK thinking host +
         // `reasoning`) streams in the flow like every other turn; the return stays a
         // clean one-liner (`↩ child returns to parent · show details`).
-        rows.push(...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id));
+        rows.push(
+          ...toolRowsFromHandoffMetadata(part.metadata?.['tools_called'], agent, depth, id),
+        );
         const status = str(part.status) || str(part.metadata?.['status']);
         const error = str(part.metadata?.['error']) || str(part.metadata?.['message']);
         rows.push({
@@ -550,9 +553,18 @@ export function buildAssistantTurnModel(
         // open host (one burst); a non-thinking row closes it. Renders as the
         // collapsed `thinking ▾`, identical to the live stream.
         const last = rows[rows.length - 1];
-        if (last?.kind === 'reasoning' && last.agent === agent && !last.text.trim() && last.providerThinking) {
+        if (
+          last?.kind === 'reasoning' &&
+          last.agent === agent &&
+          !last.text.trim() &&
+          last.providerThinking
+        ) {
           const combined = `${last.providerThinking.text}\n${text}`;
-          last.providerThinking = { ...last.providerThinking, text: combined, chars: combined.length };
+          last.providerThinking = {
+            ...last.providerThinking,
+            text: combined,
+            chars: combined.length,
+          };
         } else {
           rows.push({
             kind: 'reasoning',
@@ -605,8 +617,7 @@ export function buildAssistantTurnModel(
       );
       const analysis = analyzeToolResult(resultStr);
       const existing = toolByCall.get(callId);
-      const durationMs =
-        typeof part.duration_ms === 'number' ? part.duration_ms : undefined;
+      const durationMs = typeof part.duration_ms === 'number' ? part.duration_ms : undefined;
       const ok = part.status !== 'error' && part.metadata?.['is_error'] !== true;
       const cached = part.cached === true || part.metadata?.['cached'] === true;
       if (existing) {
@@ -699,4 +710,3 @@ export function filterVisibleRows(rows: TurnRow[]): TurnRow[] {
     return true;
   });
 }
-

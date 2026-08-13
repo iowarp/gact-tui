@@ -4,6 +4,10 @@
 //! status/install/repair (supervisor), SSH tunnels, and boot-log reveal.
 
 use std::sync::Mutex;
+use std::{
+    path::{Component, Path, PathBuf},
+    process::Command,
+};
 
 use crate::ssh::TunnelManager;
 use crate::ssh_types::{TunnelHandle, TunnelRequest};
@@ -81,6 +85,81 @@ pub fn open_logs() -> Result<String, String> {
 #[tauri::command]
 pub fn read_logs() -> Result<String, String> {
     supervisor_boot_log::read_boot_log()
+}
+
+/// Open one confined document working copy in the operating system's default
+/// application. The backend chooses and materializes the path; this command
+/// validates that it names a real file and passes it as an argv element.
+#[tauri::command]
+pub fn open_document_path(path: String) -> Result<String, String> {
+    let requested = PathBuf::from(path);
+    let canonical = requested
+        .canonicalize()
+        .map_err(|error| format!("document path is unavailable: {error}"))?;
+    if !canonical.is_file() {
+        return Err("document path is not a file".to_string());
+    }
+    if !is_document_working_copy_path(&canonical) {
+        return Err("document path is outside a CLIO working copy".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut value = Command::new("explorer.exe");
+        value.arg(&canonical);
+        value
+    };
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut value = Command::new("open");
+        value.arg(&canonical);
+        value
+    };
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = {
+        let mut value = Command::new("xdg-open");
+        value.arg(&canonical);
+        value
+    };
+    command
+        .spawn()
+        .map_err(|error| format!("could not open document: {error}"))?;
+    Ok(canonical.display().to_string())
+}
+
+fn is_document_working_copy_path(path: &Path) -> bool {
+    let components: Vec<String> = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect();
+    components.windows(5).any(|window| {
+        window[0].eq_ignore_ascii_case(".clio")
+            && window[1].eq_ignore_ascii_case("agent")
+            && window[2].eq_ignore_ascii_case("documents")
+            && window[3].eq_ignore_ascii_case("working-copies")
+            && window[4].starts_with("docwc_")
+    })
+}
+
+#[cfg(test)]
+mod document_path_tests {
+    use super::is_document_working_copy_path;
+    use std::path::Path;
+
+    #[test]
+    fn accepts_only_clio_document_working_copy_files() {
+        assert!(is_document_working_copy_path(Path::new(
+            "C:/workspace/.clio/agent/documents/working-copies/docwc_abc/brief.docx"
+        )));
+        assert!(!is_document_working_copy_path(Path::new(
+            "C:/workspace/brief.docx"
+        )));
+        assert!(!is_document_working_copy_path(Path::new(
+            "C:/workspace/.clio/agent/documents/working-copies/untrusted/brief.docx"
+        )));
+    }
 }
 
 /// Open an SSH tunnel for an `ssh-tunnel` backend entry.

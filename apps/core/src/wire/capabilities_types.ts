@@ -88,6 +88,21 @@ export interface CapabilityFlags {
    * rows (verified true on live :17803).
    */
   x_clio_semantic_events?: boolean;
+  /** Format-aware immutable document review and editor integration surface. */
+  x_clio_document_artifacts?: {
+    protocol_version?: string;
+    profiles?: string[];
+    anchors?: string[];
+    review_parts?: boolean;
+    floating_comments?: boolean;
+    immutable_revisions?: boolean;
+    native_working_copies?: boolean;
+    native_comment_trigger?: string;
+    embedded_editors?: string[];
+    static_html_scripts?: string;
+    executable_html_transition?: string;
+    [key: string]: unknown;
+  };
   /**
    * Identifier for the hook execution backend, e.g. `"local_python"`.
    * Surfaced verbatim; not gated on.

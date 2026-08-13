@@ -4,14 +4,12 @@
 .chat {
   --chat-topbar-h: 72px;
   --chat-content-w: min(78%, 96rem);
-  --preview-rail-reserve: calc(
-    var(--sessions-w, 300px) + var(--inspector-w, 0px) + 32rem
-  );
+  --preview-rail-reserve: calc(var(--sessions-w, 300px) + var(--inspector-w, 0px) + 28rem);
   --preview-rail-avail: calc(100vw - var(--preview-rail-reserve));
-  --preview-rail-fit: min(clamp(18rem, 32vw, 30rem), var(--preview-rail-avail));
+  --preview-rail-fit: min(clamp(22rem, 46vw, 58rem), var(--preview-rail-avail));
   --preview-rail-w: clamp(
     0px,
-    calc((var(--preview-rail-avail) - 18rem) * 1000),
+    calc((var(--preview-rail-avail) - 22rem) * 1000),
     var(--preview-rail-fit)
   );
 
