@@ -26,15 +26,16 @@ function readAllowRules(doc: PoliciesDocument): unknown[] {
  * session's real `approval_mode`, the same value/setter Composer's own
  * picker already reads and writes via `PATCH /v1/sessions/{id}`.
  *
- * The real approval_mode is a 4-way enum (ask / auto-edits / bypass /
- * ai-review — clio's actual permission model), not the prototype mock's
- * binary ask/execute. "Ask" reflects `approvalMode === 'ask'` and writes
- * for real: moving TO 'ask' is always the safe direction regardless of which
- * of the other 3 modes was active. "Execute" reflects the real non-ask state
- * honestly (checked whenever the session is in any of the 3 less-strict
- * modes) but does not write — there is no single unambiguous target among
- * auto-edits/bypass/ai-review to pick on the user's behalf, so the reason is
- * on its title rather than silently guessing one.
+ * The real approval_mode is a 5-way enum (ask / auto-edits / bypass /
+ * ai-review / spotter-ai — clio's actual permission model), not the
+ * prototype mock's binary ask/execute. "Ask" reflects `approvalMode ===
+ * 'ask'` and writes for real: moving TO 'ask' is always the safe direction
+ * regardless of which of the other 4 modes was active. "Execute" reflects
+ * the real non-ask state honestly (checked whenever the session is in any
+ * of the 4 less-strict modes) but does not write — there is no single
+ * unambiguous target among auto-edits/bypass/ai-review/spotter-ai to pick on
+ * the user's behalf, so the reason is on its title rather than silently
+ * guessing one.
  *
  * The allow-rules list stays read-only: PUT /v1/policies replaces the whole
  * document, and this pane cannot know its full real shape well enough to
@@ -107,7 +108,7 @@ export function PoliciesPage({
             disabled
             title={
               knownMode
-                ? `This session's real mode is honestly reflected here (currently '${approvalMode}'), but 'Execute' has no single unambiguous target among the real auto-edits / bypass / ai-review modes to write on your behalf — pick a specific one from the composer's own approval control.`
+                ? `This session's real mode is honestly reflected here (currently '${approvalMode}'), but 'Execute' has no single unambiguous target among the real auto-edits / bypass / ai-review / spotter-ai modes to write on your behalf — pick a specific one from the composer's own approval control.`
                 : 'No active session to read the approval mode for.'
             }
             style={

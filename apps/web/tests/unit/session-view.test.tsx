@@ -283,7 +283,8 @@ describe('composer control row (C5 / C9 / S1)', () => {
 
   it('offers the approval modes the BACKEND accepts', async () => {
     // The prototype's ask/auto-edits/auto/bypass was placeholder semantics.
-    // The real axis is the wire Literal: ask, auto-edits, bypass, ai-review.
+    // The real axis is the wire Literal: ask, auto-edits, bypass, ai-review,
+    // spotter-ai.
     render(<SessionView client={wired()} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
@@ -297,7 +298,7 @@ describe('composer control row (C5 / C9 / S1)', () => {
     const items = within(menu)
       .getAllByRole('menuitem')
       .map((o) => o.querySelector('.kit-contextmenu__label')?.textContent?.trim());
-    expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
+    expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']);
   });
 
   it('persists an approval-mode change through PATCH', async () => {

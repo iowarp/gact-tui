@@ -166,7 +166,7 @@ describe('control row (D2–D4)', () => {
     renderComposer({ onApprovalModeChange });
     fireEvent.click(screen.getByTestId('composer-approval'));
     const menu = screen.getByRole('menu');
-    for (const mode of ['ask', 'auto-edits', 'bypass', 'ai-review']) {
+    for (const mode of ['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']) {
       expect(within(menu).getByText(mode)).toBeInTheDocument();
     }
     fireEvent.click(within(menu).getByText('auto-edits'));
