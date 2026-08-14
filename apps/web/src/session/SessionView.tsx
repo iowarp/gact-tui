@@ -1220,6 +1220,18 @@ export function SessionView({
     activeScopeRef.current = activeScope;
   });
 
+  // Same reasoning again: the SSE effect's unapplied_unknown_id divergence
+  // check (below) needs the CURRENT loaded feed to decide "is this id really
+  // unknown", but must run SYNCHRONOUSLY with the event — a setState
+  // functional updater's own invocation isn't guaranteed synchronous with
+  // its setState call (React may defer it to the next flush), so a
+  // reconcile() trigger placed inside one can miss its own debounce window.
+  // Mirrors `state.messages` the same way the refs above mirror their slice.
+  const loadedMessagesRef = useRef<Message[]>(NO_MESSAGES);
+  useEffect(() => {
+    loadedMessagesRef.current = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
+  });
+
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
   // parts via part.added, and the clean delegation wire's IN-PLACE settle
@@ -1272,8 +1284,25 @@ export function SessionView({
     };
     const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
       // Feed application is the shared pure helper (session/messageEvents.ts);
-      // only the side effects stay here.
-      applyToLoaded((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
+      // only the side effects stay here. The divergence check
+      // (gact-tui#364 client-half deliverable: `unapplied_unknown_id` names a
+      // message/part id this feed doesn't have — the same shape a dropped/
+      // out-of-order SSE frame would produce) runs SYNCHRONOUSLY off
+      // `loadedMessagesRef` (not inside the `applyToLoaded` updater below) so
+      // its `reconcile()` call fires in the same tick as the event, exactly
+      // like the message.completed/error/deleted reconcile() calls in the
+      // switch below — a setState updater's own invocation isn't guaranteed
+      // synchronous with the event, so a side effect placed inside one can
+      // miss its own debounce window. The actual feed mutation still goes
+      // through the race-free functional updater, computed a second time
+      // there from the ALWAYS-fresh `prev` (a cheap pure recompute).
+      if (applyMessageLifecycleEvent(loadedMessagesRef.current, event).kind === 'unapplied_unknown_id') {
+        reconcile();
+      }
+      applyToLoaded((prev) => {
+        const result = applyMessageLifecycleEvent(prev, event);
+        return result.kind === 'applied' ? result.messages : prev;
+      });
       switch (event.type) {
         case 'message.created': {
           // The session record may have changed since selection (blueprint
@@ -1618,7 +1647,15 @@ export function SessionView({
     const subscription =
       typeof EventSource !== 'undefined'
         ? subscribeSessionMessageEvents(client.sseUrl(sessionId), (event) => {
-            applyToChild((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
+            // The 5s poll below already backstops divergence for this view
+            // (unlike the main transcript, which has no such poll and so
+            // reuses its own debounced reconcile on unapplied_unknown_id —
+            // see the SSE effect above); here only the `applied` case
+            // updates local state.
+            applyToChild((prev) => {
+              const result = applyMessageLifecycleEvent(prev, event);
+              return result.kind === 'applied' ? result.messages : prev;
+            });
           })
         : null;
     const timer = window.setInterval(() => void reconcile(), 5000);

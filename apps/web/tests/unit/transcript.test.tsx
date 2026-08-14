@@ -126,6 +126,72 @@ describe('Transcript', () => {
     expect(hint).toHaveTextContent('("Los Angeles, CA")');
   });
 
+  describe('H-D regression pin (gact-tui#364): live render of an unmatched tool_call', () => {
+    // gact-tui#364 diagnosed candidate mechanisms H-A through H-D for
+    // "wait shows only after completion" (owner-observed). U1's live-probe
+    // harness verdicted H-D — the 2026-08-03 rebuild already fixed it,
+    // part.added is reliable — NOT-REPRODUCED. This pins the render half of
+    // that verdict: a message carrying ONLY a tool_call part (exactly the
+    // shape a live message.part.added delivers BEFORE any tool_result
+    // arrives) renders the in-flight row immediately. Transcript is a pure
+    // function of `messages` with no notion of "message.completed" at all —
+    // this proves the render path structurally CANNOT wait for it.
+    it('renders the in-flight "running…" row for a tool_call with no matching tool_result', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'tool_call',
+                id: 'tc1',
+                call_id: 'call_live_1',
+                name: 'geo_geocode',
+                input: { query: 'Los Angeles, CA' },
+              },
+            ]),
+          ]}
+        />,
+      );
+      expect(screen.getByText('running…')).toBeInTheDocument();
+      // The settled ✓/✗ mark and duration only ever appear once a result
+      // lands — their absence here is part of what "in-flight" means.
+      expect(screen.queryByText('✓')).toBeNull();
+      expect(screen.queryByText('✗')).toBeNull();
+    });
+
+    it('carries the call\'s own call_id as data-call-id, for live-probe correlation (U1 finding)', () => {
+      const { container } = render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'tool_call',
+                id: 'tc1',
+                call_id: 'call_live_1',
+                name: 'geo_geocode',
+                input: { query: 'Los Angeles, CA' },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'call_live_1');
+    });
+
+    it('falls back to the part\'s own id for data-call-id when call_id is absent', () => {
+      const { container } = render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'tool_call', id: 'tc_only', name: 'geo_geocode', input: {} }]),
+          ]}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'tc_only');
+    });
+  });
+
   it('renders an expert handoff as the prototype Call(child) heading', () => {
     render(
       <Transcript

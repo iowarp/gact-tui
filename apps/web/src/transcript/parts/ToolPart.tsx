@@ -1524,6 +1524,14 @@ function RawToggle({ text }: { text: string }) {
 export function ToolPart({ call, result }: ToolPartProps) {
   const [open, setOpen] = useState(false);
   const name = str(call['tool_name'] ?? call['name']);
+  // The call's own wire identity (Transcript.tsx's `toolCallId` uses the
+  // same `call_id` -> `id` precedence to PAIR a call with its result; this
+  // just surfaces it in the DOM) — a live-probe correlation hook
+  // (gact-tui#364 U1 finding) so a future capture can match a rendered row
+  // to its server-side tool_call part id exactly, without guessing off
+  // name/position. Absent (never expected on a real wire, but never fatal)
+  // renders no attribute at all rather than an empty string.
+  const callId = str(call['call_id']) || str(call['id']);
 
   // A RUNNING wait_agent_tasks/check_agent_tasks call (no result yet) is the
   // prototype's activity line, not a plain collapsed row — once the result
@@ -1532,7 +1540,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
   if (waitingCount !== null) {
     const noun = waitingCount === 1 ? 'agent' : 'agents';
     return (
-      <p className="transcript__activity" data-testid="tool-wait-activity">
+      <p className="transcript__activity" data-testid="tool-wait-activity" data-call-id={callId || undefined}>
         <span className="transcript__activity-mark" aria-hidden="true">
           ✻
         </span>
@@ -1652,7 +1660,12 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const serverTitle = sanitizeTitle(call['server_title'], '');
 
   return (
-    <div className="part-toolrow" data-error={isError ? 'true' : undefined} data-testid="part-tool">
+    <div
+      className="part-toolrow"
+      data-error={isError ? 'true' : undefined}
+      data-testid="part-tool"
+      data-call-id={callId || undefined}
+    >
       {thought ? (
         <div className="part-toolrow__thought" data-testid="part-tool-thought">
           <Markdown text={thought} />
