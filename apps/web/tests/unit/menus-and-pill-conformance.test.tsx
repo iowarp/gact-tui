@@ -41,6 +41,9 @@ describe('acceptance menu grammar (owner + prototype)', () => {
     // derived from the #1031 permissions semantics, never left blank.
     const aiReview = within(menu).getByText('ai-review').closest('[role="menuitem"]');
     expect(aiReview?.textContent?.replace('ai-review', '').trim().length).toBeGreaterThan(10);
+    // spotter-ai is the fifth mode — same rule, never left blank.
+    const spotterAi = within(menu).getByText('spotter-ai').closest('[role="menuitem"]');
+    expect(spotterAi?.textContent).toContain('SPOTTER AI watches the run and flags issues');
   });
 
   it('marks the active mode with a check', () => {

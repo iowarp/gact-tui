@@ -313,12 +313,20 @@ for any session touching `apps/` and adds its own binding rules.
 
 **Load-bearing pieces:**
 
-- **The web app has its own live-streaming engine** — 28 `Live*.ts` files in
-  `apps/web/src` (LiveTranscript, LiveReducer, LiveTranscriptReconcile,
-  LivePendingInteractions, …) as of 2026-07-06. It is a full second SSE →
-  transcript consumer, parallel to the TUI's `tui/internal/ui/live_*` files.
-  Fixing an event-handling bug on one surface does NOT fix it on the other —
-  this duplication is a root cause of the parity problem.
+- **STALE as of gact-tui#365 (deleted):** this section used to describe "the
+  web app's own live-streaming engine" — 17 `Live*.ts` files under
+  `apps/web/src/wire/` (LiveReducer, LiveRunningTools, LiveTranscriptSnapshot,
+  LivePendingInteractions, …), ported out of `web.old` in the 2026-08-03 React
+  rebuild and never re-integrated. A #365 audit found zero consumers outside
+  the island itself and zero test coverage in the running suite, and it was
+  `git rm`-ed wholesale. The live path today is the single
+  `subscribeSessionMessageEvents` transport (`apps/core/src/client/sse.ts`) +
+  the pure `applyMessageLifecycleEvent` apply layer
+  (`apps/web/src/session/messageEvents.ts`), consumed directly by
+  `SessionView.tsx`/`AgentPeekView.tsx`'s own SSE effects — ONE consumer, not
+  two. The "parallel to the TUI's `tui/internal/ui/live_*` files, fixing a bug
+  on one surface does NOT fix it on the other" framing no longer applies to
+  the web half of that duplication.
 
 - **ONE markdown renderer, and it is binding.**
   `apps/web/src/components/Markdown.tsx` uses `streaming-markdown` (smd), a

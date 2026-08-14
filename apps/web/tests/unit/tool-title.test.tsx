@@ -344,6 +344,36 @@ describe('ToolPart header -- injected (args) grammar', () => {
     );
     expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('("Los Angeles, CA")');
   });
+
+  /**
+   * The exact owner-reported case (clio-agent#1218-followup, SPOTTER demo
+   * live wire): `phenotype_measure_cohort` rendered a bare `(5, 10)` in the
+   * collapsed hint -- two plain numeric args (neither `cluster` nor an
+   * `*_id`, so both fall in the "other" tier) with zero signal for which
+   * number was `runs` and which was `pace_seconds`. Both now carry their key.
+   */
+  it('the measure_cohort shape: two plain numeric args render as "runs: 5, pace_seconds: 10", never a bare tuple', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({ tool_name: 'phenotype_measure_cohort', input: { runs: 5, pace_seconds: 10 } })}
+      />,
+    );
+    const hint = container.querySelector('.part-toolrow__hint')?.textContent;
+    expect(hint).toBe('(runs: 5, pace_seconds: 10)');
+    expect(hint).not.toBe('(5, 10)');
+  });
+
+  it('a mixed identity + plain-scalar hint labels only the plain scalar -- the identity coordinate stays bare', () => {
+    const { container } = render(
+      <ToolPart
+        call={toolCall({
+          tool_name: 'jarvis_run_step',
+          input: { cluster: 'ares-p5run2', retries: 3 },
+        })}
+      />,
+    );
+    expect(container.querySelector('.part-toolrow__hint')?.textContent).toBe('(ares-p5run2, retries: 3)');
+  });
 });
 
 /**

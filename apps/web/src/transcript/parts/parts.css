@@ -270,6 +270,34 @@
   border-left-color: var(--t-erc5);
 }
 
+/* Call-box section grammar (owner correction, clio#1218f): the
+   "Arguments" and "Result" regions each get their own flex column so a
+   labeled section reads as one visual group, distinct from its sibling —
+   min-width: 0 continues the same horizontal-scroll chain .part-toolrow /
+   .part-toolrow__well already document (a wide result table must scroll in
+   its own wrapper, never stretch this column). */
+.part-toolrow__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The subdued section label + trailing dotted rule — the SAME idiom
+   .part-artgrid__label already uses for "ARTIFACTS (N)" — naming which
+   region ("Arguments"/"Result") the rows beneath it belong to. */
+.part-toolrow__sectionlabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.part-toolrow__sectionlabel::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dotted var(--t-bd3);
+}
+
 /* The re-polled wait's attempts/budgets metadata (round-7 wire finding) —
    spaced small chips at the top of the well, not middot-joined into the
    name (owner's ruling). Extends the async-injection pill (part-inj__pill)
@@ -909,6 +937,143 @@
   width: 14px;
   padding-top: 4px;
   color: var(--t-ac);
+}
+
+/* ---- action_card (generic in-transcript notification/action primitive —
+   spotter-ai is the FIRST emitter, not the only one). clio#1218c,
+   owner correction 2026-08-14: this is a bordered information-box OBJECT —
+   its own surface background, rounded frame, and a severity-tinted left
+   accent — offset from ordinary transcript parts, NOT a header pill with
+   buttons trailing loose in the log. Tokens only, theme-aware (every color
+   below has a light+dark pair in styles/tokens.css). ---- */
+
+.part-actioncard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd3);
+  border-left: 3px solid var(--t-bd35);
+  border-radius: 8px;
+}
+
+.part-actioncard__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The source+severity identity badge — same compact chip shape the
+   async-injection pill family (.part-inj__pill) and tool metachips use, kept
+   small and neutral so the TITLE (below) carries the visual weight. */
+.part-actioncard__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-hd);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
+.part-actioncard__source {
+  color: var(--t-hd);
+  font-weight: 600;
+}
+
+.part-actioncard__severity {
+  color: var(--t-mu);
+  text-transform: lowercase;
+}
+
+/* The title is the card's prominent line — bold, header-weight, larger than
+   the body prose below it (owner: header row carries "title (prominent)"). */
+.part-actioncard__title {
+  margin: 0;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(14.5px * var(--ts));
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Only the two MVP severities the contract names get a distinct accent — any
+   other value (including a future one this build doesn't know yet) stays
+   the neutral/info card above, never a guessed color. */
+.part-actioncard[data-severity='warning'] {
+  background: var(--t-wm08);
+  border-color: var(--t-wm16);
+  border-left-color: var(--t-wa);
+}
+
+.part-actioncard[data-severity='warning'] .part-actioncard__severity {
+  color: var(--t-wa);
+}
+
+.part-actioncard[data-severity='critical'] {
+  background: var(--t-erc06);
+  border-color: var(--t-erc08);
+  border-left-color: var(--t-er);
+}
+
+.part-actioncard[data-severity='critical'] .part-actioncard__severity {
+  color: var(--t-er);
+}
+
+/* Gray-in-place: a resolved card (contract §4.5.2's shared `status` slot)
+   stays in the transcript — never removed, the reader can still see what
+   happened — but reads as settled. Same opacity the disabled-button
+   treatment below already uses, applied to the whole card; the card frame
+   (border/background) stays fully legible, only the content dims. */
+.part-actioncard[data-status='resolved'] {
+  opacity: 0.6;
+}
+
+.part-actioncard__body {
+  color: var(--t-pr);
+  font-family: var(--f-prose);
+  font-size: calc(13.5px * var(--ts));
+  line-height: 1.55;
+}
+
+/* The action row lives INSIDE the card frame — visually part of the object,
+   not appended after it. */
+.part-actioncard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.part-actioncard__btn {
+  padding: 4px 12px;
+  background: var(--t-sf);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-hd);
+  font-family: var(--f-prose);
+  font-size: calc(12px * var(--ts));
+  cursor: pointer;
+}
+
+.part-actioncard__btn:hover:not(:disabled) {
+  background: var(--t-hv, #1f232b);
+  border-color: var(--t-cy4);
+}
+
+/* A disabled action stays clean — its reason (data the wire carries in
+   `behavior.reason`) surfaces ON HOVER ONLY, via the native `title` tooltip
+   set in ActionCardPart.tsx (owner refinement 2026-08-14) — never a visible
+   inline line next to/under the button. */
+.part-actioncard__btn:disabled {
+  color: var(--t-mu);
+  cursor: default;
+  opacity: 0.6;
 }
 
 /* ---- durable artifacts (resource_link — the "artifacts (N)" grid) ---- */

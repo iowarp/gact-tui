@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Markdown } from '../markdown';
+import { Eyebrow } from '../../kit';
 import { formatCount, formatDurationSeconds } from '../../wire/formatters';
 import {
   elidePathMiddle,
@@ -31,6 +32,20 @@ export interface ToolPartProps {
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
+
+/**
+ * A wire id field, honestly absent-or-present (Opus adversarial review,
+ * proven defect #6): `str(call['call_id']) || str(call['id'])` looked like a
+ * safe fallback chain, but `str(null)` hits `String(null)` = `"null"` — a
+ * NON-EMPTY, truthy string — so a `call_id` sent as an explicit JSON `null`
+ * (not merely absent) made the `||` fallback to `id` never run, and the row
+ * carried the literal text `"null"` as its identity. Only an actual
+ * non-empty string counts; `null`/`undefined`/`''`/any other type all fall
+ * through to the next candidate via `??`, never stringified first.
+ */
+function wireStringId(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
 
 // Bumped from 42 (owner refinement, injected-args grammar): a path-like hint
 // needs enough room for `drive/…/basename` to survive with the basename
@@ -193,8 +208,26 @@ function isIdentifyingScalar(value: unknown): value is string | number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+/** One identifying scalar behind the collapsed `(args)` hint — the value,
+ *  plus whether it's a resource-IDENTITY coordinate ({@link isIdentityArgKey}
+ *  — `cluster`, any `*_id`) or a plain descriptive/count scalar ("other").
+ *  The distinction drives whether {@link renderArgHint}'s multi-value join
+ *  labels the pair with its key: an identity value already reads
+ *  self-evidently (a cluster/pipeline name, an `*_id` — that's what makes it
+ *  an identity COORDINATE), so it stays bare, exactly the format three
+ *  rounds of owner review already approved (row-render defect #2). A plain
+ *  "other" scalar carries no such self-describing shape — two bare numbers
+ *  like `(5, 10)` read as an unlabeled tuple with zero signal for which is
+ *  which (owner-reported, clio-agent#1218-followup:
+ *  `phenotype_measure_cohort`) — so it renders `key: value`. */
+interface IdentifyingArg {
+  key: string;
+  value: string | number;
+  identity: boolean;
+}
+
 /**
- * The up-to-{@link IDENTIFYING_ARG_MAX} identifying scalar values behind the
+ * The up-to-{@link IDENTIFYING_ARG_MAX} identifying scalars behind the
  * collapsed row's `(args)` hint (row-render defect #2, owner-quoted:
  * `jarvis_add_step ("ares-p5run2")` showed only the positionally-first arg).
  * Two tiers, each internally in wire order: identity coordinates
@@ -210,12 +243,13 @@ function isIdentifyingScalar(value: unknown): value is string | number {
  * "what did it configure". The combined output preserves each selected
  * value's own relative wire order.
  */
-function identifyingArgValues(entries: Array<[string, unknown]>): Array<string | number> {
-  const identity: Array<string | number> = [];
-  const other: Array<string | number> = [];
+function identifyingArgValues(entries: Array<[string, unknown]>): IdentifyingArg[] {
+  const identity: IdentifyingArg[] = [];
+  const other: IdentifyingArg[] = [];
   for (const [key, value] of entries) {
     if (isNoiseArgKey(key) || !isIdentifyingScalar(value)) continue;
-    (isIdentityArgKey(key) ? identity : other).push(value);
+    if (isIdentityArgKey(key)) identity.push({ key, value, identity: true });
+    else other.push({ key, value, identity: false });
   }
   return [...identity, ...other].slice(0, IDENTIFYING_ARG_MAX);
 }
@@ -229,14 +263,21 @@ function identifyingArgValues(entries: Array<[string, unknown]>): Array<string |
  * basename always survives (paths never join the up-to-3 identifying list —
  * one path already says enough, and multiple elided paths would blow the
  * hint's width budget). Otherwise up to {@link IDENTIFYING_ARG_MAX}
- * identifying values ({@link identifyingArgValues}): exactly one renders
- * quoted, matching every existing single-arg hint verbatim (final-sxs ledger
- * #12: `geo_geocode("Los Angeles, CA")`); two or more render bare and
- * comma-joined, the same unquoted-join idiom the resolved `wait` row's own
- * name list already uses, since a run of quoted strings reads as noise once
- * there's more than one. Otherwise the positionally-first entry, exactly
- * today's behavior for a shape neither rule recognizes — every other JSON
- * type already reads unambiguously via JSON.stringify.
+ * identifying scalars ({@link identifyingArgValues}): exactly one renders
+ * quoted, bare — matching every existing single-arg hint verbatim (final-sxs
+ * ledger #12: `geo_geocode("Los Angeles, CA")`; a lone value has nothing
+ * else in the hint to be confused with, key or no key). Two or more render
+ * comma-joined, each pair's OWN {@link IdentifyingArg.identity} deciding its
+ * format: an identity coordinate stays bare (unchanged from the original
+ * fix — `(ares-p5run2, smoke-hostname-p1, print-hostname)`, still owner-
+ * approved and still fits the hint's width budget), a plain scalar renders
+ * `key: value` (owner correction, clio-agent#1218-followup: a bare
+ * multi-value join of plain scalars — `(5, 10)` — carried zero signal for
+ * which number was which; labeling only the genuinely ambiguous pairs keeps
+ * the already-approved identity-coordinate case, and its width budget,
+ * unchanged). Otherwise the positionally-first entry, exactly today's
+ * behavior for a shape neither rule recognizes — every other JSON type
+ * already reads unambiguously via JSON.stringify.
  */
 function renderArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
@@ -249,10 +290,13 @@ function renderArgHint(input: unknown): string {
   }
   const identifying = identifyingArgValues(entries);
   if (identifying.length === 1) {
-    return truncate(normalizeWhitespace(`"${identifying[0]}"`), ARG_HINT_MAX);
+    return truncate(normalizeWhitespace(`"${identifying[0]!.value}"`), ARG_HINT_MAX);
   }
   if (identifying.length > 1) {
-    return truncate(normalizeWhitespace(identifying.map(String).join(', ')), ARG_HINT_MAX);
+    const joined = identifying
+      .map((arg) => (arg.identity ? String(arg.value) : `${arg.key}: ${arg.value}`))
+      .join(', ');
+    return truncate(normalizeWhitespace(joined), ARG_HINT_MAX);
   }
   const [, value] = entries[0]!;
   const rendered = typeof value === 'string' ? `"${value}"` : (JSON.stringify(value) ?? String(value));
@@ -1513,6 +1557,25 @@ function RawToggle({ text }: { text: string }) {
 }
 
 /**
+ * The call box's two labeled regions (owner finding, clio#1218f: a
+ * `spotter_campaign_health` box showed `campaign null` (an ARG) flowing
+ * straight into `runs_checked`/`anomalous` (RESULT rows) with no
+ * separation — unreadable provenance of what was asked vs. what came back).
+ * A subdued uppercase label with a trailing dotted rule — the SAME idiom
+ * `.part-artgrid__label` already uses for "ARTIFACTS (N)" — marks the start
+ * of the "Arguments" or "Result" region. The caller only renders this when
+ * that region actually has content (see `hasArgs` in {@link ToolPart}): an
+ * in-flight call shows Arguments only, a no-argument call shows Result only.
+ */
+function SectionLabel({ children, testId }: { children: ReactNode; testId?: string }) {
+  return (
+    <div className="part-toolrow__sectionlabel" data-testid={testId}>
+      <Eyebrow strong>{children}</Eyebrow>
+    </div>
+  );
+}
+
+/**
  * The prototype's isToolSeg row (design/prototype/Clio Session.html:391) — ONE
  * collapsible line per call, not two permanently-open cards. Closed by
  * default: the header carries the name(argHint), duration, and ✓/✗ mark; a
@@ -1524,6 +1587,14 @@ function RawToggle({ text }: { text: string }) {
 export function ToolPart({ call, result }: ToolPartProps) {
   const [open, setOpen] = useState(false);
   const name = str(call['tool_name'] ?? call['name']);
+  // The call's own wire identity (Transcript.tsx's `toolCallId` uses the
+  // same `call_id` -> `id` precedence to PAIR a call with its result; this
+  // just surfaces it in the DOM) — a live-probe correlation hook
+  // (gact-tui#364 U1 finding) so a future capture can match a rendered row
+  // to its server-side tool_call part id exactly, without guessing off
+  // name/position. Absent (never expected on a real wire, but never fatal)
+  // renders no attribute at all rather than an empty string.
+  const callId = wireStringId(call['call_id']) ?? wireStringId(call['id']) ?? '';
 
   // A RUNNING wait_agent_tasks/check_agent_tasks call (no result yet) is the
   // prototype's activity line, not a plain collapsed row — once the result
@@ -1532,7 +1603,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
   if (waitingCount !== null) {
     const noun = waitingCount === 1 ? 'agent' : 'agents';
     return (
-      <p className="transcript__activity" data-testid="tool-wait-activity">
+      <p className="transcript__activity" data-testid="tool-wait-activity" data-call-id={callId || undefined}>
         <span className="transcript__activity-mark" aria-hidden="true">
           ✻
         </span>
@@ -1577,6 +1648,12 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // `wait_agent_tasks(["task_cc806f98b07c", ...])`, raw ids). Absent field
   // (older sessions) falls through to today's name(argHint) row unchanged.
   const waited = waitedTasksOf(call);
+  // Call-box section gate (owner correction, clio#1218f): the
+  // "Arguments" label only earns its place when there is actually a request
+  // argument to show under it — a resolved wait row's params are skipped
+  // entirely (see below), and a call with an empty/no-op input (e.g. `{}`)
+  // renders zero rows/sections here, so the label would sit over nothing.
+  const hasArgs = !waited && (params.rows.length > 0 || params.sections.length > 0);
   // The collapsed one-line preview prefers a structured_content-derived
   // summary (round-10 gate finding D3) over the raw MCP envelope text — a
   // collapsed `ndp_search_datasets` row used to show `{"content": [{"text":
@@ -1652,7 +1729,12 @@ export function ToolPart({ call, result }: ToolPartProps) {
   const serverTitle = sanitizeTitle(call['server_title'], '');
 
   return (
-    <div className="part-toolrow" data-error={isError ? 'true' : undefined} data-testid="part-tool">
+    <div
+      className="part-toolrow"
+      data-error={isError ? 'true' : undefined}
+      data-testid="part-tool"
+      data-call-id={callId || undefined}
+    >
       {thought ? (
         <div className="part-toolrow__thought" data-testid="part-tool-thought">
           <Markdown text={thought} />
@@ -1697,29 +1779,39 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
           <MetadataChips attempts={attempts} budgets={budgets} />
-          {/* A resolved wait row's own params are raw task_ids — the same
-              raw-id leak the header just fixed. waited_tasks already carries
-              richer, resolved identity for each task (surfaced via the
-              header and, once it lands, the results table below), so the
-              params well contributes nothing here and is skipped rather
-              than showing the ids a second time. */}
-          {!waited && params.rows.length > 0 ? <KvRows rows={params.rows} /> : null}
-          {/* Row-render defect #3 (owner-quoted): every input key renders —
-              a dict/list-valued param (e.g. jarvis_add_step's `config`) gets
-              its own collapsible section instead of vanishing into an
-              unreadable single-cell JSON blob among the scalar rows above. */}
-          {!waited
-            ? params.sections.map((s) => (
+          {/* Call-box section grammar (owner correction, clio#1218f):
+              the request arguments and the result render as two labeled,
+              visually distinct regions — never contiguous rows a reader has
+              to guess the provenance of. A resolved wait row's own params
+              are raw task_ids (the same raw-id leak the header already
+              resolves via waited_tasks' richer identity), so hasArgs is
+              false for it and this region is skipped entirely rather than
+              showing the ids a second time; a no-argument call (empty
+              input) skips it too — the label never sits over nothing. */}
+          {hasArgs ? (
+            <div className="part-toolrow__group" data-testid="part-tool-args">
+              <SectionLabel testId="part-tool-args-label">Arguments</SectionLabel>
+              {params.rows.length > 0 ? (
+                <KvRows rows={params.rows} testId="part-tool-args-table" />
+              ) : null}
+              {/* Row-render defect #3 (owner-quoted): every input key renders —
+                  a dict/list-valued param (e.g. jarvis_add_step's `config`) gets
+                  its own collapsible section instead of vanishing into an
+                  unreadable single-cell JSON blob among the scalar rows above. */}
+              {params.sections.map((s) => (
                 <NestedSection key={s.key} label={s.key} value={s.value} testId="part-tool-param-section" />
-              ))
-            : null}
-          {/* content_blocks: an image is the strongest presentation a tool
-              can declare, so its showcase sits ABOVE the structured rows
-              below — composing with whichever InterpretedResult kind the
-              switch resolves, not replacing it. */}
-          <ContentBlocks blocks={blocks} />
+              ))}
+            </div>
+          ) : null}
           {result ? (
-            (() => {
+            <div className="part-toolrow__group" data-testid="part-tool-result">
+              <SectionLabel testId="part-tool-result-label">Result</SectionLabel>
+              {/* content_blocks: an image is the strongest presentation a tool
+                  can declare, so its showcase sits ABOVE the structured rows
+                  below — composing with whichever InterpretedResult kind the
+                  switch resolves, not replacing it. */}
+              <ContentBlocks blocks={blocks} />
+              {(() => {
               const interpreted = interpretResult(result, text, name);
               switch (interpreted.kind) {
                 case 'kv':
@@ -1850,7 +1942,8 @@ export function ToolPart({ call, result }: ToolPartProps) {
                 default:
                   return <pre className="part-toolrow__result">{text || '(empty result)'}</pre>;
               }
-            })()
+              })()}
+            </div>
           ) : (
             <p className="part-toolrow__waiting">waiting for the tool to return…</p>
           )}

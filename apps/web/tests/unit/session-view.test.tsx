@@ -54,6 +54,31 @@ describe('SessionView', () => {
     expect(client.messages).toHaveBeenCalledWith('sess_a', { limit: 50 });
   });
 
+  it('shows message-shaped skeleton rows while a session is loading (gact-tui#369), not a bare "Loading…" bar', async () => {
+    let resolveMessages!: (value: { messages: [] }) => void;
+    const client = makeClient({
+      messages: vi.fn(() => new Promise<{ messages: [] }>((resolve) => (resolveMessages = resolve))),
+    });
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+
+    const skeleton = await screen.findByTestId('transcript-skeleton');
+    expect(screen.getByRole('status', { name: 'Loading conversation…' })).toBeInTheDocument();
+    // Message-shaped, alternating rows (gact-tui#369) — not the old single
+    // generic bar: each row carries the SAME `data-role` the real
+    // Transcript.tsx rows render through, so both a user and an assistant
+    // shape are present.
+    const rows = skeleton.querySelectorAll('.transcript__message[data-role]');
+    expect(rows.length).toBeGreaterThan(1);
+    const roles = Array.from(rows).map((row) => row.getAttribute('data-role'));
+    expect(roles).toContain('user');
+    expect(roles).toContain('assistant');
+
+    // Resolve so the pending promise doesn't leak into the next test.
+    resolveMessages({ messages: [] });
+    await waitFor(() => expect(screen.queryByTestId('transcript-skeleton')).toBeNull());
+  });
+
   it('renders the fresh/idle greeting for a session with no messages, not a blank notice', async () => {
     const client = makeClient({ messages: vi.fn(async () => ({ messages: [] })) });
     render(<SessionView client={client} sessions={SESSIONS} />);
@@ -283,7 +308,8 @@ describe('composer control row (C5 / C9 / S1)', () => {
 
   it('offers the approval modes the BACKEND accepts', async () => {
     // The prototype's ask/auto-edits/auto/bypass was placeholder semantics.
-    // The real axis is the wire Literal: ask, auto-edits, bypass, ai-review.
+    // The real axis is the wire Literal: ask, auto-edits, bypass, ai-review,
+    // spotter-ai.
     render(<SessionView client={wired()} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
     await waitFor(() => expect(screen.getByTestId('composer-approval')).toBeInTheDocument());
@@ -297,7 +323,7 @@ describe('composer control row (C5 / C9 / S1)', () => {
     const items = within(menu)
       .getAllByRole('menuitem')
       .map((o) => o.querySelector('.kit-contextmenu__label')?.textContent?.trim());
-    expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review']);
+    expect(items).toEqual(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']);
   });
 
   it('persists an approval-mode change through PATCH', async () => {

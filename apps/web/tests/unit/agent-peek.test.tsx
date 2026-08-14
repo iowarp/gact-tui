@@ -42,7 +42,16 @@ const PARENT_MESSAGES: Message[] = [
 ] as unknown as Message[];
 
 const CHILD_MESSAGES: Message[] = [
-  { id: 'c1', role: 'user', parts: [{ type: 'text', text: 'Resolve LA into coordinates.' }] },
+  // `metadata.agent_task_id` matches SETTLED_HANDOFF's own `handle_id` — the
+  // real wire marker clio's delegation-launch path stamps on a genuine
+  // spawned child's first message (clio#1218d), which is what makes this
+  // fixture a real delegation brief rather than an ordinary pushed message.
+  {
+    id: 'c1',
+    role: 'user',
+    parts: [{ type: 'text', text: 'Resolve LA into coordinates.' }],
+    metadata: { agent_task_id: 'task_8562bd68e4d5', spawned_by: 'main' },
+  },
   { id: 'c2', role: 'assistant', parts: [{ type: 'text', text: 'Center resolved: 34.0537, -118.2428.' }] },
 ] as unknown as Message[];
 
@@ -103,7 +112,8 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
     expect(screen.getByTestId('agent-peek-name')).toHaveTextContent('geospatial');
     expect(screen.getByText('session')).toBeInTheDocument();
     expect(screen.getByText('›')).toBeInTheDocument();
-    // The child's first user message IS the delegation brief — its own fold.
+    // The child's first user message carries `metadata.agent_task_id` — a
+    // genuine delegation brief (clio#1218d) — so it gets its own fold.
     expect(screen.getByRole('button', { name: /prompt from main/ })).toBeInTheDocument();
     // The child transcript renders through the shared grammar.
     expect(screen.getByText('Center resolved: 34.0537, -118.2428.')).toBeInTheDocument();
@@ -135,6 +145,25 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
     );
     await waitFor(() => expect(screen.getByTestId('child-focus-view')).toBeInTheDocument());
     expect(within(screen.getByTestId('agent-peek')).queryByRole('textbox')).toBeNull();
+  });
+
+  // Opus adversarial review, fix #11: AgentPeekView's own "Loading agent…"
+  // bare paragraph (gact-tui#366's first pass missed it) now renders the
+  // shared kit Skeleton primitive while `view` is still null (before the
+  // child's first message page resolves).
+  it('shows the Skeleton primitive while the child view is still loading', async () => {
+    render(
+      <AgentPeekView
+        client={peekClient({ messages: vi.fn(() => new Promise(() => {})) })}
+        sessionId="sess_child"
+        agent="geospatial"
+        parentLabel="main"
+        onClose={vi.fn()}
+      />,
+    );
+    const skeleton = await screen.findByTestId('kit-skeleton');
+    expect(skeleton).toHaveAttribute('role', 'status');
+    expect(skeleton).toHaveAccessibleName('Loading agent…');
   });
 
   it('closes through its own header control', async () => {

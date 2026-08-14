@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '../kit';
 import { Markdown } from './markdown';
+import { ActionCardPart, type ActionCardAction } from './parts/ActionCardPart';
 import { HandoffPart } from './parts/HandoffPart';
 import { extractToolResultText } from './parts/toolResultText';
 import './parts/parts.css';
@@ -8,10 +9,22 @@ import './parts/parts.css';
 /** A wire part, before this build knows what kind it is. */
 export type WirePart = { type: string } & Record<string, unknown>;
 
+/**
+ * Optional, per-render context handed to every renderer — the same
+ * "callback threaded from Transcript/SessionView down through the registry"
+ * shape HandoffPart's `onOpenChild` uses (Transcript.tsx), just generalised
+ * so a plain PART_RENDERERS entry (not a special grouped kind) can reach it
+ * too. Renderers that don't need it simply ignore the second argument.
+ */
+export interface PartRenderContext {
+  /** Fired by an action_card's action button (`ActionCardPart`). */
+  onCardAction?: (part: WirePart, action: ActionCardAction) => void;
+}
+
 export interface PartRenderer {
   /** Glyph for the PartCard's 14px gutter. */
   gutter?: ReactNode;
-  render: (part: WirePart) => ReactNode;
+  render: (part: WirePart, ctx: PartRenderContext) => ReactNode;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
@@ -23,8 +36,21 @@ function toolArgs(input: unknown): string {
     .join('\n');
 }
 
+/**
+ * `part.metadata.default_collapsed` (gact-tui#362, "unconditional nit"):
+ * the server's own opinion on whether a thinking block should open expanded.
+ * Only a literal `false` earns the expanded initial state — `true` and
+ * absence (older sessions, a metadata-less part) both collapse, matching
+ * today's behavior exactly. Never a string/number/other truthy guess.
+ */
+function defaultExpanded(part: WirePart): boolean {
+  const metadata = part['metadata'];
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return false;
+  return (metadata as Record<string, unknown>)['default_collapsed'] === false;
+}
+
 function ThinkingDisclosure({ part }: { part: WirePart }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => defaultExpanded(part));
 
   return (
     <div className="part-collapsible">
@@ -221,6 +247,16 @@ export const PART_RENDERERS: Record<string, PartRenderer> = {
       <p className="part-error" data-testid="part-error" role="alert">
         {str(part['message'] ?? part['error'])}
       </p>
+    ),
+  },
+
+  // Generic in-transcript notification/action card (frozen wire contract,
+  // owner ruling: spotter-ai is the FIRST emitter, not the only one).
+  // ctx.onCardAction is the one piece of per-render context any kind here
+  // can use — see PartRenderContext above.
+  action_card: {
+    render: (part, ctx) => (
+      <ActionCardPart part={part} {...(ctx.onCardAction ? { onCardAction: ctx.onCardAction } : {})} />
     ),
   },
 };

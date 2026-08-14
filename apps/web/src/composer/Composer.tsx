@@ -14,7 +14,7 @@ export type ComposerMode = 'ask' | 'execute' | 'plan';
  * was placeholder semantics for "a menu of acceptance modes" — these are the
  * values the backend actually accepts.
  */
-export const APPROVAL_MODES = ['ask', 'auto-edits', 'bypass', 'ai-review'] as const;
+export const APPROVAL_MODES = ['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai'] as const;
 export type ApprovalMode = (typeof APPROVAL_MODES)[number];
 
 export interface ComposerSubmission {
@@ -333,6 +333,12 @@ export function Composer({
       label: 'ai-review',
       description: 'An AI reviewer approves or blocks each action',
       icon: <Icon name="eye" />,
+    },
+    {
+      id: 'spotter-ai',
+      label: 'spotter-ai',
+      description: 'SPOTTER AI watches the run and flags issues',
+      icon: <Icon name="pulse" />,
     },
   ].map((item) => ({ ...item, checked: item.id === approvalMode }));
   const modeMenuItems: MenuItemDef[] = [

@@ -20,17 +20,42 @@ import {
 } from '@clio/core';
 
 /**
+ * The outcome of applying one message-lifecycle event to a loaded feed
+ * (gact-tui#364 client-half deliverable — "applied vs unapplied-unknown-id
+ * typed result… unapplied triggers the existing debounced reconcile"):
+ *
+ * - `applied` — the event named a message/part this feed already has (or
+ *   introduces a new message); `messages` carries the result.
+ * - `unapplied_unknown_id` — the event named a `message_id`/`part_id` this
+ *   feed does NOT have. This is a divergence signal, not a confirmed bug —
+ *   ordinary causes include a page boundary still in flight — but it is
+ *   exactly the shape a dropped or out-of-order SSE frame (clio-agent
+ *   events.py's EventBus silently drops on `QueueFull`, gact-tui#364 H-A)
+ *   would also produce. A caller with a reconcile path should treat it as a
+ *   reason to reconcile, never a reason to guess.
+ * - `irrelevant` — a reconcile-class event type (message.completed/error/
+ *   deleted — callers with a reconcile path handle those directly by type,
+ *   not through this function) or a malformed/unrecognized payload; neither
+ *   is a feed divergence.
+ */
+export type MessageLifecycleApplyResult =
+  | { kind: 'applied'; messages: Message[] }
+  | { kind: 'unapplied_unknown_id' }
+  | { kind: 'irrelevant' };
+
+/**
  * Apply one message-lifecycle event to a loaded messages array.
  *
- * Returns the next array, or `null` when the event carries no direct feed
- * application — message.completed/error/deleted are reconcile-class events
- * (callers with a reconcile path handle them), and a malformed payload is
- * a no-op rather than a guess.
+ * Returns a typed result distinguishing a real application from an
+ * unknown-id no-op from an irrelevant event — see
+ * {@link MessageLifecycleApplyResult}. Never guesses: an id this feed
+ * doesn't recognize is reported, not silently collapsed into the same
+ * unchanged-array shape a real application would produce.
  */
 export function applyMessageLifecycleEvent(
   messages: Message[],
   event: SessionMessageEvent,
-): Message[] | null {
+): MessageLifecycleApplyResult {
   const payload = event.payload;
   switch (event.type) {
     case 'message.created': {
@@ -40,7 +65,7 @@ export function applyMessageLifecycleEvent(
       const flat = payload['id'] && payload['role'] ? (payload as unknown as Message) : undefined;
       const nested = payload['message'] as Message | undefined;
       const message = nested ?? flat;
-      if (!message) return null;
+      if (!message) return { kind: 'irrelevant' };
       const incoming = { ...message, parts: message.parts ?? [] };
       // SSE replay re-delivers message.created with the CREATION-TIME shell
       // (parts [], metadata {}) for messages the client already fetched in
@@ -56,8 +81,8 @@ export function applyMessageLifecycleEvent(
         existing !== undefined &&
         (existing.parts.length > 0 ||
           (existing.metadata !== undefined && Object.keys(existing.metadata).length > 0));
-      if (incomingEmpty && localRicher) return messages;
-      return upsertMessage(messages, incoming);
+      if (incomingEmpty && localRicher) return { kind: 'applied', messages };
+      return { kind: 'applied', messages: upsertMessage(messages, incoming) };
     }
     case 'message.part.added':
     case 'message.part.updated': {
@@ -66,25 +91,30 @@ export function applyMessageLifecycleEvent(
       // upsert-by-id is exactly that).
       const messageId = payload['message_id'] as string | undefined;
       const part = payload['part'] as Part | undefined;
-      if (!messageId || !part) return null;
-      return appendPart(messages, messageId, part);
+      if (!messageId || !part) return { kind: 'irrelevant' };
+      if (!messages.some((m) => m.id === messageId)) return { kind: 'unapplied_unknown_id' };
+      return { kind: 'applied', messages: appendPart(messages, messageId, part) };
     }
     case 'message.part.delta': {
       const messageId = payload['message_id'] as string | undefined;
       const partId = payload['part_id'] as string | undefined;
       const delta = (payload['delta'] as { text_append?: string } | undefined) ?? {};
-      if (!messageId || !partId || !delta.text_append) return null;
-      return applyTextAppend(messages, messageId, partId, delta.text_append);
+      if (!messageId || !partId || !delta.text_append) return { kind: 'irrelevant' };
+      const message = messages.find((m) => m.id === messageId);
+      if (!message?.parts.some((p) => p.id === partId)) return { kind: 'unapplied_unknown_id' };
+      return { kind: 'applied', messages: applyTextAppend(messages, messageId, partId, delta.text_append) };
     }
     case 'message.part.completed': {
       const messageId = payload['message_id'] as string | undefined;
       const partId = payload['part_id'] as string | undefined;
       const finalText = payload['final_text'];
-      if (!messageId || !partId || typeof finalText !== 'string') return null;
-      return applyPartCompleted(messages, messageId, partId, finalText);
+      if (!messageId || !partId || typeof finalText !== 'string') return { kind: 'irrelevant' };
+      const message = messages.find((m) => m.id === messageId);
+      if (!message?.parts.some((p) => p.id === partId)) return { kind: 'unapplied_unknown_id' };
+      return { kind: 'applied', messages: applyPartCompleted(messages, messageId, partId, finalText) };
     }
     default:
-      return null;
+      return { kind: 'irrelevant' };
   }
 }
 

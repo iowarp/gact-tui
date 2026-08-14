@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Icon, type IconName } from '../../kit';
+import { Icon, Skeleton, type IconName } from '../../kit';
 
 /**
  * Shared shapes used by every settings detail pane: the title+lede header,
@@ -28,9 +28,9 @@ export function EmptyState({ title, body }: { title: string; body: ReactNode }) 
 
 export function LoadingNote() {
   return (
-    <p className="settings__note" role="status">
-      Loading…
-    </p>
+    <div className="settings__note">
+      <Skeleton label="Loading…" />
+    </div>
   );
 }
 

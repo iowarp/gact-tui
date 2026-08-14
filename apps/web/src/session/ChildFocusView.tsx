@@ -1,15 +1,17 @@
 /**
  * The prototype's CENTER child view (proto-walk 04c/05b): a focused child
  * agent's own transcript for maximum reading + steering — `▸ prompt from
- * <parent>` folded at the top (the child's first user message IS the
- * delegation brief), then the child's transcript in the shared grammar, then
- * a status footer. The composer beneath it (owned by SessionView) targets
- * this child while focused.
+ * <parent>` folded at the top WHEN the child's first user message is a real
+ * delegation brief (see {@link briefText}), then the child's transcript in
+ * the shared grammar, then a status footer. The composer beneath it (owned
+ * by SessionView) targets this child while focused.
  */
 import { useState, type Ref } from 'react';
 import type { Message } from '@clio/core';
-import { Transcript } from '../transcript/Transcript';
+import type { ActionCardAction } from '../transcript/parts/ActionCardPart';
 import { formatDurationMs } from '../transcript/parts/HandoffPart';
+import { Transcript } from '../transcript/Transcript';
+import type { WirePart } from '../transcript/registry';
 import './childfocus.css';
 
 // Matches HandoffPart.tsx's own `delegateStatus()` classification exactly
@@ -27,6 +29,9 @@ export interface ChildFocusViewProps {
   status: string;
   onOpenChild?: ((handleId: string, agent: string, opts: { peek: boolean }) => void) | undefined;
   onOpenArtifact?: ((artifactId: string, name: string) => void) | undefined;
+  /** An action_card's button click, forwarded straight to the inner
+   *  `<Transcript>` — same "just forward it" convention as `onOpenChild`. */
+  onCardAction?: ((part: WirePart, action: ActionCardAction) => void) | undefined;
   /** The child session's own `created_at`/`updated_at` (SessionView's
    *  `getSession` pull) — real wire timestamps the settled footer's
    *  duration is computed from, never a guessed number. Absent = the
@@ -51,9 +56,33 @@ export interface ChildFocusViewProps {
   onBack?: (() => void) | undefined;
 }
 
+/**
+ * A first user message is only a "delegation brief" — worth the special
+ * collapsed `▸ prompt from <parent>` fold — when a PARENT TURN actually
+ * handed it down at spawn time. Owner correction (clio#1218d): a SPOTTER-
+ * style ARMED WATCHER is not a one-shot delegated child; its periodic wake
+ * lands in its own session as an ordinary pushed user message (clio's
+ * `_push_wake` -> `_start_background_user_turn` with no `metadata=` at all),
+ * and folding that first wake into the delegation-brief object read as
+ * internal spawn machinery leaking into the transcript. A genuine
+ * delegation launch (clio's real `spawn_agent_task`/`spawn_agents_parallel`
+ * path) stamps `metadata.agent_task_id` on that first message — the SAME
+ * task id the parent's own Call box drilled in by — so this checks for that
+ * marker rather than guessing from role/position alone. Its absence (a
+ * watcher wake, or any other push with no delegation marker) falls through
+ * to plain rendering: the message stays in `messages` and renders through
+ * the ordinary <Transcript> path, same as any other user message.
+ */
+function isDelegationBrief(first: Message | undefined): boolean {
+  if (!first || first.role !== 'user') return false;
+  const metadata = first.metadata as Record<string, unknown> | undefined;
+  const taskId = metadata?.['agent_task_id'];
+  return typeof taskId === 'string' && taskId.length > 0;
+}
+
 function briefText(first: Message | undefined): string {
-  if (!first || first.role !== 'user') return '';
-  const parts = (first.parts ?? []) as { type?: string; text?: string }[];
+  if (!isDelegationBrief(first)) return '';
+  const parts = (first!.parts ?? []) as { type?: string; text?: string }[];
   return parts
     .filter((p) => p.type === 'text' && p.text)
     .map((p) => p.text)
@@ -67,6 +96,7 @@ export function ChildFocusView({
   status,
   onOpenChild,
   onOpenArtifact,
+  onCardAction,
   createdAt,
   updatedAt,
   showStatusFooter = true,
@@ -140,6 +170,7 @@ export function ChildFocusView({
         messages={rest}
         {...(onOpenChild ? { onOpenChild } : {})}
         {...(onOpenArtifact ? { onOpenArtifact } : {})}
+        {...(onCardAction ? { onCardAction } : {})}
         {...(scrollContainerRef ? { scrollContainerRef } : {})}
       />
       {/* Renders AFTER the transcript (and so after any return card inside

@@ -107,3 +107,32 @@ describe('kit conformance guard', () => {
     expect(kitHits.length).toBeGreaterThan(0);
   });
 });
+
+describe('Skeleton is tokens-only (gact-tui#366)', () => {
+  // Scoped to skeleton.css specifically, not a kit-wide sweep — several
+  // pre-existing kit stylesheets (e.g. statusdot.css's queued/idle colors)
+  // predate the "design tokens only" requirement this new primitive is
+  // held to; auditing them is a separate, larger task.
+  const HARDCODED_COLOR = /#[0-9a-f]{3,8}\b|\brgba?\(\s*\d|\bhsla?\(\s*\d/i;
+
+  it('skeleton.css never hardcodes a color literal — every color is a var(--t-*) token', () => {
+    const css = readFileSync(resolve(KIT, 'skeleton.css'), 'utf8');
+    const offendingLines = css
+      .split('\n')
+      .filter((line) => HARDCODED_COLOR.test(line))
+      // A CSS comment line mentioning a hex/rgb value in prose is not a
+      // style declaration — only real property values count.
+      .filter((line) => !line.trim().startsWith('*') && !line.trim().startsWith('/*'));
+    expect(offendingLines).toEqual([]);
+  });
+
+  it('the guard actually bites: a planted hardcoded color is caught', () => {
+    const planted = '.x { background: #ff00ff; }';
+    expect(HARDCODED_COLOR.test(planted)).toBe(true);
+  });
+
+  it('skeleton.css references at least one design token (the guard is not vacuous)', () => {
+    const css = readFileSync(resolve(KIT, 'skeleton.css'), 'utf8');
+    expect(css).toMatch(/var\(--t-/);
+  });
+});

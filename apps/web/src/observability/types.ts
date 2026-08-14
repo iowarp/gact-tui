@@ -192,6 +192,30 @@ export interface ObsToolInventory {
   groups: ObsToolInventoryGroup[];
 }
 
+/**
+ * Independent observability reads that commit into the panel progressively
+ * (gact-tui#369) instead of the whole layer waiting on the slowest of the
+ * round-7 FANOUT's 7 parallel reads.
+ *
+ * - `'trace'` is the child-trace-fanout aggregate: agentTasks + artifacts
+ *   (the only two that name child session ids) gate the child-trace
+ *   fan-out, then the root trace + the session-tasks read (needed to
+ *   de-dupe the runs tab's supplementary rows) join it. `buildObservabilityTrace`
+ *   computes timeline/spans/artifactRows/toolCalls/toolInventory in ONE pass
+ *   over that whole traces list, so it commits as ONE unit — splitting it
+ *   further would surface a timeline with no matching runs, or artifact rows
+ *   with no toolInventory, which is incoherent, not progressive. Backs the
+ *   timeline/runs/tools/gantt/artifacts(P5) tabs.
+ * - `'context'` is the one other tab-critical independent read
+ *   (fetchSessionContextState) — nothing else depends on it, so it commits
+ *   the instant its own fetch settles.
+ *
+ * The legacy-fixture-only `agents`/`toolsByExpert` reads commit
+ * independently too (SessionView.loadObservability) but back no LIVE
+ * (non-legacy) tab, so they carry no section of their own here.
+ */
+export type ObsSection = 'trace' | 'context';
+
 export interface ObservabilityData {
   agents: ObsAgent[];
   runs: ObsRun[];

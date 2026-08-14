@@ -86,8 +86,15 @@ function dispatchSseBridgeMessage(
  * the token travels in the sseUrl query string per SPEC §7). See
  * `apps/SECURITY.md` + issue #111.
  *
- * Pure-web build: callers should guard via `inTauri()` and fall back to the
- * fetch-based reader (`openSseFetchStream` via `openLiveTranscriptBrowserStream`).
+ * As of gact-tui#365, no caller wires this in: the live transcript path
+ * (SessionView's `subscribeSessionMessageEvents`) always opens a plain
+ * browser `EventSource`, on desktop too — the `Live*` dispatch stack that
+ * would have chosen between this bridge and a fetch-based reader per
+ * `inTauri()` was deleted as an orphaned island (17 files, zero consumers
+ * since the 2026-08-03 React rebuild). This function still encodes a real,
+ * untouched capability (native `EventSource` cannot set an `Authorization`
+ * header, so a desktop build behind a bearer token needs this bridge or an
+ * equivalent) — the re-wire-vs-retire decision is tracked as gact-tui#367.
  *
  * Pass `recordDebug` (e.g. from `createSseDebugRecorder()`) to capture bridge
  * telemetry; omit it to run the bridge silently (the default in tests).

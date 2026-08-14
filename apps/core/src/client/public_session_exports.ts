@@ -53,7 +53,11 @@ export {
 } from './session_async_processes.js';
 export { dismissRun, type DismissRunResult } from './runs.js';
 export {
+  fetchAllSessionArtifacts,
   fetchSessionArtifacts,
+  type ArtifactWalkTruncationReason,
+  type FetchAllSessionArtifactsOptions,
+  type FetchAllSessionArtifactsResult,
   type SessionArtifactProducer,
   type SessionArtifactRecord,
   type SessionArtifactsOptions,

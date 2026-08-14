@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { ChildFocusView } from '../../src/session/ChildFocusView';
 import { Transcript } from '../../src/transcript/Transcript';
 import { PART_RENDERERS } from '../../src/transcript/registry';
+import { ToolPart } from '../../src/transcript/parts/ToolPart';
 
 function msg(id: string, role: Message['role'], parts: unknown[]): Message {
   return { id, role, parts: parts as Message['parts'] };
@@ -75,6 +76,128 @@ describe('Transcript', () => {
     expect(screen.getByText('internal reasoning here')).toBeInTheDocument();
   });
 
+  describe('thinking honors metadata.default_collapsed (gact-tui#362 nit)', () => {
+    it('renders EXPANDED when metadata.default_collapsed is false', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'thinking',
+                thinking: 'server said start open',
+                metadata: { default_collapsed: false },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('server said start open')).toBeInTheDocument();
+    });
+
+    it('renders COLLAPSED when metadata.default_collapsed is true', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'thinking',
+                thinking: 'server said start closed',
+                metadata: { default_collapsed: true },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('server said start closed')).toBeNull();
+    });
+
+    it('renders COLLAPSED when metadata is absent entirely (older sessions, unchanged behavior)', () => {
+      render(
+        <Transcript
+          messages={[msg('m1', 'assistant', [{ type: 'thinking', thinking: 'no metadata at all' }])]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('no metadata at all')).toBeNull();
+    });
+
+    it('toggle still works starting from an EXPANDED initial state (default_collapsed: false)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              { type: 'thinking', thinking: 'toggle me', metadata: { default_collapsed: false } },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(screen.getByText('toggle me')).toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.queryByText('toggle me')).toBeNull();
+      fireEvent.click(toggle);
+      expect(screen.getByText('toggle me')).toBeInTheDocument();
+    });
+
+    it('toggle still works starting from a COLLAPSED initial state (default_collapsed: true)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              { type: 'thinking', thinking: 'toggle me too', metadata: { default_collapsed: true } },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(screen.queryByText('toggle me too')).toBeNull();
+      fireEvent.click(toggle);
+      expect(screen.getByText('toggle me too')).toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.queryByText('toggle me too')).toBeNull();
+    });
+
+    // Opus adversarial review, fix #10 (W2 sabotage sweep): only the LITERAL
+    // boolean `false` may expand — a truthy-ish, type-confused, or malformed
+    // value must never accidentally be treated as the real thing (a strict
+    // `=== false` check, not a loose falsy check, is what makes this hold).
+    it.each([
+      ['a string "false", not the boolean', { default_collapsed: 'false' }],
+      ['the falsy number 0', { default_collapsed: 0 }],
+      ['null', { default_collapsed: null }],
+      ['an empty array', { default_collapsed: [] }],
+    ])('renders COLLAPSED when default_collapsed is %s (never mistaken for literal false)', (_label, metadata) => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'thinking', thinking: 'sabotage sweep', metadata }]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('sabotage sweep')).toBeNull();
+    });
+
+    it('renders COLLAPSED when metadata itself is a malformed non-object (a string, not a record)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'thinking', thinking: 'sabotage sweep', metadata: 'x' }]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('sabotage sweep')).toBeNull();
+    });
+  });
+
   it('renders a tool call as a collapsed row that opens to prose params (E3/E4/E6)', () => {
     const { container } = render(
       <Transcript
@@ -124,6 +247,108 @@ describe('Transcript', () => {
     // array) already reads unambiguously via JSON.stringify and is untouched.
     const hint = container.querySelector('.part-toolrow__hint');
     expect(hint).toHaveTextContent('("Los Angeles, CA")');
+  });
+
+  describe('H-D regression pin (gact-tui#364): live render of an unmatched tool_call', () => {
+    // gact-tui#364 diagnosed candidate mechanisms H-A through H-D for
+    // "wait shows only after completion" (owner-observed). U1's live-probe
+    // harness verdicted H-D — the 2026-08-03 rebuild already fixed it,
+    // part.added is reliable — NOT-REPRODUCED. This pins the render half of
+    // that verdict: a message carrying ONLY a tool_call part (exactly the
+    // shape a live message.part.added delivers BEFORE any tool_result
+    // arrives) renders the in-flight row immediately. Transcript is a pure
+    // function of `messages` with no notion of "message.completed" at all —
+    // this proves the render path structurally CANNOT wait for it.
+    it('renders the in-flight "running…" row for a tool_call with no matching tool_result', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'tool_call',
+                id: 'tc1',
+                call_id: 'call_live_1',
+                name: 'geo_geocode',
+                input: { query: 'Los Angeles, CA' },
+              },
+            ]),
+          ]}
+        />,
+      );
+      expect(screen.getByText('running…')).toBeInTheDocument();
+      // The settled ✓/✗ mark and duration only ever appear once a result
+      // lands — their absence here is part of what "in-flight" means.
+      expect(screen.queryByText('✓')).toBeNull();
+      expect(screen.queryByText('✗')).toBeNull();
+    });
+
+    it('carries the call\'s own call_id as data-call-id, for live-probe correlation (U1 finding)', () => {
+      const { container } = render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'tool_call',
+                id: 'tc1',
+                call_id: 'call_live_1',
+                name: 'geo_geocode',
+                input: { query: 'Los Angeles, CA' },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'call_live_1');
+    });
+
+    it('falls back to the part\'s own id for data-call-id when call_id is absent', () => {
+      const { container } = render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'tool_call', id: 'tc_only', name: 'geo_geocode', input: {} }]),
+          ]}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'tc_only');
+    });
+
+    // Opus adversarial review, proven defect #6: `str(call['call_id']) ||
+    // str(call['id'])` looked like a safe fallback, but `str(null)` hits
+    // `String(null)` = the NON-EMPTY string "null" — so an explicit JSON
+    // `null` (not merely an absent key) made the `||` fallback to `id`
+    // never fire, and the row carried the literal text "null" as its
+    // identity. Both render paths (the settled row and the tool-wait
+    // activity line) share the same `callId` computation — pinned
+    // separately since they're two different DOM shapes.
+    it('falls back to id when call_id is an explicit JSON null, never the literal string "null" — settled call+result row', () => {
+      const { container } = render(
+        <ToolPart
+          call={{ type: 'tool_call', id: 'tc_settled', call_id: null, name: 'geo_geocode', input: {} }}
+          result={{ type: 'tool_result', call_id: null, content: [{ type: 'text', text: 'ok' }] }}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'tc_settled');
+    });
+
+    it('falls back to id when call_id is an explicit JSON null — the tool-wait activity line (wait_agent_tasks, no result yet)', () => {
+      const { container } = render(
+        <ToolPart
+          call={{
+            type: 'tool_call',
+            id: 'tc_waiting',
+            call_id: null,
+            name: 'wait_agent_tasks',
+            input: { task_ids: ['task_1', 'task_2'] },
+          }}
+        />,
+      );
+      const row = container.querySelector('[data-testid="tool-wait-activity"]');
+      expect(row).not.toBeNull();
+      expect(row).toHaveAttribute('data-call-id', 'tc_waiting');
+    });
   });
 
   it('renders an expert handoff as the prototype Call(child) heading', () => {
@@ -724,5 +949,83 @@ describe('return card in the child transcript views', () => {
     // ...the narration renders normally outside it, same context.
     expect(within(card).queryByText('Geocoding the requested place name.')).toBeNull();
     expect(screen.getByText('Geocoding the requested place name.')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Delegation brief vs. a pushed watcher wake (clio#1218d). Owner: the
+ * SPOTTER watcher is not conceptually a delegated child, so its incoming
+ * wake must NOT render as the special collapsed "▸ prompt from {parent}"
+ * brief object — it renders as an ORDINARY user message, exactly like any
+ * other `transcript__message` with `data-role="user"`. The distinguishing
+ * wire fact: a genuine delegation launch stamps `metadata.agent_task_id` on
+ * the child's first message; a watcher's periodic wake push carries no such
+ * marker. `ChildFocusView` gates the fold on that field rather than on
+ * role/position alone.
+ */
+describe('child view brief fold — delegation vs. pushed watcher wake (clio#1218d)', () => {
+  it('a genuine delegation brief (metadata.agent_task_id present) gets the collapsed "prompt from X" fold', () => {
+    render(
+      <ChildFocusView
+        agent="geospatial"
+        parentLabel="main"
+        status="completed"
+        messages={[
+          {
+            id: 'c1',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Resolve LA into coordinates.' }],
+            metadata: { agent_task_id: 'task_1', spawned_by: 'main' },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /prompt from main/ })).toBeInTheDocument();
+    // Folded away by default — not a plain, always-visible message line.
+    expect(screen.queryByText('Resolve LA into coordinates.')).toBeNull();
+  });
+
+  it('a pushed watcher wake (no agent_task_id marker) renders as an ORDINARY user message — no special fold', () => {
+    render(
+      <ChildFocusView
+        agent="spotter-watcher"
+        parentLabel="main"
+        status="running"
+        messages={[
+          {
+            id: 'w1',
+            role: 'user',
+            parts: [{ type: 'text', text: "Watched session activity: the session's turn completed." }],
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    // No brief fold at all — no toggle button, no "prompt from" text.
+    expect(screen.queryByRole('button', { name: /prompt from/i })).toBeNull();
+    expect(screen.queryByText(/prompt from/i)).toBeNull();
+    // The wake renders as a normal, always-visible user message — the SAME
+    // path an ordinary transcript message takes (data-role="user").
+    const wake = screen.getByText(/Watched session activity/);
+    expect(wake.closest('[data-role="user"]')).not.toBeNull();
+  });
+
+  it('a message with an empty-string agent_task_id (falsy marker) also falls through to plain rendering', () => {
+    render(
+      <ChildFocusView
+        agent="spotter-watcher"
+        parentLabel="main"
+        status="running"
+        messages={[
+          {
+            id: 'w2',
+            role: 'user',
+            parts: [{ type: 'text', text: 'edge case: empty task id' }],
+            metadata: { agent_task_id: '' },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /prompt from/i })).toBeNull();
+    expect(screen.getByText('edge case: empty task id')).toBeInTheDocument();
   });
 });

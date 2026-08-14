@@ -49,7 +49,7 @@ export interface PatchSessionInput {
    * The approval axis (clio-agent #1034), orthogonal to `mode`. Mirrors the
    * wire Literal in gact/types.py: UpdateSessionRequest.approval_mode.
    */
-  approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review';
+  approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
   mode?: 'plan' | 'edit' | 'architect';
   edit_mode?: 'diff' | 'whole' | 'patch';
   routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
