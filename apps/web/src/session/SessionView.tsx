@@ -753,7 +753,7 @@ export function SessionView({
       }
 
       if (event.type === 'session.status_changed') {
-        void loadObservability(activeId, activeScope).then((next) => {
+        void loadObservability(activeId, activeScope, () => cancelled).then((next) => {
           if (!cancelled) setObs(next);
         });
       }
