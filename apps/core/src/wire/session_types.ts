@@ -10,9 +10,11 @@ export type SessionStatus =
   | 'cancelled'
   /**
    * @deprecated Never emitted by clio (`Session.status` has no 'finished').
-   * Kept only because apps/web still branches on it (Sidebar /
-   * SessionListItemModel status pips, LiveSessionEvents terminal-status
-   * check, demo fixtures). Remove together with those consumers (#232).
+   * The `LiveSessionEvents` terminal-status check this was originally kept
+   * for was deleted with the rest of the orphaned wire/Live* island
+   * (gact-tui#365) — a repo-wide grep found NO current consumer of this
+   * literal anywhere in apps/ (web or core). Kept defensively pending a
+   * dedicated removal decision rather than deleted in passing here; see #232.
    */
   | 'finished';
 

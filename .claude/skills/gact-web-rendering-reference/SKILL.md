@@ -196,10 +196,28 @@ scaffolding at the source). **Status as of 2026-07-06: clio#767 is OPEN.** There
 
 ---
 
-## 4. The Live* streaming engine (apps/web/src)
+## 4. The Live* streaming engine — DELETED (gact-tui#365)
 
-`apps/web/src/live.ts` is now only a **barrel** (re-export surface); the engine is split
-into focused `Live*.ts` modules at `apps/web/src/` (all verified present 2026-07-06):
+**STALE, do not trust the table below as current — kept only as historical
+context for the rest of this section's narrative.** This section used to
+describe a "Live* streaming engine" split into 17 focused `Live*.ts` modules
+under `apps/web/src/wire/`. It was ported out of `web.old` in the 2026-08-03
+React rebuild and never re-integrated: a gact-tui#365 audit found zero
+consumers outside the island itself (every `Live*` import resolved to another
+`Live*` file) and zero coverage in the running test suite, and the whole
+island (17 files, 1,480 LOC) was `git rm`-ed. **Current reality:** the live
+transcript path is the single `subscribeSessionMessageEvents` transport
+(`apps/core/src/client/sse.ts`, native `EventSource` — no Tauri-bridge branch
+today, see `apps/web/src/tauri/tauri_sse.ts`'s own docstring and
+gact-tui#367) feeding the pure `applyMessageLifecycleEvent` apply layer
+(`apps/web/src/session/messageEvents.ts`), consumed directly by
+`SessionView.tsx`'s and `AgentPeekView.tsx`'s own SSE effects — ONE path, not
+a second parallel engine. Do not resurrect a `Live*`-style dispatch
+indirection layer; wire new event handling directly into the effect that
+needs it, the way the current code already does.
+
+<details>
+<summary>Original (now-deleted) module table — historical only</summary>
 
 | Module | Role |
 |---|---|
@@ -212,7 +230,9 @@ into focused `Live*.ts` modules at `apps/web/src/` (all verified present 2026-07
 | `LiveSessions.ts` / `LiveSessionsModel.ts` | Sidebar session list patching from session-touching events. |
 | `LiveSemanticFeed.ts`, `LiveExecutionEvents.ts`, `LiveMessageEvents.ts`, `LiveMessageLifecycleEvents.ts`, `LiveToolEvents.ts`, `LiveRunningTools.ts`, `LiveNotifications.ts`, `LiveRefreshEvents.ts`, `LiveReconnect.ts`, `LiveStreamStats.ts`, `LiveConnectionConfig.ts`, `LiveSessionEvents.ts` | Focused event families: capped semantic feed, execution events, message/tool lifecycle, notifications, reconnect/backoff, stream stats. |
 
-### The architecture target (the hardest cluster)
+</details>
+
+### The architecture target (the hardest cluster) — historical, predates the deletion above
 
 `STREAMING-DEMO-ISSUES.md` (root ledger, 2026-07-01) records the central rework, item
 #10, explicitly marked **"Done WRONG — needs rework"**: routing the LIVE view through the
@@ -499,8 +519,8 @@ Select-String -Path .github/workflows/*.yml -Pattern "cargo test"
 # Demo/evidence script names
 Select-String -Path apps/web/package.json -Pattern "demo:|test:visual"
 
-# Live* module inventory
-Get-ChildItem apps/web/src -Filter Live*.ts -Name
+# Live* module inventory — expect EMPTY (deleted gact-tui#365); any hit is drift
+Get-ChildItem apps/web/src -Recurse -Filter Live*.ts -Name
 
 # smd dependency pin
 Select-String -Path apps/web/package.json -Pattern streaming-markdown
