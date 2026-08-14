@@ -8,7 +8,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { Eyebrow, KvGrid, Modal, PartCard } from '../../src/kit';
+import { Eyebrow, KvGrid, Modal, PartCard, Skeleton } from '../../src/kit';
 
 function OpenModal(props: { onClose?: () => void; scrollBody?: boolean }) {
   return (
@@ -146,5 +146,36 @@ describe('Eyebrow', () => {
   it('carries the tight letter-spacing variant as data, not a new class', () => {
     const { container } = render(<Eyebrow tight>tool</Eyebrow>);
     expect(container.querySelector('.kit-eyebrow')).toHaveAttribute('data-tight', 'true');
+  });
+});
+
+describe('Skeleton (gact-tui#366)', () => {
+  it('is a live-region status with aria-busy and an accessible label', () => {
+    render(<Skeleton label="Loading widgets…" />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-busy', 'true');
+    expect(status).toHaveAccessibleName('Loading widgets…');
+  });
+
+  it('renders exactly one shimmer bar by default', () => {
+    const { container } = render(<Skeleton label="Loading…" />);
+    expect(container.querySelectorAll('.kit-skeleton__bar')).toHaveLength(1);
+  });
+
+  it('renders the requested number of shimmer bars', () => {
+    const { container } = render(<Skeleton label="Loading…" lines={3} />);
+    expect(container.querySelectorAll('.kit-skeleton__bar')).toHaveLength(3);
+  });
+
+  it('hides the decorative bars from assistive tech (the label alone carries the announcement)', () => {
+    const { container } = render(<Skeleton label="Loading…" lines={2} />);
+    for (const bar of container.querySelectorAll('.kit-skeleton__bar')) {
+      expect(bar).toHaveAttribute('aria-hidden', 'true');
+    }
+  });
+
+  it('carries the shared kit-skeleton testid used by every replaced site', () => {
+    render(<Skeleton label="Loading…" />);
+    expect(screen.getByTestId('kit-skeleton')).toBeInTheDocument();
   });
 });

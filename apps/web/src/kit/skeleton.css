@@ -1,0 +1,33 @@
+@keyframes kit-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.kit-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.kit-skeleton__bar {
+  display: block;
+  height: 12px;
+  width: 100%;
+  max-width: 220px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--t-sf2) 25%, var(--t-hv) 50%, var(--t-sf2) 75%);
+  background-size: 200% 100%;
+  animation: kit-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-skeleton__bar {
+    animation: none;
+  }
+}

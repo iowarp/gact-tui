@@ -38,7 +38,7 @@ import {
   type SessionAction,
   type WorkspaceAction,
 } from '../shell/Rail';
-import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
+import { Icon, Layer, Skeleton, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
 import { Observability, ObservabilityTrace } from '../observability/Observability';
 import type { ObsTab } from '../observability/Observability';
@@ -2685,7 +2685,11 @@ export function SessionView({
           </p>
         ) : null}
 
-        {state.kind === 'loading' ? <p className="sessionview__notice">Loading…</p> : null}
+        {state.kind === 'loading' ? (
+          <div className="sessionview__notice">
+            <Skeleton label="Loading…" />
+          </div>
+        ) : null}
 
         {sendError ? (
           <p className="sessionview__error" data-testid="send-error" role="alert">

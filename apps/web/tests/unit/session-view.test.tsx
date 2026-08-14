@@ -54,6 +54,23 @@ describe('SessionView', () => {
     expect(client.messages).toHaveBeenCalledWith('sess_a', { limit: 50 });
   });
 
+  it('shows the Skeleton primitive while a session is loading (gact-tui#366), not a bare "Loading…" paragraph', async () => {
+    let resolveMessages!: (value: { messages: [] }) => void;
+    const client = makeClient({
+      messages: vi.fn(() => new Promise<{ messages: [] }>((resolve) => (resolveMessages = resolve))),
+    });
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+
+    const skeleton = await screen.findByTestId('kit-skeleton');
+    expect(skeleton).toHaveAttribute('role', 'status');
+    expect(skeleton).toHaveAccessibleName('Loading…');
+
+    // Resolve so the pending promise doesn't leak into the next test.
+    resolveMessages({ messages: [] });
+    await waitFor(() => expect(screen.queryByTestId('kit-skeleton')).toBeNull());
+  });
+
   it('renders the fresh/idle greeting for a session with no messages, not a blank notice', async () => {
     const client = makeClient({ messages: vi.fn(async () => ({ messages: [] })) });
     render(<SessionView client={client} sessions={SESSIONS} />);
