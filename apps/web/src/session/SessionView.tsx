@@ -2,10 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { flushSync } from 'react-dom';
 import {
   dismissRun,
+  fetchAllSessionArtifacts,
   fetchArtifactLineage,
   fetchLmConfig,
   fetchSessionAgentTasks,
-  fetchSessionArtifacts,
   fetchSessionAsyncProcesses,
   fetchSessionContextState,
   fetchSessionTrace,
@@ -437,7 +437,14 @@ export function SessionView({
   }, [client]);
 
   const loadObservability = useCallback(
-    async (sessionId: string, scope: string): Promise<ObservabilityData> => {
+    // `isStale` (gact-tui#363) is threaded through to the paginated artifact
+    // walk below so a session switch/unmount mid-walk stops issuing further
+    // pages rather than fetching artifact pages for a view nobody is
+    // looking at anymore; defaults to "never stale" for callers with no
+    // natural cancellation flag of their own (this read is still discarded
+    // wholesale by every caller via its own `cancelled` check on the
+    // returned promise, same as before).
+    async (sessionId: string, scope: string, isStale: () => boolean = () => false): Promise<ObservabilityData> => {
       // Every read is FIRED immediately and independently (a promise starts
       // running the instant it's constructed, regardless of when it's
       // awaited) — nothing here may sit behind an unrelated call before it
@@ -454,8 +461,11 @@ export function SessionView({
       const serversPromise = fetchOutcome(() => client.mcpServers());
       const contextPromise = fetchOutcome(() => fetchSessionContextState(client, sessionId, scope));
       const agentTasksPromise = fetchOutcome(() => fetchSessionAgentTasks(client, sessionId));
+      // fetchAllSessionArtifacts (gact-tui#363): the single-page read capped
+      // silently at the server's limit=50 default, under-reporting any
+      // session holding more artifact records than that.
       const artifactPromise = fetchOutcome(() =>
-        fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+        fetchAllSessionArtifacts(client, sessionId, { includeChildren: true, isStale }),
       );
       const rootTracePromise = fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 }));
 
@@ -524,7 +534,7 @@ export function SessionView({
         !agentTasksOutcome.ok ||
         childTraceOutcomes.some(({ outcome }) => !outcome.ok);
       // The artifacts tab/badge's own honest-zero signal — a DIFFERENT read
-      // (fetchSessionArtifacts) than the trace/runs/tools primaries above,
+      // (fetchAllSessionArtifacts) than the trace/runs/tools primaries above,
       // so it earns its own flag rather than overloading traceReadFailed
       // (round-7 FANOUT finding: the artifacts tab-strip badge read a
       // confident "0" while genuinely unresolved, in the same frame the
@@ -688,7 +698,7 @@ export function SessionView({
     if (panel !== 'obs' || !activeId) return;
     let cancelled = false;
     const refresh = async () => {
-      const next = await loadObservability(activeId, activeScope);
+      const next = await loadObservability(activeId, activeScope, () => cancelled);
       if (!cancelled) setObs(next);
     };
     void refresh();
@@ -855,8 +865,11 @@ export function SessionView({
           Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
           Promise.resolve().then(() => fetchSessionAsyncProcesses(client, sessionId)),
           Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
+          // fetchAllSessionArtifacts (gact-tui#363): a single-page read
+          // silently capped the pill's artifact count at the server's
+          // limit=50 default.
           Promise.resolve().then(() =>
-            fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+            fetchAllSessionArtifacts(client, sessionId, { includeChildren: true }),
           ),
         ]);
       const next: ComposerPillState = { sessionId, scope };
@@ -1813,7 +1826,10 @@ export function SessionView({
       if (!activeId) return;
       try {
         const [result, agentTasksResult] = await Promise.all([
-          fetchSessionArtifacts(client, activeId, { includeChildren: true }),
+          // fetchAllSessionArtifacts (gact-tui#363): a single-page read
+          // silently capped the artifact panel's lineage/version graph at
+          // the server's limit=50 default.
+          fetchAllSessionArtifacts(client, activeId, { includeChildren: true }),
           fetchSessionAgentTasks(client, activeId).catch(
             (): { tasks: SessionAgentTask[] } => ({ tasks: [] }),
           ),
