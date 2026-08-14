@@ -38,7 +38,7 @@ import {
   type SessionAction,
   type WorkspaceAction,
 } from '../shell/Rail';
-import { Icon, Layer, Skeleton, type SelectOption, type SessionStatus } from '../kit';
+import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
 import { Observability, ObservabilityTrace } from '../observability/Observability';
 import type { ObsTab } from '../observability/Observability';
@@ -48,7 +48,7 @@ import {
   timelineRowFromSessionTraceEvent,
 } from '../observability/build';
 import { Settings } from '../settings/Settings';
-import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
+import type { AgentStatus, ObsNavigation, ObsSection, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
 import { TranscriptSkeleton } from '../transcript/TranscriptSkeleton';
 import type { ActionCardAction } from '../transcript/parts/ActionCardPart';
@@ -157,6 +157,32 @@ const TERMINAL_AGENT_TASK_STATUSES = new Set([
 const PINS_STORAGE_KEY = 'clio.pins.v1';
 const WORKSPACE_PINS_STORAGE_KEY = 'clio.workspace-pins.v1';
 const NO_MESSAGES: Message[] = [];
+
+/**
+ * The observability panel's shape the INSTANT it opens, before any of the 7
+ * parallel reads has settled (gact-tui#369) — always the non-legacy P5
+ * shape (timeline/spans/artifactRows/toolCalls/toolInventory are real,
+ * empty arrays/objects, never `undefined`) so `Observability`'s own
+ * `legacy` inference (`data.timeline === undefined && ...`) never flips the
+ * tab strip from the old agents/tools-catalog layout to the P5 one mid-
+ * load. `obsPending` (the sibling state below) is what tells each tab
+ * whether its own still-empty slice of this object is a genuine fact yet.
+ */
+const EMPTY_OBSERVABILITY: ObservabilityData = {
+  agents: [],
+  runs: [],
+  toolsByExpert: {},
+  artifacts: [],
+  timeline: [],
+  spans: [],
+  artifactRows: [],
+  toolCalls: [],
+  toolInventory: { groups: [] },
+};
+
+/** Every observability section pending from the moment the panel opens
+ *  (gact-tui#369) — see ObsSection's doc comment for what backs each one. */
+const ALL_OBS_SECTIONS: ObsSection[] = ['trace', 'context'];
 
 /**
  * The prototype's SUGGESTED rows (design/prototype/Clio Session.html,
@@ -304,7 +330,18 @@ export function SessionView({
   // Pill-chip deep links land the obs layer on a specific tab (async -> runs,
   // ctx -> context); the eye button leaves it undefined = default tab.
   const [obsTab, setObsTab] = useState<ObsTab | undefined>(undefined);
-  const [obs, setObs] = useState<ObservabilityData | null>(null);
+  // Seeded non-null (gact-tui#369): the panel always has SOMETHING coherent
+  // to render — the reset effect below re-seeds this + `obsPending` the
+  // instant the panel opens for a session, so there is no window where the
+  // panel is open but `obs` is still the PREVIOUS session's data (or null).
+  const [obs, setObs] = useState<ObservabilityData>(EMPTY_OBSERVABILITY);
+  // Sections not yet committed for the CURRENTLY open panel — every tab's
+  // backing read starts pending; each is removed the instant ITS OWN fetch
+  // settles (SessionView.applyObsPatch below), never held behind the
+  // slowest of the round-7 FANOUT's other reads.
+  const [obsPending, setObsPending] = useState<ReadonlySet<ObsSection>>(
+    () => new Set(ALL_OBS_SECTIONS),
+  );
   const [liveTraceRows, setLiveTraceRows] = useState<NonNullable<ObservabilityData['timeline']>>(
     [],
   );
@@ -437,26 +474,51 @@ export function SessionView({
     };
   }, [client]);
 
+  // Merges ONE section's patch into `obs` and, when the patch settles a
+  // real section, drops it from `obsPending` (gact-tui#369). Every key a
+  // patch carries must be an EXPLICIT value (never conditionally omitted) —
+  // patches MERGE onto the previous object, so a key a patch leaves out
+  // keeps whatever the previous commit (or a prior failed attempt, on
+  // retry) left there; `loadObservability` below is written to always
+  // include `context`/`traceReadFailed`/`artifactsReadFailed` explicitly
+  // for exactly this reason.
+  const applyObsPatch = useCallback(
+    (patch: Partial<ObservabilityData>, settled?: ObsSection) => {
+      setObs((prev) => ({ ...prev, ...patch }));
+      if (!settled) return;
+      setObsPending((prev) => {
+        if (!prev.has(settled)) return prev;
+        const next = new Set(prev);
+        next.delete(settled);
+        return next;
+      });
+    },
+    [],
+  );
+
   const loadObservability = useCallback(
-    // `isStale` (gact-tui#363) is threaded through to the paginated artifact
-    // walk below so a session switch/unmount mid-walk stops issuing further
-    // pages rather than fetching artifact pages for a view nobody is
-    // looking at anymore; defaults to "never stale" for callers with no
-    // natural cancellation flag of their own (this read is still discarded
-    // wholesale by every caller via its own `cancelled` check on the
-    // returned promise, same as before).
-    async (sessionId: string, scope: string, isStale: () => boolean = () => false): Promise<ObservabilityData> => {
+    // `isStale` (gact-tui#363, threaded further for gact-tui#369) is
+    // checked before EVERY commit below, not just once at the end — this
+    // function now commits progressively as each read settles rather than
+    // returning one merged object for the caller to gate on its own
+    // `cancelled` flag, so each commit point needs its own staleness check
+    // to stay session-safe. Defaults to "never stale" for the retry call
+    // sites, which have no natural cancellation flag of their own (same as
+    // before).
+    (
+      sessionId: string,
+      scope: string,
+      onSection: (patch: Partial<ObservabilityData>, settled?: ObsSection) => void,
+      isStale: () => boolean = () => false,
+    ): void => {
       // Every read is FIRED immediately and independently (a promise starts
       // running the instant it's constructed, regardless of when it's
       // awaited) — nothing here may sit behind an unrelated call before it
-      // has even issued its own request. The previous single
-      // `Promise.all([...7])` awaited every one of the 7 primary reads
-      // before computing the child session ids, which needlessly held the
-      // child-trace fetches — ready to start as soon as agentTasks+
-      // artifacts resolve — behind whichever of the OTHER five (agents/
-      // sessionTasks/mcpServers/context/rootTrace) happened to be slowest
-      // (round-7 FANOUT finding: the obs layer took 33s to open under load
-      // while the backend's own trace read answered in <3s).
+      // has even issued its own request (round-7 FANOUT finding: the obs
+      // layer took 33s to open under load while the backend's own trace
+      // read answered in <3s). gact-tui#369 changes WHEN each read's result
+      // is allowed to commit into the panel — never which reads fire, or
+      // when they fire.
       const agentsPromise = fetchOutcome(() => client.agents());
       const sessionRunsPromise = fetchOutcome(() => client.sessionTasks(sessionId));
       const serversPromise = fetchOutcome(() => client.mcpServers());
@@ -470,188 +532,237 @@ export function SessionView({
       );
       const rootTracePromise = fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 }));
 
-      // Only agentTasks + artifacts gate the child-trace fan-out (they're
-      // the only two that name the child session ids) — awaiting just these
-      // two lets that fan-out start as early as physically possible.
-      const [agentTasksOutcome, artifactOutcome] = await Promise.all([
-        agentTasksPromise,
-        artifactPromise,
-      ]);
-      const agentTasksResult = agentTasksOutcome.ok ? agentTasksOutcome.value : null;
-      const artifactResult = artifactOutcome.ok ? artifactOutcome.value : null;
-      const agentTasks = agentTasksResult?.tasks ?? [];
-      const artifactRecords = artifactResult?.artifacts ?? [];
-      // The observed tree: the parent's own trace plus EVERY child's — child
-      // ids from the agent-task rows' child_session_id ∪ the artifacts
-      // route's child_session_ids (gact-tui#356: main aggregates; a child
-      // session viewed directly simply has no children and keeps its own
-      // scope). Each trace is the wire with per-tool occurred_at + real
-      // duration_ms; a child whose trace read fails contributes no rows
-      // rather than fabricated ones.
-      const childSessionIds = [
-        ...new Set([
-          ...agentTasks.map((task) => task.child_session_id),
-          ...(artifactResult?.child_session_ids ?? []),
-        ]),
-      ].filter((id): id is string => Boolean(id) && id !== sessionId);
-      const childTraceOutcomes = await Promise.all(
-        childSessionIds.map(async (childSessionId) => ({
-          sessionId: childSessionId,
-          outcome: await fetchOutcome(() => fetchSessionTrace(client, childSessionId, { limit: 2000 })),
-        })),
-      );
-      const childTraces = childTraceOutcomes.map(({ sessionId: id, outcome }) => ({
-        sessionId: id,
-        events: outcome.ok ? (outcome.value.events ?? []) : [],
-      }));
-
-      const [agentsOutcome, sessionRunsOutcome, serversOutcome, contextOutcome, rootTraceOutcome] =
-        await Promise.all([
-          agentsPromise,
-          sessionRunsPromise,
-          serversPromise,
-          contextPromise,
-          rootTracePromise,
-        ]);
-      const agents = agentsOutcome.ok ? agentsOutcome.value : null;
-      const sessionRuns = sessionRunsOutcome.ok ? sessionRunsOutcome.value : null;
-      const servers = serversOutcome.ok ? serversOutcome.value : null;
-      const context = contextOutcome.ok ? contextOutcome.value : null;
-      const rootTrace = rootTraceOutcome.ok ? rootTraceOutcome.value : null;
-      // Whether the timeline/runs/tools/gantt tabs can trust their own zero.
-      // Only the PRIMARY reads that actually feed those tabs count: the
-      // session's own trace, every child's trace, and the real agent-task
-      // delegations (agentTasksOutcome — taskRuns). `sessionTasks`
-      // (existingRuns, a supplementary/legacy TODO-style source folded into
-      // the same tab) failing does NOT flip this — a backend that simply
-      // doesn't carry that secondary endpoint would otherwise permanently
-      // read "unavailable" for a genuinely healthy session. agents/servers/
-      // context failing degrades OTHER tabs, which already have their own
-      // honest fallbacks (ContextTab's "not reported", the legacy tools
-      // catalog simply reading empty). A FAILED read here must never render
-      // as the same "no trace recorded" a genuinely empty session earns.
-      const traceReadFailed =
-        !rootTraceOutcome.ok ||
-        !agentTasksOutcome.ok ||
-        childTraceOutcomes.some(({ outcome }) => !outcome.ok);
-      // The artifacts tab/badge's own honest-zero signal — a DIFFERENT read
-      // (fetchAllSessionArtifacts) than the trace/runs/tools primaries above,
-      // so it earns its own flag rather than overloading traceReadFailed
-      // (round-7 FANOUT finding: the artifacts tab-strip badge read a
-      // confident "0" while genuinely unresolved, in the same frame the
-      // trace tabs correctly rendered "unavailable — retrying").
-      const artifactsReadFailed = !artifactOutcome.ok;
-      const trace = buildObservabilityTrace({
-        rootSessionId: sessionId,
-        traces: [{ sessionId, events: rootTrace?.events ?? [] }, ...childTraces],
-        agentTasks,
-        artifacts: artifactRecords,
-      });
-      const spanById = new Map(trace.spans.map((span) => [span.id, span]));
-      const taskRuns = agentTasks.flatMap((task) => {
-        const id = task.task_id || task.id;
-        if (!id) return [];
-        const label = task.run_label || task.agent_ref?.expert_id;
-        const host = task.host || task.placement;
-        const span = spanById.get(id);
-        // Real, derived-only description — never a fabricated summary of what
-        // the task actually did (SessionAgentTask carries no such field).
-        const requestingExpert = task.agent_ref?.requesting_expert_id;
-        const artifactCount = span?.artifacts;
-        const description = [
-          requestingExpert ? `requested by ${requestingExpert}` : null,
-          artifactCount ? `${artifactCount} artifact${artifactCount === 1 ? '' : 's'}` : null,
-        ]
-          .filter((part): part is string => Boolean(part))
-          .join(' · ');
-        return [
-          {
-            id,
-            agent: task.agent_ref?.expert_id ?? '',
-            state: task.status || task.live_state || 'unknown',
-            ...(label ? { label } : {}),
-            ...(host ? { host } : {}),
-            ...(span?.duration ? { duration: span.duration } : {}),
-            ...(description ? { description } : {}),
-            ...(span?.nav ? { nav: span.nav } : {}),
-          },
-        ];
-      });
-      const taskRunIds = new Set(taskRuns.map((run) => run.id));
-      const existingRuns = (sessionRuns?.tasks ?? [])
-        .filter((task) => !taskRunIds.has(task.id))
-        .map((task) => {
-          const agent = task.metadata?.['agent_id'];
-          const host = task.metadata?.['host'];
-          return {
-            id: task.id,
-            label: task.title,
-            agent: typeof agent === 'string' ? agent : '',
-            state: task.status,
-            ...(typeof host === 'string' && host ? { host } : {}),
-          };
+      // ---- independent, tab-inert sections (gact-tui#369): commit into
+      // the panel the instant EACH settles, never held behind whichever of
+      // the other reads happens to be slowest. Neither `agents` nor
+      // `toolsByExpert` backs a LIVE (non-legacy) tab today — Observability
+      // only renders them for pre-P5 fixtures — so they carry no `settled`
+      // tag; nothing in `obsPending` is waiting on them.
+      void agentsPromise.then((outcome) => {
+        if (isStale()) return;
+        const agents = outcome.ok ? (outcome.value.agents ?? []) : [];
+        onSection({
+          agents: agents.map((agent) => ({
+            id: agent.id,
+            label: agent.title || agent.id,
+            status: 'idle' as AgentStatus,
+            depth: Math.max(0, (agent.tier ?? 1) - 1),
+          })),
         });
-      const usedFraction = context?.used_pct ?? context?.pct_used;
-      const usedPercent =
-        typeof usedFraction === 'number' && Number.isFinite(usedFraction)
-          ? Math.round(usedFraction * 100)
-          : null;
-      // costUsd is deliberately NOT computed here from `messages` — see
-      // `sessionCostUsd` below, computed locally off the live transcript and
-      // merged into `observabilityData` at render time instead of being
-      // threaded through this network call (round-7 FANOUT finding: passing
-      // the ever-changing live message array into this async chain made its
-      // caller's effect re-fire, and re-issue every fetch above, on EVERY
-      // streaming SSE delta).
-
-      return {
-        // Agent definitions remain available for legacy consumers; the P5 UI
-        // projects active work through runs and timeline instead of an agents tab.
-        agents: (agents?.agents ?? []).map((agent) => ({
-          id: agent.id,
-          label: agent.title || agent.id,
-          status: 'idle' as AgentStatus,
-          depth: Math.max(0, (agent.tier ?? 1) - 1),
-        })),
-        runs: [...taskRuns, ...existingRuns],
+      });
+      void serversPromise.then((outcome) => {
+        if (isStale()) return;
         // GET /v1/mcp/servers returns `tools` as a plain string[] (tool
         // names), never `{name, description}` objects — mapping `tool.name`
         // on a string always read `undefined`, rendering every row blank.
-        toolsByExpert: Object.fromEntries(
-          (servers?.servers ?? []).map((server) => {
-            const row = server as {
-              name?: string;
-              id?: string;
-              tools?: Array<string | { name?: string; description?: string }>;
+        const servers = outcome.ok ? (outcome.value.servers ?? []) : [];
+        onSection({
+          toolsByExpert: Object.fromEntries(
+            servers.map((server) => {
+              const row = server as {
+                name?: string;
+                id?: string;
+                tools?: Array<string | { name?: string; description?: string }>;
+              };
+              return [
+                row.name ?? row.id ?? 'server',
+                (row.tools ?? []).flatMap((tool) => {
+                  if (typeof tool === 'string') return tool ? [{ name: tool }] : [];
+                  if (!tool.name) return [];
+                  return [
+                    { name: tool.name, ...(tool.description ? { description: tool.description } : {}) },
+                  ];
+                }),
+              ];
+            }),
+          ),
+        });
+      });
+
+      // ---- context (gact-tui#369): its own tab, gated on nothing else —
+      // commits the instant its own single read settles.
+      void contextPromise.then((outcome) => {
+        if (isStale()) return;
+        const context = outcome.ok ? outcome.value : null;
+        const usedFraction = context?.used_pct ?? context?.pct_used;
+        const usedPercent =
+          typeof usedFraction === 'number' && Number.isFinite(usedFraction)
+            ? Math.round(usedFraction * 100)
+            : null;
+        // costUsd is deliberately NOT computed here from `messages` — see
+        // `sessionCostUsd` below, computed locally off the live transcript
+        // and merged into `observabilityData` at render time instead of
+        // being threaded through this network call (round-7 FANOUT
+        // finding: passing the ever-changing live message array into this
+        // async chain re-issued every fetch above on EVERY streaming SSE
+        // delta).
+        onSection(
+          {
+            // Explicit `undefined`, never an omitted key — see
+            // applyObsPatch's own comment: a retry that now genuinely finds
+            // no context must overwrite a PREVIOUS attempt's real value,
+            // not leave it stuck from the failed/earlier commit.
+            context:
+              usedPercent !== null
+                ? {
+                    usedPercent,
+                    tokens: context?.used_tokens ?? context?.live_tokens ?? 0,
+                    limit: context?.window_tokens ?? 0,
+                  }
+                : undefined,
+          },
+          'context',
+        );
+      });
+
+      // ---- the child-trace fan-out + everything it feeds (gact-tui#369):
+      // ONE aggregate, ONE commit. buildObservabilityTrace computes
+      // timeline/spans/artifactRows/toolCalls/toolInventory in a SINGLE
+      // pass over the full traces list, and the runs tab's taskRuns reads
+      // span durations out of that same pass — splitting this commit
+      // further would surface (say) a timeline with no matching runs,
+      // which is incoherent, not progressive. Internal ordering is
+      // UNCHANGED: agentTasks + artifacts gate the fan-out (the only two
+      // that name child session ids), then the child traces, then the root
+      // trace joins — sessionRuns (needed to de-dupe the runs tab's
+      // supplementary existingRuns rows) is awaited alongside the root
+      // trace here rather than bundled with the THREE unrelated reads
+      // (agents/servers/context) the original code held it next to, so a
+      // slow context/servers read can no longer delay this aggregate.
+      void (async () => {
+        const [agentTasksOutcome, artifactOutcome] = await Promise.all([
+          agentTasksPromise,
+          artifactPromise,
+        ]);
+        if (isStale()) return;
+        const agentTasksResult = agentTasksOutcome.ok ? agentTasksOutcome.value : null;
+        const artifactResult = artifactOutcome.ok ? artifactOutcome.value : null;
+        const agentTasks = agentTasksResult?.tasks ?? [];
+        const artifactRecords = artifactResult?.artifacts ?? [];
+        // The observed tree: the parent's own trace plus EVERY child's —
+        // child ids from the agent-task rows' child_session_id ∪ the
+        // artifacts route's child_session_ids (gact-tui#356: main
+        // aggregates; a child session viewed directly simply has no
+        // children and keeps its own scope). Each trace is the wire with
+        // per-tool occurred_at + real duration_ms; a child whose trace read
+        // fails contributes no rows rather than fabricated ones.
+        const childSessionIds = [
+          ...new Set([
+            ...agentTasks.map((task) => task.child_session_id),
+            ...(artifactResult?.child_session_ids ?? []),
+          ]),
+        ].filter((id): id is string => Boolean(id) && id !== sessionId);
+        const childTraceOutcomes = await Promise.all(
+          childSessionIds.map(async (childSessionId) => ({
+            sessionId: childSessionId,
+            outcome: await fetchOutcome(() => fetchSessionTrace(client, childSessionId, { limit: 2000 })),
+          })),
+        );
+        if (isStale()) return;
+        const childTraces = childTraceOutcomes.map(({ sessionId: id, outcome }) => ({
+          sessionId: id,
+          events: outcome.ok ? (outcome.value.events ?? []) : [],
+        }));
+
+        const [rootTraceOutcome, sessionRunsOutcome] = await Promise.all([
+          rootTracePromise,
+          sessionRunsPromise,
+        ]);
+        if (isStale()) return;
+        const sessionRuns = sessionRunsOutcome.ok ? sessionRunsOutcome.value : null;
+        const rootTrace = rootTraceOutcome.ok ? rootTraceOutcome.value : null;
+        // Whether the timeline/runs/tools/gantt tabs can trust their own
+        // zero. Only the PRIMARY reads that actually feed those tabs count:
+        // the session's own trace, every child's trace, and the real
+        // agent-task delegations (agentTasksOutcome — taskRuns).
+        // `sessionTasks` (existingRuns, a supplementary/legacy TODO-style
+        // source folded into the same tab) failing does NOT flip this — a
+        // backend that simply doesn't carry that secondary endpoint would
+        // otherwise permanently read "unavailable" for a genuinely healthy
+        // session. A FAILED read here must never render as the same "no
+        // trace recorded" a genuinely empty session earns.
+        const traceReadFailed =
+          !rootTraceOutcome.ok ||
+          !agentTasksOutcome.ok ||
+          childTraceOutcomes.some(({ outcome }) => !outcome.ok);
+        // The artifacts tab/badge's own honest-zero signal — a DIFFERENT
+        // read (fetchAllSessionArtifacts) than the trace/runs/tools
+        // primaries above, so it earns its own flag rather than
+        // overloading traceReadFailed (round-7 FANOUT finding: the
+        // artifacts tab-strip badge read a confident "0" while genuinely
+        // unresolved, in the same frame the trace tabs correctly rendered
+        // "unavailable — retrying").
+        const artifactsReadFailed = !artifactOutcome.ok;
+        const trace = buildObservabilityTrace({
+          rootSessionId: sessionId,
+          traces: [{ sessionId, events: rootTrace?.events ?? [] }, ...childTraces],
+          agentTasks,
+          artifacts: artifactRecords,
+        });
+        const spanById = new Map(trace.spans.map((span) => [span.id, span]));
+        const taskRuns = agentTasks.flatMap((task) => {
+          const id = task.task_id || task.id;
+          if (!id) return [];
+          const label = task.run_label || task.agent_ref?.expert_id;
+          const host = task.host || task.placement;
+          const span = spanById.get(id);
+          // Real, derived-only description — never a fabricated summary of
+          // what the task actually did (SessionAgentTask carries no such
+          // field).
+          const requestingExpert = task.agent_ref?.requesting_expert_id;
+          const artifactCount = span?.artifacts;
+          const description = [
+            requestingExpert ? `requested by ${requestingExpert}` : null,
+            artifactCount ? `${artifactCount} artifact${artifactCount === 1 ? '' : 's'}` : null,
+          ]
+            .filter((part): part is string => Boolean(part))
+            .join(' · ');
+          return [
+            {
+              id,
+              agent: task.agent_ref?.expert_id ?? '',
+              state: task.status || task.live_state || 'unknown',
+              ...(label ? { label } : {}),
+              ...(host ? { host } : {}),
+              ...(span?.duration ? { duration: span.duration } : {}),
+              ...(description ? { description } : {}),
+              ...(span?.nav ? { nav: span.nav } : {}),
+            },
+          ];
+        });
+        const taskRunIds = new Set(taskRuns.map((run) => run.id));
+        const existingRuns = (sessionRuns?.tasks ?? [])
+          .filter((task) => !taskRunIds.has(task.id))
+          .map((task) => {
+            const agent = task.metadata?.['agent_id'];
+            const host = task.metadata?.['host'];
+            return {
+              id: task.id,
+              label: task.title,
+              agent: typeof agent === 'string' ? agent : '',
+              state: task.status,
+              ...(typeof host === 'string' && host ? { host } : {}),
             };
-            return [
-              row.name ?? row.id ?? 'server',
-              (row.tools ?? []).flatMap((tool) => {
-                if (typeof tool === 'string') return tool ? [{ name: tool }] : [];
-                if (!tool.name) return [];
-                return [{ name: tool.name, ...(tool.description ? { description: tool.description } : {}) }];
-              }),
-            ];
-          }),
-        ),
-        artifacts: artifactRecords.map((record) => ({
-          id: record.head_artifact_id || `${record.workspace_id ?? 'workspace'}:${record.name}`,
-          label: record.name,
-          ...(record.kind ? { kind: record.kind } : {}),
-        })),
-        ...trace,
-        ...(usedPercent !== null
-          ? {
-              context: {
-                usedPercent,
-                tokens: context?.used_tokens ?? context?.live_tokens ?? 0,
-                limit: context?.window_tokens ?? 0,
-              },
-            }
-          : {}),
-        ...(traceReadFailed ? { traceReadFailed: true } : {}),
-        ...(artifactsReadFailed ? { artifactsReadFailed: true } : {}),
-      };
+          });
+
+        onSection(
+          {
+            runs: [...taskRuns, ...existingRuns],
+            artifacts: artifactRecords.map((record) => ({
+              id: record.head_artifact_id || `${record.workspace_id ?? 'workspace'}:${record.name}`,
+              label: record.name,
+              ...(record.kind ? { kind: record.kind } : {}),
+            })),
+            ...trace,
+            // Explicit booleans, never conditionally-omitted keys — see
+            // applyObsPatch's own comment: a retry that now genuinely
+            // succeeds must overwrite a PREVIOUS failed attempt's `true`.
+            traceReadFailed,
+            artifactsReadFailed,
+          },
+          'trace',
+        );
+      })();
     },
     [client],
   );
@@ -689,20 +800,21 @@ export function SessionView({
     return seen ? sum : undefined;
   }, [observabilityMessages]);
 
+  // Re-seeds BOTH `obs` and `obsPending` the instant the panel opens for a
+  // session (gact-tui#369) — every tab starts pending again, never showing
+  // the PREVIOUS session's (or the previous open's) settled content or a
+  // stale "no trace recorded" while the fresh reads are still in flight.
   useEffect(() => {
     if (panel !== 'obs') return;
-    setObs(null);
+    setObs(EMPTY_OBSERVABILITY);
+    setObsPending(new Set(ALL_OBS_SECTIONS));
     setLiveTraceRows([]);
   }, [panel, activeId, client]);
 
   useEffect(() => {
     if (panel !== 'obs' || !activeId) return;
     let cancelled = false;
-    const refresh = async () => {
-      const next = await loadObservability(activeId, activeScope, () => cancelled);
-      if (!cancelled) setObs(next);
-    };
-    void refresh();
+    loadObservability(activeId, activeScope, applyObsPatch, () => cancelled);
     return () => {
       cancelled = true;
     };
@@ -711,33 +823,49 @@ export function SessionView({
     // NEW reference on every streaming SSE delta — depending on it here
     // re-issued the whole fetch chain on every delta (round-7 FANOUT
     // finding: a 33s open against a backend that itself answers in <3s).
-  }, [panel, activeId, activeScope, loadObservability]);
+  }, [panel, activeId, activeScope, loadObservability, applyObsPatch]);
 
   // Auto-retry the trace/runs/tools read exactly ONCE after a short backoff
   // when it comes back FAILED (ObservabilityData.traceReadFailed) — never
   // looping; a read that keeps failing needs the human "retry now" click
   // (TraceUnavailable's button below) rather than an infinite poll. A fresh
-  // session/scope, or reopening the panel, earns a fresh attempt.
+  // session/scope, or reopening the panel, earns a fresh attempt. Gated on
+  // `!obsPending.has('trace')` (gact-tui#369): `traceReadFailed` is
+  // `undefined` BOTH before the trace section has ever committed AND after
+  // a genuinely clean read — without the pending check this would fire
+  // during the section's own FIRST load, mistaking "not answered yet" for
+  // "answered and failed".
   const obsAutoRetriedRef = useRef(false);
   useEffect(() => {
     obsAutoRetriedRef.current = false;
   }, [activeId, activeScope, panel]);
 
   useEffect(() => {
-    if (panel !== 'obs' || !activeId || !obs?.traceReadFailed || obsAutoRetriedRef.current) return;
+    if (
+      panel !== 'obs' ||
+      !activeId ||
+      obsPending.has('trace') ||
+      !obs.traceReadFailed ||
+      obsAutoRetriedRef.current
+    )
+      return;
     obsAutoRetriedRef.current = true;
     const timer = window.setTimeout(() => {
-      void loadObservability(activeId, activeScope).then(setObs);
+      loadObservability(activeId, activeScope, applyObsPatch);
     }, 2500);
     return () => window.clearTimeout(timer);
-  }, [panel, activeId, activeScope, obs?.traceReadFailed, loadObservability]);
+  }, [panel, activeId, activeScope, obs.traceReadFailed, obsPending, loadObservability, applyObsPatch]);
 
   // Manual retry — the TraceUnavailable button's escape hatch, same call the
-  // effects above already make.
+  // effects above already make. Does NOT re-seed `obsPending`: a retry
+  // keeps showing each tab's LAST settled content (the failed-read
+  // affordance included) until its own fresh section lands, rather than
+  // flashing every tab back to a skeleton for what is usually a sub-second
+  // re-fetch.
   const retryObsTrace = useCallback(() => {
     if (!activeId) return;
-    void loadObservability(activeId, activeScope).then(setObs);
-  }, [activeId, activeScope, loadObservability]);
+    loadObservability(activeId, activeScope, applyObsPatch);
+  }, [activeId, activeScope, loadObservability, applyObsPatch]);
 
   useEffect(() => {
     if (panel !== 'obs' || !activeId || typeof EventSource === 'undefined') return;
@@ -754,9 +882,10 @@ export function SessionView({
       }
 
       if (event.type === 'session.status_changed') {
-        void loadObservability(activeId, activeScope, () => cancelled).then((next) => {
-          if (!cancelled) setObs(next);
-        });
+        // Same per-section commit path as the panel-open/retry paths above
+        // (gact-tui#369) — an SSE-triggered refresh paints each tab the
+        // moment ITS OWN re-fetch lands, not all at once.
+        loadObservability(activeId, activeScope, applyObsPatch, () => cancelled);
       }
     });
     return () => {
@@ -767,7 +896,7 @@ export function SessionView({
     // connection for as long as the effect's deps hold — depending on
     // `observabilityMessages` tore the connection down and reopened it on
     // every streaming delta instead of once per obs-panel-open.
-  }, [panel, activeId, activeScope, client, loadObservability]);
+  }, [panel, activeId, activeScope, client, loadObservability, applyObsPatch]);
 
   // Slash commands come from the backend. If it cannot serve them the picker
   // stays closed rather than opening empty, which would read as broken.
@@ -2367,20 +2496,18 @@ export function SessionView({
   // through loadObservability's network call — see its definition above)
   // merges onto `context` here, the same render-time join the live timeline
   // rows already use, so it stays current without retriggering the fetch.
-  const observabilityData = obs
-    ? {
-        ...obs,
-        timeline: mergeTimelineRows(obs.timeline ?? [], liveTraceRows),
-        ...(obs.context
-          ? {
-              context: {
-                ...obs.context,
-                ...(sessionCostUsd !== undefined ? { costUsd: sessionCostUsd } : {}),
-              },
-            }
-          : {}),
-      }
-    : null;
+  const observabilityData: ObservabilityData = {
+    ...obs,
+    timeline: mergeTimelineRows(obs.timeline ?? [], liveTraceRows),
+    ...(obs.context
+      ? {
+          context: {
+            ...obs.context,
+            ...(sessionCostUsd !== undefined ? { costUsd: sessionCostUsd } : {}),
+          },
+        }
+      : {}),
+  };
   const filesWorkspaceId = filesWorkspaceRequest ?? activeWorkspaceId ?? workspaces[0]?.id;
   const filesWorkspaceLabel = filesWorkspaceId
     ? workspaceDisplayLabel(filesWorkspaceId, workspaces)
@@ -2895,21 +3022,23 @@ export function SessionView({
           windowControls
           onClose={() => setPanel(null)}
         >
-          {observabilityData ? (
-            <Observability
-              key={obsTab ?? 'default'}
-              data={observabilityData}
-              showTraceHeader={false}
-              onNavigate={handleObsNavigate}
-              onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
-              onRetryTrace={retryObsTrace}
-              {...(obsTab ? { initialTab: obsTab } : {})}
-            />
-          ) : (
-            <div className="sessionview__notice">
-              <Skeleton label="Loading observability…" />
-            </div>
-          )}
+          {/* gact-tui#369: always the real panel, never a whole-layer
+              "Loading observability…" placeholder — `observabilityData` is
+              seeded non-null the instant the panel opens (the reset effect
+              above), and `obsPending` tells each TAB whether its own slice
+              of it is a settled fact yet, so the tab strip and every
+              already-resolved tab paint immediately while the rest show
+              their own skeleton. */}
+          <Observability
+            key={obsTab ?? 'default'}
+            data={observabilityData}
+            pendingSections={obsPending}
+            showTraceHeader={false}
+            onNavigate={handleObsNavigate}
+            onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
+            onRetryTrace={retryObsTrace}
+            {...(obsTab ? { initialTab: obsTab } : {})}
+          />
         </Layer>
 
         <FilesLayer

@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { Chip, Eyebrow, Icon, Select, Tabs, type TabDef } from '../kit';
+import { Chip, Eyebrow, Icon, Select, Skeleton, Tabs, type TabDef } from '../kit';
 import { sanitizeTitle } from '../transcript/parts/titleSanitizer';
 import { Gantt } from './Gantt';
 import { assignBranchColors, branchKey, type BranchColorResolver } from './ganttModel';
@@ -9,6 +9,7 @@ import type {
   ObsContext,
   ObsNavigation,
   ObsRun,
+  ObsSection,
   ObsTimelineKind,
   ObsToolCallRow,
   ObsToolInventoryGroup,
@@ -37,6 +38,29 @@ export interface ObservabilityProps {
    *  state with no retry action (fixtures/harness callers that pass static
    *  data have nothing real to re-fetch). */
   onRetryTrace?: () => void;
+  /**
+   * Sections still in flight (gact-tui#369's per-tab progressive commit).
+   * SessionView seeds `data` with a full non-legacy, empty-arrays shape the
+   * instant the panel opens (so the tab strip never flips from legacy to
+   * P5 mid-load) — which makes an empty `data.runs`/`data.context` etc.
+   * ambiguous between "genuinely nothing" and "not fetched yet"; this set
+   * disambiguates, tab by tab. Absent/empty — the default every static
+   * fixture/harness caller below gets — means every applicable read has
+   * already settled: the original all-at-once contract those callers rely
+   * on is unchanged.
+   */
+  pendingSections?: ReadonlySet<ObsSection>;
+}
+
+/** Shared per-tab loading state (gact-tui#369) — a tab whose backing
+ *  section is still in flight renders this instead of prematurely reading
+ *  its (still-empty) slice of `data` as a settled fact. */
+function ObsTabPending({ label }: { label: string }) {
+  return (
+    <div className="obs__pending" data-testid="obs-pending">
+      <Skeleton label={label} lines={3} />
+    </div>
+  );
 }
 
 export type ObsTab = 'agents' | 'timeline' | 'runs' | 'tools' | 'artifacts' | 'context';
@@ -98,9 +122,12 @@ export function Observability({
   onNavigate,
   onOpenArtifact,
   onRetryTrace,
+  pendingSections,
 }: ObservabilityProps) {
   const legacy =
     data.timeline === undefined && data.spans === undefined && data.artifactRows === undefined;
+  const pendingTrace = pendingSections?.has('trace') ?? false;
+  const pendingContext = pendingSections?.has('context') ?? false;
   const [tab, setTab] = useState<ObsTab>(initialTab ?? (legacy ? 'agents' : 'timeline'));
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('log');
   const [toolsMode, setToolsMode] = useState<ToolsMode>('called');
@@ -146,18 +173,21 @@ export function Observability({
         // a confident "0" under load in the same frame the tab BODY below
         // correctly rendered "unavailable — retrying" — the honesty
         // treatment reached the body but missed the strip). A genuinely
-        // resolved, empty read still shows a real "0".
-        { id: 'runs', label: 'runs', badge: data.traceReadFailed ? '—' : data.runs.length },
+        // resolved, empty read still shows a real "0". A section still
+        // PENDING (gact-tui#369: not yet fetched, not failed) earns the
+        // same honest em-dash — the original finding's own reasoning
+        // extends to "not fetched yet" as much as "failed".
+        { id: 'runs', label: 'runs', badge: pendingTrace || data.traceReadFailed ? '—' : data.runs.length },
         // The badge counts real CALLS made this session (obsToolRows.length in
         // the prototype), not the catalog's declared tool count — the two
         // numbers mean different things and only one matches what the tab shows.
-        { id: 'tools', label: 'tools', badge: data.traceReadFailed ? '—' : toolCalls.length },
+        { id: 'tools', label: 'tools', badge: pendingTrace || data.traceReadFailed ? '—' : toolCalls.length },
         {
           id: 'artifacts',
           label: 'artifacts',
           // artifactsReadFailed, not traceReadFailed — a different read (see
           // ObservabilityData.artifactsReadFailed).
-          badge: data.artifactsReadFailed ? '—' : artifactRows.length,
+          badge: pendingTrace || data.artifactsReadFailed ? '—' : artifactRows.length,
         },
         { id: 'context', label: 'context' },
       ];
@@ -199,16 +229,20 @@ export function Observability({
         ) : null}
 
         {activeTab === 'timeline' ? (
-          <Timeline
-            rows={timeline}
-            spans={spans}
-            colorOf={colorOf}
-            mode={timelineMode}
-            onModeChange={setTimelineMode}
-            {...(data.traceReadFailed ? { readFailed: true } : {})}
-            {...(onNavigate ? { onNavigate } : {})}
-            {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
-          />
+          pendingTrace ? (
+            <ObsTabPending label="Loading timeline…" />
+          ) : (
+            <Timeline
+              rows={timeline}
+              spans={spans}
+              colorOf={colorOf}
+              mode={timelineMode}
+              onModeChange={setTimelineMode}
+              {...(data.traceReadFailed ? { readFailed: true } : {})}
+              {...(onNavigate ? { onNavigate } : {})}
+              {...(onRetryTrace ? { onRetry: onRetryTrace } : {})}
+            />
+          )
         ) : null}
 
         {activeTab === 'agents' ? (
@@ -247,6 +281,8 @@ export function Observability({
                 </li>
               ))}
             </ul>
+          ) : pendingTrace ? (
+            <ObsTabPending label="Loading runs…" />
           ) : (
             <RunsTab
               runs={data.runs}
@@ -282,6 +318,8 @@ export function Observability({
                 ))}
               </ul>
             </div>
+          ) : pendingTrace ? (
+            <ObsTabPending label="Loading tools…" />
           ) : (
             <div className="obs-tools-tab">
               <div className="obs-toollog__modes" aria-label="Tools view" role="group">
@@ -325,6 +363,8 @@ export function Observability({
                 </li>
               ))}
             </ul>
+          ) : pendingTrace ? (
+            <ObsTabPending label="Loading artifacts…" />
           ) : artifactRows.length > 0 ? (
             <ul className="obs-artifacts" data-testid="obs-artifacts">
               {artifactRows.map((artifact, index) => {
@@ -401,7 +441,11 @@ export function Observability({
         ) : null}
 
         {activeTab === 'context' ? (
-          <ContextTab context={data.context} runs={data.runs} />
+          pendingContext ? (
+            <ObsTabPending label="Loading context…" />
+          ) : (
+            <ContextTab context={data.context} runs={data.runs} runsPending={pendingTrace} />
+          )
         ) : null}
       </div>
     </section>
@@ -731,6 +775,12 @@ function ToolInventoryPanel({ groups, readFailed, onRetry }: ToolInventoryPanelP
 interface ContextTabProps {
   context?: ObsContext;
   runs: ObsRun[];
+  /** True while the trace aggregate (gact-tui#369) that `runs` reads off is
+   *  still in flight — the context tab's OWN read can settle well before
+   *  it, and an empty `runs` at that point is "not known yet", not "nothing
+   *  is running". Suppresses the live-now box's silent false "nothing
+   *  live" rather than gating the whole tab on an unrelated read. */
+  runsPending?: boolean;
 }
 
 /**
@@ -740,7 +790,7 @@ interface ContextTabProps {
  * source (SPEC has neither), so they render an honest "not reported" tile
  * rather than a fabricated estimate — the no-silent-fallback rule.
  */
-function ContextTab({ context, runs }: ContextTabProps) {
+function ContextTab({ context, runs, runsPending }: ContextTabProps) {
   if (!context) {
     return (
       <div className="obs-context" data-testid="obs-context">
@@ -772,7 +822,12 @@ function ContextTab({ context, runs }: ContextTabProps) {
         />
       </div>
 
-      {liveRuns.length > 0 ? (
+      {runsPending ? (
+        <div className="obs-context__live" data-testid="obs-context-live-pending">
+          <Eyebrow strong>live now</Eyebrow>
+          <Skeleton label="Loading live runs…" lines={1} />
+        </div>
+      ) : liveRuns.length > 0 ? (
         <div className="obs-context__live" data-testid="obs-context-live">
           <Eyebrow strong>live now · {liveRuns.length}</Eyebrow>
           <ul>

@@ -1394,6 +1394,13 @@
   font-size: calc(12px * var(--ts));
 }
 
+/* A tab whose backing section (gact-tui#369) is still in flight — never the
+   same box model as the real content, so its arrival doesn't jump layout
+   more than any other tab swap already does. */
+.obs__pending {
+  padding: 4px 0;
+}
+
 /* The distinct FAILED-read state (round-6 CONCURRENCY finding): a slow/
    failed trace read must never look like the same quiet "no trace recorded"
    line a genuinely empty session earns — it gets its own affordance so the
