@@ -15,6 +15,21 @@
   width: 100%;
 }
 
+/* Visually hidden — same pattern as .kit-modal__sr-title (kit/modal.css).
+   Real text content, not aria-label alone: the label a screen reader
+   announces when this role="status" region's content changes. */
+.kit-skeleton__srlabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .kit-skeleton__bar {
   display: block;
   height: 12px;

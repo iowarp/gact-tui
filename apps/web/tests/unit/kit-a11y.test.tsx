@@ -157,6 +157,29 @@ describe('Skeleton (gact-tui#366)', () => {
     expect(status).toHaveAccessibleName('Loading widgets…');
   });
 
+  // Opus adversarial review, fix #5: aria-label with no text content at all
+  // is plausibly SILENT to a screen reader — a live-region ANNOUNCEMENT is
+  // driven by the region's rendered content changing, a separate mechanism
+  // from the accessible name (kept via aria-label, since role="status" is
+  // "Name from: author" per the ARIA spec — verified directly: dropping
+  // aria-label left toHaveAccessibleName reading empty). The label must
+  // ALSO be REAL text content (visually hidden is fine) — the old
+  // <p role="status">Loading…</p> this primitive replaces spoke because
+  // "Loading…" was real text, not merely an attribute.
+  it('carries the label as REAL text content inside the region, in addition to the accessible name', () => {
+    render(<Skeleton label="Loading widgets…" />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-label', 'Loading widgets…');
+    expect(status).toHaveTextContent('Loading widgets…');
+  });
+
+  it('the label text is visually hidden (off-screen), not a visible paragraph', () => {
+    const { container } = render(<Skeleton label="Loading…" />);
+    const label = container.querySelector('.kit-skeleton__srlabel');
+    expect(label).not.toBeNull();
+    expect(label).toHaveTextContent('Loading…');
+  });
+
   it('renders exactly one shimmer bar by default', () => {
     const { container } = render(<Skeleton label="Loading…" />);
     expect(container.querySelectorAll('.kit-skeleton__bar')).toHaveLength(1);

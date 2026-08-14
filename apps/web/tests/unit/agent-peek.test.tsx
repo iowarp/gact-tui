@@ -137,6 +137,25 @@ describe('AgentPeekView (right-panel read-only child view)', () => {
     expect(within(screen.getByTestId('agent-peek')).queryByRole('textbox')).toBeNull();
   });
 
+  // Opus adversarial review, fix #11: AgentPeekView's own "Loading agent…"
+  // bare paragraph (gact-tui#366's first pass missed it) now renders the
+  // shared kit Skeleton primitive while `view` is still null (before the
+  // child's first message page resolves).
+  it('shows the Skeleton primitive while the child view is still loading', async () => {
+    render(
+      <AgentPeekView
+        client={peekClient({ messages: vi.fn(() => new Promise(() => {})) })}
+        sessionId="sess_child"
+        agent="geospatial"
+        parentLabel="main"
+        onClose={vi.fn()}
+      />,
+    );
+    const skeleton = await screen.findByTestId('kit-skeleton');
+    expect(skeleton).toHaveAttribute('role', 'status');
+    expect(skeleton).toHaveAccessibleName('Loading agent…');
+  });
+
   it('closes through its own header control', async () => {
     const onClose = vi.fn();
     render(

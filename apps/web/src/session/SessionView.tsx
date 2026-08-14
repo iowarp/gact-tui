@@ -2909,7 +2909,9 @@ export function SessionView({
               {...(obsTab ? { initialTab: obsTab } : {})}
             />
           ) : (
-            <p className="sessionview__notice">Loading observability…</p>
+            <div className="sessionview__notice">
+              <Skeleton label="Loading observability…" />
+            </div>
           )}
         </Layer>
 

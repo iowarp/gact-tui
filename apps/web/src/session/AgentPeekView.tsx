@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 import { mergeMessages, prependOlderPage, subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
-import { Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
+import { Icon, Skeleton, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
 import { ChildFocusView } from './ChildFocusView';
 import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import './agentpeek.css';
@@ -174,7 +174,9 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
             showStatusFooter={false}
           />
         ) : (
-          <p className="agentpeek__loading">Loading agent…</p>
+          <div className="agentpeek__loading">
+            <Skeleton label="Loading agent…" />
+          </div>
         )}
       </div>
     </aside>

@@ -96,7 +96,6 @@ function dispatchSseBridgeMessage(
  * header, so a desktop build behind a bearer token needs this bridge or an
  * equivalent) — the re-wire-vs-retire decision is tracked as gact-tui#367.
  *
-
  * Pass `recordDebug` (e.g. from `createSseDebugRecorder()`) to capture bridge
  * telemetry; omit it to run the bridge silently (the default in tests).
  */

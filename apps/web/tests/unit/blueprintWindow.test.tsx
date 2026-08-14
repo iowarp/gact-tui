@@ -72,6 +72,35 @@ describe('BlueprintWindow', () => {
     expect(screen.queryByText(/no wire surface yet/i)).toBeNull();
   });
 
+  // Opus adversarial review, fix #11: BlueprintWindow's two bare
+  // "Loading…" paragraphs (gact-tui#366's first pass missed them) now
+  // render the shared kit Skeleton primitive.
+  it('shows the Skeleton while the file listing is still loading', async () => {
+    const client = stubClient(BACKED_DETAIL, { listBlueprintFiles: vi.fn(() => new Promise(() => {})) });
+    render(
+      <BlueprintWindow blueprintId="earthscope-flat" client={client} open onClose={() => {}} />,
+    );
+    const skeleton = await screen.findByTestId('kit-skeleton');
+    expect(skeleton).toHaveAttribute('role', 'status');
+    expect(skeleton).toHaveAccessibleName('Loading blueprint files…');
+  });
+
+  it('shows the Skeleton while the selected file\'s preview is still loading', async () => {
+    const client = stubClient(BACKED_DETAIL, {
+      listBlueprintFiles: vi.fn(async () => ({ entries: [] })),
+      readBlueprintFile: vi.fn(() => new Promise(() => {})),
+    });
+    render(
+      <BlueprintWindow blueprintId="earthscope-flat" client={client} open onClose={() => {}} />,
+    );
+    // The listing resolves and auto-selects AGENT.md, which then triggers
+    // the (never-resolving) file read — the listing's OWN Skeleton is
+    // transiently present first, so wait for the PREVIEW one specifically
+    // rather than the first kit-skeleton to appear.
+    const skeleton = await screen.findByRole('status', { name: 'Loading AGENT.md…' });
+    expect(skeleton).toHaveAttribute('data-testid', 'kit-skeleton');
+  });
+
   it('renders the honest gap note when the backend has no blueprint-files route (404)', async () => {
     const notFound = Object.assign(new Error('not found'), { status: 404 });
     const listBlueprintFiles = vi.fn(async () => {

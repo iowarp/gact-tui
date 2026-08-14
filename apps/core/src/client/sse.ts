@@ -214,6 +214,15 @@ function findEventBoundary(buffer: string): { blockEnd: number; next: number } |
  *
  * This is a pure transport: it performs no dedup or validity filtering — replay
  * integrity is the server's responsibility.
+ *
+ * Currently consumer-less: no code in `apps/web`/`apps/core` calls this (the
+ * `LiveTranscriptBrowserStream.ts` wrapper that used to was deleted with the
+ * rest of the orphaned wire/Live* island, gact-tui#365; every live subscriber
+ * — `subscribeSessionMessageEvents`/`subscribeSessionTraceEvents`/
+ * `subscribeSessionMcpTaskEvents` — always constructs a plain `EventSource`
+ * instead). The `Last-Event-ID` resume capability this provides that a plain
+ * `EventSource` cannot is real and untouched; whether to wire it back in is
+ * part of the same re-wire-vs-retire decision tracked as gact-tui#367.
  */
 export function openSseFetchStream(options: SseFetchStreamOptions): SseFetchStream {
   const controller = new AbortController();

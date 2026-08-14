@@ -5,7 +5,7 @@ import {
   type BlueprintFileEntry,
   type Client,
 } from '@clio/core';
-import { Layer } from '../kit';
+import { Layer, Skeleton } from '../kit';
 import { Markdown } from '../transcript/markdown';
 import {
   breadcrumbSegments,
@@ -350,7 +350,9 @@ function BlueprintFileExplorer({
     >
       <h3 id="blueprint-explorer-title">files</h3>
       {listState.kind === 'loading' ? (
-        <p className="blueprintwindow__empty">Loading blueprint files…</p>
+        <div className="blueprintwindow__empty">
+          <Skeleton label="Loading blueprint files…" />
+        </div>
       ) : (
         <div className="blueprintwindow__explorer">
           <div className="blueprintwindow__explorertree" data-testid="blueprint-window-explorer-tree">
@@ -440,7 +442,11 @@ function ExplorerPreview({
     return <p className="blueprintwindow__empty">Select a file to preview it.</p>;
   }
   if (preview.kind === 'idle' || preview.kind === 'loading') {
-    return <p className="blueprintwindow__empty">Loading {selectedPath}…</p>;
+    return (
+      <div className="blueprintwindow__empty">
+        <Skeleton label={`Loading ${selectedPath}…`} />
+      </div>
+    );
   }
   if (preview.kind === 'error') {
     return (
