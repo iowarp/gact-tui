@@ -194,8 +194,26 @@ function isIdentifyingScalar(value: unknown): value is string | number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+/** One identifying scalar behind the collapsed `(args)` hint — the value,
+ *  plus whether it's a resource-IDENTITY coordinate ({@link isIdentityArgKey}
+ *  — `cluster`, any `*_id`) or a plain descriptive/count scalar ("other").
+ *  The distinction drives whether {@link renderArgHint}'s multi-value join
+ *  labels the pair with its key: an identity value already reads
+ *  self-evidently (a cluster/pipeline name, an `*_id` — that's what makes it
+ *  an identity COORDINATE), so it stays bare, exactly the format three
+ *  rounds of owner review already approved (row-render defect #2). A plain
+ *  "other" scalar carries no such self-describing shape — two bare numbers
+ *  like `(5, 10)` read as an unlabeled tuple with zero signal for which is
+ *  which (owner-reported, clio-agent#1218-followup:
+ *  `phenotype_measure_cohort`) — so it renders `key: value`. */
+interface IdentifyingArg {
+  key: string;
+  value: string | number;
+  identity: boolean;
+}
+
 /**
- * The up-to-{@link IDENTIFYING_ARG_MAX} identifying scalar values behind the
+ * The up-to-{@link IDENTIFYING_ARG_MAX} identifying scalars behind the
  * collapsed row's `(args)` hint (row-render defect #2, owner-quoted:
  * `jarvis_add_step ("ares-p5run2")` showed only the positionally-first arg).
  * Two tiers, each internally in wire order: identity coordinates
@@ -211,12 +229,13 @@ function isIdentifyingScalar(value: unknown): value is string | number {
  * "what did it configure". The combined output preserves each selected
  * value's own relative wire order.
  */
-function identifyingArgValues(entries: Array<[string, unknown]>): Array<string | number> {
-  const identity: Array<string | number> = [];
-  const other: Array<string | number> = [];
+function identifyingArgValues(entries: Array<[string, unknown]>): IdentifyingArg[] {
+  const identity: IdentifyingArg[] = [];
+  const other: IdentifyingArg[] = [];
   for (const [key, value] of entries) {
     if (isNoiseArgKey(key) || !isIdentifyingScalar(value)) continue;
-    (isIdentityArgKey(key) ? identity : other).push(value);
+    if (isIdentityArgKey(key)) identity.push({ key, value, identity: true });
+    else other.push({ key, value, identity: false });
   }
   return [...identity, ...other].slice(0, IDENTIFYING_ARG_MAX);
 }
@@ -230,14 +249,21 @@ function identifyingArgValues(entries: Array<[string, unknown]>): Array<string |
  * basename always survives (paths never join the up-to-3 identifying list —
  * one path already says enough, and multiple elided paths would blow the
  * hint's width budget). Otherwise up to {@link IDENTIFYING_ARG_MAX}
- * identifying values ({@link identifyingArgValues}): exactly one renders
- * quoted, matching every existing single-arg hint verbatim (final-sxs ledger
- * #12: `geo_geocode("Los Angeles, CA")`); two or more render bare and
- * comma-joined, the same unquoted-join idiom the resolved `wait` row's own
- * name list already uses, since a run of quoted strings reads as noise once
- * there's more than one. Otherwise the positionally-first entry, exactly
- * today's behavior for a shape neither rule recognizes — every other JSON
- * type already reads unambiguously via JSON.stringify.
+ * identifying scalars ({@link identifyingArgValues}): exactly one renders
+ * quoted, bare — matching every existing single-arg hint verbatim (final-sxs
+ * ledger #12: `geo_geocode("Los Angeles, CA")`; a lone value has nothing
+ * else in the hint to be confused with, key or no key). Two or more render
+ * comma-joined, each pair's OWN {@link IdentifyingArg.identity} deciding its
+ * format: an identity coordinate stays bare (unchanged from the original
+ * fix — `(ares-p5run2, smoke-hostname-p1, print-hostname)`, still owner-
+ * approved and still fits the hint's width budget), a plain scalar renders
+ * `key: value` (owner correction, clio-agent#1218-followup: a bare
+ * multi-value join of plain scalars — `(5, 10)` — carried zero signal for
+ * which number was which; labeling only the genuinely ambiguous pairs keeps
+ * the already-approved identity-coordinate case, and its width budget,
+ * unchanged). Otherwise the positionally-first entry, exactly today's
+ * behavior for a shape neither rule recognizes — every other JSON type
+ * already reads unambiguously via JSON.stringify.
  */
 function renderArgHint(input: unknown): string {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return '…';
@@ -250,10 +276,13 @@ function renderArgHint(input: unknown): string {
   }
   const identifying = identifyingArgValues(entries);
   if (identifying.length === 1) {
-    return truncate(normalizeWhitespace(`"${identifying[0]}"`), ARG_HINT_MAX);
+    return truncate(normalizeWhitespace(`"${identifying[0]!.value}"`), ARG_HINT_MAX);
   }
   if (identifying.length > 1) {
-    return truncate(normalizeWhitespace(identifying.map(String).join(', ')), ARG_HINT_MAX);
+    const joined = identifying
+      .map((arg) => (arg.identity ? String(arg.value) : `${arg.key}: ${arg.value}`))
+      .join(', ');
+    return truncate(normalizeWhitespace(joined), ARG_HINT_MAX);
   }
   const [, value] = entries[0]!;
   const rendered = typeof value === 'string' ? `"${value}"` : (JSON.stringify(value) ?? String(value));
