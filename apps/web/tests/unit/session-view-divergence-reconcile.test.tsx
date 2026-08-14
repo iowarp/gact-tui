@@ -252,6 +252,56 @@ describe('SessionView reconciles on unapplied_unknown_id (gact-tui#364)', () => 
     expect(screen.getByText('hello')).toBeInTheDocument();
   });
 
+  // Opus adversarial review (coordinator follow-up on d136c1b7): live-harness
+  // evidence showed a false render-late verdict; the hypothesized mechanism
+  // was loadedMessagesRef going stale across a reconcile mergeMessages
+  // setState, then a LATER SSE apply computing from that stale ref and
+  // clobbering whatever the reconcile had just added. Root cause turned out
+  // to be elsewhere (a probe-instrumentation gap, see
+  // scripts/probe/dom_observer.mjs's doc comment + tests/unit/
+  // live-probe-dom-observer.test.ts) — the live DOM evidence directly proves
+  // SessionView's OWN live-apply was never broken. This test still pins the
+  // invariant the hypothesis was worried about, as insurance: a reconcile
+  // round-trip (its own applyToLoaded call, async, via mergeMessages) must
+  // never desync the ref such that a LATER SSE event's tool_call part.added
+  // gets lost.
+  it('a reconcile mergeMessages round-trip never desyncs the ref — a tool_call part.added AFTER it still lands, and nothing already-loaded is lost', async () => {
+    const messagesFn = vi.fn(async () => ({ messages: MESSAGES }));
+    render(<SessionView client={client({ messages: messagesFn })} sessions={SESSIONS} />);
+    await selectSession();
+    const source = mainSource();
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        // Step 1: an unknown-id event triggers the existing debounced
+        // reconcile — its client.messages() round-trip resolves and applies
+        // via applyToLoaded's mergeMessages path.
+        emit(source, 'message.part.added', {
+          message_id: 'm_ghost_trigger',
+          part: { type: 'text', id: 'p_ghost', text: 'x' },
+        });
+        await vi.advanceTimersByTimeAsync(300); // past the 250ms debounce + the fetch resolving
+
+        // Step 2: a brand-new message + its tool_call part.added, in the
+        // SAME synchronous batch — exactly the turn-start shape.
+        emit(source, 'message.created', { id: 'm2', role: 'assistant', parts: [] });
+        emit(source, 'message.part.added', {
+          message_id: 'm2',
+          part: { type: 'tool_call', id: 'call_new', call_id: 'call_new', name: 'geo_geocode', input: {} },
+        });
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Nothing from before the reconcile was lost…
+    expect(screen.getByText('ready')).toBeInTheDocument();
+    // …and the tool_call added AFTER the reconcile round-trip is live —
+    // rendered as a collapsed row, not silently dropped.
+    expect(screen.getByText('geo_geocode')).toBeInTheDocument();
+  });
+
   it('the counterfactual: a part.added with NO preceding message.created for its message_id is a genuine divergence — exactly ONE reconcile', async () => {
     const messagesFn = vi.fn(async () => ({ messages: MESSAGES }));
     render(<SessionView client={client({ messages: messagesFn })} sessions={SESSIONS} />);

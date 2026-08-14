@@ -30,6 +30,7 @@ import { chromium } from '@playwright/test';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { computeVerdict } from './probe/verdict.mjs';
+import { installDomObserverScript } from './probe/dom_observer.mjs';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -450,67 +451,15 @@ async function registerBackend(page, base) {
   );
 }
 
-/** MutationObserver over document.body — see verdict.mjs's file-header doc
- *  comment for the dom-timeline.jsonl contract. Selectors are read off the
- *  REAL markup (apps/web/src/kit/PartCard.tsx: `.kit-partcard[data-kind]`;
- *  apps/web/src/transcript/parts/ToolPart.tsx: `[data-testid="part-tool"]`
- *  + `.part-toolrow__pending` ("running…") + `data-call-id` (gact-tui#364
- *  client-half fix — the tool row's own wire call_id, read here so
- *  verdict.mjs's `matchDomRowsToCalls` can join by exact id instead of its
- *  original text/positional heuristic); apps/web/src/transcript/
- *  registry.tsx: `.part-collapsible` + `.part-thinkinghead` for thinking) —
- *  never guessed. */
+/** MutationObserver over document.body — installed via the SAME
+ *  self-contained function a jsdom unit test exercises directly (see
+ *  `probe/dom_observer.mjs`'s own doc comment for the dom-timeline.jsonl
+ *  record contract, the selectors' markup provenance, and the f9b955b9
+ *  callId-capture regression this module fixed). Passed BY REFERENCE —
+ *  Playwright serializes the function's own source and evaluates it inside
+ *  the page, so this is exactly the code that ran under the unit test. */
 async function installDomObserver(page) {
-  await page.evaluate(() => {
-    window.__probeDom = [];
-    const SELECTOR = '.kit-partcard[data-kind], [data-testid^="part-"]';
-    const push = (op, el) => {
-      const kindEl = el.matches?.('.kit-partcard[data-kind]') ? el : el.closest?.('.kit-partcard[data-kind]');
-      const testidEl = el.matches?.('[data-testid^="part-"]') ? el : el.closest?.('[data-testid^="part-"]');
-      window.__probeDom.push({
-        t: new Date().toISOString(),
-        op,
-        testid: testidEl?.getAttribute('data-testid') ?? undefined,
-        kind: kindEl?.getAttribute('data-kind') ?? undefined,
-        pending: !!el.querySelector?.('.part-toolrow__pending'),
-        textHead: (el.textContent ?? '').trim().slice(0, 120),
-        callId: testidEl?.getAttribute('data-call-id') ?? undefined,
-      });
-    };
-    // React frequently batches a WHOLE message's parts into ONE childList
-    // mutation (the added node is `<article class="transcript__message">`,
-    // not a partcard itself) — an ancestor-only `closest()` check on the
-    // added node misses every nested part in that case (found live: a d2
-    // run showed 3 distinct thinking parts server-side + client-side but
-    // only 2 `add` mutations recorded before this fix). Record the added
-    // node itself when it matches, AND walk its subtree for every nested
-    // partcard/testid element so a batched insert is never under-counted.
-    const handleAdded = (node) => {
-      if (node.nodeType !== 1) return;
-      if (node.matches?.(SELECTOR)) push('add', node);
-      const nested = node.querySelectorAll?.(SELECTOR) ?? [];
-      for (const el of nested) push('add', el);
-    };
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.type === 'childList') {
-          for (const node of m.addedNodes) handleAdded(node);
-        } else if (m.type === 'attributes' && m.target.nodeType === 1) {
-          push('attr', m.target);
-        } else if (m.type === 'characterData' && m.target.parentElement) {
-          push('text', m.target.parentElement);
-        }
-      }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['data-kind', 'data-testid', 'data-error'],
-      characterData: true,
-    });
-    window.__probeDomObserver = observer;
-  });
+  await page.evaluate(installDomObserverScript);
 }
 
 // ---------------------------------------------------------------------------
