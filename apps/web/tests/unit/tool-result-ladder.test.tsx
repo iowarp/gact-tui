@@ -649,8 +649,11 @@ describe('wait result shape -- summary leads the well (round-8 owner finding: it
     // Declared order: summary, results, conflicts, merged. (Not
     // `part-tool-result-grid`: BOTH the results table and the uniform
     // conflicts table share that testid, so it can't anchor a single well.)
-    const well = summary.closest('.part-toolrow__well')!;
-    const order = Array.from(well.children).map((el) => el.className);
+    // Scoped to the labeled "Result" region (clio#1218f), not the
+    // whole well — the well's own direct children are now just the
+    // Arguments/Result group wrappers, not these rows.
+    const resultGroup = summary.closest('[data-testid="part-tool-result"]')!;
+    const order = Array.from(resultGroup.children).map((el) => el.className);
     const summaryIndex = order.findIndex((c) => c.includes('part-toolrow__summary'));
     const resultsIndex = order.findIndex((c) => c.includes('part-toolrow__subtable'));
     const conflictsIndex = order.findIndex((c) => c.includes('part-toolrow__conflicts'));
@@ -1053,7 +1056,7 @@ describe('loser_runs cells resolve to run names, not raw JSON (round-10 gate fin
 
 describe('the result well is visually separated from params (round-10 gate finding D10)', () => {
   it('shades the RESULT grid but leaves the params grid plain', () => {
-    const { container } = render(
+    render(
       <ToolPart
         call={toolCall('geo_geocode', { query: 'Los Angeles, California' }, 'call_70')}
         result={toolResult('call_70', {
@@ -1065,9 +1068,12 @@ describe('the result well is visually separated from params (round-10 gate findi
     openRow(/geo_geocode/);
     const resultGrid = screen.getByTestId('part-tool-result-table');
     expect(resultGrid.className).toContain('part-toolrow__grid--result');
-    const paramsGrid = container.querySelector('.part-toolrow__well > .part-toolrow__grid');
+    // The Arguments region's own grid (clio#1218f), addressed by its
+    // dedicated testid rather than a well-child selector — both grids are
+    // now nested one level deeper, inside their labeled group.
+    const paramsGrid = screen.getByTestId('part-tool-args-table');
     expect(paramsGrid).not.toBeNull();
-    expect(paramsGrid?.className).not.toContain('part-toolrow__grid--result');
+    expect(paramsGrid.className).not.toContain('part-toolrow__grid--result');
   });
 });
 
@@ -1659,8 +1665,9 @@ describe('params well -- every input key renders, dict/list values become collap
       />,
     );
     openRow(/jarvis_add_step/);
-    // Every scalar key/value from the wire renders in the flat params grid.
-    const paramsGrid = document.querySelector('.part-toolrow__well > .part-toolrow__grid')!;
+    // Every scalar key/value from the wire renders in the flat params grid,
+    // inside the labeled "Arguments" region (clio#1218f).
+    const paramsGrid = screen.getByTestId('part-tool-args-table');
     expect(paramsGrid).toHaveTextContent('cluster');
     expect(paramsGrid).toHaveTextContent('ares-p5run2');
     expect(paramsGrid).toHaveTextContent('pipeline_id');
@@ -1720,7 +1727,7 @@ describe('params well -- every input key renders, dict/list values become collap
       <ToolPart call={toolCall('create_artifact', { name: 'x.sh', artifacts: null, used: null, tags: [] }, 'call_empty')} />,
     );
     openRow(/create_artifact/);
-    const paramsGrid = document.querySelector('.part-toolrow__well > .part-toolrow__grid')!;
+    const paramsGrid = screen.getByTestId('part-tool-args-table');
     expect(paramsGrid).toHaveTextContent('artifacts');
     expect(paramsGrid).toHaveTextContent('null');
     expect(paramsGrid).toHaveTextContent('tags');
@@ -1733,6 +1740,94 @@ describe('params well -- every input key renders, dict/list values become collap
     expect(screen.getByText('query')).toBeInTheDocument();
     expect(screen.getByText('Los Angeles, CA')).toBeInTheDocument();
     expect(screen.queryByTestId('part-tool-param-section')).toBeNull();
+  });
+});
+
+/**
+ * Call-box section grammar (owner finding, clio#1218f): a
+ * `spotter_campaign_health` box showed `campaign null` (an ARG) flowing
+ * straight into `runs_checked`/`anomalous` (RESULT rows) with no
+ * separation -- unreadable provenance of what was asked vs. what came back.
+ * Fix: the expanded call box renders two labeled regions, "Arguments" and
+ * "Result", each only when it actually has content.
+ */
+describe('call-box section grammar -- labeled Arguments/Result regions (clio#1218f)', () => {
+  it('renders explicit "Arguments" and "Result" section labels when both are present', () => {
+    render(
+      <ToolPart
+        call={toolCall('spotter_campaign_health', { campaign: null }, 'call_health')}
+        result={toolResult('call_health', {
+          content: [{ type: 'text', text: 'health checked' }],
+          structured_content: { runs_checked: 15, anomalous: ['run-012'] },
+        })}
+      />,
+    );
+    openRow(/spotter_campaign_health/);
+    expect(screen.getByTestId('part-tool-args-label')).toHaveTextContent('Arguments');
+    expect(screen.getByTestId('part-tool-result-label')).toHaveTextContent('Result');
+  });
+
+  it('pins the exact owner-reported confusion case: an arg key never renders inside the Result region, and a result key never renders inside the Arguments region', () => {
+    render(
+      <ToolPart
+        call={toolCall('spotter_campaign_health', { campaign: null }, 'call_health2')}
+        result={toolResult('call_health2', {
+          content: [{ type: 'text', text: 'health checked' }],
+          structured_content: { runs_checked: 15, anomalous: ['run-012'] },
+        })}
+      />,
+    );
+    openRow(/spotter_campaign_health/);
+    const argsRegion = screen.getByTestId('part-tool-args');
+    const resultRegion = screen.getByTestId('part-tool-result');
+    // The arg -- `campaign` -- lives ONLY in the Arguments region, disjoint
+    // from the result's own keys.
+    expect(within(argsRegion).getByText('campaign')).toBeInTheDocument();
+    expect(within(resultRegion).queryByText('campaign')).toBeNull();
+    // The result's keys -- `runs_checked`/`anomalous` -- live ONLY in the
+    // Result region, never bleeding into Arguments.
+    expect(within(resultRegion).getByText('runs_checked')).toBeInTheDocument();
+    expect(within(argsRegion).queryByText('runs_checked')).toBeNull();
+    expect(within(resultRegion).getByText('anomalous')).toBeInTheDocument();
+    expect(within(argsRegion).queryByText('anomalous')).toBeNull();
+  });
+
+  it('an in-flight call (no result yet) shows the Arguments region only -- no Result label', () => {
+    render(<ToolPart call={toolCall('spotter_campaign_health', { campaign: null }, 'call_inflight')} />);
+    openRow(/spotter_campaign_health/);
+    expect(screen.getByTestId('part-tool-args-label')).toHaveTextContent('Arguments');
+    expect(screen.queryByTestId('part-tool-result-label')).toBeNull();
+    expect(screen.queryByTestId('part-tool-result')).toBeNull();
+    expect(screen.getByText('waiting for the tool to return…')).toBeInTheDocument();
+  });
+
+  it('a result-only call (empty input) shows the Result region only -- the Arguments label never sits over nothing', () => {
+    render(
+      <ToolPart
+        call={toolCall('spotter_campaign_health', {}, 'call_resultonly')}
+        result={toolResult('call_resultonly', {
+          content: [{ type: 'text', text: 'health checked' }],
+          structured_content: { runs_checked: 15 },
+        })}
+      />,
+    );
+    openRow(/spotter_campaign_health/);
+    expect(screen.queryByTestId('part-tool-args-label')).toBeNull();
+    expect(screen.queryByTestId('part-tool-args')).toBeNull();
+    expect(screen.getByTestId('part-tool-result-label')).toHaveTextContent('Result');
+  });
+
+  it('a non-JSON (plain text) result still renders inside the labeled Result region', () => {
+    render(
+      <ToolPart
+        call={toolCall('shell_run', { cmd: 'echo hi' }, 'call_raw')}
+        result={toolResult('call_raw', { content: [{ type: 'text', text: 'hi\n' }] })}
+      />,
+    );
+    openRow(/shell_run/);
+    expect(screen.getByTestId('part-tool-args-label')).toHaveTextContent('Arguments');
+    const resultRegion = screen.getByTestId('part-tool-result');
+    expect(within(resultRegion).getByText('hi')).toBeInTheDocument();
   });
 });
 

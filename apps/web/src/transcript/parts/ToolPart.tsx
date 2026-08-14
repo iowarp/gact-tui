@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Markdown } from '../markdown';
+import { Eyebrow } from '../../kit';
 import { formatCount, formatDurationSeconds } from '../../wire/formatters';
 import {
   elidePathMiddle,
@@ -1513,6 +1514,25 @@ function RawToggle({ text }: { text: string }) {
 }
 
 /**
+ * The call box's two labeled regions (owner finding, clio#1218f: a
+ * `spotter_campaign_health` box showed `campaign null` (an ARG) flowing
+ * straight into `runs_checked`/`anomalous` (RESULT rows) with no
+ * separation — unreadable provenance of what was asked vs. what came back).
+ * A subdued uppercase label with a trailing dotted rule — the SAME idiom
+ * `.part-artgrid__label` already uses for "ARTIFACTS (N)" — marks the start
+ * of the "Arguments" or "Result" region. The caller only renders this when
+ * that region actually has content (see `hasArgs` in {@link ToolPart}): an
+ * in-flight call shows Arguments only, a no-argument call shows Result only.
+ */
+function SectionLabel({ children, testId }: { children: ReactNode; testId?: string }) {
+  return (
+    <div className="part-toolrow__sectionlabel" data-testid={testId}>
+      <Eyebrow strong>{children}</Eyebrow>
+    </div>
+  );
+}
+
+/**
  * The prototype's isToolSeg row (design/prototype/Clio Session.html:391) — ONE
  * collapsible line per call, not two permanently-open cards. Closed by
  * default: the header carries the name(argHint), duration, and ✓/✗ mark; a
@@ -1577,6 +1597,12 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // `wait_agent_tasks(["task_cc806f98b07c", ...])`, raw ids). Absent field
   // (older sessions) falls through to today's name(argHint) row unchanged.
   const waited = waitedTasksOf(call);
+  // Call-box section gate (owner correction, clio#1218f): the
+  // "Arguments" label only earns its place when there is actually a request
+  // argument to show under it — a resolved wait row's params are skipped
+  // entirely (see below), and a call with an empty/no-op input (e.g. `{}`)
+  // renders zero rows/sections here, so the label would sit over nothing.
+  const hasArgs = !waited && (params.rows.length > 0 || params.sections.length > 0);
   // The collapsed one-line preview prefers a structured_content-derived
   // summary (round-10 gate finding D3) over the raw MCP envelope text — a
   // collapsed `ndp_search_datasets` row used to show `{"content": [{"text":
@@ -1697,29 +1723,39 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
           <MetadataChips attempts={attempts} budgets={budgets} />
-          {/* A resolved wait row's own params are raw task_ids — the same
-              raw-id leak the header just fixed. waited_tasks already carries
-              richer, resolved identity for each task (surfaced via the
-              header and, once it lands, the results table below), so the
-              params well contributes nothing here and is skipped rather
-              than showing the ids a second time. */}
-          {!waited && params.rows.length > 0 ? <KvRows rows={params.rows} /> : null}
-          {/* Row-render defect #3 (owner-quoted): every input key renders —
-              a dict/list-valued param (e.g. jarvis_add_step's `config`) gets
-              its own collapsible section instead of vanishing into an
-              unreadable single-cell JSON blob among the scalar rows above. */}
-          {!waited
-            ? params.sections.map((s) => (
+          {/* Call-box section grammar (owner correction, clio#1218f):
+              the request arguments and the result render as two labeled,
+              visually distinct regions — never contiguous rows a reader has
+              to guess the provenance of. A resolved wait row's own params
+              are raw task_ids (the same raw-id leak the header already
+              resolves via waited_tasks' richer identity), so hasArgs is
+              false for it and this region is skipped entirely rather than
+              showing the ids a second time; a no-argument call (empty
+              input) skips it too — the label never sits over nothing. */}
+          {hasArgs ? (
+            <div className="part-toolrow__group" data-testid="part-tool-args">
+              <SectionLabel testId="part-tool-args-label">Arguments</SectionLabel>
+              {params.rows.length > 0 ? (
+                <KvRows rows={params.rows} testId="part-tool-args-table" />
+              ) : null}
+              {/* Row-render defect #3 (owner-quoted): every input key renders —
+                  a dict/list-valued param (e.g. jarvis_add_step's `config`) gets
+                  its own collapsible section instead of vanishing into an
+                  unreadable single-cell JSON blob among the scalar rows above. */}
+              {params.sections.map((s) => (
                 <NestedSection key={s.key} label={s.key} value={s.value} testId="part-tool-param-section" />
-              ))
-            : null}
-          {/* content_blocks: an image is the strongest presentation a tool
-              can declare, so its showcase sits ABOVE the structured rows
-              below — composing with whichever InterpretedResult kind the
-              switch resolves, not replacing it. */}
-          <ContentBlocks blocks={blocks} />
+              ))}
+            </div>
+          ) : null}
           {result ? (
-            (() => {
+            <div className="part-toolrow__group" data-testid="part-tool-result">
+              <SectionLabel testId="part-tool-result-label">Result</SectionLabel>
+              {/* content_blocks: an image is the strongest presentation a tool
+                  can declare, so its showcase sits ABOVE the structured rows
+                  below — composing with whichever InterpretedResult kind the
+                  switch resolves, not replacing it. */}
+              <ContentBlocks blocks={blocks} />
+              {(() => {
               const interpreted = interpretResult(result, text, name);
               switch (interpreted.kind) {
                 case 'kv':
@@ -1850,7 +1886,8 @@ export function ToolPart({ call, result }: ToolPartProps) {
                 default:
                   return <pre className="part-toolrow__result">{text || '(empty result)'}</pre>;
               }
-            })()
+              })()}
+            </div>
           ) : (
             <p className="part-toolrow__waiting">waiting for the tool to return…</p>
           )}

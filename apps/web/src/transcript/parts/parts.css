@@ -270,6 +270,34 @@
   border-left-color: var(--t-erc5);
 }
 
+/* Call-box section grammar (owner correction, clio#1218f): the
+   "Arguments" and "Result" regions each get their own flex column so a
+   labeled section reads as one visual group, distinct from its sibling —
+   min-width: 0 continues the same horizontal-scroll chain .part-toolrow /
+   .part-toolrow__well already document (a wide result table must scroll in
+   its own wrapper, never stretch this column). */
+.part-toolrow__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The subdued section label + trailing dotted rule — the SAME idiom
+   .part-artgrid__label already uses for "ARTIFACTS (N)" — naming which
+   region ("Arguments"/"Result") the rows beneath it belong to. */
+.part-toolrow__sectionlabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.part-toolrow__sectionlabel::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dotted var(--t-bd3);
+}
+
 /* The re-polled wait's attempts/budgets metadata (round-7 wire finding) —
    spaced small chips at the top of the well, not middot-joined into the
    name (owner's ruling). Extends the async-injection pill (part-inj__pill)
