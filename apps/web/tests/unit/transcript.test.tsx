@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { ChildFocusView } from '../../src/session/ChildFocusView';
 import { Transcript } from '../../src/transcript/Transcript';
 import { PART_RENDERERS } from '../../src/transcript/registry';
+import { ToolPart } from '../../src/transcript/parts/ToolPart';
 
 function msg(id: string, role: Message['role'], parts: unknown[]): Message {
   return { id, role, parts: parts as Message['parts'] };
@@ -276,6 +277,42 @@ describe('Transcript', () => {
       );
       const row = container.querySelector('[data-testid="part-tool"]');
       expect(row).toHaveAttribute('data-call-id', 'tc_only');
+    });
+
+    // Opus adversarial review, proven defect #6: `str(call['call_id']) ||
+    // str(call['id'])` looked like a safe fallback, but `str(null)` hits
+    // `String(null)` = the NON-EMPTY string "null" — so an explicit JSON
+    // `null` (not merely an absent key) made the `||` fallback to `id`
+    // never fire, and the row carried the literal text "null" as its
+    // identity. Both render paths (the settled row and the tool-wait
+    // activity line) share the same `callId` computation — pinned
+    // separately since they're two different DOM shapes.
+    it('falls back to id when call_id is an explicit JSON null, never the literal string "null" — settled call+result row', () => {
+      const { container } = render(
+        <ToolPart
+          call={{ type: 'tool_call', id: 'tc_settled', call_id: null, name: 'geo_geocode', input: {} }}
+          result={{ type: 'tool_result', call_id: null, content: [{ type: 'text', text: 'ok' }] }}
+        />,
+      );
+      const row = container.querySelector('[data-testid="part-tool"]');
+      expect(row).toHaveAttribute('data-call-id', 'tc_settled');
+    });
+
+    it('falls back to id when call_id is an explicit JSON null — the tool-wait activity line (wait_agent_tasks, no result yet)', () => {
+      const { container } = render(
+        <ToolPart
+          call={{
+            type: 'tool_call',
+            id: 'tc_waiting',
+            call_id: null,
+            name: 'wait_agent_tasks',
+            input: { task_ids: ['task_1', 'task_2'] },
+          }}
+        />,
+      );
+      const row = container.querySelector('[data-testid="tool-wait-activity"]');
+      expect(row).not.toBeNull();
+      expect(row).toHaveAttribute('data-call-id', 'tc_waiting');
     });
   });
 

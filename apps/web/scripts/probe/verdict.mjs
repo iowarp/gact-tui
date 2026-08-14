@@ -63,14 +63,14 @@
  *
  * **dom-timeline.jsonl** — one record per MutationObserver-observed change
  * to a transcript part element (`.kit-partcard[data-kind]`,
- * `[data-testid^="part-"]`, `.part-collapsible` for thinking). The DOM does
- * NOT carry `call_id`/`part_id` on any element (verified against
- * `apps/web/src/kit/PartCard.tsx` and `apps/web/src/transcript/parts/
- * ToolPart.tsx` — the tool row's only identifying content is its rendered
- * name/args text), so these records are joined to a server-observed call
- * POSITIONALLY + by text match ({@link matchDomRowsToCalls}) rather than by
- * a shared id — a real harness limitation, not an oversight; see that
- * function's doc comment.
+ * `[data-testid^="part-"]`, `.part-collapsible` for thinking). As of
+ * gact-tui#364's client-half fix, the tool row (`[data-testid="part-tool"]`,
+ * `[data-testid="tool-wait-activity"]`) DOES carry its own `call_id` as
+ * `data-call-id` (`apps/web/src/transcript/parts/ToolPart.tsx`) — the driver
+ * collects it as `callId` below, and {@link matchDomRowsToCalls} prefers an
+ * EXACT join on it over the positional/text heuristic, falling back to that
+ * heuristic only for rows the id join can't place (an older capture with no
+ * `data-call-id`, or a row whose id genuinely doesn't match any known call).
  * ```
  * {
  *   t: string,           // ISO — wall clock of the MutationObserver callback
@@ -79,6 +79,7 @@
  *   kind?: string,       // data-kind (PartCard), when present — 'tool' | 'thinking' | ...
  *   pending?: boolean,   // true when a `.part-toolrow__pending` ("running…") node is present
  *   textHead: string,    // first ~80 chars of the element's textContent
+ *   callId?: string,     // data-call-id, when the element carries one
  * }
  * ```
  *
@@ -284,28 +285,38 @@ function groupCallActivities(normalizedRows) {
 }
 
 /**
- * Best-effort positional join of DOM-observed tool rows to server-observed
- * call activities. The DOM carries no `call_id`/`part_id` on any element
- * (`.kit-partcard` only stamps `data-kind`; `ToolPart.tsx`'s row is
- * `data-testid="part-tool"` with no per-call id) — this is a real harness
- * limitation, so the join is honest about being a heuristic: prefer a DOM
- * row whose `textHead` contains the call's `tool_name` (searched from the
- * earliest still-unused row forward, so ties resolve in chronological
- * order); when no textual match remains, fall back to the next unused row
- * in plain chronological order. An activity with no candidate DOM row left
- * maps to `undefined` — "never observed in the DOM timeline at all", never
- * a fabricated match.
+ * Join DOM-observed tool rows to server-observed call activities. As of
+ * gact-tui#364's client-half fix, `ToolPart.tsx` stamps its own `call_id` as
+ * `data-call-id` on both the settled row (`part-tool`) and the tool-wait
+ * activity line (`tool-wait-activity`) — so the PRIMARY join is an exact
+ * match on `call_id` (searched from the earliest still-unused row forward,
+ * so ties resolve in chronological order). Only when no exact id match
+ * exists — an older capture predating the attribute, or a row whose id
+ * genuinely names no known call — does this fall back to the ORIGINAL
+ * heuristics: a DOM row whose `textHead` contains the call's `tool_name`,
+ * then the next unused row in plain chronological order. An activity with
+ * no candidate DOM row left maps to `undefined` — "never observed in the
+ * DOM timeline at all", never a fabricated match.
  *
- * @param {Array<{part_id: string, tool_name?: string}>} callActivitiesChronological
- * @param {Array<{t: number, textHead?: string}>} domToolRowsChronological
- * @returns {Map<string, {t: number, textHead?: string}|undefined>}
+ * @param {Array<{part_id: string, tool_name?: string, call_id?: string}>} callActivitiesChronological
+ * @param {Array<{t: number, textHead?: string, callId?: string}>} domToolRowsChronological
+ * @returns {Map<string, {t: number, textHead?: string, callId?: string}|undefined>}
  */
 export function matchDomRowsToCalls(callActivitiesChronological, domToolRowsChronological) {
   const used = new Set();
   const matches = new Map();
   for (const call of callActivitiesChronological) {
     let foundIndex = -1;
-    if (call.tool_name) {
+    if (call.call_id) {
+      for (let i = 0; i < domToolRowsChronological.length; i++) {
+        if (used.has(i)) continue;
+        if (domToolRowsChronological[i].callId === call.call_id) {
+          foundIndex = i;
+          break;
+        }
+      }
+    }
+    if (foundIndex === -1 && call.tool_name) {
       for (let i = 0; i < domToolRowsChronological.length; i++) {
         if (used.has(i)) continue;
         const row = domToolRowsChronological[i];
@@ -362,12 +373,12 @@ export function computeVerdict(streams, options = {}) {
 
   const domToolRows = domRowsRaw
     .filter((r) => r.kind === 'tool' || r.testid === 'part-tool')
-    .map((r) => ({ t: toEpochMs(r.t), textHead: r.textHead, raw: r }))
+    .map((r) => ({ t: toEpochMs(r.t), textHead: r.textHead, callId: r.callId, raw: r }))
     .filter((r) => r.t !== undefined)
     .sort((a, b) => a.t - b.t);
 
   const domMatches = matchDomRowsToCalls(
-    serverActivities.map((a) => ({ part_id: a.part_id, tool_name: a.tool_name })),
+    serverActivities.map((a) => ({ part_id: a.part_id, tool_name: a.tool_name, call_id: a.lastCallId })),
     domToolRows,
   );
 

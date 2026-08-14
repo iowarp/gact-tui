@@ -177,6 +177,48 @@ describe('matchDomRowsToCalls', () => {
     const matches = matchDomRowsToCalls(calls, rows);
     expect(matches.get('p2')).toBeUndefined();
   });
+
+  // Opus adversarial review, fix #7 (W1/U1 coherence): ToolPart.tsx now
+  // stamps data-call-id (gact-tui#364 client half), so the DOM row's own
+  // callId is the PRIMARY join key — an exact match wins even when the
+  // text/positional heuristic would have picked a DIFFERENT row.
+  it('prefers an EXACT call_id match over the text heuristic, even when text would pick a different row', () => {
+    const calls = [
+      { part_id: 'p1', tool_name: 'jarvis_add_step', call_id: 'call_2' },
+      { part_id: 'p2', tool_name: 'jarvis_add_step', call_id: 'call_1' },
+    ];
+    // Rows are in the OPPOSITE order from the calls' own call_id — a pure
+    // text/positional heuristic (identical tool_name on both) would pair
+    // p1->rows[0] and p2->rows[1]; the id join must invert that.
+    const rows = [
+      { t: 1, textHead: 'jarvis_add_step ("a")', callId: 'call_1' },
+      { t: 2, textHead: 'jarvis_add_step ("b")', callId: 'call_2' },
+    ];
+    const matches = matchDomRowsToCalls(calls, rows);
+    expect(matches.get('p1')).toEqual(rows[1]);
+    expect(matches.get('p2')).toEqual(rows[0]);
+  });
+
+  it('falls back to the text/positional heuristic when the DOM row carries no callId at all (an older capture)', () => {
+    const calls = [
+      { part_id: 'p1', tool_name: 'check_agent_tasks', call_id: 'call_1' },
+      { part_id: 'p2', tool_name: 'wait_agent_tasks', call_id: 'call_2' },
+    ];
+    const rows = [
+      { t: 1, textHead: 'wait_agent_tasks (x)' },
+      { t: 2, textHead: 'check_agent_tasks (y)' },
+    ];
+    const matches = matchDomRowsToCalls(calls, rows);
+    expect(matches.get('p1')).toEqual(rows[1]);
+    expect(matches.get('p2')).toEqual(rows[0]);
+  });
+
+  it('falls back to the text/positional heuristic when the row callId matches no known call', () => {
+    const calls = [{ part_id: 'p1', tool_name: 'geo_geocode', call_id: 'call_real' }];
+    const rows = [{ t: 1, textHead: 'geo_geocode ("LA")', callId: 'call_unrelated' }];
+    const matches = matchDomRowsToCalls(calls, rows);
+    expect(matches.get('p1')).toEqual(rows[0]);
+  });
 });
 
 describe('computeVerdict', () => {

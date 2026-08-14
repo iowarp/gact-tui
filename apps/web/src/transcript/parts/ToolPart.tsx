@@ -32,6 +32,20 @@ export interface ToolPartProps {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined ? '' : String(v));
 
+/**
+ * A wire id field, honestly absent-or-present (Opus adversarial review,
+ * proven defect #6): `str(call['call_id']) || str(call['id'])` looked like a
+ * safe fallback chain, but `str(null)` hits `String(null)` = `"null"` — a
+ * NON-EMPTY, truthy string — so a `call_id` sent as an explicit JSON `null`
+ * (not merely absent) made the `||` fallback to `id` never run, and the row
+ * carried the literal text `"null"` as its identity. Only an actual
+ * non-empty string counts; `null`/`undefined`/`''`/any other type all fall
+ * through to the next candidate via `??`, never stringified first.
+ */
+function wireStringId(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
 // Bumped from 42 (owner refinement, injected-args grammar): a path-like hint
 // needs enough room for `drive/…/basename` to survive with the basename
 // intact (elidePathMiddle's own budget) — a tighter cap re-truncated the
@@ -1531,7 +1545,7 @@ export function ToolPart({ call, result }: ToolPartProps) {
   // to its server-side tool_call part id exactly, without guessing off
   // name/position. Absent (never expected on a real wire, but never fatal)
   // renders no attribute at all rather than an empty string.
-  const callId = str(call['call_id']) || str(call['id']);
+  const callId = wireStringId(call['call_id']) ?? wireStringId(call['id']) ?? '';
 
   // A RUNNING wait_agent_tasks/check_agent_tasks call (no result yet) is the
   // prototype's activity line, not a plain collapsed row — once the result

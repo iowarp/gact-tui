@@ -992,6 +992,14 @@ export function SessionView({
         const el = mainTranscriptScrollRef.current;
         const prevScrollHeight = el?.scrollHeight ?? 0;
         const prevScrollTop = el?.scrollTop ?? 0;
+        // Computed against the ref, not `prev.messages` — same reasoning as
+        // applyToLoaded's own comment in the SSE effect below: this backfill
+        // loop and the live SSE stream both mutate the same loaded feed
+        // concurrently, so the ref (not a setState updater's `prev`, whose
+        // invocation timing isn't guaranteed synchronous with this call) is
+        // the only value guaranteed current at this exact point.
+        const nextMessages = prependOlderPage(loadedMessagesRef.current, pageMessages);
+        loadedMessagesRef.current = nextMessages;
         // flushSync forces the DOM to actually reflect the prepended page
         // before the scrollHeight comparison below — without it the
         // browser could paint the taller content BEFORE the compensating
@@ -1003,7 +1011,7 @@ export function SessionView({
             prev.kind === 'loaded'
               ? {
                   ...prev,
-                  messages: prependOlderPage(prev.messages, pageMessages),
+                  messages: nextMessages,
                   olderCursor: nextCursor,
                   loadingOlder: false,
                 }
@@ -1023,6 +1031,11 @@ export function SessionView({
   const load = useCallback(
     async (sessionId: string) => {
       setState({ kind: 'loading' });
+      // A fresh session load starts from nothing — never a carried-over ref
+      // from whichever session was active before (loadedMessagesRef's own
+      // comment above covers why this ref exists and must stay in lockstep
+      // with every messages-mutating setState call, this one included).
+      loadedMessagesRef.current = NO_MESSAGES;
       setDetail(null);
       setDetailStatus('loading');
       // The record carries model + approval_mode, which the composer renders.
@@ -1049,6 +1062,8 @@ export function SessionView({
         if (activeIdRef.current !== sessionId) return;
         const firstMessages = first.messages ?? [];
         const firstCursor = first.next_cursor ?? null;
+        // Synchronous with the commit — see loadedMessagesRef's comment.
+        loadedMessagesRef.current = firstMessages;
         setState({
           kind: 'loaded',
           messages: firstMessages,
@@ -1237,13 +1252,24 @@ export function SessionView({
   // check (below) needs the CURRENT loaded feed to decide "is this id really
   // unknown", but must run SYNCHRONOUSLY with the event — a setState
   // functional updater's own invocation isn't guaranteed synchronous with
-  // its setState call (React may defer it to the next flush), so a
-  // reconcile() trigger placed inside one can miss its own debounce window.
-  // Mirrors `state.messages` the same way the refs above mirror their slice.
+  // its setState call (React may defer it to the next flush).
+  //
+  // UNLIKE the refs above, this one is NOT mirrored via a passive
+  // (post-render) effect — a passive effect lags a full commit behind the
+  // mutation, and message.created(mN) immediately followed by
+  // message.part.added(mN) in the SAME synchronous SSE batch (the ordinary
+  // shape of every turn start: the assistant message shell, then its first
+  // part) is exactly the case that exposes the lag: `part.added` reads the
+  // ref BEFORE the `message.created` commit has flushed, sees mN missing,
+  // and reports a false `unapplied_unknown_id` — turning the HEALTHY path
+  // into per-turn reconcile noise (proven: one such pair produced one
+  // spurious full-transcript refetch every turn). Written instead at every
+  // messages-mutating call site, in the SAME synchronous statement as the
+  // `setState` that commits it: `applyToLoaded` below (covers both the
+  // direct SSE-apply path and `reconcile`'s `mergeMessages` merge), the
+  // initial progressive-load paint, and `backfillOlder`'s older-page
+  // prepend.
   const loadedMessagesRef = useRef<Message[]>(NO_MESSAGES);
-  useEffect(() => {
-    loadedMessagesRef.current = state.kind === 'loaded' ? state.messages : NO_MESSAGES;
-  });
 
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
@@ -1257,7 +1283,20 @@ export function SessionView({
     if (!activeId || typeof EventSource === 'undefined') return;
     let cancelled = false;
     const applyToLoaded = (fn: (messages: Message[]) => Message[]) => {
-      setState((prev) => (prev.kind === 'loaded' ? { ...prev, messages: fn(prev.messages) } : prev));
+      // Computed against the REF, not React's `prev` — a setState functional
+      // updater's own invocation is not guaranteed synchronous with this
+      // call (React defers it to the batch flush), so reading `prev.messages`
+      // here would reproduce the exact bug loadedMessagesRef's comment
+      // documents: two applyToLoaded calls issued back to back in the same
+      // synchronous SSE batch (message.created(mN) then
+      // message.part.added(mN), the shape of every turn start) would have
+      // the SECOND call's `fn` run against a `prev` from BEFORE the first
+      // call's update had committed. The ref is written here, synchronously,
+      // so the very next call — whether from this same batch or a later
+      // one — always sees the up-to-date feed.
+      const next = fn(loadedMessagesRef.current);
+      loadedMessagesRef.current = next;
+      setState((prev) => (prev.kind === 'loaded' ? { ...prev, messages: next } : prev));
     };
     let reconcileTimer: number | undefined;
     const reconcile = () => {
@@ -1301,20 +1340,20 @@ export function SessionView({
       // (gact-tui#364 client-half deliverable: `unapplied_unknown_id` names a
       // message/part id this feed doesn't have — the same shape a dropped/
       // out-of-order SSE frame would produce) runs SYNCHRONOUSLY off
-      // `loadedMessagesRef` (not inside the `applyToLoaded` updater below) so
-      // its `reconcile()` call fires in the same tick as the event, exactly
-      // like the message.completed/error/deleted reconcile() calls in the
-      // switch below — a setState updater's own invocation isn't guaranteed
-      // synchronous with the event, so a side effect placed inside one can
-      // miss its own debounce window. The actual feed mutation still goes
-      // through the race-free functional updater, computed a second time
-      // there from the ALWAYS-fresh `prev` (a cheap pure recompute).
+      // `loadedMessagesRef` so its `reconcile()` call fires in the same tick
+      // as the event, exactly like the message.completed/error/deleted
+      // reconcile() calls in the switch below. `applyToLoaded` below reads
+      // the SAME ref (its own synchronous input, not React's `prev` — see
+      // its definition) to compute the actual mutation, so both this check
+      // and the mutation always agree on "what the feed currently has" —
+      // recomputing `applyMessageLifecycleEvent` twice here is a cheap pure
+      // rerun of the same inputs, not a race.
       if (applyMessageLifecycleEvent(loadedMessagesRef.current, event).kind === 'unapplied_unknown_id') {
         reconcile();
       }
-      applyToLoaded((prev) => {
-        const result = applyMessageLifecycleEvent(prev, event);
-        return result.kind === 'applied' ? result.messages : prev;
+      applyToLoaded((messages) => {
+        const result = applyMessageLifecycleEvent(messages, event);
+        return result.kind === 'applied' ? result.messages : messages;
       });
       switch (event.type) {
         case 'message.created': {

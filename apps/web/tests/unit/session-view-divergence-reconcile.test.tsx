@@ -212,4 +212,69 @@ describe('SessionView reconciles on unapplied_unknown_id (gact-tui#364)', () => 
     // The delta DID apply — the streamed text landed in the transcript.
     expect(screen.getByText('ready world')).toBeInTheDocument();
   });
+
+  // Opus adversarial review, proven defect #1: loadedMessagesRef used to be
+  // mirrored via a passive (post-render) useEffect, which lags a full commit
+  // behind the mutation it's supposed to reflect. message.created(mN)
+  // immediately followed by message.part.added(mN) — the SAME synchronous
+  // SSE batch, and the ordinary shape of every turn start (the assistant
+  // message shell, then its first streamed part) — exposed the lag:
+  // part.added's divergence check ran BEFORE message.created's effect had
+  // flushed, saw mN missing, and reported a false unapplied_unknown_id,
+  // turning the healthy path into a spurious full-transcript reconcile on
+  // EVERY turn. Fixed by writing loadedMessagesRef synchronously at every
+  // mutation site instead of via the passive effect.
+  it('regression: message.created(mN) then message.part.added(mN) in the SAME synchronous batch — the turn-start shape — triggers ZERO reconciles', async () => {
+    const messagesFn = vi.fn(async () => ({ messages: MESSAGES }));
+    render(<SessionView client={client({ messages: messagesFn })} sessions={SESSIONS} />);
+    await selectSession();
+    const source = mainSource();
+    const callsBefore = messagesFn.mock.calls.length;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        // Back to back, no `await` between them — no yield to the event
+        // loop, so this is the SAME synchronous batch the proven repro used.
+        emit(source, 'message.created', { id: 'm2', role: 'assistant', parts: [] });
+        emit(source, 'message.part.added', {
+          message_id: 'm2',
+          part: { type: 'text', id: 'p_new', text: 'hello' },
+        });
+        await vi.advanceTimersByTimeAsync(300);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(messagesFn.mock.calls.length - callsBefore).toBe(0);
+    // The part DID land — this is the healthy path working, not a no-op.
+    expect(screen.getByText('hello')).toBeInTheDocument();
+  });
+
+  it('the counterfactual: a part.added with NO preceding message.created for its message_id is a genuine divergence — exactly ONE reconcile', async () => {
+    const messagesFn = vi.fn(async () => ({ messages: MESSAGES }));
+    render(<SessionView client={client({ messages: messagesFn })} sessions={SESSIONS} />);
+    await selectSession();
+    const source = mainSource();
+    const callsBefore = messagesFn.mock.calls.length;
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        // No message.created ever arrived for this message_id — unlike the
+        // regression test above, this is a real gap (dropped/out-of-order
+        // frame), not the benign turn-start ordering.
+        emit(source, 'message.part.added', {
+          message_id: 'm_never_created',
+          part: { type: 'text', id: 'p_orphan', text: 'x' },
+        });
+        await vi.advanceTimersByTimeAsync(300);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(messagesFn.mock.calls.length - callsBefore).toBe(1);
+  });
 });

@@ -454,7 +454,10 @@ async function registerBackend(page, base) {
  *  comment for the dom-timeline.jsonl contract. Selectors are read off the
  *  REAL markup (apps/web/src/kit/PartCard.tsx: `.kit-partcard[data-kind]`;
  *  apps/web/src/transcript/parts/ToolPart.tsx: `[data-testid="part-tool"]`
- *  + `.part-toolrow__pending` ("running…"); apps/web/src/transcript/
+ *  + `.part-toolrow__pending` ("running…") + `data-call-id` (gact-tui#364
+ *  client-half fix — the tool row's own wire call_id, read here so
+ *  verdict.mjs's `matchDomRowsToCalls` can join by exact id instead of its
+ *  original text/positional heuristic); apps/web/src/transcript/
  *  registry.tsx: `.part-collapsible` + `.part-thinkinghead` for thinking) —
  *  never guessed. */
 async function installDomObserver(page) {
@@ -471,6 +474,7 @@ async function installDomObserver(page) {
         kind: kindEl?.getAttribute('data-kind') ?? undefined,
         pending: !!el.querySelector?.('.part-toolrow__pending'),
         textHead: (el.textContent ?? '').trim().slice(0, 120),
+        callId: testidEl?.getAttribute('data-call-id') ?? undefined,
       });
     };
     // React frequently batches a WHOLE message's parts into ONE childList

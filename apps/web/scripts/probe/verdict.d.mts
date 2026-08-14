@@ -41,12 +41,19 @@ export declare function dedupeServerFrames(
 export interface DomToolRow {
   t: number;
   textHead?: string;
+  /** `data-call-id`, when the observed element carried one (gact-tui#364
+   *  client-half fix) — the PRIMARY join key in matchDomRowsToCalls. */
+  callId?: string;
   [key: string]: unknown;
 }
 
 export interface CallActivityRef {
   part_id: string;
   tool_name?: string;
+  /** The server-observed call's own `call_id` — joined exactly against a
+   *  DomToolRow's `callId` before falling back to the text/positional
+   *  heuristic. */
+  call_id?: string;
 }
 
 export declare function matchDomRowsToCalls(
