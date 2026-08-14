@@ -75,6 +75,93 @@ describe('Transcript', () => {
     expect(screen.getByText('internal reasoning here')).toBeInTheDocument();
   });
 
+  describe('thinking honors metadata.default_collapsed (gact-tui#362 nit)', () => {
+    it('renders EXPANDED when metadata.default_collapsed is false', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'thinking',
+                thinking: 'server said start open',
+                metadata: { default_collapsed: false },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('server said start open')).toBeInTheDocument();
+    });
+
+    it('renders COLLAPSED when metadata.default_collapsed is true', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              {
+                type: 'thinking',
+                thinking: 'server said start closed',
+                metadata: { default_collapsed: true },
+              },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('server said start closed')).toBeNull();
+    });
+
+    it('renders COLLAPSED when metadata is absent entirely (older sessions, unchanged behavior)', () => {
+      render(
+        <Transcript
+          messages={[msg('m1', 'assistant', [{ type: 'thinking', thinking: 'no metadata at all' }])]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('no metadata at all')).toBeNull();
+    });
+
+    it('toggle still works starting from an EXPANDED initial state (default_collapsed: false)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              { type: 'thinking', thinking: 'toggle me', metadata: { default_collapsed: false } },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(screen.getByText('toggle me')).toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.queryByText('toggle me')).toBeNull();
+      fireEvent.click(toggle);
+      expect(screen.getByText('toggle me')).toBeInTheDocument();
+    });
+
+    it('toggle still works starting from a COLLAPSED initial state (default_collapsed: true)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [
+              { type: 'thinking', thinking: 'toggle me too', metadata: { default_collapsed: true } },
+            ]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(screen.queryByText('toggle me too')).toBeNull();
+      fireEvent.click(toggle);
+      expect(screen.getByText('toggle me too')).toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.queryByText('toggle me too')).toBeNull();
+    });
+  });
+
   it('renders a tool call as a collapsed row that opens to prose params (E3/E4/E6)', () => {
     const { container } = render(
       <Transcript

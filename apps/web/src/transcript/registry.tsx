@@ -36,8 +36,21 @@ function toolArgs(input: unknown): string {
     .join('\n');
 }
 
+/**
+ * `part.metadata.default_collapsed` (gact-tui#362, "unconditional nit"):
+ * the server's own opinion on whether a thinking block should open expanded.
+ * Only a literal `false` earns the expanded initial state — `true` and
+ * absence (older sessions, a metadata-less part) both collapse, matching
+ * today's behavior exactly. Never a string/number/other truthy guess.
+ */
+function defaultExpanded(part: WirePart): boolean {
+  const metadata = part['metadata'];
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return false;
+  return (metadata as Record<string, unknown>)['default_collapsed'] === false;
+}
+
 function ThinkingDisclosure({ part }: { part: WirePart }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => defaultExpanded(part));
 
   return (
     <div className="part-collapsible">
