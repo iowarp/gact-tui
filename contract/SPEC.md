@@ -681,7 +681,13 @@ field is still present at its default.
 > text belongs to — e.g. `answer`, `reasoning`, `next_thought`).
 > Provider-native reasoning arrives as `type: "thinking"` parts with
 > `metadata: {thinking_source: "provider", provider_source: "...",
-> default_collapsed: true}`.
+> default_collapsed: true}`. `default_collapsed` is a client disclosure
+> hint, not exclusively `true`: the literal boolean `false` tells a
+> client to render the thinking part EXPANDED on first paint; `true`,
+> absence, or any other value (a non-boolean, a malformed field) all mean
+> collapsed — the historical default clio always emitted before this hint
+> existed, so an older session or a non-boolean value never surprises a
+> reader with an unexpectedly-open block.
 >
 > **Delegation / expert-handoff return envelope** (clio): the terminal
 > part of a delegated (sub)agent's turn carries the `expert_handoff`

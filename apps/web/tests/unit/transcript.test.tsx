@@ -161,6 +161,41 @@ describe('Transcript', () => {
       fireEvent.click(toggle);
       expect(screen.queryByText('toggle me too')).toBeNull();
     });
+
+    // Opus adversarial review, fix #10 (W2 sabotage sweep): only the LITERAL
+    // boolean `false` may expand — a truthy-ish, type-confused, or malformed
+    // value must never accidentally be treated as the real thing (a strict
+    // `=== false` check, not a loose falsy check, is what makes this hold).
+    it.each([
+      ['a string "false", not the boolean', { default_collapsed: 'false' }],
+      ['the falsy number 0', { default_collapsed: 0 }],
+      ['null', { default_collapsed: null }],
+      ['an empty array', { default_collapsed: [] }],
+    ])('renders COLLAPSED when default_collapsed is %s (never mistaken for literal false)', (_label, metadata) => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'thinking', thinking: 'sabotage sweep', metadata }]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('sabotage sweep')).toBeNull();
+    });
+
+    it('renders COLLAPSED when metadata itself is a malformed non-object (a string, not a record)', () => {
+      render(
+        <Transcript
+          messages={[
+            msg('m1', 'assistant', [{ type: 'thinking', thinking: 'sabotage sweep', metadata: 'x' }]),
+          ]}
+        />,
+      );
+      const toggle = screen.getByRole('button', { name: /thinking/i });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('sabotage sweep')).toBeNull();
+    });
   });
 
   it('renders a tool call as a collapsed row that opens to prose params (E3/E4/E6)', () => {
