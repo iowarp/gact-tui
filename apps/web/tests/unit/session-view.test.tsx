@@ -54,7 +54,7 @@ describe('SessionView', () => {
     expect(client.messages).toHaveBeenCalledWith('sess_a', { limit: 50 });
   });
 
-  it('shows the Skeleton primitive while a session is loading (gact-tui#366), not a bare "Loading…" paragraph', async () => {
+  it('shows message-shaped skeleton rows while a session is loading (gact-tui#369), not a bare "Loading…" bar', async () => {
     let resolveMessages!: (value: { messages: [] }) => void;
     const client = makeClient({
       messages: vi.fn(() => new Promise<{ messages: [] }>((resolve) => (resolveMessages = resolve))),
@@ -62,13 +62,21 @@ describe('SessionView', () => {
     render(<SessionView client={client} sessions={SESSIONS} />);
     fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
 
-    const skeleton = await screen.findByTestId('kit-skeleton');
-    expect(skeleton).toHaveAttribute('role', 'status');
-    expect(skeleton).toHaveAccessibleName('Loading…');
+    const skeleton = await screen.findByTestId('transcript-skeleton');
+    expect(screen.getByRole('status', { name: 'Loading conversation…' })).toBeInTheDocument();
+    // Message-shaped, alternating rows (gact-tui#369) — not the old single
+    // generic bar: each row carries the SAME `data-role` the real
+    // Transcript.tsx rows render through, so both a user and an assistant
+    // shape are present.
+    const rows = skeleton.querySelectorAll('.transcript__message[data-role]');
+    expect(rows.length).toBeGreaterThan(1);
+    const roles = Array.from(rows).map((row) => row.getAttribute('data-role'));
+    expect(roles).toContain('user');
+    expect(roles).toContain('assistant');
 
     // Resolve so the pending promise doesn't leak into the next test.
     resolveMessages({ messages: [] });
-    await waitFor(() => expect(screen.queryByTestId('kit-skeleton')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('transcript-skeleton')).toBeNull());
   });
 
   it('renders the fresh/idle greeting for a session with no messages, not a blank notice', async () => {

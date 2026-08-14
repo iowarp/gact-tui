@@ -50,6 +50,7 @@ import {
 import { Settings } from '../settings/Settings';
 import type { AgentStatus, ObsNavigation, ObservabilityData } from '../observability/types';
 import { Transcript } from '../transcript/Transcript';
+import { TranscriptSkeleton } from '../transcript/TranscriptSkeleton';
 import type { ActionCardAction } from '../transcript/parts/ActionCardPart';
 import type { ChildPreview } from '../transcript/parts/HandoffPart';
 import type { WirePart } from '../transcript/registry';
@@ -2724,11 +2725,7 @@ export function SessionView({
           </p>
         ) : null}
 
-        {state.kind === 'loading' ? (
-          <div className="sessionview__notice">
-            <Skeleton label="Loading…" />
-          </div>
-        ) : null}
+        {state.kind === 'loading' ? <TranscriptSkeleton /> : null}
 
         {sendError ? (
           <p className="sessionview__error" data-testid="send-error" role="alert">

@@ -142,4 +142,55 @@ describe('progressive transcript load', () => {
     expect(scroller.scrollHeight).toBe(300);
     expect(scroller.scrollTop).toBe(250);
   });
+
+  // ---- gact-tui#369: skeleton presentation + first-paint scheduling ----
+
+  it('shows message-shaped skeleton rows only until the FIRST page lands, independent of backfill', async () => {
+    let resolveFirstPage!: (value: { messages: Message[]; next_cursor: string | null }) => void;
+    const messages = vi.fn(
+      async (_id: string, opts?: { limit?: number; before?: string }) =>
+        new Promise<{ messages: Message[]; next_cursor: string | null }>((resolve) => {
+          if (opts?.before) throw new Error('backfill should not be reached in this test');
+          resolveFirstPage = resolve;
+        }),
+    );
+    const client = { baseUrl: 'http://live.test', messages } as unknown as Client;
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+
+    expect(await screen.findByTestId('transcript-skeleton')).toBeInTheDocument();
+    resolveFirstPage({ messages: [m('m3', 'third')], next_cursor: null });
+    await waitFor(() => expect(screen.queryByTestId('transcript-skeleton')).toBeNull());
+    expect(screen.getByText('third')).toBeInTheDocument();
+  });
+
+  it('paints the first page WHILE the older-page backfill fetch is still unresolved (first-page paint precedes backfill completion)', async () => {
+    // The gap gact-tui#369 asks to be PROVEN, not merely implied by call
+    // ordering: hold the older (backfill) page open on a promise the test
+    // controls, and assert the newest page is already visible — with the
+    // skeleton gone — before that promise is ever resolved.
+    let resolveOlderPage!: (value: { messages: Message[]; next_cursor: string | null }) => void;
+    const olderPage = new Promise<{ messages: Message[]; next_cursor: string | null }>((resolve) => {
+      resolveOlderPage = resolve;
+    });
+    let olderPageRequested = false;
+    const messages = vi.fn(async (_id: string, opts?: { limit?: number; before?: string }) => {
+      if (!opts?.before) return { messages: [m('m3', 'third')], next_cursor: 'm3' };
+      olderPageRequested = true;
+      return olderPage;
+    });
+    const client = { baseUrl: 'http://live.test', messages } as unknown as Client;
+    render(<SessionView client={client} sessions={SESSIONS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'LA ground motion' }));
+
+    await waitFor(() => expect(screen.getByText('third')).toBeInTheDocument());
+    expect(screen.queryByTestId('transcript-skeleton')).toBeNull();
+    // The backfill fetch is genuinely in flight, not merely "not yet
+    // started" — proving the first paint did not wait for it.
+    expect(olderPageRequested).toBe(true);
+    expect(screen.queryByText('first')).toBeNull();
+
+    resolveOlderPage({ messages: [m('m1', 'first')], next_cursor: null });
+    await waitFor(() => expect(screen.getByText('first')).toBeInTheDocument());
+  });
 });
