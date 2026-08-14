@@ -163,17 +163,30 @@ test('sidecar-launcher Go module declares no workspace tie-in', () => {
 });
 
 test('Tauri SSE path does not fall back to raw browser EventSource', () => {
-  // The transcript connection this guard originally read is not ported yet
-  // (Session v3 rebuild). Asserting only "no raw EventSource in the app" would
-  // pass VACUOUSLY today, so the guard is split into two parts that are both
-  // meaningful right now and both tighten as the transcript lands:
+  // Opus adversarial review, fix #4: this guard used to walk ONLY
+  // apps/web/src, where no `new EventSource(...)` has ever lived — the
+  // actual construction sites are in apps/core/src/client/sse.ts
+  // (`subscribeSessionMessageEvents`/`subscribeSessionTraceEvents`/
+  // `subscribeSessionMcpTaskEvents`'s default `createEventSource` factory
+  // params), which the app has always imported via `@clio/core`. Walking
+  // only web/src made the "no raw EventSource" assertion below pass
+  // VACUOUSLY — it certified the opposite of reality (the live transcript,
+  // desktop included, always opens a plain browser EventSource; see
+  // tauri_sse.ts's own docstring and the tracked decision issue,
+  // gact-tui#367 — no caller branches on inTauri() to use openTauriSse at
+  // all today).
   //
-  //   1. the Rust SSE bridge is present and exported — the desktop path exists;
-  //   2. no module in the app constructs a raw EventSource.
+  //   1. the Rust SSE bridge is present and exported — the desktop path
+  //      exists, ready to be wired in if #367 resolves "re-wire";
+  //   2. no module OUTSIDE the tracked #367 gap constructs a raw
+  //      EventSource — a NEW one appearing anywhere else still fails this
+  //      guard.
   //
-  // When the transcript connection is ported it must open SSE through
-  // openTauriSse under inTauri(); restore the branch-level assertion then.
+  // When #367 resolves "re-wire" (SSE branches on inTauri() to use
+  // openTauriSse on desktop), replace the allowlist below with the
+  // original hard zero-tolerance assertion.
   const webSrc = resolve(root, '..', 'web', 'src');
+  const coreSrc = resolve(root, '..', 'core', 'src');
 
   const bridge = readFileSync(resolve(webSrc, 'tauri', 'tauri_sse.ts'), 'utf8');
   assert.match(
@@ -184,14 +197,34 @@ test('Tauri SSE path does not fall back to raw browser EventSource', () => {
   assert.doesNotMatch(bridge, /BRIDGE_FALLBACK_MS/);
   assert.doesNotMatch(bridge, /function\s+fallBack\s*\(/);
 
+  // The ONLY file this guard currently allowlists — gact-tui#367 tracks the
+  // decision to either wire this into openTauriSse on desktop or retire the
+  // bridge instead.
+  const trackedGapFile = resolve(coreSrc, 'client', 'sse.ts');
+
   const offenders = [];
-  for (const file of walkSourceFiles(webSrc)) {
-    if (/new\s+EventSource\s*\(/.test(readFileSync(file, 'utf8'))) offenders.push(file);
+  for (const dir of [webSrc, coreSrc]) {
+    for (const file of walkSourceFiles(dir)) {
+      if (!/new\s+EventSource\s*\(/.test(readFileSync(file, 'utf8'))) continue;
+      if (file === trackedGapFile) continue;
+      offenders.push(file);
+    }
   }
   assert.deepEqual(
     offenders,
     [],
-    `raw EventSource is not permitted; the desktop path must use openTauriSse: ${offenders.join(', ')}`,
+    `raw EventSource outside the gact-tui#367 tracked gap (${trackedGapFile}) is not permitted: ${offenders.join(', ')}`,
+  );
+
+  // If sse.ts is ever changed to stop constructing a raw EventSource (#367
+  // resolved "re-wire", or "retire" deleting the fallback entirely), this
+  // allowlist entry becomes silently unused — fail loudly instead, so the
+  // guard gets revisited and tightened back to zero-tolerance rather than
+  // quietly keeping a stale exception around forever.
+  assert.match(
+    readFileSync(trackedGapFile, 'utf8'),
+    /new\s+EventSource\s*\(/,
+    'gact-tui#367 tracked-gap file no longer constructs a raw EventSource — tighten this guard back to zero-tolerance',
   );
 });
 

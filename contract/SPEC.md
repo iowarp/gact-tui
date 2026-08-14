@@ -681,7 +681,13 @@ field is still present at its default.
 > text belongs to — e.g. `answer`, `reasoning`, `next_thought`).
 > Provider-native reasoning arrives as `type: "thinking"` parts with
 > `metadata: {thinking_source: "provider", provider_source: "...",
-> default_collapsed: true}`.
+> default_collapsed: true}`. `default_collapsed` is a client disclosure
+> hint, not exclusively `true`: the literal boolean `false` tells a
+> client to render the thinking part EXPANDED on first paint; `true`,
+> absence, or any other value (a non-boolean, a malformed field) all mean
+> collapsed — the historical default clio always emitted before this hint
+> existed, so an older session or a non-boolean value never surprises a
+> reader with an unexpectedly-open block.
 >
 > **Delegation / expert-handoff return envelope** (clio): the terminal
 > part of a delegated (sub)agent's turn carries the `expert_handoff`
@@ -2257,7 +2263,7 @@ offers an alternative, it is noted.
 | `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
 | `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
-| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; the web keeps forward-compat listeners (`LiveConnectionConfig.ts`) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
+| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; `apps/core/src/wire/events.ts` still carries typed envelopes for both, but no active SSE listener subscribes to them anywhere in the app (the `wire/Live*` dispatch stack that would have consumed them was deleted as a zero-consumer island, gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 

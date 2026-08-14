@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 import { mergeMessages, prependOlderPage, subscribeSessionMessageEvents, type Client, type Message } from '@clio/core';
-import { Icon, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
+import { Icon, Skeleton, StatusDot, ToolbarButton, type SessionStatus } from '../kit';
 import { ChildFocusView } from './ChildFocusView';
 import { applyMessageLifecycleEvent, backfillChildMessages, CHILD_PAGE_SIZE } from './messageEvents';
 import './agentpeek.css';
@@ -108,10 +108,12 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
     const subscription =
       typeof EventSource !== 'undefined'
         ? subscribeSessionMessageEvents(client.sseUrl(sessionId), (event) => {
+            // The 5s poll below already backstops divergence for this
+            // read-only peek — only the `applied` case updates local state.
             setView((cur) => {
               if (!cur) return cur;
-              const next = applyMessageLifecycleEvent(cur.messages, event);
-              return next ? { ...cur, messages: next } : cur;
+              const result = applyMessageLifecycleEvent(cur.messages, event);
+              return result.kind === 'applied' ? { ...cur, messages: result.messages } : cur;
             });
           })
         : null;
@@ -172,7 +174,9 @@ export function AgentPeekView({ client, sessionId, agent, parentLabel, onClose }
             showStatusFooter={false}
           />
         ) : (
-          <p className="agentpeek__loading">Loading agent…</p>
+          <div className="agentpeek__loading">
+            <Skeleton label="Loading agent…" />
+          </div>
         )}
       </div>
     </aside>

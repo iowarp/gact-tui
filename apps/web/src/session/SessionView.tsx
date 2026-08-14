@@ -2,10 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { flushSync } from 'react-dom';
 import {
   dismissRun,
+  fetchAllSessionArtifacts,
   fetchArtifactLineage,
   fetchLmConfig,
   fetchSessionAgentTasks,
-  fetchSessionArtifacts,
   fetchSessionAsyncProcesses,
   fetchSessionContextState,
   fetchSessionTrace,
@@ -38,7 +38,7 @@ import {
   type SessionAction,
   type WorkspaceAction,
 } from '../shell/Rail';
-import { Icon, Layer, type SelectOption, type SessionStatus } from '../kit';
+import { Icon, Layer, Skeleton, type SelectOption, type SessionStatus } from '../kit';
 import { loadRegistry } from '../connect/registry';
 import { Observability, ObservabilityTrace } from '../observability/Observability';
 import type { ObsTab } from '../observability/Observability';
@@ -437,7 +437,14 @@ export function SessionView({
   }, [client]);
 
   const loadObservability = useCallback(
-    async (sessionId: string, scope: string): Promise<ObservabilityData> => {
+    // `isStale` (gact-tui#363) is threaded through to the paginated artifact
+    // walk below so a session switch/unmount mid-walk stops issuing further
+    // pages rather than fetching artifact pages for a view nobody is
+    // looking at anymore; defaults to "never stale" for callers with no
+    // natural cancellation flag of their own (this read is still discarded
+    // wholesale by every caller via its own `cancelled` check on the
+    // returned promise, same as before).
+    async (sessionId: string, scope: string, isStale: () => boolean = () => false): Promise<ObservabilityData> => {
       // Every read is FIRED immediately and independently (a promise starts
       // running the instant it's constructed, regardless of when it's
       // awaited) — nothing here may sit behind an unrelated call before it
@@ -454,8 +461,11 @@ export function SessionView({
       const serversPromise = fetchOutcome(() => client.mcpServers());
       const contextPromise = fetchOutcome(() => fetchSessionContextState(client, sessionId, scope));
       const agentTasksPromise = fetchOutcome(() => fetchSessionAgentTasks(client, sessionId));
+      // fetchAllSessionArtifacts (gact-tui#363): the single-page read capped
+      // silently at the server's limit=50 default, under-reporting any
+      // session holding more artifact records than that.
       const artifactPromise = fetchOutcome(() =>
-        fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+        fetchAllSessionArtifacts(client, sessionId, { includeChildren: true, isStale }),
       );
       const rootTracePromise = fetchOutcome(() => fetchSessionTrace(client, sessionId, { limit: 2000 }));
 
@@ -524,7 +534,7 @@ export function SessionView({
         !agentTasksOutcome.ok ||
         childTraceOutcomes.some(({ outcome }) => !outcome.ok);
       // The artifacts tab/badge's own honest-zero signal — a DIFFERENT read
-      // (fetchSessionArtifacts) than the trace/runs/tools primaries above,
+      // (fetchAllSessionArtifacts) than the trace/runs/tools primaries above,
       // so it earns its own flag rather than overloading traceReadFailed
       // (round-7 FANOUT finding: the artifacts tab-strip badge read a
       // confident "0" while genuinely unresolved, in the same frame the
@@ -688,7 +698,7 @@ export function SessionView({
     if (panel !== 'obs' || !activeId) return;
     let cancelled = false;
     const refresh = async () => {
-      const next = await loadObservability(activeId, activeScope);
+      const next = await loadObservability(activeId, activeScope, () => cancelled);
       if (!cancelled) setObs(next);
     };
     void refresh();
@@ -743,7 +753,7 @@ export function SessionView({
       }
 
       if (event.type === 'session.status_changed') {
-        void loadObservability(activeId, activeScope).then((next) => {
+        void loadObservability(activeId, activeScope, () => cancelled).then((next) => {
           if (!cancelled) setObs(next);
         });
       }
@@ -855,8 +865,11 @@ export function SessionView({
           Promise.resolve().then(() => fetchSessionAgentTasks(client, sessionId)),
           Promise.resolve().then(() => fetchSessionAsyncProcesses(client, sessionId)),
           Promise.resolve().then(() => fetchSessionContextState(client, sessionId, scope)),
+          // fetchAllSessionArtifacts (gact-tui#363): a single-page read
+          // silently capped the pill's artifact count at the server's
+          // limit=50 default.
           Promise.resolve().then(() =>
-            fetchSessionArtifacts(client, sessionId, { includeChildren: true }),
+            fetchAllSessionArtifacts(client, sessionId, { includeChildren: true }),
           ),
         ]);
       const next: ComposerPillState = { sessionId, scope };
@@ -979,6 +992,14 @@ export function SessionView({
         const el = mainTranscriptScrollRef.current;
         const prevScrollHeight = el?.scrollHeight ?? 0;
         const prevScrollTop = el?.scrollTop ?? 0;
+        // Computed against the ref, not `prev.messages` — same reasoning as
+        // applyToLoaded's own comment in the SSE effect below: this backfill
+        // loop and the live SSE stream both mutate the same loaded feed
+        // concurrently, so the ref (not a setState updater's `prev`, whose
+        // invocation timing isn't guaranteed synchronous with this call) is
+        // the only value guaranteed current at this exact point.
+        const nextMessages = prependOlderPage(loadedMessagesRef.current, pageMessages);
+        loadedMessagesRef.current = nextMessages;
         // flushSync forces the DOM to actually reflect the prepended page
         // before the scrollHeight comparison below — without it the
         // browser could paint the taller content BEFORE the compensating
@@ -990,7 +1011,7 @@ export function SessionView({
             prev.kind === 'loaded'
               ? {
                   ...prev,
-                  messages: prependOlderPage(prev.messages, pageMessages),
+                  messages: nextMessages,
                   olderCursor: nextCursor,
                   loadingOlder: false,
                 }
@@ -1010,6 +1031,11 @@ export function SessionView({
   const load = useCallback(
     async (sessionId: string) => {
       setState({ kind: 'loading' });
+      // A fresh session load starts from nothing — never a carried-over ref
+      // from whichever session was active before (loadedMessagesRef's own
+      // comment above covers why this ref exists and must stay in lockstep
+      // with every messages-mutating setState call, this one included).
+      loadedMessagesRef.current = NO_MESSAGES;
       setDetail(null);
       setDetailStatus('loading');
       // The record carries model + approval_mode, which the composer renders.
@@ -1036,6 +1062,8 @@ export function SessionView({
         if (activeIdRef.current !== sessionId) return;
         const firstMessages = first.messages ?? [];
         const firstCursor = first.next_cursor ?? null;
+        // Synchronous with the commit — see loadedMessagesRef's comment.
+        loadedMessagesRef.current = firstMessages;
         setState({
           kind: 'loaded',
           messages: firstMessages,
@@ -1220,6 +1248,29 @@ export function SessionView({
     activeScopeRef.current = activeScope;
   });
 
+  // Same reasoning again: the SSE effect's unapplied_unknown_id divergence
+  // check (below) needs the CURRENT loaded feed to decide "is this id really
+  // unknown", but must run SYNCHRONOUSLY with the event — a setState
+  // functional updater's own invocation isn't guaranteed synchronous with
+  // its setState call (React may defer it to the next flush).
+  //
+  // UNLIKE the refs above, this one is NOT mirrored via a passive
+  // (post-render) effect — a passive effect lags a full commit behind the
+  // mutation, and message.created(mN) immediately followed by
+  // message.part.added(mN) in the SAME synchronous SSE batch (the ordinary
+  // shape of every turn start: the assistant message shell, then its first
+  // part) is exactly the case that exposes the lag: `part.added` reads the
+  // ref BEFORE the `message.created` commit has flushed, sees mN missing,
+  // and reports a false `unapplied_unknown_id` — turning the HEALTHY path
+  // into per-turn reconcile noise (proven: one such pair produced one
+  // spurious full-transcript refetch every turn). Written instead at every
+  // messages-mutating call site, in the SAME synchronous statement as the
+  // `setState` that commits it: `applyToLoaded` below (covers both the
+  // direct SSE-apply path and `reconcile`'s `mergeMessages` merge), the
+  // initial progressive-load paint, and `backfillOlder`'s older-page
+  // prepend.
+  const loadedMessagesRef = useRef<Message[]>(NO_MESSAGES);
+
   // LIVE transcript: the session SSE stream applies message-lifecycle events
   // to the loaded feed as they arrive — streamed text via part.delta, new
   // parts via part.added, and the clean delegation wire's IN-PLACE settle
@@ -1232,7 +1283,20 @@ export function SessionView({
     if (!activeId || typeof EventSource === 'undefined') return;
     let cancelled = false;
     const applyToLoaded = (fn: (messages: Message[]) => Message[]) => {
-      setState((prev) => (prev.kind === 'loaded' ? { ...prev, messages: fn(prev.messages) } : prev));
+      // Computed against the REF, not React's `prev` — a setState functional
+      // updater's own invocation is not guaranteed synchronous with this
+      // call (React defers it to the batch flush), so reading `prev.messages`
+      // here would reproduce the exact bug loadedMessagesRef's comment
+      // documents: two applyToLoaded calls issued back to back in the same
+      // synchronous SSE batch (message.created(mN) then
+      // message.part.added(mN), the shape of every turn start) would have
+      // the SECOND call's `fn` run against a `prev` from BEFORE the first
+      // call's update had committed. The ref is written here, synchronously,
+      // so the very next call — whether from this same batch or a later
+      // one — always sees the up-to-date feed.
+      const next = fn(loadedMessagesRef.current);
+      loadedMessagesRef.current = next;
+      setState((prev) => (prev.kind === 'loaded' ? { ...prev, messages: next } : prev));
     };
     let reconcileTimer: number | undefined;
     const reconcile = () => {
@@ -1272,8 +1336,25 @@ export function SessionView({
     };
     const subscription = subscribeSessionMessageEvents(client.sseUrl(activeId), (event) => {
       // Feed application is the shared pure helper (session/messageEvents.ts);
-      // only the side effects stay here.
-      applyToLoaded((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
+      // only the side effects stay here. The divergence check
+      // (gact-tui#364 client-half deliverable: `unapplied_unknown_id` names a
+      // message/part id this feed doesn't have — the same shape a dropped/
+      // out-of-order SSE frame would produce) runs SYNCHRONOUSLY off
+      // `loadedMessagesRef` so its `reconcile()` call fires in the same tick
+      // as the event, exactly like the message.completed/error/deleted
+      // reconcile() calls in the switch below. `applyToLoaded` below reads
+      // the SAME ref (its own synchronous input, not React's `prev` — see
+      // its definition) to compute the actual mutation, so both this check
+      // and the mutation always agree on "what the feed currently has" —
+      // recomputing `applyMessageLifecycleEvent` twice here is a cheap pure
+      // rerun of the same inputs, not a race.
+      if (applyMessageLifecycleEvent(loadedMessagesRef.current, event).kind === 'unapplied_unknown_id') {
+        reconcile();
+      }
+      applyToLoaded((messages) => {
+        const result = applyMessageLifecycleEvent(messages, event);
+        return result.kind === 'applied' ? result.messages : messages;
+      });
       switch (event.type) {
         case 'message.created': {
           // The session record may have changed since selection (blueprint
@@ -1618,7 +1699,15 @@ export function SessionView({
     const subscription =
       typeof EventSource !== 'undefined'
         ? subscribeSessionMessageEvents(client.sseUrl(sessionId), (event) => {
-            applyToChild((prev) => applyMessageLifecycleEvent(prev, event) ?? prev);
+            // The 5s poll below already backstops divergence for this view
+            // (unlike the main transcript, which has no such poll and so
+            // reuses its own debounced reconcile on unapplied_unknown_id —
+            // see the SSE effect above); here only the `applied` case
+            // updates local state.
+            applyToChild((prev) => {
+              const result = applyMessageLifecycleEvent(prev, event);
+              return result.kind === 'applied' ? result.messages : prev;
+            });
           })
         : null;
     const timer = window.setInterval(() => void reconcile(), 5000);
@@ -1776,7 +1865,10 @@ export function SessionView({
       if (!activeId) return;
       try {
         const [result, agentTasksResult] = await Promise.all([
-          fetchSessionArtifacts(client, activeId, { includeChildren: true }),
+          // fetchAllSessionArtifacts (gact-tui#363): a single-page read
+          // silently capped the artifact panel's lineage/version graph at
+          // the server's limit=50 default.
+          fetchAllSessionArtifacts(client, activeId, { includeChildren: true }),
           fetchSessionAgentTasks(client, activeId).catch(
             (): { tasks: SessionAgentTask[] } => ({ tasks: [] }),
           ),
@@ -2632,7 +2724,11 @@ export function SessionView({
           </p>
         ) : null}
 
-        {state.kind === 'loading' ? <p className="sessionview__notice">Loading…</p> : null}
+        {state.kind === 'loading' ? (
+          <div className="sessionview__notice">
+            <Skeleton label="Loading…" />
+          </div>
+        ) : null}
 
         {sendError ? (
           <p className="sessionview__error" data-testid="send-error" role="alert">
@@ -2813,7 +2909,9 @@ export function SessionView({
               {...(obsTab ? { initialTab: obsTab } : {})}
             />
           ) : (
-            <p className="sessionview__notice">Loading observability…</p>
+            <div className="sessionview__notice">
+              <Skeleton label="Loading observability…" />
+            </div>
           )}
         </Layer>
 

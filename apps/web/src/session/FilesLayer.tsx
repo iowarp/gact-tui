@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Client } from '@clio/core';
-import { Icon, Layer, Splitter } from '../kit';
+import { Icon, Layer, Skeleton, Splitter } from '../kit';
 import {
   breadcrumbSegments,
   buildFileTree,
@@ -189,7 +189,11 @@ export function FilesLayer({
           {!workspaceId ? (
             <p className="files-layer__empty">No workspace is attached to this session.</p>
           ) : null}
-          {state === 'loading' ? <p className="files-layer__empty">Loading workspace files…</p> : null}
+          {state === 'loading' ? (
+            <div className="files-layer__empty">
+              <Skeleton label="Loading workspace files…" />
+            </div>
+          ) : null}
           {state === 'failed' ? <p className="files-layer__error">Could not load workspace files.</p> : null}
           {state === 'ready' && tree.length === 0 && workspaceId ? (
             <p className="files-layer__empty">This workspace has no files yet.</p>
@@ -380,7 +384,11 @@ const CSV_SHOWN_ROWS = 50;
 function PreviewBody({ preview }: { preview: PreviewState }) {
   if (preview.kind === 'idle') return null;
   if (preview.kind === 'loading') {
-    return <p className="files-layer__empty">Loading file…</p>;
+    return (
+      <div className="files-layer__empty">
+        <Skeleton label="Loading file…" />
+      </div>
+    );
   }
   if (preview.kind === 'error') {
     return <p className="files-layer__error">Could not read file: {preview.message}</p>;
