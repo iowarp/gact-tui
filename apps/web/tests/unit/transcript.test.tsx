@@ -726,3 +726,81 @@ describe('return card in the child transcript views', () => {
     expect(screen.getByText('Geocoding the requested place name.')).toBeInTheDocument();
   });
 });
+
+/**
+ * Delegation brief vs. a pushed watcher wake (clio#1218d). Owner: the
+ * SPOTTER watcher is not conceptually a delegated child, so its incoming
+ * wake must NOT render as the special collapsed "▸ prompt from {parent}"
+ * brief object — it renders as an ORDINARY user message, exactly like any
+ * other `transcript__message` with `data-role="user"`. The distinguishing
+ * wire fact: a genuine delegation launch stamps `metadata.agent_task_id` on
+ * the child's first message; a watcher's periodic wake push carries no such
+ * marker. `ChildFocusView` gates the fold on that field rather than on
+ * role/position alone.
+ */
+describe('child view brief fold — delegation vs. pushed watcher wake (clio#1218d)', () => {
+  it('a genuine delegation brief (metadata.agent_task_id present) gets the collapsed "prompt from X" fold', () => {
+    render(
+      <ChildFocusView
+        agent="geospatial"
+        parentLabel="main"
+        status="completed"
+        messages={[
+          {
+            id: 'c1',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Resolve LA into coordinates.' }],
+            metadata: { agent_task_id: 'task_1', spawned_by: 'main' },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /prompt from main/ })).toBeInTheDocument();
+    // Folded away by default — not a plain, always-visible message line.
+    expect(screen.queryByText('Resolve LA into coordinates.')).toBeNull();
+  });
+
+  it('a pushed watcher wake (no agent_task_id marker) renders as an ORDINARY user message — no special fold', () => {
+    render(
+      <ChildFocusView
+        agent="spotter-watcher"
+        parentLabel="main"
+        status="running"
+        messages={[
+          {
+            id: 'w1',
+            role: 'user',
+            parts: [{ type: 'text', text: "Watched session activity: the session's turn completed." }],
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    // No brief fold at all — no toggle button, no "prompt from" text.
+    expect(screen.queryByRole('button', { name: /prompt from/i })).toBeNull();
+    expect(screen.queryByText(/prompt from/i)).toBeNull();
+    // The wake renders as a normal, always-visible user message — the SAME
+    // path an ordinary transcript message takes (data-role="user").
+    const wake = screen.getByText(/Watched session activity/);
+    expect(wake.closest('[data-role="user"]')).not.toBeNull();
+  });
+
+  it('a message with an empty-string agent_task_id (falsy marker) also falls through to plain rendering', () => {
+    render(
+      <ChildFocusView
+        agent="spotter-watcher"
+        parentLabel="main"
+        status="running"
+        messages={[
+          {
+            id: 'w2',
+            role: 'user',
+            parts: [{ type: 'text', text: 'edge case: empty task id' }],
+            metadata: { agent_task_id: '' },
+          } as unknown as Message,
+        ]}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /prompt from/i })).toBeNull();
+    expect(screen.getByText('edge case: empty task id')).toBeInTheDocument();
+  });
+});
