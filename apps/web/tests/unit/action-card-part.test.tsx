@@ -3,6 +3,11 @@
  * (frozen wire contract; spotter-ai is the FIRST emitter, not the only one).
  * Pins the render contract from the registry down through Transcript's
  * onCardAction threading (the same shape HandoffPart's onOpenChild uses).
+ *
+ * clio#1218c (owner correction 2026-08-14): the card is a bordered
+ * information-box OBJECT, not a header pill with inline buttons — these
+ * tests also pin the new structure (header/badge/title regions, the
+ * severity-accent hook, and hover-only disabled-reason tooltips).
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { Message } from '@clio/core';
@@ -53,6 +58,25 @@ describe('action_card part', () => {
     expect(within(card).getByText(/run-012 anomalous/)).toBeInTheDocument();
   });
 
+  it('is a distinct card OBJECT — a bordered container with its own header/actions regions, not a bare pill', () => {
+    render(<Transcript messages={[msg('m1', [SPOTTER_ALERT])]} />);
+    const card = screen.getByTestId('part-action-card');
+    // The container itself carries the severity accent hook (CSS keys the
+    // left-border/background tint off this same data-severity attribute —
+    // contract/SPEC.md §4.5.2) — never a nested pill-only treatment.
+    expect(card).toHaveAttribute('data-severity', 'critical');
+    expect(card.className).toContain('part-actioncard');
+    // Header row: source+severity badge, then the title as its OWN prominent
+    // element (not middot-joined into the badge the way the old pill did).
+    const header = within(card).getByTestId('part-actioncard-header');
+    const title = header.querySelector('.part-actioncard__title');
+    expect(title).not.toBeNull();
+    expect(title!.textContent).toBe('SPOTTER AI has detected an issue');
+    // The action row renders INSIDE the card, as its own labeled region.
+    const actions = within(card).getByTestId('part-actioncard-actions');
+    expect(within(actions).getAllByTestId('part-actioncard-action')).toHaveLength(3);
+  });
+
   it('fires onCardAction with the part and the handle_id when an enabled focus_session button is clicked', () => {
     const onCardAction = vi.fn();
     render(
@@ -67,14 +91,20 @@ describe('action_card part', () => {
     expect(calledAction.behavior).toEqual({ kind: 'focus_session', handle_id: 'task_xxxx' });
   });
 
-  it('renders a stub action disabled, exposing its reason as the tooltip', () => {
+  it('renders a stub action disabled, its reason available ONLY as a hover tooltip — never visible inline text', () => {
     const onCardAction = vi.fn();
     render(
       <Transcript messages={[msg('m1', [SPOTTER_ALERT])]} onCardAction={onCardAction} />,
     );
+    const card = screen.getByTestId('part-action-card');
     const address = screen.getByRole('button', { name: 'Address' });
     expect(address).toBeDisabled();
+    // The reason rides the native `title` attribute (the kit's hover-only
+    // tooltip idiom, same pairing ToolbarButton's `unbacked` uses) — never
+    // rendered as its own visible text node next to/under the button (owner
+    // refinement 2026-08-14: "the buttons render disabled and clean").
     expect(address).toHaveAttribute('title', 'remediation lands in phase 2');
+    expect(within(card).queryByText('remediation lands in phase 2')).toBeNull();
     fireEvent.click(address);
     expect(onCardAction).not.toHaveBeenCalled();
   });

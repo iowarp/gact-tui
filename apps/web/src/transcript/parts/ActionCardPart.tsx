@@ -18,6 +18,15 @@ const str = (v: unknown): string => {
  * the only one; permission/HITL cards may migrate onto this shape later).
  * Flat fields on the wire `Part` (`gact/parts.py`), omit-empty like every
  * other kind: `source`, `severity`, `title`, `body`, `status`, `actions[]`.
+ *
+ * Render (clio#1218c, owner correction 2026-08-14: "this was meant to
+ * be an object, like a box... an information box" — the prior render was a
+ * bare header pill + inline buttons that read as controls injected into
+ * ordinary prose, not a distinct object in the flow): a bordered card with
+ * its own surface background and a severity-tinted left accent, offsetting
+ * it from every plain transcript part. This is a DELIBERATE exception to the
+ * flat-log/no-boxes rule the rest of the transcript follows — action_card is
+ * a notification object by design, not a message part.
  */
 export interface ActionCardAction {
   id: string;
@@ -62,10 +71,12 @@ export interface ActionCardPartProps {
 }
 
 /**
- * The action card — the prototype-neutral `.part-inj` pill family (header
- * pill: source · severity · title), a markdown body below it, then a row of
- * action buttons. Spotter-ai's alert is the first real emitter; nothing here
- * is spotter-specific — a future permission card can ride the same shape.
+ * The action card — a bordered information-box OBJECT (owner design,
+ * clio#1218c): a header row (source badge + severity label, then the
+ * title rendered prominently), a markdown body below it, then an action row
+ * that lives INSIDE the card frame rather than trailing loose in the
+ * transcript. Spotter-ai's alert is the first real emitter; nothing here is
+ * spotter-specific — a future permission card can ride the same shape.
  */
 export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
   const source = str(part['source']) || 'agent';
@@ -89,33 +100,34 @@ export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
       data-severity={severity}
       data-status={status}
     >
-      <span className="part-actioncard__pill">
-        <span className="part-actioncard__source">{source}</span>
-        <span className="part-inj__sep">·</span>
-        <span className="part-actioncard__severity">{severityRaw || severity}</span>
-        {title ? (
-          <>
-            <span className="part-inj__sep">·</span>
-            <span className="part-actioncard__title">{title}</span>
-          </>
-        ) : null}
-      </span>
+      <div className="part-actioncard__header" data-testid="part-actioncard-header">
+        <span className="part-actioncard__badge">
+          <span className="part-actioncard__source">{source}</span>
+          <span className="part-inj__sep">·</span>
+          <span className="part-actioncard__severity">{severityRaw || severity}</span>
+        </span>
+        {title ? <p className="part-actioncard__title">{title}</p> : null}
+      </div>
       {body ? (
         <div className="part-actioncard__body">
           <Markdown text={body} />
         </div>
       ) : null}
       {actions.length > 0 ? (
-        <div className="part-actioncard__actions">
+        <div className="part-actioncard__actions" data-testid="part-actioncard-actions">
           {actions.map((action, index) => {
             const kind = str(action.behavior['kind']);
             let disabled: boolean;
-            let titleAttr: string | undefined;
+            // The disabled REASON — data the wire actually carries
+            // (`behavior.reason` on a `stub` action), never fabricated for a
+            // kind that carries none (an unknown kind, or `resolved` forcing
+            // an otherwise-live action off, states no reason on the wire).
+            let reason: string | undefined;
             if (kind === 'focus_session') {
               disabled = !action.enabled;
             } else if (kind === 'stub') {
               disabled = true;
-              titleAttr = str(action.behavior['reason']) || undefined;
+              reason = str(action.behavior['reason']) || undefined;
             } else {
               // Unknown kind (or none at all): safe/neutral — never a live
               // control for a behavior this build does not understand.
@@ -132,7 +144,12 @@ export function ActionCardPart({ part, onCardAction }: ActionCardPartProps) {
                 type="button"
                 className="part-actioncard__btn"
                 disabled={disabled}
-                {...(titleAttr ? { title: titleAttr } : {})}
+                data-testid="part-actioncard-action"
+                // Owner refinement (clio#1218c, 2026-08-14): the reason
+                // surfaces ON HOVER ONLY — the kit's native-title tooltip
+                // idiom (same pairing ToolbarButton's `unbacked` uses) — the
+                // button itself stays clean, never a visible inline line.
+                {...(reason ? { title: reason } : {})}
                 onClick={() => onCardAction?.(part, action)}
               >
                 {action.label}
