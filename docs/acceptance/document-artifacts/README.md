@@ -16,7 +16,9 @@ The recorded path:
 Evidence:
 
 - `document-markdown-review.webm` is the Markdown review recording.
-- `document-pdf-review.webm` is the PDF text-layer review recording.
+- `../../screenshots/document-pdf-review.webm` is the PDF text-layer review
+  recording (media files live under `docs/screenshots/` per the CI media
+  policy; the evidence text stays here).
 - `document-floating-review.png` captures the selected text, floating composer,
   quote, and proposed comment.
 - `document-history-policy.png` captures immutable version 1 and the Policy
