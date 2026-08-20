@@ -1029,3 +1029,71 @@ describe('child view brief fold — delegation vs. pushed watcher wake (clio#121
     expect(screen.getByText('edge case: empty task id')).toBeInTheDocument();
   });
 });
+
+describe('Transcript routes a curated relay-run tool call to the run card (gact-tui#370)', () => {
+  it('renders jarvis_run through the run card, not the generic ToolPart row', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'tool_call',
+              id: 'tc1',
+              call_id: 'tc1',
+              tool_name: 'jarvis_run',
+              input: { cluster: 'ares', pipeline_id: 'p5run2' },
+            },
+            {
+              type: 'tool_result',
+              call_id: 'tc1',
+              structured_content: {
+                task_id: 'jarvis-1',
+                job_id: 'jarvis-1',
+                kind: 'jarvis',
+                state: 'queued',
+                terminal: false,
+              },
+            },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('run-card')).toBeInTheDocument();
+    expect(screen.queryByTestId('part-tool')).toBeNull();
+  });
+
+  it('an ordinary tool call (not curated as a relay run) still renders through ToolPart', () => {
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            { type: 'tool_call', id: 'tc1', call_id: 'tc1', tool_name: 'jarvis_describe', input: {} },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('part-tool')).toBeInTheDocument();
+    expect(screen.queryByTestId('run-card')).toBeNull();
+  });
+
+  it('threads client/sessionId down to the run card without requiring them', () => {
+    // No client/sessionId passed — the card must still render honestly from
+    // the static call/result snapshot (no crash, no fabricated live state).
+    render(
+      <Transcript
+        messages={[
+          msg('m1', 'assistant', [
+            {
+              type: 'tool_call',
+              id: 'tc1',
+              call_id: 'tc1',
+              tool_name: 'jarvis_run',
+              input: { cluster: 'ares', pipeline_id: 'p1' },
+            },
+          ]),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('run-card')).toHaveAttribute('data-phase', 'queued');
+  });
+});

@@ -2944,6 +2944,8 @@ export function SessionView({
                 onOpenArtifact={(artifactId) => void openArtifactById(artifactId)}
                 onCardAction={onCardAction}
                 childPreviews={childPreviews}
+                client={client}
+                {...(activeId ? { sessionId: activeId } : {})}
                 scrollContainerRef={setMainTranscriptRef}
               />
             ) : null}

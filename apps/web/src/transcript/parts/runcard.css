@@ -1,0 +1,205 @@
+/* The run card (gact-tui#370) — a relay/cluster run tool call rendered as
+   its own boxed transcript object, mirroring .part-toolrow's card grammar
+   (collapsed head, chevron, expandable well) plus a live console tail. All
+   colours/fonts are tokens (--t-*/--f-mono/--ts), same discipline as
+   parts.css and mcptaskpeek.css — no hardcoded colours. */
+
+.runcard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.runcard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-family: var(--f-mono);
+  font-size: calc(13px * var(--ts));
+  text-align: left;
+  cursor: pointer;
+}
+
+.runcard__head:hover {
+  opacity: 0.85;
+}
+
+.runcard__namewrap {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.runcard__name {
+  color: var(--t-hd);
+  font-weight: 600;
+}
+
+.runcard__hint {
+  color: var(--t-mu);
+}
+
+.runcard__cluster {
+  padding: 1px 7px;
+  background: var(--t-sf2);
+  border: 1px solid var(--t-bd35);
+  border-radius: 6px;
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.runcard__spacer {
+  flex: 1;
+}
+
+.runcard__phase {
+  color: var(--t-mu);
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
+.runcard__phase[data-phase='running'] {
+  color: var(--t-ac);
+}
+
+.runcard__phase[data-phase='completed'] {
+  color: var(--t-ok);
+}
+
+.runcard__phase[data-phase='failed'] {
+  color: var(--t-er);
+}
+
+.runcard__duration {
+  color: var(--t-mu);
+  font-size: calc(11px * var(--ts));
+  white-space: nowrap;
+}
+
+.runcard__chev {
+  display: inline-block;
+  color: var(--t-mu);
+  transition: transform 120ms ease;
+}
+
+.runcard__chev[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+/* The one-line collapsed preview — the console's own latest line, so a
+   collapsed card still shows the run is alive without opening it. Never
+   the ONLY place the full tail is available: the well below shows it in
+   full (bounded to the viewport height) once opened. */
+.runcard__preview {
+  margin: 0 0 0 18px;
+  overflow: hidden;
+  color: var(--t-mu);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runcard__well {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: 14px;
+  padding: 6px 0 6px 12px;
+  border-left: 2px solid var(--t-bd3);
+  font-family: var(--f-mono);
+  font-size: calc(12px * var(--ts));
+  min-width: 0;
+}
+
+.runcard__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.runcard__sectionlabel {
+  margin: 0;
+  color: var(--t-mu);
+  font-size: calc(10px * var(--ts));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.runcard__grid {
+  display: grid;
+  grid-template-columns: minmax(70px, max-content) minmax(0, 1fr);
+  row-gap: 3px;
+  column-gap: 12px;
+}
+
+.runcard__row {
+  display: contents;
+}
+
+.runcard__k {
+  color: var(--t-mu);
+}
+
+.runcard__v {
+  color: var(--t-pr);
+  overflow-wrap: anywhere;
+}
+
+/* The live console tail — collapsed-by-default (the whole card starts
+   closed), then bounded-height and internally scrollable once open: total
+   bytes are already capped server-side (relay_console.py), this only caps
+   the visible viewport so one dense burst never blows out the card. */
+.runcard__console {
+  margin: 0;
+  max-height: calc(12 * 1.5em);
+  padding: 8px 10px;
+  overflow-y: auto;
+  background: var(--t-well);
+  border-radius: 4px;
+  color: var(--t-tx);
+  font-family: var(--f-mono);
+  font-size: calc(11.5px * var(--ts));
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.runcard__consolenote {
+  margin: 0;
+  color: var(--t-mu);
+  font-size: calc(10.5px * var(--ts));
+  font-style: italic;
+}
+
+.runcard__reason {
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--t-well);
+  border-radius: 4px;
+  color: var(--t-tx);
+}
+
+.runcard__reason[data-error='true'] {
+  color: var(--t-er);
+}
+
+.runcard__waiting {
+  margin: 0;
+  color: var(--t-mu);
+  font-style: italic;
+}
