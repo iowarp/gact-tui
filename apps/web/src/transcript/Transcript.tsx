@@ -1,10 +1,11 @@
 import type { ReactNode, Ref } from 'react';
-import type { Message } from '@clio/core';
+import type { Client, Message } from '@clio/core';
 import { PartCard } from '../kit';
 import '../session/returncard.css';
 import { ArtifactGrid } from './parts/ArtifactChip';
 import { FanoutGroup } from './parts/FanoutGroup';
 import { MergedHandoff, type ChildPreview } from './parts/HandoffPart';
+import { isRelayRunCall, RunCardPart } from './parts/RunCardPart';
 import { ToolPart } from './parts/ToolPart';
 import { PART_RENDERERS, WrenchGlyph, type WirePart } from './registry';
 import './transcript.css';
@@ -19,6 +20,13 @@ export interface TranscriptProps {
    *  (SessionView's `childPreviews`). A handoff with no entry here just shows
    *  its plain running footer — never a fabricated preview. */
   childPreviews?: Record<string, ChildPreview>;
+  /** Live-refresh wiring for a relay/cluster run card (gact-tui#370):
+   *  the session's async-processes projection, correlated by task id.
+   *  Omitted at a call site that hasn't threaded it through yet (e.g. a
+   *  child-session focus view) — a run card still renders honestly from
+   *  its own call/result snapshot alone without them. */
+  client?: Client;
+  sessionId?: string;
   /** The `.transcript` scroller's own DOM node (`overflow-y: auto` lives
    *  here — see transcript.css). SessionView reads/writes `scrollTop`
    *  through this for two things: the progressive-load backfill's
@@ -211,6 +219,8 @@ interface TranscriptHandlers {
   onOpenChild?: TranscriptProps['onOpenChild'];
   onOpenArtifact?: TranscriptProps['onOpenArtifact'];
   childPreviews?: TranscriptProps['childPreviews'];
+  client?: TranscriptProps['client'];
+  sessionId?: TranscriptProps['sessionId'];
 }
 
 /** Groups + renders one part list under one key namespace — the shared tail
@@ -223,6 +233,8 @@ function renderPartGroups(parts: WirePart[], keyPrefix: string, handlers: Transc
       {...(handlers.onOpenChild ? { onOpenChild: handlers.onOpenChild } : {})}
       {...(handlers.onOpenArtifact ? { onOpenArtifact: handlers.onOpenArtifact } : {})}
       {...(handlers.childPreviews ? { childPreviews: handlers.childPreviews } : {})}
+      {...(handlers.client ? { client: handlers.client } : {})}
+      {...(handlers.sessionId ? { sessionId: handlers.sessionId } : {})}
     />
   ));
 }
@@ -248,9 +260,11 @@ export function Transcript({
   onOpenChild,
   onOpenArtifact,
   childPreviews,
+  client,
+  sessionId,
   scrollContainerRef,
 }: TranscriptProps) {
-  const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, childPreviews };
+  const handlers: TranscriptHandlers = { onOpenChild, onOpenArtifact, childPreviews, client, sessionId };
   return (
     // The scroller is full-width so its scrollbar rides the pane edge; the
     // 860px reading column is centred inside it. Scrolling the column itself
@@ -309,13 +323,32 @@ function RenderedGroup({
   onOpenChild,
   onOpenArtifact,
   childPreviews,
+  client,
+  sessionId,
 }: {
   group: PartGroup;
   onOpenChild?: TranscriptProps['onOpenChild'];
   onOpenArtifact?: TranscriptProps['onOpenArtifact'];
   childPreviews?: TranscriptProps['childPreviews'];
+  client?: TranscriptProps['client'];
+  sessionId?: TranscriptProps['sessionId'];
 }) {
   if (group.kind === 'tool') {
+    // A curated relay/cluster run submission (gact-tui#370) gets its own
+    // boxed run card instead of the generic tool row — same PartCard frame
+    // (gutter/rail), a different body.
+    if (isRelayRunCall(group.call)) {
+      return (
+        <PartCard kind="run" gutter={<WrenchGlyph />}>
+          <RunCardPart
+            call={group.call}
+            result={group.result}
+            {...(client ? { client } : {})}
+            {...(sessionId ? { sessionId } : {})}
+          />
+        </PartCard>
+      );
+    }
     return (
       <PartCard kind="tool" gutter={<WrenchGlyph />}>
         <ToolPart call={group.call} result={group.result} />
