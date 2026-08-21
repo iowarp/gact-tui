@@ -15,16 +15,19 @@ The recorded path:
 
 Evidence:
 
-- `document-markdown-review.webm` is the Markdown review recording.
+- `../../screenshots/document-markdown-review.webm` is the Markdown review
+  recording (media files live under `docs/screenshots/` per the CI media
+  policy; the evidence text stays here).
 - `../../screenshots/document-pdf-review.webm` is the PDF text-layer review
   recording (media files live under `docs/screenshots/` per the CI media
   policy; the evidence text stays here).
-- `document-floating-review.png` captures the selected text, floating composer,
-  quote, and proposed comment.
-- `document-history-policy.png` captures immutable version 1 and the Policy
-  view.
-- `document-pdf-review.png` captures the real rendered PDF page, its selectable
-  text layer, page-bound selection, and contextual comment.
+- `../../screenshots/document-floating-review.png` captures the selected text,
+  floating composer, quote, and proposed comment.
+- `../../screenshots/document-history-policy.png` captures immutable version 1
+  and the Policy view.
+- `../../screenshots/document-pdf-review.png` captures the real rendered PDF
+  page, its selectable text layer, page-bound selection, and contextual
+  comment.
 
 Visual review found the contextual composer legible and correctly attached to
 the document selection. History and Policy remain readable in the narrow
