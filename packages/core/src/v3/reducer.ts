@@ -87,13 +87,11 @@ function appendDelta(message: Message, blockId: string, delta: string): Message 
 }
 
 function upsertBlock(message: Message, block: MessageBlock): Message {
-  if (block.type === 'tool') {
-    const blocks = message.blocks.filter(
-      (candidate) => candidate.type !== 'tool' || candidate.tool_id !== block.tool_id,
-    );
-    return { ...message, blocks: [...blocks, block] };
-  }
-  const index = message.blocks.findIndex((candidate) => candidate.id === block.id);
+  const index = message.blocks.findIndex((candidate) =>
+    block.type === 'tool' && candidate.type === 'tool'
+      ? candidate.tool_id === block.tool_id
+      : candidate.id === block.id,
+  );
   if (index < 0) return { ...message, blocks: [...message.blocks, block] };
   const blocks = [...message.blocks];
   blocks[index] = block;

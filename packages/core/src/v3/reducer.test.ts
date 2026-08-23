@@ -120,7 +120,7 @@ describe('GACT 0.3 reducer', () => {
     expect(state.processed_cursors).toEqual([]);
   });
 
-  it('replaces a live tool call block with its result block', () => {
+  it('replaces a live tool call in place without breaking causal order', () => {
     const message = frame('1', 'message.upserted', {
       id: 'msg_1',
       session_id: 'sess_1',
@@ -132,15 +132,23 @@ describe('GACT 0.3 reducer', () => {
       message_id: 'msg_1',
       block: { id: 'call_part', type: 'tool', tool_id: 'call_1' },
     });
-    const result = frame('3', 'message.block.upserted', {
+    const surface = frame('3', 'message.block.upserted', {
+      message_id: 'msg_1',
+      block: { id: 'surface_part', type: 'a2ui', surface_id: 'surface_1' },
+    });
+    const result = frame('4', 'message.block.upserted', {
       message_id: 'msg_1',
       block: { id: 'result_part', type: 'tool', tool_id: 'call_1' },
     });
 
-    const state = [message, call, result].reduce(reduceTransportFrame, createEntityState());
+    const state = [message, call, surface, result].reduce(
+      reduceTransportFrame,
+      createEntityState(),
+    );
 
     expect(state.messages.msg_1?.blocks).toEqual([
       { id: 'result_part', type: 'tool', tool_id: 'call_1' },
+      { id: 'surface_part', type: 'a2ui', surface_id: 'surface_1' },
     ]);
   });
 
