@@ -1,0 +1,167 @@
+import { MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { A2uiSurface, CLIO_A2UI_CATALOG_ID, clioA2UICatalog } from './a2ui-catalog';
+
+vi.mock('./scientific-map-view', () => ({
+  ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
+}));
+
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    bottom: 260,
+    height: 260,
+    left: 0,
+    right: 720,
+    top: 0,
+    width: 720,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+function buildSurface(components: Record<string, unknown>[]) {
+  const surfaceId = 'scientific-view';
+  const processor = new MessageProcessor([clioA2UICatalog], async () => undefined, {
+    version: 'v0.9.1',
+  });
+  processor.processMessages([
+    {
+      version: 'v0.9.1',
+      createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID },
+    },
+    {
+      version: 'v0.9.1',
+      updateComponents: { surfaceId, components },
+    },
+  ] as A2uiMessage[]);
+  const surface = processor.model.getSurface(surfaceId);
+  if (!surface) throw new Error('Expected the test surface to exist');
+  return surface;
+}
+
+describe('CLIO A2UI scientific catalog', () => {
+  it('renders shared chart and data-grid components instead of JSON representations', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['plot', 'table'] },
+      {
+        id: 'plot',
+        component: 'clio.time-series.v1',
+        title: 'Vertical displacement',
+        xKey: 'day',
+        yKeys: ['displacement_mm'],
+        series: [
+          { day: 1, displacement_mm: 0.2 },
+          { day: 2, displacement_mm: 0.5 },
+          { day: 3, displacement_mm: 0.4 },
+        ],
+      },
+      {
+        id: 'table',
+        component: 'clio.data-table.v1',
+        columns: ['day', 'displacement_mm', 'quality'],
+        rows: [{ day: 1, displacement_mm: 0.2, quality: 'accepted' }],
+      },
+    ]);
+
+    const { container } = render(<A2uiSurface surface={surface} />);
+
+    expect(screen.getByRole('img', { name: 'Vertical displacement plot' })).toBeVisible();
+    expect(screen.getByText('3 observations')).toBeVisible();
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('columnheader', { name: 'displacement mm' })).toBeVisible();
+    expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
+    expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument();
+    expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('"series"');
+  });
+
+  it('accepts labeled table-column objects for scientific units', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['table'] },
+      {
+        id: 'table',
+        component: 'clio.data-table.v1',
+        columns: [{ key: 'displacement_mm', label: 'Displacement (mm)' }],
+        rows: [{ displacement_mm: 1.2 }],
+      },
+    ]);
+
+    render(<A2uiSurface surface={surface} />);
+
+    expect(screen.getByRole('columnheader', { name: 'Displacement (mm)' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: '1.2' })).toBeVisible();
+  });
+
+  it('keeps operational state labeled and indeterminate progress honest', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['status', 'progress'] },
+      {
+        id: 'status',
+        component: 'clio.status.v1',
+        label: 'Quality gate',
+        state: 'failed',
+      },
+      {
+        id: 'progress',
+        component: 'clio.progress.v1',
+        label: 'Collect evidence',
+        state: 'running',
+        detail: '4 of 6 sources checked',
+      },
+    ]);
+
+    render(<A2uiSurface surface={surface} />);
+
+    expect(screen.getByText('Quality gate')).toBeVisible();
+    expect(screen.getByText('failed')).toBeVisible();
+    expect(screen.queryByText('Healthy')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Collect evidence indeterminate')).toBeVisible();
+    expect(screen.getByText('4 of 6 sources checked')).toBeVisible();
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+  });
+
+  it('renders bounded interactive map locations without exposing map configuration', async () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['map'] },
+      {
+        id: 'map',
+        component: 'clio.map.v1',
+        title: 'EarthScope stations',
+        points: [
+          {
+            id: 'station_1',
+            label: 'Station 1',
+            latitude: 41.88,
+            longitude: -87.63,
+            category: 'GNSS',
+            detail: 'Illustrative station',
+          },
+          {
+            id: 'station_2',
+            label: 'Station 2',
+            latitude: 40.12,
+            longitude: -88.21,
+            category: 'Seismic',
+          },
+        ],
+      },
+    ]);
+
+    const { container } = render(<A2uiSurface surface={surface} />);
+
+    expect(await screen.findByTestId('professional-map-renderer')).toBeInTheDocument();
+    expect(screen.getByText('2 labeled locations')).toBeVisible();
+    const second = screen.getByRole('button', { name: /Station 2/ });
+    fireEvent.click(second);
+    expect(second).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('40.12000, -88.21000')).toBeVisible();
+    expect(container.textContent).not.toContain('tile.openstreetmap.org');
+  });
+});

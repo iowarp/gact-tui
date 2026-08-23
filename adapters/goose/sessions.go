@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {

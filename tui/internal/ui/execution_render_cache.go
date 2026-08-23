@@ -11,7 +11,7 @@ import (
 	"hash/maphash"
 	"strconv"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // executionNodesSignature folds a turn's projected nodes into a single value.

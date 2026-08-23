@@ -1,0 +1,498 @@
+import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BoxesIcon, MoreHorizontalIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import {
+  Frame,
+  FrameDescription,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from '@/components/reui/frame';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { ClioInteractiveRow } from './interactive-row';
+import { ClioStatus } from './status';
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <header>
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
+      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+    </header>
+  );
+}
+
+export function BlueprintSettings() {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  const { settings } = useConnectionSettings();
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceName, setSourceName] = useState('');
+  const [sourceLocation, setSourceLocation] = useState('');
+  const [sourceRef, setSourceRef] = useState('');
+  const [deleteBlueprint, setDeleteBlueprint] = useState<AgentBlueprint>();
+  const [deleteSource, setDeleteSource] = useState<AgentBlueprintSource>();
+  const blueprints = useQuery({
+    queryKey: ['agent-blueprints', settings.endpoint, 'settings'],
+    queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
+  });
+  const sources = useQuery({
+    queryKey: ['agent-blueprint-sources', settings.endpoint],
+    queryFn: ({ signal }) => repository.agentBlueprintSources(signal),
+  });
+  const invalidate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['agent-blueprints', settings.endpoint] }),
+      queryClient.invalidateQueries({ queryKey: ['agent-blueprint-sources', settings.endpoint] }),
+    ]);
+  };
+  const addSource = useMutation({
+    mutationFn: () =>
+      repository.addAgentBlueprintSource({
+        name: sourceName.trim() || sourceLocation.trim(),
+        source: sourceLocation.trim(),
+        ref: sourceRef.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      setSourceDialogOpen(false);
+      setSourceName('');
+      setSourceLocation('');
+      setSourceRef('');
+      await invalidate();
+      toast.success('Source added');
+    },
+  });
+  const refreshSource = useMutation({
+    mutationFn: (id: string) => repository.refreshAgentBlueprintSource(id),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success('Source refreshed');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const removeSource = useMutation({
+    mutationFn: (id: string) => repository.deleteAgentBlueprintSource(id),
+    onSuccess: async () => {
+      setDeleteSource(undefined);
+      await invalidate();
+      toast.success('Source removed');
+    },
+  });
+  const install = useMutation({
+    mutationFn: ({ sourceId, blueprintId }: { sourceId: string; blueprintId: string }) =>
+      repository.installAgentBlueprint({
+        source_id: sourceId,
+        blueprint_id: blueprintId,
+        scope: 'global',
+      }),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success('Blueprint installed');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const update = useMutation({
+    mutationFn: (blueprint: AgentBlueprint) =>
+      repository.updateAgentBlueprint(blueprint.id, {
+        scope: blueprint.scope === 'global' ? 'global' : 'workspace',
+      }),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success('Blueprint updated');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const removeBlueprint = useMutation({
+    mutationFn: (blueprint: AgentBlueprint) =>
+      repository.deleteAgentBlueprint(blueprint.id, {
+        scope: blueprint.scope === 'global' ? 'global' : 'workspace',
+      }),
+    onSuccess: async () => {
+      setDeleteBlueprint(undefined);
+      await invalidate();
+      toast.success('Blueprint removed');
+    },
+  });
+  const installedBlueprints = blueprints.data?.filter((blueprint) => blueprint.kind !== 'pack');
+  const installedIds = new Set(installedBlueprints?.map((blueprint) => blueprint.id));
+
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Manage installed agent blueprints and the marketplaces that publish them. Marketplace status, commit, validation, and availability come from the connected service."
+        title="Marketplaces and blueprints"
+      />
+      <Tabs defaultValue="installed">
+        <TabsList>
+          <TabsTrigger value="installed">Installed</TabsTrigger>
+          <TabsTrigger value="sources">Marketplaces</TabsTrigger>
+        </TabsList>
+        <TabsContent className="mt-4 grid gap-3" value="installed">
+          {installedBlueprints?.map((blueprint) => (
+            <Frame key={blueprint.id} spacing="sm">
+              <FramePanel className="flex items-start gap-4">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                  <BoxesIcon aria-hidden="true" className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{blueprint.display_name}</p>
+                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    <Badge variant="outline">{blueprint.scope}</Badge>
+                    <Badge variant="outline">{blueprint.version || 'Version unavailable'}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {blueprint.description || 'No description provided.'}
+                  </p>
+                  {blueprint.validation_errors.length ? (
+                    <ul className="mt-3 grid gap-1 text-xs text-destructive">
+                      {blueprint.validation_errors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label={`Actions for ${blueprint.display_name}`}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <MoreHorizontalIcon aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => update.mutate(blueprint)}>
+                      <RefreshCwIcon aria-hidden="true" /> Check for update
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => setDeleteBlueprint(blueprint)}
+                      variant="destructive"
+                    >
+                      <Trash2Icon aria-hidden="true" /> Remove
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </FramePanel>
+            </Frame>
+          ))}
+          {!blueprints.isPending && !installedBlueprints?.length ? (
+            <EmptyCatalog icon={BoxesIcon} label="No agent blueprints are installed" />
+          ) : null}
+        </TabsContent>
+        <TabsContent className="mt-4 grid gap-4" value="sources">
+          <div className="flex justify-end">
+            <Button onClick={() => setSourceDialogOpen(true)} size="sm">
+              <PlusIcon aria-hidden="true" /> Add marketplace
+            </Button>
+          </div>
+          {sources.data?.map((source) => (
+            <Frame key={source.id} spacing="sm">
+              <FrameHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <FrameTitle>{source.name}</FrameTitle>
+                    <FrameDescription className="mt-1 break-all font-mono text-xs">
+                      {source.source}
+                    </FrameDescription>
+                  </div>
+                  <ClioStatus
+                    label={source.status === 'ready' ? 'Ready' : source.status}
+                    value={source.status === 'ready' ? 'healthy' : 'degraded'}
+                  />
+                </div>
+              </FrameHeader>
+              <FramePanel className="grid gap-2 p-2">
+                {source.available_blueprints
+                  .filter((available) => available.kind !== 'pack')
+                  .map((available) => (
+                    <ClioInteractiveRow key={available.id}>
+                      <div className="flex items-center gap-3">
+                        <BoxesIcon aria-hidden="true" className="size-4 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{available.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {available.version || 'Version unavailable'}
+                          </p>
+                        </div>
+                        {installedIds.has(available.id) ? (
+                          <Badge variant="secondary">Installed</Badge>
+                        ) : (
+                          <Button
+                            disabled={!available.enabled || install.isPending}
+                            onClick={() =>
+                              install.mutate({ sourceId: source.id, blueprintId: available.id })
+                            }
+                            size="sm"
+                            variant="outline"
+                          >
+                            Install
+                          </Button>
+                        )}
+                      </div>
+                    </ClioInteractiveRow>
+                  ))}
+                {!source.available_blueprints.some((available) => available.kind !== 'pack') ? (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    This source reported no available blueprints.
+                  </p>
+                ) : null}
+              </FramePanel>
+              <FrameFooter className="flex-row items-center justify-between">
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {source.commit ? `Commit ${source.commit.slice(0, 12)}` : 'Commit unavailable'}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    disabled={refreshSource.isPending}
+                    onClick={() => refreshSource.mutate(source.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <RefreshCwIcon aria-hidden="true" /> Refresh
+                  </Button>
+                  <Button
+                    aria-label={`Remove source ${source.name}`}
+                    onClick={() => setDeleteSource(source)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <Trash2Icon aria-hidden="true" />
+                  </Button>
+                </div>
+              </FrameFooter>
+            </Frame>
+          ))}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog onOpenChange={setSourceDialogOpen} open={sourceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add blueprint marketplace</DialogTitle>
+            <DialogDescription>
+              Add a repository or local directory published by your organization.
+            </DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="blueprint-source-name">Name</FieldLabel>
+              <Input
+                id="blueprint-source-name"
+                onChange={(event) => setSourceName(event.target.value)}
+                placeholder="Scientific marketplace"
+                value={sourceName}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="blueprint-source-location">Repository or directory</FieldLabel>
+              <Input
+                id="blueprint-source-location"
+                onChange={(event) => setSourceLocation(event.target.value)}
+                placeholder="https://… or D:\\…"
+                value={sourceLocation}
+              />
+              <FieldDescription>The service validates and refreshes this source.</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="blueprint-source-ref">Branch or tag</FieldLabel>
+              <Input
+                id="blueprint-source-ref"
+                onChange={(event) => setSourceRef(event.target.value)}
+                placeholder="main"
+                value={sourceRef}
+              />
+            </Field>
+          </FieldGroup>
+          {addSource.error ? (
+            <p className="text-sm text-destructive">{addSource.error.message}</p>
+          ) : null}
+          <DialogFooter>
+            <Button onClick={() => setSourceDialogOpen(false)} variant="outline">
+              Cancel
+            </Button>
+            <Button
+              disabled={!sourceLocation.trim() || addSource.isPending}
+              onClick={() => addSource.mutate()}
+            >
+              {addSource.isPending ? 'Adding…' : 'Add marketplace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        onOpenChange={(open) => !open && setDeleteSource(undefined)}
+        open={Boolean(deleteSource)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove marketplace {deleteSource?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This forgets the marketplace. Installed blueprints remain installed until removed
+              separately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteSource && removeSource.mutate(deleteSource.id)}
+              variant="destructive"
+            >
+              Remove marketplace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        onOpenChange={(open) => !open && setDeleteBlueprint(undefined)}
+        open={Boolean(deleteBlueprint)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {deleteBlueprint?.display_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sessions already using this blueprint may lose access to its agents and declared
+              tools.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteBlueprint && removeBlueprint.mutate(deleteBlueprint)}
+              variant="destructive"
+            >
+              Remove blueprint
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+export function RelaySettings() {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const relay = useQuery({
+    queryKey: ['relay-status', settings.endpoint],
+    queryFn: ({ signal }) => repository.relayStatus(signal),
+    refetchInterval: 30_000,
+  });
+  const value = relay.data;
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="See whether this service can dispatch and observe work through a configured relay. Missing configuration is reported explicitly."
+        title="Relay"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <FrameTitle>Relay connection</FrameTitle>
+              <FrameDescription>
+                {value?.host || 'No relay address has been configured for this service.'}
+              </FrameDescription>
+            </div>
+            <ClioStatus
+              label={
+                relay.isPending
+                  ? 'Checking'
+                  : value?.reachable
+                    ? 'Reachable'
+                    : value?.configured
+                      ? 'Unavailable'
+                      : 'Not configured'
+              }
+              value={
+                relay.isPending
+                  ? 'connecting'
+                  : value?.reachable
+                    ? 'healthy'
+                    : value?.configured
+                      ? 'degraded'
+                      : 'unavailable'
+              }
+            />
+          </div>
+        </FrameHeader>
+        <FramePanel className="grid gap-3">
+          <StatusRow label="Configured" value={value?.configured ? 'Yes' : 'No'} />
+          <StatusRow
+            label="Reachability"
+            value={
+              value?.reachable === undefined
+                ? 'Unavailable'
+                : value.reachable
+                  ? 'Reachable'
+                  : 'Unreachable'
+            }
+          />
+          <StatusRow label="Last checked" value={value?.checked_at ?? 'Unavailable'} />
+          {value?.detail ? <p className="text-sm text-muted-foreground">{value.detail}</p> : null}
+        </FramePanel>
+        <FrameFooter className="items-start">
+          <Button onClick={() => void relay.refetch()} size="sm" variant="outline">
+            <RefreshCwIcon aria-hidden="true" /> Check again
+          </Button>
+        </FrameFooter>
+      </Frame>
+    </div>
+  );
+}
+
+function EmptyCatalog({ icon: Icon, label }: { icon: typeof BoxesIcon; label: string }) {
+  return (
+    <div className="grid place-items-center gap-3 rounded-lg border p-10 text-center">
+      <Icon aria-hidden="true" className="size-6 text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function StatusRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm">{value}</span>
+    </div>
+  );
+}

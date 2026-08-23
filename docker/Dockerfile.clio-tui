@@ -9,9 +9,8 @@
 # Run it INTERACTIVELY (the TUI needs a TTY):
 #   docker run -it --rm clio-tui
 #
-# Build context is the REPO ROOT — the TUI is a go.work workspace member with
-# replace directives into ../emulator and ../contract/conformance, so the whole
-# Go workspace is copied and built from the root.
+# Build context is the REPO ROOT — the deprecated TUI remains a go.work member
+# with contract dependencies, so the required Go modules are copied from root.
 #
 # Build:
 #   docker build -f docker/Dockerfile.clio-tui -t clio-tui .
@@ -33,12 +32,10 @@ FROM golang:1.25-bookworm AS go-builder
 
 WORKDIR /src
 
-# The TUI module replace-directives reference ../emulator and
-# ../contract/conformance, and go.work lists every workspace member, so copy
-# the whole workspace. These are small Go sources (no vendored deps).
+# The TUI module references the independent contract modules. Copy the remaining
+# Go workspace sources; the retired emulator is intentionally absent.
 COPY go.work go.work.sum ./
 COPY tui/ ./tui/
-COPY emulator/ ./emulator/
 COPY contract/ ./contract/
 COPY adapters/ ./adapters/
 
@@ -51,7 +48,7 @@ RUN go work edit -dropuse ./examples/loop-test
 # Static-ish build of just the TUI command. CGO off keeps the binary portable
 # across the slim runtime base.
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -C tui -trimpath -ldflags="-s -w" -o /out/gact . \
+RUN GOWORK=off go build -C tui -trimpath -ldflags="-s -w" -o /out/gact . \
     && /out/gact --help >/dev/null 2>&1 || true
 
 # --- stage 2: install clio-agent (needs git for the VCS pip install) --------

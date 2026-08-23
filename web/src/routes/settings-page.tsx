@@ -1,0 +1,471 @@
+import { brand } from '@brand';
+import { useQuery } from '@tanstack/react-query';
+import {
+  AppWindowIcon,
+  BotIcon,
+  BoxesIcon,
+  CableIcon,
+  CalendarClockIcon,
+  CheckCircle2Icon,
+  ChevronLeftIcon,
+  KeyRoundIcon,
+  InfoIcon,
+  MonitorCogIcon,
+  MoonIcon,
+  MoreHorizontalIcon,
+  PackageIcon,
+  PaletteIcon,
+  PlugZapIcon,
+  ScrollTextIcon,
+  ServerCogIcon,
+  ShieldCheckIcon,
+  SlidersHorizontalIcon,
+  SunIcon,
+  Trash2Icon,
+  WrenchIcon,
+  HeartPulseIcon,
+  BrainCircuitIcon,
+} from 'lucide-react';
+import { useTheme } from 'next-themes';
+import type { ComponentType, SVGProps } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { ClioStatus } from '@/components/clio/status';
+import { BlueprintSettings, RelaySettings } from '@/components/clio/settings-catalogs';
+import { AgentSettings } from '@/components/clio/settings-agents';
+import { ExpertPackSettings } from '@/components/clio/settings-expert-packs';
+import { SystemSettings } from '@/components/clio/settings-operations';
+import { PermissionPoliciesPanel } from '@/components/clio/settings-permissions';
+import { ToolsSettings } from '@/components/clio/settings-tools';
+import { ScheduleSettings } from '@/components/clio/settings-schedules';
+import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
+import { ModelsSettings } from '@/components/clio/settings-models';
+import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
+import { MemorySettings } from '@/components/clio/settings-memory';
+import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
+import {
+  Frame,
+  FrameDescription,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from '@/components/reui/frame';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useRepository } from '@/hooks/use-repository';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { returnRouteFromState } from '@/lib/workspace-route-memory';
+
+type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const sections: Array<{ id: string; label: string; icon: Icon }> = [
+  { id: 'connections', label: 'Connections', icon: CableIcon },
+  { id: 'session-defaults', label: 'New session defaults', icon: SlidersHorizontalIcon },
+  { id: 'providers', label: 'Models', icon: ServerCogIcon },
+  { id: 'agents', label: 'Agents', icon: BotIcon },
+  { id: 'blueprints', label: 'Marketplaces & blueprints', icon: BoxesIcon },
+  { id: 'expert-packs', label: 'Expert packs', icon: PackageIcon },
+  { id: 'tools', label: 'Tools & integrations', icon: WrenchIcon },
+  { id: 'prompts', label: 'Prompts & commands', icon: ScrollTextIcon },
+  { id: 'schedules', label: 'Scheduled work', icon: CalendarClockIcon },
+  { id: 'relays', label: 'Relay', icon: PlugZapIcon },
+  { id: 'permissions', label: 'Permissions', icon: ShieldCheckIcon },
+  { id: 'memory', label: 'Memory', icon: BrainCircuitIcon },
+  { id: 'system', label: 'System', icon: HeartPulseIcon },
+  { id: 'appearance', label: 'Appearance', icon: PaletteIcon },
+  { id: 'desktop', label: 'Desktop', icon: MonitorCogIcon },
+  { id: 'about', label: 'About', icon: InfoIcon },
+];
+
+function ConnectionsSettings() {
+  const repository = useRepository();
+  const { settings, recents, connect, forget } = useConnectionSettings();
+  const capabilities = useQuery({
+    queryKey: ['capabilities', settings.endpoint],
+    queryFn: ({ signal }) => repository.capabilities(signal),
+  });
+  const connectionState = capabilities.isPending
+    ? 'connecting'
+    : capabilities.isError
+      ? 'offline'
+      : capabilities.data.degradations.length
+        ? 'degraded'
+        : 'healthy';
+
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Choose where your workspace runs and manage addresses you have connected to before."
+        title="Connections"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Current connection</FrameTitle>
+          <FrameDescription>
+            The app reconnects to the most recently used address when it opens.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="flex flex-wrap items-center gap-4">
+          <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <CableIcon aria-hidden="true" className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {settings.label || new URL(settings.endpoint).host}
+            </p>
+            <p className="truncate font-mono text-xs text-muted-foreground">{settings.endpoint}</p>
+          </div>
+          <ClioStatus
+            detail={capabilities.error instanceof Error ? capabilities.error.message : undefined}
+            value={connectionState}
+          />
+        </FramePanel>
+        <FrameFooter className="items-start">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/?intent=connect">Add or test a service</Link>
+          </Button>
+        </FrameFooter>
+      </Frame>
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Remembered connections</FrameTitle>
+          <FrameDescription>
+            Use the menu on an address to reconnect or remove it from this device.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="grid gap-1 p-2">
+          {recents.map((connection) => {
+            const active = connection.endpoint === settings.endpoint;
+            return (
+              <div
+                className="flex min-w-0 items-center gap-3 rounded-lg border border-transparent px-3 py-2 hover:border-border hover:bg-accent/50 focus-within:border-ring"
+                key={connection.endpoint}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {connection.label || new URL(connection.endpoint).host}
+                  </p>
+                  <p className="truncate font-mono text-xs text-muted-foreground">
+                    {connection.endpoint}
+                  </p>
+                </div>
+                {active ? <Badge variant="secondary">Current</Badge> : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label={`Service actions for ${connection.label || connection.endpoint}`}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <MoreHorizontalIcon aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => connect(connection)}>
+                      <CableIcon aria-hidden="true" /> Connect
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={active}
+                      onSelect={() => forget(connection.endpoint)}
+                      variant="destructive"
+                    >
+                      <Trash2Icon aria-hidden="true" /> Forget on this device
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          })}
+          {recents.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">No remembered connections yet.</p>
+          ) : null}
+        </FramePanel>
+      </Frame>
+    </div>
+  );
+}
+
+function PermissionsSettings() {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const permissions = useQuery({
+    queryKey: ['permissions', settings.endpoint],
+    queryFn: ({ signal }) => repository.permissions(signal),
+  });
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Review requests that need your decision. The agent cannot approve its own protected actions."
+        title="Permissions"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Requests</FrameTitle>
+          <FrameDescription>
+            Only decisions reported by the service are shown here.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="grid gap-2">
+          {permissions.data?.map((permission) => (
+            <Alert
+              key={permission.id}
+              variant={permission.risk === 'high' ? 'destructive' : 'default'}
+            >
+              <KeyRoundIcon aria-hidden="true" />
+              <AlertTitle>{permission.tool_name}</AlertTitle>
+              <AlertDescription>
+                {permission.reason ?? 'No reason was provided.'}, {permission.status ?? 'pending'}
+              </AlertDescription>
+            </Alert>
+          ))}
+          {permissions.data?.length === 0 ? (
+            <Alert>
+              <CheckCircle2Icon aria-hidden="true" />
+              <AlertTitle>No permission requests</AlertTitle>
+              <AlertDescription>
+                There are no pending or recorded decisions on this connection.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {permissions.isError ? (
+            <Alert variant="destructive">
+              <KeyRoundIcon aria-hidden="true" />
+              <AlertTitle>Permissions unavailable</AlertTitle>
+              <AlertDescription>{permissions.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </FramePanel>
+      </Frame>
+      <PermissionPoliciesPanel />
+    </div>
+  );
+}
+
+function AppearanceSettings() {
+  const { resolvedTheme, theme, setTheme } = useTheme();
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Choose how the workspace looks. Motion follows your operating system’s reduced-motion preference."
+        title="Appearance"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Theme</FrameTitle>
+          <FrameDescription>
+            System follows the operating system; light and dark use distinct palettes.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <RadioGroup
+            className="grid sm:grid-cols-3"
+            onValueChange={setTheme}
+            value={theme ?? 'system'}
+          >
+            {[
+              { value: 'system', label: 'System', icon: MonitorCogIcon },
+              { value: 'dark', label: 'Dark', icon: MoonIcon },
+              { value: 'light', label: 'Light', icon: SunIcon },
+            ].map(({ value, label, icon: ThemeIcon }) => (
+              <FieldLabel htmlFor={`theme-${value}`} key={value}>
+                <Field>
+                  <span className="flex items-center gap-3">
+                    <ThemeIcon aria-hidden="true" className="size-5 text-primary" />
+                    <FieldContent>
+                      <FieldTitle>{label}</FieldTitle>
+                      <FieldDescription>
+                        {value === 'system' ? `Currently ${resolvedTheme}` : `${label} palette`}
+                      </FieldDescription>
+                    </FieldContent>
+                    <RadioGroupItem id={`theme-${value}`} value={value} />
+                  </span>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </FramePanel>
+      </Frame>
+    </div>
+  );
+}
+
+function DesktopSettings() {
+  const desktop = inTauri();
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="See which operating-system integrations are available in this build."
+        title="Desktop"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Desktop integration</FrameTitle>
+          <FrameDescription>
+            Native lifecycle and credential features are available only in the installed app.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="grid gap-4">
+          {[
+            ['Native connection management', desktop],
+            ['Secure credentials', desktop],
+            ['Menus and system tray', desktop],
+            ['Sleep and wake recovery', desktop],
+          ].map(([label, available]) => (
+            <div className="flex items-center justify-between gap-3" key={String(label)}>
+              <span className="flex items-center gap-2 text-sm">
+                <AppWindowIcon aria-hidden="true" className="size-4 text-primary" />
+                {label}
+              </span>
+              <ClioStatus
+                label={available ? 'Available' : 'Browser only'}
+                value={available ? 'healthy' : 'unavailable'}
+              />
+            </div>
+          ))}
+        </FramePanel>
+        {!desktop ? (
+          <FrameFooter className="items-start">
+            <p className="text-sm text-muted-foreground">
+              Open this workspace in the installed desktop app to configure native integrations.
+            </p>
+          </FrameFooter>
+        ) : null}
+      </Frame>
+    </div>
+  );
+}
+
+function SettingsSection({ section }: { section: string }) {
+  if (section === 'connections') return <ConnectionsSettings />;
+  if (section === 'session-defaults') return <SessionDefaultsSettings />;
+  if (section === 'providers') return <ModelsSettings />;
+  if (section === 'agents') return <AgentSettings />;
+  if (section === 'blueprints') return <BlueprintSettings />;
+  if (section === 'expert-packs') return <ExpertPackSettings />;
+  if (section === 'tools') return <ToolsSettings />;
+  if (section === 'prompts') return <PromptsCommandsSettings />;
+  if (section === 'schedules') return <ScheduleSettings />;
+  if (section === 'relays') return <RelaySettings />;
+  if (section === 'permissions') return <PermissionsSettings />;
+  if (section === 'memory') return <MemorySettings />;
+  if (section === 'system') return <SystemSettings />;
+  if (section === 'desktop') return <DesktopSettings />;
+  if (section === 'about') return <AboutSettings />;
+  return <AppearanceSettings />;
+}
+
+function AboutSettings() {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const capabilities = useQuery({
+    queryKey: ['capabilities', settings.endpoint],
+    queryFn: ({ signal }) => repository.capabilities(signal),
+  });
+  const activeModel = capabilities.data?.active_model;
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description={`Product identity comes from the active brand profile. Service versions and model identity below are reported by ${new URL(settings.endpoint).host}.`}
+        title={`About ${brand.name}`}
+      />
+      <Frame spacing="sm">
+        <FramePanel>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <AboutValue label="Product" value={brand.name} />
+            <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
+            <AboutValue label="Connected service" value={new URL(settings.endpoint).host} />
+            <AboutValue
+              label="Active model"
+              value={
+                activeModel
+                  ? `${activeModel.provider_id}, ${activeModel.model_id}${activeModel.effort ? `, ${activeModel.effort}` : ''}`
+                  : 'Unavailable'
+              }
+            />
+            <AboutValue
+              label="Workspace protocol"
+              value={capabilities.data?.gact_versions.join(', ') || 'Unavailable'}
+            />
+            <AboutValue
+              label="Interactive views"
+              value={capabilities.data?.a2ui_versions.join(', ') || 'Unavailable'}
+            />
+          </dl>
+          {capabilities.error ? (
+            <Alert className="mt-4" variant="destructive">
+              <AlertTitle>Service details unavailable</AlertTitle>
+              <AlertDescription>{capabilities.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </FramePanel>
+      </Frame>
+      {brand.homeUrl ? (
+        <Button asChild className="w-fit" variant="outline">
+          <a href={brand.homeUrl} rel="noreferrer" target="_blank">
+            Product website
+          </a>
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function AboutValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words">{value}</dd>
+    </div>
+  );
+}
+
+export function SettingsPage() {
+  const { section = 'appearance' } = useParams();
+  const location = useLocation();
+  return (
+    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+      <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
+        <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
+          <Button asChild className="mb-4 justify-start" variant="ghost">
+            <Link to={returnRouteFromState(location.state)}>
+              <ChevronLeftIcon aria-hidden="true" /> Workspace
+            </Link>
+          </Button>
+          {sections.map(({ id, label, icon: SectionIcon }) => (
+            <Button
+              asChild
+              className="justify-start"
+              key={id}
+              variant={id === section ? 'secondary' : 'ghost'}
+            >
+              <Link to={`/settings/${id}`}>
+                <SectionIcon aria-hidden="true" /> {label}
+              </Link>
+            </Button>
+          ))}
+        </nav>
+        <section className="min-w-0 pb-16">
+          <SettingsSection section={section} />
+        </section>
+      </div>
+    </main>
+  );
+}

@@ -3,7 +3,7 @@ package ui
 // commandPaletteComponent + appCommandState: the command palette, slash-command list, and palette search.
 
 import (
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 

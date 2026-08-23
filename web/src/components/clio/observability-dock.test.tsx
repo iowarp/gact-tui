@@ -1,0 +1,185 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const repository = vi.hoisted(() => ({
+  readArtifactBytesFor: vi.fn().mockResolvedValue(new Uint8Array([137, 80, 78, 71])),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+import { ClioObservabilityView } from './observability-dock';
+import { groupToolsForWork } from './observability-grouping';
+
+beforeEach(() => {
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:artifact-preview'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: vi.fn(() => undefined),
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(URL, 'createObjectURL');
+  Reflect.deleteProperty(URL, 'revokeObjectURL');
+});
+
+describe('ClioObservabilityView', () => {
+  it('groups repeated terminal operations in Work without erasing their records', () => {
+    const repeated = Array.from({ length: 3 }, (_, index) => ({
+      id: `wait_${index}`,
+      session_id: 'sess_1',
+      name: 'wait_agent_tasks',
+      title: 'Wait for child agents',
+      state: 'succeeded' as const,
+      output: { summary: 'All child agents completed.' },
+    }));
+
+    expect(groupToolsForWork(repeated)).toEqual([
+      expect.objectContaining({ count: 3, tool: repeated[0] }),
+    ]);
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        presentation="canvas"
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={repeated}
+      />,
+    );
+
+    expect(screen.getAllByText('Wait for child agents')).toHaveLength(1);
+    expect(screen.getByText('3 calls')).toBeVisible();
+  });
+
+  it('shows real process spans and groups session evidence without raw payloads', async () => {
+    const user = userEvent.setup();
+    const openDiff = vi.fn();
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[
+          {
+            id: 'artifact_1',
+            session_id: 'sess_1',
+            name: 'station-plot.png',
+            media_type: 'image/png',
+            uri: 'artifact://station-plot.png',
+          },
+        ]}
+        contextFiles={[
+          {
+            path: 'notes.md',
+            display_path: 'notes.md',
+            mode: 'pin',
+            size: 42,
+          },
+        ]}
+        contextFrames={[
+          {
+            id: 'frame_1',
+            session_id: 'sess_1',
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:01:00Z',
+            status: 'completed',
+            model: {},
+            agent: {},
+            prompt: {},
+            items: [],
+            tokens_estimated: 256,
+            metadata: {},
+          },
+        ]}
+        diffs={[
+          {
+            path: 'src/analysis.py',
+            status: 'pending',
+            applied: false,
+            unified_diff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        ]}
+        messages={[
+          {
+            id: 'message_1',
+            session_id: 'sess_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'plan_1', type: 'plan', title: 'Validate the station catalog' },
+              {
+                id: 'citation_1',
+                type: 'citation',
+                label: 'EarthScope catalog',
+                uri: 'https://example.test/earthscope',
+              },
+            ],
+          },
+        ]}
+        onOpenDiff={openDiff}
+        onOpenSubagent={() => undefined}
+        presentation="canvas"
+        processes={[
+          {
+            kind: 'agent',
+            id: 'task_1',
+            title: 'ndp #1',
+            live_state: 'completed',
+            status: 'completed',
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:01:00Z',
+            result: {
+              workflow_state: {
+                acquisition: { source_url: 'https://example.test/data.csv' },
+              },
+            },
+            metadata: {},
+          },
+        ]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Observed execution spans' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Child-agent delegation topology' })).toBeVisible();
+    expect(screen.getAllByText('ndp #1')).toHaveLength(2);
+    expect(screen.getByText(/bars show concurrency/i)).toBeVisible();
+
+    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
+
+    expect(screen.getByText('Session evidence')).toBeVisible();
+    expect(screen.getByText('src/analysis.py')).toBeVisible();
+    expect(screen.getByRole('link', { name: /EarthScope catalog/i })).toHaveAttribute(
+      'href',
+      'https://example.test/earthscope',
+    );
+    expect(screen.getByRole('link', { name: /data\.csv/i })).toHaveAttribute(
+      'href',
+      'https://example.test/data.csv',
+    );
+    expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Review diff for src/analysis.py in canvas' }),
+    );
+    expect(openDiff).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'src/analysis.py', status: 'pending' }),
+    );
+  });
+});
+
+function renderObservability(children: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+}

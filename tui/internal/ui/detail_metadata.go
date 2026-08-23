@@ -2,7 +2,7 @@ package ui
 
 // detail_metadata.go computes the remaining (unhandled) part metadata and route-source label for detail views.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 func detailMetadataRemainder(p gact.Part) map[string]any {
 	if len(p.Metadata) == 0 {

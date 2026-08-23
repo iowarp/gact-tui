@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // TestCLI_LogJSON covers MMMM1: `gact log --format json` emits one

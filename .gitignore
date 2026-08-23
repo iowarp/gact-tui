@@ -14,6 +14,20 @@ bin/
 coverage.txt
 coverage.html
 
+# JavaScript workspace artifacts
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
+.pnpm-store/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.generated-branding/
+
 # Loop-test artifacts (kept for reference but binaries/screenshots regenerated)
 examples/loop-test/hello
 examples/loop-test/hello.gif
@@ -42,15 +56,11 @@ tui/gact.exe
 # Env / secrets
 .env
 .env.*
+brand.config.local.json
 *.pem
 *.key
 
-# Emulator / TUI build outputs (added once those exist)
-emulator/emulator-server
-# Stray binary that occasionally lands at the repo root from
-# `go build -o emulator-server ./emulator/...` run from the root.
-/emulator-server
-emulator/coverage.txt
+# Deprecated TUI build outputs
 tui/gact
 tui/coverage.txt
 
@@ -70,12 +80,12 @@ screenshots/
 # Backup files
 *.bak
 
-# apps/web/ visual-test captures are regenerable output, never tracked. The
+# web/ visual-test captures are regenerable output, never tracked. The
 # Playwright suite renders them on demand (uploaded as a CI artifact); the sole
 # committed screenshot home is docs/screenshots/ (media policy in CLAUDE.md,
 # enforced by scripts/check_media_policy.py — iowarp/gact-tui#235). Ignore the
 # whole tree; do not re-introduce tracked baselines here.
-apps/web/screenshots/
+web/screenshots/
 
 # Python bytecode
 __pycache__/
@@ -88,3 +98,13 @@ __pycache__/
 
 # Local clio-agent runtime state (sessions, messages) — never source.
 .clio/
+# Local component-catalog skills installed for coding agents; not product source.
+/.agents/
+/.cursor/
+/.opencode/
+/.claude/skills/21st-cli-use/
+/.claude/skills/ai-elements/
+/.claude/skills/reui/
+/.claude/skills/shadcn/
+/opencode.json
+/skills-lock.json

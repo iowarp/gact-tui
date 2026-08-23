@@ -3,7 +3,7 @@ package ui
 // lmConfigComponent + lmConfigState: the language-model (provider/model) configuration overlay.
 
 import (
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 

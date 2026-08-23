@@ -2,7 +2,7 @@ package render
 
 // render_tool_result_pairing.go pairs tool results to their calls across messages.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 // PairToolResults walks a slice of messages and, for each assistant message
 // that contains tool_call parts, builds a map from call_id to tool_result Part

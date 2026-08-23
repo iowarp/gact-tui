@@ -5,7 +5,7 @@ package ui
 import (
 	"encoding/json"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // decodeMessage round-trips a generic map[string]any (from SSE payloads)

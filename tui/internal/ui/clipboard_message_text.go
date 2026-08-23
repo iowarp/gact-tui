@@ -5,7 +5,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // messageText returns the concatenated text/thinking content of a

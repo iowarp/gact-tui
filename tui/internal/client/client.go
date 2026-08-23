@@ -1,6 +1,6 @@
 // Package client is a typed HTTP + SSE client for a GACT v0.1 backend.
 //
-// Wire types come from the shared github.com/JaimeCernuda/gact-tui/emulator/pkg/gact
+// Wire types come from the shared github.com/JaimeCernuda/gact-tui/contract/gact
 // module. The TUI never depends on emulator implementation details — only
 // on the wire types, which are normative per contract/SPEC.md.
 package client
@@ -15,7 +15,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // Client is a GACT v0.1 client.

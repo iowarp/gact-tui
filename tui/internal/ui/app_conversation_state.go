@@ -2,7 +2,7 @@ package ui
 
 // conversationComponent: the transcript viewport, selection, copy, and render-cache domain.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 // conversationComponent owns the transcript domain: the loaded message list,
 // viewport scroll/selection cursor, per-message render cache, and the

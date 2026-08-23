@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // runWatch polls GetSession every --interval and prints one TSV row

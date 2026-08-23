@@ -1,174 +1,72 @@
-# GACT — Generic Agentic TUI
+# Agent Workspace
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go: 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](https://go.dev/dl/)
-[![Contract: v0.2](https://img.shields.io/badge/Contract-v0.2-blueviolet.svg)](contract/SPEC.md)
+A product-neutral React and Tauri workspace for agent services that implement
+GACT. Product identity and scientific-domain terminology are supplied by the
+embedding agent's brand profile; this repository's tracked default is `Agent
+Workspace`.
 
-<p align="center">
-  <img src="apps/design/assets/brand/Banner.png" alt="GACT banner" width="100%" />
-</p>
+The active product surfaces are at the top level:
 
-**Building a TUI for an agentic loop is hard** — permission prompts, streaming
-partials, tool gating, diff apply/reject, MCP catalogs, SSE reconnects,
-per-session state. Every coder (Claude Code, OpenCode, Crush, Goose, …) re-solves
-these differently and locks you into its own UI.
+- [`web/`](web/) — React 19 workspace, routes, normalized live state, streaming,
+  scientific A2UI renderer, accessibility, and browser transport.
+- [`desktop/`](desktop/) — Tauri host, native REST/SSE transport, supervisor,
+  credentials, SSH/tunnels, updater, and lifecycle integration.
+- [`packages/core/`](packages/core/) — DOM-free schemas, transports, repository,
+  reducers, selectors, and retained wire clients.
+- [`branding/`](branding/) — neutral profile and build-time brand selection.
+- [`contract/gact/`](contract/gact/) — independent Go wire types used by remaining
+  Go consumers.
 
-**GACT inverts that:** define the wire contract once, build one good TUI, then
-write a thin adapter per backend. If your agent speaks [**GACT v0.2**](contract/SPEC.md)
-— REST + SSE — the TUI just works. It's **extendable** (drop in an adapter),
-**modifiable** (Lipgloss themes and Bubbletea components all the way down), and
-**scriptable** (~70 CLI subcommands alongside the interactive TUI).
+The Go TUI remains under [`tui/`](tui/) for compatibility but is deprecated and
+is not the primary product. The old web applications and reference emulator have
+been removed.
 
-The canonical backend is [iowarp/clio-agent](https://github.com/iowarp/clio-agent),
-a scientific-data agent that drives 28 of 30 v0.2 capabilities end-to-end. See
-[`docs/FEATURES.md`](docs/FEATURES.md) for live captures of every advertised
-feature (curated screenshots live under [`docs/screenshots/`](docs/screenshots/)).
+## Development
 
-|  |  |
-|---|---|
-| ![streaming](docs/screenshots/02-streaming.png) | ![tool demarcation](docs/screenshots/25-tool-demarcation.png) |
-| Mid-stream — running badge, thinking + tool call | Claude-Code-style `ToolName(arg)` headers + `⎿` continuation |
-| ![compose](docs/screenshots/45-compose-typing.png) | ![file picker](docs/screenshots/49-file-picker-filtered.png) |
-| `Ctrl+G` long-form compose modal | `@` fuzzy workspace-file picker |
-
-## Quick tour
-
-Two ways to run — pick the one that matches your stack.
-
-**Against the reference emulator (no API keys, no network):**
-```sh
-emulator-server --port 7777 --timing realistic &
-GACT_BACKEND=http://localhost:7777 gact
-```
-
-**Against your real agent (Claude Code):**
-```sh
-gact agent deploy claudecode myclaude   # spawns the adapter detached
-gact connect myclaude                   # interactive TUI
-# Ctrl+Z detaches the TUI; the adapter keeps running.
-gact resume                             # comes back where you were
-gact agent stop myclaude                # when you're done
-```
-
-**Scripting, without the TUI:**
-```sh
-gact dashboard --sort newest                      # live sessions table
-gact ask <sid> "summarise the diff"               # one-shot Q&A
-gact log <sid> --role assistant --grep "error"    # filter conversation
-```
-
-Inside the TUI: type a message, then watch the thinking stream, the tool call
-fire, the result render, and the reply stream back. Try `delete the temp dir`
-for the permission flow, or `propose an edit to main.go` for a `file_diff` you
-can `a`pply or `r`eject.
-
-## Install
-
-Requires Go 1.25+ and a 256-color (or true-color) terminal.
+Requirements: Node 22 LTS and pnpm 9.15.9.
 
 ```sh
-git clone https://github.com/iowarp/gact-tui
-cd gact-tui
-make build && make install        # → ~/.local/bin/{gact,emulator-server}
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-Optional local file previews (images, PDF, HTML, scientific formats) use external
-renderers when available — `make file-renderers-check` /
-`make install-file-renderers`, or [`docs/FILE_RENDERERS.md`](docs/FILE_RENDERERS.md).
+The default development address is `http://127.0.0.1:5173`. The connection page
+remembers successful endpoints, attempts the last working endpoint on return,
+and keeps access-token entry under Advanced settings.
 
-## Drive a real backend
-
-Adapters translate **GACT v0.2 ↔ a vendor protocol**, shipped as a sidecar binary
-you run between the TUI and the upstream. Each passes the
-[`contract/conformance`](contract/conformance/) suite, so the TUI behaves
-identically across all of them.
-
-| Backend | Adapter | Notes |
-|---|---|---|
-| [Claude Code](https://github.com/anthropics/claude-code) (recommended) | [`adapters/claudecode/`](adapters/claudecode/) | Native Go — drives `claude --output-format stream-json` directly; no Python runtime |
-| Claude Code (Python) | [`adapters/claude-agent-sdk-server/`](adapters/claude-agent-sdk-server/) | Python sidecar on `claude-agent-sdk`; feature-equivalent to the Go adapter |
-| [OpenCode](https://github.com/opencode-ai/opencode) | [`adapters/opencode/`](adapters/opencode/) | Go proxy of the OpenCode HTTP API |
-| [Crush](https://github.com/charmbracelet/crush) | [`adapters/crush/`](adapters/crush/) | Go proxy of the Crush HTTP API |
-| [Goose](https://github.com/block/goose) | [`adapters/goose/`](adapters/goose/) | Go proxy of the goosed HTTP API |
-| [CLIO Agent](https://github.com/iowarp/clio-agent) | *(in-process, Python)* | v0.2 native: tier-1→tier-2 routing, memory stats, tool telemetry, cost tracking, forks, permissions, two-phase edits |
-
-### The CLIO backend
-
-The one-line CLIO installer drops a `clio` launcher on your PATH — the supported
-path for the reference stack:
+## Verification
 
 ```sh
-# Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh | bash
-clio                                          # ensure server up, attach TUI
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1 | iex
-clio
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-On first launch the TUI pops the LM-provider modal — pick a preset (OpenAI,
-Anthropic, OpenRouter, LM Studio, Ollama, Codex, ALCF), paste a key if needed, and
-the next turn uses it. Tool servers (HDF5, Parquet) need extra config — see
-[CLIO's provider docs](https://github.com/iowarp/clio-agent/blob/main/docs/providers/README.md).
+`packages/core/tests/live-clio.test.ts` is an explicit live-environment suite and
+is not represented as a skipped unit test. Run it only against an authorized real
+service with `pnpm --filter @clio/core test:live`.
 
-## Build an adapter for your own backend
-
-1. **Read the contract.** Every endpoint your adapter implements (or opts out of
-   via `capabilities.<flag> = false`) is in [`contract/SPEC.md`](contract/SPEC.md).
-2. **Fork an existing adapter.** `adapters/crush/` and `adapters/opencode/` are
-   compact Go proxies you can read in one sitting — an HTTP router (`server.go`),
-   an upstream client, and a schema-translation layer (`translate.go`).
-3. **Run conformance.** Add a `conformance_test.go` that boots your adapter and
-   calls `conformance.Run(t, srv.URL, opts)`. The suite locks session CRUD, the
-   SSE envelope shapes, MCP drill-downs, diffs, agents, tools, metrics,
-   workspaces, and permissions.
-4. **Open a PR.** If conformance passes, the TUI just works.
-
-The TUI is feature-gated on `GET /v1/capabilities`: an adapter that doesn't
-implement, say, `capabilities.diffs` automatically hides the diff workflow — no
-per-adapter TUI code.
-
-## What you get
-
-A quick taste — the full keybinding / CLI / capability reference is in
-[`docs/FEATURES.md`](docs/FEATURES.md):
-
-- **Themes** — 7 built-ins (Dracula, Nord, Tokyo Night, Solarized, …) plus custom JSON palettes
-- **Input** — `@`-file picker, `/`-slash palette, `Ctrl+G` compose modal, bracketed-paste compression
-- **Permissions** — `a`/`d` / allow-session / allow-workspace, plus a config rules engine
-- **Diffs** — `a`/`r` apply/reject `file_diff` parts inline
-- **Session resume** — `Ctrl+Z` clean detach → `gact resume`, surfaced across header, sidebar, and dashboard
-- **CLI** — ~70 subcommands (`ask`, `send`, `log`, `follow`, `dashboard`, `grep`, `dump-bundle`, completions)
-- **Plugins** — loaded from `~/.config/gact/plugins/<name>/plugin.json`
-
-## Tests
+The remaining contract and adapter Go modules have a separate gate. The
+deprecated TUI may still be built explicitly:
 
 ```sh
-make test        # emulator + tui + conformance + every adapter
-make test-race   # same, under -race
+make test-go
+make build-tui
 ```
 
-All tests pass in CI. UI changes re-record their VHS tapes under
-`tui/testdata/tapes/` (see the `tui-screenshot` skill).
+No default build or test target starts an emulator.
 
-## Project layout
+## Product branding
 
-- [`tui/`](tui/) — the Bubbletea client + CLI subcommands
-- [`emulator/`](emulator/) — reference backend (boots in ~50ms, no deps)
-- [`contract/`](contract/) — [**SPEC.md**](contract/SPEC.md) + the conformance suite every adapter must pass
-- [`adapters/`](adapters/) — Claude Code (Go + Python), OpenCode, Crush, Goose
-- [`apps/`](apps/) — the web + desktop frontends (pnpm workspace)
-- [`docs/`](docs/README.md) — all documentation, indexed by [`docs/README.md`](docs/README.md)
+[`brand.config.json`](brand.config.json) selects the tracked neutral profile.
+An embedding product selects its own profile through a gitignored
+`brand.config.local.json`; CLIO's assets and landing language, for example, are
+owned by `clio-agent/branding/clio`. See [`branding/README.md`](branding/README.md).
 
-## Contributing
+## Protocol direction
 
-Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`).
-Run `make test-race` before pushing; UI changes are proven with a tape-rendered
-capture — curated doc screenshots live under `docs/screenshots/` (see the media
-policy in [`CLAUDE.md`](CLAUDE.md)). See [`CLAUDE.md`](CLAUDE.md) for the full
-working rules.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+The new workspace consumes scoped GACT 0.3 events and A2UI 0.9.1. A2UI is a
+persistent product surface: an agent may author it through a trusted server tool,
+but users receive rendered diagrams, code, plots, tables, evidence, and actions—not
+serialized component JSON.

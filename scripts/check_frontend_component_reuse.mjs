@@ -1,0 +1,105 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const root = resolve(import.meta.dirname, '..');
+
+const requiredImports = {
+  'web/src/components/clio/conversation.tsx': [
+    '@/components/ai-elements/conversation',
+    '@/components/ai-elements/code-block',
+    '@/components/ai-elements/message',
+    '@/components/ai-elements/plan',
+    './artifact-card',
+    './conversation-process-sequence',
+  ],
+  'web/src/components/clio/conversation-process-sequence.tsx': [
+    '@/components/ai-elements/chain-of-thought',
+    '@/components/ai-elements/message',
+    '@/components/ai-elements/task',
+    './subagent-card',
+    './tool-invocation',
+  ],
+  'web/src/components/clio/composer.tsx': [
+    '@/components/ai-elements/model-selector',
+    '@/components/ai-elements/prompt-input',
+  ],
+  'web/src/components/clio/tool-invocation.tsx': ['@/components/ai-elements/tool'],
+  'web/src/components/clio/artifact-card.tsx': [
+    '@/components/ai-elements/artifact',
+    '@/components/ai-elements/attachments',
+  ],
+  'web/src/components/clio/resource-viewers.tsx': [
+    '@/components/ai-elements/artifact',
+    '@/components/ai-elements/attachments',
+    '@/components/ai-elements/code-block',
+  ],
+  'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
+  'web/src/components/clio/pending-interactions.tsx': ['@/components/ai-elements/confirmation'],
+  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
+  'web/src/components/clio/workbench-resource-browser.tsx': [
+    '@/components/ai-elements/file-tree',
+    '@/components/reui/frame',
+    './artifact-card',
+  ],
+  'web/src/components/clio/observability-dock.tsx': [
+    '@/components/reui/timeline',
+    '@/components/ui/tabs',
+  ],
+  'web/src/components/clio/observability-evidence.tsx': [
+    '@/components/ai-elements/code-block',
+    '@/components/reui/frame',
+    './artifact-card',
+  ],
+  'web/src/components/clio/inspector.tsx': [
+    '@/components/ai-elements/context',
+    '@/components/ai-elements/file-tree',
+    '@/components/reui/timeline',
+    './artifact-card',
+  ],
+  'web/src/components/clio/a2ui-catalog.tsx': [
+    '@/components/ai-elements/artifact',
+    '@/components/ai-elements/code-block',
+    '@/components/ai-elements/confirmation',
+    '@/components/reui/frame',
+  ],
+  'web/src/components/clio/data-table.tsx': ['@/components/reui/data-grid/data-grid'],
+  'web/src/routes/runs-page.tsx': ['@/components/reui/data-grid/data-grid'],
+  'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
+  'web/src/components/clio/settings-models.tsx': ['@/components/ui/select'],
+  'web/src/components/clio/settings-prompts.tsx': [
+    '@/components/ai-elements/code-block',
+    '@/components/reui/frame',
+  ],
+  'web/src/components/clio/document-workspace.tsx': [
+    '@/components/ai-elements/code-block',
+    '@/components/ai-elements/message',
+    '@/components/reui/timeline',
+  ],
+};
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function imports(source, moduleName) {
+  return new RegExp(`from\\s+['"]${escapeRegExp(moduleName)}['"]`, 'u').test(source);
+}
+
+const failures = [];
+for (const [relativePath, modules] of Object.entries(requiredImports)) {
+  const source = readFileSync(resolve(root, relativePath), 'utf8');
+  for (const moduleName of modules) {
+    if (!imports(source, moduleName)) failures.push(`${relativePath}: missing ${moduleName}`);
+  }
+}
+
+if (failures.length) {
+  for (const failure of failures) console.error(failure);
+  console.error(
+    'A major CLIO surface lost its sourced component composition. Update the surface or document and review a deliberate replacement before changing this ratchet.',
+  );
+  process.exitCode = 1;
+} else {
+  const surfaceCount = Object.keys(requiredImports).length;
+  console.log(`Frontend component-reuse ratchet passed (${surfaceCount} major surfaces).`);
+}

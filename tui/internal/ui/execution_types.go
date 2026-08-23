@@ -2,7 +2,7 @@ package ui
 
 // execution_types.go defines the execution timeline node/event/turn types and node kinds.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 type executionNodeKind string
 

@@ -5,7 +5,7 @@ import (
 
 	"testing"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // benchmarkProjectedExecutionApp builds a long multi-agent session whose

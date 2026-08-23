@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // ListSessionTasks returns all tracked tasks for a session.

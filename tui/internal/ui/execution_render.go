@@ -13,7 +13,7 @@ import (
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )

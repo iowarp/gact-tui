@@ -9,7 +9,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // runRepoMap fetches the workspace repo map and renders it as a tree

@@ -1,9 +1,0 @@
-{
-  "mode": "connect",
-  "sidecarName": "",
-  "attachPort": 17800,
-  "attachPortEnv": "GACT_PORT",
-  "attachUrlEnv": "GACT_URL",
-  "repoLabel": null,
-  "install": null
-}

@@ -2,7 +2,7 @@ package ui
 
 // doctor_capability_rows.go defines capability row/bucket types and builds the capability row list.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 type capBucket int
 

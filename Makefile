@@ -6,30 +6,23 @@
 # the layout.
 
 GO        ?= go
+PNPM      ?= pnpm
 GO_TEST_FLAGS ?= -timeout=20m
-# Go modules, derived from go.work so the test/test-race/vet targets can
-# never drift out of sync with the workspace (each `./path` becomes a module
-# to chdir into). Adding a module to go.work is enough to include it here.
-GO_MODULES := $(shell grep -oE '\./[^ ]+' go.work)
-EMULATOR_BIN ?= emulator/emulator-server
 TUI_BIN      ?= tui/gact
-PORT      ?= 7777
+PORT      ?= 8787
 THEME     ?= dark
-TIMING    ?= realistic
 PREFIX    ?= $(HOME)/.local
 BINDIR    ?= $(PREFIX)/bin
 CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
-TUI_BUILD_REVISION := $(shell git rev-parse HEAD 2>/dev/null)
-TUI_BUILD_TIME     := $(shell git show -s --format=%cI HEAD 2>/dev/null)
-TUI_BUILD_DIRTY    := $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo true || echo false)
-# Semantic version from git tags: latest reachable v-tag + commits-since + ghash
-# (+ -dirty when the tree has uncommitted changes), e.g. v0.3.0-2098-g31c252e7.
-TUI_VERSION        := $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null)
+TUI_BUILD_REVISION ?= dev
+TUI_BUILD_TIME     ?= unknown
+TUI_BUILD_DIRTY    ?= true
+TUI_VERSION        ?= dev
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
 TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
-.PHONY: help build build-emulator build-tui test test-race adapter-py-test \
-        check-size run-emulator run-tui ping list \
+.PHONY: help build build-web build-tui test test-web test-go test-race adapter-py-test \
+        check-size run-tui ping list \
         screenshots clean fmt vet install dev-install verify-dev-install \
         install-for-clio verify-clio-install uninstall \
         file-renderers-check install-file-renderers install-file-renderers-python
@@ -37,31 +30,27 @@ TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) 
 help: ## Print this help message.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: build-emulator build-tui ## Build the emulator + TUI binaries.
+build: build-web ## Build the primary web workspace.
 
-build-emulator: ## Build $(EMULATOR_BIN).
-	cd emulator && $(GO) build -o $(notdir $(EMULATOR_BIN)) ./cmd/emulator-server
+build-web: ## Typecheck and build the React workspace.
+	$(PNPM) build
 
 build-tui: ## Build $(TUI_BIN).
-	cd tui && $(GO) build -ldflags '$(TUI_LDFLAGS)' -o $(notdir $(TUI_BIN)) .
+	cd tui && GOWORK=off $(GO) build -ldflags '$(TUI_LDFLAGS)' -o $(notdir $(TUI_BIN)) .
 
-test: ## Run unit + integration tests for every module.
-	@for mod in $(GO_MODULES); do \
-		echo "==> test $$mod"; \
-		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) ./... ) || exit $$?; \
-	done
+test: test-web ## Run the primary web/core/desktop test gate.
+
+test-web: ## Run JavaScript workspace tests without opt-in live suites.
+	$(PNPM) test
+
+test-go: ## Run the remaining contract and adapter Go suites.
+	node scripts/go-workspace.mjs test
 
 test-race: ## Run tests under -race for every module.
-	@for mod in $(GO_MODULES); do \
-		echo "==> test -race $$mod"; \
-		( cd $$mod && $(GO) test $(GO_TEST_FLAGS) -race ./... ) || exit $$?; \
-	done
+	node scripts/go-workspace.mjs race
 
 vet: ## go vet every module.
-	@for mod in $(GO_MODULES); do \
-		echo "==> vet $$mod"; \
-		( cd $$mod && $(GO) vet ./... ) || exit $$?; \
-	done
+	node scripts/go-workspace.mjs vet
 
 adapter-py-test: ## Run the Python claude-agent-sdk-server adapter tests.
 	cd adapters/claude-agent-sdk-server && uv run pytest tests/test_bridge.py tests/test_endpoints.py
@@ -69,11 +58,8 @@ adapter-py-test: ## Run the Python claude-agent-sdk-server adapter tests.
 check-size: ## Ratchet guard: Go file sizes + tui/internal/ui package growth (enforcing).
 	python3 scripts/check_go_file_size.py --enforce
 
-fmt: ## gofmt every module's source tree.
-	$(GO) fmt ./emulator/... ./tui/... ./contract/... ./adapters/...
-
-run-emulator: build-emulator ## Run the emulator on $(PORT) with $(TIMING) pacing.
-	./$(EMULATOR_BIN) --port $(PORT) --timing $(TIMING)
+fmt: ## gofmt every remaining Go workspace module.
+	node scripts/go-workspace.mjs fmt
 
 run-tui: build-tui ## Run the TUI against http://localhost:$(PORT) with $(THEME) theme.
 	GACT_BACKEND=http://localhost:$(PORT) ./$(TUI_BIN) --theme $(THEME)
@@ -130,14 +116,12 @@ install-file-renderers: ## Install as many native local file preview renderers a
 install-file-renderers-python: ## Install native renderers plus Python scientific preview libraries.
 	scripts/file-renderers.sh --install --with-python
 
-install: build ## Install gact + emulator-server to $(BINDIR) (default ~/.local/bin).
+install: build-tui ## Install the deprecated gact TUI to $(BINDIR).
 	@install -d $(BINDIR)
 	install -m 0755 $(TUI_BIN) $(BINDIR)/gact
-	install -m 0755 $(EMULATOR_BIN) $(BINDIR)/emulator-server
 	@echo
 	@echo "Installed:"
 	@echo "  $(BINDIR)/gact"
-	@echo "  $(BINDIR)/emulator-server"
 	@echo
 	@echo "Make sure $(BINDIR) is on PATH. For tab-completion:"
 	@echo "  scripts/completion.sh   # prints per-shell install instructions"
@@ -184,7 +168,7 @@ verify-dev-install: ## Fail unless shell gact + CLIO gact resolve to this checko
 verify-clio-install: verify-dev-install ## Alias: verify the clio launcher is using this checkout's current TUI.
 
 uninstall: ## Remove the installed binaries.
-	rm -f $(BINDIR)/gact $(BINDIR)/emulator-server
+	rm -f $(BINDIR)/gact
 
 clean: ## Remove built binaries.
-	rm -f $(EMULATOR_BIN) $(TUI_BIN)
+	rm -f $(TUI_BIN)

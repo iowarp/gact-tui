@@ -16,9 +16,12 @@ on:
     paths:
       - 'docker/**'
       - 'tui/**'
-      - 'emulator/**'
       - 'contract/**'
-      - 'apps/**'
+      - 'web/**'
+      - 'packages/**'
+      - 'branding/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/docker.yml'
     tags:
       - 'clio-desktop-v*'
@@ -86,7 +89,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           # Build context is the REPO ROOT: the TUI image needs the go.work
-          # workspace and the web image needs the apps/ pnpm workspace.
+          # workspace and the web image needs the root pnpm workspace.
           context: .
           file: ${{ matrix.dockerfile }}
           # Push only for release tags; PRs and branch pushes build-only.
