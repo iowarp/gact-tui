@@ -6,6 +6,7 @@ export * from './document-domain.js';
 export * from './document-repository.js';
 export * from './mcp-repository.js';
 export * from './prompt-repository.js';
+export * from './provider-repository.js';
 export * from './search-repository.js';
 export * from './context-repository.js';
 export * from './administration-repository.js';

@@ -6,14 +6,9 @@ import type {
   A2UISurface,
   CapabilityNegotiation,
   ContextSnapshot,
-  LanguageModelConfiguration,
   ApprovalRequest,
   PermissionLedgerItem,
   OperationalRun,
-  ProviderDefinition,
-  ProviderHandshake,
-  ProviderModelCatalog,
-  ProviderModelRefreshResult,
   CreateScheduledTurnInput,
   ScheduledTurn,
   ScheduledTurns,
@@ -34,7 +29,6 @@ import type { AgentDefinition } from './agent-domain.js';
 import {
   capabilitiesSchema,
   contextStateSchema,
-  languageModelConfigurationSchema,
   operationalRunSchema,
   sessionSchema,
   turnAttemptSchema,
@@ -51,10 +45,6 @@ import {
   artifactLineageSchema,
   operationalRunListSchema,
   permissionListSchema,
-  providerListSchema,
-  providerModelCatalogSchema,
-  providerHandshakeSchema,
-  providerModelRefreshResponseSchema,
   questionListSchema,
   sessionListSchema,
   toolCatalogSchema,
@@ -68,9 +58,9 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { ContextRepository } from './context-repository.js';
+import { ProviderRepository } from './provider-repository.js';
 
-export class ClioRepository extends ContextRepository {
+export class ClioRepository extends ProviderRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }
@@ -530,88 +520,6 @@ export class ClioRepository extends ContextRepository {
       method: 'POST',
       path: `/v1/agent-tasks/${encodeURIComponent(taskId)}/cancel`,
       decode: () => undefined,
-      signal,
-    });
-  }
-
-  public async providers(signal?: AbortSignal): Promise<ProviderDefinition[]> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: '/v1/providers',
-      decode: (value) => providerListSchema.parse(value),
-      signal,
-    });
-    return result.providers as ProviderDefinition[];
-  }
-
-  public languageModelConfiguration(signal?: AbortSignal): Promise<LanguageModelConfiguration> {
-    return this.transport.request({
-      method: 'GET',
-      path: '/v1/providers/lm',
-      decode: (value) =>
-        languageModelConfigurationSchema.parse(value) as LanguageModelConfiguration,
-      signal,
-    });
-  }
-
-  public async providerModels(
-    providerId: string,
-    signal?: AbortSignal,
-  ): Promise<ProviderModelCatalog> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: `/v1/providers/${encodeURIComponent(providerId)}/models`,
-      decode: (value) => providerModelCatalogSchema.parse(value),
-      signal,
-    });
-    return { ...result, provider_id: providerId } as ProviderModelCatalog;
-  }
-
-  public async refreshProviderModels(
-    providerIds?: readonly string[],
-    signal?: AbortSignal,
-  ): Promise<ProviderModelRefreshResult[]> {
-    const result = await this.transport.request({
-      method: 'POST',
-      path: '/v1/providers/models/refresh',
-      body: providerIds?.length ? { providers: providerIds } : {},
-      decode: (value) => providerModelRefreshResponseSchema.parse(value),
-      signal,
-    });
-    return result.results as ProviderModelRefreshResult[];
-  }
-
-  public providerHandshake(
-    providerId: string,
-    options: { apiBase?: string; refresh?: boolean } = {},
-    signal?: AbortSignal,
-  ): Promise<ProviderHandshake> {
-    const query = new URLSearchParams();
-    if (options.apiBase) query.set('api_base', options.apiBase);
-    if (options.refresh) query.set('refresh', 'true');
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/providers/${encodeURIComponent(providerId)}/handshake${query.size ? `?${query.toString()}` : ''}`,
-      decode: (value) => providerHandshakeSchema.parse(value) as ProviderHandshake,
-      signal,
-    });
-  }
-
-  public updateLanguageModelConfiguration(
-    input: {
-      provider: string;
-      api_base: string;
-      model: string;
-      thinking_level?: 'off' | 'low' | 'medium' | 'high';
-    },
-    signal?: AbortSignal,
-  ): Promise<LanguageModelConfiguration> {
-    return this.transport.request({
-      method: 'PUT',
-      path: '/v1/providers/lm',
-      body: input,
-      decode: (value) =>
-        languageModelConfigurationSchema.parse(value) as LanguageModelConfiguration,
       signal,
     });
   }
