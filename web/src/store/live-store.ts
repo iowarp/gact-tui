@@ -14,6 +14,7 @@ interface LiveStore {
   setStreamError: (error: string) => void;
   applyFrames: (frames: readonly TransportFrame[]) => void;
   replaceSnapshots: (snapshot: Partial<EntityState>) => void;
+  reconcileSnapshots: (snapshot: Partial<EntityState>) => void;
   reset: () => void;
 }
 
@@ -38,5 +39,15 @@ export const useLiveStore = create<LiveStore>((set) => ({
     }),
   replaceSnapshots: (snapshot) =>
     set((state) => ({ entities: { ...state.entities, ...snapshot }, error: undefined })),
+  reconcileSnapshots: (snapshot) =>
+    set((state) => ({
+      entities: {
+        ...state.entities,
+        ...snapshot,
+        cursor: undefined,
+        processed_cursors: [],
+      },
+      error: undefined,
+    })),
   reset: () => set({ entities: createEntityState(), error: undefined }),
 }));

@@ -26,7 +26,7 @@ export function useSessionLiveStream({
   const streamState = useLiveStore((state) => state.entities.stream);
   const streamError = useLiveStore((state) => state.error);
   const applyFrames = useLiveStore((state) => state.applyFrames);
-  const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
+  const reconcileSnapshots = useLiveStore((state) => state.reconcileSnapshots);
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
 
@@ -134,7 +134,7 @@ export function useSessionLiveStream({
         queryClient.setQueryData(['workspaces', settings.endpoint], workspaces);
         queryClient.setQueryData(['sessions', settings.endpoint, workspaceId], sessions);
         queryClient.setQueryData(['transcript', settings.endpoint, sessionId], transcript);
-        replaceSnapshots({
+        reconcileSnapshots({
           workspaces: recordById(workspaces),
           sessions: recordById(sessions),
           messages: recordById(transcript.messages),
@@ -157,7 +157,7 @@ export function useSessionLiveStream({
     return () => controller.abort();
   }, [
     queryClient,
-    replaceSnapshots,
+    reconcileSnapshots,
     repository,
     sessionId,
     setStreamError,
