@@ -1,12 +1,14 @@
 import type { McpServerDefinition, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowRightIcon,
   CableIcon,
   ChevronLeftIcon,
   Globe2Icon,
   NetworkIcon,
   PlusIcon,
   ServerIcon,
+  Settings2Icon,
   WrenchIcon,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -46,6 +48,10 @@ export function InfrastructurePage() {
     refetchInterval: 20_000,
   });
   const error = health.error ?? relay.error ?? servers.error;
+  const foundationIssues =
+    health.data?.integrations.filter(
+      (integration) => integrationStatus(integration.status) !== 'healthy',
+    ).length ?? 0;
 
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
@@ -78,12 +84,19 @@ export function InfrastructurePage() {
 
         <section aria-label="Infrastructure overview" className="mt-8 grid gap-4 md:grid-cols-3">
           <OverviewCard
-            description={health.data?.overall_status || 'Checking the connected agent service.'}
+            description={agentServiceDescription(health.data, foundationIssues)}
             icon={ServerIcon}
             label="Agent service"
             pending={health.isPending}
-            status={health.data?.healthy ? 'healthy' : 'degraded'}
-            statusLabel={health.data?.healthy ? 'Available' : 'Needs attention'}
+            status={health.data?.healthy && !foundationIssues ? 'healthy' : 'degraded'}
+            statusLabel={
+              health.data?.healthy
+                ? foundationIssues
+                  ? 'Running with warnings'
+                  : 'Running'
+                : 'Needs attention'
+            }
+            to="#foundations"
           />
           <OverviewCard
             description={relayDescription(relay.data)}
@@ -104,6 +117,7 @@ export function InfrastructurePage() {
                   ? 'Needs attention'
                   : 'Not connected'
             }
+            to="/settings/relays"
           />
           <OverviewCard
             description={`${servers.data?.filter((server) => server.status === 'ready').length ?? 0} of ${servers.data?.length ?? 0} connected services are ready.`}
@@ -124,6 +138,7 @@ export function InfrastructurePage() {
                   ? 'Ready'
                   : 'Needs attention'
             }
+            to="/settings/tools"
           />
         </section>
 
@@ -172,9 +187,11 @@ export function InfrastructurePage() {
                 </details>
               ) : null}
             </FramePanel>
-            <FrameFooter className="justify-end">
+            <FrameFooter className="items-end">
               <Button asChild size="sm" variant="outline">
-                <Link to="/settings/relays">Manage relay</Link>
+                <Link to="/settings/relays">
+                  <Settings2Icon aria-hidden="true" /> Configure remote work
+                </Link>
               </Button>
             </FrameFooter>
           </Frame>
@@ -207,7 +224,7 @@ export function InfrastructurePage() {
                 </p>
               )}
             </FramePanel>
-            <FrameFooter className="justify-end">
+            <FrameFooter className="items-end">
               <Button asChild size="sm">
                 <Link to="/settings/tools">
                   <PlusIcon aria-hidden="true" /> Add or manage services
@@ -218,7 +235,7 @@ export function InfrastructurePage() {
         </section>
 
         {health.data?.integrations.length ? (
-          <Frame className="mt-6" spacing="sm">
+          <Frame className="mt-6 scroll-mt-6" id="foundations" spacing="sm">
             <FrameHeader>
               <FrameTitle>Agent foundations</FrameTitle>
               <FrameDescription>
@@ -245,6 +262,7 @@ function OverviewCard({
   pending,
   status,
   statusLabel,
+  to,
 }: {
   description: string;
   icon: typeof CableIcon;
@@ -252,21 +270,42 @@ function OverviewCard({
   pending: boolean;
   status: ClioStatusValue;
   statusLabel: string;
+  to: string;
 }) {
   return (
-    <Frame spacing="sm">
-      <FramePanel>
-        <div className="flex items-start justify-between gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-            <Icon aria-hidden="true" className="size-4" />
-          </span>
-          <ClioStatus
-            label={pending ? 'Checking' : statusLabel}
-            value={pending ? 'connecting' : status}
-          />
-        </div>
-        <h2 className="mt-4 font-medium">{label}</h2>
-        <p className="mt-1 line-clamp-3 text-sm leading-5 text-muted-foreground">{description}</p>
+    <Frame spacing="xs" variant="ghost">
+      <FramePanel className="p-0">
+        <Link
+          aria-label={`${label}: ${pending ? 'Checking' : statusLabel}. ${description}`}
+          className="group block h-full rounded-[inherit] p-4 outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50"
+          onClick={() => {
+            if (!to.startsWith('#')) return;
+            window.requestAnimationFrame(() =>
+              document.getElementById(to.slice(1))?.scrollIntoView({ block: 'start' }),
+            );
+          }}
+          to={to}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Icon aria-hidden="true" className="size-4" />
+            </span>
+            <ClioStatus
+              label={pending ? 'Checking' : statusLabel}
+              value={pending ? 'connecting' : status}
+            />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <h2 className="font-medium">{label}</h2>
+            <ArrowRightIcon
+              aria-hidden="true"
+              className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            />
+          </div>
+          <p className="mt-1 line-clamp-3 text-sm leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </Link>
       </FramePanel>
     </Frame>
   );
@@ -296,6 +335,8 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
 
 function FoundationRow({ integration }: { integration: ServiceIntegrationHealth }) {
   const status = integrationStatus(integration.status);
+  const summary = foundationSummary(integration);
+  const action = foundationAction(integration);
   return (
     <details className="group rounded-xl border bg-card px-3 py-2.5">
       <summary className="flex cursor-pointer list-none items-center gap-3">
@@ -303,12 +344,30 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {foundationTitle(integration.name)}
         </span>
-        <ClioStatus label={integration.status.replaceAll('_', ' ')} value={status} />
+        <ClioStatus label={integrationStatusLabel(status)} value={status} />
       </summary>
       <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
-        <p>{integration.summary || integration.detail || 'No additional detail was reported.'}</p>
-        {integration.next_action ? (
-          <p className="mt-2 text-foreground">{integration.next_action}</p>
+        <p>{summary}</p>
+        {action ? (
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-foreground">
+            <p>{action.description}</p>
+            <Button asChild size="sm" variant="outline">
+              <Link to={action.to}>
+                {action.label} <ArrowRightIcon aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+        ) : null}
+        {integration.summary || integration.detail || integration.config_source ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-muted-foreground">Technical details</summary>
+            <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
+              {integration.summary || integration.detail ? (
+                <p>{integration.summary || integration.detail}</p>
+              ) : null}
+              {integration.config_source ? <p>{integration.config_source}</p> : null}
+            </div>
+          </details>
         ) : null}
       </div>
     </details>
@@ -319,6 +378,74 @@ function integrationStatus(status: string): ClioStatusValue {
   if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
   if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'degraded';
   return 'unavailable';
+}
+
+function integrationStatusLabel(status: ClioStatusValue): string {
+  if (status === 'healthy') return 'Ready';
+  if (status === 'degraded') return 'Needs attention';
+  return 'Unavailable';
+}
+
+function agentServiceDescription(
+  health: { healthy: boolean } | undefined,
+  foundationIssues: number,
+): string {
+  if (!health) return 'Checking the connected agent service.';
+  if (!health.healthy) return 'The connected agent service needs attention.';
+  if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
+  if (foundationIssues > 1) {
+    return `Running with ${foundationIssues} supporting services needing attention.`;
+  }
+  return 'The connected agent service is running normally.';
+}
+
+function foundationSummary(integration: ServiceIntegrationHealth): string {
+  const ready: Record<string, string> = {
+    api: 'The workspace service is available.',
+    arc: 'Conversation memory is available.',
+    gateway: 'Connected tools are available to agents.',
+    file_policy: 'Workspace file access rules are active.',
+    lm_provider: 'The selected language model is ready.',
+    sandbox: 'Protected command and file execution is active.',
+    clio_core: 'The full conversation-memory service is available.',
+    sandbox_conformance: 'Agent processes are using the configured execution protection.',
+    child_reaper: 'Background processes will be cleaned up with the agent service.',
+    child_processes: 'No unexpected background work is running.',
+    child_parentage: 'Background work remains attached to this agent service.',
+  };
+  const degraded: Record<string, string> = {
+    arc: 'Conversation memory is using a limited local fallback.',
+    child_parentage: 'Some background processes are no longer attached to this agent service.',
+  };
+  if (integrationStatus(integration.status) === 'healthy') {
+    return ready[integration.name] ?? 'This supporting service is ready.';
+  }
+  return degraded[integration.name] ?? 'This supporting service needs attention.';
+}
+
+function foundationAction(
+  integration: ServiceIntegrationHealth,
+): { description: string; label: string; to: string } | undefined {
+  if (integrationStatus(integration.status) === 'healthy') return undefined;
+  if (integration.name === 'arc') {
+    return {
+      description: 'Use the full conversation-memory service to restore complete agent behavior.',
+      label: 'Memory settings',
+      to: '/settings/memory',
+    };
+  }
+  if (integration.name === 'child_parentage') {
+    return {
+      description: 'Restart or clean up detached background work on the connected agent.',
+      label: 'System settings',
+      to: '/settings/system',
+    };
+  }
+  return {
+    description: 'Review the technical details before using work that depends on this service.',
+    label: 'System settings',
+    to: '/settings/system',
+  };
 }
 
 function foundationTitle(name: string): string {
