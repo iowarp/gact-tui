@@ -1048,3 +1048,18 @@ presented.
 - **Acceptance evidence:** The live SPOTTER memory view now shows `Within context budget` beside
   the real 100,798 retained tokens and 922,000-token budget, while retaining the service's full
   no-compaction recommendation for focus and hover users.
+
+## 2026-08-24 — System health leads with impact and preserves diagnostics on demand
+
+- **Old failure:** Expanded health rows dumped all-caps backend prose, environment variables,
+  process identifiers, internal paths, and raw lowercase states into the primary settings flow.
+  The information was authoritative but did not answer what was affected or what the user should
+  do.
+- **Decision:** Health rows retain their whole-row shadcn Accordion interaction and map state to
+  `Ready`, `Needs attention`, or `Unavailable`. Known degraded services lead with user impact and
+  an actionable recovery sentence. The exact server summary, recorded next action, endpoint, PIDs,
+  and configuration remain available through a nested `Technical details` Collapsible.
+- **Acceptance evidence:** The live Conversation memory and Background process ownership rows now
+  explain limited recall and detached work without exposing implementation details initially.
+  Opening Technical details on the latter recovered the complete 13-process diagnostic and
+  recorded Windows/POSIX reaper guidance unchanged.

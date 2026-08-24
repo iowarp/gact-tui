@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
   BrainCircuitIcon,
+  ChevronDownIcon,
   GaugeIcon,
   HeartPulseIcon,
   WebhookIcon,
@@ -22,6 +23,12 @@ import {
 } from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
@@ -46,6 +53,12 @@ function statusValue(status: string) {
   return 'unavailable';
 }
 
+function statusLabel(status: string) {
+  if (['ready', 'healthy', 'live'].includes(status)) return 'Ready';
+  if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'Needs attention';
+  return 'Unavailable';
+}
+
 const integrationTitles: Record<string, string> = {
   lm_provider: 'Language model provider',
   arc: 'Conversation memory',
@@ -66,6 +79,31 @@ const integrationTitles: Record<string, string> = {
 
 function integrationTitle(name: string) {
   return integrationTitles[name] ?? humanizeToolName(name);
+}
+
+function integrationCopy(integration: ServiceIntegrationHealth) {
+  const fallbackSummary = integration.summary ?? integration.detail ?? 'No detail reported.';
+  if (integration.name === 'arc' && statusValue(integration.status) === 'degraded') {
+    return {
+      summary:
+        'Conversation memory is using a limited local store. Some retention and cross-session recall features may be unavailable.',
+      nextAction: 'Use the standard memory service when you need complete retention and recall.',
+      fallbackSummary,
+    };
+  }
+  if (integration.name === 'child_parentage' && statusValue(integration.status) === 'degraded') {
+    return {
+      summary:
+        'Some background work is no longer attached to this service and may continue after the service stops.',
+      nextAction: 'Review and stop orphaned background work, then restart the affected task.',
+      fallbackSummary,
+    };
+  }
+  return {
+    summary: fallbackSummary,
+    nextAction: integration.next_action,
+    fallbackSummary,
+  };
 }
 
 function metricTitle(name: string) {
@@ -101,33 +139,58 @@ function ErrorState({ title, message }: { title: string; message: string }) {
 function HealthTab({ integrations }: { integrations: readonly ServiceIntegrationHealth[] }) {
   return (
     <Accordion className="rounded-xl border px-4" type="multiple">
-      {integrations.map((integration) => (
-        <AccordionItem key={integration.name} value={integration.name}>
-          <AccordionTrigger>
-            <span className="flex min-w-0 items-center gap-3 text-left">
-              <HeartPulseIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-              <span className="truncate font-medium">{integrationTitle(integration.name)}</span>
-              <ClioStatus
-                className="ml-auto mr-2 shrink-0"
-                label={integration.status.replaceAll('_', ' ')}
-                value={statusValue(integration.status)}
-              />
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-3 pl-7 text-sm leading-6 text-muted-foreground">
-            <p>{integration.summary ?? integration.detail ?? 'No detail reported.'}</p>
-            {integration.next_action && integration.next_action !== 'No action required.' ? (
-              <Alert>
-                <AlertTitle>What to do next</AlertTitle>
-                <AlertDescription>{integration.next_action}</AlertDescription>
-              </Alert>
-            ) : null}
-            {integration.endpoint ? (
-              <p className="break-all font-mono text-xs">{integration.endpoint}</p>
-            ) : null}
-          </AccordionContent>
-        </AccordionItem>
-      ))}
+      {integrations.map((integration) => {
+        const copy = integrationCopy(integration);
+        const recordedAction =
+          integration.next_action && integration.next_action !== 'No action required.'
+            ? integration.next_action
+            : undefined;
+        const hasTechnicalDetails =
+          copy.summary !== copy.fallbackSummary ||
+          copy.nextAction !== recordedAction ||
+          Boolean(integration.endpoint);
+        return (
+          <AccordionItem key={integration.name} value={integration.name}>
+            <AccordionTrigger>
+              <span className="flex min-w-0 items-center gap-3 text-left">
+                <HeartPulseIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <span className="truncate font-medium">{integrationTitle(integration.name)}</span>
+                <ClioStatus
+                  className="ml-auto mr-2 shrink-0"
+                  label={statusLabel(integration.status)}
+                  value={statusValue(integration.status)}
+                />
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pl-7 text-sm leading-6 text-muted-foreground">
+              <p>{copy.summary}</p>
+              {copy.nextAction ? (
+                <Alert>
+                  <AlertTitle>What to do next</AlertTitle>
+                  <AlertDescription>{copy.nextAction}</AlertDescription>
+                </Alert>
+              ) : null}
+              {hasTechnicalDetails ? (
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button className="group" size="sm" variant="ghost">
+                      Technical details
+                      <ChevronDownIcon className="transition-transform group-data-[state=open]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
+                    <p>{copy.fallbackSummary}</p>
+                    {recordedAction ? <p>Recorded next action: {recordedAction}</p> : null}
+                    {integration.endpoint ? (
+                      <p className="break-all font-mono">{integration.endpoint}</p>
+                    ) : null}
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : null}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
     </Accordion>
   );
 }

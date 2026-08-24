@@ -30,10 +30,10 @@ const repository = vi.hoisted(() => ({
     overall_status: 'degraded',
     integrations: [
       {
-        name: 'cte_cold_tier_disk',
+        name: 'child_parentage',
         status: 'degraded',
-        summary: 'Stored memory is nearing its configured capacity.',
-        next_action: 'Archive older workspace data.',
+        summary: '13 processes do not descend from server pid 42.',
+        next_action: 'Reap the orphans with the process supervisor.',
       },
     ],
     tool_hooks_installed: true,
@@ -59,8 +59,15 @@ describe('administration settings', () => {
     const user = userEvent.setup();
     renderQuery(<SystemSettings />);
 
-    expect(await screen.findByText('Stored memory capacity')).toBeInTheDocument();
-    expect(screen.getByText('degraded')).toBeInTheDocument();
+    expect(await screen.findByText('Background process ownership')).toBeInTheDocument();
+    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: /Background process ownership.*Needs attention/ }),
+    );
+    expect(screen.getByText(/Some background work is no longer attached/)).toBeVisible();
+    expect(screen.queryByText(/13 processes do not descend/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Technical details' }));
+    expect(screen.getByText('13 processes do not descend from server pid 42.')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Activity' }));
     expect(await screen.findByText('42')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Memory' }));
