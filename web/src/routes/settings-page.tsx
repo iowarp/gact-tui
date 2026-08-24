@@ -1,6 +1,7 @@
 import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
+  AccessibilityIcon,
   BotIcon,
   BoxesIcon,
   CableIcon,
@@ -10,6 +11,7 @@ import {
   KeyRoundIcon,
   InfoIcon,
   MonitorCogIcon,
+  Minimize2Icon,
   MoonIcon,
   MoreHorizontalIcon,
   PackageIcon,
@@ -20,6 +22,7 @@ import {
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   SunIcon,
+  StretchHorizontalIcon,
   Trash2Icon,
   WrenchIcon,
   HeartPulseIcon,
@@ -72,6 +75,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import {
+  type ConversationWidth,
+  type MotionPreference,
+  useAppearancePreferences,
+} from '@/providers/appearance-provider';
 import {
   useConversationDisplay,
   type ConversationDisplayMode,
@@ -280,10 +288,11 @@ function PermissionsSettings() {
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
   const { mode: conversationMode, setMode: setConversationMode } = useConversationDisplay();
+  const { conversationWidth, motion, setConversationWidth, setMotion } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description="Choose how the workspace looks. Motion follows your operating system’s reduced-motion preference."
+        description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
       />
       <Frame spacing="lg">
@@ -315,6 +324,97 @@ function AppearanceSettings() {
                       </FieldDescription>
                     </FieldContent>
                     <RadioGroupItem id={`theme-${value}`} value={value} />
+                  </span>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </FramePanel>
+      </Frame>
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Conversation width</FrameTitle>
+          <FrameDescription>
+            Choose a focused reading column or let diagrams, tables, and long-form work use more of
+            the available canvas.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <RadioGroup
+            className="grid gap-3 sm:grid-cols-2"
+            onValueChange={(value) => setConversationWidth(value as ConversationWidth)}
+            value={conversationWidth}
+          >
+            {[
+              {
+                value: 'focused',
+                label: 'Focused',
+                icon: Minimize2Icon,
+                description: 'A comfortable reading width for conversation and code review.',
+              },
+              {
+                value: 'wide',
+                label: 'Wide',
+                icon: StretchHorizontalIcon,
+                description: 'More horizontal room for scientific views, tables, and diagrams.',
+              },
+            ].map(({ value, label, icon: WidthIcon, description }) => (
+              <FieldLabel htmlFor={`conversation-width-${value}`} key={value}>
+                <Field className="h-full">
+                  <span className="flex items-start gap-3">
+                    <WidthIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                    <FieldContent>
+                      <FieldTitle>{label}</FieldTitle>
+                      <FieldDescription>{description}</FieldDescription>
+                    </FieldContent>
+                    <RadioGroupItem id={`conversation-width-${value}`} value={value} />
+                  </span>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </FramePanel>
+      </Frame>
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Motion</FrameTitle>
+          <FrameDescription>
+            Keep the operating system preference, or reduce motion explicitly for this workspace.
+            State labels and immediate feedback remain available in both modes.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <RadioGroup
+            className="grid gap-3 sm:grid-cols-2"
+            onValueChange={(value) => setMotion(value as MotionPreference)}
+            value={motion}
+          >
+            {[
+              {
+                value: 'system',
+                label: 'Follow system',
+                icon: MonitorCogIcon,
+                description: 'Uses the reduced-motion preference from this device.',
+              },
+              {
+                value: 'reduced',
+                label: 'Reduce motion',
+                icon: AccessibilityIcon,
+                description: 'Removes spatial transitions and indefinite movement in CLIO.',
+              },
+            ].map(({ value, label, icon: MotionIcon, description }) => (
+              <FieldLabel htmlFor={`motion-${value}`} key={value}>
+                <Field className="h-full">
+                  <span className="flex items-start gap-3">
+                    <MotionIcon
+                      aria-hidden="true"
+                      className="mt-0.5 size-5 shrink-0 text-primary"
+                    />
+                    <FieldContent>
+                      <FieldTitle>{label}</FieldTitle>
+                      <FieldDescription>{description}</FieldDescription>
+                    </FieldContent>
+                    <RadioGroupItem id={`motion-${value}`} value={value} />
                   </span>
                 </Field>
               </FieldLabel>

@@ -1,5 +1,6 @@
 import { domAnimation, LazyMotion, MotionConfig } from 'motion/react';
 import type { PropsWithChildren } from 'react';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 
 const clioTransition = {
   press: { duration: 0.08 },
@@ -8,9 +9,13 @@ const clioTransition = {
 };
 
 export function ClioMotionProvider({ children }: PropsWithChildren) {
+  const { motion } = useAppearancePreferences();
   return (
     <LazyMotion features={domAnimation} strict>
-      <MotionConfig reducedMotion="user" transition={clioTransition.standard}>
+      <MotionConfig
+        reducedMotion={motion === 'reduced' ? 'always' : 'user'}
+        transition={clioTransition.standard}
+      >
         {children}
       </MotionConfig>
     </LazyMotion>

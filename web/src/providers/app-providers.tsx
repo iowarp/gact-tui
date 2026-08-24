@@ -4,6 +4,7 @@ import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConnectionProvider } from './connection-provider';
+import { AppearanceProvider } from './appearance-provider';
 import { ConversationDisplayProvider } from './conversation-display-provider';
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -21,11 +22,13 @@ export function AppProviders({ children }: PropsWithChildren) {
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
-          <ConversationDisplayProvider>
-            <ClioMotionProvider>
-              <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
-            </ClioMotionProvider>
-          </ConversationDisplayProvider>
+          <AppearanceProvider>
+            <ConversationDisplayProvider>
+              <ClioMotionProvider>
+                <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
+              </ClioMotionProvider>
+            </ConversationDisplayProvider>
+          </AppearanceProvider>
         </ConnectionProvider>
       </QueryClientProvider>
     </ThemeProvider>

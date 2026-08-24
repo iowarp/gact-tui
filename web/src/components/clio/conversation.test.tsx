@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
+import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
 
 const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
@@ -35,7 +36,11 @@ afterEach(() => {
 });
 
 function renderConversation(element: ReactElement) {
-  return render(<ConversationDisplayProvider>{element}</ConversationDisplayProvider>);
+  return render(
+    <AppearanceProvider>
+      <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
+    </AppearanceProvider>,
+  );
 }
 
 describe('ClioConversation recovery actions', () => {

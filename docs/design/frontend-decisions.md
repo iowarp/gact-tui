@@ -962,3 +962,20 @@ presented.
   complete provider documentation without altering neighboring rows. The Relay checkpoint exposed
   access credential, job service address, and control service address while containing no internal
   `relay_tools_not_configured` text.
+
+## 2026-08-24 — Appearance choices change the workspace, not just the form
+
+- **Old failure:** Appearance stopped at theme and conversation-activity projection. Users could
+  not explicitly reduce motion for CLIO, and the transcript remained pinned to one reading width
+  even when scientific diagrams, tables, and long-form artifacts needed more room.
+- **Decision:** A local appearance owner now persists and reactively shares two presentation-only
+  preferences. Motion either follows the operating system through Motion’s `user` behavior or is
+  reduced unconditionally through `always`; it never offers an override that defeats an operating
+  system accessibility preference. Conversation width switches the real virtualized transcript and
+  detached A2UI surface containers between focused and wide layouts. Neither preference changes
+  backend state or causal content.
+- **Acceptance evidence:** Focused provider coverage proves persistence and cross-context reactive
+  updates; the existing nine conversation cases remain green under the new provider. In the live
+  browser, selecting Wide and Reduce motion updated both radio groups immediately, navigation to the
+  canonical Luna session rendered the Conversation container with `max-w-6xl`, and restoring
+  Focused plus Follow system updated the controls without reload.

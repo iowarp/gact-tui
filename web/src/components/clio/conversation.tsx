@@ -65,6 +65,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { MessageModelReasoning, MessageModelReasoningSummary } from './message-model-reasoning';
 import { ClioArtifactCard } from './artifact-card';
@@ -534,6 +535,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 
 export function ClioConversation({ messages, ...entities }: ClioConversationProps) {
   const { mode: defaultDisplayMode } = useConversationDisplay();
+  const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
   const pinnedToBottom = useRef(true);
@@ -654,7 +656,7 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
           />
         ) : (
           <div
-            className="relative mx-auto w-full max-w-4xl"
+            className={`relative mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             style={{ height: virtualizer.getTotalSize() }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -677,7 +679,9 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
           </div>
         )}
         {detachedSurfaces.length > 0 ? (
-          <div className="mx-auto grid w-full max-w-4xl gap-4 px-5 pb-8 lg:px-8">
+          <div
+            className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+          >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface
                 key={surface.id}

@@ -112,7 +112,7 @@ but every omitted mutation and administration workflow remains open. Route count
 | Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                     |
 | Metrics and doctor                  | Implemented, not accepted | Dense data, remediation actions, refresh/failure, native acceptance.            |
 | Plugins                             | Missing                   | Installed and available integrations with capability/source clarity.            |
-| Appearance                          | Partial                   | Independent light/dark/system validation, density/motion preferences.           |
+| Appearance                          | Partial                   | Independent light/dark/system, wide-layout, and reduced-motion visual baselines.|
 | Data and backups                    | Missing                   | Import/export/backup/retention/destructive reset.                               |
 | About and updates                   | Partial                   | Licenses, updater state, native update flow, and failure evidence.              |
 
