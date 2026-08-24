@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
+import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
 
 const maxInlinePreviewBytes = 8_000_000;
@@ -165,6 +166,8 @@ export function ArtifactView({
     ) : text.data ? (
       isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
         <ClioCsvView content={text.data} title={artifact.name} />
+      ) : isJsonPath(artifact.name) || artifact.media_type === 'application/json' ? (
+        <ClioJsonResourceView content={text.data} title={artifact.name} />
       ) : (
         <CodeBlock code={text.data} language={languageForPath(artifact.name)} showLineNumbers />
       )
@@ -266,6 +269,8 @@ function TextResourceView({
     <ScrollArea className="h-full p-3">
       {isCsvPath(path) ? (
         <ClioCsvView content={content ?? ''} title={fileName(path)} />
+      ) : isJsonPath(path) ? (
+        <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
       ) : (
         <CodeBlock code={content ?? ''} language={languageForPath(path)} showLineNumbers>
           <CodeBlockHeader>
@@ -458,6 +463,10 @@ function isImagePath(path: string): boolean {
 
 function isCsvPath(path: string): boolean {
   return path.split('.').at(-1)?.toLowerCase() === 'csv';
+}
+
+function isJsonPath(path: string): boolean {
+  return path.toLowerCase().endsWith('.json');
 }
 
 function isDocumentArtifact(mediaType: string, name: string): boolean {

@@ -38,9 +38,14 @@ export function ClioDataTable({
           id: key,
           accessorFn: (row: ClioDataRow) => row[key],
           header: ({ column }) => <DataGridColumnHeader column={column} title={title} />,
-          cell: ({ row }) => (
-            <span className="font-mono text-xs">{formatCell(row.original[key])}</span>
-          ),
+          cell: ({ row }) => {
+            const value = row.original[key];
+            return (
+              <span className="font-mono text-xs" title={exactCell(value)}>
+                {formatCell(value)}
+              </span>
+            );
+          },
           meta: { autoSize: true, headerTitle: title },
         };
       }),
@@ -76,6 +81,15 @@ export function ClioDataTable({
 
 function formatCell(value: unknown): string {
   if (value === undefined || value === null || value === '') return 'Unavailable';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Intl.NumberFormat(undefined, { maximumSignificantDigits: 9 }).format(value);
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function exactCell(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
