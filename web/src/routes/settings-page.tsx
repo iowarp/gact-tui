@@ -33,7 +33,8 @@ import { useTheme } from 'next-themes';
 import type { ComponentType, SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
-import { BlueprintSettings, RelaySettings } from '@/components/clio/settings-catalogs';
+import { BlueprintSettings } from '@/components/clio/settings-catalogs';
+import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
 import { ExpertPackSettings } from '@/components/clio/settings-expert-packs';
 import { SystemSettings } from '@/components/clio/settings-operations';
@@ -103,7 +104,7 @@ const sections: Array<{ id: string; label: string; icon: Icon }> = [
   { id: 'tools', label: 'Tools & integrations', icon: WrenchIcon },
   { id: 'prompts', label: 'Prompts & commands', icon: ScrollTextIcon },
   { id: 'schedules', label: 'Scheduled work', icon: CalendarClockIcon },
-  { id: 'relays', label: 'Relay', icon: PlugZapIcon },
+  { id: 'relays', label: 'Remote work', icon: PlugZapIcon },
   { id: 'permissions', label: 'Permissions', icon: ShieldCheckIcon },
   { id: 'memory', label: 'Memory', icon: BrainCircuitIcon },
   { id: 'system', label: 'System', icon: HeartPulseIcon },

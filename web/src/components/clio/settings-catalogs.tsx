@@ -1,4 +1,4 @@
-import type { AgentBlueprint, AgentBlueprintSource, RelayStatus } from '@clio/core/v3';
+import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BoxesIcon,
@@ -8,7 +8,7 @@ import {
   RefreshCwIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   Frame,
@@ -28,7 +28,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,7 +41,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioRelativeTime } from './relative-time';
 import { ClioStatus } from './status';
 import { BlueprintDetailsDialog } from './blueprint-details-dialog';
 import { MarketplaceSourceDialog, type MarketplaceSourceInput } from './marketplace-source-dialog';
@@ -381,150 +379,11 @@ export function BlueprintSettings() {
   );
 }
 
-export function RelaySettings() {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const relay = useQuery({
-    queryKey: ['relay-status', settings.endpoint],
-    queryFn: ({ signal }) => repository.relayStatus(signal),
-    refetchInterval: 30_000,
-  });
-  const value = relay.data;
-  return (
-    <div className="grid gap-6">
-      <SectionHeading
-        description="See whether this service can dispatch and observe work through a configured relay. Missing configuration is reported explicitly."
-        title="Relay"
-      />
-      <Frame spacing="lg">
-        <FrameHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <FrameTitle>Relay connection</FrameTitle>
-              <FrameDescription>
-                {value?.host || 'No relay address has been configured for this service.'}
-              </FrameDescription>
-            </div>
-            <ClioStatus
-              label={
-                relay.isPending
-                  ? 'Checking'
-                  : value?.reachable
-                    ? 'Reachable'
-                    : value?.configured
-                      ? 'Unavailable'
-                      : 'Not configured'
-              }
-              value={
-                relay.isPending
-                  ? 'connecting'
-                  : value?.reachable
-                    ? 'healthy'
-                    : value?.configured
-                      ? 'degraded'
-                      : 'unavailable'
-              }
-            />
-          </div>
-        </FrameHeader>
-        <FramePanel className="grid gap-3">
-          <StatusRow label="Configured" value={value?.configured ? 'Yes' : 'No'} />
-          <StatusRow
-            label="Reachability"
-            value={
-              value?.reachable === undefined
-                ? 'Unavailable'
-                : value.reachable
-                  ? 'Reachable'
-                  : 'Unreachable'
-            }
-          />
-          <StatusRow
-            label="Last checked"
-            value={
-              value?.checked_at ? (
-                <ClioRelativeTime label="Last checked" timestamp={value.checked_at} />
-              ) : (
-                'Not checked'
-              )
-            }
-          />
-          {value ? <RelayGuidance value={value} /> : null}
-          {relay.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Remote execution status unavailable</AlertTitle>
-              <AlertDescription>{relay.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-        <FrameFooter className="items-start">
-          <Button onClick={() => void relay.refetch()} size="sm" variant="outline">
-            <RefreshCwIcon aria-hidden="true" /> Check again
-          </Button>
-        </FrameFooter>
-      </Frame>
-    </div>
-  );
-}
-
-function RelayGuidance({ value }: { value: RelayStatus }) {
-  const missing = Array.isArray(value.details.missing)
-    ? value.details.missing.filter((item): item is string => typeof item === 'string')
-    : [];
-  const labels: Record<string, string> = {
-    api_token: 'Access credential',
-    http_url: 'Job service address',
-    mcp_url: 'Control service address',
-  };
-  if (value.reason === 'relay_tools_not_configured') {
-    return (
-      <div className="grid gap-2 rounded-lg border bg-muted/20 p-3">
-        <p className="text-sm font-medium">Remote execution needs configuration</p>
-        <p className="text-sm text-muted-foreground">
-          Add the missing connection details to the agent service before it can dispatch or observe
-          remote work.
-        </p>
-        {missing.length ? (
-          <div className="flex flex-wrap gap-2">
-            {missing.map((item) => (
-              <Badge key={item} variant="outline">
-                {labels[item] ?? 'Connection detail'}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-  if (value.reason === 'relay_endpoint_invalid') {
-    return <p className="text-sm text-muted-foreground">The saved relay address is not valid.</p>;
-  }
-  if (value.reason === 'relay_tcp_unreachable') {
-    return (
-      <p className="text-sm text-muted-foreground">
-        The relay is configured, but this agent cannot currently reach it.
-      </p>
-    );
-  }
-  return value.reachable ? (
-    <p className="text-sm text-muted-foreground">Remote execution is ready for this agent.</p>
-  ) : null;
-}
-
 function EmptyCatalog({ icon: Icon, label }: { icon: typeof BoxesIcon; label: string }) {
   return (
     <div className="grid place-items-center gap-3 rounded-lg border p-10 text-center">
       <Icon aria-hidden="true" className="size-6 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function StatusRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm">{value}</span>
     </div>
   );
 }

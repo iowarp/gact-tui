@@ -22,6 +22,7 @@ import type {
   Workspace,
   WorkspaceFileEntry,
   RelayStatus,
+  RelayConnectionInput,
   ToolCatalogItem,
   UserQuestion,
 } from './domain.js';
@@ -358,6 +359,28 @@ export class ClioRepository extends ProviderRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/relay/status',
+      decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
+      signal,
+    });
+  }
+
+  public configureRelay(
+    input: RelayConnectionInput,
+    signal?: AbortSignal,
+  ): Promise<RelayStatus> {
+    return this.transport.request({
+      method: 'PUT',
+      path: '/v1/relay/configuration',
+      body: input,
+      decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
+      signal,
+    });
+  }
+
+  public disconnectRelay(signal?: AbortSignal): Promise<RelayStatus> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: '/v1/relay/configuration',
       decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
       signal,
     });

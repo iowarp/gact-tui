@@ -467,11 +467,22 @@ export interface AgentBlueprintSource {
 export interface RelayStatus {
   configured: boolean;
   host?: string;
+  mcp_url?: string;
+  http_url?: string;
+  credential_configured?: boolean;
+  configuration_scope?: 'none' | 'server' | 'agent_run';
+  can_manage?: boolean;
   reachable?: boolean;
   checked_at?: string;
   reason?: string;
   detail?: string;
   details: Record<string, unknown>;
+}
+
+export interface RelayConnectionInput {
+  mcp_url: string;
+  http_url: string;
+  access_token?: string;
 }
 
 export interface ToolCatalogItem {

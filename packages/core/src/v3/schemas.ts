@@ -400,6 +400,11 @@ export const agentBlueprintSourceSchema = z.object({
 
 export const relayStatusSchema = z.object({
   configured: z.boolean(),
+  mcp_url: z.string().nullish().transform((value) => value ?? undefined),
+  http_url: z.string().nullish().transform((value) => value ?? undefined),
+  credential_configured: z.boolean().optional(),
+  configuration_scope: z.enum(['none', 'server', 'agent_run']).optional(),
+  can_manage: z.boolean().optional(),
   host: z
     .string()
     .nullish()
