@@ -65,6 +65,50 @@ describe('GACT 0.3 reducer', () => {
     ]);
   });
 
+  it('retains completed model-call reasoning and usage from the live wire', () => {
+    const created = frame('1', 'message.upserted', {
+      id: 'msg_1',
+      session_id: 'sess_1',
+      role: 'assistant',
+      created_at: '2026-08-22T12:00:00Z',
+      blocks: [],
+      usage: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+      cost_usd: 0,
+    });
+    const completed = frame('2', 'message.completed', {
+      message_id: 'msg_1',
+      completed_at: '2026-08-22T12:00:03Z',
+      stop_reason: 'end_turn',
+      tokens: { input: 120, output: 45, cache_read: 30, cache_write: 0 },
+      cost_usd: 0.0125,
+      reasoning_calls: [
+        {
+          id: 'reasoning_call_1',
+          model: 'openai/gpt-5.6-luna',
+          reasoning: 'The complete captured model reasoning.',
+          reasoning_chars: 38,
+        },
+      ],
+    });
+
+    const state = [created, completed].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.messages.msg_1).toMatchObject({
+      completed_at: '2026-08-22T12:00:03Z',
+      stop_reason: 'end_turn',
+      usage: { input: 120, output: 45, cache_read: 30, cache_write: 0 },
+      cost_usd: 0.0125,
+      reasoning_calls: [
+        {
+          id: 'reasoning_call_1',
+          model: 'openai/gpt-5.6-luna',
+          reasoning: 'The complete captured model reasoning.',
+          reasoning_chars: 38,
+        },
+      ],
+    });
+  });
+
   it('ignores duplicate cursors and stale entity revisions', () => {
     const initial = frame(
       '20',

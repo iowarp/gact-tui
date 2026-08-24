@@ -572,29 +572,63 @@ export interface RuntimeMetrics {
   latencies: Record<string, { count: number; p50_ms: number; p95_ms: number; max_ms: number }>;
 }
 
-export type MessageBlock =
-  | { id: string; type: 'text'; text: string; streaming?: boolean }
-  | { id: string; type: 'reasoning'; text: string; streaming?: boolean }
-  | { id: string; type: 'tool'; tool_id: string }
-  | { id: string; type: 'plan'; title: string; detail?: string }
-  | { id: string; type: 'task'; task_id: string }
-  | { id: string; type: 'subagent'; subagent_id: string }
-  | { id: string; type: 'artifact'; artifact_id: string }
-  | {
-      id: string;
-      type: 'action_card';
-      title: string;
-      detail?: string;
-      source?: string;
-      severity?: string;
-      status?: string;
-      actions: ActionCardAction[];
-    }
-  | { id: string; type: 'a2ui'; surface_id: string }
-  | { id: string; type: 'citation'; label: string; uri: string }
-  | { id: string; type: 'diff'; path: string; unified_diff: string }
-  | { id: string; type: 'error'; code: string; message: string; recoverable: boolean }
-  | { id: string; type: 'routing'; label: string; detail?: string };
+export interface MessageBlockContext {
+  agent_id?: string;
+  sequence?: number;
+  stream_source?: string;
+  channel?: string;
+}
+
+export type MessageBlock = MessageBlockContext &
+  (
+    | { id: string; type: 'text'; text: string; streaming?: boolean }
+    | {
+        id: string;
+        type: 'reasoning';
+        text: string;
+        streaming?: boolean;
+        source?: string;
+        provider_source?: string;
+        default_collapsed?: boolean;
+      }
+    | { id: string; type: 'tool'; tool_id: string; thought?: string }
+    | { id: string; type: 'plan'; title: string; detail?: string }
+    | { id: string; type: 'task'; task_id: string }
+    | { id: string; type: 'subagent'; subagent_id: string }
+    | { id: string; type: 'artifact'; artifact_id: string }
+    | {
+        id: string;
+        type: 'action_card';
+        title: string;
+        detail?: string;
+        source?: string;
+        severity?: string;
+        status?: string;
+        actions: ActionCardAction[];
+      }
+    | { id: string; type: 'a2ui'; surface_id: string }
+    | { id: string; type: 'citation'; label: string; uri: string }
+    | { id: string; type: 'diff'; path: string; unified_diff: string }
+    | { id: string; type: 'error'; code: string; message: string; recoverable: boolean }
+    | { id: string; type: 'routing'; label: string; detail?: string }
+  );
+
+export interface ModelReasoningCall {
+  id: string;
+  model?: string;
+  question?: string;
+  reasoning: string;
+  response?: string;
+  reasoning_chars: number;
+  timestamp?: string;
+}
+
+export interface MessageUsage {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+}
 
 export interface Message {
   id: string;
@@ -604,6 +638,11 @@ export interface Message {
   created_at: string;
   completed_at?: string;
   blocks: MessageBlock[];
+  usage?: MessageUsage;
+  cost_usd?: number;
+  stop_reason?: string;
+  reasoning_calls?: ModelReasoningCall[];
+  error_info?: Record<string, unknown>;
 }
 
 export interface A2UISurface {

@@ -66,6 +66,7 @@ import { Button } from '@/components/ui/button';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
+import { MessageModelReasoning, MessageModelReasoningSummary } from './message-model-reasoning';
 import { ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence, type ProcessBlock } from './conversation-process-sequence';
 import { ClioStatus } from './status';
@@ -167,7 +168,11 @@ function MessageBlockView({
   onOpenArtifact,
   onOpenFile,
   onOpenSubagent,
-}: Omit<ClioConversationProps, 'messages'> & { block: MessageBlock }) {
+  reasoningDefaultOpen,
+}: Omit<ClioConversationProps, 'messages'> & {
+  block: MessageBlock;
+  reasoningDefaultOpen?: boolean;
+}) {
   switch (block.type) {
     case 'text':
       return block.streaming ? (
@@ -180,6 +185,7 @@ function MessageBlockView({
         <ConversationProcessSequence
           blocks={[block]}
           onOpenSubagent={onOpenSubagent}
+          reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}
           tasks={tasks}
           tools={tools}
@@ -190,6 +196,7 @@ function MessageBlockView({
         <ConversationProcessSequence
           blocks={[block]}
           onOpenSubagent={onOpenSubagent}
+          reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}
           tasks={tasks}
           tools={tools}
@@ -214,6 +221,7 @@ function MessageBlockView({
         <ConversationProcessSequence
           blocks={[block]}
           onOpenSubagent={onOpenSubagent}
+          reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}
           tasks={tasks}
           tools={tools}
@@ -225,6 +233,7 @@ function MessageBlockView({
         <ConversationProcessSequence
           blocks={[block]}
           onOpenSubagent={onOpenSubagent}
+          reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}
           tasks={tasks}
           tools={tools}
@@ -362,7 +371,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 }: ConversationMessageRowProps) {
   const canRetry =
     message.role === 'assistant' &&
-    (message.blocks.length === 0 ||
+    ((message.blocks.length === 0 && (message.reasoning_calls?.length ?? 0) === 0) ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const retrying = entities.retryingMessageId === message.id;
   const groupedBlocks = displayMode === 'chain' ? groupCausalBlocks(message.blocks) : [];
@@ -404,7 +413,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             </time>
           </div>
           <MessageContent>
-            {message.blocks.length === 0 && message.role === 'assistant' ? (
+            {message.blocks.length === 0 &&
+            (message.reasoning_calls?.length ?? 0) === 0 &&
+            message.role === 'assistant' ? (
               <Alert variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
                 <AlertTitle>Response unavailable</AlertTitle>
@@ -432,27 +443,39 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   </div>
                 ) : null}
                 {message.blocks.map((block) => (
-                  <MessageBlockView block={block} key={block.id} {...entities} />
+                  <MessageBlockView
+                    block={block}
+                    key={block.id}
+                    reasoningDefaultOpen
+                    {...entities}
+                  />
                 ))}
+                <MessageModelReasoning message={message} />
               </>
             ) : (
-              groupedBlocks.map((item) =>
-                item.kind === 'process' ? (
-                  <ConversationProcessSequence
-                    blocks={item.blocks}
-                    key={item.id}
-                    onShowFull={
-                      item.id === firstProcessId ? () => onDisplayModeChange('full') : undefined
-                    }
-                    onOpenSubagent={entities.onOpenSubagent}
-                    subagents={entities.subagents}
-                    tasks={entities.tasks}
-                    tools={entities.tools}
-                  />
-                ) : (
-                  <MessageBlockView block={item.block} key={item.block.id} {...entities} />
-                ),
-              )
+              <>
+                {groupedBlocks.map((item) =>
+                  item.kind === 'process' ? (
+                    <ConversationProcessSequence
+                      blocks={item.blocks}
+                      key={item.id}
+                      onShowFull={
+                        item.id === firstProcessId ? () => onDisplayModeChange('full') : undefined
+                      }
+                      onOpenSubagent={entities.onOpenSubagent}
+                      subagents={entities.subagents}
+                      tasks={entities.tasks}
+                      tools={entities.tools}
+                    />
+                  ) : (
+                    <MessageBlockView block={item.block} key={item.block.id} {...entities} />
+                  ),
+                )}
+                <MessageModelReasoningSummary
+                  message={message}
+                  onShowFull={() => onDisplayModeChange('full')}
+                />
+              </>
             )}
           </MessageContent>
           <MessageActions className="opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

@@ -19,6 +19,7 @@ import {
   artifactSchema,
   decodeEventEnvelope,
   messageBlockSchema,
+  messageCompletionSchema,
   messageSchema,
   runSchema,
   sessionSchema,
@@ -207,8 +208,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       };
     }
     case 'message.completed': {
-      const payload = envelope.payload as { message_id?: unknown; completed_at?: unknown };
-      if (typeof payload.message_id !== 'string') throw new Error('Invalid completed message id');
+      const payload = messageCompletionSchema.parse(envelope.payload);
       const message = base.messages[payload.message_id];
       if (!message) return { ...base, revisions };
       return {
@@ -218,10 +218,12 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
           ...base.messages,
           [message.id]: {
             ...message,
-            completed_at:
-              typeof payload.completed_at === 'string'
-                ? payload.completed_at
-                : envelope.occurred_at,
+            completed_at: payload.completed_at ?? envelope.occurred_at,
+            usage: payload.tokens ?? message.usage,
+            cost_usd: payload.cost_usd ?? message.cost_usd,
+            stop_reason: payload.stop_reason ?? message.stop_reason,
+            reasoning_calls: payload.reasoning_calls ?? message.reasoning_calls,
+            error_info: payload.error_info ?? message.error_info,
             blocks: message.blocks.map((block) =>
               block.type === 'text' || block.type === 'reasoning'
                 ? { ...block, streaming: false }

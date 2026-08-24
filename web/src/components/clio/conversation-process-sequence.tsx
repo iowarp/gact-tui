@@ -34,6 +34,7 @@ interface ConversationProcessSequenceProps {
   subagents: Record<string, SubagentRun>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onShowFull?: () => void;
+  reasoningDefaultOpen?: boolean;
 }
 
 /** Keeps causal order while preserving the native semantics of each AI Elements surface. */
@@ -44,10 +45,12 @@ export function ConversationProcessSequence({
   subagents,
   onOpenSubagent,
   onShowFull,
+  reasoningDefaultOpen,
 }: ConversationProcessSequenceProps) {
   if (blocks.length === 1) {
     return renderSingleProcessBlock(blocks[0]!, {
       onOpenSubagent,
+      reasoningDefaultOpen,
       subagents,
       tasks,
       tools,
@@ -149,7 +152,13 @@ function ActivityStep({
         icon={WrenchIcon}
         label={<ClioToolInvocation defaultOpen={isActive} embedded tool={tool} />}
         status={isActive ? 'active' : 'complete'}
-      />
+      >
+        {block.thought ? (
+          <MessageResponse className="text-sm leading-6 text-muted-foreground">
+            {reasoningMarkdown(block.thought)}
+          </MessageResponse>
+        ) : null}
+      </ChainOfThoughtStep>
     );
   }
   if (block.type === 'task') {
@@ -192,15 +201,20 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     );
   }
   if (block.type === 'reasoning') {
+    const sourceLabel = reasoningSourceLabel(block.provider_source);
     return (
       <Reasoning
         className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-        defaultOpen={block.streaming}
+        defaultOpen={
+          entities.reasoningDefaultOpen ?? block.streaming ?? block.default_collapsed === false
+        }
         isStreaming={block.streaming}
       >
         <ReasoningTrigger
           className="min-h-6"
-          getThinkingMessage={(streaming) => (streaming ? 'Reasoning in progress' : 'Reasoning')}
+          getThinkingMessage={(streaming) =>
+            streaming ? `${sourceLabel} reasoning in progress` : `${sourceLabel} reasoning`
+          }
         />
         <ReasoningContent className="mt-3 leading-6">
           {reasoningMarkdown(block.text)}
@@ -211,7 +225,22 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
     const active = tool?.state === 'pending' || tool?.state === 'running';
-    return <ClioToolInvocation defaultOpen={active} tool={tool} />;
+    return (
+      <div className="space-y-3">
+        {block.thought ? (
+          <Reasoning
+            className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
+            defaultOpen={entities.reasoningDefaultOpen}
+          >
+            <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Agent reasoning'} />
+            <ReasoningContent className="mt-3 leading-6">
+              {reasoningMarkdown(block.thought)}
+            </ReasoningContent>
+          </Reasoning>
+        ) : null}
+        <ClioToolInvocation defaultOpen={active} tool={tool} />
+      </div>
+    );
   }
   if (block.type === 'task') {
     const task = entities.tasks[block.task_id];
@@ -239,6 +268,20 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
 
 function reasoningMarkdown(text: string): string {
   return text.replace(/\*{4}(?=\S)/gu, '**\n\n**');
+}
+
+function reasoningSourceLabel(source?: string): string {
+  if (!source) return 'Provider';
+  const labels: Record<string, string> = {
+    anthropic: 'Anthropic',
+    claude_code_sdk: 'Claude',
+    codex_app_server: 'Codex',
+    openai: 'OpenAI',
+  };
+  return (
+    labels[source] ??
+    source.replaceAll('_', ' ').replace(/\b\w/gu, (letter) => letter.toUpperCase())
+  );
 }
 
 function activitySummary(blocks: readonly ProcessBlock[]): string {
