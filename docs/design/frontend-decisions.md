@@ -1009,3 +1009,17 @@ presented.
   ten provider choices below Provider, the seven Codex models below Model, and the four labeled
   effort choices below Reasoning effort. Space still opened the focused control, Escape dismissed
   it, and no persisted model setting changed during the checkpoint.
+
+## 2026-08-24 — Settings control groups own an explicit responsive width
+
+- **Old failure:** The Expert packs install controls lived in a shrink-to-fit FieldGroup that was
+  also a CSS size container. Its intrinsic inline size was therefore zero, so the visible select
+  overflowed its parent, clipped against the viewport, and created a document-level horizontal
+  scrollbar at the standard 1,280 px acceptance width.
+- **Decision:** The ReUI Frame and shadcn Field composition remains intact. This settings surface
+  gives the size-contained control group an explicit responsive width for its one- and two-field
+  states, while the descriptive side is allowed to shrink and wrap.
+- **Acceptance evidence:** In the live Expert packs page, the one-field state measured 176 px and
+  the two-field state 412 px. Both remained inside the 880 px frame; document and body scroll width
+  matched the 1,265 px client width, and switching between Every workspace and One workspace did
+  not introduce horizontal scrolling or clip either control.

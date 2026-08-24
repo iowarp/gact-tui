@@ -182,22 +182,22 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
   });
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6">
       <SettingsSectionHeading
         description="Install and manage coordinated groups of specialist agents. Their validation, scope, experts, and source provenance come from the connected service."
         title="Expert packs"
       />
 
-      <Frame spacing="lg">
-        <FrameHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
+      <Frame className="min-w-0" spacing="lg">
+        <FrameHeader className="min-w-0 gap-4 md:flex-row md:items-end">
+          <div className="min-w-0 flex-1">
             <FrameTitle>Installed packs</FrameTitle>
             <FrameDescription className="mt-1">
               Global packs are available everywhere; workspace packs stay with one project.
             </FrameDescription>
           </div>
           {workspaces.data?.length ? (
-            <Field className="w-full md:w-64">
+            <Field className="w-full md:w-64 md:shrink-0">
               <FieldLabel htmlFor="expert-pack-workspace">Workspace view</FieldLabel>
               <Select onValueChange={setWorkspacePreference} value={workspaceId}>
                 <SelectTrigger id="expert-pack-workspace">
@@ -303,16 +303,20 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
         </FramePanel>
       </Frame>
 
-      <Frame spacing="lg">
-        <FrameHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
+      <Frame className="min-w-0" spacing="lg">
+        <FrameHeader className="min-w-0 gap-4 md:flex-row md:items-end">
+          <div className="min-w-0 flex-1">
             <FrameTitle>Available from marketplaces</FrameTitle>
             <FrameDescription className="mt-1">
               Install only packs that passed validation at the source.
             </FrameDescription>
           </div>
-          <FieldGroup className="w-full gap-3 md:w-auto md:grid-cols-2">
-            <Field className="md:w-44">
+          <FieldGroup
+            className={`w-full min-w-0 gap-3 md:shrink-0 md:flex-row ${
+              scope === 'workspace' ? 'md:w-[25.75rem]' : 'md:w-[11rem]'
+            }`}
+          >
+            <Field className="md:w-[11rem] md:shrink-0">
               <FieldLabel htmlFor="expert-pack-scope">Install for</FieldLabel>
               <Select onValueChange={(value) => setScope(value as InstallScope)} value={scope}>
                 <SelectTrigger id="expert-pack-scope">
@@ -325,7 +329,7 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
               </Select>
             </Field>
             {scope === 'workspace' ? (
-              <Field className="md:w-56">
+              <Field className="md:w-[14rem] md:shrink-0">
                 <FieldLabel htmlFor="expert-pack-target-workspace">Workspace</FieldLabel>
                 <Select onValueChange={setWorkspacePreference} value={workspaceId}>
                   <SelectTrigger id="expert-pack-target-workspace">
