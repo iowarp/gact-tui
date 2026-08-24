@@ -62,7 +62,7 @@ export function InfrastructurePage() {
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link to={returnRouteFromState(location.state)}>
+            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
               <ChevronLeftIcon aria-hidden="true" /> Workspace
             </Link>
           </Button>
@@ -86,9 +86,7 @@ export function InfrastructurePage() {
             statusLabel={health.data?.healthy ? 'Available' : 'Needs attention'}
           />
           <OverviewCard
-            description={
-              relayDescription(relay.data)
-            }
+            description={relayDescription(relay.data)}
             icon={NetworkIcon}
             label="Remote execution"
             pending={relay.isPending}

@@ -1,5 +1,5 @@
 import { brand } from '@brand';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AppWindowIcon,
   BotIcon,
@@ -69,6 +69,7 @@ import {
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useRepository } from '@/hooks/use-repository';
+import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -100,7 +101,12 @@ const sections: Array<{ id: string; label: string; icon: Icon }> = [
 
 function ConnectionsSettings() {
   const repository = useRepository();
-  const { settings, recents, connect, forget } = useConnectionSettings();
+  const { settings, recents, forget } = useConnectionSettings();
+  const switchConnection = useSwitchConnection();
+  const connectionSwitch = useMutation({
+    mutationFn: (connection: (typeof recents)[number]) =>
+      switchConnection(connection, { navigateToWorkspace: false }),
+  });
   const capabilities = useQuery({
     queryKey: ['capabilities', settings.endpoint],
     queryFn: ({ signal }) => repository.capabilities(signal),
@@ -182,7 +188,10 @@ function ConnectionsSettings() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => connect(connection)}>
+                    <DropdownMenuItem
+                      disabled={active || connectionSwitch.isPending}
+                      onSelect={() => connectionSwitch.mutate(connection)}
+                    >
                       <CableIcon aria-hidden="true" /> Connect
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -200,6 +209,11 @@ function ConnectionsSettings() {
           })}
           {recents.length === 0 ? (
             <p className="p-5 text-sm text-muted-foreground">No remembered connections yet.</p>
+          ) : null}
+          {connectionSwitch.error ? (
+            <p className="p-3 text-sm text-destructive sm:col-span-2">
+              {connectionSwitch.error.message}
+            </p>
           ) : null}
         </FramePanel>
       </Frame>
@@ -491,12 +505,13 @@ function AboutValue({ label, value }: { label: string; value: string }) {
 export function SettingsPage() {
   const { section = 'appearance' } = useParams();
   const location = useLocation();
+  const { settings } = useConnectionSettings();
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
           <Button asChild className="mb-4 justify-start" variant="ghost">
-            <Link to={returnRouteFromState(location.state)}>
+            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
               <ChevronLeftIcon aria-hidden="true" /> Workspace
             </Link>
           </Button>

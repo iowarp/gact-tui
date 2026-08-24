@@ -32,6 +32,22 @@ presented.
   server and opens the most recent session across all workspaces. Failed attempts
   remain on the landing screen with a labeled reason.
 
+## 2026-08-23 — Session history belongs to its agent service
+
+- **Old failure:** Workspace return memory was global. Switching from the disposable Luna service
+  to the Homelab service left Settings pointing at Luna's workspace and session identifiers, so
+  “Workspace” opened an unavailable route owned by another agent.
+- **Decision:** Workspace return routes are keyed by normalized endpoint. A service switch first
+  reads that destination's authoritative workspace and session catalogs, selects by actual last
+  interaction rather than operational update time, primes only destination-owned state, and then
+  records or opens the resolved route. Route-state shortcuts are accepted only when their endpoint
+  matches the active connection.
+- **Acceptance evidence:** The live Settings connection menu switched from Luna at
+  `127.0.0.1:8790` to the LAN service at `10.0.0.102:8182`; its Workspace link resolved directly to
+  Homelab session `sess_a53f8bdcf93e`. The in-workspace service switcher then returned directly to
+  Luna session `sess_cf97c512a610`, restoring its NDP workspace, interaction time, transcript,
+  reasoning, and A2UI view without visiting the connection landing page.
+
 ## 2026-08-22 — Inter replaces Oxanium in the workspace
 
 - **Old failure:** Oxanium made ordinary navigation and transcript text feel like

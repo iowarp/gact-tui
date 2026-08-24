@@ -116,7 +116,7 @@ export function NavigationHeader({
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link state={{ from: currentPath }} to="/settings/connections">
+                <Link state={{ endpoint, from: currentPath }} to="/settings/connections">
                   Manage services
                 </Link>
               </DropdownMenuItem>

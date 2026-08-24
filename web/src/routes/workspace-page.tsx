@@ -41,13 +41,13 @@ import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useLiveStore } from '@/store/live-store';
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
+  const { settings } = useConnectionSettings();
   useEffect(() => {
-    if (workspaceId && sessionId) rememberWorkspaceRoute(workspaceId, sessionId);
-  }, [sessionId, workspaceId]);
+    if (workspaceId && sessionId) rememberWorkspaceRoute(settings.endpoint, workspaceId, sessionId);
+  }, [sessionId, settings.endpoint, workspaceId]);
   const navigate = useNavigate();
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const { settings } = useConnectionSettings();
   const entities = useLiveStore((state) => state.entities);
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
   const workbenchRef = useRef<ClioWorkbenchHandle>(null);
@@ -436,7 +436,9 @@ export function WorkspacePage() {
     return <WorkspaceUnavailable error={queryError.message} />;
   }
   if (!session) {
-    return <WorkspaceUnavailable error="This agent service did not return the requested session." />;
+    return (
+      <WorkspaceUnavailable error="This agent service did not return the requested session." />
+    );
   }
 
   const state: RunState = send.isPending ? 'queued' : (session?.state ?? 'interrupted');

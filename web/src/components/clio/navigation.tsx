@@ -1,8 +1,7 @@
 import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
-import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIcon, NetworkIcon, Settings2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Sidebar,
@@ -16,10 +15,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import { createRepository } from '@/lib/connection';
-import { recordById } from '@/lib/entities';
+import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useLiveStore } from '@/store/live-store';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { NavigationHeader } from './navigation-header';
@@ -48,10 +45,9 @@ export function ClioNavigation({
   blueprints,
   onOpenWorkspaceFiles,
 }: ClioNavigationProps) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const location = useLocation();
-  const { settings, connect, recents } = useConnectionSettings();
+  const { settings, recents } = useConnectionSettings();
+  const switchConnection = useSwitchConnection();
   const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
   const [createWorkspaceId, setCreateWorkspaceId] = useState(activeWorkspaceId);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
@@ -85,43 +81,7 @@ export function ClioNavigation({
   };
   const switchService = async (recent: (typeof recents)[number]) => {
     try {
-      const repository = createRepository(recent);
-      const [nextWorkspaces, nextSessions] = await Promise.all([
-        repository.workspaces(),
-        repository.allSessions(),
-      ]);
-      const workspacesById = new Map(
-        nextWorkspaces.map((workspace) => [workspace.id, workspace]),
-      );
-      const target = nextSessions
-        .filter((session) => workspacesById.has(session.workspace_id))
-        .sort(
-          (left, right) =>
-            new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
-        )[0];
-
-      queryClient.setQueryData(['workspaces', recent.endpoint], nextWorkspaces);
-      queryClient.setQueryData(['sessions', recent.endpoint, 'all'], nextSessions);
-      if (target) {
-        queryClient.setQueryData(
-          ['sessions', recent.endpoint, target.workspace_id],
-          nextSessions.filter((session) => session.workspace_id === target.workspace_id),
-        );
-      }
-      useLiveStore.getState().reset();
-      useLiveStore.getState().replaceSnapshots({
-        sessions: recordById(nextSessions),
-        workspaces: recordById(nextWorkspaces),
-      });
-      connect(recent);
-
-      if (!target) {
-        await navigate('/?intent=setup');
-        return;
-      }
-      await navigate(
-        `/workspaces/${encodeURIComponent(target.workspace_id)}/sessions/${encodeURIComponent(target.id)}`,
-      );
+      await switchConnection(recent);
     } catch (error) {
       toast.error('Could not switch agent service', {
         description: error instanceof Error ? error.message : String(error),
@@ -181,7 +141,7 @@ export function ClioNavigation({
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Runs">
-                      <Link state={{ from: location.pathname }} to="/runs">
+                      <Link state={{ endpoint, from: location.pathname }} to="/runs">
                         <ActivityIcon aria-hidden="true" />
                         <span>Runs</span>
                       </Link>
@@ -189,7 +149,7 @@ export function ClioNavigation({
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Infrastructure">
-                      <Link state={{ from: location.pathname }} to="/infrastructure">
+                      <Link state={{ endpoint, from: location.pathname }} to="/infrastructure">
                         <NetworkIcon aria-hidden="true" />
                         <span>Infrastructure</span>
                       </Link>
@@ -203,7 +163,7 @@ export function ClioNavigation({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings">
-                  <Link state={{ from: location.pathname }} to="/settings/appearance">
+                  <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
                     <Settings2Icon aria-hidden="true" />
                     <span>Settings</span>
                   </Link>

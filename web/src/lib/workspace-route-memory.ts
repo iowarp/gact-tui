@@ -1,20 +1,37 @@
 const LAST_WORKSPACE_ROUTE = 'clio.last-workspace-route';
 
-export function rememberWorkspaceRoute(workspaceId: string, sessionId: string): void {
+function connectionRouteKey(endpoint: string): string {
+  return `${LAST_WORKSPACE_ROUTE}:${encodeURIComponent(endpoint)}`;
+}
+
+export function rememberWorkspaceRoute(
+  endpoint: string,
+  workspaceId: string,
+  sessionId: string,
+): void {
   sessionStorage.setItem(
-    LAST_WORKSPACE_ROUTE,
+    connectionRouteKey(endpoint),
     `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
   );
 }
 
-export function lastWorkspaceRoute(): string {
-  return sessionStorage.getItem(LAST_WORKSPACE_ROUTE) || '/';
+export function lastWorkspaceRoute(endpoint: string): string {
+  return sessionStorage.getItem(connectionRouteKey(endpoint)) || '/';
 }
 
-export function returnRouteFromState(state: unknown): string {
-  if (state && typeof state === 'object' && 'from' in state) {
-    const from = (state as { from?: unknown }).from;
-    if (typeof from === 'string' && from.startsWith('/workspaces/')) return from;
+export function returnRouteFromState(state: unknown, endpoint: string): string {
+  if (state && typeof state === 'object' && 'from' in state && 'endpoint' in state) {
+    const { from, endpoint: sourceEndpoint } = state as {
+      from?: unknown;
+      endpoint?: unknown;
+    };
+    if (
+      sourceEndpoint === endpoint &&
+      typeof from === 'string' &&
+      from.startsWith('/workspaces/')
+    ) {
+      return from;
+    }
   }
-  return lastWorkspaceRoute();
+  return lastWorkspaceRoute(endpoint);
 }

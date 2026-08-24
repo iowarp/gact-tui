@@ -353,7 +353,7 @@ export function RunsPage() {
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link to={returnRouteFromState(location.state)}>
+            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
               <ChevronLeftIcon aria-hidden="true" /> Workspace
             </Link>
           </Button>

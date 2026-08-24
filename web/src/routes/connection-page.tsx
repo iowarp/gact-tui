@@ -34,6 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
+import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
+import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 export function ConnectionPage() {
@@ -61,30 +63,14 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const workspacesById = new Map(workspaces.map((workspace) => [workspace.id, workspace]));
-      const target = sessions
-        .map((session) => ({ session, workspace: workspacesById.get(session.workspace_id) }))
-        .filter(
-          (
-            value,
-          ): value is {
-            session: (typeof sessions)[number];
-            workspace: (typeof workspaces)[number];
-          } => value.workspace !== undefined,
-        )
-        .sort(
-          (left, right) =>
-            new Date(right.session.updated_at).getTime() -
-            new Date(left.session.updated_at).getTime(),
-        )[0];
+      const target = latestConnectionSessionTarget(workspaces, sessions);
       return { next, capabilities, workspaces, target };
     },
     onSuccess: ({ next, target }) => {
       connect(next);
       if (target) {
-        navigate(
-          `/workspaces/${encodeURIComponent(target.workspace.id)}/sessions/${encodeURIComponent(target.session.id)}`,
-        );
+        rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
+        navigate(connectionSessionRoute(target));
       }
     },
   });
@@ -112,6 +98,9 @@ export function ConnectionPage() {
       return { session, workspaceId };
     },
     onSuccess: ({ session, workspaceId }) => {
+      if (mutation.data) {
+        rememberWorkspaceRoute(mutation.data.next.endpoint, workspaceId, session.id);
+      }
       navigate(
         `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`,
       );
