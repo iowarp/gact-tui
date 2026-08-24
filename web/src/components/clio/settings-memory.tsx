@@ -66,6 +66,27 @@ function retentionStatus(statistics: SessionMemoryStatistics) {
   return 'healthy' as const;
 }
 
+function retentionLabel(statistics: SessionMemoryStatistics) {
+  if (statistics.threshold_state === 'critical') return 'Context limit reached';
+  if (statistics.threshold_state === 'warning') return 'Approaching context limit';
+  if (statistics.threshold_state === 'empty') return 'No retained context';
+  return 'Within context budget';
+}
+
+function compactionStatusLabel(status: string) {
+  if (status === 'stored') return 'Retained';
+  if (status === 'archived') return 'Archived';
+  if (status === 'completed' || status === 'complete') return 'Completed';
+  if (status === 'failed') return 'Failed';
+  return 'Status unavailable';
+}
+
+function compactionSourceLabel(source: unknown) {
+  if (source === 'gact_compact') return 'Service compaction';
+  if (typeof source === 'string' && source.trim()) return 'Service record';
+  return 'Service compaction';
+}
+
 function MemoryMetric({ label, value }: { label: string; value: string }) {
   return (
     <Frame spacing="sm">
@@ -129,7 +150,7 @@ function RetentionSummary({ statistics }: { statistics: SessionMemoryStatistics 
               ? 'The service recommends compacting this session.'
               : 'The service does not recommend compaction now.'
           }
-          label={statistics.threshold_state}
+          label={retentionLabel(statistics)}
           value={retentionStatus(statistics)}
         />
       </div>
@@ -192,7 +213,9 @@ function MemoryHistory({ events, session }: { events: MemoryEvent[]; session?: S
           <div className="grid gap-1.5 pr-2">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium">Compacted transcript</p>
-              <Badge variant="outline">{event.arc_status}</Badge>
+              <Badge title={`Recorded status: ${event.arc_status}`} variant="outline">
+                {compactionStatusLabel(event.arc_status)}
+              </Badge>
               <span className="text-xs text-muted-foreground">{time(event.created_at)}</span>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -200,9 +223,13 @@ function MemoryHistory({ events, session }: { events: MemoryEvent[]; session?: S
               -character summary.
             </p>
             {event.focus ? <p className="line-clamp-3 text-sm">{event.focus}</p> : null}
-            <p className="text-xs text-muted-foreground">
-              Source {String(event.metadata.source ?? 'service compaction')}, version{' '}
-              {event.version}
+            <p
+              className="text-xs text-muted-foreground"
+              title={
+                event.metadata.source ? `Recorded source: ${String(event.metadata.source)}` : undefined
+              }
+            >
+              Source {compactionSourceLabel(event.metadata.source)}, version {event.version}
             </p>
           </div>
         </ClioInteractiveRow>

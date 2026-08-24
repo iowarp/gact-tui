@@ -120,6 +120,10 @@ describe('memory settings', () => {
     renderSettings(<MemorySettings initialSessionId="sess_memory" />);
 
     expect(await screen.findByText('Retained session context')).toBeInTheDocument();
+    expect(screen.getByText('Within context budget')).toBeVisible();
+    expect(screen.queryByText('normal')).not.toBeInTheDocument();
+    expect(screen.getByText('Retained')).toBeVisible();
+    expect(screen.getByText('Source Service compaction, version 1')).toBeVisible();
     expect(
       screen.getByText('Preserve the anomaly evidence and next operator action.'),
     ).toBeVisible();

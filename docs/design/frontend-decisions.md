@@ -1036,3 +1036,15 @@ presented.
 - **Acceptance evidence:** The live workspace rule changed from `*, *` to the full labeled sentence.
   Opening Edit access rule still showed `*` in both Tool name pattern and Limit to file paths, with
   the original workspace scope and priority unchanged.
+
+## 2026-08-24 — Memory state describes user impact, not storage enums
+
+- **Old failure:** Session retention displayed the raw lowercase threshold `normal`, and retained
+  summaries exposed storage values such as `stored` and `gact_compact` as primary language.
+- **Decision:** The Memory surface maps threshold and compaction records to their operational
+  meaning: `Within context budget`, `Approaching context limit`, `Retained`, and `Service
+  compaction`. Exact recorded status and source remain supplemental title metadata on historical
+  records.
+- **Acceptance evidence:** The live SPOTTER memory view now shows `Within context budget` beside
+  the real 100,798 retained tokens and 922,000-token budget, while retaining the service's full
+  no-compaction recommendation for focus and hover users.
