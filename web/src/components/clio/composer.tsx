@@ -206,7 +206,7 @@ export function ClioComposer({
           value={input}
         />
         <PromptInputFooter className="flex-wrap">
-          <PromptInputTools className="shrink-0">
+          <PromptInputTools className="min-w-0 flex-1 flex-wrap">
             {attachments ? (
               <PromptInputActionAddAttachments aria-label="Attach files">
                 <PaperclipIcon aria-hidden="true" />

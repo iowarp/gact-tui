@@ -979,3 +979,19 @@ presented.
   browser, selecting Wide and Reduce motion updated both radio groups immediately, navigation to the
   canonical Luna session rendered the Conversation container with `max-w-6xl`, and restoring
   Focused plus Follow system updated the controls without reload.
+## 2026-08-24 — Split workspace widths reflow the composer instead of clipping it
+
+- **Old failure:** Expanding the workspace canvas to 648 px correctly preserved the
+  conversation's 400 px minimum, but the viewport-based composer controls remained on
+  one line. The effort selector was cut off even though the canvas divider and all
+  underlying controls were working.
+- **Decision:** The AI Elements prompt tools remain the sourced controls, while CLIO's
+  composition lets the tool group consume the available row and wrap as a unit. Routing
+  and model stay together when possible; effort moves to the next line before any control
+  is clipped, and Submit remains visible.
+- **Acceptance evidence:** In the live Luna acceptance browser at a 1,280 px viewport,
+  navigation resized from 229 to 399 px with workspace/session menus still reachable.
+  The canvas expanded to 648 px beside a 400 px conversation; the composer measured
+  352 px wide, reflowed to 189 px high, and kept routing, model, effort, and Submit fully
+  inside its bounds. The CLIO-owned 800-line ratchet also passes after provider contracts
+  and their repository tests were split by behavior.
