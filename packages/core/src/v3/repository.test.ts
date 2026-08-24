@@ -24,6 +24,28 @@ class RecordingTransport implements ClioTransport {
 }
 
 describe('ClioRepository interaction contracts', () => {
+  it('preserves the server or MCP supplied title for tool activity', async () => {
+    const transport = new RecordingTransport([
+      {
+        messages: [],
+        tools: [
+          {
+            id: 'call_1',
+            session_id: 'sess_1',
+            name: 'create_artifact',
+            title: 'Create Artifact',
+            state: 'succeeded',
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.transcript('sess_1')).resolves.toMatchObject({
+      tools: [{ name: 'create_artifact', title: 'Create Artifact' }],
+    });
+  });
+
   it('decodes service-owned administrative catalogs and diagnostics', async () => {
     const transport = new RecordingTransport([
       { expert_packs: [] },

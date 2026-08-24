@@ -685,6 +685,7 @@ export const toolInvocationSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   name: z.string(),
+  title: z.string().optional(),
   state: z.enum(['pending', 'running', 'succeeded', 'failed', 'denied', 'cancelled']),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
