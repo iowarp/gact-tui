@@ -1107,3 +1107,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: opening only Observability and one child-agent tab at a 1280px viewport produced a permanent native horizontal scrollbar inside the canvas header. It consumed part of the tab hit area and made the durable canvas look like an unstyled overflow container.
 - New representation: the tab strip remains horizontally scrollable by wheel, touch, keyboard focus, and active-tab reveal, but its native scrollbar is visually suppressed. Tabs, close actions, launcher, and maximize remain in the same stable header geometry.
 - Acceptance evidence: canonical NDP beside the durable SPOTTER child tab reproduced the scrollbar in the live 578px conversation plus 420px canvas composition.
+
+# Unified session observability
+
+- Old failure: the composer's Session details pill opened a second Work/Activity/Evidence/Context popover over the conversation while the same observability surface already existed as the default durable canvas tab. Users had two competing containers for the same session truth.
+- New representation: Session details is a direct launcher for the Observability canvas tab. It reveals the canvas when closed and focuses Observability when another durable file, artifact, or child-agent tab is active; the live status summary remains in the composer button.
+- Acceptance evidence: canonical NDP with a durable SPOTTER child tab reproduced the duplicate 440px floating panel over the conversation, including an extra `Open full session view` step.

@@ -8,7 +8,7 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
-import { ClioObservabilityView } from './observability-dock';
+import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 import { groupToolsForWork } from './observability-grouping';
 
 beforeEach(() => {
@@ -29,6 +29,33 @@ afterEach(() => {
 });
 
 describe('ClioObservabilityView', () => {
+  it('opens the unified workspace canvas instead of a duplicate popover', async () => {
+    const user = userEvent.setup();
+    const onOpenCanvas = vi.fn();
+    render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenCanvas={onOpenCanvas}
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open session details in workspace canvas' }),
+    );
+
+    expect(onOpenCanvas).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('groups repeated terminal operations in Work without erasing their records', () => {
     const repeated = Array.from({ length: 3 }, (_, index) => ({
       id: `wait_${index}`,
@@ -49,7 +76,6 @@ describe('ClioObservabilityView', () => {
         contextFrames={[]}
         diffs={[]}
         messages={[]}
-        presentation="canvas"
         processes={[]}
         runs={[]}
         subagents={[]}
@@ -126,7 +152,6 @@ describe('ClioObservabilityView', () => {
         ]}
         onOpenDiff={openDiff}
         onOpenSubagent={() => undefined}
-        presentation="canvas"
         processes={[
           {
             kind: 'agent',
@@ -195,7 +220,6 @@ describe('ClioObservabilityView', () => {
             blocks: [{ id: 'block_1', type: 'tool', tool_id: 'tool_1' }],
           },
         ]}
-        presentation="canvas"
         processes={[]}
         runs={[]}
         subagents={[]}

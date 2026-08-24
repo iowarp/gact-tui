@@ -14,10 +14,7 @@ import { ClioPendingInteractions } from '@/components/clio/pending-interactions'
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
-import {
-  ClioWorkbench,
-  type ClioWorkbenchOpenRequest,
-} from '@/components/clio/workbench';
+import { ClioWorkbench, type ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import {
   WorkspaceLoading,
   WorkspaceStatusStrip,
@@ -119,8 +116,7 @@ export function WorkspacePage() {
 
   const sessionCandidate =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
-  const session =
-    sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
+  const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
   useEffect(() => {
@@ -159,10 +155,7 @@ export function WorkspacePage() {
     (artifact) => artifact.session_id === sessionId,
   );
   const recordedSubagents = useMemo(
-    () =>
-      Object.values(entities.subagents).filter(
-        (subagent) => subagent.session_id === sessionId,
-      ),
+    () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
     [entities.subagents, sessionId],
   );
   const relations = useMemo(
@@ -572,7 +565,6 @@ export function WorkspacePage() {
                 onOpenFile={openWorkspaceFile}
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
-                presentation="canvas"
                 processes={processes}
                 runs={runs}
                 subagents={subagents}

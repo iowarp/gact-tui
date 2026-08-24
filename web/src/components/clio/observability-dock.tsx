@@ -17,7 +17,6 @@ import {
   BrainCircuitIcon,
   BoxesIcon,
   BracesIcon,
-  ChevronUpIcon,
   Layers3Icon,
   ListChecksIcon,
   PanelRightOpenIcon,
@@ -37,14 +36,6 @@ import {
 } from '@/components/reui/timeline';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
@@ -133,61 +124,33 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
 
   return (
     <div className="min-w-0 flex-1">
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            className="h-7 w-full min-w-0 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {activeItems ? (
-              <BrainCircuitIcon aria-hidden="true" className="size-4 text-info" />
-            ) : (
-              <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate text-left font-medium">
-              {currentTool
-                ? getToolPresentation(currentTool).title
-                : (currentTask?.title ??
-                  (activeItems ? 'Agent work in progress' : 'Session details'))}
-            </span>
-            <ClioStatus
-              className="hidden py-0.5 sm:inline-flex"
-              label={activeItems ? `${activeItems} active` : 'Up to date'}
-              value={activeItems ? 'running' : 'completed'}
-            />
-            <ChevronUpIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="center"
-          className="pointer-events-auto w-[min(92vw,440px)] gap-0 overflow-hidden p-0"
-          side="top"
-          sideOffset={8}
-        >
-          <PopoverHeader className="border-b px-4 py-3">
-            <PopoverTitle>Session details</PopoverTitle>
-            <PopoverDescription>
-              Agent work, child agents, tool evidence, activity, and context.
-            </PopoverDescription>
-          </PopoverHeader>
-          <ObservabilityContent {...props} />
-          {props.onOpenCanvas ? (
-            <div className="border-t p-3">
-              <Button
-                className="w-full justify-between"
-                onClick={props.onOpenCanvas}
-                type="button"
-                variant="outline"
-              >
-                Open full session view
-                <PanelRightOpenIcon aria-hidden="true" className="size-4" />
-              </Button>
-            </div>
-          ) : null}
-        </PopoverContent>
-      </Popover>
+      <Button
+        aria-label="Open session details in workspace canvas"
+        className="h-7 w-full min-w-0 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
+        disabled={!props.onOpenCanvas}
+        onClick={props.onOpenCanvas}
+        size="sm"
+        title="Open session details in workspace canvas"
+        type="button"
+        variant="ghost"
+      >
+        {activeItems ? (
+          <BrainCircuitIcon aria-hidden="true" className="size-4 text-info" />
+        ) : (
+          <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-left font-medium">
+          {currentTool
+            ? getToolPresentation(currentTool).title
+            : (currentTask?.title ?? (activeItems ? 'Agent work in progress' : 'Session details'))}
+        </span>
+        <ClioStatus
+          className="hidden py-0.5 sm:inline-flex"
+          label={activeItems ? `${activeItems} active` : 'Up to date'}
+          value={activeItems ? 'running' : 'completed'}
+        />
+        <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      </Button>
     </div>
   );
 }
@@ -212,8 +175,7 @@ export function ClioObservabilityView({
   onOpenDiff,
   onOpenFile,
   onOpenSubagent,
-  presentation = 'popover',
-}: ClioObservabilityDockProps & { presentation?: 'popover' | 'canvas' }) {
+}: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasSingleRowTabs = useContainerQuery(surfaceRef, 400);
   const hasGraphSpace = useContainerQuery(surfaceRef, 640);
@@ -278,11 +240,8 @@ export function ClioObservabilityView({
   const workTools = useMemo(() => groupToolsForWork(tools), [tools]);
 
   return (
-    <div className={cn('min-w-0', presentation === 'canvas' && 'h-full min-h-0')} ref={surfaceRef}>
-      <Tabs
-        className={cn('gap-0', presentation === 'canvas' && 'h-full min-h-0')}
-        defaultValue="work"
-      >
+    <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
+      <Tabs className="h-full min-h-0 gap-0" defaultValue="work">
         <div className="border-b px-3 py-2">
           <TabsList
             className={cn(
@@ -304,26 +263,22 @@ export function ClioObservabilityView({
             </TabsTrigger>
           </TabsList>
         </div>
-        <ScrollArea
-          className={presentation === 'canvas' ? 'min-h-0 flex-1' : 'h-[min(58vh,460px)]'}
-        >
+        <ScrollArea className="min-h-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
-            {presentation === 'canvas' ? <ClioProcessLanes processes={processes} /> : null}
-            {presentation === 'canvas' && hasGraphSpace ? (
+            <ClioProcessLanes processes={processes} />
+            {hasGraphSpace ? (
               <ClioWorkflowGraph
                 onOpenSubagent={onOpenSubagent}
                 processes={processes}
                 subagents={subagents}
               />
-            ) : presentation === 'canvas' && processes.some((process) => process.kind === 'agent') ? (
+            ) : processes.some((process) => process.kind === 'agent') ? (
               <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
                 The delegation map is available in a wider canvas. Maximize or widen this panel to
                 explore the topology.
               </p>
             ) : null}
-            {presentation === 'canvas' && processes.length ? (
-              <ProcessSummary processes={processes} />
-            ) : null}
+            {processes.length ? <ProcessSummary processes={processes} /> : null}
             {tasks.map((task) => (
               <ClioInteractiveRow key={task.id} running={task.state === 'running'}>
                 <div className="flex items-start gap-3">
@@ -498,11 +453,9 @@ export function ClioObservabilityView({
   );
 }
 
-function ObservabilityContent(props: ClioObservabilityDockProps) {
-  return <ClioObservabilityView {...props} presentation="popover" />;
-}
-
-function toolActivityContext(messages: readonly Message[]): Map<string, { at: string; order: number }> {
+function toolActivityContext(
+  messages: readonly Message[],
+): Map<string, { at: string; order: number }> {
   const context = new Map<string, { at: string; order: number }>();
   let order = 0;
   for (const message of [...messages].sort((left, right) =>
