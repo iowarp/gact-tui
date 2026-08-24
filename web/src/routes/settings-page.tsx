@@ -30,9 +30,10 @@ import {
   CircleAlertIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { useEffect, type ComponentType, type SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
+import { ClioSettingsSection } from '@/components/clio/settings-section';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
 import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
@@ -326,7 +327,7 @@ function AppearanceSettings() {
         description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
       />
-      <PreferenceFrame
+      <ClioSettingsSection
         description="System follows the operating system; light and dark use distinct palettes."
         title="Theme"
       >
@@ -356,8 +357,8 @@ function AppearanceSettings() {
             </FieldLabel>
           ))}
         </RadioGroup>
-      </PreferenceFrame>
-      <PreferenceFrame
+      </ClioSettingsSection>
+      <ClioSettingsSection
         description="Choose a focused reading column or let diagrams, tables, and long-form work use more of the available canvas."
         title="Conversation width"
       >
@@ -394,8 +395,8 @@ function AppearanceSettings() {
             </FieldLabel>
           ))}
         </RadioGroup>
-      </PreferenceFrame>
-      <PreferenceFrame
+      </ClioSettingsSection>
+      <ClioSettingsSection
         description="Keep the operating system preference, or reduce motion explicitly for this workspace. State labels and immediate feedback remain available in both modes."
         title="Motion"
       >
@@ -432,8 +433,8 @@ function AppearanceSettings() {
             </FieldLabel>
           ))}
         </RadioGroup>
-      </PreferenceFrame>
-      <PreferenceFrame
+      </ClioSettingsSection>
+      <ClioSettingsSection
         description="Choose the default level of detail for reasoning and agent work. This changes only presentation; the complete causal record remains available."
         title="Conversation activity"
       >
@@ -472,30 +473,8 @@ function AppearanceSettings() {
             </FieldLabel>
           ))}
         </RadioGroup>
-      </PreferenceFrame>
+      </ClioSettingsSection>
     </div>
-  );
-}
-
-function PreferenceFrame({
-  children,
-  description,
-  title,
-}: {
-  children: ReactNode;
-  description: string;
-  title: string;
-}) {
-  return (
-    <Frame className="gap-3 bg-transparent p-0" spacing="lg" variant="ghost">
-      <FrameHeader className="px-0 py-0">
-        <FrameTitle>{title}</FrameTitle>
-        <FrameDescription>{description}</FrameDescription>
-      </FrameHeader>
-      <FramePanel className="border-0 bg-transparent p-0 shadow-none before:hidden">
-        {children}
-      </FramePanel>
-    </Frame>
   );
 }
 

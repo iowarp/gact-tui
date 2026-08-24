@@ -1170,9 +1170,10 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: Appearance nested each option inside a shadcn Field, a bordered ReUI FramePanel,
   and a second bordered Frame. The three shrinking rectangles made ordinary preferences look like
   embedded applications and repeated the over-boxing previously found in scientific surfaces.
-- New representation: ReUI Frame still owns the section header and rhythm, while its CLIO
-  composition removes decorative panel and frame borders. The professional shadcn Field remains
-  the single visible, whole-row radio target with its selected, hover, and focus states intact.
+- New representation: the shared `ClioSettingsSection` keeps ReUI Frame responsible for section
+  headers and rhythm while removing decorative panel and frame borders. The professional shadcn
+  Field remains the single visible whole-row control target, including selected, hover, and focus
+  states. Appearance and New session defaults now use the same composition contract.
 - Acceptance evidence: the live Appearance screenshot showed concentric outlines around Theme,
   Conversation width, Motion, and Conversation activity even though each section contained only
   one radio group.
