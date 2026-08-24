@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useObjectUrl } from '@/hooks/use-object-url';
+import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 
@@ -106,7 +107,7 @@ export function ClioArtifactCard({
           <ArtifactAction
             icon={CopyIcon}
             label={`Copy URI for ${artifact.name}`}
-            onClick={() => void navigator.clipboard.writeText(artifact.uri)}
+            onClick={() => void copyText(artifact.uri)}
             tooltip="Copy artifact URI"
           />
           {onOpen ? (

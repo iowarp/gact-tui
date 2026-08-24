@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { copyText } from '@/lib/clipboard';
 import {
   Select,
   SelectContent,
@@ -52,7 +53,7 @@ export function ClioShareSessionDialog({
   const copy = async () => {
     if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await copyText(shareUrl);
       setCopied(true);
     } catch {
       inputRef.current?.select();

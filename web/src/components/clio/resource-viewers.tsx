@@ -37,6 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { useObjectUrl } from '@/hooks/use-object-url';
+import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
@@ -219,7 +220,7 @@ export function ArtifactView({
             <ArtifactAction
               icon={CopyIcon}
               label={`Copy URI for ${artifact.name}`}
-              onClick={() => void navigator.clipboard.writeText(artifact.uri)}
+              onClick={() => void copyText(artifact.uri)}
               tooltip="Copy artifact URI"
             />
           </ArtifactActions>

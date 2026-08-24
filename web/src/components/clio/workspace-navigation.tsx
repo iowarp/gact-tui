@@ -27,6 +27,7 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { copyText } from '@/lib/clipboard';
 import { sessionInteractionAt, visibleWorkspaceSessions } from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
 import { workspaceLabels } from '@/lib/workspace-labels';
@@ -395,7 +396,7 @@ function WorkspaceActionsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           className="whitespace-nowrap"
-          onSelect={() => void navigator.clipboard.writeText(workspace.path)}
+          onSelect={() => void copyText(workspace.path)}
         >
           <ClipboardIcon aria-hidden="true" /> Copy folder path
         </DropdownMenuItem>

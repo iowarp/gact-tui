@@ -107,6 +107,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 
 export type { BundledLanguage } from "shiki";
 
@@ -489,21 +490,19 @@ export const CodeBlockCopyButton = ({
   const { data, value } = useContext(CodeBlockContext);
   const code = data.find((item) => item.language === value)?.code;
 
-  const copyToClipboard = () => {
-    if (
-      typeof window === "undefined" ||
-      !navigator.clipboard.writeText ||
-      !code
-    ) {
+  const copyToClipboard = async () => {
+    if (typeof window === "undefined" || !code) {
       return;
     }
 
-    navigator.clipboard.writeText(code).then(() => {
+    try {
+      await copyText(code);
       setIsCopied(true);
       onCopy?.();
-
       setTimeout(() => setIsCopied(false), timeout);
-    }, onError);
+    } catch (error) {
+      onError?.(error as Error);
+    }
   };
 
   if (asChild) {

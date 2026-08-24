@@ -36,6 +36,7 @@ import {
 } from '@/components/reui/timeline';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { copyText } from '@/lib/clipboard';
 import {
   Dialog,
   DialogContent,
@@ -139,7 +140,7 @@ export function ClioDocumentWorkspace({
       });
       if (provider === 'native') {
         const opened = await openDocumentWorkingCopy(copy.path);
-        if (!opened) await navigator.clipboard.writeText(copy.path);
+        if (!opened) await copyText(copy.path);
         return { kind: 'native' as const, copy, opened };
       }
       const launched = await repository.createDocumentEditorSession(copy.id, provider);
@@ -304,7 +305,11 @@ export function ClioDocumentWorkspace({
           <TabsTrigger value="policy">Safety</TabsTrigger>
         </TabsList>
         <TabsContent className="min-w-0 overflow-hidden pt-3" value="preview">
-          <div className="min-w-0 overflow-hidden" ref={previewRef} onMouseUp={captureTextSelection}>
+          <div
+            className="min-w-0 overflow-hidden"
+            ref={previewRef}
+            onMouseUp={captureTextSelection}
+          >
             <DocumentPreview
               content={content.data}
               editor={editor}

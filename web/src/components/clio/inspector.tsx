@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/empty';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { copyText } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -275,7 +276,7 @@ export function ClioInspector({
                       </div>
                       <Button
                         aria-label={`Copy path for ${selectedFile.path}`}
-                        onClick={() => void navigator.clipboard.writeText(selectedFile.path)}
+                        onClick={() => void copyText(selectedFile.path)}
                         size="icon-sm"
                         variant="ghost"
                       >

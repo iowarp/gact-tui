@@ -1070,3 +1070,15 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: the System activity view exposed percentile shorthand as `p95`, collapsed distinct remote integrations into identical labels, and rendered `0%` cache effectiveness when no cache activity existed.
 - New representation: the activity list explains the percentile in task language, gives remote integrations a visible connection context, and formats long durations for scanning. Cache effectiveness is explicitly unavailable until at least one hit or miss exists.
 - Acceptance evidence: live service metrics at desktop width exposed duplicate Jarvis activity and the empty cache case; both were rechecked through the interactive System tabs after the correction.
+
+# File-tree folder interaction
+
+- Old failure: the shared file tree made its tiny unlabeled chevron the only folder expander. Clicking the visible folder name sent the directory to the file-preview callback and opened a durable error tab.
+- New representation: each folder is one full-width labeled expand/collapse control. Only file rows invoke file selection and open a canvas tab.
+- Acceptance evidence: live SPOTTER workspace verification clicked `campaign_data`, reproduced the broken `file not found` tab, then rechecked pointer and keyboard expansion against the corrected shared tree.
+
+# Clipboard behavior in embedded browsers
+
+- Old failure: several reused copy controls depended only on `navigator.clipboard`. The installed and embedded browser surfaces can expose that API while rejecting writes, leaving the control unchanged and the clipboard empty.
+- New representation: all CLIO copy actions use one shared clipboard adapter that attempts the modern API and falls back to a temporary selection copy while preserving focus. Reused code blocks retain their built-in copied-state icon.
+- Acceptance evidence: live file-view verification opened `calibration.json`, reproduced an empty clipboard after pressing Copy, and then rechecked the same control through the shared adapter.

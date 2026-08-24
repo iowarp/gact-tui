@@ -11,6 +11,7 @@ import {
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { Mermaid, type MermaidConfig } from './mermaid';
 import { ZoomPan } from './zoom-pan';
@@ -225,24 +226,6 @@ function downloadBlob(blob: Blob, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-async function copyText(value: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.append(textarea);
-  textarea.select();
-  const copied = document.execCommand('copy');
-  textarea.remove();
-  if (!copied) throw new Error('Clipboard access is unavailable in this environment.');
 }
 
 function errorMessage(error: unknown): string {

@@ -38,6 +38,7 @@ import {
   useState,
 } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
+import { copyText } from '@/lib/clipboard';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -520,7 +521,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             <MessageAction
               label="Copy message"
               onClick={() =>
-                void navigator.clipboard.writeText(
+                void copyText(
                   message.blocks
                     .filter((block) => block.type === 'text')
                     .map((block) => block.text)
@@ -726,25 +727,25 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
                   index: virtualRow.index,
                   start: virtualRow.start,
                 }))
-              : messages.map((_, index) => ({ index, start: undefined })))
-              .map(({ index, start }) => {
-                const message = messages[index];
-                if (!message) return null;
-                return (
-                  <ConversationMessageRow
-                    {...entities}
-                    displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
-                    index={index}
-                    key={message.id}
-                    measureElement={virtualized ? virtualizer.measureElement : undefined}
-                    message={message}
-                    onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
-                    recent={index >= messages.length - 2}
-                    start={start}
-                    virtualized={virtualized}
-                  />
-                );
-              })}
+              : messages.map((_, index) => ({ index, start: undefined }))
+            ).map(({ index, start }) => {
+              const message = messages[index];
+              if (!message) return null;
+              return (
+                <ConversationMessageRow
+                  {...entities}
+                  displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
+                  index={index}
+                  key={message.id}
+                  measureElement={virtualized ? virtualizer.measureElement : undefined}
+                  message={message}
+                  onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
+                  recent={index >= messages.length - 2}
+                  start={start}
+                  virtualized={virtualized}
+                />
+              );
+            })}
           </div>
         )}
         {detachedSurfaces.length > 0 ? (
