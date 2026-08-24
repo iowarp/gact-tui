@@ -15,6 +15,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 afterEach(() => {
   cleanup();
   repository.a2uiAction.mockClear();
+  vi.restoreAllMocks();
 });
 
 function actionSurface(name: string, context: Record<string, unknown>): A2UISurface {
@@ -64,6 +65,21 @@ function renderSurface(
 }
 
 describe('ClioA2UISurface actions', () => {
+  it('contains an invalid historical surface without throwing through React', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components[0]!.accessibility = 'Invalid legacy label';
+
+    renderSurface(surface);
+
+    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getByText(/accessibility: Expected object/u)).toBeInTheDocument();
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
   it('keeps artifact.open local and never posts it to the server action route', async () => {
     const user = userEvent.setup();
     const onLocalAction = vi.fn().mockResolvedValue('result.csv opened in the workspace canvas');

@@ -111,15 +111,27 @@ function ClioA2UISurfaceContent({
     },
     [mutateAsync, onLocalAction],
   );
-  const model = useMemo(() => {
-    const processor = new MessageProcessor([clioA2UICatalog], handleAction, { version: 'v0.9.1' });
-    processor.processMessages(surface.messages as A2uiMessage[]);
-    return processor.model.getSurface(surface.id);
+  const processedSurface = useMemo(() => {
+    try {
+      const processor = new MessageProcessor([clioA2UICatalog], handleAction, {
+        version: 'v0.9.1',
+      });
+      processor.processMessages(surface.messages as A2uiMessage[]);
+      return { model: processor.model.getSurface(surface.id) };
+    } catch (processingError) {
+      return {
+        error:
+          processingError instanceof Error
+            ? processingError
+            : new Error('The interactive surface could not be validated.'),
+      };
+    }
   }, [handleAction, surface.id, surface.messages]);
   const lastAction = useMemo(() => findLastSurfaceAction(surface.messages), [surface.messages]);
   const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
 
-  if (!model || surface.state === 'deleted') return null;
+  if (processedSurface.error) return <SurfaceFailure error={processedSurface.error} />;
+  if (!processedSurface.model || surface.state === 'deleted') return null;
   return (
     <section
       aria-label="Agent-created view"
@@ -152,7 +164,7 @@ function ClioA2UISurfaceContent({
       ) : null}
       <div className="p-3 [--a2ui-tabs-content-padding:0]">
         <MarkdownContext.Provider value={renderMarkdown}>
-          <A2uiSurface surface={model} />
+          <A2uiSurface surface={processedSurface.model} />
         </MarkdownContext.Provider>
       </div>
       {isPending || localActionPending || localActionStatus || lastAction ? (
