@@ -15,6 +15,16 @@ export function rememberWorkspaceRoute(
   );
 }
 
+export function rememberValidatedWorkspaceRoute(
+  endpoint: string,
+  workspaceId: string,
+  session: { id: string; workspace_id: string } | undefined,
+): boolean {
+  if (!session || session.workspace_id !== workspaceId) return false;
+  rememberWorkspaceRoute(endpoint, workspaceId, session.id);
+  return true;
+}
+
 export function lastWorkspaceRoute(endpoint: string): string {
   const key = connectionRouteKey(endpoint);
   const persistent = localStorage.getItem(key);

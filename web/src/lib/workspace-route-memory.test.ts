@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   lastWorkspaceRoute,
   rememberWorkspaceRoute,
+  rememberValidatedWorkspaceRoute,
   returnRouteFromState,
   sessionIdFromRoute,
   workspaceIdFromRoute,
@@ -38,6 +39,29 @@ describe('connection-scoped workspace route memory', () => {
     expect(lastWorkspaceRoute('http://127.0.0.1:8790')).toBe(
       '/workspaces/ws_luna/sessions/sess_exact',
     );
+  });
+
+  it('does not let an unconfirmed or mismatched session replace the return target', () => {
+    rememberWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', 'sess_known');
+
+    expect(
+      rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', undefined),
+    ).toBe(false);
+    expect(
+      rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', {
+        id: 'sess_wrong',
+        workspace_id: 'ws_other',
+      }),
+    ).toBe(false);
+    expect(lastWorkspaceRoute('http://127.0.0.1:8790')).toContain('sess_known');
+
+    expect(
+      rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', {
+        id: 'sess_confirmed',
+        workspace_id: 'ws_luna',
+      }),
+    ).toBe(true);
+    expect(lastWorkspaceRoute('http://127.0.0.1:8790')).toContain('sess_confirmed');
   });
 
   it('recovers the workspace context for local settings surfaces', () => {

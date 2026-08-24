@@ -37,14 +37,11 @@ import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { sessionChildRelations } from '@/lib/session-child-relations';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useLiveStore } from '@/store/live-store';
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
   const { settings } = useConnectionSettings();
-  useEffect(() => {
-    if (workspaceId && sessionId) rememberWorkspaceRoute(settings.endpoint, workspaceId, sessionId);
-  }, [sessionId, settings.endpoint, workspaceId]);
   const navigate = useNavigate();
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -119,10 +116,16 @@ export function WorkspacePage() {
     });
   }, [replaceSnapshots, transcript.data]);
 
-  const session =
+  const sessionCandidate =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
+  const session =
+    sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
+  useEffect(() => {
+    if (workspace?.id !== workspaceId) return;
+    rememberValidatedWorkspaceRoute(settings.endpoint, workspaceId, session);
+  }, [session, settings.endpoint, workspace?.id, workspaceId]);
   const parentSession = session?.parent_session_id
     ? allSessions.data?.find((item) => item.id === session.parent_session_id)
     : undefined;
