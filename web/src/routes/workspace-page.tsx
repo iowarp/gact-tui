@@ -35,6 +35,7 @@ import { useSessionContext } from '@/hooks/use-session-context';
 import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
+import { sessionChildRelations } from '@/lib/session-child-relations';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useLiveStore } from '@/store/live-store';
@@ -141,7 +142,7 @@ export function WorkspacePage() {
     queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
     enabled: Boolean(workspaceId),
   });
-  const messages = useMemo(
+  const recordedMessages = useMemo(
     () =>
       Object.values(entities.messages)
         .filter((message): message is Message => message.session_id === sessionId)
@@ -153,9 +154,32 @@ export function WorkspacePage() {
   const artifacts = Object.values(entities.artifacts).filter(
     (artifact) => artifact.session_id === sessionId,
   );
-  const subagents = Object.values(entities.subagents).filter(
-    (subagent) => subagent.session_id === sessionId,
+  const recordedSubagents = useMemo(
+    () =>
+      Object.values(entities.subagents).filter(
+        (subagent) => subagent.session_id === sessionId,
+      ),
+    [entities.subagents, sessionId],
   );
+  const relations = useMemo(
+    () =>
+      sessionChildRelations({
+        messages: recordedMessages,
+        parentSessionId: sessionId,
+        processes: sessionObservability.processes.data ?? [],
+        sessions: allSessions.data ?? [],
+        subagents: recordedSubagents,
+      }),
+    [
+      allSessions.data,
+      recordedMessages,
+      recordedSubagents,
+      sessionId,
+      sessionObservability.processes.data,
+    ],
+  );
+  const { messages, processes, subagents } = relations;
+  const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[sessionId];
   const activeProvider = session?.provider_id ?? capabilities.data?.active_model?.provider_id;
@@ -535,7 +559,7 @@ export function WorkspacePage() {
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
                 presentation="canvas"
-                processes={sessionObservability.processes.data ?? []}
+                processes={processes}
                 runs={runs}
                 subagents={subagents}
                 tasks={tasks}
@@ -596,7 +620,7 @@ export function WorkspacePage() {
                 sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
               }
               retryingMessageId={retry.isPending ? retry.variables : undefined}
-              subagents={entities.subagents}
+              subagents={conversationSubagents}
               surfaces={entities.surfaces}
               tasks={entities.tasks}
               tools={entities.tools}
@@ -654,7 +678,7 @@ export function WorkspacePage() {
                   onOpenDiff={openDiff}
                   onOpenFile={openWorkspaceFile}
                   onOpenSubagent={openSubagent}
-                  processes={sessionObservability.processes.data ?? []}
+                  processes={processes}
                   runs={runs}
                   subagents={subagents}
                   tasks={tasks}

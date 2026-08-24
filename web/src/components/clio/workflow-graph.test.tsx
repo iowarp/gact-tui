@@ -34,10 +34,10 @@ describe('buildWorkflowGraph', () => {
     expect(graph.nodes).toHaveLength(2);
     expect(graph.nodes[0]).toMatchObject({
       id: 'session-root',
-      ariaLabel: 'Current session, 1 delegated runs, completed',
+      ariaLabel: 'Current session, 1 delegated run, completed',
     });
     expect(graph.nodes[1]?.data.subagent?.child_session_id).toBe('session_child');
-    expect(graph.nodes[1]?.ariaLabel).toContain('Depth 1 · 1m');
+    expect(graph.nodes[1]?.ariaLabel).toContain('Depth 1, 1m');
     expect(graph.edges).toEqual([
       expect.objectContaining({ source: 'session-root', target: 'task_ndp' }),
     ]);

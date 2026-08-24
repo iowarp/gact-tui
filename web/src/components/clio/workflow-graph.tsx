@@ -44,7 +44,7 @@ export function ClioWorkflowGraph({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const horizontalFanout = useContainerQuery(containerRef, 700);
-  const direction = horizontalFanout ? 'TB' : 'LR';
+  const direction = horizontalFanout ? 'LR' : 'TB';
   const graph = useMemo(() => {
     const next = buildWorkflowGraph(processes, subagents, direction);
     return {
@@ -63,7 +63,7 @@ export function ClioWorkflowGraph({
   }, [direction, onOpenSubagent, processes, subagents]);
   const agentCount = processes.filter((process) => process.kind === 'agent').length;
   const graphHeight = horizontalFanout
-    ? 440
+    ? Math.min(720, Math.max(320, agentCount * (nodeHeight + 14) + 120))
     : Math.min(920, Math.max(360, agentCount * (nodeHeight + 14) + 120));
 
   if (!graph.edges.length) return null;
@@ -124,6 +124,7 @@ export function buildWorkflowGraph(
   if (!agents.length) return { nodes: [], edges: [] };
 
   const rootState = summarizeState(agents.map((process) => process.live_state));
+  const delegatedDetail = `${agents.length} delegated ${agents.length === 1 ? 'run' : 'runs'}`;
   const nodes: WorkflowNode[] = [
     {
       id: 'session-root',
@@ -131,10 +132,10 @@ export function buildWorkflowGraph(
       position: { x: 0, y: 0 },
       data: {
         label: 'Current session',
-        detail: `${agents.length} delegated ${agents.length === 1 ? 'run' : 'runs'}`,
+        detail: delegatedDetail,
         state: rootState,
       },
-      ariaLabel: `Current session, ${agents.length} delegated runs, ${rootState}`,
+      ariaLabel: `Current session, ${delegatedDetail}, ${rootState}`,
     },
     ...agents.map((process): WorkflowNode => {
       const subagent = subagents.find(

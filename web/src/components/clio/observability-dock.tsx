@@ -201,6 +201,7 @@ export function ClioObservabilityView({
 }: ClioObservabilityDockProps & { presentation?: 'popover' | 'canvas' }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasSingleRowTabs = useContainerQuery(surfaceRef, 400);
+  const hasGraphSpace = useContainerQuery(surfaceRef, 640);
   const activity = useMemo<ActivityItem[]>(
     () =>
       [
@@ -281,12 +282,17 @@ export function ClioObservabilityView({
         >
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
             {presentation === 'canvas' ? <ClioProcessLanes processes={processes} /> : null}
-            {presentation === 'canvas' ? (
+            {presentation === 'canvas' && hasGraphSpace ? (
               <ClioWorkflowGraph
                 onOpenSubagent={onOpenSubagent}
                 processes={processes}
                 subagents={subagents}
               />
+            ) : presentation === 'canvas' && processes.some((process) => process.kind === 'agent') ? (
+              <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
+                The delegation map is available in a wider canvas. Maximize or widen this panel to
+                explore the topology.
+              </p>
             ) : null}
             {presentation === 'canvas' && processes.length ? (
               <ProcessSummary processes={processes} />

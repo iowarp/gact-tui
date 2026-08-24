@@ -152,8 +152,8 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByRole('img', { name: 'Observed execution spans' })).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Child-agent delegation topology' })).toBeVisible();
-    expect(screen.getAllByText('ndp #1')).toHaveLength(2);
+    expect(screen.getByText(/delegation map is available in a wider canvas/i)).toBeVisible();
+    expect(screen.getByText('ndp #1')).toBeVisible();
     expect(screen.getByText(/bars show concurrency/i)).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
