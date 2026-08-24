@@ -61,7 +61,7 @@ export function NavigationHeader({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton className="h-11" size="lg" tooltip={`${brand.name} service`}>
-                <span className="grid size-8 place-items-center rounded-lg bg-primary/15 text-primary">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
                   {logoSource ? (
                     <img alt="" className="size-7 object-contain" src={logoSource} />
                   ) : (
@@ -70,13 +70,16 @@ export function NavigationHeader({
                     </span>
                   )}
                 </span>
-                <span className="grid min-w-0 flex-1 text-left leading-tight">
+                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="font-heading font-semibold">{brand.wordmark}</span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {connectionPlaceLabel(endpoint, activeLabel)}
                   </span>
                 </span>
-                <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-3.5 group-data-[collapsible=icon]:hidden"
+                />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">

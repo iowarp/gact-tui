@@ -541,6 +541,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
   const pinnedToBottom = useRef(true);
+  const lastUserScrollIntentAt = useRef(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
     {},
@@ -593,8 +594,14 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     const element = scrollRef.current;
     if (!element) return;
     const next = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
-    pinnedToBottom.current = next;
+    if (next || performance.now() - lastUserScrollIntentAt.current < 500) {
+      pinnedToBottom.current = next;
+    }
     setIsAtBottom(next);
+  }, []);
+
+  const markUserScrollIntent = useCallback(() => {
+    lastUserScrollIntentAt.current = performance.now();
   }, []);
 
   const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -604,6 +611,29 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     pinnedToBottom.current = true;
     setIsAtBottom(true);
   }, []);
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    let width = Math.round(element.getBoundingClientRect().width);
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const nextWidth = Math.round(entry?.contentRect.width ?? 0);
+      if (!nextWidth || nextWidth === width) return;
+      width = nextWidth;
+      const keepLatestVisible = pinnedToBottom.current;
+      virtualizer.measure();
+      window.cancelAnimationFrame(frame);
+      if (keepLatestVisible) {
+        frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
+      }
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
+  }, [scrollToLatest, virtualizer]);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -644,7 +674,16 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       <div
         aria-label="Conversation"
         className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
+        onKeyDown={(event) => {
+          if (
+            ['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)
+          ) {
+            markUserScrollIntent();
+          }
+        }}
         onScroll={updateBottomState}
+        onTouchMove={markUserScrollIntent}
+        onWheel={markUserScrollIntent}
         ref={scrollRef}
         role="log"
         tabIndex={0}
