@@ -115,6 +115,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Child agents, 1 recorded, All settled' }));
     expect(screen.getByText('Delegated from main session')).toHaveAttribute(
       'title',
       'Recorded relationship: main <- geospatial',
@@ -123,11 +124,54 @@ describe('ClioObservabilityView', () => {
 
     await user.click(
       screen.getByRole('button', {
-        name: 'geospatial #1 Delegated from main session Completed Open conversation',
+        name: 'geospatial #1 Completed Delegated from main session Open conversation',
       }),
     );
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
+    await user.click(screen.getByRole('button', { name: 'Open geospatial #1 in canvas' }));
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
+  });
+
+  it('keeps child conversations directly accessible beside the observability control', async () => {
+    const user = userEvent.setup();
+    const onOpenSubagent = vi.fn();
+    const child = {
+      id: 'task_geo',
+      session_id: 'sess_1',
+      child_session_id: 'sess_child',
+      title: 'geospatial #1',
+      state: 'completed' as const,
+      task: 'Resolve the region and identify the nearest stations.',
+    };
+    renderObservability(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenCanvas={() => undefined}
+        onOpenSubagent={onOpenSubagent}
+        processes={[]}
+        runs={[]}
+        subagents={[child]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText('1 child agent')).toBeVisible();
+    expect(screen.getByText('All settled')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Open 1 child agent' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: /geospatial #1 Completed Resolve the region and identify the nearest stations/u,
+      }),
+    );
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
+
+    await user.click(screen.getByRole('button', { name: 'Open 1 child agent' }));
     await user.click(screen.getByRole('button', { name: 'Open geospatial #1 in canvas' }));
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });

@@ -1147,12 +1147,18 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   24px target.
 - New representation: one CLIO presentation adapter supplies the conversation, Work view, and
   durable child canvas. Routing shorthand becomes `Delegated from main session`, while real agent
-  assignments remain authoritative. The compact Work row shows four lines with the complete text
-  available to hover and assistive technology, and its canvas action uses the standard icon target.
+  assignments remain authoritative. The sourced TheoKit dispatch is the conversation card instead
+  of being wrapped by two competing primary buttons. The installed AI Elements Task owns the
+  collapsible Work group, while a shadcn Popover beside the observability control provides compact
+  access to every child. Settled children collapse by default; active children remain expanded.
+  Long assignments and results are bounded visually while the complete text stays available to
+  hover and assistive technology. Normal activation makes the child central; Shift-activation and
+  the visible standard-size canvas action preserve the parent and open a durable canvas tab.
 - Acceptance evidence: live EarthScope NDP verification proved plain click replaced the central
-  conversation with `geospatial task`; Shift-click retained the parent and opened `geospatial #1`
-  as a durable canvas tab. The same live surface exposed six-line assignments and the undersized
-  shortcut before the density correction.
+  conversation with `geospatial task`. The corrected quick surface kept the exact EarthScope NDP
+  route while both its canvas action and Shift-click opened `geospatial #1` and `geospatial #2` as
+  durable tabs. Eight settled children occupied one compact disclosure in Work, while the composer
+  exposed their labeled count and all-settled state without relying on a dot or color.
 
 # Historical MCP tool-name fallback
 

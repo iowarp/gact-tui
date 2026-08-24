@@ -23,7 +23,7 @@ import {
   ServerCogIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Timeline,
   TimelineContent,
@@ -34,8 +34,21 @@ import {
   TimelineSeparator,
   TimelineTitle,
 } from '@/components/reui/timeline';
+import {
+  Task as AiTask,
+  TaskContent as AiTaskContent,
+  TaskTrigger as AiTaskTrigger,
+} from '@/components/ai-elements/task';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
@@ -111,6 +124,7 @@ type ActivityItem =
     };
 
 export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
+  const [childAgentsOpen, setChildAgentsOpen] = useState(false);
   const activeItems =
     props.tasks.filter((task) => ['queued', 'running'].includes(task.state)).length +
     props.tools.filter((tool) => ['pending', 'running'].includes(tool.state)).length +
@@ -122,12 +136,38 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     ).length;
   const currentTool = props.tools.findLast((tool) => ['pending', 'running'].includes(tool.state));
   const currentTask = props.tasks.findLast((task) => ['queued', 'running'].includes(task.state));
+  const activeChildAgents = props.subagents.filter((agent) =>
+    ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(agent.state),
+  );
+  const latestActiveChild = activeChildAgents.at(-1);
+  const childAgentCountLabel = `${props.subagents.length.toLocaleString()} child ${props.subagents.length === 1 ? 'agent' : 'agents'}`;
+  const dockLabel = currentTool
+    ? getToolPresentation(currentTool).title
+    : latestActiveChild
+      ? latestActiveChild.title
+      : currentTask
+        ? currentTask.title
+        : props.subagents.length
+          ? childAgentCountLabel
+          : activeItems
+            ? 'Agent work in progress'
+            : 'Session details';
+  const dockStatus = activeItems
+    ? `${activeItems} active`
+    : props.subagents.length
+      ? 'All settled'
+      : 'Up to date';
+
+  const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
+    props.onOpenSubagent?.(subagent, target);
+    setChildAgentsOpen(false);
+  };
 
   return (
-    <div className="min-w-0 flex-1">
+    <div className="flex min-w-0 flex-1 items-center gap-1">
       <Button
         aria-label="Open session details in workspace canvas"
-        className="h-7 w-full min-w-0 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
+        className="h-7 min-w-0 flex-1 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
         disabled={!props.onOpenCanvas}
         onClick={props.onOpenCanvas}
         size="sm"
@@ -140,18 +180,113 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ) : (
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
-        <span className="min-w-0 flex-1 truncate text-left font-medium">
-          {currentTool
-            ? getToolPresentation(currentTool).title
-            : (currentTask?.title ?? (activeItems ? 'Agent work in progress' : 'Session details'))}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
         <ClioStatus
           className="hidden py-0.5 sm:inline-flex"
-          label={activeItems ? `${activeItems} active` : 'Up to date'}
+          label={dockStatus}
           value={activeItems ? 'running' : 'completed'}
         />
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
+      {props.subagents.length ? (
+        <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              aria-label={`Open ${childAgentCountLabel}`}
+              className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
+              size="sm"
+              title="Open child agents"
+              type="button"
+              variant="ghost"
+            >
+              <BoxesIcon aria-hidden="true" className="size-3.5" />
+              <span className="font-mono text-[10px] tabular-nums">
+                {props.subagents.length.toLocaleString()}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="max-h-[min(28rem,var(--radix-popover-content-available-height))] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-2"
+            side="top"
+          >
+            <PopoverHeader className="px-2 pb-1 pt-1">
+              <PopoverTitle>Child agents</PopoverTitle>
+              <PopoverDescription>
+                Select one to make it central. Use the canvas action to keep this conversation in
+                place.
+              </PopoverDescription>
+            </PopoverHeader>
+            <div className="grid gap-1">
+              {props.subagents.map((agent) => {
+                const assignment = getChildAgentAssignment(agent);
+                return (
+                  <ClioInteractiveRow
+                    actions={
+                      agent.child_session_id && props.onOpenSubagent ? (
+                        <Button
+                          aria-label={`Open ${agent.title} in canvas`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openChildAgent(agent, 'canvas');
+                          }}
+                          size="icon"
+                          title="Open in canvas"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <PanelRightOpenIcon aria-hidden="true" />
+                        </Button>
+                      ) : undefined
+                    }
+                    className="min-h-0 px-2 py-2"
+                    disabled={!agent.child_session_id || !props.onOpenSubagent}
+                    key={agent.id}
+                    onClick={(event) =>
+                      openChildAgent(agent, event.shiftKey ? 'canvas' : 'conversation')
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.shiftKey &&
+                        (event.key === 'Enter' || event.key === ' ') &&
+                        agent.child_session_id &&
+                        props.onOpenSubagent
+                      ) {
+                        event.preventDefault();
+                        openChildAgent(agent, 'canvas');
+                      }
+                    }}
+                    onMouseDown={(event) => {
+                      if (event.shiftKey) event.preventDefault();
+                    }}
+                    role="button"
+                    running={agent.state === 'running'}
+                  >
+                    <div className="flex min-w-0 items-start gap-2">
+                      <BoxesIcon
+                        aria-hidden="true"
+                        className="mt-0.5 size-3.5 shrink-0 text-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-xs font-medium">{agent.title}</p>
+                          <ClioStatus className="ml-auto shrink-0 py-0.5" value={agent.state} />
+                        </div>
+                        <p
+                          className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                          title={assignment.detail ?? assignment.label}
+                        >
+                          {assignment.label}
+                        </p>
+                      </div>
+                    </div>
+                  </ClioInteractiveRow>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
+      ) : null}
     </div>
   );
 }
@@ -238,6 +373,10 @@ export function ClioObservabilityView({
   const hasTurnTiming = activity.some((item) => item.timing === 'turn');
   const hasUnavailableTiming = activity.some((item) => !item.at);
   const backgroundProcesses = processes.filter((process) => process.kind === 'mcp-task');
+  const hasActiveSubagents = subagents.some((agent) =>
+    ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(agent.state),
+  );
+  const childAgentStatusLabel = hasActiveSubagents ? 'Active' : 'All settled';
   const workTools = useMemo(() => groupToolsForWork(tools), [tools]);
 
   return (
@@ -294,55 +433,104 @@ export function ClioObservabilityView({
                 </div>
               </ClioInteractiveRow>
             ))}
-            {subagents.map((agent) => {
-              const assignment = getChildAgentAssignment(agent);
-              return (
-                <ClioInteractiveRow
-                  actions={
-                    agent.child_session_id && onOpenSubagent ? (
-                      <Button
-                        aria-label={`Open ${agent.title} in canvas`}
-                        onClick={() => onOpenSubagent(agent, 'canvas')}
-                        size="icon"
-                        title="Open in canvas"
-                        variant="ghost"
-                      >
-                        <PanelRightOpenIcon aria-hidden="true" />
-                      </Button>
-                    ) : undefined
-                  }
-                  key={agent.id}
-                  running={agent.state === 'running'}
-                >
+            {subagents.length ? (
+              <AiTask
+                className="rounded-lg border bg-card/40 px-3 py-2"
+                defaultOpen={hasActiveSubagents}
+              >
+                <AiTaskTrigger title="Child agents">
                   <button
-                    className="flex w-full items-start gap-3 text-left outline-none"
-                    disabled={!agent.child_session_id || !onOpenSubagent}
-                    onClick={(event) =>
-                      onOpenSubagent?.(agent, event.shiftKey ? 'canvas' : 'conversation')
-                    }
-                    onMouseDown={(event) => {
-                      if (event.shiftKey) event.preventDefault();
-                    }}
+                    aria-label={`Child agents, ${subagents.length.toLocaleString()} recorded, ${childAgentStatusLabel}`}
+                    className="flex w-full items-center gap-2 rounded-md py-1 text-left text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
                     type="button"
                   >
-                    <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{agent.title}</p>
-                      <p
-                        className="mt-1 line-clamp-4 text-xs leading-5 text-muted-foreground"
-                        title={assignment.detail ?? assignment.label}
-                      >
-                        {assignment.label}
-                      </p>
-                      <ClioStatus className="mt-2" value={agent.state} />
-                      {agent.child_session_id && onOpenSubagent ? (
-                        <p className="mt-2 text-xs font-medium text-primary">Open conversation</p>
-                      ) : null}
-                    </div>
+                    <BoxesIcon aria-hidden="true" className="size-4 text-primary" />
+                    <span className="font-medium">Child agents</span>
+                    <span className="text-xs text-muted-foreground">
+                      {subagents.length.toLocaleString()} recorded
+                    </span>
+                    <ClioStatus
+                      className="ml-auto py-0.5"
+                      label={childAgentStatusLabel}
+                      value={hasActiveSubagents ? 'running' : 'completed'}
+                    />
                   </button>
-                </ClioInteractiveRow>
-              );
-            })}
+                </AiTaskTrigger>
+                <AiTaskContent>
+                  {subagents.map((agent) => {
+                    const assignment = getChildAgentAssignment(agent);
+                    return (
+                      <ClioInteractiveRow
+                        actions={
+                          agent.child_session_id && onOpenSubagent ? (
+                            <Button
+                              aria-label={`Open ${agent.title} in canvas`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onOpenSubagent(agent, 'canvas');
+                              }}
+                              size="icon"
+                              title="Open in canvas"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <PanelRightOpenIcon aria-hidden="true" />
+                            </Button>
+                          ) : undefined
+                        }
+                        className="min-h-0 px-2 py-2"
+                        key={agent.id}
+                        running={agent.state === 'running'}
+                      >
+                        <button
+                          className="flex w-full items-start gap-2 text-left outline-none"
+                          disabled={!agent.child_session_id || !onOpenSubagent}
+                          onClick={(event) =>
+                            onOpenSubagent?.(agent, event.shiftKey ? 'canvas' : 'conversation')
+                          }
+                          onKeyDown={(event) => {
+                            if (
+                              event.shiftKey &&
+                              (event.key === 'Enter' || event.key === ' ') &&
+                              agent.child_session_id
+                            ) {
+                              event.preventDefault();
+                              onOpenSubagent?.(agent, 'canvas');
+                            }
+                          }}
+                          onMouseDown={(event) => {
+                            if (event.shiftKey) event.preventDefault();
+                          }}
+                          type="button"
+                        >
+                          <BoxesIcon
+                            aria-hidden="true"
+                            className="mt-0.5 size-3.5 shrink-0 text-primary"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <p className="truncate text-xs font-medium">{agent.title}</p>
+                              <ClioStatus className="ml-auto shrink-0 py-0.5" value={agent.state} />
+                            </div>
+                            <p
+                              className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground"
+                              title={assignment.detail ?? assignment.label}
+                            >
+                              {assignment.label}
+                            </p>
+                            {agent.child_session_id && onOpenSubagent ? (
+                              <p className="mt-1 text-[11px] font-medium text-primary">
+                                Open conversation
+                              </p>
+                            ) : null}
+                          </div>
+                        </button>
+                      </ClioInteractiveRow>
+                    );
+                  })}
+                </AiTaskContent>
+              </AiTask>
+            ) : null}
             {workTools.map(({ count, key, tool }) => {
               const outcome = getToolOutcome(tool);
               return (

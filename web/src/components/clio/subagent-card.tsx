@@ -1,5 +1,5 @@
 import type { SubagentRun } from '@clio/core/v3';
-import { ArrowRightIcon, PanelRightOpenIcon } from 'lucide-react';
+import { PanelRightOpenIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
@@ -59,11 +59,11 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
         run={{
           id: subagent.id,
           agent: subagent.title,
-          task: compactText(assignment.label, 420, false),
+          task: compactText(assignment.label, 260, false),
           state: toTheoState(subagent.state),
           duration: formatDuration(subagent.duration_ms),
-          lastEvent: subagent.child_session_id ? 'Child conversation available' : undefined,
-          result: subagent.result ? compactText(subagent.result, 420, true) : undefined,
+          lastEvent: subagent.child_session_id ? 'Open conversation' : undefined,
+          result: subagent.result ? compactText(subagent.result, 300, true) : undefined,
         }}
         tabIndex={subagent.child_session_id && onOpen ? 0 : undefined}
         title={
@@ -73,18 +73,9 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
         }
       />
       {subagent.child_session_id && onOpen ? (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="flex justify-end">
           <Button
-            className="justify-between"
-            onClick={(event) => onOpen(subagent, event.shiftKey ? 'canvas' : 'conversation')}
-            size="sm"
-            variant="outline"
-          >
-            Open conversation
-            <ArrowRightIcon aria-hidden="true" className="size-3.5" />
-          </Button>
-          <Button
-            className="justify-between"
+            className="h-7 px-2"
             onClick={() => onOpen(subagent, 'canvas')}
             size="sm"
             variant="ghost"

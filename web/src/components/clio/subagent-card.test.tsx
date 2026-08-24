@@ -25,7 +25,7 @@ describe('ClioSubagentCard', () => {
 
     expect(screen.getByText('Ground the requested region before catalog search.')).toBeVisible();
     expect(screen.getByText('Resolved the region with authoritative coordinates.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Open conversation' })).toBeVisible();
+    expect(screen.getByText('Open conversation')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open in canvas' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open child conversation geospatial #1' }));

@@ -49,8 +49,11 @@ export function ClioProcessLanes({ processes }: { processes: readonly AsyncProce
                 )}
                 <span className="truncate text-xs font-medium">{lane.title}</span>
               </div>
-              <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                {lane.detail}, {formatDuration(lane.end - lane.start)}
+              <p className="mt-1 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground">
+                <span className="truncate">{lane.detail}</span>
+                <span className="shrink-0 font-mono tabular-nums">
+                  {formatDuration(lane.end - lane.start)}
+                </span>
               </p>
             </div>
             <div className="flex min-w-0 items-center gap-2">
@@ -104,7 +107,9 @@ function processLanes(processes: readonly AsyncProcess[]): ProcessLane[] {
     state: process.live_state,
     detail:
       process.kind === 'agent'
-        ? `Child agent${process.depth === undefined ? '' : `, depth ${process.depth}`}`
+        ? process.depth === undefined
+          ? 'Child agent'
+          : `Child agent at depth ${process.depth}`
         : process.host || process.placement || 'Background task',
     start,
     end,
@@ -150,11 +155,14 @@ export function ProcessSummary({ processes }: { processes: readonly AsyncProcess
     ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(process.live_state),
   ).length;
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
       <Clock3Icon aria-hidden="true" className="size-3.5" />
       <span>{processes.length.toLocaleString()} observed processes</span>
-      <span aria-hidden="true">—</span>
-      <span>{active ? `${active} active` : 'all settled'}</span>
+      <ClioStatus
+        className="py-0.5"
+        label={active ? `${active} active` : 'All settled'}
+        value={active ? 'running' : 'completed'}
+      />
     </div>
   );
 }

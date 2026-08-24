@@ -1,6 +1,6 @@
 // Source-owned from usetheokit/theokit-ui@64f737bb15c9ae87ff233a1ef838c96fdaf071cc.
-// CLIO changes are limited to the local cn import and existing semantic text tokens.
-import { Bot, CornerDownRight, Loader2 } from 'lucide-react';
+// CLIO retains its composition while adapting tokens, density, and labeled duration semantics.
+import { Bot, Clock3, CornerDownRight, Loader2 } from 'lucide-react';
 import { forwardRef } from 'react';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,7 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
     return (
       <article
         className={cn(
-          'grid gap-2 rounded-lg border border-primary/30 border-l-2 border-l-primary bg-card px-4 py-3',
+          'grid gap-1.5 rounded-lg border border-primary/30 border-l-2 border-l-primary bg-card px-3 py-2.5',
           className,
         )}
         data-slot="sub-agent-dispatch"
@@ -53,8 +53,9 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
             <Bot aria-hidden="true" className="size-4 shrink-0 text-primary" />
             <span className="truncate text-sm font-medium text-foreground">{run.agent}</span>
             {run.duration ? (
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
-                , {run.duration}
+              <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground tabular-nums">
+                <Clock3 aria-hidden="true" className="size-3" />
+                {run.duration}
               </span>
             ) : null}
           </div>
@@ -69,7 +70,7 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
           </span>
         </header>
 
-        <p className="text-sm text-foreground">
+        <p className="line-clamp-3 text-sm leading-5 text-foreground">
           <span className="mr-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Assignment
           </span>
@@ -81,7 +82,7 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
         ) : null}
 
         {run.result ? (
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-sm text-foreground">
+          <div className="line-clamp-4 rounded-md bg-muted/40 px-3 py-2 text-sm leading-5 text-foreground">
             <span className="mr-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Result
             </span>
