@@ -1,6 +1,6 @@
 import type { RelayConnectionInput, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CableIcon, PencilIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
+import { CableIcon, KeyRoundIcon, PencilIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -101,7 +101,10 @@ export function RelaySettings() {
           </div>
         </FrameHeader>
         <FramePanel className="grid gap-3">
-          <StatusRow label="Remote work" value={value?.configured ? 'Connected' : 'Not connected'} />
+          <StatusRow
+            label="Remote work"
+            value={value?.configured ? 'Connected' : 'Not connected'}
+          />
           <StatusRow
             label="Reachability"
             value={
@@ -145,7 +148,11 @@ export function RelaySettings() {
               onClick={() => setEditorOpen(true)}
               size="sm"
             >
-              {value?.configured ? <PencilIcon aria-hidden="true" /> : <CableIcon aria-hidden="true" />}
+              {value?.configured ? (
+                <PencilIcon aria-hidden="true" />
+              ) : (
+                <CableIcon aria-hidden="true" />
+              )}
               {value?.configured ? 'Edit connection' : 'Connect remote work'}
             </Button>
           </div>
@@ -206,6 +213,7 @@ function RelayConnectionDialog({
   const [mcpUrl, setMcpUrl] = useState(value?.mcp_url ?? '');
   const [httpUrl, setHttpUrl] = useState(value?.http_url ?? '');
   const [accessToken, setAccessToken] = useState('');
+  const [credentialOpen, setCredentialOpen] = useState(false);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -221,7 +229,9 @@ function RelayConnectionDialog({
       <DialogContent>
         <form className="contents" onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>{value?.configured ? 'Edit remote work' : 'Connect remote work'}</DialogTitle>
+            <DialogTitle>
+              {value?.configured ? 'Edit remote work' : 'Connect remote work'}
+            </DialogTitle>
             <DialogDescription>
               These details apply to the connected agent until that service restarts. The access
               credential stays in the agent process and is never shown again.
@@ -252,19 +262,52 @@ function RelayConnectionDialog({
                 type="url"
                 value={httpUrl}
               />
-              <FieldDescription>Used to retrieve progress, outputs, and artifacts.</FieldDescription>
+              <FieldDescription>
+                Used to retrieve progress, outputs, and artifacts.
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="relay-access-token">Access credential</FieldLabel>
-              <Input
-                autoComplete="off"
-                id="relay-access-token"
-                onChange={(event) => setAccessToken(event.target.value)}
-                placeholder={value?.credential_configured ? 'Keep current credential' : 'Required'}
-                required={!value?.credential_configured}
-                type="password"
-                value={accessToken}
-              />
+              {credentialOpen ? (
+                <>
+                  <Input
+                    autoComplete="new-password"
+                    id="relay-access-token"
+                    name="clio-relay-access-token"
+                    onChange={(event) => setAccessToken(event.target.value)}
+                    placeholder={
+                      value?.credential_configured
+                        ? 'Leave blank to keep the current credential'
+                        : 'Enter access credential'
+                    }
+                    required={!value?.credential_configured}
+                    type="password"
+                    value={accessToken}
+                  />
+                  <FieldDescription>
+                    {value?.credential_configured
+                      ? 'Leave this empty to keep the current credential.'
+                      : 'The credential stays only in the connected agent process.'}
+                  </FieldDescription>
+                </>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
+                  <p className="text-sm text-muted-foreground">
+                    {value?.credential_configured
+                      ? 'The current credential will be kept.'
+                      : 'A credential is required to connect.'}
+                  </p>
+                  <Button
+                    onClick={() => setCredentialOpen(true)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <KeyRoundIcon aria-hidden="true" />
+                    {value?.credential_configured ? 'Replace credential' : 'Enter credential'}
+                  </Button>
+                </div>
+              )}
             </Field>
           </FieldGroup>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -272,7 +315,15 @@ function RelayConnectionDialog({
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               Cancel
             </Button>
-            <Button disabled={pending} type="submit">
+            <Button
+              disabled={
+                pending ||
+                !mcpUrl.trim() ||
+                !httpUrl.trim() ||
+                (!value?.credential_configured && !accessToken.trim())
+              }
+              type="submit"
+            >
               {pending ? 'Connecting…' : 'Connect'}
             </Button>
           </DialogFooter>
