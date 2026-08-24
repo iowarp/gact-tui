@@ -82,8 +82,19 @@ export interface ClioObservabilityDockProps {
   onOpenFile?: (path: string) => void;
 }
 
+type ActivityTiming = 'event' | 'turn';
+
 type ActivityItem =
-  | { id: string; kind: 'run'; label: string; detail: string; state: Run['state']; at?: string }
+  | {
+      id: string;
+      kind: 'run';
+      label: string;
+      detail: string;
+      state: Run['state'];
+      at?: string;
+      order?: number;
+      timing?: ActivityTiming;
+    }
   | {
       id: string;
       kind: 'tool';
@@ -93,6 +104,8 @@ type ActivityItem =
       statusLabel?: string;
       statusDetail?: string;
       at?: string;
+      order?: number;
+      timing?: ActivityTiming;
     }
   | {
       id: string;
@@ -101,6 +114,8 @@ type ActivityItem =
       detail: string;
       state: AsyncProcess['live_state'];
       at?: string;
+      order?: number;
+      timing?: ActivityTiming;
     };
 
 export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
@@ -202,6 +217,7 @@ export function ClioObservabilityView({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasSingleRowTabs = useContainerQuery(surfaceRef, 400);
   const hasGraphSpace = useContainerQuery(surfaceRef, 640);
+  const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
   const activity = useMemo<ActivityItem[]>(
     () =>
       [
@@ -216,10 +232,13 @@ export function ClioObservabilityView({
                 : `${formatDuration(run.elapsed_ms)} elapsed`,
             state: run.state,
             at: run.completed_at ?? run.started_at,
+            timing: run.completed_at || run.started_at ? 'event' : undefined,
           }),
         ),
         ...tools.map((tool): ActivityItem => {
           const outcome = getToolOutcome(tool);
+          const eventAt = tool.completed_at ?? tool.started_at;
+          const turnContext = toolTurnContext.get(tool.id);
           return {
             id: tool.id,
             kind: 'tool',
@@ -228,7 +247,9 @@ export function ClioObservabilityView({
             state: outcome.value,
             statusLabel: outcome.label,
             statusDetail: outcome.detail,
-            at: tool.completed_at ?? tool.started_at,
+            at: eventAt ?? turnContext?.at,
+            order: turnContext?.order,
+            timing: eventAt ? 'event' : turnContext ? 'turn' : undefined,
           };
         }),
         ...processes.map(
@@ -242,11 +263,17 @@ export function ClioObservabilityView({
                 : `Background task${process.host ? `, ${process.host}` : ''}`,
             state: process.live_state,
             at: process.updated_at ?? process.created_at,
+            timing: process.updated_at || process.created_at ? 'event' : undefined,
           }),
         ),
-      ].sort((left, right) => (right.at ?? '').localeCompare(left.at ?? '')),
-    [processes, runs, tools],
+      ].sort((left, right) => {
+        const byTime = (right.at ?? '').localeCompare(left.at ?? '');
+        return byTime || (right.order ?? -1) - (left.order ?? -1);
+      }),
+    [processes, runs, toolTurnContext, tools],
   );
+  const hasTurnTiming = activity.some((item) => item.timing === 'turn');
+  const hasUnavailableTiming = activity.some((item) => !item.at);
   const backgroundProcesses = processes.filter((process) => process.kind === 'mcp-task');
   const workTools = useMemo(() => groupToolsForWork(tools), [tools]);
 
@@ -404,26 +431,37 @@ export function ClioObservabilityView({
           </TabsContent>
           <TabsContent className="m-0 p-4" value="activity">
             {activity.length ? (
-              <Timeline defaultValue={activity.length}>
-                {activity.map((item, index) => (
-                  <TimelineItem key={`${item.kind}:${item.id}`} step={index + 1}>
-                    <TimelineIndicator />
-                    <TimelineSeparator />
-                    <TimelineDate dateTime={item.at}>
-                      {item.at ? formatTimestamp(item.at) : 'Time unavailable'}
-                    </TimelineDate>
-                    <TimelineHeader className="flex items-start justify-between gap-2">
-                      <TimelineTitle className="min-w-0 truncate">{item.label}</TimelineTitle>
-                      <ClioStatus
-                        detail={'statusDetail' in item ? item.statusDetail : undefined}
-                        label={'statusLabel' in item ? item.statusLabel : undefined}
-                        value={item.state}
-                      />
-                    </TimelineHeader>
-                    <TimelineContent>{item.detail}</TimelineContent>
-                  </TimelineItem>
-                ))}
-              </Timeline>
+              <div className="grid gap-3">
+                {hasTurnTiming || hasUnavailableTiming ? (
+                  <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
+                    {hasTurnTiming
+                      ? 'Exact tool execution times were not recorded for some historical entries. Their containing turn time is shown instead.'
+                      : 'Some historical entries have no recorded time and remain labeled Unavailable.'}
+                  </p>
+                ) : null}
+                <Timeline defaultValue={activity.length}>
+                  {activity.map((item, index) => (
+                    <TimelineItem key={`${item.kind}:${item.id}`} step={index + 1}>
+                      <TimelineIndicator />
+                      <TimelineSeparator />
+                      <TimelineDate dateTime={item.at}>
+                        {item.at
+                          ? `${item.timing === 'turn' ? 'Turn started ' : ''}${formatTimestamp(item.at)}`
+                          : 'Unavailable'}
+                      </TimelineDate>
+                      <TimelineHeader className="flex items-start justify-between gap-2">
+                        <TimelineTitle className="min-w-0 truncate">{item.label}</TimelineTitle>
+                        <ClioStatus
+                          detail={'statusDetail' in item ? item.statusDetail : undefined}
+                          label={'statusLabel' in item ? item.statusLabel : undefined}
+                          value={item.state}
+                        />
+                      </TimelineHeader>
+                      <TimelineContent>{item.detail}</TimelineContent>
+                    </TimelineItem>
+                  ))}
+                </Timeline>
+              </div>
             ) : (
               <p className="p-6 text-center text-sm text-muted-foreground">
                 No run or tool activity is available.
@@ -462,6 +500,20 @@ export function ClioObservabilityView({
 
 function ObservabilityContent(props: ClioObservabilityDockProps) {
   return <ClioObservabilityView {...props} presentation="popover" />;
+}
+
+function toolActivityContext(messages: readonly Message[]): Map<string, { at: string; order: number }> {
+  const context = new Map<string, { at: string; order: number }>();
+  let order = 0;
+  for (const message of [...messages].sort((left, right) =>
+    left.created_at.localeCompare(right.created_at),
+  )) {
+    for (const block of message.blocks) {
+      if (block.type === 'tool') context.set(block.tool_id, { at: message.created_at, order });
+      order += 1;
+    }
+  }
+  return context;
 }
 
 function formatDuration(milliseconds: number): string {

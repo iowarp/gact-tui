@@ -177,6 +177,46 @@ describe('ClioObservabilityView', () => {
       expect.objectContaining({ path: 'src/analysis.py', status: 'pending' }),
     );
   });
+
+  it('labels containing-turn time without presenting it as exact tool execution time', async () => {
+    const user = userEvent.setup();
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[
+          {
+            id: 'message_1',
+            session_id: 'sess_1',
+            role: 'assistant',
+            created_at: '2026-08-22T12:00:00Z',
+            blocks: [{ id: 'block_1', type: 'tool', tool_id: 'tool_1' }],
+          },
+        ]}
+        presentation="canvas"
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[
+          {
+            id: 'tool_1',
+            session_id: 'sess_1',
+            name: 'campaign_health',
+            title: 'Campaign health',
+            state: 'succeeded',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Activity' }));
+    expect(screen.getByText(/exact tool execution times were not recorded/i)).toBeVisible();
+    expect(screen.getByText(/Turn started/u)).toBeVisible();
+    expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
+  });
 });
 
 function renderObservability(children: React.ReactNode) {
