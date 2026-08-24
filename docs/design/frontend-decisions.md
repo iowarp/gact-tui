@@ -1101,3 +1101,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: every healthy session status strip exposed `cursor <value>` or `cursor Unavailable`, presenting transport implementation state as if it were an operational result. Zero activity also read as the awkward `0 active work`.
 - New representation: healthy streams omit checkpoint metadata and say `No active work`. Reconnecting and gap-recovery states use `Resuming updates` or `Checking for missed updates`; the exact checkpoint remains supplemental title metadata for diagnosis.
 - Acceptance evidence: canonical EarthScope NDP visibly reproduced `Live`, `cursor Unavailable`, and `0 active work` together despite a healthy completed session.
+
+# Canvas tab overflow
+
+- Old failure: opening only Observability and one child-agent tab at a 1280px viewport produced a permanent native horizontal scrollbar inside the canvas header. It consumed part of the tab hit area and made the durable canvas look like an unstyled overflow container.
+- New representation: the tab strip remains horizontally scrollable by wheel, touch, keyboard focus, and active-tab reveal, but its native scrollbar is visually suppressed. Tabs, close actions, launcher, and maximize remain in the same stable header geometry.
+- Acceptance evidence: canonical NDP beside the durable SPOTTER child tab reproduced the scrollbar in the live 578px conversation plus 420px canvas composition.

@@ -34,6 +34,7 @@ describe('ClioWorkbench canvas', () => {
       'true',
     );
     expect(screen.getByText('Session intelligence')).toBeVisible();
+    expect(screen.getByRole('tablist').parentElement).toHaveClass('no-scrollbar');
 
     await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
     await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
