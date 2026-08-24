@@ -3,6 +3,7 @@ import {
   lastWorkspaceRoute,
   rememberWorkspaceRoute,
   returnRouteFromState,
+  workspaceIdFromRoute,
 } from './workspace-route-memory';
 
 beforeEach(() => {
@@ -36,5 +37,11 @@ describe('connection-scoped workspace route memory', () => {
     expect(lastWorkspaceRoute('http://127.0.0.1:8790')).toBe(
       '/workspaces/ws_luna/sessions/sess_exact',
     );
+  });
+
+  it('recovers the workspace context for local settings surfaces', () => {
+    expect(workspaceIdFromRoute('/workspaces/ws%20science/sessions/sess_1')).toBe('ws science');
+    expect(workspaceIdFromRoute('/settings/tools')).toBeUndefined();
+    expect(workspaceIdFromRoute('/workspaces/%E0%A4%A/sessions/sess_1')).toBeUndefined();
   });
 });

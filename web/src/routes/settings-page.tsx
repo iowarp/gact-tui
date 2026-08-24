@@ -86,7 +86,7 @@ import {
   useConversationDisplay,
   type ConversationDisplayMode,
 } from '@/providers/conversation-display-provider';
-import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { returnRouteFromState, workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 import {
   connectionDegradationLabel,
   materialConnectionDegradations,
@@ -499,14 +499,20 @@ function AppearanceSettings() {
   );
 }
 
-function SettingsSection({ section }: { section: string }) {
+function SettingsSection({
+  section,
+  workspaceId,
+}: {
+  section: string;
+  workspaceId?: string;
+}) {
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'providers') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;
   if (section === 'blueprints') return <BlueprintSettings />;
-  if (section === 'expert-packs') return <ExpertPackSettings />;
-  if (section === 'tools') return <ToolsSettings />;
+  if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'prompts') return <PromptsCommandsSettings />;
   if (section === 'schedules') return <ScheduleSettings />;
   if (section === 'relays') return <RelaySettings />;
@@ -587,12 +593,14 @@ export function SettingsPage() {
   const { section = 'appearance' } = useParams();
   const location = useLocation();
   const { settings } = useConnectionSettings();
+  const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
+  const workspaceId = workspaceIdFromRoute(workspaceRoute);
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
           <Button asChild className="mb-4 justify-start" variant="ghost">
-            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
+            <Link to={workspaceRoute}>
               <ChevronLeftIcon aria-hidden="true" /> Workspace
             </Link>
           </Button>
@@ -610,7 +618,7 @@ export function SettingsPage() {
           ))}
         </nav>
         <section className="min-w-0 pb-16">
-          <SettingsSection section={section} />
+          <SettingsSection section={section} workspaceId={workspaceId} />
         </section>
       </div>
     </main>

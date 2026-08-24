@@ -83,7 +83,7 @@ function workspaceTitle(workspace: Workspace) {
   return workspace.display_name || workspace.name;
 }
 
-export function ExpertPackSettings() {
+export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -96,7 +96,11 @@ export function ExpertPackSettings() {
     queryKey: ['workspaces', settings.endpoint, 'expert-pack-settings'],
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
-  const workspaceId = workspacePreference || workspaces.data?.[0]?.id || '';
+  const requestedWorkspaceId = workspacePreference || initialWorkspaceId;
+  const workspaceId =
+    workspaces.data?.find((workspace) => workspace.id === requestedWorkspaceId)?.id ||
+    workspaces.data?.[0]?.id ||
+    '';
 
   const packs = useQuery({
     queryKey: ['expert-packs', settings.endpoint, workspaceId || 'global'],

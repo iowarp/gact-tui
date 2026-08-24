@@ -114,7 +114,7 @@ function inventoryDescription(row: Record<string, unknown>) {
   return typeof value === 'string' ? value : '';
 }
 
-export function ToolsSettings() {
+export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -132,7 +132,11 @@ export function ToolsSettings() {
     queryKey: ['workspaces', settings.endpoint, 'tool-settings'],
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
-  const workspaceId = workspacePreference || workspaces.data?.[0]?.id || '';
+  const requestedWorkspaceId = workspacePreference || initialWorkspaceId;
+  const workspaceId =
+    workspaces.data?.find((workspace) => workspace.id === requestedWorkspaceId)?.id ||
+    workspaces.data?.[0]?.id ||
+    '';
   const servers = useQuery({
     queryKey: ['mcp-servers', settings.endpoint, workspaceId || 'global'],
     queryFn: ({ signal }) => repository.mcpServers(workspaceId || undefined, signal),
