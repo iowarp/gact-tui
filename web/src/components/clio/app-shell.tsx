@@ -27,13 +27,30 @@ export interface ClioAppShellProps {
 function DesktopNavigationLayout({
   navigation,
   children,
+  collapseForWorkbench,
 }: {
   navigation: ReactNode;
   children: ReactNode;
+  collapseForWorkbench: boolean;
 }) {
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
+  const restoreNavigationRef = useRef(false);
   useMenuAction('toggle-sessions', () => setOpen(!open));
+
+  useEffect(() => {
+    if (collapseForWorkbench) {
+      if (open) {
+        restoreNavigationRef.current = true;
+        setOpen(false);
+      }
+      return;
+    }
+    if (restoreNavigationRef.current) {
+      restoreNavigationRef.current = false;
+      setOpen(true);
+    }
+  }, [collapseForWorkbench, open, setOpen]);
 
   useEffect(() => {
     if (open) panelRef.current?.expand();
@@ -87,6 +104,9 @@ export function ClioAppShell({
   statusStrip,
 }: ClioAppShellProps) {
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
+  const workbenchNeedsNavigationRail = useMediaQuery(
+    '(min-width: 820px) and (max-width: 1279px)',
+  );
   const workspaceRef = useRef<HTMLElement>(null);
   // The navigation panel is independently resizable, so viewport media queries
   // cannot describe how much room the session workspace actually has.
@@ -95,6 +115,7 @@ export function ClioAppShell({
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
   const workbenchOpen = revealRequested || (workbenchPreference ?? desktopWorkbench);
+  const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
@@ -187,7 +208,12 @@ export function ClioAppShell({
   return (
     <SidebarProvider>
       {desktopNavigation ? (
-        <DesktopNavigationLayout navigation={navigation}>{workspace}</DesktopNavigationLayout>
+        <DesktopNavigationLayout
+          collapseForWorkbench={collapseNavigationForWorkbench}
+          navigation={navigation}
+        >
+          {workspace}
+        </DesktopNavigationLayout>
       ) : (
         <main className="flex h-dvh w-full">
           {navigation}

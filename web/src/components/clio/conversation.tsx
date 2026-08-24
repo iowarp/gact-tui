@@ -77,6 +77,7 @@ import type { SubagentOpenTarget } from './subagent-card';
 const ClioA2UISurface = lazy(() =>
   import('./a2ui-surface').then((module) => ({ default: module.ClioA2UISurface })),
 );
+const VIRTUALIZATION_THRESHOLD = 80;
 
 function A2UISurfaceFallback() {
   return <ClioStatus label="Loading interactive surface" value="running" />;
@@ -356,9 +357,10 @@ interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messa
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;
-  start: number;
+  start?: number;
   recent: boolean;
-  measureElement: (element: Element | null) => void;
+  measureElement?: (element: Element | null) => void;
+  virtualized?: boolean;
   onDisplayModeChange: (mode: ConversationDisplayMode) => void;
 }
 
@@ -368,6 +370,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   start,
   recent,
   measureElement,
+  virtualized = false,
   displayMode,
   onDisplayModeChange,
   ...entities
@@ -385,11 +388,11 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 
   return (
     <div
-      className="absolute left-0 top-0 w-full px-5 pb-7 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8"
+      className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-7 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
-      ref={measureElement}
-      style={{ transform: `translateY(${start}px)` }}
+      ref={virtualized ? measureElement : undefined}
+      style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >
       <m.div
@@ -570,6 +573,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       (block) => (block.type === 'text' || block.type === 'reasoning') && block.streaming,
     ),
   );
+  const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -622,7 +626,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       if (!nextWidth || nextWidth === width) return;
       width = nextWidth;
       const keepLatestVisible = pinnedToBottom.current;
-      virtualizer.measure();
+      if (virtualized) virtualizer.measure();
       window.cancelAnimationFrame(frame);
       if (keepLatestVisible) {
         frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
@@ -633,13 +637,14 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [scrollToLatest, virtualizer]);
+  }, [scrollToLatest, virtualized, virtualizer]);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
     initialScrollComplete.current = true;
-    virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
-  }, [messages.length, virtualizer]);
+    if (virtualized) virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+    else scrollToLatest('instant');
+  }, [messages.length, scrollToLatest, virtualized, virtualizer]);
 
   useEffect(() => {
     let frame = 0;
@@ -713,26 +718,33 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
           />
         ) : (
           <div
-            className={`relative mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
-            style={{ height: virtualizer.getTotalSize() }}
+            className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const message = messages[virtualRow.index];
-              if (!message) return null;
-              return (
-                <ConversationMessageRow
-                  {...entities}
-                  displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
-                  index={virtualRow.index}
-                  key={message.id}
-                  measureElement={virtualizer.measureElement}
-                  message={message}
-                  onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
-                  recent={virtualRow.index >= messages.length - 2}
-                  start={virtualRow.start}
-                />
-              );
-            })}
+            {(virtualized
+              ? virtualizer.getVirtualItems().map((virtualRow) => ({
+                  index: virtualRow.index,
+                  start: virtualRow.start,
+                }))
+              : messages.map((_, index) => ({ index, start: undefined })))
+              .map(({ index, start }) => {
+                const message = messages[index];
+                if (!message) return null;
+                return (
+                  <ConversationMessageRow
+                    {...entities}
+                    displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
+                    index={index}
+                    key={message.id}
+                    measureElement={virtualized ? virtualizer.measureElement : undefined}
+                    message={message}
+                    onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
+                    recent={index >= messages.length - 2}
+                    start={start}
+                    virtualized={virtualized}
+                  />
+                );
+              })}
           </div>
         )}
         {detachedSurfaces.length > 0 ? (
