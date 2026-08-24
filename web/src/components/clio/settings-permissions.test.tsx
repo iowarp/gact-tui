@@ -36,6 +36,15 @@ const policies = [
     path_pattern: 'D:/science/**',
     metadata: {},
   },
+  {
+    scope: 'workspace',
+    action: 'allow',
+    priority: 1,
+    kind: 'tool',
+    tool_name_pattern: '*',
+    path_pattern: '*',
+    metadata: {},
+  },
 ];
 
 function renderPanel(children: ReactNode) {
@@ -69,8 +78,10 @@ describe('permission policy settings', () => {
     expect(screen.getByText(/Higher priority wins/)).toBeVisible();
     expect(await screen.findByText('Science campaign')).toBeVisible();
     expect(screen.getByText('Internet domain')).toBeVisible();
-    expect(screen.getByText('*.untrusted.test')).toBeVisible();
+    expect(screen.getByText('Domain pattern *.untrusted.test')).toBeVisible();
     expect(screen.getByText('Blocked')).toBeVisible();
+    expect(screen.getByText('All tool actions in all permitted locations')).toBeVisible();
+    expect(screen.queryByText('*, *')).not.toBeInTheDocument();
   });
 
   it('adds a scoped rule by atomically replacing the complete policy set', async () => {
@@ -114,6 +125,6 @@ describe('permission policy settings', () => {
     await user.click(within(confirmation).getByRole('button', { name: 'Remove rule' }));
 
     await waitFor(() => expect(repository.updatePolicies).toHaveBeenCalled());
-    expect(repository.updatePolicies).toHaveBeenCalledWith([policies[1]]);
+    expect(repository.updatePolicies).toHaveBeenCalledWith([policies[1], policies[2]]);
   });
 });

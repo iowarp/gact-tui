@@ -1023,3 +1023,16 @@ presented.
   the two-field state 412 px. Both remained inside the 880 px frame; document and body scroll width
   matched the 1,265 px client width, and switching between Every workspace and One workspace did
   not introduce horizontal scrolling or clip either control.
+
+## 2026-08-24 — Permission summaries translate wildcard syntax
+
+- **Old failure:** Access-rule cards projected backend wildcard fields as `*, *`. The exact values
+  were necessary in the security editor, but meaningless and visually noisy in the ordinary rule
+  summary.
+- **Decision:** Permission cards translate wildcard domain, file, tool, and path patterns into
+  labeled product meaning such as `All tool actions in all permitted locations`. Specific patterns
+  remain explicitly labeled, and the edit dialog continues to expose the exact backend values
+  because they define the authorization boundary.
+- **Acceptance evidence:** The live workspace rule changed from `*, *` to the full labeled sentence.
+  Opening Edit access rule still showed `*` in both Tool name pattern and Limit to file paths, with
+  the original workspace scope and priority unchanged.

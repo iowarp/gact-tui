@@ -155,12 +155,27 @@ function PolicyIcon({ kind }: { kind: PolicyKind }) {
   return <Icon aria-hidden="true" className="mt-0.5 size-4 text-primary" />;
 }
 
+function isWildcardPattern(value?: string): boolean {
+  return !value || value === '*' || value === '**';
+}
+
 function policySummary(policy: PermissionPolicy): string {
   const kind = inferredKind(policy);
-  if (kind === 'domain') return policy.host_pattern || 'Any domain';
-  if (kind === 'fs_root') return policy.path_pattern || 'Any file location';
-  const tool = policy.tool_name_pattern || 'Any tool';
-  return policy.path_pattern ? `${tool}, ${policy.path_pattern}` : tool;
+  if (kind === 'domain') {
+    return isWildcardPattern(policy.host_pattern)
+      ? 'All internet domains'
+      : `Domain pattern ${policy.host_pattern}`;
+  }
+  if (kind === 'fs_root') {
+    return isWildcardPattern(policy.path_pattern)
+      ? 'All permitted file locations'
+      : `File location ${policy.path_pattern}`;
+  }
+
+  const allTools = isWildcardPattern(policy.tool_name_pattern);
+  const allPaths = isWildcardPattern(policy.path_pattern);
+  const subject = allTools ? 'All tool actions' : `Tool pattern ${policy.tool_name_pattern}`;
+  return allPaths ? `${subject} in all permitted locations` : `${subject} limited to ${policy.path_pattern}`;
 }
 
 export function PermissionPoliciesPanel({
