@@ -6,6 +6,8 @@ export interface ClioModelOption {
   id: string;
   label: string;
   description?: string;
+  available: boolean;
+  availabilityDetail?: string;
 }
 
 /** Build the composer catalog without losing an authoritative active model. */
@@ -35,6 +37,10 @@ export function buildModelOptions({
       id: item.id,
       label: item.name ?? item.label ?? item.id,
       description: item.description,
+      available: preset.is_authenticated,
+      availabilityDetail: preset.is_authenticated
+        ? undefined
+        : (preset.status_message ?? 'Sign-in needed'),
     }));
   });
   if (
@@ -51,6 +57,11 @@ export function buildModelOptions({
       id: activeModel,
       label: activeModel,
       description: undefined,
+      available: activePreset?.is_authenticated ?? true,
+      availabilityDetail:
+        activePreset && !activePreset.is_authenticated
+          ? (activePreset.status_message ?? 'Sign-in needed')
+          : undefined,
     });
   }
   return options;

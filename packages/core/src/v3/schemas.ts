@@ -77,7 +77,10 @@ export const languageModelConfigurationSchema = z.object({
   model: z.string(),
   temperature: z.number().optional(),
   max_tokens: z.number().int().positive().optional(),
-  thinking_level: z.string().optional(),
+  thinking_level: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
   thinking_effective: z.string().optional(),
   state: z.string().optional(),
   status_message: z.string().optional(),

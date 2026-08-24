@@ -7,7 +7,7 @@ import {
   RouteIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import {
@@ -57,6 +57,8 @@ export interface ClioComposerProps {
     id: string;
     label: string;
     description?: string;
+    available: boolean;
+    availabilityDetail?: string;
   }>;
   disabled?: boolean;
   commands?: CommandDefinition[];
@@ -100,6 +102,11 @@ export function ClioComposer({
   const [selectedEffort, setSelectedEffort] = useState(effort);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    setSelectedProvider(provider);
+    setSelectedModel(model);
+    setSelectedEffort(effort);
+  }, [effort, model, provider]);
   const groupedModels = useMemo(
     () =>
       Object.entries(
@@ -271,6 +278,7 @@ export function ClioComposer({
                     <ModelSelectorGroup heading={providerName} key={providerName}>
                       {options.map((option) => (
                         <ModelSelectorItem
+                          disabled={!option.available}
                           key={`${option.providerId}:${option.id}`}
                           onSelect={() => {
                             setSelectedProvider(option.providerId);
@@ -281,9 +289,9 @@ export function ClioComposer({
                           <ModelSelectorLogo provider={option.providerId} />
                           <ModelSelectorName>
                             <span className="block truncate">{option.label}</span>
-                            {option.description ? (
+                            {option.description || option.availabilityDetail ? (
                               <span className="block truncate text-xs text-muted-foreground">
-                                {option.description}
+                                {option.availabilityDetail ?? option.description}
                               </span>
                             ) : null}
                           </ModelSelectorName>

@@ -317,6 +317,43 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('accepts an unset service reasoning level without discarding provider discovery', async () => {
+    const transport = new RecordingTransport([
+      {
+        configured: true,
+        provider: 'codex',
+        api_base: 'codex://app-server',
+        model: 'gpt-5.6-luna',
+        thinking_level: null,
+        thinking_effective: 'default (provider default)',
+        presets: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex (subscription)',
+            provider: 'codex',
+            suggested_model: 'gpt-5.5',
+            is_authenticated: true,
+          },
+          {
+            id: 'claude_code',
+            label: 'Claude Code (subscription)',
+            provider: 'claude_code',
+            suggested_model: 'sonnet',
+            is_authenticated: true,
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.languageModelConfiguration()).resolves.toMatchObject({
+      provider: 'codex',
+      model: 'gpt-5.6-luna',
+      thinking_level: undefined,
+      presets: [{ id: 'codex' }, { id: 'claude_code' }],
+    });
+  });
+
   it('runs a report-only provider handshake with an explicit refresh', async () => {
     const report = {
       models: [{ id: 'gpt-5.6-luna', context_window: 400000 }],
