@@ -42,12 +42,25 @@ describe('getToolPresentation', () => {
     ).toEqual({ title: 'Read file', kind: 'tool' });
   });
 
+  it('replaces machine syntax with a curated child-agent action title', () => {
+    expect(
+      getToolPresentation({
+        id: 'tool-wait',
+        session_id: 'session-1',
+        name: 'wait_agent_tasks',
+        title: 'wait(tasks)',
+        state: 'succeeded',
+      }),
+    ).toEqual({ title: 'Wait for child agents', kind: 'tool' });
+  });
+
   it('uses clean fallbacks for namespaced tool identifiers', () => {
     expect(humanizeToolName('fs_read_file')).toBe('Read file');
     expect(humanizeToolName('fs_propose_edit')).toBe('Propose file change');
     expect(humanizeToolName('fs_apply_edit_write')).toBe('Apply file change');
     expect(humanizeToolName('mcp__filesystem__read_file')).toBe('Read file');
     expect(humanizeToolName('shell_bash')).toBe('Run command');
+    expect(humanizeToolName('observe_agent_tasks')).toBe('Watch child agents');
   });
 
   it('summarizes a completed file operation without exposing its raw payload', () => {

@@ -1113,3 +1113,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: the composer's Session details pill opened a second Work/Activity/Evidence/Context popover over the conversation while the same observability surface already existed as the default durable canvas tab. Users had two competing containers for the same session truth.
 - New representation: Session details is a direct launcher for the Observability canvas tab. It reveals the canvas when closed and focuses Observability when another durable file, artifact, or child-agent tab is active; the live status summary remains in the composer button.
 - Acceptance evidence: canonical NDP with a durable SPOTTER child tab reproduced the duplicate 440px floating panel over the conversation, including an extra `Open full session view` step.
+
+# Historical tool titles
+
+- Old failure: historical GACT records can contain provider-oriented display syntax such as `wait(tasks)` even when the canonical tool identity is `wait_agent_tasks`. The activity timeline trusted that title and exposed it repeatedly as primary copy.
+- New representation: meaningful server and MCP titles remain authoritative, while identifier-shaped titles fall back through the shared CLIO tool-title adapter. Child lifecycle tools use explicit actions such as `Wait for child agents`, `Check child agents`, and `Watch child agents` everywhere.
+- Acceptance evidence: canonical EarthScope NDP Activity rendered three adjacent `wait(tasks)` rows above otherwise human-labeled child-agent entries.

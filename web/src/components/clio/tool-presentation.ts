@@ -34,7 +34,14 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   if (tool.name === 'create_a2ui_surface') {
     return { title: analysisViewTitle(tool.state), kind: 'analysis-view' };
   }
-  return { title: tool.title ?? humanizeToolName(tool.name), kind: 'tool' };
+  const providedTitle = tool.title?.trim();
+  return {
+    title:
+      providedTitle && !isMachineFacingToolTitle(providedTitle)
+        ? providedTitle
+        : humanizeToolName(tool.name),
+    kind: 'tool',
+  };
 }
 
 export function getToolSummary(tool: ToolInvocation): string {
@@ -111,6 +118,11 @@ export function humanizeToolName(name: string): string {
   if (exact === 'fs_apply_edit_write') return 'Apply file change';
   if (exact === 'web_search' || exact.endsWith('_web_search')) return 'Search web';
   if (exact === 'create_a2ui_surface') return 'Create analysis view';
+  if (exact === 'wait_agent_tasks') return 'Wait for child agents';
+  if (exact === 'check_agent_tasks') return 'Check child agents';
+  if (exact === 'observe_agent_tasks') return 'Watch child agents';
+  if (exact === 'spawn_agent_task') return 'Start child agent';
+  if (exact === 'spawn_agents_parallel') return 'Start child agents';
 
   const actionIndex = normalized.findIndex((part) =>
     [
@@ -140,6 +152,10 @@ export function humanizeToolName(name: string): string {
   }
   const label = parts.join(' ').trim() || 'Tool activity';
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function isMachineFacingToolTitle(title: string): boolean {
+  return /^[a-z][a-z0-9_.-]*(?:\([a-z0-9_., -]*\))?$/u.test(title);
 }
 
 interface ToolIntent {
