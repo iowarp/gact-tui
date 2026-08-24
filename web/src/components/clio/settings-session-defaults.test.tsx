@@ -55,6 +55,11 @@ function renderSettings() {
     ],
   });
   repository.agentBlueprints.mockResolvedValue([]);
+  repository.providerModels.mockResolvedValue({
+    provider_id: 'codex',
+    source: 'codex_app_server',
+    models: [{ id: 'gpt-5.6-luna', name: 'GPT-5.6-Luna' }],
+  });
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -90,5 +95,19 @@ describe('new session defaults settings', () => {
         approval_mode: 'spotter-ai',
       }),
     );
+  });
+
+  it('offers live provider models without exposing the catalog implementation', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Model source' }));
+    await user.click(screen.getByRole('option', { name: 'OpenAI Codex' }));
+
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'GPT-5.6-Luna',
+    );
+    expect(screen.getByText('Available models were checked by the connected agent.')).toBeVisible();
+    expect(screen.queryByText(/codex_app_server/u)).not.toBeInTheDocument();
   });
 });

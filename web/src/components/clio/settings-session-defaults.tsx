@@ -201,11 +201,11 @@ export function SessionDefaultsSettings() {
                     ))}
                   </SelectContent>
                 </Select>
-                <FieldDescription>
+                <FieldDescription title={modelCatalog.data?.source}>
                   {modelCatalog.error
                     ? `Live choices unavailable: ${modelCatalog.error.message}`
                     : modelCatalog.data?.source
-                      ? `Choices reported by ${modelCatalog.data.source}.`
+                      ? 'Available models were checked by the connected agent.'
                       : 'Availability comes from the connected service.'}
                 </FieldDescription>
               </Field>
