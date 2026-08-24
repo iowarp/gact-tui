@@ -317,6 +317,54 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('keeps provider models when the service reports unknown optional limits as null', async () => {
+    const transport = new RecordingTransport([
+      {
+        models: [
+          {
+            id: 'sonnet',
+            name: 'Claude Sonnet',
+            description: 'Claude Code alias.',
+            context_window: 1_000_000,
+            output_limit: null,
+            label: null,
+          },
+          {
+            id: 'fable',
+            name: 'Claude Fable',
+            context_window: null,
+            output_limit: null,
+            context_source: null,
+          },
+        ],
+        source: 'provider_alias_probe',
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.providerModels('claude_code')).resolves.toEqual({
+      provider_id: 'claude_code',
+      models: [
+        {
+          id: 'sonnet',
+          name: 'Claude Sonnet',
+          description: 'Claude Code alias.',
+          context_window: 1_000_000,
+          output_limit: undefined,
+          label: undefined,
+        },
+        {
+          id: 'fable',
+          name: 'Claude Fable',
+          context_window: undefined,
+          output_limit: undefined,
+          context_source: undefined,
+        },
+      ],
+      source: 'provider_alias_probe',
+    });
+  });
+
   it('accepts an unset service reasoning level without discarding provider discovery', async () => {
     const transport = new RecordingTransport([
       {

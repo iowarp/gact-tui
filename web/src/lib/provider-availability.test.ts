@@ -27,7 +27,7 @@ describe('providerAvailability', () => {
     expect(providerAvailability(definition, preset)).toEqual({
       label: 'Unavailable',
       value: 'unavailable',
-      detail: 'claude CLI not found on PATH',
+      detail: 'Claude Code is not installed on the connected agent.',
     });
   });
 
@@ -35,6 +35,21 @@ describe('providerAvailability', () => {
     expect(providerAvailability(undefined, { ...preset, status: 'unknown' })).toMatchObject({
       label: 'Not checked',
       value: 'degraded',
+    });
+  });
+
+  it('does not expose environment variable names as sign-in instructions', () => {
+    expect(
+      providerAvailability(undefined, {
+        ...preset,
+        label: 'Anthropic API',
+        status: 'missing_key',
+        status_message: 'missing ANTHROPIC_API_KEY',
+      }),
+    ).toEqual({
+      label: 'Sign-in needed',
+      value: 'unavailable',
+      detail: 'Connect Anthropic API to use this provider.',
     });
   });
 });

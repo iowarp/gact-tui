@@ -46,12 +46,34 @@ export const providerDefinitionSchema = z.object({
 
 export const providerModelSchema = z.object({
   id: z.string(),
-  name: z.string().optional(),
-  label: z.string().optional(),
-  description: z.string().optional(),
-  context_window: z.number().int().positive().optional(),
-  output_limit: z.number().int().positive().optional(),
-  context_source: z.string().optional(),
+  name: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  label: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  description: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  context_window: z
+    .number()
+    .int()
+    .positive()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  output_limit: z
+    .number()
+    .int()
+    .positive()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  context_source: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 
 export const languageModelPresetSchema = z.object({

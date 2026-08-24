@@ -91,7 +91,8 @@ describe('ModelsSettings', () => {
     await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
     expect(await screen.findByText('Catalog refreshed')).toBeVisible();
     expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
-    expect(screen.getByText(/Source codex_app_server/)).toBeVisible();
+    expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
+    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
   });
 
   it('checks provider connectivity without changing the selected model', async () => {
@@ -114,7 +115,8 @@ describe('ModelsSettings', () => {
     );
     expect(await screen.findByText('Provider ready')).toBeVisible();
     expect(screen.getByText(/Connection ok, sign-in not required, 1 model/)).toBeVisible();
-    expect(screen.getByText(/18 ms, source codex_app_server/)).toBeVisible();
+    expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
+    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 });

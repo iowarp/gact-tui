@@ -171,7 +171,9 @@ function ModelsSettingsContent({
         <FrameHeader>
           <FrameTitle>Default model</FrameTitle>
           <FrameDescription>
-            {configuration.thinking_effective ?? 'Active model settings from the service.'}
+            {configuration.thinking_level
+              ? `New sessions start with ${readableState(configuration.thinking_level)} reasoning.`
+              : "Uses the provider's standard reasoning level."}
           </FrameDescription>
         </FrameHeader>
         <FramePanel>
@@ -194,14 +196,14 @@ function ModelsSettingsContent({
                 <SelectContent>
                   {configuration.presets.map((preset) => (
                     <SelectItem key={preset.id} value={preset.id}>
-                      {preset.label}
+                      {providerLabel(preset)}
                       {preset.is_authenticated ? '' : ' — sign-in needed'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FieldDescription>
-                {selectedPreset?.description ?? 'Provider details unavailable.'}
+              <FieldDescription title={selectedPreset?.description}>
+                {providerSummary(selectedPreset)}
               </FieldDescription>
             </Field>
             <Field>
@@ -222,11 +224,11 @@ function ModelsSettingsContent({
                   ))}
                 </SelectContent>
               </Select>
-              <FieldDescription>
+              <FieldDescription title={models.isError ? models.error.message : models.data?.source}>
                 {models.isError
-                  ? `Live catalog unavailable: ${models.error.message}`
+                  ? 'Available models could not be loaded. Retry the catalog check or keep the suggested model.'
                   : models.data?.source
-                    ? `Catalog source: ${models.data.source}`
+                    ? 'Available models were checked by the connected agent.'
                     : 'Using the configured model.'}
               </FieldDescription>
             </Field>
@@ -312,9 +314,12 @@ function ModelsSettingsContent({
               <div className="rounded-lg border p-3" key={provider.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{provider.name}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                      {provider.description}
+                    <p className="text-sm font-medium">{providerLabel(preset, provider.name)}</p>
+                    <p
+                      className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
+                      title={provider.description}
+                    >
+                      {providerSummary(preset, provider.name)}
                     </p>
                     {availability.detail ? (
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
@@ -359,10 +364,10 @@ function HandshakeResult({ result }: { result: ProviderHandshake }) {
         {result.error ??
           `Connection ${readableState(result.connectivity)}, sign-in ${readableState(result.auth)}, ${result.models.length} model${result.models.length === 1 ? '' : 's'}`}
       </p>
-      <p className="font-mono text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
         {result.latency_ms === undefined
-          ? `Latency unavailable, source ${result.source}, checked ${result.generated_at}`
-          : `${Math.round(result.latency_ms)} ms, source ${result.source}, checked ${result.generated_at}`}
+          ? `Checked ${readableTimestamp(result.generated_at)} by the connected agent.`
+          : `Checked ${readableTimestamp(result.generated_at)} in ${Math.round(result.latency_ms)} ms.`}
       </p>
     </div>
   );
@@ -383,9 +388,53 @@ function RefreshResult({ result }: { result: ProviderModelRefreshResult }) {
         {result.failed_reason ??
           `${result.discovered.length} available model${result.discovered.length === 1 ? '' : 's'}, ${result.added.length} added, ${result.removed.length} removed`}
       </p>
-      <p className="font-mono text-[10px] text-muted-foreground">
-        Source {result.source}, checked {result.generated_at}
+      <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
+        Checked {readableTimestamp(result.generated_at)} by the connected agent.
       </p>
     </div>
   );
+}
+
+function providerSummary(preset: LanguageModelPreset | undefined, fallbackName?: string): string {
+  const summaries: Record<string, string> = {
+    codex: 'Use models included with your Codex subscription.',
+    claude_code: 'Use models included with your Claude subscription.',
+    openai: 'Use OpenAI models connected to this agent.',
+    anthropic: 'Use Anthropic models connected to this agent.',
+    openrouter: 'Use models available through your OpenRouter account.',
+    lm_studio: 'Use models served by LM Studio on the connected agent.',
+    ollama: 'Use models served by Ollama on the connected agent.',
+    argonne_metis: 'Use Metis models available through your ALCF account.',
+    argonne_sophia: 'Use Sophia models available through your ALCF account.',
+    argonne_local_vllm: 'Use a compatible model service connected to this agent.',
+  };
+  return (
+    (preset ? summaries[preset.id] : undefined) ??
+    `Use models made available by ${fallbackName || preset?.label || 'this provider'}.`
+  );
+}
+
+function providerLabel(preset: LanguageModelPreset | undefined, fallbackName?: string): string {
+  const labels: Record<string, string> = {
+    codex: 'OpenAI Codex',
+    claude_code: 'Claude',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    openrouter: 'OpenRouter',
+    lm_studio: 'LM Studio',
+    ollama: 'Ollama',
+    argonne_metis: 'ALCF Metis',
+    argonne_sophia: 'ALCF Sophia',
+    argonne_local_vllm: 'vLLM',
+  };
+  return (preset ? labels[preset.id] : undefined) ?? fallbackName ?? preset?.label ?? 'Provider';
+}
+
+function readableTimestamp(value: string): string {
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime())
+    ? 'at an unavailable time'
+    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+        timestamp,
+      );
 }
