@@ -1,7 +1,6 @@
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { CopyIcon, PanelsTopLeftIcon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
 import {
   Artifact,
   ArtifactAction,
@@ -22,6 +21,7 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
+import { useObjectUrl } from '@/hooks/use-object-url';
 import { cn } from '@/lib/utils';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 
@@ -63,16 +63,9 @@ export function ClioArtifactCard({
     enabled: preview && image && withinBudget,
     staleTime: Number.POSITIVE_INFINITY,
   });
-  const imageUrl = useMemo(
-    () =>
-      imageBytes.data
-        ? URL.createObjectURL(
-            new Blob([new Uint8Array(imageBytes.data)], {
-              type: artifact.media_type || imageMediaType(artifact.name),
-            }),
-          )
-        : undefined,
-    [artifact.media_type, artifact.name, imageBytes.data],
+  const imageUrl = useObjectUrl(
+    imageBytes.data,
+    artifact.media_type || imageMediaType(artifact.name),
   );
   const textPreview = useQuery({
     queryKey: ['artifact-card-text', artifact.id, artifact.fetch_path],
@@ -90,12 +83,6 @@ export function ClioArtifactCard({
     enabled: preview && text && textWithinBudget,
     staleTime: Number.POSITIVE_INFINITY,
   });
-  useEffect(
-    () => () => {
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
-    },
-    [imageUrl],
-  );
   const attachment: AttachmentData = {
     type: 'file',
     id: artifact.id,
@@ -123,7 +110,12 @@ export function ClioArtifactCard({
             tooltip="Copy artifact URI"
           />
           {onOpen ? (
-            <Button onClick={() => onOpen(artifact)} size="sm" variant="outline">
+            <Button
+              aria-label={`Open ${artifact.name} in workspace canvas`}
+              onClick={() => onOpen(artifact)}
+              size="sm"
+              variant="outline"
+            >
               <PanelsTopLeftIcon aria-hidden="true" />
               {contentUnavailable ? 'Inspect details' : 'Open'}
             </Button>

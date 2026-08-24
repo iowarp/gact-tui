@@ -21,11 +21,12 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ArtifactView, BlueprintFileView, WorkspaceFileView } from './resource-viewers';
@@ -146,6 +147,20 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [activeTabId, setActiveTabId] = useState<string>(sessionTab.id);
     const [resourceSection, setResourceSection] = useState<ResourceSection>('files');
     const [maximized, setMaximized] = useState(false);
+    const activeTabRef = useRef<HTMLButtonElement>(null);
+    const tabStripRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+      const strip = tabStripRef.current;
+      const activeTab = activeTabRef.current?.parentElement;
+      if (!strip || !activeTab) return;
+      const left = activeTab.offsetLeft;
+      const right = left + activeTab.offsetWidth;
+      if (left < strip.scrollLeft) strip.scrollTo({ behavior: 'smooth', left });
+      else if (right > strip.scrollLeft + strip.clientWidth) {
+        strip.scrollTo({ behavior: 'smooth', left: right - strip.clientWidth });
+      }
+    }, [activeTabId, tabs.length]);
 
     const openTab = useCallback((tab: WorkbenchTab) => {
       setTabs((current) =>
@@ -249,14 +264,24 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
         <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
           <div className="flex h-14 shrink-0 items-stretch border-b bg-background/80">
-            <ScrollArea className="min-w-0 flex-1">
+            <div
+              className="clio-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+              ref={tabStripRef}
+            >
               <TabsList
-                className="h-14 min-w-max gap-0 rounded-none bg-transparent p-0"
+                className="h-14 min-w-full w-max gap-0 rounded-none bg-transparent p-0"
                 variant="line"
               >
                 {tabs.map((tab) => (
-                  <div className="group/tab flex h-14 items-center border-r" key={tab.id}>
-                    <TabsTrigger className="h-full max-w-48 rounded-none px-3" value={tab.id}>
+                  <div
+                    className="group/tab flex h-14 min-w-28 max-w-48 shrink-0 items-center border-r"
+                    key={tab.id}
+                  >
+                    <TabsTrigger
+                      className="h-full min-w-0 flex-1 rounded-none px-3"
+                      ref={tab.id === activeTabId ? activeTabRef : undefined}
+                      value={tab.id}
+                    >
                       <TabIcon kind={tab.kind} />
                       <span className="truncate">{tab.label}</span>
                     </TabsTrigger>
@@ -274,7 +299,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   </div>
                 ))}
               </TabsList>
-            </ScrollArea>
+            </div>
             <CanvasLauncher onOpen={openResourceSection} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}

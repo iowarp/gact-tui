@@ -2,7 +2,7 @@ import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import type { BundledLanguage } from 'shiki';
 import { BoxIcon, CopyIcon, FileCode2Icon, ImageIcon } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   Artifact as ArtifactFrame,
   ArtifactAction,
@@ -36,6 +36,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useObjectUrl } from '@/hooks/use-object-url';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
@@ -299,19 +300,7 @@ function ImageResourceView({
   mediaType: string;
   name: string;
 }) {
-  const url = useMemo(
-    () =>
-      bytes
-        ? URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mediaType }))
-        : undefined,
-    [bytes, mediaType],
-  );
-  useEffect(
-    () => () => {
-      if (url) URL.revokeObjectURL(url);
-    },
-    [url],
-  );
+  const url = useObjectUrl(bytes, mediaType);
   if (error)
     return (
       <ResourceUnavailable detail={error} icon={ImageIcon} label="Image preview unavailable" />

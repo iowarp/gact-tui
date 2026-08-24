@@ -69,7 +69,9 @@ describe('ClioArtifactCard', () => {
     const user = userEvent.setup();
     const onOpen = renderCard();
 
-    await user.click(screen.getByRole('button', { name: 'Open' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Open station-timeseries.png in workspace canvas' }),
+    );
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'artifact_plot' })),
     );
