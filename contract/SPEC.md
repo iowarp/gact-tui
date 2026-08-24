@@ -2918,7 +2918,7 @@ renders what it receives. Every row below therefore carries a **deletion
 condition**: once the server stops emitting the corresponding artifact, the
 filter is **deleted, not weakened**. The web client has already reached the end
 state — epic #880 deleted every web presentation filter and its
-`apps/web/src/components/presentationFilters.ts` home (see the Web client section
+`web/src/components/presentationFilters.ts` home (see the Web client section
 below). The TUI filters remain and live in
 `tui/internal/ui/live_message_normalization.go` (eight normalization stages),
 `tui/internal/ui/presentation/prose_filters.go` (the `CleanProse` chain — the
@@ -2930,7 +2930,7 @@ file headers cross-link back to.
 Do NOT add new client-side dedup, and do NOT weaken these to paper over a
 freshly-observed backend leak — fix the leak at the server and retire the row.
 
-### Web client (`apps/web`)
+### Web client (`web/`)
 
 The web client has **no transitional prose/shape presentation filters left**. Epic
 #880 deleted them all — `stripClioScaffolding`, `stripStatusPrefix`,

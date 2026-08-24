@@ -1,4 +1,4 @@
-# `apps/desktop/src-tauri/binaries/` — sidecar launcher artefacts
+# `desktop/src-tauri/binaries/` — sidecar launcher artefacts
 
 This directory holds the per-triple **launcher** binaries that Tauri
 ships under `bundle.externalBin`. They are *not* the `clio-agent-gact`
@@ -24,12 +24,12 @@ regenerate them via:
 
 ```sh
 # Linux / macOS / Git-Bash on Windows
-apps/desktop/scripts/fetch-sidecar.sh           # host triple
-apps/desktop/scripts/fetch-sidecar.sh --all     # every release triple
+desktop/scripts/fetch-sidecar.sh           # host triple
+desktop/scripts/fetch-sidecar.sh --all     # every release triple
 
 # Windows PowerShell
-pwsh apps/desktop/scripts/fetch-sidecar.ps1
-pwsh apps/desktop/scripts/fetch-sidecar.ps1 -All
+pwsh desktop/scripts/fetch-sidecar.ps1
+pwsh desktop/scripts/fetch-sidecar.ps1 -All
 ```
 
 The script also writes `../sidecar.lock` recording which on-disk
@@ -37,13 +37,13 @@ The script also writes `../sidecar.lock` recording which on-disk
 
 ## Source
 
-The launcher source lives at `apps/desktop/sidecar-launcher/`. It is a
+The launcher source lives at `desktop/sidecar-launcher/`. It is a
 single-file Go program (`main.go`) outside the `go.work` workspace
 on purpose — it must not pull in `tui/` or `emulator/` deps. Build
 locally with:
 
 ```sh
-cd apps/desktop/sidecar-launcher
+cd desktop/sidecar-launcher
 GOWORK=off go build -o ../src-tauri/binaries/clio-agent-<triple>{.exe} .
 ```
 

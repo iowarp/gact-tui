@@ -1,3 +1,3 @@
-module github.com/iowarp/gact-tui/apps/desktop/sidecar-launcher
+module github.com/iowarp/gact-tui/desktop/sidecar-launcher
 
 go 1.25

@@ -87,10 +87,10 @@ def _selftest() -> int:
         "visual_loop/tui_audit_2026_07/run.png",
         "screenshots/session/tui_audit_run1/frame.png",
         "screenshots/foo/dump.jsonl",
-        "apps/web/screenshots/audit/run.log",
+        "web/screenshots/audit/run.log",
         "stray.png",
         "screenshots/02-streaming.png",         # old scattered home is now forbidden
-        "apps/web/screenshots/connect-screen.png",  # ditto
+        "web/screenshots/connect-screen.png",  # ditto
         "tui/screenshots/tui-agentview-top.png",    # ditto
     ]
     should_pass = [

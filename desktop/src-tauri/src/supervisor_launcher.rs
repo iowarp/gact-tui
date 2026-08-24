@@ -74,7 +74,7 @@ fn find_in_dir(dir: &Path, basenames: &[String]) -> Option<PathBuf> {
 }
 
 /// Best-effort host target triple in the form Tauri's externalBin uses.
-/// Mirrors the keys in `apps/desktop/scripts/fetch-sidecar.sh`.
+/// Mirrors the keys in `desktop/scripts/fetch-sidecar.sh`.
 fn host_target_triple() -> &'static str {
     if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
         "x86_64-pc-windows-msvc"

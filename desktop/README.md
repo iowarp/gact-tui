@@ -28,11 +28,10 @@ include their `.pc` files.
 
 ## Commands
 
-Run filtered commands from the `apps/` workspace root, or run the package-local
-scripts from `apps/desktop`.
+Run filtered commands from the repository root, or run the package-local
+scripts from `desktop`.
 
 ```sh
-cd apps
 pnpm install
 pnpm --filter @clio/desktop tauri:dev          # dev shell + vite HMR
 pnpm --filter @clio/desktop tauri:build:debug  # debug binary, no-bundle (fastest)
@@ -60,7 +59,7 @@ native menu/window chrome, and sidecar supervisor path.
 Build the debug desktop app first:
 
 ```sh
-cd apps/desktop
+cd desktop
 pnpm tauri:build:debug
 ```
 

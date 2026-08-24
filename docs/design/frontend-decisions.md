@@ -919,3 +919,25 @@ presented.
   tool summary, five-tab A2UI surface, and final answer in causal order. The Appearance setting
   reactively changed the session default in both directions, and the original compact preference
   was restored after the browser checkpoint.
+
+## 2026-08-24 — Desktop settings expose native truth before native acceptance
+
+- **Old failure:** The desktop settings route was a static promise that treated every named native
+  integration as available whenever the page ran inside Tauri. It had no update workflow and could
+  not distinguish implemented transport, tunnel, or shell code from missing secure credentials and
+  sleep/wake recovery. Stale documentation still pointed at removed `apps/web`, `apps/desktop`, and
+  emulator paths.
+- **Decision:** The settings route now reports each native capability independently. Implemented
+  REST/SSE transport, the SSH tunnel engine, and menu/tray integration are labeled as installed-app
+  features in the browser; secure credential storage and sleep/wake recovery remain explicitly not
+  available. The official Tauri updater and process plugins provide an on-demand signed-update
+  check, download progress from real byte events, installation, and relaunch. The UI never invents
+  a percentage when the server omits content length and never offers native mutation in a browser.
+  Active package paths and the sidecar launcher module now match the root-level `web/` and
+  `desktop/` structure.
+- **Acceptance evidence:** The focused updater test covers version discovery, byte progress,
+  resource cleanup, and relaunch; the desktop smoke contract covers plugin configuration, Rust
+  registration, the root-level launcher module, and Tauri SSE isolation. TypeScript and targeted
+  lint pass. The live browser checkpoint shows three `Installed app only` capabilities, two
+  labeled `Not available` capabilities, a browser-only explanation, and a disabled update action.
+  Native installation and signed-feed behavior remain an open acceptance gate.

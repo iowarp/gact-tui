@@ -21,7 +21,7 @@ already wired — see "What's wired in the repo" below.
 Tauri signs every update artifact with a minisign keypair. Generate it locally:
 
 ```sh
-# From apps/desktop (any dir works; the CLI is the tauri CLI).
+# From desktop/ (any dir works; the CLI is the Tauri CLI).
 pnpm --filter @clio/desktop tauri signer generate -w ~/.tauri/clio-updater.key
 ```
 
@@ -108,7 +108,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          projectPath: apps/desktop
+          projectPath: desktop
           tagName: ${{ github.ref_name }}
           releaseName: 'CLIO Desktop ${{ github.ref_name }}'
           releaseDraft: true
@@ -153,17 +153,14 @@ updates until replaced.
   emit the signed updater bundle + marker.
 - **Capability** — `capabilities/default.json` grants `updater:default` (check +
   download/install) and `process:allow-restart` (relaunch).
-- **Frontend** — `apps/web/src/tauri_update.ts` wraps
-  `@tauri-apps/plugin-updater`'s `check()` / `downloadAndInstall()` and
-  `@tauri-apps/plugin-process`'s `relaunch()`. Everything is gated behind
-  `inTauri()`, so the pure-web build never imports the plugins and stays
-  browser-safe.
-- **Launch hook** — `apps/web/src/App.tsx` (`UpdateNotifier`) calls
-  `checkForDesktopUpdate()` once on launch when running inside Tauri. If an
-  update is available it raises a persistent toast with an **Install** action
-  that runs `downloadAndInstall()` then `relaunchApp()`. This is separate from
-  the web SPA "a new build was deployed — refresh" flow (`updateCheck.ts`),
-  which swaps a hashed JS bundle rather than a native binary.
+- **Frontend bridge** — `web/src/tauri/desktop-updater.ts` dynamically imports
+  `@tauri-apps/plugin-updater` for `check()` / `downloadAndInstall()` and
+  `@tauri-apps/plugin-process` for `relaunch()`. Browser execution is rejected
+  before either native plugin is loaded.
+- **User workflow** — `web/src/components/clio/settings-desktop.tsx` exposes an
+  explicit check, signed release metadata, real byte progress, install, and
+  relaunch flow. Browser settings label the workflow “Installed app only”; the
+  application does not currently perform an unsolicited launch-time check.
 
 ## 4. Verifying locally (without publishing)
 

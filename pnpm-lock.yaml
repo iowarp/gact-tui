@@ -133,6 +133,12 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.0.0
         version: 2.7.2
+      '@tauri-apps/plugin-process':
+        specifier: 2.3.1
+        version: 2.3.1
+      '@tauri-apps/plugin-updater':
+        specifier: 2.10.1
+        version: 2.10.1
       '@xyflow/react':
         specifier: ^12.11.3
         version: 12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

@@ -7,9 +7,9 @@
 //   - a production-debug build at src-tauri/target/debug/clio-desktop{.exe}
 //     (pnpm --filter @clio/desktop tauri:build:debug)
 //   - a native WebDriver matching the platform WebView
-//     ($TAURI_NATIVE_DRIVER or apps/desktop/msedgedriver.exe on Windows)
+//     ($TAURI_NATIVE_DRIVER or desktop/msedgedriver.exe on Windows)
 //   - tauri-driver on PATH (cargo install tauri-driver)
-//   - a live GACT-compatible backend on :17800 (clio or emulator; the app attaches first)
+//   - a live GACT-compatible backend on :17800 (the app attaches first)
 //
 // Optional overrides:
 //   CLIO_DESKTOP_APP=/path/to/clio-desktop{.exe}

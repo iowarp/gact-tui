@@ -1,7 +1,7 @@
 // Shared brand-selection resolver.
 //
 // The brand is selected at COMPILE TIME by a CONFIG FILE — never an env var.
-// The tracked default is `apps/brand.config.json`; an embedding project (e.g.
+// The tracked default is `brand.config.json`; an embedding project (e.g.
 // clio-agent) overrides it WITHOUT mutating the tracked file by dropping an
 // `brand.config.local.json` (gitignored), which always wins.
 //
@@ -14,7 +14,7 @@
 //   }
 //
 // This is a .mjs so it can be imported by BOTH the .mjs gen script
-// (apps/desktop/scripts/gen-brand-backend.mjs) and the TS vite config
+// (desktop/scripts/gen-brand-backend.mjs) and the TS vite config
 // (web/vite.config.ts, executed by vite's node loader).
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

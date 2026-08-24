@@ -1,7 +1,6 @@
 import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  AppWindowIcon,
   BotIcon,
   BoxesIcon,
   CableIcon,
@@ -39,6 +38,7 @@ import { ToolsSettings } from '@/components/clio/settings-tools';
 import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { ModelsSettings } from '@/components/clio/settings-models';
+import { DesktopSettings } from '@/components/clio/settings-desktop';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
@@ -367,52 +367,6 @@ function AppearanceSettings() {
             ))}
           </RadioGroup>
         </FramePanel>
-      </Frame>
-    </div>
-  );
-}
-
-function DesktopSettings() {
-  const desktop = inTauri();
-  return (
-    <div className="grid gap-6">
-      <SectionHeading
-        description="See which operating-system integrations are available in this build."
-        title="Desktop"
-      />
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Desktop integration</FrameTitle>
-          <FrameDescription>
-            Native lifecycle and credential features are available only in the installed app.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="grid gap-4">
-          {[
-            ['Native connection management', desktop],
-            ['Secure credentials', desktop],
-            ['Menus and system tray', desktop],
-            ['Sleep and wake recovery', desktop],
-          ].map(([label, available]) => (
-            <div className="flex items-center justify-between gap-3" key={String(label)}>
-              <span className="flex items-center gap-2 text-sm">
-                <AppWindowIcon aria-hidden="true" className="size-4 text-primary" />
-                {label}
-              </span>
-              <ClioStatus
-                label={available ? 'Available' : 'Browser only'}
-                value={available ? 'healthy' : 'unavailable'}
-              />
-            </div>
-          ))}
-        </FramePanel>
-        {!desktop ? (
-          <FrameFooter className="items-start">
-            <p className="text-sm text-muted-foreground">
-              Open this workspace in the installed desktop app to configure native integrations.
-            </p>
-          </FrameFooter>
-        ) : null}
       </Frame>
     </div>
   );

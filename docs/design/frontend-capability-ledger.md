@@ -136,7 +136,7 @@ but every omitted mutation and administration workflow remains open. Route count
 | Typed Rust REST/SSE bridge          | Implemented, not accepted | Reconnect/sleep/wake and native binary/error acceptance.       |
 | Supervisor and local discovery      | Partial                   | Full lifecycle evidence.                                       |
 | Secure credentials                  | Missing                   | OS-backed storage and migration.                               |
-| SSH/tunnels                         | Missing                   | Configured environment evidence.                               |
-| Menus, tray, updater, close cleanup | Partial                   | Tray, updater, close cleanup, and Windows/Linux acceptance.    |
+| SSH/tunnels                         | Partial                   | Connection setup/auth UI and configured environment evidence.  |
+| Menus, tray, updater, close cleanup | Partial                   | Native updater, close cleanup, and Windows/Linux acceptance.   |
 | Old frontend and emulator removal   | Partial                   | Verify all removal ratchets only after replacement gates pass. |
 | Exact paired repository SHAs        | Missing                   | Record after all mandatory gates; do not merge.                |

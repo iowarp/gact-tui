@@ -61,11 +61,11 @@ pub fn run() {
         // releases, verifies it against the `plugins.updater.pubkey` in
         // tauri.conf.json, then downloads + installs on demand. The frontend
         // drives the check/install via @tauri-apps/plugin-updater (see
-        // apps/web/src/tauri_update.ts). DESKTOP-AUTOUPDATE.md documents the
+        // web/src/tauri/desktop-updater.ts). DESKTOP-AUTOUPDATE.md documents the
         // CI signing pipeline that produces latest.json.
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Lets the frontend relaunch the app into the freshly installed binary
-        // after the updater finishes (relaunch() in tauri_update.ts).
+        // after the updater finishes (relaunch() in desktop-updater.ts).
         .plugin(tauri_plugin_process::init())
         .manage(state)
         .manage(TunnelManager::new())

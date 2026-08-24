@@ -23,7 +23,7 @@ use crate::supervisor_types::{BackendHandle, BackendStatus};
 
 /// Launcher exit code meaning "clio-agent-gact could not be resolved".
 /// Must stay in lockstep with `exitNotFound` in
-/// `apps/desktop/sidecar-launcher/main.go`.
+/// `desktop/sidecar-launcher/main.go`.
 pub(crate) const LAUNCHER_EXIT_NOT_FOUND: i32 = 2;
 
 /// Reasons `spawn_and_probe` can fail. `NeedsInstall` is carved out from the

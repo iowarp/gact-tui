@@ -216,13 +216,12 @@ and desktop surfaces show).
   > Note: clio-agent's *own* Dockerfile launches `clio_agent.ui.api:app`, which
   > is the non-GACT server. These images deliberately use the GACT entry point
   > `clio-agent-gact` (`clio_agent.gact.app:main`) instead.
-- **`clio-web`** builds the `@clio/web` bundle in a `node:20` stage
-  (`pnpm install --filter "@clio/web..."` + `pnpm --filter @clio/web build`,
+- **`clio-web`** builds the `@clio/workspace` bundle in a Node stage
+  (`pnpm install --filter "@clio/workspace..."` + `pnpm --filter @clio/workspace build`,
   pnpm pinned to `9.15.9` to match `.github/workflows/apps.yml`).
-- **`clio-tui`** builds the `gact` binary in a `golang:1.25` stage. The TUI is a
-  `go.work` workspace member with `replace` directives into `../emulator` and
-  `../contract/conformance`, so the whole Go workspace is copied and the binary
-  is built from the repo root (`go build -C tui`).
+- **`clio-tui`** builds the deprecated `gact` binary in a `golang:1.25` stage.
+  The image copies the independent contract modules and builds the TUI explicitly
+  with `GOWORK=off`; the retired emulator is not part of the image or workspace.
 - The repo-root **`.dockerignore`** keeps the build context lean (excludes
   `research/`, `node_modules`, `.venv`, `target/`, `dist/`, screenshots,
   `*.png`/`*.gif`, `.git`). Without it the context is multiple GB.

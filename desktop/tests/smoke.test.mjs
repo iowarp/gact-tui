@@ -155,7 +155,7 @@ test('Cargo.toml + lib.rs wire the updater + process plugins', () => {
 
 test('sidecar-launcher Go module declares no workspace tie-in', () => {
   const goMod = readFileSync(resolve(root, 'sidecar-launcher', 'go.mod'), 'utf8');
-  assert.match(goMod, /^module github\.com\/iowarp\/gact-tui\/apps\/desktop\/sidecar-launcher$/m);
+  assert.match(goMod, /^module github\.com\/iowarp\/gact-tui\/desktop\/sidecar-launcher$/m);
   // The sidecar-launcher must be built with GOWORK=off so it never picks
   // up tui/ or emulator/ deps. The fetch script enforces this; here we
   // just verify the module path is the expected one so tauri.conf.json
