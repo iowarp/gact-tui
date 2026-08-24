@@ -566,7 +566,7 @@ export function WorkspacePage() {
               <AlertDescription>{streamError}</AlertDescription>
             </Alert>
           ) : null}
-          {transcript.error ? (
+          {transcript.error && messages.length > 0 ? (
             <Alert className="m-3 mb-0" variant="destructive">
               <AlertTriangleIcon aria-hidden="true" />
               <AlertTitle>Conversation unavailable</AlertTitle>
@@ -576,6 +576,8 @@ export function WorkspacePage() {
           <div className="min-h-0 flex-1">
             <ClioConversation
               artifacts={entities.artifacts}
+              error={transcript.error?.message}
+              loading={transcript.isPending}
               messages={messages}
               onActionCardAction={actionCard.mutateAsync}
               onA2UILocalAction={handleA2UILocalAction}

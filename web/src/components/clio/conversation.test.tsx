@@ -44,6 +44,41 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('does not claim an authoritative transcript is empty while it is loading', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        loading
+        messages={[]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Loading conversation')).toBeVisible();
+    expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
+  });
+
+  it('reports a transcript failure instead of presenting a false empty session', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        error="The agent could not return this transcript."
+        messages={[]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Conversation unavailable')).toBeVisible();
+    expect(screen.getByText('The agent could not return this transcript.')).toBeVisible();
+    expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
+  });
+
   it('focuses an authoritative memory-search result by message id', async () => {
     window.history.replaceState(null, '', '#message-message_2');
     renderConversation(

@@ -98,6 +98,8 @@ function DeferredA2UISurface({
 
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
+  loading?: boolean;
+  error?: string;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
   subagents: Record<string, SubagentRun>;
@@ -533,7 +535,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   );
 });
 
-export function ClioConversation({ messages, ...entities }: ClioConversationProps) {
+export function ClioConversation({ messages, loading, error, ...entities }: ClioConversationProps) {
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -647,7 +649,23 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
         role="log"
         tabIndex={0}
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && loading ? (
+          <ConversationEmptyState
+            aria-live="polite"
+            className="h-full"
+            description="Recovering messages, reasoning, tools, and artifacts from the agent."
+            icon={<LoaderCircleIcon aria-hidden="true" className="size-7 animate-spin" />}
+            title="Loading conversation"
+          />
+        ) : messages.length === 0 && error ? (
+          <div className="grid h-full place-items-center p-5">
+            <Alert className="max-w-xl" variant="destructive">
+              <AlertTriangleIcon aria-hidden="true" />
+              <AlertTitle>Conversation unavailable</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
+        ) : messages.length === 0 ? (
           <ConversationEmptyState
             className="h-full"
             description="Send a message to begin. Live reasoning, tools, approvals, and artifacts will stay in causal order here."

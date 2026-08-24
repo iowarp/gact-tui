@@ -164,7 +164,7 @@ export function ClioSubagentCanvasView({
           )}
         </div>
       </header>
-      {transcript.error ? (
+      {transcript.error && messages.length > 0 ? (
         <Alert className="m-3 mb-0" variant="destructive">
           <AlertTitle>Child transcript unavailable</AlertTitle>
           <AlertDescription>{transcript.error.message}</AlertDescription>
@@ -173,6 +173,8 @@ export function ClioSubagentCanvasView({
       <div className="min-h-0 flex-1">
         <ClioConversation
           artifacts={entities.artifacts}
+          error={transcript.error?.message}
+          loading={transcript.isPending}
           messages={messages}
           onOpenArtifact={onOpenArtifact}
           onOpenFile={onOpenFile}
