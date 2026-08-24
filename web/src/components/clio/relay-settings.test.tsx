@@ -52,7 +52,7 @@ describe('remote work settings', () => {
     renderSettings();
 
     await user.click(await screen.findByRole('button', { name: 'Connect remote work' }));
-    const connect = screen.getByRole('button', { name: 'Connect', exact: true });
+    const connect = screen.getByRole('button', { name: /^Connect$/u });
     expect(connect).toBeDisabled();
     expect(screen.queryByLabelText('Access credential')).not.toBeInTheDocument();
 

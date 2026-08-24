@@ -66,6 +66,19 @@ export function useSessionLiveStream({
                 ],
               });
             }
+            if (isModelConfigurationEvent(frame.eventName)) {
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: ['capabilities', settings.endpoint],
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: ['language-model-configuration', settings.endpoint],
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: ['provider-models', settings.endpoint],
+                }),
+              ]);
+            }
             if (frame.eventName === 'message.completed') {
               batcher.flush();
               await Promise.all([
@@ -165,6 +178,10 @@ function isPendingInteractionEvent(eventName: string): boolean {
 
 function isProcessEvent(eventName: string): boolean {
   return ['agent_task.', 'mcp_task.', 'run.'].some((prefix) => eventName.startsWith(prefix));
+}
+
+function isModelConfigurationEvent(eventName: string): boolean {
+  return eventName === 'lm.provider.changed' || eventName === 'lm.provider.failed';
 }
 
 function abortableDelay(controller: AbortController, milliseconds: number): Promise<void> {
