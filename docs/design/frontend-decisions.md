@@ -1089,3 +1089,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: Mermaid 11 prefers its root `htmlLabels` option over the deprecated flowchart option. The reused canvas therefore received HTML `foreignObject` labels that clipped longer scientific workflow names during SVG rasterization.
 - New representation: both initial-image fitting and resize-time fitting update the canvas transform and the visible percentage in the same display-frame state transition. Mermaid is configured at the authoritative root seam to emit portable SVG text labels.
 - Acceptance evidence: fullscreen live verification reproduced a `100%` to `97%` jump after two zoom-in presses. The corrected view opens at its truthful `81%` fit, contains no `foreignObject` nodes, and visibly renders complete multiline labels including `Acquire CLIO workspace catalog` and `Validate inputs and provenance`.
+
+# Markdown result controls
+
+- Old failure: Streamdown's professional table, code, and diagram controls expose translated browser titles but some icon-only buttons omit accessible names. Canonical EarthScope NDP therefore rendered working Copy, Download, and Fullscreen controls as unnamed buttons to assistive technology.
+- New representation: the CLIO adapter preserves Streamdown's controls and watches its streaming output, promoting a title to an accessible name only when an icon-only button has no existing label or visible text.
+- Acceptance evidence: the live NDP table copied all three station rows as Markdown, while its accessibility snapshot exposed three unnamed controls before the adapter correction.
