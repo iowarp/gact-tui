@@ -240,6 +240,7 @@ export const sessionSchema = z.object({
   state: runStateSchema,
   created_at: z.string(),
   updated_at: z.string(),
+  last_interaction_at: z.string().optional(),
   provider_id: z.string().optional(),
   model_id: z.string().optional(),
   effort: z.string().optional(),

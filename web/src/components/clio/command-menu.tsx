@@ -23,7 +23,9 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
+import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ClioRelativeTime } from './relative-time';
 import { useLiveStore } from '@/store/live-store';
 import { useMenuAction } from '@/tauri/menu-actions';
 
@@ -128,16 +130,16 @@ export function ClioCommandMenu({
               .includes(normalizedQuery)
           : session.id === sessionId ||
             session.pinned ||
-            Date.parse(session.updated_at) >= recentThreshold),
+            Date.parse(sessionInteractionAt(session)) >= recentThreshold),
     );
     return candidates
       .sort(
         (left, right) =>
           Number(right.pinned) - Number(left.pinned) ||
-          (right.updated_at ?? '').localeCompare(left.updated_at ?? ''),
+          sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
       )
       .slice(0, normalizedQuery ? 20 : 10);
-  }, [normalizedQuery, recentThreshold, sessionId, sessions.data, workspaceId, workspaceNames]);
+  }, [normalizedQuery, recentThreshold, sessionId, sessions.data, workspaceNames]);
 
   const finish = (action: () => void) => {
     setOpen(false);
@@ -242,6 +244,7 @@ export function ClioCommandMenu({
                   {workspaceNames.get(session.workspace_id) ?? 'Workspace unavailable'}
                 </span>
               </span>
+              <ClioRelativeTime compact timestamp={sessionInteractionAt(session)} />
             </CommandItem>
           ))}
         </CommandGroup>

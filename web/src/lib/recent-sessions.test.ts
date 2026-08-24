@@ -1,6 +1,6 @@
 import type { Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { visibleWorkspaceSessions } from './recent-sessions';
+import { sessionInteractionAt, visibleWorkspaceSessions } from './recent-sessions';
 
 const session = (id: string, title: string, updated_at: string): Session => ({
   id,
@@ -18,7 +18,7 @@ const session = (id: string, title: string, updated_at: string): Session => ({
 });
 
 describe('visibleWorkspaceSessions', () => {
-  it('keeps the active session and limits the default list to recent work', () => {
+  it('keeps recent order stable instead of moving the active session', () => {
     const sessions = Array.from({ length: 30 }, (_, index) =>
       session(
         `sess_${index}`,
@@ -27,10 +27,10 @@ describe('visibleWorkspaceSessions', () => {
       ),
     );
 
-    const visible = visibleWorkspaceSessions(sessions, 'ws_1', 'sess_0', '');
+    const visible = visibleWorkspaceSessions(sessions, 'ws_1', '');
 
     expect(visible).toHaveLength(8);
-    expect(visible[0]?.id).toBe('sess_0');
+    expect(visible[0]?.id).toBe('sess_29');
     expect(visible.some((row) => row.id === 'sess_29')).toBe(true);
   });
 
@@ -40,6 +40,15 @@ describe('visibleWorkspaceSessions', () => {
       session('probe', 'lm-probe-spotter', '2026-08-21T00:00:00Z'),
     ];
 
-    expect(visibleWorkspaceSessions(sessions, 'ws_1', '', 'working')).toEqual([sessions[0]]);
+    expect(visibleWorkspaceSessions(sessions, 'ws_1', 'working')).toEqual([sessions[0]]);
+  });
+
+  it('orders and labels by interaction time rather than operational updates', () => {
+    const row = {
+      ...session('sess_interaction', 'Recovered', '2026-08-23T21:57:00Z'),
+      last_interaction_at: '2026-08-23T18:21:00Z',
+    };
+
+    expect(sessionInteractionAt(row)).toBe('2026-08-23T18:21:00Z');
   });
 });

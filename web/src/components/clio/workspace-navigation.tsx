@@ -32,9 +32,10 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { visibleWorkspaceSessions } from '@/lib/recent-sessions';
+import { sessionInteractionAt, visibleWorkspaceSessions } from '@/lib/recent-sessions';
 import { workspaceLabels } from '@/lib/workspace-labels';
 import { ClioInteractiveRow } from './interactive-row';
+import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 
 interface WorkspaceNavigationProps {
@@ -73,33 +74,32 @@ export function WorkspaceNavigation({
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
   const [workspaceExpansion, setWorkspaceExpansion] = useState<Record<string, boolean>>({});
   const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(sessions.map((session) => [session.id, session.updated_at])),
+    Object.fromEntries(sessions.map((session) => [session.id, sessionInteractionAt(session)])),
   );
   const activeSession = sessions.find((session) => session.id === activeSessionId);
   const visibleWorkspaces = useMemo(() => {
     const latestSessionByWorkspace = new Map<string, string>();
     for (const session of sessions) {
       const current = latestSessionByWorkspace.get(session.workspace_id);
-      if (!current || session.updated_at > current) {
-        latestSessionByWorkspace.set(session.workspace_id, session.updated_at);
+      const interactionAt = sessionInteractionAt(session);
+      if (!current || interactionAt > current) {
+        latestSessionByWorkspace.set(session.workspace_id, interactionAt);
       }
     }
     const ordered = [...workspaces].sort((left, right) => {
       if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
-      if (left.id === activeWorkspaceId) return -1;
-      if (right.id === activeWorkspaceId) return 1;
       return (latestSessionByWorkspace.get(right.id) ?? '').localeCompare(
         latestSessionByWorkspace.get(left.id) ?? '',
       );
     });
     return showAllWorkspaces ? ordered : ordered.slice(0, 7);
-  }, [activeWorkspaceId, sessions, showAllWorkspaces, workspaces]);
+  }, [sessions, showAllWorkspaces, workspaces]);
 
   const visitSession = (session: Session) => {
     setSeenSessionRevisions((current) => ({
       ...current,
-      ...(activeSession ? { [activeSession.id]: activeSession.updated_at } : {}),
-      [session.id]: session.updated_at,
+      ...(activeSession ? { [activeSession.id]: sessionInteractionAt(activeSession) } : {}),
+      [session.id]: sessionInteractionAt(session),
     }));
   };
 
@@ -215,7 +215,6 @@ function WorkspaceTreeItem({
   const visibleSessions = visibleWorkspaceSessions(
     sessions,
     workspace.id,
-    activeSessionId,
     '',
     sessionLimitExpanded ? sessions.length : undefined,
   ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
@@ -565,7 +564,7 @@ function SessionNavigationRow({
     !running &&
     session.id !== activeSessionId &&
     seenRevision !== undefined &&
-    seenRevision !== session.updated_at;
+    seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow
       actions={
@@ -652,7 +651,9 @@ function SessionNavigationRow({
               <Badge className="h-5 px-1.5 text-[10px]" variant="default">
                 New
               </Badge>
-            ) : null}
+            ) : (
+              <ClioRelativeTime compact timestamp={sessionInteractionAt(session)} />
+            )}
           </Link>
         </HoverCardTrigger>
         <HoverCardContent align="start" className="w-72 p-3" side="right" sideOffset={52}>
@@ -693,6 +694,8 @@ function SessionNavigationRow({
             <span className="truncate">{blueprint?.display_name || 'Standard agent'}</span>
             <span className="text-muted-foreground">Model</span>
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
+            <span className="text-muted-foreground">Last interaction</span>
+            <ClioRelativeTime timestamp={sessionInteractionAt(session)} />
             <span className="text-muted-foreground">Working mode</span>
             <span>{sessionModeLabel(session.mode)}</span>
             <span className="text-muted-foreground">Routing</span>

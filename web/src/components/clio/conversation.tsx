@@ -376,6 +376,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   const retrying = entities.retryingMessageId === message.id;
   const groupedBlocks = displayMode === 'chain' ? groupCausalBlocks(message.blocks) : [];
   const firstProcessId = groupedBlocks.find((item) => item.kind === 'process')?.id;
+  const allProcessBlocks = groupedBlocks.flatMap((item) =>
+    item.kind === 'process' ? item.blocks : [],
+  );
 
   return (
     <div
@@ -464,6 +467,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                       }
                       onOpenSubagent={entities.onOpenSubagent}
                       subagents={entities.subagents}
+                      summaryBlocks={item.id === firstProcessId ? allProcessBlocks : undefined}
                       tasks={entities.tasks}
                       tools={entities.tools}
                     />

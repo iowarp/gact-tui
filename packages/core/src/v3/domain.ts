@@ -67,6 +67,7 @@ export interface Session {
   state: RunState;
   created_at: string;
   updated_at: string;
+  last_interaction_at?: string;
   provider_id?: string;
   model_id?: string;
   effort?: string;

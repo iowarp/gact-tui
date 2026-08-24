@@ -29,6 +29,7 @@ export type ProcessBlock = Extract<
 
 interface ConversationProcessSequenceProps {
   blocks: readonly ProcessBlock[];
+  summaryBlocks?: readonly ProcessBlock[];
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, Task>;
   subagents: Record<string, SubagentRun>;
@@ -40,6 +41,7 @@ interface ConversationProcessSequenceProps {
 /** Keeps causal order while preserving the native semantics of each AI Elements surface. */
 export function ConversationProcessSequence({
   blocks,
+  summaryBlocks,
   tools,
   tasks,
   subagents,
@@ -47,7 +49,7 @@ export function ConversationProcessSequence({
   onShowFull,
   reasoningDefaultOpen,
 }: ConversationProcessSequenceProps) {
-  if (blocks.length === 1) {
+  if (blocks.length === 1 && !onShowFull) {
     return renderSingleProcessBlock(blocks[0]!, {
       onOpenSubagent,
       reasoningDefaultOpen,
@@ -75,7 +77,7 @@ export function ConversationProcessSequence({
     >
       <div className="flex min-w-0 items-center gap-2">
         <ChainOfThoughtHeader className="min-h-7 min-w-0 flex-1">
-          {active ? 'Work in progress' : activitySummary(blocks)}
+          {active ? 'Work in progress' : activitySummary(summaryBlocks ?? blocks)}
         </ChainOfThoughtHeader>
         {onShowFull ? (
           <Button
