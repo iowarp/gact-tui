@@ -142,11 +142,14 @@ presented.
 - **Decision:** Settings use live provider, language-model, catalog, permission,
   connection, appearance, and desktop capability responses. The composer uses AI
   Elements ModelSelector over the same model catalog. Missing fields remain
-  unavailable rather than being replaced by defaults.
+  unavailable rather than being replaced by defaults. The live preset status outranks a provider
+  definition's coarse authentication flag, so a no-key CLI provider is not called ready when its
+  executable is absent, and an unchecked local endpoint remains labeled “Not checked.”
 - **Acceptance evidence:** The real Codex endpoint populated GPT-5.6 Sol, Terra,
-  and Luna in the composer selector and GPT-5.6 Luna in settings. The workspace
-  continues to show unavailable token cost when no authoritative usage snapshot
-  exists.
+  and Luna in the composer selector and GPT-5.6 Luna in settings. The Homelab service showed four
+  local providers as “Not checked” and Claude Code as unavailable with its exact missing-CLI reason,
+  instead of the former false “Ready” label. The workspace continues to show unavailable token cost
+  when no authoritative usage snapshot exists.
 
 ## 2026-08-22 — SPOTTER actions preserve server behavior
 

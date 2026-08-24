@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { providerAvailability } from '@/lib/provider-availability';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 
@@ -99,6 +100,10 @@ function ModelsSettingsContent({
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
+  const selectedProvider = providers.find(
+    (provider) => provider.id === selectedPreset?.id || provider.id === selectedPreset?.provider,
+  );
+  const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
   const models = useQuery({
     queryKey: ['provider-models', settings.endpoint, presetId],
     queryFn: ({ signal }) => repository.providerModels(presetId, signal),
@@ -273,8 +278,9 @@ function ModelsSettingsContent({
             </Button>
             {selectedPreset ? (
               <ClioStatus
-                label={selectedPreset.is_authenticated ? 'Ready' : 'Sign-in needed'}
-                value={selectedPreset.is_authenticated ? 'healthy' : 'unavailable'}
+                detail={selectedAvailability.detail}
+                label={selectedAvailability.label}
+                value={selectedAvailability.value}
               />
             ) : null}
           </div>
@@ -297,23 +303,35 @@ function ModelsSettingsContent({
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-2 p-2 sm:grid-cols-2">
-          {providers.map((provider) => (
-            <div className="rounded-lg border p-3" key={provider.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{provider.name}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {provider.description}
-                  </p>
+          {providers.map((provider) => {
+            const preset = configuration.presets.find(
+              (item) => item.id === provider.id || item.provider === provider.id,
+            );
+            const availability = providerAvailability(provider, preset);
+            return (
+              <div className="rounded-lg border p-3" key={provider.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{provider.name}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                      {provider.description}
+                    </p>
+                    {availability.detail ? (
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {availability.detail}
+                      </p>
+                    ) : null}
+                  </div>
+                  <ClioStatus
+                    className="shrink-0"
+                    detail={availability.detail}
+                    label={availability.label}
+                    value={availability.value}
+                  />
                 </div>
-                <ClioStatus
-                  className="shrink-0"
-                  label={provider.is_authenticated ? 'Ready' : 'Sign-in needed'}
-                  value={provider.is_authenticated ? 'healthy' : 'unavailable'}
-                />
               </div>
-            </div>
-          ))}
+            );
+          })}
           {providersError ? (
             <p className="p-3 text-sm text-destructive sm:col-span-2">{providersError}</p>
           ) : null}
@@ -343,9 +361,8 @@ function HandshakeResult({ result }: { result: ProviderHandshake }) {
       </p>
       <p className="font-mono text-[10px] text-muted-foreground">
         {result.latency_ms === undefined
-          ? 'Latency unavailable'
-          : `${Math.round(result.latency_ms)} ms`}{' '}
-        , source {result.source}, checked {result.generated_at}
+          ? `Latency unavailable, source ${result.source}, checked ${result.generated_at}`
+          : `${Math.round(result.latency_ms)} ms, source ${result.source}, checked ${result.generated_at}`}
       </p>
     </div>
   );

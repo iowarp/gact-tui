@@ -90,7 +90,7 @@ describe('ModelsSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'Refresh model catalog' }));
     await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
     expect(await screen.findByText('Catalog refreshed')).toBeVisible();
-    expect(screen.getByText(/1 available model · 0 added · 0 removed/)).toBeVisible();
+    expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
     expect(screen.getByText(/Source codex_app_server/)).toBeVisible();
   });
 
@@ -113,8 +113,8 @@ describe('ModelsSettings', () => {
       }),
     );
     expect(await screen.findByText('Provider ready')).toBeVisible();
-    expect(screen.getByText(/Connection ok · sign-in not required · 1 model/)).toBeVisible();
-    expect(screen.getByText(/18 ms · source codex_app_server/)).toBeVisible();
+    expect(screen.getByText(/Connection ok, sign-in not required, 1 model/)).toBeVisible();
+    expect(screen.getByText(/18 ms, source codex_app_server/)).toBeVisible();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 });
