@@ -365,7 +365,7 @@ export function SessionDefaultsSettings() {
               {save.isPending ? 'Saving…' : 'Save new session defaults'}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Stored by {new URL(settings.endpoint).host}, not this browser.
+              Saved to {settings.label?.trim() || 'the connected agent'}.
             </p>
           </div>
         </FrameFooter>

@@ -66,16 +66,17 @@ export function ClioRelativeTime({
 
 function compactTimestamp(time: Date): string {
   const now = new Date();
-  if (
-    time.getFullYear() === now.getFullYear() &&
-    time.getMonth() === now.getMonth() &&
-    time.getDate() === now.getDate()
-  ) {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(time);
-  }
+  const elapsedMilliseconds = Math.max(0, now.getTime() - time.getTime());
+  const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
+  if (elapsedMinutes < 1) return 'Now';
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+
   if (time.getFullYear() === now.getFullYear()) {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(time);
   }

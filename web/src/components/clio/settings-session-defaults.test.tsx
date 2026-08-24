@@ -24,7 +24,9 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({
+    settings: { endpoint: 'http://127.0.0.1:8787', label: 'Research agent' },
+  }),
 }));
 
 import { SessionDefaultsSettings } from './settings-session-defaults';
@@ -75,6 +77,8 @@ describe('new session defaults settings', () => {
     expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Medium');
     expect(screen.queryByRole('radio', { name: 'Medium' })).not.toBeInTheDocument();
     expect(screen.queryByText('sidecar')).not.toBeInTheDocument();
+    expect(screen.getByText('Saved to Research agent.')).toBeVisible();
+    expect(screen.queryByText(/127\.0\.0\.1/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Default review' }));
     await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
