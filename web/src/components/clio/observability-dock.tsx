@@ -246,19 +246,19 @@ export function ClioObservabilityView({
           <TabsList
             className={cn(
               'grid h-auto w-full bg-muted/60',
-              hasSingleRowTabs ? 'grid-cols-4' : 'grid-cols-2',
+              hasSingleRowTabs ? 'grid-cols-[repeat(4,minmax(0,1fr))]' : 'grid-cols-2',
             )}
           >
-            <TabsTrigger value="work">
+            <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="work">
               <ListChecksIcon aria-hidden="true" /> Work
             </TabsTrigger>
-            <TabsTrigger value="activity">
+            <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="activity">
               <ActivityIcon aria-hidden="true" /> Activity
             </TabsTrigger>
-            <TabsTrigger value="evidence">
+            <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="evidence">
               <Layers3Icon aria-hidden="true" /> Evidence
             </TabsTrigger>
-            <TabsTrigger value="context">
+            <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="context">
               <BracesIcon aria-hidden="true" /> Context
             </TabsTrigger>
           </TabsList>

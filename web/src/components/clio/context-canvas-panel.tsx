@@ -58,20 +58,33 @@ export function ClioContextCanvasPanel({
         <section className="grid gap-3" aria-label="Working context usage">
           <ClioContextMeter limit={context.limit_tokens} used={reading} />
           <div className="grid gap-1 text-xs">
-            <ContextRow label="Scope" value={context.scope ?? 'Unavailable'} />
             <ContextRow
-              label="Live blocks"
+              detail={context.scope ? `Recorded scope: ${context.scope}` : undefined}
+              label="Scope"
+              value={contextScopeLabel(context.scope)}
+            />
+            <ContextRow
+              label="Active context items"
               value={context.live_block_count?.toLocaleString() ?? 'Unavailable'}
             />
             <ContextRow
-              label="Automatic compaction"
+              detail={
+                context.autocompact_pct === undefined
+                  ? undefined
+                  : `Recorded automatic compaction threshold: ${context.autocompact_pct}`
+              }
+              label="Automatic summary"
               value={
                 context.autocompact_pct === undefined
                   ? 'Unavailable'
-                  : `${Math.round(context.autocompact_pct * 100)}% of the context window`
+                  : `When context reaches ${Math.round(context.autocompact_pct * 100)}%`
               }
             />
-            <ContextRow label="Observed by" value={context.provenance.source} />
+            <ContextRow
+              detail={`Recorded source: ${context.provenance.source}`}
+              label="Observed by"
+              value={contextSourceLabel(context.provenance.source)}
+            />
           </div>
           <div className="flex flex-wrap gap-2" aria-label="Context categories">
             {Object.entries(context.categories ?? {}).map(([category, tokens]) => (
@@ -84,28 +97,28 @@ export function ClioContextCanvasPanel({
             <AlertDialogTrigger asChild>
               <Button disabled={!canCompact || compactPending} variant="outline">
                 <SparklesIcon aria-hidden="true" />
-                {compactPending ? 'Compacting context…' : 'Compact working context'}
+                {compactPending ? 'Summarizing context…' : 'Summarize working context'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Summarize the live working context?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  The service will replace the current live blocks with one faithful summary. The
-                  retained transcript and context frames remain available as provenance.
+                  The agent service will replace the active context items with one faithful summary.
+                  The full transcript and saved context snapshots remain available for review.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep current blocks</AlertDialogCancel>
+                <AlertDialogCancel>Keep current context</AlertDialogCancel>
                 <AlertDialogAction onClick={() => void onCompact?.()}>
-                  Compact now
+                  Summarize now
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
           {!canCompact ? (
             <p className="text-xs text-muted-foreground">
-              There are no live blocks to compact in this scope.
+              There are no active context items to summarize in this session.
             </p>
           ) : null}
         </section>
@@ -136,9 +149,9 @@ export function ClioContextCanvasPanel({
         </Alert>
       ) : null}
 
-      <section aria-labelledby="retained-context-heading">
-        <h3 className="text-xs font-medium" id="retained-context-heading">
-          Latest retained context
+      <section aria-labelledby="saved-context-heading">
+        <h3 className="text-xs font-medium" id="saved-context-heading">
+          Latest saved context snapshot
         </h3>
         {latest ? (
           <div className="mt-2 grid gap-2">
@@ -173,7 +186,7 @@ export function ClioContextCanvasPanel({
           </div>
         ) : (
           <p className="mt-2 text-xs text-muted-foreground">
-            No retained context frame is available.
+            No saved context snapshot is available.
           </p>
         )}
       </section>
@@ -208,13 +221,31 @@ export function ClioContextCanvasPanel({
   );
 }
 
-function ContextRow({ label, value }: { label: string; value: string }) {
+function ContextRow({ detail, label, value }: { detail?: string; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 border-b py-2 last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value}</span>
+      <span className="min-w-0 text-right leading-5 text-balance" title={detail}>
+        {value}
+      </span>
     </div>
   );
+}
+
+function contextScopeLabel(scope: string | undefined): string {
+  if (!scope) return 'Unavailable';
+  if (scope === 'main') return 'Main session';
+  return sentenceCase(scope);
+}
+
+function contextSourceLabel(source: string): string {
+  if (source === 'server') return 'Agent service';
+  return sentenceCase(source);
+}
+
+function sentenceCase(value: string): string {
+  const words = value.replaceAll('_', ' ').trim();
+  return words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : 'Unavailable';
 }
 
 function formatTimestamp(value: string): string {

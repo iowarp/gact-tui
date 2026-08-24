@@ -1125,3 +1125,15 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: the evidence summary and workflow-source collector exposed schema casing and integration identifiers such as `ContextFiles`, `Metadata Source Url`, `Source Url`, and `osm_nominatim` as primary copy.
 - New representation: evidence counts use explicit product labels, source-field labels preserve standard abbreviations such as `URL`, and recognized scientific services use their public names. Exact integration identifiers remain supplemental title metadata.
 - Acceptance evidence: canonical EarthScope NDP Evidence reproduced all four internal forms beside otherwise authoritative source URLs and artifact counts.
+
+# Working-context vocabulary
+
+- Old failure: the Context canvas exposed storage and transport terms such as `main`, `server`,
+  `live blocks`, and `compaction` as its primary labels. The values were authoritative but did not
+  explain whose context was shown, what it contained, or what the action would do.
+- New representation: the canvas describes `Main session`, `Agent service`, `Active context items`,
+  and an `Automatic summary`. The manual action uses the same summarization language and explains
+  that the full transcript and saved context snapshots remain reviewable. Exact recorded scope,
+  source, and threshold remain supplemental title metadata.
+- Acceptance evidence: canonical EarthScope NDP Context reproduced `main`, zero `Live blocks`,
+  `server`, an 85% compaction threshold, and a disabled destructive action before the correction.

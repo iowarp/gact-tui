@@ -73,14 +73,20 @@ describe('ClioContextCanvasPanel', () => {
     );
 
     expect(screen.getByText('Session-only working context')).toBeVisible();
-    expect(screen.getByText('85% of the context window')).toBeVisible();
+    expect(screen.getByText('Main session')).toHaveAttribute('title', 'Recorded scope: main');
+    expect(screen.getByText('Active context items')).toBeVisible();
+    expect(screen.getByText('When context reaches 85%')).toHaveAttribute(
+      'title',
+      'Recorded automatic compaction threshold: 0.85',
+    );
+    expect(screen.getByText('Agent service')).toHaveAttribute('title', 'Recorded source: server');
     expect(screen.getByText('Other-workspace memory is denied by default.')).toBeVisible();
     await user.click(screen.getAllByRole('button', { name: /stations\.csv/i })[0]!);
     expect(onOpenFile).toHaveBeenCalledWith('D:/science/stations.csv');
 
-    await user.click(screen.getByRole('button', { name: 'Compact working context' }));
+    await user.click(screen.getByRole('button', { name: 'Summarize working context' }));
     expect(screen.getByRole('alertdialog')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Compact now' }));
+    await user.click(screen.getByRole('button', { name: 'Summarize now' }));
     expect(onCompact).toHaveBeenCalledOnce();
   });
 
@@ -94,7 +100,9 @@ describe('ClioContextCanvasPanel', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Compact working context' })).toBeDisabled();
-    expect(screen.getByText('There are no live blocks to compact in this scope.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Summarize working context' })).toBeDisabled();
+    expect(
+      screen.getByText('There are no active context items to summarize in this session.'),
+    ).toBeVisible();
   });
 });
