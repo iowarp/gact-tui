@@ -60,6 +60,7 @@ describe('getToolPresentation', () => {
     expect(humanizeToolName('fs_apply_edit_write')).toBe('Apply file change');
     expect(humanizeToolName('mcp__filesystem__read_file')).toBe('Read file');
     expect(humanizeToolName('shell_bash')).toBe('Run command');
+    expect(humanizeToolName('geo_geocode')).toBe('Geocode');
     expect(humanizeToolName('observe_agent_tasks')).toBe('Watch child agents');
   });
 

@@ -132,6 +132,7 @@ export function humanizeToolName(name: string): string {
       'edit',
       'fetch',
       'find',
+      'geocode',
       'get',
       'list',
       'open',

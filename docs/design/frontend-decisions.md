@@ -1153,3 +1153,14 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   conversation with `geospatial task`; Shift-click retained the parent and opened `geospatial #1`
   as a durable canvas tab. The same live surface exposed six-line assignments and the undersized
   shortcut before the density correction.
+
+# Historical MCP tool-name fallback
+
+- Old failure: older transcripts without a recorded MCP `tool_title` converted `geo_geocode` into
+  the awkward primary label `Geo geocode`, even though the current Geo MCP declares `Geocode`.
+- New representation: current records still prefer the authoritative declared title. Only records
+  missing that field use the shared identifier fallback, which now recognizes geocoding as an
+  action and removes its namespace prefix.
+- Acceptance evidence: the live San Diego child transcript contained both a `tool_call` and
+  `tool_result` for `geo_geocode` with no title field; its durable canvas visibly rendered
+  `Geo geocode` before the correction.
