@@ -54,7 +54,13 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
         </Button>
       </div>
       {exportBundle.error ? (
-        <p className="mb-3 text-xs text-destructive">{exportBundle.error.message}</p>
+        <div className="mb-3">
+          <Unavailable
+            detail={exportBundle.error.message}
+            label="Evidence export unavailable"
+            message="The service could not package this result and its provenance. Nothing was downloaded."
+          />
+        </div>
       ) : null}
       <Tabs defaultValue="versions">
         <TabsList className="grid w-full grid-cols-2">
@@ -94,7 +100,11 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
                 ))}
             </Timeline>
           ) : detail.error ? (
-            <Unavailable detail={detail.error.message} label="Version history unavailable" />
+            <Unavailable
+              detail={detail.error.message}
+              label="Version history unavailable"
+              message="History is not available for this result. Its saved content and available custody details remain readable."
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Loading version history…</p>
           )}
@@ -128,7 +138,11 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
               </Timeline>
             </div>
           ) : lineage.error ? (
-            <Unavailable detail={lineage.error.message} label="Lineage unavailable" />
+            <Unavailable
+              detail={lineage.error.message}
+              label="Lineage unavailable"
+              message="The service could not resolve a provenance graph for this result. Available custody details remain readable."
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Loading lineage…</p>
           )}
@@ -197,11 +211,27 @@ function safeFileName(value: string) {
   return value.replace(/[^a-z0-9._-]+/giu, '-').replace(/^-|-$/gu, '') || 'artifact';
 }
 
-function Unavailable({ label, detail }: { label: string; detail: string }) {
+function Unavailable({
+  label,
+  message,
+  detail,
+}: {
+  label: string;
+  message: string;
+  detail: string;
+}) {
   return (
     <div className="rounded-lg border border-dashed p-3">
       <p className="text-sm font-medium">{label}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{message}</p>
+      <details className="mt-2 text-xs text-muted-foreground">
+        <summary className="w-fit cursor-pointer select-none rounded-sm font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          Technical details
+        </summary>
+        <code className="mt-2 block break-all rounded-md bg-muted/60 p-2 font-mono text-[10px]">
+          {detail}
+        </code>
+      </details>
     </div>
   );
 }

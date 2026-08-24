@@ -100,4 +100,38 @@ describe('ArtifactProvenance', () => {
     expect(screen.getAllByText(/generated \(declared\)/)).toHaveLength(2);
     expect(document.body).not.toHaveTextContent('"nodes"');
   });
+
+  it('keeps service errors behind plain-language provenance states', async () => {
+    repository.artifactDetail.mockRejectedValueOnce(
+      new Error('artifact not found: artifact_internal_123'),
+    );
+    repository.artifactLineage.mockRejectedValueOnce(
+      new Error('lineage index missing for artifact_internal_123'),
+    );
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_internal_123',
+            session_id: 'sess_1',
+            name: 'historical.json',
+            media_type: 'application/json',
+            uri: 'artifact://historical.json',
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Version history unavailable')).toBeVisible();
+    expect(screen.getByText(/saved content and available custody details remain readable/i)).toBeVisible();
+    expect(screen.getByText('artifact not found: artifact_internal_123')).not.toBeVisible();
+    await user.click(screen.getByText('Technical details'));
+    expect(screen.getByText('artifact not found: artifact_internal_123')).toBeVisible();
+
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
+    expect(await screen.findByText('Lineage unavailable')).toBeVisible();
+    expect(screen.getByText('lineage index missing for artifact_internal_123')).not.toBeVisible();
+  });
 });
