@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { ClioConversation } from './conversation';
 
 const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
@@ -27,14 +29,19 @@ Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   virtualizerMocks.scrollToIndex.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
 
+function renderConversation(element: ReactElement) {
+  return render(<ConversationDisplayProvider>{element}</ConversationDisplayProvider>);
+}
+
 describe('ClioConversation recovery actions', () => {
   it('focuses an authoritative memory-search result by message id', async () => {
     window.history.replaceState(null, '', '#message-message_2');
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -69,7 +76,7 @@ describe('ClioConversation recovery actions', () => {
   it('uses the shared message action for recoverable assistant responses', () => {
     const onRetryMessage = vi.fn();
 
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -103,7 +110,7 @@ describe('ClioConversation recovery actions', () => {
   });
 
   it('does not imply retry support for non-recoverable failures', () => {
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -134,7 +141,7 @@ describe('ClioConversation recovery actions', () => {
   });
 
   it('makes an assistant turn with no recorded content explicitly recoverable', () => {
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -174,7 +181,7 @@ describe('ClioConversation recovery actions', () => {
       duration_ms: 12_500,
     };
 
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -214,8 +221,8 @@ describe('ClioConversation recovery actions', () => {
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
 
-  it('keeps the latest tool outcome readable when completed agent work is collapsed', () => {
-    render(
+  it('keeps the sourced tool outcome readable inside a compact activity chain', () => {
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
@@ -249,12 +256,59 @@ describe('ClioConversation recovery actions', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: /Agent work.*Read evidence\.json\..*Completed/ }),
+      screen.getByRole('button', {
+        name: /Read evidence file.*Read evidence\.json\..*Completed/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show full activity for this turn' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens a compact chain as the full causal turn and can condense it again', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_activity',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'reason_1', type: 'reasoning', text: 'Inspecting the evidence.' },
+              { id: 'progress_1', type: 'text', text: 'I found the candidate file.' },
+              { id: 'tool_1', type: 'tool', tool_id: 'tool_read' },
+              { id: 'answer_1', type: 'text', text: 'The evidence is ready.' },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{
+          tool_read: {
+            id: 'tool_read',
+            session_id: 'session_1',
+            name: 'fs_read_file',
+            title: 'Read evidence file',
+            state: 'succeeded',
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
+
+    expect(screen.getByText('Full activity for this turn')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use chain of thought for this turn' }));
+    expect(
+      screen.getByRole('button', { name: 'Show full activity for this turn' }),
     ).toBeInTheDocument();
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {
-    render(
+    renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[

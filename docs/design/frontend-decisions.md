@@ -881,3 +881,22 @@ presented.
   navigation width, workspace and session rows remained 32px tall, the scroll container stayed at
   `scrollLeft: 0` with equal client and content widths, and the project card opened beside the rail
   with real SPOTTER identity and actions.
+
+## 2026-08-23 — Conversation detail is a projection, never a different history
+
+- **Old failure:** The compact AI Elements Chain of Thought grouped reasoning, progress, tools, and
+  delegated work into an effective evolving turn, but offered no direct path to the original
+  reasoning/text/tool sequence. Users had to accept the summary grammar or leave the conversation
+  for a separate observability surface, even though the complete causal blocks were already loaded.
+- **Decision:** Conversation activity has two user-owned projections over the same ordered domain
+  blocks. `Chain of thought` is the compact default and exposes a visible, keyboard-accessible
+  `Full activity` action on the chain. `Full activity` renders every reasoning, text, tool, task,
+  child-agent, UI, and artifact block directly with its sourced AI Elements component, and offers
+  `Condense` for the turn. Appearance settings persist the user's default locally; switching modes
+  never changes backend state, event order, authorization, or the recoverable transcript.
+- **Acceptance evidence:** Focused component coverage exercises compact-to-full-to-compact turn
+  switching. In the disposable Codex `gpt-5.6-luna` scientific-analysis session, the compact chain
+  opened into two independently expandable Reasoning blocks, the complete progress text, sourced
+  tool summary, five-tab A2UI surface, and final answer in causal order. The Appearance setting
+  reactively changed the session default in both directions, and the original compact preference
+  was restored after the browser checkpoint.

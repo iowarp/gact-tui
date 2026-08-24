@@ -20,6 +20,7 @@ import {
   LoaderCircleIcon,
   RotateCcwIcon,
   RouteIcon,
+  ListTreeIcon,
   PanelsTopLeftIcon,
   UserIcon,
 } from 'lucide-react';
@@ -62,6 +63,8 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
+import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence, type ProcessBlock } from './conversation-process-sequence';
@@ -338,11 +341,13 @@ function MessageBlockView({
 }
 
 interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
+  displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;
   start: number;
   recent: boolean;
   measureElement: (element: Element | null) => void;
+  onDisplayModeChange: (mode: ConversationDisplayMode) => void;
 }
 
 const ConversationMessageRow = memo(function ConversationMessageRow({
@@ -351,6 +356,8 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   start,
   recent,
   measureElement,
+  displayMode,
+  onDisplayModeChange,
   ...entities
 }: ConversationMessageRowProps) {
   const canRetry =
@@ -358,6 +365,8 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const retrying = entities.retryingMessageId === message.id;
+  const groupedBlocks = displayMode === 'chain' ? groupCausalBlocks(message.blocks) : [];
+  const firstProcessId = groupedBlocks.find((item) => item.kind === 'process')?.id;
 
   return (
     <div
@@ -403,12 +412,38 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   No response content was recorded for this turn. You can retry the response.
                 </AlertDescription>
               </Alert>
+            ) : displayMode === 'full' ? (
+              <>
+                {message.role === 'assistant' && message.blocks.some(isProcessBlock) ? (
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <ListTreeIcon aria-hidden="true" className="size-3.5 shrink-0" />
+                      <span className="truncate">Full activity for this turn</span>
+                    </span>
+                    <Button
+                      aria-label="Use chain of thought for this turn"
+                      className="shrink-0"
+                      onClick={() => onDisplayModeChange('chain')}
+                      size="xs"
+                      variant="ghost"
+                    >
+                      Condense
+                    </Button>
+                  </div>
+                ) : null}
+                {message.blocks.map((block) => (
+                  <MessageBlockView block={block} key={block.id} {...entities} />
+                ))}
+              </>
             ) : (
-              groupCausalBlocks(message.blocks).map((item) =>
+              groupedBlocks.map((item) =>
                 item.kind === 'process' ? (
                   <ConversationProcessSequence
                     blocks={item.blocks}
                     key={item.id}
+                    onShowFull={
+                      item.id === firstProcessId ? () => onDisplayModeChange('full') : undefined
+                    }
                     onOpenSubagent={entities.onOpenSubagent}
                     subagents={entities.subagents}
                     tasks={entities.tasks}
@@ -471,10 +506,17 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 });
 
 export function ClioConversation({ messages, ...entities }: ClioConversationProps) {
+  const { mode: defaultDisplayMode } = useConversationDisplay();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
   const pinnedToBottom = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
+    {},
+  );
+  const setTurnDisplayMode = useCallback((messageId: string, mode: ConversationDisplayMode) => {
+    setTurnDisplayModes((current) => ({ ...current, [messageId]: mode }));
+  }, []);
   const referencedSurfaceIds = useMemo(
     () =>
       new Set(
@@ -594,10 +636,12 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
               return (
                 <ConversationMessageRow
                   {...entities}
+                  displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
                   index={virtualRow.index}
                   key={message.id}
                   measureElement={virtualizer.measureElement}
                   message={message}
+                  onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={virtualRow.index >= messages.length - 2}
                   start={virtualRow.start}
                 />

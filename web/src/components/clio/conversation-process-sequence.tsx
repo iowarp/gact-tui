@@ -2,6 +2,7 @@ import type { MessageBlock, SubagentRun, Task, ToolInvocation } from '@clio/core
 import {
   BotIcon,
   BrainIcon,
+  EyeIcon,
   ListChecksIcon,
   MessageSquareTextIcon,
   WrenchIcon,
@@ -15,6 +16,7 @@ import {
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
+import { Button } from '@/components/ui/button';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
@@ -31,6 +33,7 @@ interface ConversationProcessSequenceProps {
   tasks: Record<string, Task>;
   subagents: Record<string, SubagentRun>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  onShowFull?: () => void;
 }
 
 /** Keeps causal order while preserving the native semantics of each AI Elements surface. */
@@ -40,6 +43,7 @@ export function ConversationProcessSequence({
   tasks,
   subagents,
   onOpenSubagent,
+  onShowFull,
 }: ConversationProcessSequenceProps) {
   if (blocks.length === 1) {
     return renderSingleProcessBlock(blocks[0]!, {
@@ -66,9 +70,24 @@ export function ConversationProcessSequence({
       className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5"
       defaultOpen
     >
-      <ChainOfThoughtHeader className="min-h-7">
-        {active ? 'Work in progress' : activitySummary(blocks)}
-      </ChainOfThoughtHeader>
+      <div className="flex min-w-0 items-center gap-2">
+        <ChainOfThoughtHeader className="min-h-7 min-w-0 flex-1">
+          {active ? 'Work in progress' : activitySummary(blocks)}
+        </ChainOfThoughtHeader>
+        {onShowFull ? (
+          <Button
+            aria-label="Show full activity for this turn"
+            className="shrink-0"
+            onClick={onShowFull}
+            size="xs"
+            title="Show every reasoning, message, tool, task, and child-agent block"
+            variant="ghost"
+          >
+            <EyeIcon aria-hidden="true" />
+            Full activity
+          </Button>
+        ) : null}
+      </div>
       <ChainOfThoughtContent className="mt-3">
         {blocks.map((block) => (
           <ActivityStep

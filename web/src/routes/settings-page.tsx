@@ -71,6 +71,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useRepository } from '@/hooks/use-repository';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import {
+  useConversationDisplay,
+  type ConversationDisplayMode,
+} from '@/providers/conversation-display-provider';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -261,6 +265,7 @@ function PermissionsSettings() {
 
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
+  const { mode: conversationMode, setMode: setConversationMode } = useConversationDisplay();
   return (
     <div className="grid gap-6">
       <SectionHeading
@@ -296,6 +301,52 @@ function AppearanceSettings() {
                       </FieldDescription>
                     </FieldContent>
                     <RadioGroupItem id={`theme-${value}`} value={value} />
+                  </span>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </FramePanel>
+      </Frame>
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Conversation activity</FrameTitle>
+          <FrameDescription>
+            Choose the default level of detail for reasoning and agent work. This changes only
+            presentation; the complete causal record remains available.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <RadioGroup
+            className="grid gap-3 sm:grid-cols-2"
+            onValueChange={(value) => setConversationMode(value as ConversationDisplayMode)}
+            value={conversationMode}
+          >
+            {[
+              {
+                value: 'chain',
+                label: 'Chain of thought',
+                icon: BrainCircuitIcon,
+                description:
+                  'Groups reasoning, updates, tools, and delegated work into an evolving turn. Every chain can open its full activity.',
+              },
+              {
+                value: 'full',
+                label: 'Full activity',
+                icon: ScrollTextIcon,
+                description:
+                  'Shows each reasoning, text, tool, task, child-agent, UI, and artifact block directly in causal order.',
+              },
+            ].map(({ value, label, icon: ModeIcon, description }) => (
+              <FieldLabel htmlFor={`conversation-mode-${value}`} key={value}>
+                <Field className="h-full">
+                  <span className="flex items-start gap-3">
+                    <ModeIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                    <FieldContent>
+                      <FieldTitle>{label}</FieldTitle>
+                      <FieldDescription>{description}</FieldDescription>
+                    </FieldContent>
+                    <RadioGroupItem id={`conversation-mode-${value}`} value={value} />
                   </span>
                 </Field>
               </FieldLabel>
