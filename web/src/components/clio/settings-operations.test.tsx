@@ -22,7 +22,14 @@ const repository = vi.hoisted(() => ({
     messages: { total: 42, by_role: {} },
     tokens: { input_total: 100, output_total: 20, cache_read_total: 0, cache_write_total: 0 },
     cost: { total_usd: 0, by_provider: {} },
-    latencies: {},
+    latencies: {
+      'tool:remote_scientific_jarvis_jarvis_run': {
+        count: 4,
+        p50_ms: 2_000,
+        p95_ms: 125_000,
+        max_ms: 140_000,
+      },
+    },
   }),
   serviceHealth: vi.fn().mockResolvedValue({
     healthy: false,
@@ -70,7 +77,25 @@ describe('administration settings', () => {
     expect(screen.getByText('13 processes do not descend from server pid 42.')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Activity' }));
     expect(await screen.findByText('42')).toBeInTheDocument();
+    expect(screen.getByText('95% within 2m 5s')).toBeInTheDocument();
+    expect(screen.getByText('Scientific remote connection')).toBeInTheDocument();
+    expect(screen.queryByText(/p95/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Memory' }));
     expect(await screen.findByText('75%')).toBeInTheDocument();
+  });
+
+  it('does not invent cache effectiveness before activity exists', async () => {
+    repository.memoryStatistics.mockResolvedValueOnce({
+      cache: { hits: 0, misses: 0, hit_rate: 0, capacity: 1000 },
+      global: { conversations_total: 0, invocations_total: 0 },
+      metadata: {},
+    });
+    const user = userEvent.setup();
+    renderQuery(<SystemSettings />);
+
+    await user.click(screen.getByRole('tab', { name: 'Memory' }));
+    expect(await screen.findByText('Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('No cache activity has been reported yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 });

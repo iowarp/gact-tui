@@ -1,4 +1,4 @@
-import type { RuntimeMetrics, ServiceIntegrationHealth } from '@clio/core/v3';
+import type { MemoryStatistics, RuntimeMetrics, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
@@ -24,11 +24,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
@@ -126,6 +122,21 @@ function duration(seconds: number) {
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
+function metricDuration(milliseconds: number) {
+  const seconds = Math.max(0, milliseconds / 1000);
+  if (seconds < 10) return `${seconds.toFixed(1)}s`;
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+}
+
+function metricContext(name: string) {
+  if (name.includes('remote_scientific_')) return 'Scientific remote connection';
+  if (name.includes('remote_')) return 'Remote connection';
+  return undefined;
+}
+
 function ErrorState({ title, message }: { title: string; message: string }) {
   return (
     <Alert variant="destructive">
@@ -213,20 +224,31 @@ function MetricsTab({ metrics }: { metrics: RuntimeMetrics }) {
       <Frame spacing="sm">
         <FrameHeader>
           <FrameTitle>Slowest reported activity</FrameTitle>
-          <FrameDescription>Ranked by 95th-percentile duration.</FrameDescription>
+          <FrameDescription>
+            The duration within which 95% of reported calls completed, slowest first.
+          </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-1 p-2">
-          {latencyRows.map(([name, latency]) => (
-            <ClioInteractiveRow key={name}>
-              <div className="flex items-center gap-3">
-                <GaugeIcon aria-hidden="true" className="size-4 text-primary" />
-                <p className="min-w-0 flex-1 truncate text-sm font-medium">{metricTitle(name)}</p>
-                <span className="font-mono text-xs text-muted-foreground">
-                  p95 {(latency.p95_ms / 1000).toFixed(1)}s, {number(latency.count)} calls
-                </span>
-              </div>
-            </ClioInteractiveRow>
-          ))}
+          {latencyRows.map(([name, latency]) => {
+            const context = metricContext(name);
+            return (
+              <ClioInteractiveRow key={name} title={name}>
+                <div className="flex min-w-0 items-center gap-3">
+                  <GaugeIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{metricTitle(name)}</p>
+                    {context ? (
+                      <p className="truncate text-xs text-muted-foreground">{context}</p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-muted-foreground">
+                    <p>95% within {metricDuration(latency.p95_ms)}</p>
+                    <p>{number(latency.count)} reported calls</p>
+                  </div>
+                </div>
+              </ClioInteractiveRow>
+            );
+          })}
         </FramePanel>
       </Frame>
     </div>
@@ -241,6 +263,35 @@ function Metric({ label, value }: { label: string; value: string }) {
         <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       </FramePanel>
     </Frame>
+  );
+}
+
+function MemoryTab({ memory }: { memory: MemoryStatistics }) {
+  const cacheSamples = memory.cache.hits + memory.cache.misses;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Metric label="Remembered conversations" value={number(memory.global.conversations_total)} />
+      <Metric label="Remembered tool invocations" value={number(memory.global.invocations_total)} />
+      <Frame className="sm:col-span-2" spacing="sm">
+        <FramePanel>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex items-center gap-2 font-medium">
+              <BrainCircuitIcon aria-hidden="true" className="size-4 text-primary" /> Cache
+              effectiveness
+            </span>
+            <span>
+              {cacheSamples ? `${Math.round(memory.cache.hit_rate * 100)}%` : 'Unavailable'}
+            </span>
+          </div>
+          {cacheSamples ? <Progress className="mt-3" value={memory.cache.hit_rate * 100} /> : null}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {cacheSamples
+              ? `${number(memory.cache.hits)} hits and ${number(memory.cache.misses)} misses`
+              : 'No cache activity has been reported yet.'}
+          </p>
+        </FramePanel>
+      </Frame>
+    </div>
   );
 }
 
@@ -293,33 +344,7 @@ export function SystemSettings() {
           ) : null}
         </TabsContent>
         <TabsContent className="mt-4" value="memory">
-          {memory.data ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Metric
-                label="Remembered conversations"
-                value={number(memory.data.global.conversations_total)}
-              />
-              <Metric
-                label="Remembered tool invocations"
-                value={number(memory.data.global.invocations_total)}
-              />
-              <Frame className="sm:col-span-2" spacing="sm">
-                <FramePanel>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="flex items-center gap-2 font-medium">
-                      <BrainCircuitIcon aria-hidden="true" className="size-4 text-primary" /> Cache
-                      effectiveness
-                    </span>
-                    <span>{Math.round(memory.data.cache.hit_rate * 100)}%</span>
-                  </div>
-                  <Progress className="mt-3" value={memory.data.cache.hit_rate * 100} />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {number(memory.data.cache.hits)} hits, {number(memory.data.cache.misses)} misses
-                  </p>
-                </FramePanel>
-              </Frame>
-            </div>
-          ) : null}
+          {memory.data ? <MemoryTab memory={memory.data} /> : null}
           {memory.error ? (
             <ErrorState message={memory.error.message} title="Memory statistics unavailable" />
           ) : null}

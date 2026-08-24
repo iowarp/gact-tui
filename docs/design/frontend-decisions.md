@@ -979,6 +979,7 @@ presented.
   browser, selecting Wide and Reduce motion updated both radio groups immediately, navigation to the
   canonical Luna session rendered the Conversation container with `max-w-6xl`, and restoring
   Focused plus Follow system updated the controls without reload.
+
 ## 2026-08-24 — Split workspace widths reflow the composer instead of clipping it
 
 - **Old failure:** Expanding the workspace canvas to 648 px correctly preserved the
@@ -1043,7 +1044,7 @@ presented.
   summaries exposed storage values such as `stored` and `gact_compact` as primary language.
 - **Decision:** The Memory surface maps threshold and compaction records to their operational
   meaning: `Within context budget`, `Approaching context limit`, `Retained`, and `Service
-  compaction`. Exact recorded status and source remain supplemental title metadata on historical
+compaction`. Exact recorded status and source remain supplemental title metadata on historical
   records.
 - **Acceptance evidence:** The live SPOTTER memory view now shows `Within context budget` beside
   the real 100,798 retained tokens and 922,000-token budget, while retaining the service's full
@@ -1063,3 +1064,9 @@ presented.
   explain limited recall and detached work without exposing implementation details initially.
   Opening Technical details on the latter recovered the complete 13-process diagnostic and
   recorded Windows/POSIX reaper guidance unchanged.
+
+# System activity and memory statistics
+
+- Old failure: the System activity view exposed percentile shorthand as `p95`, collapsed distinct remote integrations into identical labels, and rendered `0%` cache effectiveness when no cache activity existed.
+- New representation: the activity list explains the percentile in task language, gives remote integrations a visible connection context, and formats long durations for scanning. Cache effectiveness is explicitly unavailable until at least one hit or miss exists.
+- Acceptance evidence: live service metrics at desktop width exposed duplicate Jarvis activity and the empty cache case; both were rechecked through the interactive System tabs after the correction.
