@@ -1082,3 +1082,10 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: several reused copy controls depended only on `navigator.clipboard`. The installed and embedded browser surfaces can expose that API while rejecting writes, leaving the control unchanged and the clipboard empty.
 - New representation: all CLIO copy actions use one shared clipboard adapter that attempts the modern API and falls back to a temporary selection copy while preserving focus. Reused code blocks retain their built-in copied-state icon.
 - Acceptance evidence: live file-view verification opened `calibration.json`, reproduced an empty clipboard after pressing Copy, and then rechecked the same control through the shared adapter.
+
+# Mermaid fitted-scale and label truth
+
+- Old failure: MermaidCN fitted a diagram on load but left the visible zoom percentage at its initial `100%`. The first zoom action then appeared to move backward because it finally revealed the true fitted scale.
+- Old failure: Mermaid 11 prefers its root `htmlLabels` option over the deprecated flowchart option. The reused canvas therefore received HTML `foreignObject` labels that clipped longer scientific workflow names during SVG rasterization.
+- New representation: both initial-image fitting and resize-time fitting update the canvas transform and the visible percentage in the same display-frame state transition. Mermaid is configured at the authoritative root seam to emit portable SVG text labels.
+- Acceptance evidence: fullscreen live verification reproduced a `100%` to `97%` jump after two zoom-in presses. The corrected view opens at its truthful `81%` fit, contains no `foreignObject` nodes, and visibly renders complete multiline labels including `Acquire CLIO workspace catalog` and `Validate inputs and provenance`.

@@ -423,6 +423,7 @@ export function ZoomPan({
           targetRef.current = center;
           currentRef.current = center;
           hasCentered.current = true;
+          setScalePercent(Math.round(center.scale * 100));
         }
       }
 
@@ -462,6 +463,7 @@ export function ZoomPan({
         targetRef.current = center;
         currentRef.current = center;
         hasCentered.current = true;
+        setScalePercent(Math.round(scale * 100));
       }
 
       render();

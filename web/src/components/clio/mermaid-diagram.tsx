@@ -27,6 +27,7 @@ type MermaidView = 'render' | 'source';
 const config: MermaidConfig = {
   theme: 'base',
   darkMode: true,
+  htmlLabels: false,
   fontFamily: 'Inter Variable, Segoe UI, sans-serif',
   fontSize: 16,
   flowchart: { curve: 'linear', htmlLabels: false, padding: 14 },

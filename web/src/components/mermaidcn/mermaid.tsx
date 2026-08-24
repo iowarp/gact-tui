@@ -16,6 +16,7 @@ const BUILTIN_THEMES = new Set<string>(['default', 'dark', 'forest', 'neutral', 
 export interface MermaidConfig {
   theme?: MermaidTheme;
   darkMode?: boolean;
+  htmlLabels?: boolean;
   look?: 'classic' | 'handdrawn';
   themeVariables?: Record<string, string>;
   flowchart?: {
@@ -123,6 +124,10 @@ function useMermaid({
           theme: resolvedMermaidTheme,
           themeVariables: resolvedThemeVars,
           look: parsedConfig.look === 'handdrawn' ? 'handDrawn' : 'classic',
+          // Mermaid 11 gives this root-level setting precedence over the
+          // deprecated flowchart option. SVG text labels also rasterize
+          // reliably in the shared zoom/pan canvas.
+          htmlLabels: parsedConfig.htmlLabels ?? parsedConfig.flowchart?.htmlLabels ?? false,
           flowchart: {
             htmlLabels: parsedConfig.flowchart?.htmlLabels ?? false,
             ...(parsedConfig.flowchart?.padding != null
