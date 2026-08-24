@@ -88,6 +88,50 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByText('3 calls')).toBeVisible();
   });
 
+  it('presents child routing as a central conversation with an explicit canvas action', async () => {
+    const user = userEvent.setup();
+    const onOpenSubagent = vi.fn();
+    const child = {
+      id: 'task_geo',
+      session_id: 'sess_1',
+      child_session_id: 'sess_child',
+      title: 'geospatial #1',
+      state: 'completed' as const,
+      summary: 'main <- geospatial',
+    };
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenSubagent={onOpenSubagent}
+        processes={[]}
+        runs={[]}
+        subagents={[child]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText('Delegated from main session')).toHaveAttribute(
+      'title',
+      'Recorded relationship: main <- geospatial',
+    );
+    expect(screen.queryByText('main <- geospatial')).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'geospatial #1 Delegated from main session Completed Open conversation',
+      }),
+    );
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
+
+    await user.click(screen.getByRole('button', { name: 'Open geospatial #1 in canvas' }));
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
+  });
+
   it('shows real process spans and groups session evidence without raw payloads', async () => {
     const user = userEvent.setup();
     const openDiff = vi.fn();

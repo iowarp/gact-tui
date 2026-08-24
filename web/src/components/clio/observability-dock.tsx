@@ -40,6 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { cn } from '@/lib/utils';
+import { childAgentRelationshipLabel, getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioEvidenceView } from './observability-evidence';
@@ -221,7 +222,7 @@ export function ClioObservabilityView({
             label: process.title,
             detail:
               process.kind === 'agent'
-                ? `Child agent${process.placement ? `, ${process.placement}` : ''}`
+                ? childAgentProcessDetail(process.placement)
                 : `Background task${process.host ? `, ${process.host}` : ''}`,
             state: process.live_state,
             at: process.updated_at ?? process.created_at,
@@ -293,51 +294,55 @@ export function ClioObservabilityView({
                 </div>
               </ClioInteractiveRow>
             ))}
-            {subagents.map((agent) => (
-              <ClioInteractiveRow
-                actions={
-                  agent.child_session_id && onOpenSubagent ? (
-                    <Button
-                      aria-label={`Open ${agent.title} in canvas`}
-                      onClick={() => onOpenSubagent(agent, 'canvas')}
-                      size="icon-xs"
-                      title="Open in canvas"
-                      variant="ghost"
-                    >
-                      <PanelRightOpenIcon aria-hidden="true" />
-                    </Button>
-                  ) : undefined
-                }
-                key={agent.id}
-                running={agent.state === 'running'}
-              >
-                <button
-                  className="flex w-full items-start gap-3 text-left outline-none"
-                  disabled={!agent.child_session_id || !onOpenSubagent}
-                  onClick={(event) =>
-                    onOpenSubagent?.(agent, event.shiftKey ? 'canvas' : 'conversation')
+            {subagents.map((agent) => {
+              const assignment = getChildAgentAssignment(agent);
+              return (
+                <ClioInteractiveRow
+                  actions={
+                    agent.child_session_id && onOpenSubagent ? (
+                      <Button
+                        aria-label={`Open ${agent.title} in canvas`}
+                        onClick={() => onOpenSubagent(agent, 'canvas')}
+                        size="icon"
+                        title="Open in canvas"
+                        variant="ghost"
+                      >
+                        <PanelRightOpenIcon aria-hidden="true" />
+                      </Button>
+                    ) : undefined
                   }
-                  onMouseDown={(event) => {
-                    if (event.shiftKey) event.preventDefault();
-                  }}
-                  type="button"
+                  key={agent.id}
+                  running={agent.state === 'running'}
                 >
-                  <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{agent.title}</p>
-                    {agent.summary ? (
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {agent.summary}
+                  <button
+                    className="flex w-full items-start gap-3 text-left outline-none"
+                    disabled={!agent.child_session_id || !onOpenSubagent}
+                    onClick={(event) =>
+                      onOpenSubagent?.(agent, event.shiftKey ? 'canvas' : 'conversation')
+                    }
+                    onMouseDown={(event) => {
+                      if (event.shiftKey) event.preventDefault();
+                    }}
+                    type="button"
+                  >
+                    <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{agent.title}</p>
+                      <p
+                        className="mt-1 line-clamp-4 text-xs leading-5 text-muted-foreground"
+                        title={assignment.detail ?? assignment.label}
+                      >
+                        {assignment.label}
                       </p>
-                    ) : null}
-                    <ClioStatus className="mt-2" value={agent.state} />
-                    {agent.child_session_id && onOpenSubagent ? (
-                      <p className="mt-2 text-xs font-medium text-primary">Open conversation →</p>
-                    ) : null}
-                  </div>
-                </button>
-              </ClioInteractiveRow>
-            ))}
+                      <ClioStatus className="mt-2" value={agent.state} />
+                      {agent.child_session_id && onOpenSubagent ? (
+                        <p className="mt-2 text-xs font-medium text-primary">Open conversation</p>
+                      ) : null}
+                    </div>
+                  </button>
+                </ClioInteractiveRow>
+              );
+            })}
             {workTools.map(({ count, key, tool }) => {
               const outcome = getToolOutcome(tool);
               return (
@@ -467,6 +472,11 @@ function toolActivityContext(
     }
   }
   return context;
+}
+
+function childAgentProcessDetail(placement: string | undefined): string {
+  const relationship = childAgentRelationshipLabel(placement);
+  return relationship ? `Child agent. ${relationship}` : 'Child agent';
 }
 
 function formatDuration(milliseconds: number): string {

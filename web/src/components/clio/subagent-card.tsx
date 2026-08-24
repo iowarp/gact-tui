@@ -3,6 +3,7 @@ import { ArrowRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
+import { getChildAgentAssignment } from './child-agent-presentation';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -25,6 +26,8 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
     );
   }
 
+  const assignment = getChildAgentAssignment(subagent);
+
   const openFromPointer = (event: MouseEvent<HTMLElement>) => {
     onOpen?.(subagent, event.shiftKey ? 'canvas' : 'conversation');
   };
@@ -35,7 +38,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
   };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-2" title={assignment.detail}>
       <SubAgentDispatch
         aria-label={`Open child conversation ${subagent.title}`}
         className={
@@ -56,11 +59,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
         run={{
           id: subagent.id,
           agent: subagent.title,
-          task: compactText(
-            subagent.task || subagent.summary || 'Working on a delegated part of this task.',
-            420,
-            false,
-          ),
+          task: compactText(assignment.label, 420, false),
           state: toTheoState(subagent.state),
           duration: formatDuration(subagent.duration_ms),
           lastEvent: subagent.child_session_id ? 'Child conversation available' : undefined,

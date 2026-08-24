@@ -42,4 +42,22 @@ describe('ClioSubagentCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open in canvas' }));
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
   });
+
+  it('translates persisted routing syntax into a useful assignment', () => {
+    render(
+      <ClioSubagentCard
+        subagent={{
+          id: 'task_geo',
+          session_id: 'session_1',
+          agent_id: 'geospatial',
+          title: 'geospatial #1',
+          state: 'completed',
+          summary: 'main <- geospatial',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Delegated from main session')).toBeVisible();
+    expect(screen.queryByText('main <- geospatial')).not.toBeInTheDocument();
+  });
 });

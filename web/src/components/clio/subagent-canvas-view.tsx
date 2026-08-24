@@ -18,6 +18,7 @@ import { recordById } from '@/lib/entities';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioConversation } from './conversation';
+import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -43,6 +44,7 @@ export function ClioSubagentCanvasView({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const childSessionId = subagent.child_session_id;
+  const assignment = getChildAgentAssignment(subagent);
   const transcript = useQuery({
     queryKey: ['transcript', settings.endpoint, childSessionId, 'canvas'],
     queryFn: ({ signal }) => repository.transcript(childSessionId!, signal),
@@ -140,8 +142,11 @@ export function ClioSubagentCanvasView({
               <ClioStatus value={subagent.state} />
               <ClioStatus detail="Child transcript connection" value={entities.stream} />
             </div>
-            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-              {subagent.task || subagent.summary || 'Delegated work'}
+            <p
+              className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
+              title={assignment.detail ?? assignment.label}
+            >
+              {assignment.label}
             </p>
           </div>
           {childSessionId === activeSessionId ? (

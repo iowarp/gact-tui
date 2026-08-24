@@ -1137,3 +1137,19 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   source, and threshold remain supplemental title metadata.
 - Acceptance evidence: canonical EarthScope NDP Context reproduced `main`, zero `Live blocks`,
   `server`, an 85% compaction threshold, and a disabled destructive action before the correction.
+
+# Child-agent relationship presentation
+
+- Old failure: child-agent cards projected persisted routing shorthand such as
+  `main <- geospatial` as the assignment, while the observability Work view used a separate row
+  vocabulary from the sourced TheoKit dispatch shown in the conversation. Long authoritative
+  assignments also consumed most of the compact canvas, and its explicit canvas shortcut was a
+  24px target.
+- New representation: one CLIO presentation adapter supplies the conversation, Work view, and
+  durable child canvas. Routing shorthand becomes `Delegated from main session`, while real agent
+  assignments remain authoritative. The compact Work row shows four lines with the complete text
+  available to hover and assistive technology, and its canvas action uses the standard icon target.
+- Acceptance evidence: live EarthScope NDP verification proved plain click replaced the central
+  conversation with `geospatial task`; Shift-click retained the parent and opened `geospatial #1`
+  as a durable canvas tab. The same live surface exposed six-line assignments and the undersized
+  shortcut before the density correction.
