@@ -60,7 +60,7 @@ describe('buildModelOptions', () => {
         providerId: 'anthropic',
         id: 'claude-sonnet-4-20250514',
         available: false,
-        availabilityDetail: 'missing ANTHROPIC_API_KEY',
+        availabilityDetail: 'Connect Anthropic API to use this provider.',
       }),
     );
   });

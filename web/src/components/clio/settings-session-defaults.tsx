@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { providerDisplayName } from '@/lib/provider-presentation';
 
 const inheritedModel = '__service_default__';
 const standardBlueprint = '__standard__';
@@ -174,7 +175,7 @@ export function SessionDefaultsSettings() {
                       key={preset.id}
                       value={preset.id}
                     >
-                      {preset.label}
+                      {providerDisplayName(preset)}
                       {preset.is_authenticated ? '' : ' — sign-in needed'}
                     </SelectItem>
                   ))}

@@ -520,7 +520,6 @@ export function WorkspacePage() {
               })
             }
             ref={workbenchRef}
-            requestedOpen={workbenchRequest}
             sessionId={sessionId}
             sessionView={
               <ClioObservabilityView

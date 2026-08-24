@@ -101,7 +101,6 @@ export interface ClioWorkbenchProps {
   onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
-  requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
 
 export type ClioWorkbenchOpenRequest =
@@ -139,7 +138,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onApplyDiff,
       onOpenSubagent,
       onRejectDiff,
-      requestedOpen,
     },
     ref,
   ) {
@@ -225,10 +223,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     );
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
-
-    useEffect(() => {
-      if (requestedOpen) openRequest(requestedOpen.request);
-    }, [openRequest, requestedOpen]);
 
     useEffect(() => {
       if (!maximized) return;

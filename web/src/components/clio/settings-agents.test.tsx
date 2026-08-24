@@ -38,6 +38,42 @@ const agent = {
 const repository = vi.hoisted(() => ({
   agents: vi.fn(),
   tools: vi.fn(),
+  languageModelConfiguration: vi.fn().mockResolvedValue({
+    configured: true,
+    provider: 'codex',
+    api_base: '',
+    model: 'gpt-5.6-luna',
+    presets: [
+      {
+        id: 'codex',
+        label: 'Codex',
+        provider: 'codex',
+        suggested_model: 'gpt-5.6-luna',
+        requires_api_key: false,
+        is_authenticated: true,
+        supports_live_catalog: true,
+        supports_vision: true,
+      },
+      {
+        id: 'claude_code',
+        label: 'Claude Code',
+        provider: 'claude_code',
+        suggested_model: 'sonnet',
+        requires_api_key: false,
+        is_authenticated: true,
+        supports_live_catalog: true,
+        supports_vision: true,
+      },
+    ],
+  }),
+  providerModels: vi.fn().mockImplementation(async (providerId: string) => ({
+    provider_id: providerId,
+    source: 'connected_agent',
+    models:
+      providerId === 'claude_code'
+        ? [{ id: 'sonnet', name: 'Claude Sonnet' }]
+        : [{ id: 'gpt-5.6-luna', name: 'GPT-5.6-Luna' }],
+  })),
   createAgent: vi.fn(),
   updateAgent: vi.fn(),
   deleteAgent: vi.fn(),
@@ -110,5 +146,23 @@ describe('AgentSettings', () => {
     expect(await screen.findByText('Main Agent')).toBeVisible();
     expect(screen.getByText('Built in')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Actions for Main Agent' })).not.toBeInTheDocument();
+  });
+
+  it('offers discovered providers and models before exposing custom identifiers', async () => {
+    repository.agents.mockResolvedValue([agent]);
+    repository.tools.mockResolvedValue([]);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AgentSettings />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'New agent' }));
+    expect(screen.queryByRole('textbox', { name: 'Provider identifier' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Preferred model' }));
+    expect(await screen.findByRole('option', { name: /Claude Sonnet/ })).toBeVisible();
+    expect(screen.getByRole('option', { name: /GPT-5.6-Luna/ })).toBeVisible();
   });
 });

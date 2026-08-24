@@ -28,6 +28,7 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerAvailability } from '@/lib/provider-availability';
+import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 
@@ -196,7 +197,7 @@ function ModelsSettingsContent({
                 <SelectContent>
                   {configuration.presets.map((preset) => (
                     <SelectItem key={preset.id} value={preset.id}>
-                      {providerLabel(preset)}
+                      {providerDisplayName(preset)}
                       {preset.is_authenticated ? '' : ' — sign-in needed'}
                     </SelectItem>
                   ))}
@@ -314,7 +315,9 @@ function ModelsSettingsContent({
               <div className="rounded-lg border p-3" key={provider.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{providerLabel(preset, provider.name)}</p>
+                    <p className="text-sm font-medium">
+                      {providerDisplayName(preset, provider.name)}
+                    </p>
                     <p
                       className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
                       title={provider.description}
@@ -393,41 +396,6 @@ function RefreshResult({ result }: { result: ProviderModelRefreshResult }) {
       </p>
     </div>
   );
-}
-
-function providerSummary(preset: LanguageModelPreset | undefined, fallbackName?: string): string {
-  const summaries: Record<string, string> = {
-    codex: 'Use models included with your Codex subscription.',
-    claude_code: 'Use models included with your Claude subscription.',
-    openai: 'Use OpenAI models connected to this agent.',
-    anthropic: 'Use Anthropic models connected to this agent.',
-    openrouter: 'Use models available through your OpenRouter account.',
-    lm_studio: 'Use models served by LM Studio on the connected agent.',
-    ollama: 'Use models served by Ollama on the connected agent.',
-    argonne_metis: 'Use Metis models available through your ALCF account.',
-    argonne_sophia: 'Use Sophia models available through your ALCF account.',
-    argonne_local_vllm: 'Use a compatible model service connected to this agent.',
-  };
-  return (
-    (preset ? summaries[preset.id] : undefined) ??
-    `Use models made available by ${fallbackName || preset?.label || 'this provider'}.`
-  );
-}
-
-function providerLabel(preset: LanguageModelPreset | undefined, fallbackName?: string): string {
-  const labels: Record<string, string> = {
-    codex: 'OpenAI Codex',
-    claude_code: 'Claude',
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    openrouter: 'OpenRouter',
-    lm_studio: 'LM Studio',
-    ollama: 'Ollama',
-    argonne_metis: 'ALCF Metis',
-    argonne_sophia: 'ALCF Sophia',
-    argonne_local_vllm: 'vLLM',
-  };
-  return (preset ? labels[preset.id] : undefined) ?? fallbackName ?? preset?.label ?? 'Provider';
 }
 
 function readableTimestamp(value: string): string {

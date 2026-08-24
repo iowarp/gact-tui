@@ -1,27 +1,15 @@
 import type { CommandDefinition, RunState } from '@clio/core/v3';
 import {
-  CheckIcon,
   ChevronDownIcon,
   CornerDownRightIcon,
   PaperclipIcon,
   RouteIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorLogo,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from '@/components/ai-elements/model-selector';
+import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -43,6 +31,8 @@ import {
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
+import { ClioModelPicker } from './model-picker';
+import { providerLogoId } from '@/lib/provider-presentation';
 
 export interface ClioComposerProps {
   state: RunState;
@@ -102,21 +92,6 @@ export function ClioComposer({
   const [selectedEffort, setSelectedEffort] = useState(effort);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    setSelectedProvider(provider);
-    setSelectedModel(model);
-    setSelectedEffort(effort);
-  }, [effort, model, provider]);
-  const groupedModels = useMemo(
-    () =>
-      Object.entries(
-        modelOptions.reduce<Record<string, typeof modelOptions>>((groups, option) => {
-          (groups[option.providerName] ??= []).push(option);
-          return groups;
-        }, {}),
-      ),
-    [modelOptions],
-  );
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
     if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
@@ -262,49 +237,24 @@ export function ClioComposer({
                 <PromptInputSelectItem value="reasoning_only">Reasoning only</PromptInputSelectItem>
               </PromptInputSelectContent>
             </PromptInputSelect>
-            <ModelSelector>
-              <ModelSelectorTrigger asChild>
+            <ClioModelPicker
+              model={selectedModel}
+              onChange={(option) => {
+                setSelectedProvider(option.providerId);
+                setSelectedModel(option.id);
+              }}
+              options={modelOptions}
+              provider={selectedProvider}
+              trigger={
                 <PromptInputButton aria-label="Choose model" className="max-w-44 !text-foreground">
-                  {selectedProvider ? <ModelSelectorLogo provider={selectedProvider} /> : null}
+                  {selectedProvider ? (
+                    <ModelSelectorLogo provider={providerLogoId(selectedProvider)} />
+                  ) : null}
                   <span className="truncate">{selectedModel ?? 'Choose model'}</span>
                   <ChevronDownIcon aria-hidden="true" className="size-3.5" />
                 </PromptInputButton>
-              </ModelSelectorTrigger>
-              <ModelSelectorContent title="Choose a model">
-                <ModelSelectorInput placeholder="Search providers and models" />
-                <ModelSelectorList>
-                  <ModelSelectorEmpty>No available models match your search.</ModelSelectorEmpty>
-                  {groupedModels.map(([providerName, options]) => (
-                    <ModelSelectorGroup heading={providerName} key={providerName}>
-                      {options.map((option) => (
-                        <ModelSelectorItem
-                          disabled={!option.available}
-                          key={`${option.providerId}:${option.id}`}
-                          onSelect={() => {
-                            setSelectedProvider(option.providerId);
-                            setSelectedModel(option.id);
-                          }}
-                          value={`${option.providerName} ${option.label} ${option.id}`}
-                        >
-                          <ModelSelectorLogo provider={option.providerId} />
-                          <ModelSelectorName>
-                            <span className="block truncate">{option.label}</span>
-                            {option.description || option.availabilityDetail ? (
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {option.availabilityDetail ?? option.description}
-                              </span>
-                            ) : null}
-                          </ModelSelectorName>
-                          {selectedProvider === option.providerId && selectedModel === option.id ? (
-                            <CheckIcon aria-hidden="true" className="size-4 text-primary" />
-                          ) : null}
-                        </ModelSelectorItem>
-                      ))}
-                    </ModelSelectorGroup>
-                  ))}
-                </ModelSelectorList>
-              </ModelSelectorContent>
-            </ModelSelector>
+              }
+            />
             <PromptInputSelect onValueChange={setSelectedEffort} value={selectedEffort ?? 'medium'}>
               <PromptInputSelectTrigger
                 aria-label="Effort"
