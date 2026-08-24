@@ -57,7 +57,6 @@ export function SessionNavigationRow({
   const unseen =
     !running &&
     session.id !== activeSessionId &&
-    seenRevision !== undefined &&
     seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow

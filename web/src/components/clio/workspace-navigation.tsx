@@ -69,10 +69,22 @@ export function WorkspaceNavigation({
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
   const [workspaceExpansion, setWorkspaceExpansion] = useState<Record<string, boolean>>({});
-  const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(sessions.map((session) => [session.id, sessionInteractionAt(session)])),
-  );
+  const [sessionObservationStartedAt] = useState(() => new Date().toISOString());
+  const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>({});
   const activeSession = sessions.find((session) => session.id === activeSessionId);
+  const effectiveSeenSessionRevisions = useMemo(
+    () =>
+      Object.fromEntries(
+        sessions.flatMap((session) => {
+          const interactionAt = sessionInteractionAt(session);
+          if (session.id === activeSessionId) return [[session.id, interactionAt]];
+          const seenRevision = seenSessionRevisions[session.id];
+          if (seenRevision !== undefined) return [[session.id, seenRevision]];
+          return interactionAt <= sessionObservationStartedAt ? [[session.id, interactionAt]] : [];
+        }),
+      ),
+    [activeSessionId, seenSessionRevisions, sessionObservationStartedAt, sessions],
+  );
   const visibleWorkspaces = useMemo(() => {
     // Preserve the server/user-defined order. A workspace moves only after the
     // user explicitly changes its pinned state, never because they opened a
@@ -126,7 +138,7 @@ export function WorkspaceNavigation({
               onRename={onRename}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onVisitSession={visitSession}
-              seenSessionRevisions={seenSessionRevisions}
+              seenSessionRevisions={effectiveSeenSessionRevisions}
               sessionLimitExpanded={expandedSessionsFor === workspace.id}
               sessions={workspaceSessions}
               setSessionLimitExpanded={(open) =>
