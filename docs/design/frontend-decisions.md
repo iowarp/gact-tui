@@ -995,3 +995,17 @@ presented.
   352 px wide, reflowed to 189 px high, and kept routing, model, effort, and Submit fully
   inside its bounds. The CLIO-owned 800-line ratchet also passes after provider contracts
   and their repository tests were split by behavior.
+
+## 2026-08-24 — Selection menus open beside their controls
+
+- **Old failure:** The shared shadcn Select used item-aligned positioning, placing the current
+  option directly beneath the pointer. A normal click opened and immediately re-selected that
+  option, so Provider, Model, Reasoning effort, and other settings appeared inert even though
+  keyboard activation worked. The resulting menu also covered the field label and page heading.
+- **Decision:** CLIO keeps the sourced Radix Select behavior and uses its supported popper
+  position with start alignment by default. Menus now open from the trigger edge, preserve their
+  existing keyboard behavior, and avoid treating the opening click as a selection.
+- **Acceptance evidence:** On the live Models settings page, an ordinary pointer click opened all
+  ten provider choices below Provider, the seven Codex models below Model, and the four labeled
+  effort choices below Reasoning effort. Space still opened the focused control, Escape dismissed
+  it, and no persisted model setting changed during the checkpoint.
