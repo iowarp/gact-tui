@@ -30,7 +30,7 @@ import {
   CircleAlertIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import type { ComponentType, SVGProps } from 'react';
+import { useEffect, type ComponentType, type SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
@@ -599,6 +599,9 @@ export function SettingsPage() {
   const { section = 'appearance' } = useParams();
   const location = useLocation();
   const { settings } = useConnectionSettings();
+  useEffect(() => {
+    window.scrollTo({ left: 0, top: 0 });
+  }, [section]);
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);

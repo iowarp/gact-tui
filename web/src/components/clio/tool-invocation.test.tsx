@@ -124,6 +124,6 @@ describe('getToolPresentation', () => {
       },
     };
     expect(getToolOutcome(completed)).toMatchObject({ value: 'completed', label: 'Completed' });
-    expect(getToolSummary(completed)).toBe('2 runs completed · mean biomass 120.48.');
+    expect(getToolSummary(completed)).toBe('2 runs completed, mean biomass 120.48.');
   });
 });
