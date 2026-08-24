@@ -96,7 +96,9 @@ export function ClioCommandMenu({
         ? (files.data ?? [])
             .filter(
               (file) =>
-                file.type === 'file' && file.path.toLocaleLowerCase().includes(normalizedQuery),
+                file.type === 'file' &&
+                !isClioInternalFile(file.path) &&
+                file.path.toLocaleLowerCase().includes(normalizedQuery),
             )
             .slice(0, 16)
         : [],
@@ -265,6 +267,11 @@ export function ClioCommandMenu({
       </CommandList>
     </CommandDialog>
   );
+}
+
+function isClioInternalFile(path: string): boolean {
+  const normalized = path.replace(/\\/gu, '/').toLocaleLowerCase();
+  return normalized.startsWith('.clio/agent/') || normalized.includes('/.clio/agent/');
 }
 
 function roleLabel(role: MemorySearchHit['role']): string {

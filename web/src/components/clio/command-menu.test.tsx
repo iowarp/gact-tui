@@ -94,6 +94,11 @@ beforeEach(() => {
   ]);
   repository.workspaceFiles.mockResolvedValue([
     { path: 'results/stations.csv', type: 'file', size: 1200 },
+    {
+      path: '.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv',
+      type: 'file',
+      size: 1200,
+    },
   ]);
   repository.searchMemory.mockResolvedValue({
     query: 'immutable',
@@ -130,6 +135,9 @@ describe('ClioCommandMenu workspace search', () => {
     await user.keyboard('{Control>}k{/Control}');
     const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
     await user.type(input, 'stations');
+    expect(
+      screen.queryByText('.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv'),
+    ).not.toBeInTheDocument();
     await user.click(await screen.findByText('results/stations.csv'));
     expect(onOpenResource).toHaveBeenCalledWith({
       kind: 'workspace-file',
