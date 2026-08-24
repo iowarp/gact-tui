@@ -142,7 +142,13 @@ export function ClioPathPicker({
 function uniqueFolders(folders: readonly PathChoice[]): PathChoice[] {
   return [
     ...new Map(
-      folders.filter((folder) => folder.path).map((folder) => [folder.path, folder]),
+      folders
+        .filter((folder) => folder.path)
+        .map((folder) => [folderIdentity(folder.path), folder]),
     ).values(),
   ];
+}
+
+function folderIdentity(path: string): string {
+  return path.replaceAll('\\', '/').replace(/\/+$/u, '').toLocaleLowerCase();
 }

@@ -1,6 +1,13 @@
 import type { AgentBlueprint, AgentBlueprintSource, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BoxesIcon, MoreHorizontalIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
+import {
+  BoxesIcon,
+  EyeIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -25,28 +32,20 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import { ClioStatus } from './status';
+import { BlueprintDetailsDialog } from './blueprint-details-dialog';
+import { MarketplaceSourceDialog, type MarketplaceSourceInput } from './marketplace-source-dialog';
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
@@ -63,9 +62,7 @@ export function BlueprintSettings() {
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
-  const [sourceName, setSourceName] = useState('');
-  const [sourceLocation, setSourceLocation] = useState('');
-  const [sourceRef, setSourceRef] = useState('');
+  const [selectedBlueprint, setSelectedBlueprint] = useState<AgentBlueprint>();
   const [deleteBlueprint, setDeleteBlueprint] = useState<AgentBlueprint>();
   const [deleteSource, setDeleteSource] = useState<AgentBlueprintSource>();
   const blueprints = useQuery({
@@ -76,6 +73,10 @@ export function BlueprintSettings() {
     queryKey: ['agent-blueprint-sources', settings.endpoint],
     queryFn: ({ signal }) => repository.agentBlueprintSources(signal),
   });
+  const workspaces = useQuery({
+    queryKey: ['workspaces', settings.endpoint],
+    queryFn: ({ signal }) => repository.workspaces(signal),
+  });
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['agent-blueprints', settings.endpoint] }),
@@ -83,17 +84,9 @@ export function BlueprintSettings() {
     ]);
   };
   const addSource = useMutation({
-    mutationFn: () =>
-      repository.addAgentBlueprintSource({
-        name: sourceName.trim() || sourceLocation.trim(),
-        source: sourceLocation.trim(),
-        ref: sourceRef.trim() || undefined,
-      }),
+    mutationFn: (input: MarketplaceSourceInput) => repository.addAgentBlueprintSource(input),
     onSuccess: async () => {
       setSourceDialogOpen(false);
-      setSourceName('');
-      setSourceLocation('');
-      setSourceRef('');
       await invalidate();
       toast.success('Source added');
     },
@@ -171,13 +164,28 @@ export function BlueprintSettings() {
                   <BoxesIcon aria-hidden="true" className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{blueprint.display_name}</p>
-                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
-                    <Badge variant="outline">{blueprint.scope}</Badge>
-                    <Badge variant="outline">{blueprint.version || 'Version unavailable'}</Badge>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <button
+                      className="min-w-0 flex-1 truncate rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setSelectedBlueprint(blueprint)}
+                      type="button"
+                    >
+                      {blueprint.display_name}
+                    </button>
+                    <ClioStatus
+                      className="shrink-0"
+                      value={blueprint.enabled ? 'healthy' : 'degraded'}
+                    />
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Badge variant="outline">
+                      {blueprint.scope === 'global' ? 'All workspaces' : 'This workspace'}
+                    </Badge>
+                    <Badge variant="outline">
+                      {blueprint.version ? `Version ${blueprint.version}` : 'Version unavailable'}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 min-h-10 line-clamp-2 text-sm leading-5 text-muted-foreground">
                     {blueprint.description || 'No description provided.'}
                   </p>
                   {blueprint.validation_errors.length ? (
@@ -199,6 +207,9 @@ export function BlueprintSettings() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setSelectedBlueprint(blueprint)}>
+                      <EyeIcon aria-hidden="true" /> View details
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => update.mutate(blueprint)}>
                       <RefreshCwIcon aria-hidden="true" /> Check for update
                     </DropdownMenuItem>
@@ -304,60 +315,20 @@ export function BlueprintSettings() {
         </TabsContent>
       </Tabs>
 
-      <Dialog onOpenChange={setSourceDialogOpen} open={sourceDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add blueprint marketplace</DialogTitle>
-            <DialogDescription>
-              Add a repository or local directory published by your organization.
-            </DialogDescription>
-          </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="blueprint-source-name">Name</FieldLabel>
-              <Input
-                id="blueprint-source-name"
-                onChange={(event) => setSourceName(event.target.value)}
-                placeholder="Scientific marketplace"
-                value={sourceName}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="blueprint-source-location">Repository or directory</FieldLabel>
-              <Input
-                id="blueprint-source-location"
-                onChange={(event) => setSourceLocation(event.target.value)}
-                placeholder="https://… or D:\\…"
-                value={sourceLocation}
-              />
-              <FieldDescription>The service validates and refreshes this source.</FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="blueprint-source-ref">Branch or tag</FieldLabel>
-              <Input
-                id="blueprint-source-ref"
-                onChange={(event) => setSourceRef(event.target.value)}
-                placeholder="main"
-                value={sourceRef}
-              />
-            </Field>
-          </FieldGroup>
-          {addSource.error ? (
-            <p className="text-sm text-destructive">{addSource.error.message}</p>
-          ) : null}
-          <DialogFooter>
-            <Button onClick={() => setSourceDialogOpen(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button
-              disabled={!sourceLocation.trim() || addSource.isPending}
-              onClick={() => addSource.mutate()}
-            >
-              {addSource.isPending ? 'Adding…' : 'Add marketplace'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {sourceDialogOpen ? (
+        <MarketplaceSourceDialog
+          error={addSource.error?.message}
+          onAdd={(input) => addSource.mutate(input)}
+          onOpenChange={setSourceDialogOpen}
+          open
+          pending={addSource.isPending}
+          workspaces={workspaces.data ?? []}
+        />
+      ) : null}
+      <BlueprintDetailsDialog
+        blueprint={selectedBlueprint}
+        onOpenChange={(open) => !open && setSelectedBlueprint(undefined)}
+      />
 
       <AlertDialog
         onOpenChange={(open) => !open && setDeleteSource(undefined)}
