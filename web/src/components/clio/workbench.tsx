@@ -228,10 +228,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     useEffect(() => {
       if (!maximized) return;
       const restore = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') setMaximized(false);
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        setMaximized(false);
       };
-      window.addEventListener('keydown', restore);
-      return () => window.removeEventListener('keydown', restore);
+      window.addEventListener('keydown', restore, true);
+      return () => window.removeEventListener('keydown', restore, true);
     }, [maximized]);
 
     const canvas = (

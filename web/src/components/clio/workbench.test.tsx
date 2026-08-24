@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -52,7 +52,13 @@ describe('ClioWorkbench canvas', () => {
     ).toBeVisible();
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveClass('fixed');
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    const restoreEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => window.dispatchEvent(restoreEvent));
+    expect(restoreEvent.defaultPrevented).toBe(true);
     expect(screen.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
   });
 
