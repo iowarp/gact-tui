@@ -30,7 +30,7 @@ import {
   CircleAlertIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, type ComponentType, type SVGProps } from 'react';
+import { useEffect, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
@@ -326,180 +326,176 @@ function AppearanceSettings() {
         description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
       />
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Theme</FrameTitle>
-          <FrameDescription>
-            System follows the operating system; light and dark use distinct palettes.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel>
-          <RadioGroup
-            className="grid sm:grid-cols-3"
-            onValueChange={setTheme}
-            value={theme ?? 'system'}
-          >
-            {[
-              { value: 'system', label: 'System', icon: MonitorCogIcon },
-              { value: 'dark', label: 'Dark', icon: MoonIcon },
-              { value: 'light', label: 'Light', icon: SunIcon },
-            ].map(({ value, label, icon: ThemeIcon }) => (
-              <FieldLabel htmlFor={`theme-${value}`} key={value}>
-                <Field>
-                  <span className="flex items-center gap-3">
-                    <ThemeIcon aria-hidden="true" className="size-5 text-primary" />
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                      <FieldDescription>
-                        {value === 'system' ? `Currently ${resolvedTheme}` : `${label} palette`}
-                      </FieldDescription>
-                    </FieldContent>
-                    <RadioGroupItem id={`theme-${value}`} value={value} />
-                  </span>
-                </Field>
-              </FieldLabel>
-            ))}
-          </RadioGroup>
-        </FramePanel>
-      </Frame>
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Conversation width</FrameTitle>
-          <FrameDescription>
-            Choose a focused reading column or let diagrams, tables, and long-form work use more of
-            the available canvas.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel>
-          <RadioGroup
-            className="grid gap-3 sm:grid-cols-2"
-            onValueChange={(value) => setConversationWidth(value as ConversationWidth)}
-            value={conversationWidth}
-          >
-            {[
-              {
-                value: 'focused',
-                label: 'Focused',
-                icon: Minimize2Icon,
-                description: 'A comfortable reading width for conversation and code review.',
-              },
-              {
-                value: 'wide',
-                label: 'Wide',
-                icon: StretchHorizontalIcon,
-                description: 'More horizontal room for scientific views, tables, and diagrams.',
-              },
-            ].map(({ value, label, icon: WidthIcon, description }) => (
-              <FieldLabel htmlFor={`conversation-width-${value}`} key={value}>
-                <Field className="h-full">
-                  <span className="flex items-start gap-3">
-                    <WidthIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                      <FieldDescription>{description}</FieldDescription>
-                    </FieldContent>
-                    <RadioGroupItem id={`conversation-width-${value}`} value={value} />
-                  </span>
-                </Field>
-              </FieldLabel>
-            ))}
-          </RadioGroup>
-        </FramePanel>
-      </Frame>
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Motion</FrameTitle>
-          <FrameDescription>
-            Keep the operating system preference, or reduce motion explicitly for this workspace.
-            State labels and immediate feedback remain available in both modes.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel>
-          <RadioGroup
-            className="grid gap-3 sm:grid-cols-2"
-            onValueChange={(value) => setMotion(value as MotionPreference)}
-            value={motion}
-          >
-            {[
-              {
-                value: 'system',
-                label: 'Follow system',
-                icon: MonitorCogIcon,
-                description: 'Uses the reduced-motion preference from this device.',
-              },
-              {
-                value: 'reduced',
-                label: 'Reduce motion',
-                icon: AccessibilityIcon,
-                description: 'Removes spatial transitions and indefinite movement in CLIO.',
-              },
-            ].map(({ value, label, icon: MotionIcon, description }) => (
-              <FieldLabel htmlFor={`motion-${value}`} key={value}>
-                <Field className="h-full">
-                  <span className="flex items-start gap-3">
-                    <MotionIcon
-                      aria-hidden="true"
-                      className="mt-0.5 size-5 shrink-0 text-primary"
-                    />
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                      <FieldDescription>{description}</FieldDescription>
-                    </FieldContent>
-                    <RadioGroupItem id={`motion-${value}`} value={value} />
-                  </span>
-                </Field>
-              </FieldLabel>
-            ))}
-          </RadioGroup>
-        </FramePanel>
-      </Frame>
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Conversation activity</FrameTitle>
-          <FrameDescription>
-            Choose the default level of detail for reasoning and agent work. This changes only
-            presentation; the complete causal record remains available.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel>
-          <RadioGroup
-            className="grid gap-3 sm:grid-cols-2"
-            onValueChange={(value) => setConversationMode(value as ConversationDisplayMode)}
-            value={conversationMode}
-          >
-            {[
-              {
-                value: 'chain',
-                label: 'Chain of thought',
-                icon: BrainCircuitIcon,
-                description:
-                  'Groups reasoning, updates, tools, and delegated work into an evolving turn. Every chain can open its full activity.',
-              },
-              {
-                value: 'full',
-                label: 'Full activity',
-                icon: ScrollTextIcon,
-                description:
-                  'Shows each reasoning, text, tool, task, child-agent, UI, and artifact block directly in causal order.',
-              },
-            ].map(({ value, label, icon: ModeIcon, description }) => (
-              <FieldLabel htmlFor={`conversation-mode-${value}`} key={value}>
-                <Field className="h-full">
-                  <span className="flex items-start gap-3">
-                    <ModeIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                      <FieldDescription>{description}</FieldDescription>
-                    </FieldContent>
-                    <RadioGroupItem id={`conversation-mode-${value}`} value={value} />
-                  </span>
-                </Field>
-              </FieldLabel>
-            ))}
-          </RadioGroup>
-        </FramePanel>
-      </Frame>
+      <PreferenceFrame
+        description="System follows the operating system; light and dark use distinct palettes."
+        title="Theme"
+      >
+        <RadioGroup
+          className="grid sm:grid-cols-3"
+          onValueChange={setTheme}
+          value={theme ?? 'system'}
+        >
+          {[
+            { value: 'system', label: 'System', icon: MonitorCogIcon },
+            { value: 'dark', label: 'Dark', icon: MoonIcon },
+            { value: 'light', label: 'Light', icon: SunIcon },
+          ].map(({ value, label, icon: ThemeIcon }) => (
+            <FieldLabel htmlFor={`theme-${value}`} key={value}>
+              <Field>
+                <span className="flex items-center gap-3">
+                  <ThemeIcon aria-hidden="true" className="size-5 text-primary" />
+                  <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    <FieldDescription>
+                      {value === 'system' ? `Currently ${resolvedTheme}` : `${label} palette`}
+                    </FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={`theme-${value}`} value={value} />
+                </span>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+      </PreferenceFrame>
+      <PreferenceFrame
+        description="Choose a focused reading column or let diagrams, tables, and long-form work use more of the available canvas."
+        title="Conversation width"
+      >
+        <RadioGroup
+          className="grid gap-3 sm:grid-cols-2"
+          onValueChange={(value) => setConversationWidth(value as ConversationWidth)}
+          value={conversationWidth}
+        >
+          {[
+            {
+              value: 'focused',
+              label: 'Focused',
+              icon: Minimize2Icon,
+              description: 'A comfortable reading width for conversation and code review.',
+            },
+            {
+              value: 'wide',
+              label: 'Wide',
+              icon: StretchHorizontalIcon,
+              description: 'More horizontal room for scientific views, tables, and diagrams.',
+            },
+          ].map(({ value, label, icon: WidthIcon, description }) => (
+            <FieldLabel htmlFor={`conversation-width-${value}`} key={value}>
+              <Field className="h-full">
+                <span className="flex items-start gap-3">
+                  <WidthIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    <FieldDescription>{description}</FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={`conversation-width-${value}`} value={value} />
+                </span>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+      </PreferenceFrame>
+      <PreferenceFrame
+        description="Keep the operating system preference, or reduce motion explicitly for this workspace. State labels and immediate feedback remain available in both modes."
+        title="Motion"
+      >
+        <RadioGroup
+          className="grid gap-3 sm:grid-cols-2"
+          onValueChange={(value) => setMotion(value as MotionPreference)}
+          value={motion}
+        >
+          {[
+            {
+              value: 'system',
+              label: 'Follow system',
+              icon: MonitorCogIcon,
+              description: 'Uses the reduced-motion preference from this device.',
+            },
+            {
+              value: 'reduced',
+              label: 'Reduce motion',
+              icon: AccessibilityIcon,
+              description: 'Removes spatial transitions and indefinite movement in CLIO.',
+            },
+          ].map(({ value, label, icon: MotionIcon, description }) => (
+            <FieldLabel htmlFor={`motion-${value}`} key={value}>
+              <Field className="h-full">
+                <span className="flex items-start gap-3">
+                  <MotionIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    <FieldDescription>{description}</FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={`motion-${value}`} value={value} />
+                </span>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+      </PreferenceFrame>
+      <PreferenceFrame
+        description="Choose the default level of detail for reasoning and agent work. This changes only presentation; the complete causal record remains available."
+        title="Conversation activity"
+      >
+        <RadioGroup
+          className="grid gap-3 sm:grid-cols-2"
+          onValueChange={(value) => setConversationMode(value as ConversationDisplayMode)}
+          value={conversationMode}
+        >
+          {[
+            {
+              value: 'chain',
+              label: 'Chain of thought',
+              icon: BrainCircuitIcon,
+              description:
+                'Groups reasoning, updates, tools, and delegated work into an evolving turn. Every chain can open its full activity.',
+            },
+            {
+              value: 'full',
+              label: 'Full activity',
+              icon: ScrollTextIcon,
+              description:
+                'Shows each reasoning, text, tool, task, child-agent, UI, and artifact block directly in causal order.',
+            },
+          ].map(({ value, label, icon: ModeIcon, description }) => (
+            <FieldLabel htmlFor={`conversation-mode-${value}`} key={value}>
+              <Field className="h-full">
+                <span className="flex items-start gap-3">
+                  <ModeIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    <FieldDescription>{description}</FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={`conversation-mode-${value}`} value={value} />
+                </span>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+      </PreferenceFrame>
     </div>
+  );
+}
+
+function PreferenceFrame({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <Frame className="gap-3 bg-transparent p-0" spacing="lg" variant="ghost">
+      <FrameHeader className="px-0 py-0">
+        <FrameTitle>{title}</FrameTitle>
+        <FrameDescription>{description}</FrameDescription>
+      </FrameHeader>
+      <FramePanel className="border-0 bg-transparent p-0 shadow-none before:hidden">
+        {children}
+      </FramePanel>
+    </Frame>
   );
 }
 

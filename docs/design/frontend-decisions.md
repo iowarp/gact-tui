@@ -1164,3 +1164,15 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Acceptance evidence: the live San Diego child transcript contained both a `tool_call` and
   `tool_result` for `geo_geocode` with no title field; its durable canvas visibly rendered
   `Geo geocode` before the correction.
+
+# Flat settings preference groups
+
+- Old failure: Appearance nested each option inside a shadcn Field, a bordered ReUI FramePanel,
+  and a second bordered Frame. The three shrinking rectangles made ordinary preferences look like
+  embedded applications and repeated the over-boxing previously found in scientific surfaces.
+- New representation: ReUI Frame still owns the section header and rhythm, while its CLIO
+  composition removes decorative panel and frame borders. The professional shadcn Field remains
+  the single visible, whole-row radio target with its selected, hover, and focus states intact.
+- Acceptance evidence: the live Appearance screenshot showed concentric outlines around Theme,
+  Conversation width, Motion, and Conversation activity even though each section contained only
+  one radio group.
