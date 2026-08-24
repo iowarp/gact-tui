@@ -1,8 +1,9 @@
-import type { McpServerDefinition, Workspace } from '@clio/core/v3';
+import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BlocksIcon,
   BookOpenIcon,
+  ChevronDownIcon,
   MoreHorizontalIcon,
   PackagePlusIcon,
   PlugZapIcon,
@@ -33,6 +34,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
@@ -335,24 +338,25 @@ export function ToolsSettings() {
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-2 p-2">
+          {tools.isPending ? <ToolCatalogLoading /> : null}
           {tools.data?.map((tool) => (
-            <ClioInteractiveRow key={`${tool.server_id}:${tool.id}`}>
-              <div className="flex items-start gap-3">
-                <WrenchIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{tool.title ?? humanizeToolName(tool.name)}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {tool.description || 'No description provided.'}
-                  </p>
-                  <p className="mt-1 font-mono text-[10px] text-muted-foreground">{tool.name}</p>
-                </div>
-                <ClioStatus
-                  label={tool.enabled === false ? 'Unavailable' : 'Ready'}
-                  value={tool.enabled === false ? 'unavailable' : 'healthy'}
-                />
-              </div>
-            </ClioInteractiveRow>
+            <ToolCatalogRow key={`${tool.server_id}:${tool.id}`} tool={tool} />
           ))}
+          {!tools.isPending && !tools.error && !tools.data?.length ? (
+            <Alert>
+              <WrenchIcon aria-hidden="true" />
+              <AlertTitle>No tools reported</AlertTitle>
+              <AlertDescription>
+                The connected agent did not advertise any tools for this configuration.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {tools.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Available tools could not be loaded</AlertTitle>
+              <AlertDescription>{tools.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
         </FramePanel>
       </Frame>
 
@@ -565,6 +569,85 @@ export function ToolsSettings() {
       </AlertDialog>
     </div>
   );
+}
+
+function ToolCatalogLoading() {
+  return (
+    <div aria-label="Loading available tools" className="grid gap-2 p-2" role="status">
+      <p className="text-sm text-muted-foreground">Loading the agent’s available tools…</p>
+      {[0, 1, 2].map((row) => (
+        <div className="flex items-center gap-3 rounded-lg border p-3" key={row}>
+          <Skeleton className="size-4 rounded" />
+          <div className="grid flex-1 gap-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+          <Skeleton className="h-6 w-16 rounded-md" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ToolCatalogRow({ tool }: { tool: ToolCatalogItem }) {
+  const [open, setOpen] = useState(false);
+  const title = tool.title?.trim() || humanizeToolName(tool.name);
+  const summary = catalogToolSummary(tool);
+  return (
+    <ClioInteractiveRow>
+      <Collapsible onOpenChange={setOpen} open={open}>
+        <div className="flex items-start gap-3">
+          <WrenchIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{title}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{summary}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <ClioStatus
+              label={tool.enabled === false ? 'Unavailable' : 'Ready'}
+              value={tool.enabled === false ? 'unavailable' : 'healthy'}
+            />
+            <CollapsibleTrigger asChild>
+              <Button
+                aria-label={`${open ? 'Hide' : 'Show'} details for ${title}`}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+                />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </div>
+        <CollapsibleContent className="ml-7 mt-3 grid gap-2 border-t pt-3 text-xs text-muted-foreground">
+          <p>
+            Exact identifier <code className="font-mono text-foreground">{tool.name}</code>
+          </p>
+          {tool.description ? (
+            <p className="max-w-3xl whitespace-pre-line leading-5">{tool.description}</p>
+          ) : (
+            <p>The provider did not supply additional documentation.</p>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </ClioInteractiveRow>
+  );
+}
+
+function catalogToolSummary(tool: ToolCatalogItem): string {
+  const known: Record<string, string> = {
+    fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
+    fs_propose_edit: 'Prepares a reviewable file change without writing it to disk.',
+    fs_apply_edit_write: 'Applies an approved file change to the workspace.',
+    shell_bash: 'Runs a command inside the workspace’s permitted folders.',
+  };
+  if (known[tool.name]) return known[tool.name];
+  const description = tool.description?.replace(/\s+/gu, ' ').trim();
+  if (!description) return 'The provider did not describe this tool.';
+  const firstSentence = description.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? description;
+  return firstSentence.length <= 180 ? firstSentence : `${firstSentence.slice(0, 179)}…`;
 }
 
 function InventoryList({

@@ -941,3 +941,24 @@ presented.
   lint pass. The live browser checkpoint shows three `Installed app only` capabilities, two
   labeled `Not available` capabilities, a browser-only explanation, and a disabled update action.
   Native installation and signed-feed behavior remain an open acceptance gate.
+
+## 2026-08-24 — Tool catalogs lead with purpose and preserve provider identity
+
+- **Old failure:** The available-tools frame remained unexplained and empty during a multi-second
+  live catalog load, then replaced the blank area with full backend docstrings and always-visible
+  implementation identifiers. GACT also dropped curated MCP titles from several live catalog and
+  inventory projections even though the execution path already preserved them. Relay settings
+  exposed an internal reason code and raw configuration key names to every user.
+- **Decision:** GACT tool rows retain the upstream MCP title in bundled, runtime, declared, live,
+  detail, and provider-inventory paths. The settings catalog uses that authoritative title first,
+  renders a concise task-oriented purpose, and keeps the exact identifier plus full provider
+  documentation behind a keyboard-accessible shadcn Collapsible. The frame has explicit loading,
+  empty, and failure states. Relay failures are mapped to user-facing guidance and labeled missing
+  connection concepts while the server reason remains available only to diagnostic surfaces.
+- **Acceptance evidence:** Focused server tests prove provider titles survive runtime and external
+  streamable-HTTP catalogs and details. Five focused React interactions cover loading, disclosure,
+  provider inventory, connect, reconnect, and confirmed disconnect. In the live Luna browser, four
+  tools rendered as compact purpose rows; opening `Read file` revealed its exact identifier and
+  complete provider documentation without altering neighboring rows. The Relay checkpoint exposed
+  access credential, job service address, and control service address while containing no internal
+  `relay_tools_not_configured` text.

@@ -10,12 +10,14 @@ import { cn } from '@/lib/utils';
 interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   timestamp: string;
   compact?: boolean;
+  label?: string;
 }
 
 /** CLIO presentation for a server timestamp, composed from Kibo Relative Time. */
 export function ClioRelativeTime({
   timestamp,
   compact = false,
+  label = 'Last interaction',
   className,
   ...props
 }: ClioRelativeTimeProps) {
@@ -32,10 +34,10 @@ export function ClioRelativeTime({
   if (compact) {
     return (
       <time
-        aria-label={`Last interaction ${fullLabel}`}
+        aria-label={`${label} ${fullLabel}`}
         className={cn('shrink-0 text-[10px] tabular-nums text-muted-foreground', className)}
         dateTime={timestamp}
-        title={`Last interaction ${fullLabel}`}
+        title={`${label} ${fullLabel}`}
         {...props}
       >
         {compactTimestamp(time)}
@@ -46,12 +48,12 @@ export function ClioRelativeTime({
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   return (
     <RelativeTime
-      aria-label={`Last interaction ${fullLabel}`}
+      aria-label={`${label} ${fullLabel}`}
       className={cn('gap-0', className)}
       dateFormatOptions={{ month: 'short', day: 'numeric', year: 'numeric' }}
       time={time}
       timeFormatOptions={{ hour: 'numeric', minute: '2-digit' }}
-      title={`Last interaction ${fullLabel}`}
+      title={`${label} ${fullLabel}`}
       {...props}
     >
       <RelativeTimeZone className="justify-start gap-1.5" zone={timeZone}>

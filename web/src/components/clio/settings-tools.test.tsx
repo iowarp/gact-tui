@@ -69,6 +69,44 @@ afterEach(() => {
 });
 
 describe('tool provider settings', () => {
+  it('shows catalog loading instead of an unexplained empty frame', () => {
+    repository.tools.mockReturnValue(new Promise(() => undefined));
+    renderSettings(<ToolsSettings />);
+
+    expect(screen.getByRole('status', { name: 'Loading available tools' })).toBeVisible();
+  });
+
+  it('keeps exact tool identifiers and provider documentation behind details', async () => {
+    const user = userEvent.setup();
+    repository.tools.mockResolvedValue([
+      {
+        id: 'fs_read_file',
+        name: 'fs_read_file',
+        title: 'Read workspace file',
+        description: 'Technical provider documentation with internal implementation details.',
+        server_id: 'mcp_files',
+        tags: [],
+        visible_to: [],
+      },
+    ]);
+    renderSettings(<ToolsSettings />);
+
+    expect(await screen.findByText('Read workspace file')).toBeVisible();
+    expect(
+      screen.getByText('Reads a file that this workspace has granted the agent access to.'),
+    ).toBeVisible();
+    expect(screen.queryByText('fs_read_file')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Technical provider documentation with internal implementation details.'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show details for Read workspace file' }));
+    expect(screen.getByText('fs_read_file')).toBeVisible();
+    expect(
+      screen.getByText('Technical provider documentation with internal implementation details.'),
+    ).toBeVisible();
+  });
+
   it('opens provider-owned tools, resources, and prompts without exposing an editable built-in', async () => {
     const user = userEvent.setup();
     renderSettings(<ToolsSettings />);

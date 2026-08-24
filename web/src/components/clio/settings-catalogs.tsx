@@ -1,7 +1,7 @@
-import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
+import type { AgentBlueprint, AgentBlueprintSource, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxesIcon, MoreHorizontalIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Frame,
@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
+import { ClioRelativeTime } from './relative-time';
 import { ClioStatus } from './status';
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
@@ -466,8 +468,23 @@ export function RelaySettings() {
                   : 'Unreachable'
             }
           />
-          <StatusRow label="Last checked" value={value?.checked_at ?? 'Unavailable'} />
-          {value?.detail ? <p className="text-sm text-muted-foreground">{value.detail}</p> : null}
+          <StatusRow
+            label="Last checked"
+            value={
+              value?.checked_at ? (
+                <ClioRelativeTime label="Last checked" timestamp={value.checked_at} />
+              ) : (
+                'Not checked'
+              )
+            }
+          />
+          {value ? <RelayGuidance value={value} /> : null}
+          {relay.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Remote execution status unavailable</AlertTitle>
+              <AlertDescription>{relay.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
         </FramePanel>
         <FrameFooter className="items-start">
           <Button onClick={() => void relay.refetch()} size="sm" variant="outline">
@@ -479,6 +496,50 @@ export function RelaySettings() {
   );
 }
 
+function RelayGuidance({ value }: { value: RelayStatus }) {
+  const missing = Array.isArray(value.details.missing)
+    ? value.details.missing.filter((item): item is string => typeof item === 'string')
+    : [];
+  const labels: Record<string, string> = {
+    api_token: 'Access credential',
+    http_url: 'Job service address',
+    mcp_url: 'Control service address',
+  };
+  if (value.reason === 'relay_tools_not_configured') {
+    return (
+      <div className="grid gap-2 rounded-lg border bg-muted/20 p-3">
+        <p className="text-sm font-medium">Remote execution needs configuration</p>
+        <p className="text-sm text-muted-foreground">
+          Add the missing connection details to the agent service before it can dispatch or observe
+          remote work.
+        </p>
+        {missing.length ? (
+          <div className="flex flex-wrap gap-2">
+            {missing.map((item) => (
+              <Badge key={item} variant="outline">
+                {labels[item] ?? 'Connection detail'}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+  if (value.reason === 'relay_endpoint_invalid') {
+    return <p className="text-sm text-muted-foreground">The saved relay address is not valid.</p>;
+  }
+  if (value.reason === 'relay_tcp_unreachable') {
+    return (
+      <p className="text-sm text-muted-foreground">
+        The relay is configured, but this agent cannot currently reach it.
+      </p>
+    );
+  }
+  return value.reachable ? (
+    <p className="text-sm text-muted-foreground">Remote execution is ready for this agent.</p>
+  ) : null;
+}
+
 function EmptyCatalog({ icon: Icon, label }: { icon: typeof BoxesIcon; label: string }) {
   return (
     <div className="grid place-items-center gap-3 rounded-lg border p-10 text-center">
@@ -488,7 +549,7 @@ function EmptyCatalog({ icon: Icon, label }: { icon: typeof BoxesIcon; label: st
   );
 }
 
-function StatusRow({ label, value }: { label: string; value: string }) {
+function StatusRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
       <span className="text-sm text-muted-foreground">{label}</span>
