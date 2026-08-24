@@ -7,6 +7,7 @@ import type {
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CircleAlertIcon,
   FileCheck2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
@@ -208,7 +209,9 @@ export function ClioDocumentWorkspace({
           <p className="truncate font-mono text-[10px] text-muted-foreground">
             {effectiveManifest
               ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
-              : 'Checking document capabilities…'}
+              : manifest.error
+                ? 'Preview only; review and editing unavailable.'
+                : 'Checking document capabilities…'}
           </p>
         </div>
         {selection ? (
@@ -264,10 +267,17 @@ export function ClioDocumentWorkspace({
       {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
       {manifest.error ? (
         <Alert>
-          <AlertTitle>Document review unavailable</AlertTitle>
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertTitle>Preview only</AlertTitle>
           <AlertDescription>
-            The preview remains readable, but the service could not bind comments or editing to an
-            immutable revision: {manifest.error.message}
+            <p>
+              This saved result remains readable, but comments, revision history, and editing are
+              unavailable because its original registered revision could not be loaded.
+            </p>
+            <details className="mt-2 text-xs">
+              <summary className="cursor-pointer font-medium">Technical details</summary>
+              <code className="mt-1 block break-all">{manifest.error.message}</code>
+            </details>
           </AlertDescription>
         </Alert>
       ) : null}

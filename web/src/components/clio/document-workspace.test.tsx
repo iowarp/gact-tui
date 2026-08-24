@@ -78,7 +78,7 @@ describe('ClioDocumentWorkspace', () => {
     expect(
       await screen.findByText('Bounded claim from the source.', undefined, { timeout: 5_000 }),
     ).toBeVisible();
-    expect(screen.getByText(/v3 · aaaaaaaaaaaa/)).toBeVisible();
+    expect(screen.getByText(/Version 3, aaaaaaaaaaaa/)).toBeVisible();
     const claim = screen.getByText('Bounded claim from the source.');
     const range = document.createRange();
     range.selectNodeContents(claim);
@@ -105,6 +105,20 @@ describe('ClioDocumentWorkspace', () => {
       }),
     );
     expect(await screen.findByText(/Review sent to the agent/)).toBeInTheDocument();
+  });
+
+  it('settles into a readable preview-only state when the registered revision is gone', async () => {
+    repository.documentManifest.mockRejectedValue(
+      new Error('artifact not found: artifact_internal_123'),
+    );
+    renderWorkspace();
+
+    expect(await screen.findByText('Preview only')).toBeVisible();
+    expect(screen.getByText('Preview only; review and editing unavailable.')).toBeVisible();
+    expect(screen.getByText(/original registered revision could not be loaded/u)).toBeVisible();
+    expect(screen.getByText('Fallback preview')).toBeVisible();
+    expect(screen.queryByText('Checking document capabilities…')).not.toBeInTheDocument();
+    expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
   });
 
   it('uses a confined working copy and exposes history as a real document tab', async () => {
