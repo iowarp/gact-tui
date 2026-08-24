@@ -131,6 +131,7 @@ export function SessionNavigationRow({
             className="flex h-full min-w-0 items-center gap-1.5 rounded-md text-sm text-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:text-sidebar-foreground"
             data-active={session.id === activeSessionId}
             onClick={() => onVisit(session)}
+            onMouseDown={(event) => event.preventDefault()}
             to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}

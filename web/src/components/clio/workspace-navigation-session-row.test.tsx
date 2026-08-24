@@ -1,5 +1,6 @@
 import type { Session } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ResourceActions } from './resource-dialogs';
@@ -91,5 +92,15 @@ describe('session navigation state', () => {
     expect(screen.queryByText('Working')).not.toBeInTheDocument();
     expect(screen.queryByText('New')).not.toBeInTheDocument();
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
+  });
+
+  it('does not pin the hover preview after mouse navigation', async () => {
+    const user = userEvent.setup();
+    renderRow(session, session.last_interaction_at);
+    const link = screen.getByRole('link', { name: /Evidence review/u });
+
+    await user.click(link);
+
+    expect(link).not.toHaveFocus();
   });
 });
