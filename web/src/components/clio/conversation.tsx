@@ -1,5 +1,6 @@
 import type {
   ActionCardAction,
+  AgentIteration,
   Artifact,
   A2UISurface,
   Message as DomainMessage,
@@ -20,7 +21,6 @@ import {
   LoaderCircleIcon,
   RotateCcwIcon,
   RouteIcon,
-  ListTreeIcon,
   PanelsTopLeftIcon,
   UserIcon,
 } from 'lucide-react';
@@ -68,9 +68,10 @@ import type { ConversationDisplayMode } from '@/providers/conversation-display-p
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
-import { MessageModelReasoning, MessageModelReasoningSummary } from './message-model-reasoning';
 import { ClioArtifactCard } from './artifact-card';
-import { ConversationProcessSequence, type ProcessBlock } from './conversation-process-sequence';
+import { ConversationProcessSequence } from './conversation-process-sequence';
+import { ConversationTurn } from './conversation-turn';
+import { conversationTurnPresentation } from './conversation-turn-model';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -100,6 +101,7 @@ function DeferredA2UISurface({
 
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
+  iterations?: readonly AgentIteration[];
   loading?: boolean;
   error?: string;
   tools: Record<string, ToolInvocation>;
@@ -118,47 +120,6 @@ export interface ClioConversationProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-}
-
-type GroupedBlock =
-  | { kind: 'block'; block: MessageBlock }
-  | { kind: 'process'; id: string; blocks: ProcessBlock[] };
-
-function isActivityBlock(block: MessageBlock): block is ProcessBlock {
-  return block.type === 'text' || isProcessBlock(block);
-}
-
-function isProcessBlock(block: MessageBlock) {
-  return ['reasoning', 'tool', 'task', 'subagent'].includes(block.type);
-}
-
-function groupCausalBlocks(blocks: readonly MessageBlock[]): GroupedBlock[] {
-  const grouped: GroupedBlock[] = [];
-  for (let index = 0; index < blocks.length; index += 1) {
-    const block = blocks[index]!;
-    if (!isProcessBlock(block)) {
-      grouped.push({ kind: 'block', block });
-      continue;
-    }
-
-    const activity: ProcessBlock[] = [block as ProcessBlock];
-    let cursor = index + 1;
-    while (cursor < blocks.length) {
-      const candidate = blocks[cursor]!;
-      if (!isActivityBlock(candidate)) break;
-      if (
-        candidate.type === 'text' &&
-        !blocks.slice(cursor + 1).some((remaining) => isProcessBlock(remaining))
-      ) {
-        break;
-      }
-      activity.push(candidate);
-      cursor += 1;
-    }
-    grouped.push({ kind: 'process', id: block.id, blocks: activity });
-    index = cursor - 1;
-  }
-  return grouped;
 }
 
 function MessageBlockView({
@@ -381,10 +342,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     ((message.blocks.length === 0 && (message.reasoning_calls?.length ?? 0) === 0) ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const retrying = entities.retryingMessageId === message.id;
-  const groupedBlocks = displayMode === 'chain' ? groupCausalBlocks(message.blocks) : [];
-  const firstProcessId = groupedBlocks.find((item) => item.kind === 'process')?.id;
-  const allProcessBlocks = groupedBlocks.flatMap((item) =>
-    item.kind === 'process' ? item.blocks : [],
+  const turn = useMemo(
+    () => conversationTurnPresentation(message, entities.iterations ?? [], entities.tools),
+    [entities.iterations, entities.tools, message],
   );
 
   return (
@@ -433,60 +393,23 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   No response content was recorded for this turn. You can retry the response.
                 </AlertDescription>
               </Alert>
-            ) : displayMode === 'full' ? (
+            ) : message.role === 'assistant' &&
+              (turn.iterations.length > 0 || turn.supplementalCalls.length > 0) ? (
               <>
-                {message.role === 'assistant' && message.blocks.some(isProcessBlock) ? (
-                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <ListTreeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                      <span className="truncate">Full activity for this turn</span>
-                    </span>
-                    <Button
-                      aria-label="Use chain of thought for this turn"
-                      className="shrink-0"
-                      onClick={() => onDisplayModeChange('chain')}
-                      size="xs"
-                      variant="ghost"
-                    >
-                      Condense
-                    </Button>
-                  </div>
-                ) : null}
-                {message.blocks.map((block) => (
-                  <MessageBlockView
-                    block={block}
-                    key={block.id}
-                    reasoningDefaultOpen
-                    {...entities}
-                  />
+                <ConversationTurn
+                  iterations={turn.iterations}
+                  mode={displayMode}
+                  onModeChange={onDisplayModeChange}
+                  supplementalCalls={turn.supplementalCalls}
+                />
+                {turn.residualBlocks.map((block) => (
+                  <MessageBlockView block={block} key={block.id} {...entities} />
                 ))}
-                <MessageModelReasoning message={message} />
               </>
             ) : (
-              <>
-                {groupedBlocks.map((item) =>
-                  item.kind === 'process' ? (
-                    <ConversationProcessSequence
-                      blocks={item.blocks}
-                      key={item.id}
-                      onShowFull={
-                        item.id === firstProcessId ? () => onDisplayModeChange('full') : undefined
-                      }
-                      onOpenSubagent={entities.onOpenSubagent}
-                      subagents={entities.subagents}
-                      summaryBlocks={item.id === firstProcessId ? allProcessBlocks : undefined}
-                      tasks={entities.tasks}
-                      tools={entities.tools}
-                    />
-                  ) : (
-                    <MessageBlockView block={item.block} key={item.block.id} {...entities} />
-                  ),
-                )}
-                <MessageModelReasoningSummary
-                  message={message}
-                  onShowFull={() => onDisplayModeChange('full')}
-                />
-              </>
+              message.blocks.map((block) => (
+                <MessageBlockView block={block} key={block.id} {...entities} />
+              ))
             )}
           </MessageContent>
           <MessageActions className="opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

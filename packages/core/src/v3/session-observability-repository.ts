@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
+import type {
+  AgentIteration,
+  AsyncProcess,
+  ContextFile,
+  ContextFrame,
+  SessionDiff,
+} from './domain.js';
 import { AdministrationRepository } from './administration-repository.js';
 
 const runStateSchema = z.string().transform((value): AsyncProcess['live_state'] => {
@@ -103,8 +109,89 @@ const asyncProcessSchema = z
   .passthrough()
   .transform((process) => ({ ...process, metadata: process as Record<string, unknown> }));
 
+const semanticEventSchema = z.object({
+  event_id: z.string().optional(),
+  event_type: z.string(),
+  occurred_at: z.string().optional(),
+  session_id: z.string(),
+  span_id: z.string().optional(),
+  summary: z.string().optional(),
+  turn_id: z.string(),
+  payload: z.record(z.string(), z.unknown()).default({}),
+});
+
+const semanticTraceSchema = z.object({
+  events: z.array(semanticEventSchema).default([]),
+});
+
+function optionalText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim();
+  return text || undefined;
+}
+
+function agentIterationFromEvent(
+  event: z.infer<typeof semanticEventSchema>,
+): AgentIteration | undefined {
+  if (event.event_type !== 'react.step.completed') return undefined;
+  const stepIndex =
+    typeof event.payload.step_index === 'number' && Number.isInteger(event.payload.step_index)
+      ? event.payload.step_index
+      : -1;
+  const agentId = optionalText(event.payload.expert_id) ?? 'main';
+  const stepSpanId = optionalText(event.payload.step_span_id);
+  const id =
+    stepSpanId ??
+    optionalText(event.event_id) ??
+    optionalText(event.span_id) ??
+    `${event.turn_id}:${agentId}:${stepIndex}`;
+  const terminal = event.payload.is_finish === true;
+  const toolName = optionalText(event.payload.tool_name);
+  const tool =
+    toolName && !terminal && !['finish', 'submit'].includes(toolName.toLowerCase())
+      ? {
+          id: `${id}:tool`,
+          name: toolName,
+          input: event.payload.tool_args,
+          output: event.payload.observation,
+          state: 'succeeded' as const,
+        }
+      : undefined;
+  return {
+    id,
+    session_id: event.session_id,
+    turn_id: event.turn_id,
+    agent_id: agentId,
+    step_index: stepIndex,
+    thinking: optionalText(event.payload.reasoning),
+    next_thought: optionalText(event.payload.thought),
+    summary: optionalText(event.payload.ui_summary) ?? optionalText(event.summary),
+    terminal,
+    tool,
+    occurred_at: event.occurred_at,
+  };
+}
+
 /** Authoritative read models for session work, evidence, and retained context. */
 export class SessionObservabilityRepository extends AdministrationRepository {
+  /** Reads the lossless per-turn ReAct iteration ledger used by Full and Chain views. */
+  public async agentIterations(sessionId: string, signal?: AbortSignal): Promise<AgentIteration[]> {
+    const value = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/trace?scope=react.step.completed&limit=2000`,
+      decode: (input) => semanticTraceSchema.parse(input),
+      signal,
+    });
+    return value.events
+      .map(agentIterationFromEvent)
+      .filter((iteration): iteration is AgentIteration => iteration !== undefined)
+      .sort((left, right) => {
+        const turnOrder = left.turn_id.localeCompare(right.turn_id);
+        if (turnOrder !== 0) return turnOrder;
+        return left.step_index - right.step_index;
+      });
+  }
+
   public async sessionDiffs(sessionId: string, signal?: AbortSignal): Promise<SessionDiff[]> {
     const value = await this.transport.request({
       method: 'GET',
@@ -144,8 +231,7 @@ export class SessionObservabilityRepository extends AdministrationRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/reject`,
       body: { paths: [...paths] },
-      decode: (input) =>
-        z.object({ rejected: z.array(z.string()).default([]) }).parse(input),
+      decode: (input) => z.object({ rejected: z.array(z.string()).default([]) }).parse(input),
       signal,
     });
   }

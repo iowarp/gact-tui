@@ -637,6 +637,27 @@ export interface ModelReasoningCall {
   timestamp?: string;
 }
 
+/** One authoritative ReAct iteration within a human-initiated agent turn. */
+export interface AgentIteration {
+  id: string;
+  session_id: string;
+  turn_id: string;
+  agent_id: string;
+  step_index: number;
+  thinking?: string;
+  next_thought?: string;
+  summary?: string;
+  terminal: boolean;
+  tool?: {
+    id: string;
+    name: string;
+    input?: unknown;
+    output?: unknown;
+    state: 'running' | 'succeeded' | 'failed';
+  };
+  occurred_at?: string;
+}
+
 export interface MessageUsage {
   input: number;
   output: number;

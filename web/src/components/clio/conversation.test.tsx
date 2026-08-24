@@ -340,8 +340,8 @@ describe('ClioConversation recovery actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
 
-    expect(screen.getByText('Full activity for this turn')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Use chain of thought for this turn' }));
+    expect(screen.getByText('Full agent activity')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use chain view for this turn' }));
     expect(
       screen.getByRole('button', { name: 'Show full activity for this turn' }),
     ).toBeInTheDocument();
@@ -378,13 +378,13 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Captured model reasoning')).toBeInTheDocument();
+    expect(screen.getByText('1 additional captured model call')).toBeInTheDocument();
     expect(screen.queryByText(/complete provider reasoning captured/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show full captured model reasoning' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
 
     expect(screen.getByText(/complete provider reasoning captured/)).toBeInTheDocument();
-    expect(screen.getByText(/Inspect the complete campaign evidence/)).toBeInTheDocument();
+    expect(screen.getByText(/Prompt: Inspect the complete campaign evidence/)).toBeInTheDocument();
     expect(
       screen.getByText(/The campaign evidence supports the reported conclusion/),
     ).toBeInTheDocument();

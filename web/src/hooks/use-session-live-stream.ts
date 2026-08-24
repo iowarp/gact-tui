@@ -66,6 +66,14 @@ export function useSessionLiveStream({
                 ],
               });
             }
+            if (frame.eventName === 'semantic.event') {
+              await queryClient.invalidateQueries({
+                queryKey: [
+                  ...sessionObservabilityQueryKey(settings.endpoint, sessionId),
+                  'agent-iterations',
+                ],
+              });
+            }
             if (isModelConfigurationEvent(frame.eventName)) {
               await Promise.all([
                 queryClient.invalidateQueries({

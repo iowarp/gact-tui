@@ -34,5 +34,11 @@ export function useSessionObservability(sessionId: string) {
     enabled,
   });
 
-  return { contextFiles, contextFrames, diffs, processes };
+  const iterations = useQuery({
+    queryKey: [...baseKey, 'agent-iterations'],
+    queryFn: ({ signal }) => repository.agentIterations(sessionId, signal),
+    enabled,
+  });
+
+  return { contextFiles, contextFrames, diffs, iterations, processes };
 }
