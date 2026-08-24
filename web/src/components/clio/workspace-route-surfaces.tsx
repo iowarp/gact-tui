@@ -53,15 +53,28 @@ export function WorkspaceStatusStrip({
   const activeWorkLabel =
     sessionState === 'running'
       ? `Agent running${activeWorkCount ? ` with ${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}` : ''}`
-      : `${activeWorkCount} active work`;
+      : activeWorkCount === 0
+        ? 'No active work'
+        : `${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}`;
+  const recoveryLabel =
+    stream === 'reconnecting'
+      ? 'Resuming updates'
+      : stream === 'gapped'
+        ? 'Checking for missed updates'
+        : undefined;
+  const recoveryDetail = cursor
+    ? `Recovery checkpoint ${cursor.slice(-10)}`
+    : 'No recovery checkpoint was reported';
   return (
     <div className="flex h-full items-center gap-3 overflow-hidden text-[10px] text-muted-foreground">
       <ClioStatus className="py-0.5" detail={streamError} value={stream} />
-      <span className="font-mono">cursor {cursor ? cursor.slice(-10) : 'Unavailable'}</span>
+      {recoveryLabel ? <span title={recoveryDetail}>{recoveryLabel}</span> : null}
       <span>{activeWorkLabel}</span>
       <span className="ml-auto hidden font-mono sm:inline">
-        tokens {inputTokens ?? 'Unavailable'}, cost{' '}
-        {cost === undefined ? 'Unavailable' : `$${cost.toFixed(4)}`}
+        Tokens: {inputTokens ?? 'Unavailable'}
+      </span>
+      <span className="hidden font-mono sm:inline">
+        Cost: {cost === undefined ? 'Unavailable' : `$${cost.toFixed(4)}`}
       </span>
     </div>
   );

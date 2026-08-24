@@ -1095,3 +1095,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: Streamdown's professional table, code, and diagram controls expose translated browser titles but some icon-only buttons omit accessible names. Canonical EarthScope NDP therefore rendered working Copy, Download, and Fullscreen controls as unnamed buttons to assistive technology.
 - New representation: the CLIO adapter preserves Streamdown's controls and watches its streaming output, promoting a title to an accessible name only when an icon-only button has no existing label or visible text.
 - Acceptance evidence: the live NDP table copied all three station rows as Markdown, while its accessibility snapshot exposed three unnamed controls before the adapter correction.
+
+# Recovery status language
+
+- Old failure: every healthy session status strip exposed `cursor <value>` or `cursor Unavailable`, presenting transport implementation state as if it were an operational result. Zero activity also read as the awkward `0 active work`.
+- New representation: healthy streams omit checkpoint metadata and say `No active work`. Reconnecting and gap-recovery states use `Resuming updates` or `Checking for missed updates`; the exact checkpoint remains supplemental title metadata for diagnosis.
+- Acceptance evidence: canonical EarthScope NDP visibly reproduced `Live`, `cursor Unavailable`, and `0 active work` together despite a healthy completed session.
