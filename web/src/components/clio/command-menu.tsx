@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
+import { isClioInternalPath } from '@/lib/workspace-files';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
 import { useLiveStore } from '@/store/live-store';
@@ -97,7 +98,7 @@ export function ClioCommandMenu({
             .filter(
               (file) =>
                 file.type === 'file' &&
-                !isClioInternalFile(file.path) &&
+                !isClioInternalPath(file.path) &&
                 file.path.toLocaleLowerCase().includes(normalizedQuery),
             )
             .slice(0, 16)
@@ -267,11 +268,6 @@ export function ClioCommandMenu({
       </CommandList>
     </CommandDialog>
   );
-}
-
-function isClioInternalFile(path: string): boolean {
-  const normalized = path.replace(/\\/gu, '/').toLocaleLowerCase();
-  return normalized.startsWith('.clio/agent/') || normalized.includes('/.clio/agent/');
 }
 
 function roleLabel(role: MemorySearchHit['role']): string {

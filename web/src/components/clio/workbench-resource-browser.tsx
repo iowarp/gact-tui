@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
+import { visibleWorkspaceFiles } from '@/lib/workspace-files';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
@@ -98,7 +99,8 @@ export function ResourceBrowser({
   section,
   onSectionChange,
 }: ResourceBrowserProps) {
-  const fileTree = useMemo(() => buildFileTree(files), [files]);
+  const visibleFiles = useMemo(() => visibleWorkspaceFiles(files), [files]);
+  const fileTree = useMemo(() => buildFileTree(visibleFiles), [visibleFiles]);
   return (
     <Tabs
       className="h-full gap-0"
@@ -122,7 +124,7 @@ export function ResourceBrowser({
         <TabsContent className="m-0 p-3" value="files">
           {filesPending ? (
             <LoadingRows label="Loading workspace files" />
-          ) : files.length ? (
+          ) : visibleFiles.length ? (
             <FileTree onSelect={onOpenFile}>
               <FileNodes nodes={fileTree} />
             </FileTree>
