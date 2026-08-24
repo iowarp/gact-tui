@@ -201,7 +201,7 @@ export function ClioDocumentWorkspace({
   };
 
   return (
-    <section aria-label="Document workspace" className="grid gap-3">
+    <section aria-label="Document workspace" className="grid min-w-0 gap-3 overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
         <div className="mr-auto min-w-0">
           <p className="text-sm font-medium">{profileLabel(effectiveManifest)}</p>
@@ -286,15 +286,15 @@ export function ClioDocumentWorkspace({
         onResolve={(resolution) => resolveConflict.mutate(resolution)}
         resolvePending={resolveConflict.isPending}
       />
-      <Tabs defaultValue="preview">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs className="min-w-0" defaultValue="preview">
+        <TabsList className="grid w-full min-w-0 grid-cols-4">
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="reviews">Reviews {reviews.data?.length || ''}</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="policy">Safety</TabsTrigger>
         </TabsList>
-        <TabsContent className="pt-3" value="preview">
-          <div ref={previewRef} onMouseUp={captureTextSelection}>
+        <TabsContent className="min-w-0 overflow-hidden pt-3" value="preview">
+          <div className="min-w-0 overflow-hidden" ref={previewRef} onMouseUp={captureTextSelection}>
             <DocumentPreview
               content={content.data}
               editor={editor}
@@ -305,13 +305,13 @@ export function ClioDocumentWorkspace({
             />
           </div>
         </TabsContent>
-        <TabsContent className="pt-3" value="reviews">
+        <TabsContent className="min-w-0 overflow-hidden pt-3" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
-        <TabsContent className="pt-3" value="history">
+        <TabsContent className="min-w-0 overflow-hidden pt-3" value="history">
           {history}
         </TabsContent>
-        <TabsContent className="pt-3" value="policy">
+        <TabsContent className="min-w-0 overflow-hidden pt-3" value="policy">
           <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>

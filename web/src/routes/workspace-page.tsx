@@ -1,7 +1,7 @@
 import type { Artifact, Message, RunState, SessionDiff, SubagentRun } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -16,7 +16,6 @@ import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import {
   ClioWorkbench,
-  type ClioWorkbenchHandle,
   type ClioWorkbenchOpenRequest,
 } from '@/components/clio/workbench';
 import {
@@ -50,7 +49,6 @@ export function WorkspacePage() {
   const queryClient = useQueryClient();
   const entities = useLiveStore((state) => state.entities);
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
-  const workbenchRef = useRef<ClioWorkbenchHandle>(null);
   const [workbenchRequest, setWorkbenchRequest] = useState<{
     key: string;
     request: ClioWorkbenchOpenRequest;
@@ -181,7 +179,6 @@ export function WorkspacePage() {
   });
 
   const revealWorkbench = useCallback((request: ClioWorkbenchOpenRequest) => {
-    workbenchRef.current?.open(request);
     setWorkbenchRequest({ key: `${request.kind}:${Date.now()}`, request });
   }, []);
 
@@ -519,7 +516,7 @@ export function WorkspacePage() {
                 path,
               })
             }
-            ref={workbenchRef}
+            requestedOpen={workbenchRequest}
             sessionId={sessionId}
             sessionView={
               <ClioObservabilityView

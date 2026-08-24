@@ -90,4 +90,35 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('button', { name: 'Apply change' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Reject change' })).toBeVisible();
   });
+
+  it('delivers a requested tab when a compact canvas mounts after the request', () => {
+    const diff = {
+      path: 'src/compact-canvas.py',
+      status: 'pending',
+      applied: false,
+      unified_diff: '@@ -1 +1 @@\n-old\n+new',
+    };
+
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[diff]}
+        files={[]}
+        onApplyDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        onRejectDiff={vi.fn()}
+        requestedOpen={{ key: 'request-1', request: { kind: 'diff', diff } }}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'compact-canvas.py' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Review file change')).toBeVisible();
+  });
 });

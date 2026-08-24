@@ -196,7 +196,10 @@ export function ClioAppShell({
       )}
       {!desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
-          <SheetContent className="w-[min(92vw,480px)] p-0" side="right">
+          <SheetContent
+            className="w-[min(92vw,480px)] p-0 [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            side="right"
+          >
             <SheetHeader className="sr-only">
               <SheetTitle>Workspace canvas</SheetTitle>
               <SheetDescription>

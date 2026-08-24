@@ -201,8 +201,8 @@ export function ArtifactView({
   );
 
   return (
-    <ScrollArea className="h-full p-3">
-      <ArtifactFrame className="min-h-full">
+    <ScrollArea className="h-full min-w-0 p-3">
+      <ArtifactFrame className="min-h-full min-w-0">
         <ArtifactHeader>
           <div className="min-w-0">
             <ArtifactTitle className="truncate">{artifact.name}</ArtifactTitle>
@@ -220,7 +220,7 @@ export function ArtifactView({
             />
           </ArtifactActions>
         </ArtifactHeader>
-        <ArtifactContent className="p-3">
+        <ArtifactContent className="min-w-0 overflow-hidden p-3">
           {isDocumentArtifact(artifact.media_type, artifact.name) ? (
             <ClioDocumentWorkspace
               artifact={artifact}

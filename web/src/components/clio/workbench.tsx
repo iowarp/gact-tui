@@ -24,7 +24,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -101,6 +100,7 @@ export interface ClioWorkbenchProps {
   onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
 
 export type ClioWorkbenchOpenRequest =
@@ -138,6 +138,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onApplyDiff,
       onOpenSubagent,
       onRejectDiff,
+      requestedOpen,
     },
     ref,
   ) {
@@ -236,11 +237,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const canvas = (
       <aside
         aria-label="Workspace canvas"
+        data-maximized={maximized || undefined}
         className={cn(
           'flex h-full min-w-0 flex-col bg-card/45',
           maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
         )}
       >
+        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
         <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
           <div className="flex h-14 shrink-0 items-stretch border-b bg-background/80">
             <ScrollArea className="min-w-0 flex-1">
@@ -429,11 +432,25 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       </aside>
     );
 
-    return maximized && typeof document !== 'undefined'
-      ? createPortal(canvas, document.body)
-      : canvas;
+    return canvas;
   },
 );
+
+function WorkbenchRequestDispatcher({
+  onOpen,
+  requestedOpen,
+}: {
+  onOpen: (request: ClioWorkbenchOpenRequest) => void;
+  requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
+}) {
+  // Compact layouts mount the workbench only after their sheet opens. Keeping
+  // the event in props lets this mounted child deliver the first resource
+  // request instead of silently showing only the default Observability tab.
+  useEffect(() => {
+    if (requestedOpen) onOpen(requestedOpen.request);
+  }, [onOpen, requestedOpen]);
+  return null;
+}
 
 function TabIcon({ kind }: { kind: WorkbenchTab['kind'] }) {
   const Icon =
