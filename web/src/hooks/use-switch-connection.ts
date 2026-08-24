@@ -2,9 +2,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRepository, type SavedConnection } from '@/lib/connection';
-import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
+import {
+  connectionSessionRoute,
+  connectionSessionTargetForRoute,
+  latestConnectionSessionTarget,
+} from '@/lib/connection-target';
 import { recordById } from '@/lib/entities';
-import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 
@@ -28,7 +32,12 @@ export function useSwitchConnection() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const target = latestConnectionSessionTarget(workspaces, sessions);
+      const target =
+        connectionSessionTargetForRoute(
+          lastWorkspaceRoute(connection.endpoint),
+          workspaces,
+          sessions,
+        ) ?? latestConnectionSessionTarget(workspaces, sessions);
 
       queryClient.setQueryData(['workspaces', connection.endpoint], workspaces);
       queryClient.setQueryData(['sessions', connection.endpoint, 'all'], sessions);

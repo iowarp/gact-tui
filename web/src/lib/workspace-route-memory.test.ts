@@ -5,7 +5,10 @@ import {
   returnRouteFromState,
 } from './workspace-route-memory';
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 describe('connection-scoped workspace route memory', () => {
   it('never reuses a session route from another agent service', () => {
@@ -23,5 +26,15 @@ describe('connection-scoped workspace route memory', () => {
         'http://10.0.0.102:8182',
       ),
     ).toBe('/workspaces/ws_home/sessions/sess_home');
+  });
+
+  it('persists the last conversation beyond the current browser session', () => {
+    rememberWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', 'sess_exact');
+
+    sessionStorage.clear();
+
+    expect(lastWorkspaceRoute('http://127.0.0.1:8790')).toBe(
+      '/workspaces/ws_luna/sessions/sess_exact',
+    );
   });
 });

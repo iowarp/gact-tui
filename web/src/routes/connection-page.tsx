@@ -34,8 +34,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
-import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
-import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import {
+  connectionSessionRoute,
+  connectionSessionTargetForRoute,
+  latestConnectionSessionTarget,
+} from '@/lib/connection-target';
+import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 export function ConnectionPage() {
@@ -63,7 +67,9 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const target = latestConnectionSessionTarget(workspaces, sessions);
+      const target =
+        connectionSessionTargetForRoute(lastWorkspaceRoute(next.endpoint), workspaces, sessions) ??
+        latestConnectionSessionTarget(workspaces, sessions);
       return { next, capabilities, workspaces, target };
     },
     onSuccess: ({ next, target }) => {

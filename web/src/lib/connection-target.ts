@@ -22,6 +22,29 @@ export function latestConnectionSessionTarget(
     )[0];
 }
 
+/** Resolve a remembered workspace route only when both entities still exist. */
+export function connectionSessionTargetForRoute(
+  route: string,
+  workspaces: readonly Workspace[],
+  sessions: readonly Session[],
+): ConnectionSessionTarget | undefined {
+  const match = /^\/workspaces\/([^/]+)\/sessions\/([^/?#]+)$/u.exec(route);
+  if (!match?.[1] || !match[2]) return undefined;
+  let workspaceId: string;
+  let sessionId: string;
+  try {
+    workspaceId = decodeURIComponent(match[1]);
+    sessionId = decodeURIComponent(match[2]);
+  } catch {
+    return undefined;
+  }
+  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+  const session = sessions.find(
+    (candidate) => candidate.id === sessionId && candidate.workspace_id === workspaceId,
+  );
+  return workspace && session ? { workspace, session } : undefined;
+}
+
 export function connectionSessionRoute(target: ConnectionSessionTarget): string {
   return `/workspaces/${encodeURIComponent(target.workspace.id)}/sessions/${encodeURIComponent(target.session.id)}`;
 }

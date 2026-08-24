@@ -9,14 +9,22 @@ export function rememberWorkspaceRoute(
   workspaceId: string,
   sessionId: string,
 ): void {
-  sessionStorage.setItem(
+  localStorage.setItem(
     connectionRouteKey(endpoint),
     `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
   );
 }
 
 export function lastWorkspaceRoute(endpoint: string): string {
-  return sessionStorage.getItem(connectionRouteKey(endpoint)) || '/';
+  const key = connectionRouteKey(endpoint);
+  const persistent = localStorage.getItem(key);
+  if (persistent) return persistent;
+  const previousSessionValue = sessionStorage.getItem(key);
+  if (previousSessionValue) {
+    localStorage.setItem(key, previousSessionValue);
+    return previousSessionValue;
+  }
+  return '/';
 }
 
 export function returnRouteFromState(state: unknown, endpoint: string): string {
