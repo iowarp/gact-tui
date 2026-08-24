@@ -27,6 +27,7 @@ import {
   WrenchIcon,
   HeartPulseIcon,
   BrainCircuitIcon,
+  CircleAlertIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import type { ComponentType, SVGProps } from 'react';
@@ -85,6 +86,10 @@ import {
   type ConversationDisplayMode,
 } from '@/providers/conversation-display-provider';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import {
+  connectionDegradationLabel,
+  materialConnectionDegradations,
+} from '@/lib/connection-health';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -119,13 +124,17 @@ function ConnectionsSettings() {
     queryKey: ['capabilities', settings.endpoint],
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
+  const materialDegradations = materialConnectionDegradations(
+    capabilities.data?.degradations ?? [],
+  );
   const connectionState = capabilities.isPending
     ? 'connecting'
     : capabilities.isError
       ? 'offline'
-      : capabilities.data.degradations.length
+      : materialDegradations.length
         ? 'degraded'
         : 'healthy';
+  const limitationLabels = materialDegradations.map(connectionDegradationLabel);
 
   return (
     <div className="grid gap-6">
@@ -149,9 +158,26 @@ function ConnectionsSettings() {
               {settings.label || new URL(settings.endpoint).host}
             </p>
             <p className="truncate font-mono text-xs text-muted-foreground">{settings.endpoint}</p>
+            {limitationLabels.length ? (
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-warning">
+                <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+                <span>{limitationLabels.join(' ')}</span>
+              </div>
+            ) : null}
           </div>
           <ClioStatus
-            detail={capabilities.error instanceof Error ? capabilities.error.message : undefined}
+            detail={
+              capabilities.isError
+                ? 'This agent could not be reached.'
+                : limitationLabels.join(' ') || undefined
+            }
+            label={
+              connectionState === 'healthy'
+                ? 'Connected'
+                : connectionState === 'degraded'
+                  ? 'Limited'
+                  : undefined
+            }
             value={connectionState}
           />
         </FramePanel>
