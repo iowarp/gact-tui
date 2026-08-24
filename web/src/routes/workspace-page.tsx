@@ -48,6 +48,7 @@ export function WorkspacePage() {
   const entities = useLiveStore((state) => state.entities);
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
   const [workbenchRequest, setWorkbenchRequest] = useState<{
+    endpoint: string;
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
@@ -205,9 +206,16 @@ export function WorkspacePage() {
     presets: modelConfiguration.data?.presets ?? [],
   });
 
-  const revealWorkbench = useCallback((request: ClioWorkbenchOpenRequest) => {
-    setWorkbenchRequest({ key: `${request.kind}:${Date.now()}`, request });
-  }, []);
+  const revealWorkbench = useCallback(
+    (request: ClioWorkbenchOpenRequest) => {
+      setWorkbenchRequest({
+        endpoint: settings.endpoint,
+        key: `${request.kind}:${Date.now()}`,
+        request,
+      });
+    },
+    [settings.endpoint],
+  );
 
   const openSubagent = useCallback(
     (subagent: SubagentRun, target: SubagentOpenTarget) => {
@@ -543,7 +551,10 @@ export function WorkspacePage() {
                 path,
               })
             }
-            requestedOpen={workbenchRequest}
+            key={settings.endpoint}
+            requestedOpen={
+              workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest : undefined
+            }
             sessionId={sessionId}
             sessionView={
               <ClioObservabilityView
@@ -572,7 +583,9 @@ export function WorkspacePage() {
             workspaceId={workspaceId}
           />
         }
-        workbenchRevealKey={workbenchRequest?.key}
+        workbenchRevealKey={
+          workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest.key : undefined
+        }
         statusStrip={
           <WorkspaceStatusStrip
             activeWorkCount={activeWorkCount}
