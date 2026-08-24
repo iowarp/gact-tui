@@ -117,17 +117,18 @@ function ClioA2UISurfaceContent({
     return processor.model.getSurface(surface.id);
   }, [handleAction, surface.id, surface.messages]);
   const lastAction = useMemo(() => findLastSurfaceAction(surface.messages), [surface.messages]);
+  const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
 
   if (!model || surface.state === 'deleted') return null;
   return (
     <section
-      aria-label="Interactive agent surface"
+      aria-label="Agent-created view"
       className="overflow-hidden rounded-xl border bg-card/70"
     >
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2 text-xs">
-        <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-        <span className="font-medium">Interactive surface</span>
-        {isPending || localActionPending || surface.state !== 'ready' ? (
+      {surfaceBusy ? (
+        <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
+          <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
+          <span className="font-medium">Analysis view</span>
           <ClioStatus
             className="ml-auto"
             label={
@@ -147,9 +148,9 @@ function ClioA2UISurfaceContent({
                     : 'healthy'
             }
           />
-        ) : null}
-      </div>
-      <div className="p-4">
+        </div>
+      ) : null}
+      <div className="p-3 [--a2ui-tabs-content-padding:0]">
         <MarkdownContext.Provider value={renderMarkdown}>
           <A2uiSurface surface={model} />
         </MarkdownContext.Provider>

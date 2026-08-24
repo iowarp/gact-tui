@@ -4,8 +4,6 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
-@source '../node_modules/@streamdown/mermaid/dist/*.js';
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

@@ -574,6 +574,7 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
         onScroll={updateBottomState}
         ref={scrollRef}
         role="log"
+        tabIndex={0}
       >
         {messages.length === 0 ? (
           <ConversationEmptyState
@@ -619,13 +620,14 @@ export function ClioConversation({ messages, ...entities }: ClioConversationProp
       {!isAtBottom ? (
         <Button
           aria-label="Scroll to latest message"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
+          className="absolute right-3 bottom-3 rounded-full shadow-lg"
           onClick={() => scrollToLatest()}
-          size="icon"
+          size="sm"
           type="button"
           variant="outline"
         >
           <ArrowDownIcon aria-hidden="true" className="size-4" />
+          Latest
         </Button>
       ) : null}
     </div>
