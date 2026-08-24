@@ -246,7 +246,14 @@ function SourceEvidence({ sources }: { sources: readonly EvidenceSource[] }) {
                   <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
                 </a>
               ) : (
-                <p className="mt-1 break-all text-xs text-muted-foreground">{source.value}</p>
+                <p
+                  className="mt-1 break-all text-xs text-muted-foreground"
+                  title={
+                    sourceDisplayValue(source.value) === source.value ? undefined : source.value
+                  }
+                >
+                  {sourceDisplayValue(source.value)}
+                </p>
               )}
             </div>
           </div>
@@ -324,10 +331,16 @@ function EvidenceCounts(props: {
         </FrameDescription>
       </FrameHeader>
       <FramePanel className="grid grid-cols-5 gap-2 text-center">
-        {Object.entries(props).map(([label, count]) => (
+        {[
+          ['Artifacts', props.artifacts],
+          ['Context files', props.contextFiles],
+          ['Diffs', props.diffs],
+          ['Plans', props.plans],
+          ['Sources', props.sources],
+        ].map(([label, count]) => (
           <div key={label}>
             <p className="text-base font-semibold">{count}</p>
-            <p className="truncate text-[10px] capitalize text-muted-foreground">{label}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{label}</p>
           </div>
         ))}
       </FramePanel>
@@ -384,7 +397,7 @@ function collectWorkflowSources(
     ) {
       sources.push({
         id: `workflow:${owner}:${nextPath.join('.')}:${sources.length}`,
-        label: `${owner}, ${friendlyStatus(key)}`,
+        label: `${owner}, ${evidenceFieldLabel(key)}`,
         value: child,
         link: isWebLink(child),
       });
@@ -406,6 +419,25 @@ function friendlyStatus(value: string): string {
     .replaceAll('_', ' ')
     .replaceAll('-', ' ')
     .replace(/\b\w/gu, (letter) => letter.toUpperCase());
+}
+
+function evidenceFieldLabel(value: string): string {
+  return value
+    .replaceAll('_', ' ')
+    .replaceAll('-', ' ')
+    .trim()
+    .split(/\s+/u)
+    .map((word, index) => {
+      if (word.toLowerCase() === 'url') return 'URL';
+      const normalized = word.toLowerCase();
+      return index === 0 ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : normalized;
+    })
+    .join(' ');
+}
+
+function sourceDisplayValue(value: string): string {
+  if (value.toLowerCase() === 'osm_nominatim') return 'OpenStreetMap Nominatim';
+  return value;
 }
 
 function isWebLink(value: string): boolean {

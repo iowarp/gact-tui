@@ -163,7 +163,10 @@ describe('ClioObservabilityView', () => {
             updated_at: '2026-08-22T00:01:00Z',
             result: {
               workflow_state: {
-                acquisition: { source_url: 'https://example.test/data.csv' },
+                acquisition: {
+                  metadata_source_url: 'https://example.test/data.csv',
+                  provenance: 'osm_nominatim',
+                },
               },
             },
             metadata: {},
@@ -184,6 +187,7 @@ describe('ClioObservabilityView', () => {
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
 
     expect(screen.getByText('Session evidence')).toBeVisible();
+    expect(screen.getByText('Context files')).toBeVisible();
     expect(screen.getByText('src/analysis.py')).toBeVisible();
     expect(screen.getByRole('link', { name: /EarthScope catalog/i })).toHaveAttribute(
       'href',
@@ -193,6 +197,8 @@ describe('ClioObservabilityView', () => {
       'href',
       'https://example.test/data.csv',
     );
+    expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
+    expect(screen.getByText('OpenStreetMap Nominatim')).toHaveAttribute('title', 'osm_nominatim');
     expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
 
     await user.click(

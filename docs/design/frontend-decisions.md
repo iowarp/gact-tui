@@ -1119,3 +1119,9 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Old failure: historical GACT records can contain provider-oriented display syntax such as `wait(tasks)` even when the canonical tool identity is `wait_agent_tasks`. The activity timeline trusted that title and exposed it repeatedly as primary copy.
 - New representation: meaningful server and MCP titles remain authoritative, while identifier-shaped titles fall back through the shared CLIO tool-title adapter. Child lifecycle tools use explicit actions such as `Wait for child agents`, `Check child agents`, and `Watch child agents` everywhere.
 - Acceptance evidence: canonical EarthScope NDP Activity rendered three adjacent `wait(tasks)` rows above otherwise human-labeled child-agent entries.
+
+# Evidence vocabulary
+
+- Old failure: the evidence summary and workflow-source collector exposed schema casing and integration identifiers such as `ContextFiles`, `Metadata Source Url`, `Source Url`, and `osm_nominatim` as primary copy.
+- New representation: evidence counts use explicit product labels, source-field labels preserve standard abbreviations such as `URL`, and recognized scientific services use their public names. Exact integration identifiers remain supplemental title metadata.
+- Acceptance evidence: canonical EarthScope NDP Evidence reproduced all four internal forms beside otherwise authoritative source URLs and artifact counts.
