@@ -8,14 +8,6 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import {
-  Frame,
-  FrameDescription,
-  FrameFooter,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
@@ -29,6 +21,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerAvailability } from '@/lib/provider-availability';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
+import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 
@@ -168,144 +161,140 @@ function ModelsSettingsContent({
 
   return (
     <>
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Default model</FrameTitle>
-          <FrameDescription>
-            {configuration.thinking_level
-              ? `New sessions start with ${readableState(configuration.thinking_level)} reasoning.`
-              : "Uses the provider's standard reasoning level."}
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="provider-choice">Provider</FieldLabel>
-              <Select
-                onValueChange={(value) => {
-                  setPresetId(value);
-                  const preset = configuration.presets.find((item) => item.id === value);
-                  setModelId(preset?.suggested_model ?? '');
-                  setRefreshResult(undefined);
-                  setHandshakeResult(undefined);
-                }}
-                value={presetId}
+      <ClioSettingsSection
+        description={
+          configuration.thinking_level
+            ? `New sessions start with ${readableState(configuration.thinking_level)} reasoning.`
+            : "Uses the provider's standard reasoning level."
+        }
+        footer={
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                disabled={!selectedPreset?.is_authenticated || !modelId || save.isPending}
+                onClick={() => save.mutate()}
               >
-                <SelectTrigger id="provider-choice">
-                  <SelectValue placeholder="Choose a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {configuration.presets.map((preset) => (
-                    <SelectItem key={preset.id} value={preset.id}>
-                      {providerDisplayName(preset)}
-                      {preset.is_authenticated ? '' : ' — sign-in needed'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription title={selectedPreset?.description}>
-                {providerSummary(selectedPreset)}
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="model-choice">Model</FieldLabel>
-              <Select
-                disabled={!presetId || models.isFetching}
-                onValueChange={setModelId}
-                value={modelId}
+                {save.isPending ? 'Saving…' : 'Save default'}
+              </Button>
+              <Button
+                disabled={!presetId || refreshModels.isPending}
+                onClick={() => refreshModels.mutate()}
+                variant="outline"
               >
-                <SelectTrigger id="model-choice">
-                  <SelectValue placeholder="Choose a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelOptions.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name ?? ('label' in model ? model.label : undefined) ?? model.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription title={models.isError ? models.error.message : models.data?.source}>
-                {models.isError
-                  ? 'Available models could not be loaded. Retry the catalog check or keep the suggested model.'
-                  : models.data?.source
-                    ? 'Available models were checked by the connected agent.'
-                    : 'Using the configured model.'}
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
-              <Select onValueChange={(value) => setEffort(value as typeof effort)} value={effort}>
-                <SelectTrigger id="model-effort">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="off">Off</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                This becomes the reasoning depth used for new work with this model.
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </FramePanel>
-        <FrameFooter className="items-start">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              disabled={!selectedPreset?.is_authenticated || !modelId || save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending ? 'Saving…' : 'Save default'}
-            </Button>
-            <Button
-              disabled={!presetId || refreshModels.isPending}
-              onClick={() => refreshModels.mutate()}
-              variant="outline"
-            >
-              <RefreshCwIcon
-                aria-hidden="true"
-                className={refreshModels.isPending ? 'animate-spin' : undefined}
-              />
-              {refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
-            </Button>
-            <Button
-              disabled={!presetId || handshake.isPending}
-              onClick={() => handshake.mutate()}
-              variant="outline"
-            >
-              <RadioTowerIcon aria-hidden="true" />
-              {handshake.isPending ? 'Checking provider…' : 'Check provider'}
-            </Button>
-            {selectedPreset ? (
-              <ClioStatus
-                detail={selectedAvailability.detail}
-                label={selectedAvailability.label}
-                value={selectedAvailability.value}
-              />
+                <RefreshCwIcon
+                  aria-hidden="true"
+                  className={refreshModels.isPending ? 'animate-spin' : undefined}
+                />
+                {refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
+              </Button>
+              <Button
+                disabled={!presetId || handshake.isPending}
+                onClick={() => handshake.mutate()}
+                variant="outline"
+              >
+                <RadioTowerIcon aria-hidden="true" />
+                {handshake.isPending ? 'Checking provider…' : 'Check provider'}
+              </Button>
+              {selectedPreset ? (
+                <ClioStatus
+                  detail={selectedAvailability.detail}
+                  label={selectedAvailability.label}
+                  value={selectedAvailability.value}
+                />
+              ) : null}
+            </div>
+            {save.error ? <p className="text-sm text-destructive">{save.error.message}</p> : null}
+            {refreshModels.error ? (
+              <p className="text-sm text-destructive">{refreshModels.error.message}</p>
             ) : null}
-          </div>
-          {save.error ? <p className="text-sm text-destructive">{save.error.message}</p> : null}
-          {refreshModels.error ? (
-            <p className="text-sm text-destructive">{refreshModels.error.message}</p>
-          ) : null}
-          {handshake.error ? (
-            <p className="text-sm text-destructive">{handshake.error.message}</p>
-          ) : null}
-          {refreshResult ? <RefreshResult result={refreshResult} /> : null}
-          {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
-        </FrameFooter>
-      </Frame>
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Provider availability</FrameTitle>
-          <FrameDescription>
-            Authentication and capability state reported by the service.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="grid gap-2 p-2 sm:grid-cols-2">
+            {handshake.error ? (
+              <p className="text-sm text-destructive">{handshake.error.message}</p>
+            ) : null}
+            {refreshResult ? <RefreshResult result={refreshResult} /> : null}
+            {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
+          </>
+        }
+        title="Default model"
+      >
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="provider-choice">Provider</FieldLabel>
+            <Select
+              onValueChange={(value) => {
+                setPresetId(value);
+                const preset = configuration.presets.find((item) => item.id === value);
+                setModelId(preset?.suggested_model ?? '');
+                setRefreshResult(undefined);
+                setHandshakeResult(undefined);
+              }}
+              value={presetId}
+            >
+              <SelectTrigger id="provider-choice">
+                <SelectValue placeholder="Choose a provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {configuration.presets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {providerDisplayName(preset)}
+                    {preset.is_authenticated ? '' : ' — sign-in needed'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription title={selectedPreset?.description}>
+              {providerSummary(selectedPreset)}
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="model-choice">Model</FieldLabel>
+            <Select
+              disabled={!presetId || models.isFetching}
+              onValueChange={setModelId}
+              value={modelId}
+            >
+              <SelectTrigger id="model-choice">
+                <SelectValue placeholder="Choose a model" />
+              </SelectTrigger>
+              <SelectContent>
+                {modelOptions.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.name ?? ('label' in model ? model.label : undefined) ?? model.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription title={models.isError ? models.error.message : models.data?.source}>
+              {models.isError
+                ? 'Available models could not be loaded. Retry the catalog check or keep the suggested model.'
+                : models.data?.source
+                  ? 'Available models were checked by the connected agent.'
+                  : 'Using the configured model.'}
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
+            <Select onValueChange={(value) => setEffort(value as typeof effort)} value={effort}>
+              <SelectTrigger id="model-effort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off">Off</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              This becomes the reasoning depth used for new work with this model.
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </ClioSettingsSection>
+      <ClioSettingsSection
+        description="Authentication and capability state reported by the service."
+        title="Provider availability"
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
           {providers.map((provider) => {
             const preset = configuration.presets.find(
               (item) => item.id === provider.id || item.provider === provider.id,
@@ -332,7 +321,6 @@ function ModelsSettingsContent({
                   </div>
                   <ClioStatus
                     className="shrink-0"
-                    detail={availability.detail}
                     label={availability.label}
                     value={availability.value}
                   />
@@ -348,8 +336,8 @@ function ModelsSettingsContent({
               No provider details were reported by the service.
             </p>
           ) : null}
-        </FramePanel>
-      </Frame>
+        </div>
+      </ClioSettingsSection>
     </>
   );
 }

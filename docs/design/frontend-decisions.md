@@ -1176,4 +1176,6 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   states. Appearance and New session defaults now use the same composition contract.
 - Acceptance evidence: the live Appearance screenshot showed concentric outlines around Theme,
   Conversation width, Motion, and Conversation activity even though each section contained only
-  one radio group.
+  one radio group. New session defaults and Models reproduced the same nesting; both now use the
+  shared flat contract as well. Live OpenAI Codex verification then completed a 515ms provider
+  handshake and refreshed seven available models without changing the saved Luna default.
