@@ -75,7 +75,7 @@ describe('permission policy settings', () => {
 
   it('adds a scoped rule by atomically replacing the complete policy set', async () => {
     const user = userEvent.setup();
-    renderPanel(<PermissionPoliciesPanel />);
+    renderPanel(<PermissionPoliciesPanel initialWorkspaceId="ws_science" />);
 
     await user.click(screen.getByRole('button', { name: 'New rule' }));
     const dialog = screen.getByRole('dialog');
@@ -86,10 +86,8 @@ describe('permission policy settings', () => {
     );
     await user.clear(within(dialog).getByLabelText('Tool name pattern'));
     await user.type(within(dialog).getByLabelText('Tool name pattern'), 'fs_read_file');
-    fireEvent.click(within(dialog).getByRole('combobox', { name: 'Rule workspace' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Science campaign' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: 'Science campaign' })).not.toBeInTheDocument(),
+    expect(within(dialog).getByRole('combobox', { name: 'Rule workspace' })).toHaveTextContent(
+      'Science campaign',
     );
     await user.click(within(dialog).getByRole('button', { name: 'Save rule set' }));
 

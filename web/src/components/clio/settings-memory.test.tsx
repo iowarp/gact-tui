@@ -8,6 +8,20 @@ import { MemoryRouter } from 'react-router-dom';
 const repository = vi.hoisted(() => ({
   allSessions: vi.fn().mockResolvedValue([
     {
+      id: 'sess_other',
+      workspace_id: 'ws_science',
+      title: 'Earlier campaign',
+      state: 'completed',
+      created_at: '2026-08-22T00:00:00Z',
+      updated_at: '2026-08-22T01:00:00Z',
+      mode: 'edit',
+      edit_mode: 'diff',
+      routing_mode: 'auto',
+      approval_mode: 'ask',
+      pinned: false,
+      archived: false,
+    },
+    {
       id: 'sess_memory',
       workspace_id: 'ws_science',
       title: 'NDP evidence campaign',
@@ -103,7 +117,7 @@ function renderSettings(children: ReactNode) {
 describe('memory settings', () => {
   it('searches the selected session and exposes retained summaries as exact links', async () => {
     const user = userEvent.setup();
-    renderSettings(<MemorySettings />);
+    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
 
     expect(await screen.findByText('Retained session context')).toBeInTheDocument();
     expect(
@@ -138,7 +152,7 @@ describe('memory settings', () => {
 
   it('expands recall only after the explicit cross-session control is selected', async () => {
     const user = userEvent.setup();
-    renderSettings(<MemorySettings />);
+    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
     await screen.findByText('Retained session context');
 
     await user.click(

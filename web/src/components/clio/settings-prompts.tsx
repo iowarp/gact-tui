@@ -144,11 +144,11 @@ function CommandDetail({ command }: { command?: CommandDefinition }) {
   );
 }
 
-export function PromptsCommandsSettings() {
+export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [workspaceId, setWorkspaceId] = useState('');
+  const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId ?? '');
   const [editing, setEditing] = useState<PromptDefinition>();
   const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState<PromptDraft>(emptyDraft);

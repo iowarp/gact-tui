@@ -53,3 +53,13 @@ export function workspaceIdFromRoute(route: string): string | undefined {
     return undefined;
   }
 }
+
+export function sessionIdFromRoute(route: string): string | undefined {
+  const match = /^\/workspaces\/[^/]+\/sessions\/([^/?#]+)/u.exec(route);
+  if (!match?.[1]) return undefined;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return undefined;
+  }
+}

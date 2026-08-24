@@ -111,11 +111,11 @@ function SectionHeading() {
   );
 }
 
-export function ScheduleSettings() {
+export function ScheduleSettings({ initialSessionId }: { initialSessionId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [sessionId, setSessionId] = useState('');
+  const [sessionId, setSessionId] = useState(initialSessionId ?? '');
   const [question, setQuestion] = useState('');
   const [kind, setKind] = useState<ScheduleKind>('once');
   const [onceAt, setOnceAt] = useState(defaultOnceAt);

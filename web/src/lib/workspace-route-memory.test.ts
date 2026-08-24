@@ -3,6 +3,7 @@ import {
   lastWorkspaceRoute,
   rememberWorkspaceRoute,
   returnRouteFromState,
+  sessionIdFromRoute,
   workspaceIdFromRoute,
 } from './workspace-route-memory';
 
@@ -41,7 +42,12 @@ describe('connection-scoped workspace route memory', () => {
 
   it('recovers the workspace context for local settings surfaces', () => {
     expect(workspaceIdFromRoute('/workspaces/ws%20science/sessions/sess_1')).toBe('ws science');
+    expect(sessionIdFromRoute('/workspaces/ws%20science/sessions/sess%20review?panel=files')).toBe(
+      'sess review',
+    );
     expect(workspaceIdFromRoute('/settings/tools')).toBeUndefined();
+    expect(sessionIdFromRoute('/settings/schedules')).toBeUndefined();
     expect(workspaceIdFromRoute('/workspaces/%E0%A4%A/sessions/sess_1')).toBeUndefined();
+    expect(sessionIdFromRoute('/workspaces/ws_1/sessions/%E0%A4%A')).toBeUndefined();
   });
 });

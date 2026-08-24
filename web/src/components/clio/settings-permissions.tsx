@@ -163,7 +163,11 @@ function policySummary(policy: PermissionPolicy): string {
   return policy.path_pattern ? `${tool}, ${policy.path_pattern}` : tool;
 }
 
-export function PermissionPoliciesPanel() {
+export function PermissionPoliciesPanel({
+  initialWorkspaceId,
+}: {
+  initialWorkspaceId?: string;
+}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -192,7 +196,11 @@ export function PermissionPoliciesPanel() {
   });
   const openEditor = (policy?: PermissionPolicy, index?: number) => {
     setEditingIndex(index);
-    setDraft(policy ? draftForPolicy(policy) : emptyDraft);
+    setDraft(
+      policy
+        ? draftForPolicy(policy)
+        : { ...emptyDraft, scopeId: initialWorkspaceId ?? emptyDraft.scopeId },
+    );
     setEditorOpen(true);
   };
   const save = () => {

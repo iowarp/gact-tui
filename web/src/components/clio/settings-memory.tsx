@@ -211,10 +211,10 @@ function MemoryHistory({ events, session }: { events: MemoryEvent[]; session?: S
   );
 }
 
-export function MemorySettings() {
+export function MemorySettings({ initialSessionId }: { initialSessionId?: string }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const [sessionId, setSessionId] = useState('');
+  const [sessionId, setSessionId] = useState(initialSessionId ?? '');
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [crossSession, setCrossSession] = useState(false);
@@ -222,7 +222,9 @@ export function MemorySettings() {
     queryKey: ['all-sessions', settings.endpoint, 'memory-settings'],
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
-  const selectedSessionId = sessionId || sessions.data?.[0]?.id || '';
+  const selectedSessionId = sessions.data?.some((session) => session.id === sessionId)
+    ? sessionId
+    : (sessions.data?.[0]?.id ?? '');
   const selectedSession = sessions.data?.find((session) => session.id === selectedSessionId);
   const statistics = useQuery({
     queryKey: ['memory-statistics', settings.endpoint, selectedSessionId],

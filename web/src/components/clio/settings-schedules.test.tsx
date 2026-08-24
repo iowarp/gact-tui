@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const repository = vi.hoisted(() => ({
   allSessions: vi.fn().mockResolvedValue([
     {
+      id: 'sess_other',
+      workspace_id: 'ws_1',
+      title: 'Earlier session',
+      archived: false,
+    },
+    {
       id: 'sess_1',
       workspace_id: 'ws_1',
       title: 'Evidence review',
@@ -54,13 +60,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderSettings() {
+function renderSettings(initialSessionId?: string) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <ScheduleSettings />
+      <ScheduleSettings initialSessionId={initialSessionId} />
     </QueryClientProvider>,
   );
 }
@@ -68,7 +74,7 @@ function renderSettings() {
 describe('scheduled work settings', () => {
   it('creates and cancels session-owned work without exposing paths or fake progress', async () => {
     const user = userEvent.setup();
-    renderSettings();
+    renderSettings('sess_1');
 
     expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
     expect(screen.getByText('Weekdays')).toBeVisible();

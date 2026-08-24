@@ -86,7 +86,11 @@ import {
   useConversationDisplay,
   type ConversationDisplayMode,
 } from '@/providers/conversation-display-provider';
-import { returnRouteFromState, workspaceIdFromRoute } from '@/lib/workspace-route-memory';
+import {
+  returnRouteFromState,
+  sessionIdFromRoute,
+  workspaceIdFromRoute,
+} from '@/lib/workspace-route-memory';
 import {
   connectionDegradationLabel,
   materialConnectionDegradations,
@@ -256,7 +260,7 @@ function ConnectionsSettings() {
   );
 }
 
-function PermissionsSettings() {
+function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const permissions = useQuery({
@@ -307,7 +311,7 @@ function PermissionsSettings() {
           ) : null}
         </FramePanel>
       </Frame>
-      <PermissionPoliciesPanel />
+      <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
     </div>
   );
 }
@@ -501,9 +505,11 @@ function AppearanceSettings() {
 
 function SettingsSection({
   section,
+  sessionId,
   workspaceId,
 }: {
   section: string;
+  sessionId?: string;
   workspaceId?: string;
 }) {
   if (section === 'connections') return <ConnectionsSettings />;
@@ -513,11 +519,11 @@ function SettingsSection({
   if (section === 'blueprints') return <BlueprintSettings />;
   if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
-  if (section === 'prompts') return <PromptsCommandsSettings />;
-  if (section === 'schedules') return <ScheduleSettings />;
+  if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
   if (section === 'relays') return <RelaySettings />;
-  if (section === 'permissions') return <PermissionsSettings />;
-  if (section === 'memory') return <MemorySettings />;
+  if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
+  if (section === 'memory') return <MemorySettings initialSessionId={sessionId} />;
   if (section === 'system') return <SystemSettings />;
   if (section === 'desktop') return <DesktopSettings />;
   if (section === 'about') return <AboutSettings />;
@@ -595,6 +601,7 @@ export function SettingsPage() {
   const { settings } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
+  const sessionId = sessionIdFromRoute(workspaceRoute);
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -618,7 +625,7 @@ export function SettingsPage() {
           ))}
         </nav>
         <section className="min-w-0 pb-16">
-          <SettingsSection section={section} workspaceId={workspaceId} />
+          <SettingsSection section={section} sessionId={sessionId} workspaceId={workspaceId} />
         </section>
       </div>
     </main>

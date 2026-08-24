@@ -126,10 +126,19 @@ describe('prompt and command settings', () => {
 
   it('validates and saves a workspace override through the authoritative service routes', async () => {
     const user = userEvent.setup();
-    renderSettings(<PromptsCommandsSettings />);
+    renderSettings(<PromptsCommandsSettings initialWorkspaceId="ws_science" />);
 
-    await user.click(await screen.findByRole('combobox', { name: 'Prompt workspace' }));
-    await user.click(screen.getByRole('option', { name: 'Science campaign' }));
+    await waitFor(() =>
+      expect(repository.prompts).toHaveBeenCalledWith(expect.any(AbortSignal), {
+        workspaceId: 'ws_science',
+      }),
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Prompt workspace' }));
+    expect(await screen.findByRole('option', { name: 'Science campaign' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.keyboard('{Escape}');
     await user.click(await screen.findByRole('button', { name: /Planner instructions/ }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('combobox', { name: 'Prompt save scope' }));
