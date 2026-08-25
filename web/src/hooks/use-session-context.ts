@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ContextSnapshot } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
@@ -8,7 +9,7 @@ export function sessionContextQueryKey(endpoint: string, sessionId: string) {
   return ['session-context', endpoint, sessionId] as const;
 }
 
-/** Live session context, its compartment policy, and server-owned compaction. */
+/** Selected agent context plus server-owned compaction controls. */
 export function useSessionContext(sessionId: string, scope: string, enabled = true) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -19,11 +20,6 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
     queryKey: [...baseKey, 'state', scope],
     queryFn: ({ signal }) => repository.contextState(sessionId, scope, signal),
     enabled: canLoad,
-  });
-  const policy = useQuery({
-    queryKey: [...baseKey, 'policy'],
-    queryFn: ({ signal }) => repository.contextPolicy(sessionId, signal),
-    enabled: Boolean(enabled && sessionId),
   });
   const compact = useMutation({
     mutationFn: () => repository.compactContext(sessionId, scope),
@@ -37,5 +33,24 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
     onError: (error) =>
       toast.error('Context could not be compacted', { description: error.message }),
   });
-  return { compact, policy, state };
+  const preferences = useMutation({
+    mutationFn: (input: { automatic_compaction?: boolean; autocompact_pct?: number }) =>
+      repository.updateContextPreferences(sessionId, input),
+    onSuccess: async (updated) => {
+      queryClient.setQueryData<ContextSnapshot>([...baseKey, 'state', scope], (current) =>
+        current
+          ? {
+              ...current,
+              autocompact_enabled: updated.automatic_compaction,
+              autocompact_pct: updated.autocompact_pct,
+            }
+          : current,
+      );
+      await queryClient.invalidateQueries({ queryKey: [...baseKey, 'state', scope] });
+      toast.success('Context controls updated');
+    },
+    onError: (error) =>
+      toast.error('Context controls could not be updated', { description: error.message }),
+  });
+  return { compact, preferences, state };
 }

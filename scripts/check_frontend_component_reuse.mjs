@@ -29,8 +29,6 @@ const requiredImports = {
     '@/components/ai-elements/attachments',
   ],
   'web/src/components/clio/resource-viewers.tsx': [
-    '@/components/ai-elements/artifact',
-    '@/components/ai-elements/attachments',
     '@/components/ai-elements/code-block',
   ],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
@@ -38,13 +36,14 @@ const requiredImports = {
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
     '@/components/ai-elements/file-tree',
-    '@/components/reui/frame',
     './artifact-card',
+    './resource-viewers',
   ],
   'web/src/components/clio/observability-dock.tsx': [
-    '@/components/reui/timeline',
     '@/components/ui/tabs',
+    './observability-activity',
   ],
+  'web/src/components/clio/observability-activity.tsx': ['@/components/reui/timeline'],
   'web/src/components/clio/observability-evidence.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/reui/frame',

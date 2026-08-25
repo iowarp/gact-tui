@@ -353,6 +353,7 @@ export interface ContextSnapshot {
   live_block_count?: number;
   tokens_by_kind?: Record<string, number>;
   categories?: Record<string, number>;
+  autocompact_enabled?: boolean;
   autocompact_pct?: number;
   segments?: Array<Record<string, unknown>>;
   render_text?: string;

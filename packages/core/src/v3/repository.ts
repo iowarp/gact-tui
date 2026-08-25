@@ -6,7 +6,6 @@ import type {
   ArtifactRecord,
   A2UISurface,
   CapabilityNegotiation,
-  ContextSnapshot,
   ApprovalRequest,
   PermissionLedgerItem,
   OperationalRun,
@@ -31,7 +30,6 @@ import type {
 import type { AgentDefinition } from './agent-domain.js';
 import {
   capabilitiesSchema,
-  contextStateSchema,
   operationalRunSchema,
   sessionSchema,
   turnAttemptSchema,
@@ -551,38 +549,6 @@ export class ClioRepository extends ProviderRepository {
       `/v1/artifacts/${encodeURIComponent(artifactId)}/export`,
       signal,
     );
-  }
-
-  public async contextState(
-    sessionId: string,
-    scope: string,
-    signal?: AbortSignal,
-  ): Promise<ContextSnapshot> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/state?scope=${encodeURIComponent(scope)}`,
-      decode: (value) => contextStateSchema.parse(value),
-      signal,
-    });
-    return {
-      session_id: result.session_id,
-      scope: result.scope,
-      used_tokens: result.used_tokens ?? undefined,
-      limit_tokens: result.window_tokens || undefined,
-      live_tokens: result.live_tokens,
-      live_block_count: result.live_block_count,
-      tokens_by_kind: result.tokens_by_kind,
-      categories: result.categories,
-      autocompact_pct: result.autocompact_pct ?? undefined,
-      segments: result.segments,
-      render_text: result.render_text,
-      render_keys: result.render_keys,
-      provenance: {
-        source: 'server',
-        observed_at: new Date().toISOString(),
-        stale: false,
-      },
-    };
   }
 
   public detachRun(handleId: string, signal?: AbortSignal): Promise<OperationalRun> {

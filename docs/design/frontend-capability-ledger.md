@@ -80,7 +80,7 @@ No row becomes accepted because a route, tab, card, or test fixture exists.
 | Session activity timeline                 | scoped event/run/tool/process timestamps    | Partial                   | Complete causal categories, event detail, reconciliation markers.                       |
 | Operational run explorer                  | `/v1/runs`                                  | Implemented, not accepted | Timeline/detail, remote-job cancellation semantics, and final dense-data evidence.      |
 | Background processes                      | async-process registry and live events      | Implemented, not accepted | Live MCP-task logs/cancellation and terminal-state acceptance.                          |
-| Context window and context files          | context state/files/frames/search/compact   | Implemented, not accepted | Live compaction mutation, dense frame inputs, gap recovery, and final SPOTTER evidence. |
+| Context window and context files          | context state/files/frames/search/compact   | Implemented, not accepted | Dense frame inputs, gap recovery, and final SPOTTER context-composition evidence.       |
 | Usage, token, and cost                    | usage snapshots/provenance                  | Partial                   | Authoritative endpoint projection and unavailable/stale explanations.                   |
 | Sources and citations                     | citation/resource/artifact provenance       | Partial                   | Per-part citation actions and durable source/resource tabs.                             |
 | Relay health and jobs                     | relay status plus relay-backed runs         | Partial                   | Doors/tools detail, remote-job actions, recovery, and configured-relay acceptance.      |

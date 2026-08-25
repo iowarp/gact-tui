@@ -1138,6 +1138,25 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Acceptance evidence: canonical EarthScope NDP Context reproduced `main`, zero `Live blocks`,
   `server`, an 85% compaction threshold, and a disabled destructive action before the correction.
 
+# Agent context is an operational composition view
+
+- Old failure: Context was still a read-only information dump after the vocabulary cleanup. It
+  showed only the main session, rendered the service-wide automatic-summary threshold as prose,
+  and devoted most of the panel to a generic session-memory policy. A user could not compare child
+  working sets, disable automatic compaction for one session, or change its threshold.
+- New representation: the compact Context rail selects the main or any child agent, renders the
+  authoritative token categories as one proportional composition bar, and keeps exact counts in
+  the sourced AI Elements Context disclosure. Automatic compaction is durable session state: a
+  shadcn Switch enables it, a Slider changes its threshold, and manual compaction remains a
+  confirmation-gated operation. Saved snapshots and attached files are compact disclosures rather
+  than policy copy. Preference mutations update the authoritative query immediately and reconcile
+  from the server so control feedback cannot lag behind persistence.
+- Acceptance evidence: focused Python coverage passed all 15 context API cases, including durable
+  preference updates and invalid thresholds. Core and React coverage passed 26 focused cases. In
+  the live browser, the canonical NDP session exposed ten selectable agent contexts; disabling
+  automatic compaction persisted `false` through GACT and immediately changed the Switch, then the
+  original enabled state was restored. The old `Session-only working context` essay is absent.
+
 # Child-agent relationship presentation
 
 - Old failure: child-agent cards projected persisted routing shorthand such as

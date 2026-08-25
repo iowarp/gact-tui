@@ -14,6 +14,12 @@ export interface SessionContextPolicy {
   metadata: Record<string, unknown>;
 }
 
+export interface ContextPreferences {
+  session_id: string;
+  automatic_compaction: boolean;
+  autocompact_pct: number;
+}
+
 const contextPolicySchema = z.object({
   session_id: z.string(),
   memory_scope: z.literal('session').default('session'),
@@ -23,6 +29,12 @@ const contextPolicySchema = z.object({
   requires_user_consent: z.boolean().default(true),
   notes: z.array(z.string()).default([]),
   metadata: z.record(z.unknown()).default({}),
+});
+
+const contextPreferencesSchema = z.object({
+  session_id: z.string(),
+  automatic_compaction: z.boolean(),
+  autocompact_pct: z.number().positive().max(1),
 });
 
 function contextSnapshot(value: unknown): ContextSnapshot {
@@ -36,6 +48,7 @@ function contextSnapshot(value: unknown): ContextSnapshot {
     live_block_count: result.live_block_count,
     tokens_by_kind: result.tokens_by_kind,
     categories: result.categories,
+    autocompact_enabled: result.autocompact_enabled,
     autocompact_pct: result.autocompact_pct ?? undefined,
     segments: result.segments,
     render_text: result.render_text,
@@ -50,6 +63,19 @@ function contextSnapshot(value: unknown): ContextSnapshot {
 
 /** Session-compartment policy and live working-set operations. */
 export class ContextRepository extends SearchRepository {
+  public async contextState(
+    sessionId: string,
+    scope: string,
+    signal?: AbortSignal,
+  ): Promise<ContextSnapshot> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/state?scope=${encodeURIComponent(scope)}`,
+      decode: contextSnapshot,
+      signal,
+    });
+  }
+
   public contextPolicy(sessionId: string, signal?: AbortSignal): Promise<SessionContextPolicy> {
     return this.transport.request({
       method: 'GET',
@@ -68,6 +94,20 @@ export class ContextRepository extends SearchRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/compact?scope=${encodeURIComponent(scope)}`,
       decode: contextSnapshot,
+      signal,
+    });
+  }
+
+  public updateContextPreferences(
+    sessionId: string,
+    input: { automatic_compaction?: boolean; autocompact_pct?: number },
+    signal?: AbortSignal,
+  ): Promise<ContextPreferences> {
+    return this.transport.request({
+      method: 'PATCH',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/preferences`,
+      body: input,
+      decode: (value) => contextPreferencesSchema.parse(value) as ContextPreferences,
       signal,
     });
   }

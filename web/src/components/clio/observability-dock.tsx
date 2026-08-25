@@ -7,7 +7,6 @@ import type {
   Message,
   Run,
   RunState,
-  SessionContextPolicy,
   SessionDiff,
   SubagentRun,
   Task,
@@ -36,6 +35,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useContainerQuery } from '@/hooks/use-container-query';
+import type { ClioContextTarget } from '@/lib/context-targets';
 import { childAgentRelationshipLabel, getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
@@ -60,9 +60,16 @@ export interface ClioObservabilityDockProps {
   subagents: readonly SubagentRun[];
   context?: ContextSnapshot;
   contextError?: string;
-  contextPolicy?: SessionContextPolicy;
+  contextTargets?: readonly ClioContextTarget[];
+  selectedContextTargetId?: string;
   compactContextPending?: boolean;
+  contextPreferencesPending?: boolean;
   onCompactContext?: () => Promise<unknown>;
+  onContextTargetChange?: (targetId: string) => void;
+  onUpdateContextPreferences?: (input: {
+    automatic_compaction?: boolean;
+    autocompact_pct?: number;
+  }) => Promise<unknown>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onOpenCanvas?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
@@ -259,9 +266,13 @@ export function ClioObservabilityView({
   subagents,
   context,
   contextError,
-  contextPolicy,
+  contextTargets,
+  selectedContextTargetId,
   compactContextPending,
+  contextPreferencesPending,
   onCompactContext,
+  onContextTargetChange,
+  onUpdateContextPreferences,
   onOpenArtifact,
   onOpenDiff,
   onOpenFile,
@@ -387,7 +398,11 @@ export function ClioObservabilityView({
               frames={contextFrames}
               onCompact={onCompactContext}
               onOpenFile={onOpenFile}
-              policy={contextPolicy}
+              onTargetChange={onContextTargetChange}
+              onUpdatePreferences={onUpdateContextPreferences}
+              preferencesPending={contextPreferencesPending}
+              selectedTargetId={selectedContextTargetId}
+              targets={contextTargets}
             />
           </TabsContent>
         </ScrollArea>

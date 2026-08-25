@@ -35,6 +35,7 @@ import { useSessionContext } from '@/hooks/use-session-context';
 import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
+import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { sessionChildRelations } from '@/lib/session-child-relations';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -53,6 +54,7 @@ export function WorkspacePage() {
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
+  const [contextTargetId, setContextTargetId] = useState(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
@@ -137,12 +139,19 @@ export function WorkspacePage() {
   const parentSession = session?.parent_session_id
     ? allSessions.data?.find((item) => item.id === session.parent_session_id)
     : undefined;
+  useEffect(() => setContextTargetId(sessionId), [sessionId]);
+  const contextTargetSession = resolveContextSession(
+    contextTargetId,
+    session,
+    allSessions.data ?? [],
+  );
   const sessionContext = useSessionContext(
-    sessionId,
-    session?.agent_id ?? 'main',
-    Boolean(session),
+    contextTargetId,
+    contextTargetSession?.agent_id ?? 'main',
+    Boolean(session && contextTargetSession),
   );
   const sessionObservability = useSessionObservability(sessionId);
+  const contextObservability = useSessionObservability(contextTargetId);
   const workspaceFiles = useQuery({
     queryKey: ['workspace-files', settings.endpoint, workspaceId],
     queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
@@ -227,13 +236,15 @@ export function WorkspacePage() {
   );
   const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
-  const context = sessionContext.state.data ?? entities.context[sessionId];
+  const context = sessionContext.state.data ?? entities.context[contextTargetId];
   const activeProvider = session?.provider_id ?? capabilities.data?.active_model?.provider_id;
   const activeModel = session?.model_id ?? capabilities.data?.active_model?.model_id;
   const activeEffort = session?.effort ?? capabilities.data?.active_model?.effort;
   const activeBlueprint = agentBlueprints.data?.find(
     (blueprint) => blueprint.id === session?.active_blueprint_id,
   );
+  const contextAgentLabel = activeBlueprint?.name ?? session?.agent_id;
+  const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
   const activePreset = modelConfiguration.data?.presets.find(
     (preset) => preset.id === activeProvider || preset.provider === activeProvider,
   );
@@ -606,10 +617,11 @@ export function WorkspacePage() {
               <ClioObservabilityView
                 artifacts={artifacts}
                 context={context}
-                contextError={(sessionContext.state.error ?? sessionContext.policy.error)?.message}
-                contextFiles={sessionObservability.contextFiles.data ?? []}
-                contextFrames={sessionObservability.contextFrames.data ?? []}
-                contextPolicy={sessionContext.policy.data}
+                contextError={sessionContext.state.error?.message}
+                contextFiles={contextObservability.contextFiles.data ?? []}
+                contextFrames={contextObservability.contextFrames.data ?? []}
+                contextPreferencesPending={sessionContext.preferences.isPending}
+                contextTargets={contextTargetOptions}
                 compactContextPending={sessionContext.compact.isPending}
                 diffs={sessionObservability.diffs.data ?? []}
                 messages={messages}
@@ -618,9 +630,14 @@ export function WorkspacePage() {
                 onOpenFile={openWorkspaceFile}
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
+                onContextTargetChange={setContextTargetId}
+                onUpdateContextPreferences={(input) =>
+                  sessionContext.preferences.mutateAsync(input)
+                }
                 processes={processes}
                 runs={runs}
                 subagents={subagents}
+                selectedContextTargetId={contextTargetId}
                 tasks={tasks}
                 tools={tools}
               />
