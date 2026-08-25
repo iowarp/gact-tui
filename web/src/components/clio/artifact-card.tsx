@@ -46,6 +46,7 @@ export function ClioArtifactCard({
   const repository = useRepository();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
+  const tabular = isTabularArtifact(artifact);
   const withinBudget = artifact.size === undefined || artifact.size <= cardPreviewBudget;
   const textWithinBudget = artifact.size === undefined || artifact.size <= textCardPreviewBudget;
   const imageBytes = useQuery({
@@ -81,7 +82,7 @@ export function ClioArtifactCard({
         return repository.readWorkspaceFile(artifact.workspace_id, fallback.path, signal);
       }
     },
-    enabled: preview && text && textWithinBudget,
+    enabled: preview && text && !tabular && textWithinBudget,
     staleTime: Number.POSITIVE_INFINITY,
   });
   const attachment: AttachmentData = {
@@ -168,12 +169,14 @@ export function ClioArtifactCard({
             budget. Open it for the full view.
           </p>
         ) : null}
-        {text && textPreview.isPending && textWithinBudget ? (
+        {text && !tabular && textPreview.isPending && textWithinBudget ? (
           <p className="px-4 py-2 text-xs text-muted-foreground">Loading artifact preview…</p>
         ) : null}
-        {text && !textWithinBudget ? (
+        {text && (tabular || !textWithinBudget) ? (
           <p className="px-4 py-2 text-xs text-muted-foreground">
-            Open this artifact to read the full {formatBytes(artifact.size ?? 0)} result.
+            {tabular
+              ? 'Open this data table in the workspace canvas to inspect, filter, or export it.'
+              : `Open this artifact to read the full ${formatBytes(artifact.size ?? 0)} result.`}
           </p>
         ) : null}
         {contentUnavailable ? (
@@ -213,6 +216,13 @@ function isMarkdownArtifact(artifact: ArtifactEntity) {
   return (
     ['text/markdown', 'text/x-markdown'].includes(artifact.media_type) ||
     ['md', 'markdown'].includes(artifact.name.split('.').at(-1)?.toLowerCase() ?? '')
+  );
+}
+
+function isTabularArtifact(artifact: ArtifactEntity) {
+  return (
+    ['text/csv', 'text/tab-separated-values'].includes(artifact.media_type) ||
+    ['csv', 'tsv'].includes(artifact.name.split('.').at(-1)?.toLowerCase() ?? '')
   );
 }
 

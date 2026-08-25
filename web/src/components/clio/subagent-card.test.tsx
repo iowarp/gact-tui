@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { ClioSubagentCard } from './subagent-card';
 
 describe('ClioSubagentCard', () => {
+  it('treats an event-order gap as connecting instead of a failed child', () => {
+    render(<ClioSubagentCard />);
+
+    expect(screen.getByText('Connecting child agent')).toBeVisible();
+    expect(screen.getByText('Waiting for the live child record.')).toBeVisible();
+    expect(screen.queryByText('Child agent unavailable')).not.toBeInTheDocument();
+  });
+
   it('shows authoritative child-agent work without another disclosure layer', () => {
     const onOpen = vi.fn();
     render(
@@ -37,7 +45,6 @@ describe('ClioSubagentCard', () => {
       shiftKey: true,
     });
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
-
   });
 
   it('surfaces the useful outcome instead of a trailing no-staging caveat', () => {
@@ -56,7 +63,9 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(screen.getByText('Found 72 candidate GNSS stations within 50 km of Los Angeles.')).toBeVisible();
+    expect(
+      screen.getByText('Found 72 candidate GNSS stations within 50 km of Los Angeles.'),
+    ).toBeVisible();
     expect(screen.queryByText(/No station time-series/u)).not.toBeInTheDocument();
   });
 

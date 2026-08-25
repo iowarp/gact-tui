@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentIteration, Message, ToolInvocation } from '@clio/core/v3';
-import { conversationTurnPresentation } from './conversation-turn-model';
+import type { AgentIteration, Artifact, Message, ToolInvocation } from '@clio/core/v3';
+import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
 
 const tools: Record<string, ToolInvocation> = {
   call_read: {
@@ -168,5 +168,61 @@ describe('conversationTurnPresentation', () => {
       interrupted: true,
       summary: 'Resolve the region first.',
     });
+  });
+
+  it('keeps response-schema recovery expandable without using it as the chain label', () => {
+    const message: Message = {
+      id: 'assistant_retry',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'retry_thought',
+          type: 'text',
+          text: 'The submit call failed because workflow_state is a required field I omitted.',
+          channel: 'next_thought',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, [], tools);
+
+    expect(view.iterations[0]?.summary).toBe('Finalizing the response');
+    expect(view.iterations[0]?.nextThoughts).toEqual([
+      'The submit call failed because workflow_state is a required field I omitted.',
+    ]);
+  });
+
+  it('keeps only the latest block for repeated logical artifact versions', () => {
+    const artifacts: Record<string, Artifact> = {
+      artifact_v2: {
+        id: 'artifact_v2',
+        session_id: 'session_1',
+        workspace_id: 'workspace_1',
+        name: 'stations.csv',
+        media_type: 'text/csv',
+        uri: 'artifact://workspace_1/stations.csv@v2',
+      },
+      artifact_v3: {
+        id: 'artifact_v3',
+        session_id: 'session_1',
+        workspace_id: 'workspace_1',
+        name: 'stations.csv',
+        media_type: 'text/csv',
+        uri: 'artifact://workspace_1/stations.csv@v3',
+      },
+    };
+
+    expect(
+      deduplicateArtifactBlocks(
+        [
+          { id: 'answer', type: 'text', text: 'Complete.', channel: 'answer' },
+          { id: 'link_v2', type: 'artifact', artifact_id: 'artifact_v2' },
+          { id: 'link_v3', type: 'artifact', artifact_id: 'artifact_v3' },
+        ],
+        artifacts,
+      ).map((block) => block.id),
+    ).toEqual(['answer', 'link_v3']);
   });
 });

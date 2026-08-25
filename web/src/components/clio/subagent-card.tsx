@@ -15,10 +15,10 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
     return (
       <SubAgentDispatch
         run={{
-          id: 'unavailable',
-          agent: 'Child agent unavailable',
-          task: 'The server did not provide this child-agent record.',
-          state: 'failed',
+          id: 'connecting',
+          agent: 'Connecting child agent',
+          task: 'Waiting for the live child record.',
+          state: 'spawning',
         }}
       />
     );
@@ -114,7 +114,11 @@ function resultParagraphScore(value: string): number {
   let score = 0;
   if (/\b(?:found|resolved|created|generated|completed?|result)\b/iu.test(value)) score += 3;
   if (/\b(?:candidate|station|record|row|file|artifact)s?\b/iu.test(value)) score += 2;
-  if (/\b(?:within_radius_count\s*=\s*)?\d[\d,.]*\s+(?:candidate\s+)?(?:GNSS\s+)?stations?\b/iu.test(value)) {
+  if (
+    /\b(?:within_radius_count\s*=\s*)?\d[\d,.]*\s+(?:candidate\s+)?(?:GNSS\s+)?stations?\b/iu.test(
+      value,
+    )
+  ) {
     score += 8;
   }
   if (/\b(?:starting|now phase|next step|i(?:'|’)ll|will submit)\b/iu.test(value)) score -= 4;

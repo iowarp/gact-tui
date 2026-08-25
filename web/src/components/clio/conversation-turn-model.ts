@@ -1,5 +1,6 @@
 import type {
   AgentIteration,
+  Artifact,
   Message,
   MessageBlock,
   ModelReasoningCall,
@@ -37,6 +38,26 @@ export interface ConversationTurnPresentation {
   residualBlocks: MessageBlock[];
   supplementalCalls: SupplementalModelCall[];
   authoritative: boolean;
+}
+
+/** Keep only the latest chip for a repeated logical artifact within one message. */
+export function deduplicateArtifactBlocks(
+  blocks: readonly MessageBlock[],
+  artifacts: Record<string, Artifact>,
+): MessageBlock[] {
+  const latestBlockByArtifact = new Map<string, string>();
+  for (const block of blocks) {
+    if (block.type !== 'artifact') continue;
+    const artifact = artifacts[block.artifact_id];
+    if (!artifact) continue;
+    latestBlockByArtifact.set(`${artifact.workspace_id}:${artifact.name}`, block.id);
+  }
+  return blocks.filter((block) => {
+    if (block.type !== 'artifact') return true;
+    const artifact = artifacts[block.artifact_id];
+    if (!artifact) return true;
+    return latestBlockByArtifact.get(`${artifact.workspace_id}:${artifact.name}`) === block.id;
+  });
 }
 
 /** Build one lossless turn view from exact semantic iterations, with a transcript fallback. */
@@ -373,10 +394,21 @@ function iterationSummary(
   eventSummary?: string,
 ): string {
   const thought = nextThoughts.find((value) => value.trim());
-  if (thought) return compactSentence(thought);
+  if (thought) {
+    if (isResponseContractRepair(thought)) return 'Finalizing the response';
+    return compactSentence(thought);
+  }
   if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
   if (tool) return `${tool.title ?? humanize(tool.name)} requested`;
   return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
+}
+
+function isResponseContractRepair(value: string): boolean {
+  return (
+    /\b(?:submit|final(?:ize|ization)|response)\b/iu.test(value) &&
+    /\b(?:failed|rejected|retry|resubmit)\b/iu.test(value) &&
+    /\b(?:required|schema|field|format)\b/iu.test(value)
+  );
 }
 
 function compactSentence(value: string): string {

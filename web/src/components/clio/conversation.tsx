@@ -71,7 +71,7 @@ import { ClioMessageHistoryActions } from './message-history-actions';
 import { ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { ConversationTurn } from './conversation-turn';
-import { conversationTurnPresentation } from './conversation-turn-model';
+import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
 import { subagentsForTool } from './subagent-tool-link';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
@@ -347,6 +347,10 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     () => conversationTurnPresentation(message, entities.iterations ?? [], entities.tools),
     [entities.iterations, entities.tools, message],
   );
+  const residualBlocks = useMemo(
+    () => deduplicateArtifactBlocks(turn.residualBlocks, entities.artifacts),
+    [entities.artifacts, turn.residualBlocks],
+  );
   const linkedSubagentIds = useMemo(
     () =>
       new Set(
@@ -415,7 +419,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   subagents={entities.subagents}
                   supplementalCalls={turn.supplementalCalls}
                 />
-                {turn.residualBlocks
+                {residualBlocks
                   .filter(
                     (block) =>
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),

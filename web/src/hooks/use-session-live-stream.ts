@@ -104,10 +104,23 @@ export function useSessionLiveStream({
                   queryKey: ['sessions', settings.endpoint, workspaceId],
                 }),
                 queryClient.invalidateQueries({
+                  queryKey: ['sessions', settings.endpoint, 'all'],
+                }),
+                queryClient.invalidateQueries({
                   queryKey: sessionObservabilityQueryKey(settings.endpoint, sessionId),
                 }),
                 queryClient.invalidateQueries({
                   queryKey: sessionContextQueryKey(settings.endpoint, sessionId),
+                }),
+              ]);
+            }
+            if (frame.eventName === 'session.status_changed') {
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: ['sessions', settings.endpoint, workspaceId],
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: ['sessions', settings.endpoint, 'all'],
                 }),
               ]);
             }
@@ -196,14 +209,9 @@ function isPendingInteractionEvent(eventName: string): boolean {
 }
 
 function isProcessEvent(eventName: string): boolean {
-  return [
-    'agent.task.',
-    'agent_task.',
-    'mcp.task.',
-    'mcp_task.',
-    'run.',
-    'subagent.',
-  ].some((prefix) => eventName.startsWith(prefix));
+  return ['agent.task.', 'agent_task.', 'mcp.task.', 'mcp_task.', 'run.', 'subagent.'].some(
+    (prefix) => eventName.startsWith(prefix),
+  );
 }
 
 function isModelConfigurationEvent(eventName: string): boolean {
@@ -224,7 +232,10 @@ function abortableDelay(controller: AbortController, milliseconds: number): Prom
   });
 }
 
-function latestCursor(current: string | undefined, snapshot: string | undefined): string | undefined {
+function latestCursor(
+  current: string | undefined,
+  snapshot: string | undefined,
+): string | undefined {
   if (!current) return snapshot;
   if (!snapshot) return current;
   const currentNumber = Number(current);

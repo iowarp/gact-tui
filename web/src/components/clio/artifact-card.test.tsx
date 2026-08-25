@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   readArtifactBytesFor: vi.fn().mockResolvedValue(new Uint8Array([137, 80, 78, 71])),
+  readArtifactTextFor: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -13,6 +14,7 @@ import { ClioArtifactCard } from './artifact-card';
 
 beforeEach(() => {
   repository.readArtifactBytesFor.mockResolvedValue(new Uint8Array([137, 80, 78, 71]));
+  repository.readArtifactTextFor.mockReset();
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:artifact-preview'),
@@ -75,5 +77,27 @@ describe('ClioArtifactCard', () => {
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'artifact_plot' })),
     );
+  });
+
+  it('keeps tabular artifacts bounded instead of dumping raw rows into chat', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ClioArtifactCard
+          artifact={{
+            id: 'artifact_catalog',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'stations.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://workspace_1/stations.csv@v3',
+            size: 160_000,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/Open this data table in the workspace canvas/u)).toBeVisible();
+    expect(repository.readArtifactTextFor).not.toHaveBeenCalled();
   });
 });
