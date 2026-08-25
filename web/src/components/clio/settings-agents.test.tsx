@@ -113,7 +113,9 @@ describe('AgentSettings', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Actions for EarthScope Reviewer' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for EarthScope Reviewer' }),
+    );
     await user.click(screen.getByRole('menuitem', { name: 'Edit agent' }));
     const name = screen.getByRole('textbox', { name: 'Display name' });
     await user.clear(name);
@@ -134,7 +136,9 @@ describe('AgentSettings', () => {
   });
 
   it('keeps built-in agents immutable in the settings surface', async () => {
-    repository.agents.mockResolvedValue([{ ...agent, id: 'main', title: 'Main Agent', source: 'builtin' }]);
+    repository.agents.mockResolvedValue([
+      { ...agent, id: 'main', title: 'Main Agent', source: 'builtin' },
+    ]);
     repository.tools.mockResolvedValue([]);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -145,7 +149,9 @@ describe('AgentSettings', () => {
 
     expect(await screen.findByText('Main Agent')).toBeVisible();
     expect(screen.getByText('Built in')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Actions for Main Agent' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Actions for Main Agent' }),
+    ).not.toBeInTheDocument();
   });
 
   it('offers discovered providers and models before exposing custom identifiers', async () => {
@@ -164,5 +170,21 @@ describe('AgentSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'Preferred model' }));
     expect(await screen.findByRole('option', { name: /Claude Sonnet/ })).toBeVisible();
     expect(screen.getByRole('option', { name: /GPT-5.6-Luna/ })).toBeVisible();
+  });
+
+  it('does not report an empty tool catalog while the service is still loading it', async () => {
+    repository.agents.mockResolvedValue([agent]);
+    repository.tools.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AgentSettings />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'New agent' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading available tools…');
+    expect(screen.queryByText(/No available tools/u)).not.toBeInTheDocument();
   });
 });

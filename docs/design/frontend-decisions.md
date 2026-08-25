@@ -1390,3 +1390,15 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: the live Memory picker changed from more than thirty mixed parent and child
   entries to only user sessions on the disposable service. Focused Memory and Scheduled Work
   interaction coverage asserts that a child session cannot appear as a primary target.
+
+# Slow capability catalogs keep an honest loading state
+
+- Old failure: opening the agent editor before the service finished enumerating tools immediately
+  displayed `No matching tool`. The catalog was neither empty nor failed; it was still loading, and
+  the same request later returned filesystem, shell, and connected Web Search capabilities.
+- New representation: the sourced command palette keeps a labeled loading state until the
+  authoritative tool request settles, then transitions to the searchable catalog, an explicit
+  failure state, or a genuine empty result.
+- Acceptance evidence: with the live catalog request deliberately observed during its several-
+  second response window, the agent editor reported `Loading available tools…` and then replaced it
+  with the provider-supplied tools without reopening the dialog.

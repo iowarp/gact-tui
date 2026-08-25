@@ -110,6 +110,8 @@ export function AgentSettings() {
           onSave={save.mutateAsync}
           pending={save.isPending}
           tools={tools.data ?? []}
+          toolsError={tools.error?.message}
+          toolsPending={tools.isPending}
         />
       ) : null}
 

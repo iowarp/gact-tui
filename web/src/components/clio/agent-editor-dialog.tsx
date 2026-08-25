@@ -6,11 +6,7 @@ import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Command,
   CommandEmpty,
@@ -66,6 +62,8 @@ interface AgentEditorDialogProps {
   onSave: (agent: AgentDefinition) => Promise<unknown>;
   pending?: boolean;
   tools: readonly ToolCatalogItem[];
+  toolsError?: string;
+  toolsPending?: boolean;
 }
 
 /** Edit a service-owned agent definition without exposing adapter fields by default. */
@@ -76,6 +74,8 @@ export function AgentEditorDialog({
   onSave,
   pending,
   tools,
+  toolsError,
+  toolsPending,
 }: AgentEditorDialogProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -95,7 +95,8 @@ export function AgentEditorDialog({
   );
   const effectiveProvider =
     draft.provider || configuredPreset?.id || modelConfiguration.data?.provider || '';
-  const effectiveModel = draft.model || (!draft.provider ? modelConfiguration.data?.model : '') || '';
+  const effectiveModel =
+    draft.model || (!draft.provider ? modelConfiguration.data?.model : '') || '';
   const selectedPreset = modelConfiguration.data?.presets.find(
     (preset) => preset.id === effectiveProvider || preset.provider === effectiveProvider,
   );
@@ -105,15 +106,16 @@ export function AgentEditorDialog({
   const modelCatalogs = useQueries({
     queries: authenticatedPresets.map((preset) => ({
       queryKey: ['provider-models', settings.endpoint, preset.id],
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.providerModels(preset.id, signal),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        repository.providerModels(preset.id, signal),
     })),
   });
   const catalogModelsByProvider = Object.fromEntries(
     authenticatedPresets.map((preset, index) => [preset.id, modelCatalogs[index]?.data?.models]),
   );
-  const selectedCatalogError = modelCatalogs[
-    authenticatedPresets.findIndex((preset) => preset.id === selectedPreset?.id)
-  ]?.error;
+  const selectedCatalogError =
+    modelCatalogs[authenticatedPresets.findIndex((preset) => preset.id === selectedPreset?.id)]
+      ?.error;
   const modelOptions = buildModelOptions({
     activeCatalogProvider: catalogProvider,
     activeModel: effectiveModel,
@@ -287,32 +289,49 @@ export function AgentEditorDialog({
               <Command className="rounded-lg border">
                 <CommandInput placeholder="Search available tools" />
                 <CommandList className="max-h-52">
-                  <CommandEmpty>No matching tool.</CommandEmpty>
-                  <CommandGroup>
-                    {tools.map((tool) => {
-                      const id = tool.name || tool.id;
-                      const title = tool.title || humanizeToolName(id);
-                      const checked = draft.tools.includes(id);
-                      return (
-                        <CommandItem
-                          key={`${tool.server_id}:${id}`}
-                          onSelect={() =>
-                            update(
-                              'tools',
-                              checked
-                                ? draft.tools.filter((item) => item !== id)
-                                : [...draft.tools, id],
-                            )
-                          }
-                          value={`${title} ${tool.description ?? ''} ${id}`}
-                        >
-                          <Checkbox checked={checked} tabIndex={-1} />
-                          <span className="min-w-0 flex-1 truncate">{title}</span>
-                          <span className="font-mono text-[10px] text-muted-foreground">{id}</span>
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
+                  {toolsPending ? (
+                    <div
+                      className="px-3 py-6 text-center text-sm text-muted-foreground"
+                      role="status"
+                    >
+                      Loading available tools…
+                    </div>
+                  ) : toolsError ? (
+                    <div className="px-3 py-6 text-center text-sm text-destructive" role="alert">
+                      Available tools could not be loaded.
+                    </div>
+                  ) : (
+                    <>
+                      <CommandEmpty>No available tools match this search.</CommandEmpty>
+                      <CommandGroup>
+                        {tools.map((tool) => {
+                          const id = tool.name || tool.id;
+                          const title = tool.title || humanizeToolName(id);
+                          const checked = draft.tools.includes(id);
+                          return (
+                            <CommandItem
+                              key={`${tool.server_id}:${id}`}
+                              onSelect={() =>
+                                update(
+                                  'tools',
+                                  checked
+                                    ? draft.tools.filter((item) => item !== id)
+                                    : [...draft.tools, id],
+                                )
+                              }
+                              value={`${title} ${tool.description ?? ''} ${id}`}
+                            >
+                              <Checkbox checked={checked} tabIndex={-1} />
+                              <span className="min-w-0 flex-1 truncate">{title}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {id}
+                              </span>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </>
+                  )}
                 </CommandList>
               </Command>
             </Field>
