@@ -1,7 +1,15 @@
 import type { AgentBlueprint, Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIcon, BoxIcon, BoxesIcon, FolderIcon, PlusIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import {
+  ActivityIcon,
+  BoxIcon,
+  BoxesIcon,
+  FileTextIcon,
+  FolderIcon,
+  PlusIcon,
+  SearchIcon,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +29,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
@@ -28,15 +38,18 @@ import { cn } from '@/lib/utils';
 import { visibleWorkspaceFiles } from '@/lib/workspace-files';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
+import { WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
 
 export type CanvasResourceKind = 'session' | 'files' | 'artifacts' | 'blueprints';
 
 interface FileBrowserProps {
+  workspaceId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesError?: string;
-  onOpenFile: (path: string) => void;
+  selectedPath?: string;
+  onSelectedPathChange?: (path: string) => void;
 }
 
 interface ArtifactBrowserProps {
@@ -91,26 +104,123 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
   );
 }
 
-/** Browses workspace files and opens each selected file as its own rendered tab. */
-export function FileBrowser({ files, filesPending, filesError, onOpenFile }: FileBrowserProps) {
+/** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
+export function FileBrowser({
+  workspaceId,
+  files,
+  filesPending,
+  filesError,
+  selectedPath,
+  onSelectedPathChange,
+}: FileBrowserProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  const [query, setQuery] = useState('');
+  const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
   const visibleFiles = useMemo(() => visibleWorkspaceFiles(files), [files]);
-  const fileTree = useMemo(() => buildFileTree(visibleFiles), [visibleFiles]);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredFiles = useMemo(
+    () =>
+      normalizedQuery
+        ? visibleFiles.filter(
+            (entry) =>
+              entry.type === 'file' &&
+              entry.path.replace(/\\/gu, '/').toLocaleLowerCase().includes(normalizedQuery),
+          )
+        : visibleFiles,
+    [normalizedQuery, visibleFiles],
+  );
+  const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
+  const activePath = selectedPath ?? internalSelectedPath;
+  const activeFile = visibleFiles.find(
+    (entry) => entry.type === 'file' && entry.path === activePath,
+  );
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const update = () => setStacked(host.clientWidth < 480);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+
+  const selectFile = (path: string) => {
+    setInternalSelectedPath(path);
+    onSelectedPathChange?.(path);
+  };
+
   return (
-    <ScrollArea className="h-full p-3">
-      {filesPending ? (
-        <LoadingRows label="Loading workspace files" />
-      ) : visibleFiles.length ? (
-        <FileTree onSelect={onOpenFile}>
-          <FileNodes nodes={fileTree} />
-        </FileTree>
-      ) : (
-        <Unavailable
-          detail={filesError ?? 'The workspace contains no visible files.'}
-          icon={FolderIcon}
-          label={filesError ? 'File tree unavailable' : 'No workspace files'}
-        />
-      )}
-    </ScrollArea>
+    <div className="h-full min-h-0" ref={hostRef}>
+      <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
+        <ResizablePanel
+          defaultSize={stacked ? '42%' : '44%'}
+          id="workspace-file-tree"
+          minSize={stacked ? '140px' : '190px'}
+        >
+          <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 border-b p-2">
+              <div className="relative">
+                <SearchIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  aria-label="Filter workspace files"
+                  className="h-8 pl-8 text-xs"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Filter files"
+                  value={query}
+                />
+              </div>
+            </div>
+            <ScrollArea className="min-h-0 flex-1 p-2">
+              {filesPending ? (
+                <LoadingRows label="Loading workspace files" />
+              ) : visibleFiles.length ? (
+                filteredFiles.length ? (
+                  <FileTree
+                    className="rounded-none border-0 bg-transparent"
+                    onSelect={selectFile}
+                    selectedPath={activePath}
+                  >
+                    <FileNodes nodes={fileTree} />
+                  </FileTree>
+                ) : (
+                  <Unavailable icon={SearchIcon} label="No files match this filter" />
+                )
+              ) : (
+                <Unavailable
+                  detail={filesError ?? 'The workspace contains no visible files.'}
+                  icon={FolderIcon}
+                  label={filesError ? 'File tree unavailable' : 'No workspace files'}
+                />
+              )}
+            </ScrollArea>
+          </section>
+        </ResizablePanel>
+        <ResizableHandle aria-label="Resize file tree" withHandle />
+        <ResizablePanel id="workspace-file-preview" minSize={stacked ? '180px' : '240px'}>
+          <section aria-label="Workspace file preview" className="h-full min-h-0 overflow-hidden">
+            {activeFile ? (
+              <WorkspaceFileView
+                path={activeFile.path}
+                size={activeFile.size}
+                workspaceId={workspaceId}
+              />
+            ) : (
+              <div className="grid h-full place-items-center p-4">
+                <Unavailable
+                  detail="Choose a file from the workspace tree to inspect it here."
+                  icon={FileTextIcon}
+                  label="Select a file"
+                />
+              </div>
+            )}
+          </section>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }
 

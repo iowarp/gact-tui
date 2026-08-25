@@ -27,6 +27,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -37,7 +38,7 @@ import {
 } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { ArtifactView, BlueprintFileView, WorkspaceFileView } from './resource-viewers';
+import { ArtifactView, BlueprintFileView } from './resource-viewers';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
@@ -52,7 +53,7 @@ import {
 
 type WorkbenchTab =
   | { id: 'session'; kind: 'session'; label: 'Observability' }
-  | { id: 'files'; kind: 'files'; label: 'Files' }
+  | { id: 'files'; kind: 'files'; label: 'Files'; path?: string }
   | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
   | { id: 'blueprints'; kind: 'blueprints'; label: 'Blueprints' }
   | { id: string; kind: 'workspace-file'; label: string; path: string; workspaceId: string }
@@ -350,15 +351,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   files={files}
                   filesError={filesError}
                   filesPending={filesPending}
-                  onOpenFile={(path) =>
-                    openTab({
-                      id: `workspace-file:${path}`,
-                      kind: 'workspace-file',
-                      label: fileName(path),
-                      path,
-                      workspaceId,
-                    })
+                  onSelectedPathChange={(path) =>
+                    setTabs((current) =>
+                      current.map((candidate) =>
+                        candidate.id === tab.id && candidate.kind === 'files'
+                          ? { ...candidate, path }
+                          : candidate,
+                      ),
+                    )
                   }
+                  selectedPath={tab.path}
+                  workspaceId={workspaceId}
                 />
               ) : tab.kind === 'artifacts' ? (
                 <ArtifactBrowser
@@ -390,9 +393,20 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   }
                 />
               ) : tab.kind === 'workspace-file' ? (
-                <WorkspaceFileView
-                  path={tab.path}
-                  size={files.find((file) => file.path === tab.path)?.size}
+                <FileBrowser
+                  files={files}
+                  filesError={filesError}
+                  filesPending={filesPending}
+                  onSelectedPathChange={(path) =>
+                    setTabs((current) =>
+                      current.map((candidate) =>
+                        candidate.id === tab.id && candidate.kind === 'workspace-file'
+                          ? { ...candidate, label: fileName(path), path }
+                          : candidate,
+                      ),
+                    )
+                  }
+                  selectedPath={tab.path}
                   workspaceId={tab.workspaceId}
                 />
               ) : tab.kind === 'diff' ? (
@@ -511,7 +525,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       </aside>
     );
 
-    return canvas;
+    return maximized ? createPortal(canvas, document.body) : canvas;
   },
 );
 

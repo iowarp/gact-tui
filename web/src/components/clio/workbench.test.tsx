@@ -1,10 +1,22 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 
-afterEach(cleanup);
+const { repository } = vi.hoisted(() => ({
+  repository: {
+    readWorkspaceFile: vi.fn(),
+  },
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 function renderWorkbench() {
   return render(
@@ -114,6 +126,42 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Review file change')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Apply change' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Reject change' })).toBeVisible();
+  });
+
+  it('keeps the file tree beside a directly opened rendered file', async () => {
+    const user = userEvent.setup();
+    const ref = createRef<ClioWorkbenchHandle>();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readWorkspaceFile.mockResolvedValue('# workspace report');
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClioWorkbench
+          artifacts={[]}
+          blueprints={[]}
+          diffs={[]}
+          files={[{ path: 'reports/summary.md', type: 'file', size: 18 }]}
+          onApplyDiff={vi.fn()}
+          onOpenSubagent={vi.fn()}
+          onRejectDiff={vi.fn()}
+          ref={ref}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    act(() => ref.current?.open({ kind: 'workspace-file', path: 'reports/summary.md' }));
+
+    expect(screen.getByRole('tree')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Expand folder reports' }));
+    expect(screen.getByRole('treeitem', { name: 'summary.md' })).toBeVisible();
+    expect(await screen.findByText('# workspace report')).toBeVisible();
+    expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
+      'workspace_1',
+      'reports/summary.md',
+      expect.any(AbortSignal),
+    );
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
