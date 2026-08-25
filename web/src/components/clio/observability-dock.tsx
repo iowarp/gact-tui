@@ -33,7 +33,6 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
 import { childAgentRelationshipLabel, getChildAgentAssignment } from './child-agent-presentation';
@@ -278,7 +277,8 @@ export function ClioObservabilityView({
   onOpenSubagent,
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const hasWideNavigation = useContainerQuery(surfaceRef, 480);
+  const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
+  const hasWideNavigation = useContainerQuery(surfaceRef, 520);
   const hasGraphSpace = useContainerQuery(surfaceRef, 640);
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
   const activity = useMemo<ObservabilityActivityItem[]>(
@@ -338,52 +338,19 @@ export function ClioObservabilityView({
   );
   return (
     <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
-      <Tabs
-        className="h-full min-h-0 gap-0"
-        defaultValue="work"
-        orientation={hasWideNavigation ? 'horizontal' : 'vertical'}
-      >
-        <TooltipProvider delayDuration={240}>
-          <TabsList
-            aria-label="Observability view"
-            className={
-              hasWideNavigation
-                ? 'h-12 w-full shrink-0 justify-start rounded-none border-b bg-muted/20 px-3 py-2'
-                : 'order-2 h-full w-12 shrink-0 justify-start rounded-none border-l bg-muted/20 p-1'
-            }
-            variant="line"
-          >
-            <ObservabilityTab
-              compact={!hasWideNavigation}
-              icon={<ChartNoAxesGanttIcon />}
-              label="Gantt"
-              value="work"
-            />
-            <ObservabilityTab
-              compact={!hasWideNavigation}
-              icon={<ActivityIcon />}
-              label="Timeline"
-              value="activity"
-            />
-            <ObservabilityTab
-              compact={!hasWideNavigation}
-              icon={<Layers3Icon />}
-              label="Evidence"
-              value="evidence"
-            />
-            <ObservabilityTab
-              compact={!hasWideNavigation}
-              icon={<BracesIcon />}
-              label="Context"
-              value="context"
-            />
-          </TabsList>
-        </TooltipProvider>
-        <ScrollArea
-          className={
-            hasWideNavigation ? 'min-h-0 min-w-0 flex-1' : 'order-1 min-h-0 min-w-0 flex-1'
-          }
+      <Tabs className="h-full min-h-0 gap-0" defaultValue="work">
+        <TabsList
+          aria-label="Observability view"
+          className={`mx-3 mt-2 grid h-auto w-auto shrink-0 gap-1 p-1 ${
+            hasWideNavigation ? 'grid-cols-4' : hasMediumNavigation ? 'grid-cols-2' : 'grid-cols-1'
+          }`}
         >
+          <ObservabilityTab icon={<ChartNoAxesGanttIcon />} label="Gantt" value="work" />
+          <ObservabilityTab icon={<ActivityIcon />} label="Timeline" value="activity" />
+          <ObservabilityTab icon={<Layers3Icon />} label="Evidence" value="evidence" />
+          <ObservabilityTab icon={<BracesIcon />} label="Context" value="context" />
+        </TabsList>
+        <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
             <ClioProcessLanes
               messages={messages}
@@ -444,34 +411,19 @@ export function ClioObservabilityView({
 }
 
 function ObservabilityTab({
-  compact,
   icon,
   label,
   value,
 }: {
-  compact: boolean;
   icon: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <TabsTrigger
-          aria-label={label}
-          className={
-            compact
-              ? 'size-9 flex-none justify-center p-0'
-              : 'h-8 min-w-0 flex-1 justify-center px-3'
-          }
-          value={value}
-        >
-          {icon}
-          <span className={compact ? 'sr-only' : undefined}>{label}</span>
-        </TabsTrigger>
-      </TooltipTrigger>
-      <TooltipContent side={compact ? 'left' : 'bottom'}>{label}</TooltipContent>
-    </Tooltip>
+    <TabsTrigger aria-label={label} className="h-8 min-w-0 w-full px-2" value={value}>
+      {icon}
+      <span>{label}</span>
+    </TabsTrigger>
   );
 }
 
