@@ -5,7 +5,7 @@ import {
   PaperclipIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
@@ -32,6 +32,7 @@ import {
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
 import { providerLogoId } from '@/lib/provider-presentation';
+import { cn } from '@/lib/utils';
 
 export interface ClioComposerProps {
   state: RunState;
@@ -59,6 +60,11 @@ export interface ClioComposerProps {
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   activityControl?: ReactNode;
+  behaviorControl?: ReactNode;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  focusRequestKey?: number;
+  variant?: 'docked' | 'welcome';
 }
 
 function chatStatus(state: RunState): 'ready' | 'submitted' | 'streaming' | 'error' {
@@ -81,11 +87,21 @@ export function ClioComposer({
   onStop,
   onCommand,
   activityControl,
+  behaviorControl,
+  value,
+  onValueChange,
+  focusRequestKey,
+  variant = 'docked',
 }: ClioComposerProps) {
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [selectedModel, setSelectedModel] = useState(model);
   const [selectedEffort, setSelectedEffort] = useState(effort);
-  const [input, setInput] = useState('');
+  const [internalInput, setInternalInput] = useState('');
+  const input = value ?? internalInput;
+  const setInput = (nextValue: string) => {
+    if (value === undefined) setInternalInput(nextValue);
+    onValueChange?.(nextValue);
+  };
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
@@ -99,8 +115,21 @@ export function ClioComposer({
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
 
+  useEffect(() => {
+    if (focusRequestKey === undefined) return;
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequestKey]);
+
   return (
-    <div className="relative bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-3 pt-6 lg:px-6">
+    <div
+      className={cn(
+        'relative',
+        variant === 'docked'
+          ? 'bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-3 pt-6 lg:px-6'
+          : 'w-full',
+      )}
+    >
       {showCommands ? (
         <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
           <PromptInputCommand className="rounded-xl border bg-popover text-popover-foreground shadow-xl">
@@ -202,6 +231,7 @@ export function ClioComposer({
         />
         <PromptInputFooter className="flex-wrap">
           <PromptInputTools className="min-w-0 flex-1 flex-wrap">
+            {behaviorControl}
             {attachments ? (
               <PromptInputActionAddAttachments aria-label="Attach files">
                 <PaperclipIcon aria-hidden="true" />

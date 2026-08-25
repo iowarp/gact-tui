@@ -14,6 +14,14 @@ declare module '@brand' {
       headline: string;
       description: string;
     };
+    workspace: {
+      greeting: string;
+      description: string;
+    };
+    starterPrompts: Array<{
+      eyebrow: string;
+      label: string;
+    }>;
     logoSvg: string | null;
     logoImage: string | null;
   }

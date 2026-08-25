@@ -1,12 +1,14 @@
 import type { Artifact, Message, RunState, SessionDiff, SubagentRun } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
+import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversation } from '@/components/clio/conversation';
+import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioObservabilityDock, ClioObservabilityView } from '@/components/clio/observability-dock';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
@@ -57,6 +59,9 @@ export function WorkspacePage() {
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
+  const [composerDraft, setComposerDraft] = useState('');
+  const [composerFocusKey, setComposerFocusKey] = useState(0);
+  const [conversationStarted, setConversationStarted] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
@@ -197,6 +202,13 @@ export function WorkspacePage() {
     ],
   );
   const { messages, processes, subagents } = relations;
+  useEffect(() => {
+    setComposerDraft('');
+    setConversationStarted(false);
+  }, [sessionId]);
+  useEffect(() => {
+    if (messages.length > 0) setConversationStarted(true);
+  }, [messages.length]);
   const interactionSessionIds = useMemo(() => {
     const related = new Set([sessionId]);
     let changed = true;
@@ -255,6 +267,8 @@ export function WorkspacePage() {
     catalogModels: modelCatalog.data?.models,
     presets: modelConfiguration.data?.presets ?? [],
   });
+  const showConversationWelcome =
+    messages.length === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
 
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {
@@ -525,6 +539,85 @@ export function WorkspacePage() {
 
   const state: RunState = send.isPending ? 'queued' : (session?.state ?? 'interrupted');
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
+  const renderComposer = (variant: 'docked' | 'welcome') => (
+    <m.div
+      className={variant === 'welcome' ? 'w-full' : 'relative shrink-0'}
+      key={variant}
+      layout
+      layoutId={`session-composer:${sessionId}`}
+    >
+      <ClioComposer
+        activityControl={
+          variant === 'docked' ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <ClioObservabilityDock
+                artifacts={artifacts}
+                context={context}
+                contextFiles={sessionObservability.contextFiles.data ?? []}
+                contextFrames={sessionObservability.contextFrames.data ?? []}
+                diffs={sessionObservability.diffs.data ?? []}
+                messages={messages}
+                onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+                onOpenArtifact={openArtifact}
+                onOpenDiff={openDiff}
+                onOpenFile={openWorkspaceFile}
+                onOpenSubagent={openSubagent}
+                processes={processes}
+                runs={runs}
+                sessionState={state}
+                subagents={subagents}
+                tasks={tasks}
+                tools={tools}
+              />
+            </div>
+          ) : undefined
+        }
+        attachments={capabilities.data?.capabilities.attachments === true}
+        behaviorControl={
+          <ClioSessionBehaviorMenu
+            disabled={updateSessionBehavior.isPending}
+            onChange={async (patch) => {
+              await updateSessionBehavior.mutateAsync(patch);
+            }}
+            session={session}
+          />
+        }
+        commands={commands}
+        disabled={!session || send.isPending || cancel.isPending || isPending}
+        effort={activeEffort}
+        focusRequestKey={composerFocusKey}
+        key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+        model={activeModel}
+        modelOptions={modelOptions}
+        onCommand={async (value) => {
+          const startedFromWelcome = showConversationWelcome;
+          if (startedFromWelcome) setConversationStarted(true);
+          try {
+            await run(value);
+          } catch (error) {
+            if (startedFromWelcome && messages.length === 0) setConversationStarted(false);
+            throw error;
+          }
+        }}
+        onSubmit={async (value) => {
+          const startedFromWelcome = showConversationWelcome;
+          if (startedFromWelcome) setConversationStarted(true);
+          try {
+            await send.mutateAsync(value);
+          } catch (error) {
+            if (startedFromWelcome && messages.length === 0) setConversationStarted(false);
+            throw error;
+          }
+        }}
+        onStop={() => cancel.mutate()}
+        onValueChange={setComposerDraft}
+        provider={activeProvider}
+        state={state}
+        value={composerDraft}
+        variant={variant}
+      />
+    </m.div>
+  );
   return (
     <>
       <ClioCommandMenu onOpenResource={revealWorkbench} />
@@ -672,122 +765,107 @@ export function WorkspacePage() {
               <AlertDescription>{transcriptError}</AlertDescription>
             </Alert>
           ) : null}
-          <div className="min-h-0 flex-1">
-            <ClioConversation
-              artifacts={entities.artifacts}
-              error={transcriptError}
-              loading={transcript.isPending}
-              messages={messages}
-              onActionCardAction={actionCard.mutateAsync}
-              onA2UILocalAction={handleA2UILocalAction}
-              onOpenArtifact={openArtifact}
-              onOpenFile={openWorkspaceFile}
-              forkingMessageId={
-                sessionHistory.fork.isPending && sessionHistory.fork.variables
-                  ? sessionHistory.fork.variables
-                  : undefined
-              }
-              onForkFromMessage={sessionHistory.fork.mutateAsync}
-              onOpenSubagent={openSubagent}
-              onRewindToMessage={sessionHistory.rewind.mutateAsync}
-              onRetryMessage={retry.mutateAsync}
-              rewindingMessageId={
-                sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
-              }
-              retryingMessageId={retry.isPending ? retry.variables : undefined}
-              subagents={conversationSubagents}
-              surfaces={entities.surfaces}
-              tasks={entities.tasks}
-              tools={entities.tools}
-            />
-          </div>
-          {actionCard.error ? (
-            <Alert className="mx-4 mb-3" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Action unavailable</AlertTitle>
-              <AlertDescription>{actionCard.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          {retry.error ? (
-            <Alert className="mx-4 mb-3" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Retry unavailable</AlertTitle>
-              <AlertDescription>{retry.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          {approvals.error || questions.error ? (
-            <Alert className="mx-4 mb-3" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Responses unavailable</AlertTitle>
-              <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          <ClioPendingInteractions
-            approvals={visibleApprovals}
-            disabled={
-              respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
-            }
-            onAnswer={async (id, answer) => {
-              await answerQuestion.mutateAsync({ id, answer });
-            }}
-            onApproval={async (id, action) => {
-              await respondPermission.mutateAsync({ id, action });
-            }}
-            onCancelQuestion={async (id) => {
-              await cancelQuestion.mutateAsync(id);
-            }}
-            questions={questions.data ?? []}
-          />
-          <div className="relative shrink-0">
-            <ClioComposer
-              activityControl={
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <ClioObservabilityDock
-                    artifacts={artifacts}
-                    context={context}
-                    contextFiles={sessionObservability.contextFiles.data ?? []}
-                    contextFrames={sessionObservability.contextFrames.data ?? []}
-                    diffs={sessionObservability.diffs.data ?? []}
-                    messages={messages}
-                    onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                    onOpenArtifact={openArtifact}
-                    onOpenDiff={openDiff}
-                    onOpenFile={openWorkspaceFile}
-                    onOpenSubagent={openSubagent}
-                    processes={processes}
-                    runs={runs}
-                    sessionState={state}
-                    subagents={subagents}
-                    tasks={tasks}
-                    tools={tools}
-                  />
-                  {session ? (
-                    <ClioSessionBehaviorMenu
-                      disabled={updateSessionBehavior.isPending}
-                      onChange={async (patch) => {
-                        await updateSessionBehavior.mutateAsync(patch);
+          <LayoutGroup id={`session-layout:${sessionId}`}>
+            <AnimatePresence initial={false} mode="popLayout">
+              {showConversationWelcome ? (
+                <m.div
+                  animate={{ opacity: 1 }}
+                  className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6"
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  key="welcome"
+                >
+                  <div className="flex min-h-full items-center">
+                    <ClioConversationWelcome
+                      disabled={!session || send.isPending || cancel.isPending || isPending}
+                      onSelectPrompt={(prompt) => {
+                        setComposerDraft(prompt);
+                        setComposerFocusKey((current) => current + 1);
                       }}
-                      session={session}
-                    />
-                  ) : null}
-                </div>
+                    >
+                      {renderComposer('welcome')}
+                    </ClioConversationWelcome>
+                  </div>
+                </m.div>
+              ) : (
+                <m.div
+                  animate={{ opacity: 1 }}
+                  className="min-h-0 flex-1"
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  key="conversation"
+                >
+                  <ClioConversation
+                    artifacts={entities.artifacts}
+                    error={transcriptError}
+                    loading={transcript.isPending}
+                    messages={messages}
+                    onActionCardAction={actionCard.mutateAsync}
+                    onA2UILocalAction={handleA2UILocalAction}
+                    onOpenArtifact={openArtifact}
+                    onOpenFile={openWorkspaceFile}
+                    forkingMessageId={
+                      sessionHistory.fork.isPending && sessionHistory.fork.variables
+                        ? sessionHistory.fork.variables
+                        : undefined
+                    }
+                    onForkFromMessage={sessionHistory.fork.mutateAsync}
+                    onOpenSubagent={openSubagent}
+                    onRewindToMessage={sessionHistory.rewind.mutateAsync}
+                    onRetryMessage={retry.mutateAsync}
+                    rewindingMessageId={
+                      sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
+                    }
+                    retryingMessageId={retry.isPending ? retry.variables : undefined}
+                    subagents={conversationSubagents}
+                    surfaces={entities.surfaces}
+                    tasks={entities.tasks}
+                    tools={entities.tools}
+                  />
+                </m.div>
+              )}
+            </AnimatePresence>
+            {actionCard.error ? (
+              <Alert className="mx-4 mb-3" variant="destructive">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Action unavailable</AlertTitle>
+                <AlertDescription>{actionCard.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            {retry.error ? (
+              <Alert className="mx-4 mb-3" variant="destructive">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Retry unavailable</AlertTitle>
+                <AlertDescription>{retry.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            {approvals.error || questions.error ? (
+              <Alert className="mx-4 mb-3" variant="destructive">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Responses unavailable</AlertTitle>
+                <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            <ClioPendingInteractions
+              approvals={visibleApprovals}
+              disabled={
+                respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
               }
-              attachments={capabilities.data?.capabilities.attachments === true}
-              commands={commands}
-              disabled={!session || send.isPending || cancel.isPending || isPending}
-              effort={activeEffort}
-              key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
-              model={activeModel}
-              modelOptions={modelOptions}
-              onCommand={run}
-              onSubmit={async (value) => {
-                await send.mutateAsync(value);
+              onAnswer={async (id, answer) => {
+                await answerQuestion.mutateAsync({ id, answer });
               }}
-              onStop={() => cancel.mutate()}
-              provider={activeProvider}
-              state={state}
+              onApproval={async (id, action) => {
+                await respondPermission.mutateAsync({ id, action });
+              }}
+              onCancelQuestion={async (id) => {
+                await cancelQuestion.mutateAsync(id);
+              }}
+              questions={questions.data ?? []}
             />
-          </div>
+            <AnimatePresence initial={false}>
+              {showConversationWelcome ? null : renderComposer('docked')}
+            </AnimatePresence>
+          </LayoutGroup>
         </section>
       </ClioAppShell>
     </>

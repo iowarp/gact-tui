@@ -8,6 +8,10 @@
     "headline": "Your agent work, in one place.",
     "description": "Connect to an agent service to continue your work. Product identity and domain language are supplied by the service you use."
   },
+  "workspace": {
+    "greeting": "What would you like to work on?",
+    "description": "Start with a question, a workspace resource, or one of these examples."
+  },
   "logoSvg": "logo.svg",
   "accent": "#5b8def",
   "themeTokens": {
