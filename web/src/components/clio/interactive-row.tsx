@@ -56,7 +56,7 @@ export function ClioInteractiveRow({
       <div className="min-w-0 flex-1 self-stretch">{children}</div>
       {actions ? (
         <div
-          className="relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground opacity-65 transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100"
+          className="relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground opacity-65 transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100 group-data-[collapsible=icon]:hidden"
           onClick={(event) => event.stopPropagation()}
         >
           {actions}

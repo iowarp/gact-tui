@@ -9,7 +9,6 @@ import {
   UploadIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +23,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
 
 interface NavigationHeaderProps {
@@ -130,54 +128,52 @@ export function NavigationHeader({
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="Search work"
-              className="min-w-0 flex-1 justify-start group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:px-0"
-              onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <SearchIcon aria-hidden="true" />
-              <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
-              <kbd className="ml-auto text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
-                Ctrl K
-              </kbd>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Search work, files, and actions</TooltipContent>
-        </Tooltip>
-        <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button aria-label="Create or import" size="icon-sm" type="button">
-                  <PlusIcon aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>Create or import</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onSelect={onNewSession}>
-              <PlusIcon aria-hidden="true" /> New session
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onNewWorkspace}>
-              <FolderGit2Icon aria-hidden="true" /> New workspace
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onImportSession}>
-              <UploadIcon aria-hidden="true" /> Import session…
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onOpenArchived}>
-              <ArchiveIcon aria-hidden="true" /> Archived sessions
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <SidebarMenu className="flex-row gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
+        <SidebarMenuItem className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
+          <SidebarMenuButton
+            aria-label="Search work"
+            className="justify-start group-data-[collapsible=icon]:justify-center"
+            onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
+            tooltip="Search work, files, and actions"
+            type="button"
+          >
+            <SearchIcon aria-hidden="true" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
+            <kbd className="ml-auto text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+              Ctrl K
+            </kbd>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem className="shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                aria-label="Create or import"
+                className="size-8 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                tooltip="Create or import"
+                type="button"
+              >
+                <PlusIcon aria-hidden="true" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onSelect={onNewSession}>
+                <PlusIcon aria-hidden="true" /> New session
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onNewWorkspace}>
+                <FolderGit2Icon aria-hidden="true" /> New workspace
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onImportSession}>
+                <UploadIcon aria-hidden="true" /> Import session…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenArchived}>
+                <ArchiveIcon aria-hidden="true" /> Archived sessions
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
     </SidebarHeader>
   );
 }
