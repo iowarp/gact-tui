@@ -1,5 +1,15 @@
 import type { Session } from '@clio/core/v3';
-import { Settings2Icon } from 'lucide-react';
+import {
+  BotIcon,
+  CircleHelpIcon,
+  FolderCheckIcon,
+  Globe2Icon,
+  MapIcon,
+  PlayIcon,
+  RadarIcon,
+  ShieldOffIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -19,7 +29,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -33,31 +42,71 @@ export interface ClioSessionBehaviorMenuProps {
   onChange: (patch: SessionBehaviorPatch) => Promise<void>;
 }
 
-const modeLabels: Record<Session['mode'], string> = {
-  edit: 'Build and edit',
-  plan: 'Plan before acting',
-  architect: 'Architecture',
-};
+interface BehaviorOption<T extends string> {
+  value: T;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
 
-const routingLabels: Record<Session['routing_mode'], string> = {
-  auto: 'Automatic',
-  chat: 'Conversation only',
-  experts: 'Use domain experts',
-  reasoning_only: 'Reasoning only',
-};
+const modeOptions = [
+  {
+    value: 'edit',
+    label: 'Execute',
+    description: 'Act on the request and make supported changes.',
+    icon: PlayIcon,
+  },
+  {
+    value: 'plan',
+    label: 'Plan',
+    description: 'Develop a concrete approach before changing anything.',
+    icon: MapIcon,
+  },
+  {
+    value: 'architect',
+    label: 'Deep research',
+    description: 'Investigate broadly through specialists before proposing changes.',
+    icon: Globe2Icon,
+  },
+] satisfies readonly BehaviorOption<Session['mode']>[];
 
-const editLabels: Record<Session['edit_mode'], string> = {
-  diff: 'Reviewable changes',
-  whole: 'Replace whole files',
-  patch: 'Patch operations',
-};
+const approvalOptions = [
+  {
+    value: 'ask',
+    label: 'Ask first',
+    description: 'Pause before protected actions.',
+    icon: CircleHelpIcon,
+  },
+  {
+    value: 'auto-edits',
+    label: 'Workspace edits',
+    description: 'Make workspace edits without a separate confirmation.',
+    icon: FolderCheckIcon,
+  },
+  {
+    value: 'ai-review',
+    label: 'AI review',
+    description: 'Continue when automated review accepts the action.',
+    icon: BotIcon,
+  },
+  {
+    value: 'spotter-ai',
+    label: 'SPOTTER review',
+    description: 'Require the configured SPOTTER policy.',
+    icon: RadarIcon,
+  },
+  {
+    value: 'bypass',
+    label: 'Bypass checks',
+    description: 'Do not stop for supported action checks.',
+    icon: ShieldOffIcon,
+  },
+] satisfies readonly BehaviorOption<Session['approval_mode']>[];
 
-const approvalLabels: Record<Session['approval_mode'], string> = {
-  ask: 'Ask me',
-  'auto-edits': 'Allow workspace edits',
-  'ai-review': 'AI review',
-  'spotter-ai': 'SPOTTER review',
-  bypass: 'Bypass checks',
+const modePatches: Record<Session['mode'], SessionBehaviorPatch> = {
+  edit: { mode: 'edit', routing_mode: 'auto' },
+  plan: { mode: 'plan', routing_mode: 'auto' },
+  architect: { mode: 'architect', routing_mode: 'experts' },
 };
 
 export function ClioSessionBehaviorMenu({
@@ -83,63 +132,57 @@ export function ClioSessionBehaviorMenu({
   };
 
   const unavailable = disabled || pending;
-  const description = `${modeLabels[session.mode]}, ${routingLabels[session.routing_mode]}, ${editLabels[session.edit_mode]}, ${approvalLabels[session.approval_mode]}`;
+  const selectedMode =
+    modeOptions.find((option) => option.value === session.mode) ?? modeOptions[0];
+  const selectedApproval =
+    approvalOptions.find((option) => option.value === session.approval_mode) ?? approvalOptions[0];
+  const ModeIcon = selectedMode.icon;
+  const ApprovalIcon = selectedApproval.icon;
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label={`Session behavior: ${description}`}
+            aria-label={`Work mode: ${selectedMode.label}`}
             className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
             disabled={unavailable}
             size="icon-sm"
-            title="Session behavior"
+            title={`Work mode: ${selectedMode.label}`}
             type="button"
             variant="ghost"
           >
-            <Settings2Icon aria-hidden="true" className="size-3.5" />
+            <ModeIcon aria-hidden="true" className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel>Task style</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>Work mode</DropdownMenuLabel>
           <DropdownMenuRadioGroup
-            onValueChange={(value) => void change({ mode: value as Session['mode'] })}
+            onValueChange={(value) => void change(modePatches[value as Session['mode']])}
             value={session.mode}
           >
-            {Object.entries(modeLabels).map(([value, label]) => (
-              <DropdownMenuRadioItem disabled={unavailable} key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
+            {modeOptions.map((option) => (
+              <BehaviorMenuItem disabled={unavailable} key={option.value} option={option} />
             ))}
           </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Specialist use</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            onValueChange={(value) =>
-              void change({ routing_mode: value as Session['routing_mode'] })
-            }
-            value={session.routing_mode}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={`Confirmation policy: ${selectedApproval.label}`}
+            className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+            disabled={unavailable}
+            size="icon-sm"
+            title={`Confirmation policy: ${selectedApproval.label}`}
+            type="button"
+            variant="ghost"
           >
-            {Object.entries(routingLabels).map(([value, label]) => (
-              <DropdownMenuRadioItem disabled={unavailable} key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>File changes</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            onValueChange={(value) => void change({ edit_mode: value as Session['edit_mode'] })}
-            value={session.edit_mode}
-          >
-            {Object.entries(editLabels).map(([value, label]) => (
-              <DropdownMenuRadioItem disabled={unavailable} key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
+            <ApprovalIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel>Confirmations</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
@@ -148,15 +191,13 @@ export function ClioSessionBehaviorMenu({
             }}
             value={session.approval_mode}
           >
-            {Object.entries(approvalLabels).map(([value, label]) => (
-              <DropdownMenuRadioItem
-                className={value === 'bypass' ? 'text-destructive' : undefined}
+            {approvalOptions.map((option) => (
+              <BehaviorMenuItem
+                destructive={option.value === 'bypass'}
                 disabled={unavailable}
-                key={value}
-                value={value}
-              >
-                {label}
-              </DropdownMenuRadioItem>
+                key={option.value}
+                option={option}
+              />
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
@@ -189,5 +230,32 @@ export function ClioSessionBehaviorMenu({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function BehaviorMenuItem<T extends string>({
+  destructive,
+  disabled,
+  option,
+}: {
+  destructive?: boolean;
+  disabled?: boolean;
+  option: BehaviorOption<T>;
+}) {
+  const Icon = option.icon;
+  return (
+    <DropdownMenuRadioItem
+      className={destructive ? 'text-destructive focus:text-destructive' : undefined}
+      disabled={disabled}
+      value={option.value}
+    >
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{option.label}</span>
+        <span className="block text-xs font-normal text-muted-foreground">
+          {option.description}
+        </span>
+      </span>
+    </DropdownMenuRadioItem>
   );
 }

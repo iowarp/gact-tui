@@ -26,17 +26,24 @@ const session: Session = {
 };
 
 describe('ClioSessionBehaviorMenu', () => {
-  it('updates real session routing and confirms review bypass', async () => {
+  it('offers user-level work and confirmation menus without implementation controls', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn().mockResolvedValue(undefined);
     render(<ClioSessionBehaviorMenu onChange={onChange} session={session} />);
 
-    await user.click(screen.getByRole('button', { name: /Session behavior:/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Use domain experts' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ routing_mode: 'experts' }));
+    expect(screen.getByRole('button', { name: 'Work mode: Execute' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirmation policy: Ask first' })).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: /Session behavior:/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Bypass checks' }));
+    await user.click(screen.getByRole('button', { name: 'Work mode: Execute' }));
+    expect(screen.queryByText('Specialist use')).not.toBeInTheDocument();
+    expect(screen.queryByText('File changes')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitemradio', { name: /Deep research/ }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ mode: 'architect', routing_mode: 'experts' }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirmation policy: Ask first' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /Bypass checks/ }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'The agent may perform supported actions without asking first.',
     );
