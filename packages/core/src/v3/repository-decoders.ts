@@ -125,7 +125,7 @@ export const artifactVersionSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   custody_gap: z
-    .boolean()
+    .union([z.boolean(), z.record(z.string(), z.unknown())])
     .nullish()
     .transform((value) => value ?? undefined),
   uri: z.string(),
@@ -139,6 +139,15 @@ export const artifactRecordSchema = z.object({
   head_artifact_id: z.string(),
   aliases: z.record(z.string(), z.number().int().positive()).default({}),
   versions: z.array(artifactVersionSchema).default([]),
+  producing_session_ids: z.array(z.string()).optional(),
+});
+export const sessionArtifactListingSchema = z.object({
+  artifacts: z.array(artifactRecordSchema).default([]),
+  used: z.array(artifactRecordSchema).default([]),
+  count: z.number().int().nonnegative(),
+  include_children: z.boolean().default(false),
+  child_session_ids: z.array(z.string()).default([]),
+  next_cursor: z.string().nullish(),
 });
 export const artifactDetailSchema = z.object({
   artifact: artifactRecordSchema,

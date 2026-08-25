@@ -621,6 +621,65 @@ describe('ClioRepository interaction contracts', () => {
     ]);
   });
 
+  it('walks the authoritative session artifact registry including child outputs and used inputs', async () => {
+    const version = (id: string, name: string, sessionId: string) => ({
+      artifact_id: id,
+      workspace_id: 'ws_1',
+      name,
+      version: 1,
+      kind: 'dataset',
+      custody: 'cas',
+      mechanism: 'tool-schema',
+      evidence_class: 'hashed-at-use',
+      created_at: '2026-08-24T00:00:00Z',
+      producer: { session_id: sessionId },
+      custody_gap: { reason: 'relink_by_hash' },
+      uri: `artifact://ws_1/${name}@v1`,
+      fetch_url: `/v1/artifacts/${id}/bytes`,
+    });
+    const record = (id: string, name: string, sessionId: string) => ({
+      workspace_id: 'ws_1',
+      name,
+      kind: 'dataset',
+      latest_version: 1,
+      head_artifact_id: id,
+      aliases: { latest: 1 },
+      versions: [version(id, name, sessionId)],
+      producing_session_ids: [sessionId],
+    });
+    const transport = new RecordingTransport([
+      {
+        artifacts: [record('artifact_plot', 'plot.png', 'child_1')],
+        used: [record('artifact_csv', 'input.csv', 'source_1')],
+        count: 2,
+        include_children: true,
+        child_session_ids: ['child_1'],
+        next_cursor: 'artifact_plot',
+      },
+      {
+        artifacts: [record('artifact_report', 'report.md', 'sess_1')],
+        used: [record('artifact_csv', 'input.csv', 'source_1')],
+        count: 2,
+        include_children: true,
+        child_session_ids: ['child_1'],
+        next_cursor: null,
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.sessionArtifacts('sess 1')).resolves.toMatchObject({
+      artifacts: [{ name: 'plot.png' }, { name: 'report.md' }],
+      used: [{ name: 'input.csv' }],
+      count: 2,
+      include_children: true,
+      child_session_ids: ['child_1'],
+    });
+    expect(transport.requests.map(({ path }) => path)).toEqual([
+      '/v1/sessions/sess%201/artifacts?include_children=true&include_used=true&limit=200',
+      '/v1/sessions/sess%201/artifacts?include_children=true&include_used=true&limit=200&before=artifact_plot',
+    ]);
+  });
+
   it('normalizes the server permission ledger without flattening away the input', async () => {
     const transport = new RecordingTransport([
       {

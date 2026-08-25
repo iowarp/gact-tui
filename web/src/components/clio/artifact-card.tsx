@@ -1,6 +1,7 @@
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlertIcon } from 'lucide-react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   Artifact,
   ArtifactContent,
@@ -17,6 +18,7 @@ import {
 } from '@/components/ai-elements/attachments';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { useRepository } from '@/hooks/use-repository';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { cn } from '@/lib/utils';
@@ -28,7 +30,10 @@ const textCardPreviewBudget = 256_000;
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
   className?: string;
-  onOpen?: (artifact: ArtifactEntity) => void;
+  onOpen?: (
+    artifact: ArtifactEntity,
+    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) => void;
   preview?: boolean;
 }
 
@@ -99,13 +104,13 @@ export function ClioArtifactCard({
           'cursor-pointer transition-colors hover:border-primary/60 hover:bg-muted/15 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
         className,
       )}
-      onClick={onOpen ? () => onOpen(artifact) : undefined}
+      onClick={onOpen ? (event) => onOpen(artifact, event) : undefined}
       onKeyDown={
         onOpen
           ? (event) => {
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
-              onOpen(artifact);
+              onOpen(artifact, event);
             }
           : undefined
       }
@@ -120,73 +125,80 @@ export function ClioArtifactCard({
             {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
           </ArtifactDescription>
         </div>
+        {artifact.session_relation ? (
+          <Badge className="shrink-0" variant="outline">
+            {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
+          </Badge>
+        ) : null}
       </ArtifactHeader>
-      <ArtifactContent className="p-0">
-        {textPreview.data ? (
-          <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
-            {isMarkdownArtifact(artifact) ? (
-              <MessageResponse className="text-sm leading-6">
-                {textPreview.data.slice(0, 4_000)}
-              </MessageResponse>
-            ) : (
-              <pre className="overflow-hidden whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
-                {textPreview.data.slice(0, 4_000)}
-              </pre>
-            )}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
-            />
-          </div>
-        ) : image || !text ? (
-          <Attachments
-            className={cn('m-0 w-full', image ? 'block' : 'gap-0')}
-            variant={image ? 'grid' : 'list'}
-          >
-            <Attachment
-              className={cn(
-                'border-0 bg-muted/20',
-                image ? 'h-36 w-full rounded-none' : 'rounded-none',
+      {preview ? (
+        <ArtifactContent className="p-0">
+          {textPreview.data ? (
+            <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
+              {isMarkdownArtifact(artifact) ? (
+                <MessageResponse className="text-sm leading-6">
+                  {textPreview.data.slice(0, 4_000)}
+                </MessageResponse>
+              ) : (
+                <pre className="overflow-hidden whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
+                  {textPreview.data.slice(0, 4_000)}
+                </pre>
               )}
-              data={attachment}
-            >
-              <AttachmentPreview
-                className={cn(image && 'size-full min-h-36 rounded-none bg-muted/40')}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
               />
-              {!image ? <AttachmentInfo showMediaType /> : null}
-            </Attachment>
-          </Attachments>
-        ) : null}
-        {image && imageBytes.isPending && withinBudget ? (
-          <p className="px-4 py-2 text-xs text-muted-foreground">Loading image preview…</p>
-        ) : null}
-        {image && !withinBudget ? (
-          <p className="px-4 py-2 text-xs text-muted-foreground">
-            Preview withheld because this image exceeds the {formatBytes(cardPreviewBudget)} card
-            budget. Open it for the full view.
-          </p>
-        ) : null}
-        {text && !tabular && textPreview.isPending && textWithinBudget ? (
-          <p className="px-4 py-2 text-xs text-muted-foreground">Loading artifact preview…</p>
-        ) : null}
-        {text && (tabular || !textWithinBudget) ? (
-          <p className="px-4 py-2 text-xs text-muted-foreground">
-            {tabular
-              ? 'Open this data table in the workspace canvas to inspect, filter, or export it.'
-              : `Open this artifact to read the full ${formatBytes(artifact.size ?? 0)} result.`}
-          </p>
-        ) : null}
-        {contentUnavailable ? (
-          <Alert className="m-3 w-auto border-warning/35 bg-warning/5">
-            <TriangleAlertIcon aria-hidden="true" />
-            <AlertTitle>Saved content unavailable</AlertTitle>
-            <AlertDescription>
-              The service remembers this result, but its saved content is no longer available.
-              Inspect its details for custody and provenance.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </ArtifactContent>
+            </div>
+          ) : image || !text ? (
+            <Attachments
+              className={cn('m-0 w-full', image ? 'block' : 'gap-0')}
+              variant={image ? 'grid' : 'list'}
+            >
+              <Attachment
+                className={cn(
+                  'border-0 bg-muted/20',
+                  image ? 'h-36 w-full rounded-none' : 'rounded-none',
+                )}
+                data={attachment}
+              >
+                <AttachmentPreview
+                  className={cn(
+                    image && 'size-full min-h-36 rounded-none bg-muted/40 [&_img]:object-contain',
+                  )}
+                />
+                {!image ? <AttachmentInfo showMediaType /> : null}
+              </Attachment>
+            </Attachments>
+          ) : null}
+          {image && imageBytes.isPending && withinBudget ? (
+            <p className="px-4 py-2 text-xs text-muted-foreground">Loading image preview…</p>
+          ) : null}
+          {image && !withinBudget ? (
+            <p className="px-4 py-2 text-xs text-muted-foreground">
+              Preview withheld because this image exceeds the {formatBytes(cardPreviewBudget)} card
+              budget. Open it for the full view.
+            </p>
+          ) : null}
+          {text && !tabular && textPreview.isPending && textWithinBudget ? (
+            <p className="px-4 py-2 text-xs text-muted-foreground">Loading artifact preview…</p>
+          ) : null}
+          {text && !tabular && !textWithinBudget ? (
+            <p className="px-4 py-2 text-xs text-muted-foreground">
+              Open this artifact to read the full {formatBytes(artifact.size ?? 0)} result.
+            </p>
+          ) : null}
+          {contentUnavailable ? (
+            <Alert className="m-3 w-auto border-warning/35 bg-warning/5">
+              <TriangleAlertIcon aria-hidden="true" />
+              <AlertTitle>Saved content unavailable</AlertTitle>
+              <AlertDescription>
+                The service remembers this result, but its saved content is no longer available.
+                Inspect its details for custody and provenance.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </ArtifactContent>
+      ) : null}
     </Artifact>
   );
 }

@@ -3,6 +3,7 @@ import type {
   Artifact,
   ArtifactDetail,
   ArtifactLineage,
+  ArtifactRecord,
   A2UISurface,
   CapabilityNegotiation,
   ContextSnapshot,
@@ -13,6 +14,7 @@ import type {
   ScheduledTurn,
   ScheduledTurns,
   Session,
+  SessionArtifactListing,
   SessionDefaults,
   SubagentRun,
   Task,
@@ -44,6 +46,7 @@ import {
   agentListSchema,
   artifactDetailSchema,
   artifactLineageSchema,
+  sessionArtifactListingSchema,
   operationalRunListSchema,
   permissionListSchema,
   questionListSchema,
@@ -364,10 +367,7 @@ export class ClioRepository extends ProviderRepository {
     });
   }
 
-  public configureRelay(
-    input: RelayConnectionInput,
-    signal?: AbortSignal,
-  ): Promise<RelayStatus> {
+  public configureRelay(input: RelayConnectionInput, signal?: AbortSignal): Promise<RelayStatus> {
     return this.transport.request({
       method: 'PUT',
       path: '/v1/relay/configuration',
@@ -461,6 +461,71 @@ export class ClioRepository extends ProviderRepository {
       decode: (value) => artifactDetailSchema.parse(value) as ArtifactDetail,
       signal,
     });
+  }
+
+  /** Reads the complete session artifact registry, including descendant outputs and used inputs. */
+  public async sessionArtifacts(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<SessionArtifactListing> {
+    const produced = new Map<string, ArtifactRecord>();
+    const used = new Map<string, ArtifactRecord>();
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    let childSessionIds: string[] = [];
+    let includeChildren = false;
+
+    for (let pageIndex = 0; pageIndex < 100; pageIndex += 1) {
+      const query = new URLSearchParams({
+        include_children: 'true',
+        include_used: 'true',
+        limit: '200',
+      });
+      if (cursor) query.set('before', cursor);
+      const page = await this.transport.request({
+        method: 'GET',
+        path: `/v1/sessions/${encodeURIComponent(sessionId)}/artifacts?${query.toString()}`,
+        decode: (value) => sessionArtifactListingSchema.parse(value),
+        signal,
+      });
+      includeChildren ||= page.include_children;
+      childSessionIds = page.child_session_ids;
+      for (const record of page.artifacts) {
+        produced.set(`${record.workspace_id}:${record.name}`, record as ArtifactRecord);
+      }
+      for (const record of page.used) {
+        used.set(`${record.workspace_id}:${record.name}`, record as ArtifactRecord);
+      }
+      if (!page.next_cursor) {
+        return {
+          artifacts: [...produced.values()],
+          used: [...used.values()],
+          count: produced.size,
+          include_children: includeChildren,
+          child_session_ids: childSessionIds,
+        };
+      }
+      if (seenCursors.has(page.next_cursor)) {
+        return {
+          artifacts: [...produced.values()],
+          used: [...used.values()],
+          count: produced.size,
+          include_children: includeChildren,
+          child_session_ids: childSessionIds,
+          truncated: 'cursor_cycle_detected',
+        };
+      }
+      seenCursors.add(page.next_cursor);
+      cursor = page.next_cursor;
+    }
+    return {
+      artifacts: [...produced.values()],
+      used: [...used.values()],
+      count: produced.size,
+      include_children: includeChildren,
+      child_session_ids: childSessionIds,
+      truncated: 'page_cap_reached',
+    };
   }
 
   public artifactLineage(

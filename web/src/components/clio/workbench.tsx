@@ -104,6 +104,9 @@ export interface ClioWorkbenchProps {
   filesPending?: boolean;
   filesError?: string;
   artifacts: readonly ArtifactEntity[];
+  artifactsPending?: boolean;
+  artifactsError?: string;
+  artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
   blueprints: readonly AgentBlueprint[];
   blueprintsPending?: boolean;
   blueprintsError?: string;
@@ -152,6 +155,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       filesPending,
       filesError,
       artifacts,
+      artifactsPending,
+      artifactsError,
+      artifactsTruncated,
       blueprints,
       blueprintsPending,
       blueprintsError,
@@ -191,6 +197,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           : [...current, tab],
       );
       setActiveTabId(tab.id);
+    }, []);
+    const replaceTab = useCallback((tabId: string, replacement: WorkbenchTab) => {
+      setTabs((current) =>
+        current.some((item) => item.id === replacement.id && item.id !== tabId)
+          ? current.filter((item) => item.id !== tabId)
+          : current.map((item) => (item.id === tabId ? replacement : item)),
+      );
+      setActiveTabId(replacement.id);
     }, []);
     const closeTab = (tabId: string) => {
       const index = tabs.findIndex((tab) => tab.id === tabId);
@@ -366,8 +380,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ) : tab.kind === 'artifacts' ? (
                 <ArtifactBrowser
                   artifacts={artifacts}
-                  onOpenArtifact={(artifact) =>
-                    openTab({
+                  artifactsError={artifactsError}
+                  artifactsPending={artifactsPending}
+                  artifactsTruncated={artifactsTruncated}
+                  defaultSplit={maximized}
+                  files={files}
+                  onReplaceArtifact={(artifact) =>
+                    replaceTab(tab.id, {
                       id: `artifact:${artifact.id}`,
                       kind: 'artifact',
                       label: artifact.name,
@@ -375,6 +394,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       workspaceId: artifact.workspace_id ?? workspaceId,
                     })
                   }
+                  workspaceId={workspaceId}
                 />
               ) : tab.kind === 'blueprints' ? (
                 <BlueprintBrowser

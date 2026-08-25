@@ -261,6 +261,7 @@ export interface Artifact {
   sha256?: string;
   size?: number;
   created_at?: string;
+  session_relation?: 'produced' | 'used';
 }
 
 export interface ArtifactVersion {
@@ -282,7 +283,7 @@ export interface ArtifactVersion {
   prior_version?: number;
   prior_sha256?: string;
   kind_warning?: string;
-  custody_gap?: boolean;
+  custody_gap?: boolean | Record<string, unknown>;
   uri: string;
   fetch_url: string;
 }
@@ -295,6 +296,16 @@ export interface ArtifactRecord {
   head_artifact_id: string;
   aliases: Record<string, number>;
   versions: ArtifactVersion[];
+  producing_session_ids?: string[];
+}
+
+export interface SessionArtifactListing {
+  artifacts: ArtifactRecord[];
+  used: ArtifactRecord[];
+  count: number;
+  include_children: boolean;
+  child_session_ids: string[];
+  truncated?: 'page_cap_reached' | 'cursor_cycle_detected';
 }
 
 export interface ArtifactDetail {

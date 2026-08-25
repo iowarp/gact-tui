@@ -9,7 +9,7 @@ import {
   PlusIcon,
   SearchIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 import { visibleWorkspaceFiles } from '@/lib/workspace-files';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
-import { BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
+import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
 
 export type CanvasResourceKind = 'session' | 'files' | 'artifacts' | 'blueprints';
@@ -52,8 +52,14 @@ interface FileBrowserProps {
 }
 
 interface ArtifactBrowserProps {
+  workspaceId: string;
+  files: readonly WorkspaceFileEntry[];
   artifacts: readonly Artifact[];
-  onOpenArtifact: (artifact: Artifact) => void;
+  artifactsPending?: boolean;
+  artifactsError?: string;
+  artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
+  defaultSplit?: boolean;
+  onReplaceArtifact: (artifact: Artifact) => void;
 }
 
 interface BlueprintBrowserProps {
@@ -223,19 +229,99 @@ export function FileBrowser({
   );
 }
 
-/** Browses session artifacts without making the browser itself an artifact view. */
-export function ArtifactBrowser({ artifacts, onOpenArtifact }: ArtifactBrowserProps) {
-  return (
-    <ScrollArea className="h-full p-3">
+/** Presents the authoritative session artifact picker for the current canvas tab. */
+export function ArtifactBrowser({
+  workspaceId,
+  files,
+  artifacts,
+  artifactsPending,
+  artifactsError,
+  artifactsTruncated,
+  defaultSplit = false,
+  onReplaceArtifact,
+}: ArtifactBrowserProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>();
+  const splitArtifact =
+    artifacts.find((artifact) => artifact.id === selectedId) ??
+    (defaultSplit ? artifacts[0] : undefined);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const update = () => setStacked(host.clientWidth < 440);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+
+  const openArtifact = (
+    artifact: Artifact,
+    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (defaultSplit || selectedId || event.shiftKey) setSelectedId(artifact.id);
+    else onReplaceArtifact(artifact);
+  };
+  const artifactList = (
+    <ScrollArea className="h-full p-2">
       <div className="grid gap-2">
+        {artifactsPending ? <LoadingRows label="Loading session artifacts" /> : null}
         {artifacts.map((artifact) => (
-          <ClioArtifactCard artifact={artifact} key={artifact.id} onOpen={onOpenArtifact} />
+          <ClioArtifactCard
+            artifact={artifact}
+            className={cn(
+              'shadow-none',
+              splitArtifact?.id === artifact.id && 'border-primary bg-primary/5',
+            )}
+            key={artifact.id}
+            onOpen={openArtifact}
+            preview={false}
+          />
         ))}
-        {!artifacts.length ? (
-          <Unavailable icon={BoxIcon} label="No artifacts produced in this session" />
+        {!artifactsPending && !artifacts.length ? (
+          <Unavailable
+            detail={artifactsError}
+            icon={BoxIcon}
+            label={artifactsError ? 'Artifacts unavailable' : 'No session artifacts'}
+          />
+        ) : null}
+        {artifactsTruncated ? (
+          <p className="px-2 py-1 text-xs text-warning">
+            The service returned a partial artifact registry.
+          </p>
         ) : null}
       </div>
     </ScrollArea>
+  );
+
+  return (
+    <section aria-label="Session artifact list" className="h-full min-h-0" ref={hostRef}>
+      {splitArtifact ? (
+        <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
+          <ResizablePanel
+            defaultSize={stacked ? '36%' : '34%'}
+            id="session-artifact-list"
+            minSize={stacked ? '140px' : '160px'}
+          >
+            {artifactList}
+          </ResizablePanel>
+          <ResizableHandle aria-label="Resize artifact list" withHandle />
+          <ResizablePanel id="session-artifact-preview" minSize={stacked ? '220px' : '230px'}>
+            <section aria-label="Selected artifact" className="h-full min-h-0 overflow-hidden">
+              <ArtifactView
+                artifact={splitArtifact}
+                files={files}
+                onOpenArtifact={(artifact) => setSelectedId(artifact.id)}
+                workspaceId={splitArtifact.workspace_id ?? workspaceId}
+              />
+            </section>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        artifactList
+      )}
+    </section>
   );
 }
 

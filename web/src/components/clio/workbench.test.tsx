@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
@@ -7,6 +7,7 @@ import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
+    readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
   },
 }));
@@ -52,7 +53,102 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
 
     expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('No artifacts produced in this session')).toBeVisible();
+    expect(screen.getByText('No session artifacts')).toBeVisible();
+  });
+
+  it('replaces the artifact picker tab with the selected artifact view', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readArtifactTextFor.mockImplementation(async (artifact: { name: string }) =>
+      artifact.name === 'report.md' ? '# Report' : 'station,value\nMTA1,72',
+    );
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClioWorkbench
+          artifacts={[
+            {
+              id: 'report_1',
+              session_id: 'session_parent',
+              workspace_id: 'workspace_1',
+              name: 'report.md',
+              media_type: 'text/markdown',
+              uri: 'artifact://workspace_1/report.md@v1',
+              session_relation: 'produced',
+            },
+            {
+              id: 'input_1',
+              session_id: 'session_parent',
+              workspace_id: 'workspace_1',
+              name: 'stations.csv',
+              media_type: 'text/csv',
+              uri: 'artifact://workspace_1/stations.csv@v1',
+              session_relation: 'used',
+            },
+          ]}
+          blueprints={[]}
+          diffs={[]}
+          files={[]}
+          onApplyDiff={vi.fn()}
+          onOpenSubagent={vi.fn()}
+          onRejectDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+
+    expect(screen.getByRole('button', { name: 'Open report.md' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open stations.csv' })).toBeVisible();
+    expect(screen.getByText('Output')).toBeVisible();
+    expect(screen.getByText('Input')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Open report.md' }));
+    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('# Report')).toBeVisible();
+  });
+
+  it('keeps the picker in a resizable split when an artifact is shift-clicked', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readArtifactTextFor.mockResolvedValue('# Report');
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClioWorkbench
+          artifacts={[
+            {
+              id: 'report_1',
+              session_id: 'session_parent',
+              workspace_id: 'workspace_1',
+              name: 'report.md',
+              media_type: 'text/markdown',
+              uri: 'artifact://workspace_1/report.md@v1',
+              session_relation: 'produced',
+            },
+          ]}
+          blueprints={[]}
+          diffs={[]}
+          files={[]}
+          onApplyDiff={vi.fn()}
+          onOpenSubagent={vi.fn()}
+          onRejectDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open report.md' }), { shiftKey: true });
+
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('region', { name: 'Selected artifact' })).toBeVisible();
+    expect(await screen.findByText('# Report')).toBeVisible();
   });
 
   it('closes and reopens observability as a normal canvas tab', async () => {

@@ -67,19 +67,20 @@ describe('ClioArtifactCard', () => {
     );
   });
 
-  it('keeps a labeled, always-visible canvas action', async () => {
+  it('makes the complete artifact element the labeled canvas action', async () => {
     const user = userEvent.setup();
     const onOpen = renderCard();
 
-    await user.click(
-      screen.getByRole('button', { name: 'Open station-timeseries.png in workspace canvas' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Open station-timeseries.png' }));
     await waitFor(() =>
-      expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'artifact_plot' })),
+      expect(onOpen).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'artifact_plot' }),
+        expect.objectContaining({ shiftKey: false }),
+      ),
     );
   });
 
-  it('keeps tabular artifacts bounded instead of dumping raw rows into chat', () => {
+  it('keeps tabular artifacts bounded without verbose instructional copy', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -97,7 +98,8 @@ describe('ClioArtifactCard', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByText(/Open this data table in the workspace canvas/u)).toBeVisible();
+    expect(screen.getByText('stations.csv')).toBeVisible();
+    expect(screen.queryByText(/Open this data table/u)).not.toBeInTheDocument();
     expect(repository.readArtifactTextFor).not.toHaveBeenCalled();
   });
 });

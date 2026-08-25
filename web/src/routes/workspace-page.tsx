@@ -36,6 +36,7 @@ import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { sessionChildRelations } from '@/lib/session-child-relations';
+import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useLiveStore } from '@/store/live-store';
@@ -79,6 +80,11 @@ export function WorkspacePage() {
   const transcript = useQuery({
     queryKey: ['transcript', settings.endpoint, sessionId],
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
+    enabled: Boolean(sessionId),
+  });
+  const sessionArtifacts = useQuery({
+    queryKey: ['session-artifacts', settings.endpoint, sessionId],
+    queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),
     enabled: Boolean(sessionId),
   });
   const streamError = useSessionLiveStream({
@@ -156,8 +162,13 @@ export function WorkspacePage() {
   );
   const tasks = Object.values(entities.tasks).filter((task) => task.session_id === sessionId);
   const tools = Object.values(entities.tools).filter((tool) => tool.session_id === sessionId);
-  const artifacts = Object.values(entities.artifacts).filter(
-    (artifact) => artifact.session_id === sessionId,
+  const transcriptArtifacts = useMemo(
+    () => Object.values(entities.artifacts).filter((artifact) => artifact.session_id === sessionId),
+    [entities.artifacts, sessionId],
+  );
+  const artifacts = useMemo(
+    () => sessionArtifactEntities(sessionArtifacts.data, transcriptArtifacts, sessionId),
+    [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
   const recordedSubagents = useMemo(
     () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
@@ -559,6 +570,9 @@ export function WorkspacePage() {
         workbench={
           <ClioWorkbench
             artifacts={artifacts}
+            artifactsError={sessionArtifacts.error?.message}
+            artifactsPending={sessionArtifacts.isPending}
+            artifactsTruncated={sessionArtifacts.data?.truncated}
             blueprints={agentBlueprints.data ?? []}
             blueprintsError={agentBlueprints.error?.message}
             blueprintsPending={agentBlueprints.isPending}
