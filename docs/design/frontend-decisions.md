@@ -1353,3 +1353,16 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   Conversation memory and Background process ownership warnings. Workspace files, command
   execution, and the newly connected Web search provider remained independently Ready. The raw
   validation array disappeared.
+
+# Historical tool telemetry uses the shared product vocabulary
+
+- Old failure: historical latency metrics without provider-declared titles fell back to mechanical
+  identifier splitting. System activity therefore exposed labels such as `Call`, `Pandas filter
+data`, and `Ndp stage resource`, while the same operations used clearer names elsewhere.
+- New representation: telemetry, transcripts, and historical tool records share the same curated
+  fallback vocabulary. A real provider title still wins; the curated mapping is used only when the
+  authoritative record contains a machine-facing identifier or no display title.
+- Acceptance evidence: the live System Activity view presents aggregate tool calls, data
+  filtering and profiling, dataset staging and search, point filtering, and time-series plotting
+  with concise action labels. The raw metric key remains available as the interactive row title
+  for supplemental inspection.

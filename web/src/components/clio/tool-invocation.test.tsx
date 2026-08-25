@@ -62,6 +62,14 @@ describe('getToolPresentation', () => {
     expect(humanizeToolName('shell_bash')).toBe('Run command');
     expect(humanizeToolName('geo_geocode')).toBe('Geocode');
     expect(humanizeToolName('observe_agent_tasks')).toBe('Watch child agents');
+    expect(humanizeToolName('tool_call')).toBe('Tool calls');
+    expect(humanizeToolName('pandas_filter_data')).toBe('Filter data');
+    expect(humanizeToolName('pandas_profile_csv')).toBe('Profile data');
+    expect(humanizeToolName('ndp_stage_resource')).toBe('Stage dataset');
+    expect(humanizeToolName('geo_filter_points_by_radius')).toBe('Filter points by radius');
+    expect(humanizeToolName('plot_plot_timeseries')).toBe('Plot time series');
+    expect(humanizeToolName('plot_timeseries')).toBe('Plot time series');
+    expect(humanizeToolName('ndp_search_datasets')).toBe('Search datasets');
   });
 
   it('summarizes a completed file operation without exposing its raw payload', () => {

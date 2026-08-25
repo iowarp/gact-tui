@@ -13,6 +13,17 @@ export interface ToolOutcomePresentation {
   domainStatus?: string;
 }
 
+const CURATED_TOOL_TITLES: Readonly<Record<string, string>> = {
+  tool_call: 'Tool calls',
+  pandas_filter_data: 'Filter data',
+  pandas_profile_csv: 'Profile data',
+  ndp_stage_resource: 'Stage dataset',
+  geo_filter_points_by_radius: 'Filter points by radius',
+  plot_plot_timeseries: 'Plot time series',
+  plot_timeseries: 'Plot time series',
+  ndp_search_datasets: 'Search datasets',
+};
+
 function analysisViewTitle(state: ToolState): string {
   switch (state) {
     case 'pending':
@@ -113,6 +124,8 @@ export function humanizeToolName(name: string): string {
   const parts = name.split(/[._-]+/).filter(Boolean);
   const normalized = parts.map((part) => part.toLowerCase());
   const exact = normalized.join('_');
+  const curatedTitle = CURATED_TOOL_TITLES[exact];
+  if (curatedTitle) return curatedTitle;
   if (/^(shell_)?(bash|command|exec|execute)$/.test(exact)) return 'Run command';
   if (exact === 'fs_propose_edit') return 'Propose file change';
   if (exact === 'fs_apply_edit_write') return 'Apply file change';
