@@ -35,6 +35,21 @@ const repository = vi.hoisted(() => ({
       pinned: false,
       archived: false,
     },
+    {
+      id: 'sess_child',
+      parent_session_id: 'sess_memory',
+      workspace_id: 'ws_science',
+      title: 'NDP task',
+      state: 'completed',
+      created_at: '2026-08-23T00:10:00Z',
+      updated_at: '2026-08-23T00:20:00Z',
+      mode: 'edit',
+      edit_mode: 'diff',
+      routing_mode: 'auto',
+      approval_mode: 'ask',
+      pinned: false,
+      archived: false,
+    },
   ]),
   memoryStatistics: vi.fn().mockResolvedValue({
     cache: { hits: 3, misses: 1, hit_rate: 0.75, capacity: 1000 },
@@ -130,6 +145,10 @@ describe('memory settings', () => {
     expect(
       screen.getByRole('link', { name: 'Open retained summary in conversation' }),
     ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_summary');
+
+    await user.click(screen.getByRole('combobox', { name: 'Session' }));
+    expect(screen.queryByRole('option', { name: 'NDP task' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'NDP evidence campaign' }));
 
     await user.type(
       screen.getByRole('textbox', { name: 'Find remembered evidence or decisions' }),

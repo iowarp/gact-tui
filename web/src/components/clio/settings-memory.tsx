@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { isPrimarySession } from '@/lib/recent-sessions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -226,7 +227,9 @@ function MemoryHistory({ events, session }: { events: MemoryEvent[]; session?: S
             <p
               className="text-xs text-muted-foreground"
               title={
-                event.metadata.source ? `Recorded source: ${String(event.metadata.source)}` : undefined
+                event.metadata.source
+                  ? `Recorded source: ${String(event.metadata.source)}`
+                  : undefined
               }
             >
               Source {compactionSourceLabel(event.metadata.source)}, version {event.version}
@@ -249,10 +252,11 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     queryKey: ['all-sessions', settings.endpoint, 'memory-settings'],
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
-  const selectedSessionId = sessions.data?.some((session) => session.id === sessionId)
+  const primarySessions = (sessions.data ?? []).filter(isPrimarySession);
+  const selectedSessionId = primarySessions.some((session) => session.id === sessionId)
     ? sessionId
-    : (sessions.data?.[0]?.id ?? '');
-  const selectedSession = sessions.data?.find((session) => session.id === selectedSessionId);
+    : (primarySessions[0]?.id ?? '');
+  const selectedSession = primarySessions.find((session) => session.id === selectedSessionId);
   const statistics = useQuery({
     queryKey: ['memory-statistics', settings.endpoint, selectedSessionId],
     queryFn: ({ signal }) => repository.memoryStatistics(signal, selectedSessionId || undefined),
@@ -325,7 +329,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
                   <SelectValue placeholder="Choose a session" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sessions.data?.map((session) => (
+                  {primarySessions.map((session) => (
                     <SelectItem key={session.id} value={session.id}>
                       {sessionLabel(session)}
                     </SelectItem>

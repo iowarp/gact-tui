@@ -1377,3 +1377,16 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   no longer the ordinary product label.
 - Acceptance evidence: the live Permissions page replaced the stale workspace identifier without
   changing the rule, its priority, its authorization decision, or the atomic rule-set editor.
+
+# Child sessions are detail destinations, not primary-session choices
+
+- Old failure: settings that selected a primary conversation consumed the unfiltered session
+  repository. Memory and scheduled-work pickers therefore listed every child-agent session beside
+  human-created sessions, producing many repeated task names and making the actual conversation
+  difficult to find.
+- New representation: all primary-session selectors reuse the same `isPrimarySession` boundary as
+  workspace navigation. Child sessions remain reachable through their causal tool and agent cards,
+  observability, normal click central navigation, and Shift-click canvas navigation.
+- Acceptance evidence: the live Memory picker changed from more than thirty mixed parent and child
+  entries to only user sessions on the disposable service. Focused Memory and Scheduled Work
+  interaction coverage asserts that a child session cannot appear as a primary target.

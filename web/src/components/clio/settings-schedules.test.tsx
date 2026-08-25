@@ -17,6 +17,13 @@ const repository = vi.hoisted(() => ({
       title: 'Evidence review',
       archived: false,
     },
+    {
+      id: 'sess_child',
+      parent_session_id: 'sess_1',
+      workspace_id: 'ws_1',
+      title: 'Analysis task',
+      archived: false,
+    },
   ]),
   workspaces: vi.fn().mockResolvedValue([{ id: 'ws_1', display_name: 'EarthScope campaign' }]),
   scheduledTurns: vi.fn().mockResolvedValue({
@@ -80,6 +87,10 @@ describe('scheduled work settings', () => {
     expect(screen.getByText('Weekdays')).toBeVisible();
     expect(screen.getByText(/America\/Chicago/)).toBeVisible();
     expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Session' }));
+    expect(screen.queryByRole('option', { name: 'Analysis task' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'Evidence review — EarthScope campaign' }));
 
     await user.type(
       screen.getByRole('textbox', { name: 'Instruction' }),

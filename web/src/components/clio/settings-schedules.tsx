@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
+import { isPrimarySession } from '@/lib/recent-sessions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
@@ -133,7 +134,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const availableSessions = useMemo(
-    () => (sessions.data ?? []).filter((session) => !session.archived),
+    () => (sessions.data ?? []).filter((session) => !session.archived && isPrimarySession(session)),
     [sessions.data],
   );
 
