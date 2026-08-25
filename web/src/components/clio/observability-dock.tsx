@@ -92,6 +92,10 @@ export interface ClioObservabilityDockProps {
 
 type ActivityTiming = 'event' | 'turn';
 
+function isActiveWork(state: string): boolean {
+  return ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(state);
+}
+
 type ActivityItem =
   | {
       id: string;
@@ -128,49 +132,41 @@ type ActivityItem =
 
 export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const [childAgentsOpen, setChildAgentsOpen] = useState(false);
-  const activeItems =
-    props.tasks.filter((task) => ['queued', 'running'].includes(task.state)).length +
-    props.tools.filter((tool) => ['pending', 'running'].includes(tool.state)).length +
-    props.runs.filter((run) => ['queued', 'running'].includes(run.state)).length +
-    props.subagents.filter((agent) => ['queued', 'running'].includes(agent.state)).length +
-    props.processes.filter(
-      (process) =>
-        process.kind === 'mcp-task' && ['queued', 'running'].includes(process.live_state),
-    ).length;
+  const activityCount = props.processes.length || props.subagents.length;
+  const activeActivityCount = props.processes.length
+    ? props.processes.filter((process) => isActiveWork(process.live_state)).length
+    : props.subagents.filter((agent) => isActiveWork(agent.state)).length;
   const currentTool = props.tools.findLast((tool) => ['pending', 'running'].includes(tool.state));
   const currentTask = props.tasks.findLast((task) => ['queued', 'running'].includes(task.state));
-  const activeChildAgents = props.subagents.filter((agent) =>
-    ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(agent.state),
+  const latestActiveProcess = props.processes.findLast((process) =>
+    isActiveWork(process.live_state),
   );
-  const latestActiveChild = activeChildAgents.at(-1);
   const sessionActive = props.sessionState === 'queued' || props.sessionState === 'running';
   const hasAssistantActivity = props.messages.some(
     (message) => message.role === 'assistant' && message.blocks.length > 0,
   );
-  const childAgentCountLabel = `${props.subagents.length.toLocaleString()} child ${props.subagents.length === 1 ? 'agent' : 'agents'}`;
+  const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
-    : latestActiveChild
-      ? latestActiveChild.title
+    : latestActiveProcess
+      ? latestActiveProcess.title
       : currentTask
         ? currentTask.title
-        : props.subagents.length
-          ? childAgentCountLabel
-          : activeItems
-            ? 'Agent work in progress'
-            : sessionActive
-              ? hasAssistantActivity
-                ? 'Agent is responding'
-                : 'Starting agent'
-              : 'Session details';
-  const dockStatus = activeItems
-    ? `${activeItems} active`
+        : activityCount
+          ? activityCountLabel
+          : sessionActive
+            ? hasAssistantActivity
+              ? 'Agent is responding'
+              : 'Starting agent'
+            : 'Session details';
+  const dockStatus = activeActivityCount
+    ? `${activeActivityCount} active`
     : sessionActive
       ? hasAssistantActivity
         ? 'Working'
         : 'Starting'
-      : props.subagents.length
-        ? 'All settled'
+      : activityCount
+        ? 'Settled'
         : 'Up to date';
 
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
@@ -181,16 +177,16 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <Button
-        aria-label="Open session details in workspace canvas"
+        aria-label="Open observability in workspace canvas"
         className="h-7 min-w-0 flex-1 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
         disabled={!props.onOpenCanvas}
         onClick={props.onOpenCanvas}
         size="sm"
-        title="Open session details in workspace canvas"
+        title="Open observability"
         type="button"
         variant="ghost"
       >
-        {activeItems || sessionActive ? (
+        {activeActivityCount || sessionActive ? (
           <BrainCircuitIcon aria-hidden="true" className="size-4 text-info" />
         ) : (
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
@@ -199,7 +195,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         <ClioStatus
           className="hidden py-0.5 sm:inline-flex"
           label={dockStatus}
-          value={activeItems || sessionActive ? (props.sessionState ?? 'running') : 'completed'}
+          value={
+            activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
+          }
         />
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
@@ -207,17 +205,14 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
           <PopoverTrigger asChild>
             <Button
-              aria-label={`Open ${childAgentCountLabel}`}
-              className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
-              size="sm"
-              title="Open child agents"
+              aria-label="Browse child conversations"
+              className="size-7 shrink-0 p-0 text-muted-foreground"
+              size="icon-sm"
+              title="Browse child conversations"
               type="button"
               variant="ghost"
             >
               <BoxesIcon aria-hidden="true" className="size-3.5" />
-              <span className="font-mono text-[10px] tabular-nums">
-                {props.subagents.length.toLocaleString()}
-              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent

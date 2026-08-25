@@ -49,7 +49,7 @@ describe('ClioObservabilityView', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Open session details in workspace canvas' }),
+      screen.getByRole('button', { name: 'Open observability in workspace canvas' }),
     );
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
@@ -153,7 +153,24 @@ describe('ClioObservabilityView', () => {
         messages={[]}
         onOpenCanvas={() => undefined}
         onOpenSubagent={onOpenSubagent}
-        processes={[]}
+        processes={[
+          {
+            kind: 'agent',
+            id: 'task_geo',
+            title: 'geospatial #1',
+            live_state: 'completed',
+            status: 'completed',
+            metadata: {},
+          },
+          {
+            kind: 'mcp-task',
+            id: 'relay_export',
+            title: 'Export station data',
+            live_state: 'completed',
+            status: 'completed',
+            metadata: {},
+          },
+        ]}
         runs={[]}
         subagents={[child]}
         tasks={[]}
@@ -161,9 +178,9 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
-    expect(screen.getByText('1 child agent')).toBeVisible();
-    expect(screen.getByText('All settled')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Open 1 child agent' }));
+    expect(screen.getByText('2 background activities')).toBeVisible();
+    expect(screen.getByText('Settled')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(
       screen.getByRole('button', {
         name: /geospatial #1 Completed Resolve the region and identify the nearest stations/u,
@@ -171,7 +188,7 @@ describe('ClioObservabilityView', () => {
     );
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
-    await user.click(screen.getByRole('button', { name: 'Open 1 child agent' }));
+    await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(screen.getByRole('button', { name: 'Open geospatial #1 in canvas' }));
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
