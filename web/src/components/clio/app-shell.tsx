@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useContainerQuery } from '@/hooks/use-container-query';
 import { useMenuAction } from '@/tauri/menu-actions';
 
 export interface ClioAppShellProps {
@@ -104,11 +103,8 @@ export function ClioAppShell({
   statusStrip,
 }: ClioAppShellProps) {
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
+  const desktopWorkbench = useMediaQuery('(min-width: 768px)');
   const workbenchNeedsNavigationRail = useMediaQuery('(min-width: 820px) and (max-width: 1279px)');
-  const workspaceRef = useRef<HTMLElement>(null);
-  // The navigation panel is independently resizable, so viewport media queries
-  // cannot describe how much room the session workspace actually has.
-  const desktopWorkbench = useContainerQuery(workspaceRef, 760);
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
@@ -175,7 +171,7 @@ export function ClioAppShell({
       asChild
       className="h-dvh min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
-      <section aria-label="Session workspace" ref={workspaceRef}>
+      <section aria-label="Session workspace">
         {desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
@@ -225,6 +221,7 @@ export function ClioAppShell({
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             className="w-[min(92vw,480px)] p-0 [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            showCloseButton={false}
             side="right"
           >
             <SheetHeader className="sr-only">

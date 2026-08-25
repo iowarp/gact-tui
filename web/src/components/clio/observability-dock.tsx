@@ -341,7 +341,7 @@ export function ClioObservabilityView({
       <Tabs className="h-full min-h-0 gap-0" defaultValue="work">
         <TabsList
           aria-label="Observability view"
-          className={`mx-3 mt-2 grid h-auto w-auto shrink-0 gap-1 p-1 ${
+          className={`mx-3 mt-2 grid h-auto! w-auto shrink-0 gap-1 p-1 ${
             hasWideNavigation ? 'grid-cols-4' : hasMediumNavigation ? 'grid-cols-2' : 'grid-cols-1'
           }`}
         >
