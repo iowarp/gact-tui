@@ -1,5 +1,6 @@
 import type {
   AgentBlueprint,
+  AgentBlueprintReference,
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
@@ -85,7 +86,7 @@ type WorkbenchTab =
       id: string;
       kind: 'blueprint';
       label: string;
-      blueprint: AgentBlueprint;
+      blueprint: AgentBlueprintReference;
       sessionId: string;
       workspaceId: string;
     }
@@ -124,7 +125,7 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'workspace-file'; path: string }
   | { kind: 'diff'; diff: SessionDiff }
   | { kind: 'artifact'; artifact: ArtifactEntity }
-  | { kind: 'blueprint'; blueprint: AgentBlueprint }
+  | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' };

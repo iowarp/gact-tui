@@ -1,4 +1,4 @@
-import type { AgentBlueprint, Session } from '@clio/core/v3';
+import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClioSessionActions } from './session-actions';
@@ -7,11 +7,11 @@ import { ClioStatus } from './status';
 export interface ClioSessionContextBarProps {
   session?: Session;
   parentSession?: Session;
-  activeBlueprint?: AgentBlueprint;
+  activeBlueprint?: AgentBlueprintReference;
   actionsPending: boolean;
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
-  onOpenBlueprint: (blueprint: AgentBlueprint) => void;
+  onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
   onShare: (ttlSeconds: number) => Promise<string>;
   onReturnToParent: (session: Session) => void;
   onUndo: () => Promise<void>;

@@ -1,4 +1,9 @@
-import type { AgentBlueprint, Artifact, WorkspaceFileEntry } from '@clio/core/v3';
+import type {
+  AgentBlueprint,
+  AgentBlueprintReference,
+  Artifact,
+  WorkspaceFileEntry,
+} from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
@@ -372,7 +377,7 @@ export function BlueprintBrowser({
 }
 
 interface BlueprintViewProps {
-  blueprint: AgentBlueprint;
+  blueprint: AgentBlueprintReference;
   workspaceId: string;
   sessionId: string;
 }
@@ -389,13 +394,13 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
   });
   const tree = useMemo(() => buildFileTree(files.data ?? []), [files.data]);
-  useEffect(() => {
+  const resolvedSelectedPath = useMemo(() => {
     const entries = files.data ?? [];
-    if (selectedPath && entries.some((entry) => entry.path === selectedPath)) return;
+    if (selectedPath && entries.some((entry) => entry.path === selectedPath)) return selectedPath;
     const initial =
       entries.find((entry) => entry.type === 'file' && entry.path.toLowerCase() === 'agent.md') ??
       entries.find((entry) => entry.type === 'file');
-    setSelectedPath(initial?.path);
+    return initial?.path;
   }, [files.data, selectedPath]);
   useEffect(() => {
     const host = hostRef.current;
@@ -422,11 +427,13 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    {blueprint.enabled === undefined ? null : (
+                      <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    )}
                     {blueprint.version ? (
                       <Badge variant="outline">Version {blueprint.version}</Badge>
                     ) : null}
-                    <Badge variant="outline">{blueprint.scope}</Badge>
+                    {blueprint.scope ? <Badge variant="outline">{blueprint.scope}</Badge> : null}
                   </div>
                 </div>
               </div>
@@ -438,7 +445,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
                 <FileTree
                   className="rounded-none border-0 bg-transparent"
                   onSelect={setSelectedPath}
-                  selectedPath={selectedPath}
+                  selectedPath={resolvedSelectedPath}
                 >
                   <FileNodes nodes={tree} />
                 </FileTree>
@@ -456,10 +463,10 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
         </ResizablePanel>
         <ResizableHandle aria-label="Resize blueprint file tree" withHandle />
         <ResizablePanel minSize={stacked ? '220px' : '320px'}>
-          {selectedPath ? (
+          {resolvedSelectedPath ? (
             <BlueprintFileEditor
               blueprintId={blueprint.id}
-              path={selectedPath}
+              path={resolvedSelectedPath}
               sessionId={sessionId}
               workspaceId={workspaceId}
             />

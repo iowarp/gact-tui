@@ -279,6 +279,9 @@ export const sessionSchema = z.object({
   parent_session_id: z.string().optional(),
   agent_id: z.string().optional(),
   active_blueprint_id: z.string().optional(),
+  active_blueprint_name: z.string().optional(),
+  active_blueprint_version: z.string().optional(),
+  active_blueprint_scope: z.string().optional(),
   mode: z.enum(['plan', 'edit', 'architect']).default('edit'),
   edit_mode: z.enum(['diff', 'whole', 'patch']).default('diff'),
   routing_mode: z.enum(['auto', 'chat', 'experts', 'reasoning_only']).default('auto'),
@@ -286,7 +289,6 @@ export const sessionSchema = z.object({
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
 });
-
 export const sessionDefaultsSchema = z.object({
   provider_id: z.string().default(''),
   model_id: z.string().default(''),

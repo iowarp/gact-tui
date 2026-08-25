@@ -1,4 +1,4 @@
-import type { AgentBlueprint, Session } from '@clio/core/v3';
+import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import {
   ArchiveIcon,
   DownloadIcon,
@@ -32,7 +32,7 @@ interface SessionNavigationRowProps {
   workspaceId: string;
   activeSessionId: string;
   seenRevision?: string;
-  blueprint?: AgentBlueprint;
+  blueprint?: AgentBlueprintReference;
   actions: ResourceActions;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;

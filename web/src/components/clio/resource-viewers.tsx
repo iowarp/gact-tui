@@ -137,16 +137,16 @@ export function BlueprintFileEditor({
     errors: [],
     warnings: [],
   });
-  const dirty = draft !== baseline;
-
-  useEffect(() => {
-    if (content.data === undefined) return;
-    if (loadedPath !== path || !dirty) {
-      setDraft(content.data);
-      setBaseline(content.data);
+  const activeDraft = loadedPath === path ? draft : (content.data ?? '');
+  const activeBaseline = loadedPath === path ? baseline : (content.data ?? '');
+  const dirty = activeDraft !== activeBaseline;
+  const updateDraft = (next: string) => {
+    if (loadedPath !== path) {
       setLoadedPath(path);
+      setBaseline(content.data ?? '');
     }
-  }, [content.data, dirty, loadedPath, path]);
+    setDraft(next);
+  };
 
   const save = useMutation({
     mutationFn: (next: string) =>
@@ -197,7 +197,7 @@ export function BlueprintFileEditor({
           height="100%"
           mode={aceModeForPath(path)}
           name={`blueprint-editor-${blueprintId}-${path}`}
-          onChange={setDraft}
+          onChange={updateDraft}
           setOptions={{
             enableBasicAutocompletion: true,
             enableLiveAutocompletion: false,
@@ -209,7 +209,7 @@ export function BlueprintFileEditor({
             useWorker: false,
           }}
           theme={resolvedTheme === 'light' ? 'github' : 'one_dark'}
-          value={draft}
+          value={activeDraft}
           width="100%"
         />
       </div>
@@ -237,7 +237,7 @@ export function BlueprintFileEditor({
         <Button
           className="h-10 min-w-28 px-5"
           disabled={!dirty || save.isPending}
-          onClick={() => save.mutate(draft)}
+          onClick={() => save.mutate(activeDraft)}
         >
           <SaveIcon aria-hidden="true" />
           {save.isPending ? 'Saving' : 'Save'}

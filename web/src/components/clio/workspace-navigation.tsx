@@ -28,6 +28,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
+import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import {
   isPrimarySession,
   sessionInteractionAt,
@@ -276,9 +277,7 @@ function WorkspaceTreeItem({
             <SessionNavigationRow
               actions={actions}
               activeSessionId={activeSessionId}
-              blueprint={blueprints.find(
-                (candidate) => candidate.id === session.active_blueprint_id,
-              )}
+              blueprint={resolveActiveBlueprint(session, blueprints)}
               key={session.id}
               onAction={onAction}
               onDelete={onDelete}

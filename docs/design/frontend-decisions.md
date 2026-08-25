@@ -1417,3 +1417,21 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   selector. Focused new-session interaction coverage proves that selecting Deep research persists
   `architect` and `experts` together. The session hover preview uses the same work-mode label and no
   longer repeats a separate routing row.
+
+# A session owns its active blueprint identity
+
+- Old failure: the header and session hover inferred blueprint identity only from the currently
+  installed catalog. Historical and path-activated sessions therefore displayed `Default agent`
+  even though their persisted activation retained the exact blueprint name, version, scope,
+  checksum, commit, source, and definition snapshot. Clicking the missing name was impossible, and
+  the blueprint file route ignored the retained definition snapshot.
+- New representation: GACT 0.3 projects the authoritative active blueprint ID, display name,
+  version, and scope on every session. The client resolves that reference against the installed
+  catalog when possible and otherwise keeps the session-owned reference without fabricating a
+  catalog record. The same reference labels the header and hover preview and opens the actual
+  session-bound blueprint snapshot in the canvas.
+- Acceptance evidence: focused Python coverage proves a historical activation remains inspectable
+  after its transient path is cleared and cannot leak through a mismatched blueprint ID. Core and
+  React coverage prove the identity survives decoding and the displayed name opens the canvas.
+  Live acceptance uses the persisted `earthscope-flat` NDP session and its
+  `EarthScope (Flat / Haiku)` definition snapshot.

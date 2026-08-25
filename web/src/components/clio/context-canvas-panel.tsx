@@ -1,6 +1,6 @@
 import type { ContextFile, ContextFrame, ContextSnapshot } from '@clio/core/v3';
 import { BotIcon, ChevronDownIcon, FileTextIcon, HistoryIcon, SparklesIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Context as AIContext,
   ContextContent,
@@ -82,10 +82,19 @@ export function ClioContextCanvasPanel({
   const canCompact = Boolean(onCompact && context?.live_block_count);
   const automaticCompaction = context?.autocompact_enabled ?? true;
   const serverThreshold = Math.round((context?.autocompact_pct ?? 0.85) * 100);
-  const [threshold, setThreshold] = useState(serverThreshold);
+  const [thresholdDraft, setThresholdDraft] = useState({
+    targetId: selectedTargetId,
+    serverValue: serverThreshold,
+    value: serverThreshold,
+  });
+  const threshold =
+    thresholdDraft.targetId === selectedTargetId &&
+    thresholdDraft.serverValue === serverThreshold
+      ? thresholdDraft.value
+      : serverThreshold;
+  const setThreshold = (value: number) =>
+    setThresholdDraft({ targetId: selectedTargetId, serverValue: serverThreshold, value });
   const categories = useMemo(() => contextCategories(context), [context]);
-
-  useEffect(() => setThreshold(serverThreshold), [serverThreshold, selectedTargetId]);
 
   return (
     <div className="grid min-w-0 gap-5">

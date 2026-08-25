@@ -36,6 +36,7 @@ import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { recordById } from '@/lib/entities';
+import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildModelOptions } from '@/lib/model-options';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { sessionChildRelations } from '@/lib/session-child-relations';
@@ -235,9 +236,7 @@ export function WorkspacePage() {
   const activeProvider = session?.provider_id ?? capabilities.data?.active_model?.provider_id;
   const activeModel = session?.model_id ?? capabilities.data?.active_model?.model_id;
   const activeEffort = session?.effort ?? capabilities.data?.active_model?.effort;
-  const activeBlueprint = agentBlueprints.data?.find(
-    (blueprint) => blueprint.id === session?.active_blueprint_id,
-  );
+  const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
   const activePreset = modelConfiguration.data?.presets.find(

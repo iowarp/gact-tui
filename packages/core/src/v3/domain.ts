@@ -77,6 +77,9 @@ export interface Session {
   parent_session_id?: string;
   agent_id?: string;
   active_blueprint_id?: string;
+  active_blueprint_name?: string;
+  active_blueprint_version?: string;
+  active_blueprint_scope?: string;
   mode: 'plan' | 'edit' | 'architect';
   edit_mode: 'diff' | 'whole' | 'patch';
   routing_mode: 'auto' | 'chat' | 'experts' | 'reasoning_only';
