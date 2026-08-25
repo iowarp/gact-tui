@@ -348,54 +348,6 @@ describe('ClioConversation recovery actions', () => {
     ).toBeInTheDocument();
   });
 
-  it('makes metadata-only model reasoning discoverable and renders the complete capture in full mode', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_reasoning',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [],
-            reasoning_calls: [
-              {
-                id: 'reasoning_call_1',
-                model: 'anthropic/claude-opus-4-1',
-                question: 'Inspect the complete campaign evidence.',
-                reasoning:
-                  'This is the complete provider reasoning captured for the model call, not a short transcript summary.',
-                response: 'The campaign evidence supports the reported conclusion.',
-                reasoning_chars: 101,
-              },
-            ],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    expect(screen.getByText('1 additional captured model call')).toBeInTheDocument();
-    expect(screen.queryByText(/complete provider reasoning captured/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
-
-    expect(screen.queryByText(/complete provider reasoning captured/)).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Expand 1 additional captured model call' }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-    expect(screen.getByText(/complete provider reasoning captured/)).toBeInTheDocument();
-    expect(screen.getByText(/Prompt: Inspect the complete campaign evidence/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/The campaign evidence supports the reported conclusion/),
-    ).toBeInTheDocument();
-  });
-
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {
     renderConversation(
       <ClioConversation

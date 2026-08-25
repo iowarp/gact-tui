@@ -32,13 +32,13 @@ export function useSessionObservability(sessionId: string) {
     queryKey: [...baseKey, 'processes'],
     queryFn: ({ signal }) => repository.asyncProcesses(sessionId, signal),
     enabled,
+    refetchInterval: (query) =>
+      query.state.data?.some((process) =>
+        ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(process.live_state),
+      )
+        ? 1_500
+        : false,
   });
 
-  const iterations = useQuery({
-    queryKey: [...baseKey, 'agent-iterations'],
-    queryFn: ({ signal }) => repository.agentIterations(sessionId, signal),
-    enabled,
-  });
-
-  return { contextFiles, contextFrames, diffs, iterations, processes };
+  return { contextFiles, contextFrames, diffs, processes };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentIteration, Artifact, Message, ToolInvocation } from '@clio/core/v3';
+import type { Artifact, Message, ToolInvocation } from '@clio/core/v3';
 import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
 
 const tools: Record<string, ToolInvocation> = {
@@ -8,6 +8,13 @@ const tools: Record<string, ToolInvocation> = {
     session_id: 'session_1',
     name: 'fs_read_file',
     title: 'Read file',
+    state: 'succeeded',
+  },
+  call_render: {
+    id: 'call_render',
+    session_id: 'session_1',
+    name: 'create_a2ui_surface',
+    title: 'Analysis view created',
     state: 'succeeded',
   },
 };
@@ -39,14 +46,13 @@ describe('conversationTurnPresentation', () => {
       ],
     };
 
-    const view = conversationTurnPresentation(message, [], tools);
+    const view = conversationTurnPresentation(message, tools);
 
-    expect(view.authoritative).toBe(false);
     expect(view.iterations).toHaveLength(2);
     expect(view.iterations[0]).toMatchObject({
       terminal: false,
       nextThoughts: ['I will inspect the evidence file.'],
-      tool: { id: 'call_read' },
+      tools: [{ id: 'call_read' }],
     });
     expect(view.iterations[1]).toMatchObject({
       terminal: true,
@@ -55,7 +61,7 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['answer']);
   });
 
-  it('prefers exact semantic iterations and retains UI and final-answer blocks', () => {
+  it('uses only canonical transcript parts and retains UI and final-answer blocks', () => {
     const message: Message = {
       id: 'assistant_2',
       session_id: 'session_1',
@@ -75,33 +81,77 @@ describe('conversationTurnPresentation', () => {
         { id: 'answer', type: 'text', text: 'Evidence ready.', channel: 'answer' },
       ],
     };
-    const iterations: AgentIteration[] = [
-      {
-        id: 'step_1',
-        session_id: 'session_1',
-        turn_id: 'turn_1',
-        agent_id: 'main',
-        step_index: 0,
-        next_thought: 'Inspecting evidence.',
-        terminal: false,
-        tool: {
-          id: 'step_1:tool',
-          name: 'fs_read_file',
-          state: 'succeeded',
-          output: 'ready',
-        },
-      },
-    ];
+    const view = conversationTurnPresentation(message, tools);
 
-    const view = conversationTurnPresentation(message, iterations, tools);
-
-    expect(view.authoritative).toBe(true);
     expect(view.iterations[0]?.thinking[0]?.text).toBe(
       '**Use the file reader.**\n\n**Then inspect the result.**',
     );
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
-    expect(view.iterations[0]?.tool?.id).toBe('call_read');
+    expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read']);
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['surface', 'answer']);
+  });
+
+  it('keeps multiple tool calls from one model response in one iteration', () => {
+    const repeatedThought = 'I will create the map and time-series surfaces now.';
+    const message: Message = {
+      id: 'assistant_multi_tool',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'thinking_multi',
+          type: 'reasoning',
+          text: 'Both views use the same grounded evidence.',
+          provider_source: 'claude_code_sdk',
+        },
+        {
+          id: 'next_multi',
+          type: 'text',
+          text: repeatedThought,
+          channel: 'next_thought',
+        },
+        { id: 'tool_map', type: 'tool', tool_id: 'call_read' },
+        { id: 'surface_map', type: 'a2ui', surface_id: 'surface_map' },
+        {
+          id: 'tool_plot',
+          type: 'tool',
+          tool_id: 'call_render',
+          thought: repeatedThought,
+        },
+        { id: 'surface_plot', type: 'a2ui', surface_id: 'surface_plot' },
+        {
+          id: 'thinking_final',
+          type: 'reasoning',
+          text: 'Both surfaces are ready.',
+          provider_source: 'claude_code_sdk',
+        },
+        {
+          id: 'next_final',
+          type: 'text',
+          text: 'I can now answer with the observed limitation.',
+          channel: 'next_thought',
+        },
+        { id: 'answer_multi', type: 'text', text: 'Complete.', channel: 'answer' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations).toHaveLength(2);
+    expect(view.iterations[0]?.thinking.map((part) => part.text)).toEqual([
+      'Both views use the same grounded evidence.',
+    ]);
+    expect(view.iterations[0]?.nextThoughts).toEqual([repeatedThought]);
+    expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read', 'call_render']);
+    expect(view.iterations[1]?.thinking.map((part) => part.text)).toEqual([
+      'Both surfaces are ready.',
+    ]);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual([
+      'surface_map',
+      'surface_plot',
+      'answer_multi',
+    ]);
   });
 
   it('joins provider thinking across a child-agent transcript boundary', () => {
@@ -140,30 +190,7 @@ describe('conversationTurnPresentation', () => {
         { id: 'wait', type: 'tool', tool_id: 'call_read' },
       ],
     };
-    const iterations: AgentIteration[] = [
-      {
-        id: 'step_spawn',
-        session_id: 'session_1',
-        turn_id: 'turn_child',
-        agent_id: 'main',
-        step_index: 0,
-        next_thought: 'I will start the geospatial specialist.',
-        terminal: false,
-        tool: { id: 'spawn', name: 'spawn_agent_task', state: 'succeeded' },
-      },
-      {
-        id: 'step_wait',
-        session_id: 'session_1',
-        turn_id: 'turn_child',
-        agent_id: 'main',
-        step_index: 1,
-        next_thought: 'The geospatial specialist is still working.',
-        terminal: false,
-        tool: { id: 'wait', name: 'fs_read_file', state: 'succeeded' },
-      },
-    ];
-
-    const view = conversationTurnPresentation(message, iterations, tools);
+    const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations[0]?.thinking[0]?.text).toBe(
       'Resolve the place before searching stations.',
@@ -195,7 +222,7 @@ describe('conversationTurnPresentation', () => {
       ],
     };
 
-    const view = conversationTurnPresentation(message, [], tools);
+    const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations).toHaveLength(1);
     expect(view.iterations[0]).toMatchObject({
@@ -210,33 +237,31 @@ describe('conversationTurnPresentation', () => {
     });
   });
 
-  it('uses CLIOs explicit iteration summary instead of truncating the agent response', () => {
+  it('derives the chain summary from the canonical visible thought', () => {
     const message: Message = {
       id: 'assistant_summary',
       session_id: 'session_1',
       run_id: 'turn_summary',
       role: 'assistant',
       created_at: '2026-08-24T00:00:00Z',
-      blocks: [],
+      blocks: [
+        {
+          id: 'thinking_summary',
+          type: 'reasoning',
+          text: 'Compare the grounded observations before acting.',
+        },
+        {
+          id: 'next_summary',
+          type: 'text',
+          text: 'Compare the three grounded observations. Then present the ranking.',
+          channel: 'next_thought',
+        },
+      ],
     };
-    const iterations: AgentIteration[] = [
-      {
-        id: 'step_summary',
-        session_id: 'session_1',
-        turn_id: 'turn_summary',
-        agent_id: 'main',
-        step_index: 0,
-        thinking: 'Compare the grounded observations before acting.',
-        next_thought:
-          'The first sentence is a detailed narration that should remain available only inside the expanded step.',
-        summary: 'Comparing grounded observations',
-        terminal: false,
-      },
-    ];
 
-    const view = conversationTurnPresentation(message, iterations, tools);
+    const view = conversationTurnPresentation(message, tools);
 
-    expect(view.iterations[0]?.summary).toBe('Comparing grounded observations');
+    expect(view.iterations[0]?.summary).toBe('Compare the three grounded observations.');
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
   });
 
@@ -259,7 +284,7 @@ describe('conversationTurnPresentation', () => {
       ],
     };
 
-    const view = conversationTurnPresentation(message, [], tools);
+    const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations[0]).toMatchObject({
       terminal: false,
@@ -284,7 +309,7 @@ describe('conversationTurnPresentation', () => {
       ],
     };
 
-    const view = conversationTurnPresentation(message, [], tools);
+    const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations[0]?.summary).toBe('Finalizing the response');
     expect(view.iterations[0]?.nextThoughts).toEqual([

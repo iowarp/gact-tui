@@ -65,7 +65,7 @@ describe('GACT 0.3 reducer', () => {
     ]);
   });
 
-  it('retains completed model-call reasoning and usage from the live wire', () => {
+  it('retains completed usage from the live wire', () => {
     const created = frame('1', 'message.upserted', {
       id: 'msg_1',
       session_id: 'sess_1',
@@ -81,14 +81,6 @@ describe('GACT 0.3 reducer', () => {
       stop_reason: 'end_turn',
       tokens: { input: 120, output: 45, cache_read: 30, cache_write: 0 },
       cost_usd: 0.0125,
-      reasoning_calls: [
-        {
-          id: 'reasoning_call_1',
-          model: 'openai/gpt-5.6-luna',
-          reasoning: 'The complete captured model reasoning.',
-          reasoning_chars: 38,
-        },
-      ],
     });
 
     const state = [created, completed].reduce(reduceTransportFrame, createEntityState());
@@ -98,14 +90,6 @@ describe('GACT 0.3 reducer', () => {
       stop_reason: 'end_turn',
       usage: { input: 120, output: 45, cache_read: 30, cache_write: 0 },
       cost_usd: 0.0125,
-      reasoning_calls: [
-        {
-          id: 'reasoning_call_1',
-          model: 'openai/gpt-5.6-luna',
-          reasoning: 'The complete captured model reasoning.',
-          reasoning_chars: 38,
-        },
-      ],
     });
   });
 

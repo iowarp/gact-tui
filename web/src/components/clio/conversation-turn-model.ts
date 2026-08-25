@@ -1,11 +1,4 @@
-import type {
-  AgentIteration,
-  Artifact,
-  Message,
-  MessageBlock,
-  ModelReasoningCall,
-  ToolInvocation,
-} from '@clio/core/v3';
+import type { Artifact, Message, MessageBlock, ToolInvocation } from '@clio/core/v3';
 
 export interface ConversationIteration {
   id: string;
@@ -18,26 +11,16 @@ export interface ConversationIteration {
     streaming: boolean;
   }>;
   nextThoughts: string[];
-  tool?: ToolInvocation;
+  tools: ToolInvocation[];
   terminal: boolean;
   interrupted: boolean;
   streaming: boolean;
   summary: string;
 }
 
-export interface SupplementalModelCall {
-  id: string;
-  label: string;
-  question?: string;
-  thinking: string;
-  response?: string;
-}
-
 export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
   residualBlocks: MessageBlock[];
-  supplementalCalls: SupplementalModelCall[];
-  authoritative: boolean;
 }
 
 /** Remove only repeated links to the exact same immutable artifact. */
@@ -60,80 +43,15 @@ export function deduplicateArtifactBlocks(
   });
 }
 
-/** Build one lossless turn view from exact semantic iterations, with a transcript fallback. */
+/** Build one lossless turn view from the canonical ordered transcript parts. */
 export function conversationTurnPresentation(
   message: Message,
-  authoritativeIterations: readonly AgentIteration[],
   tools: Record<string, ToolInvocation>,
 ): ConversationTurnPresentation {
-  const turnId = message.run_id;
-  const exact = turnId
-    ? authoritativeIterations
-        .filter((iteration) => iteration.turn_id === turnId)
-        .sort((left, right) => left.step_index - right.step_index)
-    : [];
-
-  if (exact.length > 0) {
-    const authoritative = exact.map((iteration, index) => fromAuthoritative(iteration, index));
-    const fallback = fallbackIterations(message, tools);
-    const iterations = mergeTranscriptIterations(authoritative, fallback.iterations);
-    return {
-      iterations,
-      residualBlocks: message.blocks.filter(
-        (block) => !conversationIterationOwnsBlock(block, iterations, tools),
-      ),
-      supplementalCalls: supplementalModelCalls(iterations, message.reasoning_calls ?? []),
-      authoritative: true,
-    };
-  }
-
   const { iterations, consumed } = fallbackIterations(message, tools);
   return {
     iterations,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
-    supplementalCalls: supplementalModelCalls(iterations, message.reasoning_calls ?? []),
-    authoritative: false,
-  };
-}
-
-function fromAuthoritative(iteration: AgentIteration, index: number): ConversationIteration {
-  const tool = iteration.tool
-    ? {
-        id: iteration.tool.id,
-        session_id: iteration.session_id,
-        run_id: iteration.turn_id,
-        name: iteration.tool.name,
-        state: iteration.tool.state,
-        input: iteration.tool.input,
-        output: iteration.tool.output,
-      }
-    : undefined;
-  const nextThoughts = iteration.next_thought ? [iteration.next_thought] : [];
-  return {
-    id: iteration.id,
-    index,
-    agentId: iteration.agent_id,
-    thinking: iteration.thinking
-      ? [
-          {
-            id: `${iteration.id}:thinking`,
-            label: 'Thinking',
-            text: readableThinking(iteration.thinking),
-            streaming: false,
-          },
-        ]
-      : [],
-    nextThoughts,
-    tool,
-    terminal: iteration.terminal,
-    interrupted: false,
-    streaming: iteration.tool?.state === 'running',
-    summary: authoritativeIterationSummary(
-      iteration.summary,
-      nextThoughts,
-      tool,
-      iteration.terminal,
-    ),
   };
 }
 
@@ -159,7 +77,7 @@ function fallbackIterations(
     current.interrupted = interrupted;
     current.summary = iterationSummary(
       current.nextThoughts,
-      current.tool,
+      current.tools,
       current.terminal,
       current.thinking.at(-1)?.text,
     );
@@ -170,7 +88,7 @@ function fallbackIterations(
   for (let position = 0; position < ordered.length; position += 1) {
     const block = ordered[position]!.block;
     if (block.type === 'reasoning') {
-      if (current.nextThoughts.length > 0 || current.tool) flush();
+      if (current.nextThoughts.length > 0 || current.tools.length > 0) flush();
       current.thinking.push({
         id: block.id,
         label: reasoningLabel(block.provider_source),
@@ -182,28 +100,32 @@ function fallbackIterations(
       continue;
     }
     if (block.type === 'text' && isNextThought(block, ordered, position)) {
-      if (current.tool) flush();
+      if (current.tools.length > 0) flush();
       current.nextThoughts.push(block.text);
       current.streaming ||= Boolean(block.streaming);
       consumed.add(block.id);
       continue;
     }
     if (block.type === 'tool') {
-      current.tool = tools[block.tool_id];
+      const tool = tools[block.tool_id];
+      if (tool && !current.tools.some((candidate) => candidate.id === tool.id)) {
+        current.tools.push(tool);
+      }
       if (block.thought && current.nextThoughts.length === 0) {
         current.nextThoughts.push(block.thought);
       }
-      current.streaming ||= ['pending', 'running'].includes(current.tool?.state ?? '');
+      current.streaming ||= ['pending', 'running'].includes(tool?.state ?? '');
       consumed.add(block.id);
-      flush(false);
       continue;
     }
-    if (hasIterationContent(current)) {
-      const finalAnswerBoundary = block.type === 'text' && block.channel === 'answer';
-      flush(finalAnswerBoundary && !current.tool);
+    if (hasIterationContent(current) && block.type === 'text' && block.channel === 'answer') {
+      flush(current.tools.length === 0);
     }
   }
-  flush(messageCompletedNormally(message), messageInterrupted(message));
+  flush(
+    messageCompletedNormally(message) && current.tools.length === 0,
+    messageInterrupted(message),
+  );
   return { consumed, iterations };
 }
 
@@ -218,6 +140,7 @@ function emptyIteration(message: Message, index: number): ConversationIteration 
     agentId: 'main',
     thinking: [],
     nextThoughts: [],
+    tools: [],
     terminal: false,
     interrupted: false,
     streaming: false,
@@ -227,7 +150,7 @@ function emptyIteration(message: Message, index: number): ConversationIteration 
 
 function hasIterationContent(iteration: ConversationIteration): boolean {
   return (
-    iteration.thinking.length > 0 || iteration.nextThoughts.length > 0 || Boolean(iteration.tool)
+    iteration.thinking.length > 0 || iteration.nextThoughts.length > 0 || iteration.tools.length > 0
   );
 }
 
@@ -277,115 +200,14 @@ function conversationIterationOwnsBlock(
   }
   if (block.type === 'tool') {
     const tool = tools[block.tool_id];
-    return Boolean(tool && iterations.some((iteration) => iteration.tool?.id === tool.id));
+    return Boolean(
+      tool &&
+        iterations.some((iteration) =>
+          iteration.tools.some((candidate) => candidate.id === tool.id),
+        ),
+    );
   }
   return false;
-}
-
-function mergeTranscriptIterations(
-  authoritative: ConversationIteration[],
-  transcript: ConversationIteration[],
-): ConversationIteration[] {
-  const claimed = new Set<string>();
-  const merged = authoritative.map((iteration) => {
-    const match = transcript
-      .filter((candidate) => !claimed.has(candidate.id))
-      .map((candidate) => ({ candidate, score: iterationMatchScore(iteration, candidate) }))
-      .sort((left, right) => right.score - left.score)[0];
-    if (!match || match.score < 2) return iteration;
-    claimed.add(match.candidate.id);
-    const thinking = deduplicateThinking([...iteration.thinking, ...match.candidate.thinking]);
-    const nextThoughts = deduplicateText([
-      ...iteration.nextThoughts,
-      ...match.candidate.nextThoughts,
-    ]);
-    const tool = matchingTool(iteration.tool, match.candidate.tool);
-    return {
-      ...iteration,
-      thinking,
-      nextThoughts,
-      tool,
-      streaming: iteration.streaming || match.candidate.streaming,
-      summary: iterationSummary(nextThoughts, tool, iteration.terminal),
-    };
-  });
-  const active = transcript.filter(
-    (iteration) => !claimed.has(iteration.id) && iteration.streaming,
-  );
-  return [...merged, ...active].map((iteration, index) => ({ ...iteration, index }));
-}
-
-function iterationMatchScore(
-  authoritative: ConversationIteration,
-  transcript: ConversationIteration,
-): number {
-  const authoritativeThoughts = new Set(authoritative.nextThoughts.map(normalize));
-  const matchingThought = transcript.nextThoughts.some((thought) =>
-    authoritativeThoughts.has(normalize(thought)),
-  );
-  const matchingTool = Boolean(
-    authoritative.tool && transcript.tool && authoritative.tool.name === transcript.tool.name,
-  );
-  return (matchingThought ? 3 : 0) + (matchingTool ? 2 : 0);
-}
-
-function matchingTool(
-  authoritative: ToolInvocation | undefined,
-  transcript: ToolInvocation | undefined,
-): ToolInvocation | undefined {
-  if (authoritative && transcript && authoritative.name === transcript.name) return transcript;
-  return authoritative ?? transcript;
-}
-
-function deduplicateThinking(
-  thinking: Array<{ id: string; text: string; label: string; streaming: boolean }>,
-): Array<{ id: string; text: string; label: string; streaming: boolean }> {
-  const seen = new Set<string>();
-  return thinking.filter((entry) => {
-    const text = normalize(entry.text);
-    if (!text || seen.has(text)) return false;
-    seen.add(text);
-    return true;
-  });
-}
-
-function deduplicateText(values: string[]): string[] {
-  const seen = new Set<string>();
-  return values.filter((value) => {
-    const text = normalize(value);
-    if (!text || seen.has(text)) return false;
-    seen.add(text);
-    return true;
-  });
-}
-
-function supplementalModelCalls(
-  iterations: readonly ConversationIteration[],
-  calls: readonly ModelReasoningCall[],
-): SupplementalModelCall[] {
-  const represented = new Set(
-    iterations.flatMap((iteration) =>
-      iteration.thinking.map((thinking) => normalize(thinking.text)),
-    ),
-  );
-  const supplemental: SupplementalModelCall[] = [];
-  for (const call of calls) {
-    const text = normalize(readableThinking(call.reasoning));
-    if (!text || represented.has(text)) continue;
-    supplemental.push({
-      id: call.id,
-      label: modelReasoningLabel(call),
-      question: call.question,
-      thinking: readableThinking(call.reasoning),
-      response: call.response,
-    });
-    represented.add(text);
-  }
-  return supplemental;
-}
-
-function modelReasoningLabel(_call: ModelReasoningCall): string {
-  return 'Thinking';
 }
 
 function reasoningLabel(_provider?: string): string {
@@ -394,7 +216,7 @@ function reasoningLabel(_provider?: string): string {
 
 function iterationSummary(
   nextThoughts: readonly string[],
-  tool: ToolInvocation | undefined,
+  tools: readonly ToolInvocation[],
   terminal: boolean,
   eventSummary?: string,
 ): string {
@@ -404,18 +226,9 @@ function iterationSummary(
     return compactSentence(thought);
   }
   if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
+  const tool = tools[0];
   if (tool) return `${tool.title ?? humanize(tool.name)} requested`;
   return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
-}
-
-function authoritativeIterationSummary(
-  eventSummary: string | undefined,
-  nextThoughts: readonly string[],
-  tool: ToolInvocation | undefined,
-  terminal: boolean,
-): string {
-  if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
-  return iterationSummary(nextThoughts, tool, terminal);
 }
 
 function isResponseContractRepair(value: string): boolean {
@@ -429,7 +242,7 @@ function isResponseContractRepair(value: string): boolean {
 function compactSentence(value: string): string {
   const line = value.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
-  const sentence = sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line;
+  const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
   return sentence.length > 180 ? `${sentence.slice(0, 177).trimEnd()}…` : sentence;
 }
 

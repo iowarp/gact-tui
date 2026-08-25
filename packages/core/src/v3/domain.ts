@@ -642,37 +642,6 @@ export type MessageBlock = MessageBlockContext &
     | { id: string; type: 'routing'; label: string; detail?: string }
   );
 
-export interface ModelReasoningCall {
-  id: string;
-  model?: string;
-  question?: string;
-  reasoning: string;
-  response?: string;
-  reasoning_chars: number;
-  timestamp?: string;
-}
-
-/** One authoritative ReAct iteration within a human-initiated agent turn. */
-export interface AgentIteration {
-  id: string;
-  session_id: string;
-  turn_id: string;
-  agent_id: string;
-  step_index: number;
-  thinking?: string;
-  next_thought?: string;
-  summary?: string;
-  terminal: boolean;
-  tool?: {
-    id: string;
-    name: string;
-    input?: unknown;
-    output?: unknown;
-    state: 'running' | 'succeeded' | 'failed';
-  };
-  occurred_at?: string;
-}
-
 export interface MessageUsage {
   input: number;
   output: number;
@@ -691,7 +660,6 @@ export interface Message {
   usage?: MessageUsage;
   cost_usd?: number;
   stop_reason?: string;
-  reasoning_calls?: ModelReasoningCall[];
   error_info?: Record<string, unknown>;
 }
 

@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
-import type { ConversationIteration, SupplementalModelCall } from './conversation-turn-model';
+import type { ConversationIteration } from './conversation-turn-model';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
@@ -20,9 +20,7 @@ import { ClioToolInvocation } from './tool-invocation';
 import type { SubagentRun } from '@clio/core/v3';
 
 interface ConversationTurnProps {
-  authoritative: boolean;
   iterations: readonly ConversationIteration[];
-  supplementalCalls: readonly SupplementalModelCall[];
   mode: ConversationDisplayMode;
   onModeChange: (mode: ConversationDisplayMode) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -32,13 +30,12 @@ interface ConversationTurnProps {
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
   iterations,
-  supplementalCalls,
   mode,
   onModeChange,
   onOpenSubagent,
   subagents,
 }: ConversationTurnProps) {
-  if (iterations.length === 0 && supplementalCalls.length === 0) return null;
+  if (iterations.length === 0) return null;
   if (mode === 'full') {
     return (
       <section aria-label="Full agent activity" className="mb-4">
@@ -66,26 +63,6 @@ export function ConversationTurn({
               subagents={subagents}
             />
           ))}
-          {supplementalCalls.length > 0 ? (
-            <SupplementalCalls
-              calls={supplementalCalls}
-              full
-              headerAction={
-                iterations.length === 0 ? (
-                  <Button
-                    aria-label="Use chain view for this turn"
-                    className="shrink-0"
-                    onClick={() => onModeChange('chain')}
-                    size="xs"
-                    variant="ghost"
-                  >
-                    <BrainCircuitIcon aria-hidden="true" />
-                    Chain
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : null}
         </div>
       </section>
     );
@@ -116,67 +93,8 @@ export function ConversationTurn({
             subagents={subagents}
           />
         ))}
-        {supplementalCalls.length > 0 ? <SupplementalCalls calls={supplementalCalls} /> : null}
       </ChainOfThoughtContent>
     </ChainOfThought>
-  );
-}
-
-function SupplementalCalls({
-  calls,
-  full = false,
-  headerAction,
-}: {
-  calls: readonly SupplementalModelCall[];
-  full?: boolean;
-  headerAction?: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const label =
-    calls.length === 1
-      ? '1 additional captured model call'
-      : `${calls.length} additional captured model calls`;
-  return (
-    <Collapsible onOpenChange={setOpen} open={open}>
-      <div className={cn(full && 'border-l-2 border-muted-foreground/25 pl-4')}>
-        <div className="flex min-w-0 items-center gap-2">
-          <CollapsibleTrigger
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
-            className="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <BrainCircuitIcon aria-hidden="true" className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium text-foreground">{label}</span>
-              <span className="block">Captured outside the iteration stream.</span>
-            </span>
-            <ChevronDownIcon
-              aria-hidden="true"
-              className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')}
-            />
-          </CollapsibleTrigger>
-          {headerAction}
-        </div>
-        <CollapsibleContent className="space-y-4 pt-3">
-          {calls.map((call) => (
-            <article className="space-y-3" key={call.id}>
-              {call.question ? (
-                <p className="text-xs text-muted-foreground">Prompt: {call.question}</p>
-              ) : null}
-              <Reasoning>
-                <ReasoningTrigger getThinkingMessage={() => call.label} />
-                <ReasoningContent className="[&_p]:my-1">{call.thinking}</ReasoningContent>
-              </Reasoning>
-              {call.response ? (
-                <section className="space-y-1.5">
-                  <h4 className="text-xs font-medium text-muted-foreground">Model response</h4>
-                  <MessageResponse className="text-sm leading-6">{call.response}</MessageResponse>
-                </section>
-              ) : null}
-            </article>
-          ))}
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
   );
 }
 
@@ -190,14 +108,13 @@ function IterationSummary({
   subagents: Record<string, SubagentRun>;
 }) {
   const [open, setOpen] = useState(false);
-  const tool = iteration.tool ? getToolPresentation(iteration.tool) : undefined;
-  const toolSummary = iteration.tool
-    ? compactToolSummary(getToolSummary(iteration.tool))
-    : undefined;
-  const toolOutcome = iteration.tool ? getToolOutcome(iteration.tool) : undefined;
+  const primaryTool = iteration.tools[0];
+  const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
+  const toolSummary = primaryTool ? compactToolSummary(getToolSummary(primaryTool)) : undefined;
+  const toolOutcome = primaryTool ? getToolOutcome(primaryTool) : undefined;
   const toolState = iteration.streaming
     ? 'Running'
-    : iteration.tool && iteration.tool.state !== 'succeeded'
+    : primaryTool && primaryTool.state !== 'succeeded'
       ? toolOutcome?.label
       : undefined;
   const disclosureLabel = [
@@ -224,10 +141,11 @@ function IterationSummary({
                 <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
                   <span className="truncate">{tool.title}</span>
-                  {toolSummary ? (
-                    <span className="min-w-0 truncate">{toolSummary}</span>
-                  ) : null}
+                  {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
                   {toolState ? <span className="shrink-0">{toolState}</span> : null}
+                  {iteration.tools.length > 1 ? (
+                    <span className="shrink-0">+{iteration.tools.length - 1}</span>
+                  ) : null}
                 </span>
               ) : null}
             </span>
@@ -263,7 +181,6 @@ function IterationDetail({
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
 }) {
-  const linkedSubagents = subagentsForTool(iteration.tool, subagents);
   return (
     <article>
       <div className="space-y-4">
@@ -284,14 +201,8 @@ function IterationDetail({
               </ReasoningContent>
             </Reasoning>
           ))
-        ) : full ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
-              <BrainIcon aria-hidden="true" className="size-3.5 shrink-0" />
-              Thinking was not returned for this step.
-            </p>
-            {headerAction}
-          </div>
+        ) : headerAction ? (
+          <div className="flex justify-end">{headerAction}</div>
         ) : null}
 
         {iteration.nextThoughts.map((thought, index) => (
@@ -300,9 +211,13 @@ function IterationDetail({
           </MessageResponse>
         ))}
 
-        {iteration.tool ? <ClioToolInvocation tool={iteration.tool} /> : null}
-        {linkedSubagents.map((subagent) => (
-          <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
+        {iteration.tools.map((tool) => (
+          <div className="space-y-2" key={tool.id}>
+            <ClioToolInvocation tool={tool} />
+            {subagentsForTool(tool, subagents).map((subagent) => (
+              <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
+            ))}
+          </div>
         ))}
       </div>
     </article>
@@ -310,7 +225,11 @@ function IterationDetail({
 }
 
 function compactToolSummary(summary: string): string | undefined {
-  if (/^(?:Completed(?: successfully)?|Succeeded|Running(?: now)?|Waiting to start)\.?$/iu.test(summary)) {
+  if (
+    /^(?:Completed(?: successfully)?|Succeeded|Running(?: now)?|Waiting to start)\.?$/iu.test(
+      summary,
+    )
+  ) {
     return undefined;
   }
   return summary;

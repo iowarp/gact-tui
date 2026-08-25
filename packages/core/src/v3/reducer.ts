@@ -222,7 +222,6 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
             usage: payload.tokens ?? message.usage,
             cost_usd: payload.cost_usd ?? message.cost_usd,
             stop_reason: payload.stop_reason ?? message.stop_reason,
-            reasoning_calls: payload.reasoning_calls ?? message.reasoning_calls,
             error_info: payload.error_info ?? message.error_info,
             blocks: message.blocks.map((block) =>
               block.type === 'text' || block.type === 'reasoning'

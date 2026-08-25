@@ -646,16 +646,6 @@ export const messageBlockSchema = z
   ])
   .and(messageBlockContextSchema);
 
-export const modelReasoningCallSchema = z.object({
-  id: z.string(),
-  model: z.string().optional(),
-  question: z.string().optional(),
-  reasoning: z.string(),
-  response: z.string().optional(),
-  reasoning_chars: z.number().int().nonnegative(),
-  timestamp: z.string().optional(),
-});
-
 export const messageUsageSchema = z.object({
   input: z.number().int().nonnegative(),
   output: z.number().int().nonnegative(),
@@ -673,7 +663,6 @@ export const messageCompletionSchema = z.object({
     .nonnegative()
     .nullish()
     .transform((value) => value ?? undefined),
-  reasoning_calls: z.array(modelReasoningCallSchema).optional(),
   error_info: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -688,7 +677,6 @@ export const messageSchema = z.object({
   usage: messageUsageSchema.optional(),
   cost_usd: z.number().nonnegative().optional(),
   stop_reason: z.string().optional(),
-  reasoning_calls: z.array(modelReasoningCallSchema).optional(),
   error_info: z.record(z.string(), z.unknown()).optional(),
 });
 

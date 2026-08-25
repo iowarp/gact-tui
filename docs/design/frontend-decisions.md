@@ -1480,3 +1480,23 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   its Artifact tab without exposing the wire URI; clicking the preview opened the zoomable artifact
   canvas. With Observability open beside the conversation, the Map tab retained a full-width,
   pannable OpenStreetMap view and its labeled station controls instead of squeezing the map.
+
+# Conversation content has one canonical wire
+
+- Old failure: the conversation renderer fetched `react.step.completed` records from the semantic
+  trace endpoint and reconciled them in React with the already ordered transcript message parts.
+  A semantic step records only its primary tool, while the transcript can contain several tool
+  calls and A2UI results from one provider response. Joining those projections duplicated
+  next-thought text, split one model response into invented iterations, and made genuine tool calls
+  appear missing.
+- New representation: Full mode renders only canonical ordered message parts received through the
+  focused-session transcript stream and its authoritative snapshot. Chain mode derives concise
+  disclosures from those exact assembled iterations. A response may own several tools, all kept in
+  causal order; a tool's repeated `thought` field is used only when the transcript did not already
+  provide a next-thought part. Semantic trace records remain available to observability surfaces,
+  but they cannot add, remove, merge, reorder, or relabel conversation content.
+- Acceptance evidence: the live EarthScope A2UI turn now renders both recorded
+  `create_a2ui_surface` calls while its repeated next-thought appears once. The historical MTA1 plot
+  turn renders its five recorded provider-thinking parts and its one recorded plot call, exposing
+  the runtime's repeated no-tool continuations without inventing tools or hiding history. Focused
+  assembler coverage locks the multi-tool/A2UI ordering and duplicate-thought boundary.

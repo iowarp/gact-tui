@@ -1,6 +1,5 @@
 import type {
   ActionCardAction,
-  AgentIteration,
   Artifact,
   A2UISurface,
   Message as DomainMessage,
@@ -102,7 +101,6 @@ function DeferredA2UISurface({
 
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
-  iterations?: readonly AgentIteration[];
   loading?: boolean;
   error?: string;
   tools: Record<string, ToolInvocation>;
@@ -340,12 +338,12 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 }: ConversationMessageRowProps) {
   const canRetry =
     message.role === 'assistant' &&
-    ((message.blocks.length === 0 && (message.reasoning_calls?.length ?? 0) === 0) ||
+    (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const retrying = entities.retryingMessageId === message.id;
   const turn = useMemo(
-    () => conversationTurnPresentation(message, entities.iterations ?? [], entities.tools),
-    [entities.iterations, entities.tools, message],
+    () => conversationTurnPresentation(message, entities.tools),
+    [entities.tools, message],
   );
   const residualBlocks = useMemo(
     () => deduplicateArtifactBlocks(turn.residualBlocks, entities.artifacts),
@@ -355,7 +353,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     () =>
       new Set(
         turn.iterations.flatMap((iteration) =>
-          subagentsForTool(iteration.tool, entities.subagents).map((subagent) => subagent.id),
+          iteration.tools.flatMap((tool) =>
+            subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
+          ),
         ),
       ),
     [entities.subagents, turn.iterations],
@@ -440,9 +440,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             {actions}
           </div>
           <MessageContent>
-            {message.blocks.length === 0 &&
-            (message.reasoning_calls?.length ?? 0) === 0 &&
-            message.role === 'assistant' ? (
+            {message.blocks.length === 0 && message.role === 'assistant' ? (
               <Alert variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
                 <AlertTitle>Response unavailable</AlertTitle>
@@ -450,17 +448,14 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   No response content was recorded for this turn. You can retry the response.
                 </AlertDescription>
               </Alert>
-            ) : message.role === 'assistant' &&
-              (turn.iterations.length > 0 || turn.supplementalCalls.length > 0) ? (
+            ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
                 <ConversationTurn
-                  authoritative={turn.authoritative}
                   iterations={turn.iterations}
                   mode={displayMode}
                   onModeChange={onDisplayModeChange}
                   onOpenSubagent={entities.onOpenSubagent}
                   subagents={entities.subagents}
-                  supplementalCalls={turn.supplementalCalls}
                 />
                 {residualBlocks
                   .filter(

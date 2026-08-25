@@ -676,7 +676,6 @@ export function WorkspacePage() {
             <ClioConversation
               artifacts={entities.artifacts}
               error={transcriptError}
-              iterations={sessionObservability.iterations.data ?? []}
               loading={transcript.isPending}
               messages={messages}
               onActionCardAction={actionCard.mutateAsync}
