@@ -35,17 +35,22 @@ function DesktopNavigationLayout({
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
   const restoreNavigationRef = useRef(false);
+  const previousCollapseForWorkbenchRef = useRef(false);
   useMenuAction('toggle-sessions', () => setOpen(!open));
 
   useEffect(() => {
-    if (collapseForWorkbench) {
+    const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
+    previousCollapseForWorkbenchRef.current = collapseForWorkbench;
+
+    if (collapseForWorkbench && !wasCollapsedForWorkbench) {
       if (open) {
         restoreNavigationRef.current = true;
         setOpen(false);
       }
       return;
     }
-    if (restoreNavigationRef.current) {
+
+    if (!collapseForWorkbench && wasCollapsedForWorkbench && restoreNavigationRef.current) {
       restoreNavigationRef.current = false;
       setOpen(true);
     }
