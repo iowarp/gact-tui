@@ -297,7 +297,7 @@ describe('ClioConversation recovery actions', () => {
       'true',
     );
     const activity = screen.getByRole('button', {
-      name: /Read evidence file.*Read evidence\.json\./,
+      name: /Expand activity:.*Read evidence file.*Read evidence\.json/,
     });
     expect(activity).toBeInTheDocument();
     expect(activity).not.toHaveAccessibleName(/Completed/);

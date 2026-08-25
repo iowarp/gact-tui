@@ -360,10 +360,52 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       ),
     [entities.subagents, turn.iterations],
   );
+  const actions = (
+    <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
+      {canRetry ? (
+        <MessageAction
+          disabled={retrying || !entities.onRetryMessage}
+          label={retrying ? 'Retrying response' : 'Retry response'}
+          onClick={() => void entities.onRetryMessage?.(message.id)}
+          tooltip={retrying ? 'Retrying response' : 'Retry response'}
+        >
+          {retrying ? (
+            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCcwIcon aria-hidden="true" className="size-3.5" />
+          )}
+        </MessageAction>
+      ) : null}
+      <ClioMessageHistoryActions
+        forking={entities.forkingMessageId === message.id}
+        onFork={
+          entities.onForkFromMessage ? () => entities.onForkFromMessage?.(message.id) : undefined
+        }
+        onRewind={
+          entities.onRewindToMessage ? () => entities.onRewindToMessage?.(message.id) : undefined
+        }
+        rewinding={entities.rewindingMessageId === message.id}
+      />
+      <MessageAction
+        label="Copy message"
+        onClick={() =>
+          void copyText(
+            message.blocks
+              .filter((block) => block.type === 'text')
+              .map((block) => block.text)
+              .join('\n'),
+          )
+        }
+        tooltip="Copy message"
+      >
+        <CopyIcon aria-hidden="true" className="size-3.5" />
+      </MessageAction>
+    </MessageActions>
+  );
 
   return (
     <div
-      className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-7 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
+      className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
       ref={virtualized ? measureElement : undefined}
@@ -395,6 +437,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 minute: '2-digit',
               })}
             </time>
+            {actions}
           </div>
           <MessageContent>
             {message.blocks.length === 0 &&
@@ -434,50 +477,6 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               ))
             )}
           </MessageContent>
-          <MessageActions className="opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-            {canRetry ? (
-              <MessageAction
-                disabled={retrying || !entities.onRetryMessage}
-                label={retrying ? 'Retrying response' : 'Retry response'}
-                onClick={() => void entities.onRetryMessage?.(message.id)}
-                tooltip={retrying ? 'Retrying response' : 'Retry response'}
-              >
-                {retrying ? (
-                  <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
-                ) : (
-                  <RotateCcwIcon aria-hidden="true" className="size-3.5" />
-                )}
-              </MessageAction>
-            ) : null}
-            <ClioMessageHistoryActions
-              forking={entities.forkingMessageId === message.id}
-              onFork={
-                entities.onForkFromMessage
-                  ? () => entities.onForkFromMessage?.(message.id)
-                  : undefined
-              }
-              onRewind={
-                entities.onRewindToMessage
-                  ? () => entities.onRewindToMessage?.(message.id)
-                  : undefined
-              }
-              rewinding={entities.rewindingMessageId === message.id}
-            />
-            <MessageAction
-              label="Copy message"
-              onClick={() =>
-                void copyText(
-                  message.blocks
-                    .filter((block) => block.type === 'text')
-                    .map((block) => block.text)
-                    .join('\n'),
-                )
-              }
-              tooltip="Copy message"
-            >
-              <CopyIcon aria-hidden="true" className="size-3.5" />
-            </MessageAction>
-          </MessageActions>
         </Message>
       </m.div>
     </div>
