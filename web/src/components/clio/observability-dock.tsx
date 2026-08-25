@@ -18,6 +18,7 @@ import {
   BrainCircuitIcon,
   BoxesIcon,
   BracesIcon,
+  ChartNoAxesGanttIcon,
   Layers3Icon,
   ListChecksIcon,
   PanelRightOpenIcon,
@@ -155,22 +156,22 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ? currentTask.title
         : props.subagents.length
           ? childAgentCountLabel
-            : activeItems
-              ? 'Agent work in progress'
-              : sessionActive
-                ? hasAssistantActivity
-                  ? 'Agent is responding'
-                  : 'Starting agent'
-                : 'Session details';
+          : activeItems
+            ? 'Agent work in progress'
+            : sessionActive
+              ? hasAssistantActivity
+                ? 'Agent is responding'
+                : 'Starting agent'
+              : 'Session details';
   const dockStatus = activeItems
     ? `${activeItems} active`
     : sessionActive
       ? hasAssistantActivity
         ? 'Working'
         : 'Starting'
-    : props.subagents.length
-      ? 'All settled'
-      : 'Up to date';
+      : props.subagents.length
+        ? 'All settled'
+        : 'Up to date';
 
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);
@@ -404,10 +405,10 @@ export function ClioObservabilityView({
             )}
           >
             <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="work">
-              <ListChecksIcon aria-hidden="true" /> Work
+              <ChartNoAxesGanttIcon aria-hidden="true" /> Gantt
             </TabsTrigger>
             <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="activity">
-              <ActivityIcon aria-hidden="true" /> Activity
+              <ActivityIcon aria-hidden="true" /> Timeline
             </TabsTrigger>
             <TabsTrigger className="min-w-0 gap-1 px-1 text-xs" value="evidence">
               <Layers3Icon aria-hidden="true" /> Evidence
@@ -419,7 +420,11 @@ export function ClioObservabilityView({
         </div>
         <ScrollArea className="min-h-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
-            <ClioProcessLanes processes={processes} />
+            <ClioProcessLanes
+              onOpenSubagent={onOpenSubagent}
+              processes={processes}
+              subagents={subagents}
+            />
             {hasGraphSpace ? (
               <ClioWorkflowGraph
                 onOpenSubagent={onOpenSubagent}

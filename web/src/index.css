@@ -261,6 +261,16 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+@keyframes process-beam {
+  from {
+    transform: translateX(-150%);
+  }
+
+  to {
+    transform: translateX(700%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

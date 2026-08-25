@@ -267,7 +267,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Observed execution spans' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
     expect(screen.getByText(/delegation map is available in a wider canvas/i)).toBeVisible();
     expect(screen.getByText('ndp #1')).toBeVisible();
     expect(screen.getByText(/bars show concurrency/i)).toBeVisible();
@@ -330,7 +330,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Activity' }));
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
     expect(screen.getByText(/exact tool execution times were not recorded/i)).toBeVisible();
     expect(screen.getByText(/Turn started/u)).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
