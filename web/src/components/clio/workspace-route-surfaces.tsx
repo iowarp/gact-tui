@@ -1,8 +1,18 @@
 import type { RunState, StreamState } from '@clio/core/v3';
-import { AlertTriangleIcon } from 'lucide-react';
+import { AlertTriangleIcon, BoxesIcon, ChevronUpIcon, ServerIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 import { ClioStatus } from './status';
 
 export function WorkspaceUnavailable({ error }: { error: string }) {
@@ -38,14 +48,20 @@ export function WorkspaceStatusStrip({
   cost,
   cursor,
   inputTokens,
+  service,
   sessionState,
   stream,
   streamError,
+  a2uiVersions = [],
+  gactVersions = [],
 }: {
   activeWorkCount: number;
+  a2uiVersions?: readonly string[];
   cost?: number;
   cursor?: string;
+  gactVersions?: readonly string[];
   inputTokens?: number;
+  service?: { name: string; version: string };
   sessionState?: RunState;
   stream: StreamState;
   streamError?: string;
@@ -70,12 +86,103 @@ export function WorkspaceStatusStrip({
       <ClioStatus className="py-0.5" detail={streamError} value={stream} />
       {recoveryLabel ? <span title={recoveryDetail}>{recoveryLabel}</span> : null}
       <span>{activeWorkLabel}</span>
+      <WorkspaceVersionMenu
+        a2uiVersions={a2uiVersions}
+        gactVersions={gactVersions}
+        service={service}
+      />
       <span className="ml-auto hidden font-mono sm:inline">
         Tokens: {inputTokens ?? 'Unavailable'}
       </span>
       <span className="hidden font-mono sm:inline">
         Cost: {cost === undefined ? 'Unavailable' : `$${cost.toFixed(4)}`}
       </span>
+    </div>
+  );
+}
+
+function WorkspaceVersionMenu({
+  a2uiVersions,
+  gactVersions,
+  service,
+}: {
+  a2uiVersions: readonly string[];
+  gactVersions: readonly string[];
+  service?: { name: string; version: string };
+}) {
+  const workspaceVersion = import.meta.env.VITE_CLIO_WORKSPACE_VERSION || 'Unavailable';
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          aria-label="Product versions and updates"
+          className="h-6 gap-1 px-1.5 font-mono text-[10px] text-muted-foreground"
+          size="xs"
+          variant="ghost"
+        >
+          v{workspaceVersion}
+          <ChevronUpIcon aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80" side="top">
+        <PopoverHeader>
+          <PopoverTitle>Product versions</PopoverTitle>
+          <PopoverDescription>
+            Installed workspace and versions reported by the selected agent service.
+          </PopoverDescription>
+        </PopoverHeader>
+        <dl className="grid gap-1">
+          <VersionRow
+            detail="Installed web and desktop workspace"
+            icon={<BoxesIcon aria-hidden="true" />}
+            label="Workspace"
+            value={workspaceVersion}
+          />
+          <VersionRow
+            detail={service ? 'Reported by the selected endpoint' : 'Not reported by this endpoint'}
+            icon={<ServerIcon aria-hidden="true" />}
+            label="Agent service"
+            value={service?.version || 'Unavailable'}
+          />
+          <VersionRow
+            detail="Negotiated agent interface"
+            label="Agent interface"
+            value={gactVersions[0] || 'Unavailable'}
+          />
+          <VersionRow
+            detail="Negotiated interactive-view protocol"
+            label="Interactive views"
+            value={a2uiVersions[0] || 'Unavailable'}
+          />
+        </dl>
+        <Separator />
+        <Button asChild className="w-full" size="sm" variant="outline">
+          <Link to="/settings/desktop">Update options</Link>
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function VersionRow({
+  detail,
+  icon,
+  label,
+  value,
+}: {
+  detail: string;
+  icon?: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+      <dt className="flex min-w-0 items-center gap-2 font-medium">
+        {icon}
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="font-mono text-xs">{value}</dd>
+      <dd className="col-span-2 text-xs text-muted-foreground">{detail}</dd>
     </div>
   );
 }

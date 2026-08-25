@@ -526,6 +526,10 @@ function AboutSettings() {
             <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
             <AboutValue label="Connected service" value={new URL(settings.endpoint).host} />
             <AboutValue
+              label="Agent service version"
+              value={capabilities.data?.service?.version || 'Unavailable'}
+            />
+            <AboutValue
               label="Active model"
               value={
                 activeModel

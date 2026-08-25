@@ -96,25 +96,25 @@ now exposes live read surfaces for several catalogs and full blueprint/source li
 but every omitted mutation and administration workflow remains open. Route count never constitutes
 "settings complete."
 
-| Area                                | Current state             | Required workflow                                                                |
-| ----------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
-| Connections and desktop integration | Partial                   | CRUD, discovery, SSH/tunnels, credentials, lifecycle.                            |
-| Session defaults                    | Implemented, not accepted | Blueprint-default activation, drift/failure, and recovery evidence.              |
-| Providers and models                | Implemented, not accepted | Auth mutation, handshake failures, stale-catalog recovery, and native evidence.  |
-| Agents                              | Implemented, not accepted | Live disposable create/update/delete, overlays, and blueprint relationships.     |
-| Relays                              | Partial                   | Configuration, exposed tools, jobs, and recovery.                                |
-| Commands and prompts                | Implemented, not accepted | Live disposable override save/recovery and destructive-command confirmation.     |
-| Scheduled work                      | Implemented, not accepted | Live create/fire/cancel, run linkage, failure, and reconnect evidence.           |
-| Blueprints, sources, expert packs   | Implemented, not accepted | Full failure/progress acceptance with a disposable authenticated source.         |
-| MCP servers                         | Partial                   | Prompt execution plus live disposable connection/failure/recovery acceptance.    |
-| Hooks and policies                  | Implemented, not accepted | Live policy mutation/recovery and dense hook invocation audit.                   |
-| Permissions                         | Implemented, not accepted | Live disposable rule mutation, precedence recovery, and complete audit history.  |
-| Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                      |
-| Metrics and doctor                  | Implemented, not accepted | Dense data, remediation actions, refresh/failure, native acceptance.             |
-| Plugins                             | Missing                   | Installed and available integrations with capability/source clarity.             |
-| Appearance                          | Partial                   | Independent light/dark/system, wide-layout, and reduced-motion visual baselines. |
-| Data and backups                    | Missing                   | Import/export/backup/retention/destructive reset.                                |
-| About and updates                   | Partial                   | Licenses, updater state, native update flow, and failure evidence.               |
+| Area                                | Current state             | Required workflow                                                                        |
+| ----------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| Connections and desktop integration | Partial                   | CRUD, discovery, SSH/tunnels, credentials, lifecycle.                                    |
+| Session defaults                    | Implemented, not accepted | Blueprint-default activation, drift/failure, and recovery evidence.                      |
+| Providers and models                | Implemented, not accepted | Auth mutation, handshake failures, stale-catalog recovery, and native evidence.          |
+| Agents                              | Implemented, not accepted | Live disposable create/update/delete, overlays, and blueprint relationships.             |
+| Relays                              | Partial                   | Configuration, exposed tools, jobs, and recovery.                                        |
+| Commands and prompts                | Implemented, not accepted | Live disposable override save/recovery and destructive-command confirmation.             |
+| Scheduled work                      | Implemented, not accepted | Live create/fire/cancel, run linkage, failure, and reconnect evidence.                   |
+| Blueprints, sources, expert packs   | Implemented, not accepted | Full failure/progress acceptance with a disposable authenticated source.                 |
+| MCP servers                         | Partial                   | Prompt execution plus live disposable connection/failure/recovery acceptance.            |
+| Hooks and policies                  | Implemented, not accepted | Live policy mutation/recovery and dense hook invocation audit.                           |
+| Permissions                         | Implemented, not accepted | Live disposable rule mutation, precedence recovery, and complete audit history.          |
+| Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                              |
+| Metrics and doctor                  | Implemented, not accepted | Dense data, remediation actions, refresh/failure, native acceptance.                     |
+| Plugins                             | Missing                   | Installed and available integrations with capability/source clarity.                     |
+| Appearance                          | Partial                   | Independent light/dark/system, wide-layout, and reduced-motion visual baselines.         |
+| Data and backups                    | Missing                   | Import/export/backup/retention/destructive reset.                                        |
+| About and updates                   | Partial                   | Version discovery is live; licenses plus native updater success/failure evidence remain. |
 
 ## A2UI and specialized interactive content
 

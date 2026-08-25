@@ -742,6 +742,7 @@ export interface TranscriptSnapshot {
 }
 
 export interface CapabilityNegotiation {
+  service?: { name: string; version: string };
   gact_versions: string[];
   a2ui_versions: string[];
   replay: { supported: boolean; retention?: number };

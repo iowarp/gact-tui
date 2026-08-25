@@ -1224,3 +1224,18 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   `MTA1` on page one to `MTA11` on page two. The lineage checkpoint retained eight nodes and seven
   evidence-bearing edges, including long validated-profile and tool-observed-plot relationships;
   zooming preserved readable labels, themed backgrounds, and arrowheads without collapsing data.
+
+# Product versions belong in one compact operational control
+
+- Old failure: the status strip reported connection and usage state but gave the user no way to
+  identify the workspace build, selected agent-service version, or negotiated interface versions.
+  Settings contained partial updater scaffolding, so version discovery and update entry points were
+  disconnected from the place where operators diagnose a running session.
+- New representation: one compact footer trigger opens a sourced shadcn Popover containing the
+  workspace package version, the selected service's authoritative reported version, and negotiated
+  GACT and A2UI versions. The update action routes to the existing desktop-integration workflow;
+  browser sessions never fabricate an available update or native capability.
+- Acceptance evidence: the live NDP workspace rendered `v0.11.0` in the status strip and the open
+  popover reported workspace `0.11.0`, agent service `0.9.1.1`, GACT `0.3`, and A2UI `0.9.1` from
+  the restored production service. Focused GACT capability, schema, TypeScript, and React menu
+  coverage passed.

@@ -15,6 +15,12 @@ export const provenanceSchema = z.object({
 });
 
 export const capabilitiesSchema = z.object({
+  service: z
+    .object({
+      name: z.string(),
+      version: z.string(),
+    })
+    .optional(),
   gact_versions: z.array(z.string()),
   a2ui_versions: z.array(z.string()).default([]),
   replay: z.object({

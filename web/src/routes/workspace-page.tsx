@@ -33,6 +33,7 @@ import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionContext } from '@/hooks/use-session-context';
 import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
+import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
@@ -58,14 +59,7 @@ export function WorkspacePage() {
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
-  const capabilities = useQuery({
-    queryKey: ['capabilities', settings.endpoint],
-    queryFn: ({ signal }) => repository.capabilities(signal),
-  });
-  const modelConfiguration = useQuery({
-    queryKey: ['language-model-configuration', settings.endpoint],
-    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
-  });
+  const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
   const workspaces = useQuery({
     queryKey: ['workspaces', settings.endpoint],
     queryFn: ({ signal }) => repository.workspaces(signal),
@@ -651,9 +645,12 @@ export function WorkspacePage() {
         statusStrip={
           <WorkspaceStatusStrip
             activeWorkCount={activeWorkCount}
+            a2uiVersions={capabilities.data?.a2ui_versions}
             cost={entities.usage[sessionId]?.cost_usd}
             cursor={entities.cursor}
+            gactVersions={capabilities.data?.gact_versions}
             inputTokens={entities.usage[sessionId]?.input_tokens}
+            service={capabilities.data?.service}
             sessionState={session?.state}
             stream={entities.stream}
             streamError={streamError}
