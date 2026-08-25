@@ -87,7 +87,54 @@ function DeferredA2UISurface({
   onLocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
   surface: A2UISurface;
 }) {
-  return <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />;
+  const hostRef = useRef<HTMLDivElement>(null);
+  // Mount once so the reserved geometry is measured before a completed surface
+  // can be suspended. This prevents the transcript from jumping when an older
+  // map or chart re-enters the viewport.
+  const [nearViewport, setNearViewport] = useState(true);
+  const [reservedHeight, setReservedHeight] = useState(1);
+  const live = ['creating', 'updating', 'pending_action'].includes(surface.state);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || live || typeof IntersectionObserver === 'undefined') {
+      setNearViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setNearViewport(entry?.isIntersecting ?? false),
+      { rootMargin: '800px 0px' },
+    );
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [live, surface.id]);
+
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host || !nearViewport || typeof ResizeObserver === 'undefined') return;
+    const rememberHeight = () => {
+      const height = Math.ceil(host.getBoundingClientRect().height);
+      if (height > 1) setReservedHeight(height);
+    };
+    rememberHeight();
+    const observer = new ResizeObserver(rememberHeight);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [nearViewport]);
+
+  const renderSurface = live || nearViewport;
+  return (
+    <div
+      data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      ref={hostRef}
+      style={renderSurface ? undefined : { minHeight: reservedHeight }}
+    >
+      {renderSurface ? (
+        <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />
+      ) : null}
+    </div>
+  );
 }
 
 export interface ClioConversationProps {

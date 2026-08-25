@@ -1500,3 +1500,16 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   turn renders its five recorded provider-thinking parts and its one recorded plot call, exposing
   the runtime's repeated no-tool continuations without inventing tools or hiding history. Focused
   assembler coverage locks the multi-tool/A2UI ordering and duplicate-thought boundary.
+
+# Offscreen A2UI keeps stable geometry without running hidden canvases
+
+- Old failure: the transcript's `DeferredA2UISurface` mounted every completed map and chart even
+  when it was many screens away. A long scientific turn therefore kept hidden MapLibre and chart
+  canvases active while the user scrolled or used the composer.
+- New representation: creating, updating, and pending-action surfaces remain mounted. Completed
+  surfaces remember their measured height and suspend outside a generous viewport margin, keeping
+  the transcript's geometry stable while releasing their heavy interactive renderers. Approaching
+  the saved position remounts the authoritative surface rather than substituting a screenshot.
+- Acceptance evidence: the live EarthScope A2UI transcript suspended both completed scientific
+  surfaces at the final answer. Returning to the recorded analysis step remounted the nearby map,
+  retained its place in the causal transcript, and left the farther time-series surface deferred.
