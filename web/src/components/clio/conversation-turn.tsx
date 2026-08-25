@@ -1,5 +1,5 @@
-import { BrainCircuitIcon, BrainIcon, ChevronDownIcon, EyeIcon, WrenchIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { BrainIcon, ChevronDownIcon, WrenchIcon } from 'lucide-react';
+import { useState } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -8,10 +8,8 @@ import {
 } from '@/components/ai-elements/chain-of-thought';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
@@ -21,8 +19,7 @@ import type { SubagentRun } from '@clio/core/v3';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
-  mode: ConversationDisplayMode;
-  onModeChange: (mode: ConversationDisplayMode) => void;
+  mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
 }
@@ -31,7 +28,6 @@ interface ConversationTurnProps {
 export function ConversationTurn({
   iterations,
   mode,
-  onModeChange,
   onOpenSubagent,
   subagents,
 }: ConversationTurnProps) {
@@ -39,24 +35,9 @@ export function ConversationTurn({
   if (mode === 'full') {
     return (
       <section aria-label="Full agent activity" className="mb-4">
-        <div className="space-y-5">
-          {iterations.map((iteration, index) => (
+        <div className="space-y-4">
+          {iterations.map((iteration) => (
             <IterationDetail
-              full
-              headerAction={
-                index === 0 ? (
-                  <Button
-                    aria-label="Use chain view for this turn"
-                    className="shrink-0"
-                    onClick={() => onModeChange('chain')}
-                    size="xs"
-                    variant="ghost"
-                  >
-                    <BrainCircuitIcon aria-hidden="true" />
-                    Chain
-                  </Button>
-                ) : undefined
-              }
               iteration={iteration}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
@@ -70,20 +51,7 @@ export function ConversationTurn({
 
   return (
     <ChainOfThought className="mb-4 space-y-2" defaultOpen>
-      <div className="flex min-w-0 items-center gap-2">
-        <ChainOfThoughtHeader className="min-h-8 min-w-0 flex-1">Activity</ChainOfThoughtHeader>
-        <Button
-          aria-label="Show full activity for this turn"
-          className="shrink-0"
-          onClick={() => onModeChange('full')}
-          size="xs"
-          title="Show every thinking, response, and action block"
-          variant="ghost"
-        >
-          <EyeIcon aria-hidden="true" />
-          Full view
-        </Button>
-      </div>
+      <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
       <ChainOfThoughtContent className="mt-2">
         {iterations.map((iteration) => (
           <IterationSummary
@@ -107,7 +75,8 @@ function IterationSummary({
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
 }) {
-  const [open, setOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const open = iteration.streaming || manualOpen;
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
   const toolSummary = primaryTool ? compactToolSummary(getToolSummary(primaryTool)) : undefined;
@@ -127,7 +96,7 @@ function IterationSummary({
     .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
     .join('. ');
   return (
-    <Collapsible onOpenChange={setOpen} open={open}>
+    <Collapsible onOpenChange={setManualOpen} open={open}>
       <ChainOfThoughtStep
         icon={BrainIcon}
         label={
@@ -169,14 +138,10 @@ function IterationSummary({
 }
 
 function IterationDetail({
-  full = false,
-  headerAction,
   iteration,
   onOpenSubagent,
   subagents,
 }: {
-  full?: boolean;
-  headerAction?: ReactNode;
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
@@ -184,26 +149,21 @@ function IterationDetail({
   return (
     <article>
       <div className="space-y-4">
-        {iteration.thinking.length > 0 ? (
-          iteration.thinking.map((thinking, index) => (
-            <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
-              <div className="flex min-w-0 items-center gap-2">
+        {iteration.thinking.length > 0
+          ? iteration.thinking.map((thinking) => (
+              <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
                 <ReasoningTrigger
-                  className="min-h-7 min-w-0 flex-1"
+                  className="min-h-7"
                   getThinkingMessage={(streaming) =>
                     streaming ? `${thinking.label} in progress` : thinking.label
                   }
                 />
-                {index === 0 ? headerAction : null}
-              </div>
-              <ReasoningContent className="mt-2 leading-6 [&_p]:my-1">
-                {thinking.text}
-              </ReasoningContent>
-            </Reasoning>
-          ))
-        ) : headerAction ? (
-          <div className="flex justify-end">{headerAction}</div>
-        ) : null}
+                <ReasoningContent className="mt-2 leading-6 [&_p]:my-1">
+                  {thinking.text}
+                </ReasoningContent>
+              </Reasoning>
+            ))
+          : null}
 
         {iteration.nextThoughts.map((thought, index) => (
           <MessageResponse className="text-sm leading-6" key={`${iteration.id}:response:${index}`}>

@@ -180,36 +180,6 @@ function isNextThought(
   return false;
 }
 
-function conversationIterationOwnsBlock(
-  block: MessageBlock,
-  iterations: readonly ConversationIteration[],
-  tools: Record<string, ToolInvocation>,
-): boolean {
-  if (block.type === 'text') {
-    if (block.channel === 'answer') return false;
-    const text = normalize(block.text);
-    return iterations.some((iteration) =>
-      iteration.nextThoughts.some((thought) => normalize(thought) === text),
-    );
-  }
-  if (block.type === 'reasoning') {
-    const text = normalize(readableThinking(block.text));
-    return iterations.some((iteration) =>
-      iteration.thinking.some((thinking) => normalize(thinking.text) === text),
-    );
-  }
-  if (block.type === 'tool') {
-    const tool = tools[block.tool_id];
-    return Boolean(
-      tool &&
-        iterations.some((iteration) =>
-          iteration.tools.some((candidate) => candidate.id === tool.id),
-        ),
-    );
-  }
-  return false;
-}
-
 function reasoningLabel(_provider?: string): string {
   return 'Thinking';
 }
@@ -251,8 +221,4 @@ function humanize(value: string): string {
     .replace(/^remote_[^_]+_/u, '')
     .replaceAll('_', ' ')
     .replace(/\b\w/gu, (letter) => letter.toUpperCase());
-}
-
-function normalize(value: string): string {
-  return value.trim().replace(/\s+/gu, ' ');
 }

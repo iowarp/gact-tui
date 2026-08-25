@@ -202,8 +202,8 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   if (block.type === 'reasoning') {
     return (
       <Reasoning
-        className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-        defaultOpen={false}
+        className="mb-0"
+        defaultOpen={entities.reasoningDefaultOpen}
         isStreaming={block.streaming}
       >
         <ReasoningTrigger
@@ -221,10 +221,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     return (
       <div className="space-y-3">
         {block.thought ? (
-          <Reasoning
-            className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-            defaultOpen={false}
-          >
+          <Reasoning className="mb-0">
             <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
             <ReasoningContent className="mt-3 leading-6">
               {reasoningMarkdown(block.thought)}

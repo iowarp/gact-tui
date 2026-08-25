@@ -104,9 +104,7 @@ export function ClioAppShell({
   statusStrip,
 }: ClioAppShellProps) {
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
-  const workbenchNeedsNavigationRail = useMediaQuery(
-    '(min-width: 820px) and (max-width: 1279px)',
-  );
+  const workbenchNeedsNavigationRail = useMediaQuery('(min-width: 820px) and (max-width: 1279px)');
   const workspaceRef = useRef<HTMLElement>(null);
   // The navigation panel is independently resizable, so viewport media queries
   // cannot describe how much room the session workspace actually has.
@@ -114,7 +112,10 @@ export function ClioAppShell({
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
-  const workbenchOpen = revealRequested || (workbenchPreference ?? desktopWorkbench);
+  // A wide viewport makes the canvas available, but it does not imply that the
+  // user asked to open it. Explicit resource requests still reveal it, and an
+  // open/closed choice survives route changes while this shell stays mounted.
+  const workbenchOpen = revealRequested || (workbenchPreference ?? false);
   const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const setWorkbenchOpen = useCallback(

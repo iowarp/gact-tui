@@ -301,9 +301,7 @@ describe('ClioConversation recovery actions', () => {
     });
     expect(activity).toBeInTheDocument();
     expect(activity).not.toHaveAccessibleName(/Completed/);
-    expect(
-      screen.getByRole('button', { name: 'Show full activity for this turn' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Full activity view' })).toBeInTheDocument();
   });
 
   it('opens a compact chain as the full causal turn and can condense it again', () => {
@@ -339,13 +337,11 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
 
     expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Use chain view for this turn' }));
-    expect(
-      screen.getByRole('button', { name: 'Show full activity for this turn' }),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
+    expect(screen.queryByRole('region', { name: 'Full agent activity' })).not.toBeInTheDocument();
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {

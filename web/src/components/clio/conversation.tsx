@@ -12,9 +12,11 @@ import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
+  BrainCircuitIcon,
   BotIcon,
   CopyIcon,
   ExternalLinkIcon,
+  EyeIcon,
   FileCode2Icon,
   GitBranchIcon,
   LoaderCircleIcon,
@@ -63,6 +65,7 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
@@ -437,6 +440,37 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 minute: '2-digit',
               })}
             </time>
+            {message.role === 'assistant' && turn.iterations.length > 0 ? (
+              <ToggleGroup
+                aria-label="Activity detail"
+                className="ml-1 overflow-hidden rounded-md"
+                onValueChange={(value) => {
+                  if (value === 'chain' || value === 'full') onDisplayModeChange(value);
+                }}
+                size="sm"
+                spacing={0}
+                type="single"
+                value={displayMode}
+                variant="outline"
+              >
+                <ToggleGroupItem
+                  aria-label="Chain view"
+                  className="h-6 min-w-6 rounded-none px-1.5"
+                  title="Chain view"
+                  value="chain"
+                >
+                  <BrainCircuitIcon aria-hidden="true" />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  aria-label="Full activity view"
+                  className="h-6 min-w-6 rounded-none px-1.5"
+                  title="Full activity view"
+                  value="full"
+                >
+                  <EyeIcon aria-hidden="true" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            ) : null}
             {actions}
           </div>
           <MessageContent>
@@ -453,7 +487,6 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 <ConversationTurn
                   iterations={turn.iterations}
                   mode={displayMode}
-                  onModeChange={onDisplayModeChange}
                   onOpenSubagent={entities.onOpenSubagent}
                   subagents={entities.subagents}
                 />
@@ -476,7 +509,106 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       </m.div>
     </div>
   );
-});
+}, conversationMessageRowPropsEqual);
+
+interface MessageEntityRefs {
+  artifacts: Set<string>;
+  subagents: Set<string>;
+  surfaces: Set<string>;
+  tasks: Set<string>;
+  tools: Set<string>;
+}
+
+const messageEntityRefsCache = new WeakMap<DomainMessage, MessageEntityRefs>();
+
+function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
+  const cached = messageEntityRefsCache.get(message);
+  if (cached) return cached;
+  const refs: MessageEntityRefs = {
+    artifacts: new Set(),
+    subagents: new Set(),
+    surfaces: new Set(),
+    tasks: new Set(),
+    tools: new Set(),
+  };
+  for (const block of message.blocks) {
+    if (block.type === 'artifact') refs.artifacts.add(block.artifact_id);
+    else if (block.type === 'subagent') refs.subagents.add(block.subagent_id);
+    else if (block.type === 'a2ui') refs.surfaces.add(block.surface_id);
+    else if (block.type === 'task') refs.tasks.add(block.task_id);
+    else if (block.type === 'tool') refs.tools.add(block.tool_id);
+  }
+  messageEntityRefsCache.set(message, refs);
+  return refs;
+}
+
+function referencedRowsEqual<T>(
+  left: Record<string, T>,
+  right: Record<string, T>,
+  ids: ReadonlySet<string>,
+): boolean {
+  for (const id of ids) {
+    if (left[id] !== right[id]) return false;
+  }
+  return true;
+}
+
+function linkedSubagentsEqual(
+  left: ConversationMessageRowProps,
+  right: ConversationMessageRowProps,
+  toolIds: ReadonlySet<string>,
+): boolean {
+  for (const toolId of toolIds) {
+    const leftRows = subagentsForTool(left.tools[toolId], left.subagents);
+    const rightRows = subagentsForTool(right.tools[toolId], right.subagents);
+    if (
+      leftRows.length !== rightRows.length ||
+      leftRows.some((row, index) => row !== rightRows[index])
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function conversationMessageRowPropsEqual(
+  left: ConversationMessageRowProps,
+  right: ConversationMessageRowProps,
+): boolean {
+  if (
+    left.message !== right.message ||
+    left.displayMode !== right.displayMode ||
+    left.index !== right.index ||
+    left.start !== right.start ||
+    left.recent !== right.recent ||
+    left.measureElement !== right.measureElement ||
+    left.virtualized !== right.virtualized ||
+    left.forkingMessageId !== right.forkingMessageId ||
+    left.rewindingMessageId !== right.rewindingMessageId ||
+    left.retryingMessageId !== right.retryingMessageId ||
+    left.onActionCardAction !== right.onActionCardAction ||
+    left.onA2UILocalAction !== right.onA2UILocalAction ||
+    left.onForkFromMessage !== right.onForkFromMessage ||
+    left.onRewindToMessage !== right.onRewindToMessage ||
+    left.onRetryMessage !== right.onRetryMessage ||
+    left.onOpenArtifact !== right.onOpenArtifact ||
+    left.onOpenFile !== right.onOpenFile ||
+    left.onOpenSubagent !== right.onOpenSubagent
+  ) {
+    return false;
+  }
+  // onDisplayModeChange closes only over this immutable message id and the
+  // stable state setter, so a freshly-created wrapper is not a row invalidation.
+  const refs = messageEntityRefs(left.message);
+  return (
+    referencedRowsEqual(left.artifacts, right.artifacts, refs.artifacts) &&
+    referencedRowsEqual(left.subagents, right.subagents, refs.subagents) &&
+    referencedRowsEqual(left.surfaces, right.surfaces, refs.surfaces) &&
+    referencedRowsEqual(left.tasks, right.tasks, refs.tasks) &&
+    referencedRowsEqual(left.tools, right.tools, refs.tools) &&
+    linkedSubagentsEqual(left, right, refs.tools)
+  );
+}
 
 export function ClioConversation({ messages, loading, error, ...entities }: ClioConversationProps) {
   const { mode: defaultDisplayMode } = useConversationDisplay();

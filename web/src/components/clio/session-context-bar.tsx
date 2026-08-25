@@ -43,20 +43,27 @@ export function ClioSessionContextBar({
           <ArrowLeftIcon aria-hidden="true" />
         </Button>
       ) : null}
-      <div className="min-w-0">
-        <h1 className="truncate text-sm font-medium">{session?.title ?? 'Session unavailable'}</h1>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <h1 className="truncate text-base font-medium">
+          {session?.title ?? 'Session unavailable'}
+        </h1>
         {activeBlueprint ? (
-          <Button
-            className="-ml-1 h-auto max-w-full justify-start px-1 py-0 text-[10px] font-normal text-muted-foreground"
-            onClick={() => onOpenBlueprint(activeBlueprint)}
-            size="xs"
-            title={`Open ${activeBlueprint.display_name}`}
-            variant="ghost"
-          >
-            <span className="truncate">{activeBlueprint.display_name}</span>
-          </Button>
+          <>
+            <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+              /
+            </span>
+            <Button
+              className="h-7 min-w-0 max-w-full justify-start px-1.5 text-xs font-normal text-muted-foreground"
+              onClick={() => onOpenBlueprint(activeBlueprint)}
+              size="xs"
+              title={`Open ${activeBlueprint.display_name}`}
+              variant="ghost"
+            >
+              <span className="truncate">{activeBlueprint.display_name}</span>
+            </Button>
+          </>
         ) : (
-          <p className="truncate text-[10px] text-muted-foreground">Default agent</p>
+          <span className="truncate text-xs text-muted-foreground">/ Default agent</span>
         )}
       </div>
       <ClioSessionActions
