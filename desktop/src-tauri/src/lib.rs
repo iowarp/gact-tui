@@ -47,14 +47,16 @@ mod tray;
 use ssh::TunnelManager;
 use std::sync::Mutex;
 use supervisor::Supervisor;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+const DESKTOP_RESUMED_EVENT: &str = "clio:desktop-resumed";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
-    let result = tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         // Auto-update: pulls the signed latest.json marker from GitHub
@@ -153,14 +155,18 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!());
+        .build(tauri::generate_context!());
 
-    // `run` only returns on a fatal runtime failure (e.g. the webview
-    // backend can't initialize — WebView2 missing on Windows, no X11/Wayland
-    // display on Linux). Panicking here gives the user an opaque backtrace; a
-    // plain error line + non-zero exit is the actionable, scriptable failure.
-    if let Err(e) = result {
-        eprintln!("GACT desktop failed to start: {e}");
-        std::process::exit(1);
-    }
+    let app = match app {
+        Ok(app) => app,
+        Err(error) => {
+            eprintln!("GACT desktop failed to start: {error}");
+            std::process::exit(1);
+        }
+    };
+    app.run(|app_handle, event| {
+        if matches!(event, tauri::RunEvent::Resumed) {
+            let _ = app_handle.emit(DESKTOP_RESUMED_EVENT, ());
+        }
+    });
 }

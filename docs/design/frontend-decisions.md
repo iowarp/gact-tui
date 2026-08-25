@@ -1435,3 +1435,18 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   React coverage prove the identity survives decoding and the displayed name opens the canvas.
   Live acceptance uses the persisted `earthscope-flat` NDP session and its
   `EarthScope (Flat / Haiku)` definition snapshot.
+
+# Resume restarts one cursor-aware stream
+
+- Old failure: the installed workspace could survive an operating-system sleep while its native
+  live stream remained attached to a dead connection. The interface advertised reconnect support,
+  but only the stream's ordinary error loop could recover it and the Desktop page correctly marked
+  sleep and wake recovery unavailable.
+- New representation: the native event loop emits one product-owned resume event. The focused
+  session hook coalesces that signal with browser visibility and network-online signals, aborts the
+  old subscription, and opens the same cursor-aware stream from its latest known event ID. It does
+  not create a second transport, reset the transcript, or discard cached content.
+- Acceptance evidence: focused bridge coverage proves native listeners are never loaded in a
+  browser and use the exact resume event in the installed app. Stream-hook coverage proves resume
+  replaces the active subscription and preserves its cursor. The Rust desktop target compiles with
+  the `RunEvent::Resumed` emission path.

@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { recordById } from '@/lib/entities';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
+import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
 import { useRepository } from './use-repository';
 import { sessionContextQueryKey } from './use-session-context';
 import { sessionObservabilityQueryKey } from './use-session-observability';
@@ -31,6 +32,37 @@ export function useSessionLiveStream({
   const reconcileSnapshots = useLiveStore((state) => state.reconcileSnapshots);
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
+  const [reconnectEpoch, setReconnectEpoch] = useState(0);
+
+  useEffect(() => {
+    let lastReconnectAt = Number.NEGATIVE_INFINITY;
+    const reconnect = () => {
+      const now = performance.now();
+      if (now - lastReconnectAt < 250) return;
+      lastReconnectAt = now;
+      setReconnectEpoch((value) => value + 1);
+    };
+    const reconnectWhenVisible = () => {
+      if (document.visibilityState === 'visible') reconnect();
+    };
+    window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', reconnectWhenVisible);
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listenForDesktopResume(reconnect).then(
+      (dispose) => {
+        if (disposed) dispose();
+        else unlisten = dispose;
+      },
+      () => undefined,
+    );
+    return () => {
+      disposed = true;
+      window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', reconnectWhenVisible);
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled || !sessionId) return;
@@ -145,6 +177,7 @@ export function useSessionLiveStream({
     enabled,
     initialCursor,
     queryClient,
+    reconnectEpoch,
     repository,
     sessionId,
     setStreamState,

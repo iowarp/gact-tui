@@ -90,7 +90,7 @@ export function DesktopSettings() {
             { label: 'SSH tunnel engine', implemented: true },
             { label: 'Menus and system tray', implemented: true },
             { label: 'Secure credential storage', implemented: false },
-            { label: 'Sleep and wake reconnect', implemented: false },
+            { label: 'Sleep and wake reconnect', implemented: true },
           ].map(({ label, implemented }) => {
             const available = desktop && implemented;
             return (
