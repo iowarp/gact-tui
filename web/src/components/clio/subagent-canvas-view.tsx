@@ -140,7 +140,9 @@ export function ClioSubagentCanvasView({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-sm font-medium">{subagent.title}</h2>
               <ClioStatus value={subagent.state} />
-              <ClioStatus detail="Child transcript connection" value={entities.stream} />
+              {entities.stream === 'live' ? null : (
+                <ClioStatus detail="Child transcript connection" value={entities.stream} />
+              )}
             </div>
             <p
               className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
