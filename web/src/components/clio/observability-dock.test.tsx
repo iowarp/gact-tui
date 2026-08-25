@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,7 +9,6 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
-import { groupToolsForWork } from './observability-grouping';
 
 beforeEach(() => {
   Object.defineProperty(URL, 'createObjectURL', {
@@ -56,39 +55,7 @@ describe('ClioObservabilityView', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('groups repeated terminal operations in Work without erasing their records', () => {
-    const repeated = Array.from({ length: 3 }, (_, index) => ({
-      id: `wait_${index}`,
-      session_id: 'sess_1',
-      name: 'wait_agent_tasks',
-      title: 'Wait for child agents',
-      state: 'succeeded' as const,
-      output: { summary: 'All child agents completed.' },
-    }));
-
-    expect(groupToolsForWork(repeated)).toEqual([
-      expect.objectContaining({ count: 3, tool: repeated[0] }),
-    ]);
-    renderObservability(
-      <ClioObservabilityView
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        messages={[]}
-        processes={[]}
-        runs={[]}
-        subagents={[]}
-        tasks={[]}
-        tools={repeated}
-      />,
-    );
-
-    expect(screen.getAllByText('Wait for child agents')).toHaveLength(1);
-    expect(screen.getByText('3 calls')).toBeVisible();
-  });
-
-  it('presents child routing as a central conversation with an explicit canvas action', async () => {
+  it('opens a child lane centrally and uses shift-click for a durable canvas tab', async () => {
     const user = userEvent.setup();
     const onOpenSubagent = vi.fn();
     const child = {
@@ -107,7 +74,18 @@ describe('ClioObservabilityView', () => {
         diffs={[]}
         messages={[]}
         onOpenSubagent={onOpenSubagent}
-        processes={[]}
+        processes={[
+          {
+            kind: 'agent',
+            id: 'task_geo',
+            title: 'geospatial #1',
+            live_state: 'completed',
+            status: 'completed',
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:01:00Z',
+            metadata: {},
+          },
+        ]}
         runs={[]}
         subagents={[child]}
         tasks={[]}
@@ -115,21 +93,11 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Child agents, 1 recorded, All settled' }));
-    expect(screen.getByText('Delegated from main session')).toHaveAttribute(
-      'title',
-      'Recorded relationship: main <- geospatial',
-    );
-    expect(screen.queryByText('main <- geospatial')).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'geospatial #1 Completed Delegated from main session Open conversation',
-      }),
-    );
+    const childLane = screen.getByRole('button', { name: 'geospatial #1, completed' });
+    await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
-    await user.click(screen.getByRole('button', { name: 'Open geospatial #1 in canvas' }));
+    fireEvent.click(childLane, { shiftKey: true });
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
 
@@ -287,7 +255,7 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
     expect(screen.getByText(/delegation map is available in a wider canvas/i)).toBeVisible();
     expect(screen.getByText('ndp #1')).toBeVisible();
-    expect(screen.getByText(/bars show concurrency/i)).toBeVisible();
+    expect(screen.getByText('Execution')).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
 
@@ -314,7 +282,7 @@ describe('ClioObservabilityView', () => {
     );
   });
 
-  it('labels containing-turn time without presenting it as exact tool execution time', async () => {
+  it('labels containing-turn placement inline without a global timing warning', async () => {
     const user = userEvent.setup();
     renderObservability(
       <ClioObservabilityView
@@ -348,8 +316,10 @@ describe('ClioObservabilityView', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: 'Timeline' }));
-    expect(screen.getByText(/exact tool execution times were not recorded/i)).toBeVisible();
-    expect(screen.getByText(/Turn started/u)).toBeVisible();
+    expect(
+      screen.queryByText(/exact tool execution times were not recorded/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Campaign health')).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
   });
 });
