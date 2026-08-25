@@ -6,6 +6,7 @@ import type {
   ContextSnapshot,
   Message,
   Run,
+  RunState,
   SessionContextPolicy,
   SessionDiff,
   SubagentRun,
@@ -85,6 +86,7 @@ export interface ClioObservabilityDockProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  sessionState?: RunState;
 }
 
 type ActivityTiming = 'event' | 'turn';
@@ -140,6 +142,10 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(agent.state),
   );
   const latestActiveChild = activeChildAgents.at(-1);
+  const sessionActive = props.sessionState === 'queued' || props.sessionState === 'running';
+  const hasAssistantActivity = props.messages.some(
+    (message) => message.role === 'assistant' && message.blocks.length > 0,
+  );
   const childAgentCountLabel = `${props.subagents.length.toLocaleString()} child ${props.subagents.length === 1 ? 'agent' : 'agents'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
@@ -149,11 +155,19 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ? currentTask.title
         : props.subagents.length
           ? childAgentCountLabel
-          : activeItems
-            ? 'Agent work in progress'
-            : 'Session details';
+            : activeItems
+              ? 'Agent work in progress'
+              : sessionActive
+                ? hasAssistantActivity
+                  ? 'Agent is responding'
+                  : 'Starting agent'
+                : 'Session details';
   const dockStatus = activeItems
     ? `${activeItems} active`
+    : sessionActive
+      ? hasAssistantActivity
+        ? 'Working'
+        : 'Starting'
     : props.subagents.length
       ? 'All settled'
       : 'Up to date';
@@ -175,7 +189,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         type="button"
         variant="ghost"
       >
-        {activeItems ? (
+        {activeItems || sessionActive ? (
           <BrainCircuitIcon aria-hidden="true" className="size-4 text-info" />
         ) : (
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
@@ -184,7 +198,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         <ClioStatus
           className="hidden py-0.5 sm:inline-flex"
           label={dockStatus}
-          value={activeItems ? 'running' : 'completed'}
+          value={activeItems || sessionActive ? (props.sessionState ?? 'running') : 'completed'}
         />
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>

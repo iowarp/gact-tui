@@ -60,12 +60,6 @@ const approvalLabels: Record<Session['approval_mode'], string> = {
   bypass: 'Bypass checks',
 };
 
-function shortSummary(session: Session) {
-  const mode = session.mode === 'edit' ? 'Build' : session.mode === 'plan' ? 'Plan' : 'Architect';
-  const routing = session.routing_mode === 'auto' ? 'Auto' : routingLabels[session.routing_mode];
-  return `${mode} mode, ${routing} routing`;
-}
-
 export function ClioSessionBehaviorMenu({
   disabled,
   session,
@@ -97,17 +91,18 @@ export function ClioSessionBehaviorMenu({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Session behavior: ${description}`}
-            className="h-7 shrink-0 gap-1.5 px-2"
+            className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
             disabled={unavailable}
-            size="sm"
-            variant="outline"
+            size="icon-sm"
+            title="Session behavior"
+            type="button"
+            variant="ghost"
           >
             <Settings2Icon aria-hidden="true" className="size-3.5" />
-            <span className="hidden max-w-44 truncate xl:inline">{shortSummary(session)}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel>Working mode</DropdownMenuLabel>
+          <DropdownMenuLabel>Task style</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => void change({ mode: value as Session['mode'] })}
             value={session.mode}
@@ -119,7 +114,7 @@ export function ClioSessionBehaviorMenu({
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>How work is routed</DropdownMenuLabel>
+          <DropdownMenuLabel>Specialist use</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) =>
               void change({ routing_mode: value as Session['routing_mode'] })
@@ -133,7 +128,7 @@ export function ClioSessionBehaviorMenu({
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>How file changes are prepared</DropdownMenuLabel>
+          <DropdownMenuLabel>File changes</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => void change({ edit_mode: value as Session['edit_mode'] })}
             value={session.edit_mode}
@@ -145,7 +140,7 @@ export function ClioSessionBehaviorMenu({
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>Protected actions</DropdownMenuLabel>
+          <DropdownMenuLabel>Confirmations</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
               if (value === 'bypass') setConfirmBypass(true);

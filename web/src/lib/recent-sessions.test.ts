@@ -1,6 +1,10 @@
 import type { Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { sessionInteractionAt, visibleWorkspaceSessions } from './recent-sessions';
+import {
+  isPrimarySession,
+  sessionInteractionAt,
+  visibleWorkspaceSessions,
+} from './recent-sessions';
 
 const session = (id: string, title: string, updated_at: string): Session => ({
   id,
@@ -41,6 +45,18 @@ describe('visibleWorkspaceSessions', () => {
     ];
 
     expect(visibleWorkspaceSessions(sessions, 'ws_1', 'working')).toEqual([sessions[0]]);
+  });
+
+  it('keeps child-agent sessions out of primary workspace navigation', () => {
+    const parent = session('parent', 'NDP Demo', '2026-08-24T00:00:00Z');
+    const child = {
+      ...session('child', 'geospatial task', '2026-08-24T00:01:00Z'),
+      parent_session_id: parent.id,
+    };
+
+    expect(isPrimarySession(parent)).toBe(true);
+    expect(isPrimarySession(child)).toBe(false);
+    expect(visibleWorkspaceSessions([child, parent], 'ws_1', '')).toEqual([parent]);
   });
 
   it('orders and labels by interaction time rather than operational updates', () => {

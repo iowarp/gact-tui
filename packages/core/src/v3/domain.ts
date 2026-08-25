@@ -720,6 +720,7 @@ export interface ActionCardAction {
 }
 
 export interface TranscriptSnapshot {
+  cursor?: string;
   messages: Message[];
   tools: ToolInvocation[];
   tasks: Task[];

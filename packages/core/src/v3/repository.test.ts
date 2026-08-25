@@ -6,6 +6,7 @@ describe('ClioRepository interaction contracts', () => {
   it('preserves the server or MCP supplied title for tool activity', async () => {
     const transport = new RecordingTransport([
       {
+        cursor: '42',
         messages: [],
         tools: [
           {
@@ -21,6 +22,7 @@ describe('ClioRepository interaction contracts', () => {
     const repository = new ClioRepository(transport);
 
     await expect(repository.transcript('sess_1')).resolves.toMatchObject({
+      cursor: '42',
       tools: [{ name: 'create_artifact', title: 'Create Artifact' }],
     });
   });

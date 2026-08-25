@@ -1,7 +1,5 @@
 import type { SubagentRun } from '@clio/core/v3';
-import { PanelRightOpenIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { Button } from '@/components/ui/button';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { getChildAgentAssignment } from './child-agent-presentation';
 
@@ -38,7 +36,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
   };
 
   return (
-    <div className="grid gap-2" title={assignment.detail}>
+    <div title={assignment.detail}>
       <SubAgentDispatch
         aria-label={`Open child conversation ${subagent.title}`}
         className={
@@ -62,8 +60,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
           task: compactText(assignment.label, 260, false),
           state: toTheoState(subagent.state),
           duration: formatDuration(subagent.duration_ms),
-          lastEvent: subagent.child_session_id ? 'Open conversation' : undefined,
-          result: subagent.result ? compactText(subagent.result, 300, true) : undefined,
+          result: subagent.result ? compactResult(subagent.result, 300) : undefined,
         }}
         tabIndex={subagent.child_session_id && onOpen ? 0 : undefined}
         title={
@@ -72,19 +69,6 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
             : undefined
         }
       />
-      {subagent.child_session_id && onOpen ? (
-        <div className="flex justify-end">
-          <Button
-            className="h-7 px-2"
-            onClick={() => onOpen(subagent, 'canvas')}
-            size="sm"
-            variant="ghost"
-          >
-            Open in canvas
-            <PanelRightOpenIcon aria-hidden="true" className="size-3.5" />
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -106,6 +90,36 @@ function compactText(value: string, limit: number, preferLastParagraph: boolean)
     .filter(Boolean);
   const selected = preferLastParagraph ? (paragraphs.at(-1) ?? value) : (paragraphs[0] ?? value);
   return selected.length > limit ? `${selected.slice(0, limit - 1).trimEnd()}…` : selected;
+}
+
+function compactResult(value: string, limit: number): string {
+  const paragraphs = value
+    .split(/\n\s*\n/u)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const selected =
+    paragraphs
+      .map((paragraph, index) => ({ paragraph, index, score: resultParagraphScore(paragraph) }))
+      .sort((left, right) => right.score - left.score || right.index - left.index)[0]?.paragraph ??
+    value;
+  const plain = selected
+    .replace(/\[([^\]]+)\]\([^)]+\)/gu, '$1')
+    .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/^#{1,6}\s+/gmu, '');
+  return plain.length > limit ? `${plain.slice(0, limit - 1).trimEnd()}…` : plain;
+}
+
+function resultParagraphScore(value: string): number {
+  let score = 0;
+  if (/\b(?:found|resolved|created|generated|completed?|result)\b/iu.test(value)) score += 3;
+  if (/\b(?:candidate|station|record|row|file|artifact)s?\b/iu.test(value)) score += 2;
+  if (/\b(?:within_radius_count\s*=\s*)?\d[\d,.]*\s+(?:candidate\s+)?(?:GNSS\s+)?stations?\b/iu.test(value)) {
+    score += 8;
+  }
+  if (/\b(?:starting|now phase|next step|i(?:'|’)ll|will submit)\b/iu.test(value)) score -= 4;
+  if (/\bno (?:station )?time-series CSV was staged\b/iu.test(value)) score -= 3;
+  return score;
 }
 
 function formatDuration(milliseconds?: number): string | undefined {

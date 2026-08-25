@@ -99,8 +99,74 @@ describe('conversationTurnPresentation', () => {
     expect(view.iterations[0]?.thinking[0]?.text).toBe(
       '**Use the file reader.**\n\n**Then inspect the result.**',
     );
-    expect(view.iterations[0]?.thinking[0]?.label).toBe('Codex thinking');
+    expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
     expect(view.iterations[0]?.tool?.id).toBe('call_read');
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['surface', 'answer']);
+  });
+
+  it('does not invent a completed iteration from partial live provider blocks', () => {
+    const message: Message = {
+      id: 'assistant_live',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'reasoning_live',
+          type: 'reasoning',
+          text: '**Planning the tool call**',
+          provider_source: 'codex_app_server',
+        },
+        {
+          id: 'next_live',
+          type: 'text',
+          text: 'Resolve the region first.',
+          channel: 'next_thought',
+          streaming: true,
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, [], tools);
+
+    expect(view.iterations).toHaveLength(1);
+    expect(view.iterations[0]).toMatchObject({
+      terminal: false,
+      interrupted: false,
+      streaming: true,
+      summary: 'Resolve the region first.',
+    });
+    expect(view.iterations[0]?.thinking[0]).toMatchObject({
+      label: 'Thinking',
+      streaming: false,
+    });
+  });
+
+  it('marks a cancelled partial response as interrupted instead of final', () => {
+    const message: Message = {
+      id: 'assistant_cancelled',
+      session_id: 'session_1',
+      run_id: 'turn_cancelled',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      completed_at: '2026-08-24T00:01:00Z',
+      stop_reason: 'cancelled',
+      blocks: [
+        {
+          id: 'partial_thought',
+          type: 'text',
+          text: 'Resolve the region first.',
+          channel: 'next_thought',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, [], tools);
+
+    expect(view.iterations[0]).toMatchObject({
+      terminal: false,
+      interrupted: true,
+      summary: 'Resolve the region first.',
+    });
   });
 });

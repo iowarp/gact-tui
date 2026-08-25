@@ -71,10 +71,7 @@ export function ConversationProcessSequence({
   });
 
   return (
-    <ChainOfThought
-      className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5"
-      defaultOpen
-    >
+    <ChainOfThought className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-2">
         <ChainOfThoughtHeader className="min-h-7 min-w-0 flex-1">
           {active ? 'Work in progress' : activitySummary(summaryBlocks ?? blocks)}
@@ -152,7 +149,7 @@ function ActivityStep({
     return (
       <ChainOfThoughtStep
         icon={WrenchIcon}
-        label={<ClioToolInvocation defaultOpen={isActive} embedded tool={tool} />}
+        label={<ClioToolInvocation embedded tool={tool} />}
         status={isActive ? 'active' : 'complete'}
       >
         {block.thought ? (
@@ -203,20 +200,15 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     );
   }
   if (block.type === 'reasoning') {
-    const sourceLabel = reasoningSourceLabel(block.provider_source);
     return (
       <Reasoning
         className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-        defaultOpen={
-          entities.reasoningDefaultOpen ?? block.streaming ?? block.default_collapsed === false
-        }
+        defaultOpen={false}
         isStreaming={block.streaming}
       >
         <ReasoningTrigger
           className="min-h-6"
-          getThinkingMessage={(streaming) =>
-            streaming ? `${sourceLabel} reasoning in progress` : `${sourceLabel} reasoning`
-          }
+          getThinkingMessage={(streaming) => (streaming ? 'Thinking in progress' : 'Thinking')}
         />
         <ReasoningContent className="mt-3 leading-6">
           {reasoningMarkdown(block.text)}
@@ -226,29 +218,27 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
-    const active = tool?.state === 'pending' || tool?.state === 'running';
     return (
       <div className="space-y-3">
         {block.thought ? (
           <Reasoning
             className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-            defaultOpen={entities.reasoningDefaultOpen}
+            defaultOpen={false}
           >
-            <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Agent reasoning'} />
+            <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
             <ReasoningContent className="mt-3 leading-6">
               {reasoningMarkdown(block.thought)}
             </ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation defaultOpen={active} tool={tool} />
+        <ClioToolInvocation tool={tool} />
       </div>
     );
   }
   if (block.type === 'task') {
     const task = entities.tasks[block.task_id];
-    const active = task?.state === 'running' || task?.state === 'queued';
     return (
-      <AITask className="mb-0 rounded-lg border bg-card/60" defaultOpen={active}>
+      <AITask className="mb-0 rounded-lg border bg-card/60" defaultOpen={false}>
         <TaskTrigger title={task?.title ?? 'Task unavailable'} />
         <TaskContent>
           <TaskItem className="flex flex-wrap items-start gap-2">
@@ -270,20 +260,6 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
 
 function reasoningMarkdown(text: string): string {
   return text.replace(/\*{4}(?=\S)/gu, '**\n\n**');
-}
-
-function reasoningSourceLabel(source?: string): string {
-  if (!source) return 'Provider';
-  const labels: Record<string, string> = {
-    anthropic: 'Anthropic',
-    claude_code_sdk: 'Claude',
-    codex_app_server: 'Codex',
-    openai: 'OpenAI',
-  };
-  return (
-    labels[source] ??
-    source.replaceAll('_', ' ').replace(/\b\w/gu, (letter) => letter.toUpperCase())
-  );
 }
 
 function activitySummary(blocks: readonly ProcessBlock[]): string {

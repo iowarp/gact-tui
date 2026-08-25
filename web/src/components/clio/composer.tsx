@@ -3,7 +3,6 @@ import {
   ChevronDownIcon,
   CornerDownRightIcon,
   PaperclipIcon,
-  RouteIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
@@ -40,7 +39,6 @@ export interface ClioComposerProps {
   provider?: string;
   model?: string;
   effort?: string;
-  routingMode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
   modelOptions?: Array<{
     providerId: string;
     providerName: string;
@@ -60,7 +58,6 @@ export interface ClioComposerProps {
   }) => Promise<void>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
-  onRoutingModeChange?: (value: 'auto' | 'chat' | 'experts' | 'reasoning_only') => Promise<void>;
   activityControl?: ReactNode;
 }
 
@@ -77,14 +74,12 @@ export function ClioComposer({
   provider,
   model,
   effort,
-  routingMode = 'auto',
   modelOptions = [],
   disabled,
   commands = [],
   onSubmit,
   onStop,
   onCommand,
-  onRoutingModeChange,
   activityControl,
 }: ClioComposerProps) {
   const [selectedProvider, setSelectedProvider] = useState(provider);
@@ -212,31 +207,6 @@ export function ClioComposer({
                 <PaperclipIcon aria-hidden="true" />
               </PromptInputActionAddAttachments>
             ) : null}
-            <PromptInputSelect
-              disabled={!onRoutingModeChange}
-              onValueChange={(value) => {
-                if (!onRoutingModeChange) return;
-                void onRoutingModeChange(
-                  value as 'auto' | 'chat' | 'experts' | 'reasoning_only',
-                ).catch((error) =>
-                  toast.error(
-                    error instanceof Error ? error.message : 'Unable to change work routing',
-                  ),
-                );
-              }}
-              value={routingMode}
-            >
-              <PromptInputSelectTrigger aria-label="Work routing" className="w-auto">
-                <RouteIcon aria-hidden="true" className="size-3.5" />
-                <PromptInputSelectValue />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent>
-                <PromptInputSelectItem value="auto">Automatic</PromptInputSelectItem>
-                <PromptInputSelectItem value="chat">Conversation only</PromptInputSelectItem>
-                <PromptInputSelectItem value="experts">Use domain experts</PromptInputSelectItem>
-                <PromptInputSelectItem value="reasoning_only">Reasoning only</PromptInputSelectItem>
-              </PromptInputSelectContent>
-            </PromptInputSelect>
             <ClioModelPicker
               model={selectedModel}
               onChange={(option) => {

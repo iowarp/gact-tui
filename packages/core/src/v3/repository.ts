@@ -564,7 +564,7 @@ export class ClioRepository extends ProviderRepository {
   }
 
   public async pendingApprovals(
-    sessionId: string,
+    sessionId?: string,
     signal?: AbortSignal,
   ): Promise<ApprovalRequest[]> {
     const permissions = await this.permissions(signal, { sessionId, status: 'pending' });
@@ -646,6 +646,7 @@ export class ClioRepository extends ProviderRepository {
       signal,
     });
     return {
+      cursor: result.cursor,
       messages: result.messages,
       tools: result.tools as ToolInvocation[],
       tasks: result.tasks as Task[],

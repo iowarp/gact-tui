@@ -10,6 +10,7 @@ import { sessionObservabilityQueryKey } from './use-session-observability';
 
 interface SessionLiveStreamInput {
   enabled: boolean;
+  initialCursor?: string;
   sessionId: string;
   workspaceId: string;
 }
@@ -17,6 +18,7 @@ interface SessionLiveStreamInput {
 /** Owns focused-session streaming, reconnect backoff, and gap reconciliation. */
 export function useSessionLiveStream({
   enabled,
+  initialCursor,
   sessionId,
   workspaceId,
 }: SessionLiveStreamInput): string | undefined {
@@ -39,7 +41,7 @@ export function useSessionLiveStream({
       setStreamState('connecting');
       while (!controller.signal.aborted) {
         try {
-          const cursor = useLiveStore.getState().entities.cursor;
+          const cursor = latestCursor(useLiveStore.getState().entities.cursor, initialCursor);
           for await (const frame of repository.stream(
             { connection_id: 'active', workspace_id: workspaceId, session_id: sessionId },
             cursor,
@@ -59,12 +61,17 @@ export function useSessionLiveStream({
               ]);
             }
             if (isProcessEvent(frame.eventName)) {
-              await queryClient.invalidateQueries({
-                queryKey: [
-                  ...sessionObservabilityQueryKey(settings.endpoint, sessionId),
-                  'processes',
-                ],
-              });
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: [
+                    ...sessionObservabilityQueryKey(settings.endpoint, sessionId),
+                    'processes',
+                  ],
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: ['sessions', settings.endpoint, 'all'],
+                }),
+              ]);
             }
             if (frame.eventName === 'semantic.event') {
               await queryClient.invalidateQueries({
@@ -90,6 +97,9 @@ export function useSessionLiveStream({
             if (frame.eventName === 'message.completed') {
               batcher.flush();
               await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: ['transcript', settings.endpoint, sessionId],
+                }),
                 queryClient.invalidateQueries({
                   queryKey: ['sessions', settings.endpoint, workspaceId],
                 }),
@@ -120,6 +130,7 @@ export function useSessionLiveStream({
   }, [
     applyFrames,
     enabled,
+    initialCursor,
     queryClient,
     repository,
     sessionId,
@@ -185,7 +196,14 @@ function isPendingInteractionEvent(eventName: string): boolean {
 }
 
 function isProcessEvent(eventName: string): boolean {
-  return ['agent_task.', 'mcp_task.', 'run.'].some((prefix) => eventName.startsWith(prefix));
+  return [
+    'agent.task.',
+    'agent_task.',
+    'mcp.task.',
+    'mcp_task.',
+    'run.',
+    'subagent.',
+  ].some((prefix) => eventName.startsWith(prefix));
 }
 
 function isModelConfigurationEvent(eventName: string): boolean {
@@ -204,4 +222,13 @@ function abortableDelay(controller: AbortController, milliseconds: number): Prom
       { once: true },
     );
   });
+}
+
+function latestCursor(current: string | undefined, snapshot: string | undefined): string | undefined {
+  if (!current) return snapshot;
+  if (!snapshot) return current;
+  const currentNumber = Number(current);
+  const snapshotNumber = Number(snapshot);
+  if (!Number.isFinite(currentNumber) || !Number.isFinite(snapshotNumber)) return current;
+  return snapshotNumber > currentNumber ? snapshot : current;
 }

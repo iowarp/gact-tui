@@ -10,10 +10,16 @@ export interface ConversationIteration {
   id: string;
   index: number;
   agentId: string;
-  thinking: Array<{ id: string; text: string; label: string }>;
+  thinking: Array<{
+    id: string;
+    text: string;
+    label: string;
+    streaming: boolean;
+  }>;
   nextThoughts: string[];
   tool?: ToolInvocation;
   terminal: boolean;
+  interrupted: boolean;
   streaming: boolean;
   summary: string;
 }
@@ -90,14 +96,16 @@ function fromAuthoritative(iteration: AgentIteration, index: number): Conversati
       ? [
           {
             id: `${iteration.id}:thinking`,
-            label: 'Provider thinking',
+            label: 'Agent reasoning',
             text: readableThinking(iteration.thinking),
+            streaming: false,
           },
         ]
       : [],
     nextThoughts,
     tool,
     terminal: iteration.terminal,
+    interrupted: false,
     streaming: iteration.tool?.state === 'running',
     summary: iterationSummary(nextThoughts, tool, iteration.terminal, iteration.summary),
   };
@@ -119,10 +127,16 @@ function fallbackIterations(
     });
   let current = emptyIteration(message, iterations.length);
 
-  const flush = (terminal = false) => {
+  const flush = (terminal = false, interrupted = false) => {
     if (!hasIterationContent(current)) return;
     current.terminal = terminal;
-    current.summary = iterationSummary(current.nextThoughts, current.tool, current.terminal);
+    current.interrupted = interrupted;
+    current.summary = iterationSummary(
+      current.nextThoughts,
+      current.tool,
+      current.terminal,
+      current.thinking.at(-1)?.text,
+    );
     iterations.push(current);
     current = emptyIteration(message, iterations.length);
   };
@@ -135,6 +149,7 @@ function fallbackIterations(
         id: block.id,
         label: reasoningLabel(block.provider_source),
         text: readableThinking(block.text),
+        streaming: Boolean(block.streaming),
       });
       current.streaming ||= Boolean(block.streaming);
       consumed.add(block.id);
@@ -162,7 +177,7 @@ function fallbackIterations(
       flush(finalAnswerBoundary && !current.tool);
     }
   }
-  flush(true);
+  flush(messageCompletedNormally(message), messageInterrupted(message));
   return { consumed, iterations };
 }
 
@@ -178,6 +193,7 @@ function emptyIteration(message: Message, index: number): ConversationIteration 
     thinking: [],
     nextThoughts: [],
     terminal: false,
+    interrupted: false,
     streaming: false,
     summary: '',
   };
@@ -186,6 +202,17 @@ function emptyIteration(message: Message, index: number): ConversationIteration 
 function hasIterationContent(iteration: ConversationIteration): boolean {
   return (
     iteration.thinking.length > 0 || iteration.nextThoughts.length > 0 || Boolean(iteration.tool)
+  );
+}
+
+function messageCompletedNormally(message: Message): boolean {
+  if (!message.completed_at && !message.stop_reason) return false;
+  return !messageInterrupted(message);
+}
+
+function messageInterrupted(message: Message): boolean {
+  return ['cancelled', 'error', 'failed', 'interrupted'].includes(
+    message.stop_reason?.toLocaleLowerCase() ?? '',
   );
 }
 
@@ -285,8 +312,8 @@ function matchingTool(
 }
 
 function deduplicateThinking(
-  thinking: Array<{ id: string; text: string; label: string }>,
-): Array<{ id: string; text: string; label: string }> {
+  thinking: Array<{ id: string; text: string; label: string; streaming: boolean }>,
+): Array<{ id: string; text: string; label: string; streaming: boolean }> {
   const seen = new Set<string>();
   return thinking.filter((entry) => {
     const text = normalize(entry.text);
@@ -331,20 +358,12 @@ function supplementalModelCalls(
   return supplemental;
 }
 
-function modelReasoningLabel(call: ModelReasoningCall): string {
-  const model = call.model?.split('/').at(-1);
-  return model ? `${model} thinking` : 'Provider thinking';
+function modelReasoningLabel(_call: ModelReasoningCall): string {
+  return 'Thinking';
 }
 
-function reasoningLabel(provider?: string): string {
-  if (!provider) return 'Provider thinking';
-  const labels: Record<string, string> = {
-    anthropic: 'Anthropic thinking',
-    claude_code_sdk: 'Claude thinking',
-    codex_app_server: 'Codex thinking',
-    openai: 'OpenAI thinking',
-  };
-  return labels[provider] ?? `${humanize(provider)} thinking`;
+function reasoningLabel(_provider?: string): string {
+  return 'Thinking';
 }
 
 function iterationSummary(

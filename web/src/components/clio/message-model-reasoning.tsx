@@ -23,7 +23,6 @@ export function MessageModelReasoning({ message }: MessageModelReasoningProps) {
       {calls.map((call, index) => (
         <Reasoning
           className="mb-0 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5"
-          defaultOpen
           key={call.id}
         >
           <ReasoningTrigger

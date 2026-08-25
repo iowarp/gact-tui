@@ -23,7 +23,7 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
-import { sessionInteractionAt } from '@/lib/recent-sessions';
+import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
 import { isClioInternalPath } from '@/lib/workspace-files';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
@@ -127,6 +127,7 @@ export function ClioCommandMenu({
     const candidates = (sessions.data ?? []).filter(
       (session) =>
         !session.archived &&
+        isPrimarySession(session) &&
         (normalizedQuery
           ? `${session.title} ${workspaceNames.get(session.workspace_id) ?? ''}`
               .toLocaleLowerCase()

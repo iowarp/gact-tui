@@ -26,6 +26,7 @@ import {
 export const workspaceListSchema = z.object({ workspaces: z.array(workspaceSchema) });
 export const sessionListSchema = z.object({ sessions: z.array(sessionSchema) });
 export const transcriptSchema = z.object({
+  cursor: z.string().optional(),
   messages: z.array(messageSchema),
   tools: z.array(toolInvocationSchema).default([]),
   tasks: z.array(taskSchema).default([]),

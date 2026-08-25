@@ -11,7 +11,9 @@ export function visibleWorkspaceSessions(
 ): Session[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const candidates = sessions
-    .filter((session) => session.workspace_id === workspaceId)
+    .filter(
+      (session) => session.workspace_id === workspaceId && isPrimarySession(session),
+    )
     .filter(
       (session) => !normalizedQuery || session.title.toLocaleLowerCase().includes(normalizedQuery),
     )
@@ -20,6 +22,10 @@ export function visibleWorkspaceSessions(
     );
   if (normalizedQuery) return candidates.slice(0, SEARCH_LIMIT);
   return candidates.slice(0, limit);
+}
+
+export function isPrimarySession(session: Session): boolean {
+  return !session.parent_session_id;
 }
 
 export function sessionInteractionAt(session: Session): string {

@@ -28,7 +28,11 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
-import { sessionInteractionAt, visibleWorkspaceSessions } from '@/lib/recent-sessions';
+import {
+  isPrimarySession,
+  sessionInteractionAt,
+  visibleWorkspaceSessions,
+} from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
 import { workspaceLabels } from '@/lib/workspace-labels';
 import { ClioInteractiveRow } from './interactive-row';
@@ -116,7 +120,10 @@ export function WorkspaceNavigation({
       <SidebarGroupContent className="grid min-w-0 gap-1">
         {visibleWorkspaces.map((workspace) => {
           const workspaceSessions = sessions.filter(
-            (session) => session.workspace_id === workspace.id && !session.archived,
+            (session) =>
+              session.workspace_id === workspace.id &&
+              !session.archived &&
+              isPrimarySession(session),
           );
           const expanded = workspaceExpansion[workspace.id] ?? workspace.id === activeWorkspaceId;
           return (

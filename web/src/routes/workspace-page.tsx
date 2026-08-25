@@ -11,7 +11,10 @@ import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioObservabilityDock, ClioObservabilityView } from '@/components/clio/observability-dock';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
-import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-menu';
+import {
+  ClioSessionBehaviorMenu,
+  type SessionBehaviorPatch,
+} from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import { ClioWorkbench, type ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
@@ -56,11 +59,6 @@ export function WorkspacePage() {
     queryKey: ['capabilities', settings.endpoint],
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
-  const streamError = useSessionLiveStream({
-    enabled: Boolean(capabilities.data?.gact_versions.includes('0.3')),
-    sessionId,
-    workspaceId,
-  });
   const modelConfiguration = useQuery({
     queryKey: ['language-model-configuration', settings.endpoint],
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
@@ -83,10 +81,17 @@ export function WorkspacePage() {
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
     enabled: Boolean(sessionId),
   });
+  const streamError = useSessionLiveStream({
+    enabled: Boolean(capabilities.data?.gact_versions.includes('0.3') && transcript.isSuccess),
+    initialCursor: transcript.data?.cursor,
+    sessionId,
+    workspaceId,
+  });
   const approvals = useQuery({
-    queryKey: ['pending-approvals', settings.endpoint, sessionId],
-    queryFn: ({ signal }) => repository.pendingApprovals(sessionId, signal),
+    queryKey: ['pending-approvals', settings.endpoint, 'all-active'],
+    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
     enabled: Boolean(sessionId),
+    refetchInterval: 1_500,
   });
   const questions = useQuery({
     queryKey: ['pending-questions', settings.endpoint, sessionId],
@@ -176,6 +181,38 @@ export function WorkspacePage() {
     ],
   );
   const { messages, processes, subagents } = relations;
+  const interactionSessionIds = useMemo(() => {
+    const related = new Set([sessionId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const subagent of Object.values(entities.subagents)) {
+        if (
+          subagent.child_session_id &&
+          related.has(subagent.session_id) &&
+          !related.has(subagent.child_session_id)
+        ) {
+          related.add(subagent.child_session_id);
+          changed = true;
+        }
+      }
+      for (const candidate of allSessions.data ?? []) {
+        if (
+          candidate.parent_session_id &&
+          related.has(candidate.parent_session_id) &&
+          !related.has(candidate.id)
+        ) {
+          related.add(candidate.id);
+          changed = true;
+        }
+      }
+    }
+    return related;
+  }, [allSessions.data, entities.subagents, sessionId]);
+  const visibleApprovals = useMemo(
+    () => (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
+    [approvals.data, interactionSessionIds],
+  );
   const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[sessionId];
@@ -393,7 +430,7 @@ export function WorkspacePage() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['pending-approvals', settings.endpoint, sessionId],
+          queryKey: ['pending-approvals', settings.endpoint],
         }),
         queryClient.invalidateQueries({
           queryKey: ['sessions', settings.endpoint, workspaceId],
@@ -496,9 +533,6 @@ export function WorkspacePage() {
             }
             onCompact={async () => {
               await sessionHistory.compact.mutateAsync();
-            }}
-            onBehaviorChange={async (patch) => {
-              await updateSessionBehavior.mutateAsync(patch);
             }}
             onFork={async () => {
               await sessionHistory.fork.mutateAsync(undefined);
@@ -657,7 +691,7 @@ export function WorkspacePage() {
             </Alert>
           ) : null}
           <ClioPendingInteractions
-            approvals={approvals.data ?? []}
+            approvals={visibleApprovals}
             disabled={
               respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
             }
@@ -675,24 +709,36 @@ export function WorkspacePage() {
           <div className="relative shrink-0">
             <ClioComposer
               activityControl={
-                <ClioObservabilityDock
-                  artifacts={artifacts}
-                  context={context}
-                  contextFiles={sessionObservability.contextFiles.data ?? []}
-                  contextFrames={sessionObservability.contextFrames.data ?? []}
-                  diffs={sessionObservability.diffs.data ?? []}
-                  messages={messages}
-                  onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                  onOpenArtifact={openArtifact}
-                  onOpenDiff={openDiff}
-                  onOpenFile={openWorkspaceFile}
-                  onOpenSubagent={openSubagent}
-                  processes={processes}
-                  runs={runs}
-                  subagents={subagents}
-                  tasks={tasks}
-                  tools={tools}
-                />
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  <ClioObservabilityDock
+                    artifacts={artifacts}
+                    context={context}
+                    contextFiles={sessionObservability.contextFiles.data ?? []}
+                    contextFrames={sessionObservability.contextFrames.data ?? []}
+                    diffs={sessionObservability.diffs.data ?? []}
+                    messages={messages}
+                    onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+                    onOpenArtifact={openArtifact}
+                    onOpenDiff={openDiff}
+                    onOpenFile={openWorkspaceFile}
+                    onOpenSubagent={openSubagent}
+                    processes={processes}
+                    runs={runs}
+                    sessionState={state}
+                    subagents={subagents}
+                    tasks={tasks}
+                    tools={tools}
+                  />
+                  {session ? (
+                    <ClioSessionBehaviorMenu
+                      disabled={updateSessionBehavior.isPending}
+                      onChange={async (patch) => {
+                        await updateSessionBehavior.mutateAsync(patch);
+                      }}
+                      session={session}
+                    />
+                  ) : null}
+                </div>
               }
               attachments={capabilities.data?.capabilities.attachments === true}
               commands={commands}
@@ -706,11 +752,7 @@ export function WorkspacePage() {
                 await send.mutateAsync(value);
               }}
               onStop={() => cancel.mutate()}
-              onRoutingModeChange={async (routingMode) => {
-                await updateSessionBehavior.mutateAsync({ routing_mode: routingMode });
-              }}
               provider={activeProvider}
-              routingMode={session?.routing_mode}
               state={state}
             />
           </div>

@@ -25,8 +25,7 @@ describe('ClioSubagentCard', () => {
 
     expect(screen.getByText('Ground the requested region before catalog search.')).toBeVisible();
     expect(screen.getByText('Resolved the region with authoritative coordinates.')).toBeVisible();
-    expect(screen.getByText('Open conversation')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Open in canvas' })).toBeVisible();
+    expect(screen.queryByText('Open conversation')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open child conversation geospatial #1' }));
     expect(onOpen).toHaveBeenLastCalledWith(
@@ -39,8 +38,26 @@ describe('ClioSubagentCard', () => {
     });
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in canvas' }));
-    expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
+  });
+
+  it('surfaces the useful outcome instead of a trailing no-staging caveat', () => {
+    render(
+      <ClioSubagentCard
+        subagent={{
+          id: 'task_ndp',
+          session_id: 'session_1',
+          child_session_id: 'session_child',
+          title: 'ndp #1',
+          state: 'completed',
+          task: 'Count candidate stations near Los Angeles.',
+          result:
+            'Starting catalog discovery.\n\n**Found 72 candidate GNSS stations** within 50 km of Los Angeles.\n\nNo station time-series CSV was staged, per the discovery-only request.',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Found 72 candidate GNSS stations within 50 km of Los Angeles.')).toBeVisible();
+    expect(screen.queryByText(/No station time-series/u)).not.toBeInTheDocument();
   });
 
   it('translates persisted routing syntax into a useful assignment', () => {

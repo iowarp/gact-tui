@@ -72,6 +72,7 @@ import { ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { ConversationTurn } from './conversation-turn';
 import { conversationTurnPresentation } from './conversation-turn-model';
+import { subagentsForTool } from './subagent-tool-link';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -170,7 +171,7 @@ function MessageBlockView({
       );
     case 'plan':
       return (
-        <Plan defaultOpen>
+        <Plan>
           <PlanHeader>
             <div>
               <PlanTitle>{block.title}</PlanTitle>
@@ -346,6 +347,15 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     () => conversationTurnPresentation(message, entities.iterations ?? [], entities.tools),
     [entities.iterations, entities.tools, message],
   );
+  const linkedSubagentIds = useMemo(
+    () =>
+      new Set(
+        turn.iterations.flatMap((iteration) =>
+          subagentsForTool(iteration.tool, entities.subagents).map((subagent) => subagent.id),
+        ),
+      ),
+    [entities.subagents, turn.iterations],
+  );
 
   return (
     <div
@@ -397,14 +407,22 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               (turn.iterations.length > 0 || turn.supplementalCalls.length > 0) ? (
               <>
                 <ConversationTurn
+                  authoritative={turn.authoritative}
                   iterations={turn.iterations}
                   mode={displayMode}
                   onModeChange={onDisplayModeChange}
+                  onOpenSubagent={entities.onOpenSubagent}
+                  subagents={entities.subagents}
                   supplementalCalls={turn.supplementalCalls}
                 />
-                {turn.residualBlocks.map((block) => (
-                  <MessageBlockView block={block} key={block.id} {...entities} />
-                ))}
+                {turn.residualBlocks
+                  .filter(
+                    (block) =>
+                      block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
+                  )
+                  .map((block) => (
+                    <MessageBlockView block={block} key={block.id} {...entities} />
+                  ))}
               </>
             ) : (
               message.blocks.map((block) => (
