@@ -1,15 +1,4 @@
 import type { Session } from '@clio/core/v3';
-import {
-  BotIcon,
-  CircleHelpIcon,
-  FolderCheckIcon,
-  Globe2Icon,
-  MapIcon,
-  PlayIcon,
-  RadarIcon,
-  ShieldOffIcon,
-  type LucideIcon,
-} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -31,83 +20,21 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  SESSION_APPROVAL_OPTIONS,
+  SESSION_MODE_OPTIONS,
+  SESSION_MODE_PATCHES,
+  type SessionBehaviorOption,
+  type SessionBehaviorPatch,
+} from './session-behavior-options';
 
-export type SessionBehaviorPatch = Partial<
-  Pick<Session, 'mode' | 'edit_mode' | 'routing_mode' | 'approval_mode'>
->;
+export type { SessionBehaviorPatch } from './session-behavior-options';
 
 export interface ClioSessionBehaviorMenuProps {
   disabled?: boolean;
   session: Session;
   onChange: (patch: SessionBehaviorPatch) => Promise<void>;
 }
-
-interface BehaviorOption<T extends string> {
-  value: T;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}
-
-const modeOptions = [
-  {
-    value: 'edit',
-    label: 'Execute',
-    description: 'Act on the request and make supported changes.',
-    icon: PlayIcon,
-  },
-  {
-    value: 'plan',
-    label: 'Plan',
-    description: 'Develop a concrete approach before changing anything.',
-    icon: MapIcon,
-  },
-  {
-    value: 'architect',
-    label: 'Deep research',
-    description: 'Investigate broadly through specialists before proposing changes.',
-    icon: Globe2Icon,
-  },
-] satisfies readonly BehaviorOption<Session['mode']>[];
-
-const approvalOptions = [
-  {
-    value: 'ask',
-    label: 'Ask first',
-    description: 'Pause before protected actions.',
-    icon: CircleHelpIcon,
-  },
-  {
-    value: 'auto-edits',
-    label: 'Workspace edits',
-    description: 'Make workspace edits without a separate confirmation.',
-    icon: FolderCheckIcon,
-  },
-  {
-    value: 'ai-review',
-    label: 'AI review',
-    description: 'Continue when automated review accepts the action.',
-    icon: BotIcon,
-  },
-  {
-    value: 'spotter-ai',
-    label: 'SPOTTER review',
-    description: 'Require the configured SPOTTER policy.',
-    icon: RadarIcon,
-  },
-  {
-    value: 'bypass',
-    label: 'Bypass checks',
-    description: 'Do not stop for supported action checks.',
-    icon: ShieldOffIcon,
-  },
-] satisfies readonly BehaviorOption<Session['approval_mode']>[];
-
-const modePatches: Record<Session['mode'], SessionBehaviorPatch> = {
-  edit: { mode: 'edit', routing_mode: 'auto' },
-  plan: { mode: 'plan', routing_mode: 'auto' },
-  architect: { mode: 'architect', routing_mode: 'experts' },
-};
 
 export function ClioSessionBehaviorMenu({
   disabled,
@@ -133,9 +60,10 @@ export function ClioSessionBehaviorMenu({
 
   const unavailable = disabled || pending;
   const selectedMode =
-    modeOptions.find((option) => option.value === session.mode) ?? modeOptions[0];
+    SESSION_MODE_OPTIONS.find((option) => option.value === session.mode) ?? SESSION_MODE_OPTIONS[0];
   const selectedApproval =
-    approvalOptions.find((option) => option.value === session.approval_mode) ?? approvalOptions[0];
+    SESSION_APPROVAL_OPTIONS.find((option) => option.value === session.approval_mode) ??
+    SESSION_APPROVAL_OPTIONS[0];
   const ModeIcon = selectedMode.icon;
   const ApprovalIcon = selectedApproval.icon;
 
@@ -158,10 +86,10 @@ export function ClioSessionBehaviorMenu({
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel>Work mode</DropdownMenuLabel>
           <DropdownMenuRadioGroup
-            onValueChange={(value) => void change(modePatches[value as Session['mode']])}
+            onValueChange={(value) => void change(SESSION_MODE_PATCHES[value as Session['mode']])}
             value={session.mode}
           >
-            {modeOptions.map((option) => (
+            {SESSION_MODE_OPTIONS.map((option) => (
               <BehaviorMenuItem disabled={unavailable} key={option.value} option={option} />
             ))}
           </DropdownMenuRadioGroup>
@@ -191,7 +119,7 @@ export function ClioSessionBehaviorMenu({
             }}
             value={session.approval_mode}
           >
-            {approvalOptions.map((option) => (
+            {SESSION_APPROVAL_OPTIONS.map((option) => (
               <BehaviorMenuItem
                 destructive={option.value === 'bypass'}
                 disabled={unavailable}
@@ -240,7 +168,7 @@ function BehaviorMenuItem<T extends string>({
 }: {
   destructive?: boolean;
   disabled?: boolean;
-  option: BehaviorOption<T>;
+  option: SessionBehaviorOption<T>;
 }) {
   const Icon = option.icon;
   return (

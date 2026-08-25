@@ -18,6 +18,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { ClioSettingsSection } from './settings-section';
+import {
+  SESSION_APPROVAL_OPTIONS,
+  SESSION_MODE_OPTIONS,
+  SESSION_MODE_PATCHES,
+} from './session-behavior-options';
 
 const inheritedModel = '__service_default__';
 const standardBlueprint = '__standard__';
@@ -122,6 +127,11 @@ export function SessionDefaultsSettings() {
     setForm((current) => (current ? { ...current, [key]: value } : current));
   const modelValue = form.provider_id ? form.provider_id : inheritedModel;
   const blueprintValue = form.blueprint_id || standardBlueprint;
+  const selectedMode =
+    SESSION_MODE_OPTIONS.find((option) => option.value === form.mode) ?? SESSION_MODE_OPTIONS[0];
+  const selectedApproval =
+    SESSION_APPROVAL_OPTIONS.find((option) => option.value === form.approval_mode) ??
+    SESSION_APPROVAL_OPTIONS[0];
 
   return (
     <div className="grid gap-6">
@@ -226,7 +236,7 @@ export function SessionDefaultsSettings() {
         description="A domain blueprint can add experts, tools, and instructions to every new session."
         title={
           <>
-            <BotIcon aria-hidden="true" className="size-4 text-primary" /> Agent and working style
+            <BotIcon aria-hidden="true" className="size-4 text-primary" /> Agent and work mode
           </>
         }
       >
@@ -254,66 +264,36 @@ export function SessionDefaultsSettings() {
               </SelectContent>
             </Select>
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="session-default-mode">Working mode</FieldLabel>
-              <Select
-                onValueChange={(value) => update('mode', value as SessionDefaults['mode'])}
-                value={form.mode}
-              >
-                <SelectTrigger id="session-default-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="edit">Build and edit</SelectItem>
-                  <SelectItem value="plan">Plan before acting</SelectItem>
-                  <SelectItem value="architect">Architecture</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="session-default-edit-style">Change style</FieldLabel>
-              <Select
-                onValueChange={(value) =>
-                  update('edit_mode', value as SessionDefaults['edit_mode'])
-                }
-                value={form.edit_mode}
-              >
-                <SelectTrigger id="session-default-edit-style">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="diff">Reviewable changes</SelectItem>
-                  <SelectItem value="patch">Targeted patches</SelectItem>
-                  <SelectItem value="whole">Replace whole files</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
           <Field>
-            <FieldLabel htmlFor="session-default-routing">How work is routed</FieldLabel>
+            <FieldLabel htmlFor="session-default-mode">Default work mode</FieldLabel>
             <Select
-              onValueChange={(value) =>
-                update('routing_mode', value as SessionDefaults['routing_mode'])
-              }
-              value={form.routing_mode}
+              onValueChange={(value) => {
+                const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
+                setForm({ ...form, ...patch });
+              }}
+              value={form.mode}
             >
-              <SelectTrigger id="session-default-routing">
+              <SelectTrigger id="session-default-mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Automatic</SelectItem>
-                <SelectItem value="chat">Conversation only</SelectItem>
-                <SelectItem value="experts">Use domain experts</SelectItem>
-                <SelectItem value="reasoning_only">Reasoning only</SelectItem>
+                {SESSION_MODE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <Icon aria-hidden="true" className="size-4" /> {option.label}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+            <FieldDescription>{selectedMode.description}</FieldDescription>
           </Field>
         </FieldGroup>
       </ClioSettingsSection>
 
       <ClioSettingsSection
-        description="Choose the starting review policy. Workspace and organization rules still apply."
+        description="Choose when new sessions pause before protected actions. Workspace and organization rules still apply."
         footer={
           <div className="flex flex-wrap items-center gap-3">
             <Button disabled={save.isPending} onClick={() => save.mutate(form)}>
@@ -327,12 +307,12 @@ export function SessionDefaultsSettings() {
         }
         title={
           <>
-            <ShieldCheckIcon aria-hidden="true" className="size-4 text-primary" /> Protected actions
+            <ShieldCheckIcon aria-hidden="true" className="size-4 text-primary" /> Confirmations
           </>
         }
       >
         <Field>
-          <FieldLabel htmlFor="session-default-approval">Default review</FieldLabel>
+          <FieldLabel htmlFor="session-default-approval">Default confirmation policy</FieldLabel>
           <Select
             onValueChange={(value) =>
               update('approval_mode', value as SessionDefaults['approval_mode'])
@@ -343,13 +323,17 @@ export function SessionDefaultsSettings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ask">Ask me</SelectItem>
-              <SelectItem value="auto-edits">Allow workspace edits</SelectItem>
-              <SelectItem value="ai-review">AI review</SelectItem>
-              <SelectItem value="spotter-ai">SPOTTER review</SelectItem>
-              <SelectItem value="bypass">Bypass prompts — unsafe</SelectItem>
+              {SESSION_APPROVAL_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <SelectItem key={option.value} value={option.value}>
+                    <Icon aria-hidden="true" className="size-4" /> {option.label}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
+          <FieldDescription>{selectedApproval.description}</FieldDescription>
         </Field>
       </ClioSettingsSection>
     </div>

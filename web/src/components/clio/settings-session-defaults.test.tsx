@@ -85,13 +85,20 @@ describe('new session defaults settings', () => {
     expect(screen.getByText('Saved to Research agent.')).toBeVisible();
     expect(screen.queryByText(/127\.0\.0\.1/)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('combobox', { name: 'Default review' }));
+    expect(screen.queryByRole('combobox', { name: 'Change style' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'How work is routed' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Default work mode' }));
+    await user.click(screen.getByRole('option', { name: /Deep research/u }));
+    await user.click(screen.getByRole('combobox', { name: 'Default confirmation policy' }));
     await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
     await user.click(screen.getByRole('button', { name: 'Save new session defaults' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith({
         ...initialDefaults,
+        mode: 'architect',
+        routing_mode: 'experts',
         approval_mode: 'spotter-ai',
       }),
     );

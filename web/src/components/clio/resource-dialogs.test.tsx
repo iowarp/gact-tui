@@ -111,24 +111,18 @@ describe('ClioResourceDialogs session creation', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: 'Advanced session behavior' }));
-    fireEvent.click(screen.getByRole('combobox', { name: 'Working mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Plan before acting' }));
+    expect(screen.queryByRole('combobox', { name: 'Work routing' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('combobox', { name: 'Default work mode' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Deep research' }));
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Working mode' })).toHaveTextContent(
-        'Plan before acting',
+      expect(screen.getByRole('combobox', { name: 'Default work mode' })).toHaveTextContent(
+        'Deep research',
       ),
     );
-    fireEvent.click(screen.getByRole('combobox', { name: 'Work routing' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Use domain experts' }));
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Work routing' })).toHaveTextContent(
-        'Use domain experts',
-      ),
-    );
-    fireEvent.click(screen.getByRole('combobox', { name: 'Protected actions' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Confirmations' }));
     fireEvent.click(screen.getByRole('option', { name: 'SPOTTER review' }));
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Protected actions' })).toHaveTextContent(
+      expect(screen.getByRole('combobox', { name: 'Confirmations' })).toHaveTextContent(
         'SPOTTER review',
       ),
     );
@@ -139,7 +133,7 @@ describe('ClioResourceDialogs session creation', () => {
         title: 'Review anomaly',
         workspaceId: 'ws_ndp',
         blueprintId: 'spotter-ai',
-        mode: 'plan',
+        mode: 'architect',
         routingMode: 'experts',
         approvalMode: 'spotter-ai',
       }),

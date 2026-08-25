@@ -35,6 +35,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioPathPicker } from './path-picker';
+import {
+  SESSION_APPROVAL_OPTIONS,
+  SESSION_MODE_OPTIONS,
+  SESSION_MODE_PATCHES,
+} from './session-behavior-options';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -387,42 +392,22 @@ function SessionFields(props: SessionFieldsProps) {
         <CollapsibleContent className="mt-3 grid gap-4 rounded-lg border p-4">
           <BehaviorSelect
             id="new-session-mode"
-            label="Working mode"
-            onChange={(value) => props.onModeChange(value as SessionDefaults['mode'])}
-            options={[
-              ['edit', 'Build and edit'],
-              ['plan', 'Plan before acting'],
-              ['architect', 'Architecture'],
-            ]}
+            label="Default work mode"
+            onChange={(value) => {
+              const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
+              props.onModeChange(patch.mode as SessionDefaults['mode']);
+              props.onRoutingModeChange(patch.routing_mode as SessionDefaults['routing_mode']);
+            }}
+            options={SESSION_MODE_OPTIONS.map((option) => [option.value, option.label])}
             value={props.mode}
           />
           <BehaviorSelect
-            id="new-session-routing"
-            label="Work routing"
-            onChange={(value) =>
-              props.onRoutingModeChange(value as SessionDefaults['routing_mode'])
-            }
-            options={[
-              ['auto', 'Automatic'],
-              ['chat', 'Conversation only'],
-              ['experts', 'Use domain experts'],
-              ['reasoning_only', 'Reasoning only'],
-            ]}
-            value={props.routingMode}
-          />
-          <BehaviorSelect
             id="new-session-approval"
-            label="Protected actions"
+            label="Confirmations"
             onChange={(value) =>
               props.onApprovalModeChange(value as SessionDefaults['approval_mode'])
             }
-            options={[
-              ['ask', 'Ask me'],
-              ['auto-edits', 'Allow workspace edits'],
-              ['ai-review', 'AI review'],
-              ['spotter-ai', 'SPOTTER review'],
-              ['bypass', 'Bypass checks'],
-            ]}
+            options={SESSION_APPROVAL_OPTIONS.map((option) => [option.value, option.label])}
             value={props.approvalMode}
           />
         </CollapsibleContent>

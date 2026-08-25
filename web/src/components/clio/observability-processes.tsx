@@ -425,12 +425,6 @@ function executionSpans({
   runs: readonly Run[];
   tools: readonly ToolInvocation[];
 }): ProcessSpan[] {
-  const mainSessionId =
-    runs[0]?.session_id ??
-    tools[0]?.session_id ??
-    messages[0]?.session_id ??
-    processes.find((process) => process.parent_session_id)?.parent_session_id ??
-    'main';
   const processOwners = new Map(
     processes
       .filter((process) => process.child_session_id)

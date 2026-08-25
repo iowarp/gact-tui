@@ -260,7 +260,6 @@ export function ClioObservabilityView({
   diffs,
   messages,
   processes,
-  tasks,
   tools,
   runs,
   subagents,

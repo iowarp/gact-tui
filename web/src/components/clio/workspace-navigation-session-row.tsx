@@ -25,6 +25,7 @@ import { isSessionRunning } from '@/lib/session-state';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import { sessionModeLabel } from './session-behavior-options';
 
 interface SessionNavigationRowProps {
   session: Session;
@@ -55,9 +56,7 @@ export function SessionNavigationRow({
 }: SessionNavigationRowProps) {
   const running = isSessionRunning(session.state);
   const unseen =
-    !running &&
-    session.id !== activeSessionId &&
-    seenRevision !== sessionInteractionAt(session);
+    !running && session.id !== activeSessionId && seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow
       actions={
@@ -190,32 +189,13 @@ export function SessionNavigationRow({
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
             <span className="text-muted-foreground">Last interaction</span>
             <ClioRelativeTime timestamp={sessionInteractionAt(session)} />
-            <span className="text-muted-foreground">Working mode</span>
+            <span className="text-muted-foreground">Work mode</span>
             <span>{sessionModeLabel(session.mode)}</span>
-            <span className="text-muted-foreground">Routing</span>
-            <span>{sessionRoutingLabel(session.routing_mode)}</span>
           </div>
         </HoverCardContent>
       </HoverCard>
     </ClioInteractiveRow>
   );
-}
-
-function sessionModeLabel(mode: Session['mode']): string {
-  return {
-    edit: 'Build and edit',
-    plan: 'Plan before acting',
-    architect: 'Architecture',
-  }[mode];
-}
-
-function sessionRoutingLabel(routing: Session['routing_mode']): string {
-  return {
-    auto: 'Automatic',
-    chat: 'Conversation only',
-    experts: 'Use domain experts',
-    reasoning_only: 'Reasoning only',
-  }[routing];
 }
 
 function sessionStateLabel(state: Session['state']): string {

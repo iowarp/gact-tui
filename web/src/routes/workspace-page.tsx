@@ -55,7 +55,16 @@ export function WorkspacePage() {
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
-  const [contextTargetId, setContextTargetId] = useState(sessionId);
+  const [contextTargetSelection, setContextTargetSelection] = useState({
+    sessionId,
+    targetId: sessionId,
+  });
+  const contextTargetId =
+    contextTargetSelection.sessionId === sessionId ? contextTargetSelection.targetId : sessionId;
+  const setContextTargetId = useCallback(
+    (targetId: string) => setContextTargetSelection({ sessionId, targetId }),
+    [sessionId],
+  );
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
@@ -134,7 +143,6 @@ export function WorkspacePage() {
     ? allSessions.data?.find((item) => item.id === session.parent_session_id)
     : undefined;
   const transcriptError = workspaceRouteState.conversationUnavailableMessage(transcript.error);
-  useEffect(() => setContextTargetId(sessionId), [sessionId]);
   const contextTargetSession = resolveContextSession(
     contextTargetId,
     session,
@@ -238,7 +246,7 @@ export function WorkspacePage() {
   const activeBlueprint = agentBlueprints.data?.find(
     (blueprint) => blueprint.id === session?.active_blueprint_id,
   );
-  const contextAgentLabel = activeBlueprint?.name ?? session?.agent_id;
+  const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
   const activePreset = modelConfiguration.data?.presets.find(
     (preset) => preset.id === activeProvider || preset.provider === activeProvider,

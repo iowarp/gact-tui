@@ -103,4 +103,15 @@ describe('session navigation state', () => {
 
     expect(link).not.toHaveFocus();
   });
+
+  it('uses the shared product vocabulary in the hover preview', async () => {
+    const user = userEvent.setup();
+    renderRow(session, session.last_interaction_at);
+
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+
+    expect(await screen.findByText('Work mode')).toBeVisible();
+    expect(screen.getByText('Execute')).toBeVisible();
+    expect(screen.queryByText('Routing')).not.toBeInTheDocument();
+  });
 });

@@ -1402,3 +1402,18 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: with the live catalog request deliberately observed during its several-
   second response window, the agent editor reported `Loading available tools…` and then replaced it
   with the provider-supplied tools without reopening the dialog.
+
+# Session behavior has one product vocabulary
+
+- Old failure: the compact composer already used the requested Execute, Plan, Deep research, and
+  Confirmations grammar, while New Session Defaults, session creation, and hover details exposed
+  raw implementation dimensions such as working mode, file-change style, and expert routing. The
+  same behavior therefore appeared to be several unrelated controls.
+- New representation: all session-entry surfaces share one sourced behavior definition. Execute
+  and Plan retain automatic routing; Deep research applies the authoritative architect plus expert
+  routing pair. File-change strategy remains stored but is no longer presented as a primary user
+  decision. Confirmation policies keep their real authorization values and plain-language labels.
+- Acceptance evidence: the live defaults page exposes one work-mode selector and one confirmation
+  selector. Focused new-session interaction coverage proves that selecting Deep research persists
+  `architect` and `experts` together. The session hover preview uses the same work-mode label and no
+  longer repeats a separate routing row.
