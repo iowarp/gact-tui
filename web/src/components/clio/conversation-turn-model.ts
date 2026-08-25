@@ -40,7 +40,7 @@ export interface ConversationTurnPresentation {
   authoritative: boolean;
 }
 
-/** Keep only the latest chip for a repeated logical artifact within one message. */
+/** Remove only repeated links to the exact same immutable artifact. */
 export function deduplicateArtifactBlocks(
   blocks: readonly MessageBlock[],
   artifacts: Record<string, Artifact>,
@@ -50,13 +50,13 @@ export function deduplicateArtifactBlocks(
     if (block.type !== 'artifact') continue;
     const artifact = artifacts[block.artifact_id];
     if (!artifact) continue;
-    latestBlockByArtifact.set(`${artifact.workspace_id}:${artifact.name}`, block.id);
+    latestBlockByArtifact.set(artifact.id, block.id);
   }
   return blocks.filter((block) => {
     if (block.type !== 'artifact') return true;
     const artifact = artifacts[block.artifact_id];
     if (!artifact) return true;
-    return latestBlockByArtifact.get(`${artifact.workspace_id}:${artifact.name}`) === block.id;
+    return latestBlockByArtifact.get(artifact.id) === block.id;
   });
 }
 

@@ -210,7 +210,8 @@ export function WorkspacePage() {
     return related;
   }, [allSessions.data, entities.subagents, sessionId]);
   const visibleApprovals = useMemo(
-    () => (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
+    () =>
+      (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
     [approvals.data, interactionSessionIds],
   );
   const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
@@ -219,6 +220,9 @@ export function WorkspacePage() {
   const activeProvider = session?.provider_id ?? capabilities.data?.active_model?.provider_id;
   const activeModel = session?.model_id ?? capabilities.data?.active_model?.model_id;
   const activeEffort = session?.effort ?? capabilities.data?.active_model?.effort;
+  const activeBlueprint = agentBlueprints.data?.find(
+    (blueprint) => blueprint.id === session?.active_blueprint_id,
+  );
   const activePreset = modelConfiguration.data?.presets.find(
     (preset) => preset.id === activeProvider || preset.provider === activeProvider,
   );
@@ -523,6 +527,7 @@ export function WorkspacePage() {
         }
         contextBar={
           <ClioSessionContextBar
+            activeBlueprint={activeBlueprint}
             actionsPending={
               sessionHistory.fork.isPending ||
               sessionHistory.compact.isPending ||
@@ -537,6 +542,7 @@ export function WorkspacePage() {
             onFork={async () => {
               await sessionHistory.fork.mutateAsync(undefined);
             }}
+            onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
             onReturnToParent={(parent) =>
               navigate(
                 `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,
@@ -548,7 +554,6 @@ export function WorkspacePage() {
             }}
             parentSession={parentSession}
             session={session}
-            workspaceDisplayName={workspace?.display_name}
           />
         }
         workbench={

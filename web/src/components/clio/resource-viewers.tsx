@@ -1,23 +1,17 @@
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import type { BundledLanguage } from 'shiki';
-import { BoxIcon, CopyIcon, FileCode2Icon, ImageIcon } from 'lucide-react';
-import { useMemo } from 'react';
 import {
-  Artifact as ArtifactFrame,
-  ArtifactAction,
-  ArtifactActions,
-  ArtifactContent,
-  ArtifactDescription,
-  ArtifactHeader,
-  ArtifactTitle,
-} from '@/components/ai-elements/artifact';
-import {
-  Attachment,
-  AttachmentPreview,
-  Attachments,
-  type AttachmentData,
-} from '@/components/ai-elements/attachments';
+  BoxIcon,
+  FileCode2Icon,
+  ImageIcon,
+  LocateFixedIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -33,11 +27,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ZoomPan } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
 import { useObjectUrl } from '@/hooks/use-object-url';
-import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
@@ -123,10 +119,12 @@ export function ArtifactView({
   artifact,
   workspaceId,
   files,
+  onOpenArtifact,
 }: {
   artifact: Artifact;
   workspaceId: string;
   files: readonly WorkspaceFileEntry[];
+  onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const repository = useRepository();
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
@@ -194,59 +192,44 @@ export function ArtifactView({
       label="Preview unavailable"
     />
   );
-  const previewWithRecovery = (
-    <>
-      {preview}
-      {fallbackPath ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Historical artifact resolved through the unique workspace file {fallbackPath}.
-        </p>
-      ) : null}
-    </>
-  );
-
   return (
-    <ScrollArea className="h-full min-w-0 p-3">
-      <ArtifactFrame className="min-h-full min-w-0">
-        <ArtifactHeader>
-          <div className="min-w-0">
-            <ArtifactTitle className="truncate">{artifact.name}</ArtifactTitle>
-            <ArtifactDescription>
-              {artifact.media_type}
-              {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
-            </ArtifactDescription>
-          </div>
-          <ArtifactActions>
-            <ArtifactAction
-              icon={CopyIcon}
-              label={`Copy URI for ${artifact.name}`}
-              onClick={() => void copyText(artifact.uri)}
-              tooltip="Copy artifact URI"
-            />
-          </ArtifactActions>
-        </ArtifactHeader>
-        <ArtifactContent className="min-w-0 overflow-hidden p-3">
+    <Tabs className="h-full min-w-0 gap-0" defaultValue="preview">
+      <div className="border-b px-3 py-2">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="versions">Versions</TabsTrigger>
+          <TabsTrigger value="lineage">Lineage</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
+        <ScrollArea className="h-full min-w-0 p-3">
           {isDocumentArtifact(artifact.media_type, artifact.name) ? (
             <ClioDocumentWorkspace
               artifact={artifact}
-              fallbackPreview={previewWithRecovery}
-              history={<ArtifactProvenance artifact={artifact} />}
+              fallbackPreview={preview}
               key={artifact.id}
             />
           ) : (
-            <>
-              {previewWithRecovery}
-              <ArtifactProvenance artifact={artifact} />
-            </>
+            preview
           )}
-          <dl className="mt-4 grid gap-2 border-t pt-4 text-xs">
-            <ArtifactMetadata label="Custody" value={artifact.custody ?? 'Unavailable'} />
-            <ArtifactMetadata label="Workspace" value={artifact.workspace_id ?? 'Unavailable'} />
-            <ArtifactMetadata label="Checksum" mono value={artifact.sha256 ?? 'Unavailable'} />
-          </dl>
-        </ArtifactContent>
-      </ArtifactFrame>
-    </ScrollArea>
+          {fallbackPath ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Recovered from the matching workspace file.
+            </p>
+          ) : null}
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
+        <ScrollArea className="h-full min-w-0 p-3">
+          <ArtifactProvenance artifact={artifact} view="versions" />
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent className="m-0 min-h-0 overflow-hidden" value="lineage">
+        <ScrollArea className="h-full min-w-0 p-3">
+          <ArtifactProvenance artifact={artifact} onOpenArtifact={onOpenArtifact} view="lineage" />
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
   );
 }
 
@@ -302,43 +285,80 @@ function ImageResourceView({
   name: string;
 }) {
   const url = useObjectUrl(bytes, mediaType);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const update = () => setFullscreen(document.fullscreenElement === hostRef.current);
+    document.addEventListener('fullscreenchange', update);
+    return () => document.removeEventListener('fullscreenchange', update);
+  }, []);
   if (error)
     return (
       <ResourceUnavailable detail={error} icon={ImageIcon} label="Image preview unavailable" />
     );
   if (!url) return <ResourceLoading label={`Loading ${name}`} />;
-  const attachment: AttachmentData = {
-    type: 'file',
-    id: name,
-    filename: name,
-    mediaType,
-    url,
-  };
   return (
-    <Attachments className="m-0 block w-full" variant="grid">
-      <Attachment
-        className="min-h-72 w-full rounded-lg border bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] p-3"
-        data={attachment}
-      >
-        <AttachmentPreview className="size-full min-h-72 bg-transparent [&_img]:max-h-[70vh] [&_img]:object-contain" />
-      </Attachment>
-    </Attachments>
-  );
-}
-
-function ArtifactMetadata({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn('min-w-0 break-all', mono && 'font-mono text-[10px]')}>{value}</dd>
+    <div
+      className={cn(
+        'h-[clamp(22rem,50vh,36rem)] overflow-hidden bg-background',
+        fullscreen && 'h-screen min-h-0',
+      )}
+      ref={hostRef}
+    >
+      <ZoomPan
+        ariaLabel={`Zoomable image ${name}`}
+        className="bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]"
+        imageSrc={url}
+        maxScale={8}
+        minScale={0.05}
+        zoomStep={0.2}
+        controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
+          <div className="flex min-h-10 items-center gap-1 border-b bg-background/90 px-2 backdrop-blur-sm">
+            <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
+              Scroll to zoom, drag to pan
+            </span>
+            <Button aria-label="Zoom out" onClick={zoomOut} size="icon-sm" variant="ghost">
+              <ZoomOutIcon aria-hidden="true" />
+            </Button>
+            <button
+              aria-label="Reset image zoom"
+              className="min-w-12 rounded-md px-1 text-center text-[11px] font-medium tabular-nums text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              onClick={resetZoom}
+              title="Reset image zoom"
+              type="button"
+            >
+              {scalePercent}%
+            </button>
+            <Button aria-label="Zoom in" onClick={zoomIn} size="icon-sm" variant="ghost">
+              <ZoomInIcon aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label="Fit image to view"
+              onClick={centerView}
+              size="icon-sm"
+              title="Fit image to view"
+              variant="ghost"
+            >
+              <LocateFixedIcon aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
+              onClick={() => {
+                if (fullscreen) void document.exitFullscreen();
+                else void hostRef.current?.requestFullscreen();
+              }}
+              size="icon-sm"
+              variant="ghost"
+            >
+              {fullscreen ? (
+                <Minimize2Icon aria-hidden="true" />
+              ) : (
+                <Maximize2Icon aria-hidden="true" />
+              )}
+            </Button>
+          </div>
+        )}
+      />
     </div>
   );
 }

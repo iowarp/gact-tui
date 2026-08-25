@@ -76,9 +76,8 @@ afterEach(() => {
 
 describe('ArtifactProvenance', () => {
   it('shows immutable versions and the authoritative lineage without raw JSON', async () => {
-    const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    const versions = render(
       <QueryClientProvider client={queryClient}>
         <ArtifactProvenance
           artifact={{
@@ -95,9 +94,30 @@ describe('ArtifactProvenance', () => {
     expect(await screen.findByText('Version 1')).toBeVisible();
     expect(screen.getByText('Version 2')).toBeVisible();
     expect(screen.getByText('Latest')).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
-    expect(await screen.findByText('Build report')).toBeVisible();
-    expect(screen.getAllByText(/generated \(declared\)/)).toHaveLength(2);
+    versions.unmount();
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_2',
+            session_id: 'sess_1',
+            name: 'result.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://ws_1/result.csv@v2',
+          }}
+          view="lineage"
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Build report')).toBeInTheDocument();
+    expect(screen.getByLabelText('Artifact lineage graph')).toBeVisible();
+    expect(repository.artifactLineage).toHaveBeenCalledWith(
+      'artifact_2',
+      { direction: 'both', depth: 5 },
+      expect.any(AbortSignal),
+    );
     expect(document.body).not.toHaveTextContent('"nodes"');
   });
 
@@ -110,7 +130,7 @@ describe('ArtifactProvenance', () => {
     );
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    const versions = render(
       <QueryClientProvider client={queryClient}>
         <ArtifactProvenance
           artifact={{
@@ -125,12 +145,27 @@ describe('ArtifactProvenance', () => {
     );
 
     expect(await screen.findByText('Version history unavailable')).toBeVisible();
-    expect(screen.getByText(/saved content and available custody details remain readable/i)).toBeVisible();
+    expect(screen.getByText(/saved content remains readable/i)).toBeVisible();
     expect(screen.getByText('artifact not found: artifact_internal_123')).not.toBeVisible();
     await user.click(screen.getByText('Technical details'));
     expect(screen.getByText('artifact not found: artifact_internal_123')).toBeVisible();
-
-    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
+    versions.unmount();
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_internal_123',
+            session_id: 'sess_1',
+            name: 'historical.json',
+            media_type: 'application/json',
+            uri: 'artifact://historical.json',
+          }}
+          view="lineage"
+        />
+      </QueryClientProvider>,
+    );
     expect(await screen.findByText('Lineage unavailable')).toBeVisible();
     expect(screen.getByText('lineage index missing for artifact_internal_123')).not.toBeVisible();
   });

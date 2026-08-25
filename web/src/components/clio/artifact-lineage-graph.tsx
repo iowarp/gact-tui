@@ -1,0 +1,271 @@
+import type { Artifact, ArtifactLineage, ArtifactLineageNode } from '@clio/core/v3';
+import { graphlib, layout } from '@dagrejs/dagre';
+import {
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { FileBoxIcon, TriangleAlertIcon, WrenchIcon } from 'lucide-react';
+import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
+
+interface LineageNodeData extends Record<string, unknown> {
+  artifact?: Artifact;
+  detail: string;
+  label: string;
+  nodeType: ArtifactLineageNode['type'];
+  onOpenArtifact?: (artifact: Artifact) => void;
+  self: boolean;
+}
+
+type LineageFlowNode = Node<LineageNodeData, 'clio-lineage'>;
+
+const nodeTypes = { 'clio-lineage': LineageNodeCard };
+const nodeWidth = 184;
+const nodeHeight = 68;
+
+export function ArtifactLineageGraph({
+  artifact,
+  lineage,
+  onOpenArtifact,
+}: {
+  artifact: Artifact;
+  lineage: ArtifactLineage;
+  onOpenArtifact?: (artifact: Artifact) => void;
+}) {
+  const graph = useMemo(
+    () => buildArtifactLineageGraph(artifact, lineage, onOpenArtifact),
+    [artifact, lineage, onOpenArtifact],
+  );
+
+  return (
+    <div
+      aria-label="Artifact lineage graph"
+      className="h-[clamp(24rem,58vh,42rem)] min-w-0 overflow-hidden bg-background/40"
+      role="img"
+    >
+      <ReactFlow<LineageFlowNode, Edge>
+        edges={graph.edges}
+        elementsSelectable
+        fitView
+        fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+        maxZoom={1.6}
+        minZoom={0.12}
+        nodes={graph.nodes}
+        nodesConnectable={false}
+        nodesDraggable={false}
+        nodeTypes={nodeTypes}
+        panOnDrag
+        proOptions={{ hideAttribution: true }}
+        zoomOnDoubleClick={false}
+      >
+        <Controls
+          aria-label="Lineage graph controls"
+          className="!border-border !shadow-none [&_button]:!border-border [&_button]:!bg-background [&_button]:!fill-foreground [&_button:hover]:!bg-muted"
+          showInteractive={false}
+        />
+      </ReactFlow>
+    </div>
+  );
+}
+
+// Pure graph construction keeps the layout testable without changing wire semantics.
+// oxlint-disable-next-line react/only-export-components
+export function buildArtifactLineageGraph(
+  artifact: Artifact,
+  lineage: ArtifactLineage,
+  onOpenArtifact?: (artifact: Artifact) => void,
+): { nodes: LineageFlowNode[]; edges: Edge[] } {
+  const nodes: LineageFlowNode[] = lineage.nodes.map((node) => {
+    const self = node.id === lineage.root;
+    const linkedArtifact =
+      node.type === 'artifact' && !self ? artifactFromNode(node, artifact) : undefined;
+    const detail = lineageNodeDetails(node);
+    return {
+      id: node.id,
+      type: 'clio-lineage',
+      position: { x: 0, y: 0 },
+      data: {
+        artifact: linkedArtifact,
+        detail,
+        label: lineageNodeLabel(node),
+        nodeType: node.type,
+        onOpenArtifact,
+        self,
+      },
+      ariaLabel: [lineageNodeLabel(node), detail, self ? 'current artifact' : '']
+        .filter(Boolean)
+        .join(', '),
+    };
+  });
+  const edges: Edge[] = lineage.edges.map((edge) => ({
+    id: `${edge.from}:${edge.to}:${edge.type}`,
+    source: edge.from,
+    target: edge.to,
+    type: 'smoothstep',
+    label: edgeLabel(edge.type, edge.evidence),
+    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--primary)' },
+    style: { stroke: 'var(--primary)', strokeOpacity: 0.65 },
+    labelStyle: { fill: 'var(--foreground)', fontSize: 10, fontWeight: 500 },
+    labelBgStyle: {
+      fill: 'var(--popover)',
+      fillOpacity: 0.96,
+      stroke: 'var(--border)',
+      strokeWidth: 1,
+    },
+    labelBgPadding: [6, 4],
+    labelBgBorderRadius: 6,
+  }));
+  return layoutGraph(nodes, edges);
+}
+
+function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
+  const Icon =
+    data.nodeType === 'activity'
+      ? WrenchIcon
+      : data.nodeType === 'gap'
+        ? TriangleAlertIcon
+        : FileBoxIcon;
+  const content = (
+    <>
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          'size-4 shrink-0',
+          data.self
+            ? 'text-primary'
+            : data.nodeType === 'gap'
+              ? 'text-warning'
+              : 'text-muted-foreground',
+        )}
+      />
+      <span className="min-w-0 flex-1">
+        <span className={cn('block truncate text-xs font-medium', data.self && 'text-primary')}>
+          {data.label}
+        </span>
+        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+          {data.detail}
+        </span>
+      </span>
+    </>
+  );
+  return (
+    <div
+      className={cn(
+        'w-[184px] rounded-lg border bg-background px-2.5 py-2 shadow-sm',
+        data.self && 'border-primary/70 ring-1 ring-primary/20',
+      )}
+    >
+      <Handle className="!size-0 !border-0" position={Position.Left} type="target" />
+      {data.artifact && data.onOpenArtifact ? (
+        <button
+          aria-label={`Open lineage artifact ${data.label}`}
+          className="nodrag nopan flex w-full items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => data.onOpenArtifact?.(data.artifact!)}
+          type="button"
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">{content}</div>
+      )}
+      <Handle className="!size-0 !border-0" position={Position.Right} type="source" />
+    </div>
+  );
+}
+
+function layoutGraph(
+  nodes: LineageFlowNode[],
+  edges: Edge[],
+): {
+  nodes: LineageFlowNode[];
+  edges: Edge[];
+} {
+  const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  const longestRelationship = Math.max(
+    0,
+    ...edges.map((edge) => (typeof edge.label === 'string' ? edge.label.length : 0)),
+  );
+  const relationshipClearance = Math.max(112, longestRelationship * 7 + 52);
+  graph.setGraph({
+    rankdir: 'LR',
+    nodesep: 22,
+    ranksep: relationshipClearance,
+    marginx: 28,
+    marginy: 20,
+  });
+  for (const node of nodes) graph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  for (const edge of edges) graph.setEdge(edge.source, edge.target);
+  layout(graph);
+  return {
+    nodes: nodes.map((node) => {
+      const position = graph.node(node.id);
+      return {
+        ...node,
+        position: { x: position.x - nodeWidth / 2, y: position.y - nodeHeight / 2 },
+      };
+    }),
+    edges,
+  };
+}
+
+function artifactFromNode(node: ArtifactLineageNode, fallback: Artifact): Artifact {
+  return {
+    id: node.id,
+    session_id: stringField(node, 'session_id') || fallback.session_id,
+    workspace_id: stringField(node, 'workspace_id') || fallback.workspace_id,
+    name: stringField(node, 'name') || 'Artifact',
+    media_type: stringField(node, 'media_type') || 'application/octet-stream',
+    uri: stringField(node, 'uri') || `artifact://${node.id}`,
+    fetch_path: stringField(node, 'fetch_path') || undefined,
+    custody: stringField(node, 'custody') || undefined,
+    sha256: stringField(node, 'sha256') || undefined,
+    size: numberField(node, 'size_bytes'),
+    created_at: stringField(node, 'created_at') || undefined,
+  };
+}
+
+function lineageNodeLabel(node: ArtifactLineageNode): string {
+  if (node.type === 'activity') return stringField(node, 'tool') || 'Recorded activity';
+  if (node.type === 'gap') return stringField(node, 'reason') || 'Provenance gap';
+  return stringField(node, 'name') || 'Artifact';
+}
+
+function lineageNodeDetails(node: ArtifactLineageNode): string {
+  if (node.type === 'activity') return stringField(node, 'status') || 'Recorded activity';
+  if (node.type === 'gap') return 'Evidence missing';
+  const version = numberField(node, 'version');
+  const size = numberField(node, 'size_bytes') ?? numberField(node, 'size');
+  return [version ? `Version ${version}` : '', size ? formatBytes(size) : '']
+    .filter(Boolean)
+    .join(' — ');
+}
+
+function edgeLabel(type: ArtifactLineage['edges'][number]['type'], evidence: string): string {
+  const relationship =
+    type === 'revision_of' ? 'Revises' : type === 'generated' ? 'Generated' : 'Used';
+  return evidence && evidence !== 'hash-pair' ? `${relationship} — ${evidence}` : relationship;
+}
+
+function stringField(node: ArtifactLineageNode, key: string): string {
+  const value = node[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function numberField(node: ArtifactLineageNode, key: string): number | undefined {
+  const value = node[key];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function formatBytes(value: number): string {
+  if (value < 1000) return `${value} B`;
+  if (value < 1_000_000) return `${(value / 1000).toFixed(1)} KB`;
+  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
+  return `${(value / 1_000_000_000).toFixed(1)} GB`;
+}

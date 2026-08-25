@@ -9,6 +9,7 @@ import {
   ActivityIcon,
   BoxIcon,
   BoxesIcon,
+  FolderIcon,
   FileCode2Icon,
   FileDiffIcon,
   Layers3Icon,
@@ -27,6 +28,13 @@ import {
   type ReactNode,
 } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ArtifactView, BlueprintFileView, WorkspaceFileView } from './resource-viewers';
@@ -34,15 +42,19 @@ import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import {
+  ArtifactBrowser,
+  BlueprintBrowser,
   BlueprintView,
   CanvasLauncher,
-  ResourceBrowser,
-  type ResourceSection,
+  FileBrowser,
+  type CanvasResourceKind,
 } from './workbench-resource-browser';
 
 type WorkbenchTab =
   | { id: 'session'; kind: 'session'; label: 'Observability' }
-  | { id: 'resources'; kind: 'resources'; label: 'Workspace' }
+  | { id: 'files'; kind: 'files'; label: 'Files' }
+  | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
+  | { id: 'blueprints'; kind: 'blueprints'; label: 'Blueprints' }
   | { id: string; kind: 'workspace-file'; label: string; path: string; workspaceId: string }
   | {
       id: string;
@@ -110,15 +122,25 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'artifact'; artifact: ArtifactEntity }
   | { kind: 'blueprint'; blueprint: AgentBlueprint }
   | { kind: 'subagent'; subagent: SubagentRun }
-  | { kind: 'resources'; section?: ResourceSection }
+  | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' };
 
 export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
 }
 
-const resourcesTab: WorkbenchTab = { id: 'resources', kind: 'resources', label: 'Workspace' };
 const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Observability' };
+const fileBrowserTab: WorkbenchTab = { id: 'files', kind: 'files', label: 'Files' };
+const artifactBrowserTab: WorkbenchTab = {
+  id: 'artifacts',
+  kind: 'artifacts',
+  label: 'Artifacts',
+};
+const blueprintBrowserTab: WorkbenchTab = {
+  id: 'blueprints',
+  kind: 'blueprints',
+  label: 'Blueprints',
+};
 
 export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>(
   function ClioWorkbench(
@@ -145,7 +167,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
   ) {
     const [tabs, setTabs] = useState<WorkbenchTab[]>([sessionTab]);
     const [activeTabId, setActiveTabId] = useState<string>(sessionTab.id);
-    const [resourceSection, setResourceSection] = useState<ResourceSection>('files');
     const [maximized, setMaximized] = useState(false);
     const activeTabRef = useRef<HTMLButtonElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
@@ -175,14 +196,19 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       const next = tabs.filter((tab) => tab.id !== tabId);
       setTabs(next);
       if (activeTabId === tabId) {
-        setActiveTabId(next[Math.max(0, index - 1)]?.id ?? sessionTab.id);
+        setActiveTabId(next[Math.max(0, index - 1)]?.id ?? '');
       }
     };
 
-    const openResourceSection = (section: ResourceSection) => {
-      setResourceSection(section);
-      openTab(resourcesTab);
-    };
+    const openCanvasResource = useCallback(
+      (kind: CanvasResourceKind) => {
+        if (kind === 'session') openTab(sessionTab);
+        else if (kind === 'files') openTab(fileBrowserTab);
+        else if (kind === 'artifacts') openTab(artifactBrowserTab);
+        else openTab(blueprintBrowserTab);
+      },
+      [openTab],
+    );
 
     const openRequest = useCallback(
       (request: ClioWorkbenchOpenRequest) => {
@@ -229,13 +255,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             workspaceId,
           });
         } else if (request.kind === 'resources') {
-          setResourceSection(request.section ?? 'files');
-          openTab(resourcesTab);
+          openCanvasResource(request.section ?? 'files');
         } else {
           openTab(sessionTab);
         }
       },
-      [openTab, sessionId, workspaceId],
+      [openCanvasResource, openTab, sessionId, workspaceId],
     );
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
@@ -263,47 +288,47 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       >
         <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
         <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
-          <div className="flex h-14 shrink-0 items-stretch border-b bg-background/80">
+          <div className="flex h-12 shrink-0 items-center gap-1 border-b bg-background/80 px-1.5">
             <div
               className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               ref={tabStripRef}
             >
-              <TabsList
-                className="h-14 min-w-full w-max gap-0 rounded-none bg-transparent p-0"
-                variant="line"
-              >
+              <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
                 {tabs.map((tab) => (
                   <div
-                    className="group/tab flex h-14 min-w-28 max-w-48 shrink-0 items-center border-r"
+                    className={cn(
+                      'group/tab flex h-8 min-w-24 max-w-56 shrink-0 items-center rounded-lg transition-colors',
+                      tab.id === activeTabId
+                        ? 'bg-muted text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
+                    )}
                     key={tab.id}
                   >
                     <TabsTrigger
-                      className="h-full min-w-0 flex-1 rounded-none px-3"
+                      className="h-8 min-w-0 flex-1 justify-start rounded-lg border-transparent bg-transparent px-2 data-active:border-transparent data-active:bg-transparent data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-transparent"
                       ref={tab.id === activeTabId ? activeTabRef : undefined}
                       value={tab.id}
                     >
                       <TabIcon kind={tab.kind} />
                       <span className="truncate">{tab.label}</span>
                     </TabsTrigger>
-                    {tab.id !== sessionTab.id ? (
-                      <Button
-                        aria-label={`Close ${tab.label}`}
-                        className="mr-1 size-6 opacity-60 hover:opacity-100 focus-visible:opacity-100"
-                        onClick={() => closeTab(tab.id)}
-                        size="icon-xs"
-                        variant="ghost"
-                      >
-                        <XIcon aria-hidden="true" />
-                      </Button>
-                    ) : null}
+                    <Button
+                      aria-label={`Close ${tab.label}`}
+                      className="mr-1 size-6 opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => closeTab(tab.id)}
+                      size="icon-xs"
+                      variant="ghost"
+                    >
+                      <XIcon aria-hidden="true" />
+                    </Button>
                   </div>
                 ))}
               </TabsList>
             </div>
-            <CanvasLauncher onOpen={openResourceSection} />
+            <CanvasLauncher onOpen={openCanvasResource} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
-              className="h-14 w-12 rounded-none border-l"
+              className="size-9 shrink-0 rounded-lg"
               onClick={() => setMaximized((value) => !value)}
               size="icon"
               title={maximized ? 'Restore canvas' : 'Maximize canvas'}
@@ -320,16 +345,24 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
               {tab.kind === 'session' ? (
                 sessionView
-              ) : tab.kind === 'resources' ? (
-                <ResourceBrowser
-                  artifacts={artifacts}
-                  blueprints={blueprints}
-                  blueprintsError={blueprintsError}
-                  blueprintsPending={blueprintsPending}
+              ) : tab.kind === 'files' ? (
+                <FileBrowser
                   files={files}
                   filesError={filesError}
                   filesPending={filesPending}
-                  onSectionChange={setResourceSection}
+                  onOpenFile={(path) =>
+                    openTab({
+                      id: `workspace-file:${path}`,
+                      kind: 'workspace-file',
+                      label: fileName(path),
+                      path,
+                      workspaceId,
+                    })
+                  }
+                />
+              ) : tab.kind === 'artifacts' ? (
+                <ArtifactBrowser
+                  artifacts={artifacts}
                   onOpenArtifact={(artifact) =>
                     openTab({
                       id: `artifact:${artifact.id}`,
@@ -339,6 +372,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       workspaceId: artifact.workspace_id ?? workspaceId,
                     })
                   }
+                />
+              ) : tab.kind === 'blueprints' ? (
+                <BlueprintBrowser
+                  blueprints={blueprints}
+                  blueprintsError={blueprintsError}
+                  blueprintsPending={blueprintsPending}
                   onOpenBlueprint={(blueprint) =>
                     openTab({
                       id: `blueprint:${blueprint.id}`,
@@ -349,16 +388,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       workspaceId,
                     })
                   }
-                  onOpenFile={(path) =>
-                    openTab({
-                      id: `workspace-file:${path}`,
-                      kind: 'workspace-file',
-                      label: fileName(path),
-                      path,
-                      workspaceId,
-                    })
-                  }
-                  section={resourceSection}
                 />
               ) : tab.kind === 'workspace-file' ? (
                 <WorkspaceFileView
@@ -398,6 +427,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 <ArtifactView
                   artifact={tab.artifact}
                   files={tab.workspaceId === workspaceId ? files : []}
+                  onOpenArtifact={(artifact) =>
+                    openTab({
+                      id: `artifact:${artifact.id}`,
+                      kind: 'artifact',
+                      label: artifact.name,
+                      artifact,
+                      workspaceId: artifact.workspace_id ?? tab.workspaceId,
+                    })
+                  }
                   workspaceId={tab.workspaceId}
                 />
               ) : tab.kind === 'blueprint' ? (
@@ -456,6 +494,19 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               )}
             </TabsContent>
           ))}
+          {tabs.length === 0 ? (
+            <Empty className="h-full border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Layers3Icon aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>Canvas is empty</EmptyTitle>
+                <EmptyDescription>
+                  Use the add button to open observability, files, artifacts, or blueprints.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
         </Tabs>
       </aside>
     );
@@ -484,17 +535,21 @@ function TabIcon({ kind }: { kind: WorkbenchTab['kind'] }) {
   const Icon =
     kind === 'session'
       ? ActivityIcon
-      : kind === 'diff'
-        ? FileDiffIcon
-        : kind === 'subagent'
-          ? BoxesIcon
-          : kind === 'resources'
-            ? Layers3Icon
-            : kind === 'artifact'
-              ? BoxIcon
-              : kind === 'blueprint'
+      : kind === 'files'
+        ? FolderIcon
+        : kind === 'artifacts'
+          ? BoxIcon
+          : kind === 'blueprints'
+            ? BoxesIcon
+            : kind === 'diff'
+              ? FileDiffIcon
+              : kind === 'subagent'
                 ? BoxesIcon
-                : FileCode2Icon;
+                : kind === 'artifact'
+                  ? BoxIcon
+                  : kind === 'blueprint'
+                    ? BoxesIcon
+                    : FileCode2Icon;
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
 

@@ -1,10 +1,8 @@
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { CopyIcon, PanelsTopLeftIcon, TriangleAlertIcon } from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
 import {
   Artifact,
-  ArtifactAction,
-  ArtifactActions,
   ArtifactContent,
   ArtifactDescription,
   ArtifactHeader,
@@ -19,10 +17,8 @@ import {
 } from '@/components/ai-elements/attachments';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useObjectUrl } from '@/hooks/use-object-url';
-import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 
@@ -95,7 +91,27 @@ export function ClioArtifactCard({
   const contentUnavailable = Boolean(imageBytes.error || textPreview.error);
 
   return (
-    <Artifact className={cn('group/artifact', className)}>
+    <Artifact
+      aria-label={onOpen ? `Open ${artifact.name}` : undefined}
+      className={cn(
+        'group/artifact',
+        onOpen &&
+          'cursor-pointer transition-colors hover:border-primary/60 hover:bg-muted/15 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+        className,
+      )}
+      onClick={onOpen ? () => onOpen(artifact) : undefined}
+      onKeyDown={
+        onOpen
+          ? (event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              onOpen(artifact);
+            }
+          : undefined
+      }
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+    >
       <ArtifactHeader className="gap-3">
         <div className="min-w-0 flex-1">
           <ArtifactTitle className="truncate">{artifact.name}</ArtifactTitle>
@@ -104,25 +120,6 @@ export function ClioArtifactCard({
             {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
           </ArtifactDescription>
         </div>
-        <ArtifactActions>
-          <ArtifactAction
-            icon={CopyIcon}
-            label={`Copy URI for ${artifact.name}`}
-            onClick={() => void copyText(artifact.uri)}
-            tooltip="Copy artifact URI"
-          />
-          {onOpen ? (
-            <Button
-              aria-label={`Open ${artifact.name} in workspace canvas`}
-              onClick={() => onOpen(artifact)}
-              size="sm"
-              variant="outline"
-            >
-              <PanelsTopLeftIcon aria-hidden="true" />
-              {contentUnavailable ? 'Inspect details' : 'Open'}
-            </Button>
-          ) : null}
-        </ArtifactActions>
       </ArtifactHeader>
       <ArtifactContent className="p-0">
         {textPreview.data ? (

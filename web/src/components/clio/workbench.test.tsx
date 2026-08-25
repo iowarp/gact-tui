@@ -39,8 +39,26 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
     await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
 
-    expect(screen.getByRole('tab', { name: 'Workspace' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('No artifacts produced in this session')).toBeVisible();
+  });
+
+  it('closes and reopens observability as a normal canvas tab', async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole('button', { name: 'Close Observability' }));
+    expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
+    expect(screen.getByText('Canvas is empty')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Observability' }));
+
+    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
   it('maximizes over the shell and restores with Escape', async () => {

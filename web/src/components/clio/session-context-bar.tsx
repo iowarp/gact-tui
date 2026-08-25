@@ -1,4 +1,4 @@
-import type { Session } from '@clio/core/v3';
+import type { AgentBlueprint, Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClioSessionActions } from './session-actions';
@@ -7,10 +7,11 @@ import { ClioStatus } from './status';
 export interface ClioSessionContextBarProps {
   session?: Session;
   parentSession?: Session;
-  workspaceDisplayName?: string;
+  activeBlueprint?: AgentBlueprint;
   actionsPending: boolean;
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
+  onOpenBlueprint: (blueprint: AgentBlueprint) => void;
   onShare: (ttlSeconds: number) => Promise<string>;
   onReturnToParent: (session: Session) => void;
   onUndo: () => Promise<void>;
@@ -19,10 +20,11 @@ export interface ClioSessionContextBarProps {
 export function ClioSessionContextBar({
   session,
   parentSession,
-  workspaceDisplayName,
+  activeBlueprint,
   actionsPending,
   onCompact,
   onFork,
+  onOpenBlueprint,
   onShare,
   onReturnToParent,
   onUndo,
@@ -43,9 +45,19 @@ export function ClioSessionContextBar({
       ) : null}
       <div className="min-w-0">
         <h1 className="truncate text-sm font-medium">{session?.title ?? 'Session unavailable'}</h1>
-        <p className="truncate text-[10px] text-muted-foreground">
-          {workspaceDisplayName ?? 'Workspace unavailable'}
-        </p>
+        {activeBlueprint ? (
+          <Button
+            className="-ml-1 h-auto max-w-full justify-start px-1 py-0 text-[10px] font-normal text-muted-foreground"
+            onClick={() => onOpenBlueprint(activeBlueprint)}
+            size="xs"
+            title={`Open ${activeBlueprint.display_name}`}
+            variant="ghost"
+          >
+            <span className="truncate">{activeBlueprint.display_name}</span>
+          </Button>
+        ) : (
+          <p className="truncate text-[10px] text-muted-foreground">Default agent</p>
+        )}
       </div>
       <ClioSessionActions
         disabled={!session || actionsPending}

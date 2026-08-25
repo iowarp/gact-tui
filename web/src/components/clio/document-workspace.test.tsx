@@ -58,7 +58,6 @@ function renderWorkspace() {
           uri: 'artifact://ws_1/evidence.md@v3',
         }}
         fallbackPreview={<p>Fallback preview</p>}
-        history={<p>Immutable history</p>}
       />
     </QueryClientProvider>,
   );
@@ -121,7 +120,7 @@ describe('ClioDocumentWorkspace', () => {
     expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
   });
 
-  it('uses a confined working copy and exposes history as a real document tab', async () => {
+  it('uses a confined working copy without duplicating artifact history inside the document', async () => {
     const user = userEvent.setup();
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('Evidence'));
@@ -157,7 +156,6 @@ describe('ClioDocumentWorkspace', () => {
     });
     expect(await screen.findByText(/Working-copy path copied/)).toBeInTheDocument();
     expect(screen.getByText('active')).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'History' }));
-    expect(screen.getByText('Immutable history')).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
   });
 });

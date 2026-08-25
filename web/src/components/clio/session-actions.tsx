@@ -78,18 +78,25 @@ export function ClioSessionActions({
             <MoreHorizontalIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => void run(onFork)}>
+        <DropdownMenuContent align="end" className="min-w-64">
+          <DropdownMenuItem className="whitespace-nowrap" onSelect={() => void run(onFork)}>
             <GitForkIcon aria-hidden="true" /> Branch into a new session
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setSharing(true)}>
+          <DropdownMenuItem className="whitespace-nowrap" onSelect={() => setSharing(true)}>
             <Share2Icon aria-hidden="true" /> Share read-only link
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setConfirmation('compact')}>
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            onSelect={() => setConfirmation('compact')}
+          >
             <PackageOpenIcon aria-hidden="true" /> Compact conversation
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setConfirmation('undo')} variant="destructive">
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            onSelect={() => setConfirmation('undo')}
+            variant="destructive"
+          >
             <Undo2Icon aria-hidden="true" /> Remove last message
           </DropdownMenuItem>
         </DropdownMenuContent>

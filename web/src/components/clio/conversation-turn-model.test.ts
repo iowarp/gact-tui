@@ -194,7 +194,7 @@ describe('conversationTurnPresentation', () => {
     ]);
   });
 
-  it('keeps only the latest block for repeated logical artifact versions', () => {
+  it('preserves causally distinct same-named artifacts and removes only an exact duplicate', () => {
     const artifacts: Record<string, Artifact> = {
       artifact_v2: {
         id: 'artifact_v2',
@@ -220,9 +220,10 @@ describe('conversationTurnPresentation', () => {
           { id: 'answer', type: 'text', text: 'Complete.', channel: 'answer' },
           { id: 'link_v2', type: 'artifact', artifact_id: 'artifact_v2' },
           { id: 'link_v3', type: 'artifact', artifact_id: 'artifact_v3' },
+          { id: 'link_v3_duplicate', type: 'artifact', artifact_id: 'artifact_v3' },
         ],
         artifacts,
       ).map((block) => block.id),
-    ).toEqual(['answer', 'link_v3']);
+    ).toEqual(['answer', 'link_v2', 'link_v3_duplicate']);
   });
 });

@@ -60,11 +60,9 @@ const ClioDocumentPdfViewer = lazy(() =>
 export function ClioDocumentWorkspace({
   artifact,
   fallbackPreview,
-  history,
 }: {
   artifact: Artifact;
   fallbackPreview: ReactNode;
-  history: ReactNode;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -298,10 +296,9 @@ export function ClioDocumentWorkspace({
         resolvePending={resolveConflict.isPending}
       />
       <Tabs className="min-w-0" defaultValue="preview">
-        <TabsList className="grid w-full min-w-0 grid-cols-4">
+        <TabsList className="grid w-full min-w-0 grid-cols-3">
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="reviews">Reviews {reviews.data?.length || ''}</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="policy">Safety</TabsTrigger>
         </TabsList>
         <TabsContent className="min-w-0 overflow-hidden pt-3" value="preview">
@@ -322,9 +319,6 @@ export function ClioDocumentWorkspace({
         </TabsContent>
         <TabsContent className="min-w-0 overflow-hidden pt-3" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
-        </TabsContent>
-        <TabsContent className="min-w-0 overflow-hidden pt-3" value="history">
-          {history}
         </TabsContent>
         <TabsContent className="min-w-0 overflow-hidden pt-3" value="policy">
           <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
