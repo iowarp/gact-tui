@@ -32,7 +32,13 @@ export class McpRepository extends DocumentRepository {
   public installMcpServer(
     input:
       | { name: string; transport: 'http'; url: string }
-      | { name: string; transport: 'stdio'; command: string; args: string[] },
+      | {
+          name: string;
+          transport: 'stdio';
+          command: string;
+          args: string[];
+          env?: Record<string, string>;
+        },
     signal?: AbortSignal,
   ): Promise<McpServerDefinition> {
     return this.transport.request({

@@ -138,6 +138,35 @@ describe('tool provider settings', () => {
     });
   });
 
+  it('keeps local provider process settings collapsed and sends them to the service', async () => {
+    const user = userEvent.setup();
+    renderSettings(<ToolsSettings />);
+
+    await user.click(await screen.findByRole('button', { name: 'Connect provider' }));
+    const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name'), 'Web search');
+    await user.click(within(dialog).getByLabelText('Connection type'));
+    await user.click(screen.getByRole('option', { name: 'Local command' }));
+    await user.type(within(dialog).getByLabelText('Executable'), 'web-tools');
+    await user.type(within(dialog).getByLabelText('Arguments'), 'serve');
+    expect(within(dialog).queryByLabelText('Process settings')).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
+    await user.type(
+      within(dialog).getByLabelText('Process settings'),
+      'WEB_STATE_DIR=D:\\agent-state',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Connect provider' }));
+
+    expect(repository.installMcpServer).toHaveBeenCalledWith({
+      name: 'Web search',
+      transport: 'stdio',
+      command: 'web-tools',
+      args: ['serve'],
+      env: { WEB_STATE_DIR: 'D:\\agent-state' },
+    });
+  });
+
   it('exposes reconnect and confirmed disconnect only for runtime connections', async () => {
     const user = userEvent.setup();
     repository.mcpServers.mockResolvedValue([external]);

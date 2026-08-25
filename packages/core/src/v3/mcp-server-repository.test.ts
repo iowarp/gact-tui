@@ -38,6 +38,7 @@ describe('MCP server repository', () => {
       server,
       server,
       server,
+      server,
       { tools: [{ name: 'catalog_search', description: 'Search the catalog.' }] },
       { resources: [{ name: 'Dataset guide', uri: 'resource://guide' }] },
       { prompts: [{ name: 'review-dataset', description: 'Review a dataset.' }] },
@@ -52,6 +53,13 @@ describe('MCP server repository', () => {
       transport: 'http',
       url: 'https://mcp.example.test',
     });
+    await repository.installMcpServer({
+      name: 'Local science tools',
+      transport: 'stdio',
+      command: 'science-tools',
+      args: ['serve'],
+      env: { SCIENCE_STATE: 'D:\\science-state' },
+    });
     await repository.reconnectMcpServer('science/tools');
     await repository.mcpServerInventory('science/tools', 'tools');
     await repository.mcpServerInventory('science/tools', 'resources');
@@ -61,6 +69,7 @@ describe('MCP server repository', () => {
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'GET', path: '/v1/mcp/servers?workspace_id=ws%20science' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools' },
+      { method: 'POST', path: '/v1/mcp/servers' },
       { method: 'POST', path: '/v1/mcp/servers' },
       { method: 'POST', path: '/v1/mcp/servers/science%2Ftools/reconnect' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/tools' },
@@ -72,6 +81,13 @@ describe('MCP server repository', () => {
       name: 'Science tools',
       transport: 'http',
       url: 'https://mcp.example.test',
+    });
+    expect(transport.requests[3]?.body).toEqual({
+      name: 'Local science tools',
+      transport: 'stdio',
+      command: 'science-tools',
+      args: ['serve'],
+      env: { SCIENCE_STATE: 'D:\\science-state' },
     });
   });
 });

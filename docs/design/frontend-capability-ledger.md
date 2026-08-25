@@ -106,7 +106,7 @@ but every omitted mutation and administration workflow remains open. Route count
 | Commands and prompts                | Implemented, not accepted | Live disposable override save/recovery and destructive-command confirmation.             |
 | Scheduled work                      | Implemented, not accepted | Live create/fire/cancel, run linkage, failure, and reconnect evidence.                   |
 | Blueprints, sources, expert packs   | Implemented, not accepted | Full failure/progress acceptance with a disposable authenticated source.                 |
-| MCP servers                         | Partial                   | Prompt execution plus live disposable connection/failure/recovery acceptance.            |
+| MCP servers                         | Implemented, not accepted | Prompt execution, restart persistence, and native connection acceptance.                 |
 | Hooks and policies                  | Implemented, not accepted | Live policy mutation/recovery and dense hook invocation audit.                           |
 | Permissions                         | Implemented, not accepted | Live disposable rule mutation, precedence recovery, and complete audit history.          |
 | Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                              |

@@ -98,6 +98,23 @@ function isRuntimeConnection(server: McpServerDefinition) {
   return server.id.startsWith('mcp_ext_');
 }
 
+function parseProcessSettings(value: string): Record<string, string> {
+  const settings: Record<string, string> = {};
+  for (const [index, rawLine] of value.split('\n').entries()) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const separator = line.indexOf('=');
+    if (separator < 1) {
+      throw new Error(`Process setting on line ${index + 1} must use NAME=value.`);
+    }
+    const name = line.slice(0, separator).trim();
+    const settingValue = line.slice(separator + 1).trim();
+    if (!name) throw new Error(`Process setting on line ${index + 1} needs a name.`);
+    settings[name] = settingValue;
+  }
+  return settings;
+}
+
 function inventoryTitle(row: Record<string, unknown>) {
   if (typeof row.title === 'string' && row.title) return row.title;
   if (typeof row.name === 'string' && row.name) return humanizeToolName(row.name);
@@ -125,6 +142,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   const [url, setUrl] = useState('');
   const [command, setCommand] = useState('');
   const [argumentsText, setArgumentsText] = useState('');
+  const [environmentText, setEnvironmentText] = useState('');
   const [detailServer, setDetailServer] = useState<McpServerDefinition>();
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
 
@@ -186,21 +204,30 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
     setUrl('');
     setCommand('');
     setArgumentsText('');
+    setEnvironmentText('');
     setConnectionKind('http');
   };
   const install = useMutation({
-    mutationFn: () =>
-      connectionKind === 'http'
-        ? repository.installMcpServer({ name: name.trim(), transport: 'http', url: url.trim() })
-        : repository.installMcpServer({
-            name: name.trim(),
-            transport: 'stdio',
-            command: command.trim(),
-            args: argumentsText
-              .split('\n')
-              .map((argument) => argument.trim())
-              .filter(Boolean),
-          }),
+    mutationFn: () => {
+      if (connectionKind === 'http') {
+        return repository.installMcpServer({
+          name: name.trim(),
+          transport: 'http',
+          url: url.trim(),
+        });
+      }
+      const env = parseProcessSettings(environmentText);
+      return repository.installMcpServer({
+        name: name.trim(),
+        transport: 'stdio',
+        command: command.trim(),
+        args: argumentsText
+          .split('\n')
+          .map((argument) => argument.trim())
+          .filter(Boolean),
+        ...(Object.keys(env).length ? { env } : {}),
+      });
+    },
     onSuccess: async () => {
       setInstallOpen(false);
       resetInstallForm();
@@ -371,79 +398,106 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         }}
         open={installOpen}
       >
-        <DialogContent>
+        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Connect a tool provider</DialogTitle>
             <DialogDescription>
               The service probes the provider before making its tools available to agents.
             </DialogDescription>
           </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="tool-provider-name">Name</FieldLabel>
-              <Input
-                id="tool-provider-name"
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Scientific data tools"
-                value={name}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="tool-provider-kind">Connection type</FieldLabel>
-              <Select
-                onValueChange={(value) => setConnectionKind(value as ConnectionKind)}
-                value={connectionKind}
-              >
-                <SelectTrigger id="tool-provider-kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="http">Remote service</SelectItem>
-                  <SelectItem value="stdio">Local command</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            {connectionKind === 'http' ? (
+          <div className="min-h-0 overflow-y-auto pr-1">
+            <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="tool-provider-url">Service address</FieldLabel>
+                <FieldLabel htmlFor="tool-provider-name">Name</FieldLabel>
                 <Input
-                  id="tool-provider-url"
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://tools.example.org/mcp"
-                  type="url"
-                  value={url}
+                  id="tool-provider-name"
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Scientific data tools"
+                  value={name}
                 />
               </Field>
-            ) : (
-              <>
+              <Field>
+                <FieldLabel htmlFor="tool-provider-kind">Connection type</FieldLabel>
+                <Select
+                  onValueChange={(value) => setConnectionKind(value as ConnectionKind)}
+                  value={connectionKind}
+                >
+                  <SelectTrigger id="tool-provider-kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="http">Remote service</SelectItem>
+                    <SelectItem value="stdio">Local command</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {connectionKind === 'http' ? (
                 <Field>
-                  <FieldLabel htmlFor="tool-provider-command">Executable</FieldLabel>
+                  <FieldLabel htmlFor="tool-provider-url">Service address</FieldLabel>
                   <Input
-                    id="tool-provider-command"
-                    onChange={(event) => setCommand(event.target.value)}
-                    placeholder="npx"
-                    value={command}
+                    id="tool-provider-url"
+                    onChange={(event) => setUrl(event.target.value)}
+                    placeholder="https://tools.example.org/mcp"
+                    type="url"
+                    value={url}
                   />
                 </Field>
-                <Field>
-                  <FieldLabel htmlFor="tool-provider-arguments">Arguments</FieldLabel>
-                  <Textarea
-                    id="tool-provider-arguments"
-                    onChange={(event) => setArgumentsText(event.target.value)}
-                    placeholder={'-y\n@organization/tool-provider'}
-                    value={argumentsText}
-                  />
-                  <FieldDescription>Enter one argument per line.</FieldDescription>
-                </Field>
-              </>
-            )}
-          </FieldGroup>
-          {install.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Connection failed</AlertTitle>
-              <AlertDescription>{install.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
+              ) : (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="tool-provider-command">Executable</FieldLabel>
+                    <Input
+                      id="tool-provider-command"
+                      onChange={(event) => setCommand(event.target.value)}
+                      placeholder="npx"
+                      value={command}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="tool-provider-arguments">Arguments</FieldLabel>
+                    <Textarea
+                      id="tool-provider-arguments"
+                      onChange={(event) => setArgumentsText(event.target.value)}
+                      placeholder={'-y\n@organization/tool-provider'}
+                      value={argumentsText}
+                    />
+                    <FieldDescription>Enter one argument per line.</FieldDescription>
+                  </Field>
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button className="w-fit px-0" size="sm" type="button" variant="link">
+                        Advanced configuration
+                        <ChevronDownIcon aria-hidden="true" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <Field>
+                        <FieldLabel htmlFor="tool-provider-environment">
+                          Process settings
+                        </FieldLabel>
+                        <Textarea
+                          id="tool-provider-environment"
+                          onChange={(event) => setEnvironmentText(event.target.value)}
+                          placeholder={'NAME=value\nSECOND_NAME=value'}
+                          value={environmentText}
+                        />
+                        <FieldDescription>
+                          Enter one NAME=value setting per line. Values stay with the connected
+                          service and are hidden when the provider is read back.
+                        </FieldDescription>
+                      </Field>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </>
+              )}
+            </FieldGroup>
+            {install.error ? (
+              <Alert className="mt-4" variant="destructive">
+                <AlertTitle>Connection failed</AlertTitle>
+                <AlertDescription>{install.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
           <DialogFooter>
             <Button onClick={() => setInstallOpen(false)} variant="outline">
               Cancel

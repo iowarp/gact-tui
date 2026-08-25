@@ -1305,3 +1305,24 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   two PNGs, and three CSVs. Opening `LA_GNSS_report.md` rendered its actual Markdown through the
   two-pane file explorer, and the same file restored the historical artifact preview without a
   saved-content warning.
+
+# Local provider settings remain advanced, reproducible, and secret
+
+- Old failure: the tool-provider dialog could launch a local command only with arguments. A
+  provider that required a writable state directory could succeed during its first probe only if
+  the whole agent service inherited that setting, and the backend discarded per-provider
+  environment values before reconnects and tool calls. Expanding a longer local-provider form
+  also pushed the dialog actions below the browser viewport.
+- New representation: the sourced shadcn Collapsible keeps process settings behind an explicit
+  Advanced configuration action and accepts conventional `NAME=value` lines. The GACT repository
+  sends those settings only for local commands; the agent service validates and retains them in
+  the authoritative connection spec while every response and error redacts their values. The
+  dialog uses a bounded, scrolling form with a stable header and footer so pointer and keyboard
+  actions remain available at narrow heights.
+- Acceptance evidence: the live browser connected `Web search` through the absolute local `uvx`
+  launcher with a workspace-local `WEB_STATE_DIR`. GACT reported the setting name with only
+  `<redacted>` as its value, and the provider exposed three declared tools with their professional
+  titles. A real `Search Web` call reached the healthy self-hosted SearXNG service at the homelab,
+  returned two EarthScope/GNSS results, and preserved the provider's structured engine evidence.
+  Focused Python, core repository, and React interaction coverage passed; provider restart
+  persistence and native credential storage remain open.
