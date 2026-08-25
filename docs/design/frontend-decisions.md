@@ -1204,3 +1204,23 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   one radio group. New session defaults and Models reproduced the same nesting; both now use the
   shared flat contract as well. Live OpenAI Codex verification then completed a 515ms provider
   handshake and refreshed seven available models without changing the saved Luna default.
+
+# Scientific resources are navigable canvases, not static previews
+
+- Old failure: image artifacts were cropped into a fixed inner frame without zoom or pan, wide
+  scientific tables clipped their later columns and exposed pagination that did not change rows,
+  and lineage relationship labels inherited low-contrast graph colors. Long lineage nodes also
+  collided with their relationship arrowheads.
+- New representation: the sourced MermaidCN zoom-and-pan viewport owns image inspection, including
+  truthful zoom, fit, reset, drag, and fullscreen controls. ReUI owns the data grid and real page
+  state; its bounded canvas exposes a visible horizontal scrollbar while retaining keyboard focus.
+  The React Flow lineage canvas preserves every authoritative node and edge, sizes nodes from their
+  complete labels, reserves relationship clearance from the longest evidence label, and uses
+  theme-owned popover colors plus visible arrowheads. Repetition is never removed merely to make
+  the graph smaller; zoom and pan provide navigation instead.
+- Acceptance evidence: a live production-component checkpoint rendered the complete uncropped
+  1200 by 700 GNSS displacement plot and exercised zoom, fit, and fullscreen controls. A constrained
+  620 px ReUI grid exposed all seven GNSS fields through its horizontal scrollbar and changed from
+  `MTA1` on page one to `MTA11` on page two. The lineage checkpoint retained eight nodes and seven
+  evidence-bearing edges, including long validated-profile and tool-observed-plot relationships;
+  zooming preserved readable labels, themed backgrounds, and arrowheads without collapsing data.

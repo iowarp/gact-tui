@@ -22,12 +22,14 @@ interface LineageNodeData extends Record<string, unknown> {
   nodeType: ArtifactLineageNode['type'];
   onOpenArtifact?: (artifact: Artifact) => void;
   self: boolean;
+  width: number;
 }
 
 type LineageFlowNode = Node<LineageNodeData, 'clio-lineage'>;
 
 const nodeTypes = { 'clio-lineage': LineageNodeCard };
-const nodeWidth = 184;
+const minimumNodeWidth = 184;
+const maximumNodeWidth = 292;
 const nodeHeight = 68;
 
 export function ArtifactLineageGraph({
@@ -54,7 +56,7 @@ export function ArtifactLineageGraph({
         edges={graph.edges}
         elementsSelectable
         fitView
-        fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+        fitViewOptions={{ maxZoom: 1, minZoom: 0.48, padding: 0.16 }}
         maxZoom={1.6}
         minZoom={0.12}
         nodes={graph.nodes}
@@ -87,6 +89,8 @@ export function buildArtifactLineageGraph(
     const linkedArtifact =
       node.type === 'artifact' && !self ? artifactFromNode(node, artifact) : undefined;
     const detail = lineageNodeDetails(node);
+    const label = lineageNodeLabel(node);
+    const width = lineageNodeWidth(label, detail);
     return {
       id: node.id,
       type: 'clio-lineage',
@@ -94,14 +98,14 @@ export function buildArtifactLineageGraph(
       data: {
         artifact: linkedArtifact,
         detail,
-        label: lineageNodeLabel(node),
+        label,
         nodeType: node.type,
         onOpenArtifact,
         self,
+        width,
       },
-      ariaLabel: [lineageNodeLabel(node), detail, self ? 'current artifact' : '']
-        .filter(Boolean)
-        .join(', '),
+      style: { width },
+      ariaLabel: [label, detail, self ? 'current artifact' : ''].filter(Boolean).join(', '),
     };
   });
   const edges: Edge[] = lineage.edges.map((edge) => ({
@@ -110,9 +114,9 @@ export function buildArtifactLineageGraph(
     target: edge.to,
     type: 'smoothstep',
     label: edgeLabel(edge.type, edge.evidence),
-    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--primary)' },
-    style: { stroke: 'var(--primary)', strokeOpacity: 0.65 },
-    labelStyle: { fill: 'var(--foreground)', fontSize: 10, fontWeight: 500 },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: 'var(--primary)' },
+    style: { stroke: 'var(--primary)', strokeOpacity: 0.78, strokeWidth: 1.5 },
+    labelStyle: { fill: 'var(--popover-foreground)', fontSize: 10, fontWeight: 600 },
     labelBgStyle: {
       fill: 'var(--popover)',
       fillOpacity: 0.96,
@@ -158,9 +162,10 @@ function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
   return (
     <div
       className={cn(
-        'w-[184px] rounded-lg border bg-background px-2.5 py-2 shadow-sm',
+        'rounded-lg border bg-background px-2.5 py-2 shadow-sm',
         data.self && 'border-primary/70 ring-1 ring-primary/20',
       )}
+      style={{ width: data.width }}
     >
       <Handle className="!size-0 !border-0" position={Position.Left} type="target" />
       {data.artifact && data.onOpenArtifact ? (
@@ -200,7 +205,7 @@ function layoutGraph(
     marginx: 28,
     marginy: 20,
   });
-  for (const node of nodes) graph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  for (const node of nodes) graph.setNode(node.id, { width: node.data.width, height: nodeHeight });
   for (const edge of edges) graph.setEdge(edge.source, edge.target);
   layout(graph);
   return {
@@ -208,11 +213,16 @@ function layoutGraph(
       const position = graph.node(node.id);
       return {
         ...node,
-        position: { x: position.x - nodeWidth / 2, y: position.y - nodeHeight / 2 },
+        position: { x: position.x - node.data.width / 2, y: position.y - nodeHeight / 2 },
       };
     }),
     edges,
   };
+}
+
+function lineageNodeWidth(label: string, detail: string): number {
+  const contentWidth = Math.max(label.length * 7.2, detail.length * 5.8) + 58;
+  return Math.round(Math.min(maximumNodeWidth, Math.max(minimumNodeWidth, contentWidth)));
 }
 
 function artifactFromNode(node: ArtifactLineageNode, fallback: Artifact): Artifact {

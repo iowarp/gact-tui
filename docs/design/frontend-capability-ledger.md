@@ -63,8 +63,8 @@ No row becomes accepted because a route, tab, card, or test fixture exists.
 | --------------------------------------- | ----------------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------- |
 | Unified tabbed canvas                   | observability, child sessions, files, artifacts, blueprints | Implemented, not accepted | Reload persistence, mobile behavior, and final SPOTTER artifact evidence.                     |
 | Text/code file viewer                   | workspace and blueprint raw-read routes                     | Implemented, not accepted | Search, go-to-line, refresh/conflict behavior, large-file limits.                             |
-| Image, PDF, data, plot, map viewers     | file/artifact MIME and document routes                      | Implemented, not accepted | Live PDF/Tauri rendering, dense plot/map evidence, and image binary security regressions.     |
-| Artifact preview and provenance         | artifact get/bytes/lineage/export/aliases                   | Implemented, not accepted | Alias selection, pinning, and final live lineage/export acceptance.                           |
+| Image, PDF, data, plot, map viewers     | file/artifact MIME and document routes                      | Implemented, not accepted | Live PDF/Tauri rendering, dense map evidence, and image binary security regressions.          |
+| Artifact preview and provenance         | artifact get/bytes/lineage/export/aliases                   | Implemented, not accepted | Alias selection, pinning, and final live export acceptance.                                   |
 | File changes/diffs and repository state | diff/repo-map/context-file routes                           | Implemented, not accepted | Live apply/reject failure evidence, changed-file tree, and authoritative git state/actions.   |
 | Blueprint browser                       | blueprint list/detail/files                                 | Implemented, not accepted | Active assignment, validation details, MCP descriptors, live-browser tests.                   |
 | Blueprint sources/marketplaces          | blueprint source CRUD/refresh                               | Implemented, not accepted | Authenticated source and failure/recovery browser evidence.                                   |
@@ -74,18 +74,18 @@ No row becomes accepted because a route, tab, card, or test fixture exists.
 
 ## Observability and operations
 
-| Capability                                | Authoritative surface                       | Current state             | Remaining acceptance work                                                               |
-| ----------------------------------------- | ------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
-| Observability pill and default canvas tab | run/task/tool/process/diff/context entities | Implemented, not accepted | Git state, plan files, dense SPOTTER evidence, and reconnect acceptance.                |
-| Session activity timeline                 | scoped event/run/tool/process timestamps    | Partial                   | Complete causal categories, event detail, reconciliation markers.                       |
-| Operational run explorer                  | `/v1/runs`                                  | Implemented, not accepted | Timeline/detail, remote-job cancellation semantics, and final dense-data evidence.      |
-| Background processes                      | async-process registry and live events      | Implemented, not accepted | Live MCP-task logs/cancellation and terminal-state acceptance.                          |
-| Context window and context files          | context state/files/frames/search/compact   | Implemented, not accepted | Dense frame inputs, gap recovery, and final SPOTTER context-composition evidence.       |
-| Usage, token, and cost                    | usage snapshots/provenance                  | Partial                   | Authoritative endpoint projection and unavailable/stale explanations.                   |
-| Sources and citations                     | citation/resource/artifact provenance       | Partial                   | Per-part citation actions and durable source/resource tabs.                             |
-| Relay health and jobs                     | relay status plus relay-backed runs         | Partial                   | Doors/tools detail, remote-job actions, recovery, and configured-relay acceptance.      |
-| Metrics and doctor                        | metrics/health/integration routes           | Implemented, not accepted | Dense metrics, remediation actions, refresh/failure, and native diagnostics evidence.   |
-| Notifications                             | event/notification routes                   | Missing                   | Center, filtering, action routing, persistence.                                         |
+| Capability                                | Authoritative surface                       | Current state             | Remaining acceptance work                                                             |
+| ----------------------------------------- | ------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------- |
+| Observability pill and default canvas tab | run/task/tool/process/diff/context entities | Implemented, not accepted | Git state, plan files, dense SPOTTER evidence, and reconnect acceptance.              |
+| Session activity timeline                 | scoped event/run/tool/process timestamps    | Partial                   | Complete causal categories, event detail, reconciliation markers.                     |
+| Operational run explorer                  | `/v1/runs`                                  | Implemented, not accepted | Timeline/detail, remote-job cancellation semantics, and final dense-data evidence.    |
+| Background processes                      | async-process registry and live events      | Implemented, not accepted | Live MCP-task logs/cancellation and terminal-state acceptance.                        |
+| Context window and context files          | context state/files/frames/search/compact   | Implemented, not accepted | Dense frame inputs, gap recovery, and final SPOTTER context-composition evidence.     |
+| Usage, token, and cost                    | usage snapshots/provenance                  | Partial                   | Authoritative endpoint projection and unavailable/stale explanations.                 |
+| Sources and citations                     | citation/resource/artifact provenance       | Partial                   | Per-part citation actions and durable source/resource tabs.                           |
+| Relay health and jobs                     | relay status plus relay-backed runs         | Partial                   | Doors/tools detail, remote-job actions, recovery, and configured-relay acceptance.    |
+| Metrics and doctor                        | metrics/health/integration routes           | Implemented, not accepted | Dense metrics, remediation actions, refresh/failure, and native diagnostics evidence. |
+| Notifications                             | event/notification routes                   | Missing                   | Center, filtering, action routing, persistence.                                       |
 
 ## Settings and administration
 
@@ -96,25 +96,25 @@ now exposes live read surfaces for several catalogs and full blueprint/source li
 but every omitted mutation and administration workflow remains open. Route count never constitutes
 "settings complete."
 
-| Area                                | Current state             | Required workflow                                                               |
-| ----------------------------------- | ------------------------- | ------------------------------------------------------------------------------- |
-| Connections and desktop integration | Partial                   | CRUD, discovery, SSH/tunnels, credentials, lifecycle.                           |
-| Session defaults                    | Implemented, not accepted | Blueprint-default activation, drift/failure, and recovery evidence.             |
-| Providers and models                | Implemented, not accepted | Auth mutation, handshake failures, stale-catalog recovery, and native evidence. |
-| Agents                              | Implemented, not accepted | Live disposable create/update/delete, overlays, and blueprint relationships.    |
-| Relays                              | Partial                   | Configuration, exposed tools, jobs, and recovery.                               |
-| Commands and prompts                | Implemented, not accepted | Live disposable override save/recovery and destructive-command confirmation.    |
-| Scheduled work                      | Implemented, not accepted | Live create/fire/cancel, run linkage, failure, and reconnect evidence.          |
-| Blueprints, sources, expert packs   | Implemented, not accepted | Full failure/progress acceptance with a disposable authenticated source.        |
-| MCP servers                         | Partial                   | Prompt execution plus live disposable connection/failure/recovery acceptance.   |
-| Hooks and policies                  | Implemented, not accepted | Live policy mutation/recovery and dense hook invocation audit.                  |
-| Permissions                         | Implemented, not accepted | Live disposable rule mutation, precedence recovery, and complete audit history. |
-| Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                     |
-| Metrics and doctor                  | Implemented, not accepted | Dense data, remediation actions, refresh/failure, native acceptance.            |
-| Plugins                             | Missing                   | Installed and available integrations with capability/source clarity.            |
-| Appearance                          | Partial                   | Independent light/dark/system, wide-layout, and reduced-motion visual baselines.|
-| Data and backups                    | Missing                   | Import/export/backup/retention/destructive reset.                               |
-| About and updates                   | Partial                   | Licenses, updater state, native update flow, and failure evidence.              |
+| Area                                | Current state             | Required workflow                                                                |
+| ----------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| Connections and desktop integration | Partial                   | CRUD, discovery, SSH/tunnels, credentials, lifecycle.                            |
+| Session defaults                    | Implemented, not accepted | Blueprint-default activation, drift/failure, and recovery evidence.              |
+| Providers and models                | Implemented, not accepted | Auth mutation, handshake failures, stale-catalog recovery, and native evidence.  |
+| Agents                              | Implemented, not accepted | Live disposable create/update/delete, overlays, and blueprint relationships.     |
+| Relays                              | Partial                   | Configuration, exposed tools, jobs, and recovery.                                |
+| Commands and prompts                | Implemented, not accepted | Live disposable override save/recovery and destructive-command confirmation.     |
+| Scheduled work                      | Implemented, not accepted | Live create/fire/cancel, run linkage, failure, and reconnect evidence.           |
+| Blueprints, sources, expert packs   | Implemented, not accepted | Full failure/progress acceptance with a disposable authenticated source.         |
+| MCP servers                         | Partial                   | Prompt execution plus live disposable connection/failure/recovery acceptance.    |
+| Hooks and policies                  | Implemented, not accepted | Live policy mutation/recovery and dense hook invocation audit.                   |
+| Permissions                         | Implemented, not accepted | Live disposable rule mutation, precedence recovery, and complete audit history.  |
+| Memory                              | Partial                   | Summaries, context frames, retention, and operator actions.                      |
+| Metrics and doctor                  | Implemented, not accepted | Dense data, remediation actions, refresh/failure, native acceptance.             |
+| Plugins                             | Missing                   | Installed and available integrations with capability/source clarity.             |
+| Appearance                          | Partial                   | Independent light/dark/system, wide-layout, and reduced-motion visual baselines. |
+| Data and backups                    | Missing                   | Import/export/backup/retention/destructive reset.                                |
+| About and updates                   | Partial                   | Licenses, updater state, native update flow, and failure evidence.               |
 
 ## A2UI and specialized interactive content
 

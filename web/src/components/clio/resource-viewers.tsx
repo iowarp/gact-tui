@@ -415,7 +415,7 @@ function TextResourceView({
   );
 }
 
-function ImageResourceView({
+export function ImageResourceView({
   bytes,
   error,
   mediaType,
@@ -442,7 +442,7 @@ function ImageResourceView({
   return (
     <div
       className={cn(
-        'h-[clamp(22rem,50vh,36rem)] overflow-hidden bg-background',
+        'h-full min-h-[22rem] overflow-hidden bg-background',
         fullscreen && 'h-screen min-h-0',
       )}
       ref={hostRef}
