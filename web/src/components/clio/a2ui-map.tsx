@@ -1,7 +1,7 @@
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { MapIcon, MapPinIcon } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { z } from 'zod';
 import {
   Frame,
@@ -12,6 +12,7 @@ import {
 } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useContainerQuery } from '@/hooks/use-container-query';
 import { cn } from '@/lib/utils';
 import type { ScientificMapPoint } from './scientific-map-view';
 
@@ -48,78 +49,92 @@ export function ClioScientificMap({
   const [selectedId, setSelectedId] = useState(
     points.some((point) => point.id === selected) ? selected : points[0]?.id,
   );
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const sideBySide = useContainerQuery(surfaceRef, 700);
   const selectedPoint = points.find((point) => point.id === selectedId);
 
   return (
-    <Frame aria-label={`${title} map`} dense>
-      <FrameHeader className="flex-row items-center gap-2">
-        <MapIcon aria-hidden="true" className="size-4 text-primary" />
-        <div className="min-w-0">
-          <FrameTitle>{title}</FrameTitle>
-          <FrameDescription>{points.length} labeled locations</FrameDescription>
-        </div>
-      </FrameHeader>
-      <FramePanel className="grid min-h-[26rem] gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="min-h-[20rem] overflow-hidden border-b lg:border-r lg:border-b-0">
-          <Suspense
-            fallback={
-              <Skeleton aria-label={`Loading ${title} map`} className="size-full rounded-none" />
-            }
+    <div className="min-w-0" ref={surfaceRef}>
+      <Frame aria-label={`${title} map`} dense>
+        <FrameHeader className="flex-row items-center gap-2">
+          <MapIcon aria-hidden="true" className="size-4 text-primary" />
+          <div className="min-w-0">
+            <FrameTitle>{title}</FrameTitle>
+            <FrameDescription>{points.length} labeled locations</FrameDescription>
+          </div>
+        </FrameHeader>
+        <FramePanel
+          className={cn(
+            'grid min-h-[26rem] gap-0 p-0',
+            sideBySide && 'grid-cols-[minmax(0,1fr)_15rem]',
+          )}
+        >
+          <div
+            className={cn(
+              'min-h-[20rem] overflow-hidden border-b',
+              sideBySide && 'border-r border-b-0',
+            )}
           >
-            <ClioScientificMapView
-              onSelect={setSelectedId}
-              points={points}
-              selectedId={selectedId}
-            />
-          </Suspense>
-        </div>
-        <div className="flex min-h-0 flex-col">
-          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-            Locations
+            <Suspense
+              fallback={
+                <Skeleton aria-label={`Loading ${title} map`} className="size-full rounded-none" />
+              }
+            >
+              <ClioScientificMapView
+                onSelect={setSelectedId}
+                points={points}
+                selectedId={selectedId}
+              />
+            </Suspense>
           </div>
-          <div className="max-h-64 flex-1 overflow-y-auto p-2 lg:max-h-none">
-            {points.map((point) => (
-              <Button
-                aria-pressed={point.id === selectedId}
-                className={cn(
-                  'mb-1 h-auto w-full justify-start gap-2 px-2 py-2 text-left',
-                  point.id === selectedId && 'border-primary/50 bg-primary/10',
-                )}
-                key={point.id}
-                onClick={() => setSelectedId(point.id)}
-                variant="ghost"
-              >
-                <MapPinIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{point.label}</span>
-                  {point.category ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {point.category}
-                    </span>
-                  ) : null}
-                </span>
-              </Button>
-            ))}
-          </div>
-          {selectedPoint ? (
-            <div className="border-t p-3 text-xs">
-              <p className="font-medium">{selectedPoint.label}</p>
-              <p className="mt-1 font-mono text-muted-foreground">
-                {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
-              </p>
-              {selectedPoint.detail ? (
-                <p className="mt-2 text-muted-foreground">{selectedPoint.detail}</p>
-              ) : null}
-              {action ? (
-                <Button className="mt-3 w-full" onClick={() => void action()} size="sm">
-                  {actionLabel}
-                </Button>
-              ) : null}
+          <div className="flex min-h-0 flex-col">
+            <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+              Locations
             </div>
-          ) : null}
-        </div>
-      </FramePanel>
-    </Frame>
+            <div className={cn('max-h-64 flex-1 overflow-y-auto p-2', sideBySide && 'max-h-none')}>
+              {points.map((point) => (
+                <Button
+                  aria-pressed={point.id === selectedId}
+                  className={cn(
+                    'mb-1 h-auto w-full justify-start gap-2 px-2 py-2 text-left',
+                    point.id === selectedId && 'border-primary/50 bg-primary/10',
+                  )}
+                  key={point.id}
+                  onClick={() => setSelectedId(point.id)}
+                  variant="ghost"
+                >
+                  <MapPinIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{point.label}</span>
+                    {point.category ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {point.category}
+                      </span>
+                    ) : null}
+                  </span>
+                </Button>
+              ))}
+            </div>
+            {selectedPoint ? (
+              <div className="border-t p-3 text-xs">
+                <p className="font-medium">{selectedPoint.label}</p>
+                <p className="mt-1 font-mono text-muted-foreground">
+                  {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
+                </p>
+                {selectedPoint.detail ? (
+                  <p className="mt-2 text-muted-foreground">{selectedPoint.detail}</p>
+                ) : null}
+                {action ? (
+                  <Button className="mt-3 w-full" onClick={() => void action()} size="sm">
+                    {actionLabel}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </FramePanel>
+      </Frame>
+    </div>
   );
 }
 

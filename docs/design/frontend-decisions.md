@@ -1464,3 +1464,19 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: bridge coverage proves browser calls never load native APIs and installed
   calls use only the read, store, and delete credential commands. Rust coverage verifies stable
   connection addressing, and the desktop target compiles against its native credential provider.
+
+# A2UI artifacts and maps reuse the native scientific workspace
+
+- Old failure: the A2UI artifact component imitated an artifact card but exposed its raw
+  `artifact://` URI and a separate open button instead of rendering the saved result. The map chose
+  its two-column layout from the browser viewport, so a narrow conversation column beside an open
+  canvas received a compressed map and a fixed-width location list.
+- New representation: the A2UI catalog adapter maps the protocol artifact into the same AI
+  Elements-backed `ClioArtifactCard` used by native transcript results. The full card opens the
+  durable artifact canvas with preview, zoom, pan, fullscreen, versions, and lineage. The existing
+  MapLibre scientific renderer measures its own container and stacks the location list below the
+  map until that component actually has room for two columns.
+- Acceptance evidence: the live single-agent EarthScope surface rendered the real MTA1 PNG inside
+  its Artifact tab without exposing the wire URI; clicking the preview opened the zoomable artifact
+  canvas. With Observability open beside the conversation, the Map tab retained a full-width,
+  pannable OpenStreetMap view and its labeled station controls instead of squeezing the map.

@@ -18,18 +18,9 @@ import {
   createComponentImplementation,
   type ReactComponentImplementation,
 } from '@a2ui/react/v0_9';
-import { FileCode2Icon, FileIcon, GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
+import { FileCode2Icon, GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
 import type { BundledLanguage } from 'shiki';
 import { z } from 'zod';
-import {
-  Artifact as AIArtifact,
-  ArtifactAction,
-  ArtifactActions,
-  ArtifactContent,
-  ArtifactDescription,
-  ArtifactHeader,
-  ArtifactTitle,
-} from '@/components/ai-elements/artifact';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -56,6 +47,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from './data-table';
+import { ClioArtifactCatalogComponent } from './a2ui-artifact';
 import { ClioMapCatalogComponent } from './a2ui-map';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from './status';
@@ -438,50 +430,6 @@ const Workflow = createComponentImplementation(
   ),
 );
 
-const Artifact = createComponentImplementation(
-  {
-    name: 'clio.artifact.v1',
-    schema: z
-      .object({
-        name: CommonSchemas.DynamicString,
-        uri: z.string(),
-        mediaType: z.string(),
-        size: CommonSchemas.DynamicNumber.optional(),
-        action: CommonSchemas.Action.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <AIArtifact>
-      <ArtifactHeader>
-        <div className="min-w-0">
-          <ArtifactTitle className="truncate">{props.name}</ArtifactTitle>
-          <ArtifactDescription className="truncate">
-            {props.mediaType}
-            {props.size !== undefined ? `, ${props.size.toLocaleString()} bytes` : ''}
-          </ArtifactDescription>
-        </div>
-        {props.action ? (
-          <ArtifactActions>
-            <ArtifactAction
-              icon={FileIcon}
-              label={`Open ${props.name}`}
-              onClick={() => void props.action?.()}
-              tooltip="Open artifact"
-            />
-          </ArtifactActions>
-        ) : null}
-      </ArtifactHeader>
-      <ArtifactContent className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-        <FileIcon aria-hidden="true" className="size-4 text-primary" />
-        <span className="font-mono">{props.uri}</span>
-      </ArtifactContent>
-    </AIArtifact>
-  ),
-);
-
 const LANGUAGE_ALIASES: Record<string, BundledLanguage> = {
   py: 'python',
   python: 'python',
@@ -693,7 +641,7 @@ const components: ReactComponentImplementation[] = [
   Mermaid,
   ClioMapCatalogComponent,
   Workflow,
-  Artifact,
+  ClioArtifactCatalogComponent,
   Code,
   Diff,
   ActionCard,
