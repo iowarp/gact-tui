@@ -237,7 +237,7 @@ function ConnectionsSettings() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       disabled={active}
-                      onSelect={() => forget(connection.endpoint)}
+                      onSelect={() => void forget(connection.endpoint)}
                       variant="destructive"
                     >
                       <Trash2Icon aria-hidden="true" /> Forget on this device

@@ -8,6 +8,7 @@
 
 mod brand_backend;
 mod commands;
+mod credentials;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
@@ -81,6 +82,9 @@ pub fn run() {
             commands::read_logs,
             commands::open_document_path,
             commands::tunnel_open,
+            credentials::credential_store,
+            credentials::credential_read,
+            credentials::credential_delete,
             gact_http::gact_http,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,

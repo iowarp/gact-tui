@@ -1,18 +1,35 @@
-import { createContext, useContext, useMemo, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import {
   DEFAULT_ENDPOINT,
   normalizeEndpoint,
   type ConnectionSettings,
   type SavedConnection,
 } from '@/lib/connection';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import {
+  deleteConnectionCredential,
+  readConnectionCredential,
+  storeConnectionCredential,
+} from '@/tauri/secure-credentials';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 
 interface ConnectionContextValue {
   settings: ConnectionSettings;
   recents: SavedConnection[];
-  connect: (settings: ConnectionSettings) => void;
-  forget: (endpoint: string) => void;
+  credentialsReady: boolean;
+  credentialError?: string;
+  resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
+  connect: (settings: ConnectionSettings) => Promise<void>;
+  forget: (endpoint: string) => Promise<void>;
 }
 
 const ConnectionContext = createContext<ConnectionContextValue | undefined>(undefined);
@@ -54,29 +71,93 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     endpoint: recents[0]?.endpoint ?? DEFAULT_ENDPOINT,
     label: recents[0]?.label,
   }));
+  const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
+  const [credentialError, setCredentialError] = useState<string>();
+
+  useEffect(() => {
+    if (!inTauri()) return;
+    const endpoint = settings.endpoint;
+    let cancelled = false;
+    void readConnectionCredential(endpoint)
+      .then((token) => {
+        if (cancelled) return;
+        setSettings((current) =>
+          current.endpoint === endpoint ? { ...current, token } : current,
+        );
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCredentialError(
+          error instanceof Error ? error.message : 'Saved access credentials are unavailable.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCredentialsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.endpoint]);
+
+  const resolveConnection = useCallback(
+    async (next: ConnectionSettings): Promise<ConnectionSettings> => {
+      const endpoint = normalizeEndpoint(next.endpoint);
+      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      if (normalized.token) return normalized;
+      if (settings.endpoint === endpoint && settings.token) {
+        return { ...normalized, token: settings.token };
+      }
+      const token = await readConnectionCredential(endpoint);
+      return { ...normalized, token };
+    },
+    [settings.endpoint, settings.token],
+  );
+
+  const connect = useCallback(
+    async (next: ConnectionSettings): Promise<void> => {
+      const endpoint = normalizeEndpoint(next.endpoint);
+      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      if (normalized.token) {
+        await storeConnectionCredential(endpoint, normalized.token);
+      }
+      setCredentialError(undefined);
+      if (inTauri() && settings.endpoint !== endpoint) {
+        setCredentialsReady(false);
+      }
+      setSettings(normalized);
+      setRecents((current) => {
+        const updated = [
+          { endpoint, label: normalized.label },
+          ...current.filter((item) => item.endpoint !== endpoint),
+        ].slice(0, 5);
+        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [settings.endpoint],
+  );
+
+  const forget = useCallback(async (endpoint: string): Promise<void> => {
+    const normalizedEndpoint = normalizeEndpoint(endpoint);
+    await deleteConnectionCredential(normalizedEndpoint);
+    setRecents((current) => {
+      const updated = current.filter((item) => item.endpoint !== normalizedEndpoint);
+      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const value = useMemo<ConnectionContextValue>(
     () => ({
       settings,
       recents,
-      connect: (next) => {
-        const endpoint = normalizeEndpoint(next.endpoint);
-        const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
-        const updated = [
-          { endpoint, label: normalized.label },
-          ...recents.filter((item) => item.endpoint !== endpoint),
-        ].slice(0, 5);
-        setSettings(normalized);
-        setRecents(updated);
-        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
-      },
-      forget: (endpoint) => {
-        const updated = recents.filter((item) => item.endpoint !== endpoint);
-        setRecents(updated);
-        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
-      },
+      credentialsReady,
+      credentialError,
+      resolveConnection,
+      connect,
+      forget,
     }),
-    [recents, settings],
+    [connect, credentialError, credentialsReady, forget, recents, resolveConnection, settings],
   );
 
   return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;

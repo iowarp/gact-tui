@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   connectionSessionRoute,
   connectionSessionTargetForRoute,
@@ -45,7 +46,15 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 export function ConnectionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { settings, recents, connect, forget } = useConnectionSettings();
+  const {
+    settings,
+    recents,
+    credentialsReady,
+    credentialError,
+    resolveConnection,
+    connect,
+    forget,
+  } = useConnectionSettings();
   const [endpoint, setEndpoint] = useState(settings.endpoint);
   const [serviceName, setServiceName] = useState(settings.label ?? '');
   const [token, setToken] = useState('');
@@ -53,11 +62,11 @@ export function ConnectionPage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const next = {
+      const next = await resolveConnection({
         endpoint: normalizeEndpoint(endpoint),
         token: token || undefined,
         label: serviceName.trim() || undefined,
-      };
+      });
       const repository = createRepository(next);
       const capabilities = await repository.capabilities();
       if (!capabilities.gact_versions.includes('0.3')) {
@@ -70,10 +79,10 @@ export function ConnectionPage() {
       const target =
         connectionSessionTargetForRoute(lastWorkspaceRoute(next.endpoint), workspaces, sessions) ??
         latestConnectionSessionTarget(workspaces, sessions);
+      await connect(next);
       return { next, capabilities, workspaces, target };
     },
     onSuccess: ({ next, target }) => {
-      connect(next);
       if (target) {
         rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
         navigate(connectionSessionRoute(target));
@@ -116,13 +125,14 @@ export function ConnectionPage() {
   useEffect(() => {
     if (
       autoConnectStarted.current ||
+      !credentialsReady ||
       recents.length === 0 ||
       searchParams.get('intent') === 'connect'
     )
       return;
     autoConnectStarted.current = true;
     mutation.mutate();
-  }, [mutation, recents.length, searchParams]);
+  }, [credentialsReady, mutation, recents.length, searchParams]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -229,6 +239,7 @@ export function ConnectionPage() {
                         const saved = recents.find((recent) => recent.endpoint === value);
                         setEndpoint(value);
                         setServiceName(saved?.label ?? '');
+                        setToken('');
                       }}
                       value={recents.some((recent) => recent.endpoint === endpoint) ? endpoint : ''}
                     >
@@ -266,7 +277,7 @@ export function ConnectionPage() {
                             className="justify-between gap-3"
                             key={recent.endpoint}
                             onSelect={() => {
-                              forget(recent.endpoint);
+                              void forget(recent.endpoint);
                               if (endpoint === recent.endpoint) {
                                 setEndpoint(
                                   recents.find(
@@ -315,7 +326,9 @@ export function ConnectionPage() {
                 <div className="mt-4 grid gap-2 border-t pt-4">
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="token">Access token</Label>
-                    <span className="text-xs text-muted-foreground">Kept in memory only</span>
+                    <span className="text-xs text-muted-foreground">
+                      {inTauri() ? 'Saved securely on this device' : 'Kept in memory only'}
+                    </span>
                   </div>
                   <Input
                     autoComplete="off"
@@ -334,6 +347,14 @@ export function ConnectionPage() {
                   <TriangleAlertIcon aria-hidden="true" />
                   <AlertTitle>Connection unavailable</AlertTitle>
                   <AlertDescription>{mutation.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {!mutation.error && credentialError ? (
+                <Alert variant="destructive">
+                  <TriangleAlertIcon aria-hidden="true" />
+                  <AlertTitle>Saved access token unavailable</AlertTitle>
+                  <AlertDescription>{credentialError}</AlertDescription>
                 </Alert>
               ) : null}
 

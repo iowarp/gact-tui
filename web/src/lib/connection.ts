@@ -21,6 +21,9 @@ export function normalizeEndpoint(value: string): string {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error('Connection addresses must use http or https');
   }
+  if (url.username || url.password) {
+    throw new Error('Put access tokens in Advanced settings, not in the connection address');
+  }
   return url.toString().replace(/\/$/, '');
 }
 

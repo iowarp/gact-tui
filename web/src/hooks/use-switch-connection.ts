@@ -20,14 +20,15 @@ interface SwitchConnectionOptions {
 export function useSwitchConnection() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { connect } = useConnectionSettings();
+  const { connect, resolveConnection } = useConnectionSettings();
 
   return useCallback(
     async (
       connection: SavedConnection,
       { navigateToWorkspace = true }: SwitchConnectionOptions = {},
     ) => {
-      const repository = createRepository(connection);
+      const resolvedConnection = await resolveConnection(connection);
+      const repository = createRepository(resolvedConnection);
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),
         repository.allSessions(),
@@ -55,13 +56,13 @@ export function useSwitchConnection() {
         sessions: recordById(sessions),
         workspaces: recordById(workspaces),
       });
-      connect(connection);
+      await connect(resolvedConnection);
 
       if (navigateToWorkspace) {
         await navigate(target ? connectionSessionRoute(target) : '/?intent=setup');
       }
       return target;
     },
-    [connect, navigate, queryClient],
+    [connect, navigate, queryClient, resolveConnection],
   );
 }

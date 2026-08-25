@@ -1450,3 +1450,17 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   browser and use the exact resume event in the installed app. Stream-hook coverage proves resume
   replaces the active subscription and preserves its cursor. The Rust desktop target compiles with
   the `RunEvent::Resumed` emission path.
+
+# Saved connection tokens belong to the operating system
+
+- Old failure: the browser correctly kept access tokens in memory, but the installed app used the
+  same transient path and advertised secure credential storage as unavailable. Remembered
+  connections could therefore reconnect only when they did not require authentication.
+- New representation: the installed app stores one token per normalized connection address in
+  Windows Credential Manager, macOS Keychain, or Linux Secret Service. Remembered auto-connect
+  waits for that token, switching services resolves the destination token before making a request,
+  and forgetting a service removes its credential. A credential-store failure is shown and never
+  becomes a silent unauthenticated retry. Browser sessions remain explicitly memory-only.
+- Acceptance evidence: bridge coverage proves browser calls never load native APIs and installed
+  calls use only the read, store, and delete credential commands. Rust coverage verifies stable
+  connection addressing, and the desktop target compiles against its native credential provider.

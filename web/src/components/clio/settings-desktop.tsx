@@ -89,7 +89,7 @@ export function DesktopSettings() {
             { label: 'Native REST and live-stream transport', implemented: true },
             { label: 'SSH tunnel engine', implemented: true },
             { label: 'Menus and system tray', implemented: true },
-            { label: 'Secure credential storage', implemented: false },
+            { label: 'Secure credential storage', implemented: true },
             { label: 'Sleep and wake reconnect', implemented: true },
           ].map(({ label, implemented }) => {
             const available = desktop && implemented;
