@@ -1,5 +1,5 @@
 import { BrainCircuitIcon, BrainIcon, ChevronDownIcon, EyeIcon, WrenchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -42,21 +42,24 @@ export function ConversationTurn({
   if (mode === 'full') {
     return (
       <section aria-label="Full agent activity" className="mb-4">
-        <div className="mb-2 flex justify-end">
-          <Button
-            aria-label="Use chain view for this turn"
-            onClick={() => onModeChange('chain')}
-            size="xs"
-            variant="ghost"
-          >
-            <BrainCircuitIcon aria-hidden="true" />
-            Chain view
-          </Button>
-        </div>
         <div className="space-y-5">
-          {iterations.map((iteration) => (
+          {iterations.map((iteration, index) => (
             <IterationDetail
               full
+              headerAction={
+                index === 0 ? (
+                  <Button
+                    aria-label="Use chain view for this turn"
+                    className="shrink-0"
+                    onClick={() => onModeChange('chain')}
+                    size="xs"
+                    variant="ghost"
+                  >
+                    <BrainCircuitIcon aria-hidden="true" />
+                    Chain
+                  </Button>
+                ) : undefined
+              }
               iteration={iteration}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
@@ -64,7 +67,24 @@ export function ConversationTurn({
             />
           ))}
           {supplementalCalls.length > 0 ? (
-            <SupplementalCalls calls={supplementalCalls} full />
+            <SupplementalCalls
+              calls={supplementalCalls}
+              full
+              headerAction={
+                iterations.length === 0 ? (
+                  <Button
+                    aria-label="Use chain view for this turn"
+                    className="shrink-0"
+                    onClick={() => onModeChange('chain')}
+                    size="xs"
+                    variant="ghost"
+                  >
+                    <BrainCircuitIcon aria-hidden="true" />
+                    Chain
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : null}
         </div>
       </section>
@@ -105,9 +125,11 @@ export function ConversationTurn({
 function SupplementalCalls({
   calls,
   full = false,
+  headerAction,
 }: {
   calls: readonly SupplementalModelCall[];
   full?: boolean;
+  headerAction?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const label =
@@ -117,20 +139,23 @@ function SupplementalCalls({
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <div className={cn(full && 'border-l-2 border-muted-foreground/25 pl-4')}>
-        <CollapsibleTrigger
-          aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
-          className="flex min-h-8 w-full items-center gap-2 rounded-md text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <BrainCircuitIcon aria-hidden="true" className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium text-foreground">{label}</span>
-            <span className="block">Exact iteration links were not recorded.</span>
-          </span>
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')}
-          />
-        </CollapsibleTrigger>
+        <div className="flex min-w-0 items-center gap-2">
+          <CollapsibleTrigger
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+            className="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <BrainCircuitIcon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium text-foreground">{label}</span>
+              <span className="block">Captured outside the iteration stream.</span>
+            </span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')}
+            />
+          </CollapsibleTrigger>
+          {headerAction}
+        </div>
         <CollapsibleContent className="space-y-4 pt-3">
           {calls.map((call) => (
             <article className="space-y-3" key={call.id}>
@@ -170,18 +195,24 @@ function IterationSummary({
     ? compactToolSummary(getToolSummary(iteration.tool))
     : undefined;
   const toolOutcome = iteration.tool ? getToolOutcome(iteration.tool) : undefined;
+  const toolState = iteration.streaming
+    ? 'Running'
+    : iteration.tool && iteration.tool.state !== 'succeeded'
+      ? toolOutcome?.label
+      : undefined;
   const disclosureLabel = [
     `${open ? 'Collapse' : 'Expand'} activity: ${iteration.summary}`,
     tool?.title,
     toolSummary,
-    toolOutcome?.label,
+    toolState,
   ]
     .filter(Boolean)
+    .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
     .join('. ');
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <ChainOfThoughtStep
-        icon={iteration.tool ? WrenchIcon : BrainIcon}
+        icon={BrainIcon}
         label={
           <CollapsibleTrigger
             aria-label={disclosureLabel}
@@ -193,10 +224,10 @@ function IterationSummary({
                 <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
                   <span className="truncate">{tool.title}</span>
-                  <span className="min-w-0 truncate">{toolSummary}</span>
-                  <span className="shrink-0">
-                    {iteration.streaming ? 'Running' : (toolOutcome?.label ?? 'Completed')}
-                  </span>
+                  {toolSummary ? (
+                    <span className="min-w-0 truncate">{toolSummary}</span>
+                  ) : null}
+                  {toolState ? <span className="shrink-0">{toolState}</span> : null}
                 </span>
               ) : null}
             </span>
@@ -221,11 +252,13 @@ function IterationSummary({
 
 function IterationDetail({
   full = false,
+  headerAction,
   iteration,
   onOpenSubagent,
   subagents,
 }: {
   full?: boolean;
+  headerAction?: ReactNode;
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
@@ -235,24 +268,30 @@ function IterationDetail({
     <article>
       <div className="space-y-4">
         {iteration.thinking.length > 0 ? (
-          iteration.thinking.map((thinking) => (
+          iteration.thinking.map((thinking, index) => (
             <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
-              <ReasoningTrigger
-                className="min-h-7"
-                getThinkingMessage={(streaming) =>
-                  streaming ? `${thinking.label} in progress` : thinking.label
-                }
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                <ReasoningTrigger
+                  className="min-h-7 min-w-0 flex-1"
+                  getThinkingMessage={(streaming) =>
+                    streaming ? `${thinking.label} in progress` : thinking.label
+                  }
+                />
+                {index === 0 ? headerAction : null}
+              </div>
               <ReasoningContent className="mt-2 leading-6 [&_p]:my-1">
                 {thinking.text}
               </ReasoningContent>
             </Reasoning>
           ))
         ) : full ? (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <BrainIcon aria-hidden="true" className="size-3.5" />
-            Thinking was not returned for this step.
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+              <BrainIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              Thinking was not returned for this step.
+            </p>
+            {headerAction}
+          </div>
         ) : null}
 
         {iteration.nextThoughts.map((thought, index) => (
@@ -271,7 +310,7 @@ function IterationDetail({
 }
 
 function compactToolSummary(summary: string): string | undefined {
-  if (/^(?:Completed successfully|Running now|Waiting to start)\.?$/iu.test(summary)) {
+  if (/^(?:Completed(?: successfully)?|Succeeded|Running(?: now)?|Waiting to start)\.?$/iu.test(summary)) {
     return undefined;
   }
   return summary;

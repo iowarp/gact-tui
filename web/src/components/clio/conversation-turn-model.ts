@@ -117,7 +117,7 @@ function fromAuthoritative(iteration: AgentIteration, index: number): Conversati
       ? [
           {
             id: `${iteration.id}:thinking`,
-            label: 'Agent reasoning',
+            label: 'Thinking',
             text: readableThinking(iteration.thinking),
             streaming: false,
           },
@@ -128,7 +128,12 @@ function fromAuthoritative(iteration: AgentIteration, index: number): Conversati
     terminal: iteration.terminal,
     interrupted: false,
     streaming: iteration.tool?.state === 'running',
-    summary: iterationSummary(nextThoughts, tool, iteration.terminal, iteration.summary),
+    summary: authoritativeIterationSummary(
+      iteration.summary,
+      nextThoughts,
+      tool,
+      iteration.terminal,
+    ),
   };
 }
 
@@ -401,6 +406,16 @@ function iterationSummary(
   if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
   if (tool) return `${tool.title ?? humanize(tool.name)} requested`;
   return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
+}
+
+function authoritativeIterationSummary(
+  eventSummary: string | undefined,
+  nextThoughts: readonly string[],
+  tool: ToolInvocation | undefined,
+  terminal: boolean,
+): string {
+  if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
+  return iterationSummary(nextThoughts, tool, terminal);
 }
 
 function isResponseContractRepair(value: string): boolean {

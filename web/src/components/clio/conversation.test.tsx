@@ -256,9 +256,6 @@ describe('ClioConversation recovery actions', () => {
 
     fireEvent.click(dispatch, { shiftKey: true });
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open in canvas' }));
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
 
   it('keeps the sourced tool outcome readable inside a compact activity chain', () => {
@@ -299,11 +296,11 @@ describe('ClioConversation recovery actions', () => {
       'aria-expanded',
       'true',
     );
-    expect(
-      screen.getByRole('button', {
-        name: /Read evidence file.*Read evidence\.json\..*Completed/,
-      }),
-    ).toBeInTheDocument();
+    const activity = screen.getByRole('button', {
+      name: /Read evidence file.*Read evidence\.json\./,
+    });
+    expect(activity).toBeInTheDocument();
+    expect(activity).not.toHaveAccessibleName(/Completed/);
     expect(
       screen.getByRole('button', { name: 'Show full activity for this turn' }),
     ).toBeInTheDocument();
@@ -344,7 +341,7 @@ describe('ClioConversation recovery actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
 
-    expect(screen.getByText('Full agent activity')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Use chain view for this turn' }));
     expect(
       screen.getByRole('button', { name: 'Show full activity for this turn' }),
@@ -387,6 +384,11 @@ describe('ClioConversation recovery actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show full activity for this turn' }));
 
+    expect(screen.queryByText(/complete provider reasoning captured/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand 1 additional captured model call' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
     expect(screen.getByText(/complete provider reasoning captured/)).toBeInTheDocument();
     expect(screen.getByText(/Prompt: Inspect the complete campaign evidence/)).toBeInTheDocument();
     expect(

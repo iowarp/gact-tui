@@ -104,6 +104,74 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['surface', 'answer']);
   });
 
+  it('joins provider thinking across a child-agent transcript boundary', () => {
+    const message: Message = {
+      id: 'assistant_child',
+      session_id: 'session_1',
+      run_id: 'turn_child',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'thinking_spawn',
+          type: 'reasoning',
+          text: 'Resolve the place before searching stations.',
+          source: 'provider',
+        },
+        {
+          id: 'next_spawn',
+          type: 'text',
+          text: 'I will start the geospatial specialist.',
+          channel: 'next_thought',
+        },
+        { id: 'child', type: 'subagent', subagent_id: 'task_geo' },
+        {
+          id: 'thinking_wait',
+          type: 'reasoning',
+          text: 'Wait for the grounded result.',
+          source: 'provider',
+        },
+        {
+          id: 'next_wait',
+          type: 'text',
+          text: 'The geospatial specialist is still working.',
+          channel: 'next_thought',
+        },
+        { id: 'wait', type: 'tool', tool_id: 'call_read' },
+      ],
+    };
+    const iterations: AgentIteration[] = [
+      {
+        id: 'step_spawn',
+        session_id: 'session_1',
+        turn_id: 'turn_child',
+        agent_id: 'main',
+        step_index: 0,
+        next_thought: 'I will start the geospatial specialist.',
+        terminal: false,
+        tool: { id: 'spawn', name: 'spawn_agent_task', state: 'succeeded' },
+      },
+      {
+        id: 'step_wait',
+        session_id: 'session_1',
+        turn_id: 'turn_child',
+        agent_id: 'main',
+        step_index: 1,
+        next_thought: 'The geospatial specialist is still working.',
+        terminal: false,
+        tool: { id: 'wait', name: 'fs_read_file', state: 'succeeded' },
+      },
+    ];
+
+    const view = conversationTurnPresentation(message, iterations, tools);
+
+    expect(view.iterations[0]?.thinking[0]?.text).toBe(
+      'Resolve the place before searching stations.',
+    );
+    expect(view.iterations[1]?.thinking[0]?.text).toBe('Wait for the grounded result.');
+    expect(view.residualBlocks.map((block) => block.id)).toEqual(['child']);
+  });
+
   it('does not invent a completed iteration from partial live provider blocks', () => {
     const message: Message = {
       id: 'assistant_live',
@@ -140,6 +208,36 @@ describe('conversationTurnPresentation', () => {
       label: 'Thinking',
       streaming: false,
     });
+  });
+
+  it('uses CLIOs explicit iteration summary instead of truncating the agent response', () => {
+    const message: Message = {
+      id: 'assistant_summary',
+      session_id: 'session_1',
+      run_id: 'turn_summary',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [],
+    };
+    const iterations: AgentIteration[] = [
+      {
+        id: 'step_summary',
+        session_id: 'session_1',
+        turn_id: 'turn_summary',
+        agent_id: 'main',
+        step_index: 0,
+        thinking: 'Compare the grounded observations before acting.',
+        next_thought:
+          'The first sentence is a detailed narration that should remain available only inside the expanded step.',
+        summary: 'Comparing grounded observations',
+        terminal: false,
+      },
+    ];
+
+    const view = conversationTurnPresentation(message, iterations, tools);
+
+    expect(view.iterations[0]?.summary).toBe('Comparing grounded observations');
+    expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
   });
 
   it('marks a cancelled partial response as interrupted instead of final', () => {
