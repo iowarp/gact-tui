@@ -175,14 +175,12 @@ function policySummary(policy: PermissionPolicy): string {
   const allTools = isWildcardPattern(policy.tool_name_pattern);
   const allPaths = isWildcardPattern(policy.path_pattern);
   const subject = allTools ? 'All tool actions' : `Tool pattern ${policy.tool_name_pattern}`;
-  return allPaths ? `${subject} in all permitted locations` : `${subject} limited to ${policy.path_pattern}`;
+  return allPaths
+    ? `${subject} in all permitted locations`
+    : `${subject} limited to ${policy.path_pattern}`;
 }
 
-export function PermissionPoliciesPanel({
-  initialWorkspaceId,
-}: {
-  initialWorkspaceId?: string;
-}) {
+export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -273,9 +271,12 @@ export function PermissionPoliciesPanel({
       <FramePanel className="grid gap-2 p-2">
         {policies.data?.map((policy, index) => {
           const kind = inferredKind(policy);
-          const scopeName = policy.scope_id
+          const scopeWorkspace = policy.scope_id
             ? workspaces.data?.find((workspace) => workspace.id === policy.scope_id)
-                ?.display_name || policy.scope_id
+            : undefined;
+          const missingScopeId = policy.scope_id && !scopeWorkspace ? policy.scope_id : undefined;
+          const scopeName = policy.scope_id
+            ? scopeWorkspace?.display_name || 'Unregistered workspace'
             : `Any ${policy.scope}`;
           return (
             <div
@@ -303,7 +304,17 @@ export function PermissionPoliciesPanel({
                     }
                   />
                   <Badge variant="outline">{kindLabels[kind]}</Badge>
-                  <Badge variant="outline">{scopeName}</Badge>
+                  <Badge
+                    aria-label={
+                      missingScopeId
+                        ? `Unregistered workspace. Identifier ${missingScopeId}`
+                        : undefined
+                    }
+                    title={missingScopeId}
+                    variant="outline"
+                  >
+                    {scopeName}
+                  </Badge>
                   {policy.priority !== undefined ? (
                     <Badge variant="outline">Priority {policy.priority}</Badge>
                   ) : null}

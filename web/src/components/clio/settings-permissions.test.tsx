@@ -84,6 +84,19 @@ describe('permission policy settings', () => {
     expect(screen.queryByText('*, *')).not.toBeInTheDocument();
   });
 
+  it('keeps an unregistered workspace identifier out of the primary rule label', async () => {
+    repository.policies.mockResolvedValue([
+      { ...policies[0], scope_id: 'ws_removed', host_pattern: '*.example.test' },
+    ]);
+    renderPanel(<PermissionPoliciesPanel />);
+
+    expect(await screen.findByText('Unregistered workspace')).toBeVisible();
+    expect(screen.queryByText('ws_removed')).not.toBeInTheDocument();
+    expect(screen.getByTitle('ws_removed')).toHaveAccessibleName(
+      'Unregistered workspace. Identifier ws_removed',
+    );
+  });
+
   it('adds a scoped rule by atomically replacing the complete policy set', async () => {
     const user = userEvent.setup();
     renderPanel(<PermissionPoliciesPanel initialWorkspaceId="ws_science" />);

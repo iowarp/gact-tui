@@ -1366,3 +1366,14 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   filtering and profiling, dataset staging and search, point filtering, and time-series plotting
   with concise action labels. The raw metric key remains available as the interactive row title
   for supplemental inspection.
+
+# Missing workspace references remain understandable
+
+- Old failure: a persistent permission rule scoped to a workspace that was later unregistered
+  displayed the raw `ws_...` identifier as its primary badge. The technical value did not explain
+  that the workspace was gone or what the user should infer from the rule.
+- New representation: unresolved rule scopes are labeled `Unregistered workspace`. The exact
+  identifier remains supplemental title and accessible-description metadata for diagnosis; it is
+  no longer the ordinary product label.
+- Acceptance evidence: the live Permissions page replaced the stale workspace identifier without
+  changing the rule, its priority, its authorization decision, or the atomic rule-set editor.
