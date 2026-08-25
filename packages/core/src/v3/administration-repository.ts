@@ -141,7 +141,10 @@ const serviceHealthSchema = z.object({
         .transform((value) => value ?? undefined),
     }),
   ),
-  tool_hooks_installed: z.boolean().default(false),
+  tool_hooks_installed: z
+    .boolean()
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 const runtimeMetricsSchema = z.object({
   uptime_s: z.number().int().nonnegative(),

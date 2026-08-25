@@ -581,7 +581,7 @@ export interface ServiceHealth {
   uptime_s: number;
   overall_status: string;
   integrations: ServiceIntegrationHealth[];
-  tool_hooks_installed: boolean;
+  tool_hooks_installed?: boolean;
 }
 
 export interface RuntimeMetrics {

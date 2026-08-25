@@ -78,7 +78,14 @@ export function InfrastructurePage() {
           <Alert className="mt-6" variant="destructive">
             <NetworkIcon aria-hidden="true" />
             <AlertTitle>Some infrastructure details are unavailable</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
+            <AlertDescription>
+              The connected service returned details this workspace could not read. The remaining
+              live infrastructure is still shown below.
+              <details className="mt-2 text-xs">
+                <summary className="cursor-pointer">Technical details</summary>
+                <p className="mt-1 break-words font-mono">{error.message}</p>
+              </details>
+            </AlertDescription>
           </Alert>
         ) : null}
 
@@ -302,9 +309,7 @@ function OverviewCard({
               className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5"
             />
           </div>
-          <p className="mt-1 line-clamp-3 text-sm leading-5 text-muted-foreground">
-            {description}
-          </p>
+          <p className="mt-1 line-clamp-3 text-sm leading-5 text-muted-foreground">{description}</p>
         </Link>
       </FramePanel>
     </Frame>

@@ -44,7 +44,7 @@ describe('ClioRepository interaction contracts', () => {
         uptime_s: 12,
         overall_status: 'ready',
         integrations: [{ name: 'api', status: 'ready' }],
-        tool_hooks_installed: true,
+        tool_hooks_installed: null,
       },
       {
         uptime_s: 12,
@@ -69,7 +69,9 @@ describe('ClioRepository interaction contracts', () => {
     ]);
     expect((await repository.hooks()).backend).toBe('declarative');
     expect((await repository.memoryStatistics()).cache.hits).toBe(2);
-    expect((await repository.serviceHealth()).integrations[0]?.status).toBe('ready');
+    const serviceHealth = await repository.serviceHealth();
+    expect(serviceHealth.integrations[0]?.status).toBe('ready');
+    expect(serviceHealth.tool_hooks_installed).toBeUndefined();
     expect((await repository.runtimeMetrics()).tokens.cache_read_total).toBe(0);
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([

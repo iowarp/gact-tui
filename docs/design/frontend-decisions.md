@@ -1338,3 +1338,18 @@ compaction`. Exact recorded status and source remain supplemental title metadata
 - Acceptance evidence: the live Homelab connection menu changed from a two-line destructive action
   to one readable line without moving its icon trigger or obscuring the remembered endpoint. The
   same width contract now covers agents, marketplaces, expert packs, and tool providers.
+
+# Unknown infrastructure fields do not invalidate known service health
+
+- Old failure: the agent health wire used `null` for an unobserved tool-hook flag, while the client
+  accepted only a boolean. That one supplemental field rejected the complete health snapshot,
+  replaced every foundation with a generic warning, and printed raw schema JSON in the product.
+- New representation: the domain models the flag as optional and decodes `null` as unavailable;
+  it never converts unknown to `false`. Other authoritative integrations remain readable. Any
+  future partial decode failure receives plain product copy first, with the technical message in a
+  collapsed detail disclosure.
+- Acceptance evidence: the live Infrastructure page recovered all eleven foundation rows from the
+  same health payload, labeled the agent service `Running with warnings`, and exposed actionable
+  Conversation memory and Background process ownership warnings. Workspace files, command
+  execution, and the newly connected Web search provider remained independently Ready. The raw
+  validation array disappeared.
