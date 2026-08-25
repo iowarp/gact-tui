@@ -23,7 +23,7 @@ import {
   WorkspaceStatusStrip,
   WorkspaceUnavailable,
 } from '@/components/clio/workspace-route-surfaces';
-import { countActiveWork } from '@/components/clio/workspace-route-state';
+import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
 import { useRepository } from '@/hooks/use-repository';
@@ -84,7 +84,7 @@ export function WorkspacePage() {
     enabled: Boolean(sessionId),
   });
   const streamError = useSessionLiveStream({
-    enabled: Boolean(capabilities.data?.gact_versions.includes('0.3') && transcript.isSuccess),
+    enabled: workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId),
     initialCursor: transcript.data?.cursor,
     sessionId,
     workspaceId,
@@ -133,6 +133,7 @@ export function WorkspacePage() {
   const parentSession = session?.parent_session_id
     ? allSessions.data?.find((item) => item.id === session.parent_session_id)
     : undefined;
+  const transcriptError = workspaceRouteState.conversationUnavailableMessage(transcript.error);
   useEffect(() => setContextTargetId(sessionId), [sessionId]);
   const contextTargetSession = resolveContextSession(
     contextTargetId,
@@ -524,7 +525,7 @@ export function WorkspacePage() {
   }
 
   const state: RunState = send.isPending ? 'queued' : (session?.state ?? 'interrupted');
-  const activeWorkCount = countActiveWork(runs, tasks, tools);
+  const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   return (
     <>
       <ClioCommandMenu onOpenResource={revealWorkbench} />
@@ -665,17 +666,17 @@ export function WorkspacePage() {
               <AlertDescription>{streamError}</AlertDescription>
             </Alert>
           ) : null}
-          {transcript.error && messages.length > 0 ? (
+          {transcriptError && messages.length > 0 ? (
             <Alert className="m-3 mb-0" variant="destructive">
               <AlertTriangleIcon aria-hidden="true" />
               <AlertTitle>Conversation unavailable</AlertTitle>
-              <AlertDescription>{transcript.error.message}</AlertDescription>
+              <AlertDescription>{transcriptError}</AlertDescription>
             </Alert>
           ) : null}
           <div className="min-h-0 flex-1">
             <ClioConversation
               artifacts={entities.artifacts}
-              error={transcript.error?.message}
+              error={transcriptError}
               iterations={sessionObservability.iterations.data ?? []}
               loading={transcript.isPending}
               messages={messages}

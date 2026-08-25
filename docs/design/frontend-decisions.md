@@ -1239,3 +1239,18 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   popover reported workspace `0.11.0`, agent service `0.9.1.1`, GACT `0.3`, and A2UI `0.9.1` from
   the restored production service. Focused GACT capability, schema, TypeScript, and React menu
   coverage passed.
+
+# Live transport and saved history fail independently
+
+- Old failure: the focused-session SSE hook was gated on a successful historical transcript
+  snapshot. A persisted ARC storage failure therefore labeled a healthy SSE endpoint `Offline`
+  and suppressed all new frames, even though the service was reachable and streaming.
+- New representation: negotiated GACT 0.3 plus a session identity starts the live stream without
+  waiting for history recovery. The status strip reports the live channel on its own merits while
+  the conversation presents an explicit saved-storage recovery failure. The client does not
+  substitute an empty transcript or hide the backend error.
+- Acceptance evidence: after a production-service restart, `GET /messages` failed with
+  `GetBlob operation failed` while the same session's SSE endpoint returned `200`, `stream.live`,
+  `session.upserted`, and the provider-change frame. The corrected browser rendered `Live`, kept
+  Claude Code/Sonnet selected, and separately explained that saved conversation storage was
+  unavailable. Durable ARC restoration remains a backend failure and is not accepted as green.

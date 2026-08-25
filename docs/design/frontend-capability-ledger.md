@@ -44,18 +44,18 @@ No row becomes accepted because a route, tab, card, or test fixture exists.
 
 ## Conversation and agent work
 
-| Capability                                 | Authoritative surface                                     | Current state             | Remaining acceptance work                                                                 |
-| ------------------------------------------ | --------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------- |
-| Causal message ordering and live streaming | GACT 0.3 transcript/SSE                                   | Implemented, not accepted | Final real high-rate and gap/reconnect evidence.                                          |
-| Reasoning semantics                        | persisted thinking parts and AI Elements chain of thought | Implemented, not accepted | Dense-session validation, redaction, unavailable cases, and final SPOTTER coverage.       |
-| Tool title and visible outcome             | MCP/native declared titles and structured result          | Implemented, not accepted | Add typed result presentations for important scientific tools and dense SPOTTER evidence. |
-| Tool input/output detail                   | authoritative tool parts                                  | Implemented, not accepted | Large outputs, logs, errors, diff/result affordances, keyboard tests.                     |
-| Plans and tasks                            | plan/task parts and session task routes                   | Partial                   | Mutable plan/task operations, provenance, observability linkage.                          |
-| Child agents                               | agent-task events, child session identity, runs           | Implemented, not accepted | Nested/fan-out density, mobile canvas, and final SPOTTER coverage.                        |
-| Approvals and user questions               | permissions/question routes                               | Implemented, not accepted | Real allow/deny/session/workspace and reconnect cases.                                    |
-| Cancellation, interruption, retry          | session/run/attempt routes                                | Implemented, not accepted | Real live cancellation and interruption acceptance.                                       |
-| Attachments, mentions, voice               | capability negotiation and upload/catalog routes          | Partial                   | Honest capability gating; real upload/mention flow where available.                       |
-| Composer routing/model/effort/edit modes   | provider/model/session contracts                          | Implemented, not accepted | Provider/model and all behavior-axis failure/reconnect evidence.                          |
+| Capability                                 | Authoritative surface                                     | Current state             | Remaining acceptance work                                                                              |
+| ------------------------------------------ | --------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Causal message ordering and live streaming | GACT 0.3 transcript/SSE                                   | Implemented, not accepted | Durable ARC restore after restart is currently failing; high-rate and gap/reconnect acceptance remain. |
+| Reasoning semantics                        | persisted thinking parts and AI Elements chain of thought | Implemented, not accepted | Dense-session validation, redaction, unavailable cases, and final SPOTTER coverage.                    |
+| Tool title and visible outcome             | MCP/native declared titles and structured result          | Implemented, not accepted | Add typed result presentations for important scientific tools and dense SPOTTER evidence.              |
+| Tool input/output detail                   | authoritative tool parts                                  | Implemented, not accepted | Large outputs, logs, errors, diff/result affordances, keyboard tests.                                  |
+| Plans and tasks                            | plan/task parts and session task routes                   | Partial                   | Mutable plan/task operations, provenance, observability linkage.                                       |
+| Child agents                               | agent-task events, child session identity, runs           | Implemented, not accepted | Nested/fan-out density, mobile canvas, and final SPOTTER coverage.                                     |
+| Approvals and user questions               | permissions/question routes                               | Implemented, not accepted | Real allow/deny/session/workspace and reconnect cases.                                                 |
+| Cancellation, interruption, retry          | session/run/attempt routes                                | Implemented, not accepted | Real live cancellation and interruption acceptance.                                                    |
+| Attachments, mentions, voice               | capability negotiation and upload/catalog routes          | Partial                   | Honest capability gating; real upload/mention flow where available.                                    |
+| Composer routing/model/effort/edit modes   | provider/model/session contracts                          | Implemented, not accepted | Provider/model and all behavior-axis failure/reconnect evidence.                                       |
 
 ## Files, artifacts, blueprints, and documents
 
