@@ -1525,3 +1525,18 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: in the live NDP A2UI workspace, selecting Base Agent changed the visible
   canvas tabs from Observability + Blueprints to Observability + Base Agent. Reopening the catalog
   and Shift-clicking Cluster Operator retained Blueprints and added its detail tab.
+
+# CSV diagnostics remain subordinate to the data
+
+- Old failure: bounded browser-preview parse diagnostics appeared as a large alert before the
+  table and concatenated several malformed-row messages into one paragraph. The warning displaced
+  the usable rows and did not explain whether it came from the service, the source file, or the
+  local preview parser.
+- New representation: the shared ReUI data grid remains the primary surface. Any bounded-preview
+  diagnostics follow its pagination as a compact multiline parse log, with one reported row per
+  line. A keyboard- and hover-accessible information control explains that the browser generated
+  the diagnostics locally and that successfully parsed rows remain visible and unchanged.
+- Acceptance evidence: the live EarthScope `earthscope_converted_data.csv` canvas renders its
+  1,000-row preview and pagination before three separate parse-log entries. Hovering the log's
+  information control identifies the bounded browser preview as the source and explicitly states
+  that it neither modifies the source file nor hides successfully parsed rows.
