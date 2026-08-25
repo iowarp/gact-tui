@@ -34,6 +34,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionContext } from '@/hooks/use-session-context';
 import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
+import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
@@ -55,16 +56,7 @@ export function WorkspacePage() {
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
-  const [contextTargetSelection, setContextTargetSelection] = useState({
-    sessionId,
-    targetId: sessionId,
-  });
-  const contextTargetId =
-    contextTargetSelection.sessionId === sessionId ? contextTargetSelection.targetId : sessionId;
-  const setContextTargetId = useCallback(
-    (targetId: string) => setContextTargetSelection({ sessionId, targetId }),
-    [sessionId],
-  );
+  const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
