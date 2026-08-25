@@ -1540,3 +1540,16 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   1,000-row preview and pagination before three separate parse-log entries. Hovering the log's
   information control identifies the bounded browser preview as the source and explicitly states
   that it neither modifies the source file nor hides successfully parsed rows.
+
+# Narrow navigation preserves separate action slots
+
+- Old failure: the mobile navigation sheet used a viewport-relative width while its service
+  switcher still occupied the entire header row. At narrow widths the sheet close control was
+  absolutely positioned over that switcher, merging two actions into one visual and pointer area.
+- New representation: the existing shadcn Sheet remains the responsive navigation primitive, but
+  its width is capped by both the product navigation width and the available viewport. The service
+  row reserves a dedicated trailing slot for the Sheet close action, while Search and Create retain
+  their own adjacent hit targets below it.
+- Acceptance evidence: live 280px, 320px, and 375px browser checkpoints keep the drawer inside the
+  viewport. At 280px the service switcher ends eight pixels before Close, and Search ends four
+  pixels before Create; the controls remain visibly distinct and individually actionable.

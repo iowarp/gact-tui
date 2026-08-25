@@ -179,7 +179,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
+          className="max-w-none bg-sidebar p-0 text-sidebar-foreground data-[side=left]:w-[min(var(--sidebar-width),calc(100vw-1rem))] data-[side=right]:w-[min(var(--sidebar-width),calc(100vw-1rem))]"
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,

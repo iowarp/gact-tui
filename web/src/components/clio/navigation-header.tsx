@@ -54,7 +54,7 @@ export function NavigationHeader({
 
   return (
     <SidebarHeader className="gap-2 border-b border-sidebar-border/70 p-2">
-      <SidebarMenu>
+      <SidebarMenu className="in-data-[mobile=true]:pr-10">
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
