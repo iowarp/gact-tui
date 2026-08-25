@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { ArtifactView, BlueprintFileView } from './resource-viewers';
+import { ArtifactView, BlueprintFileEditor } from './resource-viewers';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
@@ -431,7 +431,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   pending={diffActionPending}
                 />
               ) : tab.kind === 'blueprint-file' ? (
-                <BlueprintFileView
+                <BlueprintFileEditor
                   blueprintId={tab.blueprintId}
                   path={tab.path}
                   sessionId={tab.sessionId}
@@ -455,17 +455,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ) : tab.kind === 'blueprint' ? (
                 <BlueprintView
                   blueprint={tab.blueprint}
-                  onOpenFile={(path) =>
-                    openTab({
-                      id: `blueprint-file:${tab.blueprint.id}:${path}`,
-                      kind: 'blueprint-file',
-                      label: fileName(path),
-                      path,
-                      blueprintId: tab.blueprint.id,
-                      sessionId: tab.sessionId,
-                      workspaceId: tab.workspaceId,
-                    })
-                  }
                   sessionId={tab.sessionId}
                   workspaceId={tab.workspaceId}
                 />

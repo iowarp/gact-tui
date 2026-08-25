@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,7 +37,7 @@ import { cn } from '@/lib/utils';
 import { visibleWorkspaceFiles } from '@/lib/workspace-files';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
-import { WorkspaceFileView } from './resource-viewers';
+import { BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
 
 export type CanvasResourceKind = 'session' | 'files' | 'artifacts' | 'blueprints';
@@ -290,65 +289,106 @@ interface BlueprintViewProps {
   blueprint: AgentBlueprint;
   workspaceId: string;
   sessionId: string;
-  onOpenFile: (path: string) => void;
 }
 
 /** Renders an installed blueprint and its real server-owned files in the canvas. */
-export function BlueprintView({
-  blueprint,
-  workspaceId,
-  sessionId,
-  onOpenFile,
-}: BlueprintViewProps) {
+export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
   const repository = useRepository();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string>();
   const files = useQuery({
     queryKey: ['blueprint-files', blueprint.id, workspaceId, sessionId],
     queryFn: ({ signal }) =>
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
   });
   const tree = useMemo(() => buildFileTree(files.data ?? []), [files.data]);
+  useEffect(() => {
+    const entries = files.data ?? [];
+    if (selectedPath && entries.some((entry) => entry.path === selectedPath)) return;
+    const initial =
+      entries.find((entry) => entry.type === 'file' && entry.path.toLowerCase() === 'agent.md') ??
+      entries.find((entry) => entry.type === 'file');
+    setSelectedPath(initial?.path);
+  }, [files.data, selectedPath]);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const update = () => setStacked(host.clientWidth < 480);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <ScrollArea className="h-full p-3">
-      <Frame spacing="sm" variant="ghost">
-        <FrameHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <FrameTitle>{blueprint.display_name}</FrameTitle>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {blueprint.description || 'No description provided.'}
-              </p>
+    <div className="h-full min-h-0" ref={hostRef}>
+      <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
+        <ResizablePanel
+          defaultSize={stacked ? '38%' : '34%'}
+          id={`blueprint-${blueprint.id}-tree`}
+          minSize={stacked ? '150px' : '210px'}
+        >
+          <section aria-label={`${blueprint.display_name} files`} className="flex h-full flex-col">
+            <div className="shrink-0 border-b p-3">
+              <div className="flex items-start gap-2">
+                <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    {blueprint.version ? (
+                      <Badge variant="outline">Version {blueprint.version}</Badge>
+                    ) : null}
+                    <Badge variant="outline">{blueprint.scope}</Badge>
+                  </div>
+                </div>
+              </div>
             </div>
-            <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
-          </div>
-        </FrameHeader>
-        <FramePanel>
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Badge variant="outline">Version {blueprint.version || 'Unavailable'}</Badge>
-            <Badge variant="outline">{blueprint.scope}</Badge>
-          </div>
-          {blueprint.validation_errors.length ? (
-            <ul className="mb-4 grid gap-1 text-xs text-destructive">
-              {blueprint.validation_errors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
-          ) : null}
-          {files.isPending ? (
-            <LoadingRows label="Loading blueprint files" />
-          ) : files.data?.length ? (
-            <FileTree onSelect={onOpenFile}>
-              <FileNodes nodes={tree} />
-            </FileTree>
-          ) : (
-            <Unavailable
-              detail={files.error?.message}
-              icon={FolderIcon}
-              label={files.error ? 'Blueprint files unavailable' : 'Blueprint has no visible files'}
+            <ScrollArea className="min-h-0 flex-1 p-2">
+              {files.isPending ? (
+                <LoadingRows label="Loading blueprint files" />
+              ) : files.data?.length ? (
+                <FileTree
+                  className="rounded-none border-0 bg-transparent"
+                  onSelect={setSelectedPath}
+                  selectedPath={selectedPath}
+                >
+                  <FileNodes nodes={tree} />
+                </FileTree>
+              ) : (
+                <Unavailable
+                  detail={files.error?.message}
+                  icon={FolderIcon}
+                  label={
+                    files.error ? 'Blueprint files unavailable' : 'Blueprint has no visible files'
+                  }
+                />
+              )}
+            </ScrollArea>
+          </section>
+        </ResizablePanel>
+        <ResizableHandle aria-label="Resize blueprint file tree" withHandle />
+        <ResizablePanel minSize={stacked ? '220px' : '320px'}>
+          {selectedPath ? (
+            <BlueprintFileEditor
+              blueprintId={blueprint.id}
+              path={selectedPath}
+              sessionId={sessionId}
+              workspaceId={workspaceId}
             />
+          ) : (
+            <div className="grid h-full place-items-center p-4">
+              <Unavailable
+                detail="Choose a blueprint file to inspect and edit it here."
+                icon={FileTextIcon}
+                label="Select a blueprint file"
+              />
+            </div>
           )}
-        </FramePanel>
-      </Frame>
-    </ScrollArea>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }
 

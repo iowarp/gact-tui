@@ -169,4 +169,47 @@ export class BlueprintRepository extends SessionObservabilityRepository {
       signal,
     });
   }
+
+  public writeAgentBlueprintFile(
+    blueprintId: string,
+    path: string,
+    content: string,
+    options: { workspaceId?: string; sessionId?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<{
+    entry: WorkspaceFileEntry;
+    validation_errors: string[];
+    validation_warnings: string[];
+  }> {
+    const query = new URLSearchParams({ path });
+    if (options.workspaceId) query.set('workspace_id', options.workspaceId);
+    if (options.sessionId) query.set('session_id', options.sessionId);
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/files/write?${query.toString()}`,
+      body: { content },
+      decode: (value) => {
+        const parsed = z
+          .object({
+            entry: z.object({
+              path: z.string(),
+              type: z.enum(['file', 'dir']),
+              size: z.number().int().nonnegative().optional(),
+              modified: z.string().optional(),
+            }),
+            validation: z.object({
+              validation_errors: z.array(z.string()).default([]),
+              validation_warnings: z.array(z.string()).default([]),
+            }),
+          })
+          .parse(value);
+        return {
+          entry: parsed.entry as WorkspaceFileEntry,
+          validation_errors: parsed.validation.validation_errors,
+          validation_warnings: parsed.validation.validation_warnings,
+        };
+      },
+      signal,
+    });
+  }
 }

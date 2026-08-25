@@ -1,5 +1,15 @@
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import AceEditor from 'react-ace';
+import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/mode-markdown';
+import 'ace-builds/src-noconflict/mode-python';
+import 'ace-builds/src-noconflict/mode-sh';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/mode-toml';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-one_dark';
 import type { BundledLanguage } from 'shiki';
 import {
   BoxIcon,
@@ -8,10 +18,13 @@ import {
   LocateFixedIcon,
   Maximize2Icon,
   Minimize2Icon,
+  SaveIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -28,6 +41,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -95,7 +109,8 @@ function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: 
   );
 }
 
-export function BlueprintFileView({
+/** Edits one server-owned blueprint source file with a real code editor and explicit save. */
+export function BlueprintFileEditor({
   blueprintId,
   workspaceId,
   sessionId,
@@ -107,12 +122,129 @@ export function BlueprintFileView({
   path: string;
 }) {
   const repository = useRepository();
+  const queryClient = useQueryClient();
+  const { resolvedTheme } = useTheme();
+  const queryKey = ['blueprint-file', blueprintId, workspaceId, sessionId, path] as const;
   const content = useQuery({
-    queryKey: ['blueprint-file', blueprintId, workspaceId, sessionId, path],
+    queryKey,
     queryFn: ({ signal }) =>
       repository.readAgentBlueprintFile(blueprintId, path, { workspaceId, sessionId }, signal),
   });
-  return <TextResourceView content={content.data} error={content.error?.message} path={path} />;
+  const [draft, setDraft] = useState('');
+  const [baseline, setBaseline] = useState('');
+  const [loadedPath, setLoadedPath] = useState('');
+  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
+    errors: [],
+    warnings: [],
+  });
+  const dirty = draft !== baseline;
+
+  useEffect(() => {
+    if (content.data === undefined) return;
+    if (loadedPath !== path || !dirty) {
+      setDraft(content.data);
+      setBaseline(content.data);
+      setLoadedPath(path);
+    }
+  }, [content.data, dirty, loadedPath, path]);
+
+  const save = useMutation({
+    mutationFn: (next: string) =>
+      repository.writeAgentBlueprintFile(blueprintId, path, next, { workspaceId, sessionId }),
+    onSuccess: async (result, next) => {
+      queryClient.setQueryData(queryKey, next);
+      setBaseline(next);
+      setValidation({
+        errors: result.validation_errors,
+        warnings: result.validation_warnings,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['blueprint-files', blueprintId, workspaceId, sessionId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['agent-blueprints'] }),
+      ]);
+      toast.success(`Saved ${fileName(path)}`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  if (content.error)
+    return (
+      <div className="p-4">
+        <ResourceUnavailable detail={content.error.message} label="Blueprint source unavailable" />
+      </div>
+    );
+  if (content.data === undefined)
+    return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
+
+  return (
+    <section aria-label={`Edit ${path}`} className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+        <FileCode2Icon aria-hidden="true" className="size-4 text-primary" />
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">{path}</span>
+        {dirty ? (
+          <Badge variant="secondary">Unsaved</Badge>
+        ) : (
+          <Badge variant="outline">Saved</Badge>
+        )}
+      </div>
+      <div className="min-h-0 flex-1">
+        <AceEditor
+          aria-label={`Blueprint source ${path}`}
+          editorProps={{ $blockScrolling: true }}
+          fontSize={13}
+          height="100%"
+          mode={aceModeForPath(path)}
+          name={`blueprint-editor-${blueprintId}-${path}`}
+          onChange={setDraft}
+          setOptions={{
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: false,
+            highlightActiveLine: true,
+            showFoldWidgets: true,
+            showPrintMargin: false,
+            tabSize: 2,
+            useSoftTabs: true,
+            useWorker: false,
+          }}
+          theme={resolvedTheme === 'light' ? 'github' : 'one_dark'}
+          value={draft}
+          width="100%"
+        />
+      </div>
+      <div className="flex min-h-14 shrink-0 items-center gap-3 border-t px-3 py-2">
+        <div aria-live="polite" className="min-w-0 flex-1 text-xs">
+          {save.error ? <p className="text-destructive">{save.error.message}</p> : null}
+          {validation.errors.length ? (
+            <p className="truncate text-destructive">
+              Saved with {validation.errors.length} validation issue
+              {validation.errors.length === 1 ? '' : 's'}
+            </p>
+          ) : validation.warnings.length ? (
+            <p className="truncate text-amber-500">
+              Saved with {validation.warnings.length} warning
+              {validation.warnings.length === 1 ? '' : 's'}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">
+              {dirty
+                ? 'Review the source, then save it to the connected service.'
+                : 'Source is saved.'}
+            </p>
+          )}
+        </div>
+        <Button
+          className="h-10 min-w-28 px-5"
+          disabled={!dirty || save.isPending}
+          onClick={() => save.mutate(draft)}
+        >
+          <SaveIcon aria-hidden="true" />
+          {save.isPending ? 'Saving' : 'Save'}
+        </Button>
+      </div>
+    </section>
+  );
 }
 
 export function ArtifactView({
@@ -401,6 +533,22 @@ function fileName(path: string): string {
       .split(/[\\/]+/)
       .filter(Boolean)
       .at(-1) ?? path
+  );
+}
+
+function aceModeForPath(path: string): string {
+  const extension = path.split('.').at(-1)?.toLowerCase();
+  return (
+    {
+      json: 'json',
+      md: 'markdown',
+      markdown: 'markdown',
+      py: 'python',
+      sh: 'sh',
+      toml: 'toml',
+      yaml: 'yaml',
+      yml: 'yaml',
+    }[extension ?? ''] ?? 'text'
   );
 }
 

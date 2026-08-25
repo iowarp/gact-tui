@@ -328,6 +328,34 @@ describe('ClioRepository interaction contracts', () => {
     ]);
   });
 
+  it('persists an explicit blueprint source edit in its resolved scope', async () => {
+    const transport = new RecordingTransport([
+      {
+        entry: { path: 'experts/operator.md', type: 'file', size: 22 },
+        validation: { validation_errors: [], validation_warnings: ['Review tool access'] },
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(
+      repository.writeAgentBlueprintFile(
+        'operator pack',
+        'experts/operator.md',
+        '# Cluster operator',
+        { workspaceId: 'workspace 1', sessionId: 'session 1' },
+      ),
+    ).resolves.toEqual({
+      entry: { path: 'experts/operator.md', type: 'file', size: 22 },
+      validation_errors: [],
+      validation_warnings: ['Review tool access'],
+    });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'PUT',
+      path: '/v1/agent-blueprints/operator%20pack/files/write?path=experts%2Foperator.md&workspace_id=workspace+1&session_id=session+1',
+      body: { content: '# Cluster operator' },
+    });
+  });
+
   it('uses authoritative branching and history mutation routes', async () => {
     const forked = {
       id: 'sess_fork',
