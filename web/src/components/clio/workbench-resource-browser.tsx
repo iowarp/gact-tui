@@ -71,7 +71,10 @@ interface BlueprintBrowserProps {
   blueprints: readonly AgentBlueprint[];
   blueprintsPending?: boolean;
   blueprintsError?: string;
-  onOpenBlueprint: (blueprint: AgentBlueprint) => void;
+  onOpenBlueprint: (
+    blueprint: AgentBlueprint,
+    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) => void;
 }
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
@@ -330,7 +333,7 @@ export function ArtifactBrowser({
   );
 }
 
-/** Browses installed blueprints and opens each blueprint as a peer canvas tab. */
+/** Browses installed blueprints using replace-by-default canvas navigation. */
 export function BlueprintBrowser({
   blueprints,
   blueprintsPending,
@@ -345,7 +348,12 @@ export function BlueprintBrowser({
           <ClioInteractiveRow
             className="cursor-pointer"
             key={blueprint.id}
-            onClick={() => onOpenBlueprint(blueprint)}
+            onClick={(event) => onOpenBlueprint(blueprint, event)}
+            onKeyDown={(event) => {
+              if (!event.shiftKey || (event.key !== 'Enter' && event.key !== ' ')) return;
+              event.preventDefault();
+              onOpenBlueprint(blueprint, event);
+            }}
             role="button"
             tabIndex={0}
           >

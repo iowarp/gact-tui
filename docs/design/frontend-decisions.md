@@ -1513,3 +1513,15 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: the live EarthScope A2UI transcript suspended both completed scientific
   surfaces at the final answer. Returning to the recorded analysis step remounted the nearby map,
   retained its place in the causal transcript, and left the farther time-series surface deferred.
+
+# Blueprint selection replaces its catalog by default
+
+- Old failure: selecting an installed blueprint always appended a second canvas tab, leaving both
+  the Blueprint catalog and its detail view in the strip even when the catalog had finished its job.
+  Repeated inspection accumulated navigation chrome instead of advancing one browsing task.
+- New representation: an ordinary blueprint selection replaces the catalog tab in place and keeps
+  unrelated peers such as Observability untouched. Shift-click or Shift+Enter/Space deliberately
+  preserves the catalog and opens the blueprint as another durable tab for comparison.
+- Acceptance evidence: in the live NDP A2UI workspace, selecting Base Agent changed the visible
+  canvas tabs from Observability + Blueprints to Observability + Base Agent. Reopening the catalog
+  and Shift-clicking Cluster Operator retained Blueprints and added its detail tab.

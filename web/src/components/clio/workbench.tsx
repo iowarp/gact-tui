@@ -402,16 +402,18 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   blueprints={blueprints}
                   blueprintsError={blueprintsError}
                   blueprintsPending={blueprintsPending}
-                  onOpenBlueprint={(blueprint) =>
-                    openTab({
+                  onOpenBlueprint={(blueprint, event) => {
+                    const blueprintTab: WorkbenchTab = {
                       id: `blueprint:${blueprint.id}`,
                       kind: 'blueprint',
                       label: blueprint.display_name,
                       blueprint,
                       sessionId,
                       workspaceId,
-                    })
-                  }
+                    };
+                    if (event.shiftKey) openTab(blueprintTab);
+                    else replaceTab(tab.id, blueprintTab);
+                  }}
                 />
               ) : tab.kind === 'workspace-file' ? (
                 <FileBrowser
