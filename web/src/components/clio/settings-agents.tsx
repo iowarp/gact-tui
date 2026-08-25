@@ -174,7 +174,7 @@ function AgentRow({
                 <MoreHorizontalIcon aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="min-w-48">
               <DropdownMenuItem onSelect={onEdit}>Edit agent</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onDelete} variant="destructive">

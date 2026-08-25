@@ -1326,3 +1326,15 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   returned two EarthScope/GNSS results, and preserved the provider's structured engine evidence.
   Focused Python, core repository, and React interaction coverage passed; provider restart
   persistence and native credential storage remain open.
+
+# Settings action menus size to their actions
+
+- Old failure: icon-triggered settings menus inherited the trigger's compact width. Longer actions
+  such as `Forget on this device` and `Check for update` wrapped into two lines even when ample
+  viewport space was available, making ordinary actions look like cramped explanatory copy.
+- New representation: settings action menus keep their sourced Radix dropdown behavior and use a
+  consistent minimum width sized for their longest ordinary action. Destructive, disabled, hover,
+  focus, and keyboard semantics remain unchanged.
+- Acceptance evidence: the live Homelab connection menu changed from a two-line destructive action
+  to one readable line without moving its icon trigger or obscuring the remembered endpoint. The
+  same width contract now covers agents, marketplaces, expert packs, and tool providers.

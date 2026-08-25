@@ -227,7 +227,7 @@ function ConnectionsSettings() {
                       <MoreHorizontalIcon aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="min-w-52">
                     <DropdownMenuItem
                       disabled={active || connectionSwitch.isPending}
                       onSelect={() => connectionSwitch.mutate(connection)}
