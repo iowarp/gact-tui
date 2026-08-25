@@ -28,9 +28,7 @@ import {
 import { m } from 'motion/react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import {
-  lazy,
   memo,
-  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -69,6 +67,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
+import { ClioA2UISurface } from './a2ui-surface';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence } from './conversation-process-sequence';
@@ -79,14 +78,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import type { SubagentOpenTarget } from './subagent-card';
 
-const ClioA2UISurface = lazy(() =>
-  import('./a2ui-surface').then((module) => ({ default: module.ClioA2UISurface })),
-);
 const VIRTUALIZATION_THRESHOLD = 80;
-
-function A2UISurfaceFallback() {
-  return <ClioStatus label="Loading interactive surface" value="running" />;
-}
 
 function DeferredA2UISurface({
   onLocalAction,
@@ -95,11 +87,7 @@ function DeferredA2UISurface({
   onLocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
   surface: A2UISurface;
 }) {
-  return (
-    <Suspense fallback={<A2UISurfaceFallback />}>
-      <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />
-    </Suspense>
-  );
+  return <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />;
 }
 
 export interface ClioConversationProps {
