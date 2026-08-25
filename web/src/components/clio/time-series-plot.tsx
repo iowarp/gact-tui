@@ -1,4 +1,11 @@
-import { ChartNoAxesCombinedIcon, RotateCcwIcon } from 'lucide-react';
+import {
+  ChartNoAxesCombinedIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  RotateCcwIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import {
@@ -10,8 +17,6 @@ import {
 } from '@/components/reui/frame';
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -45,18 +50,38 @@ function concise(value: number): string {
   return Number(value.toPrecision(4)).toString();
 }
 
+function isEpochMilliseconds(values: number[]): boolean {
+  return (
+    values.length > 0 &&
+    values.every((value) => value >= 100_000_000_000 && value < 10_000_000_000_000)
+  );
+}
+
+function formatUtcTimestamp(value: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(value));
+}
+
 export function ClioTimeSeriesPlot({
   rows,
   xKey,
   yKeys,
   title,
+  sourceRows,
 }: {
   rows: PlotRow[];
   xKey: string;
   yKeys: string[];
   title?: string;
+  sourceRows?: number;
 }) {
   const [selectedRange, setSelectedRange] = useState<[number, number]>();
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(() => new Set());
   const visibleRows = rows.slice(0, MAX_VISIBLE_ROWS).map((row) => ({
     ...row,
     ...Object.fromEntries(yKeys.map((key) => [key, numeric(row[key])])),
@@ -82,11 +107,49 @@ export function ClioTimeSeriesPlot({
     ]),
   ) satisfies ChartConfig;
   const numericX = visibleRows.every((row) => numeric(row[xKey]) !== undefined);
+  const numericXValues = numericX
+    ? visibleRows
+        .map((row) => numeric(row[xKey]))
+        .filter((value): value is number => value !== undefined)
+    : [];
+  const temporalX = isEpochMilliseconds(numericXValues);
   const chartTitle = title || 'Time series';
   const maximumIndex = visibleRows.length - 1;
   const rangeStart = Math.min(selectedRange?.[0] ?? 0, maximumIndex);
   const rangeEnd = Math.max(rangeStart, Math.min(selectedRange?.[1] ?? maximumIndex, maximumIndex));
   const displayedRows = visibleRows.slice(rangeStart, rangeEnd + 1);
+  const sourceCount = Math.max(sourceRows ?? rows.length, rows.length);
+
+  function setWindow(start: number, end: number): void {
+    const width = Math.max(1, Math.min(end - start, maximumIndex));
+    const boundedStart = Math.max(0, Math.min(start, maximumIndex - width));
+    setSelectedRange([boundedStart, boundedStart + width]);
+  }
+
+  function zoom(factor: number): void {
+    const width = rangeEnd - rangeStart;
+    const nextWidth = Math.max(5, Math.min(maximumIndex, Math.round(width * factor)));
+    const center = (rangeStart + rangeEnd) / 2;
+    setWindow(Math.round(center - nextWidth / 2), Math.round(center + nextWidth / 2));
+  }
+
+  function pan(direction: -1 | 1): void {
+    const width = rangeEnd - rangeStart;
+    const distance = Math.max(1, Math.round(width * 0.25)) * direction;
+    setWindow(rangeStart + distance, rangeEnd + distance);
+  }
+
+  function toggleSeries(key: string): void {
+    setHiddenSeries((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else if (yKeys.length - next.size > 1) {
+        next.add(key);
+      }
+      return next;
+    });
+  }
 
   return (
     <Frame dense spacing="sm">
@@ -95,9 +158,11 @@ export function ClioTimeSeriesPlot({
         <div className="min-w-0">
           <FrameTitle>{chartTitle}</FrameTitle>
           <FrameDescription>
-            {selectedRange
-              ? `${displayedRows.length.toLocaleString()} of ${visibleRows.length.toLocaleString()} observations visible`
-              : `${visibleRows.length.toLocaleString()} observations`}
+            {sourceCount > visibleRows.length
+              ? `${visibleRows.length.toLocaleString()} evenly sampled rows from ${sourceCount.toLocaleString()} total`
+              : selectedRange
+                ? `${displayedRows.length.toLocaleString()} of ${visibleRows.length.toLocaleString()} rows visible`
+                : `${visibleRows.length.toLocaleString()} rows`}
           </FrameDescription>
         </div>
       </FrameHeader>
@@ -117,7 +182,11 @@ export function ClioTimeSeriesPlot({
               <XAxis
                 axisLine={false}
                 dataKey={xKey}
+                domain={numericX ? ['dataMin', 'dataMax'] : undefined}
                 minTickGap={28}
+                tickFormatter={(value: number | string) =>
+                  temporalX && typeof value === 'number' ? formatUtcTimestamp(value) : String(value)
+                }
                 tickLine={false}
                 type={numericX ? 'number' : 'category'}
               />
@@ -127,8 +196,19 @@ export function ClioTimeSeriesPlot({
                 tickLine={false}
                 width={54}
               />
-              <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-              <ChartLegend content={<ChartLegendContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    indicator="line"
+                    labelFormatter={(value) => {
+                      const numericValue = numeric(value as PlotValue);
+                      return temporalX && numericValue !== undefined
+                        ? `${formatUtcTimestamp(numericValue)} UTC`
+                        : String(value);
+                    }}
+                  />
+                }
+              />
               {yKeys.map((key, index) => (
                 <Line
                   activeDot={{ r: 4 }}
@@ -139,10 +219,33 @@ export function ClioTimeSeriesPlot({
                   stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
                   type="linear"
+                  hide={hiddenSeries.has(key)}
                 />
               ))}
             </LineChart>
           </ChartContainer>
+        </div>
+        <div aria-label="Visible series" className="mt-2 flex flex-wrap gap-1.5" role="group">
+          {yKeys.map((key, index) => {
+            const hidden = hiddenSeries.has(key);
+            return (
+              <Button
+                aria-pressed={!hidden}
+                className="h-7 gap-1.5 px-2"
+                key={key}
+                onClick={() => toggleSeries(key)}
+                size="xs"
+                variant={hidden ? 'ghost' : 'secondary'}
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                {key.replaceAll('_', ' ')}
+              </Button>
+            );
+          })}
         </div>
         {visibleRows.length > 20 ? (
           <div className="mt-3 grid gap-2 border-t pt-3">
@@ -150,14 +253,57 @@ export function ClioTimeSeriesPlot({
               <span className="text-muted-foreground">
                 Visible rows {rangeStart + 1}–{rangeEnd + 1}
               </span>
-              <Button
-                disabled={!selectedRange}
-                onClick={() => setSelectedRange(undefined)}
-                size="xs"
-                variant="ghost"
-              >
-                <RotateCcwIcon aria-hidden="true" /> Reset window
-              </Button>
+              <div aria-label="Chart navigation" className="flex items-center gap-0.5" role="group">
+                <Button
+                  aria-label="Pan chart left"
+                  disabled={!selectedRange || rangeStart === 0}
+                  onClick={() => pan(-1)}
+                  size="icon-xs"
+                  title="Pan left"
+                  variant="ghost"
+                >
+                  <ChevronLeftIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  aria-label="Pan chart right"
+                  disabled={!selectedRange || rangeEnd === maximumIndex}
+                  onClick={() => pan(1)}
+                  size="icon-xs"
+                  title="Pan right"
+                  variant="ghost"
+                >
+                  <ChevronRightIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  aria-label="Zoom chart in"
+                  onClick={() => zoom(0.5)}
+                  size="icon-xs"
+                  title="Zoom in"
+                  variant="ghost"
+                >
+                  <ZoomInIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  aria-label="Zoom chart out"
+                  disabled={!selectedRange}
+                  onClick={() => zoom(2)}
+                  size="icon-xs"
+                  title="Zoom out"
+                  variant="ghost"
+                >
+                  <ZoomOutIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  aria-label="Reset chart window"
+                  disabled={!selectedRange}
+                  onClick={() => setSelectedRange(undefined)}
+                  size="icon-xs"
+                  title="Reset window"
+                  variant="ghost"
+                >
+                  <RotateCcwIcon aria-hidden="true" />
+                </Button>
+              </div>
             </div>
             <Slider
               aria-label="Visible observation window"
@@ -173,7 +319,7 @@ export function ClioTimeSeriesPlot({
       {rows.length > visibleRows.length ? (
         <p className="px-3 pb-2 text-xs text-muted-foreground">
           Showing the first {visibleRows.length.toLocaleString()} of {rows.length.toLocaleString()}{' '}
-          observations.
+          rows.
         </p>
       ) : null}
     </Frame>

@@ -60,9 +60,9 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { ProviderRepository } from './provider-repository.js';
+import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
 
-export class ClioRepository extends ProviderRepository {
+export class ClioRepository extends ArtifactPreviewRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

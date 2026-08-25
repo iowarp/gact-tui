@@ -29,9 +29,9 @@ describe('ClioTimeSeriesPlot', () => {
       />,
     );
 
-    expect(screen.getByText('30 observations')).toBeVisible();
+    expect(screen.getByText('30 rows')).toBeVisible();
     expect(screen.getByText('Visible rows 1–30')).toBeVisible();
     expect(screen.getAllByRole('slider')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'Reset window' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reset chart window' })).toBeDisabled();
   });
 });

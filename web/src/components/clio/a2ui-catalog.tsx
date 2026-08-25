@@ -51,7 +51,7 @@ import { ClioArtifactCatalogComponent } from './a2ui-artifact';
 import { ClioMapCatalogComponent } from './a2ui-map';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from './status';
-import { ClioTimeSeriesPlot, type PlotRow } from './time-series-plot';
+import { ClioTimeSeriesCatalogComponent } from './a2ui-time-series';
 
 export const CLIO_A2UI_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
@@ -301,32 +301,6 @@ const DataTable = createComponentImplementation(
       columns={props.columns as ClioDataColumn[]}
       onRowClick={props.action ? () => void props.action?.() : undefined}
       rows={props.rows as ClioDataRow[]}
-    />
-  ),
-);
-
-const plotValue = z.union([z.string(), z.number(), z.null()]);
-
-const TimeSeries = createComponentImplementation(
-  {
-    name: 'clio.time-series.v1',
-    schema: z
-      .object({
-        series: z.array(z.record(plotValue)).max(10_000),
-        xKey: z.string(),
-        yKeys: z.array(z.string()).min(1).max(5),
-        title: CommonSchemas.DynamicString.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <ClioTimeSeriesPlot
-      rows={props.series as PlotRow[]}
-      title={props.title}
-      xKey={props.xKey}
-      yKeys={props.yKeys}
     />
   ),
 );
@@ -637,7 +611,7 @@ const components: ReactComponentImplementation[] = [
   ClioProgress,
   Callout,
   DataTable,
-  TimeSeries,
+  ClioTimeSeriesCatalogComponent,
   Mermaid,
   ClioMapCatalogComponent,
   Workflow,
