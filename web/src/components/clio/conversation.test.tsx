@@ -295,6 +295,10 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
+    expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(
       screen.getByRole('button', {
         name: /Read evidence file.*Read evidence\.json\..*Completed/,

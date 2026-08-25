@@ -72,7 +72,7 @@ export function ConversationTurn({
   }
 
   return (
-    <ChainOfThought className="mb-4 space-y-2">
+    <ChainOfThought className="mb-4 space-y-2" defaultOpen>
       <div className="flex min-w-0 items-center gap-2">
         <ChainOfThoughtHeader className="min-h-8 min-w-0 flex-1">Activity</ChainOfThoughtHeader>
         <Button
