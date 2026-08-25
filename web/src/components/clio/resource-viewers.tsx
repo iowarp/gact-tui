@@ -382,26 +382,36 @@ function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
+  if (isCsvPath(path) || isJsonPath(path)) {
+    return (
+      <ScrollArea className="h-full p-3">
+        {isCsvPath(path) ? (
+          <ClioCsvView content={content ?? ''} title={fileName(path)} />
+        ) : (
+          <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
+        )}
+      </ScrollArea>
+    );
+  }
   return (
-    <ScrollArea className="h-full p-3">
-      {isCsvPath(path) ? (
-        <ClioCsvView content={content ?? ''} title={fileName(path)} />
-      ) : isJsonPath(path) ? (
-        <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
-      ) : (
-        <CodeBlock code={content ?? ''} language={languageForPath(path)} showLineNumbers>
-          <CodeBlockHeader>
-            <CodeBlockTitle>
-              <FileCode2Icon aria-hidden="true" className="size-4" />
-              <CodeBlockFilename>{path}</CodeBlockFilename>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        </CodeBlock>
-      )}
-    </ScrollArea>
+    <div className="h-full min-w-0 p-3">
+      <CodeBlock
+        className="h-full min-w-0"
+        code={content ?? ''}
+        language={languageForPath(path)}
+        showLineNumbers
+      >
+        <CodeBlockHeader>
+          <CodeBlockTitle>
+            <FileCode2Icon aria-hidden="true" className="size-4 shrink-0" />
+            <CodeBlockFilename>{path}</CodeBlockFilename>
+          </CodeBlockTitle>
+          <CodeBlockActions>
+            <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
+          </CodeBlockActions>
+        </CodeBlockHeader>
+      </CodeBlock>
+    </div>
   );
 }
 

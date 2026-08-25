@@ -516,13 +516,19 @@ function sortedNodes(nodes: Map<string, WorkspaceFileNode>): WorkspaceFileNode[]
 }
 
 function FileNodes({ nodes }: { nodes: readonly WorkspaceFileNode[] }) {
+  const alignFilesWithFolders = nodes.some((node) => node.entry.type === 'dir');
   return nodes.map((node) =>
     node.entry.type === 'dir' ? (
       <FileTreeFolder key={node.entry.path} name={node.name} path={node.entry.path}>
         <FileNodes nodes={sortedNodes(node.children)} />
       </FileTreeFolder>
     ) : (
-      <FileTreeFile key={node.entry.path} name={node.name} path={node.entry.path} />
+      <FileTreeFile
+        alignWithFolders={alignFilesWithFolders}
+        key={node.entry.path}
+        name={node.name}
+        path={node.entry.path}
+      />
     ),
   );
 }

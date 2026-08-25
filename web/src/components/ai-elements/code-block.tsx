@@ -262,7 +262,7 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-sm',
+          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-max min-w-full p-4 text-sm',
           className,
         )}
         style={preStyle}
@@ -296,7 +296,7 @@ export const CodeBlockContainer = ({
 }: HTMLAttributes<HTMLDivElement> & { language: string }) => (
   <div
     className={cn(
-      'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+      'group relative flex min-w-0 flex-col overflow-hidden rounded-md border bg-background text-foreground',
       className,
     )}
     data-language={language}
@@ -330,7 +330,7 @@ export const CodeBlockTitle = ({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex items-center gap-2', className)} {...props}>
+  <div className={cn('flex min-w-0 items-center gap-2', className)} {...props}>
     {children}
   </div>
 );
@@ -340,7 +340,7 @@ export const CodeBlockFilename = ({
   className,
   ...props
 }: HTMLAttributes<HTMLSpanElement>) => (
-  <span className={cn('font-mono', className)} {...props}>
+  <span className={cn('min-w-0 truncate font-mono', className)} {...props}>
     {children}
   </span>
 );
@@ -400,7 +400,7 @@ export const CodeBlockContent = ({
   const tokenized = asyncTokens ?? syncTokens;
 
   return (
-    <div className="relative overflow-auto">
+    <div className="relative min-h-0 flex-1 overflow-auto" data-slot="code-block-scroll">
       <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
     </div>
   );

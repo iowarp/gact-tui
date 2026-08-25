@@ -251,8 +251,15 @@ describe('ClioWorkbench canvas', () => {
 
     expect(screen.getByRole('tree')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Expand folder reports' }));
-    expect(screen.getByRole('treeitem', { name: 'summary.md' })).toBeVisible();
+    const fileRow = screen.getByRole('treeitem', { name: 'summary.md' });
+    expect(fileRow).toBeVisible();
+    expect(fileRow).toHaveClass('min-w-0', 'w-full');
     expect(await screen.findByText('# workspace report')).toBeVisible();
+    expect(document.querySelector('[data-slot="code-block-scroll"]')).toHaveClass(
+      'min-h-0',
+      'flex-1',
+      'overflow-auto',
+    );
     expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
       'workspace_1',
       'reports/summary.md',

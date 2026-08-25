@@ -66,11 +66,11 @@ export const FileTree = ({
   return (
     <FileTreeContext.Provider value={contextValue}>
       <div
-        className={cn('rounded-lg border bg-background font-mono text-sm', className)}
+        className={cn('min-w-0 rounded-lg border bg-background font-mono text-sm', className)}
         role="tree"
         {...props}
       >
-        <div className="p-2">{children}</div>
+        <div className="min-w-0 p-1">{children}</div>
       </div>
     </FileTreeContext.Provider>
   );
@@ -87,7 +87,7 @@ export const FileTreeIcon = ({ className, children, ...props }: FileTreeIconProp
 export type FileTreeNameProps = HTMLAttributes<HTMLSpanElement>;
 
 export const FileTreeName = ({ className, children, ...props }: FileTreeNameProps) => (
-  <span className={cn('truncate', className)} {...props}>
+  <span className={cn('min-w-0 flex-1 truncate', className)} {...props}>
     {children}
   </span>
 );
@@ -132,7 +132,7 @@ export const FileTreeFolder = ({
           <CollapsibleTrigger asChild>
             <button
               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} folder ${name}`}
-              className="flex w-full cursor-pointer items-center gap-1 rounded border-none bg-transparent px-2 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              className="flex w-full min-w-0 cursor-pointer items-center gap-1 rounded border-none bg-transparent px-1.5 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               type="button"
             >
               <ChevronRightIcon
@@ -174,12 +174,14 @@ export type FileTreeFileProps = HTMLAttributes<HTMLDivElement> & {
   path: string;
   name: string;
   icon?: ReactNode;
+  alignWithFolders?: boolean;
 };
 
 export const FileTreeFile = ({
   path,
   name,
   icon,
+  alignWithFolders = true,
   className,
   children,
   ...props
@@ -206,7 +208,7 @@ export const FileTreeFile = ({
     <FileTreeFileContext.Provider value={fileContextValue}>
       <div
         className={cn(
-          'flex cursor-pointer items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-muted/50',
+          'flex w-full min-w-0 cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors hover:bg-muted/50',
           isSelected && 'bg-muted',
           className,
         )}
@@ -218,8 +220,7 @@ export const FileTreeFile = ({
       >
         {children ?? (
           <>
-            {/* Spacer for alignment */}
-            <span className="size-4 shrink-0" />
+            {alignWithFolders ? <span aria-hidden="true" className="size-4 shrink-0" /> : null}
             <FileTreeIcon>
               {icon ?? <FileIcon className="size-4 text-muted-foreground" />}
             </FileTreeIcon>
