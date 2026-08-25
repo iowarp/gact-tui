@@ -317,6 +317,7 @@ function ProcessLaneRow({
           const content = (
             <span
               aria-label={`${span.label}, ${span.status}`}
+              data-execution-span-id={span.id}
               data-execution-action={interactive ? '' : undefined}
               className={cn(
                 'absolute inset-y-1 flex min-w-1 items-center overflow-hidden rounded-md border border-[color:var(--process-color)]/70 bg-[color:var(--process-color)]/20 px-1.5 text-left text-[10px] font-medium text-foreground shadow-sm outline-none',

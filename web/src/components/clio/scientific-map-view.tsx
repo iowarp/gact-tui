@@ -105,6 +105,7 @@ export function ClioScientificMapView({ points, selectedId, onSelect }: Scientif
       {selected ? (
         <Popup
           anchor="top"
+          className="clio-scientific-map-popup"
           closeButton={false}
           closeOnClick={false}
           latitude={selected.latitude}

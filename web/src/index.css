@@ -261,6 +261,30 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+.clio-scientific-map-popup .maplibregl-popup-content {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+}
+
+.clio-scientific-map-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: var(--popover);
+}
+
+.clio-scientific-map-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--popover);
+}
+
+.clio-scientific-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--popover);
+}
+
+.clio-scientific-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--popover);
+}
+
 @keyframes process-beam {
   from {
     transform: translateX(-150%);

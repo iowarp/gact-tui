@@ -530,6 +530,14 @@ describe('ClioRepository interaction contracts', () => {
             updated_at: '2026-08-22T00:01:00Z',
             server_id: 'relay-ares',
           },
+          {
+            kind: 'agent',
+            id: 'task_interrupted',
+            title: 'Interrupted child',
+            live_state: 'failed',
+            status: 'failed',
+            result: null,
+          },
         ],
       },
     ]);
@@ -555,6 +563,11 @@ describe('ClioRepository interaction contracts', () => {
       title: 'Run analysis on Ares',
       live_state: 'running',
       metadata: { server_id: 'relay-ares' },
+    });
+    expect(processes[1]).toMatchObject({
+      id: 'task_interrupted',
+      live_state: 'failed',
+      result: undefined,
     });
   });
 
