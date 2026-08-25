@@ -51,7 +51,8 @@ export function ClioDataTable({
       }),
     [columnDefinitions],
   );
-  const table = useTable({ columns, data: [...rows], features: dataGridFeatures });
+  const data = useMemo(() => [...rows], [rows]);
+  const table = useTable({ columns, data, features: dataGridFeatures });
 
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>
@@ -68,7 +69,14 @@ export function ClioDataTable({
             {label}, {rows.length.toLocaleString()} rows
           </ReUIBadge>
         </div>
-        <DataGridTable />
+        <div
+          aria-label={`${label} columns`}
+          className="max-w-full overflow-x-auto overscroll-x-contain"
+          role="region"
+          tabIndex={0}
+        >
+          <DataGridTable />
+        </div>
         {rows.length > 10 ? (
           <div className="border-t px-3">
             <DataGridPagination sizes={[10, 25, 50, 100]} />
