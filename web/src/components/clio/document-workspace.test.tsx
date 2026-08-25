@@ -78,6 +78,11 @@ describe('ClioDocumentWorkspace', () => {
       await screen.findByText('Bounded claim from the source.', undefined, { timeout: 5_000 }),
     ).toBeVisible();
     expect(screen.getByText(/Version 3, aaaaaaaaaaaa/)).toBeVisible();
+    expect(screen.getByRole('tablist', { name: 'Document details' })).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Document safety' }));
+    expect(screen.getByText('Immutable document boundary')).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: 'Read document' }));
     const claim = screen.getByText('Bounded claim from the source.');
     const range = document.createRange();
     range.selectNodeContents(claim);

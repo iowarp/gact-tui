@@ -1253,4 +1253,55 @@ compaction`. Exact recorded status and source remain supplemental title metadata
   `GetBlob operation failed` while the same session's SSE endpoint returned `200`, `stream.live`,
   `session.upserted`, and the provider-change frame. The corrected browser rendered `Live`, kept
   Claude Code/Sonnet selected, and separately explained that saved conversation storage was
-  unavailable. Durable ARC restoration remains a backend failure and is not accepted as green.
+  unavailable. Root-cause inspection then found that the disposable demo service's original
+  explicit LocalFS ARC configuration had been omitted from the manual crash restart: the session's
+  ARC segments and JSON transcript were present and current on disk, while the accidental default
+  CTE attachment could not read those records. Restarting only port 8790 with
+  `CLIO_ARC_STORE=local` restored the same session to a 233 KB authoritative message response;
+  the red history error disappeared while the independent live stream remained healthy. This was
+  restoration of the selected backend, not a silent fallback or an empty-history substitution.
+
+# Observability navigation yields space to evidence
+
+- Old failure: the Gantt, Timeline, Evidence, and Context tabs wrapped into a two-row header in a
+  narrow right canvas. The chooser displaced the evidence it controlled and repeated the broad
+  horizontal treatment even when only a compact secondary navigation surface was available.
+- New representation: Observability keeps the selected view as the canvas and moves the four
+  peer destinations into a fixed 48 px icon rail on the far right. Every destination retains its
+  tooltip, accessible name, selection state, and keyboard behavior; widening the canvas changes
+  the content density, not the navigation contract.
+- Acceptance evidence: a hard-reloaded live NDP session rendered the complete Gantt beside the
+  right rail with one icon each for Gantt, Timeline, Evidence, and Context. The earlier two-row
+  browser comment was confirmed as a pre-HMR surface rather than retained behavior.
+
+# Document controls do not repeat artifact navigation
+
+- Old failure: a document artifact first exposed the correct artifact-level Preview, Versions, and
+  Lineage tabs, then placed a second full-width Preview, Reviews, and Safety tab row beneath a
+  repeated document identity card. The nested navigation spent scarce canvas height restating the
+  active preview even though review and safety are document details, not peer artifact histories.
+- New representation: the sourced shadcn Tabs contract still owns all three document modes, but
+  presents them as one compact icon group in the document identity bar. Read, Reviews, and Safety
+  retain visible selection, delayed tooltips, accessible names, keyboard operation, and complete
+  panels. The artifact-level Preview, Versions, and Lineage navigation is unchanged.
+- Acceptance evidence: the live NDP report exposed exactly one full-width artifact navigation row
+  plus three compact document-detail controls. Reviews opened the complete empty-review state,
+  Safety opened the complete immutable-boundary policy, and Read restored the rendered Markdown.
+  The same controls remained aligned while the canvas expanded from the narrow split view to the
+  full browser width.
+
+# Workspace registration defines the file and artifact boundary
+
+- Old failure: the NDP session and artifacts referenced `D:\\clio-workspace\\ndp-demo`, but the
+  registered workspace still pointed at the clio-agent source repository. The file explorer
+  therefore listed unrelated source files, and artifact recovery correctly refused to read the
+  report as `path_outside_workspace`.
+- New representation: the authoritative GACT workspace registration names the demo `NDP Demo` and
+  uses `D:\\clio-workspace\\ndp-demo` as its primary source folder. Artifact fallback remains
+  bounded to an exact matching file inside that registered root; the client does not weaken the
+  custody check or special-case the demo path.
+- Acceptance evidence: the live workspace endpoint returned the corrected display name and primary
+  source folder. A maximized Files canvas then listed the seven NDP outputs, including both reports,
+  two PNGs, and three CSVs. Opening `LA_GNSS_report.md` rendered its actual Markdown through the
+  two-pane file explorer, and the same file restored the historical artifact preview without a
+  saved-content warning.

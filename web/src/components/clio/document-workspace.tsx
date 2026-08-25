@@ -7,6 +7,7 @@ import type {
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  BookOpenIcon,
   CircleAlertIcon,
   FileCheck2Icon,
   FileOutputIcon,
@@ -47,6 +48,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { openDocumentWorkingCopy } from '@/tauri/documents';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
@@ -202,106 +204,120 @@ export function ClioDocumentWorkspace({
 
   return (
     <section aria-label="Document workspace" className="grid min-w-0 gap-3 overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
-        <div className="mr-auto min-w-0">
-          <p className="text-sm font-medium">{profileLabel(effectiveManifest)}</p>
-          <p className="truncate font-mono text-[10px] text-muted-foreground">
-            {effectiveManifest
-              ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
-              : manifest.error
-                ? 'Preview only; review and editing unavailable.'
-                : 'Checking document capabilities…'}
-          </p>
-        </div>
-        {selection ? (
-          <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
-            <MessageSquareTextIcon aria-hidden="true" /> Review selection
-          </Button>
-        ) : null}
-        {manifest.data?.native_open ? (
-          <Button
-            disabled={createWorkingCopy.isPending}
-            onClick={() => createWorkingCopy.mutate('native')}
-            size="sm"
-            variant="outline"
-          >
-            Open in desktop app
-          </Button>
-        ) : null}
-        {manifest.data?.embedded_editors.map((provider) => (
-          <Button
-            disabled={createWorkingCopy.isPending}
-            key={provider}
-            onClick={() => createWorkingCopy.mutate(provider)}
-            size="sm"
-            variant="outline"
-          >
-            Edit in {editorLabel(provider)}
-          </Button>
-        ))}
-        {manifest.data?.rendition_formats.includes('pdf') &&
-        !directProfiles.has(manifest.data.profile) ? (
-          <Button
-            disabled={rendition.isPending}
-            onClick={() => rendition.mutate()}
-            size="sm"
-            variant="outline"
-          >
-            <FileOutputIcon aria-hidden="true" />
-            {rendition.isPending ? 'Rendering…' : 'Render PDF preview'}
-          </Button>
-        ) : null}
-        <Button
-          aria-label="Refresh document revision"
-          onClick={() => {
-            setOverrideManifest(undefined);
-            void Promise.all([manifest.refetch(), reviews.refetch()]);
-          }}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <RefreshCwIcon aria-hidden="true" />
-        </Button>
-      </div>
-      {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
-      {manifest.error ? (
-        <Alert>
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Preview only</AlertTitle>
-          <AlertDescription>
-            <p>
-              This saved result remains readable, but comments, revision history, and editing are
-              unavailable because its original registered revision could not be loaded.
+      <Tabs className="grid min-w-0 gap-3 overflow-hidden" defaultValue="preview">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+          <div className="mr-auto min-w-0">
+            <p className="text-sm font-medium">{profileLabel(effectiveManifest)}</p>
+            <p className="truncate font-mono text-[10px] text-muted-foreground">
+              {effectiveManifest
+                ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
+                : manifest.error
+                  ? 'Preview only; review and editing unavailable.'
+                  : 'Checking document capabilities…'}
             </p>
-            <details className="mt-2 text-xs">
-              <summary className="cursor-pointer font-medium">Technical details</summary>
-              <code className="mt-1 block break-all">{manifest.error.message}</code>
-            </details>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {createWorkingCopy.error || rendition.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Document action failed</AlertTitle>
-          <AlertDescription>
-            {(createWorkingCopy.error ?? rendition.error)?.message}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <WorkingCopyStatus
-        closePending={closeWorkingCopy.isPending}
-        copy={workingCopy}
-        onClose={() => closeWorkingCopy.mutate()}
-        onResolve={(resolution) => resolveConflict.mutate(resolution)}
-        resolvePending={resolveConflict.isPending}
-      />
-      <Tabs className="min-w-0" defaultValue="preview">
-        <TabsList className="grid w-full min-w-0 grid-cols-3">
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews {reviews.data?.length || ''}</TabsTrigger>
-          <TabsTrigger value="policy">Safety</TabsTrigger>
-        </TabsList>
-        <TabsContent className="min-w-0 overflow-hidden pt-3" value="preview">
+          </div>
+          <TooltipProvider delayDuration={240}>
+            <TabsList aria-label="Document details" className="h-8 shrink-0" variant="default">
+              <DocumentDetailTab
+                icon={<BookOpenIcon aria-hidden="true" />}
+                label="Read document"
+                value="preview"
+              />
+              <DocumentDetailTab
+                icon={<MessageSquareTextIcon aria-hidden="true" />}
+                label={`Reviews${reviews.data?.length ? `, ${reviews.data.length}` : ''}`}
+                value="reviews"
+              />
+              <DocumentDetailTab
+                icon={<ShieldCheckIcon aria-hidden="true" />}
+                label="Document safety"
+                value="policy"
+              />
+            </TabsList>
+          </TooltipProvider>
+          {selection ? (
+            <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
+              <MessageSquareTextIcon aria-hidden="true" /> Review selection
+            </Button>
+          ) : null}
+          {manifest.data?.native_open ? (
+            <Button
+              disabled={createWorkingCopy.isPending}
+              onClick={() => createWorkingCopy.mutate('native')}
+              size="sm"
+              variant="outline"
+            >
+              Open in desktop app
+            </Button>
+          ) : null}
+          {manifest.data?.embedded_editors.map((provider) => (
+            <Button
+              disabled={createWorkingCopy.isPending}
+              key={provider}
+              onClick={() => createWorkingCopy.mutate(provider)}
+              size="sm"
+              variant="outline"
+            >
+              Edit in {editorLabel(provider)}
+            </Button>
+          ))}
+          {manifest.data?.rendition_formats.includes('pdf') &&
+          !directProfiles.has(manifest.data.profile) ? (
+            <Button
+              disabled={rendition.isPending}
+              onClick={() => rendition.mutate()}
+              size="sm"
+              variant="outline"
+            >
+              <FileOutputIcon aria-hidden="true" />
+              {rendition.isPending ? 'Rendering…' : 'Render PDF preview'}
+            </Button>
+          ) : null}
+          <Button
+            aria-label="Refresh document revision"
+            onClick={() => {
+              setOverrideManifest(undefined);
+              void Promise.all([manifest.refetch(), reviews.refetch()]);
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <RefreshCwIcon aria-hidden="true" />
+          </Button>
+        </div>
+        {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
+        {manifest.error ? (
+          <Alert>
+            <CircleAlertIcon aria-hidden="true" />
+            <AlertTitle>Preview only</AlertTitle>
+            <AlertDescription>
+              <p>
+                This saved result remains readable, but comments, revision history, and editing are
+                unavailable because its original registered revision could not be loaded.
+              </p>
+              <details className="mt-2 text-xs">
+                <summary className="cursor-pointer font-medium">Technical details</summary>
+                <code className="mt-1 block break-all">{manifest.error.message}</code>
+              </details>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {createWorkingCopy.error || rendition.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Document action failed</AlertTitle>
+            <AlertDescription>
+              {(createWorkingCopy.error ?? rendition.error)?.message}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <WorkingCopyStatus
+          closePending={closeWorkingCopy.isPending}
+          copy={workingCopy}
+          onClose={() => closeWorkingCopy.mutate()}
+          onResolve={(resolution) => resolveConflict.mutate(resolution)}
+          resolvePending={resolveConflict.isPending}
+        />
+        <TabsContent className="m-0 min-w-0 overflow-hidden" value="preview">
           <div
             className="min-w-0 overflow-hidden"
             ref={previewRef}
@@ -317,10 +333,10 @@ export function ClioDocumentWorkspace({
             />
           </div>
         </TabsContent>
-        <TabsContent className="min-w-0 overflow-hidden pt-3" value="reviews">
+        <TabsContent className="m-0 min-w-0 overflow-hidden" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
-        <TabsContent className="min-w-0 overflow-hidden pt-3" value="policy">
+        <TabsContent className="m-0 min-w-0 overflow-hidden" value="policy">
           <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>
@@ -361,6 +377,28 @@ export function ClioDocumentWorkspace({
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function DocumentDetailTab({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TabsTrigger aria-label={label} className="size-7 flex-none p-0" value={value}>
+          {icon}
+          <span className="sr-only">{label}</span>
+        </TabsTrigger>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -26,6 +26,9 @@ This ledger is the authoritative review queue for the current CLIO workspace sli
 - Conversation artifacts use the sourced AI Elements Artifact composition. The artifact surface itself is the open target; remove the unexplained URI-copy action and explicit Open button.
 - Preserve causally distinct artifacts from every producing child or run, even when filenames match. Disambiguate by producer or region. Version grouping belongs in the artifact browser, not causal transcript erasure.
 - Remove repeated artifact identity headers in the canvas.
+- Keep Preview, Versions, and Lineage as the artifact-level navigation. Document-specific read,
+  review, and safety views use one compact accessible control group in the identity bar instead of
+  adding another full-width tab row that repeats Preview.
 - Image artifacts preserve their aspect ratio and provide fit, zoom, pan, reset, and fullscreen controls instead of cropping with `object-cover`.
 - Preview, Versions, and Lineage are proper peer tabs. Keep provenance concise.
 - Lineage renders the relationship graph described in `docs/design/provenance-graph-2026-08.md`, using the retained professional graph stack rather than a linear timeline substitute.
@@ -46,6 +49,7 @@ This ledger is the authoritative review queue for the current CLIO workspace sli
 
 - The composer activity control represents all durable asynchronous work, including child agents, relay work, MCP v2 tasks, applications, and background processes.
 - Show one count, one state, and one open/focus action for Observability. Remove duplicate child counts and duplicate observability buttons.
+- In a narrow canvas, switch the Gantt, Timeline, Evidence, and Context chooser to one compact icon rail on the far right. Do not spend two content rows on a wrapped tab list; labels remain available through tooltips and accessible names.
 - Preserve the current Evidence direction.
 - Replace the current Work and Activity downgrade with the previous timeline-versus-Gantt observability semantics, adapted to the unified canvas.
 
