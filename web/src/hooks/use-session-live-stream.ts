@@ -33,6 +33,9 @@ export function useSessionLiveStream({
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
   const [reconnectEpoch, setReconnectEpoch] = useState(0);
+  const [documentVisible, setDocumentVisible] = useState(
+    () => document.visibilityState === 'visible',
+  );
 
   useEffect(() => {
     let lastReconnectAt = Number.NEGATIVE_INFINITY;
@@ -43,7 +46,9 @@ export function useSessionLiveStream({
       setReconnectEpoch((value) => value + 1);
     };
     const reconnectWhenVisible = () => {
-      if (document.visibilityState === 'visible') reconnect();
+      const visible = document.visibilityState === 'visible';
+      setDocumentVisible(visible);
+      if (visible) reconnect();
     };
     window.addEventListener('online', reconnect);
     document.addEventListener('visibilitychange', reconnectWhenVisible);
@@ -65,7 +70,7 @@ export function useSessionLiveStream({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionId) return;
+    if (!enabled || !sessionId || !documentVisible) return;
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     let reconnectDelay = 250;
@@ -174,6 +179,7 @@ export function useSessionLiveStream({
     };
   }, [
     applyFrames,
+    documentVisible,
     enabled,
     initialCursor,
     queryClient,
