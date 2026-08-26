@@ -27,6 +27,27 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('sends the selected model through the canonical GACT message envelope', async () => {
+    const transport = new RecordingTransport([{ message_id: 'message_1', run_id: 'run_1' }]);
+    const repository = new ClioRepository(transport);
+
+    await repository.sendMessage('sess 1', 'Use Sonnet.', {
+      provider_id: 'claude_code',
+      model_id: 'sonnet',
+      effort: 'high',
+    });
+
+    expect(transport.requests[0]).toMatchObject({
+      method: 'POST',
+      path: '/v1/sessions/sess%201/messages',
+      body: {
+        text: 'Use Sonnet.',
+        model: { provider_id: 'claude_code', model_id: 'sonnet' },
+        metadata: { effort: 'high' },
+      },
+    });
+  });
+
   it('decodes service-owned administrative catalogs and diagnostics', async () => {
     const transport = new RecordingTransport([
       { expert_packs: [] },
@@ -278,6 +299,8 @@ describe('ClioRepository interaction contracts', () => {
         edit_mode: 'patch',
         routing_mode: 'experts',
         approval_mode: 'ai-review',
+        provider_id: 'claude_code',
+        model_id: 'sonnet',
       }),
     ).resolves.toMatchObject(updated);
     expect(transport.requests[0]).toMatchObject({
@@ -288,6 +311,7 @@ describe('ClioRepository interaction contracts', () => {
         edit_mode: 'patch',
         routing_mode: 'experts',
         approval_mode: 'ai-review',
+        model: { provider_id: 'claude_code', model_id: 'sonnet' },
       },
     });
   });

@@ -210,6 +210,8 @@ export class ClioRepository extends ArtifactPreviewRepository {
       edit_mode?: Session['edit_mode'];
       routing_mode?: Session['routing_mode'];
       approval_mode?: Session['approval_mode'];
+      provider_id?: string;
+      model_id?: string;
     },
     signal?: AbortSignal,
   ): Promise<Session> {
@@ -224,6 +226,9 @@ export class ClioRepository extends ArtifactPreviewRepository {
         ...(input.edit_mode === undefined ? {} : { edit_mode: input.edit_mode }),
         ...(input.routing_mode === undefined ? {} : { routing_mode: input.routing_mode }),
         ...(input.approval_mode === undefined ? {} : { approval_mode: input.approval_mode }),
+        ...(input.provider_id || input.model_id
+          ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
+          : {}),
       },
       decode: (value) => sessionSchema.parse(value) as Session,
       signal,
@@ -693,10 +698,28 @@ export class ClioRepository extends ArtifactPreviewRepository {
     options?: { provider_id?: string; model_id?: string; effort?: string; queue?: boolean },
     signal?: AbortSignal,
   ): Promise<{ message_id: string; run_id?: string }> {
+    const model =
+      options?.provider_id || options?.model_id
+        ? {
+            provider_id: options.provider_id ?? '',
+            model_id: options.model_id ?? '',
+          }
+        : undefined;
+    const metadata =
+      options?.effort || options?.queue !== undefined
+        ? {
+            ...(options.effort ? { effort: options.effort } : {}),
+            ...(options.queue !== undefined ? { queue: options.queue } : {}),
+          }
+        : undefined;
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-      body: { text, ...options },
+      body: {
+        text,
+        ...(model ? { model } : {}),
+        ...(metadata ? { metadata } : {}),
+      },
       decode: (value) =>
         z.object({ message_id: z.string(), run_id: z.string().optional() }).parse(value),
       signal,

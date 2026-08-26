@@ -46,6 +46,11 @@ import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useLiveStore } from '@/store/live-store';
+
+function isThinkingLevel(value?: string): value is 'off' | 'low' | 'medium' | 'high' {
+  return value === 'off' || value === 'low' || value === 'medium' || value === 'high';
+}
+
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
   const { settings } = useConnectionSettings();
@@ -245,9 +250,18 @@ export function WorkspacePage() {
   const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
-  const activeProvider = session?.provider_id ?? capabilities.data?.active_model?.provider_id;
-  const activeModel = session?.model_id ?? capabilities.data?.active_model?.model_id;
-  const activeEffort = session?.effort ?? capabilities.data?.active_model?.effort;
+  const activeProvider =
+    session?.provider_id ??
+    modelConfiguration.data?.provider ??
+    capabilities.data?.active_model?.provider_id;
+  const activeModel =
+    session?.model_id ??
+    modelConfiguration.data?.model ??
+    capabilities.data?.active_model?.model_id;
+  const activeEffort =
+    session?.effort ??
+    modelConfiguration.data?.thinking_level ??
+    capabilities.data?.active_model?.effort;
   const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
@@ -313,16 +327,77 @@ export function WorkspacePage() {
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
   const send = useMutation({
-    mutationFn: (value: { text: string; provider?: string; model?: string; effort?: string }) =>
-      repository.sendMessage(sessionId, value.text, {
-        provider_id: value.provider,
-        model_id: value.model,
-        effort: value.effort,
-      }),
+    mutationFn: async (value: {
+      text: string;
+      provider?: string;
+      model?: string;
+      effort?: string;
+    }) => {
+      const selectedPreset = modelConfiguration.data?.presets.find(
+        (preset) => preset.id === value.provider || preset.provider === value.provider,
+      );
+      const provider = selectedPreset?.provider ?? value.provider;
+      const model = value.model;
+      const effort = isThinkingLevel(value.effort) ? value.effort : undefined;
+      const configured = modelConfiguration.data;
+
+      if (
+        provider &&
+        model &&
+        (!configured ||
+          configured.provider !== provider ||
+          configured.model !== model ||
+          (effort !== undefined && configured.thinking_level !== effort))
+      ) {
+        if (!selectedPreset) {
+          throw new Error(`The connected service did not report configuration for ${provider}.`);
+        }
+        if (!selectedPreset.is_authenticated) {
+          throw new Error(
+            selectedPreset.status_message || `${selectedPreset.label} is not connected.`,
+          );
+        }
+        const nextConfiguration = await repository.updateLanguageModelConfiguration({
+          provider: selectedPreset.provider,
+          api_base: selectedPreset.api_base ?? '',
+          model,
+          thinking_level: effort,
+        });
+        queryClient.setQueryData(
+          ['language-model-configuration', settings.endpoint],
+          nextConfiguration,
+        );
+      }
+
+      if (
+        provider &&
+        model &&
+        session &&
+        (session.provider_id !== provider || session.model_id !== model)
+      ) {
+        const updatedSession = await repository.updateSession(sessionId, {
+          provider_id: provider,
+          model_id: model,
+        });
+        queryClient.setQueryData(
+          ['sessions', settings.endpoint, workspaceId],
+          (current: typeof sessions.data) =>
+            current?.map((item) => (item.id === updatedSession.id ? updatedSession : item)),
+        );
+      }
+
+      return repository.sendMessage(sessionId, value.text, {
+        provider_id: provider,
+        model_id: model,
+        effort,
+      });
+    },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['transcript', settings.endpoint, sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, workspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, 'all'] }),
+        queryClient.invalidateQueries({ queryKey: ['capabilities', settings.endpoint] }),
       ]);
     },
   });
