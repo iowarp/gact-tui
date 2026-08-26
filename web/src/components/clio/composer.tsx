@@ -231,7 +231,6 @@ export function ClioComposer({
         />
         <PromptInputFooter className="flex-wrap">
           <PromptInputTools className="min-w-0 flex-1 flex-wrap">
-            {behaviorControl}
             {attachments ? (
               <PromptInputActionAddAttachments aria-label="Attach files">
                 <PaperclipIcon aria-hidden="true" />
@@ -271,6 +270,7 @@ export function ClioComposer({
                 ))}
               </PromptInputSelectContent>
             </PromptInputSelect>
+            {behaviorControl}
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {state === 'running' ? (

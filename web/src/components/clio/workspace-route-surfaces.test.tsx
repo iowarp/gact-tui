@@ -11,6 +11,7 @@ describe('WorkspaceStatusStrip', () => {
     render(<WorkspaceStatusStrip activeWorkCount={0} cursor="checkpoint-1849" stream="live" />);
 
     expect(screen.getByText('No active work')).toBeVisible();
+    expect(screen.getByText('Up to date')).toBeVisible();
     expect(screen.getByText('Tokens: Unavailable')).toBeVisible();
     expect(screen.getByText('Cost: Unavailable')).toBeVisible();
     expect(screen.queryByText(/cursor|checkpoint/u)).not.toBeInTheDocument();

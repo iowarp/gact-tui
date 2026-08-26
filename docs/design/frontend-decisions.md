@@ -1553,3 +1553,17 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
 - Acceptance evidence: live 280px, 320px, and 375px browser checkpoints keep the drawer inside the
   viewport. At 280px the service switcher ends eight pixels before Close, and Search ends four
   pixels before Create; the controls remain visibly distinct and individually actionable.
+
+# Composer controls follow their actual scope
+
+- Old failure: synchronization freshness lived inside the Observability button, while the session's
+  work mode and confirmation policy preceded the provider and effort controls. The composer header
+  therefore mixed session activity, transport freshness, and execution policy in one row.
+- New representation: the sourced AI Elements prompt footer keeps provider, effort, work mode, and
+  confirmation policy together as one compact input-policy cluster. Synchronization freshness moves
+  beside the product version in the workspace status strip, and an idle Observability control simply
+  identifies Session details without carrying a second global status.
+- Acceptance evidence: the live NDP A2UI workspace shows Execute and the active confirmation policy
+  directly after the effort selector at the bottom of the composer. Both menus remain actionable;
+  its header contains only Session details, while the footer groups v0.11.0 and Up to date as
+  adjacent product/synchronization state.

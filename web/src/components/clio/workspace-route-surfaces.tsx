@@ -91,6 +91,14 @@ export function WorkspaceStatusStrip({
         gactVersions={gactVersions}
         service={service}
       />
+      {stream === 'live' ? (
+        <ClioStatus
+          className="hidden py-0.5 sm:inline-flex"
+          detail="The latest session updates are synchronized"
+          label="Up to date"
+          value="completed"
+        />
+      ) : null}
       <span className="ml-auto hidden font-mono sm:inline">
         Tokens: {inputTokens ?? 'Unavailable'}
       </span>

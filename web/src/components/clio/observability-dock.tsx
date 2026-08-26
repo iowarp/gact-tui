@@ -143,13 +143,15 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
-        <ClioStatus
-          className="hidden py-0.5 sm:inline-flex"
-          label={dockStatus}
-          value={
-            activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
-          }
-        />
+        {activeActivityCount || sessionActive || activityCount ? (
+          <ClioStatus
+            className="hidden py-0.5 sm:inline-flex"
+            label={dockStatus}
+            value={
+              activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
+            }
+          />
+        ) : null}
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
       {props.subagents.length ? (
