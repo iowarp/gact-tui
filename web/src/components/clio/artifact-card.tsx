@@ -105,6 +105,7 @@ function ClioArtifactAttachment({
     mediaType: artifact.media_type,
     url: imageUrl ?? '',
   };
+  const { baseName, extension } = splitArtifactName(artifact.name);
   const activate = (event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => {
     if (!onOpen) return;
     onOpen(artifact, event);
@@ -116,7 +117,7 @@ function ClioArtifactAttachment({
         <Attachment
           aria-label={onOpen ? `Open ${artifact.name}` : artifact.name}
           className={cn(
-            'isolate size-24 border bg-card shadow-xs',
+            'isolate h-32 w-40 border bg-card shadow-xs',
             onOpen &&
               'cursor-pointer transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
           )}
@@ -134,9 +135,18 @@ function ClioArtifactAttachment({
           role={onOpen ? 'button' : undefined}
           tabIndex={onOpen ? 0 : undefined}
         >
-          <AttachmentPreview className="[&_img]:object-cover" />
-          <span className="absolute inset-x-0 bottom-0 z-10 line-clamp-2 bg-background/88 px-2 py-1.5 text-[10px] leading-3 font-medium backdrop-blur-sm">
-            {artifact.name}
+          <AttachmentPreview className="h-[calc(100%-2.75rem)] w-full [&_img]:object-cover [&_svg]:size-6" />
+          <span className="absolute inset-x-0 bottom-0 z-10 flex h-11 flex-col items-center justify-center bg-background/90 px-2 text-center backdrop-blur-sm">
+            <span className="flex w-full min-w-0 justify-center text-xs leading-4 font-medium">
+              <span className="min-w-0 truncate">{baseName}</span>
+              <span className="shrink-0">{extension}</span>
+            </span>
+            <span className="flex items-center justify-center gap-1.5 text-[10px] leading-3 text-muted-foreground">
+              <span>{artifact.media_type || 'Type unavailable'}</span>
+              <span>
+                {artifact.size === undefined ? 'Size unavailable' : formatBytes(artifact.size)}
+              </span>
+            </span>
           </span>
         </Attachment>
       </AttachmentHoverCardTrigger>
@@ -154,6 +164,17 @@ function ClioArtifactAttachment({
       </AttachmentHoverCardContent>
     </AttachmentHoverCard>
   );
+}
+
+function splitArtifactName(name: string): { baseName: string; extension: string } {
+  const extensionStart = name.lastIndexOf('.');
+  if (extensionStart <= 0 || extensionStart === name.length - 1) {
+    return { baseName: name, extension: '' };
+  }
+  return {
+    baseName: name.slice(0, extensionStart),
+    extension: name.slice(extensionStart),
+  };
 }
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */
