@@ -1,5 +1,5 @@
 import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
-import { ActivityIcon, NetworkIcon, Settings2Icon } from 'lucide-react';
+import { ActivityIcon, Settings2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -14,12 +14,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { NavigationHeader } from './navigation-header';
+import { NavigationInfrastructure } from './navigation-infrastructure';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -135,7 +137,9 @@ export function ClioNavigation({
               sessions={sessions}
               workspaces={workspaces}
             />
-            <SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter className="gap-0 border-t border-sidebar-border">
+            <SidebarGroup className="p-0">
               <SidebarGroupLabel>Explore</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -147,19 +151,11 @@ export function ClioNavigation({
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Infrastructure">
-                      <Link state={{ endpoint, from: location.pathname }} to="/infrastructure">
-                        <NetworkIcon aria-hidden="true" />
-                        <span>Infrastructure</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-          </SidebarContent>
-          <SidebarFooter>
+            <SidebarSeparator className="my-1" />
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings">
