@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
+import { WorkspaceLoading } from '@/components/clio/workspace-route-surfaces';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +60,8 @@ export function ConnectionPage() {
   const [serviceName, setServiceName] = useState(settings.label ?? '');
   const [token, setToken] = useState('');
   const autoConnectStarted = useRef(false);
+  const connectionIntent = searchParams.get('intent');
+  const shouldResumeAutomatically = recents.length > 0 && connectionIntent !== 'connect';
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -127,12 +130,12 @@ export function ConnectionPage() {
       autoConnectStarted.current ||
       !credentialsReady ||
       recents.length === 0 ||
-      searchParams.get('intent') === 'connect'
+      connectionIntent === 'connect'
     )
       return;
     autoConnectStarted.current = true;
     mutation.mutate();
-  }, [credentialsReady, mutation, recents.length, searchParams]);
+  }, [connectionIntent, credentialsReady, mutation, recents.length]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -142,6 +145,21 @@ export function ConnectionPage() {
   const logoSource =
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
+
+  if (
+    shouldResumeAutomatically &&
+    (!credentialsReady ||
+      mutation.status === 'idle' ||
+      mutation.isPending ||
+      Boolean(mutation.data?.target))
+  ) {
+    return (
+      <WorkspaceLoading
+        description="Reopening the last conversation on this service. Your destination will not change while the connection is restored."
+        label="Reopening your workspace"
+      />
+    );
+  }
 
   return (
     <main className="min-h-dvh overflow-hidden bg-background text-foreground">

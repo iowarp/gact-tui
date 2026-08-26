@@ -1,5 +1,5 @@
 import type { Session, Workspace } from '@clio/core/v3';
-import { sessionInteractionAt } from './recent-sessions';
+import { isPrimarySession, sessionInteractionAt } from './recent-sessions';
 
 export interface ConnectionSessionTarget {
   session: Session;
@@ -13,6 +13,7 @@ export function latestConnectionSessionTarget(
 ): ConnectionSessionTarget | undefined {
   const workspacesById = new Map(workspaces.map((workspace) => [workspace.id, workspace]));
   return sessions
+    .filter((session) => isPrimarySession(session) && !session.archived)
     .flatMap((session): ConnectionSessionTarget[] => {
       const workspace = workspacesById.get(session.workspace_id);
       return workspace ? [{ session, workspace }] : [];
@@ -40,7 +41,11 @@ export function connectionSessionTargetForRoute(
   }
   const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
   const session = sessions.find(
-    (candidate) => candidate.id === sessionId && candidate.workspace_id === workspaceId,
+    (candidate) =>
+      candidate.id === sessionId &&
+      candidate.workspace_id === workspaceId &&
+      isPrimarySession(candidate) &&
+      !candidate.archived,
   );
   return workspace && session ? { workspace, session } : undefined;
 }

@@ -36,8 +36,10 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionContext } from '@/hooks/use-session-context';
 import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
 import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
+import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { recordById } from '@/lib/entities';
+import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildModelOptions } from '@/lib/model-options';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
@@ -55,6 +57,7 @@ export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
+  const navigateToAvailableSession = useAvailableSessionNavigation();
   const repository = useRepository();
   const queryClient = useQueryClient();
   const entities = useLiveStore((state) => state.entities);
@@ -80,6 +83,13 @@ export function WorkspacePage() {
     queryKey: ['sessions', settings.endpoint, workspaceId],
     queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
     enabled: Boolean(workspaceId),
+    refetchInterval: (query) => {
+      const current = query.state.data?.find((item) => item.id === sessionId);
+      return current &&
+        ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(current.state)
+        ? 1_500
+        : false;
+    },
   });
   const allSessions = useQuery({
     queryKey: ['sessions', settings.endpoint, 'all'],
@@ -138,6 +148,29 @@ export function WorkspacePage() {
   const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
+  const recoveryTarget = useMemo(
+    () => latestConnectionSessionTarget(workspaces.data ?? [], allSessions.data ?? []),
+    [allSessions.data, workspaces.data],
+  );
+  useEffect(() => {
+    if (
+      session ||
+      !recoveryTarget ||
+      workspaces.isPending ||
+      sessions.isPending ||
+      allSessions.isPending
+    ) {
+      return;
+    }
+    void navigate(connectionSessionRoute(recoveryTarget), { replace: true });
+  }, [
+    allSessions.isPending,
+    navigate,
+    recoveryTarget,
+    session,
+    sessions.isPending,
+    workspaces.isPending,
+  ]);
   useEffect(() => {
     if (workspace?.id !== workspaceId) return;
     rememberValidatedWorkspaceRoute(settings.endpoint, workspaceId, session);
@@ -500,8 +533,11 @@ export function WorkspacePage() {
       },
       archiveSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: true });
+        if (targetSessionId === sessionId) {
+          await navigateToAvailableSession();
+          return;
+        }
         await refreshNavigation();
-        if (targetSessionId === sessionId) await navigate('/');
       },
       restoreSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: false });
@@ -509,13 +545,19 @@ export function WorkspacePage() {
       },
       deleteWorkspace: async (targetWorkspaceId) => {
         await repository.deleteWorkspace(targetWorkspaceId);
+        if (targetWorkspaceId === workspaceId) {
+          await navigateToAvailableSession();
+          return;
+        }
         await refreshNavigation(targetWorkspaceId);
-        if (targetWorkspaceId === workspaceId) await navigate('/');
       },
       deleteSession: async (targetSessionId) => {
         await repository.deleteSession(targetSessionId);
+        if (targetSessionId === sessionId) {
+          await navigateToAvailableSession();
+          return;
+        }
         await refreshNavigation();
-        if (targetSessionId === sessionId) await navigate('/');
       },
       exportSession: (targetSessionId) => repository.exportSession(targetSessionId),
       importSession: async (value) => {
@@ -526,7 +568,7 @@ export function WorkspacePage() {
         );
       },
     }),
-    [navigate, refreshNavigation, repository, sessionId, workspaceId],
+    [navigate, navigateToAvailableSession, refreshNavigation, repository, sessionId, workspaceId],
   );
   const respondPermission = useMutation({
     mutationFn: ({
@@ -603,12 +645,38 @@ export function WorkspacePage() {
   ) {
     return <WorkspaceLoading />;
   }
+  if (!session && recoveryTarget) {
+    return (
+      <WorkspaceLoading
+        description="The previous conversation is no longer available. Opening the most recent conversation on this service instead."
+        label="Recovering workspace"
+      />
+    );
+  }
   if (queryError && !session) {
-    return <WorkspaceUnavailable error={queryError.message} />;
+    return (
+      <WorkspaceUnavailable
+        error={queryError.message}
+        onRetry={() => {
+          void Promise.all([
+            capabilities.refetch(),
+            workspaces.refetch(),
+            sessions.refetch(),
+            allSessions.refetch(),
+            transcript.refetch(),
+          ]);
+        }}
+      />
+    );
   }
   if (!session) {
     return (
-      <WorkspaceUnavailable error="This agent service did not return the requested session." />
+      <WorkspaceUnavailable
+        error="This agent service did not return the requested session."
+        onRetry={() => {
+          void Promise.all([workspaces.refetch(), sessions.refetch(), allSessions.refetch()]);
+        }}
+      />
     );
   }
 

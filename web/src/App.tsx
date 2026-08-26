@@ -5,6 +5,8 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { lastWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { useConnectionSettings } from '@/providers/connection-provider';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -39,6 +41,12 @@ function RouteFallback() {
   );
 }
 
+function UnknownRouteRedirect() {
+  const { settings } = useConnectionSettings();
+  const rememberedRoute = lastWorkspaceRoute(settings.endpoint);
+  return <Navigate replace to={rememberedRoute === '/' ? '/?intent=connect' : rememberedRoute} />;
+}
+
 export default function App() {
   const navigate = useNavigate();
   useNativeMenuBridge();
@@ -68,7 +76,7 @@ export default function App() {
           <Route element={<RunsPage />} path="/runs" />
           <Route element={<InfrastructurePage />} path="/infrastructure" />
           <Route element={<SettingsPage />} path="/settings/:section" />
-          <Route element={<Navigate replace to="/" />} path="*" />
+          <Route element={<UnknownRouteRedirect />} path="*" />
         </Routes>
       </Suspense>
       <Toaster closeButton richColors />

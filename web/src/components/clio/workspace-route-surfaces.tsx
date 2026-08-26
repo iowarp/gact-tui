@@ -15,29 +15,40 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { ClioStatus } from './status';
 
-export function WorkspaceUnavailable({ error }: { error: string }) {
+export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <Alert className="max-w-xl" variant="destructive">
         <AlertTriangleIcon aria-hidden="true" />
         <AlertTitle>Workspace unavailable</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
-        <Button asChild className="mt-4" variant="outline">
-          <Link to="/">Return to connections</Link>
-        </Button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {onRetry ? (
+            <Button onClick={onRetry} variant="outline">
+              Try again here
+            </Button>
+          ) : null}
+          <Button asChild variant="ghost">
+            <Link to="/?intent=connect">Manage connections</Link>
+          </Button>
+        </div>
       </Alert>
     </main>
   );
 }
 
-export function WorkspaceLoading() {
+export function WorkspaceLoading({
+  description = 'Reading the latest workspace state from the selected agent service.',
+  label = 'Opening conversation',
+}: {
+  description?: string;
+  label?: string;
+} = {}) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="grid justify-items-center gap-3 text-center">
-        <ClioStatus label="Opening conversation" value="connecting" />
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Reading the latest workspace state from the selected agent service.
-        </p>
+        <ClioStatus label={label} value="connecting" />
+        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       </div>
     </main>
   );

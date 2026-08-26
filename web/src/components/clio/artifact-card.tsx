@@ -11,6 +11,9 @@ import {
 } from '@/components/ai-elements/artifact';
 import {
   Attachment,
+  AttachmentHoverCard,
+  AttachmentHoverCardContent,
+  AttachmentHoverCardTrigger,
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
@@ -35,6 +38,122 @@ export interface ClioArtifactCardProps {
     event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
   ) => void;
   preview?: boolean;
+}
+
+export interface ClioArtifactAttachmentsProps {
+  artifacts: readonly ArtifactEntity[];
+  className?: string;
+  onOpen?: (
+    artifact: ArtifactEntity,
+    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
+  ) => void;
+}
+
+/** Presents transcript artifacts as the compact AI Elements attachment grid. */
+export function ClioArtifactAttachments({
+  artifacts,
+  className,
+  onOpen,
+}: ClioArtifactAttachmentsProps) {
+  return (
+    <Attachments
+      aria-label={artifacts.length === 1 ? 'Artifact' : `${artifacts.length} artifacts`}
+      className={cn('ml-0 mr-auto w-full justify-start gap-2 py-1', className)}
+      variant="grid"
+    >
+      {artifacts.map((artifact) => (
+        <ClioArtifactAttachment artifact={artifact} key={artifact.id} onOpen={onOpen} />
+      ))}
+    </Attachments>
+  );
+}
+
+function ClioArtifactAttachment({
+  artifact,
+  onOpen,
+}: {
+  artifact: ArtifactEntity;
+  onOpen?: ClioArtifactAttachmentsProps['onOpen'];
+}) {
+  const repository = useRepository();
+  const image = isImageArtifact(artifact);
+  const withinBudget = artifact.size === undefined || artifact.size <= cardPreviewBudget;
+  const imageBytes = useQuery({
+    queryKey: ['artifact-attachment-image', artifact.id, artifact.fetch_path],
+    queryFn: async ({ signal }) => {
+      try {
+        return await repository.readArtifactBytesFor(artifact, signal);
+      } catch (error) {
+        if (!isMissingArtifactPayload(error) || !artifact.workspace_id) throw error;
+        const files = await repository.workspaceFiles(artifact.workspace_id, signal);
+        const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, files);
+        if (!fallback) throw error;
+        return repository.readWorkspaceFileBytes(artifact.workspace_id, fallback.path, signal);
+      }
+    },
+    enabled: image && withinBudget,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const imageUrl = useObjectUrl(
+    imageBytes.data,
+    artifact.media_type || imageMediaType(artifact.name),
+  );
+  const attachment: AttachmentData = {
+    type: 'file',
+    id: artifact.id,
+    filename: artifact.name,
+    mediaType: artifact.media_type,
+    url: imageUrl ?? '',
+  };
+  const activate = (event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => {
+    if (!onOpen) return;
+    onOpen(artifact, event);
+  };
+
+  return (
+    <AttachmentHoverCard closeDelay={100} openDelay={260}>
+      <AttachmentHoverCardTrigger asChild>
+        <Attachment
+          aria-label={onOpen ? `Open ${artifact.name}` : artifact.name}
+          className={cn(
+            'isolate size-24 border bg-card shadow-xs',
+            onOpen &&
+              'cursor-pointer transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
+          )}
+          data={attachment}
+          onClick={onOpen ? activate : undefined}
+          onKeyDown={
+            onOpen
+              ? (event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  activate(event);
+                }
+              : undefined
+          }
+          role={onOpen ? 'button' : undefined}
+          tabIndex={onOpen ? 0 : undefined}
+        >
+          <AttachmentPreview className="[&_img]:object-cover" />
+          <span className="absolute inset-x-0 bottom-0 z-10 line-clamp-2 bg-background/88 px-2 py-1.5 text-[10px] leading-3 font-medium backdrop-blur-sm">
+            {artifact.name}
+          </span>
+        </Attachment>
+      </AttachmentHoverCardTrigger>
+      <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
+        <p className="truncate text-sm font-medium">{artifact.name}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {artifact.media_type || 'Media type unavailable'}
+          {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
+        </p>
+        {artifact.session_relation ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {artifact.session_relation === 'produced' ? 'Created in this session' : 'Used as input'}
+          </p>
+        ) : null}
+      </AttachmentHoverCardContent>
+    </AttachmentHoverCard>
+  );
 }
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */

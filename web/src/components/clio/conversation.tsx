@@ -35,6 +35,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import { copyText } from '@/lib/clipboard';
@@ -69,7 +70,7 @@ import { useConversationDisplay } from '@/providers/conversation-display-provide
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ClioMessageHistoryActions } from './message-history-actions';
-import { ClioArtifactCard } from './artifact-card';
+import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { ConversationTurn } from './conversation-turn';
 import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
@@ -130,9 +131,7 @@ function DeferredA2UISurface({
       ref={hostRef}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
     >
-      {renderSurface ? (
-        <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />
-      ) : null}
+      {renderSurface ? <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} /> : null}
     </div>
   );
 }
@@ -159,6 +158,11 @@ export interface ClioConversationProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
 }
 
+type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
+  block: MessageBlock;
+  reasoningDefaultOpen?: boolean;
+};
+
 function MessageBlockView({
   block,
   tools,
@@ -172,10 +176,7 @@ function MessageBlockView({
   onOpenFile,
   onOpenSubagent,
   reasoningDefaultOpen,
-}: Omit<ClioConversationProps, 'messages'> & {
-  block: MessageBlock;
-  reasoningDefaultOpen?: boolean;
-}) {
+}: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
       return block.streaming ? (
@@ -352,6 +353,44 @@ function MessageBlockView({
   }
 }
 
+function MessageBlockSequence({
+  blocks,
+  ...props
+}: Omit<MessageBlockViewProps, 'block'> & { blocks: readonly MessageBlock[] }) {
+  const rendered: ReactNode[] = [];
+  let index = 0;
+
+  while (index < blocks.length) {
+    const block = blocks[index];
+    if (!block) break;
+    if (block.type !== 'artifact' || !props.artifacts[block.artifact_id]) {
+      rendered.push(<MessageBlockView block={block} key={block.id} {...props} />);
+      index += 1;
+      continue;
+    }
+
+    const artifacts: Artifact[] = [];
+    const firstBlockId = block.id;
+    while (index < blocks.length) {
+      const candidate = blocks[index];
+      if (!candidate || candidate.type !== 'artifact') break;
+      const artifact = props.artifacts[candidate.artifact_id];
+      if (!artifact) break;
+      artifacts.push(artifact);
+      index += 1;
+    }
+    rendered.push(
+      <ClioArtifactAttachments
+        artifacts={artifacts}
+        key={`artifact-attachments-${firstBlockId}`}
+        onOpen={props.onOpenArtifact}
+      />,
+    );
+  }
+
+  return rendered;
+}
+
 interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
@@ -525,19 +564,16 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                   onOpenSubagent={entities.onOpenSubagent}
                   subagents={entities.subagents}
                 />
-                {residualBlocks
-                  .filter(
+                <MessageBlockSequence
+                  blocks={residualBlocks.filter(
                     (block) =>
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
-                  )
-                  .map((block) => (
-                    <MessageBlockView block={block} key={block.id} {...entities} />
-                  ))}
+                  )}
+                  {...entities}
+                />
               </>
             ) : (
-              message.blocks.map((block) => (
-                <MessageBlockView block={block} key={block.id} {...entities} />
-              ))
+              <MessageBlockSequence blocks={message.blocks} {...entities} />
             )}
           </MessageContent>
         </Message>
