@@ -33,8 +33,8 @@ export function useSessionLiveStream({
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
   const [reconnectEpoch, setReconnectEpoch] = useState(0);
-  const [documentVisible, setDocumentVisible] = useState(
-    () => document.visibilityState === 'visible',
+  const [pageActive, setPageActive] = useState(
+    () => document.visibilityState === 'visible' && document.hasFocus(),
   );
 
   useEffect(() => {
@@ -45,13 +45,15 @@ export function useSessionLiveStream({
       lastReconnectAt = now;
       setReconnectEpoch((value) => value + 1);
     };
-    const reconnectWhenVisible = () => {
-      const visible = document.visibilityState === 'visible';
-      setDocumentVisible(visible);
-      if (visible) reconnect();
+    const updatePageActivity = () => {
+      const active = document.visibilityState === 'visible' && document.hasFocus();
+      setPageActive(active);
+      if (active) reconnect();
     };
     window.addEventListener('online', reconnect);
-    document.addEventListener('visibilitychange', reconnectWhenVisible);
+    window.addEventListener('focus', updatePageActivity);
+    window.addEventListener('blur', updatePageActivity);
+    document.addEventListener('visibilitychange', updatePageActivity);
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void listenForDesktopResume(reconnect).then(
@@ -64,13 +66,15 @@ export function useSessionLiveStream({
     return () => {
       disposed = true;
       window.removeEventListener('online', reconnect);
-      document.removeEventListener('visibilitychange', reconnectWhenVisible);
+      window.removeEventListener('focus', updatePageActivity);
+      window.removeEventListener('blur', updatePageActivity);
+      document.removeEventListener('visibilitychange', updatePageActivity);
       unlisten?.();
     };
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionId || !documentVisible) return;
+    if (!enabled || !sessionId || !pageActive) return;
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     let reconnectDelay = 250;
@@ -179,9 +183,9 @@ export function useSessionLiveStream({
     };
   }, [
     applyFrames,
-    documentVisible,
     enabled,
     initialCursor,
+    pageActive,
     queryClient,
     reconnectEpoch,
     repository,
