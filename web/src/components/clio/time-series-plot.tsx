@@ -1,12 +1,10 @@
 import {
   ChartNoAxesCombinedIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  RotateCcwIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
+  FocusIcon,
+  Maximize2Icon,
+  XIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import {
   Frame,
@@ -22,7 +20,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 
 type PlotValue = string | number | null;
 export type PlotRow = Record<string, PlotValue>;
@@ -81,7 +78,23 @@ export function ClioTimeSeriesPlot({
   sourceRows?: number;
 }) {
   const [selectedRange, setSelectedRange] = useState<[number, number]>();
+  const [selection, setSelection] = useState<[number, number]>();
+  const [isSelecting, setIsSelecting] = useState(false);
+  const selectingRef = useRef(false);
+  const draftSelectionRef = useRef<[number, number]>();
+  const dragStartXRef = useRef<number>();
+  const pendingDragXRef = useRef<number>();
+  const selectionFrameRef = useRef<number>();
+  const selectionOverlayRef = useRef<HTMLDivElement>(null);
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(() => new Set());
+  useEffect(
+    () => () => {
+      if (selectionFrameRef.current !== undefined) {
+        cancelAnimationFrame(selectionFrameRef.current);
+      }
+    },
+    [],
+  );
   const visibleRows = rows.slice(0, MAX_VISIBLE_ROWS).map((row) => ({
     ...row,
     ...Object.fromEntries(yKeys.map((key) => [key, numeric(row[key])])),
@@ -120,25 +133,6 @@ export function ClioTimeSeriesPlot({
   const displayedRows = visibleRows.slice(rangeStart, rangeEnd + 1);
   const sourceCount = Math.max(sourceRows ?? rows.length, rows.length);
 
-  function setWindow(start: number, end: number): void {
-    const width = Math.max(1, Math.min(end - start, maximumIndex));
-    const boundedStart = Math.max(0, Math.min(start, maximumIndex - width));
-    setSelectedRange([boundedStart, boundedStart + width]);
-  }
-
-  function zoom(factor: number): void {
-    const width = rangeEnd - rangeStart;
-    const nextWidth = Math.max(5, Math.min(maximumIndex, Math.round(width * factor)));
-    const center = (rangeStart + rangeEnd) / 2;
-    setWindow(Math.round(center - nextWidth / 2), Math.round(center + nextWidth / 2));
-  }
-
-  function pan(direction: -1 | 1): void {
-    const width = rangeEnd - rangeStart;
-    const distance = Math.max(1, Math.round(width * 0.25)) * direction;
-    setWindow(rangeStart + distance, rangeEnd + distance);
-  }
-
   function toggleSeries(key: string): void {
     setHiddenSeries((current) => {
       const next = new Set(current);
@@ -151,6 +145,107 @@ export function ClioTimeSeriesPlot({
     });
   }
 
+  function rowIndexForLabel(label: unknown): number | undefined {
+    const localIndex = displayedRows.findIndex((row) => String(row[xKey]) === String(label));
+    return localIndex < 0 ? undefined : rangeStart + localIndex;
+  }
+
+  function paintSelection(): void {
+    selectionFrameRef.current = undefined;
+    const overlay = selectionOverlayRef.current;
+    const start = dragStartXRef.current;
+    const end = pendingDragXRef.current;
+    if (!overlay || start === undefined || end === undefined) return;
+    overlay.style.display = 'block';
+    overlay.style.left = `${Math.min(start, end)}px`;
+    overlay.style.width = `${Math.max(2, Math.abs(end - start))}px`;
+  }
+
+  function scheduleSelectionPaint(x: number): void {
+    pendingDragXRef.current = x;
+    if (selectionFrameRef.current !== undefined) return;
+    selectionFrameRef.current = requestAnimationFrame(paintSelection);
+  }
+
+  function hideSelection(): void {
+    if (selectionFrameRef.current !== undefined) {
+      cancelAnimationFrame(selectionFrameRef.current);
+      selectionFrameRef.current = undefined;
+    }
+    const overlay = selectionOverlayRef.current;
+    if (overlay) overlay.style.display = 'none';
+    dragStartXRef.current = undefined;
+    pendingDragXRef.current = undefined;
+    draftSelectionRef.current = undefined;
+  }
+
+  function beginSelection(label: unknown, x: number | undefined): void {
+    const index = rowIndexForLabel(label);
+    if (index === undefined || x === undefined) return;
+    setSelection(undefined);
+    draftSelectionRef.current = [index, index];
+    dragStartXRef.current = x;
+    selectingRef.current = true;
+    setIsSelecting(true);
+    scheduleSelectionPaint(x);
+  }
+
+  function extendSelection(label: unknown, x: number | undefined): void {
+    if (!selectingRef.current) return;
+    const index = rowIndexForLabel(label);
+    const current = draftSelectionRef.current;
+    if (index === undefined || x === undefined || !current) return;
+    draftSelectionRef.current = [current[0], index];
+    scheduleSelectionPaint(x);
+  }
+
+  function endSelection(): void {
+    if (!selectingRef.current) return;
+    if (selectionFrameRef.current !== undefined) {
+      cancelAnimationFrame(selectionFrameRef.current);
+      selectionFrameRef.current = undefined;
+      paintSelection();
+    }
+    selectingRef.current = false;
+    setIsSelecting(false);
+    setSelection(draftSelectionRef.current);
+  }
+
+  function focusSelection(): void {
+    if (!selection) return;
+    const start = Math.min(...selection);
+    const end = Math.max(...selection);
+    if (end - start < 2) return;
+    setSelectedRange([start, end]);
+    setSelection(undefined);
+    selectingRef.current = false;
+    setIsSelecting(false);
+    hideSelection();
+  }
+
+  function resetWindow(): void {
+    setSelectedRange(undefined);
+    setSelection(undefined);
+    selectingRef.current = false;
+    setIsSelecting(false);
+    hideSelection();
+  }
+
+  function clearSelection(): void {
+    setSelection(undefined);
+    selectingRef.current = false;
+    setIsSelecting(false);
+    hideSelection();
+  }
+
+  const selectionStart = selection ? Math.min(...selection) : undefined;
+  const selectionEnd = selection ? Math.max(...selection) : undefined;
+  const selectionReady =
+    selectionStart !== undefined && selectionEnd !== undefined && selectionEnd - selectionStart >= 2;
+  const selectionLabel =
+    selectionStart !== undefined && selectionEnd !== undefined
+      ? `Selected rows ${selectionStart + 1}–${selectionEnd + 1}`
+      : undefined;
   return (
     <Frame dense spacing="sm">
       <FrameHeader className="flex-row items-center gap-2">
@@ -167,7 +262,11 @@ export function ClioTimeSeriesPlot({
         </div>
       </FrameHeader>
       <FramePanel className="p-3">
-        <div aria-label={`${chartTitle} plot`} role="img">
+        <div
+          aria-label={`${chartTitle} plot. Drag across the chart to select a range.`}
+          className="relative cursor-crosshair select-none"
+          role="img"
+        >
           <ChartContainer
             className="min-h-64 w-full"
             config={chartConfig}
@@ -177,6 +276,10 @@ export function ClioTimeSeriesPlot({
               accessibilityLayer
               data={displayedRows}
               margin={{ left: 6, right: 18, top: 8 }}
+              onMouseDown={(state) => beginSelection(state?.activeLabel, state?.activeCoordinate?.x)}
+              onMouseLeave={endSelection}
+              onMouseMove={(state) => extendSelection(state?.activeLabel, state?.activeCoordinate?.x)}
+              onMouseUp={endSelection}
             >
               <CartesianGrid vertical={false} />
               <XAxis
@@ -197,6 +300,7 @@ export function ClioTimeSeriesPlot({
                 width={54}
               />
               <ChartTooltip
+                active={isSelecting ? false : undefined}
                 content={
                   <ChartTooltipContent
                     indicator="line"
@@ -211,7 +315,7 @@ export function ClioTimeSeriesPlot({
               />
               {yKeys.map((key, index) => (
                 <Line
-                  activeDot={{ r: 4 }}
+                  activeDot={isSelecting ? false : { r: 4 }}
                   dataKey={key}
                   dot={false}
                   key={key}
@@ -224,6 +328,11 @@ export function ClioTimeSeriesPlot({
               ))}
             </LineChart>
           </ChartContainer>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-10 top-2 z-10 hidden border-x border-primary/80 bg-primary/15"
+            ref={selectionOverlayRef}
+          />
         </div>
         <div aria-label="Visible series" className="mt-2 flex flex-wrap gap-1.5" role="group">
           {yKeys.map((key, index) => {
@@ -251,68 +360,47 @@ export function ClioTimeSeriesPlot({
           <div className="mt-3 grid gap-2 border-t pt-3">
             <div className="flex items-center justify-between gap-3 text-xs">
               <span className="text-muted-foreground">
-                Visible rows {rangeStart + 1}–{rangeEnd + 1}
+                {selectionReady
+                  ? selectionLabel
+                  : selectedRange
+                    ? `Showing rows ${rangeStart + 1}–${rangeEnd + 1}`
+                    : 'Drag across the chart to select a range'}
               </span>
-              <div aria-label="Chart navigation" className="flex items-center gap-0.5" role="group">
+              <div aria-label="Chart selection" className="flex items-center gap-0.5" role="group">
+                {selection ? (
+                  <Button
+                    aria-label="Clear chart selection"
+                    onClick={clearSelection}
+                    size="icon-xs"
+                    title="Clear selection"
+                    variant="ghost"
+                  >
+                    <XIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
                 <Button
-                  aria-label="Pan chart left"
-                  disabled={!selectedRange || rangeStart === 0}
-                  onClick={() => pan(-1)}
+                  aria-label="Focus chart selection"
+                  disabled={!selectionReady}
+                  onClick={focusSelection}
                   size="icon-xs"
-                  title="Pan left"
+                  title="Focus selection"
                   variant="ghost"
                 >
-                  <ChevronLeftIcon aria-hidden="true" />
+                  <FocusIcon aria-hidden="true" />
                 </Button>
-                <Button
-                  aria-label="Pan chart right"
-                  disabled={!selectedRange || rangeEnd === maximumIndex}
-                  onClick={() => pan(1)}
-                  size="icon-xs"
-                  title="Pan right"
-                  variant="ghost"
-                >
-                  <ChevronRightIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Zoom chart in"
-                  onClick={() => zoom(0.5)}
-                  size="icon-xs"
-                  title="Zoom in"
-                  variant="ghost"
-                >
-                  <ZoomInIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Zoom chart out"
-                  disabled={!selectedRange}
-                  onClick={() => zoom(2)}
-                  size="icon-xs"
-                  title="Zoom out"
-                  variant="ghost"
-                >
-                  <ZoomOutIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Reset chart window"
-                  disabled={!selectedRange}
-                  onClick={() => setSelectedRange(undefined)}
-                  size="icon-xs"
-                  title="Reset window"
-                  variant="ghost"
-                >
-                  <RotateCcwIcon aria-hidden="true" />
-                </Button>
+                {selectedRange ? (
+                  <Button
+                    aria-label="Show full chart range"
+                    onClick={resetWindow}
+                    size="icon-xs"
+                    title="Show full range"
+                    variant="ghost"
+                  >
+                    <Maximize2Icon aria-hidden="true" />
+                  </Button>
+                ) : null}
               </div>
             </div>
-            <Slider
-              aria-label="Visible observation window"
-              max={maximumIndex}
-              min={0}
-              minStepsBetweenThumbs={1}
-              onValueChange={(value) => setSelectedRange([value[0] ?? 0, value[1] ?? maximumIndex])}
-              value={[rangeStart, rangeEnd]}
-            />
           </div>
         ) : null}
       </FramePanel>
