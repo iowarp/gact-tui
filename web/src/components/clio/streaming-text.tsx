@@ -40,15 +40,10 @@ export function ClioStreamingText({ text, active, className, ...props }: ClioStr
         </m.span>
       ) : null}
       {active ? (
-        <m.span
+        <span
           aria-hidden="true"
-          className="ml-1 inline-block h-[1.05em] w-0.5 rounded-sm bg-primary align-[-0.15em] shadow-[0_0_12px_var(--primary)]"
-          animate={
-            reducedMotion ? { opacity: 0.8 } : { opacity: [0.35, 1, 0.35], scaleY: [0.8, 1, 0.8] }
-          }
-          transition={
-            reducedMotion ? { duration: 0 } : { duration: 1.1, ease: 'easeInOut', repeat: Infinity }
-          }
+          data-slot="stream-cursor"
+          className="clio-stream-cursor ml-1 inline-block h-[1.05em] w-0.5 rounded-sm bg-primary align-[-0.15em] shadow-[0_0_12px_var(--primary)]"
         />
       ) : null}
     </div>
