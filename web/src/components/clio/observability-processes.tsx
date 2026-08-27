@@ -484,7 +484,11 @@ function executionSpans({
   const messageSpans = runSpans.length
     ? []
     : messages
-        .filter((message) => message.role === 'assistant')
+        .filter(
+          (message) =>
+            message.role === 'assistant' &&
+            message.blocks.some((block) => block.type !== 'text'),
+        )
         .map((message): ProcessSpan | undefined => {
           const at = parseTimestamp(message.completed_at ?? message.created_at);
           if (at === undefined) return undefined;

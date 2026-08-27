@@ -13,6 +13,7 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useMenuAction } from '@/tauri/menu-actions';
+import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -177,6 +178,12 @@ export function ClioAppShell({
     </section>
   );
 
+  const visibleWorkbench = (
+    <WorkspaceCanvasVisibilityProvider visible={workbenchOpen}>
+      {workbench}
+    </WorkspaceCanvasVisibilityProvider>
+  );
+
   const workspace = (
     <SidebarInset
       asChild
@@ -200,7 +207,7 @@ export function ClioAppShell({
               minSize="320px"
               panelRef={workbenchPanelRef}
             >
-              {workbench}
+              {visibleWorkbench}
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
@@ -238,7 +245,7 @@ export function ClioAppShell({
                 Session activity, child conversations, files, artifacts, and agent blueprints.
               </SheetDescription>
             </SheetHeader>
-            {workbench}
+            {visibleWorkbench}
           </SheetContent>
         </Sheet>
       ) : null}

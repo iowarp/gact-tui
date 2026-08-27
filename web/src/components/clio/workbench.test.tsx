@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
+import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
@@ -37,6 +38,50 @@ function renderWorkbench() {
 }
 
 describe('ClioWorkbench canvas', () => {
+  it('keeps tabs mounted while suspending hidden canvas content', () => {
+    const { rerender } = render(
+      <WorkspaceCanvasVisibilityProvider visible={false}>
+        <ClioWorkbench
+          artifacts={[]}
+          blueprints={[]}
+          diffs={[]}
+          files={[]}
+          onApplyDiff={vi.fn()}
+          onOpenSubagent={vi.fn()}
+          onRejectDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </WorkspaceCanvasVisibilityProvider>,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.queryByText('Session intelligence')).not.toBeInTheDocument();
+
+    rerender(
+      <WorkspaceCanvasVisibilityProvider visible>
+        <ClioWorkbench
+          artifacts={[]}
+          blueprints={[]}
+          diffs={[]}
+          files={[]}
+          onApplyDiff={vi.fn()}
+          onOpenSubagent={vi.fn()}
+          onRejectDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </WorkspaceCanvasVisibilityProvider>,
+    );
+
+    expect(screen.getByText('Session intelligence')).toBeVisible();
+  });
+
   it('starts with session intelligence and launches resource tabs', async () => {
     const user = userEvent.setup();
     renderWorkbench();

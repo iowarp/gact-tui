@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
+import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -249,6 +250,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       }
     };
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    const canvasVisible = useWorkspaceCanvasVisibility();
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -587,7 +589,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           </div>
           {tabs.map((tab) => (
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
-              {renderTabContent(tab)}
+              {canvasVisible ? renderTabContent(tab) : null}
             </TabsContent>
           ))}
           {tabs.length === 0 ? (

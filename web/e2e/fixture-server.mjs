@@ -270,6 +270,24 @@ const server = createServer((request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
+    sendJson(response, {
+      schema_version: '1.0',
+      default_provider: 'native',
+      providers: [
+        {
+          name: 'native',
+          configured: false,
+          queryable: false,
+          durable: false,
+          status: 'unavailable',
+          source: 'test-owned fixture',
+          health: { status: 'unavailable' },
+        },
+      ],
+    });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/workspaces') {
     sendJson(response, { workspaces: [workspace] });
     return;
