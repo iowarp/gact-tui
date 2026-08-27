@@ -103,6 +103,7 @@ export function ClioComposer({
     onValueChange?.(nextValue);
   };
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
     if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
@@ -116,7 +117,9 @@ export function ClioComposer({
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
 
   useEffect(() => {
-    if (focusRequestKey === undefined) return;
+    const previousKey = handledFocusRequestKeyRef.current;
+    handledFocusRequestKeyRef.current = focusRequestKey;
+    if (focusRequestKey === undefined || focusRequestKey === previousKey) return;
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);

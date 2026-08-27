@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioComposer } from './composer';
@@ -62,6 +62,24 @@ function renderComposer({
 }
 
 describe('ClioComposer service commands', () => {
+  it('focuses only after an explicit focus request changes', async () => {
+    const props = {
+      attachments: false,
+      effort: 'medium',
+      model: 'gpt-5.6-luna',
+      onSubmit: vi.fn(async () => undefined),
+      provider: 'codex',
+      state: 'completed' as const,
+    };
+    const { rerender } = render(<ClioComposer {...props} focusRequestKey={0} />);
+    const input = screen.getByRole('textbox');
+
+    expect(input).not.toHaveFocus();
+
+    rerender(<ClioComposer {...props} focusRequestKey={1} />);
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
     const user = userEvent.setup();
     const { onCommand, onSubmit } = renderComposer();
