@@ -8,6 +8,8 @@ if (!Number.isSafeInteger(fixturePort) || fixturePort < 1 || fixturePort > 65_53
 
 export default defineConfig({
   testDir: './e2e',
+  snapshotPathTemplate:
+    '{testDir}/../tests/visual/snapshots/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,

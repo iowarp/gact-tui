@@ -30,7 +30,10 @@ describe('CLIO interaction semantics', () => {
     expect(container.firstElementChild).toHaveFocus()
     await user.tab()
     expect(action).toHaveFocus()
-    expect(action.parentElement).toHaveClass('opacity-100')
+    expect(action.parentElement).toHaveClass(
+      'opacity-65',
+      'group-focus-within/row:opacity-100',
+    )
     expect((await axe(container, { rules: { 'color-contrast': { enabled: false } } })).violations).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 import type { AgentBlueprint } from '@clio/core/v3';
 import { BookOpenTextIcon, BoxesIcon } from 'lucide-react';
-import { MessageResponse } from '@/components/ai-elements/message';
+import { MarkdownText } from '@/components/ai-elements/markdown';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -87,7 +87,7 @@ export function BlueprintDetailsDialog({ blueprint, onOpenChange }: BlueprintDet
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3 rounded-xl border p-4">
-                  <MessageResponse className="text-sm leading-6">{instructions}</MessageResponse>
+                  <MarkdownText className="text-sm leading-6">{instructions}</MarkdownText>
                 </CollapsibleContent>
               </Collapsible>
             ) : null}

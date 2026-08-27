@@ -54,11 +54,12 @@ import {
   type CanvasResourceKind,
 } from './workbench-resource-browser';
 
+const loadResourceViewers = () => import('./resource-viewers');
 const ArtifactView = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
+  loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
 );
 const BlueprintFileEditor = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
+  loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
 );
 
 type WorkbenchTab =
@@ -250,7 +251,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
     const openCanvasResource = useCallback(
-      (kind: CanvasResourceKind) => openTab(canvasResourceTabs[kind]),
+      (kind: CanvasResourceKind) => {
+        if (kind === 'artifacts') void loadResourceViewers();
+        openTab(canvasResourceTabs[kind]);
+      },
       [openTab],
     );
 
