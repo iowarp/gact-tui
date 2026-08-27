@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
-import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility';
+import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
 import {
   ArtifactBrowser,
   BlueprintBrowser,

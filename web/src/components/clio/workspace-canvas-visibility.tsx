@@ -1,6 +1,6 @@
-import { createContext, useContext, type PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 
-const WorkspaceCanvasVisibilityContext = createContext(true);
+import { WorkspaceCanvasVisibilityContext } from './workspace-canvas-visibility-context';
 
 export function WorkspaceCanvasVisibilityProvider({
   children,
@@ -11,8 +11,4 @@ export function WorkspaceCanvasVisibilityProvider({
       {children}
     </WorkspaceCanvasVisibilityContext.Provider>
   );
-}
-
-export function useWorkspaceCanvasVisibility(): boolean {
-  return useContext(WorkspaceCanvasVisibilityContext);
 }
