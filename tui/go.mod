@@ -12,7 +12,6 @@ require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/charmbracelet/x/ansi v0.11.7
-	github.com/charmbracelet/x/exp/teatest/v2 v2.0.0-20260413165052-6921c759c913
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 )
 

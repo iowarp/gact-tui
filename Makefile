@@ -47,6 +47,7 @@ test-go: ## Run the remaining contract and adapter Go suites.
 	node scripts/go-workspace.mjs test
 
 test-tui: ## Run the deprecated TUI compatibility suite explicitly.
+	node scripts/check_tui_emulator_boundary.mjs
 	cd tui && GOWORK=off $(GO) test $(GO_TEST_FLAGS) ./...
 
 test-race: ## Run tests under -race for every module.
