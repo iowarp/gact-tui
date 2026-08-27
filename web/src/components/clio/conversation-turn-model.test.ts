@@ -61,6 +61,44 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['answer']);
   });
 
+  it('preserves transcript order when any block lacks a canonical sequence', () => {
+    const message: Message = {
+      id: 'assistant_mixed_sequence',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'thinking_mixed',
+          type: 'reasoning',
+          text: 'Keep the provider transcript in arrival order.',
+          sequence: 3,
+        },
+        {
+          id: 'next_mixed',
+          type: 'text',
+          text: 'Continue from the observed reasoning.',
+          channel: 'next_thought',
+          sequence: 1,
+        },
+        {
+          id: 'answer_mixed',
+          type: 'text',
+          text: 'Done.',
+          channel: 'answer',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations).toHaveLength(1);
+    expect(view.iterations[0]?.thinking.map((part) => part.id)).toEqual(['thinking_mixed']);
+    expect(view.iterations[0]?.nextThoughts).toEqual([
+      'Continue from the observed reasoning.',
+    ]);
+  });
+
   it('uses only canonical transcript parts and retains UI and final-answer blocks', () => {
     const message: Message = {
       id: 'assistant_2',

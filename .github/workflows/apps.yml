@@ -118,7 +118,7 @@ jobs:
 
   native-webview-proof:
     name: native WebView proof · fixture-backed
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     needs: ci
     runs-on: ubuntu-22.04
     timeout-minutes: 60

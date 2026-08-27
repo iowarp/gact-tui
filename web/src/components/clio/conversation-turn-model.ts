@@ -41,14 +41,12 @@ function fallbackIterations(
 ): { iterations: ConversationIteration[]; consumed: Set<string> } {
   const iterations: ConversationIteration[] = [];
   const consumed = new Set<string>();
-  const ordered = message.blocks
-    .map((block, position) => ({ block, position }))
-    .sort((left, right) => {
-      if (left.block.sequence === undefined || right.block.sequence === undefined) {
-        return left.position - right.position;
-      }
-      return left.block.sequence - right.block.sequence;
-    });
+  const indexed = message.blocks.map((block, position) => ({ block, position }));
+  const ordered = indexed.some(({ block }) => block.sequence === undefined)
+    ? indexed
+    : indexed.sort(
+        (left, right) => (left.block.sequence ?? 0) - (right.block.sequence ?? 0),
+      );
   let current = emptyIteration(message, iterations.length);
 
   const flush = (terminal = false, interrupted = false) => {
