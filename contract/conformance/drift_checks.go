@@ -102,7 +102,7 @@ func probeStatus(c *conformClient, method, path string) (int, error) {
 	if method != http.MethodGet {
 		body = bytes.NewReader([]byte(`{}`))
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
 		return 0, err
 	}
@@ -144,8 +144,8 @@ func isPreambleOrHeartbeat(typ string) bool {
 func collectSSEEvents(c *conformClient, sid, lastEventID string, budget time.Duration) ([]driftEvent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/v1/sessions/"+sid+"/events", nil)
+	req, err := c.newRequest(ctx, http.MethodGet,
+		"/v1/sessions/"+sid+"/events", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -292,8 +292,8 @@ func checkSSEDrift(t Reporter, c *conformClient, sid string, budget time.Duratio
 func patchSessionTitle(c *conformClient, sid, title string) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch,
-		c.baseURL+"/v1/sessions/"+sid,
+	req, err := c.newRequest(ctx, http.MethodPatch,
+		"/v1/sessions/"+sid,
 		bytes.NewReader(mustJSON(map[string]any{"title": title})))
 	if err != nil {
 		return

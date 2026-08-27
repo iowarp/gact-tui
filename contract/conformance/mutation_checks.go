@@ -78,8 +78,8 @@ func checkHooks(t Reporter, c *conformClient) {
 	}
 
 	// DELETE the hook, expect 204.
-	delReq, _ := http.NewRequestWithContext(ctx, http.MethodDelete,
-		c.baseURL+"/v1/hooks/"+created.ID, nil)
+	delReq, _ := c.newRequest(ctx, http.MethodDelete,
+		"/v1/hooks/"+created.ID, nil)
 	delResp, err := c.http.Do(delReq)
 	if err != nil {
 		t.Fatalf("DELETE /v1/hooks/%s: %v", created.ID, err)
@@ -113,9 +113,8 @@ func checkPolicies(t Reporter, c *conformClient) {
 			{"scope": "workspace", "tool_name_pattern": "shell", "action": "allow"},
 		},
 	}
-	putReq, _ := http.NewRequest(http.MethodPut, c.baseURL+"/v1/policies", bytes.NewReader(mustJSON(put)))
+	putReq, _ := c.newRequest(ctx, http.MethodPut, "/v1/policies", bytes.NewReader(mustJSON(put)))
 	putReq.Header.Set("Content-Type", "application/json")
-	putReq = putReq.WithContext(ctx)
 	putResp, err := c.http.Do(putReq)
 	if err != nil {
 		t.Fatalf("PUT /v1/policies: %v", err)
@@ -145,10 +144,9 @@ func checkPolicies(t Reporter, c *conformClient) {
 	}
 
 	// Cleanup — empty list.
-	emptyReq, _ := http.NewRequest(http.MethodPut, c.baseURL+"/v1/policies",
+	emptyReq, _ := c.newRequest(ctx, http.MethodPut, "/v1/policies",
 		bytes.NewReader(mustJSON(map[string]any{"policies": []any{}})))
 	emptyReq.Header.Set("Content-Type", "application/json")
-	emptyReq = emptyReq.WithContext(ctx)
 	if r, err := c.http.Do(emptyReq); err == nil {
 		r.Body.Close()
 	}
@@ -198,11 +196,10 @@ func checkTasks(t Reporter, c *conformClient, sid string) {
 	// and verify the round-trip. Catches adapter authors that wired
 	// POST/GET/DELETE but forgot PATCH (which the TUI's task panel
 	// uses for in-place status flips).
-	patchReq, _ := http.NewRequest(http.MethodPatch,
-		c.baseURL+"/v1/tasks/"+created.ID,
+	patchReq, _ := c.newRequest(ctx, http.MethodPatch,
+		"/v1/tasks/"+created.ID,
 		bytes.NewReader(mustJSON(map[string]any{"status": "running"})))
 	patchReq.Header.Set("Content-Type", "application/json")
-	patchReq = patchReq.WithContext(ctx)
 	patchResp, perr := c.http.Do(patchReq)
 	if perr != nil {
 		t.Fatalf("PATCH task: %v", perr)
@@ -235,8 +232,8 @@ func checkTasks(t Reporter, c *conformClient, sid string) {
 	}
 
 	// DELETE.
-	delReq, _ := http.NewRequestWithContext(ctx, http.MethodDelete,
-		c.baseURL+"/v1/tasks/"+created.ID, nil)
+	delReq, _ := c.newRequest(ctx, http.MethodDelete,
+		"/v1/tasks/"+created.ID, nil)
 	delResp, err := c.http.Do(delReq)
 	if err != nil {
 		t.Fatalf("DELETE task: %v", err)
