@@ -93,12 +93,7 @@ beforeEach(() => {
     },
   ]);
   repository.workspaceFiles.mockResolvedValue([
-    { path: 'results/stations.csv', type: 'file', size: 1200 },
-    {
-      path: '.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv',
-      type: 'file',
-      size: 1200,
-    },
+    { path: 'results/stations.csv', type: 'file', internal: false, size: 1200 },
   ]);
   repository.searchMemory.mockResolvedValue({
     query: 'immutable',

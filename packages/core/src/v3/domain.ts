@@ -367,6 +367,7 @@ export interface ContextSnapshot {
 export interface WorkspaceFileEntry {
   path: string;
   type: 'file' | 'dir';
+  internal: boolean;
   size?: number;
   modified?: string;
 }

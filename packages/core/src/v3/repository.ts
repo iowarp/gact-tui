@@ -332,7 +332,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => workspaceFileListSchema.parse(value),
       signal,
     });
-    return result.entries as WorkspaceFileEntry[];
+    return result.entries.filter((entry) => !entry.internal) as WorkspaceFileEntry[];
   }
 
   public readWorkspaceFile(

@@ -477,7 +477,7 @@ describe('ClioRepository interaction contracts', () => {
 
   it('reads file and context snapshots from their authoritative workspace routes', async () => {
     const transport = new RecordingTransport([
-      { entries: [{ path: 'results/plot.png', type: 'file', size: 42 }] },
+      { entries: [{ path: '.clio', type: 'dir', internal: true }, { path: 'results/plot.png', type: 'file', internal: false, size: 42 }] },
       {
         session_id: 'sess_1',
         scope: 'main',
@@ -498,7 +498,7 @@ describe('ClioRepository interaction contracts', () => {
       '/v1/workspaces/ws%201/files',
       '/v1/sessions/sess_1/context/state?scope=main',
     ]);
-    expect(files).toEqual([{ path: 'results/plot.png', type: 'file', size: 42 }]);
+    expect(files).toEqual([{ path: 'results/plot.png', type: 'file', internal: false, size: 42 }]);
     expect(context).toMatchObject({
       session_id: 'sess_1',
       scope: 'main',

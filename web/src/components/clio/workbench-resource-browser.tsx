@@ -507,6 +507,7 @@ function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNod
         entry: {
           path: parts.slice(0, index + 1).join('/'),
           type: isLeaf ? entry.type : 'dir',
+          internal: false,
         },
         name,
         children: new Map<string, WorkspaceFileNode>(),
