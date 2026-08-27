@@ -1,4 +1,5 @@
 import { brand } from '@brand';
+import { PROTOCOL_VERSION } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowRightIcon,
@@ -72,8 +73,10 @@ export function ConnectionPage() {
       });
       const repository = createRepository(next);
       const capabilities = await repository.capabilities();
-      if (!capabilities.gact_versions.includes('0.3')) {
-        throw new Error('This service is not compatible with this workspace.');
+      if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
+        throw new Error(
+          `This workspace requires GACT ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || 'no GACT versions'}.`,
+        );
       }
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),

@@ -40,6 +40,8 @@ function analysisViewTitle(state: ToolState): string {
       return 'Analysis view denied';
     case 'cancelled':
       return 'Analysis view cancelled';
+    case 'unknown':
+      return 'Analysis view status unknown';
   }
 }
 
@@ -128,7 +130,8 @@ export function humanizeToolName(name: string): string {
   if (!rendered && /^(shell_)?(bash|command|exec|execute)$/.test(exact)) rendered = 'Run command';
   if (!rendered && exact === 'fs_propose_edit') rendered = 'Propose file change';
   if (!rendered && exact === 'fs_apply_edit_write') rendered = 'Apply file change';
-  if (!rendered && (exact === 'web_search' || exact.endsWith('_web_search'))) rendered = 'Search web';
+  if (!rendered && (exact === 'web_search' || exact.endsWith('_web_search')))
+    rendered = 'Search web';
   if (!rendered && exact === 'create_a2ui_surface') rendered = 'Create analysis view';
   if (!rendered && exact === 'wait_agent_tasks') rendered = 'Wait for child agents';
   if (!rendered && exact === 'check_agent_tasks') rendered = 'Check child agents';

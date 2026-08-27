@@ -145,9 +145,12 @@ function CreateResourceDialog({
     ? workspaceId
     : activeWorkspaceId || workspaces[0]?.id || '';
   const blueprintId = behavior.blueprint_id || sessionDefaults.data?.blueprint_id || 'none';
-  const mode = behavior.mode || sessionDefaults.data?.mode || 'edit';
-  const routingMode = behavior.routing_mode || sessionDefaults.data?.routing_mode || 'auto';
-  const approvalMode = behavior.approval_mode || sessionDefaults.data?.approval_mode || 'ask';
+  const decodedMode = behavior.mode || sessionDefaults.data?.mode;
+  const decodedRoutingMode = behavior.routing_mode || sessionDefaults.data?.routing_mode;
+  const decodedApprovalMode = behavior.approval_mode || sessionDefaults.data?.approval_mode;
+  const mode = decodedMode === 'unknown' ? 'edit' : decodedMode || 'edit';
+  const routingMode = decodedRoutingMode === 'unknown' ? 'auto' : decodedRoutingMode || 'auto';
+  const approvalMode = decodedApprovalMode === 'unknown' ? 'ask' : decodedApprovalMode || 'ask';
   const updateBehavior = <Key extends keyof SessionDefaults>(
     key: Key,
     value: SessionDefaults[Key],

@@ -125,6 +125,11 @@ const statusPresentation: Record<
     icon: CircleDashedIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
+  unknown: {
+    label: 'Unknown',
+    icon: CircleAlertIcon,
+    className: 'text-warning border-warning/30 bg-warning/10',
+  },
 };
 
 export interface ClioStatusProps {

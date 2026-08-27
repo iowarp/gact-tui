@@ -80,8 +80,9 @@ export const SESSION_MODE_PATCHES: Record<Session['mode'], SessionBehaviorPatch>
   edit: { mode: 'edit', routing_mode: 'auto' },
   plan: { mode: 'plan', routing_mode: 'auto' },
   architect: { mode: 'architect', routing_mode: 'experts' },
+  unknown: {},
 };
 
 export function sessionModeLabel(mode: Session['mode']): string {
-  return SESSION_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? 'Execute';
+  return SESSION_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? 'Unknown mode';
 }

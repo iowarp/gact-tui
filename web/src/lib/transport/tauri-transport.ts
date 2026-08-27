@@ -1,5 +1,12 @@
-import type { ClioTransport, StreamScope, TransportFrame, TransportRequest } from '@clio/core/v3';
-import { TransportError } from '@clio/core/v3';
+import {
+  A2UI_VERSION,
+  PROTOCOL_VERSION,
+  TransportError,
+  type ClioTransport,
+  type StreamScope,
+  type TransportFrame,
+  type TransportRequest,
+} from '@clio/core/v3';
 
 interface RustHttpResponse {
   status: number;
@@ -205,8 +212,8 @@ export class TauriClioTransport implements ClioTransport {
     const headers: Record<string, string> = {
       Accept: accept,
       'Content-Type': 'application/json',
-      'X-GACT-Version': '0.3',
-      'X-A2UI-Version': '0.9.1',
+      'X-GACT-Version': PROTOCOL_VERSION,
+      'X-A2UI-Version': A2UI_VERSION,
     };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (cursor) headers['Last-Event-ID'] = cursor;

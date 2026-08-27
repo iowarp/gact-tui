@@ -1,8 +1,15 @@
-import type { ClioTransport, StreamScope, TransportFrame, TransportRequest } from '@clio/core/v3';
-import { TransportError } from '@clio/core/v3';
+import {
+  A2UI_VERSION,
+  PROTOCOL_VERSION,
+  TransportError,
+  type ClioTransport,
+  type StreamScope,
+  type TransportFrame,
+  type TransportRequest,
+} from '@clio/core/v3';
 
-const GACT_ACCEPT = '0.3';
-const A2UI_ACCEPT = '0.9.1';
+const GACT_ACCEPT = PROTOCOL_VERSION;
+const A2UI_ACCEPT = A2UI_VERSION;
 
 export interface BrowserTransportOptions {
   endpoint: string;

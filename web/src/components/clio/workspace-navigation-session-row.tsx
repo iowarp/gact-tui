@@ -209,6 +209,7 @@ function sessionStateLabel(state: Session['state']): string {
       failed: 'Needs attention',
       cancelled: 'Cancelled',
       interrupted: 'Interrupted',
+      unknown: 'Unknown state',
     } satisfies Record<Session['state'], string>
   )[state];
 }

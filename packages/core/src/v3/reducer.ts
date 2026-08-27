@@ -111,9 +111,6 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
   const timelineCursor = frame.cursor !== '' && frame.cursor !== '0';
   if (timelineCursor && state.processed_cursors.includes(frame.cursor)) return state;
   const envelope = decodeEventEnvelope(frame.data);
-  if (envelope.type !== frame.eventName) {
-    throw new Error(`SSE event mismatch: ${frame.eventName} != ${envelope.type}`);
-  }
 
   const cursors = timelineCursor
     ? [...state.processed_cursors, frame.cursor].slice(-MAX_CURSOR_HISTORY)

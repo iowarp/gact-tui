@@ -168,7 +168,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
         initial={{ opacity: recent ? 0 : 1 }}
         transition={{ duration: 0.16 }}
       >
-        <Message from={message.role}>
+        <Message from={message.role === 'unknown' ? 'system' : message.role}>
           <div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
             {message.role === 'user' ? (
               <UserIcon aria-hidden="true" className="size-3.5" />
@@ -180,7 +180,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 ? 'You'
                 : message.role === 'assistant'
                   ? brand.name
-                  : 'System'}
+                  : message.role === 'system'
+                    ? 'System'
+                    : 'Unknown sender'}
             </span>
             <time className="font-mono text-[10px]" dateTime={message.created_at}>
               {new Date(message.created_at).toLocaleTimeString([], {

@@ -1,4 +1,4 @@
-import { TransportError, type RunState, type ToolState } from '@clio/core/v3';
+import { PROTOCOL_VERSION, TransportError, type RunState, type ToolState } from '@clio/core/v3';
 
 /** Counts authoritative work that can still advance without inventing progress. */
 export function countActiveWork(
@@ -18,7 +18,7 @@ export function canOpenSessionStream(
   gactVersions: readonly string[] | undefined,
   sessionId: string,
 ) {
-  return Boolean(sessionId && gactVersions?.includes('0.3'));
+  return Boolean(sessionId && gactVersions?.includes(PROTOCOL_VERSION));
 }
 
 /** Turns an opaque persistence failure into an actionable conversation state. */

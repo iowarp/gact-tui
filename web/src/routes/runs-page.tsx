@@ -80,6 +80,7 @@ const sourceLabels: Record<OperationalRun['source'], string> = {
   agent_task: 'Agent',
   mcp_task: 'Tool',
   relay_job: 'Remote job',
+  unknown: 'Unknown source',
 };
 
 function conciseReason(reason: string | undefined): string | undefined {

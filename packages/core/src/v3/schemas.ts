@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import { A2UI_VERSION, PROTOCOL_VERSION } from './protocol-versions.js';
+
+function forwardCompatibleEnum<const Values extends readonly [string, ...string[]]>(
+  values: Values,
+) {
+  return z
+    .enum([...values, 'unknown'] as [Values[number] | 'unknown', ...(Values[number] | 'unknown')[]])
+    .catch('unknown');
+}
 
 export const degradationSchema = z.object({
   code: z.string(),
@@ -8,7 +17,7 @@ export const degradationSchema = z.object({
 });
 
 export const provenanceSchema = z.object({
-  source: z.enum(['server', 'provider', 'connection', 'unavailable']),
+  source: forwardCompatibleEnum(['server', 'provider', 'connection', 'unavailable']),
   observed_at: z.string(),
   stale: z.boolean(),
   reason: z.string().optional(),
@@ -125,11 +134,11 @@ export const permissionLedgerItemSchema = z
       input: z.unknown().optional(),
     }),
     summary: z.string().default('Protected action'),
-    risk: z.enum(['low', 'medium', 'high']).optional(),
+    risk: forwardCompatibleEnum(['low', 'medium', 'high']).optional(),
     reason: z.string().optional(),
     created_at: z.string(),
     status: z.string(),
-    action: z.enum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
+    action: forwardCompatibleEnum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
     resolved_at: z.string().optional(),
   })
   .transform((value) => ({
@@ -150,8 +159,8 @@ export const userQuestionSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   prompt: z.string(),
-  status: z.enum(['pending', 'answered', 'cancelled', 'expired']),
-  kind: z.enum(['freeform', 'choice', 'confirmation']).default('freeform'),
+  status: forwardCompatibleEnum(['pending', 'answered', 'cancelled', 'expired']),
+  kind: forwardCompatibleEnum(['freeform', 'choice', 'confirmation']).default('freeform'),
   options: z
     .array(
       z.object({
@@ -176,9 +185,9 @@ export const approvalRequestSchema = z.object({
   input: z.unknown().optional(),
   summary: z.string(),
   reason: z.string().optional(),
-  risk: z.enum(['low', 'medium', 'high']).optional(),
-  status: z.enum(['pending', 'approved', 'denied', 'cancelled']),
-  action: z.enum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
+  risk: forwardCompatibleEnum(['low', 'medium', 'high']).optional(),
+  status: forwardCompatibleEnum(['pending', 'approved', 'denied', 'cancelled']),
+  action: forwardCompatibleEnum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
   created_at: z.string(),
   resolved_at: z.string().optional(),
 });
@@ -215,7 +224,7 @@ export const workspaceSchema = z.object({
     .default([]),
 });
 
-export const runStateSchema = z.enum([
+export const runStateSchema = forwardCompatibleEnum([
   'queued',
   'running',
   'waiting_permission',
@@ -256,7 +265,7 @@ export const operationalRunSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   detached: z.boolean(),
-  source: z.enum(['agent_task', 'mcp_task', 'relay_job']),
+  source: forwardCompatibleEnum(['agent_task', 'mcp_task', 'relay_job']),
   ticker: z.object({
     state: operationalRunStateSchema,
     updated_at: z.string(),
@@ -282,21 +291,37 @@ export const sessionSchema = z.object({
   active_blueprint_name: z.string().optional(),
   active_blueprint_version: z.string().optional(),
   active_blueprint_scope: z.string().optional(),
-  mode: z.enum(['plan', 'edit', 'architect']).default('edit'),
-  edit_mode: z.enum(['diff', 'whole', 'patch']).default('diff'),
-  routing_mode: z.enum(['auto', 'chat', 'experts', 'reasoning_only']).default('auto'),
-  approval_mode: z.enum(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']).default('ask'),
+  mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
+  edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
+  routing_mode: forwardCompatibleEnum(['auto', 'chat', 'experts', 'reasoning_only']).default(
+    'auto',
+  ),
+  approval_mode: forwardCompatibleEnum([
+    'ask',
+    'auto-edits',
+    'bypass',
+    'ai-review',
+    'spotter-ai',
+  ]).default('ask'),
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
 });
 export const sessionDefaultsSchema = z.object({
   provider_id: z.string().default(''),
   model_id: z.string().default(''),
-  effort: z.enum(['off', 'low', 'medium', 'high']).default('medium'),
-  mode: z.enum(['plan', 'edit', 'architect']).default('edit'),
-  edit_mode: z.enum(['diff', 'whole', 'patch']).default('diff'),
-  routing_mode: z.enum(['auto', 'chat', 'experts', 'reasoning_only']).default('auto'),
-  approval_mode: z.enum(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']).default('ask'),
+  effort: forwardCompatibleEnum(['off', 'low', 'medium', 'high']).default('medium'),
+  mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
+  edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
+  routing_mode: forwardCompatibleEnum(['auto', 'chat', 'experts', 'reasoning_only']).default(
+    'auto',
+  ),
+  approval_mode: forwardCompatibleEnum([
+    'ask',
+    'auto-edits',
+    'bypass',
+    'ai-review',
+    'spotter-ai',
+  ]).default('ask'),
   blueprint_id: z.string().default(''),
 });
 
@@ -315,7 +340,7 @@ export const scheduledTurnSchema = z.object({
   fire_count: z.number().int().nonnegative().default(0),
   max_fires: z.number().int().nonnegative().default(0),
   until: z.string().default(''),
-  overlap_policy: z.enum(['queue', 'skip']).default('queue'),
+  overlap_policy: forwardCompatibleEnum(['queue', 'skip']).default('queue'),
   retry_count: z.number().int().nonnegative().default(0),
   last_error: z.string().default(''),
   disabled_reason: z.string().default(''),
@@ -340,7 +365,14 @@ export const turnAttemptSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   source_message_id: z.string(),
-  status: z.enum(['recorded', 'queued', 'running', 'completed', 'failed', 'cancelled']),
+  status: forwardCompatibleEnum([
+    'recorded',
+    'queued',
+    'running',
+    'completed',
+    'failed',
+    'cancelled',
+  ]),
   created_at: z.string(),
   updated_at: z.string(),
   notes: z.string().optional(),
@@ -356,7 +388,7 @@ export const turnAttemptSchema = z.object({
 
 export const workspaceFileEntrySchema = z.object({
   path: z.string(),
-  type: z.enum(['file', 'dir']),
+  type: forwardCompatibleEnum(['file', 'dir']),
   internal: z.boolean().default(false),
   size: z.number().int().nonnegative().optional(),
   modified: z.string().optional(),
@@ -373,7 +405,7 @@ export const agentBlueprintSchema = z
     scope: z.string().default('unknown'),
     enabled: z.boolean().default(false),
     validation_errors: z.array(z.string()).default([]),
-    kind: z.enum(['blueprint', 'pack']).default('blueprint'),
+    kind: forwardCompatibleEnum(['blueprint', 'pack']).default('blueprint'),
     metadata: z.record(z.unknown()).default({}),
   })
   .transform((value) => ({
@@ -399,7 +431,7 @@ export const agentBlueprintSourceSchema = z.object({
         id: z.string(),
         title: z.string(),
         version: z.string().optional(),
-        kind: z.enum(['blueprint', 'pack']).default('blueprint'),
+        kind: forwardCompatibleEnum(['blueprint', 'pack']).default('blueprint'),
         enabled: z.boolean().default(false),
         validation_errors: z.array(z.string()).default([]),
       }),
@@ -418,7 +450,7 @@ export const relayStatusSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   credential_configured: z.boolean().optional(),
-  configuration_scope: z.enum(['none', 'server', 'agent_run']).optional(),
+  configuration_scope: forwardCompatibleEnum(['none', 'server', 'agent_run']).optional(),
   can_manage: z.boolean().optional(),
   host: z
     .string()
@@ -671,7 +703,7 @@ export const messageSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   run_id: z.string().optional(),
-  role: z.enum(['user', 'assistant', 'system']),
+  role: forwardCompatibleEnum(['user', 'assistant', 'system']),
   created_at: z.string(),
   completed_at: z.string().optional(),
   blocks: z.array(messageBlockSchema),
@@ -690,7 +722,14 @@ export const toolInvocationSchema = z.object({
     .transform((value) => value ?? undefined),
   name: z.string(),
   title: z.string().optional(),
-  state: z.enum(['pending', 'running', 'succeeded', 'failed', 'denied', 'cancelled']),
+  state: forwardCompatibleEnum([
+    'pending',
+    'running',
+    'succeeded',
+    'failed',
+    'denied',
+    'cancelled',
+  ]),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
   started_at: z.string().optional(),
@@ -748,9 +787,9 @@ export const a2uiSurfaceSchema = z.object({
   message_id: z.string().optional(),
   part_id: z.string().optional(),
   catalog_id: z.string(),
-  protocol_version: z.literal('0.9.1'),
+  protocol_version: z.literal(A2UI_VERSION),
   revision: z.number().int().nonnegative(),
-  state: z.enum([
+  state: forwardCompatibleEnum([
     'creating',
     'ready',
     'updating',
@@ -772,7 +811,7 @@ export const scopeSchema = z.object({
 });
 
 export const eventEnvelopeSchema = z.object({
-  protocol_version: z.literal('0.3'),
+  protocol_version: z.literal(PROTOCOL_VERSION),
   type: z.string(),
   occurred_at: z.string(),
   scope: scopeSchema,

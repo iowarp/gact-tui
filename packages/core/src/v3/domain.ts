@@ -1,8 +1,19 @@
 import type { ProviderState } from './provider-domain.js';
+import type { A2UI_VERSION } from './protocol-versions.js';
 
+export type WireValue<Value extends string> = Value | 'unknown';
 export type ConnectionKind = 'local' | 'remote' | 'ssh';
 export type ConnectionHealth = 'connecting' | 'healthy' | 'degraded' | 'offline';
 export type StreamState = 'connecting' | 'live' | 'reconnecting' | 'gapped' | 'offline';
+
+export interface TransportGap {
+  cursor: string;
+  event_name: string;
+  entity_id?: string;
+  code: 'frame_decode_failed' | 'event_name_mismatch';
+  reason: string;
+  received_at: string;
+}
 export type RunState =
   | 'queued'
   | 'running'
@@ -11,8 +22,11 @@ export type RunState =
   | 'completed'
   | 'failed'
   | 'cancelled'
-  | 'interrupted';
-export type ToolState = 'pending' | 'running' | 'succeeded' | 'failed' | 'denied' | 'cancelled';
+  | 'interrupted'
+  | 'unknown';
+export type ToolState = WireValue<
+  'pending' | 'running' | 'succeeded' | 'failed' | 'denied' | 'cancelled'
+>;
 export type A2UIState =
   | 'creating'
   | 'ready'
@@ -21,7 +35,8 @@ export type A2UIState =
   | 'failed'
   | 'cancelled'
   | 'disconnected'
-  | 'deleted';
+  | 'deleted'
+  | 'unknown';
 
 export interface Degradation {
   code: string;
@@ -31,7 +46,7 @@ export interface Degradation {
 }
 
 export interface Provenance {
-  source: 'server' | 'provider' | 'connection' | 'unavailable';
+  source: WireValue<'server' | 'provider' | 'connection' | 'unavailable'>;
   observed_at: string;
   stale: boolean;
   reason?: string;
@@ -80,10 +95,10 @@ export interface Session {
   active_blueprint_name?: string;
   active_blueprint_version?: string;
   active_blueprint_scope?: string;
-  mode: 'plan' | 'edit' | 'architect';
-  edit_mode: 'diff' | 'whole' | 'patch';
-  routing_mode: 'auto' | 'chat' | 'experts' | 'reasoning_only';
-  approval_mode: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
+  mode: WireValue<'plan' | 'edit' | 'architect'>;
+  edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
+  routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
+  approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
   pinned: boolean;
   archived: boolean;
 }
@@ -91,11 +106,11 @@ export interface Session {
 export interface SessionDefaults {
   provider_id: string;
   model_id: string;
-  effort: 'off' | 'low' | 'medium' | 'high';
-  mode: 'plan' | 'edit' | 'architect';
-  edit_mode: 'diff' | 'whole' | 'patch';
-  routing_mode: 'auto' | 'chat' | 'experts' | 'reasoning_only';
-  approval_mode: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
+  effort: WireValue<'off' | 'low' | 'medium' | 'high'>;
+  mode: WireValue<'plan' | 'edit' | 'architect'>;
+  edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
+  routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
+  approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
   blueprint_id: string;
 }
 
@@ -115,7 +130,7 @@ export interface ScheduledTurn {
   fire_count: number;
   max_fires: number;
   until: string;
-  overlap_policy: 'queue' | 'skip';
+  overlap_policy: WireValue<'queue' | 'skip'>;
   retry_count: number;
   last_error: string;
   disabled_reason: string;
@@ -153,7 +168,7 @@ export interface TurnAttempt {
   id: string;
   session_id: string;
   source_message_id: string;
-  status: 'recorded' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: WireValue<'recorded' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'>;
   created_at: string;
   updated_at: string;
   notes?: string;
@@ -178,7 +193,7 @@ export interface OperationalRun {
   created_at: string;
   updated_at: string;
   detached: boolean;
-  source: 'agent_task' | 'mcp_task' | 'relay_job';
+  source: WireValue<'agent_task' | 'mcp_task' | 'relay_job'>;
   ticker: {
     state: RunState;
     updated_at: string;
@@ -209,9 +224,9 @@ export interface ApprovalRequest {
   input?: unknown;
   summary: string;
   reason?: string;
-  risk?: 'low' | 'medium' | 'high';
-  status: 'pending' | 'approved' | 'denied' | 'cancelled';
-  action?: 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
+  risk?: WireValue<'low' | 'medium' | 'high'>;
+  status: WireValue<'pending' | 'approved' | 'denied' | 'cancelled'>;
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
   created_at: string;
   resolved_at?: string;
 }
@@ -220,8 +235,8 @@ export interface UserQuestion {
   id: string;
   session_id: string;
   prompt: string;
-  status: 'pending' | 'answered' | 'cancelled' | 'expired';
-  kind: 'freeform' | 'choice' | 'confirmation';
+  status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
+  kind: WireValue<'freeform' | 'choice' | 'confirmation'>;
   options?: Array<{ label: string; value: string; description?: string }>;
   answer?: string;
   selected_options?: string[];
@@ -366,7 +381,7 @@ export interface ContextSnapshot {
 
 export interface WorkspaceFileEntry {
   path: string;
-  type: 'file' | 'dir';
+  type: WireValue<'file' | 'dir'>;
   internal: boolean;
   size?: number;
   modified?: string;
@@ -456,7 +471,7 @@ export interface AgentBlueprint {
   scope: string;
   enabled: boolean;
   validation_errors: string[];
-  kind: 'blueprint' | 'pack';
+  kind: WireValue<'blueprint' | 'pack'>;
   metadata: Record<string, unknown>;
 }
 
@@ -476,7 +491,7 @@ export interface AgentBlueprintSource {
     id: string;
     title: string;
     version?: string;
-    kind: 'blueprint' | 'pack';
+    kind: WireValue<'blueprint' | 'pack'>;
     enabled: boolean;
     validation_errors: string[];
   }>;
@@ -488,7 +503,7 @@ export interface RelayStatus {
   mcp_url?: string;
   http_url?: string;
   credential_configured?: boolean;
-  configuration_scope?: 'none' | 'server' | 'agent_run';
+  configuration_scope?: WireValue<'none' | 'server' | 'agent_run'>;
   can_manage?: boolean;
   reachable?: boolean;
   checked_at?: string;
@@ -654,7 +669,7 @@ export interface Message {
   id: string;
   session_id: string;
   run_id?: string;
-  role: 'user' | 'assistant' | 'system';
+  role: WireValue<'user' | 'assistant' | 'system'>;
   created_at: string;
   completed_at?: string;
   blocks: MessageBlock[];
@@ -671,7 +686,7 @@ export interface A2UISurface {
   message_id?: string;
   part_id?: string;
   catalog_id: string;
-  protocol_version: '0.9.1';
+  protocol_version: typeof A2UI_VERSION;
   revision: number;
   state: A2UIState;
   messages: unknown[];
@@ -684,11 +699,11 @@ export interface PermissionLedgerItem {
   tool_name: string;
   input?: unknown;
   summary: string;
-  risk?: 'low' | 'medium' | 'high';
+  risk?: WireValue<'low' | 'medium' | 'high'>;
   reason?: string;
   created_at: string;
   status: string;
-  action?: 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
   resolved_at?: string;
 }
 

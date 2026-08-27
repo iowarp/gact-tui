@@ -1,4 +1,4 @@
-import type { A2UISurface as DomainSurface } from '@clio/core/v3';
+import { A2UI_VERSION, type A2UISurface as DomainSurface } from '@clio/core/v3';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import { MessageProcessor, type A2uiClientAction, type A2uiMessage } from '@a2ui/web_core/v0_9';
@@ -78,7 +78,7 @@ function ClioA2UISurfaceContent({
     mutationFn: (clientAction: A2uiClientAction) =>
       repository.a2uiAction(
         surface.session_id,
-        { version: 'v0.9.1', action: clientAction },
+        { version: `v${A2UI_VERSION}`, action: clientAction },
         {
           run_id: surface.run_id,
           message_id: surface.message_id,
@@ -114,7 +114,7 @@ function ClioA2UISurfaceContent({
   const processedSurface = useMemo(() => {
     try {
       const processor = new MessageProcessor([clioA2UICatalog], handleAction, {
-        version: 'v0.9.1',
+        version: `v${A2UI_VERSION}`,
       });
       processor.processMessages(surface.messages as A2uiMessage[]);
       return { model: processor.model.getSurface(surface.id) };
