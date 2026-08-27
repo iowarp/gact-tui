@@ -2444,7 +2444,7 @@ detail and never appears on the wire. Durable tracing is controlled by
 > events (§7.3b). It is NOT part of the generic GACT contract — treat it
 > as an opt-in vendor stream keyed off `x_clio_semantic_events`.
 
-### §7.7 Machine-checked wire event vocabulary (normative)
+### §7.7 GACT 0.2 machine-checked wire event vocabulary (normative)
 
 The single source of truth for the SSE event-`type` vocabulary is the
 fenced block below. Every line is `<event.type> <implemented|spec-only>`
@@ -2459,13 +2459,8 @@ concrete event *types* — the semantic-spine `event_type` vocabulary
 `memory.cache.updated`, `integration.status_changed`) are deliberately
 absent. Custom `x.{vendor}.*` types (§8.4) are out of scope and exempt.
 
-This block is enforced in both directions by two tests, so a client type
-missing from the spec — or a spec type no client declares — fails CI:
+This legacy block remains the normative source for GACT 0.2 conformance:
 
-- `apps/core/tests/spec_vocabulary.test.ts` asserts set-equality with
-  the TypeScript `WIRE_EVENT_TYPES` canonical array, which is itself
-  compile-time-equal to the `GactEvent` discriminated union (`satisfies`
-  + an `AssertNever` exhaustiveness guard).
 - `contract/conformance/vocabulary_checks.go` (`Drift_EventVocabulary`)
   asserts every observed live `data.type` on the SSE stream is present
   in this block.
@@ -2553,6 +2548,86 @@ tool.call.progress spec-only
 user_question.expired spec-only
 workspace.updated spec-only
 ```
+
+### §7.8 GACT 0.3 scoped events and A2UI 0.9.1 (normative)
+
+GACT 0.3 replaces the mixed 0.2 payload shapes with one scoped envelope. The
+SSE `id:` line is the replay cursor and the JSON `entity_revision` is applied
+as a per-entity ordering guard; clients MUST NOT treat either value as invented
+wall-clock progress.
+
+```ts
+interface GactV3Envelope {
+  protocol_version: "0.3";
+  type: string;
+  occurred_at: string;
+  scope: {
+    connection_id: string;
+    workspace_id?: string;
+    session_id?: string;
+    run_id?: string;
+  };
+  entity_id?: string;
+  entity_revision?: number;
+  payload: unknown;
+}
+```
+
+The fenced block below is the canonical set of state-bearing 0.3 event types.
+Every line uses the §7.7 grammar. `implemented` means the reference backend
+publishes the canonical projection today; `spec-only` is accepted and reduced
+by the client but not currently emitted by the reference backend. The set is
+machine-checked in both directions against `GACT_V3_EVENT_TYPES` by
+`packages/core/src/v3/spec_vocabulary.test.ts`.
+
+```wire-vocabulary-v3
+# implemented — projected or published by clio-agent today
+a2ui.surface.deleted implemented
+a2ui.surface.upserted implemented
+approval.resolved implemented
+approval.upserted implemented
+message.block.completed implemented
+message.block.delta implemented
+message.block.upserted implemented
+message.completed implemented
+message.upserted implemented
+question.upserted implemented
+session.upserted implemented
+stream.gap implemented
+stream.live implemented
+subagent.upserted implemented
+tool.upserted implemented
+# spec-only — canonical client state with no reference-backend publisher yet
+artifact.upserted spec-only
+run.upserted spec-only
+task.upserted spec-only
+workspace.upserted spec-only
+```
+
+Decoders MAY accept an unknown future `type` so one new event cannot take down
+the live stream, but reducers MUST ignore an unknown event without fabricating
+state. A dropped or malformed frame produces typed degradation/gap state and
+authoritative REST reconciliation; it is never silently reinterpreted as a
+known entity.
+
+A2UI surfaces use protocol `0.9.1` (the message wire spelling is `v0.9.1`) and
+catalog `https://iowarp.ai/a2ui/catalogs/clio-workspace/v1`. Each persisted A2UI
+message contains exactly one official operation:
+
+- `createSurface` establishes the surface and trusted catalog.
+- `updateComponents` replaces the validated component projection.
+- `updateDataModel` updates one data-model path.
+- `deleteSurface` creates the terminal deleted state.
+
+The ordered messages and compacted surface projection are carried by
+`a2ui.surface.upserted`; `a2ui.surface.deleted` is the terminal tombstone. Raw
+HTML, CSS, imports, executable URLs, commands, and event handlers are outside
+the trusted catalog. Client actions are posted to
+`POST /v1/sessions/{session_id}/a2ui/actions` as one `v0.9.1` `action` message
+plus optional run/message/part correlation. The server validates the action
+against the live surface and publishes the resulting surface update. The
+non-state `a2ui.action.received` audit event is a server extension, not a
+canonical reducer entity.
 
 ---
 

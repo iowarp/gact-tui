@@ -8,6 +8,7 @@ export * from './document-domain.js';
 export * from './execution-provenance-domain.js';
 export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';
+export * from './event-types.js';
 export * from './document-repository.js';
 export * from './mcp-repository.js';
 export * from './prompt-repository.js';

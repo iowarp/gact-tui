@@ -5,9 +5,9 @@ package conformance
 // SSE event-`type` set. This section parses that block from a SPEC file and
 // asserts every event type observed on a live session stream is in it —
 // custom `x.{vendor}.*` types (SPEC §8.4) exempt. The TypeScript half of the
-// same gate lives in apps/core/tests/spec_vocabulary.test.ts (set-equality
-// with WIRE_EVENT_TYPES); together they make declared/emitted/spec drift fail
-// CI in every direction.
+// This Go gate validates the legacy 0.2 vocabulary. The canonical 0.3 state
+// vocabulary has an independent set-equality gate in
+// packages/core/src/v3/spec_vocabulary.test.ts.
 //
 // The section is opt-in: it runs only when Options.SpecPath is set, so the
 // `gact conformance` CLI and adapter callers that don't ship the SPEC stay
